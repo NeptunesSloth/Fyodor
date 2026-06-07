@@ -133,6 +133,29 @@ watchlist and resumes; the per-run purchase counter resets by design, so set the
 pip install pytest && python -m pytest
 ```
 
+## Connectors (per-platform coverage)
+
+Run `python -m fyodor coverage` (or `GET /api/coverage`) for the live list. Fyodor
+uses **official APIs only** — it never scrapes sites that lack an API or forbid
+automation; those degrade to a clear "manual only" status instead.
+
+| Platform | Support | Needs |
+|---|---|---|
+| eBay (resale/sold prices) | ✅ official API | free dev keys; sold-data API needs production approval |
+| Best Buy (stock/price) | ✅ official API | free API key |
+| Shopify storefronts (many sneaker/collectible/LEGO-reseller/hype sites) | ✅ public JSON | nothing |
+| Walmart | ⚙️ scaffold | approved Affiliate/IO creds + request signing |
+| Amazon | ⚙️ scaffold | approved PA-API/SP-API creds |
+| StockX | ⚙️ scaffold | gated developer API approval |
+| Target, GOAT, Mercari, GameStop, LEGO | ⛔ no public API | manual; resale pricing via eBay sold data |
+| Facebook Marketplace, OfferUp | ⛔ ToS prohibits automation | manual only |
+
+New official-API connectors are added by implementing `RetailProvider` /
+`SoldDataProvider` in `fyodor/providers/` and registering them in
+`registry.py` — the framework, auth, and tests (with mocked HTTP) are already in
+place. eBay sold data automatically feeds the confidence score for any watched
+product that doesn't supply its own `sold_prices`.
+
 ## What still needs your setup / keys
 
 - **Resale data connectors.** Sold-price estimation is fed by `sold_prices` in

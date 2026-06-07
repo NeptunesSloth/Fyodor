@@ -95,11 +95,16 @@ class ModesConfig:
 class ProductConfig:
     name: str
     store_url: str
-    handle: str
+    handle: str = ""
     desired_quantity: int = 1
     variant_title: str | None = None
     variant_id: int | None = None
     max_per_customer: int | None = None
+    # Identifiers for non-Shopify providers (Best Buy, etc.).
+    store: str = ""              # explicit provider override, e.g. "bestbuy"
+    upc: str = ""
+    sku: str = ""
+    model: str = ""
     # Resale / profitability inputs (used to score opportunities + recommend).
     category: str = ""
     resale_marketplace: str = "ebay"

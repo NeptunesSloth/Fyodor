@@ -15,10 +15,10 @@ from .checkout import CheckoutStatus, ShopifyCheckout
 from .config import Config, ConfigError, ProductConfig, load_config
 from .db import init_db
 from .limits import clamp_quantity, detect_limit_from_text
-from .market import MarketEstimate, estimate_from_prices
-from .monitor import StockMonitor, StockResult
+from .market import MarketEstimate, estimate_from_prices, estimate_market
 from .notifier import Notifier
 from .profitability import CostInputs
+from .providers import ProductStatus, get_retail_provider, get_sold_provider, resolve_store
 from .recommend import RiskControls, Thresholds, Verdict, evaluate
 
 log = logging.getLogger("fyodor")
@@ -43,7 +43,8 @@ class Fyodor:
         self.dry_run = dry_run or config.modes.dry_run
         self.alert_only = config.modes.alert_only
         self.paper = config.modes.paper
-        self.monitor = StockMonitor(config.poll)
+        self._providers: dict[str, object] = {}
+        self.sold_provider = get_sold_provider("ebay")
         self.notifier = Notifier(config.notify)
         checkout_live = config.checkout.enabled and not (self.dry_run or self.alert_only or self.paper)
         self.checkout = ShopifyCheckout(config.checkout) if checkout_live else None
@@ -76,7 +77,7 @@ class Fyodor:
         """Ensure each configured product has a DB watch item for tracking."""
         init_db()
         for p in self.config.products:
-            store = _store_label(p)
+            store = p.store or _store_label(p)
             item_id = repo.get_or_create_watch_item(
                 name=p.name, store=store, url=f"{p.store_url}/products/{p.handle}",
                 category=p.category, desired_quantity=p.desired_quantity,
@@ -111,11 +112,11 @@ class Fyodor:
                     break
                 if self._key(product) in self._done:
                     continue
-                result = self.monitor.check(product)
-                if result.error:
-                    log.debug("%s: %s", product.name, result.error)
-                elif result.in_stock and result.variant is not None:
-                    self._handle_in_stock(product, result)
+                status = self._provider_for(product).check(product)
+                if status.error:
+                    log.debug("%s: %s", product.name, status.error)
+                elif status.in_stock:
+                    self._handle_in_stock(product, status)
                 else:
                     log.debug("%s: not in stock", product.name)
 
@@ -128,18 +129,23 @@ class Fyodor:
             self._sleep()
         return 0
 
-    def _handle_in_stock(self, product: ProductConfig, result: StockResult) -> None:
-        variant = result.variant
-        price = float(variant.price) if variant.price else 0.0
-        store = _store_label(product)
+    def _provider_for(self, product: ProductConfig):
+        key = product.store or _store_label(product)
+        if key not in self._providers:
+            self._providers[key] = get_retail_provider(key, self.config.poll)
+        return self._providers[key]
+
+    def _handle_in_stock(self, product: ProductConfig, status: ProductStatus) -> None:
+        price = float(status.price) if status.price else 0.0
+        store = product.store or _store_label(product)
         item_id = self._item_ids.get(self._key(product))
 
-        detected = detect_limit_from_text(result.raw_description)
+        detected = detect_limit_from_text(status.raw_text) or status.limit_per_customer
         limit = clamp_quantity(
             product.desired_quantity,
             detected_limit=detected,
             configured_cap=product.max_per_customer,
-            variant_available_qty=variant.inventory_quantity,
+            variant_available_qty=status.available_qty,
         ).quantity
 
         if item_id:
@@ -168,11 +174,19 @@ class Fyodor:
         self._alert(product, store, price, rec)
 
         if rec.verdict == Verdict.BUY and rec.quantity >= 1:
-            self._maybe_buy(product, store, variant, rec)
+            self._maybe_buy(product, store, status, rec)
 
     def _market_estimate(self, product: ProductConfig) -> MarketEstimate:
         if product.sold_prices:
             return estimate_from_prices(product.sold_prices)
+        # Try a live sold-data provider (eBay) before falling back to manual.
+        try:
+            records = self.sold_provider.recent_sold(product.name)
+        except Exception as exc:  # noqa: BLE001 - never let a provider break the loop
+            log.debug("sold-data provider error: %s", exc)
+            records = []
+        if records:
+            return estimate_market(records)
         if product.manual_resale_estimate > 0:
             r = product.manual_resale_estimate
             return MarketEstimate(
@@ -198,7 +212,7 @@ class Fyodor:
             dedupe_key=f"{self._key(product)}|{rec.verdict.value}",
         )
 
-    def _maybe_buy(self, product, store, variant, rec) -> None:
+    def _maybe_buy(self, product, store, status, rec) -> None:
         # Daily spend guard.
         cap = self.config.risk.max_spend_per_day
         if cap is not None:
@@ -222,7 +236,7 @@ class Fyodor:
             return
 
         if self.paper:
-            self._record_purchase(product, store, variant, rec, status="paper")
+            self._record_purchase(product, store, rec, status="paper")
             self.notifier.send("Paper buy", f"Simulated purchase of {rec.quantity}x {product.name}.", level="success")
             self.purchases += 1
             self._done.add(self._key(product))
@@ -232,10 +246,22 @@ class Fyodor:
             self._done.add(self._key(product))
             return
 
-        res = self.checkout.purchase(product.store_url, variant.variant_id, rec.quantity)
-        self._report_checkout(product, store, variant, rec, res)
+        # The Shopify checkout assistant needs an integer variant id + handle.
+        variant_id = status.variant_id
+        if not isinstance(variant_id, int) or not product.handle:
+            self.notifier.send(
+                "Manual confirmation needed",
+                f"{product.name}: BUY recommended, but '{store}' has no automatable "
+                "checkout here. Open the link and confirm yourself.",
+                level="warn",
+            )
+            self._done.add(self._key(product))
+            return
 
-    def _record_purchase(self, product, store, variant, rec, *, status: str) -> None:
+        res = self.checkout.purchase(product.store_url, variant_id, rec.quantity)
+        self._report_checkout(product, store, rec, res)
+
+    def _record_purchase(self, product, store, rec, *, status: str) -> None:
         unit_cost = rec.profit.total_cost
         pid = repo.add_purchase(
             item_id=self._item_ids.get(self._key(product)), name=product.name, store=store,
@@ -245,7 +271,7 @@ class Fyodor:
             repo.add_inventory(name=product.name, purchase_id=pid, cost_basis=unit_cost,
                                marketplace=product.resale_marketplace, status="in_stock")
 
-    def _report_checkout(self, product, store, variant, rec, res) -> None:
+    def _report_checkout(self, product, store, rec, res) -> None:
         level = {
             CheckoutStatus.PURCHASED: "success", CheckoutStatus.CHALLENGE: "warn",
             CheckoutStatus.NEEDS_MANUAL: "warn", CheckoutStatus.OUT_OF_STOCK: "info",
@@ -253,7 +279,7 @@ class Fyodor:
         }.get(res.status, "info")
         self.notifier.send(f"Checkout: {res.status.value}", f"{product.name} — {res.message}", level=level)
         if res.status == CheckoutStatus.PURCHASED:
-            self._record_purchase(product, store, variant, rec, status="purchased")
+            self._record_purchase(product, store, rec, status="purchased")
             self.purchases += 1
             self._done.add(self._key(product))
         elif res.status in (CheckoutStatus.CHALLENGE, CheckoutStatus.NEEDS_MANUAL):
@@ -317,9 +343,19 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("login", help="open the browser profile to sign in / save payment once")
     sub.add_parser("check", help="one-shot stock + recommendation pass (no checkout)")
     sub.add_parser("init-db", help="create database tables and exit")
+    sub.add_parser("coverage", help="show per-store connector capabilities")
 
     args = parser.parse_args(argv)
     _setup_logging(args.verbose)
+
+    if args.command == "coverage":
+        from .providers import coverage_report
+
+        print(f"{'STORE':<12} {'KIND':<8} {'SUPPORT':<16} REQUIRES / NOTE")
+        for row in coverage_report():
+            needs = ", ".join(row["requires"]) or row["note"]
+            print(f"{row['store']:<12} {row['kind']:<8} {row['support']:<16} {needs}")
+        return 0
 
     if args.command == "init-db":
         init_db()

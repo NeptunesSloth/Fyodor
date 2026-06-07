@@ -193,6 +193,13 @@ def api_calculate(payload: dict):
     )
 
 
+@app.get("/api/coverage")
+def api_coverage():
+    from ..providers import coverage_report
+
+    return coverage_report()
+
+
 @app.get("/api/health")
 def api_health():
     return {"status": "ok", "verdicts": [v.value for v in Verdict]}
