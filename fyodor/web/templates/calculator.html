@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Profit Calculator · Fyodor{% endblock %}
+{% block content %}
+<h1>Profit Calculator</h1>
+<p class="muted">Enter a buy price and either an expected resale or recent <em>sold</em> prices (comma-separated). Sold data gives a confidence score.</p>
+
+<form id="calc" class="form">
+  <div class="row">
+    <label>Buy price<input name="buy_price" type="number" step="0.01" value="100"></label>
+    <label>Quantity<input name="quantity" type="number" value="1" min="1"></label>
+    <label>Limit per customer<input name="limit_per_customer" type="number" value="2" min="0"></label>
+    <label>Marketplace
+      <select name="marketplace">
+        <option value="ebay">eBay</option><option value="amazon">Amazon</option>
+        <option value="stockx">StockX</option><option value="goat">GOAT</option>
+        <option value="mercari">Mercari</option><option value="facebook">Facebook (local)</option>
+      </select>
+    </label>
+  </div>
+  <div class="row">
+    <label>Resale price<input name="resale_price" type="number" step="0.01" value="160"></label>
+    <label>Sold prices (csv)<input name="sold_prices" placeholder="155, 162, 158, 170"></label>
+    <label>Sales tax rate<input name="sales_tax_rate" type="number" step="0.001" value="0.0825"></label>
+  </div>
+  <div class="row">
+    <label>Shipping in<input name="shipping_in" type="number" step="0.01" value="0"></label>
+    <label>Shipping out<input name="shipping_out" type="number" step="0.01" value="12"></label>
+  </div>
+  <button type="submit">Calculate</button>
+</form>
+
+<div id="result" class="result"></div>
+
+<script>
+document.getElementById('calc').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const sold = (f.get('sold_prices') || '').split(',').map(s => parseFloat(s.trim())).filter(x => x > 0);
+  const body = {
+    buy_price: parseFloat(f.get('buy_price')),
+    quantity: parseInt(f.get('quantity')),
+    limit_per_customer: parseInt(f.get('limit_per_customer')) || null,
+    marketplace: f.get('marketplace'),
+    resale_price: parseFloat(f.get('resale_price')),
+    sold_prices: sold,
+    sales_tax_rate: parseFloat(f.get('sales_tax_rate')),
+    shipping_in: parseFloat(f.get('shipping_in')),
+    shipping_out: parseFloat(f.get('shipping_out')),
+  };
+  const res = await fetch('/api/calculate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const d = await res.json();
+  const p = d.profit;
+  document.getElementById('result').innerHTML = `
+    <div class="verdict ${d.verdict.toLowerCase()}">${d.verdict}${d.requires_manual_approval ? ' · manual approval' : ''}</div>
+    <table class="grid">
+      <tr><td>Net profit / unit</td><td>$${p.net_profit_per_unit.toFixed(2)}</td></tr>
+      <tr><td>Net profit total (${d.quantity})</td><td>$${(p.net_profit_per_unit*d.quantity).toFixed(2)}</td></tr>
+      <tr><td>ROI</td><td>${(p.roi*100).toFixed(0)}%</td></tr>
+      <tr><td>Total acquisition cost</td><td>$${p.total_cost.toFixed(2)}</td></tr>
+      <tr><td>Selling + payment fees</td><td>$${(p.selling_fees+p.payment_fees).toFixed(2)} (${d.fee_model})</td></tr>
+      <tr><td>Break-even resale</td><td>$${p.break_even_resale.toFixed(2)}</td></tr>
+      <tr><td>Min acceptable resale</td><td>$${d.min_acceptable_resale.toFixed(2)}</td></tr>
+      <tr><td>Recommended max buy</td><td>$${d.recommended_max_buy.toFixed(2)}</td></tr>
+      <tr><td>Confidence</td><td>${d.confidence.toFixed(2)}</td></tr>
+    </table>
+    <p class="muted">${d.reasons.join(' · ')}</p>`;
+});
+</script>
+{% endblock %}

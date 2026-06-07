@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Fyodor{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<section class="cards">
+  <div class="card"><div class="kpi">${{ "%.2f"|format(pnl.total_profit) }}</div><div class="label">Net profit (realised)</div></div>
+  <div class="card"><div class="kpi">{{ pnl.units_sold }}</div><div class="label">Units sold</div></div>
+  <div class="card"><div class="kpi">{{ (pnl.win_rate*100)|round(0)|int }}%</div><div class="label">Win rate ({{ pnl.wins }}W / {{ pnl.losses }}L)</div></div>
+  <div class="card"><div class="kpi">${{ "%.2f"|format(pnl.open_inventory_value) }}</div><div class="label">Open inventory ({{ pnl.open_units }} units)</div></div>
+  <div class="card"><div class="kpi">${{ "%.2f"|format(spend_today) }}</div><div class="label">Spend today</div></div>
+</section>
+
+<h2>Opportunities</h2>
+<table class="grid">
+  <thead><tr><th>Verdict</th><th>Buy</th><th>Qty</th><th>Resale</th><th>Net</th><th>ROI</th><th>Conf.</th><th>Risk</th><th>Reasoning</th></tr></thead>
+  <tbody>
+    {% for o in opportunities %}
+    <tr>
+      <td><span class="badge {{ o.verdict|lower }}">{{ o.verdict }}</span>{% if o.requires_manual %} <span class="badge manual">manual</span>{% endif %}</td>
+      <td>${{ "%.2f"|format(o.buy_price) }}</td>
+      <td>{{ o.quantity }}</td>
+      <td>${{ "%.2f"|format(o.resale_estimate) }}</td>
+      <td>${{ "%.2f"|format(o.net_profit) }}</td>
+      <td>{{ (o.roi*100)|round(0)|int }}%</td>
+      <td>{{ "%.2f"|format(o.confidence) }}</td>
+      <td>{{ o.sell_through_risk }}</td>
+      <td class="reason">{{ o.reasons }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9" class="muted">No opportunities yet. Add items to your watchlist and run the monitor.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Recent alerts</h2>
+<ul class="alerts">
+  {% for a in alerts %}
+  <li><span class="badge {{ a.level }}">{{ a.level }}</span> <strong>{{ a.title }}</strong> — {{ a.body }}</li>
+  {% else %}
+  <li class="muted">No alerts yet.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

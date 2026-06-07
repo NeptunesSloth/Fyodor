@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Inventory · Fyodor{% endblock %}
+{% block content %}
+<h1>Inventory &amp; Sales</h1>
+
+<h2>Inventory</h2>
+<table class="grid">
+  <thead><tr><th>Item</th><th>Cost basis</th><th>Listed</th><th>Marketplace</th><th>Status</th><th>Acquired</th></tr></thead>
+  <tbody>
+    {% for inv in inventory %}
+    <tr>
+      <td>{{ inv.name }}</td>
+      <td>${{ "%.2f"|format(inv.cost_basis) }}</td>
+      <td>{% if inv.listed_price %}${{ "%.2f"|format(inv.listed_price) }}{% else %}—{% endif %}</td>
+      <td>{{ inv.marketplace or "—" }}</td>
+      <td>{{ inv.status }}</td>
+      <td>{{ inv.acquired_at.strftime("%Y-%m-%d") }}</td>
+    </tr>
+    {% else %}<tr><td colspan="6" class="muted">No inventory yet.</td></tr>{% endfor %}
+  </tbody>
+</table>
+
+<h2>Sales</h2>
+<table class="grid">
+  <thead><tr><th>Item</th><th>Marketplace</th><th>Sold</th><th>Fees</th><th>Cost</th><th>Net</th><th>Days held</th><th>Date</th></tr></thead>
+  <tbody>
+    {% for s in sales %}
+    <tr>
+      <td>{{ s.name }}</td>
+      <td>{{ s.marketplace }}</td>
+      <td>${{ "%.2f"|format(s.sold_price) }}</td>
+      <td>${{ "%.2f"|format(s.fees) }}</td>
+      <td>${{ "%.2f"|format(s.cost_basis) }}</td>
+      <td class="{{ 'pos' if s.net_profit >= 0 else 'neg' }}">${{ "%.2f"|format(s.net_profit) }}</td>
+      <td>{{ s.days_held }}</td>
+      <td>{{ s.sold_at.strftime("%Y-%m-%d") }}</td>
+    </tr>
+    {% else %}<tr><td colspan="8" class="muted">No sales yet.</td></tr>{% endfor %}
+  </tbody>
+</table>
+
+<h2>Purchase log</h2>
+<table class="grid">
+  <thead><tr><th>Item</th><th>Store</th><th>Order #</th><th>Qty</th><th>Unit cost</th><th>Status</th><th>Date</th></tr></thead>
+  <tbody>
+    {% for p in purchases %}
+    <tr>
+      <td>{{ p.name }}</td><td>{{ p.store }}</td><td>{{ p.order_number or "—" }}</td>
+      <td>{{ p.quantity }}</td><td>${{ "%.2f"|format(p.unit_cost) }}</td>
+      <td>{{ p.status }}</td><td>{{ p.created_at.strftime("%Y-%m-%d") }}</td>
+    </tr>
+    {% else %}<tr><td colspan="7" class="muted">No purchases yet.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

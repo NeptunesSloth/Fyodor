@@ -1,0 +1,26 @@
+services:
+  dashboard:
+    build: .
+    command: ["python", "-m", "fyodor", "web", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./state:/app/state
+      - ./config.yaml:/app/config.yaml:ro
+
+  # Monitor/scoring worker. Runs in dry-run by default (config-controlled).
+  # Checkout assistance (Playwright) is intended to run on a machine with a
+  # display / your logged-in profile, not in this headless container.
+  watcher:
+    build: .
+    command: ["python", "-m", "fyodor", "--config", "config.yaml", "watch"]
+    env_file:
+      - .env
+    volumes:
+      - ./state:/app/state
+      - ./config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
+    depends_on:
+      - dashboard

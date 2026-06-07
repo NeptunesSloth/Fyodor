@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Fyodor{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <span class="brand">Fyodor</span>
+    <a href="/">Dashboard</a>
+    <a href="/watchlist">Watchlist</a>
+    <a href="/inventory">Inventory &amp; Sales</a>
+    <a href="/calculator">Profit Calculator</a>
+    <a href="/alerts">Alerts</a>
+  </nav>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    Compliant reselling assistant · respects per-customer limits · no anti-bot evasion
+  </footer>
+</body>
+</html>

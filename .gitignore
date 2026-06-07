@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Fyodor local state
+config.yaml
+browser-profile/
+*.log
+state/
+.playwright/

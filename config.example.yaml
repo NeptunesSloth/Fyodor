@@ -1,0 +1,95 @@
+# Fyodor — compliant reselling automation. Copy to `config.yaml` and edit.
+# Secrets (webhooks, SMTP, API keys) belong in environment variables / .env,
+# not in this file. See .env.example.
+
+# ---------------------------------------------------------------------------
+# Polling. Floors + jitter exist so we stay polite. They cannot be bypassed.
+# ---------------------------------------------------------------------------
+poll:
+  interval_seconds: 8
+  min_interval_seconds: 3
+  jitter_seconds: 4
+  timeout_seconds: 10
+
+# ---------------------------------------------------------------------------
+# Checkout assistance. Single logged-in profile; respects per-customer limits;
+# hands off to you on any CAPTCHA / queue / human challenge.
+# ---------------------------------------------------------------------------
+checkout:
+  enabled: true
+  browser_profile_dir: "./browser-profile"
+  headless: false
+  hand_off_on_challenge: true
+  max_purchases_per_run: 1
+  page_timeout_seconds: 30
+
+# ---------------------------------------------------------------------------
+# Profitability thresholds — an opportunity must clear these to be a BUY.
+# ---------------------------------------------------------------------------
+thresholds:
+  min_profit: 15.0        # net dollars per unit
+  min_roi: 0.25           # 25%
+  min_confidence: 0.5     # 0..1, based on sold-data quality
+  watch_confidence: 0.3   # below min_confidence but above this -> WATCH
+  require_data: true      # SKIP if there is no sold-price data
+
+# ---------------------------------------------------------------------------
+# Hard risk controls. Anything that trips these becomes manual / SKIP.
+# ---------------------------------------------------------------------------
+risk:
+  max_spend_per_day: 500.0
+  max_spend_per_product: 400.0
+  max_quantity_per_product: 2
+  max_total_exposure: 5000.0
+  require_manual_below_confidence: 0.6
+  category_blacklist: ["tickets", "weapons", "prescription"]
+  store_blacklist: []
+
+# ---------------------------------------------------------------------------
+# Safety modes. Stack them however you like.
+#   dry_run    : alert + record, never touch a cart
+#   paper      : simulate purchases into the DB (paper trading)
+#   alert_only : discovery + alerts only, no checkout machinery at all
+#   auto_buy_sources : ONLY these stores may auto-buy (and only when the
+#                      recommendation is high-confidence BUY). Everything else
+#                      requires your manual confirmation.
+# ---------------------------------------------------------------------------
+modes:
+  dry_run: true           # start safe; flip to false when you trust it
+  paper: false
+  alert_only: false
+  auto_buy_sources: []    # e.g. ["shop.example.com"]
+
+# ---------------------------------------------------------------------------
+# Notifications. Put secrets in env vars (FYODOR_DISCORD_WEBHOOK, etc.).
+# ---------------------------------------------------------------------------
+notify:
+  console: true
+  dedupe_minutes: 30
+  # discord_webhook_url: ""   # prefer FYODOR_DISCORD_WEBHOOK
+  # telegram_chat_id: ""      # token via FYODOR_TELEGRAM_TOKEN
+  # email_to: ""
+  # smtp_host: "smtp.gmail.com"
+  # smtp_port: 587
+
+# ---------------------------------------------------------------------------
+# Products to watch (Shopify-style JSON endpoints).
+# ---------------------------------------------------------------------------
+products:
+  - name: "Example Item"
+    store_url: "https://shop.example.com"
+    handle: "example-item"
+    variant_title: null
+    variant_id: null
+    desired_quantity: 2
+    max_per_customer: 2
+    category: "collectibles"
+    resale_marketplace: "ebay"
+    # Provide recent SOLD prices to get a confidence-scored resale estimate.
+    sold_prices: [155, 162, 158, 170, 149]
+    # Or a single manual estimate (lower confidence) if you have no sold data:
+    manual_resale_estimate: 0.0
+    sales_tax_rate: 0.0825
+    shipping_in: 0.0
+    shipping_out: 12.0
+    max_buy_price: 120.0
