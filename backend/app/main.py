@@ -20,6 +20,7 @@ from app.api import cards, decks, games, health
 from app.cards.repository import CardDatabaseUnavailable
 from app.config import Settings, get_settings
 from app.logging_setup import configure_logging
+from app.multiplayer.hub import GameNotStarted
 from app.services import Services
 
 log = logging.getLogger(__name__)
@@ -64,6 +65,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(decks.router, prefix="/api")
     app.include_router(games.router, prefix="/api")
     app.add_api_websocket_route("/ws/games/{game_id}", games.game_socket)
+
+    @app.exception_handler(GameNotStarted)
+    async def _not_started(_: Request, exc: GameNotStarted) -> JSONResponse:
+        return JSONResponse({"detail": str(exc), "code": "lobby"}, status_code=409)
 
     @app.exception_handler(CardDatabaseUnavailable)
     async def _no_card_db(_: Request, exc: CardDatabaseUnavailable) -> JSONResponse:

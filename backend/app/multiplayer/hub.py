@@ -19,13 +19,16 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from app.game.factory import PLAYER_COLORS
 from app.game.session import GameSession
 from app.game.visibility import OMNISCIENT, SPECTATOR
+from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
 
 log = logging.getLogger(__name__)
 
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 Mode = Literal["local", "lan"]
+Phase = Literal["lobby", "playing"]
 SendFn = Callable[[dict[str, Any]], Awaitable[None]]
 
 
@@ -46,15 +49,25 @@ class Connection:
     viewer: str  # player id, SPECTATOR or OMNISCIENT
     send: SendFn
     actor: str | None  # who actions are attributed to (None for spectators)
+    host: bool = False  # connected with host rights (lobby management)
     id: str = field(default_factory=lambda: secrets.token_hex(4))
+
+
+class GameNotStarted(RuntimeError):
+    pass
 
 
 @dataclass
 class Room:
-    session: GameSession
     mode: Mode
     code: str
     host_token: str
+    game_id: str
+    game: GameSession | None = None
+    phase: Phase = "playing"
+    lobby: LobbySettings | None = None
+    lobby_seats: dict[str, LobbySeatInfo] = field(default_factory=dict)
+    host_seat: str | None = None
     password_salt: bytes | None = None
     password_hash: bytes | None = None
     seats: dict[str, Seat] = field(default_factory=dict)
@@ -66,7 +79,17 @@ class Room:
 
     @property
     def id(self) -> str:
-        return self.session.state.id
+        return self.game_id
+
+    @property
+    def started(self) -> bool:
+        return self.game is not None
+
+    @property
+    def session(self) -> GameSession:
+        if self.game is None:
+            raise GameNotStarted("The game hasn't started yet")
+        return self.game
 
     def check_password(self, password: str | None) -> bool:
         if self.password_hash is None or self.password_salt is None:
@@ -85,17 +108,56 @@ class Room:
         return None
 
     def is_host(self, token: str | None) -> bool:
-        return bool(token) and hmac.compare_digest(self.host_token, token or "")
+        """The host token, or the seat token of the host's own seat."""
+        if not token:
+            return False
+        if hmac.compare_digest(self.host_token, token):
+            return True
+        return self.host_seat is not None and self.seat_for_token(token) == self.host_seat
+
+    def seat_name(self, pid: str) -> str:
+        if self.game is not None and pid in self.game.state.players:
+            return self.game.state.players[pid].name
+        info = self.lobby_seats.get(pid)
+        seat = self.seats.get(pid)
+        return (
+            (info.name if info and info.name else None)
+            or (seat.claimed_name if seat else None)
+            or f"Seat {pid[1:]}"
+        )
 
     def summary(self) -> dict[str, Any]:
-        st = self.session.state
-        return {
-            "id": st.id,
-            "name": st.name,
-            "format": st.format,
+        common = {
+            "id": self.game_id,
             "mode": self.mode,
+            "phase": self.phase,
             "code": self.code if self.mode == "lan" else None,
             "has_password": self.password_hash is not None,
+            "spectators": sum(1 for c in self.connections.values() if c.viewer == SPECTATOR),
+        }
+        if self.game is None:
+            lobby = self.lobby or LobbySettings()
+            return {
+                **common,
+                "name": lobby.name,
+                "format": lobby.format,
+                "turn": 0,
+                "players": [
+                    {
+                        "id": pid,
+                        "name": self.seat_name(pid),
+                        "claimed": s.token is not None,
+                        "connected": s.connections > 0,
+                    }
+                    for pid, s in self.seats.items()
+                ],
+                "updated_at": self.created_at,
+            }
+        st = self.game.state
+        return {
+            **common,
+            "name": st.name,
+            "format": st.format,
             "turn": st.turn.number,
             "players": [
                 {
@@ -106,9 +168,57 @@ class Room:
                 }
                 for pid in st.seat_order
             ],
-            "spectators": sum(1 for c in self.connections.values() if c.viewer == SPECTATOR),
-            "updated_at": self.session.updated_at,
+            "updated_at": self.game.updated_at,
         }
+
+    # -- lobby -----------------------------------------------------------------------
+    def lobby_view(self, viewer: str, *, host: bool = False) -> dict[str, Any]:
+        """The pregame lobby as one viewer may see it (deck lists follow the privacy setting)."""
+        settings = self.lobby or LobbySettings()
+        seats = []
+        for pid, seat in self.seats.items():
+            info = self.lobby_seats.setdefault(pid, LobbySeatInfo())
+            seats.append(
+                {
+                    "id": pid,
+                    "name": self.seat_name(pid),
+                    "color": info.color or PLAYER_COLORS[(int(pid[1:]) - 1) % len(PLAYER_COLORS)],
+                    "claimed": seat.token is not None,
+                    "connected": seat.connections > 0,
+                    "ready": info.ready,
+                    "host": pid == self.host_seat,
+                    "deck": deck_summary(info.deck, privacy=settings.deck_privacy, own=pid == viewer),
+                }
+            )
+        return {
+            "game": {
+                "id": self.game_id,
+                "mode": self.mode,
+                "code": self.code if self.mode == "lan" else None,
+                "has_password": self.password_hash is not None,
+            },
+            "phase": self.phase,
+            "viewer": viewer,
+            "is_host": host,
+            "settings": settings.model_dump(),
+            "seats": seats,
+            "spectators": sum(1 for c in self.connections.values() if c.viewer == SPECTATOR),
+            "start_blockers": self.start_blockers(),
+        }
+
+    def start_blockers(self) -> list[str]:
+        """Why the host can't start yet without overriding (empty when everyone is ready)."""
+        claimed = [pid for pid, s in self.seats.items() if s.token is not None]
+        if not claimed:
+            return ["Nobody has taken a seat"]
+        out = []
+        for pid in claimed:
+            info = self.lobby_seats.get(pid) or LobbySeatInfo()
+            if info.deck is None:
+                out.append(f"{self.seat_name(pid)} hasn't chosen a deck")
+            elif not info.ready:
+                out.append(f"{self.seat_name(pid)} isn't ready")
+        return out
 
 
 class GameHub:
@@ -120,15 +230,29 @@ class GameHub:
 
     # -- rooms -----------------------------------------------------------------------
     def create_room(self, session: GameSession, *, mode: Mode = "local", password: str | None = None) -> Room:
-        code = self._new_code()
-        room = Room(session=session, mode=mode, code=code, host_token=secrets.token_urlsafe(24))
-        if password:
-            room.password_salt = secrets.token_bytes(16)
-            room.password_hash = _hash_password(password, room.password_salt)
+        room = self._new_room(session.state.id, mode, password)
+        room.game = session
         for pid in session.state.seat_order:
             room.seats[pid] = Seat(player_id=pid)
         self.rooms[room.id] = room
         log.info("Created %s room %s (%s)", mode, room.id, session.state.name)
+        return room
+
+    def create_lobby(self, settings: LobbySettings, *, password: str | None = None) -> Room:
+        """A LAN room whose players pick their own decks before the host starts the game."""
+        room = self._new_room(secrets.token_hex(8), "lan", password)
+        room.phase = "lobby"
+        room.lobby = settings
+        self.resize_lobby(room, settings.seats)
+        self.rooms[room.id] = room
+        log.info("Created lobby %s (%s)", room.id, settings.name)
+        return room
+
+    def _new_room(self, game_id: str, mode: Mode, password: str | None) -> Room:
+        room = Room(mode=mode, code=self._new_code(), host_token=secrets.token_urlsafe(24), game_id=game_id)
+        if password:
+            room.password_salt = secrets.token_bytes(16)
+            room.password_hash = _hash_password(password, room.password_salt)
         return room
 
     def _new_code(self) -> str:
@@ -148,6 +272,65 @@ class GameHub:
         room = self.rooms.pop(game_id, None)
         if room:
             log.info("Closed room %s", game_id)
+
+    # -- lobby -----------------------------------------------------------------------
+    def resize_lobby(self, room: Room, count: int) -> None:
+        """Add or remove empty seats (a seat someone has taken is never removed)."""
+        pids = [f"p{i + 1}" for i in range(count)]
+        for pid in list(room.seats):
+            if pid not in pids and room.seats[pid].token is not None:
+                raise PermissionError(f"{room.seat_name(pid)} is sitting in seat {pid[1:]}; kick them first")
+        for pid in list(room.seats):
+            if pid not in pids:
+                del room.seats[pid]
+                room.lobby_seats.pop(pid, None)
+        for pid in pids:
+            room.seats.setdefault(pid, Seat(player_id=pid))
+            room.lobby_seats.setdefault(pid, LobbySeatInfo())
+
+    def release_seat(self, room: Room, pid: str) -> None:
+        """Free a lobby seat (leaving or being kicked): its token stops working at once."""
+        seat = room.seats[pid]
+        seat.token = None
+        seat.claimed_name = None
+        room.lobby_seats[pid] = LobbySeatInfo()
+
+    def move_seat(self, room: Room, pid: str, target: str) -> None:
+        if target not in room.seats:
+            raise LookupError("No such seat")
+        if room.seats[target].token is not None:
+            raise PermissionError("That seat is already taken")
+        src, dst = room.seats[pid], room.seats[target]
+        dst.token, dst.claimed_name, dst.connections = src.token, src.claimed_name, src.connections
+        src.token, src.claimed_name, src.connections = None, None, 0
+        room.lobby_seats[target], room.lobby_seats[pid] = room.lobby_seats[pid], LobbySeatInfo()
+        if room.host_seat == pid:
+            room.host_seat = target
+        for conn in room.connections.values():
+            if conn.viewer == pid:
+                conn.viewer = conn.actor = target
+
+    def start(self, room: Room, session: GameSession, order: list[str]) -> None:
+        """Seat the players in ``order`` (lobby seat ids) as p1..pN of the new game."""
+        mapping = {old: f"p{i + 1}" for i, old in enumerate(order)}
+        seats: dict[str, Seat] = {}
+        for old, new in mapping.items():
+            seat = room.seats[old]
+            seats[new] = Seat(
+                player_id=new, token=seat.token, claimed_name=seat.claimed_name, connections=seat.connections
+            )
+        for pid in session.state.seat_order:
+            seats.setdefault(pid, Seat(player_id=pid))
+        for conn in room.connections.values():
+            if conn.viewer in room.seats:
+                new_pid = mapping.get(conn.viewer)
+                conn.viewer = new_pid or SPECTATOR
+                conn.actor = new_pid
+        room.seats = seats
+        room.host_seat = mapping.get(room.host_seat or "")
+        room.game = session
+        room.phase = "playing"
+        room.lobby_seats = {}
 
     # -- seats -----------------------------------------------------------------------
     def claim_seat(self, room: Room, *, name: str | None, seat: str | None, spectate: bool = False) -> tuple[str, str]:
@@ -169,6 +352,8 @@ class GameHub:
             raise PermissionError("The table is full — join as a spectator")
         chosen.token = token
         chosen.claimed_name = name
+        if not room.started:
+            room.lobby_seats[chosen.player_id] = LobbySeatInfo(name=name or "")
         return chosen.player_id, token
 
     # -- live connections ------------------------------------------------------------
@@ -186,16 +371,29 @@ class GameHub:
         cache: dict[str, dict[str, Any]] = {}
         stale: list[Connection] = []
         for conn in list(room.connections.values()):
-            view = cache.get(conn.viewer)
-            if view is None:
-                view = cache[conn.viewer] = self.view(room, conn.viewer)
+            key = f"{conn.viewer}:{conn.host}"
+            message = cache.get(key)
+            if message is None:
+                message = cache[key] = self.message(room, conn.viewer, host=conn.host)
             try:
-                await conn.send({"type": "state", "view": view})
+                await conn.send(message)
             except Exception as exc:  # noqa: BLE001 - a dead socket must not break the table for others
                 log.info("Dropping connection %s: %s", conn.id, exc)
                 stale.append(conn)
         for conn in stale:
             self.disconnect(room, conn)
+
+    async def send_to(self, room: Room, viewer: str, message: dict[str, Any]) -> None:
+        for conn in [c for c in room.connections.values() if c.viewer == viewer]:
+            try:
+                await conn.send(message)
+            except Exception:  # noqa: BLE001 - best effort
+                self.disconnect(room, conn)
+
+    def message(self, room: Room, viewer: str, *, host: bool = False) -> dict[str, Any]:
+        if not room.started:
+            return {"type": "lobby", "lobby": room.lobby_view(viewer, host=host)}
+        return {"type": "state", "view": self.view(room, viewer)}
 
     def view(self, room: Room, viewer: str) -> dict[str, Any]:
         meta = {

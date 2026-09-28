@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import logging
 import time
@@ -19,11 +18,15 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_validator
 
-from app.api.deps import get_services
+from app.api.deps import _peer_is_loopback, get_services, is_local_request, require_local
 from app.assistant import AssistantUnavailable, build_context
+from app.decks import archidekt
 from app.decks import service as deck_service
+from app.decks.models import DeckEntry, DeckImportRequest
+from app.decks.parser import DeckTextTooLarge
 from app.decks.repository import DeckNotFound
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
@@ -31,6 +34,7 @@ from app.game.session import GameSession
 from app.game.state import GameSettings
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.hub import Connection, Room
+from app.multiplayer.lobby import DeckTooLarge, LobbySeatInfo, LobbySettings, SubmittedDeck, check_bounds
 from app.services import Services
 from app.storage.save_format import SaveFormatError
 from app.storage.saves import SaveNotFound
@@ -42,33 +46,6 @@ ServicesDep = Annotated[Services, Depends(get_services)]
 MAX_WS_MESSAGE = 64 * 1024
 
 # --------------------------------------------------------------------------- access control
-
-
-def _peer_is_loopback(host: str | None, forwarded_for: str | None) -> bool:
-    if host == "testclient":  # starlette TestClient
-        host = "127.0.0.1"
-    try:
-        loopback = host is not None and ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        loopback = host == "localhost"
-    if loopback and forwarded_for:
-        # Requests relayed by the local dev proxy carry the real client address.
-        first = forwarded_for.split(",")[0].strip()
-        try:
-            return ipaddress.ip_address(first).is_loopback
-        except ValueError:
-            return False
-    return loopback
-
-
-def is_local_request(request: Request | WebSocket) -> bool:
-    client = request.client
-    return _peer_is_loopback(client.host if client else None, request.headers.get("x-forwarded-for"))
-
-
-def require_local(request: Request) -> None:
-    if not is_local_request(request):
-        raise HTTPException(403, "Only available on the host computer")
 
 
 VIEWER_ALIASES = {"all": OMNISCIENT, "spectator": SPECTATOR}
@@ -123,12 +100,18 @@ class CreateGameIn(BaseModel):
     format: Literal["commander", "constructed", "sandbox"] = "commander"
     mode: Literal["local", "lan"] = "local"
     password: str | None = Field(default=None, max_length=100)
-    players: list[PlayerIn] = Field(min_length=1, max_length=6)
+    players: list[PlayerIn] = Field(default_factory=list, max_length=6)
     shuffle: bool = True
     first_player: int | Literal["random"] | None = None
     starting_life: int | None = Field(default=None, ge=1, le=10000)
     auto_untap: bool = True
     host_seat: str | None = Field(default="p1", max_length=8)
+    # LAN lobby: players take seats and choose their own decks before the host starts.
+    lobby: bool = False
+    seats: int = Field(default=4, ge=1, le=6)
+    deck_privacy: Literal["private", "commander_only", "public"] = "commander_only"
+    mulligan_rule: str = Field(default="commander_london", max_length=40)
+    priority_helper: Literal["off", "simple"] = "simple"
 
     @field_validator("name")
     @classmethod
@@ -178,14 +161,34 @@ def _setup_players(services: Services, body: CreateGameIn) -> list[PlayerSetup]:
         except DeckNotFound:
             raise HTTPException(404, f"Deck not found for {p.name}") from None
         entries, _ = deck_service.reconcile_entries(deck.entries, services.cards)
-        names = services.cards.get_many([e.printing_id for e in entries if e.printing_id])
-        cards = [
-            DeckCard(e.section, e.quantity, names[e.printing_id]["name"] if e.printing_id in names else e.name,
-                     e.printing_id if e.printing_id in names else None, categories=list(e.categories))
-            for e in entries
-        ]
+        cards = _deck_cards(services, entries)
         setups.append(PlayerSetup(name=p.name, deck_id=deck.id, deck_name=deck.name, cards=cards, color=p.color))
     return setups
+
+
+def _deck_cards(services: Services, entries: list[DeckEntry]) -> list[DeckCard]:
+    names = services.cards.get_many([e.printing_id for e in entries if e.printing_id])
+    return [
+        DeckCard(e.section, e.quantity, names[e.printing_id]["name"] if e.printing_id in names else e.name,
+                 e.printing_id if e.printing_id in names else None, categories=list(e.categories))
+        for e in entries
+    ]
+
+
+def _create_lobby(services: Services, body: CreateGameIn) -> dict[str, Any]:
+    if body.mode != "lan":
+        raise HTTPException(422, "A lobby is for LAN games")
+    settings = LobbySettings(name=body.name, format=body.format, seats=body.seats, starting_life=body.starting_life,
+                             deck_privacy=body.deck_privacy, mulligan_rule=body.mulligan_rule,
+                             priority_helper=body.priority_helper, auto_untap=body.auto_untap)
+    room = services.hub.create_lobby(settings, password=body.password)
+    result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
+    if body.host_seat:
+        host_name = body.players[0].name if body.players else None
+        viewer, token = services.hub.claim_seat(room, name=host_name, seat=body.host_seat if body.host_seat in room.seats else None)
+        room.host_seat = viewer
+        result["seat"] = {"player_id": viewer, "token": token}
+    return result
 
 
 def _create_room(services: Services, session: GameSession, mode: str, password: str | None,
@@ -194,6 +197,7 @@ def _create_room(services: Services, session: GameSession, mode: str, password: 
     result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
     if mode == "lan" and host_seat:
         viewer, token = services.hub.claim_seat(room, name=None, seat=host_seat if host_seat in room.seats else None)
+        room.host_seat = viewer
         result["seat"] = {"player_id": viewer, "token": token}
     services.autosave(room)
     return result
@@ -211,6 +215,10 @@ def list_games(request: Request, services: ServicesDep) -> list[dict[str, Any]]:
 @router.post("/games", status_code=201)
 def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> dict[str, Any]:
     require_local(request)
+    if body.lobby:
+        return _create_lobby(services, body)
+    if not body.players:
+        raise HTTPException(422, "A game needs at least one player")
     setups = _setup_players(services, body)
     first = None
     if body.first_player == "random":
@@ -219,7 +227,8 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
         first = secrets.randbelow(len(setups))
     elif isinstance(body.first_player, int):
         first = body.first_player
-    settings = GameSettings(starting_life=body.starting_life or {"commander": 40}.get(body.format, 20), auto_untap=body.auto_untap)
+    settings = GameSettings(starting_life=body.starting_life or {"commander": 40}.get(body.format, 20), auto_untap=body.auto_untap,
+                            deck_privacy=body.deck_privacy)
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
     session.notice(f"Game created. {state.players[state.turn.active_player].name} goes first.")
@@ -352,7 +361,7 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep) -> dict[str
         raise HTTPException(404, str(exc)) from exc
     except PermissionError as exc:
         raise HTTPException(409, str(exc)) from exc
-    if name and viewer in room.seats:
+    if name and viewer in room.seats and room.started:
         room.session.notice(f"{name} took the seat of {room.session.state.players[viewer].name}.")
         try:
             room.session.perform(viewer, {"type": "rename_player", "name": name})
@@ -452,6 +461,396 @@ def _validation_message(exc: ValidationError) -> str:
     return f"Invalid action: {errors[0]['msg']}" + (f" ({loc})" if loc else "")
 
 
+# --------------------------------------------------------------------------- lobby
+
+
+class LobbyDeckIn(BaseModel):
+    """A deck a player brings to the table. Content only: never a file path."""
+
+    name: str | None = Field(default=None, max_length=120)
+    text: str = Field(default="", max_length=200_000)
+    archidekt: str | None = Field(default=None, max_length=300)
+    json_data: str | None = Field(default=None, max_length=2_000_000, alias="json")
+    deck_id: str | None = Field(
+        default=None, max_length=64
+    )  # a deck in the host's library (host computer only)
+
+    model_config = {"populate_by_name": True}
+
+
+class ReadyIn(BaseModel):
+    ready: bool = True
+
+
+class SeatIn(BaseModel):
+    seat: str = Field(pattern=r"^p[1-6]$")
+
+
+class ProfileIn(BaseModel):
+    name: str | None = Field(default=None, max_length=40)
+    color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+
+
+class LobbySettingsIn(BaseModel):
+    name: str | None = Field(default=None, max_length=80)
+    format: Literal["commander", "constructed", "sandbox"] | None = None
+    seats: int | None = Field(default=None, ge=1, le=6)
+    starting_life: int | None = Field(default=None, ge=1, le=10000)
+    deck_privacy: Literal["private", "commander_only", "public"] | None = None
+    mulligan_rule: str | None = Field(default=None, max_length=40)
+    priority_helper: Literal["off", "simple"] | None = None
+    auto_untap: bool | None = None
+
+
+class StartIn(BaseModel):
+    force: bool = False  # host override: start although not everyone is ready
+    shuffle: bool = True
+    first_player: Literal["random"] | int | None = "random"
+
+
+ARCHIDEKT_COOLDOWN = 3.0
+
+
+def _lobby_room(services: Services, game_id: str) -> Room:
+    room = _room(services, game_id)
+    if room.started:
+        raise HTTPException(409, "The game has already started")
+    return room
+
+
+def _lobby_who(room: Room, token: str | None, *, seat_required: bool = True) -> tuple[str, bool]:
+    """(viewer, is_host) for a lobby request."""
+    seat = room.seat_for_token(token)
+    host = room.is_host(token)
+    if seat is None:
+        if host:
+            return SPECTATOR, True
+        raise HTTPException(403, "Join the game first (missing or invalid seat token)")
+    if seat_required and seat == SPECTATOR:
+        raise HTTPException(403, "Spectators don't have a seat")
+    return seat, host
+
+
+def _require_host(room: Room, token: str | None) -> None:
+    if not room.is_host(token):
+        raise HTTPException(403, "Only the host can do that")
+
+
+async def _lobby_changed(services: Services, room: Room) -> None:
+    await services.hub.broadcast(room)
+
+
+def _lobby_response(room: Room, viewer: str, host: bool) -> dict[str, Any]:
+    return room.lobby_view(viewer, host=host)
+
+
+@router.get("/games/{game_id}/lobby")
+def get_lobby(
+    game_id: str, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
+) -> dict[str, Any]:
+    room = _room(services, game_id)
+    if room.started:
+        return {"phase": "playing", "game": room.summary()}
+    viewer, host = _lobby_who(room, x_seat_token, seat_required=False)
+    return _lobby_response(room, viewer, host)
+
+
+def _submitted(
+    services: Services,
+    entries: list[DeckEntry],
+    *,
+    name: str,
+    fmt: str | None,
+    report: dict[str, Any],
+    kind: str,
+) -> SubmittedDeck:
+    cards = _deck_cards(services, entries)
+    check_bounds(cards)
+    commander_ids = [c.printing_id for c in cards if c.section == "commander" and c.printing_id]
+    data = services.cards.get_many(commander_ids) if commander_ids else {}
+    identity = sorted(
+        {x for d in data.values() for x in d.get("color_identity") or []}, key=lambda c: "WUBRG".find(c)
+    )
+    return SubmittedDeck(
+        name=clean_text(name, 120) or "Deck",
+        cards=cards,
+        commanders=[c.name for c in cards if c.section == "commander"],
+        color_identity=identity,
+        card_count=sum(c.quantity for c in cards if c.section in ("main", "commander", "companion")),
+        format=fmt,
+        report=report,
+        source_kind=kind,
+    )
+
+
+def _import_for_lobby(services: Services, body: LobbyDeckIn, local: bool) -> SubmittedDeck:
+    if body.deck_id:
+        if not local:
+            raise HTTPException(403, "The host's deck library is only available on the host computer")
+        try:
+            deck = services.decks.get(body.deck_id)
+        except DeckNotFound:
+            raise HTTPException(404, "Deck not found") from None
+        entries, notes = deck_service.reconcile_entries(deck.entries, services.cards)
+        unresolved = [e.name for e in entries if not e.printing_id]
+        report = {
+            "cards_total": sum(e.quantity for e in entries if e.section != "maybeboard"),
+            "unresolved": [{"line": n} for n in unresolved[:50]],
+            "notes": notes[:20],
+        }
+        return _submitted(
+            services, entries, name=body.name or deck.name, fmt=deck.format, report=report, kind="library"
+        )
+    if not (body.text.strip() or body.archidekt or body.json_data):
+        raise HTTPException(422, "Paste a deck list, give an Archidekt URL, or choose a file")
+    req = DeckImportRequest(text=body.text, archidekt=body.archidekt, json=body.json_data)
+    try:
+        result = deck_service.import_any(
+            req, services.cards, fetch=services.archidekt_fetch if services.settings.allow_network else None
+        )
+    except DeckTextTooLarge as exc:
+        raise HTTPException(413, str(exc)) from exc
+    except archidekt.ArchidektError as exc:
+        raise HTTPException(502 if body.archidekt else 422, str(exc)) from exc
+    full = result.report.as_dict()
+    report = {
+        k: full[k] for k in ("cards_total", "exact_printings", "resolved", "commanders", "errors", "notes")
+    }
+    report["unresolved"] = full["unresolved"][:50]
+    kind = "archidekt" if result.source else "text"
+    if not any(e.printing_id for e in result.entries):
+        raise HTTPException(422, "No known cards found in that deck (check the list or update the card database)")
+    return _submitted(
+        services,
+        result.entries,
+        name=body.name or result.parsed.name or "Deck",
+        fmt=result.format,
+        report=report,
+        kind=kind,
+    )
+
+
+@router.post("/games/{game_id}/lobby/deck")
+async def submit_deck(
+    game_id: str,
+    body: LobbyDeckIn,
+    request: Request,
+    services: ServicesDep,
+    x_seat_token: Annotated[str | None, Header()] = None,
+) -> dict[str, Any]:
+    """Choose your own deck. The host parses and resolves it against its own card database."""
+    room = _lobby_room(services, game_id)
+    viewer, host = _lobby_who(room, x_seat_token)
+    info = room.lobby_seats.setdefault(viewer, LobbySeatInfo())
+    if body.archidekt:
+        now = time.monotonic()
+        if now - info.last_fetch < ARCHIDEKT_COOLDOWN:
+            raise HTTPException(429, "Wait a moment before fetching another deck")
+        info.last_fetch = now
+    try:
+        deck = await run_in_threadpool(_import_for_lobby, services, body, is_local_request(request))
+    except DeckTooLarge as exc:
+        raise HTTPException(413, str(exc)) from exc
+    async with room.lock:
+        if room.started or room.seat_for_token(x_seat_token) != viewer:
+            raise HTTPException(409, "Your seat changed while the deck was loading")
+        info = room.lobby_seats.setdefault(viewer, LobbySeatInfo())
+        info.deck = deck
+        info.ready = False
+    await _lobby_changed(services, room)
+    return _lobby_response(room, viewer, host)
+
+
+@router.delete("/games/{game_id}/lobby/deck")
+async def clear_deck(
+    game_id: str, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
+) -> dict[str, Any]:
+    room = _lobby_room(services, game_id)
+    viewer, host = _lobby_who(room, x_seat_token)
+    info = room.lobby_seats.setdefault(viewer, LobbySeatInfo())
+    info.deck, info.ready = None, False
+    await _lobby_changed(services, room)
+    return _lobby_response(room, viewer, host)
+
+
+@router.post("/games/{game_id}/lobby/ready")
+async def set_ready(
+    game_id: str, body: ReadyIn, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
+) -> dict[str, Any]:
+    room = _lobby_room(services, game_id)
+    viewer, host = _lobby_who(room, x_seat_token)
+    info = room.lobby_seats.setdefault(viewer, LobbySeatInfo())
+    if body.ready and info.deck is None:
+        raise HTTPException(409, "Choose a deck first")
+    info.ready = body.ready
+    await _lobby_changed(services, room)
+    return _lobby_response(room, viewer, host)
+
+
+@router.post("/games/{game_id}/lobby/seat")
+async def change_seat(
+    game_id: str, body: SeatIn, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
+) -> dict[str, Any]:
+    room = _lobby_room(services, game_id)
+    viewer, host = _lobby_who(room, x_seat_token)
+    if body.seat != viewer:
+        try:
+            services.hub.move_seat(room, viewer, body.seat)
+        except LookupError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except PermissionError as exc:
+            raise HTTPException(409, str(exc)) from exc
+    await _lobby_changed(services, room)
+    return _lobby_response(room, body.seat, host)
+
+
+@router.post("/games/{game_id}/lobby/profile")
+async def set_profile(
+    game_id: str, body: ProfileIn, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
+) -> dict[str, Any]:
+    room = _lobby_room(services, game_id)
+    viewer, host = _lobby_who(room, x_seat_token)
+    info = room.lobby_seats.setdefault(viewer, LobbySeatInfo())
+    if body.name is not None:
+        name = clean_text(body.name, 40)
+        if not name:
+            raise HTTPException(422, "Name must not be blank")
+        info.name = name
+        room.seats[viewer].claimed_name = name
+    if body.color is not None:
+        info.color = body.color
+    await _lobby_changed(services, room)
+    return _lobby_response(room, viewer, host)
+
+
+@router.post("/games/{game_id}/lobby/leave", status_code=204)
+async def leave_lobby(
+    game_id: str, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
+) -> Response:
+    room = _lobby_room(services, game_id)
+    viewer, _ = _lobby_who(room, x_seat_token)
+    if viewer == room.host_seat:
+        raise HTTPException(409, "The host can't leave their own table (close the game instead)")
+    services.hub.release_seat(room, viewer)
+    await _lobby_changed(services, room)
+    return Response(status_code=204)
+
+
+@router.post("/games/{game_id}/lobby/settings")
+async def lobby_settings(
+    game_id: str,
+    body: LobbySettingsIn,
+    services: ServicesDep,
+    x_seat_token: Annotated[str | None, Header()] = None,
+) -> dict[str, Any]:
+    room = _lobby_room(services, game_id)
+    _require_host(room, x_seat_token)
+    viewer, host = _lobby_who(room, x_seat_token, seat_required=False)
+    current = room.lobby or LobbySettings()
+    patch = body.model_dump(exclude_none=True)
+    try:
+        updated = LobbySettings(**{**current.model_dump(), **patch})
+    except ValidationError as exc:
+        raise HTTPException(422, _validation_message(exc)) from exc
+    if updated.seats != current.seats:
+        try:
+            services.hub.resize_lobby(room, updated.seats)
+        except PermissionError as exc:
+            raise HTTPException(409, str(exc)) from exc
+    # Changing the rules of the game means everyone confirms again.
+    if any(
+        getattr(updated, k) != getattr(current, k)
+        for k in ("format", "starting_life", "mulligan_rule", "deck_privacy")
+    ):
+        for info in room.lobby_seats.values():
+            info.ready = False
+    room.lobby = updated
+    await _lobby_changed(services, room)
+    return _lobby_response(room, viewer, host)
+
+
+@router.post("/games/{game_id}/lobby/kick")
+async def kick_player(
+    game_id: str, body: SeatIn, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
+) -> dict[str, Any]:
+    room = _lobby_room(services, game_id)
+    _require_host(room, x_seat_token)
+    viewer, host = _lobby_who(room, x_seat_token, seat_required=False)
+    if body.seat not in room.seats:
+        raise HTTPException(404, "No such seat")
+    if body.seat == room.host_seat:
+        raise HTTPException(409, "You can't kick yourself")
+    await services.hub.send_to(room, body.seat, {"type": "kicked"})
+    for conn in [c for c in room.connections.values() if c.viewer == body.seat]:
+        conn.viewer, conn.actor = SPECTATOR, None
+    services.hub.release_seat(room, body.seat)
+    room.seats[body.seat].connections = 0
+    await _lobby_changed(services, room)
+    return _lobby_response(room, viewer, host)
+
+
+@router.post("/games/{game_id}/lobby/start")
+async def start_game(
+    game_id: str, body: StartIn, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
+) -> dict[str, Any]:
+    room = _lobby_room(services, game_id)
+    _require_host(room, x_seat_token)
+    async with room.lock:
+        if room.started:
+            raise HTTPException(409, "The game has already started")
+        blockers = room.start_blockers()
+        order = [pid for pid, seat in room.seats.items() if seat.token is not None]
+        if not order:
+            raise HTTPException(409, "Nobody has taken a seat")
+        if blockers and not body.force:
+            raise HTTPException(409, "Not everyone is ready: " + "; ".join(blockers))
+        lobby = room.lobby or LobbySettings()
+        setups = []
+        for pid in order:
+            info = room.lobby_seats.get(pid) or LobbySeatInfo()
+            deck = info.deck
+            setups.append(
+                PlayerSetup(
+                    name=room.seat_name(pid),
+                    color=info.color,
+                    deck_name=deck.name if deck else None,
+                    cards=list(deck.cards) if deck else [],
+                )
+            )
+        first: int | None = None
+        if body.first_player == "random":
+            import secrets
+
+            first = secrets.randbelow(len(setups))
+        elif isinstance(body.first_player, int):
+            first = body.first_player if 0 <= body.first_player < len(setups) else 0
+        settings = GameSettings(
+            starting_life=lobby.starting_life or {"commander": 40}.get(lobby.format, 20),
+            auto_untap=lobby.auto_untap,
+            deck_privacy=lobby.deck_privacy,
+            priority_helper=lobby.priority_helper,
+        )
+        state = new_game(
+            setups,
+            name=lobby.name,
+            format=lobby.format,
+            settings=settings,
+            shuffle=body.shuffle,
+            first_player=first,
+        )
+        state.id = room.game_id  # same URL before and after the start
+        session = GameSession(
+            state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules
+        )
+        session.notice(f"Game started. {state.players[state.turn.active_player].name} goes first.")
+        if blockers:
+            session.notice("The host started without waiting for everyone.")
+        services.hub.start(room, session, order)
+        services.autosave(room)
+    await services.hub.broadcast(room)
+    return {"game": room.summary(), "seats": {pid: pid for pid in room.seats}}
+
+
 # --------------------------------------------------------------------------- WebSocket
 
 
@@ -504,11 +903,11 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
     async def send(message: dict[str, Any]) -> None:
         await websocket.send_text(json.dumps(message, separators=(",", ":")))
 
-    conn = Connection(viewer=viewer, send=send, actor=actor)
+    conn = Connection(viewer=viewer, send=send, actor=actor, host=room.is_host(params.get("token")))
     services.hub.connect(room, conn)
     limiter = _RateLimiter()
     try:
-        await send({"type": "state", "view": services.hub.view(room, viewer)})
+        await send(services.hub.message(room, viewer, host=conn.host))
         await services.hub.broadcast(room)  # others see the connection indicator
         while True:
             raw = await websocket.receive_text()
@@ -535,6 +934,9 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
         return
     if msg.type == "ping":
         await send({"type": "pong", "id": msg.id})
+        return
+    if not room.started:
+        await send({"type": "error", "id": msg.id, "message": "The game hasn't started yet"})
         return
     if msg.type == "view":
         if room.mode != "local":

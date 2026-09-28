@@ -31,6 +31,7 @@ export function PlayPage({ route }: { route: Route }) {
     listGames().then(setGames, toastError);
     listSaves().then(
       (s) => {
+        listDecks().then(setDecks, toastError); // the deck library lives on the host only
         // Show manual saves plus only the newest autosave of each game.
         const seen = new Set<string>();
         setSaves(s.filter((x) => !x.autosave || (!seen.has(x.game_id) && seen.add(x.game_id))));
@@ -44,7 +45,6 @@ export function PlayPage({ route }: { route: Route }) {
   }, []);
   useEffect(() => {
     refresh();
-    listDecks().then(setDecks, toastError);
   }, [refresh]);
 
   const open = (id: string) => navigate(`/game/${id}`);
@@ -136,6 +136,12 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   const [password, setPassword] = useState("");
   const [first, setFirst] = useState<string>("random");
   const [life, setLife] = useState<string>("");
+  const [lobby, setLobby] = useState(true);
+  const [seats, setSeats] = useState(4);
+  const [privacy, setPrivacy] = useState<"private" | "commander_only" | "public">("commander_only");
+  const [mulligan, setMulligan] = useState("commander_london");
+  const [helper, setHelper] = useState<"off" | "simple">("simple");
+  const useLobby = mode === "lan" && lobby;
   const [players, setPlayers] = useState<CreatePlayer[]>([
     { name: "Player 1", deck_id: preselect, color: COLORS[0] },
     { name: "Player 2", deck_id: null, color: COLORS[1] },
@@ -160,8 +166,13 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         format,
         mode,
         password: mode === "lan" ? password || null : null,
-        players: players.map((p) => ({ ...p, name: p.name.trim() || "Player" })),
+        players: useLobby ? [{ name: players[0]?.name.trim() || "Host", deck_id: null }] : players.map((p) => ({ ...p, name: p.name.trim() || "Player" })),
         shuffle: true,
+        lobby: useLobby,
+        seats,
+        deck_privacy: privacy,
+        mulligan_rule: mulligan,
+        priority_helper: helper,
         first_player: first === "random" ? "random" : Number(first),
         starting_life: life ? Number(life) : null,
         auto_untap: true,
@@ -193,6 +204,37 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
           <input type="number" placeholder={format === "commander" ? "40" : "20"} value={life} min={1} onChange={(e) => setLife(e.target.value)} style={{ width: 90 }} />
         </label>
       </div>
+      {useLobby ? (
+        <div className="row wrap">
+          <label className="field grow">Your name<input data-testid="host-name" value={players[0]?.name ?? ""} maxLength={40} onChange={(e) => update(0, { name: e.target.value })} /></label>
+          <label className="field">Seats
+            <select value={seats} onChange={(e) => setSeats(Number(e.target.value))}>
+              {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          <label className="field">Deck privacy
+            <select value={privacy} onChange={(e) => setPrivacy(e.target.value as typeof privacy)} data-testid="deck-privacy">
+              <option value="private">Private</option>
+              <option value="commander_only">Commander only</option>
+              <option value="public">Public</option>
+            </select>
+          </label>
+          <label className="field">Mulligan
+            <select value={mulligan} onChange={(e) => setMulligan(e.target.value)}>
+              <option value="commander_london">Commander London</option>
+              <option value="london">London</option>
+              <option value="boston_custom">Boston (Custom Pod)</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label className="field">Response helper
+            <select value={helper} onChange={(e) => setHelper(e.target.value as typeof helper)}>
+              <option value="simple">On</option>
+              <option value="off">Off</option>
+            </select>
+          </label>
+        </div>
+      ) : (
       <div className="players-setup">
         {players.map((p, i) => {
           const deck = decks.find((d) => d.id === p.deck_id);
@@ -217,7 +259,9 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
           </button>
         )}
       </div>
+      )}
       <div className="row wrap">
+        {!useLobby && (
         <label className="field">
           Who starts
           <select value={first} onChange={(e) => setFirst(e.target.value)}>
@@ -225,19 +269,27 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
             {players.map((p, i) => <option key={i} value={i}>{p.name}</option>)}
           </select>
         </label>
+        )}
         <label className="field">
           Table
-          <select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+          <select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)} data-testid="table-mode">
             <option value="local">Hot-seat on this computer</option>
             <option value="lan">LAN — others join with a room code</option>
           </select>
         </label>
         {mode === "lan" && (
+          <label className="field row-check">
+            <span><input type="checkbox" checked={lobby} onChange={(e) => setLobby(e.target.checked)} data-testid="use-lobby" /> Players choose their own decks</span>
+          </label>
+        )}
+        {mode === "lan" && (
           <label className="field">Password (optional)<input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} /></label>
         )}
       </div>
       {decks.length === 0 && <p className="warn">No decks yet — <a href="#/decks">import some decks</a> first (or play with empty libraries).</p>}
-      <button className="btn primary big" disabled={busy} onClick={() => void start()}>{busy ? "Setting up…" : "Start game"}</button>
+      <button className="btn primary big" disabled={busy} onClick={() => void start()} data-testid="create-game">
+        {busy ? "Setting up…" : useLobby ? "Open the table" : "Start game"}
+      </button>
       <p className="hint">Libraries are shuffled automatically. Draw your opening hand with D or by double-clicking your library.</p>
     </section>
   );
@@ -260,10 +312,10 @@ function JoinGame() {
     <section className="panel">
       <h2>Join a LAN game</h2>
       <form className="row wrap" onSubmit={(e) => { e.preventDefault(); void join(false); }}>
-        <label className="field">Room code<input value={code} maxLength={12} onChange={(e) => setCode(e.target.value)} placeholder="ABC123" style={{ width: 110, textTransform: "uppercase" }} /></label>
-        <label className="field grow">Your name<input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} /></label>
+        <label className="field">Room code<input data-testid="join-code" value={code} maxLength={12} onChange={(e) => setCode(e.target.value)} placeholder="ABC123" style={{ width: 110, textTransform: "uppercase" }} /></label>
+        <label className="field grow">Your name<input data-testid="join-name" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} /></label>
         <label className="field">Password<input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} style={{ width: 120 }} /></label>
-        <button className="btn primary" type="submit" disabled={code.trim().length < 4}>Join</button>
+        <button className="btn primary" type="submit" disabled={code.trim().length < 4} data-testid="join-submit">Join</button>
         <button className="btn" type="button" disabled={code.trim().length < 4} onClick={() => void join(true)}>Spectate</button>
       </form>
     </section>

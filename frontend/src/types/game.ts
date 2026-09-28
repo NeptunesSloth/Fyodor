@@ -121,8 +121,10 @@ export interface PlayerView {
   commander_tax: Record<string, number>;
   city_blessing: boolean;
   mulligans: number;
-  deck_id: string | null;
-  deck_name: string | null;
+  /** Only in your own player entry. */
+  deck_id?: string | null;
+  /** Hidden from opponents when the table's deck privacy is "private". */
+  deck_name?: string | null;
   token_shortcuts?: string[];
   commanders: CommanderInfo[];
   hand_count: number;
@@ -177,6 +179,7 @@ export interface GameView {
 
 export interface GameSummary {
   id: string;
+  phase?: "lobby" | "playing";
   name: string;
   format: string;
   mode: "local" | "lan";
@@ -213,3 +216,53 @@ export function splitZone(key: string): { player: string | null; zone: ZoneName 
 }
 
 export const isVisible = (c: GameCard | undefined): c is VisibleCard => !!c && !c.hidden;
+
+// ---------------------------------------------------------------------------- lobby
+
+export interface LobbySettings {
+  name: string;
+  format: "commander" | "constructed" | "sandbox";
+  seats: number;
+  starting_life: number | null;
+  deck_privacy: "private" | "commander_only" | "public";
+  mulligan_rule: string;
+  priority_helper: "off" | "simple";
+  auto_untap: boolean;
+}
+
+export interface LobbyDeckSummary {
+  card_count: number;
+  name?: string;
+  commanders?: string[];
+  color_identity?: string[];
+  list?: { section: string; quantity: number; name: string }[];
+  report?: {
+    cards_total?: number;
+    exact_printings?: number;
+    unresolved: { line?: string; name?: string; reason?: string }[];
+    notes?: string[];
+    errors?: string[];
+  };
+}
+
+export interface LobbySeat {
+  id: string;
+  name: string;
+  color: string;
+  claimed: boolean;
+  connected: boolean;
+  ready: boolean;
+  host: boolean;
+  deck: LobbyDeckSummary | null;
+}
+
+export interface LobbyView {
+  phase: "lobby";
+  game: { id: string; mode: "lan"; code: string | null; has_password: boolean };
+  viewer: string;
+  is_host: boolean;
+  settings: LobbySettings;
+  seats: LobbySeat[];
+  spectators: number;
+  start_blockers: string[];
+}

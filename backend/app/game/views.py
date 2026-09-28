@@ -197,7 +197,11 @@ def build_view(
     players = []
     for pid in state.seat_order:
         p = state.players[pid]
-        data = p.model_dump(exclude={"token_shortcuts"} if viewer != pid and viewer != OMNISCIENT else set())
+        own = viewer in (pid, OMNISCIENT)
+        exclude = set() if own else {"token_shortcuts", "deck_id"}
+        if not own and state.settings.deck_privacy == "private":
+            exclude.add("deck_name")
+        data = p.model_dump(exclude=exclude)
         data["commanders"] = sorted(commanders[pid], key=lambda x: x["key"])
         data["hand_count"] = len(state.zones.get(f"{pid}:hand", []))
         data["library_count"] = len(state.zones.get(f"{pid}:library", []))

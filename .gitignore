@@ -21,3 +21,7 @@ frontend/dist/
 .idea/
 .vscode/
 .env
+
+# Browser tests
+frontend/test-results/
+frontend/playwright-report/

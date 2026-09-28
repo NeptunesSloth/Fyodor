@@ -1,16 +1,19 @@
 /** Live connection to a game room with automatic reconnection. */
-import type { GameView } from "../types/game";
+import type { GameView, LobbyView } from "../types/game";
 
 export type ConnStatus = "connecting" | "open" | "reconnecting" | "closed";
 
 interface Handlers {
   onState: (view: GameView) => void;
+  onLobby: (lobby: LobbyView) => void;
   onStatus: (status: ConnStatus, detail?: string) => void;
   onClosedByServer: (reason: string) => void;
 }
 
 type ServerMessage =
   | { type: "state"; view: GameView }
+  | { type: "lobby"; lobby: LobbyView }
+  | { type: "kicked" }
   | { type: "ack"; id: number | null }
   | { type: "error"; id?: number | null; message: string }
   | { type: "pong"; id: number | null }
@@ -106,6 +109,14 @@ export class GameConnection {
     switch (msg.type) {
       case "state":
         this.handlers.onState(msg.view);
+        break;
+      case "lobby":
+        this.handlers.onLobby(msg.lobby);
+        break;
+      case "kicked":
+        this.stopped = true;
+        this.ws?.close();
+        this.handlers.onClosedByServer("The host removed you from this table.");
         break;
       case "ack":
         this.settle(msg.id, null);

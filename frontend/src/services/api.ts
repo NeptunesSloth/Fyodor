@@ -10,10 +10,12 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<T> {
+  const headers: Record<string, string> = { ...extraHeaders };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
   const res = await fetch(`/api${path}`, {
     method,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {
@@ -44,10 +46,10 @@ function formatDetail(detail: unknown): string {
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>("GET", path),
-  post: <T>(path: string, body?: unknown) => request<T>("POST", path, body ?? {}),
+  get: <T>(path: string, headers?: Record<string, string>) => request<T>("GET", path, undefined, headers),
+  post: <T>(path: string, body?: unknown, headers?: Record<string, string>) => request<T>("POST", path, body ?? {}, headers),
   put: <T>(path: string, body: unknown) => request<T>("PUT", path, body),
-  del: <T>(path: string) => request<T>("DELETE", path),
+  del: <T>(path: string, headers?: Record<string, string>) => request<T>("DELETE", path, undefined, headers),
 };
 
 export interface Health {

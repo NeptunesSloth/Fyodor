@@ -1,0 +1,98 @@
+"""Pregame lobby: seats, self-service deck submission, readiness and table settings.
+
+Each player chooses their own deck. The client submits a deck *definition* (text,
+Archidekt URL/JSON, or the id of a deck already stored on the host); the host parses and
+resolves it against its own card database. Clients never name files or paths.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field, field_validator
+
+from app.game.factory import DeckCard
+from app.textutil import clean_text
+
+DeckPrivacy = Literal["private", "commander_only", "public"]
+PriorityHelper = Literal["off", "simple"]
+
+MAX_DECK_ENTRIES = 400
+MAX_DECK_CARDS = 600
+MAX_COMMANDERS = 4
+
+
+class LobbySettings(BaseModel):
+    name: str = Field(default="Game", max_length=80)
+    format: Literal["commander", "constructed", "sandbox"] = "commander"
+    seats: int = Field(default=4, ge=1, le=6)
+    starting_life: int | None = Field(default=None, ge=1, le=10000)
+    deck_privacy: DeckPrivacy = "commander_only"
+    mulligan_rule: str = Field(default="commander_london", max_length=40)
+    priority_helper: PriorityHelper = "simple"
+    auto_untap: bool = True
+
+    @field_validator("name")
+    @classmethod
+    def _clean(cls, v: str) -> str:
+        return clean_text(v, 80) or "Game"
+
+
+class DeckTooLarge(ValueError):
+    pass
+
+
+@dataclass
+class SubmittedDeck:
+    """A validated, resolved deck a player brought to the table."""
+
+    name: str
+    cards: list[DeckCard]
+    commanders: list[str]
+    color_identity: list[str]
+    card_count: int
+    format: str | None = None
+    report: dict[str, Any] = field(default_factory=dict)
+    source_kind: str = "text"
+
+    def entries_public(self) -> list[dict[str, Any]]:
+        return [
+            {"section": c.section, "quantity": c.quantity, "name": c.name}
+            for c in self.cards
+            if c.section != "maybeboard"
+        ]
+
+
+def check_bounds(cards: list[DeckCard]) -> None:
+    if len(cards) > MAX_DECK_ENTRIES:
+        raise DeckTooLarge(f"Too many different cards ({len(cards)}; max {MAX_DECK_ENTRIES})")
+    total = sum(c.quantity for c in cards if c.section != "maybeboard")
+    if total > MAX_DECK_CARDS:
+        raise DeckTooLarge(f"Too many cards ({total}; max {MAX_DECK_CARDS})")
+    commanders = sum(c.quantity for c in cards if c.section == "commander")
+    if commanders > MAX_COMMANDERS:
+        raise DeckTooLarge(f"Too many commanders ({commanders}; max {MAX_COMMANDERS})")
+
+
+@dataclass
+class LobbySeatInfo:
+    name: str = ""
+    color: str | None = None
+    deck: SubmittedDeck | None = None
+    ready: bool = False
+    last_fetch: float = -1e9  # monotonic time of the last Archidekt fetch (rate limit)
+
+
+def deck_summary(deck: SubmittedDeck | None, *, privacy: DeckPrivacy, own: bool) -> dict[str, Any] | None:
+    """What a viewer may learn about a seat's deck before the game."""
+    if deck is None:
+        return None
+    summary: dict[str, Any] = {"card_count": deck.card_count}
+    if own or privacy in ("commander_only", "public"):
+        summary.update(name=deck.name, commanders=deck.commanders, color_identity=deck.color_identity)
+    if own or privacy == "public":
+        summary["list"] = deck.entries_public()
+    if own:
+        summary["report"] = deck.report
+    return summary

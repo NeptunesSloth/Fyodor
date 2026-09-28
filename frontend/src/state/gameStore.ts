@@ -6,7 +6,16 @@
 import { create } from "zustand";
 import { toast } from "../components/Toasts";
 import { GameConnection, type ConnStatus } from "../services/gameSocket";
-import { OMNISCIENT, SPECTATOR, type Action, type GameCard, type GameView, type LibraryView, type PlayerView } from "../types/game";
+import {
+  OMNISCIENT,
+  SPECTATOR,
+  type Action,
+  type GameCard,
+  type GameView,
+  type LibraryView,
+  type LobbyView,
+  type PlayerView,
+} from "../types/game";
 import { reconcile } from "./reconcile";
 import { requestCards } from "./cardCache";
 
@@ -20,6 +29,8 @@ export interface BrowserState {
 interface GameStore {
   gameId: string | null;
   view: GameView | null;
+  /** The pregame lobby, while the host hasn't started the game yet. */
+  lobby: LobbyView | null;
   status: ConnStatus;
   statusDetail: string | null;
   conn: GameConnection | null;
@@ -52,6 +63,7 @@ interface GameStore {
 export const useGame = create<GameStore>((set, get) => ({
   gameId: null,
   view: null,
+  lobby: null,
   status: "closed",
   statusDetail: null,
   conn: null,
@@ -79,21 +91,23 @@ export const useGame = create<GameStore>((set, get) => ({
         requestCards(ids);
         set((s) => ({
           view,
+          lobby: null,
           pendingPositions: {},
           selection: s.selection.filter((id) => id in view.cards),
           actingAs: resolveActingAs(view, s.actingAs),
         }));
       },
+      onLobby: (lobby) => set({ lobby, view: null }),
       onStatus: (status, detail) => set({ status, statusDetail: detail ?? null }),
       onClosedByServer: (reason) => set({ status: "closed", statusDetail: reason }),
     });
-    set({ gameId, conn, view: null, selection: [], browser: null, dialog: null, actingAs: null });
+    set({ gameId, conn, view: null, lobby: null, selection: [], browser: null, dialog: null, actingAs: null });
     conn.connect();
   },
 
   disconnect: () => {
     get().conn?.close();
-    set({ conn: null, view: null, gameId: null, status: "closed" });
+    set({ conn: null, view: null, lobby: null, gameId: null, status: "closed" });
   },
 
   send: async (action) => {

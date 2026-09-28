@@ -26,6 +26,17 @@
   --mana-r: #f2a07e;
   --mana-g: #9ad3a6;
   --mana-c: #ccc6c0;
+  /* Card room: charcoal, felt, warm off-white, muted brass. Squared, lightly bevelled. */
+  --room-charcoal: #15161a;
+  --room-charcoal-2: #1d1f24;
+  --room-edge: #34363d;
+  --room-felt: #1d3a31;
+  --room-felt-deep: #142a23;
+  --room-bone: #e8e1d2;
+  --room-bone-dim: #a9a293;
+  --room-brass: #b39458;
+  --room-brass-hi: #cdb07a;
+  --room-radius: 3px;
   font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 14px;
 }
@@ -284,3 +295,33 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 .progress > span { position: relative; font-size: 11px; display: block; text-align: center; line-height: 16px; color: #111; mix-blend-mode: screen; }
 .source-panel a { color: var(--accent-2); }
 .diff-list { list-style: none; padding: 0; margin: 0 0 10px; line-height: 1.7; font-size: 13.5px; }
+
+/* ---------------------------------------------------------------- tabletop controls */
+.tt-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 30px; padding: 4px 12px;
+  background: linear-gradient(#26282e, #1c1e22);
+  border: 1px solid var(--room-edge); border-radius: var(--room-radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(0, 0, 0, 0.5);
+  color: var(--room-bone); font-size: 13px; letter-spacing: 0.02em; cursor: pointer;
+}
+.tt-btn:hover:not(:disabled) { border-color: #4a4d56; background: linear-gradient(#2c2e35, #212328); }
+.tt-btn:active:not(:disabled) { box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6); }
+.tt-btn:disabled { opacity: 0.4; cursor: default; }
+.tt-btn.brass { background: linear-gradient(#c0a266, #a4854c); border-color: #7d663a; color: #1b1509; font-weight: 650; }
+.tt-btn.brass:hover:not(:disabled) { background: linear-gradient(#cdb07a, #b39458); }
+.tt-btn.on { background: linear-gradient(#27493d, #1d3a31); border-color: #3d6b5b; color: #cfe8dc; }
+.tt-btn.ghost { background: transparent; box-shadow: none; border-color: transparent; color: var(--room-bone-dim); }
+.tt-btn.ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.04); border-color: var(--room-edge); }
+.tt-icon {
+  width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent; border-radius: var(--room-radius);
+  color: var(--room-bone-dim); cursor: pointer; font-size: 12px;
+}
+.tt-icon:hover { border-color: var(--room-edge); color: var(--room-bone); }
+.tt-link { background: none; border: 0; padding: 0; color: var(--room-brass-hi); cursor: pointer; font-size: 12.5px; }
+.tt-tab {
+  padding: 6px 12px; background: transparent; border: 0; border-bottom: 2px solid transparent;
+  color: var(--room-bone-dim); cursor: pointer; letter-spacing: 0.02em;
+}
+.tt-tab.on { color: var(--room-bone); border-bottom-color: var(--room-brass); }

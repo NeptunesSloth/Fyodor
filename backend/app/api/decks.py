@@ -6,14 +6,16 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import PlainTextResponse
 
-from app.api.deps import get_services
+from app.api.deps import get_services, require_local
 from app.decks import archidekt, service
 from app.decks.models import Deck, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
 from app.decks.repository import DeckNotFound
 from app.services import Services
 
-router = APIRouter(tags=["decks"])
+# The deck library belongs to the host. LAN players bring their own decks through the game
+# lobby (/api/games/{id}/lobby/deck); they can never browse or read the host's decks.
+router = APIRouter(tags=["decks"], dependencies=[Depends(require_local)])
 ServicesDep = Annotated[Services, Depends(get_services)]
 SOURCE_CACHE_SECONDS = 600
 

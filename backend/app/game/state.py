@@ -186,6 +186,9 @@ class GameSettings(BaseModel):
     auto_commander_tax: bool = True  # moving a commander from the command zone to the stack adds {2}
     clear_mana_on_step: bool = True  # empty mana pools when the step/phase changes
     undo_policy: Literal["everyone", "own", "host"] = "everyone"
+    # What opponents learn about a player's deck: nothing, the commander(s) and deck name, or the list.
+    deck_privacy: Literal["private", "commander_only", "public"] = "commander_only"
+    priority_helper: Literal["off", "simple"] = "off"
 
 
 REMINDER_TIMES = ("upkeep", "draw", "main1", "begin_combat", "end", "cleanup", "next_turn")

@@ -62,6 +62,8 @@ class Services:
                 + (" — re-run to retry" if result.failed else ""))
 
     def autosave(self, room: Room) -> None:
+        if not room.started:
+            return  # nothing to save before the host starts the game
         state = room.session.state
         self.saves.save(state, room.session.history, name=f"{state.name} (autosave)", autosave=True)
         log.debug("Autosaved game %s at action %d", state.id, state.seq)
