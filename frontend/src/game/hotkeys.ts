@@ -18,7 +18,8 @@ export type HotkeyId =
   | "help"
   | "respond"
   | "pass"
-  | "auto_pass";
+  | "auto_pass"
+  | "hud";
 
 export interface Hotkey {
   id: HotkeyId;
@@ -41,6 +42,7 @@ export const HOTKEYS: Hotkey[] = [
   { id: "respond", keys: ["r"], label: "Response check: RESPOND" },
   { id: "pass", keys: ["p"], label: "Response check: PASS" },
   { id: "auto_pass", keys: ["shift+p"], label: "Response check: AUTO-PASS this turn" },
+  { id: "hud", keys: ["h"], label: "Minimal / full HUD" },
 ];
 
 export function comboOf(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">): string {

@@ -10,31 +10,30 @@ import { useGame } from "../state/gameStore";
 import { OMNISCIENT, PHASE_LABEL, PHASES, SPECTATOR } from "../types/game";
 import { send } from "./actions";
 
+/** Plain-label turn tracker: "Turn 3 · Alice · Main 1". Click the step to jump to another. */
 export function PhaseBar() {
   const turn = useGame((s) => s.view?.turn);
   const players = useGame((s) => s.view?.players);
   if (!turn || !players) return null;
   const active = players.find((p) => p.id === turn.active_player);
+  const combat = turn.phase.includes("combat") || turn.phase.startsWith("declare");
   return (
-    <div className="phase-bar">
-      <span className="turn-badge" style={{ ["--player-color" as string]: active?.color }} title="Active player">
-        T{turn.number} · {active?.name}
-      </span>
-      <button className="icon-btn" title="Previous step" onClick={() => void send({ type: "phase", to: "prev" })}>‹</button>
-      <div className="phases">
-        {PHASES.map((ph) => (
-          <button
-            key={ph}
-            className={`phase ${ph === turn.phase ? "current" : ""} ${ph.includes("combat") || ph.startsWith("declare") ? "combat" : ""}`}
-            onClick={() => void send({ type: "phase", to: ph })}
-            title={PHASE_LABEL[ph]}
-          >
-            {PHASE_LABEL[ph]}
-          </button>
-        ))}
-      </div>
-      <button className="icon-btn" title="Next step (N)" onClick={() => void send({ type: "phase", to: "next" })}>›</button>
-      <button className="btn small primary" title="Next turn (Shift+N)" onClick={() => void send({ type: "next_turn" })}>Next turn</button>
+    <div className="turn-tracker" data-testid="turn-tracker">
+      <button className="tt-icon" title="Previous step" onClick={() => void send({ type: "phase", to: "prev" })}>‹</button>
+      <button
+        className={`turn-label ${combat ? "combat" : ""}`}
+        style={{ ["--player-color" as string]: active?.color }}
+        title="Jump to a step"
+        onClick={(e) => openMenu(e, PHASES.map((ph) => ({ label: `${ph === turn.phase ? "● " : ""}${PHASE_LABEL[ph]}`, onClick: () => void send({ type: "phase", to: ph }) })), "Step")}
+      >
+        <span className="tt-turn">Turn {turn.number}</span>
+        <span className="tt-sep">·</span>
+        <span className="tt-player">{active?.name}</span>
+        <span className="tt-sep">·</span>
+        <span className="tt-phase" data-testid="current-phase">{PHASE_LABEL[turn.phase]}</span>
+      </button>
+      <button className="tt-icon" title="Next step (N)" onClick={() => void send({ type: "phase", to: "next" })}>›</button>
+      <button className="tt-btn brass next-turn" title="Next turn (Shift+N)" onClick={() => void send({ type: "next_turn" })}>Next turn</button>
     </div>
   );
 }
@@ -45,6 +44,7 @@ export function TopBar() {
   const actingAs = useGame((s) => s.actingAs);
   const { undo, redo, openDialog, setViewer, setActingAs } = useGame.getState();
   const isHost = useIsHost();
+  const hud = usePrefs((st) => st.hud);
   if (!view) return null;
   const local = view.game.mode === "local";
   const dayNight = view.table.day_night;
@@ -58,20 +58,16 @@ export function TopBar() {
       </div>
       <PhaseBar />
       <span className="spacer" />
-      <button
-        className={`icon-btn daynight ${dayNight ?? ""}`}
-        title="Day / night (click to cycle)"
-        onClick={() => void send({ type: "set_day_night", value: dayNight === null ? "day" : dayNight === "day" ? "night" : null })}
-      >
-        {dayNight === "day" ? "☀" : dayNight === "night" ? "☾" : "◐"}
-      </button>
-      <button className="btn small" onClick={() => openDialog("tokens")} title="Create tokens">Tokens</button>
-      <button className="btn small" onClick={() => openDialog("dice")} title="Dice and coins">🎲</button>
-      <button className="btn small" disabled={!view.game.can_undo} onClick={() => void undo()} title="Undo (Ctrl+Z)">↶ Undo</button>
-      <button className="btn small" disabled={!view.game.can_redo} onClick={() => void redo()} title="Redo (Ctrl+Shift+Z)">↷</button>
-      <button className="btn small" onClick={() => openDialog("save")} title="Save game">Save</button>
+      {dayNight && (
+        <button className={`tt-btn ghost daynight ${dayNight}`} title="Day / night (click to cycle)"
+          onClick={() => void send({ type: "set_day_night", value: dayNight === "day" ? "night" : null })}>
+          {dayNight === "day" ? "☀ Day" : "☾ Night"}
+        </button>
+      )}
+      <button className="tt-btn ghost" disabled={!view.game.can_undo} onClick={() => void undo()} title="Undo (Ctrl+Z)">Undo</button>
+      <button className="tt-btn ghost" disabled={!view.game.can_redo} onClick={() => void redo()} title="Redo (Ctrl+Shift+Z)">Redo</button>
       {isHost && (
-        <button className="btn small" data-testid="end-game" onClick={() => openDialog("endgame")} title="Record who won">
+        <button className="tt-btn ghost" data-testid="end-game" onClick={() => openDialog("endgame")} title="Record who won">
           {view.game.result_id ? "Result ✓" : "End game"}
         </button>
       )}
@@ -97,7 +93,10 @@ export function TopBar() {
           </select>
         </label>
       )}
-      <button className="icon-btn" onClick={() => openDialog("help")} title="Keyboard shortcuts (?)">?</button>
+      <button className="tt-btn ghost" title="Minimal / full HUD (H)" onClick={() => usePrefs.getState().set({ hud: usePrefs.getState().hud === "full" ? "minimal" : "full" })}>
+        {hud === "full" ? "HUD" : "HUD·"}
+      </button>
+      <button className="tt-icon" onClick={() => openDialog("help")} title="Keyboard shortcuts (?)">?</button>
       <button className="icon-btn" data-testid="table-menu" aria-label="More" onClick={(e) => openMenu(e, tableMenu(isHost), "Table")}>⋯</button>
     </header>
   );
@@ -107,7 +106,16 @@ function tableMenu(isHost: boolean): MenuItem[] {
   const s = useGame.getState();
   const prefs = usePrefs.getState();
   return [
+    { label: "Save game…", onClick: () => s.openDialog("save") },
     { label: "Appearance…", hint: "sleeves & playmat", onClick: () => s.openDialog("appearance") },
+    {
+      label: "Day / night",
+      submenu: [
+        { label: "Day", onClick: () => void send({ type: "set_day_night", value: "day" }) },
+        { label: "Night", onClick: () => void send({ type: "set_day_night", value: "night" }) },
+        { label: "Neither", onClick: () => void send({ type: "set_day_night", value: null }) },
+      ],
+    },
     selectMenu(),
     cleanupMenu(),
     { label: prefs.showTokenSources ? "Hide token sources" : "Show token sources", onClick: () => prefs.set({ showTokenSources: !prefs.showTokenSources }) },

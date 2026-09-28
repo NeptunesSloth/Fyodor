@@ -40,24 +40,34 @@ export function PlayerPanel({ player, me, compact }: { player: string; me: strin
         {p.city_blessing && <span className="marker" title="City's blessing">✦</span>}
         <button className="icon-btn small" onClick={(e) => openMenu(e, playerMenu(p), p.name)} aria-label="Player menu">⋯</button>
       </div>
-      <button
-        className="life"
-        title="Click to set · right-click for history"
-        onClick={async () => {
-          const v = await askNumber(`Set ${p.name}'s life`, p.life);
-          if (v !== null) void send({ type: "set_life", player, value: v });
-        }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setShowHistory((s) => !s);
-        }}
-      >
-        {p.life}
-      </button>
-      <div className="life-row">
-        {(compact ? [-5, -1, 1, 5] : LIFE_STEPS).map((d) => (
-          <button key={d} className="life-btn" onClick={() => void changeLife(player, d)}>{d > 0 ? `+${d}` : d}</button>
-        ))}
+      <div className="life-line">
+        <button className="life-step" aria-label="Lose 1 life" data-testid={`life-minus-${player}`} onClick={() => void changeLife(player, -1)}>−</button>
+        <button
+          className="life"
+          data-testid={`life-${player}`}
+          title="Click for quick adjust · right-click for history"
+          onClick={(e) =>
+            openMenu(e, [
+              ...LIFE_STEPS.map((d) => ({ label: d > 0 ? `+${d}` : `${d}`, onClick: () => void changeLife(player, d) })),
+              "separator" as const,
+              {
+                label: "Set life…",
+                onClick: async () => {
+                  const v = await askNumber(`Set ${p.name}'s life`, p.life);
+                  if (v !== null) void send({ type: "set_life", player, value: v });
+                },
+              },
+              { label: showHistory ? "Hide history" : "Life history", onClick: () => setShowHistory((x) => !x) },
+            ], `${p.name} · ${p.life} life`)
+          }
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setShowHistory((x) => !x);
+          }}
+        >
+          {p.life}
+        </button>
+        <button className="life-step" aria-label="Gain 1 life" data-testid={`life-plus-${player}`} onClick={() => void changeLife(player, 1)}>+</button>
       </div>
       {showHistory && (
         <div className="life-history" onClick={() => setShowHistory(false)}>

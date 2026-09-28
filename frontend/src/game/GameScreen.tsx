@@ -9,8 +9,9 @@ import { CombatArrows, DragLayer, PickLayer } from "./Overlays";
 import { Hand } from "./Hand";
 import { MulliganOverlay } from "./MulliganOverlay";
 import { PlayerArea } from "./PlayerArea";
-import { Inspector, LogPanel, StackPanel } from "./SidePanels";
 import { TopBar } from "./TopBar";
+import { CardPreview, LogDrawer, SelectionBar, StackWidget, ToolTray, useHudClass } from "./Hud";
+import { usePrefs } from "../state/prefs";
 import { ZoneBrowser } from "./ZoneBrowser";
 import { matchHotkey } from "./hotkeys";
 import { ResponseBar } from "./ResponseBar";
@@ -22,6 +23,7 @@ export function GameScreen() {
   const actingAs = useGame((s) => s.actingAs);
   const browserOpen = useGame((s) => !!s.browser || (!!s.view && !!s.view.searches[s.view.viewer]));
   useShortcuts();
+  useHudClass();
 
   if (!view) {
     return (
@@ -54,13 +56,13 @@ export function GameScreen() {
           {browserOpen && <ZoneBrowser me={me} />}
           {canSeeMyHand && <Hand player={me} me={me} />}
         </main>
-        <aside className="sidebar">
-          <Inspector />
-          <StackPanel me={me} />
-          <LogPanel />
-        </aside>
       </div>
       {status !== "open" && <div className="conn-banner">{status === "reconnecting" ? "Connection lost — reconnecting…" : detail ?? status}</div>}
+      <StackWidget me={me} />
+      <LogDrawer />
+      <ToolTray />
+      <SelectionBar />
+      <CardPreview />
       <GameDialogs me={me} />
       <MulliganOverlay />
       <ResponseBar />
@@ -139,6 +141,11 @@ function useShortcuts() {
         case "respond":
           if (w && w.opener !== me) void send({ type: "response_respond" });
           break;
+        case "hud": {
+          const prefs = usePrefs.getState();
+          prefs.set({ hud: prefs.hud === "full" ? "minimal" : "full" });
+          break;
+        }
         case "auto_pass":
           void send({ type: "response_auto", on: !view.auto_pass?.includes(me) });
           break;

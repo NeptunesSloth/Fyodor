@@ -6,10 +6,11 @@ import { create } from "zustand";
 
 export interface Prefs {
   showTokenSources: boolean;
+  hud: "full" | "minimal";
 }
 
 const KEY = "fyodor.prefs";
-const DEFAULTS: Prefs = { showTokenSources: false };
+const DEFAULTS: Prefs = { showTokenSources: false, hud: "full" };
 
 function load(): Prefs {
   try {
