@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Run all automated checks: backend lint + tests, frontend typecheck + tests.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+echo "==> Backend: ruff"
+(cd "$ROOT/backend" && .venv/bin/ruff check .)
+echo "==> Backend: pytest"
+(cd "$ROOT/backend" && .venv/bin/pytest)
+echo "==> Frontend: typecheck"
+(cd "$ROOT/frontend" && npm run --silent typecheck)
+echo "==> Frontend: vitest"
+(cd "$ROOT/frontend" && npm run --silent test)

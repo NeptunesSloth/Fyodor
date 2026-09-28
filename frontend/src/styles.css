@@ -1,0 +1,10 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f1114;
+  --text: #e8e6e1;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { margin: 0; background: var(--bg); color: var(--text); }
+.page { padding: 24px; }
+.ok { color: #7fc98f; }
+.error { color: #e57373; }

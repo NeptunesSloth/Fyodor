@@ -1,0 +1,63 @@
+"""FastAPI application factory.
+
+Run from ``backend/`` with ``uvicorn --factory app.main:create_app``.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+from app import __version__
+from app.api import health
+from app.config import Settings, get_settings
+from app.logging_setup import configure_logging
+from app.services import Services
+
+log = logging.getLogger(__name__)
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or get_settings()
+    configure_logging(settings.log_level)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        log.info("Fyodor %s starting; data dir %s", __version__, settings.data_dir)
+        yield
+        app.state.services.close()
+
+    app = FastAPI(title="Fyodor MTG Tabletop", version=__version__, lifespan=lifespan)
+    app.state.services = Services(settings)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(settings.cors_origins),
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.include_router(health.router, prefix="/api")
+
+    _mount_frontend(app, settings)
+    return app
+
+
+def _mount_frontend(app: FastAPI, settings: Settings) -> None:
+    """Serve the built frontend (if present) so LAN clients only need http://HOST:PORT."""
+    dist = settings.frontend_dist
+    if dist is None:
+        return
+    index = dist / "index.html"
+    if (dist / "assets").is_dir():
+        app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+
+    @app.get("/", include_in_schema=False)
+    def spa_index() -> FileResponse:
+        return FileResponse(index)
+
