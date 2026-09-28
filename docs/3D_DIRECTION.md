@@ -134,7 +134,6 @@ format v1 → v2 migration only fills defaults).
 | `group` + `group` / `ungroup` | Temporary piles: dragging one member moves all of them |
 | `quantity` + `stack_adjust`, `split_stack`, `expand_stack`, `merge_tokens` | Logical token stacks ("Treasure ×17") |
 | `PlayerState.mana` + `add_mana`, `clear_mana` | Temporary mana pool (optionally emptied on step change) |
-| `GameState.reminders` + `add_reminder`, `dismiss_reminder` | Non-blocking reminders that fire at a step |
 | `macro` action | Runs a validated list of primitive steps as **one** undoable history entry |
 | `CardInstance.actions` | Per-instance custom macros. Per-card and personal macro libraries live in `app.sqlite`. |
 | `GameSettings.undo_policy` | everyone / own actions / host only |
@@ -164,7 +163,7 @@ geometry: position, rotation, tapped, attachments, counters.
    camera presets.
 4. **Overlays**: card toolbar, inspector (hold Space), private search overlay,
    screen-space hand (on/off/auto preference), history, command palette.
-5. **Stacks and attachments** in 3D, then macros, targeting, reminders, pings,
+5. **Stacks and attachments** in 3D, then macros, targeting, pings,
    picture-in-picture.
 6. When the 3D table covers every 2D feature, make it the default. The 2D view remains
    as a low-spec fallback.

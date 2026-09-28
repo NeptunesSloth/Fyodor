@@ -64,3 +64,14 @@ def test_v1_known_cards_are_not_remembered(cards):
     theirs = build_view(state, "p2")
     assert sol.id not in theirs["cards"]
     assert len(theirs["zones"]["p1:hand"]) == len(zone(state, "p1", "hand"))
+
+
+def test_history_with_a_retired_action_type_still_loads_the_table(cards):
+    s = make_session(cards)
+    act(s, "p1", type="draw", count=3)
+    payload = {"state": s.state.model_dump(mode="json"), "history": s.history.to_dict()}
+    payload["history"]["actions"].append({"type": "add_reminder", "text": "upkeep thing", "actor": "p1", "ts": 0})
+    payload["state"]["reminders"] = [{"id": "x", "owner": "p1", "text": "t", "when": "upkeep"}]
+    state, history = load_payload(payload)
+    assert history is None  # undo history is dropped, the table is intact
+    assert len(zone(state, "p1", "hand")) == 3

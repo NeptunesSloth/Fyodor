@@ -1,4 +1,4 @@
-"""Tabletop object behaviour: rotation, lock/protect, attachments, groups, stacks, mana, reminders."""
+"""Tabletop object behaviour: rotation, lock/protect, attachments, groups, stacks, mana."""
 
 from __future__ import annotations
 
@@ -108,28 +108,16 @@ def test_token_stacks(s):
     assert small_create.stacked is False  # small counts stay individual by default
 
 
-def test_mana_pool_empties_on_step_change(s):
+def test_mana_pool_is_manual_unless_the_table_opts_in(s):
     act(s, "p1", type="add_mana", mana={"C": 2, "G": 1})
     assert s.state.players["p1"].mana == {"C": 2, "G": 1}
     act(s, "p1", type="add_mana", mana={"C": -1})
     assert s.state.players["p1"].mana == {"C": 1, "G": 1}
     act(s, "p1", type="phase", to="next")
+    assert s.state.players["p1"].mana == {"C": 1, "G": 1}  # conservative default: nothing clears itself
+    act(s, "p1", type="clear_mana")
     assert s.state.players["p1"].mana == {}
-    act(s, "p1", type="configure", clear_mana_on_step=False)
+    act(s, "p1", type="configure", clear_mana_on_step=True)
     act(s, "p1", type="add_mana", mana={"R": 3})
     act(s, "p1", type="phase", to="next")
-    assert s.state.players["p1"].mana == {"R": 3}
-
-
-def test_reminders_fire_on_the_owners_step(s):
-    act(s, "p1", type="add_reminder", text="Sacrifice the token", when="end")
-    act(s, "p2", type="add_reminder", text="Remove a time counter", when="upkeep")
-    act(s, "p1", type="phase", to="end")
-    mine = next(r for r in s.state.reminders if r.owner == "p1")
-    theirs = next(r for r in s.state.reminders if r.owner == "p2")
-    assert mine.due and not theirs.due
-    act(s, "p1", type="next_turn")
-    act(s, "p2", type="phase", to="upkeep")
-    assert theirs.due
-    act(s, "p2", type="dismiss_reminder", reminder_id=theirs.id)
-    assert theirs.id not in {r.id for r in s.state.reminders}
+    assert s.state.players["p1"].mana == {}

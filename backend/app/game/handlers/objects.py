@@ -1,5 +1,5 @@
 """Tabletop object behaviour: rotation, lock/protect, attachments, groups, token stacks,
-mana pools, reminders and table settings."""
+mana pools and table settings."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
 from app.game.ops import group, log, pname, text
-from app.game.state import CardInstance, GameState, Reminder
+from app.game.state import CardInstance, GameState
 
 MANA_ORDER = "WUBRGCS"
 
@@ -231,38 +231,6 @@ def clear_mana(state: GameState, a: A.ClearMana) -> None:
 def empty_mana_pools(state: GameState) -> None:
     for p in state.players.values():
         p.mana = {}
-
-
-# ---------------------------------------------------------------------------- reminders
-
-
-def add_reminder(state: GameState, a: A.AddReminder) -> None:
-    if a.r is None or not a.r.ids:
-        raise ActionError("unresolved reminder")
-    if a.card_id:
-        ops.card(state, a.card_id)
-    state.reminders.append(
-        Reminder(id=a.r.ids[0], owner=a.actor, text=a.text, when=a.when, own_turn_only=a.own_turn_only,
-                 card_id=a.card_id, created_seq=state.seq)
-    )
-    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" set a reminder ({a.when.replace('_', ' ')}): {a.text}")], kind="minor")
-
-
-def dismiss_reminder(state: GameState, a: A.DismissReminder) -> None:
-    before = len(state.reminders)
-    state.reminders = [r for r in state.reminders if r.id != a.reminder_id]
-    if len(state.reminders) == before:
-        raise ActionError("No such reminder")
-
-
-def fire_reminders(state: GameState, when: str, ts: float) -> None:
-    for r in state.reminders:
-        if r.due or r.when != when or r.created_seq >= state.seq:
-            continue
-        if r.own_turn_only and state.turn.active_player != r.owner:
-            continue
-        r.due = True
-        log(state, r.owner, ts, [text("⏰ Reminder for "), pname(state, r.owner), text(f": {r.text}")], kind="reminder")
 
 
 # ---------------------------------------------------------------------------- settings

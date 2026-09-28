@@ -222,26 +222,12 @@ class GameSettings(BaseModel):
     starting_life: int = 40
     auto_untap: bool = True  # "next turn" untaps the new active player's permanents
     auto_commander_tax: bool = True  # moving a commander from the command zone to the stack adds {2}
-    clear_mana_on_step: bool = True  # empty mana pools when the step/phase changes
+    clear_mana_on_step: bool = False  # optional: empty mana pools when the step/phase changes
     undo_policy: Literal["everyone", "own", "host"] = "everyone"
     # What opponents learn about a player's deck: nothing, the commander(s) and deck name, or the list.
     deck_privacy: Literal["private", "commander_only", "public"] = "commander_only"
     priority_helper: Literal["off", "simple"] = "off"
     mulligan: MulliganPolicy | None = None  # None: mulligans are done by hand (sandbox)
-
-
-REMINDER_TIMES = ("upkeep", "draw", "main1", "begin_combat", "end", "cleanup", "next_turn")
-
-
-class Reminder(BaseModel):
-    id: str
-    owner: str
-    text: str
-    when: Literal["upkeep", "draw", "main1", "begin_combat", "end", "cleanup", "next_turn"]
-    own_turn_only: bool = True  # "at the beginning of *your* next upkeep"
-    card_id: str | None = None
-    created_seq: int = 0
-    due: bool = False  # the step has been reached; shown until dismissed
 
 
 class LogPart(BaseModel):
@@ -285,7 +271,6 @@ class GameState(BaseModel):
     views: list[ViewContext] = Field(default_factory=list)
     # Secret per-game key that orders anonymous hidden cards in opponents' views; never sent to clients.
     hidden_salt: str = ""
-    reminders: list[Reminder] = Field(default_factory=list)
     pregame: Pregame | None = None
     log: list[LogEntry] = Field(default_factory=list)
 

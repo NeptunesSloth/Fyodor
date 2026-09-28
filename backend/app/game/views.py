@@ -228,7 +228,6 @@ def build_view(
         # Who is searching what is public ("X is searching their library"); contents are not.
         "searches": {v.viewer: v.zone for v in state.views if v.kind == "search"},
         "my_views": [v.model_dump() for v in state.views if v.viewer == viewer],
-        "reminders": [r.model_dump() for r in state.reminders],
         # Public: who is still deciding, mulligan counts, how many cards someone must bottom.
         "pregame": state.pregame.model_dump() if state.pregame and not state.pregame.finished else None,
         "cards": cards,

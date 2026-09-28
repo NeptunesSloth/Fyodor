@@ -559,25 +559,6 @@ class ClearMana(Base):
     player: Id | None = None
 
 
-class AddReminder(Base):
-    type: Literal["add_reminder"] = "add_reminder"
-    text: str = Field(min_length=1, max_length=300)
-    when: Literal["upkeep", "draw", "main1", "begin_combat", "end", "cleanup", "next_turn"] = "upkeep"
-    own_turn_only: bool = True
-    card_id: Id | None = None
-    r: NewIds | None = None
-
-    @field_validator("text")
-    @classmethod
-    def _clean(cls, v: str) -> str:
-        return clean_text(v, 300)
-
-
-class DismissReminder(Base):
-    type: Literal["dismiss_reminder"] = "dismiss_reminder"
-    reminder_id: Id
-
-
 class Configure(Base):
     """Table settings (host-only in LAN games; enforced by the API layer)."""
 
@@ -653,8 +634,6 @@ Action = Annotated[
     | MergeTokens
     | AddMana
     | ClearMana
-    | AddReminder
-    | DismissReminder
     | Configure,
     Field(discriminator="type"),
 ]

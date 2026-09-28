@@ -94,7 +94,7 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
     elif isinstance(a, A.CopyCard | A.CreateAbility):
         count = a.count if isinstance(a, A.CopyCard) else 1
         a.r = A.NewIds(ids=[new_id() for _ in range(count)])
-    elif isinstance(a, A.Group | A.SplitStack | A.AddReminder):
+    elif isinstance(a, A.Group | A.SplitStack):
         a.r = A.NewIds(ids=[new_id()])
     elif isinstance(a, A.ExpandStack):
         card = state.cards.get(a.card_id)

@@ -50,7 +50,7 @@ Items in *italics* existed before this round of work.
 | Custom card actions | Lua | Right-click → **Add custom action**. Save it to this instance, every copy of the card, or the personal library. | macros | ⬜ |
 | Visual targeting | — | Target mode: candidates highlight, click, and a temporary arrow is drawn and logged. `Esc` cancels. Legality isn't enforced. | 3D picking | ⬜ |
 | Combat helpers | Manual | *Attack/block markers and blocker arrows.* In 3D, attackers slide forward. | — | 🟡 |
-| Reminders | Sticky notes | Add a reminder for the next upkeep / draw / combat / end step / next turn. It's shown when that step is reached and never auto-executes. | engine | ⬜ |
+| ~~Reminders~~ | Sticky notes | **Not building.** Our pod plays without trigger/upkeep reminders: a missed trigger is missed. Card notes cover "remember this". | — | ✖ |
 | Card notes | Object descriptions | *Per-instance notes with a note icon* | — | ✅ |
 | Pings | Pointer arrow | `Alt`+click pings a spot or card for everyone for 3 seconds. Nobody's camera moves. | WS event | ⬜ |
 | Picture-in-picture | — | Pinnable live mini-views of another area (opponent battlefield, stack) | camera | ⬜ planned (the camera module has hooks for secondary views) |

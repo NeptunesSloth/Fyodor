@@ -77,8 +77,6 @@ HANDLERS: dict[str, Handler] = {
     "merge_tokens": objects.merge_tokens,
     "add_mana": objects.add_mana,
     "clear_mana": objects.clear_mana,
-    "add_reminder": objects.add_reminder,
-    "dismiss_reminder": objects.dismiss_reminder,
     "configure": objects.configure,
 }
 

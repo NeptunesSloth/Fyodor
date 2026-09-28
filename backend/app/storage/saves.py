@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 import time
 import uuid
 from typing import Any
 
+from app.game.errors import ActionError
 from app.game.history import History
 from app.game.state import GameState
 from app.storage.db import transaction
 from app.storage.save_format import SAVE_FORMAT, SAVE_VERSION, SaveFormatError, decode, encode
+
+log = logging.getLogger(__name__)
 
 
 class SaveNotFound(LookupError):
@@ -115,19 +119,23 @@ class SaveRepository:
 def load_payload(payload: dict[str, Any], *, history_limit: int = 500) -> tuple[GameState, History | None]:
     try:
         state = GameState.model_validate(payload["state"])
-        history = History.from_dict(payload["history"], limit=history_limit) if payload.get("history") else None
     except (KeyError, ValueError) as exc:
         raise SaveFormatError(f"Save contents are invalid: {exc}") from exc
-    if history is not None:
-        replayed = history.state_at(history.cursor)
-        if replayed.model_dump(mode="json") != state.model_dump(mode="json"):
-            if payload.get("migrated_from") and _core(replayed) == _core(state):
-                # An upgraded save: the replay applies today's rules for bookkeeping fields
-                # (e.g. view contexts) but the table itself is identical, so keep the history.
-                state = replayed
-            else:
-                # History and snapshot disagree (should never happen); trust the snapshot.
-                history = None
+    try:
+        history = History.from_dict(payload["history"], limit=history_limit) if payload.get("history") else None
+        replayed = history.state_at(history.cursor) if history is not None else None
+    except (KeyError, ValueError, ActionError) as exc:
+        # e.g. an action type that no longer exists: the table loads, only undo history is lost.
+        log.warning("Dropping unreadable undo history from a save: %s", exc)
+        history = replayed = None
+    if history is not None and replayed is not None and replayed.model_dump(mode="json") != state.model_dump(mode="json"):
+        if payload.get("migrated_from") and _core(replayed) == _core(state):
+            # An upgraded save: the replay applies today's rules for bookkeeping fields
+            # (e.g. view contexts) but the table itself is identical, so keep the history.
+            state = replayed
+        else:
+            # History and snapshot disagree (should never happen); trust the snapshot.
+            history = None
     return state, history
 
 

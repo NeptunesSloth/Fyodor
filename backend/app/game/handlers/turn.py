@@ -55,7 +55,6 @@ def phase(state: GameState, a: A.Phase) -> None:
     if state.settings.clear_mana_on_step:
         objects.empty_mana_pools(state)
     log(state, a.actor, a.ts, [text(f"— {PHASE_LABELS[new_phase]} —")], kind="phase")
-    objects.fire_reminders(state, new_phase, a.ts)
 
 
 def next_turn(state: GameState, a: A.NextTurn) -> None:
@@ -76,7 +75,6 @@ def next_turn(state: GameState, a: A.NextTurn) -> None:
         if n:
             parts.append(text(f" untapped {n} permanent{'s' if n != 1 else ''}"))
     log(state, a.actor, a.ts, parts, kind="turn")
-    objects.fire_reminders(state, "next_turn", a.ts)
 
 
 def attack(state: GameState, a: A.Attack) -> None:
