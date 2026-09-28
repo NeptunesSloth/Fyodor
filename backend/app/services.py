@@ -17,6 +17,7 @@ from app.decks.repository import DeckRepository
 from app.jobs import JobManager
 from app.multiplayer.hub import GameHub, Room
 from app.rules import RulesRegistry
+from app.stats.repository import PodStats
 from app.storage.app_db import open_app_db
 from app.storage.saves import SaveRepository
 
@@ -33,6 +34,7 @@ class Services:
         self.images = ImageStore(settings.images_dir)
         self.cards = CardRepository(settings.cards_db_path, self.images)
         self.saves = SaveRepository(self.app_db, self.app_db_lock)
+        self.stats = PodStats(self.app_db, self.app_db_lock)
         self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every)
         self.jobs = JobManager()
         self.source_cache: dict[str, tuple[float, Any]] = {}

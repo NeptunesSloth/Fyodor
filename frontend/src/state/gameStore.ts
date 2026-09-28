@@ -40,7 +40,7 @@ interface GameStore {
   hover: string | null;
   inspect: string | null;
   browser: BrowserState | null;
-  dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host";
+  dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host" | "endgame";
   dialogArg: string | null;
   pendingPositions: Record<string, [number, number]>;
 

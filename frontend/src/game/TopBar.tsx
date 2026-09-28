@@ -68,6 +68,11 @@ export function TopBar() {
       <button className="btn small" disabled={!view.game.can_undo} onClick={() => void undo()} title="Undo (Ctrl+Z)">↶ Undo</button>
       <button className="btn small" disabled={!view.game.can_redo} onClick={() => void redo()} title="Redo (Ctrl+Shift+Z)">↷</button>
       <button className="btn small" onClick={() => openDialog("save")} title="Save game">Save</button>
+      {isHost && (
+        <button className="btn small" data-testid="end-game" onClick={() => openDialog("endgame")} title="Record who won">
+          {view.game.result_id ? "Result ✓" : "End game"}
+        </button>
+      )}
       {local && (
         <label className="seat-switch" title="Hot-seat: whose view to show">
           View
@@ -101,7 +106,15 @@ function tableMenu(isHost: boolean): MenuItem[] {
   return [
     { label: "Resync my view", hint: "Fetch a fresh copy of the table from the host", onClick: () => s.conn?.resync() },
     { label: "Verify sync", hint: "Debug: compare this screen with the host's state", onClick: () => void verifySync() },
-    ...(isHost ? (["separator", { label: "Host tools…", onClick: () => s.openDialog("host") }] as MenuItem[]) : []),
+    ...(isHost
+      ? ([
+          "separator",
+          { label: s.view?.game.result_id ? "Game result…" : "End game…", onClick: () => s.openDialog("endgame") },
+          { label: "Host tools…", onClick: () => s.openDialog("host") },
+        ] as MenuItem[])
+      : []),
+    "separator",
+    { label: "Pod stats", onClick: () => window.open("#/stats", "_blank") },
   ];
 }
 

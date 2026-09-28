@@ -180,6 +180,8 @@ export interface GameMeta {
   mode: "local" | "lan";
   code: string | null;
   seats: Record<string, { claimed: boolean; connected: boolean; presence?: "open" | "connected" | "reconnecting" | "disconnected" }>;
+  /** Set once the pod result for this game has been recorded. */
+  result_id?: string | null;
   /** Authoritative revision: grows with every update the server sends. */
   revision?: number;
   /** LAN: the host's seat (table-level overrides are the host's). */

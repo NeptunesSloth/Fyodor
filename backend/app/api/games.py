@@ -38,6 +38,7 @@ from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room
 from app.multiplayer.lobby import DeckTooLarge, LobbySeatInfo, LobbySettings, SubmittedDeck, check_bounds
 from app.services import Services
+from app.stats.repository import DuplicateResult, Participant, ResultError, deck_key_for
 from app.storage.save_format import SaveFormatError
 from app.storage.saves import SaveNotFound
 from app.textutil import clean_text
@@ -220,6 +221,8 @@ def _create_lobby(services: Services, body: CreateGameIn) -> dict[str, Any]:
 def _create_room(services: Services, session: GameSession, mode: str, password: str | None,
                  host_seat: str | None) -> dict[str, Any]:
     room = services.hub.create_room(session, mode=mode, password=password)  # type: ignore[arg-type]
+    recorded = services.stats.for_game(room.id)
+    room.result_id = recorded["id"] if recorded else None
     result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
     if mode == "lan" and host_seat:
         viewer, token = services.hub.claim_seat(room, name=None, seat=host_seat if host_seat in room.seats else None)
@@ -887,6 +890,56 @@ async def start_game(
         services.autosave(room)
     await services.hub.broadcast(room)
     return {"game": room.summary(), "seats": {pid: pid for pid in room.seats}}
+
+
+# --------------------------------------------------------------------------- game result
+
+
+class ResultIn(BaseModel):
+    result_type: Literal["single", "multiple", "draw", "no_result"]
+    winners: list[str] = Field(default_factory=list, max_length=6)  # seats
+    notes: str = Field(default="", max_length=500)
+    names: dict[str, str] = Field(default_factory=dict)  # optional seat -> pod player name override
+
+    @field_validator("notes")
+    @classmethod
+    def _clean_notes(cls, v: str) -> str:
+        return clean_text(v, 500, multiline=True)
+
+
+@router.get("/games/{game_id}/result")
+def game_result(game_id: str, services: ServicesDep) -> dict[str, Any] | None:
+    return services.stats.for_game(game_id)
+
+
+@router.post("/games/{game_id}/result", status_code=201)
+async def record_result(game_id: str, body: ResultIn, request: Request, services: ServicesDep,
+                        x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """End the game: the host records who won. Nothing is ever decided automatically."""
+    room = _host_room(services, game_id, request, x_seat_token)
+    state = room.session.state
+    participants = []
+    for pid in state.seat_order:
+        p = state.players[pid]
+        commanders = sorted({c.name for c in state.cards.values() if c.commander_key and c.owner == pid})
+        name = clean_text(body.names.get(pid, ""), 40) or p.name
+        participants.append(Participant(seat=pid, name=name, deck_key=deck_key_for(p.deck_id, p.deck_name, commanders),
+                                        deck_name=p.deck_name, commanders=commanders))
+    try:
+        result = services.stats.record(
+            game_id=room.id, result_type=body.result_type, participants=participants, winners=body.winners,
+            table_name=state.name, format=state.format, started_at=state.created_at, turns=state.turn.number,
+            notes=body.notes)
+    except DuplicateResult as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ResultError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    room.result_id = result["id"]
+    what = {"single": f"{', '.join(result['winners'])} won", "multiple": f"{' and '.join(result['winners'])} won",
+            "draw": "a draw", "no_result": "no result (not counted)"}[body.result_type]
+    room.session.notice(f"Game over — {what}. Result recorded.")
+    await services.hub.broadcast(room)
+    return result
 
 
 # --------------------------------------------------------------------------- host tools

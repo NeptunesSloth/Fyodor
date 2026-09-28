@@ -70,6 +70,39 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX macros_oracle ON macros(oracle_id);
     """,
+    # 5: pod win tracker. Recorded results are the source of truth; stats are always recomputed.
+    """
+    CREATE TABLE pod_players (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        name_key TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE game_results (
+        id TEXT PRIMARY KEY,
+        game_id TEXT NOT NULL UNIQUE,
+        result_type TEXT NOT NULL CHECK (result_type IN ('single', 'multiple', 'draw', 'no_result')),
+        table_name TEXT NOT NULL DEFAULT '',
+        format TEXT NOT NULL DEFAULT '',
+        started_at TEXT,
+        recorded_at TEXT NOT NULL,
+        duration_seconds INTEGER,
+        turns INTEGER,
+        notes TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE game_result_players (
+        result_id TEXT NOT NULL REFERENCES game_results(id) ON DELETE CASCADE,
+        seat TEXT NOT NULL,
+        player_id TEXT NOT NULL REFERENCES pod_players(id),
+        player_name TEXT NOT NULL,
+        deck_key TEXT,
+        deck_name TEXT,
+        commanders TEXT NOT NULL DEFAULT '[]',
+        outcome TEXT NOT NULL CHECK (outcome IN ('win', 'loss', 'draw', 'none')),
+        PRIMARY KEY (result_id, seat)
+    );
+    CREATE INDEX grp_player ON game_result_players(player_id);
+    """,
 ]
 
 

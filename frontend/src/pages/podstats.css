@@ -1,0 +1,43 @@
+/* Pod stats: a ledger kept at the card-room table, not an analytics dashboard. */
+.pod-stats { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; color: var(--room-bone); }
+.pod-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.pod-head h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 0.03em; }
+.pod-head .spacer, .pod-game .spacer { flex: 1; }
+.pod-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 800px) { .pod-grid { grid-template-columns: 1fr; } }
+.pod-panel {
+  background: linear-gradient(#1c1e22, #17181b); border: 1px solid var(--room-edge); border-radius: var(--room-radius);
+  padding: 14px 16px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+.pod-panel h2 { font-size: 16px; font-weight: 600; margin: 0 0 10px; letter-spacing: 0.02em; }
+.pod-panel h3 { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--room-bone-dim); margin: 14px 0 6px; font-weight: 600; }
+.pod-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.pod-table th {
+  text-align: right; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--room-bone-dim);
+  font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--room-edge);
+}
+.pod-table td { text-align: right; padding: 7px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.pod-table th:first-child, .pod-table td.name { text-align: left; }
+.pod-table td.name { font-weight: 600; }
+.pod-table tbody tr { cursor: pointer; }
+.pod-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+.pod-table tbody tr.on { background: rgba(179, 148, 88, 0.12); }
+.pod-table.small td { padding: 5px 8px; font-size: 13px; }
+.pod-line { margin: 0; }
+.pod-recent { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.pod-recent li { display: grid; grid-template-columns: 110px 1fr auto; gap: 10px; }
+.outcome { font-size: 11.5px; letter-spacing: 0.1em; }
+.outcome.win { color: var(--room-brass-hi); }
+.outcome.loss { color: var(--room-bone-dim); }
+.pod-game { border-top: 1px solid var(--room-edge); padding: 10px 0; }
+.pod-game:first-of-type { border-top: 0; }
+.pod-game header { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.pod-seats { list-style: none; margin: 6px 0; padding: 0; columns: 2 240px; font-size: 13.5px; }
+.pod-seats li.win { color: var(--room-brass-hi); font-weight: 600; }
+.pod-winner { margin: 2px 0; }
+.pod-note { margin: 2px 0; font-style: italic; }
+.pod-game.no_result { opacity: 0.65; }
+.result-form { display: flex; flex-direction: column; gap: 10px; }
+.result-types { display: flex; gap: 2px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.winner-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.result-summary h3 { margin: 0 0 6px; }

@@ -95,6 +95,7 @@ class Room:
     actions_since_save: int = 0
     created_at: float = field(default_factory=time.time)
     revision: int = 0  # bumped on every authoritative update sent to clients
+    result_id: str | None = None  # the recorded pod result for this game, if any
     @property
     def id(self) -> str:
         return self.game_id
@@ -449,6 +450,7 @@ class GameHub:
             "seats": {pid: s.public() for pid, s in room.seats.items()},
             "host_seat": room.host_seat,
             "revision": room.revision,
+            "result_id": room.result_id,
         }
         return room.session.view(viewer, meta=meta)
 

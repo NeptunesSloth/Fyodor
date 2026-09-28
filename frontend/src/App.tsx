@@ -8,11 +8,13 @@ import { DeckLibrary } from "./pages/DeckLibrary";
 import { GamePage } from "./pages/GamePage";
 import { Home } from "./pages/Home";
 import { PlayPage } from "./pages/PlayPage";
+import { PodStatsPage } from "./pages/PodStatsPage";
 
 const NAV = [
   { href: "#/play", label: "Play", key: "play" },
   { href: "#/decks", label: "Decks", key: "decks" },
   { href: "#/cards", label: "Cards", key: "cards" },
+  { href: "#/stats", label: "Pod stats", key: "stats" },
 ];
 
 export function App() {
@@ -40,6 +42,9 @@ export function App() {
       break;
     case "play":
       page = <PlayPage route={route} />;
+      break;
+    case "stats":
+      page = <PodStatsPage />;
       break;
     default:
       page = <Home />;
