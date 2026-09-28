@@ -6,8 +6,8 @@ from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
 from app.game.ops import group, log, pname, text
-from app.game.state import ALL, STACK, CardInstance, CopyInfo, GameState, TokenDef, zone_key
-from app.game.visibility import seers
+from app.game.state import STACK, CardInstance, CopyInfo, GameState, TokenDef, zone_key
+from app.game.visibility import publicly_visible, seers
 
 
 def _on_battlefield(c: CardInstance) -> bool:
@@ -109,7 +109,6 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
             tapped=a.tapped,
             is_token=True,
             token=spec.model_copy(),
-            known_to=[ALL],
             quantity=a.count if stacked else 1,
         )
         state.cards[new_id] = c
@@ -124,7 +123,7 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
     src = ops.card(state, a.card_id)
     if a.r is None or len(a.r.ids) != a.count:
         raise ActionError("unresolved copy")
-    if ops.zone_name(src.zone) not in ("battlefield", STACK) and ALL not in seers(state, src):
+    if ops.zone_name(src.zone) not in ("battlefield", STACK) and not publicly_visible(state, src):
         raise ActionError("Only public objects can be copied")
     pid = ops.player(state, a.player, a.actor)
     on_stack = src.zone == STACK
@@ -146,7 +145,6 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
             token=src.token.model_copy() if src.token else None,
             ability=src.ability.model_copy() if src.ability else None,
             copy_of=CopyInfo(source_id=src.id, source_name=src.name, modifications=a.modifications),
-            known_to=[ALL],
             quantity=1,
         )
         state.cards[new_id] = c
@@ -195,13 +193,9 @@ def face_down(state: GameState, a: A.FaceDown) -> None:
         if new == c.face_down:
             continue
         c.face_down = new
-        if new:
-            # Everyone who saw it face up still knows what it is.
-            who = before[c.id] | {c.controller}
-            c.known_to = [ALL] if ALL in who else sorted(set(c.known_to) | who)
-            turned_down.append(c)
-        else:
-            turned_up.append(c)
+        # A face-down card is anonymous to everyone but its controller from now on.
+        c.revealed_to = []
+        (turned_down if new else turned_up).append(c)
     if turned_down:
         log(state, a.actor, a.ts, [pname(state, a.actor), text(" turned "), group(state, turned_down, before), text(" face down")])
     if turned_up:
@@ -241,8 +235,6 @@ def set_commander(state: GameState, a: A.SetCommander) -> None:
         if not c.commander_key:
             c.commander_key = f"cmd-{c.owner}-{len([x for x in state.cards.values() if x.commander_key]) + 1}"
             state.players[c.owner].commander_tax.setdefault(c.commander_key, 0)
-        # commanders are public knowledge
-        c.known_to = [ALL]
         log(state, a.actor, a.ts, [pname(state, c.owner), text(" designated "), ops.card_part(state, c), text(" as a commander")])
     else:
         if c.commander_key:

@@ -25,6 +25,7 @@ HANDLERS: dict[str, Handler] = {
     "reveal_top": zones.reveal_top,
     "search_start": zones.search_start,
     "search_end": zones.search_end,
+    "end_view": zones.end_view,
     "tap": cards.tap,
     "untap_all": cards.untap_all,
     "counter": cards.counter,

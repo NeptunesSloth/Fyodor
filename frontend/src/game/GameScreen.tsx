@@ -121,6 +121,7 @@ function useShortcuts() {
         case "escape":
           s.clearSelection();
           s.openBrowser(null);
+          if (view.my_views?.some((v) => v.kind === "look")) void send({ type: "end_view" });
           break;
         case "?":
           s.openDialog("help");

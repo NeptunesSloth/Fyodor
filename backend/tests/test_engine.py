@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from app.game.errors import ActionError
 from app.game.state import ALL, STACK
+from app.game.visibility import can_see
 from tests.game_helpers import act, find, make_session, zone
 
 
@@ -21,7 +22,7 @@ def test_new_game_layout(s):
     assert len(zone(st, "p1", "command")) == 1
     assert len(zone(st, "p1", "sideboard")) == 1
     krenko = find(st, "Krenko, Mob Boss")
-    assert krenko.commander_key and krenko.known_to == [ALL]
+    assert krenko.commander_key and krenko.protected
     assert st.players["p1"].commander_tax == {krenko.commander_key: 0}
 
 
@@ -234,11 +235,11 @@ def test_mulligan(s):
 def test_mill_reveal_look(s):
     top3 = zone(s.state, "p2", "library")[:3]
     act(s, "p1", type="look_top", player="p2", count=2)
-    assert all("p1" in s.state.cards[c].known_to for c in top3[:2])
+    assert [(v.viewer, v.kind, v.card_ids) for v in s.state.views] == [("p1", "look", top3[:2])]
     act(s, "p2", type="mill", count=3)
     assert zone(s.state, "p2", "graveyard") == top3
     act(s, "p2", type="reveal_top")
-    assert s.state.cards[zone(s.state, "p2", "library")[0]].revealed
+    assert s.state.cards[zone(s.state, "p2", "library")[0]].revealed_to == [ALL]
 
 
 def test_stack_resolution(s):
@@ -292,14 +293,15 @@ def test_face_down_and_faces(s):
     act(s, "p1", type="draw", count=15)
     delver = find(s.state, "Delver of Secrets // Insectile Aberration")
     act(s, "p1", type="move", card_ids=[delver.id], to={"zone": "battlefield"}, face_down=True)
-    assert delver.face_down and delver.known_to == ["p1"]
+    assert delver.face_down and can_see(s.state, delver, "p1") and not can_see(s.state, delver, "p2")
     act(s, "p1", type="face_down", card_ids=[delver.id], face_down=False)
     act(s, "p1", type="set_face", card_id=delver.id)
     assert delver.face == 1
     act(s, "p1", type="set_face", card_id=delver.id)
     assert delver.face == 0
     act(s, "p1", type="face_down", card_ids=[delver.id])
-    assert delver.face_down and delver.known_to == [ALL]  # everyone saw it face up
+    # no memory: once face down it is anonymous to opponents, even though they saw it a moment ago
+    assert delver.face_down and not can_see(s.state, delver, "p2")
 
 
 def test_notes_and_control(s):

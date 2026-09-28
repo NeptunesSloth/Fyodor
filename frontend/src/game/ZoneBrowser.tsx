@@ -47,6 +47,8 @@ export function ZoneBrowser({ me }: { me: string }) {
 
   const close = (shuffle?: boolean) => {
     if (searching) void send({ type: "search_end", shuffle: !!shuffle });
+    // Closing a "look at the top N" view hides those cards again (nothing is remembered).
+    else if (view.my_views?.some((v) => v.kind === "look" && v.zone === zoneKey)) void send({ type: "end_view" });
     useGame.getState().openBrowser(null);
     setFilter("");
   };

@@ -7,7 +7,7 @@ from app.game import ops
 from app.game.errors import ActionError
 from app.game.handlers import objects
 from app.game.ops import group, log, pname, text, zone_label
-from app.game.state import ALL, STACK, CardInstance, GameState, split_zone, zone_key
+from app.game.state import ALL, STACK, CardInstance, GameState, ViewContext, split_zone, zone_key
 from app.game.visibility import seers
 
 OWNER_DEFAULT_ZONES = {"library", "hand", "graveyard", "exile", "command", "sideboard", "companion", "foretell"}
@@ -157,11 +157,12 @@ def rekey_zone(state: GameState, key: str, perm: list[int], new_ids: list[str]) 
         del state.cards[c.id]
     for c, new_id in zip(reordered, new_ids, strict=True):
         c.id = new_id
-        c.known_to = []
-        c.revealed = False
+        c.revealed_to = []
         c.face_down = False
         state.cards[new_id] = c
     state.zones[key] = list(new_ids)
+    # Shuffling invalidates every positional view of the zone.
+    state.views = [v for v in state.views if v.zone != key]
     for other in state.cards.values():
         if other.copy_of and other.copy_of.source_id in renamed:
             other.copy_of.source_id = renamed[other.copy_of.source_id]
@@ -173,7 +174,6 @@ def shuffle(state: GameState, a: A.Shuffle) -> None:
         raise ActionError("unresolved shuffle")
     key = zone_key(pid, a.zone)
     rekey_zone(state, key, a.r.perm, a.r.new_ids)
-    state.searches = {v: z for v, z in state.searches.items() if z != key}
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" shuffled {zone_label(state, key, a.actor)}")])
 
 
@@ -219,27 +219,34 @@ def reveal(state: GameState, a: A.Reveal) -> None:
     before = {c.id: seers(state, c) for c in targets}
     for c in targets:
         if a.to is None:
-            c.revealed = True
-            c.known_to = [ALL]
-        elif ALL not in c.known_to:
-            c.known_to = sorted(set(c.known_to) | set(a.to))
+            c.revealed_to = [ALL]
+        elif ALL not in c.revealed_to:
+            c.revealed_to = sorted(set(c.revealed_to) | set(a.to))
     audience = "everyone" if a.to is None else ", ".join(state.players[p].name for p in a.to)
     extra = {c.id: before[c.id] | ({ALL} if a.to is None else set(a.to)) for c in targets}
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" revealed "), group(state, targets, extra), text(f" to {audience}")])
 
 
 def hide(state: GameState, a: A.Hide) -> None:
-    for c in ops.cards(state, a.card_ids):
-        c.revealed = False
+    """End a reveal: the cards become anonymous again for everyone who can't normally see them."""
+    targets = ops.cards(state, a.card_ids)
+    for c in targets:
+        c.revealed_to = []
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" stopped revealing {len(targets)} card{'s' if len(targets) != 1 else ''}")],
+        kind="minor")
+
+
+def _open_view(state: GameState, viewer: str, zone: str, kind: str, card_ids: list[str], view_id: str) -> None:
+    state.views = [v for v in state.views if not (v.viewer == viewer and v.zone == zone)]
+    state.views.append(ViewContext(id=view_id, viewer=viewer, zone=zone, kind=kind, card_ids=card_ids))  # type: ignore[arg-type]
 
 
 def look_top(state: GameState, a: A.LookTop) -> None:
+    """Privately look at the top N cards. Only the looker sees them, until the view is closed."""
     pid = ops.player(state, a.player, a.actor)
     key = zone_key(pid, "library")
-    top = [state.cards[cid] for cid in state.zone(key)[: a.count]]
-    for c in top:
-        if ALL not in c.known_to and a.actor not in c.known_to:
-            c.known_to = sorted({*c.known_to, a.actor})
+    top = state.zone(key)[: a.count]
+    _open_view(state, a.actor, key, "look", list(top), f"look-{state.seq}")
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" looked at the top {len(top)} of {zone_label(state, key, a.actor)}")])
 
 
@@ -248,8 +255,7 @@ def reveal_top(state: GameState, a: A.RevealTop) -> None:
     key = zone_key(pid, "library")
     top = [state.cards[cid] for cid in state.zone(key)[: a.count]]
     for c in top:
-        c.revealed = True
-        c.known_to = [ALL]
+        c.revealed_to = [ALL]
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" revealed the top of {zone_label(state, key, a.actor)}: "), group(state, top)])
 
 
@@ -257,19 +263,23 @@ def search_start(state: GameState, a: A.SearchStart) -> None:
     if a.zone.zone == STACK:
         raise ActionError("The stack is public")
     key = zone_key(ops.player(state, a.zone.player, a.actor), a.zone.zone)
-    state.searches[a.actor] = key
+    _open_view(state, a.actor, key, "search", [], f"search-{state.seq}")
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" is searching {zone_label(state, key, a.actor)}")])
 
 
+def end_view(state: GameState, a: A.EndView) -> None:
+    """Close the actor's private "look" views; the cards are hidden again."""
+    closing = [v for v in state.views if v.viewer == a.actor and v.kind == "look" and (a.zone is None or v.zone.endswith(":" + a.zone))]
+    if not closing:
+        raise ActionError("You are not looking at anything")
+    state.views = [v for v in state.views if v not in closing]
+
+
 def search_end(state: GameState, a: A.SearchEnd) -> None:
-    key = state.searches.pop(a.actor, None)
+    key = state.searching(a.actor)
     if key is None:
         raise ActionError("You are not searching anything")
-    # The searcher remembers what they saw (until the zone is shuffled).
-    for cid in state.zone(key):
-        c = state.cards[cid]
-        if ALL not in c.known_to and a.actor not in c.known_to:
-            c.known_to = sorted({*c.known_to, a.actor})
+    state.views = [v for v in state.views if not (v.viewer == a.actor and v.kind == "search")]
     parts = [pname(state, a.actor), text(f" finished searching {zone_label(state, key, a.actor)}")]
     if a.shuffle and a.r is not None:
         rekey_zone(state, key, a.r.perm, a.r.new_ids)

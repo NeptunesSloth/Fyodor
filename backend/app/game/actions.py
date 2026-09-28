@@ -133,6 +133,13 @@ class SearchStart(Base):
     zone: ZoneRef
 
 
+class EndView(Base):
+    """Stop looking at privately viewed cards (e.g. after "look at the top N")."""
+
+    type: Literal["end_view"] = "end_view"
+    zone: Literal["library", "hand", "graveyard", "exile", "sideboard", "foretell"] | None = None
+
+
 class SearchEnd(Base):
     type: Literal["search_end"] = "search_end"
     shuffle: bool = False
@@ -563,6 +570,7 @@ Action = Annotated[
     | RevealTop
     | SearchStart
     | SearchEnd
+    | EndView
     | Tap
     | UntapAll
     | Counter

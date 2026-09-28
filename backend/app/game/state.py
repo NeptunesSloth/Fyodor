@@ -15,7 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-ALL = "*"  # marker in ``known_to`` meaning "every player"
+ALL = "*"  # marker in ``revealed_to`` meaning "every player"
 
 PLAYER_ZONES = ("library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell")
 PUBLIC_ZONES = frozenset({"battlefield", "graveyard", "exile", "command", "companion", "stack"})
@@ -114,8 +114,10 @@ class CardInstance(BaseModel):
     ability: AbilityDef | None = None
     commander_key: str | None = None
     categories: list[str] = Field(default_factory=list)  # deck-builder categories; only ever shown to the owner
-    known_to: list[str] = Field(default_factory=list)  # players who know this card while hidden (or ALL)
-    revealed: bool = False  # temporarily shown to everyone while in a hidden zone
+    # Active reveal: who may currently see this card although its zone hides it ([ALL] = everyone).
+    # Reveals are temporary: they end on "stop revealing", when the card changes zones, or on shuffle.
+    # There is deliberately no memory of who saw a card earlier (see docs/SECURITY.md).
+    revealed_to: list[str] = Field(default_factory=list)
     attacking: AttackTarget | None = None
     blocking: str | None = None  # attacker instance id
     # --- tabletop object behaviour (see docs/3D_DIRECTION.md §5) ---
@@ -162,6 +164,20 @@ class TableState(BaseModel):
     monarch: str | None = None
     initiative: str | None = None
     day_night: Literal["day", "night"] | None = None
+
+
+class ViewContext(BaseModel):
+    """A temporary private view: a library search, or looking at the top N cards.
+
+    While open, ``viewer`` sees the listed cards (or the whole zone for a search) as long as
+    they stay in ``zone``. Closing the view or shuffling the zone ends it.
+    """
+
+    id: str
+    viewer: str
+    zone: str
+    kind: Literal["search", "look"]
+    card_ids: list[str] = Field(default_factory=list)  # for "look": the cards being looked at
 
 
 class GameSettings(BaseModel):
@@ -224,7 +240,9 @@ class GameState(BaseModel):
     zones: dict[str, list[str]] = Field(default_factory=dict)
     turn: TurnState
     table: TableState = Field(default_factory=TableState)
-    searches: dict[str, str] = Field(default_factory=dict)  # viewer player id -> zone key shown in full
+    views: list[ViewContext] = Field(default_factory=list)
+    # Secret per-game key that orders anonymous hidden cards in opponents' views; never sent to clients.
+    hidden_salt: str = ""
     reminders: list[Reminder] = Field(default_factory=list)
     log: list[LogEntry] = Field(default_factory=list)
 
@@ -234,6 +252,10 @@ class GameState(BaseModel):
 
     def player_ids(self) -> list[str]:
         return list(self.seat_order)
+
+    def searching(self, viewer: str) -> str | None:
+        """Zone key ``viewer`` is currently searching, if any."""
+        return next((v.zone for v in self.views if v.viewer == viewer and v.kind == "search"), None)
 
     def commander_name(self, key: str) -> str:
         for card in self.cards.values():

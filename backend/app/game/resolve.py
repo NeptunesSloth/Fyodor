@@ -15,6 +15,7 @@ from app.game import actions as A
 from app.game import placement
 from app.game.errors import ActionError
 from app.game.state import STACK, GameState, TokenDef, zone_key
+from app.game.views import resolve_placeholder
 
 _rng = secrets.SystemRandom()
 
@@ -53,6 +54,7 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
     a = action.model_copy(deep=True)
     a.actor = actor
     a.ts = time.time()
+    _resolve_placeholders(state, a, actor)
     if hasattr(a, "r"):
         a.r = None  # never trust client-supplied resolution data
 
@@ -64,7 +66,7 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         size = len(state.zones.get(zone_key(pid, "library"), [])) + len(state.zones.get(zone_key(pid, "hand"), []))
         a.r = shuffle_data(size, rng)
     elif isinstance(a, A.SearchEnd):
-        key = state.searches.get(actor)
+        key = state.searching(actor)
         if a.shuffle and key:
             a.r = shuffle_data(len(state.zones.get(key, [])), rng)
     elif isinstance(a, A.CreateToken):
@@ -96,6 +98,20 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
     elif isinstance(a, A.ResolveTop):
         a.r = _resolve_top(state, info)
     return a
+
+
+ID_FIELDS = ("card_id", "to", "attacker_id", "source_id")
+
+
+def _resolve_placeholders(state: GameState, a: A.Action, actor: str) -> None:
+    """Replace anonymous placeholder ids the client used with the real card ids."""
+    ids = getattr(a, "card_ids", None)
+    if isinstance(ids, list):
+        a.card_ids = [resolve_placeholder(state, cid, actor) for cid in ids]  # type: ignore[union-attr]
+    for name in ID_FIELDS:
+        value = getattr(a, name, None)
+        if isinstance(value, str):
+            setattr(a, name, resolve_placeholder(state, value, actor))
 
 
 def _rng_int(rng: Any, lo: int, hi: int) -> int:

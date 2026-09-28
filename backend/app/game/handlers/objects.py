@@ -7,7 +7,7 @@ from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
 from app.game.ops import group, log, pname, text
-from app.game.state import ALL, CardInstance, GameState, Reminder
+from app.game.state import CardInstance, GameState, Reminder
 
 MANA_ORDER = "WUBRGCS"
 
@@ -152,7 +152,6 @@ def _clone(c: CardInstance, new_id: str, quantity: int, dx: float, dy: float) ->
     clone.attached_to = None
     clone.attach_offset = None
     clone.group = None
-    clone.known_to = [ALL]
     return clone
 
 

@@ -16,7 +16,7 @@ from app.game.state import (
     split_zone,
     zone_key,
 )
-from app.game.visibility import can_see, seers
+from app.game.visibility import publicly_visible, seers
 
 LOG_LIMIT = 2000
 
@@ -123,7 +123,6 @@ def move_card(
         delete(state, c)
         return False
 
-    knew = seers(state, c)
     remove_from_zone(state, c)
     insert(state, c, dest, index=index, position=position)
     if src_zone == "battlefield" and dst_zone != "battlefield":
@@ -157,7 +156,7 @@ def move_card(
                     other.attacking = None
     if dst_zone in HIDDEN_ZONES or src_zone in HIDDEN_ZONES:
         c.face = 0
-    c.revealed = False
+    c.revealed_to = []  # a reveal ends when the card changes zones
     c.face_down = bool(face_down) if face_down is not None else False
     if dst_zone == "battlefield":
         c.controller = split_zone(dest)[0] or c.controller
@@ -166,13 +165,6 @@ def move_card(
     elif dst_zone != STACK:
         c.controller = c.owner if dst_zone != "battlefield" else c.controller
 
-    # Everyone who saw the card keeps knowing what it is (e.g. a bounced permanent in hand).
-    if ALL in knew:
-        c.known_to = [ALL]
-    else:
-        c.known_to = sorted(set(c.known_to) | knew)
-    if dst_zone in ("battlefield", "exile", STACK) and c.face_down and c.controller not in c.known_to and ALL not in c.known_to:
-        c.known_to = sorted({*c.known_to, c.controller})
     return True
 
 
@@ -216,7 +208,7 @@ def group(state: GameState, moved: list[CardInstance], extra: dict[str, set[str]
 
 
 def visible_to_all_players(state: GameState, c: CardInstance) -> bool:
-    return all(can_see(state, c, p) for p in state.seat_order)
+    return publicly_visible(state, c)
 
 
 def library_key(state: GameState, player_id: str) -> str:

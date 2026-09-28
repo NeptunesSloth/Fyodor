@@ -9,7 +9,6 @@ from typing import Any
 
 from app.game.resolve import new_id
 from app.game.state import (
-    ALL,
     CardInstance,
     GameSettings,
     GameState,
@@ -88,7 +87,6 @@ def new_game(
                 if entry.section == "commander":
                     commander_count += 1
                     card.commander_key = f"cmd-{pid}-{commander_count}"
-                    card.known_to = [ALL]
                     card.protected = True
                     state_players[pid].commander_tax[card.commander_key] = 0
                 cards[cid] = card
@@ -108,4 +106,5 @@ def new_game(
         cards=cards,
         zones=zones,
         turn=TurnState(active_player=first),
+        hidden_salt=secrets.token_hex(16),
     )

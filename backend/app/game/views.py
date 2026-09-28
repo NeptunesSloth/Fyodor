@@ -8,10 +8,12 @@ entries name cards only for viewers who could see them.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from app.game.state import (
     ALL,
+    OWNER_VISIBLE_ZONES,
     PUBLIC_ZONES,
     STACK,
     CardInstance,
@@ -22,7 +24,36 @@ from app.game.state import (
 )
 from app.game.visibility import OMNISCIENT, SPECTATOR, can_see
 
-VIEW_VERSION = 1
+VIEW_VERSION = 2
+PLACEHOLDER_PREFIX = "hidden:"
+
+
+def placeholder_id(zone_key: str, index: int) -> str:
+    return f"{PLACEHOLDER_PREFIX}{zone_key}:{index}"
+
+
+def hidden_order(state: GameState, ids: list[str]) -> list[str]:
+    """Order anonymous cards by a keyed hash (secret per-game salt), never by entry order."""
+    salt = state.hidden_salt.encode()
+    return sorted(ids, key=lambda cid: hashlib.blake2b(cid.encode(), key=salt[:64] or b"fyodor", digest_size=12).digest())
+
+
+def resolve_placeholder(state: GameState, value: str, viewer: str) -> str:
+    """Map an anonymous placeholder id (as ``viewer`` saw it) back to a real card id.
+
+    Clients may act on cards they can't identify (e.g. "discard a card at random"). The
+    mapping is recomputed from the current state exactly as ``build_view`` produced it.
+    """
+    if not value.startswith(PLACEHOLDER_PREFIX):
+        return value
+    key, _, index_s = value[len(PLACEHOLDER_PREFIX):].rpartition(":")
+    ids = state.zones.get(key)
+    _, zone = split_zone(key) if key else (None, "")
+    if ids is None or not index_s.isdigit() or zone not in OWNER_VISIBLE_ZONES:
+        return value
+    hidden = hidden_order(state, [cid for cid in ids if not can_see(state, state.cards[cid], viewer)])
+    index = int(index_s)
+    return hidden[index] if index < len(hidden) else value
 
 
 def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
@@ -37,7 +68,7 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
             "zone": c.zone,
             "face": c.face,
             "face_down": c.face_down,
-            "revealed": c.revealed,
+            "revealed": bool(c.revealed_to),
             "note": c.note,
             "is_token": c.is_token,
         }
@@ -127,21 +158,33 @@ def build_view(
     cards: dict[str, dict[str, Any]] = {}
     zones: dict[str, Any] = {}
     for key, ids in state.zones.items():
-        _, zone = split_zone(key)
+        owner, zone = split_zone(key)
         if zone == "library":
-            searching = state.searches.get(viewer) == key
+            # Libraries: a count plus only the cards this viewer can see right now (with positions).
             known = []
             for index, cid in enumerate(ids):
                 c = state.cards[cid]
-                if viewer == OMNISCIENT or searching or can_see(state, c, viewer):
+                if can_see(state, c, viewer):
                     known.append([index, cid])
-                    cards[cid] = card_view(state, c, viewer if not searching else OMNISCIENT)
+                    cards[cid] = card_view(state, c, viewer)
             zones[key] = {"count": len(ids), "known": known}
+        elif zone in OWNER_VISIBLE_ZONES:
+            # Hands etc.: visible cards keep their ids; every hidden card becomes an anonymous
+            # placeholder in a keyed-hash order, so nothing links it to a card seen earlier.
+            visible = [cid for cid in ids if can_see(state, state.cards[cid], viewer)]
+            hidden = hidden_order(state, [cid for cid in ids if cid not in set(visible)])
+            listed = list(visible)
+            for cid in visible:
+                cards[cid] = card_view(state, state.cards[cid], viewer)
+            for index, _cid in enumerate(hidden):
+                pid = placeholder_id(key, index)
+                listed.append(pid)
+                cards[pid] = {"id": pid, "hidden": True, "owner": owner, "controller": owner, "zone": key, "face_down": False}
+            zones[key] = listed
         else:
             zones[key] = list(ids)
-            searching = state.searches.get(viewer) == key
             for cid in ids:
-                cards[cid] = card_view(state, state.cards[cid], OMNISCIENT if searching else viewer)
+                cards[cid] = card_view(state, state.cards[cid], viewer)
 
     commanders: dict[str, list[dict[str, Any]]] = {pid: [] for pid in state.seat_order}
     for c in state.cards.values():
@@ -178,7 +221,9 @@ def build_view(
         "seat_order": list(state.seat_order),
         "turn": state.turn.model_dump(),
         "table": state.table.model_dump(),
-        "searches": dict(state.searches),
+        # Who is searching what is public ("X is searching their library"); contents are not.
+        "searches": {v.viewer: v.zone for v in state.views if v.kind == "search"},
+        "my_views": [v.model_dump() for v in state.views if v.viewer == viewer],
         "reminders": [r.model_dump() for r in state.reminders],
         "cards": cards,
         "zones": zones,

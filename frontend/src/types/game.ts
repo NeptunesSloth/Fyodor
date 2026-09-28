@@ -165,7 +165,10 @@ export interface GameView {
   seat_order: string[];
   turn: { number: number; active_player: string; phase: PhaseName };
   table: { monarch: string | null; initiative: string | null; day_night: "day" | "night" | null };
+  /** Who is searching which zone (public); contents are only in the searcher's view. */
   searches: Record<string, string>;
+  /** The viewer's own open private views (search / look at top N). */
+  my_views?: { id: string; viewer: string; zone: string; kind: "search" | "look"; card_ids: string[] }[];
   cards: Record<string, GameCard>;
   zones: Record<string, string[] | LibraryView>;
   stack: string[];

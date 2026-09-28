@@ -118,7 +118,19 @@ def load_payload(payload: dict[str, Any], *, history_limit: int = 500) -> tuple[
         history = History.from_dict(payload["history"], limit=history_limit) if payload.get("history") else None
     except (KeyError, ValueError) as exc:
         raise SaveFormatError(f"Save contents are invalid: {exc}") from exc
-    if history is not None and history.state_at(history.cursor).model_dump(mode="json") != state.model_dump(mode="json"):
-        # History and snapshot disagree (should never happen); trust the snapshot, drop history.
-        history = None
+    if history is not None:
+        replayed = history.state_at(history.cursor)
+        if replayed.model_dump(mode="json") != state.model_dump(mode="json"):
+            if payload.get("migrated_from") and _core(replayed) == _core(state):
+                # An upgraded save: the replay applies today's rules for bookkeeping fields
+                # (e.g. view contexts) but the table itself is identical, so keep the history.
+                state = replayed
+            else:
+                # History and snapshot disagree (should never happen); trust the snapshot.
+                history = None
     return state, history
+
+
+def _core(state: GameState) -> tuple[object, ...]:
+    dump = state.model_dump(mode="json")
+    return (dump["zones"], dump["players"], sorted(dump["cards"]), dump["turn"], dump["table"])

@@ -46,15 +46,6 @@ def assert_no_leaks(s, viewer):
             assert v.get("hidden") is True and "name" not in v and "card_id" not in v
 
 
-def test_opponent_sees_hand_count_not_contents(s):
-    act(s, "p1", type="draw", count=7)
-    view = s.view("p2")
-    hand = view["zones"]["p1:hand"]
-    assert len(hand) == 7
-    assert all(view["cards"][cid]["hidden"] for cid in hand)
-    assert_no_leaks(s, "p2")
-    mine = s.view("p1")
-    assert all("card_id" in mine["cards"][cid] for cid in hand)
 
 
 def test_libraries_are_counts_only(s):
@@ -109,36 +100,10 @@ def test_face_down_card_hidden_from_opponent(s):
     assert s.view("p2")["cards"][sol.id]["card_id"] == sol.card_id
 
 
-def test_bounced_card_stays_known_until_shuffled(s):
-    act(s, "p1", type="draw", count=15)
-    sol = find(s.state, "Sol Ring")
-    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "battlefield"})
-    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "hand"})
-    assert s.view("p2")["cards"][sol.id]["card_id"] == sol.card_id  # everyone saw it bounce
-    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "library"}, position="top")
-    lib_view = s.view("p2")["zones"]["p1:library"]
-    assert lib_view["known"] == [[0, sol.id]]
-    act(s, "p1", type="shuffle")
-    assert s.view("p2")["zones"]["p1:library"]["known"] == []
-    assert_no_leaks(s, "p2")
 
 
-def test_reveal_and_private_reveal(s):
-    act(s, "p1", type="draw", count=3)
-    a, b = zone(s.state, "p1", "hand")[:2]
-    act(s, "p1", type="reveal", card_ids=[a])
-    act(s, "p1", type="reveal", card_ids=[b], to=["p2"])
-    assert "card_id" in s.view("p2")["cards"][a]
-    assert "card_id" in s.view("p2")["cards"][b]
-    assert s.view(SPECTATOR)["cards"][b]["hidden"]  # only revealed to p2
-    assert "card_id" in s.view(SPECTATOR)["cards"][a]
 
 
-def test_look_top_is_private(s):
-    act(s, "p2", type="look_top", player="p1", count=2)
-    assert len(s.view("p2")["zones"]["p1:library"]["known"]) == 2
-    assert s.view("p1")["zones"]["p1:library"]["known"] == []  # the owner did not look
-    assert_no_leaks(s, "p1")
 
 
 def test_spectator_and_omniscient(s):
@@ -192,3 +157,131 @@ def test_deck_categories_are_private_to_the_owner(s):
     assert s.view("p1")["cards"][sol.id]["categories"] == ["Ramp"]
     assert "categories" not in s.view("p2")["cards"][sol.id]  # public card, private deck metadata
     assert "Ramp" not in json.dumps(s.view("p2"))
+
+
+def test_opponent_sees_hand_count_not_contents(s):
+    act(s, "p1", type="draw", count=7)
+    view = s.view("p2")
+    hand = view["zones"]["p1:hand"]
+    assert len(hand) == 7
+    assert all(cid.startswith("hidden:") and view["cards"][cid]["hidden"] for cid in hand)
+    assert not set(hand) & set(zone(s.state, "p1", "hand"))  # real ids never sent
+    assert_no_leaks(s, "p2")
+    mine = s.view("p1")
+    assert mine["zones"]["p1:hand"] == zone(s.state, "p1", "hand")
+    assert all("card_id" in mine["cards"][cid] for cid in mine["zones"]["p1:hand"])
+
+
+def test_bounced_card_becomes_anonymous_in_hand(s):
+    """A public card that returns to a hidden hand is logged, but no longer identifiable."""
+    act(s, "p1", type="draw", count=15)
+    sol = find(s.state, "Sol Ring")
+    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "battlefield"})
+    assert s.view("p2")["cards"][sol.id]["card_id"] == sol.card_id
+    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "hand"})
+    theirs = s.view("p2")
+    assert sol.id not in theirs["cards"]  # the real id disappears from their view
+    assert all(theirs["cards"][c].get("hidden") for c in theirs["zones"]["p1:hand"])
+    no_log = {k: v for k, v in theirs.items() if k != "log"}
+    assert sol.card_id not in json.dumps(no_log)
+    assert "Sol Ring" in json.dumps(theirs["log"][-1])  # the historical log may say what happened
+    # rearranging the hand doesn't change anything opponents receive
+    before_ids = theirs["zones"]["p1:hand"]
+    before_cards = {k: v for k, v in theirs["cards"].items() if k.startswith("hidden:")}
+    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "hand"}, index=0)
+    after = s.view("p2")
+    assert after["zones"]["p1:hand"] == before_ids
+    assert {k: v for k, v in after["cards"].items() if k.startswith("hidden:")} == before_cards
+    # on top of the library it isn't revealed, so nobody else knows it is there
+    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "library"}, position="top")
+    assert s.view("p2")["zones"]["p1:library"]["known"] == []
+    assert_no_leaks(s, "p2")
+
+
+def test_placeholder_order_does_not_follow_entry_order(s):
+    """Which placeholder a card becomes is a keyed hash, not "the last one is the new card"."""
+    from app.game.views import hidden_order
+
+    act(s, "p1", type="draw", count=15)
+    names = ("Sol Ring", "Lightning Bolt", "Llanowar Elves", "Fire // Ice", "Delver of Secrets // Insectile Aberration")
+    for name in names:
+        act(s, "p1", type="move", card_ids=[find(s.state, name).id], to={"zone": "battlefield"})
+    positions = []
+    for name in names:
+        c = find(s.state, name)
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+        positions.append(hidden_order(s.state, zone(s.state, "p1", "hand")).index(c.id))
+    last = [len(zone(s.state, "p1", "hand")) - len(names) + i for i in range(len(names))]
+    assert positions != last  # not simply appended in the order they arrived
+
+
+def test_reveal_ends_and_card_is_anonymous_again(s):
+    act(s, "p1", type="draw", count=3)
+    card = zone(s.state, "p1", "hand")[0]
+    act(s, "p1", type="reveal", card_ids=[card])
+    assert s.view("p2")["cards"][card]["revealed"] is True
+    assert s.view(SPECTATOR)["cards"][card]["card_id"]
+    act(s, "p1", type="hide", card_ids=[card])
+    theirs = s.view("p2")
+    assert card not in theirs["cards"] and len(theirs["zones"]["p1:hand"]) == 3
+    assert_no_leaks(s, "p2")
+
+
+def test_private_reveal_to_one_player(s):
+    act(s, "p1", type="draw", count=3)
+    b = zone(s.state, "p1", "hand")[1]
+    act(s, "p1", type="reveal", card_ids=[b], to=["p2"])
+    assert s.view("p2")["cards"][b]["card_id"]
+    assert b not in s.view(SPECTATOR)["cards"]  # only p2 was shown
+    act(s, "p1", type="hide", card_ids=[b])
+    assert b not in s.view("p2")["cards"]
+
+
+def test_reveal_ends_when_card_changes_zone(s):
+    act(s, "p1", type="draw", count=2)
+    card = zone(s.state, "p1", "hand")[0]
+    act(s, "p1", type="reveal", card_ids=[card])
+    act(s, "p1", type="move", card_ids=[card], to={"zone": "library"}, position="top")
+    assert s.view("p2")["zones"]["p1:library"]["known"] == []
+
+
+def test_look_top_is_private_and_ends(s):
+    act(s, "p2", type="look_top", player="p1", count=2)
+    top2 = zone(s.state, "p1", "library")[:2]
+    assert [cid for _, cid in s.view("p2")["zones"]["p1:library"]["known"]] == top2
+    assert s.view("p1")["zones"]["p1:library"]["known"] == []  # the owner did not look
+    assert_no_leaks(s, "p1")
+    act(s, "p2", type="end_view")
+    assert s.view("p2")["zones"]["p1:library"]["known"] == []
+
+
+def test_shuffle_invalidates_private_library_views(s):
+    act(s, "p1", type="look_top", count=3)
+    assert len(s.view("p1")["zones"]["p1:library"]["known"]) == 3
+    act(s, "p1", type="shuffle")
+    assert s.view("p1")["zones"]["p1:library"]["known"] == []
+    assert s.state.views == []
+
+
+def test_revealed_top_card_visible_to_all_until_it_moves(s):
+    act(s, "p1", type="reveal_top")
+    top = zone(s.state, "p1", "library")[0]
+    assert s.view("p2")["zones"]["p1:library"]["known"] == [[0, top]]
+    act(s, "p1", type="draw")
+    assert top not in s.view("p2")["cards"]
+
+
+def test_search_leaves_no_lingering_knowledge(s):
+    act(s, "p1", type="search_start", zone={"zone": "library"})
+    assert len(s.view("p1")["zones"]["p1:library"]["known"]) == 15
+    act(s, "p1", type="search_end", shuffle=False)
+    assert s.view("p1")["zones"]["p1:library"]["known"] == []
+
+
+def test_actions_on_placeholders_map_to_real_cards(s):
+    """An opponent can make a player discard an anonymous card without learning its id first."""
+    act(s, "p1", type="draw", count=3)
+    placeholder = s.view("p2")["zones"]["p1:hand"][0]
+    act(s, "p2", type="move", card_ids=[placeholder], to={"zone": "graveyard", "player": "p1"})
+    assert len(zone(s.state, "p1", "hand")) == 2
+    assert len(zone(s.state, "p1", "graveyard")) == 1
