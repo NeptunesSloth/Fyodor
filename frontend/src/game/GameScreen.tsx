@@ -1,3 +1,4 @@
+import { playmatStyle, usePlaymat } from "./appearance";
 import { useEffect } from "react";
 import { perspective, useGame } from "../state/gameStore";
 import { useCardCache } from "../state/cardCache";
@@ -41,6 +42,7 @@ export function GameScreen() {
       <TopBar />
       <div className="game-body">
         <main className="table">
+          <TablePlaymat />
           <div className={`opponents n${others.length}`}>
             {others.map((pid) => (
               <PlayerArea key={pid} player={pid} me={me} mine={false} compact={others.length > 1} />
@@ -145,4 +147,10 @@ function useShortcuts() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+}
+
+function TablePlaymat() {
+  const { mat, url } = usePlaymat(null);
+  if (!url) return null;
+  return <div className="playmat-layer table-mat" style={playmatStyle(mat, url)} aria-hidden />;
 }

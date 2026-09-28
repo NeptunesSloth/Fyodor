@@ -173,6 +173,8 @@ export interface PlayerView {
   token_shortcuts?: string[];
   commanders: CommanderInfo[];
   left?: boolean;
+  sleeve?: string | null;
+  playmat?: Playmat | null;
   /** Temporary mana pool, e.g. { U: 2, C: 3 }. */
   mana?: Record<string, number>;
   hand_count: number;
@@ -214,6 +216,8 @@ export interface GameMeta {
   mode: "local" | "lan";
   code: string | null;
   seats: Record<string, { claimed: boolean; connected: boolean; presence?: "open" | "connected" | "reconnecting" | "disconnected" }>;
+  /** Custom images used at this table (sleeves, playmats), by asset id. */
+  assets?: Record<string, AssetRef>;
   /** Set once the pod result for this game has been recorded. */
   result_id?: string | null;
   /** Authoritative revision: grows with every update the server sends. */
@@ -265,7 +269,7 @@ export interface GameView {
   players: PlayerView[];
   seat_order: string[];
   turn: { number: number; active_player: string; phase: PhaseName };
-  table: { monarch: string | null; initiative: string | null; day_night: "day" | "night" | null };
+  table: { monarch: string | null; initiative: string | null; day_night: "day" | "night" | null; playmat?: Playmat | null };
   /** Who is searching which zone (public); contents are only in the searcher's view. */
   searches: Record<string, string>;
   /** The viewer's own open private views (search / look at top N). */
@@ -281,6 +285,24 @@ export interface GameView {
   zones: Record<string, string[] | LibraryView>;
   stack: string[];
   log: LogEntryView[];
+}
+
+export interface Playmat {
+  asset_id: string;
+  fit: "cover" | "contain" | "stretch";
+  scale: number;
+  offset_x: number;
+  offset_y: number;
+  rotation: 0 | 90 | 180 | 270;
+  opacity: number;
+  show_zones: boolean;
+}
+
+export interface AssetRef {
+  url: string;
+  width: number;
+  height: number;
+  kind: string;
 }
 
 export interface GameSummary {

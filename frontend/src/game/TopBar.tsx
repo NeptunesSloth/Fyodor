@@ -107,6 +107,7 @@ function tableMenu(isHost: boolean): MenuItem[] {
   const s = useGame.getState();
   const prefs = usePrefs.getState();
   return [
+    { label: "Appearance…", hint: "sleeves & playmat", onClick: () => s.openDialog("appearance") },
     selectMenu(),
     cleanupMenu(),
     { label: prefs.showTokenSources ? "Hide token sources" : "Show token sources", onClick: () => prefs.set({ showTokenSources: !prefs.showTokenSources }) },

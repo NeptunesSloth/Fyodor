@@ -1,3 +1,4 @@
+import { AppearanceDialog } from "./AppearanceDialog";
 import { EndGameDialog } from "./EndGameDialog";
 import { HostToolsDialog } from "./HostTools";
 import { HOTKEYS } from "./hotkeys";
@@ -30,6 +31,7 @@ export function GameDialogs({ me }: { me: string }) {
       {dialog === "help" && <HelpDialog onClose={close} />}
       {dialog === "host" && <HostToolsDialog onClose={close} />}
       {dialog === "endgame" && <EndGameDialog onClose={close} />}
+      {dialog === "appearance" && <AppearanceDialog onClose={close} />}
       {inspect && <InspectDialog id={inspect} onClose={() => useGame.getState().setInspect(null)} />}
     </>
   );

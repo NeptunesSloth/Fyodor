@@ -23,6 +23,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_validator
 
 from app.api.deps import _peer_is_loopback, get_services, is_local_request, require_local
+from app.assets.store import AssetNotFound
 from app.assistant import AssistantUnavailable, build_context
 from app.decks import archidekt
 from app.decks import service as deck_service
@@ -74,7 +75,7 @@ def authorize(room: Room, *, local: bool, token: str | None, viewer: str | None,
     return seat, (seat if seat != SPECTATOR else None)
 
 
-HOST_ONLY_ACTIONS = {"mulligan_finish", "remove_player"}
+HOST_ONLY_ACTIONS = {"mulligan_finish", "remove_player", "set_table_playmat"}
 
 
 def _check_host_only(room: Room, action: dict[str, Any], *, host: bool) -> None:
@@ -82,6 +83,25 @@ def _check_host_only(room: Room, action: dict[str, Any], *, host: bool) -> None:
     host_only = action.get("type") in HOST_ONLY_ACTIONS or (action.get("type") == "response_close" and action.get("as_host"))
     if host_only and room.mode == "lan" and not host:
         raise HTTPException(403, "Only the host can do that")
+
+
+def _check_assets(services: Services, action: dict[str, Any]) -> None:
+    """Appearance actions may only reference existing assets of the right kind."""
+    wanted: list[tuple[str, str]] = []
+    if action.get("type") == "set_appearance":
+        if isinstance(action.get("sleeve"), str):
+            wanted.append((action["sleeve"], "card_back"))
+        if isinstance(action.get("playmat"), dict):
+            wanted.append((str(action["playmat"].get("asset_id")), "playmat"))
+    elif action.get("type") == "set_table_playmat" and isinstance(action.get("playmat"), dict):
+        wanted.append((str(action["playmat"].get("asset_id")), "playmat"))
+    for asset_id, kind in wanted:
+        try:
+            asset = services.assets.get(asset_id)
+        except AssetNotFound:
+            raise HTTPException(404, "That image isn't in the asset library") from None
+        if asset["kind"] != kind:
+            raise HTTPException(422, f"That image is a {asset['kind'].replace('_', ' ')}, not a {kind.replace('_', ' ')}")
 
 
 async def _after_action(services: Services, room: Room, action: dict[str, Any]) -> None:
@@ -300,6 +320,7 @@ async def post_action(
     if actor is None:
         raise HTTPException(403, "Spectators cannot act")
     _check_host_only(room, body.action, host=room.is_host(x_seat_token))
+    _check_assets(services, body.action)
     async with room.lock:
         try:
             room.session.perform(actor, body.action)
@@ -1133,6 +1154,7 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
     if isinstance(msg, WsAction):
         try:
             _check_host_only(room, msg.action, host=conn.host)
+            _check_assets(services, msg.action)
         except HTTPException as exc:
             await send({"type": "error", "id": msg.id, "message": str(exc.detail)})
             return

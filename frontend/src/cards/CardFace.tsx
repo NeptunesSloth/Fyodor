@@ -18,6 +18,8 @@ interface Props {
   custom?: CustomFace | undefined;
   face?: number;
   faceDown?: boolean;
+  /** Custom sleeve image for a face-down card. */
+  backStyle?: React.CSSProperties;
   size?: "small" | "normal" | "large";
   className?: string;
 }
@@ -35,9 +37,9 @@ export function colorClass(colors: string[] | null | undefined): string {
 }
 
 /** A single card picture: the cached scan when available, otherwise a readable text card. */
-export const CardFace = memo(function CardFace({ card, custom, face = 0, faceDown, size = "normal", className }: Props) {
+export const CardFace = memo(function CardFace({ card, custom, face = 0, faceDown, backStyle, size = "normal", className }: Props) {
   const [failed, setFailed] = useState<string | null>(null);
-  if (faceDown) return <div className={`card-face card-back ${className ?? ""}`} aria-label="Face-down card" />;
+  if (faceDown) return <div className={`card-face card-back ${backStyle ? "sleeved" : ""} ${className ?? ""}`} style={backStyle} aria-label="Face-down card" />;
   if (!card && !custom) return <div className={`card-face card-loading ${className ?? ""}`} />;
 
   if (card) {

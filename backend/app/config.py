@@ -64,11 +64,15 @@ class Settings:
         return self.data_dir / "images"
 
     @property
+    def assets_dir(self) -> Path:
+        return self.data_dir / "assets"
+
+    @property
     def downloads_dir(self) -> Path:
         return self.data_dir / "downloads"
 
     def ensure_dirs(self) -> None:
-        for path in (self.data_dir, self.images_dir / "cards", self.images_dir / "tokens", self.downloads_dir):
+        for path in (self.data_dir, self.images_dir / "cards", self.images_dir / "tokens", self.downloads_dir, self.assets_dir):
             path.mkdir(parents=True, exist_ok=True)
 
 

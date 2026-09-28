@@ -1,4 +1,5 @@
 import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import * as zlib from "node:zlib";
 
 export const PORT = Number(process.env.E2E_PORT ?? 8765);
 
@@ -155,4 +156,22 @@ export async function playFromHand(page: Page, index = 0): Promise<string> {
   await hand.nth(index).dblclick();
   await expect(page.locator(`.table-card[data-card-id="${id}"]`)).toBeVisible();
   return id;
+}
+
+/** A tiny real PNG (for asset uploads in tests). */
+export function pngBuffer(width = 8, height = 8, rgb: [number, number, number] = [150, 30, 30]): Buffer {
+  const chunk = (tag: string, data: Buffer) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(tag, "ascii"), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(zlib.crc32(body) >>> 0);
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8);
+  const rows = Buffer.concat(Array.from({ length: height }, () => Buffer.concat([Buffer.from([0]), Buffer.from(Array(width).fill(rgb).flat())])));
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr), chunk("IDAT", zlib.deflateSync(rows)), chunk("IEND", Buffer.alloc(0))]);
 }

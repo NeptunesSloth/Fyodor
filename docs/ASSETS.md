@@ -1,0 +1,41 @@
+# Custom assets: playmats, sleeves and the asset manager
+
+All custom images live in one managed library on the host computer (`data/assets/`, indexed
+in `data/app.sqlite`). Everything works offline.
+
+## What's accepted
+
+* **PNG, JPEG, WEBP** only, recognised from the file's *content* (magic bytes and image header),
+  never from its name or declared type — SVG, GIF, scripts or renamed files are refused.
+* At most **20 MB** and **8192 × 8192** pixels. Dimensions are read from the header without
+  decoding pixels or running any external library.
+* Files are stored by SHA-256 (`<sha256>.png|jpg|webp`): identical uploads share one file, and
+  a file is removed when the last asset using it is deleted.
+* Clients refer to assets only by an opaque id. Files are served from
+  `/api/assets/<id>/file?v=<sha>` with long-lived immutable caching, so every browser at the
+  table fetches an image once over the LAN and keeps it. There is no way to request a path.
+
+## Sleeves (card backs)
+
+*⋯ → Appearance… → Card back*: **Default**, a **local image** (uploaded to the host), or a
+**saved** card back. Everyone sees your cards' backs — hand, library, face-down cards — in your
+sleeves. The sleeve is only a picture: which card is which stays on the host, and hidden cards
+are still sent as anonymous placeholders.
+
+## Playmats
+
+*⋯ → Appearance… → Your playmat*: pick or upload an image, then adjust it non-destructively
+(the file is never modified): **Fill / Fit inside / Stretch**, zoom, move, rotate (0/90/180/270),
+opacity, and whether zone outlines are drawn over it. *Use this playmat* puts it under your
+battlefield for everyone. The host can also put one mat under **the whole table**.
+
+LAN players may upload card backs and playmats from their own device (with their seat token,
+rate-limited); other kinds are added on the host computer.
+
+## Asset manager
+
+*Assets* (top navigation, on the host computer): categories — Playmats, Card backs, Token art,
+Counter art, Utility objects, Reference cards, Dice skins, Table presets — with a preview,
+name, type, size, dimensions and **Used by** (live tables). **Rename**, **Replace** (tables
+using it update immediately), **Duplicate**, **Delete** (warns and lists where it's used; those
+tables fall back to the default look).

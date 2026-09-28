@@ -164,3 +164,22 @@ def remove_player(state: GameState, a: A.RemovePlayer) -> None:
         if getattr(state.table, key) == pid:
             setattr(state.table, key, None)
     log(state, a.actor, a.ts, [text(f"{name} left the table; the cards they own left the game.")])
+
+
+def set_appearance(state: GameState, a: A.SetAppearance) -> None:
+    p = state.players[a.actor]
+    if a.clear_sleeve:
+        p.sleeve = None
+    elif a.sleeve:
+        p.sleeve = a.sleeve
+    if a.clear_playmat:
+        p.playmat = None
+    elif a.playmat is not None:
+        p.playmat = a.playmat
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(" changed their table look")], kind="minor")
+
+
+def set_table_playmat(state: GameState, a: A.SetTablePlaymat) -> None:
+    state.table.playmat = a.playmat
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(" changed the table playmat" if a.playmat else " removed the table playmat")],
+        kind="minor")

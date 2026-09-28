@@ -61,6 +61,8 @@ HANDLERS: dict[str, Handler] = {
     "set_copy_source": marks.set_copy_source,
     "cleanup": marks.cleanup,
     "remove_player": players.remove_player,
+    "set_appearance": players.set_appearance,
+    "set_table_playmat": players.set_table_playmat,
     "life": players.life,
     "set_life": players.set_life,
     "resource": players.resource,

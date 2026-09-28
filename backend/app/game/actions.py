@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
-from app.game.state import PHASES, PLAYER_ZONES, STACK, AttackTarget, TokenDef
+from app.game.state import PHASES, PLAYER_ZONES, STACK, AttackTarget, Playmat, TokenDef
 from app.textutil import clean_text
 
 Id = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9:_\-]+$")]
@@ -423,6 +423,23 @@ class Cleanup(Base):
     card_ids: list[Id] | None = Field(default=None, max_length=250)  # limit to these cards (effects/damage)
 
 
+class SetAppearance(Base):
+    """Your sleeves (card back) and playmat. Visual only; asset ids are checked by the API."""
+
+    type: Literal["set_appearance"] = "set_appearance"
+    sleeve: Annotated[str, Field(pattern=r"^[0-9a-f]{8,32}$")] | None = None
+    clear_sleeve: bool = False
+    playmat: Playmat | None = None
+    clear_playmat: bool = False
+
+
+class SetTablePlaymat(Base):
+    """One playmat under the whole table (host only on LAN; checked by the API)."""
+
+    type: Literal["set_table_playmat"] = "set_table_playmat"
+    playmat: Playmat | None = None
+
+
 class ReturnToOwner(Base):
     """Give cards back to their owner: stolen permanents to the owner's battlefield, cards in
     another player's zone to the owner's zone of the same kind."""
@@ -772,6 +789,8 @@ Action = Annotated[
     | Note
     | SetController
     | ReturnToOwner
+    | SetAppearance
+    | SetTablePlaymat
     | AddEffect
     | RemoveEffect
     | SetDamage

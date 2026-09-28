@@ -246,8 +246,10 @@ class Room:
 
 
 class GameHub:
-    def __init__(self, *, autosave: Callable[[Room], None] | None = None, autosave_every: int = 10) -> None:
+    def __init__(self, *, autosave: Callable[[Room], None] | None = None, autosave_every: int = 10,
+                 asset_info: Callable[[set[str]], dict[str, Any]] | None = None) -> None:
         self.rooms: dict[str, Room] = {}
+        self.asset_info = asset_info  # asset id -> {url, width, height} for sleeves / playmats in views
         self.join_failures: dict[str, list[float]] = {}  # client ip -> recent failed join times
         self._autosave = autosave
         self.autosave_every = max(1, autosave_every)
@@ -443,6 +445,16 @@ class GameHub:
             return {"type": "lobby", "lobby": room.lobby_view(viewer, host=host)}
         return {"type": "state", "view": self.view(room, viewer), "revision": room.revision}
 
+    def _assets(self, room: Room) -> dict[str, Any]:
+        if self.asset_info is None or room.game is None:
+            return {}
+        st = room.game.state
+        ids = {p.sleeve for p in st.players.values() if p.sleeve}
+        ids |= {p.playmat.asset_id for p in st.players.values() if p.playmat}
+        if st.table.playmat:
+            ids.add(st.table.playmat.asset_id)
+        return self.asset_info(ids) if ids else {}
+
     def view(self, room: Room, viewer: str) -> dict[str, Any]:
         meta = {
             "mode": room.mode,
@@ -451,6 +463,7 @@ class GameHub:
             "host_seat": room.host_seat,
             "revision": room.revision,
             "result_id": room.result_id,
+            "assets": self._assets(room),
         }
         return room.session.view(viewer, meta=meta)
 

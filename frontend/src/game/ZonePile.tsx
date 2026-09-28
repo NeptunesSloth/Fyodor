@@ -1,3 +1,4 @@
+import { sleeveStyle, useSleeve } from "./appearance";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { askNumber } from "../components/Prompt";
 import { useCardView, useGame, useLibrary, useZoneIds } from "../state/gameStore";
@@ -82,6 +83,7 @@ export function LibraryPile({ player, me, name }: { player: string; me: string; 
   const lib = useLibrary(key);
   const topKnown = lib?.known.find(([i]) => i === 0)?.[1];
   const top = useCardView(topKnown ?? "");
+  const sleeve = useSleeve(player);
   const over = useDrag((s) => s.drag?.overZone === key);
   const searching = useGame((s) => s.view?.searches);
   const beingSearched = searching ? Object.entries(searching).filter(([, z]) => z === key).map(([p]) => p) : [];
@@ -102,7 +104,7 @@ export function LibraryPile({ player, me, name }: { player: string; me: string; 
         openMenu(e, libraryMenu(player, me, name), `${player === me ? "Your" : `${name}'s`} library (${count})`);
       }}
     >
-      <div className="pile-card">{top && !top.hidden ? <GameCardFace card={top} /> : count ? <div className="card-face card-back" /> : <div className="pile-empty" />}</div>
+      <div className="pile-card">{top && !top.hidden ? <GameCardFace card={top} /> : count ? <div className={`card-face card-back ${sleeve ? "sleeved" : ""}`} style={sleeveStyle(sleeve)} /> : <div className="pile-empty" />}</div>
       {top && !top.hidden && (
         <span className={`pile-known ${top.revealed ? "revealed" : ""}`} title={top.revealed ? "Revealed to everyone" : "Only known to you (you looked at it)"}>
           {top.revealed ? "revealed" : "👁 only you"}

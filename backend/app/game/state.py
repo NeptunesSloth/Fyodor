@@ -201,6 +201,9 @@ class PlayerState(BaseModel):
     token_shortcuts: list[str] = Field(default_factory=list)  # card ids from the deck's Tokens section
     mana: dict[str, int] = Field(default_factory=dict)  # temporary mana pool: W U B R G C (and S for snow)
     left: bool = False  # removed from the table by the host (kept for names in the log)
+    # Appearance (visual only; card identity stays server-controlled). Ids of managed assets.
+    sleeve: str | None = Field(default=None, max_length=32, pattern=r"^[0-9a-f]{8,32}$")
+    playmat: Playmat | None = None
 
 
 class TurnState(BaseModel):
@@ -209,10 +212,24 @@ class TurnState(BaseModel):
     phase: str = "untap"
 
 
+class Playmat(BaseModel):
+    """A custom playmat image and how it sits on the table (non-destructive transforms)."""
+
+    asset_id: str = Field(max_length=32, pattern=r"^[0-9a-f]{8,32}$")
+    fit: Literal["cover", "contain", "stretch"] = "cover"
+    scale: float = Field(default=1.0, ge=0.25, le=4.0)
+    offset_x: float = Field(default=0.0, ge=-100.0, le=100.0)  # percent of the area
+    offset_y: float = Field(default=0.0, ge=-100.0, le=100.0)
+    rotation: Literal[0, 90, 180, 270] = 0
+    opacity: float = Field(default=1.0, ge=0.1, le=1.0)
+    show_zones: bool = True  # draw zone outlines/labels over the image
+
+
 class TableState(BaseModel):
     monarch: str | None = None
     initiative: str | None = None
     day_night: Literal["day", "night"] | None = None
+    playmat: Playmat | None = None  # one mat under the whole table (host)
 
 
 class ViewContext(BaseModel):

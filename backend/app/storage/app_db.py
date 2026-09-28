@@ -103,6 +103,23 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX grp_player ON game_result_players(player_id);
     """,
+    # 6: managed custom assets (playmats, card backs, …). Files live in data/assets/<sha256>.<ext>.
+    """
+    CREATE TABLE assets (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        name TEXT NOT NULL,
+        sha256 TEXT NOT NULL,
+        mime TEXT NOT NULL,
+        width INTEGER NOT NULL,
+        height INTEGER NOT NULL,
+        size INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    CREATE INDEX assets_kind ON assets(kind, name);
+    CREATE INDEX assets_sha ON assets(sha256);
+    """,
 ]
 
 

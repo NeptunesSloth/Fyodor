@@ -1,3 +1,4 @@
+import { playmatStyle, usePlaymat } from "./appearance";
 import { useEffect, useRef, useState } from "react";
 import { useDrag } from "./dnd";
 import { useGame, useZoneIds } from "../state/gameStore";
@@ -13,6 +14,7 @@ interface Props {
 
 /** A player's free-form battlefield. Positions are virtual units scaled to the element size. */
 export function Battlefield({ player, me, mirrored, color }: Props) {
+  const playmat = usePlaymat(player);
   const key = `${player}:battlefield`;
   const ids = useZoneIds(key) ?? [];
   const ref = useRef<HTMLDivElement>(null);
@@ -78,6 +80,9 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
       {...(mirrored ? { "data-mirrored": "" } : {})}
       onPointerDown={onPointerDown}
     >
+      {playmat.url && (
+        <div className={`playmat-layer ${playmat.mat?.show_zones ? "" : "bare"}`} style={playmatStyle(playmat.mat, playmat.url)} aria-hidden />
+      )}
       {ids.map((id, i) => {
         const c = cards?.[id];
         if (!c) return null;

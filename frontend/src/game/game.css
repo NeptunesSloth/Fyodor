@@ -418,3 +418,30 @@ body.picking .table-card, body.picking .player-panel, body.picking .stack-item {
 .mana-pip.w.on { border-color: var(--mana-w); } .mana-pip.u.on { border-color: var(--mana-u); } .mana-pip.b.on { border-color: var(--mana-b); }
 .mana-pip.r.on { border-color: var(--mana-r); } .mana-pip.g.on { border-color: var(--mana-g); } .mana-pip.c.on { border-color: var(--mana-c); }
 .mana-clear { background: none; border: 0; color: var(--room-bone-dim); cursor: pointer; }
+
+/* ---------------------------------------------------------------- sleeves + playmats */
+.card-back.sleeved { background-color: #1a1a1d; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35); }
+.card-back.sleeved::before, .card-back.sleeved::after { display: none; }
+.playmat-layer { position: absolute; inset: 0; pointer-events: none; z-index: 0; border-radius: inherit; }
+.battlefield > .table-card { z-index: 1; }
+main.table { position: relative; }
+.playmat-layer.table-mat { position: absolute; inset: 0; z-index: 0; }
+main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
+.battlefield:has(.playmat-layer.bare) { border-color: transparent; background: transparent; }
+.appearance { display: flex; flex-direction: column; gap: 18px; }
+.appearance h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--room-bone-dim); margin: 0 0 6px; }
+.asset-picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.asset-pick {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; width: 92px; padding: 6px; font-size: 11.5px; cursor: pointer;
+  background: rgba(0, 0, 0, 0.2); border: 1px solid var(--room-edge); border-radius: var(--room-radius); color: var(--room-bone);
+}
+.asset-pick span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asset-pick.on { border-color: var(--room-brass); box-shadow: 0 0 0 1px var(--room-brass); }
+.asset-pick .card-face { width: 56px; }
+.asset-pick.add { justify-content: center; min-height: 96px; color: var(--room-bone-dim); }
+.mat-thumb { width: 78px; height: 52px; background-size: cover; background-position: center; border-radius: 2px; }
+.mat-thumb.none { background: repeating-linear-gradient(45deg, #222 0 6px, #1a1a1a 6px 12px); }
+.mat-controls { display: flex; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+.mat-preview { position: relative; width: 300px; height: 160px; overflow: hidden; background: var(--room-felt-deep); border: 1px solid var(--room-edge); border-radius: var(--room-radius); }
+.mat-fields { display: grid; grid-template-columns: repeat(2, minmax(140px, 1fr)); gap: 8px 12px; flex: 1; min-width: 280px; align-items: end; }
+.appearance-actions { margin-top: 8px; display: flex; gap: 8px; }

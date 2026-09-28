@@ -2,6 +2,7 @@ import { ContextMenuHost } from "./components/ContextMenu";
 import { PromptHost } from "./components/Prompt";
 import { Toasts } from "./components/Toasts";
 import { useHashRoute } from "./hooks/useHashRoute";
+import { AssetManager } from "./pages/AssetManager";
 import { CardBrowser } from "./pages/CardBrowser";
 import { DeckEditor } from "./pages/DeckEditor";
 import { DeckLibrary } from "./pages/DeckLibrary";
@@ -15,6 +16,7 @@ const NAV = [
   { href: "#/decks", label: "Decks", key: "decks" },
   { href: "#/cards", label: "Cards", key: "cards" },
   { href: "#/stats", label: "Pod stats", key: "stats" },
+  { href: "#/assets", label: "Assets", key: "assets" },
 ];
 
 export function App() {
@@ -45,6 +47,9 @@ export function App() {
       break;
     case "stats":
       page = <PodStatsPage />;
+      break;
+    case "assets":
+      page = <AssetManager />;
       break;
     default:
       page = <Home />;

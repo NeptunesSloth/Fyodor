@@ -1,3 +1,4 @@
+import { sleeveStyle, useSleeve } from "./appearance";
 import { memo } from "react";
 import { CardFace } from "../cards/CardFace";
 import { useCard } from "../state/cardCache";
@@ -7,11 +8,12 @@ import { isVisible, type GameCard } from "../types/game";
 export const GameCardFace = memo(function GameCardFace({ card, size = "normal", peek = false }: { card: GameCard; size?: "small" | "normal" | "large"; peek?: boolean }) {
   const visible = isVisible(card);
   const data = useCard(visible ? card.card_id : null);
-  if (!visible) return <CardFace faceDown />;
+  const sleeve = sleeveStyle(useSleeve(card.owner));
+  if (!visible) return <CardFace faceDown backStyle={sleeve} />;
   if (card.face_down && !peek) {
     return (
       <div className="face-down-known">
-        <CardFace faceDown />
+        <CardFace faceDown backStyle={sleeve} />
         <span className="peek-badge" title="Face down — you know what it is">👁</span>
       </div>
     );

@@ -7,6 +7,7 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+from app.assets.store import AssetNotFound, AssetStore
 from app.assistant import OllamaAssistant, RulesAssistant
 from app.cards.downloader import ImageReport, download_images, image_jobs_from_rows, make_client
 from app.cards.images import ImageStore
@@ -35,7 +36,8 @@ class Services:
         self.cards = CardRepository(settings.cards_db_path, self.images)
         self.saves = SaveRepository(self.app_db, self.app_db_lock)
         self.stats = PodStats(self.app_db, self.app_db_lock)
-        self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every)
+        self.assets = AssetStore(self.app_db, self.app_db_lock, settings.assets_dir)
+        self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every, asset_info=self.asset_info)
         self.jobs = JobManager()
         self.source_cache: dict[str, tuple[float, Any]] = {}
         self.rules = RulesRegistry()  # no modules ship enabled; see app/rules/__init__.py
@@ -62,6 +64,32 @@ class Services:
             result = download_images(client, self.images, jobs, workers=6, progress=report)
         return (f"{result.downloaded} downloaded, {result.skipped} already cached, {result.failed} failed"
                 + (" — re-run to retry" if result.failed else ""))
+
+    def asset_info(self, ids: set[str]) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for aid in ids:
+            try:
+                a = self.assets.get(aid)
+            except AssetNotFound:
+                continue
+            out[aid] = {"url": a["url"], "width": a["width"], "height": a["height"], "kind": a["kind"]}
+        return out
+
+    def assets_in_use(self) -> dict[str, list[str]]:
+        """asset id -> where it's used (live tables)."""
+        used: dict[str, list[str]] = {}
+        for room in self.hub.rooms.values():
+            if room.game is None:
+                continue
+            st = room.game.state
+            for p in st.players.values():
+                if p.sleeve:
+                    used.setdefault(p.sleeve, []).append(f"{st.name}: {p.name}'s sleeves")
+                if p.playmat:
+                    used.setdefault(p.playmat.asset_id, []).append(f"{st.name}: {p.name}'s playmat")
+            if st.table.playmat:
+                used.setdefault(st.table.playmat.asset_id, []).append(f"{st.name}: table playmat")
+        return used
 
     def autosave(self, room: Room) -> None:
         if not room.started:
