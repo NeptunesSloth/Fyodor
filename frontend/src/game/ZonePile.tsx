@@ -48,6 +48,14 @@ export function libraryMenu(player: string, me: string, name: string): MenuItem[
   });
   items.push({ label: "Reveal the top card", onClick: () => void send({ type: "reveal_top", player, count: 1 }) });
   items.push({
+    label: "Put the top card onto the battlefield face down",
+    submenu: [
+      { label: "Manifest", onClick: () => void send({ type: "put_top_face_down", player, kind: "manifest" }) },
+      { label: "Cloak", onClick: () => void send({ type: "put_top_face_down", player, kind: "cloak" }) },
+      { label: "Face down", onClick: () => void send({ type: "put_top_face_down", player, kind: "generic" }) },
+    ],
+  });
+  items.push({
     label: "Mill…",
     onClick: async () => {
       const n = await askNumber("Mill how many cards?", 1, { min: 1, max: 500 });

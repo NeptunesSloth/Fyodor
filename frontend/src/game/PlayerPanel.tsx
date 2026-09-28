@@ -74,6 +74,15 @@ export function PlayerPanel({ player, me, compact }: { player: string; me: strin
         Hand {p.hand_count} · Library {p.library_count}
         {p.mulligans > 0 && ` · Mulligans ${p.mulligans}`}
       </div>
+      {p.commanders.length > 0 && (
+        <div className="pp-cmds" data-testid={`commanders-${p.id}`}>
+          {p.commanders.map((c) => (
+            <span key={c.key} className={`pp-cmd ${c.zone.endsWith(":command") ? "home" : ""}`} title={`${c.name} — commander tax ${c.tax}, cast ${c.casts ?? 0}× from the command zone`}>
+              ♛ {c.name.split(",")[0]} <b>+{c.tax}</b>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -184,7 +193,7 @@ function playerMenu(p: PlayerView): MenuItem[] {
   ];
   for (const c of p.commanders) {
     items.push({
-      label: `Commander tax: ${c.name} (${c.tax})`,
+      label: `${c.name}: tax ${c.tax}${c.casts ? ` · cast ${c.casts}×` : ""}`,
       submenu: [
         { label: "+2", onClick: () => void send({ type: "commander_tax", commander: c.key, delta: 2 }) },
         { label: "−2", onClick: () => void send({ type: "commander_tax", commander: c.key, delta: -2 }) },

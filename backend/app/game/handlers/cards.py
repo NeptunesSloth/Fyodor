@@ -179,6 +179,10 @@ def flip(state: GameState, a: A.Flip) -> None:
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" flipped "), ops.card_part(state, c)])
 
 
+def zone_of(c: CardInstance) -> str:
+    return ops.zone_name(c.zone)
+
+
 def face_down(state: GameState, a: A.FaceDown) -> None:
     targets = ops.cards(state, a.card_ids)
     for c in targets:
@@ -193,6 +197,7 @@ def face_down(state: GameState, a: A.FaceDown) -> None:
         if new == c.face_down:
             continue
         c.face_down = new
+        c.face_down_kind = (a.kind or ("exile" if zone_of(c) == "exile" else "generic")) if new else None
         # A face-down card is anonymous to everyone but its controller from now on.
         c.revealed_to = []
         (turned_down if new else turned_up).append(c)

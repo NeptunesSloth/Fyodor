@@ -1,4 +1,5 @@
 /** Small helpers that build and send common actions. */
+import type { FaceDownKind } from "../types/game";
 import { useGame } from "../state/gameStore";
 import type { Action, ZoneName } from "../types/game";
 
@@ -7,7 +8,7 @@ export const send = (action: Action) => useGame.getState().send(action);
 export function moveCards(
   ids: string[],
   zone: ZoneName,
-  opts: { player?: string | null; position?: "top" | "bottom"; index?: number; x?: number; y?: number; face_down?: boolean } = {},
+  opts: { player?: string | null; position?: "top" | "bottom"; index?: number; x?: number; y?: number; face_down?: boolean; face_down_kind?: FaceDownKind } = {},
 ) {
   if (!ids.length) return Promise.resolve(false);
   const action: Action = { type: "move", card_ids: ids, to: { zone, player: opts.player ?? null } };
@@ -18,6 +19,7 @@ export function moveCards(
     action.y = opts.y;
   }
   if (opts.face_down != null) action.face_down = opts.face_down;
+  if (opts.face_down_kind) action.face_down_kind = opts.face_down_kind;
   return send(action);
 }
 

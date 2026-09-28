@@ -85,6 +85,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
     else:
         view = {"id": c.id, "hidden": True, "owner": c.owner, "controller": c.controller, "zone": c.zone,
                 "face_down": c.face_down}
+    if c.face_down and c.face_down_kind:
+        view["face_down_kind"] = c.face_down_kind  # public: everyone saw how it got face down
     if c.protected:
         view["protected"] = True
     if zone in PUBLIC_ZONES:
@@ -191,7 +193,8 @@ def build_view(
         if c.commander_key:
             commanders[c.owner].append(
                 {"key": c.commander_key, "name": c.name, "card_id": c.card_id, "instance_id": c.id if can_see(state, c, viewer) else None,
-                 "zone": c.zone, "tax": state.players[c.owner].commander_tax.get(c.commander_key, 0)}
+                 "zone": c.zone, "tax": state.players[c.owner].commander_tax.get(c.commander_key, 0),
+                 "casts": state.players[c.owner].commander_casts.get(c.commander_key, 0)}
             )
 
     players = []

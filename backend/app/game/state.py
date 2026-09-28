@@ -107,6 +107,8 @@ class CardInstance(BaseModel):
     y: float = 0.0
     tapped: bool = False
     face_down: bool = False
+    # How it got face down (public: everyone saw it happen). Its identity stays with the controller.
+    face_down_kind: Literal["generic", "morph", "disguise", "manifest", "cloak", "exile"] | None = None
     face: int = 0  # displayed face for DFC / adventure / split cards
     flipped: bool = False  # rotated 180° (Kamigawa flip cards)
     counters: dict[str, int] = Field(default_factory=dict)
@@ -149,6 +151,7 @@ class PlayerState(BaseModel):
     resources: dict[str, int] = Field(default_factory=lambda: {k: 0 for k in DEFAULT_RESOURCES})
     commander_damage: dict[str, int] = Field(default_factory=dict)  # commander_key -> damage taken
     commander_tax: dict[str, int] = Field(default_factory=dict)  # own commander_key -> tax
+    commander_casts: dict[str, int] = Field(default_factory=dict)  # own commander_key -> casts from the command zone
     city_blessing: bool = False
     mulligans: int = 0
     deck_id: str | None = None

@@ -117,6 +117,8 @@ def move_card(
             c.x, c.y = x, y
         if face_down is not None:
             c.face_down = face_down
+            if not face_down:
+                c.face_down_kind = None
         return True
 
     if is_ephemeral(c) and dst_zone not in ("battlefield", STACK):
@@ -158,6 +160,8 @@ def move_card(
         c.face = 0
     c.revealed_to = []  # a reveal ends when the card changes zones
     c.face_down = bool(face_down) if face_down is not None else False
+    if not c.face_down:
+        c.face_down_kind = None
     if dst_zone == "battlefield":
         c.controller = split_zone(dest)[0] or c.controller
         if x is not None and y is not None:

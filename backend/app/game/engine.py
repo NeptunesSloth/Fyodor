@@ -19,6 +19,7 @@ HANDLERS: dict[str, Handler] = {
     "shuffle": zones.shuffle,
     "mill": zones.mill,
     "mulligan": zones.mulligan,
+    "put_top_face_down": zones.put_top_face_down,
     "mulligan_take": mulligan.take,
     "mulligan_keep": mulligan.keep,
     "mulligan_bottom": mulligan.bottom,

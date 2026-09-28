@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { openMenu } from "../components/ContextMenu";
 import { useGame, useCardView } from "../state/gameStore";
-import { isVisible, splitZone } from "../types/game";
+import { FACE_DOWN_LABEL, isVisible, splitZone } from "../types/game";
 import { moveCards, send, tapCards, targetsFor } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, type DropResult } from "./dnd";
@@ -88,6 +88,9 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
         {visible && card.copy_of && <span className="mark copy" title={`Copy of ${card.copy_of.source_name}${card.copy_of.modifications ? ` — ${card.copy_of.modifications}` : ""}`}>COPY</span>}
         {visible && card.commander_key && <span className="mark cmdr" title="Commander">♛</span>}
         {visible && card.note && <span className="mark note" title={card.note}>✎</span>}
+        {card.face_down && card.face_down_kind && card.face_down_kind !== "generic" && (
+          <span className="mark fd" title={`${FACE_DOWN_LABEL[card.face_down_kind]} (face down)`}>{FACE_DOWN_LABEL[card.face_down_kind].toUpperCase()}</span>
+        )}
         {card.attacking && <span className="mark atk" title="Attacking">⚔</span>}
         {card.blocking && <span className="mark blk" title="Blocking">⛨</span>}
       </div>

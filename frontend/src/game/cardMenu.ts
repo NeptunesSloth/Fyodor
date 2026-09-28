@@ -3,7 +3,7 @@ import type { MenuItem } from "../components/ContextMenu";
 import { askNumber, askText } from "../components/Prompt";
 import { useGame } from "../state/gameStore";
 import { useCardCache } from "../state/cardCache";
-import { isVisible, splitZone, type GameCard, type GameView, type ZoneName } from "../types/game";
+import { FACE_DOWN_LABEL, isVisible, splitZone, type FaceDownKind, type GameCard, type GameView, type ZoneName } from "../types/game";
 import { addCounter, COMMON_COUNTERS, moveCards, send, tapCards, targetsFor } from "./actions";
 
 function moveMenu(ids: string[], current: ZoneName, owner: string | null, me: string): MenuItem[] {
@@ -112,7 +112,13 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
   if (zone === "hand" || (zone === "library" && visible) || zone === "sideboard") {
     items.push({ label: "Play", hint: "double-click", onClick: () => void moveCards(ids, "battlefield", { player: me }) });
     items.push({ label: "Cast (to stack)", onClick: () => void moveCards(ids, "stack") });
-    items.push({ label: "Play face down", onClick: () => void moveCards(ids, "battlefield", { player: me, face_down: true }) });
+    items.push({
+      label: "Play face down",
+      submenu: (["generic", "morph", "disguise", "manifest", "cloak"] as FaceDownKind[]).map((kind) => ({
+        label: FACE_DOWN_LABEL[kind],
+        onClick: () => void moveCards(ids, "battlefield", { player: me, face_down: true, face_down_kind: kind }),
+      })),
+    });
     if (zone === "hand") items.push({ label: "Discard", onClick: () => void moveCards(ids, "graveyard", { player: zoneOwner }) });
     items.push("separator");
   }
@@ -129,7 +135,16 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
   }
   if (zone === "battlefield" && !multi) items.push({ label: "Flip 180°", onClick: () => void send({ type: "flip", card_id: card.id }) });
   if (["battlefield", "exile", "stack", "foretell"].includes(zone)) {
-    items.push({ label: card.face_down ? "Turn face up" : "Turn face down", onClick: () => void send({ type: "face_down", card_ids: ids }) });
+    if (card.face_down) items.push({ label: "Turn face up", onClick: () => void send({ type: "face_down", card_ids: ids, face_down: false }) });
+    else if (zone === "battlefield")
+      items.push({
+        label: "Turn face down",
+        submenu: (["generic", "morph", "disguise", "manifest", "cloak"] as FaceDownKind[]).map((kind) => ({
+          label: FACE_DOWN_LABEL[kind],
+          onClick: () => void send({ type: "face_down", card_ids: ids, face_down: true, kind }),
+        })),
+      });
+    else items.push({ label: "Turn face down", onClick: () => void send({ type: "face_down", card_ids: ids, face_down: true }) });
   }
   if ((zone === "battlefield" || zone === "stack") && visible && !multi) {
     items.push({
@@ -173,9 +188,12 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
       label: "Give control to",
       submenu: players.filter((p) => p.id !== card.controller).map((p) => ({ label: p.name, onClick: () => void send({ type: "set_controller", card_ids: ids, player: p.id }) })),
     });
-    if (card.controller !== card.owner) {
-      items.push({ label: "Return to owner", onClick: () => void send({ type: "set_controller", card_ids: ids, player: card.owner }) });
-    }
+  }
+  if (card.controller !== card.owner || (zoneOwner && zoneOwner !== card.owner && zone !== "stack")) {
+    items.push({ label: "Return to owner", hint: players.find((p) => p.id === card.owner)?.name, onClick: () => void send({ type: "return_to_owner", card_ids: ids }) });
+  }
+  if (visible && card.commander_key && zone !== "command" && zone !== "stack") {
+    items.push({ label: "Return to command zone", onClick: () => void moveCards(ids, "command", { player: card.owner }) });
   }
 
   if (visible && !multi) {

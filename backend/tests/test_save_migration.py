@@ -40,7 +40,7 @@ def test_v1_save_migrates_and_keeps_history(cards):
         "history": {**history, "base": as_v1(history["base"])},
     }
     migrated = decode(encode(payload))
-    assert migrated["version"] == SAVE_VERSION == 2
+    assert migrated["version"] == SAVE_VERSION == 3
     state, restored_history = load_payload(migrated)
     assert state.players["p1"].life == 37
     assert state.searching("p1") == "p1:library"
@@ -75,3 +75,26 @@ def test_history_with_a_retired_action_type_still_loads_the_table(cards):
     state, history = load_payload(payload)
     assert history is None  # undo history is dropped, the table is intact
     assert len(zone(state, "p1", "hand")) == 3
+
+
+def test_v2_save_with_reminders_migrates_to_v3_and_keeps_history(cards):
+    s = make_session(cards)
+    act(s, "p1", type="draw", count=3)
+    act(s, "p1", type="life", delta=-2)
+    history = s.history.to_dict()
+    actions = list(history["actions"])
+    # a v2 game had a reminder in between: drop it, keep everything else
+    actions.insert(1, {"type": "add_reminder", "text": "x", "when": "upkeep", "actor": "p1", "ts": 0, "r": {"ids": ["rem1"]}})
+    state = s.state.model_dump(mode="json")
+    state["reminders"] = [{"id": "rem1", "owner": "p1", "text": "x", "when": "upkeep"}]
+    for c in state["cards"].values():
+        c.pop("face_down_kind", None)
+    payload = {"format": "fyodor-save", "version": 2, "saved_at": 0, "state": state,
+               "history": {**history, "actions": actions, "cursor": 3}}
+    migrated = decode(encode(payload))
+    assert migrated["version"] == 3 and migrated["migrated_from"] == 2
+    assert [a["type"] for a in migrated["history"]["actions"]] == ["draw", "life"]
+    assert migrated["history"]["cursor"] == 2
+    loaded, restored = load_payload(migrated)
+    assert restored is not None and restored.cursor == 2
+    assert loaded.players["p1"].life == 38 and len(zone(loaded, "p1", "hand")) == 3

@@ -62,12 +62,24 @@ export interface AttackTarget {
   id: string;
 }
 
+export type FaceDownKind = "generic" | "morph" | "disguise" | "manifest" | "cloak" | "exile";
+export const FACE_DOWN_LABEL: Record<FaceDownKind, string> = {
+  generic: "Face down",
+  morph: "Morph",
+  disguise: "Disguise",
+  manifest: "Manifest",
+  cloak: "Cloak",
+  exile: "Exiled face down",
+};
+
 interface CardBase {
   id: string;
   owner: string;
   controller: string;
   zone: string;
   face_down: boolean;
+  /** How it got face down (public). */
+  face_down_kind?: FaceDownKind;
   x?: number;
   y?: number;
   tapped?: boolean;
@@ -109,6 +121,8 @@ export interface CommanderInfo {
   instance_id: string | null;
   zone: string;
   tax: number;
+  /** Times cast from the command zone. */
+  casts?: number;
 }
 
 export interface PlayerView {

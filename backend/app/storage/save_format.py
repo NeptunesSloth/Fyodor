@@ -17,7 +17,7 @@ from collections.abc import Callable
 from typing import Any
 
 SAVE_FORMAT = "fyodor-save"
-SAVE_VERSION = 2
+SAVE_VERSION = 3
 MAX_SAVE_BYTES = 64 * 1024 * 1024  # decompressed
 
 Migration = Callable[[dict[str, Any]], dict[str, Any]]
@@ -47,8 +47,36 @@ def _v1_to_v2(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+RETIRED_ACTIONS = {"add_reminder", "dismiss_reminder"}  # the step-reminder system was removed in v3
+
+
+def _v2_state_to_v3(state: dict[str, Any]) -> None:
+    state.pop("reminders", None)
+    for card in (state.get("cards") or {}).values():
+        card.setdefault("face_down_kind", None)
+
+
+def _v2_to_v3(payload: dict[str, Any]) -> dict[str, Any]:
+    """v3 drops step reminders (state and undo history) and adds face-down kinds / commander casts."""
+    if isinstance(payload.get("state"), dict):
+        _v2_state_to_v3(payload["state"])
+    history = payload.get("history")
+    if isinstance(history, dict):
+        if isinstance(history.get("base"), dict):
+            _v2_state_to_v3(history["base"])
+        actions = history.get("actions") or []
+        cursor = int(history.get("cursor", len(actions)))
+        kept = [a for a in actions if not (isinstance(a, dict) and a.get("type") in RETIRED_ACTIONS)]
+        removed_before_cursor = sum(
+            1 for a in actions[:cursor] if isinstance(a, dict) and a.get("type") in RETIRED_ACTIONS
+        )
+        history["actions"] = kept
+        history["cursor"] = max(0, cursor - removed_before_cursor)
+    return payload
+
+
 # MIGRATIONS[n] upgrades a version-n payload to version n + 1.
-MIGRATIONS: dict[int, Migration] = {1: _v1_to_v2}
+MIGRATIONS: dict[int, Migration] = {1: _v1_to_v2, 2: _v2_to_v3}
 
 
 class SaveFormatError(ValueError):

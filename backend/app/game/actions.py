@@ -23,6 +23,7 @@ ZoneName = Literal[
     "stack",
 ]
 Coord = Annotated[float, Field(ge=-100000, le=100000)]
+FaceDownKind = Literal["generic", "morph", "disguise", "manifest", "cloak", "exile"]
 assert set(PLAYER_ZONES) | {STACK} == set(ZoneName.__args__)  # type: ignore[attr-defined]
 
 
@@ -73,6 +74,7 @@ class Move(Base):
     x: Coord | None = None
     y: Coord | None = None
     face_down: bool | None = None
+    face_down_kind: FaceDownKind | None = None  # morph / disguise / manifest / cloak …
     r: MoveData | None = None
 
 
@@ -102,6 +104,16 @@ class Mulligan(Base):
     player: Id | None = None
     draw: int = Field(default=7, ge=0, le=20)
     r: ShuffleData | None = None
+
+
+class PutTopFaceDown(Base):
+    """Manifest / cloak: the top N cards of a library onto the battlefield face down."""
+
+    type: Literal["put_top_face_down"] = "put_top_face_down"
+    player: Id | None = None  # whose library (default: yours); they enter under your control
+    count: int = Field(default=1, ge=1, le=20)
+    kind: Literal["manifest", "cloak", "generic"] = "manifest"
+    r: MoveData | None = None
 
 
 class MulliganTake(Base):
@@ -286,6 +298,7 @@ class FaceDown(Base):
     type: Literal["face_down"] = "face_down"
     card_ids: IdList
     face_down: bool | None = None  # None = toggle
+    kind: FaceDownKind | None = None  # when turning face down
 
 
 class Note(Base):
@@ -628,6 +641,7 @@ Action = Annotated[
     | Shuffle
     | Mill
     | Mulligan
+    | PutTopFaceDown
     | MulliganTake
     | MulliganKeep
     | MulliganBottom

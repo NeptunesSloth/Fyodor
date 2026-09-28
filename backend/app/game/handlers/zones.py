@@ -61,8 +61,12 @@ def move(state: GameState, a: A.Move) -> None:
         if c.zone.endswith(":command") and dest == STACK and c.commander_key:
             commander_casts.append(c)
         ops.move_card(state, c, dest, index=index, position=a.position, x=x, y=y, face_down=a.face_down)
+        if c.face_down and a.face_down:
+            c.face_down_kind = a.face_down_kind or ("exile" if ops.zone_name(dest) == "exile" else "generic")
 
     for c in commander_casts:
+        caster = state.players[c.owner]
+        caster.commander_casts[c.commander_key or ""] = caster.commander_casts.get(c.commander_key or "", 0) + 1
         if state.settings.auto_commander_tax:
             owner = state.players[c.owner]
             owner.commander_tax[c.commander_key or ""] = owner.commander_tax.get(c.commander_key or "", 0) + 2
@@ -163,6 +167,7 @@ def rekey_zone(state: GameState, key: str, perm: list[int], new_ids: list[str]) 
         c.id = new_id
         c.revealed_to = []
         c.face_down = False
+        c.face_down_kind = None
         state.cards[new_id] = c
     state.zones[key] = list(new_ids)
     # Shuffling invalidates every positional view of the zone.
@@ -190,8 +195,28 @@ def mill(state: GameState, a: A.Mill) -> None:
     dest = zone_key(pid, a.to)
     for c in milled:
         ops.move_card(state, c, dest, face_down=a.face_down if a.to == "exile" else None)
+        if c.face_down:
+            c.face_down_kind = "exile"
     verb = "milled" if a.to == "graveyard" else ("exiled face down" if a.face_down else "exiled")
     log(state, a.actor, a.ts, [pname(state, pid), text(f" {verb} "), group(state, milled)])
+
+
+def put_top_face_down(state: GameState, a: A.PutTopFaceDown) -> None:
+    pid = ops.player(state, a.player, a.actor)
+    lib = state.zone(zone_key(pid, "library"))
+    if not lib:
+        raise ActionError(f"{state.players[pid].name}'s library is empty")
+    cards_ = [state.cards[cid] for cid in lib[: a.count]]
+    positions = a.r.positions if a.r else {}
+    dest = zone_key(a.actor, "battlefield")
+    for i, c in enumerate(cards_):
+        x, y = positions.get(c.id, (80 + i * 22, 80 + i * 22))
+        ops.move_card(state, c, dest, x=x, y=y, face_down=True)
+        c.face_down_kind = a.kind
+    what = {"manifest": "manifested", "cloak": "cloaked", "generic": "put face down"}[a.kind]
+    n = len(cards_)
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" {what} the top {'card' if n == 1 else f'{n} cards'} of "),
+                                pname(state, pid), text("'s library")])
 
 
 def mulligan(state: GameState, a: A.Mulligan) -> None:

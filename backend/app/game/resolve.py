@@ -115,6 +115,12 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.r = _resolve_move(state, a, actor, info)
     elif isinstance(a, A.ResolveTop):
         a.r = _resolve_top(state, info)
+    elif isinstance(a, A.PutTopFaceDown):
+        top_ids = state.zones.get(zone_key(a.player or actor, "library"), [])[: a.count]
+        spots: list[tuple[float, float]] = []
+        for _ in top_ids:
+            spots.append(placement.free_spot(state, zone_key(actor, "battlefield"), "creature", spots))
+        a.r = A.MoveData(positions=dict(zip(top_ids, spots, strict=True)))
     return response.wrap(state, a)
 
 
