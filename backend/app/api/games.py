@@ -78,7 +78,7 @@ def authorize(room: Room, *, local: bool, token: str | None, viewer: str | None,
     return seat, (seat if seat != SPECTATOR else None)
 
 
-HOST_ONLY_ACTIONS = {"mulligan_finish", "remove_player", "set_table_playmat"}
+HOST_ONLY_ACTIONS = {"mulligan_finish", "remove_player", "set_table_playmat", "restart_game", "configure"}
 
 
 def _check_host_only(room: Room, action: dict[str, Any], *, host: bool) -> None:
@@ -288,7 +288,8 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
     settings = GameSettings(starting_life=body.starting_life or {"commander": 40}.get(body.format, 20), auto_untap=body.auto_untap,
                             deck_privacy=body.deck_privacy, mulligan=policy,
                             # one person runs a hot-seat table: nobody to ask
-                            priority_helper=body.priority_helper if body.mode == "lan" else "off")
+                            priority_helper=body.priority_helper if body.mode == "lan" else "off",
+                            allow_test_objects=body.mode == "local")
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
     session.notice(f"Game created. {state.players[state.turn.active_player].name} goes first.")

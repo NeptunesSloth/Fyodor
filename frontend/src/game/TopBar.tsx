@@ -119,6 +119,7 @@ function tableMenu(isHost: boolean): MenuItem[] {
         { label: "Neither", onClick: () => void send({ type: "set_day_night", value: null }) },
       ],
     },
+    soloMenu(isHost),
     viewsMenu(),
     selectMenu(),
     cleanupMenu(),
@@ -152,4 +153,24 @@ async function verifySync(): Promise<void> {
     toast("This screen was out of date — resynced", "error");
     s.conn?.resync();
   }
+}
+
+function soloMenu(isHost: boolean): MenuItem {
+  const s = useGame.getState();
+  const allowed = !!s.view?.game.settings.allow_test_objects;
+  return {
+    label: "Solo tools",
+    submenu: [
+      { label: "Spawn a card…", disabled: !allowed, hint: allowed ? "test object" : "off at this table", onClick: () => s.openDialog("spawn") },
+      { label: "Reset my deck…", onClick: () => { if (window.confirm("Gather your cards back into your deck, remove your tokens, copies and test objects, reset life and shuffle?")) void send({ type: "reset_deck", draw: 7 }); } },
+      { label: "New opening hand", onClick: () => void send({ type: "mulligan" }) },
+      ...(isHost
+        ? ([
+            "separator",
+            { label: "Restart game…", onClick: () => { if (window.confirm("Reset every deck and go back to turn 1?")) void send({ type: "restart_game", draw: 7 }); } },
+            { label: allowed ? "Disallow test cards" : "Allow test cards", onClick: () => void send({ type: "configure", allow_test_objects: !allowed }) },
+          ] as MenuItem[])
+        : []),
+    ],
+  };
 }

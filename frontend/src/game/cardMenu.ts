@@ -1,4 +1,5 @@
 /** Context-menu contents for a card, depending on the zone it is in. */
+import { macrosFor } from "../state/macros";
 import { usePrefs } from "../state/prefs";
 import type { MenuItem } from "../components/ContextMenu";
 import { askNumber, askText } from "../components/Prompt";
@@ -219,6 +220,22 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
             }),
         },
         { label: "Detach", onClick: () => void send({ type: "detach", card_ids: ids }) },
+      ],
+    });
+  }
+  if (zone === "battlefield" || zone === "stack") {
+    const macros = macrosFor(cardData?.oracle_id);
+    const selected = useGame.getState().selection.filter((id) => id !== card.id);
+    items.push({
+      label: "Custom actions",
+      submenu: [
+        ...macros.map((m) => ({
+          label: m.name,
+          hint: m.scope === "card" ? "this card" : "library",
+          onClick: () => void send({ type: "run_macro", macro: m.definition, card_id: card.id, selected }),
+        })),
+        ...(macros.length ? ["separator" as const] : []),
+        { label: "New custom action…", onClick: () => useGame.getState().openDialog("macro", card.id) },
       ],
     });
   }

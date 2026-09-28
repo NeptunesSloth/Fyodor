@@ -100,6 +100,20 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
     elif isinstance(a, A.CopyCard | A.CreateAbility):
         count = a.count if isinstance(a, A.CopyCard) else 1
         a.r = A.NewIds(ids=[new_id() for _ in range(count)])
+    elif isinstance(a, A.SpawnCard):
+        data = info.get(a.card_id)
+        a.resolved_name = str(data["name"]) if data else None
+        a.r = A.NewIds(ids=[new_id()])
+    elif isinstance(a, A.ResetDeck):
+        from app.game.handlers.solo import library_size_after_reset
+
+        a.r = shuffle_data(library_size_after_reset(state, a.player or actor), rng)
+    elif isinstance(a, A.RestartGame):
+        from app.game.handlers.solo import library_size_after_reset
+
+        a.r = {pid: shuffle_data(library_size_after_reset(state, pid), rng) for pid in state.seat_order}
+    elif isinstance(a, A.RunMacro):
+        a.r = _resolve_macro(state, a, actor, info, rng)
     elif isinstance(a, A.AddEffect):
         a.r = A.NewIds(ids=[new_id() for _ in a.card_ids])
     elif isinstance(a, A.CreateArrow | A.Group | A.SplitStack):
@@ -212,3 +226,23 @@ def _resolve_top(state: GameState, info: CardInfo) -> A.MoveData:
         data.destinations[top.id] = key
         data.positions[top.id] = placement.free_spot(state, key, placement.row_for(type_line))
     return data
+
+
+def _resolve_macro(state: GameState, a: A.RunMacro, actor: str, info: CardInfo, rng: Any) -> list[dict[str, Any]]:
+    """Expand the macro and resolve its steps one after another on a scratch copy of the table,
+    so every step sees what the previous ones did (new token ids, moved cards, …)."""
+    from app.game import engine  # engine → handlers; imported late to keep modules acyclic
+    from app.game.macros import MacroError, expand
+
+    try:
+        payloads = expand(a.macro, actor=actor, order=state.seat_order, this=a.card_id, selected=list(a.selected))
+    except MacroError as exc:
+        raise ActionError(f"{a.macro.name}: {exc}") from exc
+    scratch = state.model_copy(deep=True)
+    steps: list[dict[str, Any]] = []
+    for payload in payloads:
+        child = A.parse_action(payload)
+        resolved = resolve(scratch, child, actor=actor, cards=info, rng=rng)
+        engine.apply(scratch, resolved)
+        steps.append(resolved.model_dump(mode="json"))
+    return steps

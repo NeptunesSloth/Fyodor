@@ -51,7 +51,7 @@ interface GameStore {
   hover: string | null;
   inspect: string | null;
   browser: BrowserState | null;
-  dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host" | "endgame" | "appearance" | "history" | "settings";
+  dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host" | "endgame" | "appearance" | "history" | "settings" | "macro" | "spawn";
   dialogArg: string | null;
   pendingPositions: Record<string, [number, number]>;
   /** Pick mode: the next clicks on cards / players choose targets (arrows, copy target…). */

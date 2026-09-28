@@ -20,6 +20,7 @@ from app.multiplayer.hub import GameHub, Room
 from app.rules import RulesRegistry
 from app.stats.repository import PodStats
 from app.storage.app_db import open_app_db
+from app.storage.macros import MacroRepository
 from app.storage.saves import SaveRepository
 
 log = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class Services:
         self.cards = CardRepository(settings.cards_db_path, self.images)
         self.saves = SaveRepository(self.app_db, self.app_db_lock)
         self.stats = PodStats(self.app_db, self.app_db_lock)
+        self.macros = MacroRepository(self.app_db, self.app_db_lock)
         self.assets = AssetStore(self.app_db, self.app_db_lock, settings.assets_dir)
         self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every, asset_info=self.asset_info)
         self.jobs = JobManager()

@@ -17,7 +17,7 @@ from collections.abc import Callable
 from typing import Any
 
 SAVE_FORMAT = "fyodor-save"
-SAVE_VERSION = 3
+SAVE_VERSION = 4
 MAX_SAVE_BYTES = 64 * 1024 * 1024  # decompressed
 
 Migration = Callable[[dict[str, Any]], dict[str, Any]]
@@ -75,8 +75,26 @@ def _v2_to_v3(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _v3_state_to_v4(state: dict[str, Any]) -> None:
+    for card in (state.get("cards") or {}).values():
+        if "origin" in card:
+            continue
+        zone = str(card.get("zone", "")).split(":")[-1]
+        card["origin"] = "command" if card.get("commander_key") else zone if zone in ("sideboard", "companion") else "library"
+
+
+def _v3_to_v4(payload: dict[str, Any]) -> dict[str, Any]:
+    """v4 remembers where each card starts (for Reset deck); infer it for older games."""
+    if isinstance(payload.get("state"), dict):
+        _v3_state_to_v4(payload["state"])
+    history = payload.get("history")
+    if isinstance(history, dict) and isinstance(history.get("base"), dict):
+        _v3_state_to_v4(history["base"])
+    return payload
+
+
 # MIGRATIONS[n] upgrades a version-n payload to version n + 1.
-MIGRATIONS: dict[int, Migration] = {1: _v1_to_v2, 2: _v2_to_v3}
+MIGRATIONS: dict[int, Migration] = {1: _v1_to_v2, 2: _v2_to_v3, 3: _v3_to_v4}
 
 
 class SaveFormatError(ValueError):

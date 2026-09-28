@@ -521,3 +521,9 @@ body.hud-minimal .player-panel { padding: 3px 8px; }
 .me.focused { flex-grow: 3; }
 .opponents.focused > .player-area:not(.focused) { flex-grow: 0.4; }
 .opponents.focused > .player-area.focused { flex-grow: 3; }
+.card-marks .mark.test { background: #5b3d8a; color: #fff; }
+.macro-editor { display: flex; flex-direction: column; gap: 8px; }
+.macro-step { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; padding: 6px; border: 1px solid var(--room-edge); border-radius: var(--room-radius); }
+.macro-step .field input, .macro-step .field select { max-width: 150px; }
+.mana-field { display: flex; flex-direction: column; font-size: 11px; color: var(--room-bone-dim); }
+.mana-field input { width: 44px; }

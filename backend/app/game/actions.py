@@ -13,6 +13,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
+from app.game.macros import MacroDef
 from app.game.state import PHASES, PLAYER_ZONES, STACK, AttackTarget, Playmat, TokenDef
 from app.textutil import clean_text
 
@@ -440,6 +441,48 @@ class SetTablePlaymat(Base):
     playmat: Playmat | None = None
 
 
+class RunMacro(Base):
+    """Run a declarative macro (see game/macros.py) as one undoable action."""
+
+    type: Literal["run_macro"] = "run_macro"
+    macro: MacroDef
+    card_id: Id | None = None  # "this"
+    selected: list[Id] = Field(default_factory=list, max_length=100)
+    r: list[dict[str, Any]] | None = None  # the resolved step actions (server-filled)
+
+
+class SpawnCard(Base):
+    """Solo / debug: put any card from the card database onto the table as a TEST OBJECT."""
+
+    type: Literal["spawn_card"] = "spawn_card"
+    card_id: Id  # printing id
+    player: Id | None = None
+    zone: Literal["battlefield", "hand", "library"] = "battlefield"
+    x: Coord | None = None
+    y: Coord | None = None
+    r: NewIds | None = None
+    resolved_name: str | None = None  # filled by resolve from the card database
+
+
+class ResetDeck(Base):
+    """Gather a player's own cards back into their deck (library, command zone, sideboard …),
+    remove their tokens, copies and test objects, shuffle, and optionally reset life and draw."""
+
+    type: Literal["reset_deck"] = "reset_deck"
+    player: Id | None = None
+    reset_life: bool = True
+    draw: int = Field(default=0, ge=0, le=20)
+    r: ShuffleData | None = None
+
+
+class RestartGame(Base):
+    """Everyone resets their deck (as above) and play goes back to turn 1 (host on LAN)."""
+
+    type: Literal["restart_game"] = "restart_game"
+    draw: int = Field(default=7, ge=0, le=20)
+    r: dict[str, ShuffleData] | None = None
+
+
 class RestoreState(Base):
     """Put the whole table back to an earlier state (a named snapshot or a point in history).
 
@@ -767,6 +810,7 @@ class Configure(Base):
     auto_untap: bool | None = None
     auto_commander_tax: bool | None = None
     auto_clear_combat: bool | None = None
+    allow_test_objects: bool | None = None
 
 
 Action = Annotated[
@@ -802,6 +846,10 @@ Action = Annotated[
     | SetController
     | ReturnToOwner
     | RestoreState
+    | SpawnCard
+    | ResetDeck
+    | RestartGame
+    | RunMacro
     | SetAppearance
     | SetTablePlaymat
     | AddEffect

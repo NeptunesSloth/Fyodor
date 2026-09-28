@@ -238,7 +238,8 @@ def empty_mana_pools(state: GameState) -> None:
 
 def configure(state: GameState, a: A.Configure) -> None:
     changed = []
-    for key in ("undo_policy", "clear_mana_on_step", "auto_untap", "auto_commander_tax", "auto_clear_combat"):
+    for key in ("undo_policy", "clear_mana_on_step", "auto_untap", "auto_commander_tax", "auto_clear_combat",
+                "allow_test_objects"):
         value = getattr(a, key)
         if value is not None:
             setattr(state.settings, key, value)
@@ -246,3 +247,20 @@ def configure(state: GameState, a: A.Configure) -> None:
     if not changed:
         raise ActionError("Nothing to change")
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" changed settings: " + ", ".join(changed))], kind="info")
+
+
+def run_macro(state: GameState, a: A.RunMacro) -> None:
+    from app.game.engine import HANDLERS  # the engine imports this module
+
+    if not a.r:
+        raise ActionError("unresolved macro")
+    source = ops.card(state, a.card_id) if a.card_id else None
+    parts = [pname(state, a.actor), text(f" ran “{a.macro.name}”")]
+    if source is not None:
+        parts += [text(" from "), ops.card_part(state, source)]
+    log(state, a.actor, a.ts, parts)
+    for payload in a.r:
+        step = A.parse_action(payload)
+        if step.type in ("run_macro", "restore_state", "response_open"):
+            raise ActionError("Macros can't nest")
+        HANDLERS[step.type](state, step)

@@ -135,6 +135,7 @@ export interface VisibleCard extends CardBase {
   commander_key?: string;
   choices?: Record<string, string>;
   token_source?: { source_id: string | null; name: string };
+  test_object?: boolean;
 }
 
 export type GameCard = HiddenCard | VisibleCard;
@@ -210,6 +211,7 @@ export interface GameMeta {
     mulligan?: MulliganPolicy | null;
     clear_mana_on_step?: boolean;
     auto_clear_combat?: boolean;
+    allow_test_objects?: boolean;
   };
   can_undo: boolean;
   can_redo: boolean;

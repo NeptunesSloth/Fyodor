@@ -97,6 +97,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
             view["exile_group"] = c.exile_group
         if c.choices and not view.get("hidden"):
             view["choices"] = dict(c.choices)
+    if c.test_object and not view.get("hidden"):
+        view["test_object"] = True
     if c.token_source is not None and not view.get("hidden"):
         view["token_source"] = c.token_source.model_dump()
     if c.face_down and c.face_down_kind:

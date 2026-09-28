@@ -7,7 +7,7 @@ from typing import Any
 
 from app.game import actions as A
 from app.game.errors import ActionError
-from app.game.handlers import cards, marks, mulligan, objects, players, response, turn, zones
+from app.game.handlers import cards, marks, mulligan, objects, players, response, solo, turn, zones
 from app.game.state import GameState
 
 Handler = Callable[[GameState, Any], None]
@@ -63,6 +63,10 @@ HANDLERS: dict[str, Handler] = {
     "remove_player": players.remove_player,
     "set_appearance": players.set_appearance,
     "restore_state": players.restore_state,
+    "run_macro": objects.run_macro,
+    "spawn_card": solo.spawn_card,
+    "reset_deck": solo.reset_deck,
+    "restart_game": solo.restart_game,
     "set_table_playmat": players.set_table_playmat,
     "life": players.life,
     "set_life": players.set_life,

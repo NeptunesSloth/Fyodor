@@ -1,3 +1,4 @@
+import { useMacros } from "../state/macros";
 import { playmatStyle, usePlaymat } from "./appearance";
 import { useEffect } from "react";
 import { perspective, useGame } from "../state/gameStore";
@@ -28,6 +29,7 @@ export function GameScreen() {
   useShortcuts();
   useHudClass();
   usePreferredLook();
+  useEffect(() => useMacros.getState().refresh(), []);
 
   if (!view) {
     return (

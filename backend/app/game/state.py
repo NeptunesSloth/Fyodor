@@ -175,6 +175,9 @@ class CardInstance(BaseModel):
     stack_info: StackInfo | None = None
     exile_group: str | None = None  # "Prosper", "Oblivion Ring", "Foretell" … (organisational label)
     token_source: TokenSource | None = None
+    # --- solo testing ---
+    origin: Literal["library", "command", "sideboard", "companion"] = "library"  # where Reset deck puts it back
+    test_object: bool = False  # spawned for testing: never part of the deck, removed by Reset deck
 
 
 class LifeChange(BaseModel):
@@ -303,6 +306,7 @@ class GameSettings(BaseModel):
     auto_commander_tax: bool = True  # moving a commander from the command zone to the stack adds {2}
     clear_mana_on_step: bool = False  # optional: empty mana pools when the step/phase changes
     auto_clear_combat: bool = False  # optional: leaving combat / next turn clears combat markers
+    allow_test_objects: bool = False  # Spawn card (solo tables allow it; the host can enable it on LAN)
     undo_policy: Literal["everyone", "own", "host"] = "everyone"
     # What opponents learn about a player's deck: nothing, the commander(s) and deck name, or the list.
     deck_privacy: Literal["private", "commander_only", "public"] = "commander_only"

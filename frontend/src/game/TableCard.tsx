@@ -87,6 +87,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
       <GameCardFace card={card} />
       <div className="card-marks">
         {visible && card.is_token && !card.copy_of && <span className="mark token">TOKEN</span>}
+        {visible && card.test_object && <span className="mark test" title="Test object — not part of any deck">TEST</span>}
         {visible && card.copy_of && <span className="mark copy" title={`Copy of ${card.copy_of.source_name}${card.copy_of.modifications ? ` — ${card.copy_of.modifications}` : ""}`}>COPY</span>}
         {visible && card.commander_key && <span className="mark cmdr" title="Commander">♛</span>}
         {visible && card.note && <span className="mark note" title={card.note}>✎</span>}

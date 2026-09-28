@@ -2,6 +2,8 @@ import { usePrefs } from "../state/prefs";
 import { AppearanceDialog } from "./AppearanceDialog";
 import { EndGameDialog } from "./EndGameDialog";
 import { HistoryDialog } from "./HistoryDialog";
+import { MacroDialog } from "./MacroDialog";
+import { SpawnDialog } from "./SpawnDialog";
 import { SettingsPanel } from "../pages/SettingsPanel";
 import { HostToolsDialog } from "./HostTools";
 import { HOTKEYS } from "./hotkeys";
@@ -36,6 +38,8 @@ export function GameDialogs({ me }: { me: string }) {
       {dialog === "endgame" && <EndGameDialog onClose={close} />}
       {dialog === "appearance" && <AppearanceDialog onClose={close} />}
       {dialog === "history" && <HistoryDialog onClose={close} />}
+      {dialog === "macro" && <MacroDialog cardId={arg} onClose={close} />}
+      {dialog === "spawn" && <SpawnDialog onClose={close} />}
       {dialog === "settings" && <Modal title="Settings" onClose={close} wide><SettingsPanel /></Modal>}
       {inspect && <InspectDialog id={inspect} onClose={() => useGame.getState().setInspect(null)} />}
     </>

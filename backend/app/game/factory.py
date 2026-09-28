@@ -82,7 +82,7 @@ def new_game(
                 cid = new_id()
                 card = CardInstance(
                     id=cid, card_id=entry.printing_id, name=entry.name, owner=pid, controller=pid, zone=zone_key(pid, zone),
-                    categories=entry.categories[:10],
+                    categories=entry.categories[:10], origin=zone,  # type: ignore[arg-type]
                 )
                 if entry.section == "commander":
                     commander_count += 1
