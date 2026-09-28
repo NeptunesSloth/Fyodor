@@ -98,6 +98,14 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Lim-Dûl the Necromancer", set_code="tsp", number="114", mana_cost="{5}{B}{B}", cmc=7.0, type_line="Legendary Creature — Human Wizard",
              colors=["B"], color_identity=["B"], power="4", toughness="4"),
         card("Art Card", set_code="atst", number="A1", layout="art_series"),
+        card("Seething Song", set_code="mir", number="193", mana_cost="{2}{R}", cmc=3.0, type_line="Instant",
+             oracle_text="Add {R}{R}{R}{R}{R}.", colors=["R"], color_identity=["R"], released_at="1996-01-01"),
+        card("Blazing Firesinger // Seething Song", set_code="sos", number="120", layout="prepare", cmc=3.0,
+             type_line="Creature — Elf // Instant", colors=["R"], color_identity=["R"], released_at="2026-04-24",
+             card_faces=[
+                 {"object": "card_face", "name": "Blazing Firesinger", "mana_cost": "{2}{R}", "type_line": "Creature — Elf"},
+                 {"object": "card_face", "name": "Seething Song", "mana_cost": "{2}{R}", "type_line": "Instant"},
+             ]),
         TREASURE,
         GOBLIN,
     ]

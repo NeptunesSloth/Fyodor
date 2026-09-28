@@ -178,9 +178,17 @@ class CardRepository:
     ) -> dict[str, Any] | None:
         """Resolve a typed card name (optionally with set / collector number) to a printing."""
         norm = normalize_name(name)
+        # Prefer (token-ness as requested, then) cards whose full name matches over face-name matches:
+        # "Seething Song" is its own card and also a face of an unrelated double-faced card.
         oracle_rows = self._query(
-            "SELECT oracle_id, is_token FROM card_names WHERE name_norm = ? ORDER BY is_token = ? DESC",
-            (norm, 1 if prefer_tokens else 0),
+            "SELECT n.oracle_id, n.is_token, d.name FROM card_names n "
+            "LEFT JOIN oracle_defaults d ON d.oracle_id = n.oracle_id WHERE n.name_norm = ?",
+            (norm,),
+        )
+        want_token = 1 if prefer_tokens else 0
+        oracle_rows = sorted(
+            oracle_rows,
+            key=lambda r: (r["is_token"] != want_token, normalize_name(r["name"] or "") != norm),
         )
         if not oracle_rows and " // " in norm:
             # "Fire // Ice" typed but only a face name matches, or vice versa

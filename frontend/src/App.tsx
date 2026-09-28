@@ -1,6 +1,8 @@
 import { Toasts } from "./components/Toasts";
 import { useHashRoute } from "./hooks/useHashRoute";
 import { CardBrowser } from "./pages/CardBrowser";
+import { DeckEditor } from "./pages/DeckEditor";
+import { DeckLibrary } from "./pages/DeckLibrary";
 import { Home } from "./pages/Home";
 
 const NAV = [
@@ -17,6 +19,9 @@ export function App() {
   switch (section) {
     case "cards":
       page = <CardBrowser />;
+      break;
+    case "decks":
+      page = route.path[1] ? <DeckEditor key={route.path[1]} id={route.path[1]} /> : <DeckLibrary />;
       break;
     default:
       page = <Home />;

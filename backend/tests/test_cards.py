@@ -70,7 +70,7 @@ def test_import_file(tmp_path: Path):
     src = tmp_path / "bulk.jsonl.gz"
     write_jsonl_gz(fixture_cards(), src)
     result = import_file(src, tmp_path / "out.sqlite", meta={"bulk_type": "x"})
-    assert result.oracle_cards == 17
+    assert result.oracle_cards == 19
 
 
 def test_default_printing_prefers_regular_sets(cards: CardRepository):
@@ -88,6 +88,8 @@ def test_resolve_variants(cards: CardRepository):
     assert cards.resolve("Delver of Secrets")["layout"] == "transform"
     assert cards.resolve("Lim-Dul the Necromancer")["name"] == "Lim-Dûl the Necromancer"
     assert cards.resolve("Not A Card") is None
+    assert cards.resolve("Seething Song")["name"] == "Seething Song"  # exact card beats a same-named face
+    assert cards.resolve("Blazing Firesinger")["name"] == "Blazing Firesinger // Seething Song"
 
 
 def test_suggestions(cards: CardRepository):
@@ -99,7 +101,7 @@ def test_suggestions(cards: CardRepository):
 def test_search(cards: CardRepository):
     names = lambda q, **kw: [c["name"] for c in cards.search(q, **kw)]  # noqa: E731
     assert names("sol")[0] == "Sol Ring"
-    assert set(names("t:instant c:r -t:creature")) == {"Fire // Ice", "Lightning Bolt"}
+    assert set(names("t:instant c:r -t:creature")) == {"Fire // Ice", "Lightning Bolt", "Seething Song"}
     assert "Counterspell" in names("o:counter")
     assert names("t:land -t:basic") == ["Command Tower"]
     assert set(names("is:commander")) >= {"Krenko, Mob Boss", "Atraxa, Praetors' Voice"}

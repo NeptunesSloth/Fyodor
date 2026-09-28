@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
-from app.api import cards, health
+from app.api import cards, decks, health
 from app.cards.repository import CardDatabaseUnavailable
 from app.config import Settings, get_settings
 from app.logging_setup import configure_logging
@@ -45,6 +45,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.include_router(health.router, prefix="/api")
     app.include_router(cards.router, prefix="/api")
+    app.include_router(decks.router, prefix="/api")
 
     @app.exception_handler(CardDatabaseUnavailable)
     async def _no_card_db(_: Request, exc: CardDatabaseUnavailable) -> JSONResponse:
