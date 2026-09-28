@@ -7,7 +7,7 @@ from typing import Any
 
 from app.game import actions as A
 from app.game.errors import ActionError
-from app.game.handlers import cards, mulligan, objects, players, turn, zones
+from app.game.handlers import cards, mulligan, objects, players, response, turn, zones
 from app.game.state import GameState
 
 Handler = Callable[[GameState, Any], None]
@@ -23,6 +23,11 @@ HANDLERS: dict[str, Handler] = {
     "mulligan_keep": mulligan.keep,
     "mulligan_bottom": mulligan.bottom,
     "mulligan_finish": mulligan.finish,
+    "response_open": response.open_window,
+    "response_pass": response.pass_,
+    "response_respond": response.respond,
+    "response_auto": response.auto,
+    "response_close": response.close,
     "reveal": zones.reveal,
     "hide": zones.hide,
     "look_top": zones.look_top,

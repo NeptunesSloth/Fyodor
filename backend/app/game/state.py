@@ -11,7 +11,7 @@ Zones hold ordered lists of card-instance ids; the instances themselves live in
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -218,6 +218,22 @@ class Pregame(BaseModel):
     finished: bool = False
 
 
+class ResponseWindow(BaseModel):
+    """"Anything in response?" — a public, non-blocking check around the stack and phase changes.
+
+    It never locks the table: the opener can proceed anyway and the host can force it closed.
+    """
+
+    id: str
+    kind: Literal["stack", "resolve", "phase", "turn"]
+    opener: str
+    text: str
+    waiting: list[str] = Field(default_factory=list)  # players who haven't passed yet
+    passed: list[str] = Field(default_factory=list)
+    responder: str | None = None  # someone pressed RESPOND and is about to act
+    intent: dict[str, Any] | None = None  # resolved action applied when everyone has passed
+
+
 class GameSettings(BaseModel):
     starting_life: int = 40
     auto_untap: bool = True  # "next turn" untaps the new active player's permanents
@@ -272,6 +288,9 @@ class GameState(BaseModel):
     # Secret per-game key that orders anonymous hidden cards in opponents' views; never sent to clients.
     hidden_salt: str = ""
     pregame: Pregame | None = None
+    response: ResponseWindow | None = None
+    auto_pass: dict[str, int] = Field(default_factory=dict)  # player -> turn number they auto-pass through
+    passed_at: int | None = None  # seq at which everyone last passed (no need to ask again)
     log: list[LogEntry] = Field(default_factory=list)
 
     # -- helpers ---------------------------------------------------------------------

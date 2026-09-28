@@ -186,6 +186,18 @@ export interface MulliganPolicy {
   needs_definition: boolean;
 }
 
+export interface ResponseWindow {
+  id: string;
+  kind: "stack" | "resolve" | "phase" | "turn";
+  opener: string;
+  text: string;
+  waiting: string[];
+  passed: string[];
+  responder: string | null;
+  /** Something (resolve / next step / next turn) happens when everyone has passed. */
+  has_intent: boolean;
+}
+
 export interface PregameSeat {
   status: "deciding" | "bottoming" | "kept";
   mulligans: number;
@@ -207,6 +219,10 @@ export interface GameView {
   my_views?: { id: string; viewer: string; zone: string; kind: "search" | "look"; card_ids: string[] }[];
   /** Opening hands still being decided (null once everyone has kept). */
   pregame?: { seats: Record<string, PregameSeat>; finished: boolean } | null;
+  /** The open "anything in response?" check, if any (public). */
+  response?: ResponseWindow | null;
+  /** Players auto-passing response checks this turn. */
+  auto_pass?: string[];
   cards: Record<string, GameCard>;
   zones: Record<string, string[] | LibraryView>;
   stack: string[];

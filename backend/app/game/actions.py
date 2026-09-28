@@ -9,7 +9,7 @@ replaying the action list reproduces the game exactly (the basis of undo/redo).
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
@@ -425,6 +425,7 @@ class Chat(Base):
 class Phase(Base):
     type: Literal["phase"] = "phase"
     to: Literal["next", "prev"] | str = "next"
+    force: bool = False  # skip the response check (proceed anyway)
 
     @field_validator("to")
     @classmethod
@@ -437,6 +438,7 @@ class Phase(Base):
 class NextTurn(Base):
     type: Literal["next_turn"] = "next_turn"
     player: Id | None = None  # explicit next active player (default: next in seat order)
+    force: bool = False
 
 
 class Attack(Base):
@@ -471,6 +473,40 @@ class CreateAbility(Base):
 class ResolveTop(Base):
     type: Literal["resolve_top"] = "resolve_top"
     r: MoveData | None = None
+    force: bool = False
+
+
+# --- response helper -----------------------------------------------------------------
+class ResponseOpen(Base):
+    """Created by the server (never accepted from clients): ask the table before ``intent``."""
+
+    type: Literal["response_open"] = "response_open"
+    kind: Literal["resolve", "phase", "turn"]
+    text: str = Field(max_length=300)
+    intent: dict[str, Any]
+
+
+class ResponsePass(Base):
+    type: Literal["response_pass"] = "response_pass"
+
+
+class ResponseRespond(Base):
+    type: Literal["response_respond"] = "response_respond"
+
+
+class ResponseAutoPass(Base):
+    """Pass every response check until the end of this turn (or stop doing so)."""
+
+    type: Literal["response_auto"] = "response_auto"
+    on: bool = True
+
+
+class ResponseClose(Base):
+    """The opener proceeds anyway / withdraws, or the host forces the window shut (API-checked)."""
+
+    type: Literal["response_close"] = "response_close"
+    apply_intent: bool = True
+    as_host: bool = False  # host override (the API only accepts this from the host)
 
 
 # --- tabletop object behaviour ------------------------------------------------------
@@ -621,6 +657,11 @@ Action = Annotated[
     | ClearCombat
     | CreateAbility
     | ResolveTop
+    | ResponseOpen
+    | ResponsePass
+    | ResponseRespond
+    | ResponseAutoPass
+    | ResponseClose
     | Rotate
     | SetLock
     | SetProtect

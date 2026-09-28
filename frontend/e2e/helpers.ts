@@ -123,3 +123,20 @@ export async function startLanGame(browser: Browser, opts: { privacy?: string } 
   await expect(guest.page.locator(".game-screen")).toBeVisible();
   return { host, guest, gameId, hostTraffic, guestTraffic };
 }
+
+/** Perform an action as this browser's seat (through the same REST API the UI uses). */
+export async function act(page: Page, gameId: string, action: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const token = await seatToken(page, gameId);
+  const res = await page.request.post(`/api/games/${gameId}/actions`, {
+    data: { action },
+    headers: token ? { "X-Seat-Token": token } : {},
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+  return (await res.json()) as Record<string, unknown>;
+}
+
+/** Everyone keeps their opening hand. */
+export async function keepAll(...pages: Page[]): Promise<void> {
+  for (const p of pages) await p.getByTestId("mull-keep").click();
+  for (const p of pages) await expect(p.getByTestId("mulligan")).toHaveCount(0);
+}

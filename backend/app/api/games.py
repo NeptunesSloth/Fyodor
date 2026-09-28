@@ -77,7 +77,8 @@ HOST_ONLY_ACTIONS = {"mulligan_finish"}
 
 def _check_host_only(room: Room, action: dict[str, Any], *, host: bool) -> None:
     """Some actions are table-level overrides only the host may use (anyone at a hot-seat table)."""
-    if action.get("type") in HOST_ONLY_ACTIONS and room.mode == "lan" and not host:
+    host_only = action.get("type") in HOST_ONLY_ACTIONS or (action.get("type") == "response_close" and action.get("as_host"))
+    if host_only and room.mode == "lan" and not host:
         raise HTTPException(403, "Only the host can do that")
 
 
@@ -249,7 +250,9 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
     if policy is not None and policy.needs_definition:
         raise HTTPException(422, f"Define the {policy.display_name} mulligan first (or pick another rule)")
     settings = GameSettings(starting_life=body.starting_life or {"commander": 40}.get(body.format, 20), auto_untap=body.auto_untap,
-                            deck_privacy=body.deck_privacy, priority_helper=body.priority_helper, mulligan=policy)
+                            deck_privacy=body.deck_privacy, mulligan=policy,
+                            # one person runs a hot-seat table: nobody to ask
+                            priority_helper=body.priority_helper if body.mode == "lan" else "off")
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
     session.notice(f"Game created. {state.players[state.turn.active_player].name} goes first.")

@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
-from app.game.handlers import objects
+from app.game.handlers import objects, response
 from app.game.ops import group, log, pname, text, zone_label
 from app.game.state import ALL, STACK, CardInstance, GameState, ViewContext, split_zone, zone_key
 from app.game.visibility import seers
@@ -89,6 +89,10 @@ def move(state: GameState, a: A.Move) -> None:
     for c in commander_casts:
         tax = state.players[c.owner].commander_tax.get(c.commander_key or "", 0)
         log(state, a.actor, a.ts, [text(f"Commander tax for {c.name} is now {tax}.")], kind="info")
+    cast = [c for c, dest in zip(moving, dests, strict=True) if dest == STACK and sources[c.id] != STACK]
+    if cast:
+        names = ", ".join("a face-down spell" if c.face_down else c.name for c in cast)
+        response.on_stack_add(state, a.actor, f"cast {names}")
 
 
 def set_position(state: GameState, a: A.SetPosition) -> None:

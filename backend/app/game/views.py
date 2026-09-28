@@ -230,6 +230,10 @@ def build_view(
         "my_views": [v.model_dump() for v in state.views if v.viewer == viewer],
         # Public: who is still deciding, mulligan counts, how many cards someone must bottom.
         "pregame": state.pregame.model_dump() if state.pregame and not state.pregame.finished else None,
+        # Public: the open "anything in response?" check (its pending intent is only described).
+        "response": state.response.model_dump(exclude={"intent"}) | {"has_intent": state.response.intent is not None}
+        if state.response else None,
+        "auto_pass": sorted(p for p, t in state.auto_pass.items() if t == state.turn.number),
         "cards": cards,
         "zones": zones,
         "stack": list(state.zones.get(STACK, [])),

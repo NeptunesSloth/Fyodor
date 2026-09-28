@@ -11,6 +11,8 @@ import { PlayerArea } from "./PlayerArea";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
 import { TopBar } from "./TopBar";
 import { ZoneBrowser } from "./ZoneBrowser";
+import { matchHotkey } from "./hotkeys";
+import { ResponseBar } from "./ResponseBar";
 
 export function GameScreen() {
   const view = useGame((s) => s.view);
@@ -59,6 +61,7 @@ export function GameScreen() {
       {status !== "open" && <div className="conn-banner">{status === "reconnecting" ? "Connection lost — reconnecting…" : detail ?? status}</div>}
       <GameDialogs me={me} />
       <MulliganOverlay />
+      <ResponseBar />
       <DragLayer />
       <CombatArrows />
     </div>
@@ -74,59 +77,67 @@ function useShortcuts() {
       const view = s.view;
       if (!view) return;
       const me = perspective(view, s.actingAs);
-      const mod = e.ctrlKey || e.metaKey;
-      const key = e.key.toLowerCase();
-      if (mod && key === "z") {
-        e.preventDefault();
-        void (e.shiftKey ? s.redo() : s.undo());
-        return;
-      }
-      if (mod && key === "y") {
-        e.preventDefault();
-        void s.redo();
-        return;
-      }
-      if (mod) return;
+      const id = matchHotkey(e);
+      if (!id) return;
       const targets = s.selection.length ? s.selection : s.hover && view.cards[s.hover] ? [s.hover] : [];
-      switch (key) {
-        case "t":
-        case " ":
+      const w = view.response;
+      switch (id) {
+        case "undo":
+          e.preventDefault();
+          void s.undo();
+          break;
+        case "redo":
+          e.preventDefault();
+          void s.redo();
+          break;
+        case "tap":
           if (targets.length) {
             e.preventDefault();
-            void tapCards(targets.filter((id) => view.cards[id]?.zone.endsWith(":battlefield")));
+            void tapCards(targets.filter((cid) => view.cards[cid]?.zone.endsWith(":battlefield")));
           }
           break;
-        case "d":
+        case "draw":
           void draw(me, 1);
           break;
-        case "n":
-          void send(e.shiftKey ? { type: "next_turn" } : { type: "phase", to: "next" });
+        case "next_step":
+          void send({ type: "phase", to: "next" });
           break;
-        case "u":
+        case "next_turn":
+          void send({ type: "next_turn" });
+          break;
+        case "untap_all":
           void send({ type: "untap_all", player: me });
           break;
-        case "f": {
-          const id = targets[0];
-          const c = id ? view.cards[id] : undefined;
+        case "turn_over": {
+          const cid = targets[0];
+          const c = cid ? view.cards[cid] : undefined;
           if (c && isVisible(c) && c.card_id) {
             const data = useCardCache.getState().cards[c.card_id];
             if (data && (data.double_faced || data.faces.length > 1)) void send({ type: "set_face", card_id: c.id });
           }
           break;
         }
-        case "delete":
-        case "backspace":
-          if (targets.length && targets.every((id) => splitZone(view.cards[id]?.zone ?? "").zone !== "graveyard")) {
+        case "to_graveyard":
+          if (targets.length && targets.every((cid) => splitZone(view.cards[cid]?.zone ?? "").zone !== "graveyard")) {
             void moveCards(targets, "graveyard"); // each card goes to its owner's graveyard
           }
           break;
-        case "escape":
+        case "cancel":
           s.clearSelection();
           s.openBrowser(null);
           if (view.my_views?.some((v) => v.kind === "look")) void send({ type: "end_view" });
           break;
-        case "?":
+        case "help":
           s.openDialog("help");
+          break;
+        case "pass":
+          if (w?.waiting.includes(me)) void send({ type: "response_pass" });
+          break;
+        case "respond":
+          if (w && w.opener !== me) void send({ type: "response_respond" });
+          break;
+        case "auto_pass":
+          void send({ type: "response_auto", on: !view.auto_pass?.includes(me) });
           break;
       }
     };

@@ -14,6 +14,7 @@ from typing import Any, Protocol
 from app.game import actions as A
 from app.game import placement
 from app.game.errors import ActionError
+from app.game.handlers import response
 from app.game.state import STACK, GameState, TokenDef, zone_key
 from app.game.views import resolve_placeholder
 
@@ -57,6 +58,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
     _resolve_placeholders(state, a, actor)
     if hasattr(a, "r"):
         a.r = None  # never trust client-supplied resolution data
+    if isinstance(a, A.ResponseOpen):
+        raise ActionError("Response checks are opened by the server")
 
     if isinstance(a, A.Shuffle):
         pid = a.player or actor
@@ -112,7 +115,7 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.r = _resolve_move(state, a, actor, info)
     elif isinstance(a, A.ResolveTop):
         a.r = _resolve_top(state, info)
-    return a
+    return response.wrap(state, a)
 
 
 ID_FIELDS = ("card_id", "to", "attacker_id", "source_id")

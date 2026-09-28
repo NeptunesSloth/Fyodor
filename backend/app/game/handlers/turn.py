@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
-from app.game.handlers import objects
+from app.game.handlers import objects, response
 from app.game.handlers.cards import untap_permanents
 from app.game.ops import log, pname, text
 from app.game.state import COMBAT_PHASES, PHASES, STACK, AbilityDef, CardInstance, GameState
@@ -37,6 +37,7 @@ def clear_combat_markers(state: GameState) -> int:
 
 
 def phase(state: GameState, a: A.Phase) -> None:
+    response.clear(state)
     current = PHASES.index(state.turn.phase)
     if a.to == "next":
         if current == len(PHASES) - 1:
@@ -58,6 +59,7 @@ def phase(state: GameState, a: A.Phase) -> None:
 
 
 def next_turn(state: GameState, a: A.NextTurn) -> None:
+    response.clear(state)
     order = state.seat_order
     if a.player:
         nxt = ops.player(state, a.player, a.actor)
@@ -138,9 +140,11 @@ def create_ability(state: GameState, a: A.CreateAbility) -> None:
         parts.append(text(f" ({ability.source_name})"))
     parts.append(text(f": {a.text}"))
     log(state, a.actor, a.ts, parts)
+    response.on_stack_add(state, a.actor, f"put an ability on the stack ({ability.source_name or a.text[:40]})")
 
 
 def resolve_top(state: GameState, a: A.ResolveTop) -> None:
+    response.clear(state)
     stack = state.zone(STACK)
     if not stack:
         raise ActionError("The stack is empty")

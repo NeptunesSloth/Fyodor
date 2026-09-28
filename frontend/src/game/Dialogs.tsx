@@ -1,3 +1,4 @@
+import { HOTKEYS } from "./hotkeys";
 import { useEffect, useMemo, useState } from "react";
 import { CardDetails } from "../cards/CardDetails";
 import { CardFace } from "../cards/CardFace";
@@ -267,6 +268,9 @@ function SaveDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+const keyLabel = (k: string) =>
+  k.split("+").map((p) => (p === "ctrl" ? "Ctrl" : p === "shift" ? "Shift" : p === " " ? "Space" : p.length === 1 ? p.toUpperCase() : p[0]!.toUpperCase() + p.slice(1))).join("+");
+
 const SHORTCUTS: [string, string][] = [
   ["Double-click (battlefield)", "Tap / untap"],
   ["Double-click (hand)", "Play to the battlefield"],
@@ -274,14 +278,6 @@ const SHORTCUTS: [string, string][] = [
   ["Right-click", "All actions for a card, pile or player"],
   ["Drag", "Move cards between zones; drag empty table to box-select"],
   ["Shift / Ctrl + click", "Add to selection"],
-  ["T", "Tap / untap selection"],
-  ["D", "Draw a card"],
-  ["F", "Turn over (transform / other face)"],
-  ["N  /  Shift+N", "Next step / next turn"],
-  ["U", "Untap all your permanents"],
-  ["Delete", "Move selection to graveyard"],
-  ["Ctrl+Z  /  Ctrl+Shift+Z", "Undo / redo"],
-  ["Esc", "Clear selection, close panels"],
 ];
 
 function HelpDialog({ onClose }: { onClose: () => void }) {
@@ -289,7 +285,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
     <Modal title="Controls" onClose={onClose}>
       <table className="shortcuts">
         <tbody>
-          {SHORTCUTS.map(([k, v]) => (
+          {[...SHORTCUTS, ...HOTKEYS.map((h): [string, string] => [h.keys.map(keyLabel).join("  /  "), h.label])].map(([k, v]) => (
             <tr key={k}><td><kbd>{k}</kbd></td><td>{v}</td></tr>
           ))}
         </tbody>
