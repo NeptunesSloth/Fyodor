@@ -8,8 +8,8 @@ describe("battlefield geometry", () => {
   });
 
   it("scales card width to fit both dimensions", () => {
-    expect(battlefieldCardWidth(1000, 1000)).toBe(72);
-    expect(battlefieldCardWidth(2000, 300)).toBeLessThan(72);
+    expect(battlefieldCardWidth(1000, 1000)).toBe(84);
+    expect(battlefieldCardWidth(2000, 300)).toBeLessThan(84);
     expect(battlefieldCardWidth(100, 50)).toBe(36);
   });
 

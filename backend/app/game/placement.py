@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.game.state import BATTLEFIELD_H, BATTLEFIELD_W, GameState
 
-CARD_W = 72.0
+CARD_W = 84.0
 CARD_H = 100.0
 # Rows as fractions of the battlefield height: non-creature spells at the far edge,
 # creatures in the middle, lands closest to the player (the client mirrors opponents).
@@ -24,7 +24,7 @@ def free_spot(state: GameState, zone_key: str, row: str, taken: list[tuple[float
     occupied = [(state.cards[cid].x, state.cards[cid].y) for cid in state.zones.get(zone_key, [])]
     occupied += taken or []
     base_y = ROWS[row]
-    step = CARD_W + 8
+    step = CARD_W + 6
     for layer in range(6):
         y = base_y + layer * 22
         x = 12.0 + layer * 10

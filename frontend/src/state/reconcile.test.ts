@@ -21,8 +21,8 @@ describe("reconcile", () => {
   });
 
   it("handles added and removed keys and array length changes", () => {
-    const prev = { cards: { a: { id: "a" } }, list: [1, 2, 3] };
-    const next = { cards: { b: { id: "b" } }, list: [1, 2] };
+    const prev: { cards: Record<string, { id: string }>; list: number[] } = { cards: { a: { id: "a" } }, list: [1, 2, 3] };
+    const next: typeof prev = { cards: { b: { id: "b" } }, list: [1, 2] };
     const out = reconcile(prev, next);
     expect(out).toEqual(next);
     expect(Object.keys(out.cards)).toEqual(["b"]);

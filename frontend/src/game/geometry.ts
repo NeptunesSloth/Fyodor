@@ -2,10 +2,12 @@
 export const BF_W = 1000;
 export const BF_H = 600;
 export const CARD_RATIO = 88 / 63;
+/** Nominal card width in virtual units (backend/app/game/placement.py CARD_W). */
+export const CARD_VW = 84;
 
-/** Card width in px for a battlefield of the given pixel size: fits ~13 across and ~3.4 rows. */
+/** Card width in px for a battlefield of the given pixel size: ~11 across and ~3.2 rows. */
 export function battlefieldCardWidth(width: number, height: number): number {
-  return Math.max(36, Math.min((width / BF_W) * 72, height / 3.4 / CARD_RATIO));
+  return Math.max(36, Math.min((width / BF_W) * CARD_VW, height / 3.2 / CARD_RATIO));
 }
 
 /** Pixel position of a card's top-left corner. Opponent battlefields are mirrored vertically. */

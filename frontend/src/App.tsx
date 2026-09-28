@@ -3,7 +3,9 @@ import { useHashRoute } from "./hooks/useHashRoute";
 import { CardBrowser } from "./pages/CardBrowser";
 import { DeckEditor } from "./pages/DeckEditor";
 import { DeckLibrary } from "./pages/DeckLibrary";
+import { GamePage } from "./pages/GamePage";
 import { Home } from "./pages/Home";
+import { PlayPage } from "./pages/PlayPage";
 
 const NAV = [
   { href: "#/play", label: "Play", key: "play" },
@@ -13,7 +15,16 @@ const NAV = [
 
 export function App() {
   const route = useHashRoute();
-  const [section] = route.path;
+  const [section, sub] = route.path;
+
+  if (section === "game" && sub) {
+    return (
+      <>
+        <GamePage key={sub} id={sub} viewer={route.query.get("viewer")} />
+        <Toasts />
+      </>
+    );
+  }
 
   let page: React.ReactNode;
   switch (section) {
@@ -21,7 +32,10 @@ export function App() {
       page = <CardBrowser />;
       break;
     case "decks":
-      page = route.path[1] ? <DeckEditor key={route.path[1]} id={route.path[1]} /> : <DeckLibrary />;
+      page = sub ? <DeckEditor key={sub} id={sub} /> : <DeckLibrary />;
+      break;
+    case "play":
+      page = <PlayPage route={route} />;
       break;
     default:
       page = <Home />;
