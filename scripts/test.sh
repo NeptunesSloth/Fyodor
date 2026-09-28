@@ -13,3 +13,7 @@ echo "==> Frontend: typecheck"
 (cd "$ROOT/frontend" && npm run --silent typecheck)
 echo "==> Frontend: vitest"
 (cd "$ROOT/frontend" && npm run --silent test)
+if [ "${E2E:-0}" = "1" ]; then
+  echo "==> Frontend: production build + Playwright"
+  (cd "$ROOT/frontend" && npm run --silent build && npx playwright test)
+fi

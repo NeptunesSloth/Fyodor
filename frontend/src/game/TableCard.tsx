@@ -62,6 +62,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
     <div
       className={`table-card ${selected ? "selected" : ""} ${card.attacking ? "attacking" : ""} ${card.blocking ? "blocking" : ""}`}
       data-card-id={id}
+      data-tapped={card.tapped ? "" : undefined}
       style={{ left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }}
       onPointerDown={onPointerDown}
       onDoubleClick={(e) => {
