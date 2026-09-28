@@ -1,3 +1,4 @@
+import { HostToolsDialog } from "./HostTools";
 import { HOTKEYS } from "./hotkeys";
 import { useEffect, useMemo, useState } from "react";
 import { CardDetails } from "../cards/CardDetails";
@@ -26,6 +27,7 @@ export function GameDialogs({ me }: { me: string }) {
       {dialog === "ability" && <AbilityDialog sourceId={arg} onClose={close} />}
       {dialog === "save" && <SaveDialog onClose={close} />}
       {dialog === "help" && <HelpDialog onClose={close} />}
+      {dialog === "host" && <HostToolsDialog onClose={close} />}
       {inspect && <InspectDialog id={inspect} onClose={() => useGame.getState().setInspect(null)} />}
     </>
   );

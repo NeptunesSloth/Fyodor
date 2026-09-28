@@ -29,7 +29,11 @@ export function PlayerPanel({ player, me, compact }: { player: string; me: strin
       <div className="pp-head">
         <span className="pp-dot" />
         <span className="pp-name" title={p.deck_name ?? undefined}>{p.name}{player === me ? " (you)" : ""}</span>
-        {mode === "lan" && seat && <span className={`conn ${seat.connected ? "on" : ""}`} title={seat.connected ? "Connected" : "Not connected"} />}
+        {mode === "lan" && seat && (
+          <span className={`presence-label ${seat.presence ?? (seat.connected ? "connected" : "disconnected")}`} data-testid={`presence-${player}`}>
+            {{ connected: "Connected", reconnecting: "Reconnecting…", disconnected: "Disconnected", open: "Open seat" }[seat.presence ?? (seat.connected ? "connected" : "disconnected")]}
+          </span>
+        )}
         {monarch && <span className="marker" title="The Monarch">♚</span>}
         {initiative && <span className="marker" title="Has the initiative">⚑</span>}
         {p.city_blessing && <span className="marker" title="City's blessing">✦</span>}

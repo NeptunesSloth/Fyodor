@@ -40,7 +40,7 @@ interface GameStore {
   hover: string | null;
   inspect: string | null;
   browser: BrowserState | null;
-  dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability";
+  dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host";
   dialogArg: string | null;
   pendingPositions: Record<string, [number, number]>;
 
@@ -79,9 +79,9 @@ export const useGame = create<GameStore>((set, get) => ({
   connect: (gameId, opts) => {
     get().conn?.close();
     const conn = new GameConnection(gameId, opts, {
-      onState: (incoming) => {
+      onState: (incoming, replace) => {
         const prev = get().view;
-        const view = prev && prev.game.id === incoming.game.id ? reconcile(prev, incoming) : incoming;
+        const view = prev && !replace && prev.game.id === incoming.game.id ? reconcile(prev, incoming) : incoming;
         const ids: string[] = [];
         for (const c of Object.values(view.cards)) {
           if (!c.hidden && c.card_id) ids.push(c.card_id);

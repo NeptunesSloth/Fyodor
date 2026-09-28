@@ -6,7 +6,7 @@ from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
 from app.game.ops import log, pname, text
-from app.game.state import DEFAULT_RESOURCES, GameState, LifeChange
+from app.game.state import DEFAULT_RESOURCES, GameState, LifeChange, zone_key
 
 LIFE_HISTORY_LIMIT = 200
 COMMANDER_DAMAGE_LETHAL = 21
@@ -133,3 +133,34 @@ def rename_player(state: GameState, a: A.RenamePlayer) -> None:
     old = state.players[pid].name
     state.players[pid].name = a.name
     log(state, a.actor, a.ts, [text(f"{old} is now called {a.name}")])
+
+
+def remove_player(state: GameState, a: A.RemovePlayer) -> None:
+    """Host tool (API-checked): a player leaves the table for good."""
+    pid = ops.player(state, a.player, a.actor)
+    if len(state.seat_order) <= 1:
+        raise ActionError("The last player can't leave the table")
+    name = state.players[pid].name
+    for c in list(state.cards.values()):
+        if c.id not in state.cards:
+            continue
+        if c.owner == pid:
+            ops.delete(state, c)  # everything they own leaves the game
+        elif c.controller == pid and ops.zone_name(c.zone) == "battlefield":
+            ops.remove_from_zone(state, c)
+            ops.insert(state, c, zone_key(c.owner, "battlefield"))
+            c.controller = c.owner
+    order = state.seat_order
+    if state.turn.active_player == pid:
+        state.turn.active_player = order[(order.index(pid) + 1) % len(order)]
+        state.turn.phase = "untap"
+    state.seat_order = [p for p in order if p != pid]
+    state.players[pid].left = True
+    if state.pregame is not None:
+        state.pregame.seats.pop(pid, None)
+    if state.response is not None:
+        state.response.waiting = [p for p in state.response.waiting if p != pid]
+    for key in ("monarch", "initiative"):
+        if getattr(state.table, key) == pid:
+            setattr(state.table, key, None)
+    log(state, a.actor, a.ts, [text(f"{name} left the table; the cards they own left the game.")])

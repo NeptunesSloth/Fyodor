@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -34,7 +35,7 @@ from app.game.mulligan import resolve_policy
 from app.game.session import GameSession
 from app.game.state import GameSettings, MulliganPolicy
 from app.game.visibility import OMNISCIENT, SPECTATOR
-from app.multiplayer.hub import Connection, Room
+from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room
 from app.multiplayer.lobby import DeckTooLarge, LobbySeatInfo, LobbySettings, SubmittedDeck, check_bounds
 from app.services import Services
 from app.storage.save_format import SaveFormatError
@@ -72,7 +73,7 @@ def authorize(room: Room, *, local: bool, token: str | None, viewer: str | None,
     return seat, (seat if seat != SPECTATOR else None)
 
 
-HOST_ONLY_ACTIONS = {"mulligan_finish"}
+HOST_ONLY_ACTIONS = {"mulligan_finish", "remove_player"}
 
 
 def _check_host_only(room: Room, action: dict[str, Any], *, host: bool) -> None:
@@ -80,6 +81,15 @@ def _check_host_only(room: Room, action: dict[str, Any], *, host: bool) -> None:
     host_only = action.get("type") in HOST_ONLY_ACTIONS or (action.get("type") == "response_close" and action.get("as_host"))
     if host_only and room.mode == "lan" and not host:
         raise HTTPException(403, "Only the host can do that")
+
+
+async def _after_action(services: Services, room: Room, action: dict[str, Any]) -> None:
+    """Seat bookkeeping for table-level actions."""
+    if action.get("type") == "remove_player":
+        pid = str(action.get("player"))
+        if pid in room.seats:
+            await services.hub.drop_connections(room, pid, code=4403, reason="You left the table")
+            room.seats[pid].token = None
 
 
 def _room(services: Services, game_id: str) -> Room:
@@ -295,6 +305,7 @@ async def post_action(
         except ActionError as exc:
             raise HTTPException(409, str(exc)) from exc
         services.hub.after_change(room)
+        await _after_action(services, room, body.action)
     await services.hub.broadcast(room)
     return services.hub.view(room, viewer)
 
@@ -878,6 +889,59 @@ async def start_game(
     return {"game": room.summary(), "seats": {pid: pid for pid in room.seats}}
 
 
+# --------------------------------------------------------------------------- host tools
+
+
+class SeatRef(BaseModel):
+    seat: str = Field(pattern=r"^p[1-6]$")
+
+
+def _host_room(services: Services, game_id: str, request: Request, token: str | None) -> Room:
+    room = _room(services, game_id)
+    if room.mode == "local":
+        require_local(request)
+    elif not room.is_host(token):
+        raise HTTPException(403, "Only the host can do that")
+    return room
+
+
+@router.post("/games/{game_id}/host/resync")
+async def host_resync(game_id: str, request: Request, services: ServicesDep,
+                      x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """Send every client a fresh authoritative view (they replace, never merge)."""
+    room = _host_room(services, game_id, request, x_seat_token)
+    await services.hub.broadcast(room, resync=True)
+    return {"revision": room.revision, "clients": len(room.connections)}
+
+
+@router.post("/games/{game_id}/host/reconnect")
+async def host_force_reconnect(game_id: str, body: SeatRef, request: Request, services: ServicesDep,
+                               x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """Drop a seat's connections; their browser reconnects by itself with the same seat."""
+    room = _host_room(services, game_id, request, x_seat_token)
+    if body.seat not in room.seats:
+        raise HTTPException(404, "No such seat")
+    dropped = await services.hub.drop_connections(room, body.seat, code=4000, reason="Reconnect requested by the host")
+    await services.hub.broadcast(room)
+    return {"dropped": dropped}
+
+
+@router.post("/games/{game_id}/host/seat-link")
+async def host_seat_link(game_id: str, body: SeatRef, request: Request, services: ServicesDep,
+                         x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """Reclaim / assign a seat: issue a fresh seat token (the old one stops working) and a link
+    that puts whoever opens it into that seat, with the same hand and permissions."""
+    room = _host_room(services, game_id, request, x_seat_token)
+    if body.seat not in room.seats:
+        raise HTTPException(404, "No such seat")
+    if room.started and room.session.state.players.get(body.seat) and room.session.state.players[body.seat].left:
+        raise HTTPException(409, "That player has left the table")
+    await services.hub.drop_connections(room, body.seat, code=4403, reason="The host gave this seat to someone else")
+    token = services.hub.reissue_seat(room, body.seat)
+    await services.hub.broadcast(room)
+    return {"seat": body.seat, "token": token, "path": f"/#/game/{room.id}?seat_token={token}"}
+
+
 # --------------------------------------------------------------------------- WebSocket
 
 
@@ -889,7 +953,7 @@ class WsAction(BaseModel):
 
 
 class WsSimple(BaseModel):
-    type: Literal["undo", "redo", "ping", "view"]
+    type: Literal["undo", "redo", "ping", "view", "resync"]
     as_player: str | None = Field(default=None, alias="as", max_length=16)
     viewer: str | None = Field(default=None, max_length=32)
     id: int | None = None
@@ -930,7 +994,10 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
     async def send(message: dict[str, Any]) -> None:
         await websocket.send_text(json.dumps(message, separators=(",", ":")))
 
-    conn = Connection(viewer=viewer, send=send, actor=actor, host=room.is_host(params.get("token")))
+    async def close(code: int, reason: str) -> None:
+        await websocket.close(code=code, reason=reason)
+
+    conn = Connection(viewer=viewer, send=send, actor=actor, host=room.is_host(params.get("token")), close=close)
     services.hub.connect(room, conn)
     limiter = _RateLimiter()
     try:
@@ -950,7 +1017,27 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
     finally:
         services.hub.disconnect(room, conn)
         if services.hub.get(game_id) is room:
-            await services.hub.broadcast(room)
+            await services.hub.broadcast(room)  # "Reconnecting…"
+            seat = room.seats.get(conn.viewer)
+            if seat is not None and seat.connections == 0:
+                _later(_presence_expired(services, room, conn.viewer))
+
+
+_background: set[asyncio.Task[None]] = set()
+
+
+def _later(coro: Any) -> None:
+    task = asyncio.get_running_loop().create_task(coro)
+    _background.add(task)
+    task.add_done_callback(_background.discard)
+
+
+async def _presence_expired(services: Services, room: Room, pid: str) -> None:
+    """After the grace period a player who hasn't come back shows as Disconnected."""
+    await asyncio.sleep(RECONNECT_GRACE + 0.5)
+    seat = room.seats.get(pid)
+    if services.hub.get(room.id) is room and seat is not None and seat.presence() == "disconnected":
+        await services.hub.broadcast(room)
 
 
 async def _handle_ws_message(services: Services, room: Room, conn: Connection, raw: str, send: Any) -> None:
@@ -961,6 +1048,9 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
         return
     if msg.type == "ping":
         await send({"type": "pong", "id": msg.id})
+        return
+    if msg.type == "resync":  # the client noticed a gap: the server's state wins
+        await send({**services.hub.message(room, conn.viewer, host=conn.host), "resync": True, "id": msg.id})
         return
     if not room.started:
         await send({"type": "error", "id": msg.id, "message": "The game hasn't started yet"})
@@ -1008,5 +1098,7 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
             await send({"type": "error", "id": msg.id, "message": str(exc)})
             return
         services.hub.after_change(room)
+    if isinstance(msg, WsAction):
+        await _after_action(services, room, msg.action)
     await send({"type": "ack", "id": msg.id})
     await services.hub.broadcast(room)

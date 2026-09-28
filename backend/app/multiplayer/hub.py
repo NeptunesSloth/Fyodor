@@ -36,12 +36,29 @@ def _hash_password(password: str, salt: bytes) -> bytes:
     return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120_000)
 
 
+RECONNECT_GRACE = 60.0  # seconds a dropped player shows as "Reconnecting…" before "Disconnected"
+Presence = Literal["open", "connected", "reconnecting", "disconnected"]
+
+
 @dataclass
 class Seat:
     player_id: str
     token: str | None = None
     claimed_name: str | None = None
     connections: int = 0
+    last_seen: float | None = None  # when the last connection of this seat dropped
+
+    def presence(self, now: float | None = None) -> Presence:
+        if self.token is None:
+            return "open"
+        if self.connections > 0:
+            return "connected"
+        if self.last_seen is not None and (now or time.time()) - self.last_seen < RECONNECT_GRACE:
+            return "reconnecting"
+        return "disconnected"
+
+    def public(self) -> dict[str, Any]:
+        return {"claimed": self.token is not None, "connected": self.connections > 0, "presence": self.presence()}
 
 
 @dataclass
@@ -50,6 +67,7 @@ class Connection:
     send: SendFn
     actor: str | None  # who actions are attributed to (None for spectators)
     host: bool = False  # connected with host rights (lobby management)
+    close: Callable[[int, str], Awaitable[None]] | None = None  # drop this socket (the client reconnects)
     id: str = field(default_factory=lambda: secrets.token_hex(4))
 
 
@@ -76,7 +94,7 @@ class Room:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     actions_since_save: int = 0
     created_at: float = field(default_factory=time.time)
-
+    revision: int = 0  # bumped on every authoritative update sent to clients
     @property
     def id(self) -> str:
         return self.game_id
@@ -185,6 +203,7 @@ class Room:
                     "color": info.color or PLAYER_COLORS[(int(pid[1:]) - 1) % len(PLAYER_COLORS)],
                     "claimed": seat.token is not None,
                     "connected": seat.connections > 0,
+                    "presence": seat.presence(),
                     "ready": info.ready,
                     "host": pid == self.host_seat,
                     "deck": deck_summary(info.deck, privacy=settings.deck_privacy, own=pid == viewer),
@@ -292,6 +311,24 @@ class GameHub:
             room.seats.setdefault(pid, Seat(player_id=pid))
             room.lobby_seats.setdefault(pid, LobbySeatInfo())
 
+    def reissue_seat(self, room: Room, pid: str) -> str:
+        """Give a seat a fresh token (host tool): the old one stops working at once."""
+        token = secrets.token_urlsafe(24)
+        room.seats[pid].token = token
+        return token
+
+    async def drop_connections(self, room: Room, pid: str, *, code: int, reason: str) -> int:
+        """Close every socket of a seat. Code 4000 makes clients reconnect; 4403 stops them."""
+        conns = [c for c in room.connections.values() if c.viewer == pid]
+        for conn in conns:
+            self.disconnect(room, conn)
+            if conn.close is not None:
+                try:
+                    await conn.close(code, reason)
+                except Exception:  # noqa: BLE001 - already gone
+                    log.debug("socket %s already closed", conn.id)
+        return len(conns)
+
     def release_seat(self, room: Room, pid: str) -> None:
         """Free a lobby seat (leaving or being kicked): its token stops working at once."""
         seat = room.seats[pid]
@@ -368,10 +405,14 @@ class GameHub:
 
     def disconnect(self, room: Room, conn: Connection) -> None:
         if room.connections.pop(conn.id, None) is not None and conn.viewer in room.seats:
-            room.seats[conn.viewer].connections = max(0, room.seats[conn.viewer].connections - 1)
+            seat = room.seats[conn.viewer]
+            seat.connections = max(0, seat.connections - 1)
+            if seat.connections == 0:
+                seat.last_seen = time.time()
 
-    async def broadcast(self, room: Room) -> None:
-        """Send each connection a fresh view built for its own viewer."""
+    async def broadcast(self, room: Room, *, resync: bool = False) -> None:
+        """Send each connection a fresh view built for its own viewer (a new revision)."""
+        room.revision += 1
         cache: dict[str, dict[str, Any]] = {}
         stale: list[Connection] = []
         for conn in list(room.connections.values()):
@@ -379,6 +420,8 @@ class GameHub:
             message = cache.get(key)
             if message is None:
                 message = cache[key] = self.message(room, conn.viewer, host=conn.host)
+                if resync:
+                    message = cache[key] = {**message, "resync": True}
             try:
                 await conn.send(message)
             except Exception as exc:  # noqa: BLE001 - a dead socket must not break the table for others
@@ -397,14 +440,15 @@ class GameHub:
     def message(self, room: Room, viewer: str, *, host: bool = False) -> dict[str, Any]:
         if not room.started:
             return {"type": "lobby", "lobby": room.lobby_view(viewer, host=host)}
-        return {"type": "state", "view": self.view(room, viewer)}
+        return {"type": "state", "view": self.view(room, viewer), "revision": room.revision}
 
     def view(self, room: Room, viewer: str) -> dict[str, Any]:
         meta = {
             "mode": room.mode,
             "code": room.code if room.mode == "lan" else None,
-            "seats": {pid: {"claimed": s.token is not None, "connected": s.connections > 0} for pid, s in room.seats.items()},
+            "seats": {pid: s.public() for pid, s in room.seats.items()},
             "host_seat": room.host_seat,
+            "revision": room.revision,
         }
         return room.session.view(viewer, meta=meta)
 

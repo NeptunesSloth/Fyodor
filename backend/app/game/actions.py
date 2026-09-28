@@ -305,6 +305,22 @@ class SetController(Base):
     player: Id
 
 
+class ReturnToOwner(Base):
+    """Give cards back to their owner: stolen permanents to the owner's battlefield, cards in
+    another player's zone to the owner's zone of the same kind."""
+
+    type: Literal["return_to_owner"] = "return_to_owner"
+    card_ids: IdList
+
+
+class RemovePlayer(Base):
+    """Host tool: someone left the table. Their cards leave the game; permanents they controlled
+    but don't own go back to their owners."""
+
+    type: Literal["remove_player"] = "remove_player"
+    player: Id
+
+
 class SetCommander(Base):
     type: Literal["set_commander"] = "set_commander"
     card_id: Id
@@ -635,6 +651,8 @@ Action = Annotated[
     | FaceDown
     | Note
     | SetController
+    | ReturnToOwner
+    | RemovePlayer
     | SetCommander
     | Life
     | SetLife

@@ -41,7 +41,7 @@ def cards(state: GameState, card_ids: Iterable[str]) -> list[CardInstance]:
 
 def player(state: GameState, player_id: str | None, default: str) -> str:
     pid = player_id or default
-    if pid not in state.players:
+    if pid not in state.players or state.players[pid].left:
         raise ActionError(f"Unknown player {pid}")
     return pid
 

@@ -6,7 +6,7 @@ from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
 from app.game.ops import group, log, pname, text
-from app.game.state import STACK, CardInstance, CopyInfo, GameState, TokenDef, zone_key
+from app.game.state import STACK, CardInstance, CopyInfo, GameState, TokenDef, split_zone, zone_key
 from app.game.visibility import publicly_visible, seers
 
 
@@ -225,6 +225,30 @@ def set_controller(state: GameState, a: A.SetController) -> None:
         c.attacking = None
         c.blocking = None
     log(state, a.actor, a.ts, [pname(state, pid), text(" gained control of "), group(state, targets)])
+
+
+def return_to_owner(state: GameState, a: A.ReturnToOwner) -> None:
+    targets = ops.cards(state, a.card_ids)
+    moved = []
+    for c in targets:
+        if c.zone == STACK or c.ability is not None:
+            continue
+        holder, zone = split_zone(c.zone)
+        if holder == c.owner and c.controller == c.owner:
+            continue
+        dest = zone_key(c.owner, zone)
+        if zone == "battlefield":
+            ops.remove_from_zone(state, c)
+            ops.insert(state, c, dest)
+            c.controller = c.owner
+            c.attacking = None
+            c.blocking = None
+        else:
+            ops.move_card(state, c, dest)
+        moved.append(c)
+    if not moved:
+        raise ActionError("Those cards are already with their owners")
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(" returned "), group(state, moved), text(" to their owners")])
 
 
 def set_commander(state: GameState, a: A.SetCommander) -> None:

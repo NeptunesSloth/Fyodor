@@ -128,6 +128,7 @@ export interface PlayerView {
   deck_name?: string | null;
   token_shortcuts?: string[];
   commanders: CommanderInfo[];
+  left?: boolean;
   hand_count: number;
   library_count: number;
 }
@@ -164,7 +165,9 @@ export interface GameMeta {
   can_redo: boolean;
   mode: "local" | "lan";
   code: string | null;
-  seats: Record<string, { claimed: boolean; connected: boolean }>;
+  seats: Record<string, { claimed: boolean; connected: boolean; presence?: "open" | "connected" | "reconnecting" | "disconnected" }>;
+  /** Authoritative revision: grows with every update the server sends. */
+  revision?: number;
   /** LAN: the host's seat (table-level overrides are the host's). */
   host_seat?: string | null;
 }

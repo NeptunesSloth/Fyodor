@@ -48,6 +48,8 @@ HANDLERS: dict[str, Handler] = {
     "note": cards.note,
     "set_controller": cards.set_controller,
     "set_commander": cards.set_commander,
+    "return_to_owner": cards.return_to_owner,
+    "remove_player": players.remove_player,
     "life": players.life,
     "set_life": players.set_life,
     "resource": players.resource,
@@ -95,7 +97,7 @@ def apply(state: GameState, action: A.Action) -> None:
     handler = HANDLERS.get(action.type)
     if handler is None:  # pragma: no cover - guarded by the discriminated union
         raise ActionError(f"Unknown action {action.type}")
-    if action.actor not in state.players:
+    if action.actor not in state.players or state.players[action.actor].left:
         raise ActionError("Actions must be performed by a seated player")
     state.seq += 1
     try:

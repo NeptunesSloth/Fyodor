@@ -4,14 +4,15 @@ import type { GameView, LobbyView } from "../types/game";
 export type ConnStatus = "connecting" | "open" | "reconnecting" | "closed";
 
 interface Handlers {
-  onState: (view: GameView) => void;
+  /** `replace`: an authoritative resync — replace local state, never merge. */
+  onState: (view: GameView, replace: boolean) => void;
   onLobby: (lobby: LobbyView) => void;
   onStatus: (status: ConnStatus, detail?: string) => void;
   onClosedByServer: (reason: string) => void;
 }
 
 type ServerMessage =
-  | { type: "state"; view: GameView }
+  | { type: "state"; view: GameView; revision?: number; resync?: boolean }
   | { type: "lobby"; lobby: LobbyView }
   | { type: "kicked" }
   | { type: "ack"; id: number | null }
@@ -20,6 +21,7 @@ type ServerMessage =
   | { type: "closed" };
 
 const FATAL_CODES = new Set([4403, 4404]);
+const RETRY_NOW = 4000; // the host asked this client to reconnect
 
 export class GameConnection {
   private ws: WebSocket | null = null;
@@ -28,6 +30,8 @@ export class GameConnection {
   private retry = 0;
   private stopped = false;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  /** Last authoritative revision applied (0 = none yet). */
+  revision = 0;
 
   constructor(
     private readonly gameId: string,
@@ -41,6 +45,7 @@ export class GameConnection {
     if (this.params.token) q.set("token", this.params.token);
     if (this.params.viewer) q.set("viewer", this.params.viewer);
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
+    this.revision = 0; // a fresh connection starts with a full snapshot
     const ws = new WebSocket(`${proto}://${window.location.host}/ws/games/${encodeURIComponent(this.gameId)}?${q}`);
     this.ws = ws;
     this.handlers.onStatus(this.retry ? "reconnecting" : "connecting");
@@ -59,9 +64,9 @@ export class GameConnection {
         this.handlers.onStatus("closed", ev.reason || "Refused");
         return;
       }
-      this.retry += 1;
+      this.retry = ev.code === RETRY_NOW ? 0 : this.retry + 1;
       this.handlers.onStatus("reconnecting");
-      setTimeout(() => !this.stopped && this.connect(), Math.min(10000, 400 * 2 ** Math.min(this.retry, 5)));
+      setTimeout(() => !this.stopped && this.connect(), ev.code === RETRY_NOW ? 150 : Math.min(10000, 400 * 2 ** Math.min(this.retry, 5)));
     };
   }
 
@@ -70,6 +75,11 @@ export class GameConnection {
     this.failPending("Closed");
     this.ws?.close();
     this.ws = null;
+  }
+
+  /** Ask the server for a fresh authoritative view (it replaces local state). */
+  resync(): void {
+    this.raw({ type: "resync" });
   }
 
   /** Change the viewing seat (local hot-seat games only). */
@@ -107,9 +117,20 @@ export class GameConnection {
       return;
     }
     switch (msg.type) {
-      case "state":
-        this.handlers.onState(msg.view);
+      case "state": {
+        const rev = msg.revision ?? msg.view.game.revision ?? 0;
+        if (msg.resync || !this.revision) {
+          this.revision = rev;
+          this.handlers.onState(msg.view, !!msg.resync);
+          break;
+        }
+        if (rev <= this.revision) break; // stale / out of order: the newer state is already here
+        const gap = rev > this.revision + 1;
+        this.revision = rev;
+        this.handlers.onState(msg.view, false);
+        if (gap) this.resync(); // missed an update: ask for the authoritative snapshot
         break;
+      }
       case "lobby":
         this.handlers.onLobby(msg.lobby);
         break;

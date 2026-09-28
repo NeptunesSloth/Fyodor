@@ -357,3 +357,17 @@ kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4
 .resp-what b { font-weight: 600; }
 .resp-status { color: var(--room-bone-dim); font-size: 12px; }
 .resp-bar .tt-btn { min-height: 26px; padding: 2px 10px; font-size: 12.5px; }
+
+/* ---------------------------------------------------------------- presence + host tools */
+.presence-label { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--room-bone-dim); white-space: nowrap; }
+.presence-label.connected { color: #8fd0a8; }
+.presence-label.reconnecting { color: var(--room-brass-hi); }
+.presence-label.disconnected { color: #d98a80; }
+.host-tools { display: flex; flex-direction: column; gap: 16px; }
+.host-tools h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--room-bone-dim); margin: 0 0 6px; }
+.host-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.host-row .spacer { flex: 1; }
+.host-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.host-link { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; align-items: flex-start; }
+.host-link code { word-break: break-all; user-select: all; }
+.tt-btn.danger { color: #ffb4ad; }

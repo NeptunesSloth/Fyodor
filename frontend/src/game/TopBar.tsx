@@ -1,3 +1,9 @@
+import { openMenu, type MenuItem } from "../components/ContextMenu";
+import { toast } from "../components/Toasts";
+import { api } from "../services/api";
+import { seatToken } from "../services/games";
+import type { GameView } from "../types/game";
+import { useIsHost } from "./HostTools";
 import { useGame } from "../state/gameStore";
 import { OMNISCIENT, PHASE_LABEL, PHASES, SPECTATOR } from "../types/game";
 import { send } from "./actions";
@@ -36,6 +42,7 @@ export function TopBar() {
   const status = useGame((s) => s.status);
   const actingAs = useGame((s) => s.actingAs);
   const { undo, redo, openDialog, setViewer, setActingAs } = useGame.getState();
+  const isHost = useIsHost();
   if (!view) return null;
   const local = view.game.mode === "local";
   const dayNight = view.table.day_night;
@@ -84,6 +91,32 @@ export function TopBar() {
         </label>
       )}
       <button className="icon-btn" onClick={() => openDialog("help")} title="Keyboard shortcuts (?)">?</button>
+      <button className="icon-btn" data-testid="table-menu" aria-label="More" onClick={(e) => openMenu(e, tableMenu(isHost), "Table")}>⋯</button>
     </header>
   );
+}
+
+function tableMenu(isHost: boolean): MenuItem[] {
+  const s = useGame.getState();
+  return [
+    { label: "Resync my view", hint: "Fetch a fresh copy of the table from the host", onClick: () => s.conn?.resync() },
+    { label: "Verify sync", hint: "Debug: compare this screen with the host's state", onClick: () => void verifySync() },
+    ...(isHost ? (["separator", { label: "Host tools…", onClick: () => s.openDialog("host") }] as MenuItem[]) : []),
+  ];
+}
+
+/** Debug: compare the reconciled local view with a fresh one from the server; resync if they differ. */
+async function verifySync(): Promise<void> {
+  const s = useGame.getState();
+  const local = s.view;
+  if (!local) return;
+  const token = seatToken(local.game.id);
+  const q = local.game.mode === "local" ? `?viewer=${encodeURIComponent(local.viewer === "__omniscient__" ? "all" : local.viewer)}` : "";
+  const fresh = await api.get<GameView>(`/games/${local.game.id}/view${q}`, token ? { "X-Seat-Token": token } : {});
+  const strip = (v: GameView) => JSON.stringify({ ...v, log: v.log.length, game: { ...v.game, revision: 0, seats: 0 } });
+  if (strip(fresh) === strip(useGame.getState().view ?? local)) toast(`In sync (revision ${fresh.game.revision ?? "?"})`);
+  else {
+    toast("This screen was out of date — resynced", "error");
+    s.conn?.resync();
+  }
 }

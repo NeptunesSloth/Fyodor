@@ -155,6 +155,7 @@ class PlayerState(BaseModel):
     deck_name: str | None = None
     token_shortcuts: list[str] = Field(default_factory=list)  # card ids from the deck's Tokens section
     mana: dict[str, int] = Field(default_factory=dict)  # temporary mana pool: W U B R G C (and S for snow)
+    left: bool = False  # removed from the table by the host (kept for names in the log)
 
 
 class TurnState(BaseModel):
