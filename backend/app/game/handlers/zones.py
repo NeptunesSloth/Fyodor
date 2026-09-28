@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
+from app.game.handlers import objects
 from app.game.ops import group, log, pname, text, zone_label
 from app.game.state import ALL, STACK, CardInstance, GameState, split_zone, zone_key
 from app.game.visibility import seers
@@ -39,6 +40,9 @@ def _verb(src: str, dst: str, position: str | None) -> str:
 
 def move(state: GameState, a: A.Move) -> None:
     moving = ops.cards(state, a.card_ids)
+    for c in moving:
+        if c.locked:
+            raise ActionError(f"{c.name or 'That card'} is locked — unlock it first")
     dests = [destination(state, a.to, c, a.actor) for c in moving]
     positions = a.r.positions if a.r else {}
     who_saw = {c.id: seers(state, c) for c in moving}
@@ -92,11 +96,30 @@ def set_position(state: GameState, a: A.SetPosition) -> None:
     for c, _x, _y in targets:
         if ops.zone_name(c.zone) != "battlefield":
             raise ActionError(f"{c.id} is not on the battlefield")
+        if c.locked:
+            raise ActionError(f"{c.name or 'That card'} is locked — unlock it first")
+    explicit = {c.id for c, _x, _y in targets}
     for c, x, y in targets:
+        dx, dy = x - c.x, y - c.y
         c.x, c.y = x, y
+        if c.attached_to and c.attached_to not in explicit:
+            host = state.cards.get(c.attached_to)
+            if host is not None:  # dragging an attachment re-seats it relative to its host
+                c.attach_offset = (c.x - host.x, c.y - host.y)
         ids = state.zone(c.zone)
         ids.remove(c.id)
         ids.append(c.id)  # bring to front
+        if a.with_attachments:
+            for child in objects.children_of(state, c.id):
+                if child.id in explicit or child.zone != c.zone:
+                    continue
+                child.x += dx
+                child.y += dy
+        # attachments are drawn tucked underneath their host
+        for child in objects.children_of(state, c.id):
+            if child.zone == c.zone and child.id in ids:
+                ids.remove(child.id)
+                ids.insert(ids.index(c.id), child.id)
 
 
 def draw_cards(state: GameState, pid: str, count: int) -> list[CardInstance]:

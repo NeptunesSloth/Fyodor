@@ -7,7 +7,7 @@ from typing import Any
 
 from app.game import actions as A
 from app.game.errors import ActionError
-from app.game.handlers import cards, players, turn, zones
+from app.game.handlers import cards, objects, players, turn, zones
 from app.game.state import GameState
 
 Handler = Callable[[GameState, Any], None]
@@ -59,6 +59,22 @@ HANDLERS: dict[str, Handler] = {
     "clear_combat": turn.clear_combat,
     "create_ability": turn.create_ability,
     "resolve_top": turn.resolve_top,
+    "rotate": objects.rotate,
+    "set_lock": objects.set_lock,
+    "set_protect": objects.set_protect,
+    "attach": objects.attach,
+    "detach": objects.detach,
+    "group": objects.make_group,
+    "ungroup": objects.ungroup,
+    "stack_adjust": objects.stack_adjust,
+    "split_stack": objects.split_stack,
+    "expand_stack": objects.expand_stack,
+    "merge_tokens": objects.merge_tokens,
+    "add_mana": objects.add_mana,
+    "clear_mana": objects.clear_mana,
+    "add_reminder": objects.add_reminder,
+    "dismiss_reminder": objects.dismiss_reminder,
+    "configure": objects.configure,
 }
 
 # Actions that change nothing worth undoing or logging separately.

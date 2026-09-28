@@ -79,7 +79,8 @@ def set_counter(state: GameState, a: A.SetCounter) -> None:
 
 def create_token(state: GameState, a: A.CreateToken) -> None:
     pid = ops.player(state, a.player, a.actor)
-    if a.r is None or len(a.r.ids) != a.count:
+    stacked = bool(a.stacked)
+    if a.r is None or len(a.r.ids) != (1 if stacked else a.count):
         raise ActionError("unresolved token creation")
     spec = a.resolved_token or TokenDef(
         name=a.token.name,
@@ -109,10 +110,13 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
             is_token=True,
             token=spec.model_copy(),
             known_to=[ALL],
+            quantity=a.count if stacked else 1,
         )
         state.cards[new_id] = c
         state.zone(key).append(new_id)
     what = f"{a.count} {spec.name} token{'s' if a.count != 1 else ''}" if a.count != 1 else f"a {spec.name} token"
+    if stacked and a.count > 1:
+        what += f" (stack ×{a.count})"
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" created {what}")])
 
 
@@ -143,6 +147,7 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
             ability=src.ability.model_copy() if src.ability else None,
             copy_of=CopyInfo(source_id=src.id, source_name=src.name, modifications=a.modifications),
             known_to=[ALL],
+            quantity=1,
         )
         state.cards[new_id] = c
         state.zone(key).append(new_id)
@@ -155,6 +160,8 @@ def delete_card(state: GameState, a: A.DeleteCard) -> None:
     for c in targets:
         if not ops.is_ephemeral(c):
             raise ActionError(f"{c.name} is a real card; move it to a zone instead")
+        if c.protected and not a.force:
+            raise ActionError(f"{c.name} is protected — confirm to delete it")
     names = group(state, targets)
     for c in targets:
         ops.delete(state, c)

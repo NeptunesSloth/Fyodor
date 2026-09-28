@@ -89,6 +89,7 @@ def new_game(
                     commander_count += 1
                     card.commander_key = f"cmd-{pid}-{commander_count}"
                     card.known_to = [ALL]
+                    card.protected = True
                     state_players[pid].commander_tax[card.commander_key] = 0
                 cards[cid] = card
                 zones[card.zone].append(cid)

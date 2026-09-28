@@ -68,7 +68,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         if a.shuffle and key:
             a.r = shuffle_data(len(state.zones.get(key, [])), rng)
     elif isinstance(a, A.CreateToken):
-        a.r = A.NewIds(ids=[new_id() for _ in range(a.count)])
+        a.stacked = a.stacked if a.stacked is not None else a.count > 3
+        a.r = A.NewIds(ids=[new_id() for _ in range(1 if a.stacked else a.count)])
         a.resolved_token = _token_def(a.token, info)
         if a.x is None or a.y is None:
             pid = a.player or actor
@@ -76,6 +77,11 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
     elif isinstance(a, A.CopyCard | A.CreateAbility):
         count = a.count if isinstance(a, A.CopyCard) else 1
         a.r = A.NewIds(ids=[new_id() for _ in range(count)])
+    elif isinstance(a, A.Group | A.SplitStack | A.AddReminder):
+        a.r = A.NewIds(ids=[new_id()])
+    elif isinstance(a, A.ExpandStack):
+        card = state.cards.get(a.card_id)
+        a.r = A.NewIds(ids=[new_id() for _ in range(max(0, (card.quantity if card else 1) - 1))])
     elif isinstance(a, A.Roll):
         a.r = A.DiceData(results=[_rng_int(rng, 1, a.sides) for _ in range(a.count)])
     elif isinstance(a, A.Coin):

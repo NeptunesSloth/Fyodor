@@ -78,6 +78,7 @@ class Move(Base):
 class SetPosition(Base):
     type: Literal["set_position"] = "set_position"
     moves: list[tuple[Id, Coord, Coord]] = Field(min_length=1, max_length=250)
+    with_attachments: bool = True  # attached cards follow their host (hold a modifier to move only the host)
 
 
 class Shuffle(Base):
@@ -204,6 +205,7 @@ class CreateToken(Base):
     x: Coord | None = None
     y: Coord | None = None
     tapped: bool = False
+    stacked: bool | None = None  # one logical stack instead of N objects (default: when count > 3)
     r: NewIds | None = None
     # filled by resolve from the card DB when token.card_id is given:
     resolved_token: TokenDef | None = None
@@ -225,6 +227,7 @@ class DeleteCard(Base):
 
     type: Literal["delete_card"] = "delete_card"
     card_ids: IdList
+    force: bool = False  # required for protected objects
 
 
 class SetFace(Base):
@@ -432,6 +435,121 @@ class ResolveTop(Base):
     r: MoveData | None = None
 
 
+# --- tabletop object behaviour ------------------------------------------------------
+class Rotate(Base):
+    type: Literal["rotate"] = "rotate"
+    card_ids: IdList
+    degrees: float | None = Field(default=None, ge=-3600, le=3600)  # absolute rotation
+    delta: float | None = Field(default=None, ge=-3600, le=3600)  # relative rotation
+
+
+class SetLock(Base):
+    type: Literal["set_lock"] = "set_lock"
+    card_ids: IdList
+    value: bool | None = None  # None = toggle
+
+
+class SetProtect(Base):
+    type: Literal["set_protect"] = "set_protect"
+    card_ids: IdList
+    value: bool | None = None
+
+
+class Attach(Base):
+    """Attach cards (equipment, auras, tucked cards) to a host permanent."""
+
+    type: Literal["attach"] = "attach"
+    card_ids: IdList
+    to: Id
+    offset: tuple[Coord, Coord] | None = None  # relative position; default tucks under the host
+
+
+class Detach(Base):
+    type: Literal["detach"] = "detach"
+    card_ids: IdList
+
+
+class Group(Base):
+    type: Literal["group"] = "group"
+    card_ids: Annotated[list[Id], Field(min_length=2, max_length=250)]
+    r: NewIds | None = None
+
+
+class Ungroup(Base):
+    type: Literal["ungroup"] = "ungroup"
+    card_ids: IdList
+
+
+class StackAdjust(Base):
+    """Change the size of a logical token stack (``Treasure ×17``)."""
+
+    type: Literal["stack_adjust"] = "stack_adjust"
+    card_id: Id
+    delta: int = Field(ge=-1000, le=1000)
+
+
+class SplitStack(Base):
+    type: Literal["split_stack"] = "split_stack"
+    card_id: Id
+    count: int = Field(default=1, ge=1, le=999)  # how many to take off into a new stack
+    r: NewIds | None = None
+
+
+class ExpandStack(Base):
+    """Turn a logical stack into individual objects."""
+
+    type: Literal["expand_stack"] = "expand_stack"
+    card_id: Id
+    r: NewIds | None = None
+
+
+class MergeTokens(Base):
+    """Collapse identical tokens into one logical stack (explicit; never automatic)."""
+
+    type: Literal["merge_tokens"] = "merge_tokens"
+    card_ids: Annotated[list[Id], Field(min_length=2, max_length=250)]
+
+
+class AddMana(Base):
+    type: Literal["add_mana"] = "add_mana"
+    player: Id | None = None
+    mana: dict[Literal["W", "U", "B", "R", "G", "C", "S"], Annotated[int, Field(ge=-100, le=100)]]
+
+
+class ClearMana(Base):
+    type: Literal["clear_mana"] = "clear_mana"
+    player: Id | None = None
+
+
+class AddReminder(Base):
+    type: Literal["add_reminder"] = "add_reminder"
+    text: str = Field(min_length=1, max_length=300)
+    when: Literal["upkeep", "draw", "main1", "begin_combat", "end", "cleanup", "next_turn"] = "upkeep"
+    own_turn_only: bool = True
+    card_id: Id | None = None
+    r: NewIds | None = None
+
+    @field_validator("text")
+    @classmethod
+    def _clean(cls, v: str) -> str:
+        return clean_text(v, 300)
+
+
+class DismissReminder(Base):
+    type: Literal["dismiss_reminder"] = "dismiss_reminder"
+    reminder_id: Id
+
+
+class Configure(Base):
+    """Table settings (host-only in LAN games; enforced by the API layer)."""
+
+    type: Literal["configure"] = "configure"
+    undo_policy: Literal["everyone", "own", "host"] | None = None
+    clear_mana_on_step: bool | None = None
+    auto_untap: bool | None = None
+    auto_commander_tax: bool | None = None
+
+
 Action = Annotated[
     Draw
     | Move
@@ -478,7 +596,23 @@ Action = Annotated[
     | Block
     | ClearCombat
     | CreateAbility
-    | ResolveTop,
+    | ResolveTop
+    | Rotate
+    | SetLock
+    | SetProtect
+    | Attach
+    | Detach
+    | Group
+    | Ungroup
+    | StackAdjust
+    | SplitStack
+    | ExpandStack
+    | MergeTokens
+    | AddMana
+    | ClearMana
+    | AddReminder
+    | DismissReminder
+    | Configure,
     Field(discriminator="type"),
 ]
 

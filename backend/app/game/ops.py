@@ -81,6 +81,9 @@ def delete(state: GameState, c: CardInstance) -> None:
     remove_from_zone(state, c)
     del state.cards[c.id]
     for other in state.cards.values():
+        if other.attached_to == c.id:
+            other.attached_to = None
+            other.attach_offset = None
         if other.blocking == c.id:
             other.blocking = None
         if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
@@ -123,6 +126,21 @@ def move_card(
     knew = seers(state, c)
     remove_from_zone(state, c)
     insert(state, c, dest, index=index, position=position)
+    if src_zone == "battlefield" and dst_zone != "battlefield":
+        c.attached_to = None
+        c.attach_offset = None
+        c.group = None
+        c.locked = False
+        c.rotation = 0.0
+        for other in state.cards.values():
+            if other.attached_to == c.id:  # equipment/auras stay where they are, unattached
+                other.attached_to = None
+                other.attach_offset = None
+    elif src_zone == "battlefield" and dst_zone == "battlefield" and c.attached_to:
+        host = state.cards.get(c.attached_to)
+        if host is None or host.zone != dest:
+            c.attached_to = None
+            c.attach_offset = None
 
     # A card that changes zones becomes a new object.
     if src_zone == "battlefield" or dst_zone == "battlefield":

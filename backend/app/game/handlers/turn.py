@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
+from app.game.handlers import objects
 from app.game.handlers.cards import untap_permanents
 from app.game.ops import log, pname, text
 from app.game.state import COMBAT_PHASES, PHASES, STACK, AbilityDef, CardInstance, GameState
@@ -51,7 +52,10 @@ def phase(state: GameState, a: A.Phase) -> None:
     if state.turn.phase in COMBAT_PHASES and new_phase not in COMBAT_PHASES:
         clear_combat_markers(state)
     state.turn.phase = new_phase
+    if state.settings.clear_mana_on_step:
+        objects.empty_mana_pools(state)
     log(state, a.actor, a.ts, [text(f"— {PHASE_LABELS[new_phase]} —")], kind="phase")
+    objects.fire_reminders(state, new_phase, a.ts)
 
 
 def next_turn(state: GameState, a: A.NextTurn) -> None:
@@ -64,12 +68,15 @@ def next_turn(state: GameState, a: A.NextTurn) -> None:
     state.turn.number += 1
     state.turn.active_player = nxt
     state.turn.phase = "untap"
+    if state.settings.clear_mana_on_step:
+        objects.empty_mana_pools(state)
     parts = [text(f"Turn {state.turn.number}: "), pname(state, nxt)]
     if state.settings.auto_untap:
         n = untap_permanents(state, nxt)
         if n:
             parts.append(text(f" untapped {n} permanent{'s' if n != 1 else ''}"))
     log(state, a.actor, a.ts, parts, kind="turn")
+    objects.fire_reminders(state, "next_turn", a.ts)
 
 
 def attack(state: GameState, a: A.Attack) -> None:

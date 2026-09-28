@@ -54,9 +54,21 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
     else:
         view = {"id": c.id, "hidden": True, "owner": c.owner, "controller": c.controller, "zone": c.zone,
                 "face_down": c.face_down}
+    if c.protected:
+        view["protected"] = True
     if zone in PUBLIC_ZONES:
         # Position, tapped state, counters and combat roles are public even for face-down cards.
         view.update(x=c.x, y=c.y, tapped=c.tapped, flipped=c.flipped)
+        if c.rotation:
+            view["rotation"] = c.rotation
+        if c.locked:
+            view["locked"] = True
+        if c.attached_to:
+            view["attached_to"] = c.attached_to
+        if c.group:
+            view["group"] = c.group
+        if c.quantity != 1:
+            view["quantity"] = c.quantity
         if c.counters:
             view["counters"] = dict(c.counters)
         if c.attacking:
@@ -167,6 +179,7 @@ def build_view(
         "turn": state.turn.model_dump(),
         "table": state.table.model_dump(),
         "searches": dict(state.searches),
+        "reminders": [r.model_dump() for r in state.reminders],
         "cards": cards,
         "zones": zones,
         "stack": list(state.zones.get(STACK, [])),

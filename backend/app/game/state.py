@@ -118,6 +118,14 @@ class CardInstance(BaseModel):
     revealed: bool = False  # temporarily shown to everyone while in a hidden zone
     attacking: AttackTarget | None = None
     blocking: str | None = None  # attacker instance id
+    # --- tabletop object behaviour (see docs/3D_DIRECTION.md §5) ---
+    rotation: float = 0.0  # free rotation in degrees, independent of tapping
+    locked: bool = False  # cannot be moved until unlocked
+    protected: bool = False  # cannot be deleted / stacked / merged without an explicit force
+    attached_to: str | None = None  # host permanent (equipment, auras, cards tucked under)
+    attach_offset: tuple[float, float] | None = None  # position relative to the host
+    group: str | None = None  # temporary pile: dragging one member moves all
+    quantity: int = 1  # logical token stack size ("Treasure ×17")
 
 
 class LifeChange(BaseModel):
@@ -141,6 +149,7 @@ class PlayerState(BaseModel):
     deck_id: str | None = None
     deck_name: str | None = None
     token_shortcuts: list[str] = Field(default_factory=list)  # card ids from the deck's Tokens section
+    mana: dict[str, int] = Field(default_factory=dict)  # temporary mana pool: W U B R G C (and S for snow)
 
 
 class TurnState(BaseModel):
@@ -159,6 +168,22 @@ class GameSettings(BaseModel):
     starting_life: int = 40
     auto_untap: bool = True  # "next turn" untaps the new active player's permanents
     auto_commander_tax: bool = True  # moving a commander from the command zone to the stack adds {2}
+    clear_mana_on_step: bool = True  # empty mana pools when the step/phase changes
+    undo_policy: Literal["everyone", "own", "host"] = "everyone"
+
+
+REMINDER_TIMES = ("upkeep", "draw", "main1", "begin_combat", "end", "cleanup", "next_turn")
+
+
+class Reminder(BaseModel):
+    id: str
+    owner: str
+    text: str
+    when: Literal["upkeep", "draw", "main1", "begin_combat", "end", "cleanup", "next_turn"]
+    own_turn_only: bool = True  # "at the beginning of *your* next upkeep"
+    card_id: str | None = None
+    created_seq: int = 0
+    due: bool = False  # the step has been reached; shown until dismissed
 
 
 class LogPart(BaseModel):
@@ -200,6 +225,7 @@ class GameState(BaseModel):
     turn: TurnState
     table: TableState = Field(default_factory=TableState)
     searches: dict[str, str] = Field(default_factory=dict)  # viewer player id -> zone key shown in full
+    reminders: list[Reminder] = Field(default_factory=list)
     log: list[LogEntry] = Field(default_factory=list)
 
     # -- helpers ---------------------------------------------------------------------
