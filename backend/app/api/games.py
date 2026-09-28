@@ -30,8 +30,9 @@ from app.decks.parser import DeckTextTooLarge
 from app.decks.repository import DeckNotFound
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
+from app.game.mulligan import resolve_policy
 from app.game.session import GameSession
-from app.game.state import GameSettings
+from app.game.state import GameSettings, MulliganPolicy
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.hub import Connection, Room
 from app.multiplayer.lobby import DeckTooLarge, LobbySeatInfo, LobbySettings, SubmittedDeck, check_bounds
@@ -69,6 +70,15 @@ def authorize(room: Room, *, local: bool, token: str | None, viewer: str | None,
             return OMNISCIENT if viewer == "all" else SPECTATOR, None
         raise HTTPException(403, "Join the game first (missing or invalid seat token)")
     return seat, (seat if seat != SPECTATOR else None)
+
+
+HOST_ONLY_ACTIONS = {"mulligan_finish"}
+
+
+def _check_host_only(room: Room, action: dict[str, Any], *, host: bool) -> None:
+    """Some actions are table-level overrides only the host may use (anyone at a hot-seat table)."""
+    if action.get("type") in HOST_ONLY_ACTIONS and room.mode == "lan" and not host:
+        raise HTTPException(403, "Only the host can do that")
 
 
 def _room(services: Services, game_id: str) -> Room:
@@ -110,7 +120,10 @@ class CreateGameIn(BaseModel):
     lobby: bool = False
     seats: int = Field(default=4, ge=1, le=6)
     deck_privacy: Literal["private", "commander_only", "public"] = "commander_only"
-    mulligan_rule: str = Field(default="commander_london", max_length=40)
+    # Guided opening hands: "commander_london", "london", "boston_custom", "custom" or "none".
+    # Unset: lobbies use the format's usual rule; hot-seat games deal no hands (sandbox).
+    mulligan_rule: str | None = Field(default=None, max_length=40)
+    mulligan_policy: MulliganPolicy | None = None  # fields for boston_custom / custom
     priority_helper: Literal["off", "simple"] = "simple"
 
     @field_validator("name")
@@ -179,8 +192,10 @@ def _create_lobby(services: Services, body: CreateGameIn) -> dict[str, Any]:
     if body.mode != "lan":
         raise HTTPException(422, "A lobby is for LAN games")
     settings = LobbySettings(name=body.name, format=body.format, seats=body.seats, starting_life=body.starting_life,
-                             deck_privacy=body.deck_privacy, mulligan_rule=body.mulligan_rule,
-                             priority_helper=body.priority_helper, auto_untap=body.auto_untap)
+                             deck_privacy=body.deck_privacy,
+                             mulligan_rule=body.mulligan_rule or ("commander_london" if body.format == "commander" else "london"),
+                             mulligan_policy=body.mulligan_policy, priority_helper=body.priority_helper,
+                             auto_untap=body.auto_untap)
     room = services.hub.create_lobby(settings, password=body.password)
     result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
     if body.host_seat:
@@ -227,8 +242,14 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
         first = secrets.randbelow(len(setups))
     elif isinstance(body.first_player, int):
         first = body.first_player
+    try:
+        policy = resolve_policy(body.mulligan_rule, body.mulligan_policy) if body.mulligan_rule else None
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if policy is not None and policy.needs_definition:
+        raise HTTPException(422, f"Define the {policy.display_name} mulligan first (or pick another rule)")
     settings = GameSettings(starting_life=body.starting_life or {"commander": 40}.get(body.format, 20), auto_untap=body.auto_untap,
-                            deck_privacy=body.deck_privacy)
+                            deck_privacy=body.deck_privacy, priority_helper=body.priority_helper, mulligan=policy)
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
     session.notice(f"Game created. {state.players[state.turn.active_player].name} goes first.")
@@ -262,6 +283,7 @@ async def post_action(
     viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=body.viewer, as_player=body.as_player)
     if actor is None:
         raise HTTPException(403, "Spectators cannot act")
+    _check_host_only(room, body.action, host=room.is_host(x_seat_token))
     async with room.lock:
         try:
             room.session.perform(actor, body.action)
@@ -498,6 +520,7 @@ class LobbySettingsIn(BaseModel):
     starting_life: int | None = Field(default=None, ge=1, le=10000)
     deck_privacy: Literal["private", "commander_only", "public"] | None = None
     mulligan_rule: str | None = Field(default=None, max_length=40)
+    mulligan_policy: MulliganPolicy | None = None
     priority_helper: Literal["off", "simple"] | None = None
     auto_untap: bool | None = None
 
@@ -760,7 +783,7 @@ async def lobby_settings(
     # Changing the rules of the game means everyone confirms again.
     if any(
         getattr(updated, k) != getattr(current, k)
-        for k in ("format", "starting_life", "mulligan_rule", "deck_privacy")
+        for k in ("format", "starting_life", "mulligan_rule", "mulligan_policy", "deck_privacy")
     ):
         for info in room.lobby_seats.values():
             info.ready = False
@@ -829,6 +852,7 @@ async def start_game(
             auto_untap=lobby.auto_untap,
             deck_privacy=lobby.deck_privacy,
             priority_helper=lobby.priority_helper,
+            mulligan=lobby.policy(),
         )
         state = new_game(
             setups,
@@ -960,6 +984,12 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
     if actor is None:
         await send({"type": "error", "id": msg.id, "message": "Spectators cannot act"})
         return
+    if isinstance(msg, WsAction):
+        try:
+            _check_host_only(room, msg.action, host=conn.host)
+        except HTTPException as exc:
+            await send({"type": "error", "id": msg.id, "message": str(exc.detail)})
+            return
     async with room.lock:
         try:
             if isinstance(msg, WsAction):

@@ -72,7 +72,7 @@ def new_game(
             deck_name=setup.deck_name,
             token_shortcuts=[c.printing_id for c in setup.cards if c.section == "tokens" and c.printing_id][:30],
         )
-        for zone_name in ("library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell"):
+        for zone_name in ("library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside"):
             zones[zone_key(pid, zone_name)] = []
         for entry in setup.cards:
             zone = SECTION_ZONES.get(entry.section)
@@ -95,7 +95,7 @@ def new_game(
             rng.shuffle(zones[zone_key(pid, "library")])
 
     first = seat_order[first_player % len(seat_order)] if first_player is not None else seat_order[0]
-    return GameState(
+    state = GameState(
         id=secrets.token_hex(8),
         name=name,
         format=format,  # type: ignore[arg-type]
@@ -108,3 +108,8 @@ def new_game(
         turn=TurnState(active_player=first),
         hidden_salt=secrets.token_hex(16),
     )
+    if settings.mulligan is not None:
+        from app.game.handlers import mulligan
+
+        mulligan.begin(state)
+    return state

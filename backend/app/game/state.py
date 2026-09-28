@@ -17,10 +17,13 @@ from pydantic import BaseModel, Field
 
 ALL = "*"  # marker in ``revealed_to`` meaning "every player"
 
-PLAYER_ZONES = ("library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell")
+PLAYER_ZONES = (
+    "library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside"
+)
 PUBLIC_ZONES = frozenset({"battlefield", "graveyard", "exile", "command", "companion", "stack"})
-HIDDEN_ZONES = frozenset({"library", "hand", "sideboard", "foretell"})
-OWNER_VISIBLE_ZONES = frozenset({"hand", "sideboard", "foretell"})
+# "setaside": cards put aside face down during the pregame (e.g. rejected mulligan hands), owner-only.
+HIDDEN_ZONES = frozenset({"library", "hand", "sideboard", "foretell", "setaside"})
+OWNER_VISIBLE_ZONES = frozenset({"hand", "sideboard", "foretell", "setaside"})
 STACK = "stack"
 
 PHASES = (
@@ -180,6 +183,41 @@ class ViewContext(BaseModel):
     card_ids: list[str] = Field(default_factory=list)  # for "look": the cards being looked at
 
 
+class MulliganPolicy(BaseModel):
+    """How opening hands work at this table. See docs/MULLIGAN_RULES.md.
+
+    Every field is explicit data, so a pod's house rule is configured, never guessed.
+    """
+
+    id: str = Field(default="london", max_length=40)
+    display_name: str = Field(default="London", max_length=60)
+    starting_hand_size: int = Field(default=7, ge=0, le=20)
+    free_mulligans: int = Field(default=0, ge=0, le=10)  # mulligans that don't count toward cards to bottom
+    draw_count: int = Field(default=7, ge=0, le=20)  # cards drawn for each new hand
+    shuffle_between_mulligans: bool = True
+    cards_to_bottom: int = Field(default=1, ge=0, le=10)  # per counted mulligan, chosen when keeping
+    partial_hand_selection: bool = False  # choose which cards of the hand to send back (and draw that many)
+    set_aside_rejected_hands: bool = False  # rejected cards go to a private set-aside zone, not the library
+    final_shuffle: bool = False  # after keeping, set-aside cards are shuffled into the library
+    minimum_hand_size: int = Field(default=0, ge=0, le=20)  # no mulligan may leave a smaller kept hand
+    max_mulligans: int | None = Field(default=None, ge=0, le=20)
+    needs_definition: bool = False  # a named slot (e.g. a pod's house rule) whose rules aren't filled in yet
+
+
+class PregameSeat(BaseModel):
+    status: Literal["deciding", "bottoming", "kept"] = "deciding"
+    mulligans: int = 0
+    to_bottom: int = 0  # while bottoming: exactly how many cards must go to the bottom
+    kept: int | None = None  # final hand size
+
+
+class Pregame(BaseModel):
+    """Simultaneous opening-hand decisions. The game proper starts when everyone has kept."""
+
+    seats: dict[str, PregameSeat] = Field(default_factory=dict)
+    finished: bool = False
+
+
 class GameSettings(BaseModel):
     starting_life: int = 40
     auto_untap: bool = True  # "next turn" untaps the new active player's permanents
@@ -189,6 +227,7 @@ class GameSettings(BaseModel):
     # What opponents learn about a player's deck: nothing, the commander(s) and deck name, or the list.
     deck_privacy: Literal["private", "commander_only", "public"] = "commander_only"
     priority_helper: Literal["off", "simple"] = "off"
+    mulligan: MulliganPolicy | None = None  # None: mulligans are done by hand (sandbox)
 
 
 REMINDER_TIMES = ("upkeep", "draw", "main1", "begin_combat", "end", "cleanup", "next_turn")
@@ -247,6 +286,7 @@ class GameState(BaseModel):
     # Secret per-game key that orders anonymous hidden cards in opponents' views; never sent to clients.
     hidden_salt: str = ""
     reminders: list[Reminder] = Field(default_factory=list)
+    pregame: Pregame | None = None
     log: list[LogEntry] = Field(default_factory=list)
 
     # -- helpers ---------------------------------------------------------------------

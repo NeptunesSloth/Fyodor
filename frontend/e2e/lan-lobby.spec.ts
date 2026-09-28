@@ -50,8 +50,9 @@ test("LAN lobby: each player brings their own deck, readies up, host starts", as
   expect(bobView.viewer).toBe("p2");
   const players = bobView.players as { name: string; library_count: number; deck_name?: string }[];
   expect(players.map((p) => p.name)).toEqual(["Alice", "Bob"]);
-  expect(players[0]!.library_count).toBe(18);
-  expect(players[1]!.library_count).toBe(17);
+  // opening hands (7) are dealt under the default Commander London rule
+  expect(players[0]!.library_count).toBe(11);
+  expect(players[1]!.library_count).toBe(10);
 
   // Nothing from Alice's library ever reached Bob's browser.
   const seen = guestTraffic.text();

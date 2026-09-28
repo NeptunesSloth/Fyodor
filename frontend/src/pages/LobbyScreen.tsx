@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ColorPips } from "../components/ColorPips";
 import { Modal } from "../components/Modal";
+import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
 import { toast, toastError } from "../components/Toasts";
 import { navigate } from "../hooks/useHashRoute";
 import { ApiError } from "../services/api";
@@ -36,12 +37,7 @@ const DECK_PRIVACY_HINT: Record<LobbySettings["deck_privacy"], string> = {
   commander_only: "Others see your commander(s), colors and deck name — not the list.",
   public: "Everyone can read every deck list before the game.",
 };
-export const MULLIGAN_LABEL: Record<string, string> = {
-  commander_london: "Commander London",
-  london: "London",
-  boston_custom: "Boston (Custom Pod)",
-  custom: "Custom",
-};
+export const MULLIGAN_LABEL: Record<string, string> = Object.fromEntries(MULLIGAN_RULES);
 const MAX_FILE = 2 * 1024 * 1024;
 
 /** Pregame table: take a seat, bring your own deck, get ready; the host starts the game. */
@@ -80,7 +76,10 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
             <span>{s.format === "commander" ? "Commander" : s.format === "constructed" ? "Constructed" : "Sandbox"}</span>
             <span>Life {s.starting_life ?? (s.format === "commander" ? 40 : 20)}</span>
             <span title={DECK_PRIVACY_HINT[s.deck_privacy]}>Decks: {DECK_PRIVACY_LABEL[s.deck_privacy]}</span>
-            <span>Mulligan: {MULLIGAN_LABEL[s.mulligan_rule] ?? s.mulligan_rule}</span>
+            <span className={lobby.mulligan?.needs_definition ? "warn" : undefined}>
+              Mulligan: {lobby.mulligan?.display_name ?? MULLIGAN_LABEL[s.mulligan_rule] ?? s.mulligan_rule}
+              {lobby.mulligan?.needs_definition ? " (not defined yet)" : ""}
+            </span>
             <span>Response helper: {s.priority_helper === "simple" ? "On" : "Off"}</span>
           </div>
         </div>
@@ -401,9 +400,13 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
   const [busy, setBusy] = useState(false);
   const minSeats = useMemo(() => Math.max(1, ...lobby.seats.filter((s) => s.claimed).map((s) => Number(s.id.slice(1)))), [lobby.seats]);
   const set = (patch: Partial<LobbySettings>) => setDraft((d) => ({ ...d, ...patch }));
+  const configurable = CONFIGURABLE_RULES.has(draft.mulligan_rule);
+  const chooseRule = (rule: string) =>
+    set({ mulligan_rule: rule, mulligan_policy: CONFIGURABLE_RULES.has(rule) ? (lobby.settings.mulligan_rule === rule && lobby.settings.mulligan_policy) || draftPolicy(rule) : null });
   const save = async () => {
     setBusy(true);
     try {
+      if (configurable && draft.mulligan_policy) rememberPolicy(draft.mulligan_rule, draft.mulligan_policy);
       onSaved(await updateLobbySettings(lobby.game.id, draft));
       onClose();
     } catch (e) {
@@ -446,8 +449,8 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
           <span className="hint">{DECK_PRIVACY_HINT[draft.deck_privacy]}</span>
         </label>
         <label className="field">Mulligan
-          <select value={draft.mulligan_rule} onChange={(e) => set({ mulligan_rule: e.target.value })}>
-            {Object.entries(MULLIGAN_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          <select value={draft.mulligan_rule} onChange={(e) => chooseRule(e.target.value)} data-testid="mulligan-rule">
+            {MULLIGAN_RULES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </label>
         <label className="field">Response helper
@@ -457,6 +460,13 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
           </select>
         </label>
       </div>
+      {configurable && draft.mulligan_policy && (
+        <>
+          <h3 className="mull-editor-title">Define “{draft.mulligan_policy.display_name}”</h3>
+          <p className="hint">Nothing about this rule is assumed — set each part the way your pod plays it.</p>
+          <MulliganEditor value={draft.mulligan_policy} onChange={(p) => set({ mulligan_policy: p })} />
+        </>
+      )}
     </Modal>
   );
 }

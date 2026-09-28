@@ -201,6 +201,7 @@ class Room:
             "viewer": viewer,
             "is_host": host,
             "settings": settings.model_dump(),
+            "mulligan": (lambda p: p.model_dump() if p else None)(settings.policy()),
             "seats": seats,
             "spectators": sum(1 for c in self.connections.values() if c.viewer == SPECTATOR),
             "start_blockers": self.start_blockers(),
@@ -212,6 +213,9 @@ class Room:
         if not claimed:
             return ["Nobody has taken a seat"]
         out = []
+        policy = (self.lobby or LobbySettings()).policy()
+        if policy is not None and policy.needs_definition:
+            out.append(f"The {policy.display_name} mulligan isn't defined yet (Table settings)")
         for pid in claimed:
             info = self.lobby_seats.get(pid) or LobbySeatInfo()
             if info.deck is None:
@@ -400,6 +404,7 @@ class GameHub:
             "mode": room.mode,
             "code": room.code if room.mode == "lan" else None,
             "seats": {pid: {"claimed": s.token is not None, "connected": s.connections > 0} for pid, s in room.seats.items()},
+            "host_seat": room.host_seat,
         }
         return room.session.view(viewer, meta=meta)
 

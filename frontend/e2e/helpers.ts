@@ -102,3 +102,24 @@ export async function serverView(page: Page, gameId: string): Promise<Record<str
   expect(res.ok()).toBeTruthy();
   return (await res.json()) as Record<string, unknown>;
 }
+
+export const BOB_SECRETS = ["Lightning Bolt", "Pyroblast"];
+
+/** Host + remote guest, decks chosen, everyone ready, game started. */
+export async function startLanGame(browser: Browser, opts: { privacy?: string } = {}) {
+  const host = await newPlayer(browser);
+  const guest = await newPlayer(browser, true);
+  const hostTraffic = recordTraffic(host.page);
+  const guestTraffic = recordTraffic(guest.page);
+  const { gameId, code } = await hostLobby(host.page, { name: "Alice", privacy: opts.privacy });
+  await joinLobby(guest.page, code, "Bob");
+  await bringDeck(host.page, ALICE_DECK, "Superfriends");
+  await bringDeck(guest.page, BOB_DECK, "Goblins");
+  await host.page.getByTestId("ready").click();
+  await guest.page.getByTestId("ready").click();
+  await expect(host.page.getByTestId("start-game")).toBeEnabled();
+  await host.page.getByTestId("start-game").click();
+  await expect(host.page.locator(".game-screen")).toBeVisible();
+  await expect(guest.page.locator(".game-screen")).toBeVisible();
+  return { host, guest, gameId, hostTraffic, guestTraffic };
+}

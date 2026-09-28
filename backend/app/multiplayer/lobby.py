@@ -13,6 +13,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 from app.game.factory import DeckCard
+from app.game.mulligan import PRESETS, resolve_policy
+from app.game.state import MulliganPolicy
 from app.textutil import clean_text
 
 DeckPrivacy = Literal["private", "commander_only", "public"]
@@ -30,6 +32,7 @@ class LobbySettings(BaseModel):
     starting_life: int | None = Field(default=None, ge=1, le=10000)
     deck_privacy: DeckPrivacy = "commander_only"
     mulligan_rule: str = Field(default="commander_london", max_length=40)
+    mulligan_policy: MulliganPolicy | None = None  # the host's definition for Boston (Custom Pod) / Custom
     priority_helper: PriorityHelper = "simple"
     auto_untap: bool = True
 
@@ -37,6 +40,16 @@ class LobbySettings(BaseModel):
     @classmethod
     def _clean(cls, v: str) -> str:
         return clean_text(v, 80) or "Game"
+
+    @field_validator("mulligan_rule")
+    @classmethod
+    def _known_rule(cls, v: str) -> str:
+        if v != "none" and v not in PRESETS:
+            raise ValueError(f"unknown mulligan rule {v!r}")
+        return v
+
+    def policy(self) -> MulliganPolicy | None:
+        return resolve_policy(self.mulligan_rule, self.mulligan_policy)
 
 
 class DeckTooLarge(ValueError):

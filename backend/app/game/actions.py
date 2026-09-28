@@ -19,7 +19,8 @@ from app.textutil import clean_text
 Id = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9:_\-]+$")]
 IdList = Annotated[list[Id], Field(min_length=1, max_length=250)]
 ZoneName = Literal[
-    "library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "stack"
+    "library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside",
+    "stack",
 ]
 Coord = Annotated[float, Field(ge=-100000, le=100000)]
 assert set(PLAYER_ZONES) | {STACK} == set(ZoneName.__args__)  # type: ignore[attr-defined]
@@ -101,6 +102,36 @@ class Mulligan(Base):
     player: Id | None = None
     draw: int = Field(default=7, ge=0, le=20)
     r: ShuffleData | None = None
+
+
+class MulliganTake(Base):
+    """Pregame: reject the current hand and draw a new one under the table's mulligan policy."""
+
+    type: Literal["mulligan_take"] = "mulligan_take"
+    player: Id | None = None
+    card_ids: list[Id] | None = Field(default=None, max_length=20)  # partial mulligan (if the policy allows it)
+    r: ShuffleData | None = None
+
+
+class MulliganKeep(Base):
+    type: Literal["mulligan_keep"] = "mulligan_keep"
+    player: Id | None = None
+    r: ShuffleData | None = None  # final shuffle of set-aside cards (if the policy asks for one)
+
+
+class MulliganBottom(Base):
+    """Put exactly the required number of cards from the kept hand on the bottom, in this order."""
+
+    type: Literal["mulligan_bottom"] = "mulligan_bottom"
+    player: Id | None = None
+    card_ids: Annotated[list[Id], Field(min_length=1, max_length=20)]
+    r: ShuffleData | None = None
+
+
+class MulliganFinish(Base):
+    """Host override: end the opening-hand phase now (undecided players keep what they hold)."""
+
+    type: Literal["mulligan_finish"] = "mulligan_finish"
 
 
 class Reveal(Base):
@@ -564,6 +595,10 @@ Action = Annotated[
     | Shuffle
     | Mill
     | Mulligan
+    | MulliganTake
+    | MulliganKeep
+    | MulliganBottom
+    | MulliganFinish
     | Reveal
     | Hide
     | LookTop

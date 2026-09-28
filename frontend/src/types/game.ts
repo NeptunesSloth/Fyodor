@@ -41,6 +41,7 @@ export type ZoneName =
   | "sideboard"
   | "companion"
   | "foretell"
+  | "setaside"
   | "stack";
 
 export const OMNISCIENT = "__omniscient__";
@@ -151,12 +152,45 @@ export interface GameMeta {
   name: string;
   format: "commander" | "constructed" | "sandbox";
   seq: number;
-  settings: { starting_life: number; auto_untap: boolean; auto_commander_tax: boolean };
+  settings: {
+    starting_life: number;
+    auto_untap: boolean;
+    auto_commander_tax: boolean;
+    deck_privacy?: "private" | "commander_only" | "public";
+    priority_helper?: "off" | "simple";
+    mulligan?: MulliganPolicy | null;
+  };
   can_undo: boolean;
   can_redo: boolean;
   mode: "local" | "lan";
   code: string | null;
   seats: Record<string, { claimed: boolean; connected: boolean }>;
+  /** LAN: the host's seat (table-level overrides are the host's). */
+  host_seat?: string | null;
+}
+
+/** How opening hands work at this table (see docs/MULLIGAN_RULES.md). */
+export interface MulliganPolicy {
+  id: string;
+  display_name: string;
+  starting_hand_size: number;
+  free_mulligans: number;
+  draw_count: number;
+  shuffle_between_mulligans: boolean;
+  cards_to_bottom: number;
+  partial_hand_selection: boolean;
+  set_aside_rejected_hands: boolean;
+  final_shuffle: boolean;
+  minimum_hand_size: number;
+  max_mulligans: number | null;
+  needs_definition: boolean;
+}
+
+export interface PregameSeat {
+  status: "deciding" | "bottoming" | "kept";
+  mulligans: number;
+  to_bottom: number;
+  kept: number | null;
 }
 
 export interface GameView {
@@ -171,6 +205,8 @@ export interface GameView {
   searches: Record<string, string>;
   /** The viewer's own open private views (search / look at top N). */
   my_views?: { id: string; viewer: string; zone: string; kind: "search" | "look"; card_ids: string[] }[];
+  /** Opening hands still being decided (null once everyone has kept). */
+  pregame?: { seats: Record<string, PregameSeat>; finished: boolean } | null;
   cards: Record<string, GameCard>;
   zones: Record<string, string[] | LibraryView>;
   stack: string[];
@@ -226,6 +262,7 @@ export interface LobbySettings {
   starting_life: number | null;
   deck_privacy: "private" | "commander_only" | "public";
   mulligan_rule: string;
+  mulligan_policy: MulliganPolicy | null;
   priority_helper: "off" | "simple";
   auto_untap: boolean;
 }
@@ -262,6 +299,8 @@ export interface LobbyView {
   viewer: string;
   is_host: boolean;
   settings: LobbySettings;
+  /** The effective mulligan policy (null: mulligans by hand). */
+  mulligan: MulliganPolicy | null;
   seats: LobbySeat[];
   spectators: number;
   start_blockers: string[];

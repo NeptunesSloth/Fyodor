@@ -22,6 +22,7 @@ export interface CreateGameBody {
   seats?: number;
   deck_privacy?: LobbySettings["deck_privacy"];
   mulligan_rule?: string;
+  mulligan_policy?: import("../types/game").MulliganPolicy | null;
   priority_helper?: LobbySettings["priority_helper"];
 }
 

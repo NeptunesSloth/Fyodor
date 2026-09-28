@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ColorPips } from "../components/ColorPips";
+import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
+import type { MulliganPolicy } from "../types/game";
 import { toast, toastError } from "../components/Toasts";
 import { navigate, type Route } from "../hooks/useHashRoute";
 import { ApiError } from "../services/api";
@@ -140,6 +142,12 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
   const [seats, setSeats] = useState(4);
   const [privacy, setPrivacy] = useState<"private" | "commander_only" | "public">("commander_only");
   const [mulligan, setMulligan] = useState("commander_london");
+  const [policy, setPolicy] = useState<MulliganPolicy | null>(null);
+  const configurable = CONFIGURABLE_RULES.has(mulligan);
+  const chooseRule = (rule: string) => {
+    setMulligan(rule);
+    setPolicy(CONFIGURABLE_RULES.has(rule) ? draftPolicy(rule) : null);
+  };
   const [helper, setHelper] = useState<"off" | "simple">("simple");
   const useLobby = mode === "lan" && lobby;
   const [players, setPlayers] = useState<CreatePlayer[]>([
@@ -172,11 +180,13 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         seats,
         deck_privacy: privacy,
         mulligan_rule: mulligan,
+        mulligan_policy: configurable ? policy : null,
         priority_helper: helper,
         first_player: first === "random" ? "random" : Number(first),
         starting_life: life ? Number(life) : null,
         auto_untap: true,
       });
+      if (configurable && policy) rememberPolicy(mulligan, policy);
       if (res.seat) rememberSeat(res.game.id, res.seat.token);
       navigate(`/game/${res.game.id}`);
     } catch (e) {
@@ -219,14 +229,6 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
               <option value="public">Public</option>
             </select>
           </label>
-          <label className="field">Mulligan
-            <select value={mulligan} onChange={(e) => setMulligan(e.target.value)}>
-              <option value="commander_london">Commander London</option>
-              <option value="london">London</option>
-              <option value="boston_custom">Boston (Custom Pod)</option>
-              <option value="custom">Custom</option>
-            </select>
-          </label>
           <label className="field">Response helper
             <select value={helper} onChange={(e) => setHelper(e.target.value as typeof helper)}>
               <option value="simple">On</option>
@@ -261,6 +263,11 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
       </div>
       )}
       <div className="row wrap">
+        <label className="field">Opening hands
+          <select value={mulligan} onChange={(e) => chooseRule(e.target.value)} data-testid="mulligan-rule">
+            {MULLIGAN_RULES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
         {!useLobby && (
         <label className="field">
           Who starts
@@ -286,11 +293,12 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
           <label className="field">Password (optional)<input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} /></label>
         )}
       </div>
+      {configurable && policy && <MulliganEditor value={policy} onChange={setPolicy} />}
       {decks.length === 0 && <p className="warn">No decks yet — <a href="#/decks">import some decks</a> first (or play with empty libraries).</p>}
       <button className="btn primary big" disabled={busy} onClick={() => void start()} data-testid="create-game">
         {busy ? "Setting up…" : useLobby ? "Open the table" : "Start game"}
       </button>
-      <p className="hint">Libraries are shuffled automatically. Draw your opening hand with D or by double-clicking your library.</p>
+      <p className="hint">Libraries are shuffled and opening hands dealt automatically. With “None”, draw by hand (D or double-click your library).</p>
     </section>
   );
 }

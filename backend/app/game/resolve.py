@@ -65,6 +65,21 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         pid = a.player or actor
         size = len(state.zones.get(zone_key(pid, "library"), [])) + len(state.zones.get(zone_key(pid, "hand"), []))
         a.r = shuffle_data(size, rng)
+    elif isinstance(a, A.MulliganTake):
+        policy = state.settings.mulligan
+        if policy is not None and policy.shuffle_between_mulligans:
+            pid = a.player or actor
+            returned = len(a.card_ids) if a.card_ids is not None else len(state.zones.get(zone_key(pid, "hand"), []))
+            lib = len(state.zones.get(zone_key(pid, "library"), []))
+            a.r = shuffle_data(lib if policy.set_aside_rejected_hands else lib + returned, rng)
+    elif isinstance(a, A.MulliganKeep | A.MulliganBottom):
+        policy = state.settings.mulligan
+        pid = a.player or actor
+        aside = len(state.zones.get(zone_key(pid, "setaside"), []))
+        if policy is not None and policy.final_shuffle and aside:
+            lib = len(state.zones.get(zone_key(pid, "library"), []))
+            bottomed = len(a.card_ids) if isinstance(a, A.MulliganBottom) else 0
+            a.r = shuffle_data(lib + aside + bottomed, rng)
     elif isinstance(a, A.SearchEnd):
         key = state.searching(actor)
         if a.shuffle and key:

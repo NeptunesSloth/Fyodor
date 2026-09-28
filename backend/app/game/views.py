@@ -229,6 +229,8 @@ def build_view(
         "searches": {v.viewer: v.zone for v in state.views if v.kind == "search"},
         "my_views": [v.model_dump() for v in state.views if v.viewer == viewer],
         "reminders": [r.model_dump() for r in state.reminders],
+        # Public: who is still deciding, mulligan counts, how many cards someone must bottom.
+        "pregame": state.pregame.model_dump() if state.pregame and not state.pregame.finished else None,
         "cards": cards,
         "zones": zones,
         "stack": list(state.zones.get(STACK, [])),

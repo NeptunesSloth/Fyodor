@@ -87,11 +87,15 @@ def test_players_join_choose_their_own_decks_and_get_ready(lobby):
     state = client.app.state.services.hub.get(gid).session.state
     assert [state.players[p].name for p in state.seat_order] == ["Alice", "Bob"]
     assert state.players["p2"].deck_name == "Goblins"
-    assert len(state.zones["p2:library"]) == 13 and len(state.zones["p1:library"]) == 12
+    # opening hands are dealt under the table's mulligan rule (Commander London by default)
+    assert len(state.zones["p2:hand"]) == 7 and len(state.zones["p2:library"]) == 6
+    assert len(state.zones["p1:hand"]) == 7 and len(state.zones["p1:library"]) == 5
+    assert state.settings.mulligan is not None and state.settings.mulligan.id == "commander_london"
     bob_view = client.get(f"/api/games/{gid}/view", headers=h(bob)).json()
     assert bob_view["viewer"] == "p2" and bob_view["game"]["settings"]["deck_privacy"] == "commander_only"
     assert "deck_id" not in bob_view["players"][0]
-    assert client.post(f"/api/games/{gid}/actions", json={"action": {"type": "draw", "count": 7}}, headers=h(bob)).status_code == 200
+    assert bob_view["pregame"]["seats"]["p2"]["status"] == "deciding"
+    assert client.post(f"/api/games/{gid}/actions", json={"action": {"type": "draw"}}, headers=h(bob)).status_code == 200
 
 
 @pytest.mark.parametrize("privacy", ["private", "commander_only", "public"])

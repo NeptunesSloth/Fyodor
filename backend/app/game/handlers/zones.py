@@ -10,7 +10,7 @@ from app.game.ops import group, log, pname, text, zone_label
 from app.game.state import ALL, STACK, CardInstance, GameState, ViewContext, split_zone, zone_key
 from app.game.visibility import seers
 
-OWNER_DEFAULT_ZONES = {"library", "hand", "graveyard", "exile", "command", "sideboard", "companion", "foretell"}
+OWNER_DEFAULT_ZONES = {"library", "hand", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside"}
 
 
 def destination(state: GameState, ref: A.ZoneRef, card: CardInstance, actor: str) -> str:

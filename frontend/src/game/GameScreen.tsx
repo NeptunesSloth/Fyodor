@@ -6,6 +6,7 @@ import { draw, moveCards, send, tapCards } from "./actions";
 import { GameDialogs } from "./Dialogs";
 import { CombatArrows, DragLayer } from "./Overlays";
 import { Hand } from "./Hand";
+import { MulliganOverlay } from "./MulliganOverlay";
 import { PlayerArea } from "./PlayerArea";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
 import { TopBar } from "./TopBar";
@@ -57,6 +58,7 @@ export function GameScreen() {
       </div>
       {status !== "open" && <div className="conn-banner">{status === "reconnecting" ? "Connection lost — reconnecting…" : detail ?? status}</div>}
       <GameDialogs me={me} />
+      <MulliganOverlay />
       <DragLayer />
       <CombatArrows />
     </div>
