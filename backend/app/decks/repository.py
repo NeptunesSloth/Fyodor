@@ -24,7 +24,7 @@ class DeckRepository:
         self.conn = conn
         self.lock = lock
 
-    def list(self) -> list[Deck]:
+    def list_all(self) -> list[Deck]:
         with self.lock:
             rows = self.conn.execute("SELECT * FROM decks ORDER BY updated_at DESC, name").fetchall()
             return [self._load(row) for row in rows]

@@ -16,6 +16,7 @@ from app.game.ops import pname, text
 from app.game.resolve import CardInfo, resolve
 from app.game.state import GameState, LogEntry, LogPart
 from app.game.views import build_view
+from app.rules import RulesRegistry, Suggestion
 
 log = logging.getLogger(__name__)
 
@@ -28,9 +29,11 @@ def describe(action: Action) -> str:
 
 class GameSession:
     def __init__(self, state: GameState, *, cards: CardInfo | None = None, history: History | None = None,
-                 history_limit: int = 500) -> None:
+                 history_limit: int = 500, rules: RulesRegistry | None = None) -> None:
         self.state = state
         self.cards = cards
+        self.rules = rules
+        self.suggestions: list[Suggestion] = []
         self.history = history or History(state, limit=history_limit)
         self.notices: list[LogEntry] = []
         self.updated_at = time.time()
@@ -52,6 +55,7 @@ class GameSession:
             self.state = self.history.rebuild()
             raise
         self.history.record(resolved, self.state)
+        self.suggestions = self.rules.after_action(self.state, resolved) if self.rules else []
         self.updated_at = time.time()
         return resolved
 
@@ -80,7 +84,12 @@ class GameSession:
 
     # -- views -----------------------------------------------------------------------
     def view(self, viewer: str, *, meta: dict[str, Any] | None = None) -> dict[str, Any]:
-        info = {"can_undo": self.history.can_undo, "can_redo": self.history.can_redo, **(meta or {})}
+        info = {
+            "can_undo": self.history.can_undo,
+            "can_redo": self.history.can_redo,
+            "suggestions": [{"module": x.module, "message": x.message, "level": x.level} for x in self.suggestions],
+            **(meta or {}),
+        }
         return build_view(self.state, viewer, extra_log=self.notices, meta=info)
 
 

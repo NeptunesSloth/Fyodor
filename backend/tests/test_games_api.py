@@ -117,6 +117,7 @@ def test_lan_join_and_private_views(client, decks):
 
     bob_view = client.get(f"/api/games/{gid}/view", headers={"X-Seat-Token": bob, **remote}).json()
     assert bob_view["viewer"] == "p2"
+    assert bob_view["players"][1]["name"] == "Bobby"
     names_in_alice_hand = {alice_view["cards"][c]["name"] for c in alice_view["zones"]["p1:hand"]}
     bob_text = json.dumps({k: v for k, v in bob_view.items() if k != "log"})
     for cid in bob_view["zones"]["p1:hand"]:

@@ -22,6 +22,7 @@ from fastapi import (
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_validator
 
 from app.api.deps import get_services
+from app.assistant import AssistantUnavailable, build_context
 from app.decks.repository import DeckNotFound
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
@@ -218,7 +219,7 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
         first = body.first_player
     settings = GameSettings(starting_life=body.starting_life or {"commander": 40}.get(body.format, 20), auto_untap=body.auto_untap)
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
-    session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit)
+    session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
     session.notice(f"Game created. {state.players[state.turn.active_player].name} goes first.")
     return _create_room(services, session, body.mode, body.password, body.host_seat)
 
@@ -351,13 +352,17 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep) -> dict[str
         raise HTTPException(409, str(exc)) from exc
     if name and viewer in room.seats:
         room.session.notice(f"{name} took the seat of {room.session.state.players[viewer].name}.")
+        try:
+            room.session.perform(viewer, {"type": "rename_player", "name": name})
+        except (ActionError, ValidationError) as exc:
+            log.info("Could not apply joining player's name: %s", exc)
     return {"game_id": room.id, "viewer": viewer, "token": token, "game": room.summary()}
 
 
 @router.get("/saves")
 def list_saves(request: Request, services: ServicesDep) -> list[dict[str, Any]]:
     require_local(request)
-    return services.saves.list()
+    return services.saves.list_all()
 
 
 @router.post("/saves/{save_id}/load", status_code=201)
@@ -372,7 +377,8 @@ def load_save(save_id: str, body: LoadIn, request: Request, services: ServicesDe
     existing = services.hub.get(state.id)
     if existing is not None:
         services.hub.close(state.id)
-    session = GameSession(state, cards=services.cards, history=history, history_limit=services.settings.history_limit)
+    session = GameSession(state, cards=services.cards, history=history, history_limit=services.settings.history_limit,
+                          rules=services.rules)
     session.notice("Game loaded.")
     return _create_room(services, session, body.mode, body.password, "p1")
 
@@ -385,6 +391,29 @@ def delete_save(save_id: str, request: Request, services: ServicesDep) -> Respon
     except SaveNotFound:
         raise HTTPException(404, "Save not found") from None
     return Response(status_code=204)
+
+
+class AskIn(BaseModel):
+    question: str = Field(min_length=3, max_length=1000)
+    viewer: str | None = Field(default=None, max_length=32)
+
+
+@router.post("/games/{game_id}/assistant")
+def ask_assistant(game_id: str, body: AskIn, request: Request, services: ServicesDep,
+                  x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """Ask the optional local rules assistant. It sees only the asking player's view."""
+    if services.assistant is None:
+        raise HTTPException(404, "The rules assistant is disabled (set FYODOR_ASSISTANT_URL to enable it)")
+    room = _room(services, game_id)
+    viewer, _ = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=body.viewer, as_player=None)
+    if viewer == OMNISCIENT:
+        viewer = room.session.state.turn.active_player
+    context = build_context(services.hub.view(room, viewer), services.cards)
+    try:
+        answer = services.assistant.ask(clean_text(body.question, 1000, multiline=True), context)
+    except AssistantUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return {"answer": answer}
 
 
 @router.get("/lan-info")
@@ -414,9 +443,11 @@ def lan_info(request: Request, services: ServicesDep) -> dict[str, Any]:
 
 
 def _validation_message(exc: ValidationError) -> str:
-    first = exc.errors()[0] if exc.errors() else {}
-    loc = ".".join(str(p) for p in first.get("loc", ()))
-    return f"Invalid action: {first.get('msg', 'bad input')}" + (f" ({loc})" if loc else "")
+    errors = exc.errors()
+    if not errors:
+        return "Invalid action"
+    loc = ".".join(str(p) for p in errors[0]["loc"])
+    return f"Invalid action: {errors[0]['msg']}" + (f" ({loc})" if loc else "")
 
 
 # --------------------------------------------------------------------------- WebSocket

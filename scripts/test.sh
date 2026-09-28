@@ -5,6 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "==> Backend: ruff"
 (cd "$ROOT/backend" && .venv/bin/ruff check .)
+echo "==> Backend: mypy"
+(cd "$ROOT/backend" && .venv/bin/mypy app tools)
 echo "==> Backend: pytest"
 (cd "$ROOT/backend" && .venv/bin/pytest)
 echo "==> Frontend: typecheck"

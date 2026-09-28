@@ -72,8 +72,8 @@ def new_game(
             deck_name=setup.deck_name,
             token_shortcuts=[c.printing_id for c in setup.cards if c.section == "tokens" and c.printing_id][:30],
         )
-        for zone in ("library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell"):
-            zones[zone_key(pid, zone)] = []
+        for zone_name in ("library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell"):
+            zones[zone_key(pid, zone_name)] = []
         for entry in setup.cards:
             zone = SECTION_ZONES.get(entry.section)
             if zone is None:

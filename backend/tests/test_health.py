@@ -12,3 +12,10 @@ def test_health_without_card_db(bare_client):
     res = bare_client.get("/api/cards/search", params={"q": "sol"})
     assert res.status_code == 503
     assert res.json()["code"] == "card_db_missing"
+
+
+def test_security_headers(client):
+    res = client.get("/api/health")
+    assert res.headers["x-content-type-options"] == "nosniff"
+    assert "default-src 'self'" in res.headers["content-security-policy"]
+    assert res.headers["x-frame-options"] == "DENY"

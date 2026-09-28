@@ -167,10 +167,12 @@ unless the viewer was allowed to see it. The same rule applies to
 
 ## Extension points
 
-- `rules/`: `RulesModule` protocol with `on_action(state, action) ->
-  list[Suggestion]`. The engine calls registered modules *after* applying an
-  action; they may only return suggestions, such as "state-based action:
-  Grizzly Bears has lethal damage". None ship enabled. Future modules
+- `rules/`: `RulesModule` protocol with `after_action(state, action) ->
+  list[Suggestion]`. `GameSession` calls the registered modules (`Services.rules`)
+  *after* applying an action. They may only return suggestions, such as
+  "state-based action: Grizzly Bears has lethal damage", which reach clients as
+  `game.suggestions` in the view. A failing module is logged and ignored. None ship
+  enabled. Future modules
   (triggers, SBA, combat, layers) plug in here and can later be allowed to
   emit actions through the same validated path as players.
 - `assistant/`: `RulesAssistant` protocol and `build_context(state, viewer)`,

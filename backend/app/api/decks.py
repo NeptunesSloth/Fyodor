@@ -7,7 +7,7 @@ from fastapi.responses import PlainTextResponse
 
 from app.api.deps import get_services
 from app.decks import service
-from app.decks.models import DeckImportRequest, DeckIn
+from app.decks.models import DeckEntry, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
 from app.decks.repository import DeckNotFound
 from app.services import Services
@@ -31,7 +31,7 @@ def _full(services: Services, deck_id: str) -> dict[str, Any]:
 
 @router.get("/decks")
 def list_decks(services: ServicesDep) -> list[dict[str, Any]]:
-    decks = services.decks.list()
+    decks = services.decks.list_all()
     ids = [e.printing_id for d in decks for e in d.entries if e.printing_id and e.section == "commander"]
     ids += [next((e.printing_id for e in d.entries if e.printing_id), "") for d in decks]
     data = services.cards.get_many([i for i in ids if i]) if services.cards.available else {}
@@ -57,7 +57,7 @@ def parse_preview(body: DeckImportRequest, services: ServicesDep) -> dict[str, A
 @router.post("/decks", status_code=201)
 def create_deck(body: DeckImportRequest, services: ServicesDep) -> dict[str, Any]:
     """Create a deck, optionally importing its list from text."""
-    entries = []
+    entries: list[DeckEntry] = []
     parsed_name = None
     report: dict[str, Any] = {"unresolved": [], "errors": [], "notes": []}
     if body.text.strip():

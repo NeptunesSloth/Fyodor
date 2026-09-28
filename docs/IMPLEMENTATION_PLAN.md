@@ -21,14 +21,14 @@ tests, and an updated status table.
 
 | # | Milestone | Status |
 |---|-----------|--------|
-| 1 | Foundation: repo layout, FastAPI, React/TS/Vite, SQLite, health, dev scripts, tests | planned |
-| 2 | Card database: Scryfall importer, search, detail API, image cache, placeholders, card browser | planned |
-| 3 | Deck system: parser, persistence, commander designation, library/editor UI, warnings | planned |
-| 4 | Playable tabletop: games, zones, shuffle/draw, drag and drop, zoom, tap, life | planned |
-| 5 | Advanced tabletop: counters, tokens, copies, notes, face-down, DFCs, search, mill, reveal, dice, stack, phases, combat | planned |
-| 6 | Commander: tax, damage matrix, poison, monarch, initiative, custom resources | planned |
-| 7 | History: event model, undo/redo, log, save/load, autosave | planned |
-| 8 | LAN multiplayer: WebSocket sync, seats, reconnect, spectators, hidden-info filtering | planned |
+| 1 | Foundation: repo layout, FastAPI, React/TS/Vite, SQLite, health, dev scripts, tests | ✅ done |
+| 2 | Card database: Scryfall importer, search, detail API, image cache, placeholders, card browser | ✅ done |
+| 3 | Deck system: parser, persistence, commander designation, library/editor UI, warnings | ✅ done |
+| 4 | Playable tabletop: games, zones, shuffle/draw, drag and drop, zoom, tap, life | ✅ done |
+| 5 | Advanced tabletop: counters, tokens, copies, notes, face-down, DFCs, search, mill, reveal, dice, stack, phases, combat | ✅ done |
+| 6 | Commander: tax, damage matrix, poison, monarch, initiative, custom resources | ✅ done |
+| 7 | History: event model, undo/redo, log, save/load, autosave | ✅ done |
+| 8 | LAN multiplayer: WebSocket sync, seats, reconnect, spectators, hidden-info filtering | ✅ done |
 
 The history model (M7) and hidden-information views (M8) shape the engine
 itself, so they are built into the engine from Milestone 4. Retrofitting
@@ -88,6 +88,31 @@ either one later would mean rewriting the engine.
 - A sanitized view built for each connection; spectators get the public view.
 - Tests confirm that no private card identity reaches a viewer who isn't
   allowed to see it.
+
+## Delivery notes
+
+- **Tests**: 110+ backend tests (pytest) and frontend unit tests (vitest) for state
+  reconciliation, deck editing, selection and board geometry. `scripts/test.sh` runs
+  everything.
+- **Manual smoke test**: `docs/SMOKE_TEST.md` covers the 25-step acceptance list.
+- **Measured performance** (headless Chromium, 300 cards on the table): the server
+  applies an action and builds a view in about 8 ms. A phase change round-trips and
+  re-renders in about 50 ms. Dragging holds a 16.7 ms median frame time.
+- **Real data**: importing Scryfall `default_cards` (115k printings) takes about 17 s
+  and produces a ~260 MB database. Search queries take about 40 ms.
+
+## Known limitations and next steps
+
+- Undo is global and linear. A host-only undo setting and a history timeline are natural
+  next steps.
+- State sync sends a full sanitized view per change (~150 KB with 300 cards). Delta
+  sync can be added behind `view_version` if WAN play is ever needed.
+- LAN players cannot choose their deck when joining; the host assigns decks at
+  creation. They can import decks through the shared deck library first.
+- No automated mulligan bottoming (London): players put cards on the bottom by hand.
+- There is no browser-level end-to-end test in CI. The Playwright checks used during
+  development (drag, tap, context menus, LAN hidden information, performance) are
+  described in `docs/SMOKE_TEST.md`.
 
 ## Deliberately out of scope for now
 

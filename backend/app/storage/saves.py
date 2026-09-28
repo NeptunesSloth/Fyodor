@@ -70,7 +70,7 @@ class SaveRepository:
             raise SaveNotFound(save_id)
         return self._row(row)
 
-    def list(self) -> list[dict[str, Any]]:
+    def list_all(self) -> list[dict[str, Any]]:
         with self.lock:
             rows = self.conn.execute(
                 "SELECT id, game_id, name, is_autosave, format_version, summary, created_at, length(payload) AS size "

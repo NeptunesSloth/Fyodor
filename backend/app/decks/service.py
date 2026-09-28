@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any
+from typing import Any, cast
 
 from app.cards.repository import CardRepository
-from app.decks.models import Deck, DeckEntry, UnresolvedLine, Warning
+from app.decks.models import Deck, DeckEntry, Section, UnresolvedLine, Warning
 from app.decks.parser import ParsedDeck, parse_deck_text
 
 COLOR_ORDER = "WUBRG"
@@ -29,7 +29,7 @@ def resolve_parsed(parsed: ParsedDeck, cards: CardRepository) -> tuple[list[Deck
             unresolved.append(
                 UnresolvedLine(name=item.name, section=item.section, quantity=item.quantity, suggestions=cards.suggest(item.name))
             )
-            entries.append(DeckEntry(section=item.section, quantity=item.quantity, name=item.name,
+            entries.append(DeckEntry(section=cast(Section, item.section), quantity=item.quantity, name=item.name,
                                      set_code=item.set_code, collector_number=item.collector_number))
             continue
         key = (item.section, card["id"])
@@ -37,7 +37,7 @@ def resolve_parsed(parsed: ParsedDeck, cards: CardRepository) -> tuple[list[Deck
             merged[key].quantity = min(999, merged[key].quantity + item.quantity)
             continue
         entry = DeckEntry(
-            section=item.section,
+            section=cast(Section, item.section),
             quantity=item.quantity,
             name=card["name"],
             printing_id=card["id"],
