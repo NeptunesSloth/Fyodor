@@ -1,18 +1,39 @@
-import { useEffect, useState } from "react";
-import { getHealth, type Health } from "./services/api";
+import { Toasts } from "./components/Toasts";
+import { useHashRoute } from "./hooks/useHashRoute";
+import { CardBrowser } from "./pages/CardBrowser";
+import { Home } from "./pages/Home";
+
+const NAV = [
+  { href: "#/play", label: "Play", key: "play" },
+  { href: "#/decks", label: "Decks", key: "decks" },
+  { href: "#/cards", label: "Cards", key: "cards" },
+];
 
 export function App() {
-  const [health, setHealth] = useState<Health | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    getHealth().then(setHealth, (e: unknown) => setError(String(e)));
-  }, []);
+  const route = useHashRoute();
+  const [section] = route.path;
+
+  let page: React.ReactNode;
+  switch (section) {
+    case "cards":
+      page = <CardBrowser />;
+      break;
+    default:
+      page = <Home />;
+  }
+
   return (
-    <main className="page">
-      <h1>Fyodor</h1>
-      <p>Offline MTG tabletop</p>
-      {health && <p className="ok">Backend {health.version}: {health.status}</p>}
-      {error && <p className="error">Backend unreachable: {error}</p>}
-    </main>
+    <div className="app">
+      <nav className="topnav">
+        <a className="brand" href="#/">Fyodor</a>
+        {NAV.map((n) => (
+          <a key={n.key} href={n.href} className={section === n.key ? "active" : ""}>
+            {n.label}
+          </a>
+        ))}
+      </nav>
+      <main className="app-main">{page}</main>
+      <Toasts />
+    </div>
   );
 }

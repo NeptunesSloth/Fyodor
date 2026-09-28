@@ -9,13 +9,14 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
-from app.api import health
+from app.api import cards, health
+from app.cards.repository import CardDatabaseUnavailable
 from app.config import Settings, get_settings
 from app.logging_setup import configure_logging
 from app.services import Services
@@ -43,6 +44,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(health.router, prefix="/api")
+    app.include_router(cards.router, prefix="/api")
+
+    @app.exception_handler(CardDatabaseUnavailable)
+    async def _no_card_db(_: Request, exc: CardDatabaseUnavailable) -> JSONResponse:
+        return JSONResponse({"detail": str(exc), "code": "card_db_missing"}, status_code=503)
 
     _mount_frontend(app, settings)
     return app
