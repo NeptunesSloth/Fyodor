@@ -95,6 +95,11 @@ export function LibraryPile({ player, me, name }: { player: string; me: string; 
       }}
     >
       <div className="pile-card">{top && !top.hidden ? <GameCardFace card={top} /> : count ? <div className="card-face card-back" /> : <div className="pile-empty" />}</div>
+      {top && !top.hidden && (
+        <span className={`pile-known ${top.revealed ? "revealed" : ""}`} title={top.revealed ? "Revealed to everyone" : "Only known to you (you looked at it)"}>
+          {top.revealed ? "revealed" : "👁 only you"}
+        </span>
+      )}
       <span className="pile-count">{count}</span>
       <span className="pile-label">Library</span>
       {beingSearched.length > 0 && <span className="pile-flag">searching</span>}
