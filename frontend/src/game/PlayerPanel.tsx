@@ -6,6 +6,8 @@ import type { PlayerView } from "../types/game";
 import { changeLife, changeResource, send } from "./actions";
 
 const LIFE_STEPS = [-10, -5, -1, 1, 5, 10];
+/** Colorblind-safe seat markers: a distinct shape per seat alongside the color. */
+const SEAT_GLYPHS = ["●", "▲", "■", "◆", "★", "✚"];
 const RESOURCE_ICON: Record<string, string> = { poison: "☠", energy: "⚡", experience: "★", rad: "☢", ticket: "🎟" };
 const LETHAL_COMMANDER = 21;
 const LETHAL_POISON = 10;
@@ -29,6 +31,7 @@ export function PlayerPanel({ player, me, compact }: { player: string; me: strin
       data-player-id={player}>
       <div className="pp-head">
         <span className="pp-dot" />
+        <span className="seat-glyph" aria-hidden>{SEAT_GLYPHS[(Number(player.slice(1)) - 1) % SEAT_GLYPHS.length]}</span>
         <span className="pp-name" title={p.deck_name ?? undefined}>{p.name}{player === me ? " (you)" : ""}</span>
         {mode === "lan" && seat && (
           <span className={`presence-label ${seat.presence ?? (seat.connected ? "connected" : "disconnected")}`} data-testid={`presence-${player}`}>

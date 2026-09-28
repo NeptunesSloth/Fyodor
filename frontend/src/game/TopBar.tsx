@@ -1,3 +1,4 @@
+import { viewsMenu } from "./bookmarks";
 import { usePrefs } from "../state/prefs";
 import { cleanupMenu, selectMenu } from "./selection";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
@@ -107,7 +108,9 @@ function tableMenu(isHost: boolean): MenuItem[] {
   const prefs = usePrefs.getState();
   return [
     { label: "Save game…", onClick: () => s.openDialog("save") },
+    { label: "Snapshots & history…", onClick: () => s.openDialog("history") },
     { label: "Appearance…", hint: "sleeves & playmat", onClick: () => s.openDialog("appearance") },
+    { label: "Settings…", hint: "profile, sound, keys", onClick: () => s.openDialog("settings") },
     {
       label: "Day / night",
       submenu: [
@@ -116,6 +119,7 @@ function tableMenu(isHost: boolean): MenuItem[] {
         { label: "Neither", onClick: () => void send({ type: "set_day_night", value: null }) },
       ],
     },
+    viewsMenu(),
     selectMenu(),
     cleanupMenu(),
     { label: prefs.showTokenSources ? "Hide token sources" : "Show token sources", onClick: () => prefs.set({ showTokenSources: !prefs.showTokenSources }) },

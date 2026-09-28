@@ -1,3 +1,4 @@
+import { activeProfile, usePrefs } from "../state/prefs";
 import { useCallback, useEffect, useState } from "react";
 import { ColorPips } from "../components/ColorPips";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
@@ -305,11 +306,16 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
 
 function JoinGame() {
   const [code, setCode] = useState("");
-  const [name, setName] = useState("");
+  const [name, setName] = useState(() => activeProfile().name === "Player" ? "" : activeProfile().name);
   const [password, setPassword] = useState("");
   const join = async (spectate: boolean) => {
     try {
-      const res = await joinGame({ code: code.trim().toUpperCase(), name: name.trim() || undefined, password: password || undefined, spectate });
+      const body = { code: code.trim().toUpperCase(), name: name.trim() || undefined, password: password || undefined, spectate };
+      const preferred = usePrefs.getState().preferredSeat;
+      // sit in the profile's preferred seat when it's free, otherwise anywhere
+      const res = preferred && !spectate
+        ? await joinGame({ ...body, seat: preferred }).catch(() => joinGame(body))
+        : await joinGame(body);
       rememberSeat(res.game_id, res.token);
       navigate(`/game/${res.game_id}`);
     } catch (e) {

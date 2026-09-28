@@ -54,10 +54,28 @@ export function comboOf(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "
   return parts.join("+");
 }
 
-const BY_COMBO = new Map<string, HotkeyId>(HOTKEYS.flatMap((h) => h.keys.map((k) => [k, h.id] as [string, HotkeyId])));
+/** The effective table: defaults with the profile's remapped keys applied. */
+export function effectiveHotkeys(keymap: Record<string, string[]> = {}): Hotkey[] {
+  return HOTKEYS.map((h) => (keymap[h.id]?.length ? { ...h, keys: keymap[h.id]! } : h));
+}
 
-export function matchHotkey(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">): HotkeyId | null {
-  return BY_COMBO.get(comboOf(e)) ?? null;
+let cacheKey = "";
+let byCombo = new Map<string, HotkeyId>();
+
+export function matchHotkey(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">, keymap: Record<string, string[]> = {}): HotkeyId | null {
+  const key = JSON.stringify(keymap);
+  if (key !== cacheKey) {
+    cacheKey = key;
+    byCombo = new Map(effectiveHotkeys(keymap).flatMap((h) => h.keys.map((k) => [k, h.id] as [string, HotkeyId])));
+  }
+  return byCombo.get(comboOf(e)) ?? null;
+}
+
+/** Bookmarks are fixed: Ctrl+1…9 recalls a view, Ctrl+Shift+1…9 saves it (matched by physical key). */
+export function bookmarkSlot(e: Pick<KeyboardEvent, "code" | "ctrlKey" | "metaKey" | "shiftKey">): { slot: number; save: boolean } | null {
+  const m = /^Digit([1-9])$/.exec(e.code);
+  if (!m || !(e.ctrlKey || e.metaKey)) return null;
+  return { slot: Number(m[1]), save: e.shiftKey };
 }
 
 /** Every key bound to more than one action (must be empty). */

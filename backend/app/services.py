@@ -95,7 +95,8 @@ class Services:
         if not room.started:
             return  # nothing to save before the host starts the game
         state = room.session.state
-        self.saves.save(state, room.session.history, name=f"{state.name} (autosave)", autosave=True)
+        self.saves.save(state, room.session.history, name=f"{state.name} (autosave)", autosave=True,
+                        extras={"table_snapshots": room.session.table_snapshots})
         log.debug("Autosaved game %s at action %d", state.id, state.seq)
 
     def health(self) -> dict[str, object]:

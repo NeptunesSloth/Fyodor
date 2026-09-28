@@ -49,7 +49,8 @@ def _face_type(info: dict[str, Any] | None, face: int) -> str:
     return str(info.get("type_line") or "")
 
 
-def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo | None = None, rng: Any = _rng) -> A.Action:
+def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo | None = None, rng: Any = _rng,
+            trusted: bool = False) -> A.Action:
     """Return a copy of ``action`` with server-owned fields filled in."""
     info = cards or NoCardInfo()
     a = action.model_copy(deep=True)
@@ -60,6 +61,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.r = None  # never trust client-supplied resolution data
     if isinstance(a, A.ResponseOpen):
         raise ActionError("Response checks are opened by the server")
+    if isinstance(a, A.RestoreState) and not trusted:
+        raise ActionError("Restoring is done through snapshots or history")
 
     if isinstance(a, A.Shuffle):
         pid = a.player or actor

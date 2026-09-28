@@ -1,5 +1,8 @@
+import { usePrefs } from "../state/prefs";
 import { AppearanceDialog } from "./AppearanceDialog";
 import { EndGameDialog } from "./EndGameDialog";
+import { HistoryDialog } from "./HistoryDialog";
+import { SettingsPanel } from "../pages/SettingsPanel";
 import { HostToolsDialog } from "./HostTools";
 import { HOTKEYS } from "./hotkeys";
 import { useEffect, useMemo, useState } from "react";
@@ -32,6 +35,8 @@ export function GameDialogs({ me }: { me: string }) {
       {dialog === "host" && <HostToolsDialog onClose={close} />}
       {dialog === "endgame" && <EndGameDialog onClose={close} />}
       {dialog === "appearance" && <AppearanceDialog onClose={close} />}
+      {dialog === "history" && <HistoryDialog onClose={close} />}
+      {dialog === "settings" && <Modal title="Settings" onClose={close} wide><SettingsPanel /></Modal>}
       {inspect && <InspectDialog id={inspect} onClose={() => useGame.getState().setInspect(null)} />}
     </>
   );
@@ -75,7 +80,9 @@ function TokenDialog({ me, sourceId, onClose }: { me: string; sourceId: string |
   }, [debounced, tab]);
 
   const create = async (token: Record<string, unknown>) => {
-    if (await send({ type: "create_token", player: controller, token, count, ...(sourceId ? { source_id: sourceId } : {}) })) {
+    const collapse = usePrefs.getState().tokenCollapse;
+    const stacked = collapse > 0 && count > collapse;
+    if (await send({ type: "create_token", player: controller, token, count, stacked, ...(sourceId ? { source_id: sourceId } : {}) })) {
       toast(`Created ${count} token${count > 1 ? "s" : ""}`);
       onClose();
     }

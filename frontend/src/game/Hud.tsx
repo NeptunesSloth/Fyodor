@@ -42,7 +42,8 @@ export function CardPreview() {
 /** The stack as a compact indicator; it opens up while something is on it. */
 export function StackWidget({ me }: { me: string }) {
   const count = useGame((s) => s.view?.stack.length ?? 0);
-  const [open, setOpen] = useState(true);
+  const open = useGame((s) => s.stackOpen);
+  const setOpen = (v: boolean) => useGame.getState().setLayout({ stackOpen: v });
   return (
     <div className={`stack-widget ${count ? "busy" : "idle"} ${open && count ? "open" : ""}`} data-testid="stack-widget">
       {count > 0 && open ? (
@@ -62,7 +63,8 @@ export function StackWidget({ me }: { me: string }) {
 /** The log, collapsed to its latest line; open it for the full history and chat. */
 export function LogDrawer() {
   const log = useGame((s) => s.view?.log ?? []);
-  const [open, setOpen] = useState(false);
+  const open = useGame((s) => s.logOpen);
+  const setOpen = (v: boolean) => useGame.getState().setLayout({ logOpen: v });
   const last = log[log.length - 1];
   const text = last ? last.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : p.group.map((g) => g.card.name).join(", "))).join("") : "";
   return (

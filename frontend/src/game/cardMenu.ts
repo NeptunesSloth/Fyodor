@@ -1,4 +1,5 @@
 /** Context-menu contents for a card, depending on the zone it is in. */
+import { usePrefs } from "../state/prefs";
 import type { MenuItem } from "../components/ContextMenu";
 import { askNumber, askText } from "../components/Prompt";
 import { useGame } from "../state/gameStore";
@@ -49,7 +50,7 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
     items.push({
       label: "Add counter",
       submenu: [
-        ...COMMON_COUNTERS.map((k) => ({ label: k, onClick: () => void addCounter(ids, k, 1) })),
+        ...[...new Set([...usePrefs.getState().favoriteCounters, ...COMMON_COUNTERS])].map((k) => ({ label: k, onClick: () => void addCounter(ids, k, 1) })),
         "separator" as const,
         {
           label: "Several…",

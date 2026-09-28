@@ -1,6 +1,7 @@
 import { playmatStyle, usePlaymat } from "./appearance";
 import { useEffect } from "react";
 import { perspective, useGame } from "../state/gameStore";
+import { SPECTATOR } from "../types/game";
 import { useCardCache } from "../state/cardCache";
 import { isVisible, splitZone } from "../types/game";
 import { draw, moveCards, send, tapCards } from "./actions";
@@ -13,7 +14,8 @@ import { TopBar } from "./TopBar";
 import { CardPreview, LogDrawer, SelectionBar, StackWidget, ToolTray, useHudClass } from "./Hud";
 import { usePrefs } from "../state/prefs";
 import { ZoneBrowser } from "./ZoneBrowser";
-import { matchHotkey } from "./hotkeys";
+import { bookmarkSlot, matchHotkey } from "./hotkeys";
+import { recallBookmark, saveBookmark } from "./bookmarks";
 import { ResponseBar } from "./ResponseBar";
 
 export function GameScreen() {
@@ -21,9 +23,11 @@ export function GameScreen() {
   const status = useGame((s) => s.status);
   const detail = useGame((s) => s.statusDetail);
   const actingAs = useGame((s) => s.actingAs);
+  const focus = useGame((s) => s.focus);
   const browserOpen = useGame((s) => !!s.browser || (!!s.view && !!s.view.searches[s.view.viewer]));
   useShortcuts();
   useHudClass();
+  usePreferredLook();
 
   if (!view) {
     return (
@@ -45,12 +49,12 @@ export function GameScreen() {
       <div className="game-body">
         <main className="table">
           <TablePlaymat />
-          <div className={`opponents n${others.length}`}>
+          <div className={`opponents n${others.length} ${focus && focus !== me ? "focused" : ""} ${focus === me ? "shrunk" : ""}`}>
             {others.map((pid) => (
-              <PlayerArea key={pid} player={pid} me={me} mine={false} compact={others.length > 1} />
+              <PlayerArea key={pid} player={pid} me={me} mine={false} compact={others.length > 1} focused={focus === pid} />
             ))}
           </div>
-          <div className="me">
+          <div className={`me ${focus === me ? "focused" : ""} ${focus && focus !== me ? "shrunk" : ""}`}>
             <PlayerArea player={me} me={me} mine />
           </div>
           {browserOpen && <ZoneBrowser me={me} />}
@@ -82,7 +86,14 @@ function useShortcuts() {
       const view = s.view;
       if (!view) return;
       const me = perspective(view, s.actingAs);
-      const id = matchHotkey(e);
+      const bm = bookmarkSlot(e);
+      if (bm) {
+        e.preventDefault();
+        if (bm.save) void saveBookmark(bm.slot);
+        else recallBookmark(bm.slot);
+        return;
+      }
+      const id = matchHotkey(e, usePrefs.getState().keymap);
       if (!id) return;
       const targets = s.selection.length ? s.selection : s.hover && view.cards[s.hover] ? [s.hover] : [];
       const w = view.response;
@@ -160,4 +171,25 @@ function TablePlaymat() {
   const { mat, url } = usePlaymat(null);
   if (!url) return null;
   return <div className="playmat-layer table-mat" style={playmatStyle(mat, url)} aria-hidden />;
+}
+
+const appliedLook = new Set<string>();
+
+/** Wear the profile's preferred sleeves / playmat when sitting down at a table (once per game). */
+function usePreferredLook() {
+  const view = useGame((s) => s.view);
+  const actingAs = useGame((s) => s.actingAs);
+  useEffect(() => {
+    if (!view || view.viewer === SPECTATOR) return;
+    const me = perspective(view, actingAs);
+    const key = `${view.game.id}:${me}`;
+    if (appliedLook.has(key)) return;
+    appliedLook.add(key);
+    const p = view.players.find((x) => x.id === me);
+    const prefs = usePrefs.getState();
+    const action: Record<string, unknown> = { type: "set_appearance" };
+    if (p && !p.sleeve && prefs.preferredSleeve) action.sleeve = prefs.preferredSleeve;
+    if (p && !p.playmat && prefs.preferredPlaymat) action.playmat = { asset_id: prefs.preferredPlaymat, fit: "cover", scale: 1, offset_x: 0, offset_y: 0, rotation: 0, opacity: 1, show_zones: true };
+    if (Object.keys(action).length > 1 && view.game.mode === "lan") void useGame.getState().conn?.request({ type: "action", action }).catch(() => undefined);
+  }, [view, actingAs]);
 }

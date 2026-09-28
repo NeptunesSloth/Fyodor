@@ -37,14 +37,18 @@ class GameSession:
         self.history = history or History(state, limit=history_limit)
         self.notices: list[LogEntry] = []
         self.updated_at = time.time()
+        # Named table snapshots ("Before board wipe"): kept beside the game, saved with it.
+        self.table_snapshots: list[dict[str, Any]] = []
 
     # -- actions ---------------------------------------------------------------------
-    def perform(self, actor: str, payload: dict[str, Any] | Action) -> Action:
-        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError."""
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+        """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
+
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
         if actor not in self.state.players:
             raise ActionError("Only seated players can act")
         action = parse_action(payload) if isinstance(payload, dict) else payload
-        resolved = resolve(self.state, action, actor=actor, cards=self.cards)
+        resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
         try:
             engine.apply(self.state, resolved)
         except ActionError:

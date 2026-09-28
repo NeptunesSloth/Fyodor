@@ -38,13 +38,15 @@ class SaveRepository:
         self.lock = lock
         self.keep_autosaves = keep_autosaves
 
-    def save(self, state: GameState, history: History | None, *, name: str, autosave: bool = False) -> dict[str, Any]:
+    def save(self, state: GameState, history: History | None, *, name: str, autosave: bool = False,
+             extras: dict[str, Any] | None = None) -> dict[str, Any]:
         payload = {
             "format": SAVE_FORMAT,
             "version": SAVE_VERSION,
             "saved_at": time.time(),
             "state": state.model_dump(mode="json"),
             "history": history.to_dict() if history else None,
+            "extras": extras or {},  # e.g. named table snapshots
         }
         blob = encode(payload)
         save_id = uuid.uuid4().hex
@@ -88,6 +90,15 @@ class SaveRepository:
         if row is None:
             raise SaveNotFound(save_id)
         return load_payload(decode(row["payload"]), history_limit=history_limit)
+
+    def extras(self, save_id: str) -> dict[str, Any]:
+        """Things saved beside the game (named table snapshots)."""
+        with self.lock:
+            row = self.conn.execute("SELECT payload FROM saves WHERE id = ?", (save_id,)).fetchone()
+        if row is None:
+            raise SaveNotFound(save_id)
+        extras = decode(row["payload"]).get("extras")
+        return extras if isinstance(extras, dict) else {}
 
     def delete(self, save_id: str) -> None:
         with self.lock, transaction(self.conn):

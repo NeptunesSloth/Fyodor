@@ -326,3 +326,21 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
   color: var(--room-bone-dim); cursor: pointer; letter-spacing: 0.02em;
 }
 .tt-tab.on { color: var(--room-bone); border-bottom-color: var(--room-brass); }
+
+/* ---------------------------------------------------------------- accessibility & performance */
+body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::after {
+  transition-duration: 0s !important; animation-duration: 0s !important;
+}
+body.perf-low .table-card, body.perf-low .hand-card, body.perf-low .player-panel, body.perf-low .card-face { box-shadow: none !important; }
+body.perf-low .lobby, body.perf-low .game-screen { background-image: none !important; }
+body.perf-medium .table-card { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+body.high-contrast {
+  --text: #ffffff; --text-dim: #d8d2c4; --room-bone: #ffffff; --room-bone-dim: #d8d2c4;
+  --line: #6a6c74; --line-2: #8a8c94; --room-edge: #8a8c94;
+}
+body.high-contrast .table-card { outline: 1px solid rgba(255, 255, 255, 0.6); }
+body.high-contrast .life { color: #fff; text-shadow: 0 0 2px #000; }
+body.inspect-large .card-preview { width: 360px; }
+body.inspect-large .card-preview .insp-image { width: 330px; }
+.seat-glyph { display: none; font-size: 11px; color: var(--player-color); }
+body.cb-markers .seat-glyph { display: inline; }

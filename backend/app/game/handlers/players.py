@@ -183,3 +183,20 @@ def set_table_playmat(state: GameState, a: A.SetTablePlaymat) -> None:
     state.table.playmat = a.playmat
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" changed the table playmat" if a.playmat else " removed the table playmat")],
         kind="minor")
+
+
+RESTORE_FIELDS = ("players", "seat_order", "cards", "zones", "turn", "table", "arrows", "pregame", "settings", "auto_pass")
+
+
+def restore_state(state: GameState, a: A.RestoreState) -> None:
+    """Replace the table with an earlier state. Private views and response checks end; the log
+    and the game's secret ordering key stay, so hidden cards stay anonymous afterwards."""
+    old = GameState.model_validate(a.state)
+    if old.id != state.id:
+        raise ActionError("That state belongs to another game")
+    for name in RESTORE_FIELDS:
+        setattr(state, name, getattr(old, name))
+    state.views = []
+    state.response = None
+    state.passed_at = None
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" restored the table: {a.label}")])

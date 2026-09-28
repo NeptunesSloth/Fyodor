@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import secrets
 import time
 from typing import Annotated, Any, Literal
 
@@ -30,11 +31,13 @@ from app.decks import service as deck_service
 from app.decks.models import DeckEntry, DeckImportRequest
 from app.decks.parser import DeckTextTooLarge
 from app.decks.repository import DeckNotFound
+from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
 from app.game.mulligan import resolve_policy
 from app.game.session import GameSession
 from app.game.state import GameSettings, MulliganPolicy
+from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room
 from app.multiplayer.lobby import DeckTooLarge, LobbySeatInfo, LobbySettings, SubmittedDeck, check_bounds
@@ -368,7 +371,8 @@ async def save_game(game_id: str, body: SaveIn, request: Request, services: Serv
     authorize(room, local=is_local_request(request), token=x_seat_token, viewer=None, as_player=None)
     name = clean_text(body.name, 80) or f"{room.session.state.name} — turn {room.session.state.turn.number}"
     async with room.lock:
-        summary = services.saves.save(room.session.state, room.session.history, name=name)
+        summary = services.saves.save(room.session.state, room.session.history, name=name,
+                                      extras={"table_snapshots": room.session.table_snapshots})
         room.session.notice(f"Game saved as “{name}”.")
     await services.hub.broadcast(room)
     return summary
@@ -450,6 +454,9 @@ def load_save(save_id: str, body: LoadIn, request: Request, services: ServicesDe
         services.hub.close(state.id)
     session = GameSession(state, cards=services.cards, history=history, history_limit=services.settings.history_limit,
                           rules=services.rules)
+    snaps = services.saves.extras(save_id).get("table_snapshots")
+    if isinstance(snaps, list):
+        session.table_snapshots = [x for x in snaps if isinstance(x, dict) and isinstance(x.get("state"), dict)][-MAX_SNAPSHOTS:]
     session.notice("Game loaded.")
     return _create_room(services, session, body.mode, body.password, "p1")
 
@@ -961,6 +968,135 @@ async def record_result(game_id: str, body: ResultIn, request: Request, services
     room.session.notice(f"Game over — {what}. Result recorded.")
     await services.hub.broadcast(room)
     return result
+
+
+# --------------------------------------------------------------------------- snapshots + history
+
+MAX_SNAPSHOTS = 30
+
+
+class SnapshotIn(BaseModel):
+    name: str = Field(default="", max_length=80)
+
+
+def _seated(room: Room, request: Request, token: str | None, viewer: str | None = None) -> tuple[str, str | None]:
+    return authorize(room, local=is_local_request(request), token=token, viewer=viewer, as_player=None)
+
+
+def _snapshot_public(s: dict[str, Any]) -> dict[str, Any]:
+    return {k: s[k] for k in ("id", "name", "seq", "turn", "created_at", "by") if k in s}
+
+
+@router.get("/games/{game_id}/snapshots")
+def list_snapshots(game_id: str, request: Request, services: ServicesDep,
+                   x_seat_token: Annotated[str | None, Header()] = None) -> list[dict[str, Any]]:
+    room = _room(services, game_id)
+    _seated(room, request, x_seat_token)
+    return [_snapshot_public(s) for s in reversed(room.session.table_snapshots)]
+
+
+@router.post("/games/{game_id}/snapshots", status_code=201)
+async def take_snapshot(game_id: str, body: SnapshotIn, request: Request, services: ServicesDep,
+                        x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """Save the whole table under a name ("Before board wipe"), to come back to later."""
+    room = _room(services, game_id)
+    viewer, actor = _seated(room, request, x_seat_token)
+    if actor is None:
+        raise HTTPException(403, "Spectators can't take snapshots")
+    async with room.lock:
+        st = room.session.state
+        snap = {"id": secrets.token_hex(6), "name": clean_text(body.name, 80) or f"Turn {st.turn.number} · {st.turn.phase}",
+                "seq": st.seq, "turn": st.turn.number, "created_at": time.time(), "by": st.players[actor].name,
+                "state": st.model_dump(mode="json")}
+        room.session.table_snapshots = [*room.session.table_snapshots, snap][-MAX_SNAPSHOTS:]
+        room.session.notice(f"{st.players[actor].name} saved a snapshot: “{snap['name']}”.")
+    await services.hub.broadcast(room)
+    return _snapshot_public(snap)
+
+
+@router.delete("/games/{game_id}/snapshots/{snapshot_id}", status_code=204)
+async def delete_snapshot(game_id: str, snapshot_id: str, request: Request, services: ServicesDep,
+                          x_seat_token: Annotated[str | None, Header()] = None) -> Response:
+    room = _host_room(services, game_id, request, x_seat_token)
+    before = len(room.session.table_snapshots)
+    room.session.table_snapshots = [s for s in room.session.table_snapshots if s.get("id") != snapshot_id]
+    if len(room.session.table_snapshots) == before:
+        raise HTTPException(404, "No such snapshot")
+    return Response(status_code=204)
+
+
+async def _restore(services: Services, room: Room, request: Request, token: str | None, state: dict[str, Any],
+                   label: str) -> dict[str, Any]:
+    viewer, actor = _seated(room, request, token)
+    if room.mode == "lan" and not room.is_host(token):
+        raise HTTPException(403, "Only the host can restore the table")
+    actor = actor or room.session.state.seat_order[0]
+    async with room.lock:
+        try:
+            room.session.perform(actor, A.RestoreState(label=label[:120], state=state), trusted=True)
+        except (ActionError, ValidationError) as exc:
+            raise HTTPException(409, str(exc)) from exc
+        services.hub.after_change(room)
+    await services.hub.broadcast(room)
+    return services.hub.view(room, viewer)
+
+
+@router.post("/games/{game_id}/snapshots/{snapshot_id}/restore")
+async def restore_snapshot(game_id: str, snapshot_id: str, request: Request, services: ServicesDep,
+                           x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    room = _room(services, game_id)
+    snap = next((s for s in room.session.table_snapshots if s.get("id") == snapshot_id), None)
+    if snap is None:
+        raise HTTPException(404, "No such snapshot")
+    return await _restore(services, room, request, x_seat_token, snap["state"], f"snapshot “{snap['name']}”")
+
+
+@router.get("/games/{game_id}/history")
+def game_history(game_id: str, request: Request, services: ServicesDep,
+                 viewer: Annotated[str | None, Query(max_length=32)] = None,
+                 x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """Recorded actions with the log lines this viewer may read (for disputes and debugging)."""
+    room = _room(services, game_id)
+    v, _ = _seated(room, request, x_seat_token, viewer)
+    history = room.session.history
+    log = room.session.view(v)["log"]
+    by_seq: dict[int, list[Any]] = {}
+    for entry in log:
+        by_seq.setdefault(int(entry["seq"]), []).append(entry["parts"])
+    players = room.session.state.players
+    items = []
+    for i, action in enumerate(history.actions, start=1):
+        seq = history.base_seq + i
+        items.append({"position": i, "seq": seq, "type": action.type,
+                      "actor": players[action.actor].name if action.actor in players else None,
+                      "log": by_seq.get(seq, []), "undone": i > history.cursor})
+    return {"cursor": history.cursor, "base_seq": history.base_seq, "items": items}
+
+
+@router.get("/games/{game_id}/history/{position}")
+def history_view(game_id: str, position: int, request: Request, services: ServicesDep,
+                 viewer: Annotated[str | None, Query(max_length=32)] = None,
+                 x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """The table as it was after ``position`` actions, as this viewer could see it then."""
+    room = _room(services, game_id)
+    v, _ = _seated(room, request, x_seat_token, viewer)
+    try:
+        state = room.session.history.state_at(position)
+    except ActionError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return build_view(state, v, meta={"historical": True, "position": position})
+
+
+@router.post("/games/{game_id}/history/{position}/restore")
+async def restore_history(game_id: str, position: int, request: Request, services: ServicesDep,
+                          x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    room = _room(services, game_id)
+    try:
+        state = room.session.history.state_at(position)
+    except ActionError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return await _restore(services, room, request, x_seat_token, state.model_dump(mode="json"),
+                          f"back to history step {position} (turn {state.turn.number})")
 
 
 # --------------------------------------------------------------------------- host tools

@@ -17,6 +17,7 @@ import {
   type PlayerView,
 } from "../types/game";
 import { reconcile } from "./reconcile";
+import { play, soundForLog } from "../game/sound";
 import { requestCards } from "./cardCache";
 
 export interface PickMode {
@@ -50,12 +51,17 @@ interface GameStore {
   hover: string | null;
   inspect: string | null;
   browser: BrowserState | null;
-  dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host" | "endgame" | "appearance";
+  dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host" | "endgame" | "appearance" | "history" | "settings";
   dialogArg: string | null;
   pendingPositions: Record<string, [number, number]>;
   /** Pick mode: the next clicks on cards / players choose targets (arrows, copy target…). */
   pick: PickMode | null;
   setPick: (p: PickMode | null) => void;
+  /** Local view state (bookmarkable): an enlarged side of the table, open stack / log. */
+  focus: string | null;
+  stackOpen: boolean;
+  logOpen: boolean;
+  setLayout: (patch: Partial<Pick<GameStore, "focus" | "stackOpen" | "logOpen">>) => void;
 
   connect: (gameId: string, opts: { token?: string | null; viewer?: string | null }) => void;
   disconnect: () => void;
@@ -90,12 +96,17 @@ export const useGame = create<GameStore>((set, get) => ({
   pendingPositions: {},
   pick: null,
   setPick: (pick) => set({ pick }),
+  focus: null,
+  stackOpen: true,
+  logOpen: false,
+  setLayout: (patch) => set(patch),
 
   connect: (gameId, opts) => {
     get().conn?.close();
     const conn = new GameConnection(gameId, opts, {
       onState: (incoming, replace) => {
         const prev = get().view;
+        if (prev && prev.game.id === incoming.game.id && !replace) playNewLogSounds(prev, incoming);
         const view = prev && !replace && prev.game.id === incoming.game.id ? reconcile(prev, incoming) : incoming;
         const ids: string[] = [];
         for (const c of Object.values(view.cards)) {
@@ -207,4 +218,18 @@ export function perspective(view: GameView, actingAs: string | null): string {
 export function playerName(view: GameView | null, id: string | null | undefined): string {
   if (!view || !id) return "";
   return view.players.find((p) => p.id === id)?.name ?? id;
+}
+
+/** Cosmetic: a subtle sound for the newest log lines (at most one per update). */
+function playNewLogSounds(prev: GameView, next: GameView): void {
+  const lastSeq = prev.log.length ? prev.log[prev.log.length - 1]!.seq : -1;
+  const fresh = next.log.filter((e) => e.seq > lastSeq).slice(-3);
+  for (const e of fresh.reverse()) {
+    const text = e.parts.map((p) => ("t" in p ? p.t : "")).join("");
+    const name = soundForLog(e.kind, text);
+    if (name) {
+      play(name);
+      return;
+    }
+  }
 }

@@ -2,6 +2,7 @@ import { ContextMenuHost } from "./components/ContextMenu";
 import { PromptHost } from "./components/Prompt";
 import { Toasts } from "./components/Toasts";
 import { useHashRoute } from "./hooks/useHashRoute";
+import { useApplyPrefs } from "./state/applyPrefs";
 import { AssetManager } from "./pages/AssetManager";
 import { CardBrowser } from "./pages/CardBrowser";
 import { DeckEditor } from "./pages/DeckEditor";
@@ -10,6 +11,7 @@ import { GamePage } from "./pages/GamePage";
 import { Home } from "./pages/Home";
 import { PlayPage } from "./pages/PlayPage";
 import { PodStatsPage } from "./pages/PodStatsPage";
+import { SettingsPanel } from "./pages/SettingsPanel";
 
 const NAV = [
   { href: "#/play", label: "Play", key: "play" },
@@ -17,10 +19,12 @@ const NAV = [
   { href: "#/cards", label: "Cards", key: "cards" },
   { href: "#/stats", label: "Pod stats", key: "stats" },
   { href: "#/assets", label: "Assets", key: "assets" },
+  { href: "#/settings", label: "Settings", key: "settings" },
 ];
 
 export function App() {
   const route = useHashRoute();
+  useApplyPrefs();
   const [section, sub] = route.path;
 
   if (section === "game" && sub) {
@@ -50,6 +54,9 @@ export function App() {
       break;
     case "assets":
       page = <AssetManager />;
+      break;
+    case "settings":
+      page = <div className="page settings-page"><h1>Settings</h1><SettingsPanel /></div>;
       break;
     default:
       page = <Home />;

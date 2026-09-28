@@ -8,11 +8,11 @@ import { CommandZone, LibraryPile, Pile } from "./ZonePile";
  * One player's side of the table. `mine` areas sit at the bottom with the hand below;
  * opponents' areas are mirrored so their lands face them, like a real table.
  */
-export function PlayerArea({ player, me, mine, compact }: { player: string; me: string; mine: boolean; compact?: boolean }) {
+export function PlayerArea({ player, me, mine, compact, focused }: { player: string; me: string; mine: boolean; compact?: boolean; focused?: boolean }) {
   const p = usePlayer(player);
   if (!p) return null;
   return (
-    <section className={`player-area ${mine ? "mine" : "opponent"} ${compact ? "compact" : ""}`} style={{ ["--player-color" as string]: p.color }}>
+    <section className={`player-area ${mine ? "mine" : "opponent"} ${compact ? "compact" : ""} ${focused ? "focused" : ""}`} style={{ ["--player-color" as string]: p.color }}>
       {!mine && <Hand player={player} me={me} compact />}
       <div className="area-row">
         <aside className="area-side">

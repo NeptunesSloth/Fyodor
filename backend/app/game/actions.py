@@ -440,6 +440,18 @@ class SetTablePlaymat(Base):
     playmat: Playmat | None = None
 
 
+class RestoreState(Base):
+    """Put the whole table back to an earlier state (a named snapshot or a point in history).
+
+    Built by the server only (the state comes from its own records, never from a client);
+    applying it is an ordinary action, so it can be undone and replays exactly.
+    """
+
+    type: Literal["restore_state"] = "restore_state"
+    label: str = Field(max_length=120)
+    state: dict[str, Any]
+
+
 class ReturnToOwner(Base):
     """Give cards back to their owner: stolen permanents to the owner's battlefield, cards in
     another player's zone to the owner's zone of the same kind."""
@@ -789,6 +801,7 @@ Action = Annotated[
     | Note
     | SetController
     | ReturnToOwner
+    | RestoreState
     | SetAppearance
     | SetTablePlaymat
     | AddEffect

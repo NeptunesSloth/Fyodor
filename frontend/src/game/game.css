@@ -504,3 +504,20 @@ body.hud-minimal .pp-foot, body.hud-minimal .pp-cmds, body.hud-minimal .mana-tog
 body.hud-minimal .cmd-damage, body.hud-minimal .tool-tray, body.hud-minimal .life-step { display: none; }
 body.hud-minimal .log-drawer:not(.open) { opacity: 0.55; }
 body.hud-minimal .player-panel { padding: 3px 8px; }
+.snapshots { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.snapshots .host-row { width: 100%; }
+.history-view { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; min-height: 360px; }
+.history-list { max-height: 60vh; overflow: auto; display: flex; flex-direction: column; gap: 1px; }
+.history-item { display: flex; gap: 8px; text-align: left; padding: 4px 6px; font-size: 12.5px; background: none; border: 0; border-left: 2px solid transparent; color: var(--room-bone); cursor: pointer; }
+.history-item:hover { background: rgba(255, 255, 255, 0.03); }
+.history-item.on { border-left-color: var(--room-brass); background: rgba(179, 148, 88, 0.1); }
+.history-item.undone { opacity: 0.5; }
+.history-state { font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
+.history-player .hint { font-size: 12px; }
+
+/* focus (bookmarkable views): enlarge one side of the table */
+.opponents.focused { flex-grow: 3; }
+.opponents.shrunk, .me.shrunk { flex-grow: 0.45; }
+.me.focused { flex-grow: 3; }
+.opponents.focused > .player-area:not(.focused) { flex-grow: 0.4; }
+.opponents.focused > .player-area.focused { flex-grow: 3; }
