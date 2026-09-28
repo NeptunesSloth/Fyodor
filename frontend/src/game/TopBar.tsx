@@ -1,3 +1,5 @@
+import { usePrefs } from "../state/prefs";
+import { cleanupMenu, selectMenu } from "./selection";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { toast } from "../components/Toasts";
 import { api } from "../services/api";
@@ -103,7 +105,12 @@ export function TopBar() {
 
 function tableMenu(isHost: boolean): MenuItem[] {
   const s = useGame.getState();
+  const prefs = usePrefs.getState();
   return [
+    selectMenu(),
+    cleanupMenu(),
+    { label: prefs.showTokenSources ? "Hide token sources" : "Show token sources", onClick: () => prefs.set({ showTokenSources: !prefs.showTokenSources }) },
+    "separator",
     { label: "Resync my view", hint: "Fetch a fresh copy of the table from the host", onClick: () => s.conn?.resync() },
     { label: "Verify sync", hint: "Debug: compare this screen with the host's state", onClick: () => void verifySync() },
     ...(isHost

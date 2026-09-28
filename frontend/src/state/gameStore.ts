@@ -19,6 +19,16 @@ import {
 import { reconcile } from "./reconcile";
 import { requestCards } from "./cardCache";
 
+export interface PickMode {
+  prompt: string;
+  /** Allow several picks, finished with Done. */
+  multi: boolean;
+  picked: string[];
+  /** Players can be picked too. */
+  players: boolean;
+  onDone: (ids: string[]) => void;
+}
+
 export interface BrowserState {
   zone: string;
   title?: string;
@@ -43,6 +53,9 @@ interface GameStore {
   dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host" | "endgame";
   dialogArg: string | null;
   pendingPositions: Record<string, [number, number]>;
+  /** Pick mode: the next clicks on cards / players choose targets (arrows, copy target…). */
+  pick: PickMode | null;
+  setPick: (p: PickMode | null) => void;
 
   connect: (gameId: string, opts: { token?: string | null; viewer?: string | null }) => void;
   disconnect: () => void;
@@ -75,6 +88,8 @@ export const useGame = create<GameStore>((set, get) => ({
   dialog: null,
   dialogArg: null,
   pendingPositions: {},
+  pick: null,
+  setPick: (pick) => set({ pick }),
 
   connect: (gameId, opts) => {
     get().conn?.close();

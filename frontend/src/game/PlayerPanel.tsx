@@ -25,7 +25,8 @@ export function PlayerPanel({ player, me, compact }: { player: string; me: strin
   const danger = p.life <= 0 || maxCmd >= LETHAL_COMMANDER || poison >= LETHAL_POISON;
 
   return (
-    <div className={`player-panel ${active ? "active" : ""} ${danger ? "danger" : ""} ${compact ? "compact" : ""}`} style={{ ["--player-color" as string]: p.color }}>
+    <div className={`player-panel ${active ? "active" : ""} ${danger ? "danger" : ""} ${compact ? "compact" : ""}`} style={{ ["--player-color" as string]: p.color }}
+      data-player-id={player}>
       <div className="pp-head">
         <span className="pp-dot" />
         <span className="pp-name" title={p.deck_name ?? undefined}>{p.name}{player === me ? " (you)" : ""}</span>
@@ -74,6 +75,7 @@ export function PlayerPanel({ player, me, compact }: { player: string; me: strin
         Hand {p.hand_count} · Library {p.library_count}
         {p.mulligans > 0 && ` · Mulligans ${p.mulligans}`}
       </div>
+      <ManaPool player={player} mana={p.mana ?? {}} />
       {p.commanders.length > 0 && (
         <div className="pp-cmds" data-testid={`commanders-${p.id}`}>
           {p.commanders.map((c) => (
@@ -202,4 +204,27 @@ function playerMenu(p: PlayerView): MenuItem[] {
     });
   }
   return items;
+}
+
+const MANA = ["W", "U", "B", "R", "G", "C"] as const;
+
+/** Temporary mana pool: click +1, right-click −1, the × clears. Nothing is spent automatically. */
+function ManaPool({ player, mana }: { player: string; mana: Record<string, number> }) {
+  const [open, setOpen] = useState(false);
+  const total = Object.values(mana).reduce((a, b) => a + b, 0);
+  const add = (color: string, delta: number) => void send({ type: "add_mana", player, mana: { [color]: delta } });
+  if (!open && !total) {
+    return <button className="mana-toggle" data-testid={`mana-open-${player}`} onClick={() => setOpen(true)} title="Mana pool">◇ mana</button>;
+  }
+  return (
+    <div className="mana-pool" data-testid={`mana-${player}`}>
+      {MANA.map((c) => (
+        <button key={c} className={`mana-pip ${c.toLowerCase()} ${mana[c] ? "on" : ""}`} title={`${c}: click +1, right-click −1`}
+          onClick={() => add(c, 1)} onContextMenu={(e) => { e.preventDefault(); if (mana[c]) add(c, -1); }}>
+          {c}<b>{mana[c] ?? 0}</b>
+        </button>
+      ))}
+      <button className="mana-clear" title="Clear mana pool" onClick={() => { if (total) void send({ type: "clear_mana", player }); setOpen(false); }}>×</button>
+    </div>
+  );
 }

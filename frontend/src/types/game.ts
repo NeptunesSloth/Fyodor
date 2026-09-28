@@ -87,6 +87,34 @@ interface CardBase {
   counters?: Record<string, number>;
   attacking?: AttackTarget;
   blocking?: string;
+  /** Manual table markers (public on the battlefield / stack, even when face down). */
+  effects?: CardEffect[];
+  damage?: number;
+  stack_info?: { x: number | null; modes: string[]; tags: string[] };
+  exile_group?: string;
+  locked?: boolean;
+  protected?: boolean;
+  rotation?: number;
+  attached_to?: string | null;
+  group?: string | null;
+  quantity?: number;
+}
+
+export interface CardEffect {
+  id: string;
+  name: string;
+  value?: string;
+  text?: string;
+  color?: string;
+}
+
+export interface TableArrow {
+  id: string;
+  owner: string;
+  source: string;
+  targets: string[];
+  kind: "target" | "attack" | "block" | "custom";
+  label: string;
 }
 
 export interface HiddenCard extends CardBase {
@@ -105,6 +133,8 @@ export interface VisibleCard extends CardBase {
   copy_of?: { source_id: string; source_name: string; modifications: string };
   ability?: { text: string; source_id: string | null; source_card_id: string | null; source_name: string | null; kind: string };
   commander_key?: string;
+  choices?: Record<string, string>;
+  token_source?: { source_id: string | null; name: string };
 }
 
 export type GameCard = HiddenCard | VisibleCard;
@@ -143,6 +173,8 @@ export interface PlayerView {
   token_shortcuts?: string[];
   commanders: CommanderInfo[];
   left?: boolean;
+  /** Temporary mana pool, e.g. { U: 2, C: 3 }. */
+  mana?: Record<string, number>;
   hand_count: number;
   library_count: number;
 }
@@ -174,6 +206,8 @@ export interface GameMeta {
     deck_privacy?: "private" | "commander_only" | "public";
     priority_helper?: "off" | "simple";
     mulligan?: MulliganPolicy | null;
+    clear_mana_on_step?: boolean;
+    auto_clear_combat?: boolean;
   };
   can_undo: boolean;
   can_redo: boolean;
@@ -243,6 +277,7 @@ export interface GameView {
   /** Players auto-passing response checks this turn. */
   auto_pass?: string[];
   cards: Record<string, GameCard>;
+  arrows?: TableArrow[];
   zones: Record<string, string[] | LibraryView>;
   stack: string[];
   log: LogEntryView[];

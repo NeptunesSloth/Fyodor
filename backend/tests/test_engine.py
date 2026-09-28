@@ -279,7 +279,14 @@ def test_phases_turns_and_combat(s):
     act(s, "p2", type="block", card_id=atraxa.id, attacker_id=krenko.id)
     assert atraxa.blocking == krenko.id and krenko.attacking.id == "p2"
     act(s, "p1", type="phase", to="main2")
+    assert krenko.attacking is not None  # nothing clears itself…
+    act(s, "p1", type="clear_combat")  # …until a player clears combat
     assert krenko.attacking is None and atraxa.blocking is None
+    act(s, "p1", type="configure", auto_clear_combat=True)  # or the table opts in
+    act(s, "p1", type="phase", to="declare_attackers")
+    act(s, "p1", type="attack", card_ids=[krenko.id], target={"kind": "player", "id": "p2"})
+    act(s, "p1", type="phase", to="main2")
+    assert krenko.attacking is None
     act(s, "p1", type="next_turn")
     assert (s.state.turn.number, s.state.turn.active_player, s.state.turn.phase) == (2, "p2", "untap")
     assert krenko.tapped  # only the new active player untaps

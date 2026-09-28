@@ -140,3 +140,19 @@ export async function keepAll(...pages: Page[]): Promise<void> {
   for (const p of pages) await p.getByTestId("mull-keep").click();
   for (const p of pages) await expect(p.getByTestId("mulligan")).toHaveCount(0);
 }
+
+/** Click through a context-menu path, e.g. menuPath(page, "Effects", "Flying"). */
+export async function menuPath(page: Page, ...labels: string[]): Promise<void> {
+  for (const label of labels) {
+    await page.locator(".ctx-menu .ctx-item", { hasText: label }).last().click();
+  }
+}
+
+/** Play a card from this browser's hand onto the battlefield; returns its id. */
+export async function playFromHand(page: Page, index = 0): Promise<string> {
+  const hand = page.locator("main.table > .hand .hand-card");
+  const id = (await hand.nth(index).getAttribute("data-card-id"))!;
+  await hand.nth(index).dblclick();
+  await expect(page.locator(`.table-card[data-card-id="${id}"]`)).toBeVisible();
+  return id;
+}

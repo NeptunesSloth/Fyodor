@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
 from app.game.state import PHASES, PLAYER_ZONES, STACK, AttackTarget, TokenDef
 from app.textutil import clean_text
@@ -255,6 +255,7 @@ class CreateToken(Base):
     x: Coord | None = None
     y: Coord | None = None
     tapped: bool = False
+    source_id: Id | None = None  # optional provenance: the permanent that made these tokens
     stacked: bool | None = None  # one logical stack instead of N objects (default: when count > 3)
     r: NewIds | None = None
     # filled by resolve from the card DB when token.card_id is given:
@@ -316,6 +317,110 @@ class SetController(Base):
     type: Literal["set_controller"] = "set_controller"
     card_ids: IdList
     player: Id
+
+
+Label = Annotated[str, Field(min_length=1, max_length=60)]
+Color = Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}$")]
+
+
+class _Clean(Base):
+    """Sanitises every free-text field (and lists of text) after validation."""
+
+    @model_validator(mode="after")
+    def _clean_strings(self) -> _Clean:
+        for name in type(self).model_fields:
+            if name in ("type", "actor", "card_id", "card_ids", "source", "targets", "source_id"):
+                continue
+            v = getattr(self, name)
+            if isinstance(v, str):
+                object.__setattr__(self, name, clean_text(v, 300))
+            elif isinstance(v, list) and all(isinstance(x, str) for x in v):
+                object.__setattr__(self, name, [clean_text(x, 120) for x in v])
+        return self
+
+
+class AddEffect(_Clean):
+    """A temporary effect marker (+3/+3, Flying, Protection from red, or anything custom)."""
+
+    type: Literal["add_effect"] = "add_effect"
+    card_ids: IdList
+    name: Label
+    value: str | None = Field(default=None, max_length=20)
+    text: str | None = Field(default=None, max_length=200)
+    color: Color | None = None
+    r: NewIds | None = None
+
+
+class RemoveEffect(Base):
+    type: Literal["remove_effect"] = "remove_effect"
+    card_ids: IdList
+    effect_id: Id | None = None  # None = all effects on these cards
+
+
+class SetDamage(Base):
+    type: Literal["set_damage"] = "set_damage"
+    card_ids: IdList
+    delta: int | None = Field(default=None, ge=-1000, le=1000)
+    value: int | None = Field(default=None, ge=0, le=10000)
+
+
+class SetChoice(_Clean):
+    """Structured choice metadata: Chosen color, Chosen creature type, Named card, …"""
+
+    type: Literal["set_choice"] = "set_choice"
+    card_id: Id
+    key: Label
+    value: str | None = Field(default=None, max_length=120)  # None removes it
+
+
+class SetStackInfo(_Clean):
+    """Annotate a spell/ability on the stack: X, chosen modes, cast labels. Tracking only."""
+
+    type: Literal["set_stack_info"] = "set_stack_info"
+    card_id: Id
+    x: int | None = Field(default=None, ge=0, le=100000)
+    clear_x: bool = False
+    modes: list[str] | None = Field(default=None, max_length=20)
+    tags: list[str] | None = Field(default=None, max_length=20)
+
+
+class SetExileGroup(_Clean):
+    type: Literal["set_exile_group"] = "set_exile_group"
+    card_ids: IdList
+    group: str | None = Field(default=None, max_length=60)
+
+
+class CreateArrow(_Clean):
+    type: Literal["create_arrow"] = "create_arrow"
+    source: Id
+    targets: Annotated[list[Id], Field(min_length=1, max_length=20)]
+    kind: Literal["target", "attack", "block", "custom"] = "target"
+    label: str = Field(default="", max_length=60)
+    r: NewIds | None = None
+
+
+class RemoveArrow(Base):
+    type: Literal["remove_arrow"] = "remove_arrow"
+    arrow_id: Id
+
+
+class SetCopySource(Base):
+    """Change what a copy is copying (Change Copy Target)."""
+
+    type: Literal["set_copy_source"] = "set_copy_source"
+    card_id: Id
+    source_id: Id
+
+
+CleanupWhat = Literal["combat", "damage", "effects", "arrows", "mana", "tokens", "response", "exile_groups"]
+
+
+class Cleanup(Base):
+    """Manual table cleanup. Nothing here runs on its own."""
+
+    type: Literal["cleanup"] = "cleanup"
+    what: Annotated[list[CleanupWhat], Field(min_length=1, max_length=8)]
+    card_ids: list[Id] | None = Field(default=None, max_length=250)  # limit to these cards (effects/damage)
 
 
 class ReturnToOwner(Base):
@@ -632,6 +737,7 @@ class Configure(Base):
     clear_mana_on_step: bool | None = None
     auto_untap: bool | None = None
     auto_commander_tax: bool | None = None
+    auto_clear_combat: bool | None = None
 
 
 Action = Annotated[
@@ -666,6 +772,16 @@ Action = Annotated[
     | Note
     | SetController
     | ReturnToOwner
+    | AddEffect
+    | RemoveEffect
+    | SetDamage
+    | SetChoice
+    | SetStackInfo
+    | SetExileGroup
+    | CreateArrow
+    | RemoveArrow
+    | SetCopySource
+    | Cleanup
     | RemovePlayer
     | SetCommander
     | Life

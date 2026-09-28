@@ -88,6 +88,7 @@ const StackItem = memo(function StackItem({ id, top, me }: { id: string; top: bo
   return (
     <div
       className={`stack-item ${top ? "top" : ""}`}
+      data-card-id={id}
       onPointerEnter={() => useGame.getState().setHover(id)}
       onPointerLeave={() => useGame.getState().setHover(null)}
       onPointerDown={(e) => {
@@ -117,6 +118,13 @@ const StackItem = memo(function StackItem({ id, top, me }: { id: string; top: bo
           {visible && card.ability ? ` · ${card.ability.text}` : ""}
           {visible && card.copy_of ? " · copy" : ""}
         </div>
+        {card.stack_info && (
+          <div className="stack-notes">
+            {card.stack_info.x != null && <b className="stack-x">X = {card.stack_info.x}</b>}
+            {card.stack_info.tags.map((t) => <span key={t} className="stack-tag">{t}</span>)}
+            {card.stack_info.modes.length > 0 && <div className="stack-modes">{card.stack_info.modes.map((m) => <div key={m}>✓ {m}</div>)}</div>}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { useGame } from "../state/gameStore";
 import { useCardCache } from "../state/cardCache";
 import { FACE_DOWN_LABEL, isVisible, splitZone, type FaceDownKind, type GameCard, type GameView, type ZoneName } from "../types/game";
 import { addCounter, COMMON_COUNTERS, moveCards, send, tapCards, targetsFor } from "./actions";
+import { choicesMenu, damageMenu, effectsMenu, exileGroupMenu, stackMenu, startArrow, startCopyTarget } from "./marksMenu";
 
 function moveMenu(ids: string[], current: ZoneName, owner: string | null, me: string): MenuItem[] {
   const items: MenuItem[] = [];
@@ -87,6 +88,8 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
         });
       }
     }
+    items.push(effectsMenu(ids, card));
+    items.push(damageMenu(ids, card));
     items.push("separator");
     items.push({
       label: "Attack",
@@ -126,6 +129,7 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
   if (zone === "stack" && !multi) {
     const top = view.stack[view.stack.length - 1] === card.id;
     if (top) items.push({ label: "Resolve", onClick: () => void send({ type: "resolve_top" }) });
+    items.push(stackMenu(card));
     if (visible && !card.ability) items.push({ label: "Counter (to graveyard)", onClick: () => void moveCards([card.id], "graveyard", { player: card.owner }) });
     items.push("separator");
   }
@@ -181,6 +185,47 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
     if (visible && card.revealed) items.push({ label: "Stop revealing", onClick: () => void send({ type: "hide", card_ids: ids }) });
   }
 
+  if (!multi && (zone === "battlefield" || zone === "stack")) {
+    items.push({ label: "Target / point to…", hint: "arrow", onClick: () => startArrow(card.id) });
+    const mine = (view.arrows ?? []).filter((a) => a.source === card.id || a.targets.includes(card.id));
+    if (mine.length) items.push({ label: `Remove arrows (${mine.length})`, onClick: () => mine.forEach((a) => void send({ type: "remove_arrow", arrow_id: a.id })) });
+  }
+  if (!multi && (zone === "battlefield" || zone === "stack")) {
+    const choices = choicesMenu(card, view);
+    if (choices) items.push(choices);
+  }
+  if (zone === "exile" || zone === "foretell") items.push(exileGroupMenu(ids, card, view));
+  if (zone === "battlefield") {
+    items.push({
+      label: "Arrange",
+      submenu: [
+        { label: "Rotate 90° →", onClick: () => void send({ type: "rotate", card_ids: ids, delta: 90 }) },
+        { label: "Rotate 90° ←", onClick: () => void send({ type: "rotate", card_ids: ids, delta: -90 }) },
+        { label: "Reset rotation", onClick: () => void send({ type: "rotate", card_ids: ids, degrees: 0 }) },
+        "separator",
+        ...(multi ? [{ label: "Group (move together)", onClick: () => void send({ type: "group", card_ids: ids }) }] : []),
+        { label: "Ungroup", onClick: () => void send({ type: "ungroup", card_ids: ids }) },
+        { label: card.locked ? "Unlock" : "Lock in place", onClick: () => void send({ type: "set_lock", card_ids: ids, value: !card.locked }) },
+        {
+          label: "Attach to…",
+          onClick: () =>
+            useGame.getState().setPick({
+              prompt: "Choose the permanent to attach to",
+              multi: false,
+              picked: [],
+              players: false,
+              onDone: (to) => to[0] && void send({ type: "attach", card_ids: ids, to: to[0] }),
+            }),
+        },
+        { label: "Detach", onClick: () => void send({ type: "detach", card_ids: ids }) },
+      ],
+    });
+  }
+  if (!multi && visible && card.copy_of) items.push({ label: `Change copy target (copying ${card.copy_of.source_name})…`, onClick: () => startCopyTarget(card.id) });
+  if (!multi && visible && zone === "battlefield" && !card.is_token) {
+    items.push({ label: "Create tokens from this…", hint: "remembers the source", onClick: () => useGame.getState().openDialog("tokens", card.id) });
+  }
+
   items.push({ label: "Move to", submenu: moveMenu(ids, zone, zoneOwner ?? card.owner, me) });
 
   if (zone === "battlefield") {
@@ -214,8 +259,22 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
     }
     items.push({ label: "View card", hint: "hover", onClick: () => useGame.getState().setInspect(card.id) });
   }
-  if (visible && (card.is_token || card.ability)) {
-    items.push({ label: card.ability ? "Remove ability" : "Remove token", danger: true, onClick: () => void send({ type: "delete_card", card_ids: ids }) });
+  if (multi) {
+    const objs = ids.map((id) => view.cards[id]).filter((c): c is GameCard => !!c);
+    const disposable = objs.filter((c) => isVisible(c) && (c.is_token || !!c.copy_of || !!c.ability));
+    if (disposable.length) {
+      items.push({
+        label: `Delete all tokens & copies (${disposable.length})`,
+        danger: true,
+        onClick: () => {
+          const real = objs.length - disposable.length;
+          if (real && !window.confirm(`Delete ${disposable.length} tokens/copies? The ${real} real card${real > 1 ? "s" : ""} in the selection stay on the table.`)) return;
+          void send({ type: "delete_card", card_ids: disposable.map((c) => c.id) });
+        },
+      });
+    }
+  } else if (visible && (card.is_token || card.ability || card.copy_of)) {
+    items.push({ label: card.ability ? "Remove ability" : card.copy_of && !card.is_token ? "Remove copy" : "Remove token", danger: true, onClick: () => void send({ type: "delete_card", card_ids: ids }) });
   }
   return { title, items };
 }

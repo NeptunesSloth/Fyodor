@@ -23,7 +23,7 @@ export function GameDialogs({ me }: { me: string }) {
   const close = () => useGame.getState().openDialog(null);
   return (
     <>
-      {dialog === "tokens" && <TokenDialog me={me} onClose={close} />}
+      {dialog === "tokens" && <TokenDialog me={me} sourceId={arg} onClose={close} />}
       {dialog === "dice" && <DiceDialog onClose={close} />}
       {dialog === "ability" && <AbilityDialog sourceId={arg} onClose={close} />}
       {dialog === "save" && <SaveDialog onClose={close} />}
@@ -35,7 +35,7 @@ export function GameDialogs({ me }: { me: string }) {
   );
 }
 
-function TokenDialog({ me, onClose }: { me: string; onClose: () => void }) {
+function TokenDialog({ me, sourceId, onClose }: { me: string; sourceId: string | null; onClose: () => void }) {
   const view = useGame((s) => s.view);
   const cache = useCardCache((s) => s.cards);
   const [tab, setTab] = useState<"suggested" | "search" | "custom">("suggested");
@@ -73,7 +73,7 @@ function TokenDialog({ me, onClose }: { me: string; onClose: () => void }) {
   }, [debounced, tab]);
 
   const create = async (token: Record<string, unknown>) => {
-    if (await send({ type: "create_token", player: controller, token, count })) {
+    if (await send({ type: "create_token", player: controller, token, count, ...(sourceId ? { source_id: sourceId } : {}) })) {
       toast(`Created ${count} token${count > 1 ? "s" : ""}`);
       onClose();
     }

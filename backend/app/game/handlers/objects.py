@@ -238,7 +238,7 @@ def empty_mana_pools(state: GameState) -> None:
 
 def configure(state: GameState, a: A.Configure) -> None:
     changed = []
-    for key in ("undo_policy", "clear_mana_on_step", "auto_untap", "auto_commander_tax"):
+    for key in ("undo_policy", "clear_mana_on_step", "auto_untap", "auto_commander_tax", "auto_clear_combat"):
         value = getattr(a, key)
         if value is not None:
             setattr(state.settings, key, value)

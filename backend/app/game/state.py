@@ -75,6 +75,41 @@ class TokenDef(BaseModel):
     text: str = ""
 
 
+class Effect(BaseModel):
+    """A temporary effect marker on a card (+3/+3, Flying, Protection from red …).
+    Players add and remove them; nothing expires on its own."""
+
+    id: str
+    name: str
+    value: str | None = None  # e.g. "+3/+3", "2"
+    text: str | None = None
+    color: str | None = None  # "#rrggbb"
+
+
+class StackInfo(BaseModel):
+    """Annotations on a spell/ability on the stack: X, chosen modes, how it was cast."""
+
+    x: int | None = None
+    modes: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)  # Kicked, Flashback, Cast from exile …
+
+
+class TokenSource(BaseModel):
+    source_id: str | None = None
+    name: str
+
+
+class Arrow(BaseModel):
+    """A visual relationship everyone sees: targeting, attack, block or anything custom."""
+
+    id: str
+    owner: str
+    source: str  # card id or player id
+    targets: list[str]  # card ids and/or player ids
+    kind: Literal["target", "attack", "block", "custom"] = "target"
+    label: str = ""
+
+
 class CopyInfo(BaseModel):
     source_id: str  # instance copied (may no longer exist)
     source_name: str
@@ -133,6 +168,13 @@ class CardInstance(BaseModel):
     attach_offset: tuple[float, float] | None = None  # position relative to the host
     group: str | None = None  # temporary pile: dragging one member moves all
     quantity: int = 1  # logical token stack size ("Treasure ×17")
+    # --- manual tracking (nothing here is enforced or expires on its own) ---
+    effects: list[Effect] = Field(default_factory=list)
+    damage: int = 0
+    choices: dict[str, str] = Field(default_factory=dict)  # "Chosen color" -> "Blue", "Named card" -> …
+    stack_info: StackInfo | None = None
+    exile_group: str | None = None  # "Prosper", "Oblivion Ring", "Foretell" … (organisational label)
+    token_source: TokenSource | None = None
 
 
 class LifeChange(BaseModel):
@@ -243,6 +285,7 @@ class GameSettings(BaseModel):
     auto_untap: bool = True  # "next turn" untaps the new active player's permanents
     auto_commander_tax: bool = True  # moving a commander from the command zone to the stack adds {2}
     clear_mana_on_step: bool = False  # optional: empty mana pools when the step/phase changes
+    auto_clear_combat: bool = False  # optional: leaving combat / next turn clears combat markers
     undo_policy: Literal["everyone", "own", "host"] = "everyone"
     # What opponents learn about a player's deck: nothing, the commander(s) and deck name, or the list.
     deck_privacy: Literal["private", "commander_only", "public"] = "commander_only"
@@ -292,6 +335,7 @@ class GameState(BaseModel):
     # Secret per-game key that orders anonymous hidden cards in opponents' views; never sent to clients.
     hidden_salt: str = ""
     pregame: Pregame | None = None
+    arrows: list[Arrow] = Field(default_factory=list)
     response: ResponseWindow | None = None
     auto_pass: dict[str, int] = Field(default_factory=dict)  # player -> turn number they auto-pass through
     passed_at: int | None = None  # seq at which everyone last passed (no need to ask again)

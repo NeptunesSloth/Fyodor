@@ -90,6 +90,7 @@ function MenuPanel({ x, y, items, title, onDone }: { x: number; y: number; items
 function SubMenu({ items, onDone }: { items: MenuItem[]; onDone: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [flip, setFlip] = useState({ x: false, y: 0 });
+  const [openSub, setOpenSub] = useState<number | null>(null);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -106,18 +107,25 @@ function SubMenu({ items, onDone }: { items: MenuItem[]; onDone: () => void }) {
         item === "separator" ? (
           <div key={i} className="ctx-sep" />
         ) : (
-          <button
-            key={i}
-            className={`ctx-item ${item.danger ? "danger" : ""}`}
-            disabled={item.disabled}
-            onClick={() => {
-              onDone();
-              item.onClick?.();
-            }}
-          >
-            <span>{item.label}</span>
-            {item.hint && <span className="ctx-hint">{item.hint}</span>}
-          </button>
+          <div key={i} className="ctx-item-wrap" onPointerEnter={() => setOpenSub(item.submenu ? i : null)}>
+            <button
+              className={`ctx-item ${item.danger ? "danger" : ""}`}
+              disabled={item.disabled}
+              onClick={() => {
+                if (item.submenu) {
+                  setOpenSub(i);
+                  return;
+                }
+                onDone();
+                item.onClick?.();
+              }}
+            >
+              <span>{item.label}</span>
+              {item.hint && <span className="ctx-hint">{item.hint}</span>}
+              {item.submenu && <span className="ctx-arrow">›</span>}
+            </button>
+            {item.submenu && openSub === i && <SubMenu items={item.submenu} onDone={onDone} />}
+          </div>
         ),
       )}
     </div>

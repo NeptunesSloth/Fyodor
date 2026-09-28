@@ -143,7 +143,14 @@ def move_card(
             c.attached_to = None
             c.attach_offset = None
 
-    # A card that changes zones becomes a new object.
+    # A card that changes zones becomes a new object: manual markers don't follow it.
+    c.effects = []
+    c.damage = 0
+    c.choices = {}
+    if src_zone == STACK or dst_zone == STACK:
+        c.stack_info = None
+    if dst_zone not in ("exile", "foretell"):
+        c.exile_group = None
     if src_zone == "battlefield" or dst_zone == "battlefield":
         c.tapped = False
         c.attacking = None

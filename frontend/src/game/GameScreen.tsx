@@ -4,7 +4,7 @@ import { useCardCache } from "../state/cardCache";
 import { isVisible, splitZone } from "../types/game";
 import { draw, moveCards, send, tapCards } from "./actions";
 import { GameDialogs } from "./Dialogs";
-import { CombatArrows, DragLayer } from "./Overlays";
+import { CombatArrows, DragLayer, PickLayer } from "./Overlays";
 import { Hand } from "./Hand";
 import { MulliganOverlay } from "./MulliganOverlay";
 import { PlayerArea } from "./PlayerArea";
@@ -64,6 +64,7 @@ export function GameScreen() {
       <ResponseBar />
       <DragLayer />
       <CombatArrows />
+      <PickLayer />
     </div>
   );
 }

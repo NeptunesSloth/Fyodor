@@ -1,3 +1,4 @@
+import { usePrefs } from "../state/prefs";
 import { memo } from "react";
 import { openMenu } from "../components/ContextMenu";
 import { useGame, useCardView } from "../state/gameStore";
@@ -21,9 +22,10 @@ interface Props {
 export const TableCard = memo(function TableCard({ id, left, top, width, me, z }: Props) {
   const card = useCardView(id);
   const selected = useGame((s) => s.selection.includes(id));
+  const showSources = usePrefs((s) => s.showTokenSources);
   if (!card) return null;
   const visible = isVisible(card);
-  const rotation = (card.tapped ? 90 : 0) + (card.flipped ? 180 : 0);
+  const rotation = (card.tapped ? 90 : 0) + (card.flipped ? 180 : 0) + (card.rotation ?? 0);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -93,7 +95,25 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
         )}
         {card.attacking && <span className="mark atk" title="Attacking">⚔</span>}
         {card.blocking && <span className="mark blk" title="Blocking">⛨</span>}
+        {card.locked && <span className="mark lock" title="Locked in place">🔒</span>}
+        {visible && card.choices && Object.keys(card.choices).length > 0 && (
+          <span className="mark choice" title={Object.entries(card.choices).map(([k, v]) => `${k}: ${v}`).join("\n")}>
+            {Object.values(card.choices)[0]}
+          </span>
+        )}
+        {visible && card.token_source && showSources && <span className="mark src" title={`Created by ${card.token_source.name}`}>↳ {card.token_source.name}</span>}
       </div>
+      {(card.effects?.length || card.damage) ? (
+        <div className="card-effects">
+          {card.damage ? <span className="fx dmg" title="Damage marked">{card.damage}</span> : null}
+          {card.effects?.slice(0, 4).map((e) => (
+            <span key={e.id} className="fx" style={e.color ? { borderColor: e.color, color: e.color } : undefined} title={[e.name, e.value, e.text].filter(Boolean).join(" · ")}>
+              {e.value ?? e.name}
+            </span>
+          ))}
+          {(card.effects?.length ?? 0) > 4 && <span className="fx more">+{card.effects!.length - 4}</span>}
+        </div>
+      ) : null}
       <CounterBadges counters={card.counters} />
     </div>
   );

@@ -27,6 +27,7 @@ PHASE_LABELS = {
 
 
 def clear_combat_markers(state: GameState) -> int:
+    state.arrows = [ar for ar in state.arrows if ar.kind not in ("attack", "block")]
     n = 0
     for c in state.cards.values():
         if c.attacking or c.blocking:
@@ -50,7 +51,7 @@ def phase(state: GameState, a: A.Phase) -> None:
     else:
         target = PHASES.index(a.to)
     new_phase = PHASES[target]
-    if state.turn.phase in COMBAT_PHASES and new_phase not in COMBAT_PHASES:
+    if state.settings.auto_clear_combat and state.turn.phase in COMBAT_PHASES and new_phase not in COMBAT_PHASES:
         clear_combat_markers(state)
     state.turn.phase = new_phase
     if state.settings.clear_mana_on_step:
@@ -65,7 +66,8 @@ def next_turn(state: GameState, a: A.NextTurn) -> None:
         nxt = ops.player(state, a.player, a.actor)
     else:
         nxt = order[(order.index(state.turn.active_player) + 1) % len(order)]
-    clear_combat_markers(state)
+    if state.settings.auto_clear_combat:
+        clear_combat_markers(state)
     state.turn.number += 1
     state.turn.active_player = nxt
     state.turn.phase = "untap"

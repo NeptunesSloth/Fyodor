@@ -85,6 +85,20 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
     else:
         view = {"id": c.id, "hidden": True, "owner": c.owner, "controller": c.controller, "zone": c.zone,
                 "face_down": c.face_down}
+    if zone in PUBLIC_ZONES or c.zone == STACK:
+        # physical markers on the table are public, even on a face-down card
+        if c.effects:
+            view["effects"] = [e.model_dump(exclude_none=True) for e in c.effects]
+        if c.damage:
+            view["damage"] = c.damage
+        if c.stack_info is not None:
+            view["stack_info"] = c.stack_info.model_dump()
+        if c.exile_group and not view.get("hidden"):
+            view["exile_group"] = c.exile_group
+        if c.choices and not view.get("hidden"):
+            view["choices"] = dict(c.choices)
+    if c.token_source is not None and not view.get("hidden"):
+        view["token_source"] = c.token_source.model_dump()
     if c.face_down and c.face_down_kind:
         view["face_down_kind"] = c.face_down_kind  # public: everyone saw how it got face down
     if c.protected:
@@ -232,6 +246,7 @@ def build_view(
         "searches": {v.viewer: v.zone for v in state.views if v.kind == "search"},
         "my_views": [v.model_dump() for v in state.views if v.viewer == viewer],
         # Public: who is still deciding, mulligan counts, how many cards someone must bottom.
+        "arrows": [ar.model_dump() for ar in state.arrows],
         "pregame": state.pregame.model_dump() if state.pregame and not state.pregame.finished else None,
         # Public: the open "anything in response?" check (its pending intent is only described).
         "response": state.response.model_dump(exclude={"intent"}) | {"has_intent": state.response.intent is not None}

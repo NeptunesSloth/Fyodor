@@ -7,7 +7,7 @@ from typing import Any
 
 from app.game import actions as A
 from app.game.errors import ActionError
-from app.game.handlers import cards, mulligan, objects, players, response, turn, zones
+from app.game.handlers import cards, marks, mulligan, objects, players, response, turn, zones
 from app.game.state import GameState
 
 Handler = Callable[[GameState, Any], None]
@@ -50,6 +50,16 @@ HANDLERS: dict[str, Handler] = {
     "set_controller": cards.set_controller,
     "set_commander": cards.set_commander,
     "return_to_owner": cards.return_to_owner,
+    "add_effect": marks.add_effect,
+    "remove_effect": marks.remove_effect,
+    "set_damage": marks.set_damage,
+    "set_choice": marks.set_choice,
+    "set_stack_info": marks.set_stack_info,
+    "set_exile_group": marks.set_exile_group,
+    "create_arrow": marks.create_arrow,
+    "remove_arrow": marks.remove_arrow,
+    "set_copy_source": marks.set_copy_source,
+    "cleanup": marks.cleanup,
     "remove_player": players.remove_player,
     "life": players.life,
     "set_life": players.set_life,
@@ -106,3 +116,5 @@ def apply(state: GameState, action: A.Action) -> None:
     except ActionError:
         state.seq -= 1
         raise
+    if state.arrows:
+        marks.prune_arrows(state)

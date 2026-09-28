@@ -375,3 +375,46 @@ kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4
 .pp-cmds { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11.5px; color: var(--room-bone-dim); }
 .pp-cmd b { color: var(--room-brass-hi); font-weight: 600; }
 .pp-cmd:not(.home) { opacity: 0.75; }
+
+/* ---------------------------------------------------------------- markers, arrows, pick mode */
+.card-effects { position: absolute; left: 3px; right: 3px; bottom: 3px; display: flex; flex-wrap: wrap; gap: 2px; pointer-events: none; }
+.card-effects .fx {
+  font-size: 9.5px; line-height: 1.2; padding: 0 4px; border-radius: 2px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  background: rgba(14, 15, 18, 0.88); color: var(--room-bone); border: 1px solid rgba(232, 225, 210, 0.35);
+}
+.card-effects .fx.dmg { background: #7a2b24; border-color: #b34a3d; color: #fff; font-weight: 700; }
+.card-marks .mark.choice { max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgba(20, 20, 24, 0.85); color: var(--room-brass-hi); }
+.card-marks .mark.src { background: rgba(20, 20, 24, 0.8); color: var(--room-bone-dim); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-marks .mark.lock { background: transparent; }
+.combat-arrows .arrow line { stroke-width: 2; opacity: 0.55; stroke-linecap: round; }
+.combat-arrows .arrow.block line { stroke: #6aa7e8; }
+.combat-arrows .arrow.target line { stroke: #d9b36a; stroke-dasharray: 6 4; }
+.combat-arrows .arrow.attack line { stroke: #d9776a; }
+.combat-arrows .arrow.custom line { stroke: #b8b2a3; stroke-dasharray: 2 4; }
+.combat-arrows .head.block { fill: #6aa7e8; }
+.combat-arrows .head.target { fill: #d9b36a; }
+.combat-arrows .head.attack { fill: #d9776a; }
+.combat-arrows .head.custom { fill: #b8b2a3; }
+.combat-arrows text { fill: var(--room-bone); font-size: 11px; paint-order: stroke; stroke: rgba(0, 0, 0, 0.8); stroke-width: 3px; text-anchor: middle; }
+.pick-bar {
+  position: fixed; z-index: 70; top: 56px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center;
+  padding: 6px 8px 6px 12px; background: rgba(20, 21, 25, 0.96); border: 1px solid var(--room-brass); border-radius: var(--room-radius); color: var(--room-bone);
+}
+.pick-bar .hint { color: var(--room-bone-dim); font-size: 12px; }
+body.picking .table-card, body.picking .player-panel, body.picking .stack-item { cursor: crosshair; }
+.picked { outline: 2px solid var(--room-brass) !important; outline-offset: 2px; }
+.stack-notes { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 3px; font-size: 11.5px; }
+.stack-x { color: var(--room-brass-hi); font-size: 13px; }
+.stack-tag { padding: 0 5px; border: 1px solid var(--room-edge); border-radius: 2px; color: var(--room-bone-dim); }
+.stack-modes { width: 100%; color: var(--room-bone); }
+.mana-toggle { align-self: flex-start; background: none; border: 0; padding: 0; color: var(--room-bone-dim); font-size: 11px; cursor: pointer; }
+.mana-pool { display: flex; gap: 2px; align-items: center; flex-wrap: wrap; }
+.mana-pip {
+  display: inline-flex; align-items: baseline; gap: 2px; padding: 0 4px; min-width: 26px; font-size: 10.5px; cursor: pointer;
+  background: rgba(0, 0, 0, 0.3); border: 1px solid var(--room-edge); border-radius: 2px; color: var(--room-bone-dim);
+}
+.mana-pip b { font-size: 12px; color: var(--room-bone-dim); }
+.mana-pip.on b { color: var(--room-bone); }
+.mana-pip.w.on { border-color: var(--mana-w); } .mana-pip.u.on { border-color: var(--mana-u); } .mana-pip.b.on { border-color: var(--mana-b); }
+.mana-pip.r.on { border-color: var(--mana-r); } .mana-pip.g.on { border-color: var(--mana-g); } .mana-pip.c.on { border-color: var(--mana-c); }
+.mana-clear { background: none; border: 0; color: var(--room-bone-dim); cursor: pointer; }

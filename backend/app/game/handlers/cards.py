@@ -6,7 +6,16 @@ from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
 from app.game.ops import group, log, pname, text
-from app.game.state import STACK, CardInstance, CopyInfo, GameState, TokenDef, split_zone, zone_key
+from app.game.state import (
+    STACK,
+    CardInstance,
+    CopyInfo,
+    GameState,
+    TokenDef,
+    TokenSource,
+    split_zone,
+    zone_key,
+)
 from app.game.visibility import publicly_visible, seers
 
 
@@ -92,6 +101,11 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
         text=a.token.text,
     )
     key = zone_key(pid, "battlefield")
+    source = None
+    if a.source_id:
+        src = ops.card(state, a.source_id)
+        if ops.visible_to_all_players(state, src):
+            source = TokenSource(source_id=src.id, name=src.name)
     base_x = a.x if a.x is not None else 20.0
     base_y = a.y if a.y is not None else 220.0
     for i, new_id in enumerate(a.r.ids):
@@ -110,13 +124,14 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
             is_token=True,
             token=spec.model_copy(),
             quantity=a.count if stacked else 1,
+            token_source=source,
         )
         state.cards[new_id] = c
         state.zone(key).append(new_id)
     what = f"{a.count} {spec.name} token{'s' if a.count != 1 else ''}" if a.count != 1 else f"a {spec.name} token"
     if stacked and a.count > 1:
         what += f" (stack ×{a.count})"
-    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" created {what}")])
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" created {what}" + (f" (from {source.name})" if source else ""))])
 
 
 def copy_card(state: GameState, a: A.CopyCard) -> None:
