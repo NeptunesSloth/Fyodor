@@ -113,6 +113,7 @@ class CardInstance(BaseModel):
     copy_of: CopyInfo | None = None
     ability: AbilityDef | None = None
     commander_key: str | None = None
+    categories: list[str] = Field(default_factory=list)  # deck-builder categories; only ever shown to the owner
     known_to: list[str] = Field(default_factory=list)  # players who know this card while hidden (or ALL)
     revealed: bool = False  # temporarily shown to everyone while in a hidden zone
     attacking: AttackTarget | None = None

@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_valid
 
 from app.api.deps import get_services
 from app.assistant import AssistantUnavailable, build_context
+from app.decks import service as deck_service
 from app.decks.repository import DeckNotFound
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
@@ -176,11 +177,12 @@ def _setup_players(services: Services, body: CreateGameIn) -> list[PlayerSetup]:
             deck = services.decks.get(p.deck_id)
         except DeckNotFound:
             raise HTTPException(404, f"Deck not found for {p.name}") from None
-        names = services.cards.get_many([e.printing_id for e in deck.entries if e.printing_id])
+        entries, _ = deck_service.reconcile_entries(deck.entries, services.cards)
+        names = services.cards.get_many([e.printing_id for e in entries if e.printing_id])
         cards = [
             DeckCard(e.section, e.quantity, names[e.printing_id]["name"] if e.printing_id in names else e.name,
-                     e.printing_id if e.printing_id in names else None)
-            for e in deck.entries
+                     e.printing_id if e.printing_id in names else None, categories=list(e.categories))
+            for e in entries
         ]
         setups.append(PlayerSetup(name=p.name, deck_id=deck.id, deck_name=deck.name, cards=cards, color=p.color))
     return setups

@@ -30,6 +30,7 @@ class DeckCard:
     quantity: int
     name: str
     printing_id: str | None
+    categories: list[str] = field(default_factory=list)  # Archidekt categories (private to the owner)
 
 
 @dataclass
@@ -81,7 +82,8 @@ def new_game(
             for _ in range(entry.quantity):
                 cid = new_id()
                 card = CardInstance(
-                    id=cid, card_id=entry.printing_id, name=entry.name, owner=pid, controller=pid, zone=zone_key(pid, zone)
+                    id=cid, card_id=entry.printing_id, name=entry.name, owner=pid, controller=pid, zone=zone_key(pid, zone),
+                    categories=entry.categories[:10],
                 )
                 if entry.section == "commander":
                     commander_count += 1

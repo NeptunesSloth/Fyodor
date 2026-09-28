@@ -73,3 +73,13 @@ export function useCard(id: string | null | undefined): CardData | undefined {
   if (id && !card) requestCards([id]);
   return card;
 }
+
+/** Re-fetch cards whose data changed on the server (e.g. images were just cached). */
+export function refreshCards(ids: string[]): void {
+  useCardCache.setState((s) => {
+    const cards = { ...s.cards };
+    for (const id of ids) delete cards[id];
+    return { cards };
+  });
+  requestCards(ids);
+}

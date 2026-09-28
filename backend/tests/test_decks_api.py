@@ -56,8 +56,10 @@ def test_create_get_update_duplicate_delete(client):
     assert dup["name"] == "Goblins v2 (copy)"
     assert len(dup["entries"]) == len(updated["entries"])
 
-    export = client.get(f"/api/decks/{deck['id']}/export").text
+    export = client.get(f"/api/decks/{deck['id']}/export", params={"format": "plain"}).text
     assert export.startswith("Commander\n1 Krenko, Mob Boss")
+    archidekt_text = client.get(f"/api/decks/{deck['id']}/export").text
+    assert archidekt_text.startswith("1x Krenko, Mob Boss (ddn) 13 [Commander{top}]")
 
     assert client.delete(f"/api/decks/{deck['id']}").status_code == 204
     assert client.get(f"/api/decks/{deck['id']}").status_code == 404

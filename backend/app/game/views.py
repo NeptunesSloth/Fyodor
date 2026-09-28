@@ -49,6 +49,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
             view["ability"] = c.ability.model_dump()
         if c.commander_key:
             view["commander_key"] = c.commander_key
+        if c.categories and viewer in (c.owner, OMNISCIENT):
+            view["categories"] = list(c.categories)
     else:
         view = {"id": c.id, "hidden": True, "owner": c.owner, "controller": c.controller, "zone": c.zone,
                 "face_down": c.face_down}

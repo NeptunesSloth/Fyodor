@@ -258,3 +258,29 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 .search-results li .type { grid-column: 1 / -1; font-size: 11.5px; }
 .search-results li.active { background: var(--panel); }
 @media (max-width: 900px) { .editor-grid, .import-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Archidekt import & deck metadata ---------- */
+.import-sources { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+.source-group { display: flex; align-items: center; gap: 10px; }
+.source-brand { font-weight: 700; color: var(--accent-2); letter-spacing: 0.02em; }
+.source-brand.dim { color: var(--text-dim); font-weight: 600; }
+.drop-file {
+  border: 2px dashed var(--line-2); border-radius: 10px; min-height: 180px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 6px; cursor: pointer; text-align: center; padding: 16px;
+}
+.drop-file:hover { border-color: var(--accent); }
+.preview-name { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.import-stats { list-style: none; padding: 0; margin: 4px 0 8px; font-size: 13.5px; line-height: 1.7; }
+.import-stats li.ok { color: var(--text); }
+.import-stats .sub { list-style: none; padding-left: 16px; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+.cat-chips { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 2px; }
+.entry-cats { display: inline-flex; gap: 3px; cursor: pointer; }
+.entry-cats .cat { font-size: 10.5px; padding: 0 6px; border-radius: 999px; background: #2a2f3a; color: var(--text-dim); white-space: nowrap; }
+.finish { font-size: 10px; font-weight: 800; padding: 0 4px; border-radius: 3px; color: #1a1408; background: linear-gradient(135deg, #f7e27d, #9fe3ff, #f5a6ff); }
+.finish.etched { background: linear-gradient(135deg, #d8c7a3, #fff4d6); }
+.fallback { color: var(--warn); cursor: help; font-size: 12px; }
+.progress { position: relative; height: 18px; background: var(--bg-2); border-radius: 999px; overflow: hidden; border: 1px solid var(--line-2); }
+.progress > div { position: absolute; inset: 0 auto 0 0; background: var(--accent); transition: width 0.3s; }
+.progress > span { position: relative; font-size: 11px; display: block; text-align: center; line-height: 16px; color: #111; mix-blend-mode: screen; }
+.source-panel a { color: var(--accent-2); }
+.diff-list { list-style: none; padding: 0; margin: 0 0 10px; line-height: 1.7; font-size: 13.5px; }

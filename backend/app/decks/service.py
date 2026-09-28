@@ -3,11 +3,28 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any, cast
 
+from app.cards.names import normalize_name
 from app.cards.repository import CardRepository
-from app.decks.models import Deck, DeckEntry, Section, UnresolvedLine, Warning
-from app.decks.parser import ParsedDeck, parse_deck_text
+from app.decks import archidekt
+from app.decks.models import (
+    Deck,
+    DeckCategory,
+    DeckEntry,
+    DeckImportRequest,
+    DeckSource,
+    Finish,
+    Requested,
+    Resolution,
+    Section,
+    UnresolvedLine,
+    Warning,
+)
+from app.decks.parser import ParsedDeck, ParsedEntry, parse_deck_text, section_for_categories
 
 COLOR_ORDER = "WUBRG"
 
@@ -19,57 +36,299 @@ def is_basic_or_unlimited(card: dict[str, Any] | None) -> bool:
     return "Basic" in (card.get("type_line") or "") or "a deck can have any number of cards named" in text
 
 
-def resolve_parsed(parsed: ParsedDeck, cards: CardRepository) -> tuple[list[DeckEntry], list[UnresolvedLine]]:
+@dataclass
+class ImportReport:
+    """What an import found; shown in the preview before saving."""
+
+    source_kind: str = "text"
+    cards_total: int = 0  # quantity sum, excluding the maybeboard
+    entries: int = 0
+    resolved: int = 0  # quantity sum of cards resolved by name/identity
+    exact_printings: int = 0
+    fallbacks: list[dict[str, Any]] = field(default_factory=list)
+    unresolved: list[UnresolvedLine] = field(default_factory=list)
+    commanders: list[str] = field(default_factory=list)
+    categories: list[str] = field(default_factory=list)
+    sections: dict[str, int] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "source_kind": self.source_kind,
+            "cards_total": self.cards_total,
+            "entries": self.entries,
+            "resolved": self.resolved,
+            "exact_printings": self.exact_printings,
+            "fallbacks": self.fallbacks,
+            "unresolved": [u.model_dump() for u in self.unresolved],
+            "commanders": self.commanders,
+            "categories": self.categories,
+            "sections": self.sections,
+            "errors": self.errors,
+            "notes": self.notes,
+        }
+
+
+def _requested(item: ParsedEntry, card: dict[str, Any] | None) -> Requested | None:
+    asked = Requested(name=item.name, set_code=item.set_code, collector_number=item.collector_number, printing_id=item.printing_id)
+    if card is None:
+        return asked
+    same_name = normalize_name(item.name) in {normalize_name(card["name"]), *(normalize_name(f["name"]) for f in card["faces"])}
+    same_print = (
+        (not item.printing_id or item.printing_id == card["id"])
+        and (not item.set_code or item.set_code == card["set_code"])
+        and (not item.collector_number or item.collector_number == card["collector_number"])
+    )
+    return None if same_name and same_print else asked
+
+
+def resolve_parsed(parsed: ParsedDeck, cards: CardRepository) -> tuple[list[DeckEntry], ImportReport]:
+    report = ImportReport(source_kind=parsed.source_kind, errors=list(parsed.errors), notes=list(parsed.notes))
     entries: list[DeckEntry] = []
-    unresolved: list[UnresolvedLine] = []
-    merged: dict[tuple[str, str], DeckEntry] = {}
+    merged: dict[tuple[Any, ...], DeckEntry] = {}
     for item in parsed.entries:
-        card = cards.resolve(item.name, item.set_code, item.collector_number, prefer_tokens=item.section == "tokens")
+        if item.bracket_token:
+            token = item.bracket_token
+            if cards.has_set(token):
+                item.set_code = token.lower()
+            else:
+                item.categories = [token, *item.categories]
+                parsed.note_category(token)
+                if item.section == "main":
+                    item.section = section_for_categories(item.categories)
+            item.bracket_token = None
+        card, resolution = cards.resolve_detailed(
+            item.name,
+            item.set_code,
+            item.collector_number,
+            printing_id=item.printing_id,
+            oracle_id=item.oracle_id,
+            prefer_tokens=item.section == "tokens",
+        )
+        section = cast(Section, item.section)
         if card is None:
-            unresolved.append(
+            report.unresolved.append(
                 UnresolvedLine(name=item.name, section=item.section, quantity=item.quantity, suggestions=cards.suggest(item.name))
             )
-            entries.append(DeckEntry(section=cast(Section, item.section), quantity=item.quantity, name=item.name,
-                                     set_code=item.set_code, collector_number=item.collector_number))
+            entries.append(DeckEntry(section=section, quantity=item.quantity, name=item.name, set_code=item.set_code,
+                                     collector_number=item.collector_number, finish=cast(Finish, item.finish),
+                                     categories=item.categories, tags=item.tags, resolution="unresolved",
+                                     requested=_requested(item, None), oracle_id=item.oracle_id))
             continue
-        key = (item.section, card["id"])
+        if resolution in ("set", "fallback"):
+            wanted = " ".join(x for x in [
+                (item.set_code or "").upper(), f"#{item.collector_number}" if item.collector_number else "",
+            ] if x) or "the requested printing"
+            report.fallbacks.append({
+                "name": card["name"],
+                "requested": wanted,
+                "used": f"{card['set_code'].upper()} #{card['collector_number']}",
+                "resolution": resolution,
+            })
+        key = (section, card["id"], item.finish, tuple(item.categories))
         if key in merged:
             merged[key].quantity = min(999, merged[key].quantity + item.quantity)
             continue
         entry = DeckEntry(
-            section=cast(Section, item.section),
+            section=section,
             quantity=item.quantity,
             name=card["name"],
             printing_id=card["id"],
+            oracle_id=card["oracle_id"],
             set_code=card["set_code"],
             collector_number=card["collector_number"],
+            finish=cast(Finish, item.finish),
+            categories=item.categories,
+            tags=item.tags,
+            resolution=cast(Resolution, resolution),
+            requested=_requested(item, card),
         )
         merged[key] = entry
         entries.append(entry)
-    return entries, unresolved
+
+    for e in entries:
+        report.sections[e.section] = report.sections.get(e.section, 0) + e.quantity
+        if e.section != "maybeboard":
+            report.cards_total += e.quantity
+        if e.printing_id:
+            report.resolved += e.quantity
+            if e.resolution == "exact":
+                report.exact_printings += e.quantity
+        if e.section == "commander":
+            report.commanders.append(e.name)
+    report.entries = len(entries)
+    report.categories = [c.name for c in parsed.categories.values()]
+    return entries, report
+
+
+def deck_categories(parsed: ParsedDeck) -> list[DeckCategory]:
+    return [DeckCategory(name=c.name, included_in_deck=c.included_in_deck, premier=c.premier) for c in parsed.categories.values()]
+
+
+@dataclass
+class ImportResult:
+    parsed: ParsedDeck
+    entries: list[DeckEntry]
+    report: ImportReport
+    source: DeckSource | None
+    format: str | None
+
+
+Fetcher = Callable[[str], dict[str, Any]]
+
+
+def import_any(req: DeckImportRequest, cards: CardRepository, *, fetch: Fetcher | None = None) -> ImportResult:
+    """Import from an Archidekt URL/id, an Archidekt JSON file, or deck text (any supported format)."""
+    now = datetime.now(UTC).isoformat(timespec="seconds")
+    if req.archidekt:
+        deck_id = archidekt.extract_deck_id(req.archidekt)
+        if deck_id is None:
+            raise archidekt.ArchidektError("That doesn't look like an Archidekt deck URL (https://archidekt.com/decks/12345/…).")
+        if fetch is None:
+            raise archidekt.ArchidektError("Archidekt URL import is not available")
+        data = fetch(deck_id)
+        parsed = archidekt.parse_deck_json(data)
+        entries, report = resolve_parsed(parsed, cards)
+        source = DeckSource(kind="archidekt", id=deck_id, url=archidekt.DECK_URL.format(id=deck_id), name=parsed.name,
+                            updated_at=str(data.get("updatedAt") or "") or None, imported_at=now)
+        return ImportResult(parsed, entries, report, source, archidekt.deck_format(data))
+    raw = req.json_data if req.json_data is not None else req.text
+    if raw.lstrip().startswith("{"):
+        data = archidekt.load_json_text(raw)
+        parsed = archidekt.parse_deck_json(data)
+        entries, report = resolve_parsed(parsed, cards)
+        deck_id = str(data.get("id")) if data.get("id") else None
+        source = DeckSource(kind="archidekt", id=deck_id, url=archidekt.DECK_URL.format(id=deck_id) if deck_id else None,
+                            name=parsed.name, updated_at=str(data.get("updatedAt") or "") or None, imported_at=now)
+        return ImportResult(parsed, entries, report, source, archidekt.deck_format(data))
+    parsed = parse_deck_text(raw)
+    entries, report = resolve_parsed(parsed, cards)
+    return ImportResult(parsed, entries, report, None, None)
 
 
 def import_text(text: str, cards: CardRepository) -> tuple[ParsedDeck, list[DeckEntry], list[UnresolvedLine]]:
     parsed = parse_deck_text(text)
-    entries, unresolved = resolve_parsed(parsed, cards)
-    return parsed, entries, unresolved
+    entries, report = resolve_parsed(parsed, cards)
+    return parsed, entries, report.unresolved
 
 
 def resolve_entries(entries: list[DeckEntry], cards: CardRepository) -> list[DeckEntry]:
-    """Fill in printing ids for entries edited by hand (name only)."""
-    out = []
+    """Fill in printing/oracle ids for entries edited by hand or left behind by a card-DB update."""
+    return reconcile_entries(entries, cards)[0]
+
+
+def reconcile_entries(entries: list[DeckEntry], cards: CardRepository) -> tuple[list[DeckEntry], list[str]]:
+    """Repair entries whose printing is missing from the local DB (e.g. after a Scryfall update).
+
+    Stable identities are tried in order (printing id → set/number → oracle id → name), so a
+    changed or removed printing never breaks a deck. Returns the entries and a note per repair.
+    """
+    known = cards.get_many([e.printing_id for e in entries if e.printing_id]) if cards.available else {}
+    out: list[DeckEntry] = []
+    notes: list[str] = []
     for entry in entries:
-        if entry.printing_id and cards.get(entry.printing_id):
+        card = known.get(entry.printing_id or "")
+        if card is not None:
+            if entry.oracle_id != card["oracle_id"]:
+                entry = entry.model_copy(update={"oracle_id": card["oracle_id"]})
             out.append(entry)
             continue
-        card = cards.resolve(entry.name, entry.set_code, entry.collector_number)
-        if card:
-            entry = entry.model_copy(update={"printing_id": card["id"], "name": card["name"],
-                                             "set_code": card["set_code"], "collector_number": card["collector_number"]})
+        if not cards.available:
+            out.append(entry)
+            continue
+        found, resolution = cards.resolve_detailed(entry.name, entry.set_code, entry.collector_number, oracle_id=entry.oracle_id)
+        if found is None:
+            out.append(entry.model_copy(update={"printing_id": None, "resolution": "unresolved"}))
+            continue
+        if entry.printing_id:
+            notes.append(f"{entry.name}: printing {entry.printing_id[:8]}… is no longer in the card database; using "
+                         f"{found['set_code'].upper()} #{found['collector_number']}.")
+        out.append(entry.model_copy(update={
+            "printing_id": found["id"], "oracle_id": found["oracle_id"], "name": found["name"],
+            "set_code": found["set_code"], "collector_number": found["collector_number"],
+            "resolution": entry.resolution if entry.resolution == "manual" else resolution,
+        }))
+    return out, notes
+
+
+# ---------------------------------------------------------------------------- source diff
+
+
+def _key(e: DeckEntry) -> tuple[str, str]:
+    return (e.oracle_id or normalize_name(e.name), "maybe" if e.section == "maybeboard" else ("side" if e.section == "sideboard" else "deck"))
+
+
+def _index(entries: list[DeckEntry]) -> dict[tuple[str, str], DeckEntry]:
+    out: dict[tuple[str, str], DeckEntry] = {}
+    for e in entries:
+        k = _key(e)
+        if k in out:
+            out[k] = out[k].model_copy(update={"quantity": out[k].quantity + e.quantity,
+                                               "categories": list(dict.fromkeys(out[k].categories + e.categories))})
         else:
-            entry = entry.model_copy(update={"printing_id": None})
-        out.append(entry)
+            out[k] = e
     return out
+
+
+def diff_entries(old: list[DeckEntry], new: list[DeckEntry]) -> dict[str, Any]:
+    """Differences between two entry lists, keyed by stable card identity and board."""
+    a, b = _index(old), _index(new)
+    added, removed, printing, categories, sections = [], [], [], [], []
+    for k, e in b.items():
+        before = a.get(k)
+        if before is None:
+            added.append({"name": e.name, "quantity": e.quantity, "section": e.section})
+            continue
+        if e.quantity > before.quantity:
+            added.append({"name": e.name, "quantity": e.quantity - before.quantity, "section": e.section})
+        elif e.quantity < before.quantity:
+            removed.append({"name": e.name, "quantity": before.quantity - e.quantity, "section": e.section})
+        if e.printing_id and before.printing_id and e.printing_id != before.printing_id:
+            printing.append({"name": e.name, "from": f"{(before.set_code or '').upper()} #{before.collector_number}",
+                             "to": f"{(e.set_code or '').upper()} #{e.collector_number}"})
+        if sorted(e.categories) != sorted(before.categories):
+            categories.append({"name": e.name, "from": before.categories, "to": e.categories})
+        if e.section != before.section:
+            sections.append({"name": e.name, "from": before.section, "to": e.section})
+    for k, e in a.items():
+        if k not in b:
+            removed.append({"name": e.name, "quantity": e.quantity, "section": e.section})
+    changed = bool(added or removed or printing or categories or sections)
+    return {"changed": changed, "added": added, "removed": removed, "printing_changed": printing,
+            "category_changed": categories, "section_changed": sections}
+
+
+def merge_source(local: list[DeckEntry], snapshot: list[DeckEntry], remote: list[DeckEntry]) -> tuple[list[DeckEntry], list[str]]:
+    """Three-way merge: apply remote changes since ``snapshot`` without losing local edits.
+
+    For each card: unchanged locally → take the remote version; edited locally → keep the
+    local version (reported as a conflict); new remotely → add; removed remotely and
+    unchanged locally → remove.
+    """
+    loc, snap, rem = _index(local), _index(snapshot), _index(remote)
+    conflicts: list[str] = []
+    result: dict[tuple[str, str], DeckEntry] = {}
+    for k in dict.fromkeys([*loc, *rem]):
+        l_e, s_e, r_e = loc.get(k), snap.get(k), rem.get(k)
+        local_unchanged = (l_e is None and s_e is None) or (
+            l_e is not None and s_e is not None and l_e.quantity == s_e.quantity and l_e.printing_id == s_e.printing_id
+            and l_e.section == s_e.section
+        )
+        if local_unchanged:
+            if r_e is not None:
+                result[k] = r_e
+        elif l_e is None and s_e is not None:
+            if r_e is not None and (r_e.quantity != s_e.quantity or r_e.printing_id != s_e.printing_id):
+                conflicts.append(f"{r_e.name}: removed locally but changed on Archidekt; kept removed")
+        elif l_e is not None:
+            result[k] = l_e
+            if r_e is not None and s_e is not None and (r_e.quantity != s_e.quantity or r_e.printing_id != s_e.printing_id):
+                conflicts.append(f"{l_e.name}: edited both locally and on Archidekt; kept the local version")
+            elif r_e is None and s_e is not None:
+                conflicts.append(f"{l_e.name}: removed on Archidekt but edited locally; kept")
+    order = {k: i for i, k in enumerate([*loc, *rem])}
+    return [result[k] for k in sorted(result, key=lambda k: order[k])], conflicts
 
 
 def deck_cards(deck: Deck, cards: CardRepository) -> dict[str, dict[str, Any]]:

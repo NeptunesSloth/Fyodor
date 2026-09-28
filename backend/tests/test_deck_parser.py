@@ -12,7 +12,6 @@ from app.decks.parser import DeckTextTooLarge, format_deck_text, parse_deck_text
         ("1x Sol Ring", 1, "Sol Ring", None, None),
         ("Sol Ring", 1, "Sol Ring", None, None),
         ("1 Sol Ring (CMM)", 1, "Sol Ring", "cmm", None),
-        ("1 Sol Ring [CMM]", 1, "Sol Ring", "cmm", None),
         ("1 Sol Ring (CMM) 410", 1, "Sol Ring", "cmm", "410"),
         ("10 Island", 10, "Island", None, None),
         ("4 x Lightning Bolt", 4, "Lightning Bolt", None, None),
@@ -30,6 +29,12 @@ def test_parse_line_variants(line, qty, name, set_code, number):
     entry = parse_line(line)
     assert entry is not None
     assert (entry.quantity, entry.name, entry.set_code, entry.collector_number) == (qty, name, set_code, number)
+
+
+def test_single_bracket_token_is_left_to_the_resolver():
+    entry = parse_line("1 Sol Ring [CMM]")
+    assert (entry.name, entry.set_code, entry.bracket_token, entry.categories) == ("Sol Ring", None, "CMM", [])
+    assert parse_line("1x Sol Ring [Ramp]").bracket_token == "Ramp"
 
 
 def test_parse_line_flags():

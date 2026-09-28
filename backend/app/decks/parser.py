@@ -68,8 +68,26 @@ class ParsedEntry:
     section: str = "main"
     set_code: str | None = None
     collector_number: str | None = None
-    foil: bool = False
+    finish: str = "nonfoil"
     line: int = 0
+    categories: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    # "[XYZ]" with a single token could be a set code or an Archidekt category; the resolver
+    # decides (known set code -> set, otherwise category).
+    bracket_token: str | None = None
+    printing_id: str | None = None  # exact Scryfall printing (Archidekt JSON)
+    oracle_id: str | None = None  # Scryfall oracle id (Archidekt JSON)
+
+    @property
+    def foil(self) -> bool:
+        return self.finish != "nonfoil"
+
+
+@dataclass
+class CategoryInfo:
+    name: str
+    included_in_deck: bool = True
+    premier: bool = False
 
 
 @dataclass
@@ -78,9 +96,20 @@ class ParsedDeck:
     entries: list[ParsedEntry] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    categories: dict[str, CategoryInfo] = field(default_factory=dict)
+    source_kind: str = "text"
 
     def count(self, section: str) -> int:
         return sum(e.quantity for e in self.entries if e.section == section)
+
+    def note_category(self, name: str, *, included: bool | None = None, premier: bool | None = None) -> None:
+        info = self.categories.get(name.lower())
+        if info is None:
+            info = self.categories[name.lower()] = CategoryInfo(name=name)
+        if included is not None:
+            info.included_in_deck = included
+        if premier is not None:
+            info.premier = premier
 
 
 class DeckTextTooLarge(ValueError):
@@ -94,8 +123,43 @@ def _header_section(line: str) -> str | None:
     return _HEADER_ALIASES.get(text)
 
 
-def parse_line(raw: str) -> ParsedEntry | None:
-    """Parse one card line. Returns None when the line holds no card."""
+_CATEGORY_FLAG = re.compile(r"\{([^}]*)\}")
+COMMANDER_NAMES = {"commander", "commanders"}
+SIDEBOARD_NAMES = {"sideboard", "side"}
+MAYBE_NAMES = {"maybeboard", "maybe", "considering"}
+
+
+def split_category(raw: str) -> tuple[str, set[str]]:
+    """``"Maybeboard{noDeck}{noPrice}"`` -> ``("Maybeboard", {"nodeck", "noprice"})``."""
+    flags = {f.strip().lower() for f in _CATEGORY_FLAG.findall(raw)}
+    return _CATEGORY_FLAG.sub("", raw).strip(), flags
+
+
+def section_for_categories(
+    categories: list[str], *, premier: set[str] | None = None, excluded: set[str] | None = None, companion: bool = False
+) -> str:
+    """Map Archidekt categories to a deck section (docs/ARCHIDEKT_COMPATIBILITY.md §3)."""
+    lowered = [c.lower() for c in categories]
+    premier = premier or set()
+    excluded = excluded or set()
+    if companion or "companion" in lowered:
+        return "companion"
+    if lowered and (lowered[0] in COMMANDER_NAMES or lowered[0] in premier):
+        return "commander"
+    if any(c in COMMANDER_NAMES for c in lowered):
+        return "commander"
+    if any(c in SIDEBOARD_NAMES for c in lowered):
+        return "sideboard"
+    if any(c in MAYBE_NAMES for c in lowered) or (lowered and lowered[0] in excluded):
+        return "maybeboard"
+    return "main"
+
+
+def parse_line(raw: str, deck: ParsedDeck | None = None) -> ParsedEntry | None:
+    """Parse one card line. Returns None when the line holds no card.
+
+    ``deck`` (optional) collects category flags such as ``{top}`` / ``{noDeck}``.
+    """
     text = raw.strip()
     if not text:
         return None
@@ -113,19 +177,34 @@ def parse_line(raw: str) -> ParsedEntry | None:
         if suffix:
             quantity, text = int(suffix.group("qty")), suffix.group("rest")
 
-    foil = False
-    text = _CARET_TAG.sub("", text)
-    categories: list[str] = []
+    finish = "nonfoil"
+    tags: list[str] = []
+    caret = _CARET_TAG.search(text)
+    if caret:
+        for part in caret.group(0).strip().strip("^").split(","):
+            part = part.strip()
+            if part and not re.fullmatch(r"#[0-9a-fA-F]{3,8}", part):
+                tags.append(part)
+        text = text[: caret.start()]
+
+    raw_categories: list[str] = []
+    bracket_token: str | None = None
     cat_match = _CATEGORY.search(text)
-    # A trailing [..] after a set/number (or containing a comma / non-set text) is an Archidekt category.
-    if cat_match and (_SET_NUM.search(text[: cat_match.start()]) or not re.fullmatch(r"[A-Za-z0-9]{2,6}", cat_match.group("cats"))):
-        categories = [c.strip() for c in re.split(r"[,;]", cat_match.group("cats")) if c.strip()]
+    if cat_match:
+        inner = cat_match.group("cats").strip()
+        has_set_before = _SET_NUM.search(text[: cat_match.start()]) is not None
+        if not has_set_before and re.fullmatch(r"[A-Za-z0-9]{2,6}", inner):
+            bracket_token = inner  # set code or single category; decided by the resolver
+        else:
+            raw_categories = [c.strip() for c in re.split(r"[,;]", inner) if c.strip()]
         text = text[: cat_match.start()]
 
     for flag in _FLAGS.findall(text):
         f = flag.upper()
-        if f in ("F", "E", "FOIL", "ETCHED"):
-            foil = True
+        if f in ("F", "FOIL"):
+            finish = "foil"
+        elif f in ("E", "ETCHED"):
+            finish = "etched"
         elif f in ("CMDR", "COMMANDER"):
             section = "commander"
     text = _FLAGS.sub("", text)
@@ -143,16 +222,27 @@ def parse_line(raw: str) -> ParsedEntry | None:
         number = set_match.group("num")
         text = text[: set_match.start()] + text[set_match.end() :]
 
-    for cat in categories:
-        name = re.sub(r"\{.*?\}", "", cat).strip().lower()
-        if name in ("commander", "commanders"):
-            section = "commander"
-        elif name in ("maybeboard", "maybe", "considering"):
-            section = section or "maybeboard"
-        elif name in ("sideboard", "side"):
-            section = section or "sideboard"
-        elif name == "companion":
-            section = section or "companion"
+    categories: list[str] = []
+    premier: set[str] = set()
+    excluded: set[str] = set()
+    for raw_cat in raw_categories:
+        name, flags = split_category(raw_cat)
+        if not name:
+            continue
+        categories.append(name)
+        if "top" in flags:
+            premier.add(name.lower())
+        if "nodeck" in flags:
+            excluded.add(name.lower())
+        if deck is not None:
+            deck.note_category(
+                name,
+                included=False if "nodeck" in flags else None,
+                premier=True if "top" in flags else None,
+            )
+    if categories and section is None:
+        mapped = section_for_categories(categories, premier=premier, excluded=excluded)
+        section = mapped if mapped != "main" else None
 
     name = re.sub(r"\s+", " ", text).strip().strip("\"'")
     if not name or not re.search(r"[A-Za-z]", name):
@@ -163,7 +253,10 @@ def parse_line(raw: str) -> ParsedEntry | None:
         section=section or "main",
         set_code=set_code,
         collector_number=number,
-        foil=foil,
+        finish=finish,
+        categories=categories,
+        tags=tags,
+        bracket_token=bracket_token,
     )
 
 
@@ -202,7 +295,7 @@ def parse_deck_text(text: str) -> ParsedDeck:
             continue
         if line.startswith(("//", "#")):
             continue
-        entry = parse_line(line)
+        entry = parse_line(line, deck)
         if entry is None:
             deck.errors.append(f"Line {lineno}: could not read {line[:60]!r}")
             continue

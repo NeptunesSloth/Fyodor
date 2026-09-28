@@ -7,7 +7,7 @@ export function addCard(entries: DeckEntry[], card: Pick<CardData, "id" | "name"
   if (idx >= 0) return changeQuantity(entries, idx, quantity);
   return [
     ...entries,
-    { section, quantity, name: card.name, printing_id: card.id, set_code: card.set_code, collector_number: card.collector_number },
+    { section, quantity, name: card.name, printing_id: card.id, set_code: card.set_code, collector_number: card.collector_number, resolution: "manual" },
   ];
 }
 
@@ -52,7 +52,9 @@ export function setCommander(entries: DeckEntry[], index: number, keepExisting =
 
 export function setPrinting(entries: DeckEntry[], index: number, card: Pick<CardData, "id" | "name" | "set_code" | "collector_number">): DeckEntry[] {
   return entries.map((e, i) =>
-    i === index ? { ...e, printing_id: card.id, name: card.name, set_code: card.set_code, collector_number: card.collector_number } : e,
+    i === index
+      ? { ...e, printing_id: card.id, name: card.name, set_code: card.set_code, collector_number: card.collector_number, resolution: "manual" as const, requested: null }
+      : e,
   );
 }
 

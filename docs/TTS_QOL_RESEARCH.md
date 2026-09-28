@@ -17,7 +17,7 @@ Items in *italics* existed before this round of work.
 | Feature | TTS behavior / problem | Fyodor improvement | Deps | Status |
 |---|---|---|---|---|
 | 3D card manipulation | Physics objects. Cards bounce, slide off the table, and merge into decks when colliders touch. | Kinematic cards: lift while dragging, eased settle, clamped to the table, recovery to the last safe position. Stacking is always explicit. | three.js scene | ⬜ |
-| Archidekt import | Needs a third-party deck builder mod or manual image sheets | URL import (public JSON, exact Scryfall printing ids), paste/upload export, categories, finishes, preview with fallbacks, cache artwork | card DB | ⬜ |
+| Archidekt import | Needs a third-party deck builder mod or manual image sheets | URL import (public JSON, exact Scryfall printing ids), paste/upload export, categories, finishes, preview with fallbacks, cache artwork | card DB | ✅ |
 | Private deck search | Search spreads the deck face up in a private view; you scroll through 100 cards, drag one out, close, right-click, shuffle | Hover deck → `S` → type `sol` → click → choose destination → one-click **Shuffle**. Scryfall syntax (`t:`, `o:`, `c:`, `mv:`, `s:`), Archidekt category filter, *Search without shuffle*. Opponents only see "X is searching". | *engine search sessions* | 🟡 |
 | Instant inspection | Alt-zoom shows only the image | Hold `Space` over any card: large image, Oracle text, counters, notes, controller/owner, attachments. Wheel resizes; `Tab` previews the other face without changing the table. Cached images appear instantly. | texture cache | 🟡 |
 | Action-level undo | Rewind loads a snapshot from seconds ago, which is coarse and unpredictable | *Every change is one validated action. Undo/redo one action.* New: **History** panel (turn, time, who, what), **Restore to here**, undo policy (everyone / own actions / host). | *history* | 🟡 |
@@ -55,8 +55,8 @@ Items in *italics* existed before this round of work.
 | Pings | Pointer arrow | `Alt`+click pings a spot or card for everyone for 3 seconds. Nobody's camera moves. | WS event | ⬜ |
 | Picture-in-picture | — | Pinnable live mini-views of another area (opponent battlefield, stack) | camera | ⬜ planned (the camera module has hooks for secondary views) |
 | Command palette | — | `Ctrl+K`: fuzzy search over every registered action (core, tokens, macros, camera, game) | registry | ⬜ |
-| Archidekt categories in search | — | Category filter in private library search, never shown to opponents | Archidekt | ⬜ |
-| Deck version diff | — | **Check source**: added/removed/printing/category changes, then Apply / Ignore | Archidekt | ⬜ |
+| Archidekt categories in search | — | Category filter in private library search, never shown to opponents | Archidekt | 🟡 categories reach the game privately; search filter UI pending |
+| Deck version diff | — | **Check source**: added/removed/printing/category changes, then Apply / Ignore | Archidekt | ✅ |
 
 ## P3: multiplayer and polish
 

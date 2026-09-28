@@ -1,0 +1,641 @@
+{
+ "id": 424242,
+ "name": "Atraxa Counters (fixture)",
+ "createdAt": "2025-01-01T00:00:00Z",
+ "updatedAt": "2025-06-01T12:00:00Z",
+ "deckFormat": 3,
+ "private": false,
+ "owner": {
+  "id": 1,
+  "username": "fixture"
+ },
+ "categories": [
+  {
+   "id": 1,
+   "name": "Commander",
+   "isPremier": true,
+   "includedInDeck": true,
+   "includedInPrice": true
+  },
+  {
+   "id": 2,
+   "name": "Ramp",
+   "isPremier": false,
+   "includedInDeck": true,
+   "includedInPrice": true
+  },
+  {
+   "id": 3,
+   "name": "Land",
+   "isPremier": false,
+   "includedInDeck": true,
+   "includedInPrice": true
+  },
+  {
+   "id": 4,
+   "name": "Interaction",
+   "isPremier": false,
+   "includedInDeck": true,
+   "includedInPrice": true
+  },
+  {
+   "id": 5,
+   "name": "Counterspell",
+   "isPremier": false,
+   "includedInDeck": true,
+   "includedInPrice": true
+  },
+  {
+   "id": 6,
+   "name": "Creature",
+   "isPremier": false,
+   "includedInDeck": true,
+   "includedInPrice": true
+  },
+  {
+   "id": 7,
+   "name": "Removal",
+   "isPremier": false,
+   "includedInDeck": true,
+   "includedInPrice": true
+  },
+  {
+   "id": 8,
+   "name": "Sideboard",
+   "isPremier": false,
+   "includedInDeck": true,
+   "includedInPrice": true
+  },
+  {
+   "id": 9,
+   "name": "Maybeboard",
+   "isPremier": false,
+   "includedInDeck": false,
+   "includedInPrice": false
+  },
+  {
+   "id": 10,
+   "name": "Wishlist",
+   "isPremier": false,
+   "includedInDeck": false,
+   "includedInPrice": false
+  }
+ ],
+ "cards": [
+  {
+   "id": 1001,
+   "categories": [
+    "Commander"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Normal",
+   "quantity": 1,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50001,
+    "uid": "24d72718-daaf-5525-99bc-84986938f0c8",
+    "collectorNumber": "190",
+    "edition": {
+     "editioncode": "2x2",
+     "editionname": "2X2 Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "2dbedcd9-1825-51be-8d86-bb674bc36873",
+     "name": "Atraxa, Praetors' Voice",
+     "layout": "normal",
+     "faces": [],
+     "manaCost": "{G}{W}{U}{B}",
+     "types": [
+      "Legendary Creature \u2014 Phyrexian Angel Horror"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1002,
+   "categories": [
+    "Ramp"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Foil",
+   "quantity": 1,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50002,
+    "uid": "9feb3766-254b-52ca-8604-bf95f242a98f",
+    "collectorNumber": "410",
+    "edition": {
+     "editioncode": "cmm",
+     "editionname": "CMM Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "62a100d3-6010-59ec-b56f-0167a3483e7e",
+     "name": "Sol Ring",
+     "layout": "normal",
+     "faces": [],
+     "manaCost": "{1}",
+     "types": [
+      "Artifact"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1003,
+   "categories": [
+    "Ramp"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Normal",
+   "quantity": 1,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50003,
+    "uid": "d339dbfb-99cc-5d90-a865-f5481d7c9a33",
+    "collectorNumber": "370",
+    "edition": {
+     "editioncode": "cmm",
+     "editionname": "CMM Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "0b1de1ea-b9d9-576e-ac3c-cddd647156fa",
+     "name": "Arcane Signet",
+     "layout": "normal",
+     "faces": [],
+     "manaCost": "{2}",
+     "types": [
+      "Artifact"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1004,
+   "categories": [
+    "Land"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Normal",
+   "quantity": 1,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50004,
+    "uid": "17c58948-b373-5bc3-b848-304f94516fa3",
+    "collectorNumber": "1000",
+    "edition": {
+     "editioncode": "cmm",
+     "editionname": "CMM Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "986d6f01-2f28-504e-8616-c6315ae7847b",
+     "name": "Command Tower",
+     "layout": "normal",
+     "faces": [],
+     "manaCost": "",
+     "types": [
+      "Land"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1005,
+   "categories": [
+    "Interaction",
+    "Counterspell"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Etched",
+   "quantity": 1,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50005,
+    "uid": "af1e4392-76b9-5fe3-95ca-a3d3eea347fb",
+    "collectorNumber": "81",
+    "edition": {
+     "editioncode": "cmm",
+     "editionname": "CMM Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "651b84a3-942a-5ff7-842b-628c78077a6a",
+     "name": "Counterspell",
+     "layout": "normal",
+     "faces": [],
+     "manaCost": "{U}{U}",
+     "types": [
+      "Instant"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1006,
+   "categories": [
+    "Creature"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Normal",
+   "quantity": 1,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50006,
+    "uid": "26c98692-f0d5-52af-8afe-31b2a2d8e3cf",
+    "collectorNumber": "51",
+    "edition": {
+     "editioncode": "isd",
+     "editionname": "ISD Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "040a24cb-b033-558d-805d-0c3a0fe01d67",
+     "name": "Delver of Secrets // Insectile Aberration",
+     "layout": "transform",
+     "faces": [
+      {
+       "name": "Delver of Secrets",
+       "manaCost": "{U}",
+       "types": [
+        "Creature \u2014 Human Wizard"
+       ]
+      },
+      {
+       "name": "Insectile Aberration",
+       "manaCost": "",
+       "types": [
+        "Creature \u2014 Human Insect"
+       ]
+      }
+     ],
+     "manaCost": "",
+     "types": [
+      "Creature \u2014 Human Wizard // Creature \u2014 Human Insect"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1007,
+   "categories": [
+    "Removal"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Normal",
+   "quantity": 1,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50007,
+    "uid": "70a8e39c-d8fa-50ea-a933-52acfa02580b",
+    "collectorNumber": "10",
+    "edition": {
+     "editioncode": "sta",
+     "editionname": "STA Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "72db6597-2a68-5127-94f9-d716371e28bc",
+     "name": "Swords to Plowshares",
+     "layout": "normal",
+     "faces": [],
+     "manaCost": "{W}",
+     "types": [
+      "Instant"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1008,
+   "categories": [
+    "Removal"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Normal",
+   "quantity": 1,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50008,
+    "uid": "00000000-0000-4000-8000-000000000000",
+    "collectorNumber": "999",
+    "edition": {
+     "editioncode": "zzz",
+     "editionname": "CLB Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "bb2ad4a2-3bf9-55a7-85d7-cf315aaa517d",
+     "name": "Lightning Bolt",
+     "layout": "normal",
+     "faces": [],
+     "manaCost": "{R}",
+     "types": [
+      "Instant"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1009,
+   "categories": [
+    "Land"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Normal",
+   "quantity": 30,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50009,
+    "uid": "cb7227c9-5945-5887-8535-2827581d727a",
+    "collectorNumber": "1001",
+    "edition": {
+     "editioncode": "cmm",
+     "editionname": "CMM Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "7c48efb0-41ad-551e-85ab-f9fddc94439e",
+     "name": "Island",
+     "layout": "normal",
+     "faces": [],
+     "manaCost": "",
+     "types": [
+      "Basic Land \u2014 Island"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1010,
+   "categories": [
+    "Land"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Normal",
+   "quantity": 10,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50010,
+    "uid": "33fcc16c-587d-5842-8e62-822e5fcc60cc",
+    "collectorNumber": "1002",
+    "edition": {
+     "editioncode": "cmm",
+     "editionname": "CMM Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "35196e13-6901-514a-8448-54b529590ae5",
+     "name": "Forest",
+     "layout": "normal",
+     "faces": [],
+     "manaCost": "",
+     "types": [
+      "Basic Land \u2014 Forest"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1011,
+   "categories": [
+    "Sideboard"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Normal",
+   "quantity": 2,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50011,
+    "uid": "50e5d146-9687-5712-960f-bb682e074490",
+    "collectorNumber": "213",
+    "edition": {
+     "editioncode": "ice",
+     "editionname": "ICE Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "1bcca1d9-3cfb-5b59-b637-08cb30b4dee2",
+     "name": "Pyroblast",
+     "layout": "normal",
+     "faces": [],
+     "manaCost": "{R}",
+     "types": [
+      "Instant"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1012,
+   "categories": [
+    "Maybeboard"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Normal",
+   "quantity": 1,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50012,
+    "uid": "957b7586-8d9e-5e16-a927-9b86e521c433",
+    "collectorNumber": "59",
+    "edition": {
+     "editioncode": "eld",
+     "editionname": "ELD Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "d2c66f08-d3c6-58f0-bf5a-4e59509fe3bb",
+     "name": "Opt",
+     "layout": "normal",
+     "faces": [],
+     "manaCost": "{U}",
+     "types": [
+      "Instant"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1013,
+   "categories": [
+    "Wishlist"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Normal",
+   "quantity": 1,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": null,
+   "notes": null,
+   "card": {
+    "id": 50013,
+    "uid": "8b96acac-33a6-55b7-8875-55d1f36275e0",
+    "collectorNumber": "290",
+    "edition": {
+     "editioncode": "mh2",
+     "editionname": "MH2 Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "dfdff192-1ef0-555c-ab1e-65a5934e6fd6",
+     "name": "Fire // Ice",
+     "layout": "split",
+     "faces": [
+      {
+       "name": "Fire",
+       "manaCost": "{1}{R}",
+       "types": [
+        "Instant"
+       ]
+      },
+      {
+       "name": "Ice",
+       "manaCost": "{1}{U}",
+       "types": [
+        "Instant"
+       ]
+      }
+     ],
+     "manaCost": "{1}{R} // {1}{U}",
+     "types": [
+      "Instant // Instant"
+     ]
+    }
+   }
+  },
+  {
+   "id": 1014,
+   "categories": [
+    "Ramp"
+   ],
+   "companion": false,
+   "flippedDefault": null,
+   "label": "",
+   "modifier": "Normal",
+   "quantity": 1,
+   "customCmc": null,
+   "removedCategories": null,
+   "createdAt": "2025-01-01T00:00:00Z",
+   "updatedAt": "2025-06-01T00:00:00Z",
+   "deletedAt": "2025-05-01T00:00:00Z",
+   "notes": null,
+   "card": {
+    "id": 50014,
+    "uid": "37eb2dfc-ed3d-5bbc-8e60-97047b81162d",
+    "collectorNumber": "168",
+    "edition": {
+     "editioncode": "dom",
+     "editionname": "DOM Set",
+     "editiontype": "expansion"
+    },
+    "oracleCard": {
+     "uid": "0fcb2baa-64f7-5eaf-b71e-58f717501ec2",
+     "name": "Llanowar Elves",
+     "layout": "normal",
+     "faces": [],
+     "manaCost": "{G}",
+     "types": [
+      "Creature \u2014 Elf Druid"
+     ]
+    }
+   }
+  }
+ ],
+ "customCards": [
+  {
+   "name": "Homebrew Dragon",
+   "quantity": 1
+  }
+ ]
+}

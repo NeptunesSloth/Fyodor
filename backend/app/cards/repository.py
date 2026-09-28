@@ -210,6 +210,59 @@ class CardRepository:
         default_id = self.default_printing_id(oracle_ids[0])
         return self.get(default_id) if default_id else None
 
+    def has_set(self, code: str) -> bool:
+        code = (code or "").lower()
+        if not code or len(code) > 10:
+            return False
+        return bool(self._query("SELECT 1 FROM printings WHERE set_code = ? LIMIT 1", (code,)))
+
+    def resolve_detailed(
+        self,
+        name: str,
+        set_code: str | None = None,
+        collector_number: str | None = None,
+        *,
+        printing_id: str | None = None,
+        oracle_id: str | None = None,
+        prefer_tokens: bool = False,
+    ) -> tuple[dict[str, Any] | None, str]:
+        """Resolve with a stable-identity-first strategy and report how it was resolved.
+
+        Order: Scryfall printing id → set + collector number → set → oracle id's default
+        printing → name. Returns ``(card, resolution)`` where resolution is one of
+        ``exact``, ``set``, ``fallback`` (a requested printing is missing), ``name``
+        (no printing was requested) or ``unresolved``.
+        """
+        printing_requested = bool(printing_id or set_code)
+        if printing_id:
+            exact = self.get(printing_id)
+            if exact:
+                return exact, "exact"
+        oracle_ids: list[str] = []
+        if oracle_id and self._query("SELECT 1 FROM oracle_defaults WHERE oracle_id = ?", (oracle_id,)):
+            oracle_ids = [oracle_id]
+        if not oracle_ids:
+            by_name = self.resolve(name, prefer_tokens=prefer_tokens)
+            if by_name is None:
+                return None, "unresolved"
+            oracle_ids = [by_name["oracle_id"]]
+        marks = ",".join("?" * len(oracle_ids))
+        if set_code:
+            sql = f"SELECT {SUMMARY_COLUMNS} FROM printings p WHERE p.oracle_id IN ({marks}) AND p.set_code = ?"
+            args: list[Any] = [*oracle_ids, set_code.lower()]
+            if collector_number:
+                rows = self._query(sql + " AND p.collector_number = ?", [*args, collector_number])
+                if rows:
+                    return self._to_card(rows[0]), "exact"
+            rows = self._query(sql + " ORDER BY p.promo, p.collector_number", args)
+            if rows:
+                return self._to_card(rows[0]), ("set" if collector_number else "exact")
+        default_id = self.default_printing_id(oracle_ids[0])
+        card = self.get(default_id) if default_id else None
+        if card is None:
+            return None, "unresolved"
+        return card, ("fallback" if printing_requested else "name")
+
     def suggest(self, name: str, limit: int = 5) -> list[str]:
         """Closest known card names for an unresolved deck line (typo tolerant)."""
         norm = normalize_name(name)
@@ -307,6 +360,17 @@ class CardRepository:
                 ],
             )
         return card
+
+    def image_rows(self, card_ids: list[str]) -> list[sqlite3.Row]:
+        """Rows with remote image URLs for the downloader (``image_jobs_from_rows``)."""
+        rows: list[sqlite3.Row] = []
+        unique = list(dict.fromkeys(card_ids))
+        for start in range(0, len(unique), 500):
+            chunk = unique[start : start + 500]
+            rows += self._query(
+                f"SELECT id, is_token, image_uris, card_faces FROM printings WHERE id IN ({','.join('?' * len(chunk))})", chunk
+            )
+        return rows
 
     def image_urls(self, card_id: str) -> tuple[bool, list[dict[str, str]]]:
         """Remote image URLs per face (used only by the downloader)."""

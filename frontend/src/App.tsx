@@ -1,3 +1,5 @@
+import { ContextMenuHost } from "./components/ContextMenu";
+import { PromptHost } from "./components/Prompt";
 import { Toasts } from "./components/Toasts";
 import { useHashRoute } from "./hooks/useHashRoute";
 import { CardBrowser } from "./pages/CardBrowser";
@@ -22,6 +24,8 @@ export function App() {
       <>
         <GamePage key={sub} id={sub} viewer={route.query.get("viewer")} />
         <Toasts />
+        <PromptHost />
+        <ContextMenuHost />
       </>
     );
   }
@@ -32,7 +36,7 @@ export function App() {
       page = <CardBrowser />;
       break;
     case "decks":
-      page = sub ? <DeckEditor key={sub} id={sub} /> : <DeckLibrary />;
+      page = sub ? <DeckEditor key={sub} id={sub} jobId={route.query.get("job")} /> : <DeckLibrary />;
       break;
     case "play":
       page = <PlayPage route={route} />;
@@ -53,6 +57,8 @@ export function App() {
       </nav>
       <main className="app-main">{page}</main>
       <Toasts />
+      <PromptHost />
+      <ContextMenuHost />
     </div>
   );
 }

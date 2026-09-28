@@ -1,18 +1,40 @@
 import { api } from "./api";
-import type { Deck, DeckEntry, DeckFormat, DeckSummary, ParsePreview } from "../types/decks";
+import type { Deck, DeckCategory, DeckEntry, DeckFormat, DeckSummary, ImportRequest, Job, ParsePreview, SourceDiff } from "../types/decks";
 
 export const listDecks = () => api.get<DeckSummary[]>("/decks");
 export const getDeck = (id: string) => api.get<Deck>(`/decks/${id}`);
-export const createDeck = (body: { name?: string; format?: DeckFormat; text: string }) => api.post<Deck>("/decks", body);
-export const parseDeck = (text: string) => api.post<ParsePreview>("/decks/parse", { text });
-export const updateDeck = (id: string, body: { name: string; format: DeckFormat; notes: string; entries: DeckEntry[] }) =>
+export const createDeck = (body: ImportRequest) => api.post<Deck>("/decks", body);
+export const previewImport = (body: ImportRequest) => api.post<ParsePreview>("/decks/preview", body);
+/** Backwards-compatible text-only preview. */
+export const parseDeck = (text: string) => previewImport({ text });
+export const importOptions = () =>
+  api.get<{ archidekt_url: boolean; archidekt_url_note: string; text: boolean; file: boolean; card_database: boolean }>("/decks/import-options");
+export const updateDeck = (id: string, body: { name: string; format: DeckFormat; notes: string; entries: DeckEntry[]; categories?: DeckCategory[] }) =>
   api.put<Deck>(`/decks/${id}`, body);
 export const importIntoDeck = (id: string, text: string, mode: "replace" | "append") =>
   api.post<Deck>(`/decks/${id}/import`, { text, mode });
 export const duplicateDeck = (id: string) => api.post<Deck>(`/decks/${id}/duplicate`);
 export const deleteDeck = (id: string) => api.del<void>(`/decks/${id}`);
-export const exportDeck = async (id: string): Promise<string> => {
-  const res = await fetch(`/api/decks/${id}/export`);
+export const exportDeck = async (id: string, format: "archidekt" | "plain" = "archidekt"): Promise<string> => {
+  const res = await fetch(`/api/decks/${id}/export?format=${format}`);
   if (!res.ok) throw new Error(`Export failed (${res.status})`);
   return res.text();
 };
+export const checkSource = (id: string) =>
+  api.post<{ diff: SourceDiff; remote_updated_at: string | null; local_edits: boolean }>(`/decks/${id}/source/check`);
+export const applySource = (id: string) => api.post<Deck>(`/decks/${id}/source/apply`);
+export const ignoreSource = (id: string) => api.post<Deck>(`/decks/${id}/source/ignore`);
+export const unlinkSource = (id: string) => api.del<void>(`/decks/${id}/source`);
+export const artStatus = (id: string) => api.get<{ printings: number; missing: number }>(`/decks/${id}/art-status`);
+export const cacheArt = (id: string) => api.post<Job>(`/decks/${id}/cache-art`);
+export const getJob = (id: string) => api.get<Job>(`/jobs/${id}`);
+
+/** Poll a background job until it finishes. */
+export async function waitForJob(id: string, onProgress: (job: Job) => void): Promise<Job> {
+  for (;;) {
+    const job = await getJob(id);
+    onProgress(job);
+    if (job.state !== "running") return job;
+    await new Promise((r) => setTimeout(r, 600));
+  }
+}

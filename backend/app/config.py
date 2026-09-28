@@ -46,6 +46,7 @@ class Settings:
     history_limit: int = 500
     assistant_url: str | None = None  # Ollama-compatible endpoint; unset = assistant disabled
     assistant_model: str = "llama3.1"
+    allow_network: bool = True  # explicit, user-initiated online features (Archidekt import, art caching)
     scryfall_api: str = "https://api.scryfall.com"
     user_agent: str = "Fyodor-MTG-Tabletop/0.1"
     extra: dict[str, str] = field(default_factory=dict)
@@ -96,6 +97,7 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         history_limit=int(get("HISTORY_LIMIT") or 500),
         assistant_url=get("ASSISTANT_URL") or None,
         assistant_model=get("ASSISTANT_MODEL") or "llama3.1",
+        allow_network=_bool(get("ALLOW_NETWORK"), True),
     )
 
 

@@ -45,6 +45,31 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX saves_game ON saves(game_id, created_at);
     """,
+    # 3: Archidekt-grade deck metadata (stable identities, finishes, categories, source link)
+    """
+    ALTER TABLE deck_cards ADD COLUMN oracle_id TEXT;
+    ALTER TABLE deck_cards ADD COLUMN finish TEXT NOT NULL DEFAULT 'nonfoil';
+    ALTER TABLE deck_cards ADD COLUMN categories TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE deck_cards ADD COLUMN tags TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE deck_cards ADD COLUMN resolution TEXT;
+    ALTER TABLE deck_cards ADD COLUMN requested TEXT;
+    ALTER TABLE decks ADD COLUMN categories TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE decks ADD COLUMN source TEXT;
+    ALTER TABLE decks ADD COLUMN source_snapshot TEXT;
+    """,
+    # 4: card macros (per card = by oracle id, and the personal library)
+    """
+    CREATE TABLE macros (
+        id TEXT PRIMARY KEY,
+        scope TEXT NOT NULL CHECK (scope IN ('card', 'library')),
+        oracle_id TEXT,
+        name TEXT NOT NULL,
+        definition TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    CREATE INDEX macros_oracle ON macros(oracle_id);
+    """,
 ]
 
 

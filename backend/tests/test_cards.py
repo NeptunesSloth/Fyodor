@@ -70,7 +70,7 @@ def test_import_file(tmp_path: Path):
     src = tmp_path / "bulk.jsonl.gz"
     write_jsonl_gz(fixture_cards(), src)
     result = import_file(src, tmp_path / "out.sqlite", meta={"bulk_type": "x"})
-    assert result.oracle_cards == 19
+    assert result.oracle_cards == 22
 
 
 def test_default_printing_prefers_regular_sets(cards: CardRepository):
@@ -101,7 +101,7 @@ def test_suggestions(cards: CardRepository):
 def test_search(cards: CardRepository):
     names = lambda q, **kw: [c["name"] for c in cards.search(q, **kw)]  # noqa: E731
     assert names("sol")[0] == "Sol Ring"
-    assert set(names("t:instant c:r -t:creature")) == {"Fire // Ice", "Lightning Bolt", "Seething Song"}
+    assert set(names("t:instant c:r -t:creature")) == {"Fire // Ice", "Lightning Bolt", "Seething Song", "Pyroblast"}
     assert "Counterspell" in names("o:counter")
     assert names("t:land -t:basic") == ["Command Tower"]
     assert set(names("is:commander")) >= {"Krenko, Mob Boss", "Atraxa, Praetors' Voice"}

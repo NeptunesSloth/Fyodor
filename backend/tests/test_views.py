@@ -182,3 +182,13 @@ def test_mixed_game_never_leaks(s):
         s.perform(actor, payload)
         for viewer in ("p1", "p2", SPECTATOR):
             assert_no_leaks(s, viewer)
+
+
+def test_deck_categories_are_private_to_the_owner(s):
+    act(s, "p1", type="draw", count=15)
+    sol = find(s.state, "Sol Ring")
+    sol.categories = ["Ramp"]
+    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "battlefield"})
+    assert s.view("p1")["cards"][sol.id]["categories"] == ["Ramp"]
+    assert "categories" not in s.view("p2")["cards"][sol.id]  # public card, private deck metadata
+    assert "Ramp" not in json.dumps(s.view("p2"))

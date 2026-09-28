@@ -1,6 +1,4 @@
 import { useEffect } from "react";
-import { ContextMenuHost } from "../components/ContextMenu";
-import { PromptHost } from "../components/Prompt";
 import { perspective, useGame } from "../state/gameStore";
 import { useCardCache } from "../state/cardCache";
 import { isVisible, splitZone } from "../types/game";
@@ -59,8 +57,6 @@ export function GameScreen() {
       </div>
       {status !== "open" && <div className="conn-banner">{status === "reconnecting" ? "Connection lost — reconnecting…" : detail ?? status}</div>}
       <GameDialogs me={me} />
-      <ContextMenuHost />
-      <PromptHost />
       <DragLayer />
       <CombatArrows />
     </div>
