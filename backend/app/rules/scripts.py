@@ -76,14 +76,38 @@ TRIGGERS = [
     (re.compile(r"^At the beginning of your upkeep, (?P<body>.+)$"), "upkeep_you"),
     (re.compile(r"^At the beginning of your end step, (?P<body>.+)$"), "end_step_you"),
     (re.compile(r"^Whenever ~ attacks, (?P<body>.+)$"), "attacks_self"),
+    (re.compile(r"^Whenever ~ enters or attacks, (?P<body>.+)$"), "enters_or_attacks_self"),
     (re.compile(r"^(?:Landfall — )?Whenever a land you control enters, (?P<body>.+)$"), "landfall"),
     (re.compile(r"^When ~ becomes the target of a spell or ability, (?P<body>.+)$"), "targeted_self"),
     (re.compile(r"^Whenever ~ deals combat damage to a player, (?P<body>.+)$"), "combat_damage_player_self"),
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
+    # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
+    (re.compile(r"^At the beginning of (?:(?P<whose>your|each|each player's|each opponent's|the|enchanted player's) "
+                r"(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
+                r"postcombat main phase)|the (?P<hstep>upkeep|end step) of enchanted (?:creature|permanent|land|artifact|"
+                r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's) turn|(?P<each_combat>each combat)), "
+                r"(?P<body>.+)$"), "step"),
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
                 r"an artifact spell|an enchantment spell), (?P<body>.+)$"), "cast_you"),
 ]
+
+
+STEPS = {"upkeep": "upkeep", "draw step": "draw", "end step": "end", "first main phase": "main1",
+         "precombat main phase": "main1", "second main phase": "main2", "postcombat main phase": "main2"}
+WHOSE = {"your": "you", "each": "each", "each player's": "each", "the": "each", "each opponent's": "opponent",
+         "enchanted player's": "enchanted_player"}
+
+
+def step_trigger(m: re.Match[str]) -> str:
+    """"step:<phase>:<whose>": whose step it is decides whether it triggers (at_step)."""
+    if m["each_combat"]:
+        return "step:begin_combat:each"
+    if m["cwhose"]:
+        return f"step:begin_combat:{WHOSE[m['cwhose']]}"
+    if m["hstep"]:
+        return f"step:{STEPS[m['hstep']]}:host_controller"
+    return f"step:{STEPS[m['step']]}:{WHOSE[m['whose']]}"
 
 
 def num(word: str) -> int:
@@ -100,7 +124,7 @@ def self_text(text: str, name: str) -> str:
     for n in sorted({name, name.split(",")[0].strip()}, key=len, reverse=True):
         if len(n) >= 3:
             out = re.sub(rf"\b{re.escape(n)}\b", "~", out)
-    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|Equipment|Vehicle)\b", "~", out)
+    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|Equipment|Vehicle|Aura)\b", "~", out)
 
 
 EFFECTS: list[tuple[re.Pattern[str], Any]] = []
@@ -452,10 +476,12 @@ def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | 
 
 _ANTHEM = re.compile(
     r"^(?P<other>Other )?(?:(?P<all>All )|)(?P<who>[Cc]reatures|[Cc]reature tokens|Lands|Commander creatures"
+    r"|Enchanted creature|Equipped creature|Enchanted land"
     r"|(?P<sub>[A-Z][a-z]+?)(?:s| creatures)?)"
     r"(?P<scope> you control| your opponents control| you own|)"
-    r" (?:get (?P<p>[+-]\d+)/(?P<t>[+-]\d+)(?: and have (?P<kws1>[a-z ,]+))?|have (?P<kws2>[a-z ,]+)"
-    r"|have \"(?P<quoted>[^\"]+)\")\.?$")
+    r" (?:gets? (?P<p>[+-]\d+)/(?P<t>[+-]\d+)(?: and ha(?:s|ve) (?P<kws1>[a-z ,]+))?|ha(?:s|ve) (?P<kws2>[a-z ,]+)"
+    r"|ha(?:s|ve) \"(?P<quoted>[^\"]+)\")\.?$")
+ATTACHED_SUBJECTS = ("Enchanted creature", "Equipped creature", "Enchanted land")
 
 
 @lru_cache(maxsize=4096)
@@ -485,6 +511,9 @@ def parse_anthem(text: str) -> Definition | None:
     m = _ANTHEM.match(text)
     if not m:
         return None
+    attached = m["who"] in ATTACHED_SUBJECTS  # 303.4b / 301.5a: the object it's attached to
+    if attached and (m["scope"] or m["all"] or m["other"]):
+        return None
     from app.rules.creature_types import CREATURE_TYPES
     from app.rules.protection import _PLURALS
 
@@ -497,7 +526,9 @@ def parse_anthem(text: str) -> Definition | None:
         if sub not in CREATURE_TYPES:
             return None
     scope = {" you control": "you", " your opponents control": "opponents", " you own": "own", "": "all"}[m["scope"]]
-    if scope == "all" and not m["all"]:
+    if attached:
+        scope = "attached"
+    elif scope == "all" and not m["all"]:
         return None  # "Creatures get …" without "All": not this template
     commander = m["who"] == "Commander creatures"
     if commander != (scope == "own"):
@@ -511,7 +542,7 @@ def parse_anthem(text: str) -> Definition | None:
             return None
         grant = m["quoted"]
     return {"kind": "static", "static": "anthem", "effects": [], "other": bool(m["other"]), "scope": scope,
-            "sub": sub, "tokens": m["who"].lower() == "creature tokens", "lands": m["who"] == "Lands",
+            "sub": sub, "tokens": m["who"].lower() == "creature tokens", "lands": m["who"] in ("Lands", "Enchanted land"),
             "commander": commander, "grant": grant,
             "p": int(m["p"]) if m["p"] else 0, "t": int(m["t"]) if m["t"] else 0, "keywords": kws}
 
@@ -535,6 +566,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return {"kind": "replacement", "replacement": "enters_with_counters", "counter": m["kind"], "n": n, "effects": []}
     if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
         return anthem
+    if ability.kind == "static" and (rule := attached_rule(text)) is not None:
+        return rule
+    if ability.kind == "static" and text == "~ can be your commander.":
+        return {"kind": "static", "static": "deckbuilding", "effects": []}  # 903.3a: deck construction only
     if ability.kind == "static" and text in COMBAT_STATICS:
         return {"kind": "static", "static": COMBAT_STATICS[text], "effects": []}
     if ability.kind == "triggered":
@@ -545,8 +580,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
-                out = {"kind": "triggered", "trigger": trigger, "effects": effects, "optional": optional,
-                       "target": {"what": target} if target else None}
+                out = {"kind": "triggered", "trigger": step_trigger(m) if trigger == "step" else trigger,
+                       "effects": effects, "optional": optional, "target": {"what": target} if target else None}
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
                 return out
@@ -588,7 +623,7 @@ def definitions(ch: Characteristics) -> dict[int, Definition]:
 
     if cards.get(ch.oracle_id) is not None and cards.trusted(ch.oracle_id, ch.oracle_text) is None:
         return {}  # REVIEW: a reviewed script exists for other Oracle text; nothing is automated until re-checked
-    return _cached(replace(ch, pt=None, granted=frozenset(), lost=frozenset()))
+    return _cached(replace(ch, pt=None, granted=frozenset(), lost=frozenset(), imposed=frozenset()))
 
 
 # Combat restrictions and requirements printed on a permanent (CR 508.1c-d, 509.1b-c).
@@ -602,13 +637,49 @@ COMBAT_STATICS = {
     "~ can't be blocked by more than one creature.": "max_one_blocker",
     "~ can't attack unless defending player controls an Island.": "attack_needs_island",
     "~ can't be countered.": "cant_be_countered",
+    "~ doesn't untap during your untap step.": "doesnt_untap",
     "This spell can't be countered.": "cant_be_countered",
 }
 
 
+# Rules an Aura or Equipment imposes on the object it's attached to (not abilities it grants).
+# Each: the restrictions imposed (the names scripts.statics / Characteristics.imposed use).
+ATTACHED_RULES: dict[str, tuple[str, ...]] = {
+    "can't attack or block.": ("cant_attack_or_block",),
+    "can't attack.": ("cant_attack",),
+    "can't block.": ("cant_block",),
+    "can't be blocked.": ("cant_be_blocked",),
+    "attacks each combat if able.": ("must_attack",),
+    "doesn't untap during its controller's untap step.": ("doesnt_untap",),
+    "can't attack or block, and its activated abilities can't be activated.": ("cant_attack_or_block", "cant_activate"),
+    "can't attack or block and its activated abilities can't be activated.": ("cant_attack_or_block", "cant_activate"),
+}
+# "Enchanted creature's activated abilities can't be activated." (possessive subjects)
+_POSSESSIVE_RULES: dict[str, tuple[str, ...]] = {
+    "activated abilities can't be activated.": ("cant_activate",),
+}
+
+
+def attached_rule(text: str) -> Definition | None:
+    """"Enchanted creature can't attack or block.", "Enchanted creature doesn't untap during its
+    controller's untap step." …: a rule for whatever the source is attached to."""
+    text = text.replace("’", "'")
+    for subject in (*ATTACHED_SUBJECTS, "Enchanted permanent"):
+        imposed = None
+        if text.startswith(subject + " "):
+            imposed = ATTACHED_RULES.get(text[len(subject) + 1:])
+        elif text.startswith(subject + "'s "):
+            imposed = _POSSESSIVE_RULES.get(text[len(subject) + 3:])
+        if imposed is not None:
+            return {"kind": "static", "static": "attached_rule", "imposes": list(imposed), "effects": [],
+                    "lands": subject == "Enchanted land", "permanent": subject == "Enchanted permanent"}
+    return None
+
+
 def statics(ch: Characteristics) -> set[str]:
-    """The combat statics a card has (from its definitions)."""
-    return {d["static"] for d in definitions(ch).values() if d["kind"] == "static"}
+    """The combat statics a card has (from its definitions), and those imposed on it by
+    attached Auras / Equipment."""
+    return {d["static"] for d in definitions(ch).values() if d["kind"] == "static"} | ch.imposed
 
 
 # Keyword abilities that are triggered abilities (CR 702), as template definitions.
@@ -649,10 +720,48 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
     return out
 
 
+# 700.2: "Choose …" followed by bulleted modes. (n_min, n_max, same mode more than once?, condition)
+_MODAL_HEADERS = {
+    "Choose one —": (1, 1, False, None),
+    "Choose two —": (2, 2, False, None),
+    "Choose one or both —": (1, 2, False, None),
+    "Choose one or more —": (1, 99, False, None),
+    "Choose three. You may choose the same mode more than once.": (3, 3, True, None),
+    "Choose one. If you control a commander as you cast this spell, you may choose both instead.": (1, 1, False, "commander"),
+}
+
+
+def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | None:
+    """A modal spell (700.2): the header line, then one bulleted line per mode, each an effect
+    sentence the engine reads with at most one target. None if any part isn't understood (the
+    whole spell is then resolved by hand)."""
+    if len(lines) < 3 or lines[0].text not in _MODAL_HEADERS:
+        return None
+    lo, hi, repeat, condition = _MODAL_HEADERS[lines[0].text]
+    modes = []
+    for ab in lines[1:]:
+        if not ab.text.startswith("• "):
+            return None
+        parsed = parse_effects(self_text(ab.text[2:], name))
+        if parsed is None or parsed[2]:  # ("you may" inside a mode: not yet)
+            return None
+        effects, target, _ = parsed
+        modes.append({"text": ab.text[2:], "effects": effects, "target": {"what": target} if target else None})
+    if not repeat and lo > len(modes):
+        return None
+    if condition == "commander":  # "… you may choose both instead" (while you control a commander)
+        hi = 1
+    return {"kind": "spell", "effects": [], "target": None, "modes": modes,
+            "modal": {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": condition}}
+
+
 def spell_definition(ch: Characteristics) -> Definition | None:
     """A whole instant/sorcery as one definition, if every line is automated (else None)."""
     if not ch.is_instant_or_sorcery:
         return None
+    text_lines = [ab for ab in ch.abilities if ab.kind != "keywords"]
+    if text_lines and text_lines[0].text in _MODAL_HEADERS:
+        return modal_definition(text_lines, ch.name)
     defs = definitions(ch)
     lines = [ab for ab in ch.abilities if ab.kind != "keywords"]
     if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):

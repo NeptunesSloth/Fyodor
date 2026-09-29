@@ -61,6 +61,15 @@ def _ancestors(state: GameState, c: CardInstance) -> set[str]:
 
 
 def attach(state: GameState, a: A.Attach) -> None:
+    if a.to in state.players:  # an Aura enchanting a player (702.5d): it stays where it is on the table
+        cards = _battlefield_cards(state, a.card_ids)
+        for c in cards:
+            c.attached_to = None
+            c.attach_offset = None
+            c.attached_player = a.to
+        log(state, a.actor, a.ts, [pname(state, a.actor), text(" attached "), group(state, cards), text(" to "),
+                                   pname(state, a.to)])
+        return
     host = ops.card(state, a.to)
     if ops.zone_name(host.zone) != "battlefield":
         raise ActionError("Attach to a permanent on the battlefield")
@@ -69,6 +78,7 @@ def attach(state: GameState, a: A.Attach) -> None:
         if c.id == host.id or c.id in _ancestors(state, host):
             raise ActionError("A card can't be attached to itself or to something attached to it")
         c.attached_to = host.id
+        c.attached_player = None
         offset = a.offset if a.offset is not None else (10.0 + 10.0 * i, -18.0 - 14.0 * i)
         c.attach_offset = (float(offset[0]), float(offset[1]))
         if c.zone == host.zone:
@@ -85,6 +95,7 @@ def detach(state: GameState, a: A.Detach) -> None:
     targets = ops.cards(state, a.card_ids)
     for c in targets:
         c.attached_to = None
+        c.attached_player = None
         c.attach_offset = None
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" detached "), group(state, targets)], kind="minor")
 

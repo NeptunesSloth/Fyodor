@@ -58,9 +58,12 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     const lines = abilityLines(text);
     const abilities = lines
       .map((line, i) => ({ line, i }))
-      .filter(({ line }) => /^[^.]*:\s/.test(line) && !/^(Enchant|Equip \{|Cycling)/.test(line) || /: Add /.test(line) || /^Crew \d+$/.test(line));
+      .filter(({ line }) => /^[^.]*:\s/.test(line) && !/^(Enchant|Equip \{|Cycling)/.test(line) || /: Add /.test(line)
+        || /^Crew \d+$/.test(line) || /^Equip (\{[^}]+\})+$/.test(line));
     for (const { line, i } of abilities) {
-      const ready = hints.activatable?.some((a) => a.card_id === card.id && a.ability === i) || /: Add /.test(line);
+      // Equip (702.6a) is checked by the server (sorcery speed, a creature you control): offered with priority.
+      const ready = hints.activatable?.some((a) => a.card_id === card.id && a.ability === i) || /: Add /.test(line)
+        || (/^Equip \{/.test(line) && !!hints.has_priority);
       items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !ready,
         onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
     }

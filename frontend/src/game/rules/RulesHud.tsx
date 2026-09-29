@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { PHASE_LABEL, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
-import { choose, delveCard, next, passPriority, RESPONSE_CYCLE, send, setPrefs, tapForMana } from "./intents";
+import { choose, delveCard, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana } from "./intents";
 import { GameCardFace } from "../GameCardFace";
 import { ManaText } from "../../cards/ManaText";
 import { useCardCache } from "../../state/cardCache";
@@ -305,46 +305,77 @@ function PaymentPanel({ d, view }: { d: DecisionView; view: GameView }) {
 }
 
 /** Pay {1}{G}: tap your own lands (click them on the table); it goes on once your pool covers it. */
+type PaidPart = { card: string; name: string; kind: "convoke" | "improvise" | "delve"; pays: string };
+type TapManaInfo = { cost: string; what: string; sources: string[]; convoke?: string[]; improvise?: string[];
+  delve?: string[]; committed?: string[]; paid?: PaidPart[]; remaining?: string; pool: Record<string, number> };
+
+const HELPER_LABEL = { convoke: "Convoke", improvise: "Improvise", delve: "Delve" } as const;
+
+/** One symbol a contribution pays: "1" is one generic mana ({1}). */
+export const paidSymbol = (pays: string) => `{${pays}}`;
+
 function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
-  const info = d.display as unknown as { cost: string; what: string; sources: string[]; convoke?: string[]; improvise?: string[];
-    delve?: string[]; pool: Record<string, number> };
-  const untapped = [...new Set([...info.sources, ...(info.convoke ?? []), ...(info.improvise ?? [])])]
-    .filter((id) => view.cards[id] && !view.cards[id]!.tapped);
-  const delve = (info.delve ?? []).filter((id) => view.cards[id]);
+  const info = d.display as unknown as TapManaInfo;
+  const committed = new Set(info.committed ?? []);
+  const sources = info.sources.filter((id) => view.cards[id] && !view.cards[id]!.tapped);
+  const helpers = (kind: "convoke" | "improvise" | "delve") => (info[kind] ?? []).filter((id) => view.cards[id]);
   const pool = Object.entries(info.pool ?? {}).filter(([, n]) => n > 0).map(([m, n]) => `{${m}}`.repeat(n)).join("");
+  const hover = (id: string | null) => useGame.getState().setHover(id);
+  const helperRow = (kind: "convoke" | "improvise" | "delve", title: string) => {
+    const ids = helpers(kind);
+    if (!ids.length) return null;
+    return (
+      <>
+        <div className="frame-title">{title}</div>
+        <div className="pay-row alt" data-testid={`pay-${kind}`}>
+          {ids.map((id) => (
+            <button key={id} className={`pay-thumb${committed.has(id) ? " picked" : ""}`} data-testid={`${kind}-${id}`}
+              title={committed.has(id) ? "Paying part of the cost — click to take it back" : `Use for ${kind}`}
+              onClick={() => (kind === "delve" ? delveCard(id) : payWith(id, kind))}
+              onPointerEnter={() => hover(id)} onPointerLeave={() => hover(null)}>
+              <GameCardFace card={view.cards[id]!} size="small" />
+            </button>
+          ))}
+        </div>
+      </>
+    );
+  };
   return (
     <div className="decision-panel payment tap-mana frame ornate" data-testid="decision-panel" data-kind="tap_mana">
       <div className="pay-head">
-        <span className="pay-title">Pay</span>
+        <span className="pay-title">Cast cost</span>
         <span className="pay-cost"><ManaText text={info.cost} /></span>
       </div>
       <div className="pay-what">for {info.what}</div>
       <div className="decision-hint">Tap your lands and mana sources: click a highlighted card on the table (or below).</div>
+      {(info.paid ?? []).length > 0 && (
+        <ul className="pay-paid" data-testid="pay-paid">
+          {(info.paid ?? []).map((p) => (
+            <li key={p.card} data-testid={`paid-${p.card}`}>
+              ✓ {p.name} — {HELPER_LABEL[p.kind]} <ManaText text={paidSymbol(p.pays)} />
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="pay-row">
         <span className="pay-pool" data-testid="tap-pool">Mana pool: {pool ? <ManaText text={pool} /> : "empty"}</span>
+        <span className="pay-remaining" data-testid="pay-remaining">
+          Remaining: {info.remaining ? <ManaText text={info.remaining} /> : "PAID"}
+        </span>
       </div>
-      {untapped.length > 0 && (
+      {sources.length > 0 && (
         <div className="pay-row alt">
-          {untapped.map((id) => (
+          {sources.map((id) => (
             <button key={id} className="pay-thumb" title="Tap for mana" data-testid={`tap-source-${id}`}
-              onClick={() => tapForMana(id)} onPointerEnter={() => useGame.getState().setHover(id)} onPointerLeave={() => useGame.getState().setHover(null)}>
+              onClick={() => tapForMana(id)} onPointerEnter={() => hover(id)} onPointerLeave={() => hover(null)}>
               <GameCardFace card={view.cards[id]!} size="small" />
             </button>
           ))}
         </div>
       )}
-      {delve.length > 0 && (
-        <>
-          <div className="frame-title">Delve: exile from your graveyard ({"{1}"} each)</div>
-          <div className="pay-row alt">
-            {delve.map((id) => (
-              <button key={id} className="pay-thumb" title="Exile for delve" data-testid={`delve-${id}`} onClick={() => delveCard(id)}>
-                <GameCardFace card={view.cards[id]!} size="small" />
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      {helperRow("convoke", "Convoke: tap a creature to pay {1} or one mana of its color")}
+      {helperRow("improvise", "Improvise: tap an artifact to pay {1}")}
+      {helperRow("delve", "Delve: exile a card from your graveyard to pay {1}")}
       <div className="pay-actions two">
         <button className="act-btn primary" data-testid="option-pay" onClick={() => void choose(d.id, ["pay"])}>Pay</button>
         <button className="act-btn red" data-testid="option-cancel" onClick={() => void choose(d.id, ["cancel"])}>Cancel</button>
@@ -532,8 +563,9 @@ export function legalClass(view: GameView | null, cardId: string, me: string): s
   if (!rules || rules.paused || rules.options.highlights === "off") return "";
   const d = rules.decision;
   if (d && d.player === me && d.display?.kind === "tap_mana") {
-    const info = d.display as { sources?: string[]; convoke?: string[]; improvise?: string[] };
-    const usable = [...(info.sources ?? []), ...(info.convoke ?? []), ...(info.improvise ?? [])];
+    const info = d.display as { sources?: string[]; convoke?: string[]; improvise?: string[]; delve?: string[]; committed?: string[] };
+    if (info.committed?.includes(cardId)) return "rules-committed";  // paying part of the cost (not tapped yet)
+    const usable = [...(info.sources ?? []), ...(info.convoke ?? []), ...(info.improvise ?? []), ...(info.delve ?? [])];
     return usable.includes(cardId) && !view?.cards[cardId]?.tapped ? "rules-mana-source" : "";
   }
   if (d && d.player === me && d.options?.some((o) => o.card_id === cardId && (d.kind === "choose_one" || d.kind === "choose_cards"))) {

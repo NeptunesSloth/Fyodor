@@ -75,7 +75,7 @@ def next_turn(state: GameState, a: A.NextTurn) -> None:
         objects.empty_mana_pools(state)
     parts = [text(f"Turn {state.turn.number}: "), pname(state, nxt)]
     if state.settings.auto_untap:
-        n = untap_permanents(state, nxt)
+        n = untap_permanents(state, nxt, set(a.keep_tapped))
         if n:
             parts.append(text(f" untapped {n} permanent{'s' if n != 1 else ''}"))
     log(state, a.actor, a.ts, parts, kind="turn")

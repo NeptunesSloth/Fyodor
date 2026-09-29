@@ -14,7 +14,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.rules import analysis, commander, coverage
+from app.rules import analysis, clusters, commander, coverage
 
 LEVELS = ("FULL", "PARTIAL", "REVIEW", "MANUAL")
 MAIN_TYPES = ("Creature", "Planeswalker", "Battle", "Instant", "Sorcery", "Artifact", "Enchantment", "Land")
@@ -30,6 +30,7 @@ class Missing:
     pod_cards: set[str] = field(default_factory=set)
     pod_commanders: set[str] = field(default_factory=set)
     blocks_alone: int = 0  # cards for which this is the only missing piece
+    commanders: set[str] = field(default_factory=set)  # possible commanders that need it
     examples: list[str] = field(default_factory=list)
 
     def rank(self) -> tuple[int, int, int, int, int]:
@@ -52,6 +53,10 @@ class PoolReport:
     kinds: Counter[str] = field(default_factory=Counter)
     missing: dict[str, Missing] = field(default_factory=dict)
     keyword_cards: Counter[str] = field(default_factory=Counter)
+    clusters: dict[str, Missing] = field(default_factory=dict)  # "CATEGORY|cluster" -> cards needing it
+    category_cards: dict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
+    category_lines: Counter[str] = field(default_factory=Counter)
+    lines: Counter[str] = field(default_factory=Counter)  # "total" / "supported" ability features
 
 
 def _missing_keys(data: dict[str, Any], cov: coverage.Coverage) -> list[tuple[str, str]]:
@@ -68,6 +73,18 @@ def _missing_keys(data: dict[str, Any], cov: coverage.Coverage) -> list[tuple[st
             out.append((f"template:{seg.template if seg else f.label}", seg.kind if seg else "static"))
         else:
             out.append((f.id, "engine"))
+    return out
+
+
+def _clusters(data: dict[str, Any], cov: coverage.Coverage) -> list[tuple[str, str]]:
+    """Each missing feature of a card as (category, cluster) — see app.rules.clusters."""
+    by_text = {s.text: s for s in analysis.segments(data)}
+    name = str(data.get("name") or "").split(" // ")[0]
+    out = []
+    for f in cov.features:
+        if not f.supported:
+            seg = by_text.get(f.label)
+            out.append(clusters.classify(f.id, f.label, seg.kind if seg else "static", name))
     return out
 
 
@@ -106,6 +123,24 @@ def analyse(cards: Iterable[dict[str, Any]], *, pod_oracle_ids: set[str] | None 
         if oid in pod_ids:
             rep.pod[level] += 1
             rep.pod_rows.append({"name": data.get("name"), "level": level, "manual_parts": cov.manual_parts})
+        rep.lines["total"] += len(cov.features)
+        rep.lines["supported"] += sum(1 for f in cov.features if f.supported)
+        groups = _clusters(data, cov)
+        for cat, key in groups:
+            rep.category_lines[cat] += 1
+            rep.category_cards[cat].add(oid)
+            c = rep.clusters.setdefault(f"{cat}|{key}", Missing(f"{cat}|{key}", cat))
+            c.cards.add(oid)
+            if oid in pod_ids:
+                c.pod_cards.add(oid)
+            if oid in pod_cmdrs:
+                c.pod_commanders.add(oid)
+            if is_commander:
+                c.commanders.add(oid)
+            if len(set(groups)) == 1:
+                c.blocks_alone += 1
+            if len(c.examples) < 4 and str(data.get("name")) not in c.examples:
+                c.examples.append(str(data.get("name")))
         needs = _missing_keys(data, cov)
         for key, kind in needs:
             m = rep.missing.setdefault(key, Missing(key, kind))
@@ -152,7 +187,33 @@ def as_json(rep: PoolReport, meta: dict[str, Any]) -> dict[str, Any]:
                               "pod_commanders": len(m.pod_commanders), "only_missing_piece_for": m.blocks_alone,
                               "examples": m.examples} for m in queue(rep, 200)],
         "commanders": rep.commander_rows,
+        "quality": quality(rep),
+        "categories": {cat: {"cards": len(rep.category_cards.get(cat, ())), "lines": rep.category_lines.get(cat, 0)}
+                       for cat in clusters.CATEGORIES},
+        "clusters": [{"category": m.kind, "cluster": m.key.split("|", 1)[1], "commander_cards": len(m.cards),
+                      "pod_cards": len(m.pod_cards), "pod_commanders": len(m.pod_commanders),
+                      "commanders": len(m.commanders), "only_missing_piece_for": m.blocks_alone, "examples": m.examples}
+                     for m in cluster_queue(rep)],
     }
+
+
+def cluster_queue(rep: PoolReport, limit: int = 1500) -> list[Missing]:
+    """Clusters by payoff: pod cards, pod commanders, possible commanders affected, cards it alone
+    would unlock, then all Commander cards needing it (prerequisite value)."""
+    return sorted(rep.clusters.values(), key=lambda m: (-len(m.pod_cards), -len(m.pod_commanders), -len(m.commanders),
+                                                        -m.blocks_alone, -len(m.cards), m.key))[:limit]
+
+
+def quality(rep: PoolReport) -> dict[str, Any]:
+    """Coverage quality beyond FULL %: how much Oracle text the engine reads, and what's left."""
+    total, ok = rep.lines.get("total", 0), rep.lines.get("supported", 0)
+    unrecognized = total - ok
+    other = rep.category_lines.get(clusters.OTHER, 0)
+    return {"ability_lines": total, "automated_lines": ok, "automated_share": _pct(ok, total),
+            "unrecognized_clauses": unrecognized,
+            # classified: automated, or at least sorted into a concrete missing capability
+            "classified_share": _pct(total - other, total), "unclassified_clauses": other,
+            "clusters": len(rep.clusters)}
 
 
 def _pct(n: int, total: int) -> str:
@@ -185,6 +246,33 @@ def markdown(data: dict[str, Any]) -> str:
     else:
         lines += ["No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue below is ranked by "
                   "Commander-legal cards unlocked.", ""]
+    q = data.get("quality") or {}
+    if q:
+        lines += ["## Coverage quality", "",
+                  f"- Ability features (lines, keywords, play/cast/combat) across Commander-legal cards: {q['ability_lines']}",
+                  f"- Automated: {q['automated_lines']} ({q['automated_share']}) · unrecognized clauses: {q['unrecognized_clauses']}",
+                  f"- Oracle text classified (automated, or sorted into a concrete missing capability): {q['classified_share']} "
+                  f"· unclassified clauses: {q['unclassified_clauses']}",
+                  f"- Distinct missing-capability clusters: {q['clusters']}", "",
+                  "## Missing capabilities by category", "",
+                  "| Category | Cards affected | Clauses |", "|---|---|---|",
+                  *[f"| {cat} | {v['cards']} | {v['lines']} |" for cat, v in
+                    sorted(data["categories"].items(), key=lambda kv: -kv[1]["cards"])], "",
+                  "## Highest-payoff clusters", "",
+                  "Ranked by pod cards, pod commanders, possible commanders affected, cards it alone would unlock, "
+                  "then all Commander cards needing it.", "",
+                  "| # | Category | Cluster | Commanders | Only missing piece for | Commander cards | Examples |",
+                  "|---|---|---|---|---|---|---|"]
+        for i, c in enumerate(data["clusters"][:80], 1):
+            lines.append(f"| {i} | {c['category']} | {c['cluster'].replace('|', '/')} | {c['commanders']} | "
+                         f"{c['only_missing_piece_for']} | {c['commander_cards']} | {', '.join(c['examples'][:3])} |")
+        lines += ["", "## Largest clusters (Commander cards affected)", "",
+                  "| # | Category | Cluster | Commander cards | Only missing piece for | Commanders | Examples |",
+                  "|---|---|---|---|---|---|---|"]
+        for i, c in enumerate(sorted(data["clusters"], key=lambda c: -c["commander_cards"])[:50], 1):
+            lines.append(f"| {i} | {c['category']} | {c['cluster'].replace('|', '/')} | {c['commander_cards']} | "
+                         f"{c['only_missing_piece_for']} | {c['commanders']} | {', '.join(c['examples'][:3])} |")
+        lines.append("")
     lines += ["## Top Commander features to implement next", "",
               "Ranked by pod cards, pod commanders, cards for which it is the only missing piece, then Commander cards needing it.", "",
               "| # | Feature | Kind | Pod cards | Commander cards | Only missing piece for | Examples |", "|---|---|---|---|---|---|---|"]

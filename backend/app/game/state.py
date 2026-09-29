@@ -167,6 +167,7 @@ class CardInstance(BaseModel):
     locked: bool = False  # cannot be moved until unlocked
     protected: bool = False  # cannot be deleted / stacked / merged without an explicit force
     attached_to: str | None = None  # host permanent (equipment, auras, cards tucked under)
+    attached_player: str | None = None  # the player an Aura enchants ("Enchant player", 702.5d)
     attach_offset: tuple[float, float] | None = None  # position relative to the host
     group: str | None = None  # temporary pile: dragging one member moves all
     quantity: int = 1  # logical token stack size ("Treasure ×17")

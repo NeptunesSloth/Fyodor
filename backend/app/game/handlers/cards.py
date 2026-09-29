@@ -44,15 +44,15 @@ def tap(state: GameState, a: A.Tap) -> None:
 
 def untap_all(state: GameState, a: A.UntapAll) -> None:
     pid = ops.player(state, a.player, a.actor)
-    count = untap_permanents(state, pid)
+    count = untap_permanents(state, pid, set(a.keep_tapped))
     log(state, a.actor, a.ts, [pname(state, pid), text(f" untapped {count} permanent{'s' if count != 1 else ''}")])
 
 
-def untap_permanents(state: GameState, pid: str) -> int:
+def untap_permanents(state: GameState, pid: str, keep: set[str] | frozenset[str] = frozenset()) -> int:
     count = 0
     for cid in state.zone(zone_key(pid, "battlefield")):
         c = state.cards[cid]
-        if c.tapped:
+        if c.tapped and cid not in keep:
             c.tapped = False
             count += 1
     return count

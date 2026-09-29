@@ -627,11 +627,14 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def return_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The exiled cards return to the battlefield under their owners' control (610.3c)."""
+    from app.rules import attachments  # attachments → effects (resume)
+
+    entries = []
     for cid in plan.rules.linked_exile.pop(e["source"], []):
         card = plan.state.cards.get(cid)
         if card is not None and card.zone.endswith(":exile"):
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "battlefield"}}, actor=card.owner)
-    return True
+            entries.append({"card": cid, "player": card.owner, "actor": card.owner})
+    return attachments.enter(plan, entries, ctx)
 
 
 SERVO = {"name": "Servo", "power": "1", "toughness": "1", "colors": [], "type_line": "Token Artifact Creature — Servo", "text": ""}
@@ -685,10 +688,17 @@ def _copy_spell(plan: Plan, sid: str, entry: StackEntry, targets: list[Any], con
     new_ids = getattr(created, "r", None)
     copy_id = new_ids.ids[0] if new_ids is not None else None
     if copy_id:
+        slots = [list(s) for s in entry.slots]
+        if entry.slot_specs and list(targets) != list(entry.targets):  # a new target for a modal copy's only targeted mode
+            targeted = [k for k, spec in enumerate(entry.slot_specs) if spec]
+            if len(targeted) == 1:
+                slots[targeted[0]] = list(targets)
         plan.rules.stack[copy_id] = StackEntry(kind="spell", controller=controller, source_card=entry.source_card,
                                                source_object=entry.source_object, name=f"Copy of {entry.name}",
                                                effects=list(entry.effects), targets=list(targets),
-                                               target_spec=entry.target_spec, x=entry.x)
+                                               target_spec=entry.target_spec, x=entry.x,
+                                               modes=list(entry.modes), slots=slots,  # 700.2g: the copy keeps its modes
+                                               slot_specs=list(entry.slot_specs))
 
 
 def resume_storm(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -712,7 +722,12 @@ def resume_storm(plan: Plan, d: Any, chosen: list[str]) -> None:
     if left <= 0:
         continue_effects(plan, ctx)
         return
-    spec = entry.target_spec or {}
+    spec = entry.target_spec or next((sp for sp in entry.slot_specs if sp), None) or {}
+    if len([sp for sp in entry.slot_specs if sp]) > 1:  # several targeted modes: the copies keep their targets
+        for _ in range(left):
+            _copy_spell(plan, r["spell"], entry, entry.targets, d.player)
+        continue_effects(plan, ctx)
+        return
     legal = legal_targets(plan, spec.get("what", "any"), d.player, source_of(plan, entry.source_card))
     if not legal:
         continue_effects(plan, ctx)
@@ -747,13 +762,16 @@ def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def blink(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """Exile, then return under its owner's control: a new object (400.7), so it enters again."""
+    from app.rules import attachments  # attachments → effects (resume)
+
+    entries = []
     for cid in _cards(plan, ctx, e["who"]):
         owner = plan.state.cards[cid].owner
         back = ctx["controller"] if e.get("under") == "you" else owner
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "exile"}}, actor=ctx["controller"])
         if cid in plan.state.cards:  # (a token ceases to exist in exile)
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": back, "zone": "battlefield"}}, actor=ctx["controller"])
-    return True
+            entries.append({"card": cid, "player": back, "actor": ctx["controller"]})
+    return attachments.enter(plan, entries, ctx)
 
 
 def _matches(plan: Plan, card_id: str, what: str) -> bool:
@@ -782,15 +800,19 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
+    from app.rules import attachments  # attachments → effects (resume)
+
     pid = d.player
+    entering = []
     for cid in chosen:
         if e.get("reveal"):
             plan.do({"type": "reveal", "card_ids": [cid]}, actor=pid)  # to everyone
         if e["to"] == "hand":
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "hand"}}, actor=pid)
         else:
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "battlefield"},
-                     "tapped": e["to"] == "battlefield_tapped"}, actor=pid)
+            entering.append({"card": cid, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped"})
+    if entering and not attachments.enter(plan, entering, ctx, shuffle=pid):  # an Aura chooses what it enchants (303.4f)
+        return
     plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
     continue_effects(plan, ctx)
 
@@ -866,7 +888,30 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
+def attach_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Equip (702.6a): attach this Equipment to the target creature. Nothing happens if the
+    Equipment left or stopped being an Equipment, is a creature (301.5c), or is already attached
+    there (701.3b)."""
+    from app.rules import attachments  # attachments → effects (resume)
+
+    src = _cards(plan, ctx, "self")
+    targets = _cards(plan, ctx, "target")
+    if src and targets:
+        attachments.attach(plan, src[0], targets[0], ctx["controller"])  # doesn't move if it can't (701.3b)
+    return True
+
+
+def use_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """A modal spell's next mode: its own target slot (empty if that target became illegal: the
+    mode's targeted parts then do nothing, 608.2b)."""
+    slots = ctx.get("slots") or []
+    ctx["targets"] = slots[e["slot"]] if e["slot"] < len(slots) else []
+    return True
+
+
 PRIMITIVES = {
+    "use_targets": use_targets,
+    "attach_self": attach_self,
     "draw": draw, "gain_life": gain_life, "lose_life": lose_life, "damage": damage, "pump": pump, "grant": grant,
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
@@ -931,6 +976,20 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     ctx: Context = {"controller": entry.controller, "source_card": entry.source_card, "source_object": entry.source_object,
                     "name": entry.name, "targets": [t.model_dump() for t in entry.targets], "stack_id": stack_id,
                     "kind": entry.kind, "effects": entry.effects, "next": 0}
+    if entry.slot_specs:  # a modal spell: each mode's target is checked on its own (608.2b)
+        src = source_of(plan, entry.source_card)
+        slots, targeted, legal_any = [], False, False
+        for refs, sspec in zip(entry.slots, entry.slot_specs, strict=False):
+            ok = [t for t in refs if sspec and still_legal(plan, sspec["what"], entry.controller, t, src)]
+            targeted = targeted or bool(sspec and refs)
+            legal_any = legal_any or bool(ok)
+            slots.append([t.model_dump() for t in ok])
+        if targeted and not legal_any:
+            plan.note(f"{entry.name or 'It'} does nothing: its targets are no longer legal")
+            finish(plan, ctx, countered=True)
+            return
+        ctx["slots"] = slots
+        ctx["targets"] = []
     spec = entry.target_spec
     if spec and entry.targets:
         src = source_of(plan, entry.source_card)

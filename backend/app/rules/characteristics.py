@@ -50,6 +50,9 @@ class Characteristics:
     pt: tuple[int, int] | None = None
     granted: frozenset[str] = frozenset()
     lost: frozenset[str] = frozenset()
+    # Rules imposed on it by other objects (an Aura's "Enchanted creature can't block."): the same
+    # names as scripts.COMBAT_STATICS. They aren't abilities: losing abilities doesn't remove them.
+    imposed: frozenset[str] = frozenset()
 
     @property
     def is_land(self) -> bool:
@@ -194,6 +197,15 @@ def printed_from_data(data: dict[str, Any], face: int = 0) -> Characteristics:
     return hit
 
 
+def half_from_data(data: dict[str, Any], face: int) -> Characteristics:
+    """One half of a split card / adventure (its own name, cost, type and text), cached."""
+    key = (str(data.get("id")) + "#half", face)
+    hit = _printed_cache.get(key)
+    if hit is None:
+        hit = _printed_cache[key] = _from_card_data(data, face, half=True)
+    return hit
+
+
 def is_two_spell_card(card: CardInstance, info: CardInfo) -> bool:
     data = info.get(card.card_id) if card.card_id else None
     return bool(data and data.get("faces") and data.get("layout") in HALVES)
@@ -204,11 +216,7 @@ def as_cast(card: CardInstance, info: CardInfo, face: int | None) -> Characteris
     (its own cost and type), otherwise the card as it is (after turning it to ``face``)."""
     data = info.get(card.card_id) if card.card_id else None
     if data and data.get("faces") and data.get("layout") in HALVES and card.ability is None and not card.token:
-        key = (str(data.get("id")) + "#half", face or 0)
-        hit = _printed_cache.get(key)
-        if hit is None:
-            hit = _printed_cache[key] = _from_card_data(data, face or 0, half=True)
-        return hit
+        return half_from_data(data, face or 0)
     return of(card.model_copy(update={"face": face}) if face is not None else card, info)
 
 

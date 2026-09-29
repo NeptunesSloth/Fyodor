@@ -130,6 +130,7 @@ def move_card(
     insert(state, c, dest, index=index, position=position)
     if src_zone == "battlefield" and dst_zone != "battlefield":
         c.attached_to = None
+        c.attached_player = None
         c.attach_offset = None
         c.group = None
         c.locked = False

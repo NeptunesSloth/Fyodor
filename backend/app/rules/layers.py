@@ -64,7 +64,7 @@ def anthems(state: GameState, info: CardInfo) -> list[tuple[str, str, dict]]:
         if r is not None and r.card_mode(cid) == "manual":
             continue
         for d in scripts.definitions(chars.of(c, info)).values():
-            if d["kind"] == "static" and d.get("static") == "anthem":
+            if d["kind"] == "static" and d.get("static") in ("anthem", "attached_rule"):
                 out.append((cid, c.controller, d))
     if len(_ANTHEM_CACHE) > 256:
         _ANTHEM_CACHE.clear()
@@ -72,9 +72,14 @@ def anthems(state: GameState, info: CardInfo) -> list[tuple[str, str, dict]]:
     return out
 
 
-def _anthem_applies(src: str, controller: str, d: dict, card: CardInstance, ch: Characteristics) -> bool:
-    if not (ch.is_land if d.get("lands") else ch.is_creature) or (d["other"] and src == card.id):
+def _anthem_applies(src: str, controller: str, d: dict, card: CardInstance, ch: Characteristics,
+                    state: GameState | None = None) -> bool:
+    kind_ok = True if d.get("permanent") else ch.is_land if d.get("lands") else ch.is_creature
+    if not kind_ok or (d.get("other") and src == card.id):
         return False
+    if d["scope"] == "attached":  # "Enchanted creature gets …": only the object it's attached to
+        host = state.cards.get(src) if state is not None else None
+        return host is not None and host.attached_to == card.id
     if d.get("commander"):  # "Commander creatures you own"
         return card.commander_key is not None and card.owner == controller
     if d["scope"] == "you" and card.controller != controller:
@@ -95,12 +100,19 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     p = t = 0
     kws: set[str] = set()
     grants: list[str] = []
+    imposed: set[str] = set()
     for src, controller, d in anthems(state, info):
-        if _anthem_applies(src, controller, d, card, out):
+        if d["static"] == "attached_rule":
+            if _anthem_applies(src, controller, {**d, "scope": "attached"}, card, out, state):
+                imposed.update(d["imposes"])
+            continue
+        if _anthem_applies(src, controller, d, card, out, state):
             p, t = p + d["p"], t + d["t"]
             kws |= set(d["keywords"])
             if d.get("grant"):
                 grants.append(d["grant"])
+    if imposed:
+        out = replace(out, imposed=out.imposed | frozenset(imposed))
     if not (p or t or kws or grants):
         return out
     pt = (out.pt[0] + p, out.pt[1] + t) if out.pt is not None else None

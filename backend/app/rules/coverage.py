@@ -16,7 +16,7 @@ from typing import Any, Literal
 from app.rules import cards as scripts
 from app.rules import protection
 from app.rules import scripts as templates
-from app.rules.characteristics import Characteristics, printed_from_data
+from app.rules.characteristics import HALVES, Characteristics, half_from_data, printed_from_data
 from app.rules.mana import parse_mana_ability
 from app.rules.oracle import AbilityText
 
@@ -65,7 +65,19 @@ _MANA_CYCLING = re.compile(r"(?:(?:basic )?[a-z]+)?cycling (?:\{[^}]+\})+")
 _MANA_FLASHBACK = re.compile(r"flashback (?:\{[^}]+\})+")
 
 
+# 702.124a: partner abilities modify deck construction and "function before the game begins":
+# during the game there's nothing to do (pairings are checked by app/rules/commander.py and the
+# deck checks). "Partner with [name]" also has an enters trigger (702.124j): not listed here.
+DECKBUILDING_KEYWORDS = {"partner", "choose a background", "doctor's companion", "friends forever"}
+
+
 def _keyword_supported(kw: str, line: str) -> bool:
+    if kw in DECKBUILDING_KEYWORDS:
+        return not line.strip().lower().startswith("partner with")
+    if kw in ("enchant", "equip"):  # app/rules/attachments.py: the wordings it maps
+        from app.rules import attachments
+
+        return attachments.supported_keyword(kw, line)
     if kw == "protection":  # DEBT for the qualities app/rules/protection.py understands
         return protection.supported(line)
     if kw == "affinity":  # casting.affinity_filter
@@ -127,8 +139,12 @@ class Coverage:
 def features_of(ch: Characteristics) -> list[Feature]:
     script = scripts.trusted(ch.oracle_id, ch.oracle_text)
     templated = set(templates.definitions(ch))
-    if ch.is_instant_or_sorcery and templates.spell_definition(ch) is None:
-        templated = set()  # a spell is automated as a whole or resolved by hand
+    if ch.is_instant_or_sorcery:
+        whole = templates.spell_definition(ch)
+        if whole is None:
+            templated = set()  # a spell is automated as a whole or resolved by hand
+        elif whole.get("modes"):
+            templated = {ab.index for ab in ch.abilities if ab.kind != "keywords"}  # a modal spell (700.2)
     out: list[Feature] = []
 
     def add(fid: str, label: str, ok: bool | None = None) -> None:
@@ -173,8 +189,10 @@ def of_characteristics(ch: Characteristics) -> Coverage:
 def of_card_data(data: dict[str, Any]) -> Coverage:
     """Coverage of a card from the card database (all faces of a double-faced card count)."""
     faces = data.get("faces") or []
-    if data.get("layout") in ("transform", "modal_dfc") and len(faces) > 1:
-        parts = [of_characteristics(printed_from_data(data, i)) for i in range(len(faces))]
+    if len(faces) > 1:  # double-faced, split, adventure, flip …: each face's text on its own (no "//" line)
+        halves = data.get("layout") in HALVES  # split cards / adventures: each half is its own spell
+        parts = [of_characteristics(half_from_data(data, i) if halves else printed_from_data(data, i))
+                 for i in range(len(faces))]
         feats = tuple(f for p in parts for f in p.features)
         supported = sum(1 for f in feats if f.supported)
         level: Level = "FULL" if supported == len(feats) and feats else ("PARTIAL" if supported else "MANUAL")

@@ -126,9 +126,41 @@ is on), and every cost is paid from the mana pool.
   costs: tap first, then pay.
 - If a mana ability can add different colors, the one that helps the pending payment is added.
 
-For a spell with convoke, your untapped creatures are highlighted too: click one to tap it for
-convoke ({1} or one mana of its color). Spend-restricted mana still needs a hand in some cases. The older AUTO / ASK / MANUAL payers remain inside the engine for its own tests
-only; clients can't select them.
+### Convoke, improvise, delve: paying part of the cost without mana
+
+These are **cost contributions, not mana** (CR 702.51a / 702.126a / 702.66a: "… rather than pay
+that mana"; they apply after the total cost is locked in, 702.51b / 702.126b / 702.66b and
+601.2f). While you pay for a spell that has one of them:
+
+- **Convoke**: your untapped creatures are highlighted. Clicking one commits it to pay **one
+  generic mana, or one colored symbol matching one of its colors** (a multicolored creature pays
+  one of its colors; a hybrid symbol is each of its colors, 107.4e). It can never pay {C}.
+- **Improvise**: your untapped artifacts are highlighted; each pays **one generic mana** only.
+- **Delve**: cards in your graveyard are listed; each pays **one generic mana** only. You can't
+  commit more cards than there is generic mana left to pay.
+
+The payment panel shows the cast cost, each contribution with the symbol it pays
+("✓ Llanowar Elves — Convoke {1}"), your mana pool and what's **Remaining**. Click a committed
+card again to take it back. Nothing is tapped or exiled until the whole cost is paid, all at once
+(601.2h: no partial payments) — so CANCEL leaves every creature untapped and every card in your
+graveyard. Contributions never enter the mana pool, never leave mana behind, and are never
+"mana added" / "tapped for mana" (106.3, 106.12a). A mana creature clicked on the table taps for
+mana; use the panel's Convoke row to convoke with it instead.
+
+They're offered only while paying a spell's total cost — never for ward, "counter it unless its
+controller pays", or activated abilities.
+
+### Payment provenance
+
+Every spell cast with automation records how its total cost was paid (`RulesState.payments`,
+keyed by the stack object and carried to the permanent it becomes): the locked-in total cost, the
+actual mana spent by type, each contribution (kind, card, object, symbol paid), life paid,
+permanents tapped / sacrificed while paying, alternative cost (evoke, dash, flashback, madness,
+face-down, free) and additional costs (buyback). Contributions are not counted as mana spent.
+The record survives undo/redo, save/load and reconnects, and is never sent to clients.
+
+Spend-restricted mana still needs a hand in some cases. The older AUTO / ASK / MANUAL payers
+remain inside the engine for its own tests only; clients can't select them.
 
 ## Smart prompting and optional effects — built for templated effects
 

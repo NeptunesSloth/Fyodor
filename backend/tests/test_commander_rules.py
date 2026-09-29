@@ -132,3 +132,21 @@ def test_banned_cards_are_left_out_of_the_pool():
                         card("Other Format", "Artifact", cost="{1}", legal="not_legal") | {"oracle_id": "o"},
                         card("Bear", "Creature — Bear", cost="{1}{G}", power="2", toughness="2") | {"oracle_id": "g"}])
     assert (rep.total, rep.banned, rep.levels["FULL"]) == (1, 1, 1)  # a vanilla creature is FULL
+
+
+def test_partner_family_is_deckbuilding_only_702_124a():
+    """Partner abilities function before the game begins (702.124a): nothing to automate in play,
+    except "Partner with [name]", which also has an enters trigger (702.124j)."""
+    from app.rules import coverage
+    from app.rules.characteristics import printed_from_data
+
+    def level(name, text):
+        data = card(name, "Legendary Creature — Test", cost="{1}", text=text, power="1", toughness="1") | {"id": name}
+        return coverage.of_characteristics(printed_from_data(data)).level
+
+    assert level("Pal", "Partner") == "FULL"
+    assert level("Friend", "Partner—Friends forever") == "FULL"
+    assert level("Hero", "Choose a Background") == "FULL"
+    assert level("Companion", "Doctor's companion") == "FULL"
+    assert level("Walker", "Walker can be your commander.") == "FULL"  # 903.3a
+    assert level("Twin", "Partner with Other Twin") == "PARTIAL"

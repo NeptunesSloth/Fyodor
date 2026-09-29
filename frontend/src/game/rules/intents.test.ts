@@ -4,6 +4,7 @@ import { useGame } from "../../state/gameStore";
 import type { CardData } from "../../types/cards";
 import type { GameView } from "../../types/game";
 import { abilityLines, automationOn, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, tapForMana } from "./intents";
+import { legalClass, paidSymbol } from "./RulesHud";
 import { rulesMenu } from "./rulesMenu";
 
 const card = (id: string, zone: string, card_id: string) => ({ id, zone, card_id, name: card_id, owner: "p1", controller: "p1" });
@@ -109,6 +110,19 @@ describe("automation intents", () => {
     ]);
   });
 
+  it("a committed convoke / improvise / delve card is marked as paying, not tapped, and clicking it again takes it back", () => {
+    const base = view({ ...RULES, options: { highlights: "on" }, decision: { id: "d1", player: "p1", kind: "choose_one", prompt: "Tap mana",
+      display: { kind: "tap_mana", sources: [], convoke: ["cr"], improvise: [], delve: ["g1"], committed: ["cr"] }, options: [] } });
+    const v = { ...base, cards: { ...base.cards, cr: card("cr", "p1:battlefield", "looter"), g1: card("g1", "p1:graveyard", "bolt") } } as unknown as GameView;
+    useGame.setState({ view: v });
+    expect(legalClass(v, "cr", "p1")).toBe("rules-committed");
+    expect(legalClass(v, "g1", "p1")).toBe("rules-mana-source");
+    expect(tapForMana("cr", "p1")).toBe(true);
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "cr", ability: 0, convoke: true }]);
+    expect(paidSymbol("1")).toBe("{1}");
+    expect(paidSymbol("G")).toBe("{G}");
+  });
+
   it("splits ability lines without reminder text", () => {
     expect(abilityLines("Flying\n{T}: Add {C}{C}. (Mana ability.)\n")).toEqual(["Flying", "{T}: Add {C}{C}."]);
   });
@@ -172,6 +186,22 @@ describe("rules card menu", () => {
     if (!up || up === "separator") throw new Error("expected Turn face up");
     up.onClick?.();
     expect(sent).toEqual([{ type: "turn_face_up", card_id: "mb" }]);
+  });
+
+  it("offers Equip for an Equipment on the battlefield", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true } });
+    const v = { ...base, cards: { ...base.cards, eq: card("eq", "p1:battlefield", "splitter") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        splitter: { id: "splitter", name: "Bonesplitter", type_line: "Artifact — Equipment", oracle_text: "Equipped creature gets +2/+0.\nEquip {1}" } as CardData,
+      },
+    });
+    const equip = rulesMenu(v.cards.eq!, v, "p1").find((i) => i !== "separator" && i.label === "Activate: Equip {1}");
+    if (!equip || equip === "separator") throw new Error("expected Equip");
+    expect(equip.disabled).toBe(false);
+    equip.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "eq", ability: 1 }]);
   });
 
   it("shows nothing about hidden cards", () => {

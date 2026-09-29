@@ -201,6 +201,7 @@ class Tap(Base):
 class UntapAll(Base):
     type: Literal["untap_all"] = "untap_all"
     player: Id | None = None
+    keep_tapped: list[Id] = Field(default_factory=list, max_length=250)  # see NextTurn
 
 
 class Counter(Base):
@@ -646,6 +647,8 @@ class NextTurn(Base):
     type: Literal["next_turn"] = "next_turn"
     player: Id | None = None  # explicit next active player (default: next in seat order)
     force: bool = False
+    # Permanents that don't untap in this untap step (502.3: "doesn't untap during …"; set by the rules engine).
+    keep_tapped: list[Id] = Field(default_factory=list, max_length=250)
 
 
 class Attack(Base):
@@ -853,6 +856,15 @@ class PlayLand(_Intent):
     pay_life: bool | None = None  # shock lands: the answer to "pay 2 life or enter tapped" (asked if missing)
 
 
+class Contribution(BaseModel):
+    """Pay one mana symbol of the spell's total cost by tapping a creature (convoke, 702.51a),
+    tapping an artifact (improvise, 702.126a) or exiling a card from your graveyard (delve, 702.66a)."""
+
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["convoke", "improvise", "delve"]
+    card: Id
+
+
 class CastSpell(_Intent):
     type: Literal["cast_spell"] = "cast_spell"
     card_id: Id
@@ -869,6 +881,9 @@ class CastSpell(_Intent):
     buyback: bool = False  # 702.27: pay the buyback cost too; it returns to your hand as it resolves
     evoke: bool = False  # 702.74: cast for its evoke cost (sacrificed when it enters)
     dash: bool = False  # 702.109: cast for its dash cost (haste; returns to hand at the next end step)
+    # Cost contributions that aren't mana (convoke / improvise / delve): validated and applied
+    # only when the rest of the total cost is paid (601.2h: no partial payments).
+    contributions: list[Contribution] = Field(default_factory=list, max_length=60)
 
 
 class TurnFaceUp(_Intent):
@@ -887,9 +902,11 @@ class ActivateAbility(_Intent):
     x_value: int | None = Field(default=None, ge=0, le=1000)
     mana_choice: Literal["W", "U", "B", "R", "G", "C"] | None = None  # which colour, for "R or G" abilities
     sources: list[Id] | None = Field(default=None, max_length=60)  # MANUAL PAY (see CastSpell)
-    convoke: bool = False  # tap this creature for convoke while paying for a convoke spell
-    improvise: bool = False  # tap this artifact for improvise ({1})
-    delve: bool = False  # exile this card from your graveyard for delve ({1})
+    # While paying for a spell with that keyword: commit (or, again, release) this card to pay one
+    # symbol of its cost — nothing is tapped or exiled until the whole cost is paid.
+    convoke: bool = False  # this creature: {1} or one mana of its color
+    improvise: bool = False  # this artifact: {1}
+    delve: bool = False  # this card in your graveyard: {1}
     crew: list[Id] | None = Field(default=None, max_length=30)  # Crew N: the creatures tapped to pay it
 
 

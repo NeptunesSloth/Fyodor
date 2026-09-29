@@ -96,6 +96,7 @@ interface CardBase {
   protected?: boolean;
   rotation?: number;
   attached_to?: string | null;
+  attached_player?: string | null;  // an Aura enchanting a player
   group?: string | null;
   quantity?: number;
 }
