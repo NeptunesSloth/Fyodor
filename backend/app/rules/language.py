@@ -302,15 +302,15 @@ _SEARCH = re.compile(
     rf"search your library for (?:(?P<upto>up to) )?(?P<n>{AMT}) (?P<sel>.+?), "
     r"(?:(?P<reveal>reveal (?:it|them|that card|those cards)), )?"
     r"(?:(?:put (?:it|them|that card|those cards) (?P<dest>into your hand|onto the battlefield tapped|onto the battlefield|"
-    r"into your graveyard)|(?P<exile>exile (?:it|them|that card))), then shuffle"
+    r"into your graveyard)|(?P<exile>exile (?:it|them|that card)(?P<fd> face down)?)), then shuffle"
     r"|then shuffle and put (?:that card|it) on top)")
 _DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
           "into your graveyard": "graveyard"}
 
 
 def _search(text: str) -> tuple[Effects, str | None] | None:
-    """701.19: "Search your library for [up to N] [card selector], [reveal it,] put it [where], then
-    shuffle" (or "…, reveal it, then shuffle and put that card on top")."""
+    """701.23: "Search your library for [up to N] [card selector], [reveal it,] put it [where], then
+    shuffle" (or "…, reveal it, then shuffle and put that card on top"; "exile it [face down]")."""
     m = _SEARCH.fullmatch(text)
     if not m:
         return None
@@ -321,50 +321,155 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     n = _amount(m["n"])
     to = "top" if m["dest"] is None and m["exile"] is None else ("exile" if m["exile"] else _DESTS[m["dest"]])
     return [{"do": "search", "who": "you", "sel": sel.key(), "label": m["sel"], "max": n,
-             "to": to, "reveal": bool(m["reveal"]), "upto": bool(m["upto"])}], None  # (only when the text says so: 701.23e)
+             "to": to, "reveal": bool(m["reveal"]), "upto": bool(m["upto"]),
+             **({"face_down": True} if m["fd"] else {})}], None  # (only when the text says so: 701.23e)
 
 
-_REST = r"(?:the rest|the other|the others) (?P<rest>into your graveyard|on the bottom of your library(?: in (?:any|a random) order)?)"
-_TOP = re.compile(rf"look at the top (?:(?P<n>{AMT}) cards|card) of your library")
+# -- the top of a library (401, 701.20 reveal, 701.20e look, 701.24 shuffle) ----------------------
+# Whose library: "your library" (default), a target player's (a target group), everyone's.
+_LIB = r"(?P<lib>your|target player's|target opponent's|that player's|each player's|each opponent's) library"
+_LIB_WHO = {"your": "you", "target player's": "target player", "target opponent's": "target opponent",
+            "that player's": "that player", "each player's": "each player", "each opponent's": "each opponent"}
+_SUBJECTS = r"(?P<subj>target player|target opponent|that player|each player|each opponent|each of your opponents)"
+_N_CARDS = rf"(?:(?P<n>{AMT}) cards|card)"
+_TOP = re.compile(rf"(?P<verb>look at|reveal) the top {_N_CARDS} of {_LIB}(?P<back>, then put them back in any order)?")
+_SUBJ_TOP = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) the top {_N_CARDS} of their library")
+_EXILE_TOP = re.compile(rf"exile the top {_N_CARDS} of {_LIB}(?P<fd> face down)?")
+_UNTIL = re.compile(rf"(?P<verb>reveal|exile) cards from the top of {_LIB} until you (?P=verb) (?:a|an) (?P<sel>.+)")
+_REST = (r"(?:the rest|the other|the others|the other cards|all other cards revealed this way) "
+         r"(?P<rest>into your graveyard|into your hand|on the bottom(?: of your library)? in (?:any|a random) order|"
+         r"on the bottom of your library|on top of your library in any order)")
 _PICK = re.compile(
-    rf"(?:(?P<may>you may reveal) |put )(?P<q>up to {AMT}|any number of|{AMT}) (?:of them|(?P<sel>.+?) from among them)"
+    rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |put )"
+    rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all) (?:of them|of those cards|(?P<sel>.+?) (?:from among them|revealed this way))"
+    r"|(?P<that>that card|it|the revealed card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
     r"(?: and put (?:it|them|the revealed cards|that card|those cards))?"
-    r" (?P<to>into your hand|onto the battlefield tapped|onto the battlefield)"
+    r" (?P<to>into your hand|onto the battlefield tapped|onto the battlefield|into your graveyard)"
     rf"(?: and {_REST})?")
-_REST_ALONE = re.compile(rf"put {_REST}")
+_REST_ALONE = re.compile(rf"(?:put {_REST}|exile (?P<exile>the rest|all other cards revealed this way))")
+_OWNERS = r"(?:its owner's|their owner's|their owners'|your)"
+_TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_OWNERS} library")
+_SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
+_OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that permanent's) owner shuffles it into their library")
+_OWNER_CHOICE = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it on their choice of the top or bottom of their library")
+_SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)?|shuffle your (?P<z>graveyard|hand and graveyard) into your library"
+                      rf"|{_SUBJECTS} shuffles(?: their (?P<z2>graveyard|hand and graveyard) into their library)?)")
 
 
 def _rest(where: str) -> dict[str, Any]:
-    to = "graveyard" if where == "into your graveyard" else "bottom_random" if "random" in where else "bottom_any"
+    if where in ("into your graveyard", "into your hand"):
+        to = where[len("into your "):]
+    elif where.startswith("on top"):
+        to = "top_any"
+    else:
+        to = "bottom_random" if "random" in where else "bottom_any"
     return {"do": "rest_looked", "to": to}
 
 
-def _looking(text: str) -> tuple[Effects, str | None] | None:
-    """701.xx "look at the top N cards of your library" and what follows ("put one of them into
-    your hand and the rest on the bottom …", "you may reveal a creature card from among them …")."""
+def _lib_owner(lib: str) -> tuple[str, dict[str, Any] | None]:
+    """("you" / "each_player" / "target" …, the target group if a target player's library)."""
+    kind, key, group = ref(_LIB_WHO[lib])
+    return (_who(kind, key), group) if group is None else ("target", group)
+
+
+def _card_sel(phrase: str) -> str:
+    sel = selectors.parse(phrase)
+    if sel is None or sel.player is not None or not sel.card:
+        raise _Fail
+    return sel.key()
+
+
+def _looking(text: str) -> tuple[Effects, Any] | None:
+    """The top of a library: "look at the top N cards of your library" (private, 701.20e) and
+    "reveal the top N cards" (public, 701.20a), "… then put them back in any order" (401.4: the
+    order is the chooser's secret), "reveal cards from the top of your library until you reveal a
+    creature card", "exile the top N cards of your library [face down]", and what follows: "put
+    one of them / that card / all land cards revealed this way into your hand / onto the
+    battlefield / into your graveyard", "you may reveal a creature card from among them and put
+    it into your hand", "and the rest on the bottom of your library in a random order / in any
+    order / into your graveyard", "exile the rest". Also "put target creature on top / on the
+    bottom of its owner's library", "shuffle ~ into its owner's library", "shuffle [your graveyard
+    into your library]"."""
+    text, rider = _with_rider(text) if re.match(r"^(?:look at|reveal|exile) the top", text) else (text, None)
+
+    def count(m: re.Match[str]) -> Any:
+        return _apply(_amount(m["n"]) if m["n"] else 1, rider)
+
     m = _TOP.fullmatch(text)
     if m:
-        return [{"do": "look_top", "n": _amount(m["n"]) if m["n"] else 1}], None
+        who, group = _lib_owner(m["lib"])
+        out: Effects = [{"do": "look_top", "n": count(m), "player": who, "reveal": m["verb"] == "reveal"}]
+        if m["back"]:
+            if who not in ("you", "target", "that_player"):
+                raise _Fail  # ("each player's library … put them back": who orders whose? not read)
+            out.append({"do": "rest_looked", "to": "top_any"})
+        return out, _one(group)
+    m = _SUBJ_TOP.fullmatch(text)
+    if m:
+        kind, key, group = ref(m["subj"])
+        do = "look_top" if m["verb"] == "reveals" else "exile_top"
+        return [{"do": do, "n": count(m), "player": _who(kind, key), **({"reveal": True} if do == "look_top" else {})}], _one(group)
+    m = _EXILE_TOP.fullmatch(text)
+    if m:
+        who, group = _lib_owner(m["lib"])
+        return [{"do": "exile_top", "n": count(m), "player": who, "face_down": bool(m["fd"])}], _one(group)
+    if rider is not None:
+        raise _Fail
+    m = _UNTIL.fullmatch(text)
+    if m:
+        who, group = _lib_owner(m["lib"])
+        do = "look_top" if m["verb"] == "reveal" else "exile_top"
+        return [{"do": do, "n": 0, "player": who, "until": _card_sel(m["sel"]), **({"reveal": True} if do == "look_top" else {})}], \
+            _one(group)
     m = _PICK.fullmatch(text)
     if m:
-        q = m["q"]
-        optional = bool(m["may"]) or q.startswith(("up to", "any number"))
-        n: Any = 99 if q == "any number of" else _amount(q[6:] if q.startswith("up to ") else q)
-        sel = None
-        if m["sel"]:
-            parsed = selectors.parse(m["sel"])
-            if parsed is None or parsed.player is not None:
+        optional = bool(m["may"] or m["mayput"])
+        e: dict[str, Any] = {"do": "pick_looked", "n": 1, "sel": None, "to": _DESTS[m["to"]], "optional": optional,
+                             "reveal": bool(m["may"])}
+        if m["q"]:
+            q = m["q"]
+            e["optional"] = optional or q.startswith(("up to", "any number"))
+            e["n"] = 99 if q in ("any number of", "all") else _amount(q[6:] if q.startswith("up to ") else q)
+            if m["sel"]:
+                parsed = selectors.parse(m["sel"])
+                if parsed is None or parsed.player is not None:
+                    raise _Fail
+                e["sel"] = parsed.key()
+            elif q == "all":
                 raise _Fail
-            sel = parsed.key()
-        to = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped",
-              "onto the battlefield": "battlefield"}[m["to"]]
-        out: Effects = [{"do": "pick_looked", "n": n, "sel": sel, "to": to, "optional": optional, "reveal": bool(m["may"])}]
+        else:
+            e["which"] = "that" if m["that"] else "all"
+        out = [e]
         if m["rest"]:
             out.append(_rest(m["rest"]))
         return out, None
     m = _REST_ALONE.fullmatch(text)
     if m:
-        return [_rest(m["rest"])], None
+        return [{"do": "rest_looked", "to": "exile"} if m["exile"] else _rest(m["rest"])], None
+    m = _SHUFFLE.fullmatch(text)
+    if m:
+        who, group = ("you", None)
+        if m["subj"]:
+            kind, key, group = ref(m["subj"])
+            who = _who(kind, key)
+        zones = {"graveyard": ["graveyard"], "hand and graveyard": ["hand", "graveyard"]}.get(m["z"] or m["z2"] or "", [])
+        return [{"do": "shuffle_library", "who": who, "zones": zones, **({"optional": True} if m["may"] else {})}], _one(group)
+    m = _TO_LIBRARY.fullmatch(text) or _SHUFFLE_INTO.fullmatch(text)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind not in ("target", "self", "it", "them"):
+            raise _Fail  # ("put two cards from your hand on top": which two? not read)
+        place = "shuffle" if "place" not in m.groupdict() else ("top" if m["place"] == "on top" else "bottom")
+        return [{"do": "to_library", "who": _who(kind, key), "place": place}], _one(group)
+    m = _OWNER_SHUFFLES.fullmatch(text)
+    if m:
+        return [{"do": "to_library", "who": "self" if m["o"] == "~'s" else "it", "place": "shuffle"}], None
+    m = _OWNER_CHOICE.fullmatch(text)
+    if m:
+        kind, key, group = ref(m["o"] or m["o2"])
+        if kind not in ("target", "self", "it"):
+            raise _Fail
+        return [{"do": "to_library", "who": _who(kind, key), "place": "choice"}], _one(group)
     return None
 
 

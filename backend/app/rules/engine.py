@@ -946,6 +946,8 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "aura_enters": attachments.resume_aura_enters,
     "sacrifice_choice": effects.resume_sacrifice_choice,
     "pick_looked": effects.resume_pick_looked,
+    "library_place": effects.resume_library_place,
+    "shuffle_library": effects.resume_shuffle_library,
     "cast_modes": casting.resume_cast_modes,
     "cast_slot_target": casting.resume_cast_slot_target,
     "cast_group": casting.resume_cast_group,

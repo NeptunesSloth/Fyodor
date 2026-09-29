@@ -1457,3 +1457,12 @@ def spell_definition(ch: Characteristics) -> Definition | None:
         return None  # ("Exile ~." on an instant or sorcery: the spell itself, which effects don't move)
     effects, target = _finish_targets(effects, groups)
     return {"kind": "spell", "effects": effects, **target_fields(target)}
+
+
+# -- library primitives (app/rules/effects.py: look_top, exile_top, to_library) as introducers ----
+# "Exile the top card of your library. …that card" / "cards exiled this way"; "reveal cards from the
+# top of your library until you reveal a creature card. …that card's mana value" (the card found);
+# "put target creature on top of its owner's library" (moved: a new object there, 400.7).
+_RECORDING.update({"exile_top": "exiled", "look_top": None, "to_library": None})
+_MOVERS.update({"exile_top", "to_library"})
+_CHOSEN.update({"exile_top": "n", "look_top": "n"})

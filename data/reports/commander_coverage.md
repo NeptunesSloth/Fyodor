@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 414 · PARTIAL: 3087 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 423 · PARTIAL: 3078 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -1138,8 +1138,8 @@ Color identity UG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ {5}{G}{U}: Look at the top five cards of your library. You may put a non-Human creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
 - ✗ Whenever you tap a nonland permanent for mana, add one mana of any type that permanent produced.
-- ✗ {5}{G}{U}: Look at the top five cards of your library. You may put a non-Human creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
 
 ### Atarka, World Render — FULL
 
@@ -1607,7 +1607,7 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ {1}{G}, {T}, Return Shigeki to its owner's hand: Reveal the top four cards of your library. You may put a land card from among them onto the battlefield tapped. Put the rest into your graveyard.
+- ✓ {1}{G}, {T}, Return Shigeki to its owner's hand: Reveal the top four cards of your library. You may put a land card from among them onto the battlefield tapped. Put the rest into your graveyard.
 - ✗ Channel — {X}{X}{G}{G}, Discard this card: Return X target nonlegendary cards from your graveyard to your hand.
 
 ### Jin-Gitaxias, Core Augur — PARTIAL
@@ -2713,7 +2713,7 @@ Color identity UBG
 - ✓ Lifelink
 - ✗ If a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.
 
-### Ureni of the Unwritten — PARTIAL
+### Ureni of the Unwritten — FULL
 
 Color identity URG
 
@@ -2721,7 +2721,7 @@ Color identity URG
 - ✓ Attack and block
 - ✓ Flying
 - ✓ Trample
-- ✗ Whenever Ureni enters or attacks, look at the top eight cards of your library. You may put a Dragon creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
+- ✓ Whenever Ureni enters or attacks, look at the top eight cards of your library. You may put a Dragon creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
 
 ### Emrakul, the World Anew — PARTIAL
 
@@ -2807,14 +2807,14 @@ Color identity R
 - ✗ Whenever Ilharg attacks, you may put a creature card from your hand onto the battlefield tapped and attacking. Return that creature to your hand at the beginning of the next end step.
 - ✗ When Ilharg dies or is put into exile from the battlefield, you may put it into its owner's library third from the top.
 
-### The Regalia — PARTIAL
+### The Regalia — FULL
 
 Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Haste
+- ✓ Whenever The Regalia attacks, reveal cards from the top of your library until you reveal a land card. Put that card onto the battlefield tapped and the rest on the bottom of your library in a random order.
 - ✓ Crew
-- ✗ Whenever The Regalia attacks, reveal cards from the top of your library until you reveal a land card. Put that card onto the battlefield tapped and the rest on the bottom of your library in a random order.
 
 ### Inga and Esika — PARTIAL
 
@@ -2887,7 +2887,7 @@ Color identity UG · pairs via partner
 - ✓ Partner
 - ✗ {4}: Scry 1, then reveal the top card of your library. If it's a land card, put it onto the battlefield tapped. Otherwise, draw a card.
 
-### Esika, God of the Tree // The Prismatic Bridge — PARTIAL
+### Esika, God of the Tree // The Prismatic Bridge — FULL
 
 Color identity WUBRG
 
@@ -2897,7 +2897,7 @@ Color identity WUBRG
 - ✓ {T}: Add one mana of any color.
 - ✓ Other legendary creatures you control have vigilance and "{T}: Add one mana of any color."
 - ✓ Cast it (timing, costs, the stack)
-- ✗ At the beginning of your upkeep, reveal cards from the top of your library until you reveal a creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of your library in a random order.
+- ✓ At the beginning of your upkeep, reveal cards from the top of your library until you reveal a creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of your library in a random order.
 
 ### Karn, Legacy Reforged — PARTIAL
 
