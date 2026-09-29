@@ -218,6 +218,9 @@ class Room:
                 "has_password": self.password_hash is not None,
             },
             "phase": self.phase,
+            # Lobby updates reach a browser both as HTTP responses and WebSocket pushes, in any
+            # order; the revision lets it drop an older one that arrives late.
+            "revision": self.revision,
             "viewer": viewer,
             "is_host": host,
             "settings": settings.model_dump(),

@@ -392,6 +392,8 @@ export interface LobbySeat {
 
 export interface LobbyView {
   phase: "lobby";
+  /** Room revision when this lobby was built (older ones arriving late are ignored). */
+  revision?: number;
   game: { id: string; mode: "lan"; code: string | null; has_password: boolean };
   viewer: string;
   is_host: boolean;

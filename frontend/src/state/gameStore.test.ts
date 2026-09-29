@@ -43,3 +43,32 @@ describe("perspective", () => {
     expect(playerName(null, "p2")).toBe("");
   });
 });
+
+describe("lobby updates arriving out of order", () => {
+  const lobby = (revision: number, bobReady: boolean) =>
+    ({
+      phase: "lobby",
+      revision,
+      game: { id: "g1" },
+      seats: [{ id: "p1", ready: true }, { id: "p2", ready: bobReady }],
+      start_blockers: bobReady ? [] : ["Bob isn't ready"],
+    }) as unknown as import("../types/game").LobbyView;
+
+  beforeEach(() => useGame.setState({ lobby: null, view: null }));
+
+  it("keeps the newest lobby when an older HTTP response lands after a newer push", () => {
+    const { applyLobby } = useGame.getState();
+    applyLobby(lobby(7, true)); // WebSocket push: Bob just got ready
+    applyLobby(lobby(6, false)); // Alice's own ready response, built earlier, arrives late
+    expect(useGame.getState().lobby?.revision).toBe(7);
+    expect(useGame.getState().lobby?.start_blockers).toEqual([]);
+    applyLobby(lobby(8, false));
+    expect(useGame.getState().lobby?.revision).toBe(8);
+  });
+
+  it("ignores a lobby once the game has started", () => {
+    useGame.setState({ view: { game: { id: "g1" } } as unknown as GameView });
+    useGame.getState().applyLobby(lobby(9, true));
+    expect(useGame.getState().lobby).toBeNull();
+  });
+});

@@ -232,3 +232,13 @@ def test_deck_checks_are_advisory_and_private(lobby):
     for t in (alice, bob):  # changing table settings asks everyone to confirm again
         client.post(f"/api/games/{gid}/lobby/ready", json={"ready": True}, headers=h(t))
     assert client.post(f"/api/games/{gid}/lobby/start", json={}, headers=h(alice)).status_code == 200
+
+
+def test_lobby_views_carry_an_increasing_revision(lobby):
+    """Browsers get lobby updates over HTTP and WebSocket in any order; the revision orders them."""
+    client, gid, code, alice, bob = lobby
+    r0 = lobby_of(client, gid, alice)["revision"]
+    after_deck = client.post(f"/api/games/{gid}/lobby/deck", json={"text": BOB_DECK}, headers=h(bob)).json()["revision"]
+    after_ready = client.post(f"/api/games/{gid}/lobby/ready", json={"ready": True}, headers=h(bob)).json()["revision"]
+    assert r0 < after_deck < after_ready
+    assert lobby_of(client, gid, alice)["revision"] == after_ready  # reading doesn't bump it

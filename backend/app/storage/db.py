@@ -2,13 +2,41 @@
 
 from __future__ import annotations
 
+import functools
 import logging
 import sqlite3
-from collections.abc import Iterator, Sequence
+import threading
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Concatenate, ParamSpec, Protocol, TypeVar
 
 log = logging.getLogger(__name__)
+
+
+class _HasLock(Protocol):
+    lock: threading.RLock
+
+
+S = TypeVar("S", bound=_HasLock)
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def locked(method: Callable[Concatenate[S, P], R]) -> Callable[Concatenate[S, P], R]:
+    """Run a repository method under its RLock.
+
+    The app database is one connection shared by FastAPI's worker threads; sqlite3 connections
+    must not be used by two threads at once (``InterfaceError: bad parameter or other API
+    misuse``), so reads need the lock just like writes.
+    """
+
+    @functools.wraps(method)
+    def wrapper(self: S, /, *args: P.args, **kwargs: P.kwargs) -> R:
+        with self.lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
 
 
 def connect(path: Path | str, *, readonly: bool = False) -> sqlite3.Connection:

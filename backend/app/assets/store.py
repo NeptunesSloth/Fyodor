@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from app.assets.validate import ImageInfo, sniff
-from app.storage.db import transaction
+from app.storage.db import locked, transaction
 
 AssetKind = Literal["playmat", "card_back", "token_art", "counter_art", "utility", "reference", "dice_skin", "table_preset"]
 KINDS: tuple[str, ...] = ("playmat", "card_back", "token_art", "counter_art", "utility", "reference", "dice_skin", "table_preset")
@@ -59,12 +59,14 @@ class AssetStore:
         if not self.conn.execute("SELECT 1 FROM assets WHERE sha256 = ?", (sha,)).fetchone():
             self._file(sha, mime).unlink(missing_ok=True)
 
+    @locked
     def path(self, asset_id: str) -> tuple[Path, str, str]:
         """(file path, mime, sha) for serving; raises AssetNotFound."""
         row = self._row(asset_id)
         return self._file(row["sha256"], row["mime"]), row["mime"], row["sha256"]
 
     # -- records ---------------------------------------------------------------------
+    @locked
     def _row(self, asset_id: str) -> sqlite3.Row:
         row = self.conn.execute("SELECT * FROM assets WHERE id = ?", (asset_id,)).fetchone()
         if row is None:
@@ -77,9 +79,11 @@ class AssetStore:
                 "width": row["width"], "height": row["height"], "size": row["size"], "created_at": row["created_at"],
                 "updated_at": row["updated_at"], "url": f"/api/assets/{row['id']}/file?v={row['sha256'][:12]}"}
 
+    @locked
     def get(self, asset_id: str) -> dict[str, Any]:
         return self._public(self._row(asset_id))
 
+    @locked
     def list(self, kind: str | None = None) -> list[dict[str, Any]]:
         if kind:
             rows = self.conn.execute("SELECT * FROM assets WHERE kind = ? ORDER BY name COLLATE NOCASE", (kind,)).fetchall()

@@ -47,7 +47,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
   const [choosing, setChoosing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const setLobby = (l: LobbyView) => useGame.setState({ lobby: l });
+  const setLobby = (l: LobbyView) => useGame.getState().applyLobby(l);
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);

@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.game.macros import MacroDef
-from app.storage.db import transaction
+from app.storage.db import locked, transaction
 
 MAX_MACROS = 1000
 
@@ -40,6 +40,7 @@ class MacroRepository:
         return {"id": row["id"], "scope": row["scope"], "oracle_id": row["oracle_id"], "name": row["name"],
                 "definition": load_definition(row["definition"]).model_dump(), "updated_at": row["updated_at"]}
 
+    @locked
     def list_all(self, oracle_id: str | None = None) -> list[dict[str, Any]]:
         if oracle_id:
             rows = self.conn.execute(
@@ -49,6 +50,7 @@ class MacroRepository:
             rows = self.conn.execute("SELECT * FROM macros ORDER BY scope, name").fetchall()
         return [self._public(r) for r in rows]
 
+    @locked
     def get(self, macro_id: str) -> dict[str, Any]:
         row = self.conn.execute("SELECT * FROM macros WHERE id = ?", (macro_id,)).fetchone()
         if row is None:

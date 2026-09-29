@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from app.storage.db import transaction
+from app.storage.db import locked, transaction
 
 ResultType = Literal["single", "multiple", "draw", "no_result"]
 Outcome = Literal["win", "loss", "draw", "none"]
@@ -153,12 +153,14 @@ class PodStats:
             if self.conn.execute("DELETE FROM game_results WHERE id = ?", (rid,)).rowcount == 0:
                 raise ResultNotFound(rid)
 
+    @locked
     def get(self, rid: str) -> dict[str, Any]:
         row = self.conn.execute("SELECT * FROM game_results WHERE id = ?", (rid,)).fetchone()
         if row is None:
             raise ResultNotFound(rid)
         return self._result(row)
 
+    @locked
     def for_game(self, game_id: str) -> dict[str, Any] | None:
         row = self.conn.execute("SELECT * FROM game_results WHERE game_id = ?", (game_id,)).fetchone()
         return self._result(row) if row else None
@@ -180,6 +182,7 @@ class PodStats:
             "winners": [p["name"] for p in players if p["outcome"] == "win"],
         }
 
+    @locked
     def history(self, *, limit: int = 100, player_id: str | None = None) -> list[dict[str, Any]]:
         if player_id:
             rows = self.conn.execute(
@@ -204,6 +207,7 @@ class PodStats:
         row["win_pct"] = round(100.0 * row["wins"] / games, 1) if games else None
         return row
 
+    @locked
     def players(self) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             f"SELECT pl.id, pl.name, {self._COUNTS} FROM pod_players pl"
@@ -211,6 +215,7 @@ class PodStats:
         ).fetchall()
         return [self._with_pct(dict(r)) for r in rows]
 
+    @locked
     def player(self, player_id: str) -> dict[str, Any]:
         row = self.conn.execute(
             f"SELECT pl.id, pl.name, {self._COUNTS} FROM pod_players pl"
@@ -242,6 +247,7 @@ class PodStats:
         ]
         return out
 
+    @locked
     def export(self) -> dict[str, Any]:
         """Everything, for backups (plain JSON)."""
         return {"format": "fyodor-pod-stats", "version": 1, "exported_at": _now(),

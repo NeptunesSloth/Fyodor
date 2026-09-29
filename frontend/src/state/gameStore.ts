@@ -42,6 +42,8 @@ interface GameStore {
   view: GameView | null;
   /** The pregame lobby, while the host hasn't started the game yet. */
   lobby: LobbyView | null;
+  /** Apply a lobby update unless a newer one (or the started game) is already here. */
+  applyLobby: (lobby: LobbyView) => void;
   status: ConnStatus;
   statusDetail: string | null;
   conn: GameConnection | null;
@@ -101,6 +103,15 @@ export const useGame = create<GameStore>((set, get) => ({
   logOpen: false,
   setLayout: (patch) => set(patch),
 
+  applyLobby: (lobby) =>
+    set((s) => {
+      // A lobby arrives both as HTTP responses and WebSocket pushes, in no guaranteed order.
+      // Keep the newest: an older one (or any lobby after the game started) is stale.
+      if (s.view && s.view.game.id === lobby.game.id) return {};
+      if (s.lobby && s.lobby.game.id === lobby.game.id && (lobby.revision ?? 0) < (s.lobby.revision ?? 0)) return {};
+      return { lobby, view: null };
+    }),
+
   connect: (gameId, opts) => {
     get().conn?.close();
     const conn = new GameConnection(gameId, opts, {
@@ -123,7 +134,7 @@ export const useGame = create<GameStore>((set, get) => ({
           actingAs: resolveActingAs(view, s.actingAs),
         }));
       },
-      onLobby: (lobby) => set({ lobby, view: null }),
+      onLobby: (lobby) => get().applyLobby(lobby),
       onStatus: (status, detail) => set({ status, statusDetail: detail ?? null }),
       onClosedByServer: (reason) => set({ status: "closed", statusDetail: reason }),
     });
