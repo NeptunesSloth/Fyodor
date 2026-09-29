@@ -13,10 +13,13 @@ unchanged. Two parts:
 * ``ctx["refs"]`` — named bindings recorded by earlier effects of this resolution. Each is a
   ``Binding`` dict:
 
-  - ``{"kind": "objects", "objects": [ObjectRef, …]}`` — objects an effect affected or moved
-    ("destroy target creature …", "exile …", "cards exiled this way"); for a move to a public
-    zone the refs are the NEW objects there (400.7j), for a hidden zone the old ones with their
-    last known information (608.2h);
+  - ``{"kind": "objects", "objects": [ObjectRef, …], "was": [ObjectRef, …]}`` — objects an
+    effect affected or moved ("destroy target creature …", "exile …", "cards exiled this way");
+    for a move to a public zone the refs are the NEW objects there (400.7j), for a hidden zone
+    the old ones with their last known information (608.2h). ``was`` (only after a move) keeps
+    the objects as they were expected to be, for *information* about them — "its toughness",
+    "its controller" — which 608.2h reads from the object in the zone it was expected in, or
+    from its last known information once it left, never from the new object;
   - ``{"kind": "players", "players": [id, …]}`` — "that player";
   - ``{"kind": "amount", "n": int}`` — "that much" / "that many" of an earlier effect;
   - ``{"kind": "payment", "ok": bool, "objects": [ObjectRef, …]}`` — an optional payment's
@@ -75,15 +78,17 @@ def bind_moved(plan: Plan, ctx: Context, name: str, before: list[ObjectRef]) -> 
     (400.7j: other parts of the effect can find it there); if it went to a hidden zone or ceased
     to exist, only what it was (with its last known information, 608.2h)."""
     out = []
+    was = []
     for old in before:
         card = plan.state.cards.get(old.card)
         zone = card.zone.split(":")[-1] if card is not None else None
+        snap = plan.rules.lki.get(old.object_id) or old.snapshot
+        was.append(old.model_copy(update={"snapshot": snap}).model_dump(mode="json"))
         if card is not None and zone not in HIDDEN_ZONES and plan.oid(card) != old.object_id:
             out.append(ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone).model_dump(mode="json"))
         else:
-            snap = plan.rules.lki.get(old.object_id) or old.snapshot
-            out.append(old.model_copy(update={"snapshot": snap}).model_dump(mode="json"))
-    refs(ctx)[name] = {"kind": "objects", "objects": out}
+            out.append(was[-1])
+    refs(ctx)[name] = {"kind": "objects", "objects": out, "was": was}
 
 
 def bind_players(ctx: Context, name: str, players: list[str]) -> None:
@@ -99,7 +104,9 @@ def bind_payment(ctx: Context, name: str, ok: bool, objects: list[ObjectRef] = (
 
 
 # -- lookup ----------------------------------------------------------------------------------------
-def _object_refs(ctx: Context, name: str) -> list[ObjectRef]:
+def _object_refs(ctx: Context, name: str, *, was: bool = False) -> list[ObjectRef]:
+    """A binding's objects: the ones to act on (400.7j: after a move, the new objects), or with
+    ``was`` the ones to read information from (608.2h: as they were expected to be)."""
     event = ctx.get("event") or {}
     if name == EVENT:
         raw = event.get("objects") or []
@@ -107,7 +114,7 @@ def _object_refs(ctx: Context, name: str) -> list[ObjectRef]:
         raw = event.get("new_objects") or []
     else:
         b = (ctx.get("refs") or {}).get(name) or {}
-        raw = b.get("objects") or []
+        raw = (b.get("was") if was and b.get("was") is not None else b.get("objects")) or []
     return [ObjectRef.model_validate(r) for r in raw]
 
 
@@ -134,13 +141,16 @@ def info(plan: Plan, ctx: Context, name: str) -> tuple[CardInstance, Characteris
     still that object where it was, else as it last existed (608.2h)."""
     from app.rules.triggers import _snapshot_card  # (triggers imports effects, which imports this)
 
-    for ref in _object_refs(ctx, name):
+    for ref in _object_refs(ctx, name, was=True):
         card = _same(plan, ref)
         if card is not None:
             return card, plan.ch(card)
         snap = snapshot(plan, ref)
         if snap is not None:
             return _snapshot_card(plan, snap)
+        card = plan.state.cards.get(ref.card)
+        if card is not None:  # no last known information is kept for a card that was in a graveyard
+            return card, plan.ch(card)  # or exile: it had its printed characteristics there, as now
     return None
 
 
@@ -152,7 +162,7 @@ def players(plan: Plan, ctx: Context, name: str) -> list[str]:
         return [p for p in (ctx.get("event") or {}).get("players") or [] if p in plan.live()]
     if attr in ("controller", "owner"):
         out: list[str] = []
-        for ref in _object_refs(ctx, EVENT if base == EVENT else base):
+        for ref in _object_refs(ctx, EVENT if base == EVENT else base, was=True):
             card = _same(plan, ref)
             snap = snapshot(plan, ref)
             if card is not None:
@@ -160,6 +170,8 @@ def players(plan: Plan, ctx: Context, name: str) -> list[str]:
                 pid = card.controller if attr == "controller" and on_stack_or_field else card.owner  # 108.4a
             elif snap is not None:
                 pid = snap.controller if attr == "controller" else snap.owner
+            elif ref.card in plan.state.cards:  # (it was in a graveyard or exile: no controller, 108.4a)
+                pid = plan.state.cards[ref.card].owner
             else:
                 continue
             if pid in plan.live() and pid not in out:

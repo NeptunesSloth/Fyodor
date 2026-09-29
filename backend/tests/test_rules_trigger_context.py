@@ -276,9 +276,9 @@ def test_that_many_is_the_number_discarded(cards):
      False),
     # "it" after "enchanted creature": which one?
     ("When this creature enters, tap enchanted creature. It deals damage to you equal to its power.", False),
-    # a card that moved from a graveyard: not its last known information (manual)
+    # a card returned from a graveyard: its printed characteristics (a within-resolution binding)
     ("When this creature enters, return target creature card from your graveyard to your hand. "
-     "You gain life equal to its power.", False),
+     "You gain life equal to its power.", True),
     # "~ deals damage equal to its power": the source's own power
     ("When this creature enters, it deals damage equal to its power to any target.", True),
 ])

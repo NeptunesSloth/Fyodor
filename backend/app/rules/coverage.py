@@ -33,7 +33,9 @@ SUPPORTED: set[str] = {
     # test_rules_loyalty.py, test_rules_combat.py
     "planeswalker",
     # M16: templated Oracle text (app/rules/scripts.py): triggers, spell effects, activated abilities,
-    # "enters tapped"; every template has parsing and scenario tests.
+    # "enters tapped"; every template has parsing and scenario tests. Static grants ("Other Elves you
+    # control get +1/+1 and have haste.", "~ gets +2/+2 as long as …") are app/rules/statics.py, applied
+    # in layer order by app/rules/layers.py (test_rules_statics.py).
     "templates",
 }
 
