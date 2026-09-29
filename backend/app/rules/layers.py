@@ -95,6 +95,9 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     """Current characteristics: printed + continuous effects in layer order + counters. With
     ``info``, static abilities of permanents (anthems, lords: layers 6 and 7c) apply too."""
     out = _derive_resolved(state, card, ch)
+    group = _group_imposed(state, card, out, info)
+    if group:
+        out = replace(out, imposed=out.imposed | frozenset(group))
     if info is None or not card.zone.endswith(":battlefield") or state.rules is None:
         return out
     p = t = 0
@@ -126,6 +129,30 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
             if ab is not None:
                 extra.append(replace(ab, index=100 + k))
         out = replace(out, abilities=out.abilities + tuple(extra))
+    return out
+
+
+def _group_imposed(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> set[str]:
+    """Rule-modifying effects of resolved spells/abilities on a group ("Creatures can't block this
+    turn"): not locked to a set of objects (611.2c), so evaluated now, for whatever matches."""
+    r = state.rules
+    if r is None or info is None or not r.effects or not card.zone.endswith(":battlefield"):
+        return set()
+    groups = [e for e in r.effects if e.who is not None]
+    if not groups:
+        return set()
+    from app.rules import selectors
+    from app.rules.plan import Plan
+
+    view = Plan.__new__(Plan)  # a read-only view of this table (no copy): selectors read state / ch
+    view.state, view.info = state, info
+    out: set[str] = set()
+    for e in groups:
+        if e.who is None or set(e.imposes) <= out:
+            continue
+        src = e.source_card if e.source_card and r.object_id(e.source_card) == e.source else None
+        if selectors.matches(view, selectors.from_key(e.who), card, ch, e.controller, src):
+            out |= set(e.imposes)
     return out
 
 
@@ -172,13 +199,14 @@ Duration = Literal["end_of_turn", "permanent"]
 def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | None, controller: str,
                power: int | None = None, toughness: int | None = None, add_keywords: tuple[str, ...] = (),
                remove_keywords: tuple[str, ...] = (), add_types: tuple[str, ...] = (), duration: Duration = "end_of_turn",
-               label: str = "", imposes: tuple[str, ...] = ()) -> ContinuousEffect:
+               label: str = "", imposes: tuple[str, ...] = (), who: str | None = None,
+               source_card: str | None = None) -> ContinuousEffect:
     r = plan.rules
     r.timestamp += 1
     effect = ContinuousEffect(id=f"e{r.timestamp}", affected=affected, layer=layer, source=source, controller=controller,
                               power=power, toughness=toughness, add_keywords=list(add_keywords),
                               remove_keywords=list(remove_keywords), add_types=list(add_types), duration=duration,
-                              imposes=list(imposes),
+                              imposes=list(imposes), who=who, source_card=source_card if who else None,
                               timestamp=r.timestamp,
                               label=label[:120])
     r.effects.append(effect)
@@ -197,4 +225,4 @@ def prune(state: GameState) -> None:
     if r is None or not r.effects:
         return
     live = {r.object_id(cid) for cid, c in state.cards.items() if c.zone.endswith(":battlefield")}
-    r.effects = [e for e in r.effects if set(e.affected) & live]
+    r.effects = [e for e in r.effects if e.who is not None or set(e.affected) & live]

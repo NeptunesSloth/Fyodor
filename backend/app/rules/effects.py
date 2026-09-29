@@ -176,13 +176,23 @@ RESTRICTION_LABELS = {"cant_block": "Can't block", "cant_attack": "Can't attack"
                       "cant_be_blocked": "Can't be blocked", "must_attack": "Attacks if able"}
 
 
+_GROUPS = {"each_creature": selectors.Selector(types=("Creature",)).key(),
+           "creatures_you_control": selectors.Selector(types=("Creature",), controller="you").key()}
+
+
 def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """"… can't block this turn", "… can't be blocked this turn": a rule-modifying effect on the
-    objects, locked in now (611.2c), ending at cleanup (514.2)."""
-    cards = _cards(plan, ctx, e["who"])
+    """"… can't block this turn", "… can't be blocked this turn": a rule-modifying effect, ending
+    at cleanup (514.2). It doesn't change characteristics or control, so its set of objects isn't
+    locked in (611.2c): "Creatures can't block this turn" also stops a creature that enters later.
+    A named object (target, "it", self, host) stays that one object (a new object isn't it, 400.7)."""
+    who = _GROUPS.get(e["who"], e["who"])
+    cards = _cards(plan, ctx, who)
+    group = who.startswith(selectors.PREFIX)
+    if cards or group:
+        layers.add_effect(plan, affected=[] if group else [plan.oid(c) for c in cards], layer="6",
+                          source=ctx.get("source_object"), controller=ctx["controller"], imposes=tuple(e["rules"]),
+                          label=", ".join(e["rules"]), who=who if group else None, source_card=ctx.get("source_card"))
     if cards:
-        layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="6", source=ctx.get("source_object"),
-                          controller=ctx["controller"], imposes=tuple(e["rules"]), label=", ".join(e["rules"]))
         _mark(plan, cards, ", ".join(RESTRICTION_LABELS.get(r, r) for r in e["rules"]))
     return True
 
@@ -214,9 +224,11 @@ def exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def bounce(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    for cid in _cards(plan, ctx, e["who"]):
-        owner = plan.state.cards[cid].owner
-        plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "hand"}}, actor=ctx["controller"])
+    """Return to the owner's hand: all of them at once, one move and one event batch (a "one or
+    more" trigger fires once, 603.2c). The zone "hand" goes to each card's owner."""
+    cards = _cards(plan, ctx, e["who"])
+    if cards:
+        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "hand"}}, actor=ctx["controller"])
     return True
 
 
@@ -579,9 +591,7 @@ def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    for cid in _cards(plan, ctx, e["who"]):
-        card = plan.state.cards[cid]
-        plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "graveyard"}}, actor=card.controller)
+    _sacrifice_cards(plan, _cards(plan, ctx, e["who"]), ctx["controller"])
     return True
 
 
@@ -853,9 +863,14 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         what = e["filter"].replace("_", " ")
     most = _amount(plan, ctx, e.get("max", 1))
     options = [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in matching]
-    # 701.19b: a search for cards with a stated quality may find fewer (or none)
+    # 701.23b: a search for cards with a stated quality may find fewer (or none); 701.23d: a search
+    # simply for a quantity of cards ("a card") must find that many, or as many as there are.
+    # ("Up to N cards" may find fewer: only a single "a card" or an explicit ``upto: False`` forces.)
+    quantity_only = e.get("filter") == "any" or (e.get("sel") is not None and e.get("label") in ("card", "cards"))
+    forced = quantity_only and not e.get("upto", e.get("label") == "cards")
     decide(plan, player=pid, kind="choose_cards", prompt=f"Search your library ({what})",
-           options=options, min_choices=0, max_choices=min(most, len(options)), resume={"step": "search", "ctx": ctx, "e": e})
+           options=options, min_choices=min(most, len(options)) if forced else 0, max_choices=min(most, len(options)),
+           resume={"step": "search", "ctx": ctx, "e": e})
     return False
 
 
@@ -894,45 +909,50 @@ def monarch(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """701.9: each affected player discards N cards of their choice, in APNAP order (101.4); each
-    chooses privately from their own hand."""
+    """701.9: each affected player discards N cards of their choice; each chooses privately from
+    their own hand, in APNAP order, then all the cards are discarded at once (101.4): one move,
+    one event batch."""
     who = _players(plan, ctx, e.get("who", "you")) if e.get("who") else [ctx["controller"]]
     order = [p for p in plan.apnap() if p in who]
-    return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order)
+    return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [])
 
 
-def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str]) -> bool:
+def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picked: list[str]) -> bool:
     for i, pid in enumerate(players):
         hand = plan.state.zones.get(zone_key(pid, "hand"), [])
         n = min(want, len(hand))
         if n == 0:
             continue
         if n == len(hand):
-            plan.do({"type": "move", "card_ids": list(hand), "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
+            picked = [*picked, *hand]
             continue
         decide(plan, player=pid, kind="choose_cards", prompt=f"Discard {n} card{'s' if n != 1 else ''}",
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
-               min_choices=n, max_choices=n, resume={"step": "discard", "ctx": ctx, "want": want, "rest": players[i + 1:]})
+               min_choices=n, max_choices=n,
+               resume={"step": "discard", "ctx": ctx, "want": want, "rest": players[i + 1:], "picked": picked})
         return False
+    cards = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(":hand")]
+    if cards:  # each to its owner's graveyard (701.9a)
+        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
     return True
 
 
 def resume_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
-    plan.do({"type": "move", "card_ids": chosen, "to": {"player": d.player, "zone": "graveyard"}}, actor=d.player)
     ctx = d.resume["ctx"]
-    if _discard_next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or []):
+    picked = [*(d.resume.get("picked") or []), *chosen]
+    if _discard_next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or [], picked):
         continue_effects(plan, ctx)
 
 
 def sacrifice_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.21a: "[Players] sacrifice N [selector]": each affected player chooses permanents they
-    control that match, in APNAP order."""
+    control that match, in APNAP order; then they're all sacrificed at once (101.4)."""
     who = _players(plan, ctx, e["who"])
     order = [p for p in plan.apnap() if p in who]
-    return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order)
+    return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order, [])
 
 
-def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list[str]) -> bool:
+def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list[str], picked: list[str]) -> bool:
     sel = selectors.from_key(key)
     for i, pid in enumerate(players):
         mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
@@ -941,26 +961,30 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
         if n == 0:
             continue
         if n == len(mine):
-            _sacrifice_cards(plan, mine)
+            picked = [*picked, *mine]
             continue
         decide(plan, player=pid, kind="choose_cards", prompt=f"Sacrifice {n}",
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
                min_choices=n, max_choices=n,
-               resume={"step": "sacrifice_choice", "ctx": ctx, "sel": key, "want": want, "rest": players[i + 1:]})
+               resume={"step": "sacrifice_choice", "ctx": ctx, "sel": key, "want": want, "rest": players[i + 1:],
+                       "picked": picked})
         return False
+    _sacrifice_cards(plan, picked, ctx["controller"])
     return True
 
 
-def _sacrifice_cards(plan: Plan, cards: list[str]) -> None:
-    for cid in cards:
-        card = plan.state.cards[cid]
-        plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "graveyard"}}, actor=card.controller)
+def _sacrifice_cards(plan: Plan, cards: list[str], actor: str) -> None:
+    """701.21a: each to its owner's graveyard, all at once (one move, one event batch: a "one or
+    more" trigger fires once, 603.2c)."""
+    cards = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+    if cards:
+        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=actor)
 
 
 def resume_sacrifice_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
-    _sacrifice_cards(plan, chosen)
     r = d.resume
-    if _sacrifice_next(plan, r["ctx"], r["sel"], r["want"], r.get("rest") or []):
+    picked = [*(r.get("picked") or []), *chosen]
+    if _sacrifice_next(plan, r["ctx"], r["sel"], r["want"], r.get("rest") or [], picked):
         continue_effects(plan, r["ctx"])
 
 

@@ -153,7 +153,7 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     n = _amount(m["n"])
     to = "top" if m["dest"] is None and m["exile"] is None else ("exile" if m["exile"] else _DESTS[m["dest"]])
     return [{"do": "search", "who": "you", "sel": sel.key(), "label": m["sel"], "max": n,
-             "to": to, "reveal": bool(m["reveal"])}], None  # (only when the text says so: 701.23e)
+             "to": to, "reveal": bool(m["reveal"]), "upto": bool(m["upto"])}], None  # (only when the text says so: 701.23e)
 
 
 _REST = r"(?:the rest|the other|the others) (?P<rest>into your graveyard|on the bottom of your library(?: in (?:any|a random) order)?)"

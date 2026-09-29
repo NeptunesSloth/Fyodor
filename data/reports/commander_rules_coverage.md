@@ -1,6 +1,6 @@
 # Commander rules coverage
 
-Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 20:12
+Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 20:14
 
 Only cards that are **legal in Commander today** count. Banned cards (83) are COMMANDER_BANNED and excluded.
 

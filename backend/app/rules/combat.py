@@ -317,7 +317,7 @@ class CombatDamage:
     creatures: dict[str, int] = field(default_factory=dict)
     players: dict[str, int] = field(default_factory=dict)
     walkers: dict[str, int] = field(default_factory=dict)
-    lifelink: dict[str, int] = field(default_factory=dict)
+    lifelink: dict[str, int] = field(default_factory=dict)  # source card -> life its controller gains (702.15e)
     wither: dict[str, int] = field(default_factory=dict)  # -1/-1 counters (wither, infect)
     poison: dict[str, int] = field(default_factory=dict)  # poison counters (infect)
     commander: dict[tuple[str, str], int] = field(default_factory=dict)
@@ -347,7 +347,7 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
 
     def gain(source_card: CardInstance, source: Characteristics, n: int) -> None:
         if n > 0 and "lifelink" in source.keywords:
-            out.lifelink[source_card.controller] = out.lifelink.get(source_card.controller, 0) + n
+            out.lifelink[source_card.id] = out.lifelink.get(source_card.id, 0) + n
 
     def hit_target(att: CardInstance, ach: Characteristics, n: int) -> int:
         tgt = att.attacking
@@ -444,8 +444,8 @@ def _apply_prevention(plan: Plan, dmg: CombatDamage) -> None:
                     break
             card = plan.state.cards.get(src)
             if card is not None:
-                if "lifelink" in plan.ch(card).keywords and dmg.lifelink.get(card.controller):
-                    dmg.lifelink[card.controller] = max(0, dmg.lifelink[card.controller] - cut)
+                if dmg.lifelink.get(src):
+                    dmg.lifelink[src] = max(0, dmg.lifelink[src] - cut)
                 if card.commander_key and (tgt, card.commander_key) in dmg.commander:
                     dmg.commander[(tgt, card.commander_key)] = max(0, dmg.commander[(tgt, card.commander_key)] - cut)
                 if not left and tgt in dmg.deathtouched:
