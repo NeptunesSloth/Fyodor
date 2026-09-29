@@ -42,6 +42,7 @@ from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room
 from app.multiplayer.lobby import DeckTooLarge, LobbySeatInfo, LobbySettings, SubmittedDeck, check_bounds
+from app.rules import commander as commander_rules
 from app.services import Services
 from app.stats.repository import DuplicateResult, Participant, ResultError, deck_key_for
 from app.storage.save_format import SaveFormatError
@@ -651,9 +652,7 @@ def _submitted(
     }
     commander_ids = [c.printing_id for c in cards if c.section == "commander" and c.printing_id]
     data = services.cards.get_many(commander_ids) if commander_ids else {}
-    identity = sorted(
-        {x for d in data.values() for x in d.get("color_identity") or []}, key=lambda c: "WUBRG".find(c)
-    )
+    identity = list(commander_rules.deck_identity(list(data.values())))
     return SubmittedDeck(
         name=clean_text(name, 120) or "Deck",
         cards=cards,

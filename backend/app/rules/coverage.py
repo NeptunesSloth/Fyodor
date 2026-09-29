@@ -1,4 +1,4 @@
-"""How much of a card the rules engine automates: FULL / PARTIAL / MANUAL.
+"""How much of a card the rules engine automates: FULL / PARTIAL / REVIEW / MANUAL.
 
 A card is broken into *features*: what it needs to be played (a land drop, casting a spell,
 fighting in combat) and one feature per ability line (a keyword, a mana ability, a scripted
@@ -16,7 +16,7 @@ from app.rules import cards as scripts
 from app.rules.characteristics import Characteristics, printed_from_data
 from app.rules.mana import parse_mana_ability
 
-Level = Literal["FULL", "PARTIAL", "MANUAL"]
+Level = Literal["FULL", "PARTIAL", "REVIEW", "MANUAL"]
 
 # Everything the engine automates today. Add a feature only together with its scenario tests.
 SUPPORTED: set[str] = {
@@ -104,8 +104,8 @@ def of_characteristics(ch: Characteristics) -> Coverage:
     else:
         level = "MANUAL"
     stale = scripts.get(ch.oracle_id) is not None and scripts.trusted(ch.oracle_id, ch.oracle_text) is None
-    if stale and level == "FULL":
-        level = "PARTIAL"
+    if stale:
+        level = "REVIEW"  # a script exists, but for different Oracle text: never claim FULL on a guess
     return Coverage(level=level, name=ch.name, oracle_id=ch.oracle_id, features=feats, review_needed=stale)
 
 
@@ -118,8 +118,8 @@ def of_card_data(data: dict[str, Any]) -> Coverage:
         supported = sum(1 for f in feats if f.supported)
         level: Level = "FULL" if supported == len(feats) and feats else ("PARTIAL" if supported else "MANUAL")
         review = any(p.review_needed for p in parts)
-        if review and level == "FULL":
-            level = "PARTIAL"
+        if review:
+            level = "REVIEW"
         return Coverage(level=level, name=str(data.get("name") or ""), oracle_id=data.get("oracle_id"), features=feats,
                         review_needed=review)
     return of_characteristics(printed_from_data(data, 0))

@@ -16,6 +16,7 @@ from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption, TurnCount
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
+from app.rules import commander as cmdr
 from app.rules import mana as M
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.costs import AbilityCost, parse_ability_cost
@@ -27,13 +28,8 @@ MAIN_PHASES = ("main1", "main2")
 
 # -- facts about permanents -------------------------------------------------------------
 def commander_identity(state: GameState, player: str, info: CardInfo) -> tuple[str, ...]:
-    colors: set[str] = set()
-    for c in state.cards.values():
-        if c.owner == player and c.commander_key and c.card_id:
-            data = info.get(c.card_id)
-            if data:
-                colors |= set(data.get("color_identity") or [])
-    return tuple(x for x in M.COLORS if x in colors)
+    commanders = [info.get(c.card_id) for c in state.cards.values() if c.owner == player and c.commander_key and c.card_id]
+    return cmdr.deck_identity([d for d in commanders if d])  # the same identity the deck checks use
 
 
 def summoning_sick(state: GameState, card: CardInstance) -> bool:

@@ -33,7 +33,7 @@ def _ids(raw: str | None) -> list[str]:
 def card_coverage(services: ServicesDep,
                   card_ids: Annotated[str | None, Query(max_length=20000)] = None,
                   oracle_ids: Annotated[str | None, Query(max_length=20000)] = None) -> dict[str, Any]:
-    """FULL / PARTIAL / MANUAL (and the manual parts) for printings or Oracle cards. Card data is
+    """FULL / PARTIAL / REVIEW / MANUAL (and the manual parts) for printings or Oracle cards. Card data is
     public, so any player may ask."""
     out: dict[str, Any] = {}
     for cid in _ids(card_ids):

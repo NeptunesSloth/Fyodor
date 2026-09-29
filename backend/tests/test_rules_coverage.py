@@ -78,7 +78,7 @@ def test_changed_oracle_text_needs_review(cards):
                                         oracle_hash=scripts.oracle_hash(old_text)))
     try:
         cov = coverage.of_card_data(bolt)
-        assert cov.level == "PARTIAL" and cov.review_needed  # never FULL against text the script wasn't checked with
+        assert cov.level == "REVIEW" and cov.review_needed  # never FULL against text the script wasn't checked with
         assert "Lightning Bolt deals 3 damage to any target." in cov.manual_parts
         assert cov.as_dict()["review_needed"] is True
     finally:

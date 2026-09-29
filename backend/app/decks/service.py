@@ -26,6 +26,7 @@ from app.decks.models import (
     Warning,
 )
 from app.decks.parser import ParsedDeck, ParsedEntry, parse_deck_text, section_for_categories
+from app.rules import commander as cmdr
 
 COLOR_ORDER = "WUBRG"
 
@@ -348,34 +349,7 @@ def validate(deck: DeckIn, cards: CardRepository, card_data: dict[str, dict[str,
 
     playing = [e for e in deck.entries if e.section in ("main", "commander")]
     if deck.format == "commander":
-        commanders = [e for e in deck.entries if e.section == "commander"]
-        total = count["main"] + count["commander"]
-        if not commanders:
-            warnings.append(Warning(level="warning", message="No commander chosen."))
-        elif count["commander"] > 2:
-            warnings.append(Warning(level="warning", message=f"{count['commander']} commanders (usually 1, or 2 with partner)."))
-        if total != 100:
-            warnings.append(Warning(level="warning", message=f"Deck has {total} cards including commanders (Commander decks have 100)."))
-        identity = {c for e in commanders if e.printing_id in data for c in data[e.printing_id]["color_identity"]}
-        if commanders:
-            for e in playing:
-                card = data.get(e.printing_id or "")
-                if card and e.section != "commander":
-                    outside = set(card["color_identity"]) - identity
-                    if outside:
-                        colors = "".join(c for c in COLOR_ORDER if c in outside)
-                        warnings.append(Warning(level="warning", message=f"{e.name} is outside the commander's color identity ({colors}).", card=e.name))
-        per_name = Counter[str]()
-        for e in playing:
-            per_name[e.name] += e.quantity
-        for name, qty in per_name.items():
-            entry = next(x for x in playing if x.name == name)
-            if qty > 1 and not is_basic_or_unlimited(data.get(entry.printing_id or "")):
-                warnings.append(Warning(level="warning", message=f"{qty} copies of {name} (Commander is singleton).", card=name))
-        for e in playing:
-            card = data.get(e.printing_id or "")
-            if card and card.get("commander_legal") == "banned":
-                warnings.append(Warning(level="info", message=f"{e.name} is on the Commander banned list.", card=e.name))
+        warnings += _commander_checks(deck, data, count, playing)
     elif deck.format == "constructed":
         if count["main"] < 60:
             warnings.append(Warning(level="warning", message=f"Main deck has {count['main']} cards (minimum 60)."))
@@ -392,6 +366,58 @@ def validate(deck: DeckIn, cards: CardRepository, card_data: dict[str, dict[str,
     return warnings
 
 
+def _commander_checks(deck: DeckIn, data: dict[str, dict[str, Any]], count: Counter[str], playing: list[Any]) -> list[Warning]:
+    """Commander deck construction (CR 903.3–903.5, 903.12e, 702.124), via ``app.rules.commander``:
+    one color-identity implementation for deck checks and the rules engine."""
+    warnings: list[Warning] = []
+    commanders = [e for e in deck.entries if e.section == "commander"]
+    commander_cards = [data[e.printing_id] for e in commanders if e.printing_id in data]
+    total = count["main"] + count["commander"]
+    if not commanders:
+        warnings.append(Warning(level="warning", message="No commander chosen."))
+    for problem in cmdr.configuration_problems(commander_cards):
+        warnings.append(Warning(level="warning", message=problem + "."))
+    if total != 100:
+        warnings.append(Warning(level="warning", message=f"Deck has {total} cards including commanders (Commander decks have 100)."))
+    identity = set(cmdr.deck_identity(commander_cards))
+    land_types: set[str] = set()
+    if commanders:
+        for e in playing:
+            card = data.get(e.printing_id or "")
+            if not card or e.section == "commander":
+                continue
+            outside = set(cmdr.color_identity(card)) - identity
+            if outside:
+                colors = "".join(c for c in COLOR_ORDER if c in outside)
+                warnings.append(Warning(level="warning", message=f"{e.name} is outside the commander's color identity ({colors}).", card=e.name))
+                continue
+            produces = cmdr.basic_land_mana(card)
+            if produces and not identity and "Basic" in (card.get("type_line") or ""):
+                land_types |= produces  # 903.12e: a colorless commander may run basics of one type
+            elif produces - identity:
+                colors = "".join(c for c in COLOR_ORDER if c in produces - identity)
+                warnings.append(Warning(level="warning", message=f"{e.name} has a basic land type producing {colors}, outside the commander's color identity.", card=e.name))
+        if len(land_types) > 1:
+            warnings.append(Warning(level="warning", message="A colorless commander allows basic lands of only one basic land type."))
+    per_name = Counter[str]()
+    for e in playing:
+        per_name[e.name] += e.quantity
+    for name, qty in per_name.items():
+        entry = next(x for x in playing if x.name == name)
+        if qty > 1 and not is_basic_or_unlimited(data.get(entry.printing_id or "")):
+            warnings.append(Warning(level="warning", message=f"{qty} copies of {name} (Commander is singleton).", card=name))
+    for e in playing:
+        card = data.get(e.printing_id or "")
+        if not card:
+            continue
+        status = cmdr.legality(card)
+        if status == "banned":
+            warnings.append(Warning(level="info", message=f"{e.name} is on the Commander banned list.", card=e.name))
+        elif status != "legal":
+            warnings.append(Warning(level="info", message=f"{e.name} isn't legal in Commander.", card=e.name))
+    return warnings
+
+
 def summarize(deck: Deck, data: dict[str, dict[str, Any]]) -> dict[str, Any]:
     counts = Counter[str]()
     for e in deck.entries:
@@ -401,7 +427,7 @@ def summarize(deck: Deck, data: dict[str, dict[str, Any]]) -> dict[str, Any]:
     for e in commanders or [e for e in deck.entries if e.section == "main"]:
         card = data.get(e.printing_id or "")
         if card:
-            identity.update(card["color_identity"])
+            identity.update(cmdr.color_identity(card))
     cover = next((e.printing_id for e in commanders if e.printing_id), None) or next(
         (e.printing_id for e in deck.entries if e.printing_id and e.section == "main"), None
     )
