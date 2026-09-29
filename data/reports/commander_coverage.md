@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 61 · PARTIAL: 3440 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 71 · PARTIAL: 3430 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -63,8 +63,8 @@ Color identity G
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Indestructible
+- ✓ Toski attacks each combat if able.
 - ✗ This spell can't be countered.
-- ✗ Toski attacks each combat if able.
 - ✗ Whenever a creature you control deals combat damage to a player, draw a card.
 
 ### Kutzil, Malamet Exemplar — PARTIAL
@@ -233,7 +233,7 @@ Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Swampwalk
+- ✓ Swampwalk
 - ✗ At the beginning of your upkeep, return target creature card from your graveyard to the battlefield.
 - ✗ At the beginning of each opponent's upkeep, that player sacrifices a creature of their choice.
 
@@ -611,7 +611,7 @@ Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Forestwalk
+- ✓ Forestwalk
 - ✗ If one or more tokens would be created under your control, those tokens plus that many 1/1 green Squirrel creature tokens are created instead.
 - ✗ {B}, Sacrifice X Squirrels: Target creature gets +X/-X until end of turn.
 
@@ -777,8 +777,8 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Skrelv can't block.
 - ✗ Toxic
-- ✗ Skrelv can't block.
 - ✗ {W/P}, {T}: Choose a color. Another target creature you control gains toxic 1 and hexproof from that color until end of turn. It can't be blocked by creatures of that color this turn.
 
 ### Lumra, Bellow of the Woods — PARTIAL
@@ -1082,7 +1082,7 @@ Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Intimidate
+- ✓ Intimidate
 - ✗ Whenever a Human deals damage to you, destroy it.
 - ✗ Other non-Human creatures you control get +1/+1 and have undying.
 
@@ -2272,7 +2272,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ The Mindskinner can't be blocked.
+- ✓ The Mindskinner can't be blocked.
 - ✗ If a source you control would deal damage to an opponent, prevent that damage and each opponent mills that many cards.
 
 ### Selvala, Explorer Returned — PARTIAL
@@ -2338,8 +2338,8 @@ Color identity U
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Vigilance
+- ✓ Prowess
 - ✓ {T}: Draw a card, then discard a card.
-- ✗ Prowess
 - ✗ {2}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy. Activate only if Kitsa's power is 3 or greater.
 
 ### Klauth, Unrivaled Ancient — PARTIAL

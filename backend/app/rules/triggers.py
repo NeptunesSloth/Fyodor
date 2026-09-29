@@ -40,7 +40,8 @@ def _zone(key: str | None) -> str:
 
 
 def abilities(plan: Plan, ch: Characteristics, trigger: str) -> list[tuple[int, dict[str, Any]]]:
-    return [(i, d) for i, d in scripts.definitions(ch).items() if d["kind"] == "triggered" and d["trigger"] == trigger]
+    found = [(i, d) for i, d in scripts.definitions(ch).items() if d["kind"] == "triggered" and d["trigger"] == trigger]
+    return found + [(i, d) for i, d in scripts.keyword_triggers(ch) if d["trigger"] == trigger]
 
 
 def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:

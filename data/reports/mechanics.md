@@ -85,7 +85,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.10 | Haste | keyword ability | 640 | supported |
 | 702.11 | Hexproof | keyword ability | 92 | supported |
 | 702.12 | Indestructible | keyword ability | 111 | supported |
-| 702.13 | Intimidate | keyword ability | 23 | missing |
+| 702.13 | Intimidate | keyword ability | 23 | supported |
 | 702.14 | Landwalk | keyword ability | 128 | missing |
 | 702.15 | Lifelink | keyword ability | 362 | supported |
 | 702.16 | Protection | keyword ability | 193 | missing |
@@ -100,15 +100,15 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.25 | Flanking | keyword ability | 29 | missing |
 | 702.26 | Phasing | keyword ability | 12 | missing |
 | 702.27 | Buyback | keyword ability | 39 | missing |
-| 702.28 | Shadow | keyword ability | 37 | missing |
+| 702.28 | Shadow | keyword ability | 37 | supported |
 | 702.29 | Cycling | keyword ability | 394 | missing |
 | 702.30 | Echo | keyword ability | 50 | missing |
-| 702.31 | Horsemanship | keyword ability | 28 | missing |
+| 702.31 | Horsemanship | keyword ability | 28 | supported |
 | 702.32 | Fading | keyword ability | 17 | missing |
 | 702.33 | Kicker | keyword ability | 226 | missing |
 | 702.34 | Flashback | keyword ability | 215 | missing |
 | 702.35 | Madness | keyword ability | 61 | missing |
-| 702.36 | Fear | keyword ability | 40 | missing |
+| 702.36 | Fear | keyword ability | 40 | supported |
 | 702.37 | Morph | keyword ability | 153 | missing |
 | 702.38 | Amplify | keyword ability | 9 | missing |
 | 702.39 | Provoke | keyword ability | 9 | missing |
@@ -180,7 +180,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.105 | Dethrone | keyword ability | 9 | missing |
 | 702.106 | Hidden Agenda | keyword ability | 0 | ignore (no Commander-legal cards) |
 | 702.107 | Outlast | keyword ability | 13 | missing |
-| 702.108 | Prowess | keyword ability | 94 | missing |
+| 702.108 | Prowess | keyword ability | 94 | supported |
 | 702.109 | Dash | keyword ability | 22 | missing |
 | 702.110 | Exploit | keyword ability | 23 | missing |
 | 702.111 | Menace | keyword ability | 382 | supported |
@@ -190,7 +190,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.115 | Ingest | keyword ability | 9 | missing |
 | 702.116 | Myriad | keyword ability | 23 | missing |
 | 702.117 | Surge | keyword ability | 11 | missing |
-| 702.118 | Skulk | keyword ability | 16 | missing |
+| 702.118 | Skulk | keyword ability | 16 | supported |
 | 702.119 | Emerge | keyword ability | 15 | missing |
 | 702.120 | Escalate | keyword ability | 9 | missing |
 | 702.121 | Melee | keyword ability | 12 | missing |

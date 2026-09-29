@@ -187,3 +187,86 @@ def test_no_attack_skips_combat_and_multiplayer_blockers_in_turn_order(cards):
     assert decision(s).kind == "declare_attackers" and decision(s).player == "p2"
     act(s, "p2", type="declare_attackers", attackers=[])
     assert s.state.turn.phase == "main2" and "doesn't attack" in json.dumps(s.view("p1")["log"])
+
+
+# -- evasion keywords (702.14 landwalk, 702.28 shadow, 702.31 horsemanship, 702.36 fear,
+#    702.13 intimidate, 702.120 skulk) -----------------------------------------------------------
+def _evasion_table(cards, text, blocker_text="", blocker_pt="2/2", blocker_colors=(), attacker_colors=("B",)):
+    s = table(cards)
+    act(s, "p1", type="create_token", player="p1", token={"name": "Sneak", "type_line": "Token Creature — Test", "power": "2",
+                                                         "toughness": "2", "text": text, "colors": list(attacker_colors)})
+    act(s, "p2", type="create_token", player="p2", token={"name": "Guard", "type_line": "Token Creature — Test",
+                                                         "power": blocker_pt.split("/")[0], "toughness": blocker_pt.split("/")[1],
+                                                         "text": blocker_text, "colors": list(blocker_colors)})
+    sneak = next(c for c in s.state.cards.values() if c.name == "Sneak")
+    guard = next(c for c in s.state.cards.values() if c.name == "Guard")
+    return s, sneak, guard
+
+
+def _blocks(s, sneak, guard):
+    automate(s)
+    attack(s, (sneak, "p2"))
+    d = decision(s)
+    assert d.kind == "declare_blockers" and d.player == "p2"
+    try:
+        block(s, "p2", (guard, sneak))
+    except ActionError:
+        return False
+    return True
+
+
+def test_forestwalk_while_the_defender_controls_a_forest(cards):
+    s, sneak, guard = _evasion_table(cards, "Forestwalk")
+    forest = next(c for c in s.state.cards.values() if c.owner == "p2" and c.name == "Forest")
+    act(s, "p2", type="move", card_ids=[forest.id], to={"zone": "battlefield"})
+    assert not _blocks(s, sneak, guard)
+
+
+def test_forestwalk_without_a_forest_can_be_blocked(cards):
+    s, sneak, guard = _evasion_table(cards, "Forestwalk")
+    assert _blocks(s, sneak, guard)
+
+
+@pytest.mark.parametrize(("text", "blocker_text", "blocker_colors", "blocker_pt", "can_block"), [
+    ("Shadow", "", (), "2/2", False),
+    ("Shadow", "Shadow", (), "2/2", True),
+    ("", "Shadow", (), "2/2", False),  # shadow creatures block only shadow creatures
+    ("Horsemanship", "", (), "2/2", False),
+    ("Horsemanship", "Horsemanship", (), "2/2", True),
+    ("Fear", "", ("G",), "2/2", False),
+    ("Fear", "", ("B",), "2/2", True),
+    ("Intimidate", "", ("G",), "2/2", False),
+    ("Intimidate", "", ("B",), "2/2", True),  # shares a color
+    ("Skulk", "", (), "3/3", False),
+    ("Skulk", "", (), "2/2", True),
+])
+def test_evasion(cards, text, blocker_text, blocker_colors, blocker_pt, can_block):
+    s, sneak, guard = _evasion_table(cards, text, blocker_text, blocker_pt, blocker_colors)
+    assert _blocks(s, sneak, guard) is can_block
+
+
+@pytest.mark.parametrize(("attacker_text", "blocker_text", "can_block"), [
+    ("", "This creature can't block.", False),
+    ("", "This creature can't attack or block.", False),
+    ("This creature can't be blocked.", "", False),
+    ("", "This creature can block only creatures with flying.", False),
+    ("Flying", "Reach\nThis creature can block only creatures with flying.", True),
+])
+def test_block_restrictions(cards, attacker_text, blocker_text, can_block):
+    s, sneak, guard = _evasion_table(cards, attacker_text, blocker_text)
+    assert _blocks(s, sneak, guard) is can_block
+
+
+def test_attacks_each_combat_if_able(cards):
+    s, sneak, _ = _evasion_table(cards, "This creature attacks each combat if able.")
+    automate(s)
+    with pytest.raises(ActionError, match="attacks each combat if able"):
+        act(s, "p1", type="declare_attackers", attackers=[])
+    attack(s, (sneak, "p2"))
+
+
+def test_cant_attack(cards):
+    s, sneak, _ = _evasion_table(cards, "This creature can't attack.")
+    automate(s)
+    with pytest.raises(ActionError):
+        attack(s, (sneak, "p2"))

@@ -16,6 +16,7 @@ from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption
 from app.game.state import CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
+from app.rules import scripts
 from app.rules.casting import summoning_sick
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.plan import Plan, decide, live_players
@@ -34,20 +35,68 @@ def attack_problem(state: GameState, card: CardInstance, ch: Characteristics) ->
         return f"{ch.name} is tapped"
     if "defender" in ch.keywords:
         return f"{ch.name} has defender"
+    if {"cant_attack", "cant_attack_or_block"} & scripts.statics(ch):
+        return f"{ch.name} can't attack"
     if "haste" not in ch.keywords and summoning_sick(state, card):
         return f"{ch.name} has summoning sickness"
     return None
 
 
 def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics, attacker: CardInstance,
-                  ach: Characteristics) -> str | None:
+                  ach: Characteristics, info: CardInfo | None = None) -> str | None:
     if not blocker.zone.endswith(":battlefield") or not bch.is_creature:
         return "Only creatures on the battlefield can block"
     if blocker.tapped:
         return f"{bch.name} is tapped"
+    if {"cant_block", "cant_attack_or_block"} & scripts.statics(bch):
+        return f"{bch.name} can't block"
+    if "cant_be_blocked" in scripts.statics(ach):
+        return f"{ach.name} can't be blocked"
+    if "block_only_flying" in scripts.statics(bch) and "flying" not in ach.keywords:
+        return f"{bch.name} can block only creatures with flying"
     if "flying" in ach.keywords and not ({"flying", "reach"} & bch.keywords):
         return f"{ach.name} has flying: only creatures with flying or reach can block it"
+    # landwalk (702.14): unblockable while the defending player controls a land of that type
+    for walk, land in LANDWALK.items():
+        if walk in ach.keywords and _controls_land(state, blocker.controller, land, info):
+            return f"{ach.name} has {walk}: it can't be blocked while you control a {land}"
+    if "shadow" in ach.keywords and "shadow" not in bch.keywords:
+        return f"{ach.name} has shadow: only creatures with shadow can block it"
+    if "shadow" in bch.keywords and "shadow" not in ach.keywords:
+        return f"{bch.name} has shadow: it can only block creatures with shadow"
+    if "horsemanship" in ach.keywords and "horsemanship" not in bch.keywords:
+        return f"{ach.name} has horsemanship: only creatures with horsemanship can block it"
+    if "fear" in ach.keywords and not ("Artifact" in bch.types or "B" in bch.colors):
+        return f"{ach.name} has fear: only artifact and/or black creatures can block it"
+    if "intimidate" in ach.keywords and not ("Artifact" in bch.types or ach.colors & bch.colors):
+        return f"{ach.name} has intimidate: only artifact creatures and creatures that share a color with it can block it"
+    if "skulk" in ach.keywords and _power(bch) > _power(ach):
+        return f"{ach.name} has skulk: creatures with greater power can't block it"
     return None
+
+
+def _power(ch: Characteristics) -> int:
+    if ch.pt is not None:
+        return ch.pt[0]
+    try:
+        return int(ch.power or 0)
+    except ValueError:
+        return 0
+
+
+LANDWALK = {"plainswalk": "Plains", "islandwalk": "Island", "swampwalk": "Swamp", "mountainwalk": "Mountain",
+            "forestwalk": "Forest", "desertwalk": "Desert"}
+
+
+def _controls_land(state: GameState, player: str, subtype: str, info: CardInfo | None) -> bool:
+    for cid in state.zones.get(zone_key(player, "battlefield"), []):
+        card = state.cards[cid]
+        if card.controller != player:
+            continue
+        ch = chars.of(card, info) if info is not None else None
+        if ch is not None and ch.is_land and subtype in ch.subtypes:
+            return True
+    return False
 
 
 def attack_targets(state: GameState, attacker: str, info: CardInfo) -> list[str]:
@@ -119,6 +168,12 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         if decl.card_id in seen:
             raise ActionError(f"{card.name} can only attack once")
         seen.add(decl.card_id)
+    # 508.1d: a creature that "attacks each combat if able" must attack when it can
+    for cid in eligible - seen:
+        card = plan.state.cards.get(cid)
+        if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
+                attack_problem(plan.state, card, plan.ch(card)) is None and targets:
+            raise ActionError(f"{card.name} attacks each combat if able")
     r.decision = None
     if not a.attackers:
         r.no_attackers = True
@@ -198,7 +253,7 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         if decl.blocker_id in used:
             raise ActionError(f"{blocker.name} can only block one attacker")
         used.add(decl.blocker_id)
-        problem = block_problem(plan.state, blocker, plan.ch(blocker), attacker, plan.ch(attacker))
+        problem = block_problem(plan.state, blocker, plan.ch(blocker), attacker, plan.ch(attacker), plan.info)
         if problem:
             raise ActionError(problem)
         per_attacker[decl.attacker_id] = per_attacker.get(decl.attacker_id, 0) + 1
@@ -206,6 +261,8 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         ach = plan.ch(plan.state.cards[aid])
         if "menace" in ach.keywords and n < 2:
             raise ActionError(f"{ach.name} has menace: it can't be blocked except by two or more creatures")
+        if "max_one_blocker" in scripts.statics(ach) and n > 1:
+            raise ActionError(f"{ach.name} can't be blocked by more than one creature")
     r.decision = None
     if r.blockers_pending and r.blockers_pending[0] == plan.actor:
         r.blockers_pending.pop(0)

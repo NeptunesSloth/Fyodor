@@ -39,6 +39,11 @@ SUPPORTED_KEYWORDS: set[str] = {
     "indestructible",
     # M16: casting timing and targeting (test_rules_effects.py)
     "flash", "hexproof", "shroud",
+    # evasion (test_rules_combat.py::test_evasion, landwalk tests)
+    "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "desertwalk",
+    "shadow", "horsemanship", "fear", "intimidate", "skulk",
+    # triggered keywords (app/rules/scripts.py KEYWORD_TRIGGERS)
+    "prowess",
 }
 
 

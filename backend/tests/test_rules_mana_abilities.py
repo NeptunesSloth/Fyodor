@@ -113,3 +113,17 @@ def test_reflecting_pool_copies_your_lands(cards):
     s = table(cards, "Reflecting Pool", "Forest")
     act(s, "p1", type="activate_ability", card_id=named(s, "Reflecting Pool").id, ability=0)
     assert s.state.players["p1"].mana == {"G": 1}
+
+
+def test_prowess(cards):
+    from app.rules.plan import Plan
+    from tests.test_rules_effects import pass_until_stack_empty
+
+    s = table(cards, "Mountain")
+    act(s, "p1", type="create_token", player="p1", token={"name": "Monk", "type_line": "Token Creature — Monk", "power": "1",
+                                                         "toughness": "2", "text": "Prowess"})
+    monk = next(c for c in s.state.cards.values() if c.name == "Monk")
+    cast(s, "Lightning Bolt", targets=["p2"])
+    pass_until_stack_empty(s)
+    assert Plan(s.state, "p1", cards, None).ch(s.state.cards[monk.id]).pt == (2, 3)
+    assert s.state.players["p2"].life == 37

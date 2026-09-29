@@ -174,5 +174,8 @@ def fixture_cards() -> list[dict[str, Any]]:
              oracle_text="{T}: Add one mana of any type that a land you control could produce."),
         card("Grizzly Bears", set_code="tst", number="M9", mana_cost="{1}{G}", cmc=2.0, type_line="Creature — Bear",
              oracle_text="", power="2", toughness="2", colors=["G"], color_identity=["G"]),
+        card("Monastery Swiftspear", set_code="tst", number="K1", mana_cost="{R}", cmc=1.0, type_line="Creature — Human Monk",
+             oracle_text="Haste\nProwess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)",
+             power="1", toughness="2", colors=["R"], color_identity=["R"], keywords=["Haste", "Prowess"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

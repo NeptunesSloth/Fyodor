@@ -341,6 +341,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = self_text(ability.text, ch.name)
     if ability.kind == "static" and text == "~ enters tapped.":
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
+    if ability.kind == "static" and text in COMBAT_STATICS:
+        return {"kind": "static", "static": COMBAT_STATICS[text], "effects": []}
     if ability.kind == "triggered":
         for pattern, trigger in TRIGGERS:
             m = pattern.match(text)
@@ -393,6 +395,45 @@ def definitions(ch: Characteristics) -> dict[int, Definition]:
     if cards.get(ch.oracle_id) is not None and cards.trusted(ch.oracle_id, ch.oracle_text) is None:
         return {}  # REVIEW: a reviewed script exists for other Oracle text; nothing is automated until re-checked
     return _cached(replace(ch, pt=None, granted=frozenset(), lost=frozenset()))
+
+
+# Combat restrictions and requirements printed on a permanent (CR 508.1c-d, 509.1b-c).
+COMBAT_STATICS = {
+    "~ can't block.": "cant_block",
+    "~ can't attack.": "cant_attack",
+    "~ can't attack or block.": "cant_attack_or_block",
+    "~ can't be blocked.": "cant_be_blocked",
+    "~ attacks each combat if able.": "must_attack",
+    "~ can block only creatures with flying.": "block_only_flying",
+    "~ can't be blocked by more than one creature.": "max_one_blocker",
+}
+
+
+def statics(ch: Characteristics) -> set[str]:
+    """The combat statics a card has (from its definitions)."""
+    return {d["static"] for d in definitions(ch).values() if d["kind"] == "static"}
+
+
+# Keyword abilities that are triggered abilities (CR 702), as template definitions.
+KEYWORD_TRIGGERS: dict[str, Definition] = {
+    # 702.108 prowess: "Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn."
+    "prowess": {"kind": "triggered", "trigger": "cast_you", "filter": "a noncreature spell",
+                "effects": [{"do": "pump", "who": "self", "p": 1, "t": 1}], "optional": False, "target": None},
+}
+
+
+def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
+    """Triggered keyword abilities of a card, with keys that can't clash with ability indexes."""
+    if ch.is_ability or ch.face_down:
+        return []
+    out = []
+    for ab in ch.abilities:
+        if ab.kind != "keywords":
+            continue
+        for k, kw in enumerate(ab.keywords):
+            if kw in KEYWORD_TRIGGERS:
+                out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
+    return out
 
 
 def spell_definition(ch: Characteristics) -> Definition | None:
