@@ -806,6 +806,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "payment_sources": casting.resume_payment_sources,
     "cleanup_discard": _resume_cleanup_discard,
     "mana_ability": casting.resume_mana_ability,
+    "crew": casting.resume_crew,
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
 }

@@ -214,6 +214,7 @@ EventKind = Literal[
     "untapped",
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
     "cycled",  # a player cycled a card (702.29: "when you cycle …")
+    "crewed",  # a Vehicle became crewed (702.122)
 ]
 
 
@@ -254,6 +255,7 @@ class ContinuousEffect(BaseModel):
     toughness: int | None = None
     add_keywords: list[str] = Field(default_factory=list)
     remove_keywords: list[str] = Field(default_factory=list)
+    add_types: list[str] = Field(default_factory=list)  # layer 4: "becomes an artifact creature"
     duration: Literal["end_of_turn", "permanent"] = "end_of_turn"
     timestamp: int = 0
     label: str = ""

@@ -187,5 +187,8 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Firebolt", set_code="tst", number="K5", mana_cost="{R}", cmc=1.0, type_line="Sorcery",
              oracle_text="Firebolt deals 2 damage to any target.\nFlashback {4}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
              colors=["R"], color_identity=["R"]),
+        card("Sky-Skiff", set_code="tst", number="K6", mana_cost="{2}", cmc=2.0, type_line="Artifact — Vehicle",
+             oracle_text="Flying\nCrew 1 (Tap any number of untapped creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+             power="2", toughness="3"),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

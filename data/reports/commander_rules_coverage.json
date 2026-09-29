@@ -1,13 +1,13 @@
 {
- "generated_at": "2026-09-29 15:11",
+ "generated_at": "2026-09-29 15:15",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32116,
  "commander_banned": 83,
  "levels": {
-  "FULL": 3675,
-  "PARTIAL": 28393,
+  "FULL": 3712,
+  "PARTIAL": 28356,
   "REVIEW": 0,
   "MANUAL": 48
  },
@@ -36,8 +36,8 @@
    "MANUAL": 0
   },
   "Artifact": {
-   "FULL": 430,
-   "PARTIAL": 3163,
+   "FULL": 467,
+   "PARTIAL": 3126,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -80,8 +80,8 @@
  },
  "by_keyword": {
   "flying": {
-   "FULL": 506,
-   "PARTIAL": 2657,
+   "FULL": 518,
+   "PARTIAL": 2645,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -92,26 +92,26 @@
    "MANUAL": 0
   },
   "trample": {
-   "FULL": 115,
-   "PARTIAL": 878,
+   "FULL": 120,
+   "PARTIAL": 873,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "vigilance": {
-   "FULL": 123,
-   "PARTIAL": 602,
+   "FULL": 128,
+   "PARTIAL": 597,
    "REVIEW": 0,
    "MANUAL": 2
   },
   "haste": {
-   "FULL": 101,
-   "PARTIAL": 538,
+   "FULL": 104,
+   "PARTIAL": 535,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "flash": {
-   "FULL": 67,
-   "PARTIAL": 541,
+   "FULL": 68,
+   "PARTIAL": 540,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -128,14 +128,14 @@
    "MANUAL": 1
   },
   "scry": {
-   "FULL": 98,
-   "PARTIAL": 326,
+   "FULL": 99,
+   "PARTIAL": 325,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "reach": {
-   "FULL": 87,
-   "PARTIAL": 336,
+   "FULL": 88,
+   "PARTIAL": 335,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -146,20 +146,20 @@
    "MANUAL": 0
   },
   "cycling": {
-   "FULL": 140,
-   "PARTIAL": 254,
+   "FULL": 142,
+   "PARTIAL": 252,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "menace": {
-   "FULL": 32,
-   "PARTIAL": 349,
+   "FULL": 34,
+   "PARTIAL": 347,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "first strike": {
-   "FULL": 79,
-   "PARTIAL": 295,
+   "FULL": 80,
+   "PARTIAL": 294,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -170,8 +170,8 @@
    "MANUAL": 2
   },
   "treasure": {
-   "FULL": 34,
-   "PARTIAL": 315,
+   "FULL": 35,
+   "PARTIAL": 314,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -230,8 +230,8 @@
    "MANUAL": 0
   },
   "crew": {
-   "FULL": 0,
-   "PARTIAL": 181,
+   "FULL": 37,
+   "PARTIAL": 144,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -308,8 +308,8 @@
    "MANUAL": 0
   },
   "proliferate": {
-   "FULL": 19,
-   "PARTIAL": 76,
+   "FULL": 20,
+   "PARTIAL": 75,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -1072,8 +1072,8 @@
    "MANUAL": 0
   },
   "aer": {
-   "FULL": 14,
-   "PARTIAL": 126,
+   "FULL": 17,
+   "PARTIAL": 123,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1444,8 +1444,8 @@
    "MANUAL": 0
   },
   "dft": {
-   "FULL": 18,
-   "PARTIAL": 241,
+   "FULL": 27,
+   "PARTIAL": 232,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1552,8 +1552,8 @@
    "MANUAL": 0
   },
   "eld": {
-   "FULL": 19,
-   "PARTIAL": 169,
+   "FULL": 20,
+   "PARTIAL": 168,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1606,8 +1606,8 @@
    "MANUAL": 0
   },
   "fdn": {
-   "FULL": 87,
-   "PARTIAL": 339,
+   "FULL": 88,
+   "PARTIAL": 338,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1624,8 +1624,8 @@
    "MANUAL": 0
   },
   "fin": {
-   "FULL": 29,
-   "PARTIAL": 277,
+   "FULL": 32,
+   "PARTIAL": 274,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1810,14 +1810,14 @@
    "MANUAL": 0
   },
   "khm": {
-   "FULL": 31,
-   "PARTIAL": 226,
+   "FULL": 32,
+   "PARTIAL": 225,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "kld": {
-   "FULL": 32,
-   "PARTIAL": 141,
+   "FULL": 37,
+   "PARTIAL": 136,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1834,8 +1834,8 @@
    "MANUAL": 0
   },
   "lci": {
-   "FULL": 19,
-   "PARTIAL": 255,
+   "FULL": 20,
+   "PARTIAL": 254,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2092,8 +2092,8 @@
    "MANUAL": 0
   },
   "msh": {
-   "FULL": 28,
-   "PARTIAL": 245,
+   "FULL": 30,
+   "PARTIAL": 243,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2116,8 +2116,8 @@
    "MANUAL": 0
   },
   "neo": {
-   "FULL": 10,
-   "PARTIAL": 243,
+   "FULL": 14,
+   "PARTIAL": 239,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2206,8 +2206,8 @@
    "MANUAL": 0
   },
   "pip": {
-   "FULL": 1,
-   "PARTIAL": 141,
+   "FULL": 2,
+   "PARTIAL": 140,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2380,8 +2380,8 @@
    "MANUAL": 0
   },
   "sos": {
-   "FULL": 25,
-   "PARTIAL": 239,
+   "FULL": 26,
+   "PARTIAL": 238,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2440,8 +2440,8 @@
    "MANUAL": 0
   },
   "thb": {
-   "FULL": 24,
-   "PARTIAL": 182,
+   "FULL": 25,
+   "PARTIAL": 181,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2452,8 +2452,8 @@
    "MANUAL": 0
   },
   "tla": {
-   "FULL": 29,
-   "PARTIAL": 251,
+   "FULL": 30,
+   "PARTIAL": 250,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2476,8 +2476,8 @@
    "MANUAL": 0
   },
   "tmt": {
-   "FULL": 18,
-   "PARTIAL": 171,
+   "FULL": 19,
+   "PARTIAL": 170,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2626,8 +2626,8 @@
    "MANUAL": 0
   },
   "xln": {
-   "FULL": 36,
-   "PARTIAL": 131,
+   "FULL": 38,
+   "PARTIAL": 129,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2675,7 +2675,7 @@
    "commander_cards": 527,
    "pod_cards": 0,
    "pod_commanders": 0,
-   "only_missing_piece_for": 239,
+   "only_missing_piece_for": 240,
    "examples": [
     "Eldrazi Confluence",
     "Divergent Growth",
@@ -2697,21 +2697,6 @@
     "Brine Elemental",
     "Aven Liberator",
     "Shaper Parasite"
-   ]
-  },
-  {
-   "feature": "keyword:crew",
-   "kind": "keyword",
-   "commander_cards": 181,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 37,
-   "examples": [
-    "Mindlink Mech",
-    "War Balloon",
-    "Rover Blades",
-    "Flywheel Racer",
-    "Mukotai Soulripper"
    ]
   },
   {
@@ -3375,6 +3360,21 @@
    ]
   },
   {
+   "feature": "keyword:toxic",
+   "kind": "keyword",
+   "commander_cards": 37,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 10,
+   "examples": [
+    "Tyrranax Atrocity",
+    "Bloated Contaminator",
+    "Bloodroot Apothecary",
+    "Voidwing Hybrid",
+    "Jawbone Duelist"
+   ]
+  },
+  {
    "feature": "keyword:rebound",
    "kind": "keyword",
    "commander_cards": 34,
@@ -3477,6 +3477,21 @@
     "Dodgy Jalopy",
     "Slitherhead",
     "Korozda Monitor"
+   ]
+  },
+  {
+   "feature": "template:When ~ enters, each opponent discards N card(s).",
+   "kind": "triggered",
+   "commander_cards": 13,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 10,
+   "examples": [
+    "Liliana's Specter",
+    "Cackling Fiend",
+    "Burglar Rat",
+    "Nicol Bolas, the Ravager // Nicol Bolas, the Arisen",
+    "Rank Rat"
    ]
   },
   {
@@ -3600,21 +3615,6 @@
    ]
   },
   {
-   "feature": "keyword:toxic",
-   "kind": "keyword",
-   "commander_cards": 37,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 9,
-   "examples": [
-    "Tyrranax Atrocity",
-    "Bloated Contaminator",
-    "Bloodroot Apothecary",
-    "Voidwing Hybrid",
-    "Jawbone Duelist"
-   ]
-  },
-  {
    "feature": "keyword:delve",
    "kind": "keyword",
    "commander_cards": 28,
@@ -3720,21 +3720,6 @@
    ]
   },
   {
-   "feature": "template:When ~ enters, each opponent discards N card(s).",
-   "kind": "triggered",
-   "commander_cards": 13,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 9,
-   "examples": [
-    "Liliana's Specter",
-    "Cackling Fiend",
-    "Burglar Rat",
-    "Nicol Bolas, the Ravager // Nicol Bolas, the Arisen",
-    "Rank Rat"
-   ]
-  },
-  {
    "feature": "keyword:rampage",
    "kind": "keyword",
    "commander_cards": 12,
@@ -3822,6 +3807,21 @@
     "Shrivel",
     "Nausea",
     "Magnify"
+   ]
+  },
+  {
+   "feature": "template:When ~ enters, you may discard N card(s). If you do, draw N card(s).",
+   "kind": "triggered",
+   "commander_cards": 15,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 8,
+   "examples": [
+    "Keldon Raider",
+    "Bitter Reunion",
+    "Viashino Racketeer",
+    "Scrapwork Mutt",
+    "Yuyan Archers"
    ]
   },
   {
@@ -4035,6 +4035,21 @@
    ]
   },
   {
+   "feature": "template:~ can't be blocked by creatures with power N or less.",
+   "kind": "restriction",
+   "commander_cards": 32,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Glinting Creeper",
+    "Dread Linnorm // Scale Deflection",
+    "Chomping Kavu",
+    "Rust-Shield Rampager",
+    "Demolition Stomper"
+   ]
+  },
+  {
    "feature": "keyword:overload",
    "kind": "keyword",
    "commander_cards": 27,
@@ -4122,21 +4137,6 @@
     "Kingpin's Pet",
     "Basilica Guards",
     "Treasury Thrull"
-   ]
-  },
-  {
-   "feature": "template:When ~ enters, you may discard N card(s). If you do, draw N card(s).",
-   "kind": "triggered",
-   "commander_cards": 15,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 7,
-   "examples": [
-    "Keldon Raider",
-    "Bitter Reunion",
-    "Viashino Racketeer",
-    "Scrapwork Mutt",
-    "Yuyan Archers"
    ]
   },
   {
@@ -4332,21 +4332,6 @@
     "Spell Snuff",
     "Saruman's Trickery",
     "Disappearing Act"
-   ]
-  },
-  {
-   "feature": "template:~ can't be blocked by creatures with power N or less.",
-   "kind": "restriction",
-   "commander_cards": 32,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 6,
-   "examples": [
-    "Glinting Creeper",
-    "Dread Linnorm // Scale Deflection",
-    "Chomping Kavu",
-    "Rust-Shield Rampager",
-    "Demolition Stomper"
    ]
   },
   {
@@ -5667,6 +5652,21 @@
     "Cleaving Sliver",
     "Steelform Sliver",
     "Battle Sliver"
+   ]
+  },
+  {
+   "feature": "template:Target creature deals damage to itself equal to its power.",
+   "kind": "spell_effect",
+   "commander_cards": 5,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Repentance",
+    "Justice Strike",
+    "Wrack with Madness",
+    "Inner Struggle",
+    "Kiku's Shadow"
    ]
   }
  ],
@@ -9715,11 +9715,11 @@
    "color_identity": "WU",
    "pairing": [],
    "supported": [
-    "Cast it (timing, costs, the stack)"
+    "Cast it (timing, costs, the stack)",
+    "Crew"
    ],
    "missing": [
-    "{1}, {T}: Draw two cards, then discard a card. Create a 1/1 colorless Pilot creature token with \"This token crews Vehicles as though its power were 2 greater.\"",
-    "Crew"
+    "{1}, {T}: Draw two cards, then discard a card. Create a 1/1 colorless Pilot creature token with \"This token crews Vehicles as though its power were 2 greater.\""
    ]
   },
   {
@@ -9903,11 +9903,11 @@
    "pairing": [],
    "supported": [
     "Cast it (timing, costs, the stack)",
-    "Trample"
+    "Trample",
+    "Crew"
    ],
    "missing": [
     "Whenever a creature you control deals combat damage to a player, draw a card.",
-    "Crew",
     "You may cast this card from your graveyard as long as you control three or more tapped Pirates and/or Vehicles."
    ]
   },
@@ -10235,11 +10235,11 @@
    "pairing": [],
    "supported": [
     "Cast it (timing, costs, the stack)",
-    "Haste"
+    "Haste",
+    "Crew"
    ],
    "missing": [
-    "Whenever The Regalia attacks, reveal cards from the top of your library until you reveal a land card. Put that card onto the battlefield tapped and the rest on the bottom of your library in a random order.",
-    "Crew"
+    "Whenever The Regalia attacks, reveal cards from the top of your library until you reveal a land card. Put that card onto the battlefield tapped and the rest on the bottom of your library in a random order."
    ]
   },
   {
@@ -10265,11 +10265,11 @@
    "pairing": [],
    "supported": [
     "Cast it (timing, costs, the stack)",
-    "Flying"
+    "Flying",
+    "Crew"
    ],
    "missing": [
-    "Whenever Weatherlight deals combat damage to a player, look at the top five cards of your library. You may reveal a historic card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
-    "Crew"
+    "Whenever Weatherlight deals combat damage to a player, look at the top five cards of your library. You may reveal a historic card from among them and put it into your hand. Put the rest on the bottom of your library in a random order."
    ]
   },
   {

@@ -6,7 +6,7 @@ holds object ids, an affected permanent that changes zones is a new object and t
 longer applies to it (400.7). Printed characteristics are never overwritten: ``derive`` computes
 the current ones each time.
 
-Implemented today (each with tests): layer 6 (abilities: keywords gained / lost) and layer 7
+Implemented today (each with tests): layer 4 (types added, e.g. a crewed Vehicle), layer 6 (abilities: keywords gained / lost) and layer 7
 power/toughness: 7a characteristic-defining values are left to the printed card (``*`` stays
 unknown), 7b setting effects, 7c modifying effects **and counters** (613.4c), 7d switching.
 Within a layer, effects apply in timestamp order (613.7). Dependencies (613.8) and layers 1–5
@@ -44,6 +44,9 @@ def affecting(state: GameState, card: CardInstance) -> list[ContinuousEffect]:
 def derive(state: GameState, card: CardInstance, ch: Characteristics) -> Characteristics:
     """Current characteristics: printed + continuous effects in layer order + counters."""
     effects = affecting(state, card)
+    added = {t for e in effects if e.layer == "4" for t in e.add_types}  # layer 4: type-changing
+    if added - ch.types:
+        ch = replace(ch, types=ch.types | frozenset(added))
     granted: set[str] = set()
     lost: set[str] = set()
     for e in effects:  # layer 6, timestamp order
@@ -78,12 +81,14 @@ Duration = Literal["end_of_turn", "permanent"]
 
 def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | None, controller: str,
                power: int | None = None, toughness: int | None = None, add_keywords: tuple[str, ...] = (),
-               remove_keywords: tuple[str, ...] = (), duration: Duration = "end_of_turn", label: str = "") -> ContinuousEffect:
+               remove_keywords: tuple[str, ...] = (), add_types: tuple[str, ...] = (), duration: Duration = "end_of_turn",
+               label: str = "") -> ContinuousEffect:
     r = plan.rules
     r.timestamp += 1
     effect = ContinuousEffect(id=f"e{r.timestamp}", affected=affected, layer=layer, source=source, controller=controller,
                               power=power, toughness=toughness, add_keywords=list(add_keywords),
-                              remove_keywords=list(remove_keywords), duration=duration, timestamp=r.timestamp,
+                              remove_keywords=list(remove_keywords), add_types=list(add_types), duration=duration,
+                              timestamp=r.timestamp,
                               label=label[:120])
     r.effects.append(effect)
     return effect

@@ -2492,8 +2492,8 @@ Color identity WU
 Color identity WU
 
 - ✓ Cast it (timing, costs, the stack)
+- ✓ Crew
 - ✗ {1}, {T}: Draw two cards, then discard a card. Create a 1/1 colorless Pilot creature token with "This token crews Vehicles as though its power were 2 greater."
-- ✗ Crew
 
 ### Rev, Tithe Extractor — PARTIAL
 
@@ -2606,8 +2606,8 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Trample
+- ✓ Crew
 - ✗ Whenever a creature you control deals combat damage to a player, draw a card.
-- ✗ Crew
 - ✗ You may cast this card from your graveyard as long as you control three or more tapped Pirates and/or Vehicles.
 
 ### Kona, Rescue Beastie — PARTIAL
@@ -2813,8 +2813,8 @@ Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Haste
+- ✓ Crew
 - ✗ Whenever The Regalia attacks, reveal cards from the top of your library until you reveal a land card. Put that card onto the battlefield tapped and the rest on the bottom of your library in a random order.
-- ✗ Crew
 
 ### Inga and Esika — PARTIAL
 
@@ -2831,8 +2831,8 @@ Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Flying
+- ✓ Crew
 - ✗ Whenever Weatherlight deals combat damage to a player, look at the top five cards of your library. You may reveal a historic card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.
-- ✗ Crew
 
 ### Ghoulcaller Gisa — PARTIAL
 

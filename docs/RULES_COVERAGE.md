@@ -49,11 +49,12 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Protection (colors, card types, creature types, multicolored, everything): DEBT | 32,116 | 3,564 (11.1%) | 28,504 | 0 | 48 | 76 / 3,501 |
 | Regeneration shields (destroy, lethal damage, "can't be regenerated") | 32,116 | 3,636 (11.3%) | 28,432 | 0 | 48 | 78 / 3,501 |
 | Flashback (mana costs; exiled as it leaves the stack) | 32,116 | 3,675 (11.4%) | 28,393 | 0 | 48 | 78 / 3,501 |
+| Crew (Vehicles; layer-4 type change until end of turn) | 32,116 | 3,712 (11.6%) | 28,356 | 0 | 48 | 78 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards
 needing it. Current leaders: unsupported mana-ability wordings,
-crew, morph (153), convoke, affinity.
+morph (153), convoke, affinity.
 
 **Commander eligibility and color identity** (`app/rules/commander.py`) follow CR 903.3 (a
 legendary creature, Vehicle, or Spacecraft with power/toughness, or "can be your commander"),

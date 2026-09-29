@@ -272,6 +272,17 @@ def regenerate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def animate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Layer 4: "~ becomes an artifact creature until end of turn" (a crewed Vehicle, 702.122)."""
+    cards = _cards(plan, ctx, e["who"])
+    if cards:
+        layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="4", source=ctx.get("source_object"),
+                          controller=ctx["controller"], add_types=tuple(e["types"]),
+                          label=f"{' '.join(e['types'])} until end of turn ({ctx.get('name', '')})")
+        _mark(plan, cards, "Crewed" if e.get("crewed") else " ".join(e["types"]))
+    return True
+
+
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True  # read by destroy / destroy_all of the same spell or ability
 
@@ -376,6 +387,7 @@ PRIMITIVES = {
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
+    "animate": animate,
 }
 
 

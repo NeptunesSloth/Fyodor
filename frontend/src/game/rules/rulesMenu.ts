@@ -32,7 +32,7 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     const lines = abilityLines(text);
     const abilities = lines
       .map((line, i) => ({ line, i }))
-      .filter(({ line }) => /^[^.]*:\s/.test(line) && !/^(Enchant|Equip \{|Cycling)/.test(line) || /: Add /.test(line));
+      .filter(({ line }) => /^[^.]*:\s/.test(line) && !/^(Enchant|Equip \{|Cycling)/.test(line) || /: Add /.test(line) || /^Crew \d+$/.test(line));
     for (const { line, i } of abilities) {
       const ready = hints.activatable?.some((a) => a.card_id === card.id && a.ability === i) || /: Add /.test(line);
       items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !ready,

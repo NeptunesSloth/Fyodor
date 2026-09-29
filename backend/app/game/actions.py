@@ -873,6 +873,7 @@ class ActivateAbility(_Intent):
     x_value: int | None = Field(default=None, ge=0, le=1000)
     mana_choice: Literal["W", "U", "B", "R", "G", "C"] | None = None  # which colour, for "R or G" abilities
     sources: list[Id] | None = Field(default=None, max_length=60)  # MANUAL PAY (see CastSpell)
+    crew: list[Id] | None = Field(default=None, max_length=30)  # Crew N: the creatures tapped to pay it
 
 
 class AttackDeclaration(BaseModel):

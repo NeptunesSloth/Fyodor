@@ -617,8 +617,6 @@ def hand_ability(ch: Characteristics, index: int) -> tuple[str, str] | None:
 def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility) -> None:
     """Cycling (702.29): pay the cost and discard this card from your hand, then the ability on
     the stack draws a card; typecycling searches your library for a card of that type instead."""
-    from app.rules.engine import advance  # the engine imports this module
-
     found = hand_ability(ch, a.ability)
     if found is None:
         raise ActionError("That card has no ability to use from your hand")
@@ -634,12 +632,24 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
         effects = [{"do": "draw", "who": "you", "n": 1}]
         text = "Draw a card."
     oid = plan.oid(card)
-    created = plan.do({"type": "create_ability", "text": text, "source_id": card.id, "kind": "activated"})
-    new_ids = getattr(created, "r", None)
-    ability_id = new_ids.ids[0] if new_ids is not None else None
+    ability_id = _new_ability(plan, card, text)
     pay(plan, plan.actor, mana, f"paid {mana.text()} to cycle {ch.name}", sources=a.sources, purpose=Purpose(ability_of=ch))
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "graveyard"}})
     emit(plan.state, "cycled", object_id=oid, card=card.id, player=plan.actor)
+    _stacked(plan, card, oid, ch, ability_id, effects)
+
+
+def _new_ability(plan: Plan, card: CardInstance, text: str) -> str | None:
+    created = plan.do({"type": "create_ability", "text": text[:500], "source_id": card.id, "kind": "activated"})
+    new_ids = getattr(created, "r", None)
+    return new_ids.ids[0] if new_ids is not None else None
+
+
+def _stacked(plan: Plan, card: CardInstance, oid: str, ch: Characteristics, ability_id: str | None,
+             effects: list[dict[str, Any]]) -> None:
+    """An activated ability is on the stack: record what it does, then pass priority Arena-style."""
+    from app.rules.engine import advance  # the engine imports this module
+
     r = plan.rules
     if ability_id:
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
@@ -652,6 +662,58 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
     r.passed.append(plan.actor)
     r.priority = plan.after(plan.actor)
     advance(plan)
+
+
+CREW = re.compile(r"^crew (?P<n>\d+)$", re.IGNORECASE)
+
+
+def crew_power(ch: Characteristics, index: int) -> int | None:
+    """Crew N (702.122) on ability line ``index``: N, or None."""
+    for ab in ch.abilities:
+        if ab.index == index and ab.kind == "keywords":
+            m = CREW.fullmatch(ab.text.strip().rstrip("."))
+            if m:
+                return int(m["n"])
+    return None
+
+
+def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int) -> None:
+    """Crew N: tap any number of untapped creatures you control with total power N or greater:
+    this Vehicle becomes an artifact creature until end of turn. (Summoning-sick creatures may crew.)"""
+    from app.rules.combat import power
+
+    def crew_power_of(cid: str) -> int:
+        c = plan.state.cards[cid]
+        return max(0, power(c, plan.ch(c)) or 0)
+
+    candidates = [c.id for c in plan.state.cards.values() if c.zone == card.zone and c.controller == plan.actor
+                  and c.id != card.id and not c.tapped and plan.in_game(c) and plan.ch(c).is_creature]
+    if sum(crew_power_of(c) for c in candidates) < n:
+        raise ActionError(f"{ch.name}: you don't control untapped creatures with total power {n} or greater")
+    if a.crew is None:
+        decide(plan, player=plan.actor, kind="choose_cards", prompt=f"Crew {n}: tap creatures with total power {n} or greater",
+               options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name} ({crew_power_of(c)})", card_id=c)
+                        for c in candidates],
+               min_choices=1, max_choices=len(candidates),
+               resume={"step": "crew", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
+        return
+    chosen = list(dict.fromkeys(a.crew))
+    if not chosen or any(c not in candidates for c in chosen):
+        raise ActionError("Crew with untapped creatures you control")
+    if sum(crew_power_of(c) for c in chosen) < n:
+        raise ActionError(f"Those creatures have less than {n} total power")
+    oid = plan.oid(card)
+    ability_id = _new_ability(plan, card, f"{ch.name} becomes an artifact creature until end of turn.")
+    plan.do({"type": "tap", "card_ids": chosen, "tapped": True})
+    emit(plan.state, "crewed", object_id=oid, card=card.id, player=plan.actor)
+    _stacked(plan, card, oid, ch, ability_id, [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}])
+
+
+def resume_crew(plan: Plan, d: Any, chosen: list[str]) -> None:
+    intent = A.parse_action(d.resume["intent"])
+    intent.crew = list(chosen)  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    activate_ability(plan, intent)  # type: ignore[arg-type]
 
 
 def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
@@ -667,6 +729,10 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         raise ActionError("You can only activate abilities of permanents you control")
     ch = plan.ch(card)
     ability = _find_ability(ch, a.ability)
+    n = crew_power(ch, a.ability) if not plan.manual(card) else None
+    if n is not None:
+        crew(plan, card, ch, a, n)
+        return
     if ability.kind in ("activated", "loyalty"):
         activate_to_stack(plan, card, ch, ability, a)
         return
@@ -816,9 +882,27 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                                           check_priority=check_priority, info=info)
                 if problem is None:
                     out.append({"card_id": cid, "ability": ab.index})
-            elif ab.kind == "mana" and not check_priority:
-                continue
+            elif ab.kind == "keywords" and _can_crew(state, player, card, ch, ab.index, info, check_priority):
+                out.append({"card_id": cid, "ability": ab.index})
     return out
+
+
+def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteristics, index: int, info: CardInfo,
+              check_priority: bool) -> bool:
+    n = crew_power(ch, index)
+    r = state.rules
+    if n is None or r is None or (check_priority and (r.priority != player or r.decision is not None)):
+        return False
+    from app.rules.combat import power
+    from app.rules.layers import derive
+
+    total = 0
+    for c in state.cards.values():
+        if c.zone == card.zone and c.controller == player and c.id != card.id and not c.tapped:
+            cch = derive(state, c, chars.of(c, info))
+            if cch.is_creature:
+                total += max(0, power(c, cch) or 0)
+    return total >= n
 
 
 def _count(option: tuple[str, ...]) -> dict[str, int]:

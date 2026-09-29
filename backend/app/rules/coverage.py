@@ -59,6 +59,8 @@ _MANA_FLASHBACK = re.compile(r"flashback (?:\{[^}]+\})+")
 def _keyword_supported(kw: str, line: str) -> bool:
     if kw == "protection":  # DEBT for the qualities app/rules/protection.py understands
         return protection.supported(line)
+    if kw == "crew":  # casting.crew: "Crew N"
+        return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "flashback":  # casting.flashback_cost: a mana flashback cost
         return _MANA_FLASHBACK.fullmatch(line.strip().rstrip(".").lower()) is not None
     if kw.endswith("cycling"):
