@@ -142,3 +142,41 @@ def test_each_opponent_discards_privately(cards):
     act(s, "p2", type="choose", decision_id=d.id, option_ids=hand[:2])
     pass_until_stack_empty(s)
     assert len(zone(s.state, "p2", "hand")) == 1 and len(zone(s.state, "p2", "graveyard")) == 2
+
+
+def test_cant_block_this_turn_ends_at_cleanup(cards):
+    s = build(cards)
+    wall = token(s, "p2", "Wall", "0/4")
+    src = token(s, "p1", "Taunter", text="{1}: Target creature can't block this turn.")
+    activate(s, src, targets=[wall.id])
+    from app.rules.plan import Plan
+
+    assert "cant_block" in Plan(s.state, "p1", cards, None).ch(s.state.cards[wall.id]).imposed
+    act(s, "p1", type="pass_priority", until="next_turn")
+    for _ in range(10):
+        if s.state.turn.active_player == "p2":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert "cant_block" not in Plan(s.state, "p1", cards, None).ch(s.state.cards[wall.id]).imposed  # 514.2
+
+
+def test_compound_draw_and_lose_life(cards):
+    s = build(cards)
+    hand = len(zone(s.state, "p1", "hand"))
+    src = token(s, "p1", "Sage", text="{1}: You draw two cards and you lose 2 life.")
+    activate(s, src)
+    assert len(zone(s.state, "p1", "hand")) == hand + 2 and s.state.players["p1"].life == 38
+    replay_matches(s)
+
+
+def test_enchanted_creature_reference(cards):
+    s = build(cards, "Holy Strength")
+    bear = token(s, "p1", "Bear")
+    act(s, "p1", type="create_token", player="p1", token={
+        "name": "Chains", "type_line": "Token Enchantment — Aura", "text": "Enchant creature\n{1}: Tap enchanted creature."})
+    chains = named(s, "Chains")
+    act(s, "p1", type="attach", card_ids=[chains.id], to=bear.id)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=chains.id, ability=1)
+    pass_until_stack_empty(s)
+    assert s.state.cards[bear.id].tapped

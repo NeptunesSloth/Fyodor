@@ -260,6 +260,9 @@ class ContinuousEffect(BaseModel):
     add_keywords: list[str] = Field(default_factory=list)
     remove_keywords: list[str] = Field(default_factory=list)
     add_types: list[str] = Field(default_factory=list)  # layer 4: "becomes an artifact creature"
+    # Rule-modifying effects on the objects (not a layer; 611.2c duration): "can't block this turn"
+    # — the names scripts.statics uses (cant_block, cant_be_blocked, …).
+    imposes: list[str] = Field(default_factory=list)
     duration: Literal["end_of_turn", "permanent"] = "end_of_turn"
     timestamp: int = 0
     label: str = ""

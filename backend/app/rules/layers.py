@@ -134,6 +134,9 @@ def _derive_resolved(state: GameState, card: CardInstance, ch: Characteristics) 
     added = {t for e in effects if e.layer == "4" for t in e.add_types}  # layer 4: type-changing
     if added - ch.types:
         ch = replace(ch, types=ch.types | frozenset(added))
+    imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …
+    if imposed:
+        ch = replace(ch, imposed=ch.imposed | frozenset(imposed))
     granted: set[str] = set()
     lost: set[str] = set()
     for e in effects:  # layer 6, timestamp order
@@ -169,12 +172,13 @@ Duration = Literal["end_of_turn", "permanent"]
 def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | None, controller: str,
                power: int | None = None, toughness: int | None = None, add_keywords: tuple[str, ...] = (),
                remove_keywords: tuple[str, ...] = (), add_types: tuple[str, ...] = (), duration: Duration = "end_of_turn",
-               label: str = "") -> ContinuousEffect:
+               label: str = "", imposes: tuple[str, ...] = ()) -> ContinuousEffect:
     r = plan.rules
     r.timestamp += 1
     effect = ContinuousEffect(id=f"e{r.timestamp}", affected=affected, layer=layer, source=source, controller=controller,
                               power=power, toughness=toughness, add_keywords=list(add_keywords),
                               remove_keywords=list(remove_keywords), add_types=list(add_types), duration=duration,
+                              imposes=list(imposes),
                               timestamp=r.timestamp,
                               label=label[:120])
     r.effects.append(effect)

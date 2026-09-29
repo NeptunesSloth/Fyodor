@@ -438,6 +438,43 @@ def _lower_first(s: str) -> str:
     return s[:1].lower() + s[1:] if s[:1].isupper() and not s.startswith("~") else s
 
 
+def _one_clause(text: str) -> tuple[list[dict[str, Any]], str | None] | None:
+    """One instruction: a literal template, else the generic grammar (app/rules/language.py)."""
+    from app.rules import language  # the generic grammar (a leaf module)
+
+    for pattern, build in EFFECTS:
+        m = pattern.match(text)
+        if m:
+            try:
+                found, sel = build(m)
+            except _NoMatch:
+                return None
+            if found and found[0]["do"] == "token_text":
+                return None
+            return found, sel
+    return language.parse_sentence(text)
+
+
+def _clause(text: str) -> tuple[list[dict[str, Any]], str | None] | None:
+    """An instruction, or two joined by ", then" / "and" ("Scry 1, then draw a card.", "You draw
+    two cards and you lose 2 life."): each half must be understood; one target at most."""
+    found = _one_clause(text)
+    if found is not None:
+        return found
+    for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
+                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil)\b)"):
+        parts = re.split(joiner, text, maxsplit=1)
+        if len(parts) != 2:
+            continue
+        left, right = _clause(parts[0]), _clause(parts[1])
+        if left is None or right is None:
+            continue
+        if left[1] and right[1] and left[1] != right[1]:
+            continue
+        return left[0] + right[0], left[1] or right[1]
+    return None
+
+
 def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | None:
     """One sentence (or two joined by ". ") of effects → (effects, target selector, optional)."""
     body = body.strip()
@@ -470,12 +507,10 @@ def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | 
                 effects += found
                 break
         else:
-            from app.rules import language  # the generic grammar (a leaf module)
-
-            parsed = language.parse_sentence(text)
-            if parsed is None:
+            parsed_clause = _clause(text)
+            if parsed_clause is None:
                 return None
-            found, sel = parsed
+            found, sel = parsed_clause
             if sel and target and sel != target:
                 return None  # two different targets: not supported yet
             target = sel or target

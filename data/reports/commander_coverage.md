@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 174 · PARTIAL: 3327 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 182 · PARTIAL: 3319 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -129,13 +129,13 @@ Color identity B
 - ✗ Whenever you draw a card, you gain 2 life.
 - ✗ Whenever an opponent draws a card, they lose 2 life.
 
-### Tatyova, Benthic Druid — PARTIAL
+### Tatyova, Benthic Druid — FULL
 
 Color identity UG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Landfall — Whenever a land you control enters, you gain 1 life and draw a card.
+- ✓ Landfall — Whenever a land you control enters, you gain 1 life and draw a card.
 
 ### Adeline, Resplendent Cathar — PARTIAL
 
@@ -549,13 +549,13 @@ Color identity G · pairs via partner
 - ✓ Partner
 - ✗ Whenever another permanent you control enters, if it wasn't put onto the battlefield with this ability, you may put a permanent card with equal or lesser mana value from your hand onto the battlefield.
 
-### Sythis, Harvest's Hand — PARTIAL
+### Sythis, Harvest's Hand — FULL
 
 Color identity WG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever you cast an enchantment spell, you gain 1 life and draw a card.
+- ✓ Whenever you cast an enchantment spell, you gain 1 life and draw a card.
 
 ### Torbran, Thane of Red Fell — PARTIAL
 
@@ -739,8 +739,8 @@ Color identity UR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier and it deals 1 damage to each opponent.
 - ✗ {0}: Add X mana in any combination of {U} and/or {R}, where X is Vivi Ornitier's power. Activate only during your turn and only once each turn.
-- ✗ Whenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier and it deals 1 damage to each opponent.
 
 ### Kozilek, Butcher of Truth — PARTIAL
 
@@ -2081,8 +2081,8 @@ Color identity U
 - ✓ Attack and block
 - ✓ Indestructible
 - ✓ At the beginning of your upkeep, scry 1.
+- ✓ {1}{U}: Target creature you control can't be blocked this turn.
 - ✗ As long as your devotion to blue is less than five, Thassa isn't a creature.
-- ✗ {1}{U}: Target creature you control can't be blocked this turn.
 
 ### Gix, Yawgmoth Praetor — PARTIAL
 

@@ -56,6 +56,10 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
             return [src.id]
         return []  # the source left: "it" is gone (a new object isn't affected)
+    if who == "host":  # "enchanted creature" / "equipped creature": what the source is attached to now
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        host = plan.state.cards.get(src.attached_to or "") if src is not None and src.zone.endswith(":battlefield") else None
+        return [host.id] if host is not None and host.zone.endswith(":battlefield") else []
     if who.startswith("object:"):  # one specific rules object (e.g. the creature that attacked alone)
         oid = who[7:]
         return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid]
@@ -165,6 +169,21 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                           controller=ctx["controller"], add_keywords=tuple(e["keywords"]),
                           label=f"{', '.join(e['keywords'])} until end of turn")
         _mark(plan, cards, ", ".join(k.capitalize() for k in e["keywords"]))
+    return True
+
+
+RESTRICTION_LABELS = {"cant_block": "Can't block", "cant_attack": "Can't attack", "cant_attack_or_block": "Can't attack or block",
+                      "cant_be_blocked": "Can't be blocked", "must_attack": "Attacks if able"}
+
+
+def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"… can't block this turn", "… can't be blocked this turn": a rule-modifying effect on the
+    objects, locked in now (611.2c), ending at cleanup (514.2)."""
+    cards = _cards(plan, ctx, e["who"])
+    if cards:
+        layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="6", source=ctx.get("source_object"),
+                          controller=ctx["controller"], imposes=tuple(e["rules"]), label=", ".join(e["rules"]))
+        _mark(plan, cards, ", ".join(RESTRICTION_LABELS.get(r, r) for r in e["rules"]))
     return True
 
 
@@ -1011,7 +1030,7 @@ def use_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES = {
     "use_targets": use_targets,
-    "remove_counters": remove_counters, "sacrifice_choice": sacrifice_choice, "return_card": return_card,
+    "remove_counters": remove_counters, "restrict": restrict, "sacrifice_choice": sacrifice_choice, "return_card": return_card,
     "attach_self": attach_self,
     "draw": draw, "gain_life": gain_life, "lose_life": lose_life, "damage": damage, "pump": pump, "grant": grant,
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,

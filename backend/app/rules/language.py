@@ -52,6 +52,8 @@ def ref(phrase: str) -> tuple[str, str]:
     p = phrase.strip()
     if p in ("~", "it", "this creature", "this permanent"):
         return "self", ""
+    if p in ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact"):
+        return "host", ""  # what the source Aura / Equipment is attached to
     if p in _PLAYER_GROUPS:
         return "players", _PLAYER_GROUPS[p]
     if p in _LEGACY_TARGETS or p.startswith(("target ", "another target ")):
@@ -70,7 +72,11 @@ def ref(phrase: str) -> tuple[str, str]:
 
 
 def _who(kind: str, key: str) -> str:
-    return {"target": "target", "self": "self", "players": key, "each": key}[kind]
+    return {"target": "target", "self": "self", "host": "host", "players": key, "each": key}[kind]
+
+
+RESTRICTIONS = {"block": ["cant_block"], "attack": ["cant_attack"], "attack or block": ["cant_attack_or_block"],
+                "be blocked": ["cant_be_blocked"]}
 
 
 def _amount(word: str) -> Any:
@@ -176,6 +182,14 @@ def _parse(text: str) -> tuple[Effects, str | None]:
         if kind == "each" and m["v"] == "destroy":
             return [{"do": "destroy", "who": key}], None
         return [{"do": m["v"], "who": _who(kind, key)}], key if kind == "target" else None
+    m = re.fullmatch(r"(?P<o>.+?) can't (?P<r>attack or block|block|attack|be blocked) this turn", text)
+    if m:
+        kind, key = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], key if kind == "target" else None
+    if text in ("return ~ to its owner's hand", "return it to its owner's hand"):
+        return [{"do": "bounce", "who": "self"}], None
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|your hand|"
                      r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?)", text)
     if m:
