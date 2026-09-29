@@ -990,18 +990,24 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 _AMOUNT_EVENTS = {"gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player"}
 
 
+_PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
+
+
 def _event_refs_ok(d: Definition) -> bool:
-    """"That player" / "that much" name what a trigger event was about: only a generic trigger
-    condition whose event has a player (a player subject) or an amount can bind them."""
+    """"That player" / "that much" name what a trigger event was about (its TriggerEvent): only a
+    generic trigger condition whose event has that player or amount can use them. A "one or more"
+    trigger has one event per batch — per damaged player for damage to players — so it can too."""
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
     wants_player = any(e.get("who") == "event_player" for e in effects)
     wants_amount = any(e.get("n") == {"event_amount": 1} for e in effects)
     if not wants_player and not wants_amount:
         return True
     cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
-    if cond is None or cond.get("aggregate"):
+    if cond is None:
         return False
-    if wants_player and cond.get("subject") != "player":
+    if cond.get("aggregate") and cond["event"] not in _PLAYER_EVENTS:
+        return False
+    if wants_player and cond.get("subject") != "player" and cond["event"] not in _PLAYER_EVENTS:
         return False
     return not wants_amount or cond["event"] in _AMOUNT_EVENTS
 

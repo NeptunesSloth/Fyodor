@@ -288,6 +288,36 @@ class TargetRef(BaseModel):
     object_id: str | None = None
 
 
+class ObjectRef(BaseModel):
+    """A stable reference to one rules object (400.7): the physical card, which object it was, and
+    where it was then. A later reference finds it only while the card is still that object in that
+    zone; otherwise only its last known information remains (``snapshot``, or ``RulesState.lki``;
+    608.2h)."""
+
+    card: str = Field(max_length=64)
+    object_id: str = Field(max_length=80)
+    zone: str | None = Field(default=None, max_length=80)
+    snapshot: ObjectSnapshot | None = None  # as it last existed, when it had already left (603.10a)
+
+
+class TriggerEvent(BaseModel):
+    """What a triggered ability triggered on (603.2), captured as it triggered and carried with it
+    to the stack and through resolution (603.3, 608.2k): the resolving ability reads this, never the
+    board as it is later. One event for a "one or more" trigger holds every object of the batch
+    (603.2c)."""
+
+    kind: str = Field(max_length=40)  # the condition's event: "die", "draw", "gain_life", …
+    batch: int = 0
+    objects: list[ObjectRef] = Field(default_factory=list)  # the object(s) the event happened to
+    # For a zone change: the object each became where it went (400.7e: a "dies" ability can find
+    # it in the graveyard, and only there)
+    new_objects: list[ObjectRef] = Field(default_factory=list)
+    players: list[str] = Field(default_factory=list)  # the player it was about (who drew / gained / was dealt damage)
+    source: ObjectRef | None = None  # the source of damage dealt
+    amount: int = 0  # life gained or lost, damage dealt (summed over a "one or more" batch)
+    count: int = 0  # how many objects / events the batch had
+
+
 class PendingTrigger(BaseModel):
     """A triggered ability that has triggered but isn't on the stack yet (603.3)."""
 
@@ -299,6 +329,7 @@ class PendingTrigger(BaseModel):
     ability: dict[str, Any]  # the ability's definition (data, see app.rules.scripts)
     key: str = ""  # identical triggers share a key (AUTO ORDER IDENTICAL TRIGGERS)
     ordered: bool = False  # its controller already chose the order
+    event: TriggerEvent | None = None  # what it triggered on
 
 
 class StackEntry(BaseModel):
@@ -330,6 +361,8 @@ class StackEntry(BaseModel):
     division: list[list[int]] = Field(default_factory=list)
     # 702.33d: how many times the spell was kicked (a copy keeps it: 707.10)
     kicked: int = 0
+    # A triggered ability: what it triggered on (603.2), for "it", "that player", "that much"
+    event: TriggerEvent | None = None
 
 
 class CostContribution(BaseModel):

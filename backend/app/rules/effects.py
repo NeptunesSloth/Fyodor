@@ -16,7 +16,7 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption, StackEntry
 from app.game.state import zone_key
-from app.rules import layers, protection, regeneration, selectors, values
+from app.rules import context, layers, protection, regeneration, selectors, values
 from app.rules.plan import Plan, decide
 from app.rules.targets import source_of, still_legal
 
@@ -68,7 +68,11 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if p != me]
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.players and t["id"] in plan.live()]
-    if who.startswith("player:"):  # one specific player (the one a trigger event was about)
+    if who == "event_player":  # "that player": the one the trigger event was about (who drew, was dealt damage …)
+        return context.players(plan, ctx, context.EVENT)
+    if who.startswith(context.PREFIX):  # a binding: "that player", "its controller", "its owner" (app/rules/context.py)
+        return context.players(plan, ctx, who[len(context.PREFIX):])
+    if who.startswith("player:"):  # (older saves: a player bound into the effect when it triggered)
         return [who[7:]] if who[7:] in plan.live() else []
     return []
 
@@ -89,6 +93,11 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         src = plan.state.cards.get(ctx.get("source_card") or "")
         host = plan.state.cards.get(src.attached_to or "") if src is not None and src.zone.endswith(":battlefield") else None
         return [host.id] if host is not None and host.zone.endswith(":battlefield") else []
+    if who == "event":  # "it" / "that creature": the object(s) the trigger event happened to — only while
+        # each is still that object where it was (400.7: after a zone change it's a new object)
+        return context.objects(plan, ctx, context.EVENT)
+    if who.startswith(context.PREFIX):  # an earlier effect's objects ("it", "cards exiled this way")
+        return context.objects(plan, ctx, who[len(context.PREFIX):])
     if who.startswith("object:"):  # one specific rules object (e.g. the creature that attacked alone)
         oid = who[7:]
         return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid]
@@ -1288,7 +1297,10 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     """608.2: check targets, ask "you may", then carry out the effects in order."""
     ctx: Context = {"controller": entry.controller, "source_card": entry.source_card, "source_object": entry.source_object,
                     "name": entry.name, "targets": [t.model_dump() for t in entry.targets], "stack_id": stack_id,
-                    "kind": entry.kind, "effects": entry.effects, "next": 0, "x": entry.x}
+                    "kind": entry.kind, "effects": entry.effects, "next": 0, "x": entry.x,
+                    # what a triggered ability triggered on (603.2, 608.2k): JSON, so it survives
+                    # pauses for decisions, saves and replay with the rest of the context
+                    "event": entry.event.model_dump(mode="json") if entry.event is not None else None}
     if entry.slot_specs:  # a modal spell: each mode's target is checked on its own (608.2b)
         src = source_of(plan, entry.source_card)
         slots, targeted, legal_any = [], False, False

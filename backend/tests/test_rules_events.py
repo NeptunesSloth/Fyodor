@@ -308,10 +308,85 @@ def test_that_much_damage(cards):
 @pytest.mark.parametrize("text", [
     "At the beginning of each opponent's upkeep, that player loses 1 life.",  # (no event player bound)
     "Whenever you draw a card, you gain that much life.",  # (a draw has no amount)
-    "Whenever one or more creatures you control deal combat damage to a player, you gain that much life.",
 ])
 def test_unbound_event_references_stay_manual(text):
     from app.rules import scripts
     from tests.test_rules_scripts import ch
 
     assert not scripts.definitions(ch("X", "Creature", text))
+
+
+
+# -- TriggerEvent: what the ability triggered on, captured then, read at resolution (603.2, 608.2k) --
+def test_one_or_more_combat_damage_sums_per_player(cards):
+    s = table(cards)
+    creature(s, "p1", "Leech", "1/1", text="Whenever one or more creatures you control deal combat damage to a player, "
+                                           "you gain that much life.")
+    a = creature(s, "p1", "A", "2/2")
+    b = creature(s, "p1", "B", "3/3")
+    automate(s)
+    attack(s, (a, "p2"), (b, "p2"))
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+            continue
+        if not s.state.zones.get("stack") and s.state.turn.phase not in ("declare_blockers", "combat_damage"):
+            break
+        pass_until_stack_empty(s)
+        if s.state.rules.priority:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.players["p2"].life == 35 and s.state.players["p1"].life == 45  # one trigger: 2 + 3
+    replay_matches(s)
+
+
+def test_that_player_is_the_one_dealt_damage(cards):
+    from app.rules import scripts
+    from tests.test_rules_scripts import ch
+
+    text = "Whenever a creature you control deals combat damage to a player, that player loses 1 life."
+    d = scripts.definitions(ch("X", "Creature", text))[0]
+    assert d["effects"][0]["who"] == "event_player"
+
+
+def test_trigger_remembers_what_it_triggered_on_while_waiting(cards):
+    # Delayed resolution: the watcher's trigger waits on the stack while players act; the event
+    # (the drawing player, the amount) was captured when it triggered, not re-read later.
+    s = build(cards)
+    for prefs in s.state.rules.prefs.values():
+        prefs.response = "on"  # (everyone stops at each object on the stack)
+    token(s, "p1", "Taxer", text="Whenever an opponent draws a card, that player loses 1 life.")
+    src = token(s, "p1", "Gift", text="{1}: Each opponent draws a card.")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=src.id, ability=0)
+    for _ in range(6):
+        if any(e.name == "Taxer" for e in s.state.rules.stack.values()):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    entry = next(e for e in s.state.rules.stack.values() if e.name == "Taxer")
+    assert entry.event is not None and entry.event.kind == "draw" and entry.event.players == ["p2"]
+    reloaded = s.history.rebuild()  # (saved / replayed with the trigger pending: the event is kept)
+    assert next(e for e in reloaded.rules.stack.values() if e.name == "Taxer").event == entry.event
+    act(s, "p1", type="create_token", player="p1", token={"name": "Filler", "type_line": "Token Creature — Test"})
+    pass_until_stack_empty(s)
+    for _ in range(4):
+        if not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.players["p2"].life == 39
+    replay_matches(s)
+
+
+def test_simultaneous_deaths_one_or_more_counts_the_batch(cards):
+    s = build(cards)
+    token(s, "p1", "Mourner", "5/5", text="Whenever one or more other creatures you control die, you gain 1 life.")
+    for n in ("A", "B", "C"):
+        token(s, "p1", n, "1/1")
+    src = token(s, "p1", "Quake", "5/5", text="{1}: This creature deals 1 damage to each creature.")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=src.id, ability=0)
+    pass_until_stack_empty(s)
+    pass_until_stack_empty(s)
+    pending = [e for e in s.state.rules.stack.values() if e.name == "Mourner"]
+    assert s.state.players["p1"].life == 41  # one trigger for the three deaths (603.2c)
+    del pending
