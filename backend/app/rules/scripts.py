@@ -362,7 +362,7 @@ COLOR_WORDS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"
 _COLORS_RE = r"(?P<colors>colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*)"
 
 
-@effect(r"create {N} (?P<pt>\d+/\d+) " + _COLORS_RE + r" (?P<sub>[A-Z][A-Za-z' ]*?) (?P<art>artifact )?creature tokens?"
+@effect(r"create {N} (?P<pt>\d+/\d+) " + _COLORS_RE + r" (?P<sub>[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*) (?P<ench>enchantment )?(?P<art>artifact )?creature tokens?"
         r"(?: with (?P<kws>[a-z ,]+?)| with \"(?P<quoted>[^\"]+)\")?")
 def _create_creature(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     p, t = m["pt"].split("/")
@@ -370,7 +370,7 @@ def _create_creature(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
     kws = [k.strip() for k in re.split(r", and |, | and ", m["kws"] or "") if k.strip()]
     if any(k not in GRANTABLE and k not in ("defender",) for k in kws):
         raise _NoMatch
-    type_line = f"Token {'Artifact ' if m['art'] else ''}Creature — {m['sub']}"
+    type_line = f"Token {'Enchantment ' if m['ench'] else ''}{'Artifact ' if m['art'] else ''}Creature — {m['sub']}"
     text = "\n".join(k.capitalize() for k in kws)
     if m["quoted"]:
         text = _granted_token_text(m["quoted"])
@@ -591,8 +591,16 @@ def parse_effects(body: str, it: str | None = None) -> tuple[list[dict[str, Any]
     optional = False
     effects: list[dict[str, Any]] = []
     target: str | None = None
+    start = 0
     for sentence in [s for s in re.split(r"(?<=\.)\s+", body) if s]:
         text = _lower_first(sentence.rstrip(".").strip())
+        prev_start, start = start, len(effects)
+        if (kicked := _KICKED.match(text)) is not None:
+            with_kicker = _kicked_sentence(kicked, effects, prev_start)
+            if with_kicker is None:
+                return None
+            effects = with_kicker
+            continue
         if text.startswith("you may "):
             if effects:
                 # "…. You may reveal … from among them …": a clause that models its own choice
@@ -637,6 +645,29 @@ def parse_effects(body: str, it: str | None = None) -> tuple[list[dict[str, Any]
         if e["do"] in ("pick_looked", "rest_looked") and not looked:
             return None
     return resolved, target, optional
+
+
+_KICKED = re.compile(r"^if (?:this spell|it|~) was kicked, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$")
+
+
+def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start: int) -> list[dict[str, Any]] | None:
+    """702.33e: "If this spell was kicked, [effect]." — the effect happens only if it was kicked;
+    "… instead" replaces the sentence before it when it was kicked. Kicked-only text may not add
+    a target (702.33g: those targets are chosen only if it's kicked — not modeled yet)."""
+    rest = m["rest"]
+    if rest.startswith("you may ") or rest.startswith("instead "):
+        return None
+    found = _clause(rest)
+    if found is None or found[1] is not None or not found[0]:
+        return None
+    alt = found[0]
+    if m["instead1"] or m["instead2"]:
+        base = effects[prev_start:]
+        if not base or any(e["do"] == "kicked_gate" for e in base):
+            return None
+        return [*effects[:prev_start], {"do": "kicked_gate", "kicked": False, "n": len(base)}, *base,
+                {"do": "kicked_gate", "kicked": True, "n": len(alt)}, *alt]
+    return [*effects, {"do": "kicked_gate", "kicked": True, "n": len(alt)}, *alt]
 
 
 _ANTHEM = re.compile(
@@ -713,8 +744,9 @@ def parse_anthem(text: str) -> Definition | None:
 
 
 SHOCK = re.compile(r"^As ~ enters, you may pay (?P<n>\d+) life\. If you don't, it enters tapped\.$")
-ENTERS_WITH = re.compile(r"^~ enters with (?P<n>X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "
-                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it\.$")
+ENTERS_WITH = re.compile(r"^(?:(?P<kicked>If ~ was kicked, it)|~) enters with "
+                         r"(?P<n>X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "
+                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it(?P<each> for each time it was kicked)?\.$")
 
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
@@ -728,7 +760,13 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     m = ENTERS_WITH.match(text) if ability.kind == "static" else None
     if m and m["kind"] not in UNMODELED_COUNTERS:  # 614.1c: "~ enters with N … counters on it"
         n: int | str = "X" if m["n"] == "X" else num(m["n"])
-        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": m["kind"], "n": n, "effects": []}
+        out: Definition = {"kind": "replacement", "replacement": "enters_with_counters", "counter": m["kind"], "n": n,
+                           "effects": []}
+        if m["kicked"]:  # 702.33e: "If ~ was kicked, it enters with …"
+            out["if_kicked"] = True
+        if m["each"]:  # "… for each time it was kicked" (multikicker, 702.33c)
+            out["per_kick"] = True
+        return out
     if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
         return anthem
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
@@ -742,6 +780,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             m = pattern.match(text)
             if m:
                 name = step_trigger(m) if trigger == "step" else trigger
+                body = m["body"]
+                kicked = re.match(r"^if (?:it|~) was kicked, (?P<rest>.+)$", body) if name == "enters_self" else None
+                if kicked is not None:  # 603.4 intervening "if": checked as it triggers (triggers._add)
+                    body = kicked["rest"]
                 cond = None
                 if trigger == "event":
                     from app.rules import events as event_grammar  # (a leaf module)
@@ -750,7 +792,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     if cond is None:
                         return None
                     name = _legacy_trigger(cond) or "event"
-                parsed = parse_effects(m["body"], it=_trigger_antecedent(name, cond))
+                parsed = parse_effects(body, it=_trigger_antecedent(name, cond))
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
@@ -758,6 +800,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                        "effects": effects, "optional": optional, "target": {"what": target} if target else None}
                 if cond is not None and name == "event":
                     out["cond"] = cond
+                if kicked is not None:
+                    out["if_kicked"] = True
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
                 return out

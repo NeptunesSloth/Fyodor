@@ -24,13 +24,13 @@ from app.game.rules_state import (
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import attachments, scripts
+from app.rules import attachments, cost_payment, scripts
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
 from app.rules import payment as P
 from app.rules.characteristics import CardInfo, Characteristics
-from app.rules.costs import AbilityCost, parse_ability_cost
+from app.rules.costs import AbilityCost, kicker_cost, parse_ability_cost
 from app.rules.oracle import AbilityText
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
 from app.rules.targets import label as target_label
@@ -172,7 +172,7 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
             continue
         if parsed.extra_cost:
             extra = parse_ability_cost(parsed.extra_cost, card_name=ch.name)
-            if extra.unsupported or (extra.life and state.players[card.controller].life < extra.life) or \
+            if not extra.basic or (extra.life and state.players[card.controller].life < extra.life) or \
                     any(card.counters.get(k, 0) < n for k, n in extra.remove_counters):
                 continue
         options = _resolve_options(state, card, parsed, info)
@@ -1092,6 +1092,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if dash is None or card.zone != zone_key(plan.actor, "hand"):
             raise ActionError("Only a card with dash can be cast for its dash cost from your hand")
         cost = M.parse_cost(dash)
+    if a.kicker:  # 702.33a / 601.2f: the kicker cost is an additional cost (118.8), added to the total
+        cost = cost_with_kicker(ch, cost, a.kicker, face_down=a.face_down)
     for target in a.targets:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
@@ -1131,11 +1133,14 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name or 'a face-down spell'}")
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else \
         "flashback" if flashback else None
-    record.additional = ["buyback"] if a.buyback else []
+    record.additional = (["buyback"] if a.buyback else []) + (["kicker"] if a.kicker else [])
+    record.kicked = a.kicker  # 702.33d
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else ["Dashed"] if a.dash else []
     if a.dash:
         plan.rules.dashed.append(card.id)
+    if a.kicker:
+        tags.append("Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}")
     if a.buyback:
         tags.append("Buyback")
         plan.rules.buyback.append(plan.oid(card))
@@ -1166,11 +1171,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
                             for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
-                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs)
+                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=a.kicker)
     elif definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), targets=chosen,
-                                      target_spec=definition.get("target"), x=a.x_value)
+                                      target_spec=definition.get("target"), x=a.x_value, kicked=a.kicker)
     if aura is not None and chosen:
         r.aura_targets = {k: v for k, v in r.aura_targets.items() if plan.state.cards.get(k) is not None
                           and plan.state.cards[k].zone == STACK}
@@ -1306,6 +1311,20 @@ EVOKE = re.compile(r"^evoke (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 DASH = re.compile(r"^dash (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
+def cost_with_kicker(ch: Characteristics, cost: M.ManaCost, times: int, *, face_down: bool = False) -> M.ManaCost:
+    """702.33a / 702.33c: pay the kicker cost ``times`` times on top of the total cost (601.2f). It's
+    an additional cost (118.8): the spell's mana cost and mana value don't change (118.8d)."""
+    kick = None if face_down else kicker_cost(ch.abilities)  # (a face-down spell has no abilities, 708.2)
+    if kick is None:
+        raise ActionError(f"{ch.name or 'That spell'} has no kicker cost Fyodor can pay: kick it by hand with the table tools")
+    if times > 1 and not kick.multi:
+        raise ActionError(f"{ch.name} can be kicked only once")  # (multikicker: any number of times, 702.33c)
+    extra = M.parse_cost(kick.cost)
+    return M.ManaCost(cost.generic + extra.generic * times, cost.colored + extra.colored * times,
+                      cost.hybrid + extra.hybrid * times, cost.phyrexian + extra.phyrexian * times, cost.x,
+                      cost.unsupported + extra.unsupported * times)
+
+
 def keyword_cost(ch: Characteristics, word: str, pattern: re.Pattern[str], index: int | None = None) -> str | None:
     """The mana cost of a "<Keyword> {cost}" line (unearth, dash …), optionally on line ``index``."""
     for ab in ch.abilities:
@@ -1405,6 +1424,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     from app.rules.engine import advance  # the engine imports this module
 
     r = plan.rules
+    if a.kicker:
+        raise ActionError("Kick a spell cast this way by hand, with the table tools")
     if card.id not in r.free_casts or card.zone != zone_key(card.owner, "exile") or card.owner != plan.actor:
         raise ActionError("You can't cast that without paying its mana cost now")
     definition = None if plan.manual(card) else scripts.spell_definition(ch)
@@ -1485,6 +1506,11 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if card.zone == zone_key(plan.actor, "graveyard") and card.owner == plan.actor:
         ch = plan.ch(card)
         unearth_cost = keyword_cost(ch, "unearth", UNEARTH, a.ability)
+        ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+        if unearth_cost is None and ability is not None and ability.kind == "activated" and \
+                ability_cost(ch, ability).from_graveyard:  # 113.6m: "Exile this card from your graveyard: …"
+            activate_to_stack(plan, card, ch, ability, a)
+            return
         if unearth_cost is None:
             raise ActionError("That card has no ability to use from your graveyard")
         unearth(plan, card, ch, a, unearth_cost)
@@ -1597,7 +1623,10 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     r = state.rules
     if r is None:
         return "Rules automation is off"
-    if card.controller != player or not card.zone.endswith(":battlefield"):
+    if cost.from_graveyard:  # 113.6m: its cost moves it out of your graveyard, so it works only there
+        if card.zone != zone_key(player, "graveyard") or card.owner != player:
+            return "That ability can only be activated from your graveyard"
+    elif card.controller != player or not card.zone.endswith(":battlefield"):
         return "You can only activate abilities of permanents you control"
     if cost.unsupported:
         return f"Pay “{', '.join(cost.unsupported)}” by hand with the table tools"
@@ -1623,6 +1652,10 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
             return f"{ch.name} doesn't have {n} {kind} counter{'s' if n != 1 else ''}"
     if cost.life and state.players[player].life < cost.life:
         return f"You don't have {cost.life} life to pay"
+    if info is not None and cost.components:  # 118.3: untap, sacrifice, discard, exile … (cost_payment)
+        found = cost_payment.problem(Plan.view(state, player, info), cost, card, player)
+        if found:
+            return found
     if info is not None and cost.mana:
         mana = M.parse_cost(cost.mana).with_x(x)
         if not can_pay(state, player, mana, info, exclude=(card.id,) if cost.tap else (), purpose=Purpose(ability_of=ch)):
@@ -1668,8 +1701,15 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     chosen = choose_target(plan, a, definition, f"{ch.name}’s ability", exclude=exclude_targets)
     if chosen is None:
         return
+    problem = cost_payment.problem(plan, cost, card, plan.actor)  # 118.3 / 601.2h: nothing is paid unless all can be
+    if problem:
+        raise ActionError(problem)
+    cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)
+    if cost_objects is None:
+        return  # waiting for the payer's choice; nothing has been paid
+    not_mana = cost_payment.excluded(cost, card, cost_objects)  # (they can't also tap for mana)
     if payment_step(plan, a, mana.with_x(a.x_value or 0), f"{ch.name}’s ability",
-                    exclude=(card.id,) if cost.tap else (), purpose=Purpose(ability_of=ch)):
+                    exclude=not_mana, purpose=Purpose(ability_of=ch)):
         return
     effect = ability.text.split(":", 1)[1].strip() if ":" in ability.text else ability.text
     created = plan.do({"type": "create_ability", "text": effect[:500], "source_id": card.id, "kind": "activated"})
@@ -1685,10 +1725,14 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n})
     if cost.life:
         plan.do({"type": "life", "player": plan.actor, "delta": -cost.life})
-    pay(plan, plan.actor, mana.with_x(a.x_value or 0), f"paid {mana.with_x(a.x_value or 0).text()} to activate {ch.name}",
-        sources=a.sources, exclude=(card.id,) if cost.tap else (), purpose=Purpose(ability_of=ch))
-    if cost.sacrifice_self:
-        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "graveyard"}})
+    paid = pay(plan, plan.actor, mana.with_x(a.x_value or 0), f"paid {mana.with_x(a.x_value or 0).text()} to activate {ch.name}",
+               sources=a.sources, exclude=not_mana, purpose=Purpose(ability_of=ch))
+    record = PaymentRecord(card=ability_id or card.id, controller=plan.actor, total_cost=ability.cost or "",
+                           mana_spent=dict(paid.spent) if paid else {}, life=cost.life + (paid.life if paid else 0),
+                           tapped=list(paid.tapped) if paid else [], x=a.x_value)
+    cost_payment.pay(plan, cost, card, cost_objects, record)  # sacrifice, discard, exile, return, tap others …
+    if ability_id and (record.sacrificed or record.discarded or record.exiled or record.returned or record.tapped_for_cost):
+        record_payment(plan, ability_id, record)  # ("the sacrificed creature" …: what paid for it)
     if a.x_value is not None and ability_id:
         plan.do({"type": "set_stack_info", "card_id": ability_id, "x": a.x_value})
     if a.targets and ability_id:
@@ -1733,6 +1777,14 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                 if problem is None:
                     out.append({"card_id": cid, "ability": ab.index})
             elif ab.kind == "keywords" and _can_crew(state, player, card, ch, ab.index, info, check_priority):
+                out.append({"card_id": cid, "ability": ab.index})
+    for cid in state.zones.get(zone_key(player, "graveyard"), []):  # 113.6m: "Exile this card from your graveyard: …"
+        card = state.cards[cid]
+        ch = chars.of(card, info)
+        for ab in ch.abilities:
+            if ab.kind == "activated" and "graveyard" in (ab.cost or "") and ability_cost(ch, ab).from_graveyard and \
+                    ability_problem(state, player, card, ch, ab, ability_cost(ch, ab), check_priority=check_priority,
+                                    info=info) is None:
                 out.append({"card_id": cid, "ability": ab.index})
     return out
 

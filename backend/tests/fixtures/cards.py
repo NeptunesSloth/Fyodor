@@ -337,5 +337,27 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Grapeshot", set_code="tst", number="P4", mana_cost="{1}{R}", cmc=2.0, type_line="Sorcery",
              oracle_text="Grapeshot deals 1 damage to any target.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
              colors=["R"], color_identity=["R"]),
+        # Fictional kicker cards (702.33): kicked-only effects, "instead", multikicker, permanents.
+        card("Test Kicked Bolt", set_code="tst", number="K1", mana_cost="{R}", cmc=1.0, type_line="Instant",
+             oracle_text="Kicker {1}{R} (You may pay an additional {1}{R} as you cast this spell.)\n"
+                         "Test Kicked Bolt deals 2 damage to any target. If this spell was kicked, draw a card.\nStorm",
+             colors=["R"], color_identity=["R"]),
+        card("Test Surge", set_code="tst", number="K2", mana_cost="{G}", cmc=1.0, type_line="Instant",
+             oracle_text="Kicker {2}\nTarget creature gets +2/+2 until end of turn. If this spell was kicked, that creature "
+                         "gets +5/+5 until end of turn instead.", colors=["G"], color_identity=["G"]),
+        card("Test Multigift", set_code="tst", number="K3", mana_cost="{G}", cmc=1.0, type_line="Sorcery",
+             oracle_text="Multikicker {1} (You may pay an additional {1} any number of times as you cast this spell.)\n"
+                         "You gain 1 life. You gain 2 life for each time this spell was kicked.",
+             colors=["G"], color_identity=["G"]),
+        card("Test Kicker Knight", set_code="tst", number="K4", mana_cost="{W}", cmc=1.0, type_line="Creature — Human Knight",
+             oracle_text="Kicker {2}\nIf this creature was kicked, it enters with two +1/+1 counters on it.\n"
+                         "When this creature enters, if it was kicked, you gain 3 life.",
+             power="1", toughness="1", colors=["W"], color_identity=["W"]),
+        card("Test Multikick Beast", set_code="tst", number="K5", mana_cost="{G}", cmc=1.0, type_line="Creature — Beast",
+             oracle_text="Multikicker {1}\nThis creature enters with a +1/+1 counter on it for each time it was kicked.",
+             power="1", toughness="1", colors=["G"], color_identity=["G"]),
+        card("Test Ember Relic", set_code="tst", number="K6", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Spirit",
+             oracle_text="{1}, Exile Test Ember Relic from your graveyard: You gain 2 life.",
+             power="1", toughness="1", colors=["R"], color_identity=["R"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

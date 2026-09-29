@@ -72,7 +72,7 @@ def test_mana_and_sacrifice_costs(cards):
 def test_costs_and_timing_the_engine_cannot_handle_are_refused(cards):
     s = table(cards)
     odd = token(s, "p1", "Oddity", "Token Artifact",
-                "Discard a card: Scry 1.\n{T}: Draw a card. Activate only as a sorcery.")
+                "Exile the top card of your library: Scry 1.\n{T}: Draw a card. Activate only as a sorcery.")
     to_main(s)
     with pytest.raises(ActionError, match="by hand"):
         act(s, "p1", type="activate_ability", card_id=odd.id, ability=0)

@@ -33,7 +33,7 @@ KEYWORDS = frozenset({
     "devoid", "renown", "bloodthirst", "soulshift",
     "flying", "reach", "vigilance", "trample", "deathtouch", "lifelink", "first strike", "double strike", "haste",
     "defender", "menace", "hexproof", "indestructible", "flash", "shroud", "fear", "intimidate", "skulk", "prowess",
-    "protection", "ward", "equip", "enchant", "cycling", "kicker", "flashback", "convoke", "delve", "cascade",
+    "protection", "ward", "equip", "enchant", "cycling", "kicker", "multikicker", "flashback", "convoke", "delve", "cascade",
     "affinity", "storm", "partner", "partner with", "changeling", "landwalk", "islandwalk", "swampwalk",
     "forestwalk", "mountainwalk", "plainswalk", "exalted", "undying", "persist", "wither", "infect", "toxic",
     "annihilator", "evolve", "extort", "unearth", "embalm", "eternalize", "afflict", "riot", "escape", "mutate",

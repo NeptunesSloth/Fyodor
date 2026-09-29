@@ -70,6 +70,10 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
          definition: dict[str, Any], manual: bool = False, event_object: str | None = None) -> None:
     if manual:
         return
+    if definition.get("if_kicked"):  # 603.4: "When ~ enters, if it was kicked, …" (702.33e)
+        record = plan.rules.payments.get(source_object)
+        if record is None or not record.kicked:
+            return  # (it wasn't: the ability doesn't trigger; kicked status never changes later)
     if any(e.get("who") == "event" for e in definition.get("effects") or []):
         # "it" / "that creature": the object the event happened to, bound now to that one rules
         # object (400.7: if it changes zones, the effect no longer finds it)

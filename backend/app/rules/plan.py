@@ -36,6 +36,15 @@ class Plan:
         self.max_steps = MAX_STEPS
         self.hold: str | None = None  # a player keeping priority right now (HOLD PRIORITY, a cancelled cast)
 
+    @classmethod
+    def view(cls, state: GameState, actor: str, info: CardInfo) -> Plan:
+        """A read-only plan over ``state`` itself (not a copy), for hints that need selectors and
+        derived characteristics. It can't carry out anything: ``do`` always refuses."""
+        plan = cls.__new__(cls)
+        plan.state, plan.actor, plan.info, plan.rng = state, actor, info, None
+        plan.steps, plan.max_steps, plan.hold = [], 0, None
+        return plan
+
     @property
     def rules(self) -> RulesState:
         assert self.state.rules is not None

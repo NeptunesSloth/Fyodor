@@ -10,7 +10,9 @@ A value is an int (a literal) or a dict:
 * ``{"opponents": 1}`` — the number of opponents still in the game;
 * ``{"power": "self" | "target"}`` / ``{"toughness": …}`` / ``{"mana_value": …}`` — of an object;
 * ``{"counters": kind, "on": "self"}`` — counters of a kind on an object;
-* ``{"times": [a, b]}`` — a product (e.g. "two for each …").
+* ``{"times": [a, b]}`` — a product (e.g. "two for each …");
+* ``{"kicked": 1}`` — the number of times the spell (or the permanent it became) was kicked
+  (702.33d; "for each time it was kicked").
 
 Parsing lives in :func:`parse_amount` (words) and :func:`parse_count` ("the number of …").
 """
@@ -61,6 +63,8 @@ def parse_count(phrase: str) -> Value | None:
         return {"hand": "you"}
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent"):
         return {"opponents": 1}
+    if what in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
+        return {"kicked": 1}
     sel = selectors.parse(what)
     if sel is None:
         return None
@@ -77,6 +81,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "times" in v:
         a, b = v["times"]
         return evaluate(plan, ctx, a) * evaluate(plan, ctx, b)
+    if "kicked" in v:
+        return kicked_count(plan, ctx)
     if "count" in v:
         sel = selectors.from_key(v["count"])
         if sel.player is not None:
@@ -103,6 +109,16 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         card = _object(plan, ctx, v.get("on", "self"))
         return card.counters.get(v["counters"], 0) if card is not None else 0
     raise ValueError(f"unknown value {v!r}")
+
+
+def kicked_count(plan: Plan, ctx: dict[str, Any]) -> int:
+    """702.33d: how many times the spell resolving (or copied, 707.10) was kicked; for an ability
+    of a permanent, how many times the spell it was cast as was (its payment record)."""
+    entry = plan.rules.stack.get(ctx.get("stack_id") or "")
+    if entry is not None and entry.kind == "spell":
+        return entry.kicked
+    record = plan.rules.payments.get(ctx.get("source_object") or "")
+    return record.kicked if record is not None else 0
 
 
 def _object(plan: Plan, ctx: dict[str, Any], who: str) -> Any:

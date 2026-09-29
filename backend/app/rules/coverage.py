@@ -101,6 +101,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"cumulative upkeep (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("unearth", "dash", "buyback", "madness", "ward", "evoke"):  # casting.keyword_cost: a mana cost
         return re.fullmatch(rf"{kw} (?:\{{[^}}]+\}})+", line.strip().rstrip(".").lower()) is not None
+    if kw in ("kicker", "multikicker"):  # casting.cost_with_kicker: one mana kicker cost
+        from app.rules.costs import kicker_line
+
+        return kicker_line(line)
     if kw == "crew":  # casting.crew: "Crew N"
         return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "flashback":  # casting.flashback_cost: a mana flashback cost
