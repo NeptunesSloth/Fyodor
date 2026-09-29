@@ -7,8 +7,9 @@ or less from your graveyard", "another untapped Goblin you control", "artifact o
 * what kind of thing: a permanent/spell/card (``types`` any-of, ``subtypes`` any-of, ``supertypes``),
   or a player (``player`` = "any" / "opponent" / "you");
 * where: ``zones`` (battlefield, graveyard, hand, exile, library, stack, command) and whose zone;
-* relations: controller / owner, another (not the source), tapped, attacking, blocking, token,
-  commander, enchanted/equipped;
+* relations: controller / owner (including "defending player controls", CR 508.5), another (not
+  the source), tapped, attacking, blocking, "attacking or blocking" (in combat), token, commander,
+  enchanted/equipped;
 * characteristics: colors, colorless, multicolored, mana value / power / toughness comparisons,
   keyword abilities it has or lacks, negated types ("nonland", "non-Human").
 
@@ -50,7 +51,7 @@ _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves"
               "mice": "Mouse", "fungi": "Fungus", "sphinxes": "Sphinx", "foxes": "Fox", "djinn": "Djinn",
               "allies": "Ally", "fairies": "Faerie", "zombies": "Zombie", "sorceries": "Sorcery", "mercenaries": "Mercenary",
               "pegasi": "Pegasus", "octopi": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
-_MARKERS = {"card", "spell", "perm"}  # nouns that mark what kind of object, not its type
+_MARKERS = {"card", "spell", "perm", "token", "commander"}  # nouns that mark what kind of object, not its type
 ZONES = ("battlefield", "graveyard", "hand", "exile", "library", "stack", "command")
 
 
@@ -66,12 +67,13 @@ class Selector:
     not_subtypes: tuple[str, ...] = ()
     supertypes: tuple[str, ...] = ()
     not_supertypes: tuple[str, ...] = ()
-    controller: str | None = None  # "you" | "opponent"
+    controller: str | None = None  # "you" | "opponent" | "defending" (the defending player, 508.5)
     owner: str | None = None  # "you" | "opponent"
     other: bool = False  # "another" / "other": not the source object
     tapped: bool | None = None
     attacking: bool = False
     blocking: bool = False
+    in_combat: bool = False  # "attacking or blocking" (506.3: only creatures attack or block)
     token: bool | None = None
     commander: bool = False
     colors: tuple[str, ...] = ()  # any of these colors
@@ -81,7 +83,9 @@ class Selector:
     with_keywords: tuple[str, ...] = ()
     without_keywords: tuple[str, ...] = ()
     compare: tuple[tuple[str, str, int], ...] = ()  # ("mv"|"power"|"toughness", "<="|">="|"==", n)
-    extras: tuple[str, ...] = field(default_factory=tuple)  # "enchanted", "equipped", "counter:+1/+1"
+    # "enchanted", "equipped", "counter:+1/+1", "all_types", "attacking_you", "single_graveyard"
+    # (a group constraint: every target from one graveyard — read by language.target_group)
+    extras: tuple[str, ...] = field(default_factory=tuple)
 
     def key(self) -> str:
         """Canonical and compact: only fields that differ from the defaults."""
@@ -152,6 +156,41 @@ def _opp_control(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="opponent")
 
 
+@_suffix(r"(?:that )?defending player controls")
+def _defending_controls(s: Selector, m: re.Match[str]) -> Selector:
+    # 508.5: the defending player an attacking creature's ability refers to is the player (or
+    # the controller of the planeswalker) it's attacking; 508.5a: one specific defending player.
+    return replace(s, controller="defending")
+
+
+@_suffix(r"other than ~")
+def _other_than_self(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, other=True)
+
+
+@_suffix(r"that['’]s (?P<w>attacking or blocking|attacking|blocking|tapped|untapped)")
+def _thats_status(s: Selector, m: re.Match[str]) -> Selector:
+    s2 = _prefix(s, m["w"].replace(" ", "-"))
+    assert s2 is not None
+    return s2
+
+
+@_suffix(r"that['’]s attacking you")
+def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
+
+
+@_suffix(r"that['’]s (?P<c1>" + "|".join(COLORS) + r")(?: or (?P<c2>" + "|".join(COLORS) + r"))?")
+def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:
+    found = tuple(COLORS[c] for c in (m["c1"], m["c2"]) if c)
+    return replace(s, colors=(*s.colors, *found))
+
+
+@_suffix(r"that['’]s one or more colors")
+def _thats_colors(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, colorless=False)
+
+
 @_suffix(r"you own")
 def _you_own(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, owner="you")
@@ -175,6 +214,19 @@ def _any_graveyard(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"(?:from|in) an opponent's graveyard")
 def _opp_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", "opponent")
+
+
+@_suffix(r"(?:from|in) graveyards")
+def _graveyards(s: Selector, m: re.Match[str]) -> Selector:
+    return _in_zone(s, "graveyard", None)  # any graveyards (400.1: each player has their own)
+
+
+@_suffix(r"from a single graveyard")
+def _single_graveyard(s: Selector, m: re.Match[str]) -> Selector:
+    """"Exile up to two target cards from a single graveyard": any graveyard, but all the targets
+    from the same one (400.1: a player's graveyard is theirs — the same owner). The constraint
+    is on the group of targets, not on one card: language.target_group moves it to the group."""
+    return replace(_in_zone(s, "graveyard", None), extras=(*s.extras, "single_graveyard"))
 
 
 @_suffix(r"(?:from|in) exile")
@@ -240,6 +292,10 @@ def _core(word: str) -> tuple[str, str] | None:
         return "spell", ""
     if low == "card":
         return "card", ""
+    if low == "token":  # "creature token", "token you control", "Incubator token" (111.1)
+        return "token", ""
+    if low == "commander":  # "target commander", "commander you own" (903.3)
+        return "commander", ""
     if low in ("player", "opponent"):
         return "player", low
     cap = w[:1].upper() + w[1:]
@@ -258,9 +314,16 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, attacking=True)
     if low == "blocking":
         return replace(s, blocking=True)
+    if low in ("attacking-or-blocking", "blocking-or-attacking"):  # (joined by parse: one status)
+        return replace(s, in_combat=True)
+    pt = re.fullmatch(r"(\d+)/(\d+)", word)
+    if pt:  # "1/1 creature": exactly that power and toughness
+        return replace(s, compare=(*s.compare, ("power", "==", int(pt[1])), ("toughness", "==", int(pt[2]))))
     if low == "token":
         return replace(s, token=True)
     if low == "nontoken":
+        if s.token is True:
+            return None  # ("nontoken token")
         return replace(s, token=False)
     if low in SUPERTYPES:
         return replace(s, supertypes=(*s.supertypes, SUPERTYPES[low]))
@@ -368,6 +431,14 @@ def _parse(phrase: str) -> Selector | None:
         s = replace(s, card=True)
         if s.zones == ("battlefield",):
             s = replace(s, zones=())  # "a creature card": the zone comes from the sentence
+    if "token" in markers:
+        if s.card or "spell" in markers or s.token is False:
+            return None  # ("token card": no such thing; a token is only ever a permanent, 111.7)
+        s = replace(s, token=True)
+    if "commander" in markers:
+        if s.card or "spell" in markers:
+            return None  # (a commander card in the command zone / a commander spell: not yet)
+        s = replace(s, commander=True)
     if "perm" in markers and not types and (s.card or "spell" in markers):
         # "permanent card" (110.4a) / "permanent spell" (110.4b): only the permanent types, any of
         # them — so an instant, a sorcery or a kindred sorcery doesn't match. (On the battlefield,
@@ -378,7 +449,7 @@ def _parse(phrase: str) -> Selector | None:
     else:
         s = replace(s, types=types)
     s = replace(s, subtypes=subtypes)
-    prefix_words = words[: i + 1]
+    prefix_words = _join_statuses(words[: i + 1])
     for k, w in enumerate(reversed(prefix_words)):
         if w in (",",):
             continue
@@ -395,7 +466,50 @@ def _parse(phrase: str) -> Selector | None:
     return s
 
 
+def _join_statuses(words: list[str]) -> list[str]:
+    """"attacking or blocking creature": the two words are one status (either), not two
+    prefixes that both apply (an attacking creature that's also blocking)."""
+    out: list[str] = []
+    k = 0
+    while k < len(words):
+        if k + 2 < len(words) and words[k + 1] == "or" and {words[k].lower(), words[k + 2].lower()} == {"attacking", "blocking"}:
+            out.append("attacking-or-blocking")
+            k += 3
+            continue
+        out.append(words[k])
+        k += 1
+    return out
+
+
 # -- evaluation ---------------------------------------------------------------------------
+def _defender(plan: Plan, target: Any) -> str | None:
+    """The player a creature is attacking, or the controller of the planeswalker / battle."""
+    if target is None:
+        return None
+    if target.kind == "player":
+        return str(target.id)
+    attacked = plan.state.cards.get(target.id)
+    return attacked.controller if attacked is not None else None
+
+
+def defending_players(plan: Plan, source: str | None) -> set[str]:
+    """Who "defending player" means (508.5): for an attacking source, the player it's attacking
+    (or whose planeswalker / battle it's attacking); otherwise the players being attacked in
+    this combat (508.5a: one of them — the chooser picks by picking a target of theirs).
+    Empty outside combat."""
+    src = plan.state.cards.get(source or "")
+    if src is not None and src.attacking is not None:
+        d = _defender(plan, src.attacking)
+        return {d} if d else set()
+    out = set()
+    for c in plan.state.cards.values():
+        if c.attacking is not None and c.zone.endswith(":battlefield"):
+            d = _defender(plan, c.attacking)
+            if d:
+                out.add(d)
+    return out
+
+
 def matches_player(plan: Plan, sel: Selector, pid: str, you: str) -> bool:
     if sel.player is None or pid not in plan.live():
         return False
@@ -444,6 +558,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.controller == "opponent" and card.controller == you:
         return False
+    if sel.controller == "defending" and card.controller not in defending_players(plan, source):
+        return False
     if sel.owner == "you" and card.owner != you:
         return False
     if sel.owner == "opponent" and card.owner == you:
@@ -455,6 +571,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if sel.attacking and card.attacking is None:
         return False
     if sel.blocking and not card.blocking:
+        return False
+    if sel.in_combat and card.attacking is None and not card.blocking:
         return False
     if sel.token is not None and card.is_token != sel.token:
         return False
@@ -482,6 +600,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "equipped" and not _has_attached(plan, card, "Equipment"):
             return False
         if extra.startswith("counter:") and not card.counters.get(extra[8:], 0):
+            return False
+        if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
     return True
 

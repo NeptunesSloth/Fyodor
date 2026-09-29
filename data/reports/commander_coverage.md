@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 342 · PARTIAL: 3159 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 349 · PARTIAL: 3152 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -761,7 +761,7 @@ Color identity R
 - ✓ Flying
 - ✗ Whenever Drakuseth attacks, Drakuseth deals 4 damage to any target and 3 damage to each of up to two other targets.
 
-### Vilis, Broker of Blood — PARTIAL
+### Vilis, Broker of Blood — FULL
 
 Color identity B
 
@@ -769,7 +769,7 @@ Color identity B
 - ✓ Attack and block
 - ✓ Flying
 - ✓ {B}, Pay 2 life: Target creature gets -1/-1 until end of turn.
-- ✗ Whenever you lose life, draw that many cards.
+- ✓ Whenever you lose life, draw that many cards.
 
 ### Skrelv, Defector Mite — PARTIAL
 
@@ -837,8 +837,8 @@ Color identity WB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever one or more tokens you control enter, each opponent loses 1 life and you gain 1 life.
 - ✗ Whenever one or more tokens your opponents control enter, for each of them, create a tapped token that's a copy of it. This ability triggers only once each turn.
-- ✗ Whenever one or more tokens you control enter, each opponent loses 1 life and you gain 1 life.
 
 ### Captain Lannery Storm — PARTIAL
 
@@ -904,9 +904,9 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever Kogla attacks, destroy target artifact or enchantment defending player controls.
 - ✓ {1}{G}: Return target Human you control to its owner's hand. Kogla gains indestructible until end of turn.
 - ✗ When Kogla enters, it fights up to one target creature you don't control.
-- ✗ Whenever Kogla attacks, destroy target artifact or enchantment defending player controls.
 
 ### Magda, Brazen Outlaw — PARTIAL
 
