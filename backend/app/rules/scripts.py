@@ -8,7 +8,7 @@ either matches a known template completely or it stays manual.
 
 Definition shape (JSON-able)::
 
-    {"kind": "triggered" | "spell" | "activated" | "replacement",
+    {"kind": "triggered" | "spell" | "activated" | "replacement" | "static",  # (static: app/rules/statics.py)
      "trigger": "enters_self" | "dies_self" | "ltb_self" | "upkeep_you" | "end_step_you" | "attacks_self",
      "optional": bool,                       # "you may …": asked on resolution (603.5)
      "target": {"what": "creature" | "any" | …} or None,   # one "target [something]", one target
@@ -805,13 +805,6 @@ def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start
     return [*effects, {"do": "kicked_gate", "kicked": True, "n": len(alt)}, *alt]
 
 
-_ANTHEM = re.compile(
-    r"^(?P<other>Other )?(?:(?P<all>All )|)(?P<who>[Cc]reatures|[Cc]reature tokens|Lands|Commander creatures"
-    r"|Enchanted creature|Equipped creature|Enchanted land"
-    r"|(?P<sub>[A-Z][a-z]+?)(?:s| creatures)?)"
-    r"(?P<scope> you control| your opponents control| you own|)"
-    r" (?:gets? (?P<p>[+-]\d+)/(?P<t>[+-]\d+)(?: and ha(?:s|ve) (?P<kws1>[a-z ,]+))?|ha(?:s|ve) (?P<kws2>[a-z ,]+)"
-    r"|ha(?:s|ve) \"(?P<quoted>[^\"]+)\")\.?$")
 ATTACHED_SUBJECTS = ("Enchanted creature", "Equipped creature", "Enchanted land")
 
 
@@ -835,47 +828,12 @@ def granted_ability(text: str) -> AbilityText | None:
 
 
 def parse_anthem(text: str) -> Definition | None:
-    """613 static P/T, keyword and ability grants: "Creatures you control get +1/+1.", "Other Elves
+    """613 static P/T, keyword and ability grants ("Creatures you control get +1/+1.", "Other Elves
     you control get +1/+1 and have haste.", "All Slivers have "{T}: Add one mana of any color."",
-    "Lands you control have "…"", "Commander creatures you own have "…"", "Creatures your
-    opponents control get -1/-1."."""
-    m = _ANTHEM.match(text)
-    if not m:
-        return None
-    attached = m["who"] in ATTACHED_SUBJECTS  # 303.4b / 301.5a: the object it's attached to
-    if attached and (m["scope"] or m["all"] or m["other"]):
-        return None
-    from app.rules.creature_types import CREATURE_TYPES
-    from app.rules.protection import _PLURALS
+    "~ gets +2/+2 as long as you control three or more artifacts."): app/rules/statics.py."""
+    from app.rules import statics  # (statics imports granted_ability from here)
 
-    sub = None
-    if m["sub"]:
-        word = m["sub"]
-        sub = _PLURALS.get(word.lower() + "s", word) if word not in CREATURE_TYPES else word
-        if m["who"].endswith("ves"):
-            sub = _PLURALS.get(m["who"].lower())
-        if sub not in CREATURE_TYPES:
-            return None
-    scope = {" you control": "you", " your opponents control": "opponents", " you own": "own", "": "all"}[m["scope"]]
-    if attached:
-        scope = "attached"
-    elif scope == "all" and not m["all"]:
-        return None  # "Creatures get …" without "All": not this template
-    commander = m["who"] == "Commander creatures"
-    if commander != (scope == "own"):
-        return None
-    kws = [k.strip() for k in re.split(r", and |, | and ", m["kws1"] or m["kws2"] or "") if k.strip()]
-    if any(k not in GRANTABLE and k not in ("defender", "shroud", "flash") for k in kws):
-        return None
-    grant = None
-    if m["quoted"]:
-        if granted_ability(m["quoted"]) is None:
-            return None
-        grant = m["quoted"]
-    return {"kind": "static", "static": "anthem", "effects": [], "other": bool(m["other"]), "scope": scope,
-            "sub": sub, "tokens": m["who"].lower() == "creature tokens", "lands": m["who"] in ("Lands", "Enchanted land"),
-            "commander": commander, "grant": grant,
-            "p": int(m["p"]) if m["p"] else 0, "t": int(m["t"]) if m["t"] else 0, "keywords": kws}
+    return statics.parse(text)
 
 
 SHOCK = re.compile(r"^As ~ enters, you may pay (?P<n>\d+) life\. If you don't, it enters tapped\.$")

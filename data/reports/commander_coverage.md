@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 342 · PARTIAL: 3159 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 382 · PARTIAL: 3119 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -246,7 +246,7 @@ Color identity UR
 - ✗ Magecraft — Whenever you cast or copy an instant or sorcery spell, Veyran gets +1/+1 until end of turn.
 - ✗ If you casting or copying an instant or sorcery spell causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.
 
-### Avacyn, Angel of Hope — PARTIAL
+### Avacyn, Angel of Hope — FULL
 
 Color identity W
 
@@ -255,7 +255,7 @@ Color identity W
 - ✓ Flying
 - ✓ Vigilance
 - ✓ Indestructible
-- ✗ Other permanents you control have indestructible.
+- ✓ Other permanents you control have indestructible.
 
 ### Niv-Mizzet, Parun — FULL
 
@@ -450,7 +450,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Artifacts you control have hexproof.
+- ✓ Artifacts you control have hexproof.
 - ✗ At the beginning of your upkeep, if you control the artifact with the greatest mana value or tied for the greatest mana value, draw a card.
 
 ### The Gitrog Monster — PARTIAL
@@ -761,7 +761,7 @@ Color identity R
 - ✓ Flying
 - ✗ Whenever Drakuseth attacks, Drakuseth deals 4 damage to any target and 3 damage to each of up to two other targets.
 
-### Vilis, Broker of Blood — PARTIAL
+### Vilis, Broker of Blood — FULL
 
 Color identity B
 
@@ -769,7 +769,7 @@ Color identity B
 - ✓ Attack and block
 - ✓ Flying
 - ✓ {B}, Pay 2 life: Target creature gets -1/-1 until end of turn.
-- ✗ Whenever you lose life, draw that many cards.
+- ✓ Whenever you lose life, draw that many cards.
 
 ### Skrelv, Defector Mite — PARTIAL
 
@@ -987,15 +987,15 @@ Color identity W
 - ✗ When Rosie Cotton enters, create a Food token.
 - ✗ Whenever you create a token, put a +1/+1 counter on target creature you control other than Rosie Cotton.
 
-### Saryth, the Viper's Fang — PARTIAL
+### Saryth, the Viper's Fang — FULL
 
 Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Other tapped creatures you control have deathtouch.
+- ✓ Other untapped creatures you control have hexproof.
 - ✓ {1}, {T}: Untap another target creature or land you control.
-- ✗ Other tapped creatures you control have deathtouch.
-- ✗ Other untapped creatures you control have hexproof.
 
 ### Kiki-Jiki, Mirror Breaker — PARTIAL
 
@@ -1184,8 +1184,8 @@ Color identity W
 - ✓ Attack and block
 - ✓ Flying
 - ✓ Lifelink
+- ✓ Other creatures you control with flying have indestructible.
 - ✗ You may pay {W} and tap four untapped creatures you control with flying rather than pay this spell's mana cost.
-- ✗ Other creatures you control with flying have indestructible.
 
 ### Ulamog, the Infinite Gyre — PARTIAL
 
@@ -1598,7 +1598,7 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Menace
-- ✗ Creatures you control have wither.
+- ✓ Creatures you control have wither.
 - ✗ Whenever a creature an opponent controls dies, if its toughness was less than 1, draw a card.
 
 ### Shigeki, Jukai Visionary — PARTIAL
@@ -1985,14 +1985,14 @@ Color identity W
 - ✓ Flying
 - ✗ Whenever you cast a historic spell, return target creature card with mana value 3 or less from your graveyard to the battlefield.
 
-### The Walls of Ba Sing Se — PARTIAL
+### The Walls of Ba Sing Se — FULL
 
 Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Defender
-- ✗ Other permanents you control have indestructible.
+- ✓ Other permanents you control have indestructible.
 
 ### Inti, Seneschal of the Sun — PARTIAL
 
@@ -2404,7 +2404,7 @@ Color identity WRG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Creatures you control get +1/+0 and have vigilance as long as you control three or more creatures.
+- ✓ Creatures you control get +1/+0 and have vigilance as long as you control three or more creatures.
 - ✗ Creatures you control also get +1/+0 and have trample as long as you control six or more creatures.
 - ✗ Creatures you control also get +1/+0 and have double strike as long as you control nine or more creatures.
 
@@ -2768,7 +2768,7 @@ Color identity WR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Other artifact creatures you control have haste.
+- ✓ Other artifact creatures you control have haste.
 - ✗ Whenever one or more artifact creatures you control attack, Alibou deals X damage to any target and you scry X, where X is the number of tapped artifacts you control.
 
 ### Gonti, Night Minister — PARTIAL
@@ -2794,8 +2794,8 @@ Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Other colorless creatures you control get +3/+2.
 - ✗ When you cast this spell, up to two target players each manifest two cards from their hands. For each card manifested this way, you draw a card.
-- ✗ Other colorless creatures you control get +3/+2.
 
 ### Ilharg, the Raze-Boar — PARTIAL
 
@@ -2895,8 +2895,8 @@ Color identity WUBRG
 - ✓ Attack and block
 - ✓ Vigilance
 - ✓ {T}: Add one mana of any color.
+- ✓ Other legendary creatures you control have vigilance and "{T}: Add one mana of any color."
 - ✓ Cast it (timing, costs, the stack)
-- ✗ Other legendary creatures you control have vigilance and "{T}: Add one mana of any color."
 - ✗ At the beginning of your upkeep, reveal cards from the top of your library until you reveal a creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of your library in a random order.
 
 ### Karn, Legacy Reforged — PARTIAL
