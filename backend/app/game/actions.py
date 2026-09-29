@@ -850,6 +850,7 @@ class PlayLand(_Intent):
     face: int | None = Field(default=None, ge=0, le=3)  # which face of a modal double-faced card
     x: Coord | None = None
     y: Coord | None = None
+    pay_life: bool | None = None  # shock lands: the answer to "pay 2 life or enter tapped" (asked if missing)
 
 
 class CastSpell(_Intent):

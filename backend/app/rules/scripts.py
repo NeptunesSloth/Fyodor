@@ -74,6 +74,7 @@ TRIGGERS = [
     (re.compile(r"^At the beginning of your end step, (?P<body>.+)$"), "end_step_you"),
     (re.compile(r"^Whenever ~ attacks, (?P<body>.+)$"), "attacks_self"),
     (re.compile(r"^(?:Landfall — )?Whenever a land you control enters, (?P<body>.+)$"), "landfall"),
+    (re.compile(r"^When ~ becomes the target of a spell or ability, (?P<body>.+)$"), "targeted_self"),
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
@@ -313,6 +314,23 @@ def _counter_unless(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]
     return [{"do": "counter_unless", "who": "target", "cost": m["cost"]}], SELECTORS[m["sel"]]
 
 
+@effect(r"investigate")
+def _investigate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    type_line, text = PREDEFINED_TOKENS["Clue"]
+    return [{"do": "create_token", "who": "you", "n": 1,
+             "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
+
+
+@effect(r"(?:~|it) explores")
+def _explore(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "explore"}], None
+
+
+@effect(r"sacrifice (?:~|it)")
+def _sacrifice_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "sacrifice", "who": "self"}], None
+
+
 @effect(r"activate only once each turn")
 def _once_each_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [], None  # an activation restriction (enforced by casting.ability_problem), not an effect
@@ -466,6 +484,7 @@ def parse_anthem(text: str) -> Definition | None:
             "p": int(m["p"]) if m["p"] else 0, "t": int(m["t"]) if m["t"] else 0, "keywords": kws}
 
 
+SHOCK = re.compile(r"^As ~ enters, you may pay (?P<n>\d+) life\. If you don't, it enters tapped\.$")
 ENTERS_WITH = re.compile(r"^~ enters with (?P<n>X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "
                          r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it\.$")
 
@@ -475,6 +494,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = self_text(ability.text, ch.name)
     if ability.kind == "static" and text == "~ enters tapped.":
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
+    m = SHOCK.match(text) if ability.kind == "static" else None
+    if m:  # shock lands: "As ~ enters, you may pay 2 life. If you don't, it enters tapped."
+        return {"kind": "replacement", "replacement": "pay_life_or_tapped", "life": int(m["n"]), "effects": []}
     m = ENTERS_WITH.match(text) if ability.kind == "static" else None
     if m:  # 614.1c: "~ enters with N … counters on it"
         n: int | str = "X" if m["n"] == "X" else num(m["n"])

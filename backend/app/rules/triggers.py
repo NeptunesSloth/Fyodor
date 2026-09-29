@@ -299,6 +299,14 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
     controls, counter it unless that player pays [cost]." """
     if not stack_id:
         return
+    for t in targets:  # "When ~ becomes the target of a spell or ability, …" (any controller)
+        card = plan.state.cards.get(t.id if hasattr(t, "id") else t)
+        if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):
+            continue
+        ch = plan.ch(card)
+        for i, d in abilities(plan, ch, "targeted_self"):
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+                 index=i, definition=d)
     for t in targets:
         card = plan.state.cards.get(t.id if hasattr(t, "id") else t)
         if card is None or not card.zone.endswith(":battlefield") or card.controller == controller or plan.manual(card):

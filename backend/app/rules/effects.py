@@ -505,6 +505,46 @@ def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
+def sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    for cid in _cards(plan, ctx, e["who"]):
+        card = plan.state.cards[cid]
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "graveyard"}}, actor=card.controller)
+    return True
+
+
+def explore(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.44a: reveal the top card of your library. A land goes into your hand; otherwise put a
+    +1/+1 counter on this creature, then you may put the revealed card into your graveyard."""
+    from app.rules import characteristics as chars
+
+    pid = ctx["controller"]
+    library = plan.state.zones.get(zone_key(pid, "library"), [])
+    me = _cards(plan, ctx, "self")
+    if not library:
+        if me:
+            plan.do({"type": "counter", "card_ids": me, "kind": "+1/+1", "delta": 1}, actor=pid)
+        return True
+    top = library[0]
+    plan.do({"type": "reveal_top", "player": pid, "count": 1}, actor=pid)
+    card = plan.state.cards[top]
+    if chars.of(card, plan.info).is_land:
+        plan.do({"type": "move", "card_ids": [top], "to": {"player": pid, "zone": "hand"}}, actor=pid)
+        return True
+    if me:
+        plan.do({"type": "counter", "card_ids": me, "kind": "+1/+1", "delta": 1}, actor=pid)
+    decide(plan, player=pid, kind="choose_one", prompt=f"Explore revealed {card.name}: put it into your graveyard?",
+           options=[DecisionOption(id="keep", label="Keep it on top"), DecisionOption(id="graveyard", label="Put it into your graveyard")],
+           resume={"step": "explore", "ctx": ctx, "card": top}, source=card)
+    return False
+
+
+def resume_explore(plan: Plan, d: Any, chosen: list[str]) -> None:
+    cid = d.resume["card"]
+    if chosen[0] == "graveyard" and cid in plan.state.cards and plan.state.cards[cid].zone.endswith(":library"):
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": d.player, "zone": "graveyard"}}, actor=d.player)
+    continue_effects(plan, d.resume["ctx"])
+
+
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True  # read by destroy / destroy_all of the same spell or ability
 
@@ -655,6 +695,7 @@ PRIMITIVES = {
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "counter": counter, "counter_unless": counter_unless,
+    "sacrifice": sacrifice, "explore": explore,
 }
 
 

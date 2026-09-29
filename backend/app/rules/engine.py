@@ -656,10 +656,22 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     problem = land_play_problem(plan.state, plan.actor, card, plan.ch(probe))
     if problem:
         raise ActionError(problem)
+    shock = None if plan.manual(card) else next(
+        (d for d in scripts.definitions(plan.ch(probe)).values() if d.get("replacement") == "pay_life_or_tapped"), None)
+    if shock is not None and a.pay_life is None:
+        n = shock["life"]
+        decide(plan, player=plan.actor, kind="choose_one", prompt=f"{plan.ch(probe).name}: pay {n} life, or it enters tapped?",
+               options=[DecisionOption(id="pay", label=f"Pay {n} life (untapped)"), DecisionOption(id="tapped", label="Enters tapped")],
+               resume={"step": "shock", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
+        return
     if a.face is not None and a.face != card.face:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
-    payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"},
-                               "tapped": not plan.manual(card) and enters_tapped(plan.ch(probe))}
+    tapped = not plan.manual(card) and enters_tapped(plan.ch(probe))
+    if shock is not None:
+        tapped = not a.pay_life
+        if a.pay_life:
+            plan.do({"type": "life", "player": plan.actor, "delta": -shock["life"]})
+    payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"}, "tapped": tapped}
     if a.x is not None and a.y is not None:
         payload.update(x=a.x, y=a.y)
     plan.do(payload)
@@ -669,6 +681,13 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     r.lands_played[plan.actor] = TurnCount(turn=turn, count=r.lands_this_turn(plan.actor, turn) + 1)
     r.passed = []  # an action was taken: everyone must pass again
     r.priority = plan.actor  # playing a land doesn't use the stack; you keep priority
+
+
+def _resume_shock(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    intent = A.parse_action((d.resume or {})["intent"])
+    intent.pay_life = chosen[0] == "pay"  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    play_land(plan, intent)  # type: ignore[arg-type]
 
 
 def choose(plan: Plan, a: A.Choose) -> None:
@@ -846,6 +865,8 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "discard": effects.resume_discard,
     "pay_or_sacrifice": effects.resume_pay_or_sacrifice,
     "return_yours": effects.resume_return_yours,
+    "explore": effects.resume_explore,
+    "shock": lambda plan, d, chosen: _resume_shock(plan, d, chosen),
     "suspend_cast": effects.resume_suspend_cast,
     "order_triggers": triggers.resume_order,
     "trigger_target": triggers.resume_target,
