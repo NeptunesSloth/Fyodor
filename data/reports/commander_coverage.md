@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 405 · PARTIAL: 3096 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 414 · PARTIAL: 3087 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -494,14 +494,14 @@ Color identity G
 - ✓ Landfall — Whenever a land you control enters, put a +1/+1 counter on target creature.
 - ✗ {3}{G}{G}: Double the number of +1/+1 counters on each creature you control.
 
-### Jaheira, Friend of the Forest — PARTIAL
+### Jaheira, Friend of the Forest — FULL
 
 Color identity G · pairs via choose_background
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Tokens you control have "{T}: Add {G}."
 - ✓ Choose a background
-- ✗ Tokens you control have "{T}: Add {G}."
 
 ### Old Gnawbone — PARTIAL
 
@@ -837,8 +837,8 @@ Color identity WB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever one or more tokens you control enter, each opponent loses 1 life and you gain 1 life.
 - ✗ Whenever one or more tokens your opponents control enter, for each of them, create a tapped token that's a copy of it. This ability triggers only once each turn.
-- ✗ Whenever one or more tokens you control enter, each opponent loses 1 life and you gain 1 life.
 
 ### Captain Lannery Storm — PARTIAL
 
@@ -904,9 +904,9 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever Kogla attacks, destroy target artifact or enchantment defending player controls.
 - ✓ {1}{G}: Return target Human you control to its owner's hand. Kogla gains indestructible until end of turn.
 - ✗ When Kogla enters, it fights up to one target creature you don't control.
-- ✗ Whenever Kogla attacks, destroy target artifact or enchantment defending player controls.
 
 ### Magda, Brazen Outlaw — PARTIAL
 

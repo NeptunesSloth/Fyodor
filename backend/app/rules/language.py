@@ -60,7 +60,7 @@ def _qty(word: str) -> int:
 
 def simple(group: dict[str, Any]) -> bool:
     """One "target [something]" with exactly one target: what definitions write as "target"."""
-    return (group["min"], group["max"]) == (1, 1) and not ({"divide", "another", "distinct_from"} & set(group))
+    return (group["min"], group["max"]) == (1, 1) and not ({"divide", "another", "distinct_from", "same_graveyard"} & set(group))
 
 
 def target_group(phrase: str) -> dict[str, Any] | None:
@@ -75,14 +75,15 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     if p == "another target":  # 115.4 (Arc Trail): any target other than the earlier one
         return {"what": "", "min": 1, "max": 1, "another": "any"}
     if p.startswith(("target ", "another target ")):
-        group: dict[str, Any] = {"what": _target_key(p), "min": 1, "max": 1}
+        what, _ = _group_constraints(_target_key(p))  # (one target: "a single graveyard" is vacuous)
+        group: dict[str, Any] = {"what": what, "min": 1, "max": 1}
         if p.startswith("another "):
-            group["another"] = _target_key(p[len("another "):])
+            group["another"] = _group_constraints(_target_key(p[len("another "):]))[0]
         return group
     m = _GROUP.match(p)
     if not m:
         return None
-    what = "any" if m["rest"] == "targets" else _target_key(m["rest"])
+    what, constraints = ("any", {}) if m["rest"] == "targets" else _group_constraints(_target_key(m["rest"]))
     if m["upto"]:
         lo, hi = 0, _qty(m["upto"])
     elif m["range"]:
@@ -95,7 +96,22 @@ def target_group(phrase: str) -> dict[str, Any] | None:
         raise _Fail
     if hi > 1 and re.search(r"\ban opponent(?:'s)?\b", m["rest"]):
         raise _Fail  # "two target cards from an opponent's graveyard": the same opponent? (not a guess)
-    return {"what": what, "min": lo, "max": hi}
+    if hi > 1 and what.startswith(selectors.PREFIX) and selectors.from_key(what).controller == "defending":
+        raise _Fail  # "two target creatures defending player controls": one specific defending player (508.5a)
+    return {"what": what, "min": lo, "max": hi, **constraints}
+
+
+def _group_constraints(key: str) -> tuple[str, dict[str, Any]]:
+    """A selector key → (the key without group-level constraints, those constraints): "from a
+    single graveyard" is a constraint on the targets together (all from one graveyard — one
+    owner, 400.1), not on each card: ``{"same_graveyard": True}`` (checked by targets.choose_groups)."""
+    if not key.startswith(selectors.PREFIX):
+        return key, {}
+    sel = selectors.from_key(key)
+    if "single_graveyard" not in sel.extras:
+        return key, {}
+    plain = selectors.replace(sel, extras=tuple(x for x in sel.extras if x != "single_graveyard"))
+    return plain.key(), {"same_graveyard": True}
 
 
 def _out(groups: list[dict[str, Any]]) -> Any:
@@ -169,14 +185,24 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
     m = re.match(r"^(?:each|all) (other )?(.+)$", p)
     if m:
         sel = selectors.parse(("other " if m[1] else "") + m[2])
-        if sel is None:
+        if sel is None or _untargeted_defending(sel):
             raise _Fail
         return "each", sel.key(), None
     if selectors.is_plural(p):  # "creatures you control get …", "other Elves you control …"
         sel = selectors.parse(p)
-        if sel is not None and sel.player is None:
+        if sel is not None and sel.player is None and not _untargeted_defending(sel):
             return "each", sel.key(), None
     raise _Fail
+
+
+def _untargeted_defending(sel: selectors.Selector) -> bool:
+    """"Creatures defending player controls get -1/-1": not targeted, so nobody picks which
+    defending player it is; that's the player the triggering attacker is attacking (508.5), which
+    may not be the ability's source ("Whenever a Dragon you control attacks, …") — the selector
+    only knows the source, so a non-targeted "defending player" could hit the wrong player's
+    creatures in a multiplayer game: manual. Targeted forms are fine: the chooser picks one
+    defending player's permanent (508.5a)."""
+    return sel.controller == "defending"
 
 
 def _who(kind: str, key: str) -> str:

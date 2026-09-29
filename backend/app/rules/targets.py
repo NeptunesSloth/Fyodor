@@ -213,6 +213,8 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
             raise ActionError("“Another target” can't be one you already chose")
         if any(t not in options for t in chosen):
             raise ActionError("That isn't a legal target")
+        if spec.get("same_graveyard") and len({plan.state.cards[t].owner for t in chosen if t in plan.state.cards}) > 1:
+            raise ActionError("Those targets must all be from a single graveyard")  # (400.1: one player's graveyard)
         out.groups.append(chosen)
     given = list(division)
     for g, spec in enumerate(specs):
