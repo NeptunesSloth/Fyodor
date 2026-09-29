@@ -271,6 +271,11 @@ def _blink(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "blink", "who": "target", "under": "you" if m["under"] == "your" else "owner"}], SELECTORS[m["sel"]]
 
 
+@effect(r"sacrifice ~ unless you pay (?P<cost>(?:\{{[^}}]+\}})+)")
+def _pay_or_sacrifice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "pay_or_sacrifice", "cost": m["cost"]}], None
+
+
 @effect(r"(?:it|they) can't be regenerated")
 def _no_regeneration(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "no_regen"}], None  # the destruction of this spell/ability ignores regeneration shields

@@ -51,6 +51,8 @@ SUPPORTED_KEYWORDS: set[str] = {
     "wither", "infect",
     # exalted (app/rules/triggers.py _exalted, test_rules_infect.py)
     "exalted",
+    # characteristic-defining (app/rules/characteristics.py changeling)
+    "changeling",
 }
 
 
@@ -69,6 +71,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return affinity_filter(Characteristics(name="", abilities=(AbilityText(index=0, text=line, kind="keywords",
                                                                               keywords=("affinity",)),))) is not None
+    if kw == "echo":  # triggers.echo_cost: a mana echo cost
+        return re.fullmatch(r"echo (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "crew":  # casting.crew: "Crew N"
         return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "flashback":  # casting.flashback_cost: a mana flashback cost

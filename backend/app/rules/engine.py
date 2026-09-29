@@ -815,6 +815,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "proliferate": effects.resume_proliferate,
     "search": effects.resume_search,
     "discard": effects.resume_discard,
+    "pay_or_sacrifice": effects.resume_pay_or_sacrifice,
     "order_triggers": triggers.resume_order,
     "trigger_target": triggers.resume_target,
     "trigger_confirm": triggers.resume_confirm,

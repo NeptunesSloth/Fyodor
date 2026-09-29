@@ -99,3 +99,12 @@ def test_noncombat_damage_from_that_quality_is_prevented(cards):
     names = {c.name for c in st.cards.values() if c.zone == "p2:battlefield"}
     assert "Knight" in names and "Squire" not in names
     assert next(c for c in st.cards.values() if c.name == "Knight").damage == 0
+
+
+def test_changeling_is_every_creature_type(cards):
+    """702.73a: a changeling is a Goblin, an Elf, … — so protection from Goblins stops it blocking."""
+    from app.rules import characteristics as chars
+
+    s, sneak, guard = _evasion_table(cards, "Protection from Goblins", blocker_text="Changeling", blocker_colors=("G",))
+    assert "Goblin" in chars.of(guard, cards).subtypes and "Time Lord" in chars.of(guard, cards).subtypes
+    assert _blocks(s, sneak, guard) is False

@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 80 · PARTIAL: 3421 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 83 · PARTIAL: 3418 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -1453,7 +1453,7 @@ Color identity WUBRG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Changeling
+- ✓ Changeling
 - ✗ As Morophon enters, choose a creature type.
 - ✗ Spells of the chosen type you cast cost {W}{U}{B}{R}{G} less to cast. This effect reduces only the amount of colored mana you pay.
 - ✗ Other creatures you control of the chosen type get +1/+1.

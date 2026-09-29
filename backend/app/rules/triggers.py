@@ -23,6 +23,7 @@ another …" and other non-self trigger conditions.
 
 from __future__ import annotations
 
+import re
 import secrets
 from typing import Any
 
@@ -169,6 +170,8 @@ def monarch_damaged(plan: Plan, attackers: list[CardInstance]) -> None:
 
 def at_step(plan: Plan, trigger: str) -> None:
     """"At the beginning of your upkeep / end step": the active player's permanents."""
+    if trigger == "upkeep_you":
+        _echo(plan)
     for card in list(plan.state.cards.values()):
         if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
             continue
@@ -176,6 +179,36 @@ def at_step(plan: Plan, trigger: str) -> None:
         for i, d in abilities(plan, ch, trigger):
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
                  definition=d)
+
+
+ECHO = re.compile(r"^echo (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def echo_cost(ch: Any) -> str | None:
+    for ab in ch.abilities:
+        if ab.kind == "keywords" and "echo" in ab.keywords:
+            m = ECHO.fullmatch(ab.text.strip().rstrip("."))
+            return m["cost"] if m else None
+    return None
+
+
+def _echo(plan: Plan) -> None:
+    """702.30a echo: "At the beginning of your upkeep, if this permanent came under your control
+    since the beginning of your last upkeep, sacrifice it unless you pay [cost]." Each permanent
+    gets this once per controller (a new object, or a new controller, is due again)."""
+    r = plan.rules
+    for card in list(plan.state.cards.values()):
+        if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
+            continue
+        ch = plan.ch(card)
+        cost = echo_cost(ch)
+        key = f"{plan.oid(card)}:{card.controller}"
+        if cost is None or key in r.echo_done:
+            continue
+        r.echo_done.append(key)
+        _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+             index=3000, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
+                                     "effects": [{"do": "pay_or_sacrifice", "cost": cost}]})
 
 
 def attacked(plan: Plan, attackers: list[CardInstance]) -> None:

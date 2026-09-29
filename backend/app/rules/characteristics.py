@@ -139,11 +139,12 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
     supertypes, types, subtypes = parse_type_line(type_line)
     cost = str(src.get("mana_cost") or (data.get("mana_cost") if src is data else "") or "")
     colors = src.get("colors") if src.get("colors") is not None else data.get("colors")
+    abilities = with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
     return Characteristics(
         name=str(src.get("name") or data.get("name") or ""),
         supertypes=supertypes,
         types=types,
-        subtypes=subtypes,
+        subtypes=changeling(subtypes, abilities),
         mana_cost=cost,
         mana_value=mana_value(cost),
         colors=frozenset(colors or []),
@@ -151,9 +152,19 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
         toughness=src.get("toughness"),
         loyalty=src.get("loyalty"),
         oracle_text=text,
-        abilities=with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"})), subtypes),
+        abilities=abilities,
         oracle_id=data.get("oracle_id"),
     )
+
+
+def changeling(subtypes: frozenset[str], abilities: tuple[AbilityText, ...]) -> frozenset[str]:
+    """702.73a: changeling is a characteristic-defining ability, "this object is every creature
+    type" — in every zone (CR 205.3m list)."""
+    if any(a.kind == "keywords" and "changeling" in a.keywords for a in abilities):
+        from app.rules.creature_types import CREATURE_TYPES
+
+        return subtypes | CREATURE_TYPES
+    return subtypes
 
 
 def with_intrinsic_mana(abilities: list[AbilityText], subtypes: frozenset[str]) -> tuple[AbilityText, ...]:
@@ -206,10 +217,10 @@ def of(card: CardInstance, info: CardInfo) -> Characteristics:
     if card.token is not None and not card.card_id:
         t = card.token
         supertypes, types, subtypes = parse_type_line(t.type_line)
+        abilities = with_intrinsic_mana(parse_abilities(t.text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
         return Characteristics(
-            name=t.name, supertypes=supertypes, types=types, subtypes=subtypes, colors=frozenset(t.colors),
-            power=t.power, toughness=t.toughness, oracle_text=t.text,
-            abilities=with_intrinsic_mana(parse_abilities(t.text, spell=bool(types & {"Instant", "Sorcery"})), subtypes),
+            name=t.name, supertypes=supertypes, types=types, subtypes=changeling(subtypes, abilities),
+            colors=frozenset(t.colors), power=t.power, toughness=t.toughness, oracle_text=t.text, abilities=abilities,
         )
     data = info.get(card.card_id) if card.card_id else None
     if data is None:

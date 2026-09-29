@@ -53,6 +53,7 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Wither, infect (poison), exalted | 32,116 | 3,774 (11.8%) | 28,294 | 0 | 48 | 79 / 3,501 |
 | Enters with N (or X) counters | 32,116 | 3,812 (11.9%) | 28,256 | 0 | 48 | 79 / 3,501 |
 | Affinity (card types, creature and land types) | 32,116 | 3,841 (12.0%) | 28,227 | 0 | 48 | 80 / 3,501 |
+| Changeling, echo, "sacrifice ~ unless you pay" upkeep costs | 32,116 | 3,909 (12.2%) | 28,159 | 0 | 48 | 83 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards

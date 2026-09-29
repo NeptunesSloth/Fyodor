@@ -145,7 +145,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.70 | Poisonous | keyword ability | 0 | ignore (no Commander-legal cards) |
 | 702.71 | Transfigure | keyword ability | 1 | missing |
 | 702.72 | Champion | keyword ability | 12 | missing |
-| 702.73 | Changeling | keyword ability | 62 | missing |
+| 702.73 | Changeling | keyword ability | 62 | supported |
 | 702.74 | Evoke | keyword ability | 35 | missing |
 | 702.75 | Hideaway | keyword ability | 15 | missing |
 | 702.76 | Prowl | keyword ability | 10 | missing |

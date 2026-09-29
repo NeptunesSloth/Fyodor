@@ -328,6 +328,7 @@ class RulesState(BaseModel):
     drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check
     deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
     regen_shields: dict[str, int] = Field(default_factory=dict)  # object id -> regeneration shields this turn
+    echo_done: list[str] = Field(default_factory=list)  # "<object>:<controller>" whose echo upkeep came
     flashback: list[str] = Field(default_factory=list)  # stack objects cast with flashback (exiled as they leave)
     # Combat bookkeeping; the attack/block markers on the table are the visible truth.
     blocked: list[str] = Field(default_factory=list)  # attackers that became blocked (stay blocked)

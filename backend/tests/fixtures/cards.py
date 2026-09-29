@@ -198,5 +198,11 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Frogmite", set_code="tst", number="K9", mana_cost="{4}", cmc=4.0, type_line="Artifact Creature — Frog",
              oracle_text="Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)",
              power="2", toughness="2"),
+        card("Albino Troll", set_code="tst", number="L1", mana_cost="{1}{G}", cmc=2.0, type_line="Creature — Troll",
+             oracle_text="Echo {1}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\n{1}{G}: Regenerate this creature.",
+             power="3", toughness="3", colors=["G"], color_identity=["G"]),
+        card("Phantasmal Forces", set_code="tst", number="L2", mana_cost="{3}{U}", cmc=4.0, type_line="Creature — Illusion",
+             oracle_text="Flying\nAt the beginning of your upkeep, sacrifice this creature unless you pay {U}.",
+             power="4", toughness="1", colors=["U"], color_identity=["U"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]
