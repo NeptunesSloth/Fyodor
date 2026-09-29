@@ -48,8 +48,8 @@ docs, and an updated status table.
 | 11 | Pod tracker: results, corrections, Pod Stats, deck stats, backup | ✅ done |
 | 12 | Table tools (P1/P2): effects, damage, arrows, mana pool, mass actions, filters, choices, cast metadata, exile groups, cleanup, sleeves/playmats, asset manager, tabletop HUD | ✅ done |
 | 13 | P3: snapshots + history timeline, profiles/sound/keys/accessibility/perf presets, custom actions (declarative macros), solo tools, portable packages, diagnostics, launcher + first-run, lobby deck checks, full pod regression E2E | ✅ done |
-| 14 | **Rules boundary:** intent protocol, `rules/` package skeleton, `RulesState`, decisions, override logging, automation mode setting, coverage metadata (FULL / PARTIAL / MANUAL), pod card inventory from Archidekt/saved decks | next |
-| 15 | **Core rules primitives:** turn structure, priority, stack, mana costs and payment, casting timing and land drop, resolution, state-based actions, combat, commander rules | planned |
+| 14 | **Rules boundary:** intent protocol, `rules/` package, `RulesState`, decisions, override logging, automation setting, coverage metadata (FULL / PARTIAL / MANUAL), pod card inventory from Archidekt/saved decks | ✅ done |
+| 15 | **Core rules primitives:** mana costs and payment, casting and the stack, activated abilities, state-based actions, combat, commander rules | next |
 | 16 | **Card effects:** effect primitives, targeting, keywords, triggered and activated abilities, continuous effects (layers), common replacement effects, templated Oracle-text recognition | planned |
 | 17 | **Pod coverage:** script the pod's cards by frequency until our decks are mostly FULL; per-deck coverage in the deck view and lobby | planned |
 | 18 | **Rules-aware client (2D first):** playable highlights, prompts, stops and auto-pass, override affordances | planned |
@@ -58,7 +58,7 @@ docs, and an updated status table.
 The history model (M7) and hidden-information views (M8) shape the engine itself, so they
 were built into the engine from Milestone 4. The rules engine follows the same rule: it is
 designed around deterministic, recorded history and per-viewer views from day one (see
-`ARCHITECTURE.md#rules-layer-planned`), so it slots in underneath without touching either.
+`ARCHITECTURE.md#rules-layer`), so it slots in underneath without touching either.
 
 ## Milestones in detail
 
@@ -142,7 +142,27 @@ designed around deterministic, recorded history and per-viewer views from day on
 The order is deliberate. Each step keeps every existing test green, since automation is off
 by default and the foundation doesn't change.
 
-### M14 — Rules boundary
+### M14 — Rules boundary ✅
+
+**Status: built** (tests in `test_rules_boundary.py`, `test_rules_coverage.py` and
+`test_protocol_privacy.py`). What differs from the outline below:
+
+- **Data model location:** `RulesState` and `Decision` live in `app/game/rules_state.py`,
+  next to `GameState`, so the table model doesn't import the engine. Behaviour is in
+  `app/rules/`.
+- **Two server-only steps**, `rules_sync` and `rules_log`, carry the engine's state and log
+  lines inside a compiled plan. Clients can't send them.
+- **Already working:**
+  - priority with Arena-style stops (`set_stops`; your first main phase is always a stop);
+  - the turn structure with its turn-based actions (untap, draw with the two-player
+    first-turn skip, discard to hand size as a private decision, damage wearing off);
+  - `play_land`, resolving the stack with a manual-resolution step, `choose` and `concede`;
+  - picking up where a manual step change left off.
+- `cast_spell`, `activate_ability`, `declare_attackers` and `declare_blockers` are in the
+  protocol but answer "arrives with the next milestone" until M15.
+- **Where automation is turned on:** at creation (hot-seat `automation`, lobby setting) or by
+  the host mid-game (`configure automation / automation_paused`).
+- **Baseline inventory:** from the sample decks, in `docs/RULES_COVERAGE.md`.
 
 1. **Intent protocol.** Add the `play_land`, `cast_spell`, `activate_ability`,
    `declare_attackers`, `declare_blockers`, `pass_priority`, `choose` and `concede` inputs

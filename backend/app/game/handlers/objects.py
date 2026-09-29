@@ -7,6 +7,7 @@ from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
 from app.game.ops import group, log, pname, text
+from app.game.rules_state import start_rules
 from app.game.state import CardInstance, GameState
 
 MANA_ORDER = "WUBRGCS"
@@ -244,6 +245,25 @@ def configure(state: GameState, a: A.Configure) -> None:
         if value is not None:
             setattr(state.settings, key, value)
             changed.append(f"{key.replace('_', ' ')} = {value}")
+    if a.automation is not None and a.automation != state.settings.automation:
+        state.settings.automation = a.automation
+        if a.automation == "rules":
+            start_rules(state)
+            # Priority is the rules engine's job now; the lightweight response helper steps aside.
+            from app.game.handlers import response  # response → objects; imported late
+
+            state.settings.priority_helper = "off"
+            response.clear(state)
+            changed.append("rules automation on")
+        else:
+            state.rules = None
+            changed.append("rules automation off")
+    if a.automation_paused is not None:
+        if state.rules is None:
+            raise ActionError("Rules automation is off")
+        if state.rules.paused != a.automation_paused:
+            state.rules.paused = a.automation_paused
+            changed.append("automation paused" if a.automation_paused else "automation resumed")
     if not changed:
         raise ActionError("Nothing to change")
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" changed settings: " + ", ".join(changed))], kind="info")

@@ -5,8 +5,11 @@ automation + a manual sandbox override + an Archidekt-first pod workflow**.
 
 - Everything in the table layer below (state, actions, history, views, LAN, saves) is built and
   is the stable foundation.
-- The **rules layer** is new work that goes *underneath* the future 3D table. Sections marked
-  **(planned)** describe the design it must follow; the roadmap is in `IMPLEMENTATION_PLAN.md`.
+- The **rules layer** goes *underneath* the future 3D table.
+  - **Built (M14):** the boundary (intents, compile-and-record, decisions, priority/stops, turn
+    structure, land drop, manual fallback, overrides, coverage, pod inventory).
+  - **Planned:** casting, combat, effects and card scripts.
+  - The roadmap is in `IMPLEMENTATION_PLAN.md`.
 
 ```
 ┌──────────────────────────── Browser (React + TS) ──────────────────────────────┐
@@ -19,7 +22,7 @@ automation + a manual sandbox override + an Archidekt-first pod workflow**.
 ┌───────────────┴───────────────────────────────────────────▼────────────────────┐
 │ FastAPI  api/ (REST, /ws) · multiplayer/ (rooms, seats, revisions, presence)   │
 │   GameSession.perform(actor, payload)                                          │
-│     ├─ rules intent ──► rules/  (planned) validate · plan · settle             │
+│     ├─ rules intent ──► rules/  validate · plan · settle                       │
 │     │                     └─ compiles to primitive table actions (recorded)    │
 │     └─ sandbox action ─────────────────────────────┐ (manual override)         │
 │   game/   table engine: state · resolve · apply · history · views · visibility │
@@ -32,7 +35,7 @@ automation + a manual sandbox override + an Archidekt-first pod workflow**.
 
 - `game/` never imports FastAPI, SQLite or the network. It is pure Python and
   deterministic given its inputs.
-- `rules/` (planned) has the same constraint. It reads card characteristics through an
+- `rules/` has the same constraint. It reads card characteristics through an
   injected interface, and it never imports the renderer, FastAPI or storage.
 - **The renderer holds no rules logic.** It sends intents or sandbox actions and draws the
   views it receives. Legality, costs, timing and effects are decided on the server only.
@@ -54,7 +57,7 @@ GameState
   views: [ViewContext]                        # open searches / looks (private)
   hidden_salt                                 # keys the order of hidden placeholders
   pregame (mulligans), response (response helper), arrows, log
-  rules: RulesState | None                    # (planned) only when automation is on
+  rules: RulesState | None                    # only when automation is on (game/rules_state.py)
 
 PlayerState
   id, name, color, life, life_history, resources (poison, energy, …), mana (pool)
@@ -148,7 +151,17 @@ hot-seat "open table" mode only).
   hidden id, name, printing id or image reference appears anywhere. The Playwright specs check
   the same on real browser traffic.
 
-## Rules layer (planned)
+## Rules layer
+
+**Status:**
+
+- **Built (M14):** intents, compile-and-record, the rules state, decisions, priority and stops,
+  the turn structure with its turn-based actions, the land drop, manual resolution, override
+  logging, coverage and the pod inventory.
+- **Next (M15+):** casting, abilities, combat, state-based actions, effects and card scripts.
+- **Code:** `app/rules/` (`engine`, `view`, `characteristics`, `oracle`, `coverage`,
+  `inventory`, `cards/`) plus `app/game/rules_state.py` (data) and
+  `app/game/handlers/rules.py` (pure replay).
 
 The goal is Arena-level automation of normal play **for the cards and mechanics we support**,
 without losing the sandbox. Players make decisions; the engine does the bookkeeping. Anything
@@ -181,7 +194,7 @@ attack: it came under your control this turn") and offers the manual override.
 
 ### Where rules state lives
 
-`GameState.rules: RulesState | None` (planned). It is `None` when automation is off, so every
+`GameState.rules: RulesState | None`. It is `None` when automation is off, so every
 existing game, save and test behaves exactly as today.
 
 - **The table stays the source of truth for physical facts:** zone, tapped, counters, damage,

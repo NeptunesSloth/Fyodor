@@ -35,6 +35,7 @@ class LobbySettings(BaseModel):
     mulligan_policy: MulliganPolicy | None = None  # the host's definition for Boston (Custom Pod) / Custom
     priority_helper: PriorityHelper = "simple"
     auto_untap: bool = True
+    automation: Literal["off", "rules"] = "off"  # rules automation (see docs/ARCHITECTURE.md)
 
     @field_validator("name")
     @classmethod

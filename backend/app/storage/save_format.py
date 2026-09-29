@@ -17,7 +17,7 @@ from collections.abc import Callable
 from typing import Any
 
 SAVE_FORMAT = "fyodor-save"
-SAVE_VERSION = 4
+SAVE_VERSION = 5
 MAX_SAVE_BYTES = 64 * 1024 * 1024  # decompressed
 
 Migration = Callable[[dict[str, Any]], dict[str, Any]]
@@ -93,8 +93,25 @@ def _v3_to_v4(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _v4_state_to_v5(state: dict[str, Any]) -> None:
+    state.setdefault("rules", None)
+    settings = state.get("settings")
+    if isinstance(settings, dict):
+        settings.setdefault("automation", "off")
+
+
+def _v4_to_v5(payload: dict[str, Any]) -> dict[str, Any]:
+    """v5 adds rules automation (``settings.automation``, ``rules``); older games are sandbox games."""
+    if isinstance(payload.get("state"), dict):
+        _v4_state_to_v5(payload["state"])
+    history = payload.get("history")
+    if isinstance(history, dict) and isinstance(history.get("base"), dict):
+        _v4_state_to_v5(history["base"])
+    return payload
+
+
 # MIGRATIONS[n] upgrades a version-n payload to version n + 1.
-MIGRATIONS: dict[int, Migration] = {1: _v1_to_v2, 2: _v2_to_v3, 3: _v3_to_v4}
+MIGRATIONS: dict[int, Migration] = {1: _v1_to_v2, 2: _v2_to_v3, 3: _v3_to_v4, 4: _v4_to_v5}
 
 
 class SaveFormatError(ValueError):

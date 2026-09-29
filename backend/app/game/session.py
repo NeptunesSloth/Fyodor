@@ -13,7 +13,7 @@ from app.game.actions import Action, parse_action
 from app.game.errors import ActionError
 from app.game.history import History
 from app.game.ops import pname, text
-from app.game.resolve import CardInfo, resolve
+from app.game.resolve import CardInfo, NoCardInfo, resolve
 from app.game.state import GameState, LogEntry, LogPart
 from app.game.views import build_view
 from app.rules import RulesRegistry, Suggestion
@@ -94,7 +94,12 @@ class GameSession:
             "suggestions": [{"module": x.module, "message": x.message, "level": x.level} for x in self.suggestions],
             **(meta or {}),
         }
-        return build_view(self.state, viewer, extra_log=self.notices, meta=info)
+        view = build_view(self.state, viewer, extra_log=self.notices, meta=info)
+        if self.state.rules is not None:
+            from app.rules.view import rules_view  # only needed for tables with rules automation
+
+            view["rules"] = rules_view(self.state, viewer, self.cards or NoCardInfo())
+        return view
 
 
 __all__ = ["ActionError", "GameSession", "ValidationError"]

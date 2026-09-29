@@ -40,7 +40,7 @@ def test_v1_save_migrates_and_keeps_history(cards):
         "history": {**history, "base": as_v1(history["base"])},
     }
     migrated = decode(encode(payload))
-    assert migrated["version"] == SAVE_VERSION == 4
+    assert migrated["version"] == SAVE_VERSION == 5
     state, restored_history = load_payload(migrated)
     assert state.players["p1"].life == 37
     assert state.searching("p1") == "p1:library"
@@ -92,7 +92,7 @@ def test_v2_save_with_reminders_migrates_to_v3_and_keeps_history(cards):
     payload = {"format": "fyodor-save", "version": 2, "saved_at": 0, "state": state,
                "history": {**history, "actions": actions, "cursor": 3}}
     migrated = decode(encode(payload))
-    assert migrated["version"] == 4 and migrated["migrated_from"] == 2
+    assert migrated["version"] == SAVE_VERSION and migrated["migrated_from"] == 2
     assert [a["type"] for a in migrated["history"]["actions"]] == ["draw", "life"]
     assert migrated["history"]["cursor"] == 2
     loaded, restored = load_payload(migrated)
@@ -110,3 +110,20 @@ def test_v3_save_gets_card_origins_for_reset(cards):
     krenko = find(loaded, "Krenko, Mob Boss")
     song = find(loaded, "Seething Song")
     assert krenko.origin == "command" and song.origin == "sideboard" and find(loaded, "Sol Ring").origin == "library"
+
+
+def test_v4_save_becomes_a_sandbox_game_in_v5(cards):
+    s = make_session(cards)
+    act(s, "p1", type="draw", count=2)
+    state = s.state.model_dump(mode="json")
+    state.pop("rules", None)
+    state["settings"].pop("automation", None)
+    history = s.history.to_dict()
+    history["base"].pop("rules", None)
+    payload = {"format": "fyodor-save", "version": 4, "saved_at": 0, "state": state, "history": history}
+    migrated = decode(encode(payload))
+    assert migrated["version"] == SAVE_VERSION == 5 and migrated["migrated_from"] == 4
+    assert migrated["state"]["rules"] is None and migrated["state"]["settings"]["automation"] == "off"
+    loaded, restored = load_payload(migrated)
+    assert loaded.rules is None and loaded.settings.automation == "off"
+    assert restored is not None and restored.cursor == 1

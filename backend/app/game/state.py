@@ -15,6 +15,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.game.rules_state import RulesState
+
 ALL = "*"  # marker in ``revealed_to`` meaning "every player"
 
 PLAYER_ZONES = (
@@ -311,6 +313,9 @@ class GameSettings(BaseModel):
     # What opponents learn about a player's deck: nothing, the commander(s) and deck name, or the list.
     deck_privacy: Literal["private", "commander_only", "public"] = "commander_only"
     priority_helper: Literal["off", "simple"] = "off"
+    # Rules automation: "off" is the sandbox (players decide everything); "rules" lets the rules
+    # engine automate normal play for supported cards, with the sandbox still available.
+    automation: Literal["off", "rules"] = "off"
     mulligan: MulliganPolicy | None = None  # None: mulligans are done by hand (sandbox)
 
 
@@ -336,6 +341,7 @@ class LogEntry(BaseModel):
     actor: str | None
     parts: list[LogPart]
     kind: str = "action"
+    manual: bool = False  # a sandbox action taken while rules automation was on
 
 
 class GameState(BaseModel):
@@ -361,6 +367,7 @@ class GameState(BaseModel):
     auto_pass: dict[str, int] = Field(default_factory=dict)  # player -> turn number they auto-pass through
     passed_at: int | None = None  # seq at which everyone last passed (no need to ask again)
     log: list[LogEntry] = Field(default_factory=list)
+    rules: RulesState | None = None  # only while automation is on (see app/game/rules_state.py)
 
     # -- helpers ---------------------------------------------------------------------
     def zone(self, key: str) -> list[str]:

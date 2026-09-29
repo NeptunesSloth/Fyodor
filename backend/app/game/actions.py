@@ -811,6 +811,119 @@ class Configure(Base):
     auto_commander_tax: bool | None = None
     auto_clear_combat: bool | None = None
     allow_test_objects: bool | None = None
+    automation: Literal["off", "rules"] | None = None  # turn rules automation on / off
+    automation_paused: bool | None = None  # pause / resume automation (the sandbox keeps working)
+
+
+# --- rules intents --------------------------------------------------------------------
+# A player's *decision*, compiled by the rules engine (app/rules) into ordinary table actions
+# on a scratch copy and recorded in ``r``. Applying one replays those steps, so undo, replay and
+# saves work exactly as for sandbox actions, and replay never re-runs rules code.
+class _Intent(Base):
+    r: list[dict[str, Any]] | None = None  # compiled primitive steps (server-filled)
+
+
+class PlayLand(_Intent):
+    type: Literal["play_land"] = "play_land"
+    card_id: Id
+    face: int | None = Field(default=None, ge=0, le=3)  # which face of a modal double-faced card
+    x: Coord | None = None
+    y: Coord | None = None
+
+
+class CastSpell(_Intent):
+    type: Literal["cast_spell"] = "cast_spell"
+    card_id: Id
+    face: int | None = Field(default=None, ge=0, le=3)
+    # Optional answers given up front; anything missing is asked for as a decision.
+    targets: list[Id] = Field(default_factory=list, max_length=20)
+    x_value: int | None = Field(default=None, ge=0, le=1000)
+    modes: list[int] = Field(default_factory=list, max_length=10)
+
+
+class ActivateAbility(_Intent):
+    type: Literal["activate_ability"] = "activate_ability"
+    card_id: Id
+    ability: int = Field(ge=0, le=30)  # index into the card's abilities (see app/rules/oracle.py)
+    targets: list[Id] = Field(default_factory=list, max_length=20)
+    x_value: int | None = Field(default=None, ge=0, le=1000)
+
+
+class AttackDeclaration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    card_id: Id
+    target: Id  # a player id, or a planeswalker / battle card id
+
+
+class DeclareAttackers(_Intent):
+    type: Literal["declare_attackers"] = "declare_attackers"
+    attackers: list[AttackDeclaration] = Field(default_factory=list, max_length=100)
+
+
+class BlockDeclaration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    blocker_id: Id
+    attacker_id: Id
+
+
+class DeclareBlockers(_Intent):
+    type: Literal["declare_blockers"] = "declare_blockers"
+    blocks: list[BlockDeclaration] = Field(default_factory=list, max_length=100)
+
+
+class PassPriority(_Intent):
+    type: Literal["pass_priority"] = "pass_priority"
+
+
+class Choose(_Intent):
+    """Answer the pending decision (targets, modes, cards to discard, "Done" after a manual step…)."""
+
+    type: Literal["choose"] = "choose"
+    decision_id: Id
+    option_ids: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=250)
+
+
+class Concede(_Intent):
+    type: Literal["concede"] = "concede"
+
+
+class SetStops(_Intent):
+    """Where the engine stops to give you priority (Arena-style); elsewhere it passes for you."""
+
+    type: Literal["set_stops"] = "set_stops"
+    own: list[str] = Field(default_factory=list, max_length=12)
+    others: list[str] = Field(default_factory=list, max_length=12)
+
+    @field_validator("own", "others")
+    @classmethod
+    def _steps(cls, v: list[str]) -> list[str]:
+        bad = [s for s in v if s not in PHASES]
+        if bad:
+            raise ValueError(f"unknown steps: {bad}")
+        return list(dict.fromkeys(v))
+
+
+class RulesSync(Base):
+    """Server-built only: the rules state after a compiled intent (always its last step)."""
+
+    type: Literal["rules_sync"] = "rules_sync"
+    rules: dict[str, Any] | None = None
+
+
+class RulesLog(Base):
+    """Server-built only: a log line written by the rules engine ("Alice passed", "Turn 3 …")."""
+
+    type: Literal["rules_log"] = "rules_log"
+    text: str = Field(max_length=500)
+    card_ids: list[Id] = Field(default_factory=list, max_length=20)  # cards appended to the line
+    kind: str = Field(default="rules", max_length=20)
+
+
+INTENT_TYPES = frozenset(
+    {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
+     "choose", "concede", "set_stops"}
+)
+SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log"})
 
 
 Action = Annotated[
@@ -903,7 +1016,18 @@ Action = Annotated[
     | MergeTokens
     | AddMana
     | ClearMana
-    | Configure,
+    | Configure
+    | PlayLand
+    | CastSpell
+    | ActivateAbility
+    | DeclareAttackers
+    | DeclareBlockers
+    | PassPriority
+    | Choose
+    | Concede
+    | SetStops
+    | RulesSync
+    | RulesLog,
     Field(discriminator="type"),
 ]
 

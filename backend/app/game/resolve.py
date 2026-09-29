@@ -61,6 +61,13 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.r = None  # never trust client-supplied resolution data
     if isinstance(a, A.ResponseOpen):
         raise ActionError("Response checks are opened by the server")
+    if a.type in A.SERVER_ONLY_TYPES and not trusted:
+        raise ActionError("Only the rules engine can do that")
+    if a.type in A.INTENT_TYPES:
+        from app.rules.engine import compile_intent  # rules → game; imported late to stay acyclic
+
+        a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
+        return a
     if isinstance(a, A.RestoreState) and not trusted:
         raise ActionError("Restoring is done through snapshots or history")
 

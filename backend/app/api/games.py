@@ -35,6 +35,7 @@ from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
 from app.game.mulligan import resolve_policy
+from app.game.rules_state import start_rules
 from app.game.session import GameSession
 from app.game.state import GameSettings, MulliganPolicy
 from app.game.views import build_view
@@ -160,6 +161,8 @@ class CreateGameIn(BaseModel):
     mulligan_rule: str | None = Field(default=None, max_length=40)
     mulligan_policy: MulliganPolicy | None = None  # fields for boston_custom / custom
     priority_helper: Literal["off", "simple"] = "simple"
+    # Rules automation (see docs/ARCHITECTURE.md): "off" is the sandbox, "rules" automates play.
+    automation: Literal["off", "rules"] = "off"
 
     @field_validator("name")
     @classmethod
@@ -230,7 +233,7 @@ def _create_lobby(services: Services, body: CreateGameIn) -> dict[str, Any]:
                              deck_privacy=body.deck_privacy,
                              mulligan_rule=body.mulligan_rule or ("commander_london" if body.format == "commander" else "london"),
                              mulligan_policy=body.mulligan_policy, priority_helper=body.priority_helper,
-                             auto_untap=body.auto_untap)
+                             auto_untap=body.auto_untap, automation=body.automation)
     room = services.hub.create_lobby(settings, password=body.password)
     result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
     if body.host_seat:
@@ -287,10 +290,12 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
         raise HTTPException(422, f"Define the {policy.display_name} mulligan first (or pick another rule)")
     settings = GameSettings(starting_life=body.starting_life or {"commander": 40}.get(body.format, 20), auto_untap=body.auto_untap,
                             deck_privacy=body.deck_privacy, mulligan=policy,
-                            # one person runs a hot-seat table: nobody to ask
-                            priority_helper=body.priority_helper if body.mode == "lan" else "off",
-                            allow_test_objects=body.mode == "local")
+                            # one person runs a hot-seat table: nobody to ask; with rules, the engine asks
+                            priority_helper=body.priority_helper if body.mode == "lan" and body.automation == "off" else "off",
+                            allow_test_objects=body.mode == "local", automation=body.automation)
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
+    if body.automation == "rules":
+        start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
     session.notice(f"Game created. {state.players[state.turn.active_player].name} goes first.")
     return _create_room(services, session, body.mode, body.password, body.host_seat)
@@ -569,6 +574,7 @@ class LobbySettingsIn(BaseModel):
     mulligan_policy: MulliganPolicy | None = None
     priority_helper: Literal["off", "simple"] | None = None
     auto_untap: bool | None = None
+    automation: Literal["off", "rules"] | None = None
 
 
 class StartIn(BaseModel):
@@ -905,8 +911,9 @@ async def start_game(
             starting_life=lobby.starting_life or {"commander": 40}.get(lobby.format, 20),
             auto_untap=lobby.auto_untap,
             deck_privacy=lobby.deck_privacy,
-            priority_helper=lobby.priority_helper,
+            priority_helper=lobby.priority_helper if lobby.automation == "off" else "off",
             mulligan=lobby.policy(),
+            automation=lobby.automation,
         )
         state = new_game(
             setups,
@@ -917,6 +924,8 @@ async def start_game(
             first_player=first,
         )
         state.id = room.game_id  # same URL before and after the start
+        if lobby.automation == "rules":
+            start_rules(state)
         session = GameSession(
             state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules
         )

@@ -213,3 +213,42 @@ def test_private_categories_and_token_shortcuts_stay_with_the_owner(table):
     for token in (bob, spec):
         text = json.dumps(view(client, gid, token))
         assert "Ramp" not in text and "Interaction" not in text and "Cantrip" not in text
+
+
+def test_rules_prompts_and_hints_do_not_leak(client):
+    """Rules automation adds a decision (options may be hand cards) and hints (your playable
+    cards). Neither may reveal a hidden card to an opponent or spectator, over REST or WS."""
+    a = client.post("/api/decks", json={"text": P1_DECK}).json()["id"]
+    b = client.post("/api/decks", json={"text": P2_DECK}).json()["id"]
+    game = client.post("/api/games", json={
+        "mode": "lan", "shuffle": True, "automation": "rules",
+        "players": [{"name": "Alice", "deck_id": a}, {"name": "Bob", "deck_id": b}],
+    }).json()
+    gid, code, alice = game["game"]["id"], game["game"]["code"], game["seat"]["token"]
+    bob = client.post("/api/join", json={"code": code, "name": "Bob"}).json()["token"]
+    spec = client.post("/api/join", json={"code": code, "spectate": True}).json()["token"]
+    repo = client.app.state.services.cards
+    act(client, gid, alice, {"type": "pass_priority"})  # → Alice's main phase
+    act(client, gid, alice, {"type": "draw", "count": 9})
+    mine = view(client, gid, alice)["rules"]
+    assert mine["hints"]["has_priority"] and mine["hints"]["playable_lands"]
+    frames: list[dict[str, Any]] = []
+    with client.websocket_connect(f"/ws/games/{gid}?token={bob}") as wb:
+        frames.append(wb.receive_json())
+        act(client, gid, alice, {"type": "pass_priority"})  # → main 2
+        act(client, gid, alice, {"type": "pass_priority"})  # → cleanup: discard 2 (private options)
+        for _ in range(2):
+            frames.append(wb.receive_json())
+    state = state_of(client, gid)
+    assert state.rules and state.rules.decision and state.rules.decision.player == "p1"
+    hidden = cards_in(state, "p1", "hand") + cards_in(state, "p1", "library")
+    assert {o["card_id"] for o in view(client, gid, alice)["rules"]["decision"]["options"]} == {c.id for c in cards_in(state, "p1", "hand")}
+    for token in (bob, spec):
+        payload = view(client, gid, token)
+        assert "options" not in payload["rules"]["decision"]
+        assert payload["rules"]["hints"] in ({}, {"has_priority": False})
+        assert_hidden(payload, hidden, repo)
+    for frame in frames:
+        if frame["type"] == "state":
+            assert "options" not in (frame["view"]["rules"]["decision"] or {})
+            assert_hidden(frame["view"], hidden, repo)
