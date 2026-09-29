@@ -145,6 +145,20 @@ undo/redo restoring exact state (including library order after shuffles), save/l
 across restarts, and hidden-information leaks for every viewer over REST and WebSocket.
 A manual smoke test is in [`docs/SMOKE_TEST.md`](docs/SMOKE_TEST.md).
 
+Browser end-to-end tests (Playwright, against the production build and a fixture card
+database; no Internet):
+
+```bash
+E2E=1 scripts/test.sh                        # everything, including the browser tests
+(cd frontend && npm run build && npx playwright test e2e/pod-night.spec.ts)   # one spec
+```
+
+`e2e/pod-night.spec.ts` is the full pod regression. Four devices go through the lobby, decks,
+mulligans, plays, life and commander damage, a dropped device, a snapshot restore and hidden-hand
+checks on every device's network traffic, and end with the result in pod stats. The other specs
+each cover one area: LAN lobby, mulligans, the response helper, reconnects, table tools, assets,
+snapshots, macros/solo, packages/diagnostics and the first-run guide. CI runs all of them.
+
 ## Project layout
 
 ```

@@ -7,7 +7,7 @@ test("four-player game: end game, record the winner, pod stats, correct the winn
   });
   expect(created.ok()).toBeTruthy();
   const gameId = ((await created.json()) as { game: { id: string } }).game.id;
-  const statsBefore = (await (await page.request.get("/api/pod/players")).json()) as unknown[];
+  const statsBefore = (await (await page.request.get("/api/pod/players")).json()) as { name: string }[];
 
   await page.goto(`/#/game/${gameId}`);
   await expect(page.locator(".game-screen")).toBeVisible();
@@ -25,16 +25,17 @@ test("four-player game: end game, record the winner, pod stats, correct the winn
   await page.goto("/#/stats");
   const row = (name: string) => page.getByTestId(`pod-row-${name}`);
   const cells = async (name: string) => (await row(name).locator("td").allTextContents()).slice(1);
-  expect(statsBefore).toEqual([]);
+  expect(statsBefore.filter((p) => names.includes(p.name))).toEqual([]); // other tests may have recorded games
   expect(await cells("Mike")).toEqual(["1", "1", "0", "0", "100%"]);
   for (const n of ["Jonathan", "Alex", "Chris"]) expect(await cells(n)).toEqual(["1", "0", "1", "0", "0%"]);
-  await expect(page.getByTestId("pod-game")).toContainText("84 Goblins");
+  const game = page.getByTestId("pod-game").filter({ hasText: "Jonathan" }); // other tests record games too
+  await expect(game).toContainText("84 Goblins");
 
   // Somebody clicked the wrong person: correct it.
-  await page.getByTestId("edit-result").click();
+  await game.getByTestId("edit-result").click();
   await page.getByTestId("winner-p3").click(); // Alex
   await page.getByTestId("save-result").click();
-  await expect(page.getByTestId("pod-game")).toContainText("Winner: Alex");
+  await expect(game).toContainText("Winner: Alex");
   await expect.poll(() => cells("Alex")).toEqual(["1", "1", "0", "0", "100%"]);
   expect(await cells("Mike")).toEqual(["1", "0", "1", "0", "0%"]);
 
