@@ -8,27 +8,27 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 701.3 | Attach | keyword action | 0 | ignore (no Commander-legal cards) |
 | 701.4 | Behold | keyword action | 23 | missing |
 | 701.5 | Cast | keyword action | 0 | ignore (no Commander-legal cards) |
-| 701.6 | Counter | keyword action | 0 | ignore (no Commander-legal cards) |
-| 701.7 | Create | keyword action | 0 | ignore (no Commander-legal cards) |
-| 701.8 | Destroy | keyword action | 0 | ignore (no Commander-legal cards) |
-| 701.9 | Discard | keyword action | 0 | ignore (no Commander-legal cards) |
+| 701.6 | Counter | keyword action | 0 | supported |
+| 701.7 | Create | keyword action | 0 | supported |
+| 701.8 | Destroy | keyword action | 0 | supported |
+| 701.9 | Discard | keyword action | 0 | supported |
 | 701.10 | Double | keyword action | 131 | missing |
 | 701.11 | Triple | keyword action | 5 | missing |
 | 701.12 | Exchange | keyword action | 0 | ignore (no Commander-legal cards) |
-| 701.13 | Exile | keyword action | 0 | ignore (no Commander-legal cards) |
+| 701.13 | Exile | keyword action | 0 | supported |
 | 701.14 | Fight | keyword action | 143 | missing |
 | 701.15 | Goad | keyword action | 80 | missing |
-| 701.16 | Investigate | keyword action | 134 | missing |
-| 701.17 | Mill | keyword action | 581 | missing |
+| 701.16 | Investigate | keyword action | 134 | supported |
+| 701.17 | Mill | keyword action | 581 | supported |
 | 701.18 | Play | keyword action | 0 | ignore (no Commander-legal cards) |
-| 701.19 | Regenerate | keyword action | 271 | missing |
+| 701.19 | Regenerate | keyword action | 271 | supported |
 | 701.20 | Reveal | keyword action | 0 | ignore (no Commander-legal cards) |
-| 701.21 | Sacrifice | keyword action | 0 | ignore (no Commander-legal cards) |
-| 701.22 | Scry | keyword action | 425 | missing |
-| 701.23 | Search | keyword action | 0 | ignore (no Commander-legal cards) |
+| 701.21 | Sacrifice | keyword action | 0 | supported |
+| 701.22 | Scry | keyword action | 425 | supported |
+| 701.23 | Search | keyword action | 0 | supported |
 | 701.24 | Shuffle | keyword action | 0 | ignore (no Commander-legal cards) |
-| 701.25 | Surveil | keyword action | 252 | missing |
-| 701.26 | Tap and Untap | keyword action | 0 | ignore (no Commander-legal cards) |
+| 701.25 | Surveil | keyword action | 252 | supported |
+| 701.26 | Tap and Untap | keyword action | 0 | supported |
 | 701.27 | Transform | keyword action | 424 | missing |
 | 701.28 | Convert | keyword action | 15 | missing |
 | 701.29 | Fateseal | keyword action | 2 | missing |
@@ -36,23 +36,23 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 701.31 | Planeswalk | keyword action | 0 | ignore (no Commander-legal cards) |
 | 701.32 | Set in Motion | keyword action | 0 | ignore (no Commander-legal cards) |
 | 701.33 | Abandon | keyword action | 0 | ignore (no Commander-legal cards) |
-| 701.34 | Proliferate | keyword action | 96 | missing |
+| 701.34 | Proliferate | keyword action | 96 | supported |
 | 701.35 | Detain | keyword action | 12 | missing |
 | 701.36 | Populate | keyword action | 26 | missing |
-| 701.37 | Monstrosity | keyword action | 37 | missing |
+| 701.37 | Monstrosity | keyword action | 37 | supported |
 | 701.38 | Vote | keyword action | 0 | ignore (no Commander-legal cards) |
-| 701.39 | Bolster | keyword action | 24 | missing |
+| 701.39 | Bolster | keyword action | 24 | supported |
 | 701.40 | Manifest | keyword action | 58 | missing |
-| 701.41 | Support | keyword action | 19 | missing |
+| 701.41 | Support | keyword action | 19 | supported |
 | 701.42 | Meld | keyword action | 7 | missing |
 | 701.43 | Exert | keyword action | 36 | missing |
-| 701.44 | Explore | keyword action | 53 | missing |
+| 701.44 | Explore | keyword action | 53 | supported |
 | 701.45 | Assemble | keyword action | 1 | missing |
 | 701.46 | Adapt | keyword action | 25 | missing |
-| 701.47 | Amass | keyword action | 71 | missing |
+| 701.47 | Amass | keyword action | 71 | supported |
 | 701.48 | Learn | keyword action | 21 | missing |
 | 701.49 | Venture into the Dungeon | keyword action | 38 | missing |
-| 701.50 | Connive | keyword action | 50 | missing |
+| 701.50 | Connive | keyword action | 50 | supported |
 | 701.51 | Open an Attraction | keyword action | 21 | missing |
 | 701.52 | Roll to Visit Your Attractions | keyword action | 3 | missing |
 | 701.53 | Incubate | keyword action | 33 | missing |

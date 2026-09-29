@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 342 · PARTIAL: 3159 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 369 · PARTIAL: 3132 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -698,13 +698,13 @@ Color identity C
 - ✓ Attack and block
 - ✗ Marvin has all activated abilities of creatures you control that don't have the same name as this creature.
 
-### Krenko, Mob Boss — PARTIAL
+### Krenko, Mob Boss — FULL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ {T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.
+- ✓ {T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.
 
 ### Anim Pakal, Thousandth Moon — PARTIAL
 
@@ -761,7 +761,7 @@ Color identity R
 - ✓ Flying
 - ✗ Whenever Drakuseth attacks, Drakuseth deals 4 damage to any target and 3 damage to each of up to two other targets.
 
-### Vilis, Broker of Blood — PARTIAL
+### Vilis, Broker of Blood — FULL
 
 Color identity B
 
@@ -769,7 +769,7 @@ Color identity B
 - ✓ Attack and block
 - ✓ Flying
 - ✓ {B}, Pay 2 life: Target creature gets -1/-1 until end of turn.
-- ✗ Whenever you lose life, draw that many cards.
+- ✓ Whenever you lose life, draw that many cards.
 
 ### Skrelv, Defector Mite — PARTIAL
 
@@ -1232,15 +1232,15 @@ Color identity UG
 - ✗ • Tap target permanent. Its activated abilities can't be activated this turn.
 - ✗ • Koma gains indestructible until end of turn.
 
-### Beledros Witherbloom — PARTIAL
+### Beledros Witherbloom — FULL
 
 Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
+- ✓ At the beginning of each upkeep, create a 1/1 black and green Pest creature token with "When this token dies, you gain 1 life."
 - ✓ Pay 10 life: Untap all lands you control. Activate only once each turn.
-- ✗ At the beginning of each upkeep, create a 1/1 black and green Pest creature token with "When this token dies, you gain 1 life."
 
 ### Miirym, Sentinel Wyrm — PARTIAL
 
@@ -1322,8 +1322,8 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever Myrel attacks, create X 1/1 colorless Soldier artifact creature tokens, where X is the number of Soldiers you control.
 - ✗ During your turn, your opponents can't cast spells or activate abilities of artifacts, creatures, or enchantments.
-- ✗ Whenever Myrel attacks, create X 1/1 colorless Soldier artifact creature tokens, where X is the number of Soldiers you control.
 
 ### Drana, Liberator of Malakir — FULL
 
@@ -2427,14 +2427,14 @@ Color identity R
 - ✓ Flying
 - ✗ Whenever Dragonhawk enters or attacks, exile the top X cards of your library, where X is the number of creatures you control with power 4 or greater. You may play those cards until your next end step. At the beginning of your next end step, Dragonhawk deals 2 damage to each opponent for each of those cards that are still exiled.
 
-### General Kreat, the Boltbringer — PARTIAL
+### General Kreat, the Boltbringer — FULL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever one or more Goblins you control attack, create a 1/1 red Goblin creature token that's tapped and attacking.
 - ✓ Whenever another creature you control enters, General Kreat deals 1 damage to each opponent.
-- ✗ Whenever one or more Goblins you control attack, create a 1/1 red Goblin creature token that's tapped and attacking.
 
 ### Squee, the Immortal — PARTIAL
 
@@ -2591,14 +2591,14 @@ Color identity URG
 - ✓ Whenever you cast a creature spell, put a +1/+1 counter on Animar.
 - ✗ Creature spells you cast cost {1} less to cast for each +1/+1 counter on Animar.
 
-### Lord Skitter, Sewer King — PARTIAL
+### Lord Skitter, Sewer King — FULL
 
 Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Whenever another Rat you control enters, exile up to one target card from an opponent's graveyard.
-- ✗ At the beginning of combat on your turn, create a 1/1 black Rat creature token with "This token can't block."
+- ✓ At the beginning of combat on your turn, create a 1/1 black Rat creature token with "This token can't block."
 
 ### The Indomitable — PARTIAL
 

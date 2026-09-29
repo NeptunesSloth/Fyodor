@@ -23,19 +23,19 @@ def to_main(s):
 
 def test_tap_ability_goes_on_the_stack_and_resolves_by_hand(cards):
     s = table(cards)
-    krenko = find(s.state, "Krenko, Mob Boss", "p1")
-    act(s, "p1", type="move", card_ids=[krenko.id], to={"zone": "battlefield"})
+    # (Krenko's token ability is automated now — test_rules_tokens.py; a coin flip isn't)
+    gambler = token(s, "p1", "Gambler", "Token Creature — Human", "{T}: Flip a coin. If you win the flip, draw a card.")
     to_main(s)
     hints = s.view("p1")["rules"]["hints"]
-    assert {"card_id": krenko.id, "ability": 0} in hints["activatable"]
-    act(s, "p1", type="activate_ability", card_id=krenko.id, ability=0)
+    assert {"card_id": gambler.id, "ability": 0} in hints["activatable"]
+    act(s, "p1", type="activate_ability", card_id=gambler.id, ability=0)
     d = s.state.rules.decision
-    assert s.state.cards[krenko.id].tapped
-    assert d and d.kind == "manual_resolution" and "Create X 1/1 red Goblin" in d.prompt and "Krenko" in d.prompt
+    assert s.state.cards[gambler.id].tapped
+    assert d and d.kind == "manual_resolution" and "Flip a coin" in d.prompt and "Gambler" in d.prompt
     assert not s.state.zones["stack"]  # the ability object is gone once it resolved
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["done"])
     with pytest.raises(ActionError, match="tapped"):
-        act(s, "p1", type="activate_ability", card_id=krenko.id, ability=0)
+        act(s, "p1", type="activate_ability", card_id=gambler.id, ability=0)
 
 
 def test_loyalty_abilities(cards):

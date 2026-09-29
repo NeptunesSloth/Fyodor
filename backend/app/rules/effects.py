@@ -326,7 +326,7 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if count <= 0:
         return True
     for pid in _players(plan, ctx, e["who"]):
-        plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False,
+        plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False, "tapped": bool(e.get("tapped")),
                  "source_id": ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None,
                  "token": {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
                            "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}},
@@ -1389,6 +1389,11 @@ def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
 
         leave_stack(plan, stack_id, ctx["controller"], countered=countered)
     _after_resolution(plan)
+
+
+from app.rules import keyword_actions  # noqa: E402, I001  (keyword actions, CR 701, and token wording: leaf modules over this one)
+
+PRIMITIVES.update(keyword_actions.PRIMITIVES)
 
 
 def describe(effects: list[dict[str, Any]]) -> str:
