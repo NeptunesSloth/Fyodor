@@ -38,6 +38,10 @@ SELECTORS: dict[str, tuple[bool, Check | None]] = {
     "planeswalker": (False, _types("Planeswalker")),
     "permanent": (False, lambda plan, who, card, ch: True),
     "nonland_permanent": (False, lambda plan, who, card, ch: not ch.is_land),
+    "attacking_or_blocking_creature": (False, lambda plan, who, card, ch: ch.is_creature
+                                       and (card.attacking is not None or bool(card.blocking))),
+    "attacking_creature": (False, lambda plan, who, card, ch: ch.is_creature and card.attacking is not None),
+    "blocking_creature": (False, lambda plan, who, card, ch: ch.is_creature and bool(card.blocking)),
     "player": (True, None),
     "opponent": (True, None),
 }

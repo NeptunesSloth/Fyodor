@@ -20,7 +20,7 @@ _MANA_ABILITY = re.compile(
     rf"^\{{T\}}: Add (?:{_MANA_SYMBOL}(?:{_MANA_SYMBOL})*(?:(?:, | or |, or ){_MANA_SYMBOL})*|one mana of any color)\.$"
 )
 _LOYALTY = re.compile(r"^[+−-]?\d+: |^[+−-]X: ")
-_TRIGGER = re.compile(r"^(When|Whenever|At) ")
+_TRIGGER = re.compile(r"^(?:[A-Z][A-Za-z' ]+ — )?(When|Whenever|At) ")  # an ability word ("Landfall — ") may lead
 _COST_START = re.compile(
     r"^(\{[^}]+\}|Sacrifice|Tap|Untap|Discard|Pay|Remove|Exile|Return|Put|Reveal|Mill|Collect|Forage|[Ee]quip|Crew|"
     r"Channel|Cycling|Ninjutsu|Boast|Exhaust)"

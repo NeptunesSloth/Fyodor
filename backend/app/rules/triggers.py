@@ -110,6 +110,11 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
 def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics) -> None:
     """603.6a: "Whenever [another] creature [you control] enters" on every permanent, including
     ones entering at the same time."""
+    if ech.is_land:  # "Landfall — Whenever a land you control enters"
+        for watcher, ch, i, d in _watchers(plan, "landfall"):
+            if entered.controller == watcher.controller:
+                _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher),
+                     name=ch.name, index=i, definition=d)
     if not ech.is_creature:
         return
     for watcher, ch, i, d in _watchers(plan, "enters_other"):

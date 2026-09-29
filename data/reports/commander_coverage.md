@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 83 · PARTIAL: 3418 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 87 · PARTIAL: 3414 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -366,8 +366,8 @@ Color identity UG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Landfall — Whenever a land you control enters, you may draw a card.
 - ✗ You may play an additional land on each of your turns.
-- ✗ Landfall — Whenever a land you control enters, you may draw a card.
 
 ### Delney, Streetwise Lookout — PARTIAL
 
@@ -491,7 +491,7 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Landfall — Whenever a land you control enters, put a +1/+1 counter on target creature.
+- ✓ Landfall — Whenever a land you control enters, put a +1/+1 counter on target creature.
 - ✗ {3}{G}{G}: Double the number of +1/+1 counters on each creature you control.
 
 ### Jaheira, Friend of the Forest — PARTIAL
@@ -518,7 +518,7 @@ Color identity RG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Landfall — Whenever a land you control enters, create a 5/5 red and green Elemental creature token.
+- ✓ Landfall — Whenever a land you control enters, create a 5/5 red and green Elemental creature token.
 - ✗ Whenever Omnath or another Elemental you control dies, Omnath deals 3 damage to any target.
 
 ### Moraug, Fury of Akoum — PARTIAL

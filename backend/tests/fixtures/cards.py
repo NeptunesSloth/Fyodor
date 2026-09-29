@@ -204,5 +204,7 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Phantasmal Forces", set_code="tst", number="L2", mana_cost="{3}{U}", cmc=4.0, type_line="Creature — Illusion",
              oracle_text="Flying\nAt the beginning of your upkeep, sacrifice this creature unless you pay {U}.",
              power="4", toughness="1", colors=["U"], color_identity=["U"]),
+        card("Sandblast", set_code="tst", number="L3", mana_cost="{2}{W}", cmc=3.0, type_line="Instant",
+             oracle_text="Sandblast deals 5 damage to target attacking or blocking creature.", colors=["W"], color_identity=["W"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

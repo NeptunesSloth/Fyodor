@@ -56,6 +56,9 @@ SELECTORS = {
     "target nonland permanent": "nonland_permanent",
     "target player": "player",
     "target opponent": "opponent",
+    "target attacking or blocking creature": "attacking_or_blocking_creature",
+    "target attacking creature": "attacking_creature",
+    "target blocking creature": "blocking_creature",
 }
 _SEL = "|".join(sorted((re.escape(k) for k in SELECTORS), key=len, reverse=True))
 
@@ -66,6 +69,7 @@ TRIGGERS = [
     (re.compile(r"^At the beginning of your upkeep, (?P<body>.+)$"), "upkeep_you"),
     (re.compile(r"^At the beginning of your end step, (?P<body>.+)$"), "end_step_you"),
     (re.compile(r"^Whenever ~ attacks, (?P<body>.+)$"), "attacks_self"),
+    (re.compile(r"^(?:Landfall — )?Whenever a land you control enters, (?P<body>.+)$"), "landfall"),
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
@@ -269,6 +273,11 @@ def _wipe(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 @effect(r"exile (?P<sel>target creature you control|target creature), then return (?:it|that card) to the battlefield under (?P<under>its owner's|your) control")
 def _blink(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "blink", "who": "target", "under": "you" if m["under"] == "your" else "owner"}], SELECTORS[m["sel"]]
+
+
+@effect(r"activate only once each turn")
+def _once_each_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [], None  # an activation restriction (enforced by casting.ability_problem), not an effect
 
 
 @effect(r"sacrifice ~ unless you pay (?P<cost>(?:\{{[^}}]+\}})+)")
