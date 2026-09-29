@@ -184,11 +184,16 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
     waiting for a choice (the rest continue on resume, then ``shuffle``'s library is shuffled —
     "put it onto the battlefield, then shuffle" — and ``ctx``'s effects go on)."""
     from app.rules import characteristics as chars
+    from app.rules import replacements
 
     for i, entry in enumerate(entries):
         card = plan.state.cards.get(entry["card"])
         if card is None:
             continue
+        if replacements.choice_needed(plan, card, entry) is not None:
+            # a shock land: "As ~ enters, you may pay 2 life" is decided before it enters (614.12a)
+            replacements.ask_entry_choice(plan, entry, entries[i + 1:], ctx, shuffle)
+            return False
         printed = chars.of(card, plan.info)
         if attach_kind(printed) != "aura":
             _move(plan, entry)
@@ -216,22 +221,12 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
 
 
 def _move(plan: Plan, entry: dict[str, Any]) -> None:
-    from app.rules import characteristics as chars
-    from app.rules import engine  # (engine imports this module)
+    """The one way an effect puts a card onto the battlefield: its "enters" replacement effects
+    (tapped, counters, loyalty, a shock land's life: 614.1c-d) apply however it enters, not only
+    when it resolves from the stack — app/rules/replacements.py."""
+    from app.rules import replacements
 
-    payload: dict[str, Any] = {"type": "move", "card_ids": [entry["card"]],
-                               "to": {"player": entry["player"], "zone": "battlefield"}}
-    entering = plan.state.cards.get(entry["card"])
-    # "~ enters tapped" is a replacement effect however the permanent enters (614.1c), not only
-    # when it resolves from the stack: a Guildgate put onto the battlefield by a search is tapped
-    if entry.get("tapped") or (entering is not None and engine.enters_tapped(chars.of(entering, plan.info))):
-        payload["tapped"] = True
-    plan.do(payload, actor=entry["actor"])
-    card = plan.state.cards.get(entry["card"])
-    if card is not None and card.zone.endswith(":battlefield"):  # its "enters with" replacements (614.1c, 306.5b)
-        ch = plan.ch(card)
-        engine.enter_with_loyalty(plan, card.id, ch, entry["player"])
-        engine.enter_with_counters(plan, card.id, ch, None, entry["player"])
+    replacements.move_onto_battlefield(plan, entry)
 
 
 def _hosts_on_entering(plan: Plan, card: CardInstance, controller: str) -> list[str]:

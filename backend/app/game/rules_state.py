@@ -435,6 +435,13 @@ class RulesState(BaseModel):
     linked_exile: dict[str, list[str]] = Field(default_factory=dict)  # source object -> cards exiled "until it leaves"
     delayed: list[dict[str, Any]] = Field(default_factory=list)  # "at the beginning of the next end step" moves
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)
+    # Replacement / prevention records with a duration (app/rules/replacements.py): "Prevent all
+    # combat damage that would be dealt this turn" and friends. Each: {"id", "kind", "turn",
+    # "controller", "source", "scope"}; a record for another turn has expired (614.3, 615.3).
+    replacements: list[dict[str, Any]] = Field(default_factory=list)
+    # 903.9b answers for a move about to happen: card id -> put the commander into the command
+    # zone instead of its owner's hand / library? Consumed by the move that asked.
+    zone_answers: dict[str, bool] = Field(default_factory=dict)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
     dashed: list[str] = Field(default_factory=list)
     evoked: list[str] = Field(default_factory=list)  # evoked spells: sacrificed as they enter (702.74)
