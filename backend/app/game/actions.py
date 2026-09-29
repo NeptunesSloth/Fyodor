@@ -24,6 +24,10 @@ ZoneName = Literal[
     "stack",
 ]
 Coord = Annotated[float, Field(ge=-100000, le=100000)]
+# Target groups (601.2c): how many of ``targets`` belong to each group, in printed order; and the
+# division (601.2d) of each divided group with two or more targets, amount per target in order.
+TargetCounts = Annotated[list[Annotated[int, Field(ge=0, le=20)]], Field(max_length=10)]
+Division = Annotated[list[Annotated[int, Field(ge=1, le=10000)]], Field(max_length=20)]
 FaceDownKind = Literal["generic", "morph", "disguise", "manifest", "cloak", "exile"]
 assert set(PLAYER_ZONES) | {STACK} == set(ZoneName.__args__)  # type: ignore[attr-defined]
 
@@ -865,12 +869,24 @@ class Contribution(BaseModel):
     card: Id
 
 
+class CostChoice(BaseModel):
+    """The objects chosen to pay one part of an activation cost (602.2b / 601.2h): e.g. the
+    creature to sacrifice for "Sacrifice another creature". ``component`` is the part's index
+    in the cost (app/rules/costs.py); the engine validates everything before paying anything."""
+
+    model_config = ConfigDict(extra="forbid")
+    component: int = Field(ge=0, le=20)
+    cards: list[Id] = Field(default_factory=list, max_length=30)
+
+
 class CastSpell(_Intent):
     type: Literal["cast_spell"] = "cast_spell"
     card_id: Id
     face: int | None = Field(default=None, ge=0, le=3)
     # Optional answers given up front; anything missing is asked for as a decision.
     targets: list[Id] = Field(default_factory=list, max_length=20)
+    target_counts: TargetCounts = Field(default_factory=list)  # for spells with target groups
+    division: Division = Field(default_factory=list)
     x_value: int | None = Field(default=None, ge=0, le=1000)
     modes: list[int] = Field(default_factory=list, max_length=10)
     # MANUAL PAY: exactly these mana sources (plus your mana pool). None: the engine pays per
@@ -884,6 +900,8 @@ class CastSpell(_Intent):
     # Cost contributions that aren't mana (convoke / improvise / delve): validated and applied
     # only when the rest of the total cost is paid (601.2h: no partial payments).
     contributions: list[Contribution] = Field(default_factory=list, max_length=60)
+    # 702.33: pay the kicker cost this many times (1 for kicker; any number for multikicker)
+    kicker: int = Field(default=0, ge=0, le=20)
 
 
 class TurnFaceUp(_Intent):
@@ -899,6 +917,8 @@ class ActivateAbility(_Intent):
     card_id: Id
     ability: int = Field(ge=0, le=140)  # index into the card's abilities (app/rules/oracle.py; 100+ = granted)
     targets: list[Id] = Field(default_factory=list, max_length=20)
+    target_counts: TargetCounts = Field(default_factory=list)  # (see CastSpell)
+    division: Division = Field(default_factory=list)
     x_value: int | None = Field(default=None, ge=0, le=1000)
     mana_choice: Literal["W", "U", "B", "R", "G", "C"] | None = None  # which colour, for "R or G" abilities
     sources: list[Id] | None = Field(default=None, max_length=60)  # MANUAL PAY (see CastSpell)
@@ -908,6 +928,9 @@ class ActivateAbility(_Intent):
     improvise: bool = False  # this artifact: {1}
     delve: bool = False  # this card in your graveyard: {1}
     crew: list[Id] | None = Field(default=None, max_length=30)  # Crew N: the creatures tapped to pay it
+    # Objects chosen for cost parts ("Sacrifice a creature", "Discard a card" …); any part not
+    # given is asked for as a private decision before anything is paid.
+    cost_choices: list[CostChoice] = Field(default_factory=list, max_length=10)
 
 
 class AttackDeclaration(BaseModel):
@@ -949,6 +972,8 @@ class Choose(_Intent):
     type: Literal["choose"] = "choose"
     decision_id: Id
     option_ids: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=250)
+    # A "divide" decision (601.2d): the amount for each option, in the options' order.
+    amounts: list[Annotated[int, Field(ge=0, le=10000)]] = Field(default_factory=list, max_length=20)
     # Remember this answer (for prompts that allow it): ALWAYS YES / NO THIS TURN, ALWAYS YIELD.
     remember: Literal["yes_this_turn", "no_this_turn", "always_yield"] | None = None
 

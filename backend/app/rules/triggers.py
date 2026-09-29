@@ -25,15 +25,16 @@ from __future__ import annotations
 
 import re
 import secrets
+from dataclasses import replace
 from typing import Any
 
-from app.game.rules_state import DecisionOption, ObjectSnapshot, PendingTrigger, StackEntry
+from app.game.rules_state import DecisionOption, Event, ObjectSnapshot, PendingTrigger, StackEntry
 from app.game.state import CardInstance, TokenDef
 from app.rules import characteristics as chars
 from app.rules import scripts
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan, decide
-from app.rules.targets import label, legal_targets, ref, source_of
+from app.rules.targets import choose_groups, label, legal_targets, ref, source_of
 
 
 def _zone(key: str | None) -> str:
@@ -45,6 +46,8 @@ TRIGGER_EVENTS = {"enters_or_attacks_self": ("enters_self", "attacks_self")}
 
 
 def _matches_trigger(name: str, trigger: str) -> bool:
+    if name.startswith("multi:"):
+        return trigger in name[6:].split("+")
     return name == trigger or trigger in TRIGGER_EVENTS.get(name, ())
 
 
@@ -57,15 +60,45 @@ def abilities(plan: Plan, ch: Characteristics, trigger: str) -> list[tuple[int, 
 def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=False, is_token=snap.is_token,
-                        token=TokenDef(name=snap.name, text=snap.text, power=snap.token_power, toughness=snap.token_toughness)
+                        token=TokenDef(name=snap.name, text=snap.text, power=snap.token_power, toughness=snap.token_toughness,
+                                      colors=snap.token_colors,
+                                      **({"type_line": snap.token_type_line} if snap.token_type_line else {}))
                         if snap.is_token and not snap.printing else None)
-    return chars.of(card, plan.info)
+    ch = chars.of(card, plan.info)
+    if snap.power is not None and snap.toughness is not None:
+        ch = replace(ch, pt=(snap.power, snap.toughness))  # as it last existed (608.2h)
+    return ch
 
 
 def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, name: str, index: int,
-         definition: dict[str, Any], manual: bool = False) -> None:
+         definition: dict[str, Any], manual: bool = False, event_object: str | None = None,
+         event_player: str | None = None, event_amount: int = 0) -> None:
     if manual:
         return
+    if definition.get("if_kicked"):  # 603.4: "When ~ enters, if it was kicked, …" (702.33e)
+        record = plan.rules.payments.get(source_object)
+        if record is None or not record.kicked:
+            return  # (it wasn't: the ability doesn't trigger; kicked status never changes later)
+    if definition.get("if") is not None:  # 603.4: an intervening "if" must hold as it triggers
+        from app.rules import conditions
+
+        if not conditions.holds(plan, {"controller": controller, "source_card": source_card}, definition["if"]):
+            return
+    effects = definition.get("effects") or []
+    if any(e.get("who") in ("event", "event_player") or e.get("n") == {"event_amount": 1} for e in effects):
+        # What the trigger event was about, bound now (603.2, 608.2k): "it" / "that creature" (that
+        # one rules object: if it changes zones, the effect no longer finds it, 400.7), "that
+        # player", "that much"
+        def bind(e: dict[str, Any]) -> dict[str, Any]:
+            if e.get("who") == "event":
+                e = {**e, "who": f"object:{event_object}"}
+            elif e.get("who") == "event_player":
+                e = {**e, "who": f"player:{event_player}"}
+            if e.get("n") == {"event_amount": 1}:
+                e = {**e, "n": event_amount}
+            return e
+
+        definition = {**definition, "effects": [bind(e) for e in effects]}
     plan.rules.pending_triggers.append(PendingTrigger(
         id=secrets.token_hex(4), controller=controller, source_card=source_card, source_object=source_object,
         name=name, ability=definition, key=f"{name}:{index}"))
@@ -78,6 +111,7 @@ def collect(plan: Plan) -> None:
     if not new:
         return
     r.trigger_batch = max(e.batch for e in new)
+    _generic_events(plan, new)
     for e in new:
         if e.kind == "spell_cast" and not e.manual:
             _cast_triggers(plan, e.card or "", e.player or "")
@@ -86,14 +120,15 @@ def collect(plan: Plan) -> None:
             continue
         frm, to = _zone(e.from_zone), _zone(e.to_zone)
         if to == "battlefield" and frm != "battlefield":
-            card = plan.state.cards.get(e.card or "")
-            if card is None or plan.rules.card_mode(card.id) == "manual" or plan.oid(card) != e.new_object_id:
+            # (as it is, or as it was if it has already left again: it still entered, 603.6a)
+            got = _object_then(plan, e.card, e.new_object_id)
+            if got is None or plan.rules.card_mode(got[0].id) == "manual" or not e.new_object_id:
                 continue
-            ch = plan.ch(card)
+            card, ch = got
             for i, d in abilities(plan, ch, "enters_self"):
-                _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card),
+                _add(plan, controller=card.controller, source_card=card.id, source_object=e.new_object_id,
                      name=ch.name, index=i, definition=d)
-            _other_enters(plan, card, ch)
+            _other_enters(plan, card, ch, e.new_object_id)
         if frm == "battlefield" and to != "battlefield":
             snap = r.lki.get(e.object_id or "")
             if snap is None or plan.rules.card_mode(snap.card) == "manual" or snap.controller not in plan.live():
@@ -112,6 +147,181 @@ def collect(plan: Plan) -> None:
                          name=ch.name, index=i, definition=d)
 
 
+# -- generic conditions (app/rules/events.py) --------------------------------------------------
+Fact = tuple[str, CardInstance | None, Characteristics | None, str | None]  # (event, object, its characteristics, player)
+
+
+def _event_watchers(plan: Plan) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
+    return [w for w in _watchers(plan, "event") if w[3].get("cond")]
+
+
+def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Characteristics]:
+    """The object as it last existed on the battlefield (603.10a: leaves-the-battlefield triggers
+    look back in time)."""
+    ch = _lki_characteristics(plan, snap)
+    card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
+                        zone=snap.zone, face=snap.face, face_down=False, is_token=snap.is_token)
+    return card, ch
+
+
+def _object_then(plan: Plan, card_id: str | None, object_id: str | None) -> tuple[CardInstance, Characteristics] | None:
+    """The object an event happened to: as it is now if it's still that object on the
+    battlefield, else as it last existed there (it left since: 603.10, 608.2h)."""
+    card = plan.state.cards.get(card_id or "")
+    if card is not None and card.zone.endswith(":battlefield") and (object_id is None or plan.oid(card) == object_id):
+        return card, plan.ch(card)
+    snap = plan.rules.lki.get(object_id or "")
+    return _snapshot_card(plan, snap) if snap is not None else None
+
+
+def _facts(plan: Plan, e: Event) -> list[Fact]:
+    r = plan.rules
+    if e.kind == "zone_change":
+        frm, to = _zone(e.from_zone), _zone(e.to_zone)
+        if to == "battlefield" and frm != "battlefield":
+            # (if it has left again since, as it was on the battlefield: it still entered, 603.6a)
+            got = _object_then(plan, e.card, e.new_object_id)
+            if got is not None:
+                return [("enter", got[0], got[1], got[0].controller)]
+        if frm == "battlefield" and to != "battlefield":
+            snap = r.lki.get(e.object_id or "")
+            if snap is None:
+                return []
+            card, ch = _snapshot_card(plan, snap)
+            out: list[Fact] = [("leave", card, ch, snap.controller)]
+            if to == "graveyard" or (e.to_zone is None and snap.is_token):
+                out.append(("die", card, ch, snap.controller))
+            return out
+        return []
+    if e.kind in ("tapped", "untapped"):
+        got = _object_then(plan, e.card, e.object_id)
+        return [(e.kind, got[0], got[1], got[0].controller)] if got is not None else []
+    if e.kind in ("life_gain", "life_loss"):
+        return [("gain_life" if e.kind == "life_gain" else "lose_life", None, None, e.player)]
+    if e.kind == "spell_cast":
+        spell = plan.state.cards.get(e.card or "")
+        return [("cast", spell, plan.ch(spell), e.player)] if spell is not None else []
+    if e.kind == "drew":
+        return [("draw", None, None, e.player)]
+    if e.kind == "damage":
+        out = []
+        # (a creature dealt lethal damage was still dealt it: 510.3a / 603.10a)
+        got = _object_then(plan, e.card, e.object_id) if e.player is None and (e.card or e.object_id) else None
+        if got is not None:
+            out.append(("dealt_damage", got[0], got[1], got[0].controller))
+        live = next((c for c in plan.state.cards.values() if plan.oid(c) == e.source), None) if e.source else None
+        src = (live, plan.ch(live)) if live is not None else (
+            _snapshot_card(plan, r.lki[e.source]) if e.source and e.source in r.lki else None)
+        if src is not None and e.player is not None and e.player != src[0].controller:
+            out.append(("deal_damage_opponent", src[0], src[1], src[0].controller))
+            if e.combat:
+                out.append(("deal_combat_damage_player", src[0], src[1], src[0].controller))
+        return out
+    return []
+
+
+def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: Fact) -> bool:
+    from app.rules import selectors
+
+    event, obj, och, player = fact
+    if cond["event"] != event:
+        return False
+    subject = cond["subject"]
+    you = watcher.controller
+    if subject == "player":
+        want = cond["player"]
+        if player is None or (want == "you" and player != you) or (want == "opponent" and player == you):
+            return False
+        if event == "cast":
+            return obj is not None and och is not None and selectors.matches(
+                plan, selectors.from_key(cond["spell"]), obj, och, you, watcher.id)
+        return True
+    if obj is None or och is None:
+        return False
+    if subject in ("self", "self_or") and obj.id == watcher.id:
+        return True
+    if subject == "self":
+        return False
+    return selectors.matches(plan, selectors.from_key(cond["sel"]), obj, och, you, watcher.id)
+
+
+Watcher = tuple[CardInstance, Characteristics, int, dict[str, Any]]
+
+
+def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: set[tuple[str, int, int]],
+                  watchers: list[tuple[Watcher, int, int]] | None = None, amount: int = 0) -> None:
+    """Each watcher (with the batches it was on the battlefield for: it sees events from when it
+    entered, 603.6a, until it left, 603.10a) against each fact of one event."""
+    for (watcher, ch, i, d), lo, hi in (watchers if watchers is not None else [(w, -1, -1) for w in _event_watchers(plan)]):
+        if batch >= 0 and not (lo <= batch <= hi or (lo, hi) == (-1, -1)):
+            continue
+        cond = d["cond"]
+        for fact in facts:
+            if not _cond_matches(plan, cond, watcher, fact):
+                continue
+            nth = cond.get("nth") if cond["event"] == "draw" else None
+            if nth and plan.rules.draws_this_turn.get(fact[3] or "", 0) != nth:
+                continue
+            if cond.get("aggregate"):  # "one or more …": once per event batch (603.2c)
+                key = (watcher.id, i, batch)
+                if key in fired:
+                    continue
+                fired.add(key)
+            obj = fact[1]  # (a live object; a snapshot of one that left isn't there to refer to)
+            live = obj is not None and plan.state.cards.get(obj.id) is obj
+            _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher),
+                 name=ch.name, index=i, definition=d, event_object=plan.oid(obj) if live and obj is not None else None,
+                 event_player=fact[3], event_amount=amount)
+
+
+def _generic_events(plan: Plan, events: list[Event]) -> None:
+    """Generic "When/Whenever [subject] [event]" conditions against the event log."""
+    r = plan.rules
+    if r.draws_turn != plan.state.turn.number:
+        r.draws_turn, r.draws_this_turn = plan.state.turn.number, {}
+    fired: set[tuple[str, int, int]] = set()
+    # Who was watching when: an object that left in these events saw everything up to and
+    # including its leaving (603.10a: two creatures dying together each see the other die; a
+    # creature dealt lethal damage was dealt it); one that entered sees events from its entering
+    # on (603.6a), not earlier ones.
+    big = 1 << 60
+    entered: dict[str, int] = {}
+    watchers: list[tuple[Watcher, int, int]] = []
+    for e in events:
+        if e.kind != "zone_change":
+            continue
+        if _zone(e.to_zone) == "battlefield" and _zone(e.from_zone) != "battlefield" and e.new_object_id:
+            entered[e.new_object_id] = e.batch
+        if _zone(e.from_zone) == "battlefield" and _zone(e.to_zone) != "battlefield":
+            snap = r.lki.get(e.object_id or "")
+            if snap is None or snap.controller not in plan.live() or plan.rules.card_mode(snap.card) == "manual":
+                continue
+            card, ch = _snapshot_card(plan, snap)
+            watchers += [((card, ch, i, d), entered.get(snap.object_id, -big), e.batch)
+                         for i, d in abilities(plan, ch, "event") if d.get("cond")]
+    watchers += [(w, entered.get(plan.oid(w[0]), -big), big) for w in _event_watchers(plan)]
+    for e in events:
+        if e.manual:
+            continue
+        if e.kind == "drew" and e.player:
+            r.draws_this_turn[e.player] = r.draws_this_turn.get(e.player, 0) + 1
+        facts = _facts(plan, e)
+        if facts:
+            _fire_generic(plan, facts, e.batch, fired, watchers, amount=e.amount)
+
+
+def generic_combat(plan: Plan, event: str, cards: list[CardInstance]) -> None:
+    """"Whenever [creature] attacks / blocks / becomes blocked", "Whenever you attack" (508.3a,
+    509.3a/c): one fact per creature; "you attack" once per combat for the attacking player."""
+    if not cards:
+        return
+    fired: set[tuple[str, int, int]] = set()
+    facts: list[Fact] = [(event, c, plan.ch(c), c.controller) for c in cards]
+    if event == "attack":
+        facts.append(("you_attack", None, None, cards[0].controller))
+    _fire_generic(plan, facts, -1, fired)
+
+
 def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
     out = []
     for card in plan.state.cards.values():
@@ -122,14 +332,14 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
     return out
 
 
-def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics) -> None:
+def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics, oid: str) -> None:
     """603.6a: "Whenever [another] creature [you control] enters" on every permanent, including
     ones entering at the same time."""
     if ech.is_land:  # "Landfall — Whenever a land you control enters"
         for watcher, ch, i, d in _watchers(plan, "landfall"):
             if entered.controller == watcher.controller:
                 _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher),
-                     name=ch.name, index=i, definition=d)
+                     name=ch.name, index=i, definition=d, event_object=oid)
     if not ech.is_creature:
         return
     for watcher, ch, i, d in _watchers(plan, "enters_other"):
@@ -141,7 +351,7 @@ def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics) -> No
         if "nontoken" in f and entered.is_token:
             continue
         _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher), name=ch.name,
-             index=i, definition=d)
+             index=i, definition=d, event_object=oid)
 
 
 CAST_FILTERS = {
@@ -361,6 +571,9 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
     controls, counter it unless that player pays [cost]." """
     if not stack_id:
         return
+    # An object chosen for several words "target" (115.3) becomes the target of that spell or
+    # ability once: one event, one trigger.
+    targets = list({(t.id if hasattr(t, "id") else t): t for t in targets}.values())
     for t in targets:  # "When ~ becomes the target of a spell or ability, …" (any controller)
         card = plan.state.cards.get(t.id if hasattr(t, "id") else t)
         if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):
@@ -402,6 +615,8 @@ def flanking(plan: Plan, pairs: list[tuple[CardInstance, CardInstance]]) -> None
 def blocked(plan: Plan, blockers: list[CardInstance], attackers: list[CardInstance]) -> None:
     """702.45 bushido N: "Whenever this creature blocks or becomes blocked, it gets +N/+N until
     end of turn." (Once per creature per combat, however many creatures it blocks or is blocked by.)"""
+    generic_combat(plan, "block", list({c.id: c for c in blockers}.values()))
+    generic_combat(plan, "blocked", list({c.id: c for c in attackers}.values()))
     for card in {c.id: c for c in [*blockers, *attackers]}.values():
         if plan.manual(card):
             continue
@@ -431,6 +646,7 @@ def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> No
 
 
 def attacked(plan: Plan, attackers: list[CardInstance]) -> None:
+    generic_combat(plan, "attack", attackers)
     if len(attackers) == 1:
         _exalted(plan, attackers[0])
     for card in attackers:
@@ -500,16 +716,40 @@ def flush(plan: Plan) -> bool:
 
 def _identical(plan: Plan, player: str, mine: list[PendingTrigger]) -> bool:
     return plan.rules.prefs_for(player).auto_order_identical_triggers and len({t.key for t in mine}) == 1 \
-        and not any(t.ability.get("target") for t in mine)
+        and not any(t.ability.get("target") or t.ability.get("targets") for t in mine)
 
 
-def put(plan: Plan, t: PendingTrigger, target: str | None = None) -> bool:
-    """Put one trigger on the stack. False if it waits for its controller's target choice."""
+def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
+    """Put one trigger on the stack. False if it waits for its controller's target choice.
+    ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
     r = plan.rules
     spec = t.ability.get("target")
     targets = []
-    if spec:
-        legal = legal_targets(plan, spec["what"], t.controller, source_of(plan, t.source_card))
+    extra: dict[str, Any] = {}
+    if t.ability.get("targets"):
+        from app.game.errors import ActionError
+        from app.rules.casting import ask_targets
+        from app.rules.scripts import target_groups
+
+        specs = target_groups(t.ability)
+        picks = picks or {"targets": [], "counts": [], "division": []}
+        try:
+            found = choose_groups(plan, specs, t.controller, source_of(plan, t.source_card), t.source_card,
+                                  picks["targets"], picks["counts"], picks["division"], None, t.name or "It")
+        except ActionError:  # 603.3d: no legal choice for a required target: removed from the stack
+            r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+            plan.note(f"{t.name}'s ability doesn't have enough legal targets and is removed")
+            return True
+        if found.ask is not None:
+            ask_targets(plan, t.controller, found, specs, f"{t.name}'s ability",
+                        {"step": "trigger_group", "trigger": t.id, **picks, "counts": found.counts})
+            return False
+        groups = [[ref(plan, x) for x in g] for g in found.groups]
+        targets = [x for g in groups for x in g]
+        extra = {"groups": groups, "group_specs": specs, "division": found.division}
+        spec = None
+    elif spec:
+        legal = legal_targets(plan, spec["what"], t.controller, source_of(plan, t.source_card), t.source_card)
         if target is None:
             if not legal:
                 r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
@@ -530,7 +770,7 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None) -> bool:
         return True
     r.stack[ability_id] = StackEntry(kind="trigger", controller=t.controller, source_card=t.source_card,
                                      source_object=t.source_object, name=t.name, effects=list(t.ability["effects"]),
-                                     targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")))
+                                     targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")), **extra)
     if targets:
         plan.do({"type": "create_arrow", "source": ability_id, "targets": [x.id for x in targets], "kind": "target"},
                 actor=t.controller)
@@ -556,6 +796,28 @@ def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
     t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
     if t is not None:
         put(plan, t, target=chosen[0])
+    flush(plan)
+
+
+def resume_group(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """A target group of a trigger was chosen (603.3d): the next choice, or onto the stack."""
+    res = d.resume
+    t = next((p for p in plan.rules.pending_triggers if p.id == res["trigger"]), None)
+    if t is not None:
+        picks = {"targets": [*res["targets"], *chosen], "counts": [*res["counts"], len(chosen)], "division": res["division"]}
+        if not put(plan, t, picks=picks):
+            return
+    flush(plan)
+
+
+def resume_divide(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """A trigger's division was chosen (601.2d)."""
+    res = d.resume
+    t = next((p for p in plan.rules.pending_triggers if p.id == res["trigger"]), None)
+    if t is not None:
+        picks = {"targets": res["targets"], "counts": res["counts"], "division": [*res["division"], *(int(c) for c in chosen)]}
+        if not put(plan, t, picks=picks):
+            return
     flush(plan)
 
 

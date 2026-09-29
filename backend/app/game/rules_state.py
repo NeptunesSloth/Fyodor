@@ -28,6 +28,7 @@ DecisionKind = Literal[
     "confirm",  # yes / no ("you may …")
     "reconcile",  # one answer per question (options grouped by ``group``) after manual play
     "order",  # choose every option, in order (trigger order, library order)
+    "divide",  # 601.2d: an amount (at least 1) per option, adding up to the total (answered with amounts)
 ]
 
 
@@ -195,6 +196,12 @@ class ObjectSnapshot(BaseModel):
     is_token: bool = False
     token_power: str | None = None
     token_toughness: str | None = None
+    token_type_line: str | None = None  # (a token's types and colors, for what it was: 608.2h)
+    # Its power and toughness as it last existed (layers applied, counters included): recorded by
+    # the rules engine as it moves the object (608.2h), None for moves made by hand
+    power: int | None = None
+    toughness: int | None = None
+    token_colors: list[str] = Field(default_factory=list)
     commander_key: str | None = None
     counters: dict[str, int] = Field(default_factory=dict)
     damage: int = 0
@@ -217,6 +224,7 @@ EventKind = Literal[
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
     "cycled",  # a player cycled a card (702.29: "when you cycle …")
     "mana_added",  # a mana ability produced mana (106.3, 106.12a); convoke/improvise/delve never do
+    "drew",  # a player drew a card (121.2: one event per card)
     "crewed",
     "turned_face_up",  # 702.37e (morph)  # a Vehicle became crewed (702.122)
 ]
@@ -260,6 +268,14 @@ class ContinuousEffect(BaseModel):
     add_keywords: list[str] = Field(default_factory=list)
     remove_keywords: list[str] = Field(default_factory=list)
     add_types: list[str] = Field(default_factory=list)  # layer 4: "becomes an artifact creature"
+    # Rule-modifying effects on the objects (not a layer; 611.2c duration): "can't block this turn"
+    # — the names scripts.statics uses (cant_block, cant_be_blocked, …).
+    imposes: list[str] = Field(default_factory=list)
+    # A group the effect applies to whenever it's evaluated ("Creatures can't block this turn":
+    # a rule-modifying effect isn't locked to the objects there when it began, 611.2c): a
+    # selector key, read for ``controller`` ("you"), ``source_card`` for "other".
+    who: str | None = Field(default=None, max_length=2000)
+    source_card: str | None = None
     duration: Literal["end_of_turn", "permanent"] = "end_of_turn"
     timestamp: int = 0
     label: str = ""
@@ -303,6 +319,17 @@ class StackEntry(BaseModel):
     modes: list[int] = Field(default_factory=list)
     slots: list[list[TargetRef]] = Field(default_factory=list)
     slot_specs: list[dict[str, Any] | None] = Field(default_factory=list)
+    # Target groups (115.1, 601.2c): one per word "target", in printed order — "up to two target
+    # creatures", "target creature and another target creature". ``group_specs`` are the
+    # definition's groups ({"what", "min", "max", "distinct_from"?, "divide"?}), ``groups`` the
+    # chosen targets of each, ``division`` the amount per target of each divided group (601.2d;
+    # empty for the others). ``targets`` stays the flat list of all of them. Empty for a spell or
+    # ability with one plain "target" (target_spec) or modes (slots).
+    groups: list[list[TargetRef]] = Field(default_factory=list)
+    group_specs: list[dict[str, Any]] = Field(default_factory=list)
+    division: list[list[int]] = Field(default_factory=list)
+    # 702.33d: how many times the spell was kicked (a copy keeps it: 707.10)
+    kicked: int = 0
 
 
 class CostContribution(BaseModel):
@@ -330,6 +357,10 @@ class PaymentRecord(BaseModel):
     tapped: list[str] = Field(default_factory=list)  # permanents tapped for mana while paying (engine-paid)
     sacrificed: list[str] = Field(default_factory=list)
     discarded: list[str] = Field(default_factory=list)
+    exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
+    returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
+    tapped_for_cost: list[str] = Field(default_factory=list)  # "Tap an untapped creature you control" (not for mana)
+    kicked: int = 0  # 702.33d: times its kicker cost was paid
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
     additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
     x: int | None = None
@@ -413,6 +444,8 @@ class RulesState(BaseModel):
     pending_triggers: list[PendingTrigger] = Field(default_factory=list)
     trigger_batch: int = 0  # last event batch the trigger collector looked at
     stack: dict[str, StackEntry] = Field(default_factory=dict)  # stack card id -> what it does
+    draws_this_turn: dict[str, int] = Field(default_factory=dict)  # player -> cards drawn (for "your second card")
+    draws_turn: int = 0
     # Aura spells on the stack -> what they target (303.4a); they enter attached to it (303.4f).
     aura_targets: dict[str, TargetRef] = Field(default_factory=dict)
     # How each spell was paid for (stack object id -> record); follows the spell onto the battlefield.
@@ -475,6 +508,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         owner=c.owner, controller=c.controller, zone=c.zone, turn=state.turn.number, tapped=c.tapped,
         face_down=c.face_down, face=c.face, is_token=c.is_token,
         token_power=token.power if token else None, token_toughness=token.toughness if token else None,
+        token_type_line=token.type_line if token else None, token_colors=list(token.colors) if token else [],
         commander_key=c.commander_key, counters=dict(c.counters), damage=c.damage,
         effects=[e.value or e.name for e in c.effects], attacking=c.attacking is not None,
         blocking=c.blocking is not None, attached_to=c.attached_to, text=token.text if token else "",

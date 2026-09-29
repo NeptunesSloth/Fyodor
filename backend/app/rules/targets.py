@@ -10,10 +10,12 @@ in their private decision, nobody else does.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
 
 from app.game.rules_state import TargetRef
 from app.game.state import CardInstance
-from app.rules import protection
+from app.rules import protection, selectors
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan
 
@@ -73,9 +75,13 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     return not protection.protected_from(ch, source)
 
 
-def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristics | None = None) -> list[str]:
+def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristics | None = None,
+                  source_card: str | None = None) -> list[str]:
     """Player ids and card ids that ``chooser`` may target with ``selector`` right now
-    (``source``: the spell or the ability's source, for protection)."""
+    (``source``: the spell or the ability's source, for protection; ``source_card``: that
+    object, for "another target …")."""
+    if selector.startswith(selectors.PREFIX):  # a structured selector (app/rules/selectors.py)
+        return _selector_targets(plan, selectors.from_key(selector), chooser, source, source_card)
     if selector.startswith("graveyard:"):  # "target Spirit card with mana value N or less from your graveyard"
         from app.rules import characteristics as chars
 
@@ -107,18 +113,127 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
     return out
 
 
+def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source: Characteristics | None,
+                      source_card: str | None) -> list[str]:
+    if sel.player is not None:  # 115.1: players (hexproof players: not yet modelled)
+        return [p for p in plan.live() if selectors.matches_player(plan, sel, p, chooser)]
+    out = []
+    for cid in selectors.candidates(plan, sel, chooser, source_card):
+        card = plan.state.cards[cid]
+        on_field = card.zone.endswith(":battlefield") or card.zone == "stack"
+        if on_field and not can_target(plan, chooser, card, plan.ch(card), source):  # hexproof / shroud / protection
+            continue
+        out.append(cid)
+    return out
+
+
 def ref(plan: Plan, target: str) -> TargetRef:
     return TargetRef(id=target, object_id=plan.oid(target) if target in plan.state.cards else None)
 
 
-def still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, source: Characteristics | None = None) -> bool:
+def still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, source: Characteristics | None = None,
+                source_card: str | None = None) -> bool:
     """608.2b: is a chosen target still legal? A card that changed zones is a new object: illegal."""
     if target.object_id is None:
-        return target.id in plan.live() and target.id in legal_targets(plan, selector, chooser, source)
+        return target.id in plan.live() and target.id in legal_targets(plan, selector, chooser, source, source_card)
     card = plan.state.cards.get(target.id)
     if card is None or plan.oid(card) != target.object_id:
         return False
-    return target.id in legal_targets(plan, selector, chooser, source)
+    return target.id in legal_targets(plan, selector, chooser, source, source_card)
+
+
+@dataclass
+class GroupChoice:
+    """Where choosing the targets of a spell or ability with target groups stands (601.2c-d):
+    ``ask`` = ("group", g, options, lo, hi) or ("divide", g, total) while a choice is missing;
+    else the chosen ``groups`` and each group's ``division`` (empty if it isn't divided)."""
+
+    groups: list[list[str]] = field(default_factory=list)
+    division: list[list[int]] = field(default_factory=list)
+    ask: tuple[Any, ...] | None = None
+    counts: list[int] = field(default_factory=list)  # targets per group so far (groups with nothing to target: 0)
+
+
+def divide_total(spec: dict[str, Any], x: int | None) -> int | None:
+    """What a divided group divides: a number, or X (the chosen value)."""
+    divide = spec.get("divide")
+    if not divide:
+        return None
+    total = divide["total"]
+    return int(total) if isinstance(total, int) else int(x or 0)
+
+
+def group_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
+    """(min, max) targets of a group; a divided group needs at most as many targets as there is
+    to divide, and at least one (601.2d: each gets at least one)."""
+    lo, hi = int(spec.get("min", 1)), int(spec.get("max", 1))
+    total = divide_total(spec, x)
+    if total is not None:
+        lo, hi = max(lo, 1), min(hi, total)
+    return lo, hi
+
+
+def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
+                  source_card: str | None, targets: list[str], counts: list[int], division: list[int],
+                  x: int | None, what: str, exclude: tuple[str, ...] = ()) -> GroupChoice:
+    """Check the choices made so far for each target group, in printed order (601.2c): the
+    number of targets (``counts``: how many of ``targets`` are each group's), no object twice
+    for one word "target" (115.3; the same object may be chosen for another group unless it says
+    "another target"), each a legal target now; then each divided group's division (601.2d:
+    at least one each, adding up to the total; one target gets it all). Raises ActionError for a
+    wrong choice or when a group can't get enough legal targets; ``ask`` names the next missing
+    choice."""
+    from app.game.errors import ActionError
+
+    if len(counts) > len(specs) or sum(counts) != len(targets):
+        raise ActionError(f"Those aren't the right number of targets for {what}")
+    out = GroupChoice(counts=list(counts))
+    pos = 0
+    for g, spec in enumerate(specs):
+        banned = {t for d in spec.get("distinct_from") or [] if d < len(out.groups) for t in out.groups[d]}
+        options = [t for t in legal_targets(plan, spec["what"], chooser, source, source_card)
+                   if t not in exclude and t not in banned]
+        lo, hi = group_limits(spec, x)
+        if g >= len(out.counts):
+            if len(options) < lo or hi < lo:
+                raise ActionError(f"{what} has no legal target" if not options else f"{what} doesn't have enough legal targets")
+            if lo == 0 and not options:
+                out.counts.append(0)  # "up to one target …" with nothing to target: zero targets (115.6)
+            else:
+                out.ask = ("group", g, options, lo, min(hi, len(options)))
+                return out
+        count = out.counts[g]
+        chosen = targets[pos:pos + count]
+        pos += count
+        if not lo <= len(chosen) <= hi:
+            raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} target{'s' if hi != 1 else ''} for {what}")
+        if len(set(chosen)) != len(chosen):
+            raise ActionError("The same target can't be chosen twice for one “target”")  # 115.3
+        if any(t in banned for t in chosen):
+            raise ActionError("“Another target” can't be one you already chose")
+        if any(t not in options for t in chosen):
+            raise ActionError("That isn't a legal target")
+        out.groups.append(chosen)
+    given = list(division)
+    for g, spec in enumerate(specs):
+        total = divide_total(spec, x)
+        if total is None or not out.groups[g]:
+            out.division.append([])
+            continue
+        n = len(out.groups[g])
+        if n == 1:
+            out.division.append([total])  # one target: all of it (601.2d)
+            continue
+        if not given:
+            out.ask = ("divide", g, total)
+            return out
+        amounts, given = given[:n], given[n:]
+        if len(amounts) != n or any(a < 1 for a in amounts) or sum(amounts) != total:
+            raise ActionError(f"Divide {total} among the {n} targets: at least 1 each, {total} in all")
+        out.division.append(amounts)
+    if given:
+        raise ActionError("That division doesn't match the targets")
+    return out
 
 
 def source_of(plan: Plan, card_id: str | None) -> Characteristics | None:

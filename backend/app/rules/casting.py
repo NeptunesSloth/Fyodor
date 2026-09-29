@@ -24,17 +24,17 @@ from app.game.rules_state import (
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import attachments, scripts
+from app.rules import attachments, cost_payment, scripts
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
 from app.rules import payment as P
 from app.rules.characteristics import CardInfo, Characteristics
-from app.rules.costs import AbilityCost, parse_ability_cost
+from app.rules.costs import AbilityCost, kicker_cost, parse_ability_cost
 from app.rules.oracle import AbilityText
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
+from app.rules.targets import choose_groups, legal_targets, source_of
 from app.rules.targets import label as target_label
-from app.rules.targets import legal_targets, source_of
 from app.rules.targets import ref as target_ref
 
 MAIN_PHASES = ("main1", "main2")
@@ -172,7 +172,7 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
             continue
         if parsed.extra_cost:
             extra = parse_ability_cost(parsed.extra_cost, card_name=ch.name)
-            if extra.unsupported or (extra.life and state.players[card.controller].life < extra.life) or \
+            if not extra.basic or (extra.life and state.players[card.controller].life < extra.life) or \
                     any(card.counters.get(k, 0) < n for k, n in extra.remove_counters):
                 continue
         options = _resolve_options(state, card, parsed, info)
@@ -332,7 +332,7 @@ def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: di
     spec = definition.get("target") if definition else None
     if not spec:
         return []
-    legal = [t for t in legal_targets(plan, spec["what"], plan.actor, source_of(plan, a.card_id)) if t not in exclude]
+    legal = [t for t in legal_targets(plan, spec["what"], plan.actor, source_of(plan, a.card_id), a.card_id) if t not in exclude]
     if a.targets:
         if len(a.targets) != 1 or a.targets[0] not in legal:
             raise ActionError("That isn't a legal target")
@@ -343,6 +343,87 @@ def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: di
            options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
            resume={"step": "cast_target", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
     return None
+
+
+@dataclass
+class ChosenTargets:
+    """The targets of a spell or ability as it's put on the stack: all of them (``flat``), and for
+    one with target groups, each group's and each divided group's division (601.2c-d)."""
+
+    flat: list[TargetRef]
+    groups: list[list[TargetRef]] | None = None
+    specs: list[dict[str, Any]] | None = None
+    division: list[list[int]] | None = None
+
+    def entry(self, definition: dict[str, Any] | None) -> dict[str, Any]:
+        """The StackEntry fields for them."""
+        if self.specs is None:
+            return {"targets": self.flat, "target_spec": (definition or {}).get("target")}
+        return {"targets": self.flat, "target_spec": None, "groups": self.groups, "group_specs": self.specs,
+                "division": self.division}
+
+
+def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any] | None, what: str,
+                   *, exclude: tuple[str, ...] = ()) -> ChosenTargets | None:
+    """All targets of an automated spell or ability (601.2c-d): one plain "target", or target
+    groups. None while waiting for a choice."""
+    if not definition or not definition.get("targets"):
+        chosen = choose_target(plan, a, definition, what, exclude=exclude)
+        return None if chosen is None else ChosenTargets(flat=chosen)
+    specs = scripts.target_groups(definition)
+    found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id), a.card_id, list(a.targets),
+                          list(a.target_counts), list(a.division), a.x_value, what, exclude)
+    if found.ask is not None:
+        ask_targets(plan, plan.actor, found, specs, what,
+                    {"step": "cast_group", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
+                     "counts": found.counts})
+        return None
+    groups = [[target_ref(plan, t) for t in g] for g in found.groups]
+    return ChosenTargets(flat=[t for g in groups for t in g], groups=groups, specs=specs, division=found.division)
+
+
+def ask_targets(plan: Plan, player: str, found: Any, specs: list[dict[str, Any]], what: str, resume: dict[str, Any]) -> None:
+    """The next missing choice of a spell or ability with target groups, asked privately: a
+    group's targets (601.2c), or a division (601.2d; answered with amounts, one per target)."""
+    many = len(specs) > 1
+    if found.ask[0] == "group":
+        _, g, options, lo, hi = found.ask
+        count = str(lo) if lo == hi else f"up to {hi}" if lo == 0 else f"{lo} to {hi}"
+        decide(plan, player=player, kind="choose_cards",
+               prompt=f"Choose {count} target{'s' if hi != 1 else ''} for {what}" + (f" (group {g + 1} of {len(specs)})" if many else ""),
+               options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None)
+                        for x in options],
+               min_choices=lo, max_choices=hi, resume=resume)
+        return
+    _, g, total = found.ask
+    chosen = found.groups[g]
+    noun = "damage" if specs[g]["divide"]["what"] == "damage" else "counters"
+    decide(plan, player=player, kind="divide", prompt=f"Divide {total} {noun} among the targets of {what} (at least 1 each)",
+           options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None)
+                    for x in chosen],
+           min_choices=len(chosen), max_choices=len(chosen), display={"kind": "divide", "total": total, "what": noun},
+           resume={**resume, "step": resume["step"].replace("group", "divide"), "total": total})
+
+
+def resume_cast_group(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.engine import INTENTS  # the engine imports this module
+
+    intent = A.parse_action(d.resume["intent"])
+    intent.targets = [*intent.targets, *chosen]  # type: ignore[union-attr]
+    intent.target_counts = [*d.resume["counts"], len(chosen)]  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
+
+
+def resume_cast_divide(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.engine import INTENTS  # the engine imports this module
+
+    intent = A.parse_action(d.resume["intent"])
+    intent.division = [*intent.division, *(int(c) for c in chosen)]  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
 
 
 def _controls_commander(plan: Plan, player: str) -> bool:
@@ -359,7 +440,7 @@ def choose_modes(plan: Plan, a: A.CastSpell, definition: dict[str, Any], what: s
         hi = 2  # "If you control a commander as you cast this spell, you may choose both instead."
     src = source_of(plan, a.card_id)
     allowed = [i for i, m in enumerate(modes)
-               if not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src)]
+               if not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, a.card_id)]
     if a.modes:
         if not lo <= len(a.modes) <= hi:
             raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}")
@@ -401,7 +482,7 @@ def choose_slot_targets(plan: Plan, a: A.CastSpell, specs: list[dict[str, Any] |
     for n, k in enumerate(need):
         spec = specs[k]
         assert spec is not None
-        legal = legal_targets(plan, spec["what"], plan.actor, src)
+        legal = legal_targets(plan, spec["what"], plan.actor, src, a.card_id)
         if n < len(a.targets):
             if a.targets[n] not in legal:
                 raise ActionError("That isn't a legal target")
@@ -967,7 +1048,7 @@ def from_command_zone(card: CardInstance, player: str) -> bool:
 
 
 def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, *,
-                 check_priority: bool = True) -> str | None:
+                 check_priority: bool = True, info: CardInfo | None = None) -> str | None:
     """Why ``player`` can't cast ``card`` right now (costs aside), or None."""
     r = state.rules
     if r is None:
@@ -980,6 +1061,9 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
         return "Fyodor doesn't know what that card is. Use the table tools."
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
+    if "Legendary" in ch.supertypes and ch.is_instant_or_sorcery and not _controls_legendary(state, player, info):
+        # 205.4e: a legendary instant or sorcery needs a legendary creature or planeswalker
+        return f"{ch.name} needs you to control a legendary creature or planeswalker"
     if "Instant" in ch.types or ch.has_flash:
         return None
     if state.turn.active_player != player:
@@ -989,6 +1073,21 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     if state.zones.get(STACK):
         return f"{ch.name} can only be cast while the stack is empty"
     return None
+
+
+def _controls_legendary(state: GameState, player: str, info: CardInfo | None) -> bool:
+    if info is None:
+        return False  # (can't tell: refuse rather than allow a cast the rules forbid)
+    from app.rules.layers import derive
+
+    for cid in state.zones.get(zone_key(player, "battlefield"), []):
+        card = state.cards[cid]
+        if card.controller != player:
+            continue
+        ch = derive(state, card, chars.of(card, info), info)
+        if "Legendary" in ch.supertypes and (ch.is_creature or "Planeswalker" in ch.types):
+            return True
+    return False
 
 
 AFFINITY = re.compile(r"^affinity for (?P<what>[a-z ]+)$", re.IGNORECASE)
@@ -1047,7 +1146,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
     faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
     for face in faces:
         ch = chars.as_cast(card, info, face)
-        if cast_problem(state, player, card, ch, check_priority=check_priority) is None and \
+        if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is None and \
                 can_pay(state, player, spell_cost(state, card, ch, info=info), info, purpose=Purpose(spell=ch, card=card.id)):
             return True
     return False
@@ -1068,7 +1167,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if morph_cost(ch) is None or card.zone != zone_key(plan.actor, "hand"):
             raise ActionError("Only a card with morph can be cast face down from your hand")
         ch = FACE_DOWN
-    problem = cast_problem(plan.state, plan.actor, card, ch)
+    problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info)
     if problem:
         raise ActionError(problem)
     base = M.parse_cost(ch.mana_cost)
@@ -1092,6 +1191,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if dash is None or card.zone != zone_key(plan.actor, "hand"):
             raise ActionError("Only a card with dash can be cast for its dash cost from your hand")
         cost = M.parse_cost(dash)
+    if a.kicker:  # 702.33a / 601.2f: the kicker cost is an additional cost (118.8), added to the total
+        cost = cost_with_kicker(ch, cost, a.kicker, face_down=a.face_down)
     for target in a.targets:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
@@ -1110,11 +1211,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if found is None:
             return
         slots = found
-        chosen: list[TargetRef] | None = [t for slot in slots for t in slot]
+        picked_targets: ChosenTargets | None = ChosenTargets(flat=[t for slot in slots for t in slot])
     else:
-        chosen = choose_target(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
-    if chosen is None:
+        picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+    if picked_targets is None:
         return  # waiting for the target choice (601.2c comes before paying costs)
+    chosen = picked_targets.flat
     if payment_step(plan, a, cost, ch.name or "it", purpose=Purpose(spell=ch)):
         return
     commander_cast = from_command_zone(card, plan.actor)
@@ -1131,11 +1233,14 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name or 'a face-down spell'}")
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else \
         "flashback" if flashback else None
-    record.additional = ["buyback"] if a.buyback else []
+    record.additional = (["buyback"] if a.buyback else []) + (["kicker"] if a.kicker else [])
+    record.kicked = a.kicker  # 702.33d
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else ["Dashed"] if a.dash else []
     if a.dash:
         plan.rules.dashed.append(card.id)
+    if a.kicker:
+        tags.append("Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}")
     if a.buyback:
         tags.append("Buyback")
         plan.rules.buyback.append(plan.oid(card))
@@ -1166,11 +1271,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
                             for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
-                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs)
+                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=a.kicker)
     elif definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
-                                      name=ch.name, effects=list(definition["effects"]), targets=chosen,
-                                      target_spec=definition.get("target"), x=a.x_value)
+                                      name=ch.name, effects=list(definition["effects"]), x=a.x_value,
+                                      **picked_targets.entry(definition), kicked=a.kicker)
     if aura is not None and chosen:
         r.aura_targets = {k: v for k, v in r.aura_targets.items() if plan.state.cards.get(k) is not None
                           and plan.state.cards[k].zone == STACK}
@@ -1284,7 +1389,7 @@ def suspend_info(ch: Characteristics, index: int) -> tuple[int, str] | None:
 def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int, cost_text: str) -> None:
     """702.62a: a special action — whenever you could begin to cast it, pay the suspend cost and
     exile it with N time counters. It doesn't use the stack."""
-    problem = cast_problem(plan.state, plan.actor, card, ch)
+    problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info)
     if problem:
         raise ActionError(problem)
     cost = M.parse_cost(cost_text)
@@ -1304,6 +1409,20 @@ MADNESS = re.compile(r"^madness (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 BUYBACK = re.compile(r"^buyback (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 EVOKE = re.compile(r"^evoke (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 DASH = re.compile(r"^dash (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def cost_with_kicker(ch: Characteristics, cost: M.ManaCost, times: int, *, face_down: bool = False) -> M.ManaCost:
+    """702.33a / 702.33c: pay the kicker cost ``times`` times on top of the total cost (601.2f). It's
+    an additional cost (118.8): the spell's mana cost and mana value don't change (118.8d)."""
+    kick = None if face_down else kicker_cost(ch.abilities)  # (a face-down spell has no abilities, 708.2)
+    if kick is None:
+        raise ActionError(f"{ch.name or 'That spell'} has no kicker cost Fyodor can pay: kick it by hand with the table tools")
+    if times > 1 and not kick.multi:
+        raise ActionError(f"{ch.name} can be kicked only once")  # (multikicker: any number of times, 702.33c)
+    extra = M.parse_cost(kick.cost)
+    return M.ManaCost(cost.generic + extra.generic * times, cost.colored + extra.colored * times,
+                      cost.hybrid + extra.hybrid * times, cost.phyrexian + extra.phyrexian * times, cost.x,
+                      cost.unsupported + extra.unsupported * times)
 
 
 def keyword_cost(ch: Characteristics, word: str, pattern: re.Pattern[str], index: int | None = None) -> str | None:
@@ -1405,11 +1524,13 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     from app.rules.engine import advance  # the engine imports this module
 
     r = plan.rules
+    if a.kicker:
+        raise ActionError("Kick a spell cast this way by hand, with the table tools")
     if card.id not in r.free_casts or card.zone != zone_key(card.owner, "exile") or card.owner != plan.actor:
         raise ActionError("You can't cast that without paying its mana cost now")
     definition = None if plan.manual(card) else scripts.spell_definition(ch)
-    chosen = choose_target(plan, a, definition, ch.name or "it")
-    if chosen is None:
+    picked_targets = choose_targets(plan, a, definition, ch.name or "it")
+    if picked_targets is None:
         return  # waiting for the target choice; the grant stays
     alt = r.alt_costs.get(card.id)
     if alt is not None:  # madness: pay that cost instead of the mana cost
@@ -1441,8 +1562,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         _cascade_triggers(plan, card, ch)
     if definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
-                                      name=ch.name, effects=list(definition["effects"]), targets=chosen,
-                                      target_spec=definition.get("target"), x=a.x_value)
+                                      name=ch.name, effects=list(definition["effects"]), x=a.x_value,
+                                      **picked_targets.entry(definition))
     turn = plan.state.turn.number
     r.spells_cast[plan.actor] = TurnCount(turn=turn, count=r.spells_this_turn(plan.actor, turn) + 1)
     r.passed = []
@@ -1485,6 +1606,11 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if card.zone == zone_key(plan.actor, "graveyard") and card.owner == plan.actor:
         ch = plan.ch(card)
         unearth_cost = keyword_cost(ch, "unearth", UNEARTH, a.ability)
+        ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+        if unearth_cost is None and ability is not None and ability.kind == "activated" and \
+                ability_cost(ch, ability).from_graveyard:  # 113.6m: "Exile this card from your graveyard: …"
+            activate_to_stack(plan, card, ch, ability, a)
+            return
         if unearth_cost is None:
             raise ActionError("That card has no ability to use from your graveyard")
         unearth(plan, card, ch, a, unearth_cost)
@@ -1597,7 +1723,10 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     r = state.rules
     if r is None:
         return "Rules automation is off"
-    if card.controller != player or not card.zone.endswith(":battlefield"):
+    if cost.from_graveyard:  # 113.6m: its cost moves it out of your graveyard, so it works only there
+        if card.zone != zone_key(player, "graveyard") or card.owner != player:
+            return "That ability can only be activated from your graveyard"
+    elif card.controller != player or not card.zone.endswith(":battlefield"):
         return "You can only activate abilities of permanents you control"
     if cost.unsupported:
         return f"Pay “{', '.join(cost.unsupported)}” by hand with the table tools"
@@ -1623,6 +1752,10 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
             return f"{ch.name} doesn't have {n} {kind} counter{'s' if n != 1 else ''}"
     if cost.life and state.players[player].life < cost.life:
         return f"You don't have {cost.life} life to pay"
+    if info is not None and cost.components:  # 118.3: untap, sacrifice, discard, exile … (cost_payment)
+        found = cost_payment.problem(Plan.view(state, player, info), cost, card, player)
+        if found:
+            return found
     if info is not None and cost.mana:
         mana = M.parse_cost(cost.mana).with_x(x)
         if not can_pay(state, player, mana, info, exclude=(card.id,) if cost.tap else (), purpose=Purpose(ability_of=ch)):
@@ -1655,19 +1788,29 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         raise ActionError(problem)
     oid = plan.oid(card)  # the object activating (paying a cost may move it: it'd be a new object)
     mana = M.parse_cost(cost.mana)
-    if mana.x and a.x_value is None:
+    if (mana.x or cost.loyalty_x) and a.x_value is None:
         raise ActionError("Choose a value for X")
+    if cost.loyalty_x and card.counters.get("loyalty", 0) < (a.x_value or 0):
+        raise ActionError(f"{ch.name} doesn't have {a.x_value} loyalty")  # 606.6
     if definition is None:
         definition = None if plan.manual(card) else scripts.definitions(ch).get(ability.index)
     if definition is not None and definition["kind"] != "activated":
         definition = None
     if exclude_targets and set(a.targets) & set(exclude_targets):
         raise ActionError(f"{ch.name} can't target itself")
-    chosen = choose_target(plan, a, definition, f"{ch.name}’s ability", exclude=exclude_targets)
-    if chosen is None:
+    picked_targets = choose_targets(plan, a, definition, f"{ch.name}’s ability", exclude=exclude_targets)
+    if picked_targets is None:
         return
+    chosen = picked_targets.flat
+    problem = cost_payment.problem(plan, cost, card, plan.actor)  # 118.3 / 601.2h: nothing is paid unless all can be
+    if problem:
+        raise ActionError(problem)
+    cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)
+    if cost_objects is None:
+        return  # waiting for the payer's choice; nothing has been paid
+    not_mana = cost_payment.excluded(cost, card, cost_objects)  # (they can't also tap for mana)
     if payment_step(plan, a, mana.with_x(a.x_value or 0), f"{ch.name}’s ability",
-                    exclude=(card.id,) if cost.tap else (), purpose=Purpose(ability_of=ch)):
+                    exclude=not_mana, purpose=Purpose(ability_of=ch)):
         return
     effect = ability.text.split(":", 1)[1].strip() if ":" in ability.text else ability.text
     created = plan.do({"type": "create_ability", "text": effect[:500], "source_id": card.id, "kind": "activated"})
@@ -1676,16 +1819,21 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     # Pay the costs (602.2): tap first so the source can't also pay for its own mana cost.
     if cost.tap:
         plan.do({"type": "tap", "card_ids": [card.id], "tapped": True})
-    if cost.loyalty:
-        plan.do({"type": "counter", "card_ids": [card.id], "kind": "loyalty", "delta": cost.loyalty})
+    if cost.loyalty or (cost.loyalty_x and a.x_value):
+        delta = cost.loyalty if not cost.loyalty_x else -(a.x_value or 0)
+        plan.do({"type": "counter", "card_ids": [card.id], "kind": "loyalty", "delta": delta})
     for kind, n in cost.remove_counters:
         plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n})
     if cost.life:
         plan.do({"type": "life", "player": plan.actor, "delta": -cost.life})
-    pay(plan, plan.actor, mana.with_x(a.x_value or 0), f"paid {mana.with_x(a.x_value or 0).text()} to activate {ch.name}",
-        sources=a.sources, exclude=(card.id,) if cost.tap else (), purpose=Purpose(ability_of=ch))
-    if cost.sacrifice_self:
-        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "graveyard"}})
+    paid = pay(plan, plan.actor, mana.with_x(a.x_value or 0), f"paid {mana.with_x(a.x_value or 0).text()} to activate {ch.name}",
+               sources=a.sources, exclude=not_mana, purpose=Purpose(ability_of=ch))
+    record = PaymentRecord(card=ability_id or card.id, controller=plan.actor, total_cost=ability.cost or "",
+                           mana_spent=dict(paid.spent) if paid else {}, life=cost.life + (paid.life if paid else 0),
+                           tapped=list(paid.tapped) if paid else [], x=a.x_value)
+    cost_payment.pay(plan, cost, card, cost_objects, record)  # sacrifice, discard, exile, return, tap others …
+    if ability_id and (record.sacrificed or record.discarded or record.exiled or record.returned or record.tapped_for_cost):
+        record_payment(plan, ability_id, record)  # ("the sacrificed creature" …: what paid for it)
     if a.x_value is not None and ability_id:
         plan.do({"type": "set_stack_info", "card_id": ability_id, "x": a.x_value})
     if a.targets and ability_id:
@@ -1693,8 +1841,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     r = plan.rules
     if definition is not None and ability_id:
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
-                                         name=ch.name, effects=list(definition["effects"]), targets=chosen,
-                                         target_spec=definition.get("target"), x=a.x_value)
+                                         name=ch.name, effects=list(definition["effects"]), x=a.x_value,
+                                         **picked_targets.entry(definition))
     if chosen and ability_id:
         from app.rules.triggers import targeted
 
@@ -1730,6 +1878,14 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                 if problem is None:
                     out.append({"card_id": cid, "ability": ab.index})
             elif ab.kind == "keywords" and _can_crew(state, player, card, ch, ab.index, info, check_priority):
+                out.append({"card_id": cid, "ability": ab.index})
+    for cid in state.zones.get(zone_key(player, "graveyard"), []):  # 113.6m: "Exile this card from your graveyard: …"
+        card = state.cards[cid]
+        ch = chars.of(card, info)
+        for ab in ch.abilities:
+            if ab.kind == "activated" and "graveyard" in (ab.cost or "") and ability_cost(ch, ab).from_graveyard and \
+                    ability_problem(state, player, card, ch, ab, ability_cost(ch, ab), check_priority=check_priority,
+                                    info=info) is None:
                 out.append({"card_id": cid, "ability": ab.index})
     return out
 

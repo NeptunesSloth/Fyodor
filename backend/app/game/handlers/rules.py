@@ -116,8 +116,17 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
     for pid, n in a.poison.items():  # infect: poison counters instead of life loss
         p = state.players[pid]
         p.resources["poison"] = p.resources.get("poison", 0) + n
-    for pid, n in a.lifelink.items():
+    # Lifelink (702.15b, e): each source with lifelink causes its own life gain event (119.9), so
+    # "whenever you gain life" triggers once per source. Keyed by the source card (its controller
+    # gains); a player key is one gain for that player (older recordings, one noncombat source).
+    gained: dict[str, int] = {}
+    for key, n in a.lifelink.items():
+        source = state.cards.get(key)
+        pid = key if key in state.players else source.controller if source is not None else ""
+        if pid not in state.players or n <= 0:
+            continue
         change_life(state, pid, state.players[pid].life + n)
+        gained[pid] = gained.get(pid, 0) + n
     parts = [text("First-strike combat damage: " if a.first_strike else "Combat damage: " if a.combat else "Damage: ")]
     pieces: list[list[LogPart]] = [[ops.pname(state, pid), text(f" takes {n}")] for pid, n in a.players.items()]
     pieces += [[ops.pname(state, pid), text(f" gets {n} poison")] for pid, n in a.poison.items()]
@@ -125,7 +134,7 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
         pieces.append([ops.group(state, hurt), text(" dealt damage")])
     if walkers:
         pieces.append([ops.group(state, walkers), text(" lose loyalty")])
-    pieces += [[ops.pname(state, pid), text(f" gains {n} life (lifelink)")] for pid, n in a.lifelink.items()]
+    pieces += [[ops.pname(state, pid), text(f" gains {n} life (lifelink)")] for pid, n in gained.items()]
     for i, piece in enumerate(pieces or [[text("none")]]):
         parts += ([text("; ")] if i else []) + piece
     log(state, a.actor, a.ts, parts, kind="combat")

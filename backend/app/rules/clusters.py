@@ -85,6 +85,17 @@ def _effect(body: str, name: str) -> tuple[str, str]:
     return EFFECT, " ".join(words).lower() + " …"
 
 
+def _trigger_understood(text: str) -> bool:
+    """Is the trigger condition read (a specific template, or the generic condition grammar)?"""
+    from app.rules import events
+
+    for pattern, name in scripts.TRIGGERS:
+        m = pattern.match(text)
+        if m:
+            return name != "event" or events.parse_condition(m["cond"]) is not None
+    return False
+
+
 def classify(feature_id: str, label: str, kind: str, name: str) -> tuple[str, str]:
     """(category, cluster) for one missing feature of a card."""
     if feature_id.startswith("keyword:"):
@@ -96,7 +107,7 @@ def classify(feature_id: str, label: str, kind: str, name: str) -> tuple[str, st
     text = scripts.self_text(label, name)
     tmpl = analysis.template(label, name)
     if kind == "triggered":
-        if not any(p.match(text) for p, _ in scripts.TRIGGERS):
+        if not _trigger_understood(text):
             cond = tmpl.split(",")[0]
             return TRIGGER, analysis.template(cond, name)
         return _effect(text.split(", ", 1)[1] if ", " in text else text, name)

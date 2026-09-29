@@ -116,7 +116,8 @@ def test_discard_to_hand_size_is_a_private_decision(s):
     mine = s.view("p1")["rules"]["decision"]
     theirs = s.view("p2")["rules"]["decision"]
     assert {o["card_id"] for o in mine["options"]} == set(hand)
-    assert "options" not in theirs and theirs["player"] == "p1" and "Discard 2" in theirs["prompt"]
+    assert "options" not in theirs and theirs["player"] == "p1" and theirs["kind"] == "waiting"
+    assert theirs["public"] == {"type": "PLAYER_MAKING_CHOICE", "chooser": "Alice"}  # only who is choosing
     bob_view = json.dumps(s.view("p2"))
     assert not any(cid in bob_view for cid in hand)  # Alice's hand stays hidden from Bob
     with pytest.raises(ActionError, match="Waiting for Alice"):

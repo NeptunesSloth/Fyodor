@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { PHASE_LABEL, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
-import { choose, delveCard, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana } from "./intents";
+import { choose, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana } from "./intents";
 import { GameCardFace } from "../GameCardFace";
 import { ManaText } from "../../cards/ManaText";
 import { useCardCache } from "../../state/cardCache";
@@ -241,7 +241,7 @@ export function DecisionPanel() {
   if (d.player !== me || !d.options) {
     return (
       <div className="decision-panel waiting" data-testid="decision-waiting">
-        {playerName(view, d.player)} is deciding: {d.prompt}
+        {d.public ? d.prompt : `${playerName(view, d.player)} is deciding: ${d.prompt}`}
       </div>
     );
   }
@@ -424,6 +424,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
     );
   }
   if (d.kind === "reconcile") return <Reconcile d={d} />;
+  if (d.kind === "divide") return <Divide d={d} view={view} />;
   // choose_cards
   return (
     <div className="decision-options">
@@ -431,16 +432,50 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
         <button key={o.id} className={`tt-btn ${picked.includes(o.id) ? "on" : "ghost"}`} data-testid={`option-${o.id}`}
           onClick={() => toggle(o.id)}>{optionLabel(o, view)}</button>
       ))}
-      <button className="tt-btn brass" data-testid="decision-done" disabled={picked.length < min || picked.length > max} onClick={() => done(picked)}>
-        Done{max > 1 ? ` (${picked.length})` : ""}
+      <button className="tt-btn brass" data-testid="decision-done" disabled={!canSubmitChoice(picked.length, min, max)} onClick={() => done(picked)}>
+        {doneLabel(picked.length, min, max)}
       </button>
     </div>
   );
 }
 
+/** A choose_cards answer is legal with min..max picks; min 0 lets an EMPTY answer through (a cost
+ * choice's "none to cancel", mana sources "pool only", "up to" choices). */
+export function canSubmitChoice(n: number, min: number, max: number): boolean {
+  return n >= min && n <= max;
+}
+
+export function doneLabel(n: number, min: number, max: number): string {
+  if (n === 0 && min === 0) return "Done (none)";
+  return `Done${max > 1 ? ` (${n})` : ""}`;
+}
+
 function optionLabel(o: DecisionOptionView, view: GameView): string {
   const c = o.card_id ? view.cards[o.card_id] : null;
   return c && !c.hidden && c.name ? c.name : o.label;
+}
+
+/** 601.2d: divide damage or counters among the chosen targets (at least 1 each, all of it). */
+function Divide({ d, view }: { d: DecisionView; view: GameView }) {
+  const options = d.options ?? [];
+  const total = Number(d.display?.total ?? 0);
+  const [amounts, setAmounts] = useState<number[]>(() => options.map((_, i) => (i === 0 ? total - options.length + 1 : 1)));
+  const sum = amounts.reduce((a, b) => a + b, 0);
+  const set = (i: number, v: number) => setAmounts((xs) => xs.map((x, k) => (k === i ? Math.max(1, v) : x)));
+  return (
+    <div className="decision-options">
+      {options.map((o, i) => (
+        <label key={o.id} className="decision-divide">
+          <span>{optionLabel(o, view)}</span>
+          <input type="number" min={1} max={total} value={amounts[i] ?? 1} data-testid={`divide-${o.id}`}
+            onChange={(e) => set(i, Number(e.target.value) || 1)} />
+        </label>
+      ))}
+      <button className="tt-btn brass" data-testid="decision-done" disabled={sum !== total} onClick={() => void divide(d.id, amounts)}>
+        Done ({sum}/{total})
+      </button>
+    </div>
+  );
 }
 
 function Reconcile({ d }: { d: DecisionView }) {

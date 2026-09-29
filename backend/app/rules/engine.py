@@ -30,6 +30,7 @@ from app.rules import (
     attachments,
     casting,
     combat,
+    cost_payment,
     coverage,
     effects,
     layers,
@@ -100,9 +101,11 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
 def begin(plan: Plan) -> None:
     """Before an intent: take in what happened by hand since the engine last acted (a land put
     onto the battlefield by hand still counts as the land for the turn), then start a fresh
-    event list. Expired remembered answers are dropped."""
+    event list (keeping events not yet collected for triggers). Expired remembered answers are dropped."""
     absorb_manual_events(plan)
-    plan.rules.events = []
+    # (keep what hasn't been looked at for triggers yet: a resolution that stopped for a
+    # decision may have left events its triggers still have to see, 603.2)
+    plan.rules.events = [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch and not e.manual]
     turn = plan.state.turn.number
     for prefs in plan.rules.prefs.values():
         prefs.yields = [y for y in prefs.yields if y.kind == "always_yield" or y.turn == turn]
@@ -573,10 +576,21 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
     if stack and stack[-1] == card_id:
         plan.do({"type": "resolve_top", "force": True, "tapped": tapped}, actor=controller)
         record = plan.rules.payments.pop(oid, None)
-        if record is not None and plan.state.cards[card_id].zone.endswith(":battlefield"):
+        if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
     else:  # (defensive: resolution never adds to the stack today)
         plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "graveyard"}}, actor=controller)
+
+
+def enter_with_loyalty(plan: Plan, card_id: str, ch: Characteristics, controller: str) -> None:
+    """306.5b: a planeswalker enters with its printed loyalty in loyalty counters, however it
+    enters (cast, put onto the battlefield, returned)."""
+    card = plan.state.cards.get(card_id)
+    if card is None or not card.zone.endswith(":battlefield") or "Planeswalker" not in ch.types:
+        return
+    loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else 0
+    if loyalty:
+        plan.do({"type": "counter", "card_ids": [card_id], "kind": "loyalty", "delta": loyalty}, actor=controller)
 
 
 def enter_with_counters(plan: Plan, card_id: str, ch: Characteristics, x: int | None, controller: str) -> None:
@@ -593,6 +607,10 @@ def enter_with_counters(plan: Plan, card_id: str, ch: Characteristics, x: int | 
     for d in scripts.definitions(ch).values():
         if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
             n = (x or 0) if d["n"] == "X" else int(d["n"])
+            if d.get("if_kicked") or d.get("per_kick"):  # 702.33e: how its spell was cast (the payment record)
+                record = r.payments.get(plan.oid(card_id))
+                kicked = record.kicked if record is not None else 0
+                n = 0 if d.get("if_kicked") and not kicked else n * kicked if d.get("per_kick") else n
             if n > 0:
                 plan.do({"type": "counter", "card_ids": [card_id], "kind": d["counter"], "delta": n}, actor=controller)
 
@@ -648,11 +666,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
         if entered_now is not None and entered_now.zone.endswith(":battlefield"):
             layers.add_effect(plan, affected=[plan.oid(top_id)], layer="6", source=None, controller=controller,
                               add_keywords=("haste",), duration="permanent", label="Haste (suspend)")
-    entered = plan.state.cards.get(top_id)
-    if entered is not None and entered.zone.endswith(":battlefield") and "Planeswalker" in ch.types:
-        loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else 0
-        if loyalty:
-            plan.do({"type": "counter", "card_ids": [top_id], "kind": "loyalty", "delta": loyalty}, actor=controller)
+    enter_with_loyalty(plan, top_id, ch, controller)
     if manual:
         resolved = plan.state.cards.get(top_id)
         if ch.is_ability:
@@ -753,7 +767,14 @@ def choose(plan: Plan, a: A.Choose) -> None:
         raise ActionError(f"It's {plan.name(d.player)}'s decision")
     chosen = list(a.option_ids)
     valid = {o.id for o in d.options}
-    if len(set(chosen)) != len(chosen) or not set(chosen) <= valid:
+    if d.kind == "divide":  # 601.2d: an amount per option (target), at least 1 each, adding up to the total
+        total = int((d.resume or {}).get("total", 0))
+        if chosen or len(a.amounts) != len(d.options) or any(n < 1 for n in a.amounts) or sum(a.amounts) != total:
+            raise ActionError(f"Divide {total} among the {len(d.options)} targets: at least 1 each, {total} in all")
+        chosen = [str(n) for n in a.amounts]
+    elif a.amounts:
+        raise ActionError("Amounts only answer a division")
+    elif len(set(chosen)) != len(chosen) or not set(chosen) <= valid:
         raise ActionError("Choose from the options offered")
     if d.kind == "reconcile":
         groups = {o.id: o.group for o in d.options}
@@ -920,8 +941,14 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "return_yours": effects.resume_return_yours,
     "explore": effects.resume_explore,
     "aura_enters": attachments.resume_aura_enters,
+    "sacrifice_choice": effects.resume_sacrifice_choice,
+    "pick_looked": effects.resume_pick_looked,
     "cast_modes": casting.resume_cast_modes,
     "cast_slot_target": casting.resume_cast_slot_target,
+    "cast_group": casting.resume_cast_group,
+    "cast_divide": casting.resume_cast_divide,
+    "trigger_group": triggers.resume_group,
+    "trigger_divide": triggers.resume_divide,
     "fabricate": effects.resume_fabricate,
     "storm": effects.resume_storm,
     "shock": lambda plan, d, chosen: _resume_shock(plan, d, chosen),
@@ -934,6 +961,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "cleanup_discard": _resume_cleanup_discard,
     "mana_ability": casting.resume_mana_ability,
     "crew": casting.resume_crew,
+    "ability_cost": cost_payment.resume_choice,
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
 }

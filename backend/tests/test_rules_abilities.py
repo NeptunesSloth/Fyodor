@@ -7,7 +7,7 @@ import json
 import pytest
 
 from app.game.errors import ActionError
-from tests.game_helpers import act, find, turn_on
+from tests.game_helpers import act, find, turn_on, zone
 from tests.test_rules_combat import table
 
 
@@ -45,10 +45,14 @@ def test_loyalty_abilities(cards):
     to_main(s)
     with pytest.raises(ActionError, match="enough loyalty"):
         act(s, "p1", type="activate_ability", card_id=walker.id, ability=1)
+    hand = len(zone(s.state, "p1", "hand"))
     act(s, "p1", type="activate_ability", card_id=walker.id, ability=0)
     assert s.state.cards[walker.id].counters["loyalty"] == 4
-    d = s.state.rules.decision
-    act(s, "p1", type="choose", decision_id=d.id, option_ids=["done"])
+    for _ in range(4):  # (the +1 is automated now: it goes on the stack and resolves)
+        if not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert len(zone(s.state, "p1", "hand")) == hand + 1
     with pytest.raises(ActionError, match="already used a loyalty ability"):
         act(s, "p1", type="activate_ability", card_id=walker.id, ability=0)
 
@@ -68,7 +72,7 @@ def test_mana_and_sacrifice_costs(cards):
 def test_costs_and_timing_the_engine_cannot_handle_are_refused(cards):
     s = table(cards)
     odd = token(s, "p1", "Oddity", "Token Artifact",
-                "Discard a card: Scry 1.\n{T}: Draw a card. Activate only as a sorcery.")
+                "Exile the top card of your library: Scry 1.\n{T}: Draw a card. Activate only as a sorcery.")
     to_main(s)
     with pytest.raises(ActionError, match="by hand"):
         act(s, "p1", type="activate_ability", card_id=odd.id, ability=0)
