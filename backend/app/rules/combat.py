@@ -271,6 +271,11 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
     for decl in a.blocks:
         plan.do({"type": "block", "card_id": decl.blocker_id, "attacker_id": decl.attacker_id})
     r.blocked = list(dict.fromkeys([*r.blocked, *per_attacker]))
+    if a.blocks:
+        from app.rules import triggers  # triggers → plan; imported late
+
+        triggers.blocked(plan, [plan.state.cards[d.blocker_id] for d in a.blocks],
+                         [plan.state.cards[aid] for aid in per_attacker])
     if not a.blocks:
         plan.note(f"{plan.name(plan.actor)} doesn't block")
     ask_next_blocker(plan)
@@ -421,6 +426,14 @@ def deal_combat_damage(plan: Plan, rnd: Round) -> None:
                    "target_object": plan.oid(tgt) if tgt in plan.state.cards else None} for src, tgt, n in dmg.dealt],
     }, actor=plan.active)
     plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *dmg.deathtouched]))
+    for pid in [*dmg.players, *dmg.poison]:
+        plan.rules.damaged[pid] = plan.state.turn.number
+    hit_players = [plan.state.cards[src] for src, tgt, n in dmg.dealt
+                   if tgt in plan.state.players and n > 0 and src in plan.state.cards]
+    if hit_players:
+        from app.rules import triggers  # triggers → plan; imported late
+
+        triggers.dealt_combat_damage_to_player(plan, list({c.id: c for c in hit_players}.values()))
     monarch = plan.state.table.monarch
     if monarch and (dmg.players.get(monarch) or dmg.poison.get(monarch)):
         from app.rules import triggers  # triggers → plan; imported late

@@ -293,6 +293,11 @@ def _blink(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "blink", "who": "target", "under": "you" if m["under"] == "your" else "owner"}], SELECTORS[m["sel"]]
 
 
+@effect(r"return {N} (?P<what>lands?|creatures?) you control to (?:its|their) owner's hands?")
+def _return_yours(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "return_yours", "n": num(m["n"]), "what": "land" if m["what"].startswith("land") else "creature"}], None
+
+
 @effect(r"activate only once each turn")
 def _once_each_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [], None  # an activation restriction (enforced by casting.ability_problem), not an effect

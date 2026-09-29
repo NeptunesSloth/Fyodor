@@ -216,6 +216,44 @@ def _echo(plan: Plan) -> None:
                                      "effects": [{"do": "pay_or_sacrifice", "cost": cost}]})
 
 
+def _keyword_n(ch: Any, word: str) -> list[int]:
+    """The N of each instance of a numbered keyword ("Bushido 2", "Renown 1") on the card."""
+    out = []
+    for ab in ch.abilities:
+        if ab.kind == "keywords" and word in ab.keywords:
+            for piece in re.split(r"[,;]\s*", ab.text):
+                m = re.fullmatch(rf"{word} (\d+)", piece.strip().rstrip(".").lower())
+                if m:
+                    out.append(int(m.group(1)))
+    return out
+
+
+def blocked(plan: Plan, blockers: list[CardInstance], attackers: list[CardInstance]) -> None:
+    """702.45 bushido N: "Whenever this creature blocks or becomes blocked, it gets +N/+N until
+    end of turn." (Once per creature per combat, however many creatures it blocks or is blocked by.)"""
+    for card in {c.id: c for c in [*blockers, *attackers]}.values():
+        if plan.manual(card):
+            continue
+        ch = plan.ch(card)
+        for k, n in enumerate(_keyword_n(ch, "bushido")):
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+                 index=4000 + k, definition={"kind": "triggered", "trigger": "bushido", "optional": False, "target": None,
+                                             "effects": [{"do": "pump", "who": "self", "p": n, "t": n}]})
+
+
+def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> None:
+    """702.112 renown N: "When this creature deals combat damage to a player, if it isn't renowned,
+    put N +1/+1 counters on it and it becomes renowned." (Checked again on resolution.)"""
+    for card in sources:
+        if plan.manual(card) or plan.oid(card) in plan.rules.renowned:
+            continue
+        ch = plan.ch(card)
+        for k, n in enumerate(_keyword_n(ch, "renown")):
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+                 index=4100 + k, definition={"kind": "triggered", "trigger": "renown", "optional": False, "target": None,
+                                             "effects": [{"do": "renown", "n": n}]})
+
+
 def attacked(plan: Plan, attackers: list[CardInstance]) -> None:
     if len(attackers) == 1:
         _exalted(plan, attackers[0])

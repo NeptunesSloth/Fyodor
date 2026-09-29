@@ -147,7 +147,7 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
         subtypes=changeling(subtypes, abilities),
         mana_cost=cost,
         mana_value=mana_value(cost),
-        colors=frozenset(colors or []),
+        colors=frozenset() if _devoid(abilities) else frozenset(colors or []),
         power=src.get("power"),
         toughness=src.get("toughness"),
         loyalty=src.get("loyalty"),
@@ -155,6 +155,11 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
         abilities=abilities,
         oracle_id=data.get("oracle_id"),
     )
+
+
+def _devoid(abilities: tuple[AbilityText, ...]) -> bool:
+    """702.114a devoid: "This object is colorless" (a characteristic-defining ability, every zone)."""
+    return any(a.kind == "keywords" and "devoid" in a.keywords for a in abilities)
 
 
 def changeling(subtypes: frozenset[str], abilities: tuple[AbilityText, ...]) -> frozenset[str]:
@@ -220,7 +225,7 @@ def of(card: CardInstance, info: CardInfo) -> Characteristics:
         abilities = with_intrinsic_mana(parse_abilities(t.text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
         return Characteristics(
             name=t.name, supertypes=supertypes, types=types, subtypes=changeling(subtypes, abilities),
-            colors=frozenset(t.colors), power=t.power, toughness=t.toughness, oracle_text=t.text, abilities=abilities,
+            colors=frozenset() if _devoid(abilities) else frozenset(t.colors), power=t.power, toughness=t.toughness, oracle_text=t.text, abilities=abilities,
         )
     data = info.get(card.card_id) if card.card_id else None
     if data is None:

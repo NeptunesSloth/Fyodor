@@ -117,6 +117,8 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True
     total = n * len(dealt)
     infect = "infect" in keywords
+    for pid in players:
+        plan.rules.damaged[pid] = plan.state.turn.number
     plan.do({"type": "rules_damage", "creatures": creatures, "players": {} if infect else {p: n for p in players},
              "poison": {p: n for p in players} if infect else {}, "wither": withered, "planeswalkers": walkers,
              "lifelink": {ctx["controller"]: total} if "lifelink" in keywords else {}, "combat": False,
@@ -290,6 +292,45 @@ def animate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def renown(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """702.112: if it isn't renowned, N +1/+1 counters and it becomes renowned."""
+    for cid in _cards(plan, ctx, "self"):
+        oid = plan.oid(cid)
+        if oid in plan.rules.renowned:
+            continue
+        plan.do({"type": "counter", "card_ids": [cid], "kind": "+1/+1", "delta": e["n"]}, actor=ctx["controller"])
+        plan.rules.renowned.append(oid)
+        _mark(plan, [cid], "Renowned")
+    return True
+
+
+def return_yours(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Return a land you control to its owner's hand" (bounce lands): a choice, not a target."""
+    pid = ctx["controller"]
+    pool = [c.id for c in plan.state.cards.values() if c.zone == zone_key(pid, "battlefield") and c.controller == pid
+            and plan.in_game(c) and (plan.ch(c).is_land if e["what"] == "land" else plan.ch(c).is_creature)]
+    n = min(e["n"], len(pool))
+    if n == 0:
+        return True
+    if n == len(pool):
+        _return_to_hands(plan, pool, pid)
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt=f"Return {n} {e['what']}{'s' if n != 1 else ''} you control to hand",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
+           min_choices=n, max_choices=n, resume={"step": "return_yours", "ctx": ctx})
+    return False
+
+
+def _return_to_hands(plan: Plan, ids: list[str], actor: str) -> None:
+    for cid in ids:
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "hand"}}, actor=actor)
+
+
+def resume_return_yours(plan: Plan, d: Any, chosen: list[str]) -> None:
+    _return_to_hands(plan, chosen, d.player)
+    continue_effects(plan, d.resume["ctx"])
+
+
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True  # read by destroy / destroy_all of the same spell or ability
 
@@ -426,7 +467,7 @@ PRIMITIVES = {
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
-    "animate": animate, "pay_or_sacrifice": pay_or_sacrifice,
+    "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours,
 }
 
 

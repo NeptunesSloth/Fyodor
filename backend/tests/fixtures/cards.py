@@ -222,5 +222,10 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Aerie Bowmasters", set_code="tst", number="L9", mana_cost="{2}{G}{G}", cmc=4.0, type_line="Creature — Hound Archer",
              oracle_text="Reach\nMegamorph {5}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its megamorph cost and put a +1/+1 counter on it.)",
              power="3", toughness="4", colors=["G"], color_identity=["G"]),
+        card("Stormblood Berserker", set_code="tst", number="M9", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Human Berserker",
+             oracle_text="Bloodthirst 2 (If an opponent was dealt damage this turn, this creature enters with two +1/+1 counters on it.)\nMenace",
+             power="1", toughness="1", colors=["R"], color_identity=["R"]),
+        card("Simic Growth Chamber", set_code="tst", number="N1", type_line="Land",
+             oracle_text="This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {G}{U}."),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

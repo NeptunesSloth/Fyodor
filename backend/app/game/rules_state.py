@@ -331,6 +331,8 @@ class RulesState(BaseModel):
     drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check
     deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
     regen_shields: dict[str, int] = Field(default_factory=dict)  # object id -> regeneration shields this turn
+    renowned: list[str] = Field(default_factory=list)  # rules objects that became renowned (702.112)
+    damaged: dict[str, int] = Field(default_factory=dict)  # player -> last turn they were dealt damage (bloodthirst)
     echo_done: list[str] = Field(default_factory=list)  # "<object>:<controller>" whose echo upkeep came
     flashback: list[str] = Field(default_factory=list)  # stack objects cast with flashback (exiled as they leave)
     # Combat bookkeeping; the attack/block markers on the table are the visible truth.

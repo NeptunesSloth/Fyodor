@@ -186,7 +186,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.111 | Menace | keyword ability | 382 | supported |
 | 702.112 | Renown | keyword ability | 20 | missing |
 | 702.113 | Awaken | keyword ability | 15 | missing |
-| 702.114 | Devoid | keyword ability | 132 | missing |
+| 702.114 | Devoid | keyword ability | 132 | supported |
 | 702.115 | Ingest | keyword ability | 9 | missing |
 | 702.116 | Myriad | keyword ability | 23 | missing |
 | 702.117 | Surge | keyword ability | 11 | missing |

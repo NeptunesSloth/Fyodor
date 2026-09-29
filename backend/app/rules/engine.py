@@ -18,6 +18,7 @@ automate, decisions, and conceding. Casting, abilities and combat arrive with mi
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -544,6 +545,12 @@ def enter_with_counters(plan: Plan, card_id: str, ch: Characteristics, x: int | 
     card = plan.state.cards.get(card_id)
     if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):
         return
+    r = plan.rules
+    bled = any(t == plan.state.turn.number for p, t in r.damaged.items() if p != card.controller)
+    for ab in ch.abilities:  # 702.54 bloodthirst N: if an opponent was dealt damage this turn
+        m = re.fullmatch(r"bloodthirst (\d+)", ab.text.strip().rstrip(".").lower()) if ab.kind == "keywords" else None
+        if m and bled:
+            plan.do({"type": "counter", "card_ids": [card_id], "kind": "+1/+1", "delta": int(m.group(1))}, actor=controller)
     for d in scripts.definitions(ch).values():
         if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
             n = (x or 0) if d["n"] == "X" else int(d["n"])
@@ -818,6 +825,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "search": effects.resume_search,
     "discard": effects.resume_discard,
     "pay_or_sacrifice": effects.resume_pay_or_sacrifice,
+    "return_yours": effects.resume_return_yours,
     "order_triggers": triggers.resume_order,
     "trigger_target": triggers.resume_target,
     "trigger_confirm": triggers.resume_confirm,
