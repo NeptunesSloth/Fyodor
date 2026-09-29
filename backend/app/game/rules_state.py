@@ -325,6 +325,7 @@ class RulesState(BaseModel):
     winner: str | None = None
     drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check
     deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
+    regen_shields: dict[str, int] = Field(default_factory=dict)  # object id -> regeneration shields this turn
     # Combat bookkeeping; the attack/block markers on the table are the visible truth.
     blocked: list[str] = Field(default_factory=list)  # attackers that became blocked (stay blocked)
     no_attackers: bool = False  # nobody attacked: skip blockers and damage (rule 508.8)

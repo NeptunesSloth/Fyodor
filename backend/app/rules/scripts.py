@@ -273,7 +273,14 @@ def _blink(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 
 @effect(r"(?:it|they) can't be regenerated")
 def _no_regeneration(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    return [], None  # the engine never regenerates (regeneration isn't automated), so this changes nothing
+    return [{"do": "no_regen"}], None  # the destruction of this spell/ability ignores regeneration shields
+
+
+@effect(r"regenerate (?P<who>~|it|target creature|target creature you control)")
+def _regenerate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if m["who"] in ("~", "it"):
+        return [{"do": "regenerate", "who": "self"}], None
+    return [{"do": "regenerate", "who": "target"}], SELECTORS[m["who"]]
 
 
 SEARCH_FILTERS = {"basic land card": "basic_land", "land card": "land", "creature card": "creature", "card": "any",

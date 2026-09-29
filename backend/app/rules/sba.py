@@ -202,6 +202,17 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
     if found.unattach:
         plan.do({"type": "detach", "card_ids": [c.id for c, _ in found.unattach]}, actor=found.unattach[0][0].controller)
         happened = True
+    if found.dying and r.regen_shields:  # 701.19: lethal damage destroys; a shield replaces that
+        from app.rules import regeneration
+
+        kept = []
+        for card, reason in found.dying:
+            if reason in ("lethal damage", "damage from a deathtouch source") and regeneration.shielded(plan, card):
+                regeneration.regenerate(plan, card)
+                happened = True
+            else:
+                kept.append((card, reason))
+        found.dying = kept
     if found.dying:
         # All of them die at once: one move, one event batch (704.3), with last known information.
         for card, reason in found.dying:

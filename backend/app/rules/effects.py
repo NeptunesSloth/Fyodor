@@ -16,7 +16,7 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption, StackEntry
 from app.game.state import zone_key
-from app.rules import layers, protection
+from app.rules import layers, protection, regeneration
 from app.rules.plan import Plan, decide
 from app.rules.targets import source_of, still_legal
 
@@ -143,8 +143,14 @@ def _mark(plan: Plan, cards: list[str], label: str) -> None:
         plan.do({"type": "add_effect", "card_ids": [cid], "name": label, "value": label, "text": "until end of turn"})
 
 
+def _can_regenerate(ctx: Context) -> bool:
+    """False when the spell or ability says "It/They can't be regenerated"."""
+    return not any(x.get("do") == "no_regen" for x in ctx.get("effects") or [])
+
+
 def destroy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     doomed = [c for c in _cards(plan, ctx, e["who"]) if "indestructible" not in plan.ch(plan.state.cards[c]).keywords]
+    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx))
     if doomed:
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
     return True
@@ -258,6 +264,18 @@ def resume_proliferate(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
+def regenerate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.19: "Regenerate ~" / "Regenerate target creature": a shield for this turn."""
+    for cid in _cards(plan, ctx, e["who"]):
+        regeneration.add_shield(plan, cid)
+        _mark(plan, [cid], "Regeneration shield")
+    return True
+
+
+def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    return True  # read by destroy / destroy_all of the same spell or ability
+
+
 def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """All at once: one move, one event batch (their dies triggers see each other leave)."""
     doomed = []
@@ -269,6 +287,7 @@ def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         hit = (not ch.is_land) if wanted == ["*nonland"] else bool(ch.types & set(wanted))
         if hit and "indestructible" not in ch.keywords:
             doomed.append(c.id)
+    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx))
     if doomed:
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
     return True
@@ -356,7 +375,7 @@ PRIMITIVES = {
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
-    "discard": discard,
+    "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
 }
 
 

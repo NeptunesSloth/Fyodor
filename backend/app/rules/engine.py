@@ -495,6 +495,7 @@ def finish_cleanup(plan: Plan) -> None:
         plan.do({"type": "cleanup", "what": ["damage"]}, actor=plan.active)
     if plan.rules.effects:
         layers.end_of_turn(plan)
+    plan.rules.regen_shields = {}  # regeneration shields last "this turn"
     for card in list(plan.state.cards.values()):
         for marker in [m for m in card.effects if m.text == "until end of turn"]:
             plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
