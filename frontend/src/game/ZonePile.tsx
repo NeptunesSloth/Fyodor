@@ -119,6 +119,25 @@ export function LibraryPile({ player, me, name }: { player: string; me: string; 
   );
 }
 
+/** Right-click menu of a face-up pile (graveyard, exile…). */
+export function pileMenu(player: string, zone: ZoneName, ids: string[]): MenuItem[] {
+  const label = LABEL[zone] ?? zone;
+  const open = () => useGame.getState().openBrowser({ zone: `${player}:${zone}`, title: label });
+  const items: MenuItem[] = [{ label: `View ${label.toLowerCase()} (${ids.length})`, onClick: open }];
+  if (ids.length) {
+    items.push({ label: "Shuffle into library", onClick: async () => {
+      if (await moveCards(ids, "library", { player })) void send({ type: "shuffle", player });
+    } });
+    items.push({ label: "Put all on bottom of library", onClick: () => void moveCards(ids, "library", { player, position: "bottom" }) });
+    if (zone !== "exile") items.push({ label: "Exile all", onClick: () => void moveCards(ids, "exile", { player }) });
+    if (zone !== "graveyard") items.push({ label: "Move all to graveyard", onClick: () => void moveCards(ids, "graveyard", { player }) });
+    items.push({ label: "Return all to hand", onClick: () => void moveCards(ids, "hand", { player }) });
+  }
+  return items;
+}
+
+export const PILE_LABEL = LABEL;
+
 /** Graveyard / exile / other face-up piles: shows the top card; click opens the zone browser. */
 export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
   const key = `${player}:${zone}`;
@@ -135,17 +154,7 @@ export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
       onClick={open}
       onContextMenu={(e) => {
         e.preventDefault();
-        const items: MenuItem[] = [{ label: `View ${label.toLowerCase()} (${ids.length})`, onClick: open }];
-        if (ids.length) {
-          items.push({ label: "Shuffle into library", onClick: async () => {
-            if (await moveCards(ids, "library", { player })) void send({ type: "shuffle", player });
-          } });
-          items.push({ label: "Put all on bottom of library", onClick: () => void moveCards(ids, "library", { player, position: "bottom" }) });
-          if (zone !== "exile") items.push({ label: "Exile all", onClick: () => void moveCards(ids, "exile", { player }) });
-          if (zone !== "graveyard") items.push({ label: "Move all to graveyard", onClick: () => void moveCards(ids, "graveyard", { player }) });
-          items.push({ label: "Return all to hand", onClick: () => void moveCards(ids, "hand", { player }) });
-        }
-        openMenu(e, items, `${label}`);
+        openMenu(e, pileMenu(player, zone, ids), `${label}`);
       }}
       onPointerDown={(e) => {
         if (e.button !== 0 || !topId) return;

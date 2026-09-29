@@ -6,6 +6,7 @@
  *
  * The stored data is versioned; `migrateProfiles` upgrades anything older.
  */
+import { DEFAULT_PLANE, type PlaneId } from "../theme/planes";
 import { create } from "zustand";
 
 export const PROFILE_VERSION = 2;
@@ -21,6 +22,12 @@ export interface Bookmark {
 }
 
 export interface Prefs {
+  /** Table theme (a Magic plane): environment, surface, lighting, ambience and UI accents. */
+  plane: PlaneId;
+  /** 3D table (three.js) or the flat 2D table. AUTO: 3D when WebGL works (see resolveRenderer). */
+  renderer: "auto" | "3d" | "2d";
+  /** Ambient environment audio (per theme). */
+  ambience: boolean;
   showTokenSources: boolean;
   hud: "full" | "minimal";
   uiScale: number;
@@ -52,6 +59,9 @@ export interface Profile {
 }
 
 export const DEFAULT_PREFS: Prefs = {
+  plane: DEFAULT_PLANE,
+  renderer: "auto",
+  ambience: true,
   showTokenSources: false,
   hud: "full",
   uiScale: 1,

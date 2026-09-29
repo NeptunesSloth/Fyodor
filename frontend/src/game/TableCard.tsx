@@ -2,11 +2,11 @@ import { usePrefs } from "../state/prefs";
 import { memo } from "react";
 import { openMenu } from "../components/ContextMenu";
 import { useGame, useCardView } from "../state/gameStore";
-import { FACE_DOWN_LABEL, isVisible, splitZone } from "../types/game";
-import { moveCards, send, tapCards, targetsFor } from "./actions";
+import { FACE_DOWN_LABEL, isVisible } from "../types/game";
+import { moveCards, tapCards, targetsFor } from "./actions";
+import { dropCards } from "./drop";
 import { cardMenu } from "./cardMenu";
-import { beginPointerDrag, type DropResult } from "./dnd";
-import { groupPositions } from "./geometry";
+import { beginPointerDrag } from "./dnd";
 import { CounterBadges, GameCardFace } from "./GameCardFace";
 import { answerByClick, legalClass } from "./rules/RulesHud";
 
@@ -40,27 +40,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
     }
     if (!store.selection.includes(id)) store.select([id]);
     const ids = targetsFor(id);
-    beginPointerDrag(e, { ids, from: card.zone, width, onDrop: (t) => onDrop(ids, t) });
-  };
-
-  const onDrop = (ids: string[], target: DropResult | null) => {
-    if (!target) return;
-    const view = useGame.getState().view;
-    if (!view) return;
-    const { zone } = splitZone(target.zone);
-    if (zone === "battlefield" && target.x != null && target.y != null) {
-      const same = target.zone === card.zone;
-      const positions = groupPositions(ids, id, { x: target.x, y: target.y }, view.cards, same);
-      useGame.getState().setPending(positions);
-      if (same) {
-        void send({ type: "set_position", moves: ids.map((cid) => [cid, ...positions[cid]!]) });
-      } else {
-        void moveCards(ids, "battlefield", { player: splitZone(target.zone).player, x: target.x, y: target.y });
-      }
-      return;
-    }
-    const player = splitZone(target.zone).player;
-    void moveCards(ids, zone, { player, position: target.position, index: target.index });
+    beginPointerDrag(e, { ids, from: card.zone, width, onDrop: (t) => dropCards(ids, id, t) });
   };
 
   return (

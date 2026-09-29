@@ -21,6 +21,8 @@ import { ResponseBar } from "./ResponseBar";
 import { AutomationErrorPanel, AutomationHud, DecisionPanel, PriorityBar, RulesStack } from "./rules/RulesHud";
 import { passPriority } from "./rules/intents";
 import "./rules/rules.css";
+import { Table3D } from "../table3d/Table3D";
+import { resolveRenderer } from "../table3d/renderer";
 
 export function GameScreen() {
   const view = useGame((s) => s.view);
@@ -28,6 +30,7 @@ export function GameScreen() {
   const detail = useGame((s) => s.statusDetail);
   const actingAs = useGame((s) => s.actingAs);
   const focus = useGame((s) => s.focus);
+  const rendererPref = usePrefs((s) => s.renderer);
   const browserOpen = useGame((s) => !!s.browser || (!!s.view && !!s.view.searches[s.view.viewer]));
   useShortcuts();
   useHudClass();
@@ -47,21 +50,22 @@ export function GameScreen() {
   const start = order.indexOf(me);
   const others = [...order.slice(start + 1), ...order.slice(0, Math.max(0, start))];
   const canSeeMyHand = view.viewer !== "__spectator__";
+  const three = resolveRenderer(rendererPref) === "3d";
 
   return (
     <div className="game-screen">
       <TopBar />
       <div className="game-body">
-        <main className="table">
-          <TablePlaymat />
-          <div className={`opponents n${others.length} ${focus && focus !== me ? "focused" : ""} ${focus === me ? "shrunk" : ""}`}>
+        <main className={`table ${three ? "is-3d" : ""}`}>
+          {three ? <Table3D me={me} /> : <TablePlaymat />}
+          {!three && <div className={`opponents n${others.length} ${focus && focus !== me ? "focused" : ""} ${focus === me ? "shrunk" : ""}`}>
             {others.map((pid) => (
               <PlayerArea key={pid} player={pid} me={me} mine={false} compact={others.length > 1} focused={focus === pid} />
             ))}
-          </div>
-          <div className={`me ${focus === me ? "focused" : ""} ${focus && focus !== me ? "shrunk" : ""}`}>
+          </div>}
+          {!three && <div className={`me ${focus === me ? "focused" : ""} ${focus && focus !== me ? "shrunk" : ""}`}>
             <PlayerArea player={me} me={me} mine />
-          </div>
+          </div>}
           {browserOpen && <ZoneBrowser me={me} />}
           {canSeeMyHand && <Hand player={me} me={me} />}
         </main>

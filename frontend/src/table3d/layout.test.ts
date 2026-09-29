@@ -1,0 +1,54 @@
+import { describe, expect, it } from "vitest";
+import { localToVirtual, pileAt, PILES, seats, tableSize, toLocal, toWorld, virtualToLocal } from "./layout";
+
+describe("3D table layout", () => {
+  it("puts the viewer south and goes around the table", () => {
+    const s = seats(["p1", "p2", "p3", "p4"], "p3");
+    expect(s.map((x) => [x.player, x.side])).toEqual([["p3", "south"], ["p4", "west"], ["p1", "north"], ["p2", "east"]]);
+  });
+
+  it("round-trips mat-local and world coordinates for every side", () => {
+    for (const seat of seats(["a", "b", "c", "d"], "a")) {
+      const [wx, wz] = toWorld(seat, 1.5, -2);
+      const [lx, lz] = toLocal(seat, wx, wz);
+      expect(lx).toBeCloseTo(1.5);
+      expect(lz).toBeCloseTo(-2);
+    }
+  });
+
+  it("points each mat's near edge (local +z) at its owner", () => {
+    for (const seat of seats(["a", "b", "c", "d"], "a")) {
+      const [wx, wz] = toWorld(seat, 0, 1);
+      // the near edge is farther from the table centre than the mat centre
+      expect(Math.hypot(wx, wz)).toBeGreaterThan(Math.hypot(seat.x, seat.z));
+    }
+  });
+
+  it("round-trips battlefield virtual positions", () => {
+    const [lx, lz] = virtualToLocal(320, 180);
+    const [x, y] = localToVirtual(lx, lz);
+    expect(x).toBeCloseTo(320);
+    expect(y).toBeCloseTo(180);
+  });
+
+  it("keeps mats inside the table and apart from each other", () => {
+    for (const n of [2, 3, 4, 5, 6]) {
+      const order = Array.from({ length: n }, (_, i) => `p${i}`);
+      const s = seats(order, "p0");
+      const size = tableSize(s);
+      for (const seat of s) {
+        expect(Math.abs(seat.x)).toBeLessThan(size.w / 2);
+        expect(Math.abs(seat.z)).toBeLessThan(size.d / 2);
+      }
+      for (let i = 0; i < s.length; i++) for (let j = i + 1; j < s.length; j++) {
+        expect(Math.hypot(s[i]!.x - s[j]!.x, s[i]!.z - s[j]!.z)).toBeGreaterThan(6);
+      }
+    }
+  });
+
+  it("finds piles", () => {
+    expect(pileAt(...PILES.library)).toBe("library");
+    expect(pileAt(...PILES.command)).toBe("command");
+    expect(pileAt(0, 0)).toBeNull();
+  });
+});

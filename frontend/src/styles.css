@@ -1,43 +1,12 @@
 :root {
   color-scheme: dark;
-  --bg: #121316;
-  --bg-2: #17181c;
-  --panel: #1c1d21;
-  --panel-2: #25262b;
-  --line: #2f3036;
-  --line-2: #3c3d44;
-  --text: #e8e1d2;
-  --text-dim: #a9a293;
-  --text-faint: #6f6a60;
-  --accent: #b39458;
-  --accent-2: #cdb07a;
-  --danger: #e0645c;
-  --ok: #6fc28b;
-  --warn: #e7b04b;
-  --info: #6aa7e8;
-  --felt: #1d3a31;
-  --felt-2: #22443a;
-  --radius: 4px;
   --card-ratio: 1.3968; /* 88 x 63 mm */
-  --shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
   --mana-w: #f5efd9;
   --mana-u: #9fcff0;
   --mana-b: #b9aeb0;
   --mana-r: #f2a07e;
   --mana-g: #9ad3a6;
   --mana-c: #ccc6c0;
-  /* Card room: charcoal, felt, warm off-white, muted brass. Squared, lightly bevelled. */
-  --room-charcoal: #15161a;
-  --room-charcoal-2: #1d1f24;
-  --room-edge: #34363d;
-  --room-felt: #1d3a31;
-  --room-felt-deep: #142a23;
-  --room-bone: #e8e1d2;
-  --room-bone-dim: #a9a293;
-  --room-brass: #b39458;
-  --room-brass-hi: #cdb07a;
-  --room-radius: 3px;
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 14px;
 }
 

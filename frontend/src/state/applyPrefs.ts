@@ -1,9 +1,11 @@
 /** Apply the active profile's display settings to the whole page. */
 import { useEffect } from "react";
 import { usePrefs } from "./prefs";
+import { applyPlane } from "../theme/planes";
 
 export function useApplyPrefs(): void {
   const p = usePrefs();
+  useEffect(() => applyPlane(p.plane), [p.plane]);
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("zoom", String(p.uiScale));

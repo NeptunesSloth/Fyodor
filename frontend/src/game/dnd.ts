@@ -41,10 +41,21 @@ export interface DropResult {
 
 const THRESHOLD = 5;
 
+/** The 3D table resolves drops on its canvas (the canvas carries `data-drop3d`). */
+let resolver3d: ((clientX: number, clientY: number) => DropResult | null) | null = null;
+export function setDropResolver3D(fn: typeof resolver3d): void {
+  resolver3d = fn;
+}
+
 export function findDropTarget(clientX: number, clientY: number, offsetX: number, offsetY: number): DropResult | null {
   const stack = document.elementsFromPoint(clientX, clientY);
   for (const el of stack) {
     if (!(el instanceof HTMLElement)) continue;
+    if (el.dataset.drop3d !== undefined) {
+      const hit = resolver3d?.(clientX, clientY);
+      if (hit) return hit;
+      continue;
+    }
     const zone = el.dataset.drop;
     if (!zone) continue;
     const rect = el.getBoundingClientRect();
