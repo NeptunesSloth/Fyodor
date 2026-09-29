@@ -148,6 +148,9 @@
 /* Legal-action highlights: restrained edges, never a glow on everything. */
 .rules-playable { outline: 1px solid var(--accent); outline-offset: 1px; box-shadow: 0 0 10px var(--accent-glow); }
 .rules-activatable { outline: 1px dashed var(--accent); outline-offset: 1px; }
+.rules-mana-source { outline: 2px solid #5fbf7a; outline-offset: 2px; box-shadow: 0 0 14px rgba(95, 191, 122, 0.55); cursor: pointer; }
+.pay-actions.two { grid-template-columns: repeat(2, 1fr); }
+.tap-mana .pay-thumb { border: 0; padding: 0; background: none; cursor: pointer; }
 .rules-target { outline: 2px solid var(--select); outline-offset: 2px; box-shadow: 0 0 16px var(--select-glow); cursor: crosshair; }
 
 @media (max-width: 720px) {

@@ -1,3 +1,4 @@
+import { tapGesture } from "./rules/intents";
 import { useMacros } from "../state/macros";
 import { playmatStyle, usePlaymat } from "./appearance";
 import { lazy, Suspense, useEffect } from "react";
@@ -130,7 +131,7 @@ function useShortcuts() {
         case "tap":
           if (targets.length) {
             e.preventDefault();
-            void tapCards(targets.filter((cid) => view.cards[cid]?.zone.endsWith(":battlefield")));
+            tapGesture(targets.filter((cid) => view.cards[cid]?.zone.endsWith(":battlefield")), (x) => void tapCards(x));
           }
           break;
         case "draw":

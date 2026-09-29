@@ -151,7 +151,8 @@ def test_pass_until_next_action(s):
 
 
 def test_preferences_are_private(s):
-    act(s, "p1", type="set_prefs", response="on", payment="manual")
+    act(s, "p1", type="set_prefs", response="on")
+    engine_payment(s, "p1", "manual")
     assert s.view("p1")["rules"]["prefs"]["payment"] == "manual"
     assert s.view("p2")["rules"]["prefs"]["payment"] == "auto"  # Bob sees his own, not Alice's
     assert s.view("p2")["rules"]["status"] == {"auto": "FULL", "resp": "AUTO"}
@@ -180,3 +181,8 @@ def test_remembered_answers_apply_in_the_same_context(s):
     assert rules(s).decision.kind == "confirm"  # asked again
     act(s, "p1", type="set_prefs", cancel_all_yields=True)
     assert rules(s).prefs["p1"].yields == []
+
+
+def engine_payment(s, pid, mode):
+    """The internal payment modes (players at a table always tap their own mana)."""
+    s.state.rules.prefs[pid].payment = mode

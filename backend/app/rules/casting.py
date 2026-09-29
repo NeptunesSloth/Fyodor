@@ -296,6 +296,8 @@ def payment_mode(plan: Plan, player: str) -> PaymentMode:
     """AUTO pays; ASK shows the suggested payment first (also when the table's AUTO MANA PAYMENT is
     off); MANUAL lets the player pick the exact sources."""
     pref = plan.rules.prefs_for(player).payment
+    if pref == "self":
+        return "self"
     if pref == "manual":
         return "manual"
     if pref == "ask" or not plan.options.auto_mana_payment:
@@ -439,6 +441,13 @@ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCos
     if a.sources is not None or cost.is_free:
         return False
     mode = payment_mode(plan, plan.actor)
+    if mode == "self":  # the player taps their own mana: pay from the pool, or ask them to tap
+        if pool_covers(plan.state, plan.actor, cost):
+            a.sources = []
+            return False
+        ask_to_tap(plan, cost, what, {"step": "pay_mana", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
+                                      "exclude": list(exclude), "cost": cost.text(), "what": what})
+        return True
     if mode == "auto":
         return False
     payment = find_payment(plan.state, plan.actor, cost, plan.info, exclude=exclude, purpose=purpose)  # (can it be paid at all?)
@@ -462,6 +471,94 @@ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCos
                     DecisionOption(id="cancel", label="Cancel")],
            resume=resume)
     return True
+
+
+def pool_covers(state: GameState, player: str, cost: M.ManaCost) -> bool:
+    """Can ``cost`` be paid from the player's mana pool alone (plus life for Phyrexian mana)?"""
+    try:
+        M.solve(cost, dict(state.players[player].mana), [], life=state.players[player].life)
+    except M.ManaError:
+        return False
+    return True
+
+
+def pay_from_pool(plan: Plan, player: str, cost: M.ManaCost, label: str, *, purpose: Purpose | None = None) -> None:
+    """Pay from the mana pool only (players tap their own lands), or explain what's missing."""
+    if not cost.is_free and payment_mode(plan, player) == "self":
+        if not pool_covers(plan.state, player, cost):
+            raise ActionError(f"Tap your mana first: {cost.text()} isn't in your mana pool")
+        pay(plan, player, cost, label, sources=[], purpose=purpose)
+    else:
+        pay(plan, player, cost, label, purpose=purpose)
+
+
+def ask_to_tap(plan: Plan, cost: M.ManaCost, what: str, resume: dict[str, Any]) -> None:
+    """Open the "tap your mana" prompt: the player taps lands / mana sources (mana abilities are
+    allowed while it's open) and the spell or ability goes on as soon as the pool covers it."""
+    exclude = set(resume.get("exclude") or ())
+    sources = list(dict.fromkeys(s.card_id for s in mana_sources(plan.state, plan.actor, plan.info)
+                                 if s.card_id not in exclude and s.activation is None))
+    decide(plan, player=plan.actor, kind="choose_one",
+           prompt=f"Tap mana to pay {cost.text()} for {what}",
+           display={"kind": "tap_mana", "cost": cost.text(), "what": what, "sources": sources[:40],
+                    "pool": dict(plan.state.players[plan.actor].mana)},
+           options=[DecisionOption(id="pay", label="Pay"), DecisionOption(id="cancel", label="Cancel")],
+           resume=resume)
+
+
+def resume_pay_mana(plan: Plan, d: Any, chosen: list[str]) -> None:
+    assert d.resume is not None
+    if chosen[0] == "cancel":
+        plan.note(f"{plan.name(d.player)} cancelled")
+        plan.rules.priority = d.player
+        plan.hold = d.player
+        return
+    if not pool_covers(plan.state, d.player, M.parse_cost(d.resume["cost"])):
+        raise ActionError(f"Tap your mana first: {d.resume['cost']} isn't in your mana pool yet")
+    _rerun(plan, d, A.parse_action(d.resume["intent"]), [])
+
+
+def paying_now(plan: Plan) -> bool:
+    """Is the actor in the middle of paying (a "tap your mana" or pay-or-sacrifice prompt)?"""
+    d = plan.rules.decision
+    return d is not None and d.player == plan.actor and (d.resume or {}).get("step") in ("pay_mana", "pay_or_sacrifice")
+
+
+def after_tapping(plan: Plan) -> None:
+    """A mana ability was used during a "tap your mana" prompt: finish the payment once the pool
+    covers it, else refresh the prompt's pool."""
+    d = plan.rules.decision
+    resume = (d.resume or {}) if d is not None else {}
+    if d is None or resume.get("step") != "pay_mana":
+        if d is not None and d.display is not None:
+            d.display = {**d.display, "pool": dict(plan.state.players[d.player].mana)}
+        return
+    if pool_covers(plan.state, d.player, M.parse_cost(resume["cost"])):
+        plan.rules.decision = None
+        _rerun(plan, d, A.parse_action(resume["intent"]), [])
+    elif d.display is not None:
+        d.display = {**d.display, "pool": dict(plan.state.players[d.player].mana)}
+
+
+def _best_option(plan: Plan, options: tuple[tuple[str, ...], ...]) -> tuple[str, ...]:
+    """The mana option that helps the pending payment most (the player tapped; this only picks
+    which color to add for them)."""
+    d = plan.rules.decision
+    if d is None or not d.resume or "cost" not in d.resume:
+        return options[0]
+    cost = M.parse_cost(d.resume["cost"])
+    pool = dict(plan.state.players[plan.actor].mana)
+    for opt in options:
+        trial = dict(pool)
+        for m in opt:
+            trial[m] = trial.get(m, 0) + 1
+        try:
+            M.solve(cost, trial, [])
+            return opt
+        except M.ManaError:
+            pass
+    needed = set(cost.colored) | {c for h in cost.hybrid for c in h} | set(cost.phyrexian)
+    return next((o for o in options if set(o) & needed - set(pool)), next((o for o in options if set(o) & needed), options[0]))
 
 
 def ask_sources(plan: Plan, cost: M.ManaCost, what: str, resume: dict[str, Any]) -> None:
@@ -563,10 +660,14 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
         raise ActionError(f"{printed.name} has no morph cost: turn it face up with the table tools")
     kind, cost_text = found
     cost = M.parse_cost(cost_text)
-    if not can_pay(plan.state, plan.actor, cost, plan.info, purpose=Purpose(ability_of=printed)):
-        raise ActionError(f"Not enough mana to pay {cost.text()}")
-    pay(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up", sources=a.sources,
-        purpose=Purpose(ability_of=printed))
+    if payment_mode(plan, plan.actor) == "self":
+        pay_from_pool(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up",
+                      purpose=Purpose(ability_of=printed))
+    else:
+        if not can_pay(plan.state, plan.actor, cost, plan.info, purpose=Purpose(ability_of=printed)):
+            raise ActionError(f"Not enough mana to pay {cost.text()}")
+        pay(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up", sources=a.sources,
+            purpose=Purpose(ability_of=printed))
     plan.do({"type": "face_down", "card_ids": [card.id], "face_down": False})
     if kind == "megamorph":
         plan.do({"type": "counter", "card_ids": [card.id], "kind": "+1/+1", "delta": 1})
@@ -862,6 +963,9 @@ def resume_crew(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
+    if paying_now(plan):  # tapping mana while paying: only mana abilities
+        _mana_while_paying(plan, a)
+        return
     require_no_decision(plan)
     require_priority(plan)
     card = plan.state.cards.get(a.card_id)
@@ -906,6 +1010,23 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
                resume={"step": "mana_ability", "card": card.id, "ability": a.ability}, source=card)
         return
     plan.rules.passed = []
+
+
+def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
+    card = plan.state.cards.get(a.card_id)
+    if card is None or card.controller != plan.actor or not card.zone.endswith(":battlefield"):
+        raise ActionError("Tap mana sources you control")
+    ch = plan.ch(card)
+    ability = _find_ability(ch, a.ability)
+    parsed = dict(mana_abilities(plan.state, card, plan.info)).get(a.ability) if ability.kind == "mana" else None
+    if parsed is None or parsed.spend_only is not None:
+        raise ActionError("While paying you can only tap for mana")
+    if parsed.tap and not can_use_tap_abilities(plan.state, card, ch):
+        raise ActionError(f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness")
+    options = parsed.options
+    chosen = next((o for o in options if o == (a.mana_choice,)), None) if a.mana_choice else None
+    produce(plan, card, parsed, chosen or (options[0] if len(options) == 1 else _best_option(plan, options)), a.ability)
+    after_tapping(plan)
 
 
 # -- other activated abilities (they use the stack) -----------------------------------------
@@ -1062,8 +1183,13 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
     life, counters), add the mana, then its riders."""
     extra = parse_ability_cost(ability.extra_cost, card_name=plan.ch(card).name) if ability.extra_cost else None
     if extra is not None and extra.mana:
-        pay(plan, card.controller, M.parse_cost(extra.mana), f"paid {extra.mana} to activate {plan.ch(card).name}",
-            exclude=(card.id,))
+        cost = M.parse_cost(extra.mana)
+        if payment_mode(plan, card.controller) == "self":
+            if not pool_covers(plan.state, card.controller, cost):
+                raise ActionError(f"Add {cost.text()} to your mana pool first to activate {plan.ch(card).name}")
+            pay(plan, card.controller, cost, f"paid {extra.mana} to activate {plan.ch(card).name}", sources=[])
+        else:
+            pay(plan, card.controller, cost, f"paid {extra.mana} to activate {plan.ch(card).name}", exclude=(card.id,))
     mana = _count(option)
     plan.do({"type": "rules_mana", "player": card.controller, "tap": [card.id] if ability.tap else [],
              "sacrifice": [card.id] if ability.sacrifice_self else [], "delta": mana,

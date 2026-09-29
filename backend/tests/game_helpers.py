@@ -49,13 +49,25 @@ def enable(state, level="full"):
     state.settings.automation = level
     state.settings.automation_options = AUTOMATION_PRESETS[level].model_copy()
     start_rules(state)
+    engine_pays(state)
     return state
+
+
+def engine_pays(state):
+    """Most engine tests exercise payments with the internal AUTO payer; players at a real table
+    always tap their own mana (payment "self", tested in test_rules_self_tap.py)."""
+    from app.game.rules_state import PlayerPrefs
+
+    if state.rules is not None:
+        for pid in state.players:
+            state.rules.prefs.setdefault(pid, PlayerPrefs()).payment = "auto"
 
 
 def turn_on(s, level="full", *, arrived=(), land=False, player="p1"):
     """Turn automation on mid-game and answer the reconciliation questions: creatures in
     ``arrived`` came this turn, all others were already there."""
     act(s, player, type="configure", automation=level)
+    engine_pays(s.state)
     d = s.state.rules.decision
     if d is not None and d.kind == "reconcile":
         answers = []

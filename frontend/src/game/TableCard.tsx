@@ -1,3 +1,4 @@
+import { tapGesture } from "./rules/intents";
 import { usePrefs } from "../state/prefs";
 import { memo } from "react";
 import { openMenu } from "../components/ContextMenu";
@@ -53,7 +54,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
       onPointerDown={onPointerDown}
       onDoubleClick={(e) => {
         e.stopPropagation();
-        void tapCards(targetsFor(id));
+        tapGesture(targetsFor(id), (x) => void tapCards(x));
       }}
       onContextMenu={(e) => {
         e.preventDefault();

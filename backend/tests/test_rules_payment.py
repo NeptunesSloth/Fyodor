@@ -53,7 +53,7 @@ def test_prefer_sources_go_first(cards):
 
 def test_ask_suggests_a_payment_and_cancel_leaves_everything(cards):
     s, (m1, m2), ring = setup(cards)
-    act(s, "p1", type="set_prefs", payment="ask")
+    engine_payment(s, "p1", "ask")
     bolt = card(s, "Lightning Bolt")
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     d = s.state.rules.decision
@@ -78,7 +78,7 @@ def test_assisted_asks_by_default(cards):
 
 def test_manual_payment_picks_exact_sources(cards):
     s, (m1, m2), ring = setup(cards)
-    act(s, "p1", type="set_prefs", payment="manual")
+    engine_payment(s, "p1", "manual")
     fire = card(s, "Fire // Ice")
     act(s, "p1", type="cast_spell", card_id=fire.id)
     d = s.state.rules.decision
@@ -94,7 +94,7 @@ def test_manual_payment_picks_exact_sources(cards):
 
 def test_sources_can_be_given_with_the_cast(cards):
     s, (m1, m2), ring = setup(cards)
-    act(s, "p1", type="set_prefs", payment="ask")  # explicit sources are an answer: no prompt
+    engine_payment(s, "p1", "ask")  # explicit sources are an answer: no prompt
     act(s, "p1", type="cast_spell", card_id=card(s, "Lightning Bolt").id, sources=[m2.id], targets=["p2"])
     assert tapped(s, m1, m2) == [False, True] and s.state.players["p2"].life == 37  # paid, cast, resolved by the engine
     with pytest.raises(ActionError, match="untapped mana sources you control"):
@@ -107,3 +107,8 @@ def test_generic_spends_other_colors_once_colorless_runs_out():
 
     payment = M.solve(M.parse_cost("{2}"), {}, [M.Source("a", (("C",),)), M.Source("b", (("G",),))])
     assert payment.delta() == {} and sorted(payment.tapped) == ["a", "b"]
+
+
+def engine_payment(s, pid, mode):
+    """The internal payment modes (players at a table always tap their own mana)."""
+    s.state.rules.prefs[pid].payment = mode

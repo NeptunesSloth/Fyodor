@@ -1,3 +1,4 @@
+import { tapGesture } from "./rules/intents";
 /** Context-menu contents for a card, depending on the zone it is in. */
 import { macrosFor } from "../state/macros";
 import { usePrefs } from "../state/prefs";
@@ -48,7 +49,7 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
   const players = view.players;
 
   if (zone === "battlefield") {
-    items.push({ label: card.tapped ? "Untap" : "Tap", hint: "T / double-click", onClick: () => void tapCards(ids) });
+    items.push({ label: card.tapped ? "Untap" : "Tap", hint: "T / double-click", onClick: () => tapGesture(ids, (x) => void tapCards(x)) });
     items.push({
       label: "Add counter",
       submenu: [

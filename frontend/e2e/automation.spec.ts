@@ -20,7 +20,7 @@ test("Automation FULL: HUD, RESPONSE toggle, play a land through the rules, pass
   await expect(page.getByTestId("resp-mode")).toHaveText("RESP: OFF");
   await page.getByTestId("resp-mode").click(); // back to AUTO: always stop in my first main phase
   await expect(page.getByTestId("resp-mode")).toHaveText("RESP: AUTO");
-  await expect(page.getByTestId("mana-mode")).toHaveText(/MANA: (AUTO|ASK|MANUAL)/);
+  await expect(page.getByTestId("mana-mode")).toHaveCount(0); // players always tap their own mana
 
   // Pass to the first main phase with the priority bar.
   const view = async () => (await (await page.request.get(`/api/games/${gameId}/view`)).json()) as Record<string, any>;
@@ -47,4 +47,11 @@ test("Automation FULL: HUD, RESPONSE toggle, play a land through the rules, pass
   const after = await view();
   expect(after.rules.hints?.playable_lands ?? []).not.toContain(island);
   expect(JSON.stringify(after.log ?? "")).not.toContain("by hand");
+
+  // You tap your own land: a double-click taps it *for mana* (the engine never taps it for you).
+  expect(after.cards[island!].tapped).toBeFalsy();
+  await page.locator(`.table-card[data-card-id="${island}"]`).dblclick();
+  await expect.poll(async () => ((await view()).players as { id: string; mana?: Record<string, number> }[])
+    .find((p) => p.id === "p1")?.mana?.U ?? 0).toBe(1);
+  expect((await view()).cards[island!].tapped).toBeTruthy();
 });

@@ -3,7 +3,7 @@ import { useCardCache } from "../../state/cardCache";
 import { useGame } from "../../state/gameStore";
 import type { CardData } from "../../types/cards";
 import type { GameView } from "../../types/game";
-import { abilityLines, automationOn, dropAsIntent, isLand, next, PAYMENT_CYCLE, RESPONSE_CYCLE } from "./intents";
+import { abilityLines, automationOn, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, tapForMana } from "./intents";
 import { rulesMenu } from "./rulesMenu";
 
 const card = (id: string, zone: string, card_id: string) => ({ id, zone, card_id, name: card_id, owner: "p1", controller: "p1" });
@@ -80,7 +80,17 @@ describe("automation intents", () => {
   it("cycles RESPONSE and MANA", () => {
     expect(next(RESPONSE_CYCLE, "off")).toBe("auto");
     expect(next(RESPONSE_CYCLE, "on")).toBe("off");
-    expect(next(PAYMENT_CYCLE, "manual")).toBe("auto");
+  });
+
+  it("taps your own land for mana (never a plain tap) with automation on", () => {
+    const base = view(RULES);
+    const v = { ...base, cards: { ...base.cards, f1: card("f1", "p1:battlefield", "forest"), l1: card("l1", "p1:battlefield", "looter") } } as unknown as GameView;
+    useGame.setState({ view: v });
+    expect(manaAbilityIndex("f1", v)).toBe(0);  // a basic land's intrinsic ability
+    expect(tapForMana("f1", "p1")).toBe(true);
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "f1", ability: 0 }]);
+    expect(tapForMana("l1", "p1")).toBe(false);  // no mana ability: a plain tap
+    expect(tapForMana("c4", "p1")).toBe(false);  // not yours
   });
 
   it("splits ability lines without reminder text", () => {

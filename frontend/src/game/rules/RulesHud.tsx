@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { PHASE_LABEL, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
-import { choose, next, passPriority, PAYMENT_CYCLE, RESPONSE_CYCLE, send, setPrefs } from "./intents";
+import { choose, next, passPriority, RESPONSE_CYCLE, send, setPrefs, tapForMana } from "./intents";
 import { GameCardFace } from "../GameCardFace";
 import { ManaText } from "../../cards/ManaText";
 import { useCardCache } from "../../state/cardCache";
@@ -40,10 +40,6 @@ export function AutomationHud() {
           <button className="auto-pill" data-testid="resp-mode" title="RESPONSE: when the engine stops for you (click to change)"
             onClick={() => void setPrefs({ response: next(RESPONSE_CYCLE, prefs.response) })}>
             RESP: {prefs.response.toUpperCase()}
-          </button>
-          <button className="auto-pill" data-testid="mana-mode" title="MANA: how your costs are paid (click to change)"
-            onClick={() => void setPrefs({ payment: next(PAYMENT_CYCLE, prefs.payment) })}>
-            MANA: {prefs.payment.toUpperCase()}
           </button>
         </>
       )}
@@ -93,12 +89,8 @@ export function AutomationSettings({ onClose }: { onClose: () => void }) {
               <button key={m} className={prefs.response === m ? "on" : ""} onClick={() => void setPrefs({ response: m })}>{m[0]!.toUpperCase() + m.slice(1)}</button>
             ))}
           </div>
-          <span className="frame-title">Mana payment</span>
-          <div className="segmented">
-            {PAYMENT_CYCLE.map((m) => (
-              <button key={m} className={prefs.payment === m ? "on" : ""} onClick={() => void setPrefs({ payment: m })}>{m[0]!.toUpperCase() + m.slice(1)}</button>
-            ))}
-          </div>
+          <span className="frame-title">Mana</span>
+          <div className="hint" data-testid="mana-rule">You tap your own lands for mana; costs are paid from your mana pool. Fyodor never taps them for you.</div>
           <span className="frame-title">Stops</span>
           <div className="stop-grid">
             <span />
@@ -254,6 +246,7 @@ export function DecisionPanel() {
     );
   }
   if (d.display?.kind === "payment") return <PaymentPanel key={d.id} d={d} view={view} />;
+  if (d.display?.kind === "tap_mana") return <TapManaPanel key={d.id} d={d} view={view} />;
   const targeting = d.kind === "choose_one" && (d.options ?? []).some((o) => o.card_id) && (d.options ?? []).length > 1;
   return (
     <div className={`decision-panel frame ${targeting ? "targeting" : ""}`} data-testid="decision-panel" data-kind={d.kind}>
@@ -305,6 +298,40 @@ function PaymentPanel({ d, view }: { d: DecisionView; view: GameView }) {
       <div className="pay-actions">
         <button className="act-btn primary" data-testid="option-pay" onClick={pay}>Auto Pay</button>
         <button className="act-btn" data-testid="option-manual" onClick={() => void choose(d.id, ["manual"])}>Edit Payment</button>
+        <button className="act-btn red" data-testid="option-cancel" onClick={() => void choose(d.id, ["cancel"])}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+/** Pay {1}{G}: tap your own lands (click them on the table); it goes on once your pool covers it. */
+function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
+  const info = d.display as unknown as { cost: string; what: string; sources: string[]; pool: Record<string, number> };
+  const untapped = info.sources.filter((id) => view.cards[id] && !view.cards[id]!.tapped);
+  const pool = Object.entries(info.pool ?? {}).filter(([, n]) => n > 0).map(([m, n]) => `{${m}}`.repeat(n)).join("");
+  return (
+    <div className="decision-panel payment tap-mana frame ornate" data-testid="decision-panel" data-kind="tap_mana">
+      <div className="pay-head">
+        <span className="pay-title">Pay</span>
+        <span className="pay-cost"><ManaText text={info.cost} /></span>
+      </div>
+      <div className="pay-what">for {info.what}</div>
+      <div className="decision-hint">Tap your lands and mana sources: click a highlighted card on the table (or below).</div>
+      <div className="pay-row">
+        <span className="pay-pool" data-testid="tap-pool">Mana pool: {pool ? <ManaText text={pool} /> : "empty"}</span>
+      </div>
+      {untapped.length > 0 && (
+        <div className="pay-row alt">
+          {untapped.map((id) => (
+            <button key={id} className="pay-thumb" title="Tap for mana" data-testid={`tap-source-${id}`}
+              onClick={() => tapForMana(id)} onPointerEnter={() => useGame.getState().setHover(id)} onPointerLeave={() => useGame.getState().setHover(null)}>
+              <GameCardFace card={view.cards[id]!} size="small" />
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="pay-actions two">
+        <button className="act-btn primary" data-testid="option-pay" onClick={() => void choose(d.id, ["pay"])}>Pay</button>
         <button className="act-btn red" data-testid="option-cancel" onClick={() => void choose(d.id, ["cancel"])}>Cancel</button>
       </div>
     </div>
@@ -489,6 +516,10 @@ export function legalClass(view: GameView | null, cardId: string, me: string): s
   const rules = view?.rules;
   if (!rules || rules.paused || rules.options.highlights === "off") return "";
   const d = rules.decision;
+  if (d && d.player === me && d.display?.kind === "tap_mana") {
+    const sources = (d.display as { sources?: string[] }).sources ?? [];
+    return sources.includes(cardId) && !view?.cards[cardId]?.tapped ? "rules-mana-source" : "";
+  }
   if (d && d.player === me && d.options?.some((o) => o.card_id === cardId && (d.kind === "choose_one" || d.kind === "choose_cards"))) {
     return "rules-target";
   }
@@ -502,6 +533,7 @@ export function legalClass(view: GameView | null, cardId: string, me: string): s
 /** Clicking a card that the pending choose-one decision offers answers it (click-to-target). */
 export function answerByClick(view: GameView | null, cardOrPlayer: string, me: string): boolean {
   const d = view?.rules?.decision;
+  if (d && d.player === me && d.display?.kind === "tap_mana") return tapForMana(cardOrPlayer, me);  // click a land to tap it
   if (!d || d.player !== me || d.kind !== "choose_one" || !d.options) return false;
   const opt = d.options.find((o) => o.id === cardOrPlayer || o.card_id === cardOrPlayer);
   if (!opt) return false;

@@ -27,7 +27,7 @@ What ASSISTED asks today:
 - **State-based actions:** "State-based actions: Bear dies (lethal damage) [APPLY] [LEAVE FOR
   NOW]". A declined set isn't asked again until something changes.
 - **Combat damage:** "Combat damage: Bear → Bob 3 [DEAL DAMAGE] [BY HAND]".
-- **Payment:** the suggested payment is shown (see MANA).
+- **Payment:** you tap your own mana (see MANA).
 
 The token/counter/trigger/shuffle options take effect with the M16 trigger and effect engine.
 
@@ -111,22 +111,24 @@ graveyard) is asked again. "This turn" answers expire with the turn. Cancel one 
 time (`set_prefs cancel_yield / cancel_all_yields`). YIELD UNTIL END OF TURN is PASS UNTIL next
 turn.
 
-## MANA: AUTO / ASK / MANUAL — built
+## MANA: you tap your own mana — built
 
-| MANA | Behaviour |
-|---|---|
-| AUTO | pays with a sensible legal payment |
-| ASK | "Pay {1}{R} for Fire. Suggested payment: Mountain, Sol Ring [PAY] [MANUAL] [CANCEL]" — also what ASSISTED does by default |
-| MANUAL | choose the exact sources (your mana pool is used first) |
+Pod rule: **the engine never taps anyone's lands or mana sources.** Players tap their own mana
+(double-click / T / right-click Tap on a land or mana source taps it *for mana* when automation
+is on), and every cost is paid from the mana pool.
 
-The choice happens *before* anything moves, so CANCEL leaves the table untouched. Casting or
-activating with explicit `sources` is MANUAL PAY. Wrong picks are refused ("Those sources
-can't pay {R}", "Sol Ring isn't needed").
+- Mana already in your pool that covers the cost: the spell or ability goes on at once.
+- Not enough in your pool: a **Pay {1}{G} — tap your mana** prompt opens. Your untapped mana
+  sources are highlighted; click them on the table (or in the prompt) to tap them. Only mana
+  abilities can be used while it's open. The spell goes on the moment your pool covers the cost;
+  CANCEL leaves the table untouched (mana you tapped stays in your pool).
+- The same goes for echo / "sacrifice unless you pay", morph costs and filter lands' activation
+  costs: tap first, then pay.
+- If a mana ability can add different colors, the one that helps the pending payment is added.
 
-**Source protection** per mana source: PREFER (used first), NORMAL, SAVE (e.g. Command Tower:
-used only when no other legal payment exists).
-
-Not yet: detecting strategically different payments to force a confirmation in AUTO.
+Convoke creatures and spend-restricted mana still need a hand in some cases (tap them with the
+table tools). The older AUTO / ASK / MANUAL payers remain inside the engine for its own tests
+only; clients can't select them.
 
 ## Smart prompting and optional effects — built for templated effects
 

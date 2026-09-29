@@ -129,7 +129,9 @@ PassUntil = Literal[
     "my_turn",  # until my next turn
     "combat",  # until combat begins
 ]
-Payment = Literal["auto", "ask", "manual"]
+# "self": the player taps their own mana and costs are paid from the mana pool only (the table's
+# rule: the engine never taps anyone's lands). "auto"/"ask"/"manual" remain for engine tests only.
+Payment = Literal["self", "auto", "ask", "manual"]
 SourceProtection = Literal["prefer", "save"]  # "normal" is the absence of an entry
 TriggerAutoResolve = Literal["off", "safe", "on"]
 YieldKind = Literal["always_yield", "yes_this_turn", "no_this_turn"]
@@ -157,7 +159,7 @@ class PlayerPrefs(BaseModel):
     # Stop on public conditions too (cards in hand and untapped mana), so stopping doesn't tell the
     # table that you really have a response.
     bluff_stops: bool = False
-    payment: Payment = "auto"
+    payment: Payment = "self"
     mana_sources: dict[str, SourceProtection] = Field(default_factory=dict)  # card id -> PREFER / SAVE
     auto_resolve_own_triggers: TriggerAutoResolve = "safe"
     auto_order_identical_triggers: bool = True

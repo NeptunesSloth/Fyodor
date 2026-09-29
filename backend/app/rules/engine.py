@@ -810,6 +810,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "sba_confirm": sba.resume_confirm,
     "reconcile": reconcile.resume_reconcile,
     "payment": casting.resume_payment,
+    "pay_mana": casting.resume_pay_mana,
     "look": effects.resume_look,
     "order_library": effects.resume_order_library,
     "may": effects.resume_may,

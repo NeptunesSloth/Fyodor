@@ -969,7 +969,7 @@ class SetPrefs(_Intent):
     stops_my_turn: list[str] | None = Field(default=None, max_length=12)
     stops_their_turn: list[str] | None = Field(default=None, max_length=12)
     bluff_stops: bool | None = None
-    payment: Literal["auto", "ask", "manual"] | None = None
+    payment: Literal["self"] | None = None  # players always tap their own mana
     auto_resolve_own_triggers: Literal["off", "safe", "on"] | None = None
     auto_order_identical_triggers: bool | None = None
     hold_priority: bool | None = None

@@ -399,7 +399,7 @@ def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
     cost = mana.parse_cost(e["cost"])
     options = [DecisionOption(id="sacrifice", label=f"Sacrifice {plan.state.cards[src[0]].name}")]
-    if casting.can_pay(plan.state, pid, cost, plan.info):
+    if casting.can_pay(plan.state, pid, cost, plan.info):  # (tap your mana first, then Pay)
         options.insert(0, DecisionOption(id="pay", label=f"Pay {cost.text()}"))
     decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name', '')}: pay {cost.text()} or sacrifice it?",
            options=options, resume={"step": "pay_or_sacrifice", "ctx": ctx, "cost": e["cost"]}, source=plan.state.cards[src[0]])
@@ -413,7 +413,7 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
     src = _cards(plan, ctx, "self")
     if chosen[0] == "pay" and src:
         cost = mana.parse_cost(d.resume["cost"])
-        casting.pay(plan, d.player, cost, f"paid {cost.text()} for {ctx.get('name', '')}")
+        casting.pay_from_pool(plan, d.player, cost, f"paid {cost.text()} for {ctx.get('name', '')}")
     elif src:
         card = plan.state.cards[src[0]]
         plan.do({"type": "move", "card_ids": src, "to": {"player": card.owner, "zone": "graveyard"}}, actor=d.player)

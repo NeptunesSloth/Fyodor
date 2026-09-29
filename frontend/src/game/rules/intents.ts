@@ -8,7 +8,7 @@
  */
 import { perspective, useGame } from "../../state/gameStore";
 import { useCardCache } from "../../state/cardCache";
-import type { Action, GameView, PaymentMode, ResponseMode } from "../../types/game";
+import type { Action, GameView, ResponseMode } from "../../types/game";
 import { splitZone } from "../../types/game";
 import type { DropResult } from "../dnd";
 
@@ -49,13 +49,49 @@ export function dropAsIntent(ids: string[], target: DropResult | null, seat?: st
   return false;
 }
 
+const BASIC_TYPES = /\b(Plains|Island|Swamp|Mountain|Forest)\b/;
+
+/** The index of a permanent's first mana ability, the way the server numbers abilities (a basic
+ * land type's intrinsic "{T}: Add …" comes after the printed abilities). */
+export function manaAbilityIndex(cardId: string, view: GameView): number | null {
+  const c = view.cards[cardId];
+  if (!c || c.hidden || !c.card_id) return null;
+  const data = useCardCache.getState().cards[c.card_id];
+  if (!data) return null;
+  const face = data.faces?.[c.face ?? 0];
+  const lines = abilityLines(face?.oracle_text ?? data.oracle_text ?? "");
+  const i = lines.findIndex((l) => /^[^"]*\{T\}[^"]*: Add /.test(l));
+  if (i >= 0) return i;
+  const typeLine = face?.type_line ?? data.type_line ?? "";
+  return /\bLand\b/.test(typeLine) && BASIC_TYPES.test(typeLine.split("—")[1] ?? "") ? lines.length : null;
+}
+
+/** With automation on, tapping one of your untapped mana sources taps it *for mana* (players
+ * always tap their own mana; the engine never does it for them). Returns true when handled. */
+export function tapForMana(cardId: string, seat?: string): boolean {
+  const { view, actingAs } = useGame.getState();
+  if (!view || !automationOn(view)) return false;
+  const me = seat ?? perspective(view, actingAs);
+  const c = view.cards[cardId];
+  if (!c || c.hidden || c.tapped || c.face_down || c.controller !== me || !c.zone.endsWith(":battlefield")) return false;
+  const index = manaAbilityIndex(cardId, view);
+  if (index == null) return false;
+  void send({ type: "activate_ability", card_id: cardId, ability: index });
+  return true;
+}
+
+/** Tap / untap from a gesture (double-click, T, menu): one mana source taps for mana. */
+export function tapGesture(ids: string[], tapPlain: (ids: string[]) => void): void {
+  if (ids.length === 1 && tapForMana(ids[0]!)) return;
+  tapPlain(ids);
+}
+
 export const passPriority = (until?: string) => send({ type: "pass_priority", ...(until ? { until } : {}) });
 export const choose = (decisionId: string, optionIds: string[], remember?: string) =>
   send({ type: "choose", decision_id: decisionId, option_ids: optionIds, ...(remember ? { remember } : {}) });
 export const setPrefs = (patch: Record<string, unknown>) => send({ type: "set_prefs", ...patch });
 
 export const RESPONSE_CYCLE: ResponseMode[] = ["off", "auto", "on"];
-export const PAYMENT_CYCLE: PaymentMode[] = ["auto", "ask", "manual"];
 
 export function next<T>(cycle: T[], current: T): T {
   return cycle[(cycle.indexOf(current) + 1) % cycle.length] ?? current;
