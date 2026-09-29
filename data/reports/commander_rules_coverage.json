@@ -1,20 +1,20 @@
 {
- "generated_at": "2026-09-29 16:50",
+ "generated_at": "2026-09-29 16:54",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32116,
  "commander_banned": 83,
  "levels": {
-  "FULL": 4685,
-  "PARTIAL": 27383,
+  "FULL": 4817,
+  "PARTIAL": 27251,
   "REVIEW": 0,
   "MANUAL": 48
  },
  "possible_commanders": 3501,
  "commander_levels": {
-  "FULL": 110,
-  "PARTIAL": 3391,
+  "FULL": 117,
+  "PARTIAL": 3384,
   "REVIEW": 0,
   "MANUAL": 0
  },
@@ -30,14 +30,14 @@
  },
  "by_type": {
   "Creature": {
-   "FULL": 3192,
-   "PARTIAL": 14729,
+   "FULL": 3315,
+   "PARTIAL": 14606,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Artifact": {
-   "FULL": 536,
-   "PARTIAL": 3057,
+   "FULL": 539,
+   "PARTIAL": 3054,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -48,14 +48,14 @@
    "MANUAL": 0
   },
   "Sorcery": {
-   "FULL": 233,
-   "PARTIAL": 3335,
+   "FULL": 234,
+   "PARTIAL": 3334,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Instant": {
-   "FULL": 478,
-   "PARTIAL": 3276,
+   "FULL": 485,
+   "PARTIAL": 3269,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -80,8 +80,8 @@
  },
  "by_keyword": {
   "flying": {
-   "FULL": 638,
-   "PARTIAL": 2525,
+   "FULL": 653,
+   "PARTIAL": 2510,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -92,26 +92,26 @@
    "MANUAL": 0
   },
   "trample": {
-   "FULL": 167,
-   "PARTIAL": 826,
+   "FULL": 180,
+   "PARTIAL": 813,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "vigilance": {
-   "FULL": 154,
-   "PARTIAL": 571,
+   "FULL": 157,
+   "PARTIAL": 568,
    "REVIEW": 0,
    "MANUAL": 2
   },
   "haste": {
-   "FULL": 126,
-   "PARTIAL": 513,
+   "FULL": 136,
+   "PARTIAL": 503,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "flash": {
-   "FULL": 82,
-   "PARTIAL": 526,
+   "FULL": 84,
+   "PARTIAL": 524,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -122,20 +122,20 @@
    "MANUAL": 0
   },
   "mill": {
-   "FULL": 0,
-   "PARTIAL": 580,
+   "FULL": 23,
+   "PARTIAL": 557,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "scry": {
-   "FULL": 108,
-   "PARTIAL": 316,
+   "FULL": 109,
+   "PARTIAL": 315,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "reach": {
-   "FULL": 106,
-   "PARTIAL": 317,
+   "FULL": 110,
+   "PARTIAL": 313,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -146,50 +146,50 @@
    "MANUAL": 0
   },
   "cycling": {
-   "FULL": 153,
-   "PARTIAL": 241,
+   "FULL": 154,
+   "PARTIAL": 240,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "menace": {
-   "FULL": 39,
-   "PARTIAL": 342,
+   "FULL": 40,
+   "PARTIAL": 341,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "first strike": {
-   "FULL": 107,
-   "PARTIAL": 267,
+   "FULL": 108,
+   "PARTIAL": 266,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "lifelink": {
-   "FULL": 65,
-   "PARTIAL": 295,
+   "FULL": 67,
+   "PARTIAL": 293,
    "REVIEW": 0,
    "MANUAL": 2
   },
   "treasure": {
-   "FULL": 37,
-   "PARTIAL": 312,
+   "FULL": 38,
+   "PARTIAL": 311,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "deathtouch": {
-   "FULL": 65,
-   "PARTIAL": 262,
+   "FULL": 74,
+   "PARTIAL": 253,
    "REVIEW": 0,
    "MANUAL": 2
   },
   "defender": {
-   "FULL": 92,
-   "PARTIAL": 216,
+   "FULL": 93,
+   "PARTIAL": 215,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "regenerate": {
-   "FULL": 93,
-   "PARTIAL": 178,
+   "FULL": 96,
+   "PARTIAL": 175,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -212,8 +212,8 @@
    "MANUAL": 0
   },
   "protection": {
-   "FULL": 103,
-   "PARTIAL": 87,
+   "FULL": 108,
+   "PARTIAL": 82,
    "REVIEW": 0,
    "MANUAL": 3
   },
@@ -230,20 +230,20 @@
    "MANUAL": 0
   },
   "crew": {
-   "FULL": 37,
-   "PARTIAL": 144,
+   "FULL": 38,
+   "PARTIAL": 143,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "morph": {
-   "FULL": 43,
-   "PARTIAL": 110,
+   "FULL": 45,
+   "PARTIAL": 108,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "food": {
-   "FULL": 14,
-   "PARTIAL": 135,
+   "FULL": 16,
+   "PARTIAL": 133,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -284,8 +284,8 @@
    "MANUAL": 0
   },
   "double strike": {
-   "FULL": 30,
-   "PARTIAL": 89,
+   "FULL": 34,
+   "PARTIAL": 85,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -308,14 +308,14 @@
    "MANUAL": 0
   },
   "proliferate": {
-   "FULL": 23,
-   "PARTIAL": 72,
+   "FULL": 26,
+   "PARTIAL": 69,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "prowess": {
-   "FULL": 32,
-   "PARTIAL": 61,
+   "FULL": 33,
+   "PARTIAL": 60,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -326,8 +326,8 @@
    "MANUAL": 0
   },
   "hexproof": {
-   "FULL": 30,
-   "PARTIAL": 61,
+   "FULL": 34,
+   "PARTIAL": 57,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -374,8 +374,8 @@
    "MANUAL": 0
   },
   "suspend": {
-   "FULL": 22,
-   "PARTIAL": 48,
+   "FULL": 23,
+   "PARTIAL": 47,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -386,8 +386,8 @@
    "MANUAL": 0
   },
   "madness": {
-   "FULL": 20,
-   "PARTIAL": 41,
+   "FULL": 21,
+   "PARTIAL": 40,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -410,8 +410,8 @@
    "MANUAL": 0
   },
   "explore": {
-   "FULL": 16,
-   "PARTIAL": 37,
+   "FULL": 18,
+   "PARTIAL": 35,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -476,8 +476,8 @@
    "MANUAL": 0
   },
   "fear": {
-   "FULL": 13,
-   "PARTIAL": 27,
+   "FULL": 15,
+   "PARTIAL": 25,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -542,8 +542,8 @@
    "MANUAL": 1
   },
   "toxic": {
-   "FULL": 0,
-   "PARTIAL": 37,
+   "FULL": 11,
+   "PARTIAL": 26,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -596,8 +596,8 @@
    "MANUAL": 0
   },
   "shroud": {
-   "FULL": 16,
-   "PARTIAL": 19,
+   "FULL": 19,
+   "PARTIAL": 16,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -746,8 +746,8 @@
    "MANUAL": 0
   },
   "flanking": {
-   "FULL": 0,
-   "PARTIAL": 29,
+   "FULL": 14,
+   "PARTIAL": 15,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -854,8 +854,8 @@
    "MANUAL": 0
   },
   "wither": {
-   "FULL": 13,
-   "PARTIAL": 13,
+   "FULL": 14,
+   "PARTIAL": 12,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -866,8 +866,8 @@
    "MANUAL": 0
   },
   "persist": {
-   "FULL": 0,
-   "PARTIAL": 24,
+   "FULL": 11,
+   "PARTIAL": 13,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -938,8 +938,8 @@
    "MANUAL": 1
   },
   "bloodthirst": {
-   "FULL": 12,
-   "PARTIAL": 11,
+   "FULL": 13,
+   "PARTIAL": 10,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -956,8 +956,8 @@
    "MANUAL": 0
   },
   "undying": {
-   "FULL": 0,
-   "PARTIAL": 22,
+   "FULL": 10,
+   "PARTIAL": 12,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -968,8 +968,8 @@
    "MANUAL": 0
   },
   "intimidate": {
-   "FULL": 5,
-   "PARTIAL": 18,
+   "FULL": 6,
+   "PARTIAL": 17,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1084,8 +1084,8 @@
    "MANUAL": 0
   },
   "afr": {
-   "FULL": 17,
-   "PARTIAL": 225,
+   "FULL": 20,
+   "PARTIAL": 222,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1138,8 +1138,8 @@
    "MANUAL": 0
   },
   "avr": {
-   "FULL": 17,
-   "PARTIAL": 94,
+   "FULL": 19,
+   "PARTIAL": 92,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1150,8 +1150,8 @@
    "MANUAL": 0
   },
   "bfz": {
-   "FULL": 43,
-   "PARTIAL": 131,
+   "FULL": 44,
+   "PARTIAL": 130,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1162,8 +1162,8 @@
    "MANUAL": 0
   },
   "blb": {
-   "FULL": 21,
-   "PARTIAL": 242,
+   "FULL": 22,
+   "PARTIAL": 241,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1174,8 +1174,8 @@
    "MANUAL": 0
   },
   "bng": {
-   "FULL": 11,
-   "PARTIAL": 109,
+   "FULL": 12,
+   "PARTIAL": 108,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1198,8 +1198,8 @@
    "MANUAL": 0
   },
   "bro": {
-   "FULL": 24,
-   "PARTIAL": 225,
+   "FULL": 25,
+   "PARTIAL": 224,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1210,8 +1210,8 @@
    "MANUAL": 0
   },
   "c14": {
-   "FULL": 4,
-   "PARTIAL": 35,
+   "FULL": 5,
+   "PARTIAL": 34,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1246,8 +1246,8 @@
    "MANUAL": 0
   },
   "c20": {
-   "FULL": 9,
-   "PARTIAL": 93,
+   "FULL": 10,
+   "PARTIAL": 92,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1282,14 +1282,14 @@
    "MANUAL": 0
   },
   "clu": {
-   "FULL": 53,
-   "PARTIAL": 142,
+   "FULL": 55,
+   "PARTIAL": 140,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "cm2": {
-   "FULL": 6,
-   "PARTIAL": 75,
+   "FULL": 7,
+   "PARTIAL": 74,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1312,14 +1312,14 @@
    "MANUAL": 0
   },
   "cmr": {
-   "FULL": 34,
-   "PARTIAL": 221,
+   "FULL": 35,
+   "PARTIAL": 220,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "cn2": {
-   "FULL": 18,
-   "PARTIAL": 91,
+   "FULL": 19,
+   "PARTIAL": 90,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1432,8 +1432,8 @@
    "MANUAL": 0
   },
   "ddt": {
-   "FULL": 4,
-   "PARTIAL": 26,
+   "FULL": 5,
+   "PARTIAL": 25,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1450,20 +1450,20 @@
    "MANUAL": 0
   },
   "dgm": {
-   "FULL": 20,
-   "PARTIAL": 72,
+   "FULL": 21,
+   "PARTIAL": 71,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "dis": {
-   "FULL": 9,
-   "PARTIAL": 92,
+   "FULL": 10,
+   "PARTIAL": 91,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "dka": {
-   "FULL": 14,
-   "PARTIAL": 71,
+   "FULL": 21,
+   "PARTIAL": 64,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1474,8 +1474,8 @@
    "MANUAL": 0
   },
   "dmr": {
-   "FULL": 34,
-   "PARTIAL": 167,
+   "FULL": 35,
+   "PARTIAL": 166,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1516,8 +1516,8 @@
    "MANUAL": 0
   },
   "dst": {
-   "FULL": 12,
-   "PARTIAL": 93,
+   "FULL": 13,
+   "PARTIAL": 92,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1534,8 +1534,8 @@
    "MANUAL": 0
   },
   "e01": {
-   "FULL": 7,
-   "PARTIAL": 27,
+   "FULL": 8,
+   "PARTIAL": 26,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1546,8 +1546,8 @@
    "MANUAL": 0
   },
   "ecl": {
-   "FULL": 25,
-   "PARTIAL": 237,
+   "FULL": 26,
+   "PARTIAL": 236,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1558,20 +1558,20 @@
    "MANUAL": 0
   },
   "ema": {
-   "FULL": 20,
-   "PARTIAL": 73,
+   "FULL": 21,
+   "PARTIAL": 72,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "emn": {
-   "FULL": 23,
-   "PARTIAL": 84,
+   "FULL": 24,
+   "PARTIAL": 83,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "eoc": {
-   "FULL": 16,
-   "PARTIAL": 101,
+   "FULL": 17,
+   "PARTIAL": 100,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1582,8 +1582,8 @@
    "MANUAL": 0
   },
   "eve": {
-   "FULL": 18,
-   "PARTIAL": 98,
+   "FULL": 22,
+   "PARTIAL": 94,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1606,8 +1606,8 @@
    "MANUAL": 0
   },
   "fdn": {
-   "FULL": 101,
-   "PARTIAL": 325,
+   "FULL": 102,
+   "PARTIAL": 324,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1624,8 +1624,8 @@
    "MANUAL": 0
   },
   "fin": {
-   "FULL": 36,
-   "PARTIAL": 270,
+   "FULL": 38,
+   "PARTIAL": 268,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1636,8 +1636,8 @@
    "MANUAL": 0
   },
   "frc": {
-   "FULL": 22,
-   "PARTIAL": 61,
+   "FULL": 23,
+   "PARTIAL": 60,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1648,8 +1648,8 @@
    "MANUAL": 0
   },
   "fut": {
-   "FULL": 6,
-   "PARTIAL": 68,
+   "FULL": 7,
+   "PARTIAL": 67,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1672,20 +1672,20 @@
    "MANUAL": 0
   },
   "gpt": {
-   "FULL": 11,
-   "PARTIAL": 79,
+   "FULL": 12,
+   "PARTIAL": 78,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "grn": {
-   "FULL": 36,
-   "PARTIAL": 102,
+   "FULL": 37,
+   "PARTIAL": 101,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "gs1": {
-   "FULL": 20,
-   "PARTIAL": 12,
+   "FULL": 21,
+   "PARTIAL": 11,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1708,8 +1708,8 @@
    "MANUAL": 0
   },
   "hob": {
-   "FULL": 11,
-   "PARTIAL": 177,
+   "FULL": 12,
+   "PARTIAL": 176,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1720,8 +1720,8 @@
    "MANUAL": 0
   },
   "hop": {
-   "FULL": 6,
-   "PARTIAL": 34,
+   "FULL": 7,
+   "PARTIAL": 33,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1738,32 +1738,32 @@
    "MANUAL": 0
   },
   "iko": {
-   "FULL": 38,
-   "PARTIAL": 176,
+   "FULL": 39,
+   "PARTIAL": 175,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "ima": {
-   "FULL": 23,
-   "PARTIAL": 76,
+   "FULL": 24,
+   "PARTIAL": 75,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "inr": {
-   "FULL": 27,
-   "PARTIAL": 229,
+   "FULL": 30,
+   "PARTIAL": 226,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "inv": {
-   "FULL": 49,
-   "PARTIAL": 172,
+   "FULL": 50,
+   "PARTIAL": 171,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "isd": {
-   "FULL": 15,
-   "PARTIAL": 79,
+   "FULL": 18,
+   "PARTIAL": 76,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1780,8 +1780,8 @@
    "MANUAL": 0
   },
   "jmp": {
-   "FULL": 77,
-   "PARTIAL": 178,
+   "FULL": 78,
+   "PARTIAL": 177,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1792,14 +1792,14 @@
    "MANUAL": 0
   },
   "jud": {
-   "FULL": 10,
-   "PARTIAL": 77,
+   "FULL": 12,
+   "PARTIAL": 75,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "jvc": {
-   "FULL": 7,
-   "PARTIAL": 13,
+   "FULL": 8,
+   "PARTIAL": 12,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1834,8 +1834,8 @@
    "MANUAL": 0
   },
   "lci": {
-   "FULL": 27,
-   "PARTIAL": 247,
+   "FULL": 30,
+   "PARTIAL": 244,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1858,8 +1858,8 @@
    "MANUAL": 0
   },
   "lrw": {
-   "FULL": 14,
-   "PARTIAL": 128,
+   "FULL": 15,
+   "PARTIAL": 127,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1876,8 +1876,8 @@
    "MANUAL": 0
   },
   "m10": {
-   "FULL": 19,
-   "PARTIAL": 30,
+   "FULL": 20,
+   "PARTIAL": 29,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1906,8 +1906,8 @@
    "MANUAL": 0
   },
   "m15": {
-   "FULL": 31,
-   "PARTIAL": 91,
+   "FULL": 32,
+   "PARTIAL": 90,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1960,8 +1960,8 @@
    "MANUAL": 0
   },
   "mbs": {
-   "FULL": 22,
-   "PARTIAL": 59,
+   "FULL": 24,
+   "PARTIAL": 57,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1972,14 +1972,14 @@
    "MANUAL": 0
   },
   "me2": {
-   "FULL": 30,
-   "PARTIAL": 171,
+   "FULL": 31,
+   "PARTIAL": 170,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "me3": {
-   "FULL": 58,
-   "PARTIAL": 114,
+   "FULL": 59,
+   "PARTIAL": 113,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1990,8 +1990,8 @@
    "MANUAL": 0
   },
   "mh1": {
-   "FULL": 28,
-   "PARTIAL": 155,
+   "FULL": 30,
+   "PARTIAL": 153,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2020,8 +2020,8 @@
    "MANUAL": 0
   },
   "mir": {
-   "FULL": 26,
-   "PARTIAL": 195,
+   "FULL": 32,
+   "PARTIAL": 189,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2038,8 +2038,8 @@
    "MANUAL": 0
   },
   "mm2": {
-   "FULL": 30,
-   "PARTIAL": 73,
+   "FULL": 31,
+   "PARTIAL": 72,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2080,14 +2080,14 @@
    "MANUAL": 0
   },
   "mrd": {
-   "FULL": 31,
-   "PARTIAL": 121,
+   "FULL": 33,
+   "PARTIAL": 119,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "msc": {
-   "FULL": 58,
-   "PARTIAL": 511,
+   "FULL": 60,
+   "PARTIAL": 509,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2152,26 +2152,26 @@
    "MANUAL": 0
   },
   "one": {
-   "FULL": 21,
-   "PARTIAL": 223,
+   "FULL": 32,
+   "PARTIAL": 212,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "ons": {
-   "FULL": 26,
-   "PARTIAL": 166,
+   "FULL": 27,
+   "PARTIAL": 165,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "ori": {
-   "FULL": 34,
-   "PARTIAL": 89,
+   "FULL": 35,
+   "PARTIAL": 88,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "otc": {
-   "FULL": 15,
-   "PARTIAL": 148,
+   "FULL": 16,
+   "PARTIAL": 147,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2182,8 +2182,8 @@
    "MANUAL": 0
   },
   "p02": {
-   "FULL": 16,
-   "PARTIAL": 25,
+   "FULL": 18,
+   "PARTIAL": 23,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2230,8 +2230,8 @@
    "MANUAL": 0
   },
   "por": {
-   "FULL": 19,
-   "PARTIAL": 34,
+   "FULL": 20,
+   "PARTIAL": 33,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2248,8 +2248,8 @@
    "MANUAL": 0
   },
   "ptk": {
-   "FULL": 41,
-   "PARTIAL": 49,
+   "FULL": 42,
+   "PARTIAL": 48,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2326,8 +2326,8 @@
    "MANUAL": 0
   },
   "shm": {
-   "FULL": 22,
-   "PARTIAL": 159,
+   "FULL": 23,
+   "PARTIAL": 158,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2350,8 +2350,8 @@
    "MANUAL": 0
   },
   "snc": {
-   "FULL": 34,
-   "PARTIAL": 197,
+   "FULL": 35,
+   "PARTIAL": 196,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2392,20 +2392,20 @@
    "MANUAL": 0
   },
   "spm": {
-   "FULL": 13,
-   "PARTIAL": 121,
+   "FULL": 14,
+   "PARTIAL": 120,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "sth": {
-   "FULL": 9,
-   "PARTIAL": 47,
+   "FULL": 10,
+   "PARTIAL": 46,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "stx": {
-   "FULL": 22,
-   "PARTIAL": 198,
+   "FULL": 24,
+   "PARTIAL": 196,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2428,14 +2428,14 @@
    "MANUAL": 0
   },
   "tdc": {
-   "FULL": 27,
-   "PARTIAL": 208,
+   "FULL": 28,
+   "PARTIAL": 207,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "tdm": {
-   "FULL": 27,
-   "PARTIAL": 238,
+   "FULL": 28,
+   "PARTIAL": 237,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2446,8 +2446,8 @@
    "MANUAL": 0
   },
   "ths": {
-   "FULL": 25,
-   "PARTIAL": 97,
+   "FULL": 26,
+   "PARTIAL": 96,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2488,8 +2488,8 @@
    "MANUAL": 0
   },
   "tpr": {
-   "FULL": 69,
-   "PARTIAL": 126,
+   "FULL": 71,
+   "PARTIAL": 124,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2506,20 +2506,20 @@
    "MANUAL": 0
   },
   "tsb": {
-   "FULL": 6,
-   "PARTIAL": 54,
+   "FULL": 7,
+   "PARTIAL": 53,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "tsp": {
-   "FULL": 15,
-   "PARTIAL": 86,
+   "FULL": 16,
+   "PARTIAL": 85,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "tsr": {
-   "FULL": 46,
-   "PARTIAL": 186,
+   "FULL": 48,
+   "PARTIAL": 184,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2536,8 +2536,8 @@
    "MANUAL": 0
   },
   "uma": {
-   "FULL": 16,
-   "PARTIAL": 100,
+   "FULL": 21,
+   "PARTIAL": 95,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2560,8 +2560,8 @@
    "MANUAL": 0
   },
   "vma": {
-   "FULL": 31,
-   "PARTIAL": 94,
+   "FULL": 32,
+   "PARTIAL": 93,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2572,8 +2572,8 @@
    "MANUAL": 0
   },
   "vow": {
-   "FULL": 18,
-   "PARTIAL": 188,
+   "FULL": 19,
+   "PARTIAL": 187,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2584,20 +2584,20 @@
    "MANUAL": 0
   },
   "w17": {
-   "FULL": 10,
-   "PARTIAL": 9,
+   "FULL": 11,
+   "PARTIAL": 8,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "war": {
-   "FULL": 19,
-   "PARTIAL": 134,
+   "FULL": 20,
+   "PARTIAL": 133,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "who": {
-   "FULL": 1,
-   "PARTIAL": 185,
+   "FULL": 2,
+   "PARTIAL": 184,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2608,14 +2608,14 @@
    "MANUAL": 0
   },
   "woe": {
-   "FULL": 14,
-   "PARTIAL": 247,
+   "FULL": 15,
+   "PARTIAL": 246,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "wth": {
-   "FULL": 6,
-   "PARTIAL": 100,
+   "FULL": 8,
+   "PARTIAL": 98,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2626,8 +2626,8 @@
    "MANUAL": 0
   },
   "xln": {
-   "FULL": 48,
-   "PARTIAL": 119,
+   "FULL": 50,
+   "PARTIAL": 117,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2644,8 +2644,8 @@
    "MANUAL": 0
   },
   "znr": {
-   "FULL": 44,
-   "PARTIAL": 181,
+   "FULL": 45,
+   "PARTIAL": 180,
    "REVIEW": 0,
    "MANUAL": 0
   }
@@ -2675,7 +2675,7 @@
    "commander_cards": 367,
    "pod_cards": 0,
    "pod_commanders": 0,
-   "only_missing_piece_for": 196,
+   "only_missing_piece_for": 197,
    "examples": [
     "Saltcrusted Steppe",
     "Flywheel Racer",
@@ -2760,21 +2760,6 @@
    ]
   },
   {
-   "feature": "keyword:flanking",
-   "kind": "keyword",
-   "commander_cards": 29,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 14,
-   "examples": [
-    "Burning Shield Askari",
-    "Benalish Cavalry",
-    "Mtenda Herder",
-    "Zhalfirin Commander",
-    "Skulking Knight"
-   ]
-  },
-  {
    "feature": "keyword:foretell",
    "kind": "keyword",
    "commander_cards": 51,
@@ -2835,18 +2820,18 @@
    ]
   },
   {
-   "feature": "template:~ can't be countered.",
-   "kind": "restriction",
-   "commander_cards": 87,
+   "feature": "keyword:myriad",
+   "kind": "keyword",
+   "commander_cards": 23,
    "pod_cards": 0,
    "pod_commanders": 0,
-   "only_missing_piece_for": 11,
+   "only_missing_piece_for": 12,
    "examples": [
-    "Supreme Verdict",
-    "Rending Volley",
-    "Heated Debate",
-    "Thrun, the Last Troll",
-    "Glen Elendra's Answer"
+    "The Master, Multiplied",
+    "Sumala Rumblers",
+    "Conclave Evangelist",
+    "Dalek Squadron",
+    "Banshee of the Dread Choir"
    ]
   },
   {
@@ -2862,21 +2847,6 @@
     "Staggershock",
     "Profound Journey",
     "Ephemerate"
-   ]
-  },
-  {
-   "feature": "keyword:persist",
-   "kind": "keyword",
-   "commander_cards": 24,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 11,
-   "examples": [
-    "Puppeteer Clique",
-    "Furystoke Giant",
-    "Trapjaw Kelpie",
-    "Gravelgill Axeshark",
-    "Lingering Tormentor"
    ]
   },
   {
@@ -2925,36 +2895,6 @@
    ]
   },
   {
-   "feature": "keyword:toxic",
-   "kind": "keyword",
-   "commander_cards": 37,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 10,
-   "examples": [
-    "Tyrranax Atrocity",
-    "Bloated Contaminator",
-    "Bloodroot Apothecary",
-    "Voidwing Hybrid",
-    "Jawbone Duelist"
-   ]
-  },
-  {
-   "feature": "template:When ~ enters, mill N card(s).",
-   "kind": "triggered",
-   "commander_cards": 30,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 10,
-   "examples": [
-    "The Eighth Doctor",
-    "Devoted Grafkeeper // Departed Soulkeeper",
-    "Seedship Broodtender",
-    "Gisa and Geralf",
-    "Necromancer's Assistant"
-   ]
-  },
-  {
    "feature": "keyword:delve",
    "kind": "keyword",
    "commander_cards": 28,
@@ -2970,33 +2910,18 @@
    ]
   },
   {
-   "feature": "template:~ can't attack unless defending player controls an Island.",
-   "kind": "restriction",
-   "commander_cards": 25,
+   "feature": "template:Modular N",
+   "kind": "static",
+   "commander_cards": 23,
    "pod_cards": 0,
    "pod_commanders": 0,
    "only_missing_piece_for": 10,
    "examples": [
-    "Red Cliffs Armada",
-    "Zhou Yu, Chief Commander",
-    "Floodchaser",
-    "Sea Monster",
-    "Steam Frigate"
-   ]
-  },
-  {
-   "feature": "keyword:undying",
-   "kind": "keyword",
-   "commander_cards": 22,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 10,
-   "examples": [
-    "Demonlord of Ashmouth",
-    "Hound of Griselbrand",
-    "Vengeful Vampire",
-    "Butcher Ghoul",
-    "Relentless Skaabs"
+    "Arcbound Whelp",
+    "Arcbound Javelineer",
+    "Arcbound Hybrid",
+    "Arcbound Slith",
+    "Arcbound Bruiser"
    ]
   },
   {
@@ -3015,21 +2940,6 @@
    ]
   },
   {
-   "feature": "template:Whenever ~ deals combat damage to a player, put a \u00b1N/\u00b1N counter(s) on it.",
-   "kind": "triggered",
-   "commander_cards": 19,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 10,
-   "examples": [
-    "Skullbriar, the Walking Grave",
-    "Hexgold Slith",
-    "Arcbound Slith",
-    "Stromkirk Patrol",
-    "Havengul Vampire"
-   ]
-  },
-  {
    "feature": "keyword:fading",
    "kind": "keyword",
    "commander_cards": 17,
@@ -3042,6 +2952,21 @@
     "Skyshroud Ridgeback",
     "Jolting Merfolk",
     "Parallax Nexus"
+   ]
+  },
+  {
+   "feature": "template:At the beginning of the end step, sacrifice ~.",
+   "kind": "triggered",
+   "commander_cards": 16,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 10,
+   "examples": [
+    "Impetuous Devils",
+    "Underworld Breach",
+    "Putrefax",
+    "Spark Trooper",
+    "Spark Elemental"
    ]
   },
   {
@@ -3195,6 +3120,21 @@
    ]
   },
   {
+   "feature": "template:~ can't be blocked by creatures with power N or less.",
+   "kind": "restriction",
+   "commander_cards": 32,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 9,
+   "examples": [
+    "Glinting Creeper",
+    "Dread Linnorm // Scale Deflection",
+    "Chomping Kavu",
+    "Rust-Shield Rampager",
+    "Demolition Stomper"
+   ]
+  },
+  {
    "feature": "keyword:cumulative upkeep",
    "kind": "keyword",
    "commander_cards": 23,
@@ -3207,21 +3147,6 @@
     "Inner Sanctum",
     "J\u00f6tun Owl Keeper",
     "J\u00f6tun Grunt"
-   ]
-  },
-  {
-   "feature": "template:Modular N",
-   "kind": "static",
-   "commander_cards": 23,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 9,
-   "examples": [
-    "Arcbound Whelp",
-    "Arcbound Javelineer",
-    "Arcbound Hybrid",
-    "Arcbound Slith",
-    "Arcbound Bruiser"
    ]
   },
   {
@@ -3285,21 +3210,6 @@
    ]
   },
   {
-   "feature": "template:At the beginning of the end step, sacrifice ~.",
-   "kind": "triggered",
-   "commander_cards": 16,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 9,
-   "examples": [
-    "Impetuous Devils",
-    "Underworld Breach",
-    "Putrefax",
-    "Spark Trooper",
-    "Spark Elemental"
-   ]
-  },
-  {
    "feature": "template:When ~ enters, you may discard N card(s). If you do, draw N card(s).",
    "kind": "triggered",
    "commander_cards": 15,
@@ -3327,6 +3237,21 @@
     "Darkness",
     "Holy Day",
     "Clinging Mists"
+   ]
+  },
+  {
+   "feature": "template:Threshold \u2014 ~ gets \u00b1N/\u00b1N as long as there are N or more cards in your graveyard.",
+   "kind": "continuous",
+   "commander_cards": 12,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 9,
+   "examples": [
+    "Krosan Beast",
+    "Nimble Mongoose",
+    "Anurid Barkripper",
+    "Springing Tiger",
+    "Cabal Initiate"
    ]
   },
   {
@@ -3390,21 +3315,6 @@
    ]
   },
   {
-   "feature": "template:Sliver creatures you control have \u201c\u2026\u201d",
-   "kind": "continuous",
-   "commander_cards": 9,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 9,
-   "examples": [
-    "Capricious Sliver",
-    "Lavabelly Sliver",
-    "Regal Sliver",
-    "Tempered Sliver",
-    "Hollowhead Sliver"
-   ]
-  },
-  {
    "feature": "template:Whenever ~ or another Ally you control enters, you may put a \u00b1N/\u00b1N counter(s) on ~.",
    "kind": "triggered",
    "commander_cards": 9,
@@ -3417,21 +3327,6 @@
     "Oran-Rief Survivalist",
     "Nimana Sell-Sword",
     "Bojuka Brigand"
-   ]
-  },
-  {
-   "feature": "template:~ can't be blocked by creatures with power N or less.",
-   "kind": "restriction",
-   "commander_cards": 32,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 8,
-   "examples": [
-    "Glinting Creeper",
-    "Dread Linnorm // Scale Deflection",
-    "Chomping Kavu",
-    "Rust-Shield Rampager",
-    "Demolition Stomper"
    ]
   },
   {
@@ -3450,21 +3345,6 @@
    ]
   },
   {
-   "feature": "keyword:myriad",
-   "kind": "keyword",
-   "commander_cards": 23,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 8,
-   "examples": [
-    "The Master, Multiplied",
-    "Sumala Rumblers",
-    "Conclave Evangelist",
-    "Dalek Squadron",
-    "Banshee of the Dread Choir"
-   ]
-  },
-  {
    "feature": "template:Target player discards N card(s).",
    "kind": "spell_effect",
    "commander_cards": 18,
@@ -3477,21 +3357,6 @@
     "Skull Fracture",
     "Mindstab",
     "Pain // Suffering"
-   ]
-  },
-  {
-   "feature": "template:Threshold \u2014 ~ gets \u00b1N/\u00b1N as long as there are N or more cards in your graveyard.",
-   "kind": "continuous",
-   "commander_cards": 12,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 8,
-   "examples": [
-    "Krosan Beast",
-    "Nimble Mongoose",
-    "Anurid Barkripper",
-    "Springing Tiger",
-    "Cabal Initiate"
    ]
   },
   {
@@ -3630,6 +3495,21 @@
    ]
   },
   {
+   "feature": "template:Sliver creatures you control have \u201c\u2026\u201d",
+   "kind": "continuous",
+   "commander_cards": 8,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 8,
+   "examples": [
+    "Capricious Sliver",
+    "Lavabelly Sliver",
+    "Regal Sliver",
+    "Hollowhead Sliver",
+    "Scuttling Sliver"
+   ]
+  },
+  {
    "feature": "template:When ~ enters, return target instant or sorcery card from your graveyard to your hand.",
    "kind": "triggered",
    "commander_cards": 8,
@@ -3657,6 +3537,36 @@
     "Turbulent Springs",
     "Turbulent Wetlands",
     "Turbulent Wilderness"
+   ]
+  },
+  {
+   "feature": "keyword:ward",
+   "kind": "keyword",
+   "commander_cards": 97,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Tyranid Harridan",
+    "Grey Host Reinforcements",
+    "Kwia Vigorbloom",
+    "Shadow Puppeteers",
+    "Mighty Servant of Leuk-o"
+   ]
+  },
+  {
+   "feature": "keyword:disguise",
+   "kind": "keyword",
+   "commander_cards": 43,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Boltbender",
+    "Nightdrinker Moroii",
+    "Concealed Weapon",
+    "Dog Walker",
+    "Nervous Gardener"
    ]
   },
   {
@@ -3777,6 +3687,21 @@
     "Waves of Aggression",
     "Decaying Time Loop",
     "Oona's Grace"
+   ]
+  },
+  {
+   "feature": "template:During your turn, ~ has first strike.",
+   "kind": "continuous",
+   "commander_cards": 17,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Fresh-Faced Recruit",
+    "Duelist of Deep Faith",
+    "Null Group Biological Assets",
+    "Skilled Battlecarver",
+    "Shocker, Unshakable"
    ]
   },
   {
@@ -4065,33 +3990,18 @@
    ]
   },
   {
-   "feature": "keyword:ward",
+   "feature": "keyword:ninjutsu",
    "kind": "keyword",
-   "commander_cards": 97,
+   "commander_cards": 35,
    "pod_cards": 0,
    "pod_commanders": 0,
    "only_missing_piece_for": 6,
    "examples": [
-    "Tyranid Harridan",
-    "Grey Host Reinforcements",
-    "Kwia Vigorbloom",
-    "Shadow Puppeteers",
-    "Mighty Servant of Leuk-o"
-   ]
-  },
-  {
-   "feature": "keyword:disguise",
-   "kind": "keyword",
-   "commander_cards": 43,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 6,
-   "examples": [
-    "Boltbender",
-    "Nightdrinker Moroii",
-    "Concealed Weapon",
-    "Dog Walker",
-    "Nervous Gardener"
+    "Higure, the Still Wind",
+    "Moonblade Shinobi",
+    "Mist-Syndicate Naga",
+    "Mistblade Shinobi",
+    "Spring-Leaf Avenger"
    ]
   },
   {
@@ -4125,21 +4035,6 @@
    ]
   },
   {
-   "feature": "template:During your turn, ~ has first strike.",
-   "kind": "continuous",
-   "commander_cards": 17,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 6,
-   "examples": [
-    "Fresh-Faced Recruit",
-    "Duelist of Deep Faith",
-    "Null Group Biological Assets",
-    "Skilled Battlecarver",
-    "Shocker, Unshakable"
-   ]
-  },
-  {
    "feature": "template:Instant and sorcery spells you cast cost {M} less to cast.",
    "kind": "cost_modifier",
    "commander_cards": 16,
@@ -4152,6 +4047,21 @@
     "Ral, Monsoon Mage // Ral, Leyline Prodigy",
     "Jace's Sanctum",
     "Archmage of Runes"
+   ]
+  },
+  {
+   "feature": "template:When you control no Islands, sacrifice ~.",
+   "kind": "triggered",
+   "commander_cards": 13,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 6,
+   "examples": [
+    "Seasinger",
+    "Marjhan",
+    "Giant Shark",
+    "Kukemssa Serpent",
+    "Merchant Ship"
    ]
   },
   {
@@ -4332,6 +4242,36 @@
     "Swift Response",
     "Sheer Drop",
     "Push // Pull"
+   ]
+  },
+  {
+   "feature": "template:Whenever N creature(s) dealt damage by ~ this turn dies, put a \u00b1N/\u00b1N counter(s) on ~.",
+   "kind": "triggered",
+   "commander_cards": 10,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 6,
+   "examples": [
+    "Blood Cultist",
+    "Garza Zol, Plague Queen",
+    "Zurgo Helmsmasher",
+    "Vein Drinker",
+    "Sengir Vampire"
+   ]
+  },
+  {
+   "feature": "template:When ~ enters, target player mills N card(s).",
+   "kind": "triggered",
+   "commander_cards": 9,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 6,
+   "examples": [
+    "Returned Centaur",
+    "Drownyard Amalgam",
+    "Gnawing Vermin",
+    "Wall of Lost Thoughts",
+    "Merrow Witsniper"
    ]
   },
   {
@@ -4530,6 +4470,21 @@
    ]
   },
   {
+   "feature": "template:When ~ enters, you may search your library for a basic land card, reveal it, then shuffle and put that card on top.",
+   "kind": "triggered",
+   "commander_cards": 6,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 6,
+   "examples": [
+    "Dune Mover",
+    "Loam Larva",
+    "Campus Guide",
+    "Giant Ladybug",
+    "Spider-Bot"
+   ]
+  },
+  {
    "feature": "template:Whenever ~ blocks N creature(s) with flying, ~ gets \u00b1N/\u00b1N until end of turn.",
    "kind": "triggered",
    "commander_cards": 6,
@@ -4617,21 +4572,6 @@
     "Donatello's Technique",
     "Foot Ninjas",
     "Leonardo, Leader in Blue"
-   ]
-  },
-  {
-   "feature": "template:Whenever ~ deals combat damage to a player, draw N card(s).",
-   "kind": "triggered",
-   "commander_cards": 23,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 5,
-   "examples": [
-    "Sea-Dasher Octopus",
-    "Lambholt Elder // Silverpelt Werewolf",
-    "Beast, Erudite Aerialist",
-    "Illvoi Infiltrator",
-    "Oakhame Adversary"
    ]
   },
   {
@@ -4815,6 +4755,21 @@
    ]
   },
   {
+   "feature": "keyword:surge",
+   "kind": "keyword",
+   "commander_cards": 11,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Boulder Salvo",
+    "Jwar Isle Avenger",
+    "Goblin Freerunner",
+    "Overwhelming Denial",
+    "Crush of Tentacles"
+   ]
+  },
+  {
    "feature": "template:At the beginning of your upkeep, you lose N life(s).",
    "kind": "triggered",
    "commander_cards": 11,
@@ -4860,21 +4815,6 @@
    ]
   },
   {
-   "feature": "template:Whenever N creature(s) dealt damage by ~ this turn dies, put a \u00b1N/\u00b1N counter(s) on ~.",
-   "kind": "triggered",
-   "commander_cards": 10,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 5,
-   "examples": [
-    "Blood Cultist",
-    "Garza Zol, Plague Queen",
-    "Zurgo Helmsmasher",
-    "Vein Drinker",
-    "Sengir Vampire"
-   ]
-  },
-  {
    "feature": "template:~ gets \u00b1N/\u00b1N for each artifact you control.",
    "kind": "continuous",
    "commander_cards": 10,
@@ -4890,6 +4830,21 @@
    ]
   },
   {
+   "feature": "keyword:dethrone",
+   "kind": "keyword",
+   "commander_cards": 9,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Scourge of the Throne",
+    "Marchesa, the Black Rose",
+    "Park Heights Maverick",
+    "Marchesa's Emissary",
+    "Treasonous Ogre"
+   ]
+  },
+  {
    "feature": "template:Target player draws N card(s) and loses N life(s).",
    "kind": "spell_effect",
    "commander_cards": 9,
@@ -4902,21 +4857,6 @@
     "Painful Lesson",
     "Harrowing Journey",
     "Ominous Harvest"
-   ]
-  },
-  {
-   "feature": "template:When ~ enters, target player mills N card(s).",
-   "kind": "triggered",
-   "commander_cards": 9,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 5,
-   "examples": [
-    "Returned Centaur",
-    "Drownyard Amalgam",
-    "Gnawing Vermin",
-    "Wall of Lost Thoughts",
-    "Merrow Witsniper"
    ]
   },
   {
@@ -5205,6 +5145,21 @@
    ]
   },
   {
+   "feature": "template:Threshold \u2014 As long as there are N or more cards in your graveyard, ~ gets \u00b1N/\u00b1N and has \u201c\u2026\u201d",
+   "kind": "continuous",
+   "commander_cards": 6,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Boneshard Slasher",
+    "Treacherous Vampire",
+    "Bloodcurdler",
+    "Treacherous Werewolf",
+    "Vigilant Sentry"
+   ]
+  },
+  {
    "feature": "template:When ~ enters, put a \u00b1N/\u00b1N counter(s) on each other creature you control.",
    "kind": "triggered",
    "commander_cards": 6,
@@ -5217,21 +5172,6 @@
     "Supply Runners",
     "Ridgescale Tusker",
     "Katara, Heroic Healer"
-   ]
-  },
-  {
-   "feature": "template:When ~ enters, you may search your library for a basic land card, reveal it, then shuffle and put that card on top.",
-   "kind": "triggered",
-   "commander_cards": 6,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 5,
-   "examples": [
-    "Dune Mover",
-    "Loam Larva",
-    "Campus Guide",
-    "Giant Ladybug",
-    "Spider-Bot"
    ]
   },
   {
@@ -5280,6 +5220,21 @@
    ]
   },
   {
+   "feature": "template:{M}: The next N damage that would be dealt to ~ this turn is dealt to target creature you control instead.",
+   "kind": "activated",
+   "commander_cards": 6,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Warrior en-Kor",
+    "Shaman en-Kor",
+    "Outrider en-Kor",
+    "Nomads en-Kor",
+    "Lancers en-Kor"
+   ]
+  },
+  {
    "feature": "template:~ can't attack or block alone.",
    "kind": "restriction",
    "commander_cards": 6,
@@ -5307,6 +5262,21 @@
     "Pillar of Flame",
     "Touch of the Void",
     "Annihilating Fire"
+   ]
+  },
+  {
+   "feature": "template:Delirium \u2014 ~ gets \u00b1N/\u00b1N as long as there are N or more card types among cards in your graveyard.",
+   "kind": "continuous",
+   "commander_cards": 5,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Grim Flayer",
+    "Moldgraf Scavenger",
+    "Desperate Sentry",
+    "Foul Watcher",
+    "Gnarlwood Dryad"
    ]
   },
   {
@@ -5522,7 +5492,7 @@
   {
    "feature": "template:~ deals N damage to any target.",
    "kind": "spell_effect",
-   "commander_cards": 60,
+   "commander_cards": 59,
    "pod_cards": 0,
    "pod_commanders": 0,
    "only_missing_piece_for": 4,
@@ -5532,21 +5502,6 @@
     "Geistblast",
     "Sonic Burst",
     "Punishing Fire"
-   ]
-  },
-  {
-   "feature": "keyword:ninjutsu",
-   "kind": "keyword",
-   "commander_cards": 35,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 4,
-   "examples": [
-    "Higure, the Still Wind",
-    "Moonblade Shinobi",
-    "Mist-Syndicate Naga",
-    "Mistblade Shinobi",
-    "Spring-Leaf Avenger"
    ]
   },
   {
@@ -5655,18 +5610,63 @@
    ]
   },
   {
-   "feature": "keyword:surge",
-   "kind": "keyword",
+   "feature": "template:Power-up \u2014 {M}: Put N \u00b1N/\u00b1N counter(s) on ~.",
+   "kind": "static",
    "commander_cards": 11,
    "pod_cards": 0,
    "pod_commanders": 0,
    "only_missing_piece_for": 4,
    "examples": [
-    "Boulder Salvo",
-    "Jwar Isle Avenger",
-    "Goblin Freerunner",
-    "Overwhelming Denial",
-    "Crush of Tentacles"
+    "Shang-Chi, Martial Mentor",
+    "Hulk, Gamma Goliath",
+    "Serpent Specialist",
+    "Human Torch, Johnny Storm",
+    "Loki Laufeyson"
+   ]
+  },
+  {
+   "feature": "template:When ~ enters, support N.",
+   "kind": "triggered",
+   "commander_cards": 11,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Expedition Raptor",
+    "Aerie Auxiliary",
+    "Together Forever",
+    "Saddleback Lagac",
+    "Gladehart Cavalry"
+   ]
+  },
+  {
+   "feature": "template:Whenever you draw N card(s), put a \u00b1N/\u00b1N counter(s) on ~.",
+   "kind": "triggered",
+   "commander_cards": 11,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Toothy, Imaginary Friend",
+    "Oneirophage",
+    "Shang-Chi and the Ten Rings",
+    "Chasm Skulker",
+    "The Astonishing Ant-Man"
+   ]
+  },
+  {
+   "feature": "keyword:afflict",
+   "kind": "keyword",
+   "commander_cards": 10,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Wildfire Eternal",
+    "Merciless Eternal",
+    "Frontline Devastator",
+    "Eternal of Harsh Truths",
+    "Lost Monarch of Ifnir"
    ]
   }
  ],
@@ -5768,11 +5768,11 @@
    "supported": [
     "Cast it (timing, costs, the stack)",
     "Attack and block",
+    "This spell can't be countered.",
     "Indestructible",
     "Toski attacks each combat if able."
    ],
    "missing": [
-    "This spell can't be countered.",
     "Whenever a creature you control deals combat damage to a player, draw a card."
    ]
   },
@@ -5967,10 +5967,10 @@
    "supported": [
     "Cast it (timing, costs, the stack)",
     "Attack and block",
-    "Affinity"
+    "Affinity",
+    "When Emry enters, mill four cards."
    ],
    "missing": [
-    "When Emry enters, mill four cards.",
     "{T}: Choose target artifact card in your graveyard. You may cast that card this turn."
    ]
   },
@@ -6095,10 +6095,10 @@
    "supported": [
     "Cast it (timing, costs, the stack)",
     "Attack and block",
+    "This spell can't be countered.",
     "Flying"
    ],
    "missing": [
-    "This spell can't be countered.",
     "Whenever you draw a card, Niv-Mizzet deals 1 damage to any target.",
     "Whenever a player casts an instant or sorcery spell, you draw a card."
    ]
@@ -6859,10 +6859,10 @@
    "pairing": [],
    "supported": [
     "Cast it (timing, costs, the stack)",
-    "Attack and block"
+    "Attack and block",
+    "This spell can't be countered."
    ],
    "missing": [
-    "This spell can't be countered.",
     "You have no maximum hand size.",
     "Whenever an opponent casts a noncreature spell, draw a card.",
     "Discard three cards: Exile Nezahal. Return it to the battlefield tapped under its owner's control at the beginning of the next end step."
@@ -6939,10 +6939,10 @@
    "supported": [
     "Cast it (timing, costs, the stack)",
     "Attack and block",
+    "Toxic",
     "Skrelv can't block."
    ],
    "missing": [
-    "Toxic",
     "{W/P}, {T}: Choose a color. Another target creature you control gains toxic 1 and hexproof from that color until end of turn. It can't be blocked by creatures of that color this turn."
    ]
   },
@@ -7653,10 +7653,10 @@
    "pairing": [],
    "supported": [
     "Cast it (timing, costs, the stack)",
-    "Attack and block"
+    "Attack and block",
+    "This spell can't be countered."
    ],
    "missing": [
-    "This spell can't be countered.",
     "At the beginning of each upkeep, create a 3/3 blue Serpent creature token named Koma's Coil.",
     "Sacrifice another Serpent: Choose one \u2014",
     "\u2022 Tap target permanent. Its activated abilities can't be activated this turn.",
@@ -8842,11 +8842,11 @@
    "supported": [
     "Cast it (timing, costs, the stack)",
     "Attack and block",
+    "This spell can't be countered.",
     "Flying",
     "Lifelink"
    ],
    "missing": [
-    "This spell can't be countered.",
     "Your opponents can't cast spells during your turn."
    ]
   },
@@ -9375,10 +9375,10 @@
    "supported": [
     "Cast it (timing, costs, the stack)",
     "Attack and block",
+    "This spell can't be countered.",
     "Trample"
    ],
    "missing": [
-    "This spell can't be countered.",
     "Ward",
     "Whenever Koma deals combat damage to a player, create four 3/3 blue Serpent creature tokens named Koma's Coil."
    ]

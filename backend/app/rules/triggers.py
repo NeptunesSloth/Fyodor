@@ -93,6 +93,8 @@ def collect(plan: Plan) -> None:
             kinds = ["ltb_self"] + (["dies_self"] if to == "graveyard" or (e.to_zone is None and snap.is_token) else [])
             for kind in kinds:
                 for i, d in abilities(plan, ch, kind):
+                    if d.get("unless_counter") and snap.counters.get(d["unless_counter"], 0) > 0:
+                        continue  # persist / undying: "if it had no … counters on it"
                     _add(plan, controller=snap.controller, source_card=snap.card, source_object=snap.object_id,
                          name=ch.name, index=i, definition=d)
 
@@ -320,6 +322,23 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
                                      "effects": [{"do": "counter_unless", "cost": cost, "object": stack_id}]})
 
 
+def flanking(plan: Plan, pairs: list[tuple[CardInstance, CardInstance]]) -> None:
+    """702.25a: "Whenever this creature becomes blocked by a creature without flanking, the blocking
+    creature gets -1/-1 until end of turn." (Per instance, per blocker.)"""
+    for blocker, attacker in pairs:
+        if plan.manual(attacker):
+            continue
+        ach = plan.ch(attacker)
+        n = sum(1 for ab in ach.abilities if ab.kind == "keywords" for kw in ab.keywords if kw == "flanking")
+        if not n or "flanking" in plan.ch(blocker).keywords:
+            continue
+        for k in range(n):
+            _add(plan, controller=attacker.controller, source_card=attacker.id, source_object=plan.oid(attacker),
+                 name=ach.name, index=4200 + k,
+                 definition={"kind": "triggered", "trigger": "flanking", "optional": False, "target": None,
+                             "effects": [{"do": "pump", "who": f"object:{plan.oid(blocker)}", "p": -1, "t": -1}]})
+
+
 def blocked(plan: Plan, blockers: list[CardInstance], attackers: list[CardInstance]) -> None:
     """702.45 bushido N: "Whenever this creature blocks or becomes blocked, it gets +N/+N until
     end of turn." (Once per creature per combat, however many creatures it blocks or is blocked by.)"""
@@ -337,9 +356,14 @@ def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> No
     """702.112 renown N: "When this creature deals combat damage to a player, if it isn't renowned,
     put N +1/+1 counters on it and it becomes renowned." (Checked again on resolution.)"""
     for card in sources:
-        if plan.manual(card) or plan.oid(card) in plan.rules.renowned:
+        if plan.manual(card):
             continue
         ch = plan.ch(card)
+        for i, d in abilities(plan, ch, "combat_damage_player_self"):
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+                 index=i, definition=d)
+        if plan.oid(card) in plan.rules.renowned:
+            continue
         for k, n in enumerate(_keyword_n(ch, "renown")):
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=4100 + k, definition={"kind": "triggered", "trigger": "renown", "optional": False, "target": None,

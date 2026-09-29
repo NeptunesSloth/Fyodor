@@ -8,6 +8,7 @@ whether first-strike damage has been dealt.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -167,6 +168,10 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
             raise ActionError(problem)
         if decl.target not in targets:
             raise ActionError(f"{card.name} can't attack that")
+        if "attack_needs_island" in scripts.statics(plan.ch(card)):
+            defender = decl.target if decl.target in plan.state.players else plan.state.cards[decl.target].controller
+            if not _controls_land(plan.state, defender, "Island", plan.info):
+                raise ActionError(f"{card.name} can't attack unless defending player controls an Island")
         if decl.card_id in seen:
             raise ActionError(f"{card.name} can only attack once")
         seen.add(decl.card_id)
@@ -276,6 +281,7 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
 
         triggers.blocked(plan, [plan.state.cards[d.blocker_id] for d in a.blocks],
                          [plan.state.cards[aid] for aid in per_attacker])
+        triggers.flanking(plan, [(plan.state.cards[d.blocker_id], plan.state.cards[d.attacker_id]) for d in a.blocks])
     if not a.blocks:
         plan.note(f"{plan.name(plan.actor)} doesn't block")
     ask_next_blocker(plan)
@@ -352,6 +358,10 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
                 return 0
             into = out.poison if "infect" in ach.keywords else out.players
             into[tgt.id] = into.get(tgt.id, 0) + n
+            toxic = sum(int(x) for ab in ach.abilities if ab.kind == "keywords" and "toxic" in ab.keywords
+                        for x in re.findall(r"toxic (\d+)", ab.text.lower()))
+            if toxic:  # 702.164: combat damage to a player also gives N poison counters
+                out.poison[tgt.id] = out.poison.get(tgt.id, 0) + toxic
             out.dealt.append((att.id, tgt.id, n))
             if att.commander_key:
                 key = (tgt.id, att.commander_key)

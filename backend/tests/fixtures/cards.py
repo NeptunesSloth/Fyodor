@@ -258,5 +258,13 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Kami of Ancient Law", set_code="tst", number="O3", mana_cost="{1}{W}", cmc=2.0, type_line="Creature — Spirit",
              oracle_text="Sacrifice this creature: Destroy target enchantment.", power="2", toughness="2",
              colors=["W"], color_identity=["W"]),
+        card("Kitchen Finks", set_code="tst", number="O4", mana_cost="{1}{G/W}{G/W}", cmc=3.0, type_line="Creature — Ouphe",
+             oracle_text="When this creature enters, you gain 2 life.\nPersist (When this creature dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.)",
+             power="3", toughness="2", colors=["G", "W"], color_identity=["G", "W"]),
+        card("Young Wolf", set_code="tst", number="O5", mana_cost="{G}", cmc=1.0, type_line="Creature — Wolf",
+             oracle_text="Undying (When this creature dies, if it had no +1/+1 counters on it, return it to the battlefield under its owner's control with a +1/+1 counter on it.)",
+             power="1", toughness="1", colors=["G"], color_identity=["G"]),
+        card("Supreme Verdict", set_code="tst", number="O6", mana_cost="{1}{W}{W}{U}", cmc=4.0, type_line="Sorcery",
+             oracle_text="This spell can't be countered.\nDestroy all creatures.", colors=["W", "U"], color_identity=["W", "U"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

@@ -466,6 +466,11 @@ def counter_object(plan: Plan, stack_id: str, actor: str) -> None:
     card = plan.state.cards.get(stack_id)
     if card is None or card.zone != "stack":
         return
+    from app.rules import scripts
+
+    if card.ability is None and scripts.uncounterable(plan.ch(card)):
+        plan.note(f"{card.name} can't be countered", [stack_id])
+        return
     r = plan.rules
     r.stack.pop(stack_id, None)
     oid = plan.oid(stack_id)
@@ -573,6 +578,25 @@ def shield(plan: Plan, key: str, n: int) -> int:
         r.prevention.pop(key, None)
     plan.note(f"{used} damage prevented")
     return n - used
+
+
+def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    for pid in _players(plan, ctx, e["who"]):
+        n = min(e["n"], len(plan.state.zones.get(zone_key(pid, "library"), [])))
+        if n:
+            plan.do({"type": "mill", "player": pid, "count": n}, actor=pid)
+    return True
+
+
+def return_with_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Persist / undying: "return it to the battlefield under its owner's control with a … counter on it"."""
+    cid = ctx.get("source_card") or ""
+    card = plan.state.cards.get(cid)
+    if card is None or not card.zone.endswith(":graveyard"):
+        return True  # it's gone (a token ceased to exist, or it left the graveyard)
+    plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "battlefield"}}, actor=card.owner)
+    plan.do({"type": "counter", "card_ids": [cid], "kind": e["counter"], "delta": 1}, actor=card.owner)
+    return True
 
 
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -725,7 +749,8 @@ PRIMITIVES = {
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "counter": counter, "counter_unless": counter_unless,
-    "sacrifice": sacrifice, "explore": explore, "prevent": prevent,
+    "sacrifice": sacrifice, "explore": explore, "prevent": prevent, "mill": mill,
+    "return_with_counter": return_with_counter,
 }
 
 

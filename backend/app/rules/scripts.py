@@ -75,6 +75,7 @@ TRIGGERS = [
     (re.compile(r"^Whenever ~ attacks, (?P<body>.+)$"), "attacks_self"),
     (re.compile(r"^(?:Landfall — )?Whenever a land you control enters, (?P<body>.+)$"), "landfall"),
     (re.compile(r"^When ~ becomes the target of a spell or ability, (?P<body>.+)$"), "targeted_self"),
+    (re.compile(r"^Whenever ~ deals combat damage to a player, (?P<body>.+)$"), "combat_damage_player_self"),
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
@@ -319,6 +320,22 @@ def _prevent(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if m["sel"] == "~":
         return [{"do": "prevent", "who": "self", "n": num(m["n"])}], None
     return [{"do": "prevent", "who": "target", "n": num(m["n"])}], SELECTORS[m["sel"]]
+
+
+@effect(r"(?:this spell|~) can't be countered")
+def _uncounterable(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [], None  # a property of the spell (see uncounterable), not an effect
+
+
+def uncounterable(ch: Characteristics) -> bool:
+    """"This spell can't be countered." / "~ can't be countered." on the card."""
+    return any(self_text(ab.text, ch.name).rstrip(".") in ("This spell can't be countered", "~ can't be countered")
+               for ab in ch.abilities)
+
+
+@effect(r"mill {N} cards?")
+def _mill(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "mill", "who": "you", "n": num(m["n"])}], None
 
 
 @effect(r"investigate")
@@ -575,6 +592,9 @@ COMBAT_STATICS = {
     "~ attacks each combat if able.": "must_attack",
     "~ can block only creatures with flying.": "block_only_flying",
     "~ can't be blocked by more than one creature.": "max_one_blocker",
+    "~ can't attack unless defending player controls an Island.": "attack_needs_island",
+    "~ can't be countered.": "cant_be_countered",
+    "This spell can't be countered.": "cant_be_countered",
 }
 
 
@@ -602,6 +622,11 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
         for k, kw in enumerate(ab.keywords):
             if kw in KEYWORD_TRIGGERS:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
+            if kw in ("persist", "undying"):  # 702.79 / 702.93: return with a -1/-1 (+1/+1) counter
+                out.append((1000 + ab.index * 10 + k, {
+                    "kind": "triggered", "trigger": "dies_self", "optional": False, "target": None,
+                    "unless_counter": "-1/-1" if kw == "persist" else "+1/+1",
+                    "effects": [{"do": "return_with_counter", "counter": "-1/-1" if kw == "persist" else "+1/+1"}]}))
             m = re.fullmatch(r"soulshift (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "soulshift" else None
             if m:  # 702.46a: "When this creature dies, you may return target Spirit card with mana value N or less …"
                 out.append((1000 + ab.index * 10 + k, {

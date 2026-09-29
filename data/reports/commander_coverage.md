@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 110 · PARTIAL: 3391 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 117 · PARTIAL: 3384 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -62,9 +62,9 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ This spell can't be countered.
 - ✓ Indestructible
 - ✓ Toski attacks each combat if able.
-- ✗ This spell can't be countered.
 - ✗ Whenever a creature you control deals combat damage to a player, draw a card.
 
 ### Kutzil, Malamet Exemplar — PARTIAL
@@ -184,7 +184,7 @@ Color identity U
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Affinity
-- ✗ When Emry enters, mill four cards.
+- ✓ When Emry enters, mill four cards.
 - ✗ {T}: Choose target artifact card in your graveyard. You may cast that card this turn.
 
 ### Mangara, the Diplomat — PARTIAL
@@ -263,8 +263,8 @@ Color identity UR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ This spell can't be countered.
 - ✓ Flying
-- ✗ This spell can't be countered.
 - ✗ Whenever you draw a card, Niv-Mizzet deals 1 damage to any target.
 - ✗ Whenever a player casts an instant or sorcery spell, you draw a card.
 
@@ -728,7 +728,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ This spell can't be countered.
+- ✓ This spell can't be countered.
 - ✗ You have no maximum hand size.
 - ✗ Whenever an opponent casts a noncreature spell, draw a card.
 - ✗ Discard three cards: Exile Nezahal. Return it to the battlefield tapped under its owner's control at the beginning of the next end step.
@@ -777,8 +777,8 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Toxic
 - ✓ Skrelv can't block.
-- ✗ Toxic
 - ✗ {W/P}, {T}: Choose a color. Another target creature you control gains toxic 1 and hexproof from that color until end of turn. It can't be blocked by creatures of that color this turn.
 
 ### Lumra, Bellow of the Woods — PARTIAL
@@ -1226,7 +1226,7 @@ Color identity UG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ This spell can't be countered.
+- ✓ This spell can't be countered.
 - ✗ At the beginning of each upkeep, create a 3/3 blue Serpent creature token named Koma's Coil.
 - ✗ Sacrifice another Serpent: Choose one —
 - ✗ • Tap target permanent. Its activated abilities can't be activated this turn.
@@ -1960,9 +1960,9 @@ Color identity WG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ This spell can't be countered.
 - ✓ Flying
 - ✓ Lifelink
-- ✗ This spell can't be countered.
 - ✗ Your opponents can't cast spells during your turn.
 
 ### Drana and Linvala — PARTIAL
@@ -2289,8 +2289,8 @@ Color identity UG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ This spell can't be countered.
 - ✓ Trample
-- ✗ This spell can't be countered.
 - ✗ Ward
 - ✗ Whenever Koma deals combat damage to a player, create four 3/3 blue Serpent creature tokens named Koma's Coil.
 

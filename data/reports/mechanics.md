@@ -97,7 +97,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.22 | Banding | keyword ability | 24 | missing |
 | 702.23 | Rampage | keyword ability | 12 | missing |
 | 702.24 | Cumulative Upkeep | keyword ability | 80 | missing |
-| 702.25 | Flanking | keyword ability | 29 | missing |
+| 702.25 | Flanking | keyword ability | 29 | supported |
 | 702.26 | Phasing | keyword ability | 12 | missing |
 | 702.27 | Buyback | keyword ability | 39 | missing |
 | 702.28 | Shadow | keyword ability | 37 | supported |
@@ -151,7 +151,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.76 | Prowl | keyword ability | 10 | missing |
 | 702.77 | Reinforce | keyword ability | 11 | missing |
 | 702.78 | Conspire | keyword ability | 11 | missing |
-| 702.79 | Persist | keyword ability | 25 | missing |
+| 702.79 | Persist | keyword ability | 25 | supported |
 | 702.80 | Wither | keyword ability | 26 | supported |
 | 702.81 | Retrace | keyword ability | 17 | missing |
 | 702.82 | Devour | keyword ability | 23 | missing |
@@ -165,7 +165,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.90 | Infect | keyword ability | 46 | supported |
 | 702.91 | Battle Cry | keyword ability | 14 | missing |
 | 702.92 | Living Weapon | keyword ability | 19 | missing |
-| 702.93 | Undying | keyword ability | 23 | missing |
+| 702.93 | Undying | keyword ability | 23 | supported |
 | 702.94 | Miracle | keyword ability | 17 | missing |
 | 702.95 | Soulbond | keyword ability | 25 | missing |
 | 702.96 | Overload | keyword ability | 27 | missing |
