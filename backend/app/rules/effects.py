@@ -454,6 +454,57 @@ def madness_offer(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
+def counter_object(plan: Plan, stack_id: str, actor: str) -> None:
+    """701.6: a countered spell goes to its owner's graveyard (a flashback spell into exile); a
+    countered ability simply stops existing."""
+    card = plan.state.cards.get(stack_id)
+    if card is None or card.zone != "stack":
+        return
+    r = plan.rules
+    r.stack.pop(stack_id, None)
+    oid = plan.oid(stack_id)
+    r.buyback = [o for o in r.buyback if o != oid]
+    plan.note(f"{card.name or 'It'} is countered", [stack_id])
+    if oid in r.flashback:
+        r.flashback = [o for o in r.flashback if o != oid]
+        plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
+    else:
+        plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "graveyard"}}, actor=actor)
+
+
+def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
+    if e.get("object"):
+        return [e["object"]] if e["object"] in plan.state.cards and plan.state.cards[e["object"]].zone == "stack" else []
+    return [t["id"] for t in ctx["targets"] if t["id"] in plan.state.cards and plan.state.cards[t["id"]].zone == "stack"
+            and plan.oid(t["id"]) == t.get("object_id")]
+
+
+def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    for sid in _stack_targets(plan, ctx, e):
+        counter_object(plan, sid, ctx["controller"])
+    return True
+
+
+def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Counter target spell unless its controller pays {X}" (and ward): that player decides; they
+    can tap their mana while the prompt is open."""
+    from app.rules import mana  # casting imports this module
+
+    targets = _stack_targets(plan, ctx, e)
+    if not targets:
+        return True
+    sid = targets[0]
+    payer = plan.state.cards[sid].controller
+    cost = mana.parse_cost(e["cost"])
+    options = [DecisionOption(id="pay", label=f"Pay {cost.text()}"),  # (tap your mana first)
+               DecisionOption(id="decline", label="Don't pay (it's countered)")]
+    decide(plan, player=payer, kind="choose_one",
+           prompt=f"{ctx.get('name', '')}: pay {cost.text()} or {plan.state.cards[sid].name or 'your spell'} is countered",
+           options=options, resume={"step": "pay_or_sacrifice", "counter": sid, "ctx": ctx, "cost": e["cost"]},
+           source=plan.state.cards[sid])
+    return False
+
+
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True  # read by destroy / destroy_all of the same spell or ability
 
@@ -555,7 +606,7 @@ def resume_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
 def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Sacrifice ~ unless you pay {cost}" (and echo, 702.30): its controller chooses; paying is
     offered only when they can."""
-    from app.rules import casting, mana  # casting imports this module
+    from app.rules import mana  # casting imports this module
 
     src = _cards(plan, ctx, "self")
     if not src:
@@ -566,9 +617,8 @@ def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         n = plan.state.cards[src[0]].counters.get(e["per"], 0)
         cost = mana.parse_cost(e["cost"] * n) if n else mana.parse_cost("{0}")
     e = {**e, "cost": cost.text() if not cost.is_free else "{0}"}
-    options = [DecisionOption(id="sacrifice", label=f"Sacrifice {plan.state.cards[src[0]].name}")]
-    if casting.can_pay(plan.state, pid, cost, plan.info):  # (tap your mana first, then Pay)
-        options.insert(0, DecisionOption(id="pay", label=f"Pay {cost.text()}"))
+    options = [DecisionOption(id="pay", label=f"Pay {cost.text()}"),  # (tap your mana first, then Pay)
+               DecisionOption(id="sacrifice", label=f"Sacrifice {plan.state.cards[src[0]].name}")]
     decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name', '')}: pay {cost.text()} or sacrifice it?",
            options=options, resume={"step": "pay_or_sacrifice", "ctx": ctx, "cost": e["cost"]}, source=plan.state.cards[src[0]])
     return False
@@ -578,6 +628,15 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules import casting, mana  # casting imports this module
 
     ctx = d.resume["ctx"]
+    if d.resume.get("counter"):  # "… unless its controller pays" / ward
+        sid = d.resume["counter"]
+        if chosen[0] == "pay":
+            cost = mana.parse_cost(d.resume["cost"])
+            casting.pay_from_pool(plan, d.player, cost, f"paid {cost.text()} so it isn't countered")
+        else:
+            counter_object(plan, sid, d.player)
+        continue_effects(plan, ctx)
+        return
     src = _cards(plan, ctx, "self")
     if chosen[0] == "pay" and src:
         cost = mana.parse_cost(d.resume["cost"])
@@ -595,7 +654,7 @@ PRIMITIVES = {
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
-    "madness_offer": madness_offer,
+    "madness_offer": madness_offer, "counter": counter, "counter_unless": counter_unless,
 }
 
 

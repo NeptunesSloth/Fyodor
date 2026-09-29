@@ -283,6 +283,35 @@ def _keyword_n(ch: Any, word: str) -> list[int]:
     return out
 
 
+WARD = re.compile(r"^ward (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def ward_cost(ch: Any) -> str | None:
+    for ab in ch.abilities:
+        if ab.kind == "keywords" and "ward" in ab.keywords:
+            m = WARD.fullmatch(ab.text.strip().rstrip("."))
+            return m["cost"] if m else None
+    return None
+
+
+def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[Any]) -> None:
+    """702.21a ward: "Whenever this permanent becomes the target of a spell or ability an opponent
+    controls, counter it unless that player pays [cost]." """
+    if not stack_id:
+        return
+    for t in targets:
+        card = plan.state.cards.get(t.id if hasattr(t, "id") else t)
+        if card is None or not card.zone.endswith(":battlefield") or card.controller == controller or plan.manual(card):
+            continue
+        ch = plan.ch(card)
+        cost = ward_cost(ch)
+        if cost is None:
+            continue
+        _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+             index=9000, definition={"kind": "triggered", "trigger": "ward", "optional": False, "target": None,
+                                     "effects": [{"do": "counter_unless", "cost": cost, "object": stack_id}]})
+
+
 def blocked(plan: Plan, blockers: list[CardInstance], attackers: list[CardInstance]) -> None:
     """702.45 bushido N: "Whenever this creature blocks or becomes blocked, it gets +N/+N until
     end of turn." (Once per creature per combat, however many creatures it blocks or is blocked by.)"""
@@ -413,6 +442,7 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None) -> bool:
     if targets:
         plan.do({"type": "create_arrow", "source": ability_id, "targets": [x.id for x in targets], "kind": "target"},
                 actor=t.controller)
+        targeted(plan, ability_id, t.controller, targets)
     return True
 
 

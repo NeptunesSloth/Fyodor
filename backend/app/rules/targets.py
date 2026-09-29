@@ -47,6 +47,14 @@ SELECTORS: dict[str, tuple[bool, Check | None]] = {
 }
 
 
+SPELL_SELECTORS: dict[str, Callable[[Characteristics], bool]] = {
+    "spell": lambda ch: True,
+    "creature_spell": lambda ch: ch.is_creature,
+    "noncreature_spell": lambda ch: not ch.is_creature,
+    "instant_or_sorcery_spell": lambda ch: ch.is_instant_or_sorcery,
+}
+
+
 def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics,
                source: Characteristics | None = None) -> bool:
     """Hexproof: not by opponents; shroud: by nobody; protection: not by a source with that quality."""
@@ -60,6 +68,10 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
 def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristics | None = None) -> list[str]:
     """Player ids and card ids that ``chooser`` may target with ``selector`` right now
     (``source``: the spell or the ability's source, for protection)."""
+    if selector in SPELL_SELECTORS:  # spells on the stack (115.1)
+        check_spell = SPELL_SELECTORS[selector]
+        return [cid for cid in plan.state.zones.get("stack", []) if cid in plan.state.cards
+                and plan.state.cards[cid].ability is None and check_spell(plan.ch(plan.state.cards[cid]))]
     players_ok, check = SELECTORS[selector]
     out: list[str] = []
     if players_ok:

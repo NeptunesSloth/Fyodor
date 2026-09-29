@@ -248,5 +248,7 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Fiery Temper", set_code="tst", number="N8", mana_cost="{1}{R}{R}", cmc=3.0, type_line="Instant",
              oracle_text="Fiery Temper deals 3 damage to any target.\nMadness {R} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
              colors=["R"], color_identity=["R"]),
+        card("Mana Leak", set_code="tst", number="N9", mana_cost="{1}{U}", cmc=2.0, type_line="Instant",
+             oracle_text="Counter target spell unless its controller pays {3}.", colors=["U"], color_identity=["U"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

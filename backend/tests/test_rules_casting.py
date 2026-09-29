@@ -76,7 +76,7 @@ def test_sorcery_speed_timing(cards):
         act(s, "p1", type="cast_spell", card_id=elves.id)
 
 
-def test_counterspell_response_and_manual_resolution(cards):
+def test_counterspell_response_counters_the_spell(cards):
     s = build(cards, [(1, "Llanowar Elves"), (3, "Forest")], [(1, "Counterspell"), (4, "Island")])
     put(s, "p1", "Forest", "battlefield")
     elves = put(s, "p1", "Llanowar Elves", "hand")
@@ -88,13 +88,10 @@ def test_counterspell_response_and_manual_resolution(cards):
     assert rules(s).priority == "p2" and s.state.zones["stack"] == [elves.id]
     assert s.view("p2")["rules"]["hints"]["castable"] == [counter.id]
     act(s, "p2", type="cast_spell", card_id=counter.id, targets=[elves.id])
-    # Alice can't respond: passed for her; Counterspell resolves → Bob resolves it by hand
-    d = rules(s).decision
-    assert d and d.kind == "manual_resolution" and d.player == "p2" and "Counterspell" in d.prompt
-    assert s.state.zones["stack"] == [elves.id]
-    act(s, "p2", type="move", card_ids=[elves.id], to={"zone": "graveyard"})  # countered, by hand
-    act(s, "p2", type="choose", decision_id=d.id, option_ids=["done"])
-    assert s.state.cards[elves.id].zone == "p1:graveyard" and rules(s).priority == "p1"
+    # Alice can't respond: passed for her; Counterspell resolves and counters the Elves by itself
+    assert rules(s).decision is None and not s.state.zones.get("stack")
+    assert s.state.cards[elves.id].zone == "p1:graveyard" and s.state.cards[counter.id].zone == "p2:graveyard"
+    assert rules(s).priority == "p1"
 
 
 def test_summoning_sick_creatures_cannot_tap_for_mana(cards):

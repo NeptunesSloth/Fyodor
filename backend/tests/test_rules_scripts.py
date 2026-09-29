@@ -65,5 +65,5 @@ def test_unknown_wordings_stay_manual(text):
 def test_a_spell_is_automated_only_as_a_whole():
     opt = ch("Opt", "Instant", "Scry 1.\nDraw a card.")
     assert [e["do"] for e in scripts.spell_definition(opt)["effects"]] == ["scry", "draw"]
-    half = ch("Half", "Instant", "Draw a card.\nCounter target spell.")
+    half = ch("Half", "Instant", "Draw a card.\nTarget player shuffles their graveyard into their library.")
     assert scripts.spell_definition(half) is None  # one manual line: the whole spell is resolved by hand

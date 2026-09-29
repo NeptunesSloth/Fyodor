@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+
+from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from tests.game_helpers import act, deck, enable
@@ -45,7 +48,9 @@ def answer(s, d, choice):
 def test_echo_pay_keeps_it_and_is_asked_only_once(cards):
     s, troll = build(cards, "Albino Troll")
     d = until_prompt(s)
-    assert d.player == "p1" and {o.id for o in d.options} == {"sacrifice"}  # no mana yet: paying isn't offered
+    assert d.player == "p1" and {o.id for o in d.options} == {"pay", "sacrifice"}
+    with pytest.raises(ActionError):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])  # nothing to pay with
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["sacrifice"])
     assert s.state.cards[troll.id].zone == "p1:graveyard"
 

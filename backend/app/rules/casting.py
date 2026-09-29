@@ -848,6 +848,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), targets=chosen,
                                       target_spec=definition.get("target"), x=a.x_value)
+    if chosen:
+        from app.rules.triggers import targeted
+
+        targeted(plan, card.id, plan.actor, chosen)
     turn = plan.state.turn.number
     r.spells_cast[plan.actor] = TurnCount(turn=turn, count=r.spells_this_turn(plan.actor, turn) + 1)
     r.passed = []
@@ -1281,6 +1285,10 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
                                          name=ch.name, effects=list(definition["effects"]), targets=chosen,
                                          target_spec=definition.get("target"), x=a.x_value)
+    if chosen and ability_id:
+        from app.rules.triggers import targeted
+
+        targeted(plan, ability_id, plan.actor, chosen)
     if ability.kind == "loyalty":
         r.loyalty_used[oid] = plan.state.turn.number
     if "Activate only once each turn" in ability.text:

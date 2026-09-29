@@ -57,6 +57,10 @@ SELECTORS = {
     "target player": "player",
     "target opponent": "opponent",
     "target attacking or blocking creature": "attacking_or_blocking_creature",
+    "target spell": "spell",
+    "target creature spell": "creature_spell",
+    "target noncreature spell": "noncreature_spell",
+    "target instant or sorcery spell": "instant_or_sorcery_spell",
     "target attacking creature": "attacking_creature",
     "target blocking creature": "blocking_creature",
 }
@@ -296,6 +300,17 @@ def _blink(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 @effect(r"return {N} (?P<what>lands?|creatures?) you control to (?:its|their) owner's hands?")
 def _return_yours(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "return_yours", "n": num(m["n"]), "what": "land" if m["what"].startswith("land") else "creature"}], None
+
+
+@effect(r"counter (?P<sel>target spell|target creature spell|target noncreature spell|target instant or sorcery spell)")
+def _counter(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "counter", "who": "target"}], SELECTORS[m["sel"]]
+
+
+@effect(r"counter (?P<sel>target spell|target creature spell|target noncreature spell|target instant or sorcery spell)"
+        r" unless its controller pays (?P<cost>(?:\{{[^}}]+\}})+)")
+def _counter_unless(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "counter_unless", "who": "target", "cost": m["cost"]}], SELECTORS[m["sel"]]
 
 
 @effect(r"activate only once each turn")

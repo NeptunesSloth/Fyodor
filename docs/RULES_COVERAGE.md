@@ -65,6 +65,7 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Cascade, cumulative upkeep | 32,116 | 4,435 (13.8%) | 27,633 | 0 | 48 | 106 / 3,501 |
 | Unearth, dash (delayed end-step triggers, exile-instead replacement) | 32,116 | 4,463 (13.9%) | 27,605 | 0 | 48 | 106 / 3,501 |
 | Buyback, madness | 32,116 | 4,493 (14.0%) | 27,575 | 0 | 48 | 106 / 3,501 |
+| Counterspells ("counter target spell", "… unless its controller pays"), ward | 32,116 | 4,565 (14.2%) | 27,503 | 0 | 48 | 108 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards

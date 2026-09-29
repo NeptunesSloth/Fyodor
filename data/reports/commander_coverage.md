@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 106 · PARTIAL: 3395 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 108 · PARTIAL: 3393 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -1217,7 +1217,7 @@ Color identity UG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Ward
+- ✓ Ward
 - ✗ If one or more tokens would be created under your control, twice that many of those tokens are created instead.
 
 ### Koma, Cosmos Serpent — PARTIAL
