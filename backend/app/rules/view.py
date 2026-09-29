@@ -11,8 +11,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.game.rules_state import preset_name
 from app.game.state import GameState, zone_key
-from app.game.visibility import OMNISCIENT
+from app.game.visibility import OMNISCIENT, can_see
 from app.rules import characteristics as chars
 from app.rules.casting import activatable, castable
 from app.rules.characteristics import CardInfo
@@ -22,10 +23,17 @@ from app.rules.plan import live_players
 
 def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] | None:
     r = state.rules
-    if state.settings.automation != "rules" or r is None:
-        return None
+    settings = state.settings
+    if settings.automation == "off" or r is None:
+        return None  # a dormant rules state (automation turned off) isn't shown
+    prefs = r.prefs_for(viewer) if viewer in state.players else None
     out: dict[str, Any] = {
-        "automation": "rules",
+        "automation": settings.automation,
+        "preset": preset_name(settings.automation, settings.automation_options),
+        "options": settings.automation_options.model_dump(),
+        # The compact HUD: "AUTO: FULL / RESP: AUTO".
+        "status": {"auto": ("paused" if r.paused else settings.automation).upper(),
+                   "resp": prefs.response.upper() if prefs else None},
         "paused": r.paused,
         "priority": r.priority,
         "passed": list(r.passed),
@@ -34,7 +42,11 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
         "winner": r.winner,
         "overrides": r.overrides,
         "decision": None,
-        "stops": r.stops_for(viewer).model_dump() if viewer in state.players else None,
+        # Only your own preferences (your yields and payment settings are nobody else's business).
+        "prefs": prefs.model_dump(exclude={"pass_mark"}) if prefs else None,
+        "reconcile": [i.model_dump() for i in r.reconcile],
+        "card_modes": {cid: m for cid, m in r.card_modes.items()
+                       if cid in state.cards and (viewer == OMNISCIENT or can_see(state, state.cards[cid], viewer))},
         "hints": {},
     }
     d = r.decision
@@ -43,7 +55,7 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
                                     "source_id": d.source_id}
         if viewer in (d.player, OMNISCIENT):
             decision.update(options=[o.model_dump() for o in d.options], min_choices=d.min_choices,
-                            max_choices=d.max_choices)
+                            max_choices=d.max_choices, rememberable=d.memory_key is not None)
         out["decision"] = decision
     if viewer in state.players and viewer in live_players(state) and not r.paused:
         out["hints"] = hints(state, viewer, info)

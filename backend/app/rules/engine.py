@@ -23,10 +23,11 @@ from typing import Any
 
 from app.game import actions as A
 from app.game.errors import ActionError
-from app.game.rules_state import Decision, DecisionOption, Stops, TurnCount
+from app.game.rules_state import Decision, DecisionOption, PlayerPrefs, TurnCount, Yield
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import casting, combat, coverage, sba
+from app.rules import casting, combat, coverage, reconcile, sba
 from app.rules.characteristics import CardInfo, Characteristics
+from app.rules.leave import leave_game
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
 
 MAIN_PHASES = ("main1", "main2")
@@ -36,31 +37,79 @@ NOT_YET: dict[str, str] = {}
 
 
 # -- entry point -------------------------------------------------------------------------
+RULES_ENGINE_VERSION = 2  # bump when the rules engine's behaviour changes (saved with scenarios/diagnostics)
+PREF_INTENTS = frozenset({"set_stops", "set_prefs", "set_card_automation"})  # allowed any time
+ACTION_INTENTS = frozenset({"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers"})
+
+
+def automation_on(state: GameState) -> bool:
+    return state.settings.automation != "off" and state.rules is not None
+
+
 def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: CardInfo, rng: Any) -> list[dict[str, Any]]:
-    if state.settings.automation != "rules" or state.rules is None:
+    if not automation_on(state):
         raise ActionError("Rules automation is off at this table. Use the table tools, or ask the host to turn it on.")
-    if intent.type == "set_stops":
+    assert state.rules is not None
+    if intent.type in PREF_INTENTS:
+        # A preference: allowed any time, even while paused, waiting, or mid-animation. It is
+        # registered at once; the engine applies it at the next priority.
         plan = Plan(state, actor, info, rng)
-        set_stops(plan, intent)  # a preference: allowed any time, even while paused or waiting
+        PREFS[intent.type](plan, intent)
         plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
         return plan.steps
     if state.rules.paused:
         raise ActionError("Automation is paused by the host. Use the table tools meanwhile.")
     if state.pregame is not None and not state.pregame.finished:
         raise ActionError("Finish opening hands first")
-    if actor in state.rules.conceded:
-        raise ActionError("You have conceded this game")
+    if actor in state.rules.conceded or actor in state.rules.lost:
+        raise ActionError("You have left this game")
     plan = Plan(state, actor, info, rng)
+    begin(plan)
     sync_step(plan)
     handler = INTENTS.get(intent.type)
     if handler is None:
         what = NOT_YET.get(intent.type, intent.type)
         raise ActionError(f"{what} through the rules engine arrives with the next milestone. "
                           "Use the table tools for now (e.g. drag the card to the stack).")
+    if intent.type in ACTION_INTENTS:
+        plan.rules.actions += 1  # for "pass until next action"
+        plan.rules.last_actor = actor
     handler(plan, intent)
     settle(plan)
+    plan.rules.engine_version = RULES_ENGINE_VERSION
     plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
     return plan.steps
+
+
+def begin(plan: Plan) -> None:
+    """Before an intent: take in what happened by hand since the engine last acted (a land put
+    onto the battlefield by hand still counts as the land for the turn), then start a fresh
+    event list. Expired remembered answers are dropped."""
+    absorb_manual_events(plan)
+    plan.rules.events = []
+    turn = plan.state.turn.number
+    for prefs in plan.rules.prefs.values():
+        prefs.yields = [y for y in prefs.yields if y.kind == "always_yield" or y.turn == turn]
+    r = plan.rules
+    r.loyalty_used = {k: t for k, t in r.loyalty_used.items() if t == turn}
+    r.once_per_turn = {k: t for k, t in r.once_per_turn.items() if t == turn}
+
+
+def absorb_manual_events(plan: Plan) -> None:
+    r = plan.rules
+    turn = plan.state.turn.number
+    for e in r.events:
+        if not e.manual or e.kind != "zone_change" or e.turn != turn or e.card is None or e.from_zone is None:
+            continue
+        card = plan.state.cards.get(e.card)
+        if card is None or card.zone != e.to_zone:
+            continue
+        owner, from_zone = e.from_zone.split(":")[0], e.from_zone.rsplit(":", 1)[-1]
+        to_zone = (e.to_zone or "").rsplit(":", 1)[-1]
+        if from_zone == "hand" and to_zone == "battlefield" and plan.ch(card).is_land and owner == plan.active:
+            r.lands_played[owner] = TurnCount(turn=turn, count=r.lands_this_turn(owner, turn) + 1)
+        elif from_zone in ("hand", "command") and to_zone == STACK:
+            r.spells_cast[card.controller] = TurnCount(turn=turn, count=r.spells_this_turn(card.controller, turn) + 1)
 
 
 def settle(plan: Plan) -> None:
@@ -85,16 +134,89 @@ def sync_step(plan: Plan) -> None:
 
 
 # -- priority ----------------------------------------------------------------------------
+def stack_signature(plan: Plan) -> str:
+    return ",".join(plan.oid(cid) for cid in plan.state.zones.get(STACK, []))
+
+
+def pass_mark(plan: Plan, until: str) -> str:
+    """The situation when a PASS UNTIL … was set; the condition is met once it changes."""
+    r = plan.rules
+    if until == "next_action":
+        return str(r.actions)
+    if until == "stack_changes":
+        return stack_signature(plan)
+    if until in ("next_step", "combat"):
+        return r.step or f"{plan.state.turn.number}:{plan.state.turn.phase}"
+    return str(plan.state.turn.number)
+
+
+def pass_until_met(plan: Plan, player: str, prefs: PlayerPrefs) -> bool:
+    r = plan.rules
+    until, mark = prefs.pass_until, prefs.pass_mark
+    state = plan.state
+    if until == "next_action":
+        return r.actions > int(mark or 0) and r.last_actor not in (None, player)
+    if until == "stack_changes":
+        return stack_signature(plan) != mark
+    if until == "stack_empty":
+        return not state.zones.get(STACK)
+    if until == "next_step":
+        return r.step != mark
+    if until == "next_turn":
+        return str(state.turn.number) != mark
+    if until == "my_turn":
+        return plan.active == player and str(state.turn.number) != mark
+    if until == "combat":
+        return r.step != mark and state.turn.phase in ("begin_combat", "declare_attackers")
+    return True
+
+
+def bluff_stop(state: GameState, player: str) -> bool:
+    """A stop that depends only on public information (cards in hand, untapped permanents), so
+    stopping never tells the table that you really have a response."""
+    if not state.zones.get(zone_key(player, "hand")):
+        return False
+    return any(not state.cards[cid].tapped for cid in state.zones.get(zone_key(player, "battlefield"), []))
+
+
 def is_stop(plan: Plan, player: str) -> bool:
+    """Does ``player`` get to act at this priority, or does the engine pass for them?
+
+    Forced stops always win; then a PASS UNTIL … passes until its condition is met; then
+    RESPONSE decides (OFF: pass whenever possible; AUTO: your stops, and anything you could
+    respond with; ON: every priority). Nothing here ever tells other players *why* someone
+    passed: auto-passes look exactly like passes.
+    """
+    r = plan.rules
+    stored = r.prefs.get(player)
+    prefs = stored or PlayerPrefs()
+    if plan.state.turn.phase == "untap" and not plan.state.zones.get(STACK):
+        return False  # no one gets priority in the untap step (502.4)
+    if prefs.force_stop:
+        prefs.force_stop = False  # consumed
+        return True
+    if prefs.stop_after is not None:
+        on_stack = {plan.oid(cid) for cid in plan.state.zones.get(STACK, [])}
+        if prefs.stop_after not in on_stack:
+            prefs.stop_after = None
+            return True
+    if prefs.pass_until is not None:
+        if not pass_until_met(plan, player, prefs):
+            return False
+        prefs.pass_until, prefs.pass_mark = None, ""
+        return True
+    if prefs.full_control or not plan.options.auto_priority_pass or prefs.response == "on":
+        return True
     phase = plan.state.turn.phase
-    stops: Stops = plan.rules.stops_for(player)
+    mine = player == plan.active
     if plan.state.zones.get(STACK):
-        # Something to respond to. With smart passing (the default) the engine passes for players
-        # who have nothing they could respond with, like Arena does.
-        return not stops.smart_pass or casting.has_responses(plan.state, player, plan.info)
-    if player == plan.active:
-        return phase == "main1" or phase in stops.own
-    return phase in stops.others
+        if prefs.response == "off":
+            return False
+        return casting.has_responses(plan.state, player, plan.info) or (prefs.bluff_stops and bluff_stop(plan.state, player))
+    if prefs.response == "off":
+        # Only a turn's first main phase, and only if there is something at all to do there.
+        return mine and phase == "main1" and casting.can_act(plan.state, player, plan.info)
+    return (mine and phase == "main1") or phase in prefs.stops(mine)
 
 
 def advance(plan: Plan) -> None:
@@ -133,9 +255,14 @@ def advance(plan: Plan) -> None:
         r.passed.append(holder)  # no stop here: pass for them (Arena's auto-pass)
 
 
-def pass_priority(plan: Plan, _: A.Action) -> None:
+def pass_priority(plan: Plan, a: A.PassPriority) -> None:
     require_no_decision(plan)
     require_priority(plan)
+    if a.until is not None:
+        if a.until in ("stack_changes", "stack_empty") and not plan.state.zones.get(STACK):
+            raise ActionError("The stack is empty")
+        prefs = plan.prefs(plan.actor)
+        prefs.pass_until, prefs.pass_mark = a.until, pass_mark(plan, a.until)
     plan.rules.passed.append(plan.actor)
     plan.rules.priority = plan.after(plan.actor)
     advance(plan)
@@ -163,9 +290,8 @@ def next_step(plan: Plan) -> None:
         start_next_turn(plan)
         return
     if phase == "combat_damage" and r.combat_round == "first":
-        combat.deal_combat_damage(plan, "second")  # the regular damage step after first strike
-        r.combat_round = "done"
         _mark_step(plan)
+        combat_damage(plan, "second", "done")  # the regular damage step after first strike
         return
     if phase == "end_combat":
         combat.end_combat(plan)
@@ -212,17 +338,42 @@ def on_step_start(plan: Plan) -> None:
         combat.start_declare_blockers(plan)
     elif phase == "combat_damage":
         if combat.has_first_strike_round(plan):
-            combat.deal_combat_damage(plan, "first")
-            plan.rules.combat_round = "first"
+            combat_damage(plan, "first", "first")
         else:
-            combat.deal_combat_damage(plan, "only")
-            plan.rules.combat_round = "done"
+            combat_damage(plan, "only", "done")
     elif phase == "cleanup":
         cleanup_step(plan)
 
 
+def combat_damage(plan: Plan, rnd: str, then: str) -> None:
+    """Deal a round of combat damage, or with AUTO COMBAT DAMAGE off (ASSISTED), ask first."""
+    plan.rules.combat_round = then  # type: ignore[assignment]
+    if plan.options.auto_combat_damage or not combat.attackers_on(plan.state):
+        combat.deal_combat_damage(plan, rnd)  # type: ignore[arg-type]
+        return
+    preview = combat.damage_preview(plan, rnd)  # type: ignore[arg-type]
+    decide(plan, player=plan.active, kind="confirm", prompt=f"Combat damage: {preview}",
+           options=[DecisionOption(id="yes", label="Deal damage"), DecisionOption(id="no", label="By hand")],
+           resume={"step": "combat_damage", "round": rnd})
+
+
+def _resume_combat_damage(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    assert d.resume is not None
+    if chosen[0] == "yes":
+        combat.deal_combat_damage(plan, d.resume["round"])
+        _after_resolution(plan)
+        return
+    decide(plan, player=d.player, kind="manual_resolution", prompt="Deal combat damage by hand, then press Done",
+           options=[DecisionOption(id="done", label="Done")], resume={"step": "manual_done"})
+
+
 def cleanup_step(plan: Plan) -> None:
     ap = plan.active
+    if not plan.options.auto_cleanup:
+        decide(plan, player=ap, kind="manual_resolution",
+               prompt="Cleanup: discard down to your maximum hand size and remove damage by hand, then press Done",
+               options=[DecisionOption(id="done", label="Done")], resume={"step": "cleanup_manual"})
+        return
     hand = plan.state.zones.get(zone_key(ap, "hand"), [])
     excess = len(hand) - MAX_HAND_SIZE
     if excess > 0:
@@ -264,7 +415,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
     top = plan.state.cards[top_id]
     ch = plan.ch(top)
     controller = top.controller if top.controller in plan.live() else plan.active
-    manual = needs_manual_resolution(ch)
+    manual = needs_manual_resolution(ch) or plan.manual(top)  # right-click → Automation → Manual
     plan.do({"type": "resolve_top", "force": True}, actor=controller)
     entered = plan.state.cards.get(top_id)
     if entered is not None and entered.zone.endswith(":battlefield") and "Planeswalker" in ch.types:
@@ -295,7 +446,8 @@ def _after_resolution(plan: Plan) -> None:
 
 
 # -- intents -----------------------------------------------------------------------------
-def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics) -> str | None:
+def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, *,
+                      check_priority: bool = True) -> str | None:
     """Why ``player`` can't play ``card`` as a land right now (None if they can)."""
     r = state.rules
     if r is None:
@@ -310,7 +462,7 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
         return "Lands are played in a main phase"
     if state.zones.get(STACK):
         return "You can only play a land while the stack is empty"
-    if r.priority != player or r.decision is not None:
+    if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
     if r.lands_this_turn(player, state.turn.number) >= 1:
         return "You've already played a land this turn"
@@ -351,13 +503,26 @@ def choose(plan: Plan, a: A.Choose) -> None:
     valid = {o.id for o in d.options}
     if len(set(chosen)) != len(chosen) or not set(chosen) <= valid:
         raise ActionError("Choose from the options offered")
+    if d.kind == "reconcile":
+        groups = {o.id: o.group for o in d.options}
+        answered = [groups[c] for c in chosen]
+        if len(set(answered)) != len(answered) or set(answered) != set(groups.values()):
+            raise ActionError("Answer each question once")
     if not d.min_choices <= len(chosen) <= d.max_choices:
         n = d.min_choices if d.min_choices == d.max_choices else f"{d.min_choices}–{d.max_choices}"
         raise ActionError(f"Choose {n}")
+    if a.remember is not None:
+        if d.memory_key is None:
+            raise ActionError("This answer can't be remembered")
+        prefs = plan.prefs(plan.actor)
+        prefs.yields = [y for y in prefs.yields if y.key != d.memory_key][-49:]
+        prefs.yields.append(Yield(kind=a.remember, key=d.memory_key, context=d.memory_context,
+                                  turn=plan.state.turn.number))
     plan.rules.decision = None
     step = (d.resume or {}).get("step")
     RESUME[str(step)](plan, d, chosen)
-    advance(plan)
+    if step != "reconcile":  # after reconciling, play picks up where the table is (like without questions)
+        advance(plan)
 
 
 def _resume_manual_done(plan: Plan, d: Decision, _: list[str]) -> None:
@@ -374,18 +539,17 @@ def concede(plan: Plan, _: A.Action) -> None:
     r = plan.rules
     r.conceded.append(plan.actor)
     plan.note(f"{plan.name(plan.actor)} conceded")
-    if plan.actor in r.passed:
-        r.passed.remove(plan.actor)
-    if r.decision is not None and r.decision.player == plan.actor:
-        r.decision = None
-        _after_resolution(plan)
+    was_deciding = r.decision is not None and r.decision.player == plan.actor
+    leave_game(plan, plan.actor)
     left = plan.live()
     if len(left) == 1:
         plan.note(f"{plan.name(left[0])} is the last player standing")
         r.winner = left[0]
         r.priority = left[0]
         return
-    if r.priority == plan.actor or r.priority is None:
+    if was_deciding:
+        _after_resolution(plan)
+    if r.priority is None and r.decision is None:
         r.priority = plan.after(plan.actor)
     if plan.active == plan.actor and r.decision is None:
         start_next_turn(plan)  # the conceding player's turn ends
@@ -394,12 +558,86 @@ def concede(plan: Plan, _: A.Action) -> None:
 
 
 def set_stops(plan: Plan, a: A.SetStops) -> None:
+    """The M14 stops intent, kept for old saves' histories and simple clients."""
+    _require_seated(plan)
+    prefs = plan.prefs(plan.actor)
+    prefs.stops_my_turn, prefs.stops_their_turn = list(a.own), list(a.others)
+    prefs.hold_priority = a.hold_priority
+    prefs.response = "auto" if a.smart_pass else "on"
+
+
+def _require_seated(plan: Plan) -> None:
     if plan.actor not in plan.state.players:
-        raise ActionError("Only seated players have stops")
-    plan.rules.stops[plan.actor] = Stops(own=list(a.own), others=list(a.others), hold_priority=a.hold_priority,
-                                         smart_pass=a.smart_pass)
+        raise ActionError("Only seated players have automation preferences")
 
 
+SIMPLE_PREFS = ("response", "stops_my_turn", "stops_their_turn", "bluff_stops", "payment", "auto_resolve_own_triggers",
+                "auto_order_identical_triggers", "hold_priority", "full_control", "force_stop")
+
+
+def set_prefs(plan: Plan, a: A.SetPrefs) -> None:
+    _require_seated(plan)
+    prefs = plan.prefs(plan.actor)
+    for key in SIMPLE_PREFS:
+        value = getattr(a, key)
+        if value is not None:
+            setattr(prefs, key, list(value) if isinstance(value, list) else value)
+    if a.cancel_pass:
+        prefs.pass_until, prefs.pass_mark, prefs.stop_after = None, "", None
+    if a.stop_after is not None:
+        card = plan.state.cards.get(a.stop_after)
+        if card is None or card.zone != STACK:
+            raise ActionError("That isn't on the stack")
+        prefs.stop_after = plan.oid(card)
+    if a.mana_source is not None:
+        card = plan.state.cards.get(a.mana_source)
+        if card is None or plan.actor not in (card.controller, card.owner):
+            raise ActionError("Only your own mana sources")
+        protection = a.mana_source_protection
+        if protection is None or protection == "normal":
+            prefs.mana_sources.pop(card.id, None)
+        else:
+            prefs.mana_sources[card.id] = protection
+    if a.add_yield is not None:
+        prefs.yields = [y for y in prefs.yields if y.key != a.add_yield.key][-49:]
+        prefs.yields.append(Yield(kind=a.add_yield.kind, key=a.add_yield.key, turn=plan.state.turn.number))
+    if a.cancel_yield is not None:
+        prefs.yields = [y for y in prefs.yields if y.key != a.cancel_yield]
+    if a.cancel_all_yields:
+        prefs.yields = []
+
+
+def set_card_automation(plan: Plan, a: A.SetCardAutomation) -> None:
+    card = plan.state.cards.get(a.card_id)
+    if card is None:
+        raise ActionError("That card isn't here any more")
+    if plan.actor not in (card.controller, card.owner):
+        raise ActionError("Only its controller can change a card's automation")
+    if a.mode == "auto":
+        plan.rules.card_modes.pop(card.id, None)
+    else:
+        plan.rules.card_modes[card.id] = a.mode
+    plan.note(f"{plan.name(plan.actor)} set automation to {a.mode.upper()} for", [card.id])
+
+
+def remembered(plan: Plan, player: str, key: str, context: str) -> str | None:
+    """A remembered answer for this prompt: "yes", "no" or "yield" (None: ask). Answers given in a
+    different context don't apply."""
+    for y in plan.rules.prefs_for(player).yields:
+        if y.key != key or (y.context and y.context != context):
+            continue
+        if y.kind == "always_yield":
+            return "yield"
+        if y.turn == plan.state.turn.number:
+            return "yes" if y.kind == "yes_this_turn" else "no"
+    return None
+
+
+PREFS: dict[str, Callable[[Plan, Any], None]] = {
+    "set_stops": set_stops,
+    "set_prefs": set_prefs,
+    "set_card_automation": set_card_automation,
+}
 INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "pass_priority": pass_priority,
     "play_land": play_land,
@@ -412,6 +650,10 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
 }
 RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "manual_done": _resume_manual_done,
+    "combat_damage": _resume_combat_damage,
+    "cleanup_manual": lambda plan, d, chosen: start_next_turn(plan),
+    "sba_confirm": sba.resume_confirm,
+    "reconcile": reconcile.resume_reconcile,
     "cleanup_discard": _resume_cleanup_discard,
     "mana_ability": casting.resume_mana_ability,
     "legend_rule": sba.resume_legend_rule,

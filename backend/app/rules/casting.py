@@ -39,8 +39,8 @@ def summoning_sick(state: GameState, card: CardInstance) -> bool:
     """A creature can't attack or use {T} abilities unless its controller has controlled it
     continuously since the start of their most recent turn (haste is checked by the caller)."""
     r = state.rules
-    if r is None:
-        return False
+    if r is None or r.card_mode(card.id) == "manual":
+        return False  # a MANUAL card's timing isn't enforced: its controller handles it
     mark = r.controlled_since.get(card.id)
     started = r.turn_started.get(card.controller)
     if mark is None or started is None:
@@ -195,9 +195,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     r.spells_cast[plan.actor] = TurnCount(turn=turn, count=r.spells_this_turn(plan.actor, turn) + 1)
     r.passed = []
     r.priority = plan.actor
-    if not r.stops_for(plan.actor).hold_priority:
-        r.passed.append(plan.actor)  # Arena-style: you pass after casting unless you hold priority
-        r.priority = plan.after(plan.actor)
+    if r.prefs_for(plan.actor).hold_priority:
+        return  # HOLD PRIORITY: you keep it, whatever your RESPONSE setting says
+    r.passed.append(plan.actor)  # Arena-style: you pass after casting unless you hold priority
+    r.priority = plan.after(plan.actor)
     advance(plan)
 
 
@@ -268,11 +269,12 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     if sorcery and (state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK)):
         return "That can only be activated in your main phase while the stack is empty"
     if ability.kind == "loyalty":
-        if r.loyalty_used.get(card.id) == state.turn.number:
+        if r.loyalty_used.get(r.object_id(card.id)) == state.turn.number:
             return f"{ch.name} has already used a loyalty ability this turn"
         if cost.loyalty is not None and cost.loyalty < 0 and card.counters.get("loyalty", 0) < -cost.loyalty:
             return f"{ch.name} doesn't have enough loyalty"
-    if "Activate only once each turn" in ability.text and r.once_per_turn.get(f"{card.id}:{ability.index}") == state.turn.number:
+    once_key = f"{r.object_id(card.id)}:{ability.index}"  # per object: a flickered permanent is a new one
+    if "Activate only once each turn" in ability.text and r.once_per_turn.get(once_key) == state.turn.number:
         return "That can only be activated once each turn"
     if cost.tap and not can_use_tap_abilities(state, card, ch):
         return f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness"
@@ -296,6 +298,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     problem = ability_problem(plan.state, plan.actor, card, ch, ability, cost)
     if problem:
         raise ActionError(problem)
+    oid = plan.oid(card)  # the object activating (paying a cost may move it: it'd be a new object)
     mana = M.parse_cost(cost.mana)
     if mana.x and a.x_value is None:
         raise ActionError("Choose a value for X")
@@ -321,14 +324,15 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         plan.do({"type": "create_arrow", "source": ability_id, "targets": list(a.targets), "kind": "target"})
     r = plan.rules
     if ability.kind == "loyalty":
-        r.loyalty_used[card.id] = plan.state.turn.number
+        r.loyalty_used[oid] = plan.state.turn.number
     if "Activate only once each turn" in ability.text:
-        r.once_per_turn[f"{card.id}:{ability.index}"] = plan.state.turn.number
+        r.once_per_turn[f"{oid}:{ability.index}"] = plan.state.turn.number
     r.passed = []
     r.priority = plan.actor
-    if not r.stops_for(plan.actor).hold_priority:
-        r.passed.append(plan.actor)
-        r.priority = plan.after(plan.actor)
+    if r.prefs_for(plan.actor).hold_priority:
+        return
+    r.passed.append(plan.actor)
+    r.priority = plan.after(plan.actor)
     advance(plan)
 
 
@@ -385,5 +389,19 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
             card = state.cards[cid]
             ch = chars.of(card, info)
             if ("Instant" in ch.types or ch.has_flash) and castable(state, player, card, info, check_priority=False):
+                return True
+    return bool(activatable(state, player, info, check_priority=False))
+
+
+def can_act(state: GameState, player: str, info: CardInfo) -> bool:
+    """Could ``player`` do anything at all right now (a land, a spell, an ability)?"""
+    from app.rules.engine import land_play_problem  # engine imports this module
+
+    for key in (zone_key(player, "hand"), zone_key(player, "command")):
+        for cid in state.zones.get(key, []):
+            card = state.cards[cid]
+            if castable(state, player, card, info, check_priority=False):
+                return True
+            if key.endswith(":hand") and land_play_problem(state, player, card, chars.of(card, info), check_priority=False) is None:
                 return True
     return bool(activatable(state, player, info, check_priority=False))

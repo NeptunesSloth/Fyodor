@@ -8,9 +8,8 @@ import pytest
 
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
-from app.game.rules_state import start_rules
 from app.game.session import GameSession
-from tests.game_helpers import act, find, zone
+from tests.game_helpers import act, enable, find, zone
 
 
 def build(cards, p1: list[tuple[int, str]], p2: list[tuple[int, str]], *, c1="Krenko, Mob Boss", c2="Atraxa, Praetors' Voice"):
@@ -23,8 +22,7 @@ def build(cards, p1: list[tuple[int, str]], p2: list[tuple[int, str]], *, c1="Kr
         return out
 
     state = new_game([PlayerSetup("Alice", cards=deck(c1, p1)), PlayerSetup("Bob", cards=deck(c2, p2))], shuffle=False)
-    state.settings.automation = "rules"
-    start_rules(state)
+    enable(state)
     s = GameSession(state, cards=cards)
     act(s, "p1", type="pass_priority")  # → Alice's first main phase
     return s

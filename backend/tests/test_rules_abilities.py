@@ -7,7 +7,7 @@ import json
 import pytest
 
 from app.game.errors import ActionError
-from tests.game_helpers import act, find
+from tests.game_helpers import act, find, turn_on
 from tests.test_rules_combat import table
 
 
@@ -17,7 +17,7 @@ def token(s, pid, name, type_line, text="", **extra):
 
 
 def to_main(s):
-    act(s, "p1", type="configure", automation="rules")  # what's already there isn't summoning sick
+    turn_on(s)  # what's already there isn't summoning sick
     act(s, "p1", type="pass_priority")
 
 

@@ -17,7 +17,7 @@ from collections.abc import Callable
 from typing import Any
 
 SAVE_FORMAT = "fyodor-save"
-SAVE_VERSION = 5
+SAVE_VERSION = 6
 MAX_SAVE_BYTES = 64 * 1024 * 1024  # decompressed
 
 Migration = Callable[[dict[str, Any]], dict[str, Any]]
@@ -110,8 +110,71 @@ def _v4_to_v5(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+FULL_OPTIONS = {
+    "auto_mana_payment": True, "auto_combat_damage": True, "auto_sba": True, "auto_priority_pass": True,
+    "auto_cleanup": True, "auto_token_creation": True, "auto_counters": True, "auto_trigger_stacking": True,
+    "auto_shuffle": True, "highlights": "full",
+}
+
+
+def _v5_rules_to_v6(rules: Any) -> None:
+    """M14 stops become per-player preferences (RESPONSE AUTO, or ON for players who had smart
+    passing off)."""
+    if not isinstance(rules, dict):
+        return
+    stops = rules.pop("stops", None) or {}
+    prefs = rules.setdefault("prefs", {})
+    for pid, st in stops.items():
+        if isinstance(st, dict) and pid not in prefs:
+            prefs[pid] = {
+                "stops_my_turn": st.get("own", ["main1", "main2"]), "stops_their_turn": st.get("others", []),
+                "hold_priority": bool(st.get("hold_priority", False)),
+                "response": "auto" if st.get("smart_pass", True) else "on",
+            }
+
+
+def _v5_state_to_v6(state: dict[str, Any]) -> None:
+    settings = state.get("settings")
+    if isinstance(settings, dict):
+        # v5 had one automation level, "rules" (= today's FULL). OFF games stay OFF: FULL is never
+        # switched on silently.
+        if settings.get("automation") == "rules":
+            settings["automation"] = "full"
+            settings["automation_options"] = dict(FULL_OPTIONS)
+        else:
+            settings["automation"] = "off"
+    _v5_rules_to_v6(state.get("rules"))
+
+
+def _v5_steps_to_v6(steps: Any) -> None:
+    for step in steps or []:
+        if not isinstance(step, dict):
+            continue
+        if step.get("type") == "rules_sync":
+            _v5_rules_to_v6(step.get("rules"))
+        elif step.get("type") == "configure" and step.get("automation") == "rules":
+            step["automation"] = "full"
+
+
+def _v5_to_v6(payload: dict[str, Any]) -> dict[str, Any]:
+    """v6 splits automation into OFF / ASSISTED / FULL with per-feature options, and per-player
+    automation preferences replace M14's stops (in the state and in recorded history)."""
+    if isinstance(payload.get("state"), dict):
+        _v5_state_to_v6(payload["state"])
+    history = payload.get("history")
+    if isinstance(history, dict):
+        if isinstance(history.get("base"), dict):
+            _v5_state_to_v6(history["base"])
+        actions = history.get("actions") or []
+        _v5_steps_to_v6(actions)
+        for action in actions:
+            if isinstance(action, dict) and isinstance(action.get("r"), list):
+                _v5_steps_to_v6(action["r"])
+    return payload
+
+
 # MIGRATIONS[n] upgrades a version-n payload to version n + 1.
-MIGRATIONS: dict[int, Migration] = {1: _v1_to_v2, 2: _v2_to_v3, 3: _v3_to_v4, 4: _v4_to_v5}
+MIGRATIONS: dict[int, Migration] = {1: _v1_to_v2, 2: _v2_to_v3, 3: _v3_to_v4, 4: _v4_to_v5, 5: _v5_to_v6}
 
 
 class SaveFormatError(ValueError):

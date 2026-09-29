@@ -7,7 +7,7 @@ from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
 from app.game.ops import group, log, pname, text
-from app.game.rules_state import start_rules
+from app.game.rules_state import AUTOMATION_PRESETS, preset_name, start_rules
 from app.game.state import CardInstance, GameState
 
 MANA_ORDER = "WUBRGCS"
@@ -245,21 +245,31 @@ def configure(state: GameState, a: A.Configure) -> None:
         if value is not None:
             setattr(state.settings, key, value)
             changed.append(f"{key.replace('_', ' ')} = {value}")
-    if a.automation is not None and a.automation != state.settings.automation:
-        state.settings.automation = a.automation
-        if a.automation == "rules":
-            start_rules(state)
-            # Priority is the rules engine's job now; the lightweight response helper steps aside.
-            from app.game.handlers import response  # response → objects; imported late
+    settings = state.settings
+    if a.automation is not None and a.automation != settings.automation:
+        was = settings.automation
+        settings.automation = a.automation
+        settings.automation_options = AUTOMATION_PRESETS[a.automation].model_copy()
+        if a.automation != "off":
+            if state.rules is None:
+                start_rules(state)
+            if was == "off":
+                # Priority is the rules engine's job now; the lightweight response helper steps aside.
+                from app.game.handlers import response  # response → objects; imported late
 
-            state.settings.priority_helper = "off"
-            response.clear(state)
-            changed.append("rules automation on")
-        else:
-            state.rules = None
-            changed.append("rules automation off")
+                settings.priority_helper = "off"
+                response.clear(state)
+        # Turning automation off keeps the rules bookkeeping (dormant): nothing is destroyed, the
+        # table continues as a sandbox, and turning it back on reconciles instead of starting over.
+        changed.append(f"automation {a.automation.upper()}")
+    if a.automation_options is not None:
+        patch = a.automation_options.model_dump(exclude_none=True)
+        if patch:
+            settings.automation_options = settings.automation_options.model_copy(update=patch)
+            changed.append("automation options: " + ", ".join(f"{k.replace('_', ' ')} = {v}" for k, v in patch.items())
+                           + f" ({preset_name(settings.automation, settings.automation_options).upper()})")
     if a.automation_paused is not None:
-        if state.rules is None:
+        if state.rules is None or settings.automation == "off":
             raise ActionError("Rules automation is off")
         if state.rules.paused != a.automation_paused:
             state.rules.paused = a.automation_paused
@@ -267,6 +277,12 @@ def configure(state: GameState, a: A.Configure) -> None:
     if not changed:
         raise ActionError("Nothing to change")
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" changed settings: " + ", ".join(changed))], kind="info")
+    if a.r:
+        # Reconciliation after manual play, compiled by the rules engine (app/rules/reconcile.py)
+        # and recorded here: replayed exactly like a rules intent.
+        from app.game.handlers.rules import replay_steps  # rules → objects; imported late
+
+        replay_steps(state, a.r)
 
 
 def run_macro(state: GameState, a: A.RunMacro) -> None:

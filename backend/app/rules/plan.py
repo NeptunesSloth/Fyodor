@@ -7,7 +7,15 @@ from typing import Any
 
 from app.game import actions as A
 from app.game.errors import ActionError
-from app.game.rules_state import Decision, DecisionOption, RulesState, track
+from app.game.rules_state import (
+    AutomationOptions,
+    Decision,
+    DecisionOption,
+    PlayerPrefs,
+    RulesState,
+    capture,
+    track,
+)
 from app.game.state import CardInstance, GameState
 from app.game.visibility import publicly_visible
 from app.rules import characteristics as chars
@@ -40,8 +48,9 @@ class Plan:
             raise ActionError("The rules engine stopped: too many steps for one action")
         action = A.parse_action(payload)
         resolved = resolve(self.state, action, actor=actor or self.actor, cards=self.info, rng=self.rng, trusted=True)
+        before = capture(self.state)
         HANDLERS[resolved.type](self.state, resolved)
-        track(self.state)
+        track(self.state, before)
         self.steps.append(resolved.model_dump(mode="json"))
         return resolved
 
@@ -50,6 +59,30 @@ class Plan:
 
     def ch(self, card: CardInstance) -> Characteristics:
         return chars.of(card, self.info)
+
+    def prefs(self, player: str) -> PlayerPrefs:
+        """A player's preferences, created on first change (so they're saved with the rules state)."""
+        prefs = self.rules.prefs.get(player)
+        if prefs is None:
+            prefs = self.rules.prefs[player] = PlayerPrefs()
+        return prefs
+
+    @property
+    def options(self) -> AutomationOptions:
+        return self.state.settings.automation_options
+
+    def oid(self, card: CardInstance | str) -> str:
+        """The rules object a physical card currently is (it changes on every zone change)."""
+        return self.rules.object_id(card if isinstance(card, str) else card.id)
+
+    def in_game(self, card: CardInstance) -> bool:
+        """Not left behind by a player who left the game (their side of the table stays as a record)."""
+        live = self.live()
+        return card.owner in live and card.controller in live
+
+    def manual(self, card: CardInstance) -> bool:
+        """Is this card taken out of automation (right-click → Automation → Manual)?"""
+        return self.rules.card_mode(card.id) == "manual"
 
     # -- table helpers ---------------------------------------------------------------
     def name(self, player: str) -> str:
@@ -92,10 +125,12 @@ def require_priority(plan: Plan) -> None:
 
 
 def decide(plan: Plan, *, player: str, kind: str, prompt: str, options: list[DecisionOption], resume: dict[str, Any],
-           min_choices: int = 1, max_choices: int = 1, source: CardInstance | None = None) -> None:
+           min_choices: int = 1, max_choices: int = 1, source: CardInstance | None = None,
+           memory_key: str | None = None, memory_context: str = "") -> None:
     source_id = source.id if source is not None and publicly_visible(plan.state, source) else None
     plan.rules.decision = Decision(
         id=secrets.token_hex(6), player=player, kind=kind, prompt=prompt[:300], options=options,  # type: ignore[arg-type]
         min_choices=min_choices, max_choices=max_choices, source_id=source_id, resume=resume,
+        memory_key=memory_key, memory_context=memory_context,
     )
     plan.rules.priority = None

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from tests.game_helpers import act, find
+from tests.game_helpers import act, enable, find
 from tests.test_rules_casting import build, put, rules
 
 
@@ -52,7 +52,6 @@ def test_players_lose_and_the_last_one_wins(cards):
 
 def test_poison_and_commander_damage(cards):
     from app.game.factory import DeckCard, PlayerSetup, new_game
-    from app.game.rules_state import start_rules
     from app.game.session import GameSession
 
     def deck(name):
@@ -61,8 +60,7 @@ def test_poison_and_commander_damage(cards):
 
     state = new_game([PlayerSetup("A", cards=deck("Krenko, Mob Boss")), PlayerSetup("B", cards=deck("Atraxa, Praetors' Voice")),
                       PlayerSetup("C", cards=deck("Krenko, Mob Boss"))], shuffle=False)
-    state.settings.automation = "rules"
-    start_rules(state)
+    enable(state)
     s = GameSession(state, cards=cards)
     krenko = find(s.state, "Krenko, Mob Boss", "p1")
     act(s, "p2", type="resource", player="p2", key="poison", delta=10)

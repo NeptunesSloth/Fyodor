@@ -9,7 +9,7 @@ import pytest
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
 from app.game.session import GameSession
-from tests.game_helpers import act, find
+from tests.game_helpers import act, find, turn_on
 
 
 def table(cards, *, players=2):
@@ -32,7 +32,7 @@ def creature(s, pid, name, pt="2/2", text=""):
 
 
 def automate(s):
-    act(s, "p1", type="configure", automation="rules")  # existing creatures aren't summoning sick
+    turn_on(s)  # existing creatures aren't summoning sick
     act(s, "p1", type="pass_priority")  # → Alice's main 1
     act(s, "p1", type="pass_priority")  # → combat: Alice declares attackers
 
@@ -139,7 +139,7 @@ def test_summoning_sickness_haste_defender_and_vigilance(cards):
     s = table(cards)
     old = creature(s, "p1", "Veteran", "2/2", "Vigilance")
     creature(s, "p1", "Wall", "0/4", "Defender")
-    act(s, "p1", type="configure", automation="rules")
+    turn_on(s)
     new = creature(s, "p1", "Recruit")  # arrived this turn
     runner = creature(s, "p1", "Runner", "1/1", "Haste")
     act(s, "p1", type="pass_priority")

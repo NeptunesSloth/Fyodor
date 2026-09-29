@@ -35,7 +35,7 @@ from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
 from app.game.mulligan import resolve_policy
-from app.game.rules_state import start_rules
+from app.game.rules_state import AUTOMATION_PRESETS, AutomationLevel, start_rules
 from app.game.session import GameSession
 from app.game.state import GameSettings, MulliganPolicy
 from app.game.views import build_view
@@ -161,8 +161,8 @@ class CreateGameIn(BaseModel):
     mulligan_rule: str | None = Field(default=None, max_length=40)
     mulligan_policy: MulliganPolicy | None = None  # fields for boston_custom / custom
     priority_helper: Literal["off", "simple"] = "simple"
-    # Rules automation (see docs/ARCHITECTURE.md): "off" is the sandbox, "rules" automates play.
-    automation: Literal["off", "rules"] = "off"
+    # Rules automation (docs/AUTOMATION_UX.md): OFF is the sandbox (the safe default).
+    automation: AutomationLevel = "off"
 
     @field_validator("name")
     @classmethod
@@ -292,9 +292,10 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
                             deck_privacy=body.deck_privacy, mulligan=policy,
                             # one person runs a hot-seat table: nobody to ask; with rules, the engine asks
                             priority_helper=body.priority_helper if body.mode == "lan" and body.automation == "off" else "off",
-                            allow_test_objects=body.mode == "local", automation=body.automation)
+                            allow_test_objects=body.mode == "local", automation=body.automation,
+                            automation_options=AUTOMATION_PRESETS[body.automation].model_copy())
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
-    if body.automation == "rules":
+    if body.automation != "off":
         start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
     session.notice(f"Game created. {state.players[state.turn.active_player].name} goes first.")
@@ -574,7 +575,7 @@ class LobbySettingsIn(BaseModel):
     mulligan_policy: MulliganPolicy | None = None
     priority_helper: Literal["off", "simple"] | None = None
     auto_untap: bool | None = None
-    automation: Literal["off", "rules"] | None = None
+    automation: AutomationLevel | None = None
 
 
 class StartIn(BaseModel):
@@ -914,6 +915,7 @@ async def start_game(
             priority_helper=lobby.priority_helper if lobby.automation == "off" else "off",
             mulligan=lobby.policy(),
             automation=lobby.automation,
+            automation_options=AUTOMATION_PRESETS[lobby.automation].model_copy(),
         )
         state = new_game(
             setups,
@@ -924,7 +926,7 @@ async def start_game(
             first_player=first,
         )
         state.id = room.game_id  # same URL before and after the start
-        if lobby.automation == "rules":
+        if lobby.automation != "off":
             start_rules(state)
         session = GameSession(
             state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules

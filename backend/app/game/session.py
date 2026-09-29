@@ -98,7 +98,9 @@ class GameSession:
         if self.state.rules is not None:
             from app.rules.view import rules_view  # only needed for tables with rules automation
 
-            view["rules"] = rules_view(self.state, viewer, self.cards or NoCardInfo())
+            rules = rules_view(self.state, viewer, self.cards or NoCardInfo())
+            if rules is not None:
+                view["rules"] = rules
         return view
 
 

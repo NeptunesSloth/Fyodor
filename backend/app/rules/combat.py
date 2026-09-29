@@ -8,6 +8,7 @@ whether first-strike damage has been dealt.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.game import actions as A
@@ -236,24 +237,37 @@ def has_first_strike_round(plan: Plan) -> bool:
     )
 
 
-def deal_combat_damage(plan: Plan, rnd: Round) -> None:
+@dataclass
+class CombatDamage:
+    """All combat damage of one round, computed before any of it is dealt (it is simultaneous)."""
+
+    creatures: dict[str, int] = field(default_factory=dict)
+    players: dict[str, int] = field(default_factory=dict)
+    walkers: dict[str, int] = field(default_factory=dict)
+    lifelink: dict[str, int] = field(default_factory=dict)
+    commander: dict[tuple[str, str], int] = field(default_factory=dict)
+    deathtouched: list[str] = field(default_factory=list)
+    dealt: list[tuple[str, str, int]] = field(default_factory=list)  # (source card, target card/player, amount)
+
+    @property
+    def empty(self) -> bool:
+        return not (self.creatures or self.players or self.walkers)
+
+
+def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
     state = plan.state
     r = plan.rules
-    creatures: dict[str, int] = {}
-    players: dict[str, int] = {}
-    walkers: dict[str, int] = {}
-    lifelink: dict[str, int] = {}
-    commander: dict[tuple[str, str], int] = {}
-    deathtouched: list[str] = []
+    out = CombatDamage()
 
-    def hit_creature(source: Characteristics, target: CardInstance, n: int) -> None:
-        creatures[target.id] = creatures.get(target.id, 0) + n
+    def hit_creature(source_card: CardInstance, source: Characteristics, target: CardInstance, n: int) -> None:
+        out.creatures[target.id] = out.creatures.get(target.id, 0) + n
+        out.dealt.append((source_card.id, target.id, n))
         if "deathtouch" in source.keywords:
-            deathtouched.append(target.id)
+            out.deathtouched.append(target.id)
 
     def gain(source_card: CardInstance, source: Characteristics, n: int) -> None:
         if n > 0 and "lifelink" in source.keywords:
-            lifelink[source_card.controller] = lifelink.get(source_card.controller, 0) + n
+            out.lifelink[source_card.controller] = out.lifelink.get(source_card.controller, 0) + n
 
     def hit_target(att: CardInstance, n: int) -> None:
         tgt = att.attacking
@@ -261,11 +275,14 @@ def deal_combat_damage(plan: Plan, rnd: Round) -> None:
             return
         if tgt.kind == "player":
             if tgt.id in state.players:
-                players[tgt.id] = players.get(tgt.id, 0) + n
+                out.players[tgt.id] = out.players.get(tgt.id, 0) + n
+                out.dealt.append((att.id, tgt.id, n))
                 if att.commander_key:
-                    commander[(tgt.id, att.commander_key)] = commander.get((tgt.id, att.commander_key), 0) + n
+                    key = (tgt.id, att.commander_key)
+                    out.commander[key] = out.commander.get(key, 0) + n
         elif tgt.id in state.cards and state.cards[tgt.id].zone.endswith(":battlefield"):
-            walkers[tgt.id] = walkers.get(tgt.id, 0) + n
+            out.walkers[tgt.id] = out.walkers.get(tgt.id, 0) + n
+            out.dealt.append((att.id, tgt.id, n))
 
     blockers_all = [c for c in state.cards.values() if c.blocking and c.zone.endswith(":battlefield")]
     for att in attackers_on(state):
@@ -285,11 +302,11 @@ def deal_combat_damage(plan: Plan, rnd: Round) -> None:
                 elif t is None:
                     lethal = remaining
                 else:
-                    lethal = max(0, t - b.damage - creatures.get(b.id, 0))
+                    lethal = max(0, t - b.damage - out.creatures.get(b.id, 0))
                 last = i == len(blockers) - 1
                 amount = remaining if last and "trample" not in ach.keywords else min(remaining, lethal)
                 if amount > 0:
-                    hit_creature(ach, b, amount)
+                    hit_creature(att, ach, b, amount)
                     dealt += amount
                     remaining -= amount
             if remaining > 0 and "trample" in ach.keywords:
@@ -305,16 +322,33 @@ def deal_combat_damage(plan: Plan, rnd: Round) -> None:
         blocked = state.cards.get(b.blocking or "")
         if blocked is None or blocked.attacking is None or not _deals(bch, rnd) or p is None or p <= 0:
             continue
-        hit_creature(bch, blocked, p)
+        hit_creature(b, bch, blocked, p)
         gain(b, bch, p)
-    if not (creatures or players or walkers):
+    return out
+
+
+def damage_preview(plan: Plan, rnd: Round) -> str:
+    """A compact public summary of the damage about to be dealt (for ASSISTED confirmation)."""
+    dmg = compute_combat_damage(plan, rnd)
+    parts = []
+    for source, target, n in dmg.dealt:
+        who = plan.state.players[target].name if target in plan.state.players else plan.state.cards[target].name
+        parts.append(f"{plan.state.cards[source].name} → {who} {n}")
+    return "; ".join(parts) or "none"
+
+
+def deal_combat_damage(plan: Plan, rnd: Round) -> None:
+    dmg = compute_combat_damage(plan, rnd)
+    if dmg.empty:
         return
     plan.do({
-        "type": "rules_damage", "creatures": creatures, "players": players, "planeswalkers": walkers,
-        "lifelink": lifelink, "first_strike": rnd == "first",
-        "commander": [{"player": pid, "commander": key, "amount": n} for (pid, key), n in commander.items()],
+        "type": "rules_damage", "creatures": dmg.creatures, "players": dmg.players, "planeswalkers": dmg.walkers,
+        "lifelink": dmg.lifelink, "first_strike": rnd == "first",
+        "commander": [{"player": pid, "commander": key, "amount": n} for (pid, key), n in dmg.commander.items()],
+        "dealt": [{"source": plan.oid(src), "target": tgt, "amount": n,
+                   "target_object": plan.oid(tgt) if tgt in plan.state.cards else None} for src, tgt, n in dmg.dealt],
     }, actor=plan.active)
-    r.deathtouched = list(dict.fromkeys([*r.deathtouched, *deathtouched]))
+    plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *dmg.deathtouched]))
 
 
 def end_combat(plan: Plan) -> None:

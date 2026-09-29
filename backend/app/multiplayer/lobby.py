@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.game.factory import DeckCard
 from app.game.mulligan import PRESETS, resolve_policy
+from app.game.rules_state import AutomationLevel
 from app.game.state import MulliganPolicy
 from app.textutil import clean_text
 
@@ -35,7 +36,7 @@ class LobbySettings(BaseModel):
     mulligan_policy: MulliganPolicy | None = None  # the host's definition for Boston (Custom Pod) / Custom
     priority_helper: PriorityHelper = "simple"
     auto_untap: bool = True
-    automation: Literal["off", "rules"] = "off"  # rules automation (see docs/ARCHITECTURE.md)
+    automation: AutomationLevel = "off"  # rules automation (docs/AUTOMATION_UX.md); OFF by default
 
     @field_validator("name")
     @classmethod

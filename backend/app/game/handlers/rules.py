@@ -7,29 +7,37 @@ steps, so undo/redo, saves and history replay never depend on the current rules 
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
 from app.game.handlers.players import change_life
 from app.game.ops import log, text
-from app.game.rules_state import RulesState, track
+from app.game.rules_state import RulesState, capture, emit, track
 from app.game.state import GameState, LogPart
 
 _NOT_A_STEP = A.INTENT_TYPES | {"run_macro", "restore_state", "response_open"}
 
 
 def apply_intent(state: GameState, a: A.Action) -> None:
-    from app.game.engine import HANDLERS  # the engine imports this module
-
     steps = getattr(a, "r", None)
     if not steps:
         raise ActionError("unresolved rules intent")
+    replay_steps(state, steps)
+
+
+def replay_steps(state: GameState, steps: list[dict[str, Any]]) -> None:
+    """Apply recorded rules steps, with the same per-step bookkeeping the engine did."""
+    from app.game.engine import HANDLERS  # the engine imports this module
+
     for payload in steps:
         step = A.parse_action(payload)
-        if step.type in _NOT_A_STEP:
+        if step.type in _NOT_A_STEP or step.type == "configure":
             raise ActionError("Invalid rules step")
+        before = capture(state)
         HANDLERS[step.type](state, step)
-        track(state)
+        track(state, before)
 
 
 def rules_sync(state: GameState, a: A.RulesSync) -> None:
@@ -76,6 +84,12 @@ def rules_mana(state: GameState, a: A.RulesMana) -> None:
 
 
 def rules_damage(state: GameState, a: A.RulesDamage) -> None:
+    # Damage is an event of its own (not "change life"): a player dealt damage also loses that
+    # much life, a creature gets marked damage, a planeswalker loses loyalty. All of one step's
+    # damage is dealt simultaneously (one event batch).
+    for d in a.dealt:
+        emit(state, "damage", object_id=d.target_object, card=d.target if d.target in state.cards else None,
+             player=d.target if d.target in state.players else None, source=d.source, amount=d.amount, combat=True)
     hurt = []
     for cid, n in a.creatures.items():
         card = ops.card(state, cid)
