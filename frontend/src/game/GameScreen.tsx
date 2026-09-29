@@ -86,7 +86,7 @@ export function GameScreen() {
       <DecisionPanel />
       <AutomationErrorPanel />
       <DragLayer />
-      <CombatArrows />
+      {!three && <CombatArrows />}
       <PickLayer />
     </div>
   );

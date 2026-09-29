@@ -15,7 +15,15 @@ import { startAmbience } from "./ambience";
 import "./table3d.css";
 
 declare global {
-  interface Window { __fyodor3d?: { stats: () => TableScene["stats"]; camera: (p: CameraPreset) => void } }
+  interface Window {
+    /** Test and diagnostics hooks (no game data beyond what the page already shows). */
+    __fyodor3d?: {
+      stats: () => TableScene["stats"];
+      camera: (p: CameraPreset) => void;
+      cardAt: (id: string) => { x: number; y: number } | null;
+      battlefieldAt: (player: string, x: number, y: number) => { x: number; y: number } | null;
+    };
+  }
 }
 
 export function Table3D({ me }: { me: string }) {
@@ -53,7 +61,12 @@ export function Table3D({ me }: { me: string }) {
       if (s.cards !== prev.cards) sync();
     });
     setDropResolver3D((x, y) => scene.resolveDrop(x, y));
-    window.__fyodor3d = { stats: () => scene.stats, camera: (p) => scene.setCamera(p) };
+    window.__fyodor3d = {
+      stats: () => scene.stats,
+      camera: (p) => scene.setCamera(p),
+      cardAt: (id) => scene.screenOfCard(id),
+      battlefieldAt: (player, x, y) => scene.screenOfBattlefield(player, x, y),
+    };
     // keep the seat plates glued to the table
     let raf = 0;
     const follow = () => {

@@ -85,7 +85,7 @@ function angleLerp(a: number, b: number, t: number): number {
   return a + d * t;
 }
 
-export interface SceneStats { fps: number; calls: number; triangles: number; cards: number }
+export interface SceneStats { fps: number; calls: number; triangles: number; cards: number; arrows?: number }
 
 export class TableScene {
   readonly canvas: HTMLCanvasElement;
@@ -132,6 +132,9 @@ export class TableScene {
   private loader = new THREE.TextureLoader();
   private failed = new Set<string>();
   private unsubs: (() => void)[] = [];
+  /** Every card's body (its thickness and shadow) in one draw call. */
+  private bodies: THREE.InstancedMesh;
+  private arrows = new THREE.Group();
 
   constructor(container: HTMLElement, plane: PlaneTheme, quality: Quality) {
     this.plane = plane;
@@ -150,6 +153,11 @@ export class TableScene {
     const body = new THREE.ExtrudeGeometry(roundedRect(CARD_W, CARD_H, 0.05), { depth: THICK, bevelEnabled: false, curveSegments: 6 });
     body.rotateX(-Math.PI / 2);
     this.cardBodyGeo = body;
+    this.bodies = new THREE.InstancedMesh(body, this.bodyMat, 1024);
+    this.bodies.castShadow = quality !== "low";
+    this.bodies.count = 0;
+    this.bodies.frustumCulled = false;
+    this.world.add(this.bodies, this.arrows);
     this.scene.add(this.world);
     this.applyFog();
     this.bindInput();
@@ -201,6 +209,26 @@ export class TableScene {
     return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height, visible: v.z < 1 && Math.abs(v.x) < 1.3 && Math.abs(v.y) < 1.3 };
   }
 
+  /** Screen position (CSS px, relative to the canvas) of a card, or of a battlefield point of a seat. */
+  screenOfCard(id: string): { x: number; y: number } | null {
+    const c = this.cards.get(id);
+    return c ? this.project(c.group.position) : null;
+  }
+
+  screenOfBattlefield(player: string, vx: number, vy: number): { x: number; y: number } | null {
+    const seat = this.seatList.find((s) => s.player === player);
+    if (!seat) return null;
+    const [lx, lz] = virtualToLocal(vx, vy);
+    const [wx, wz] = toWorld(seat, lx, lz);
+    return this.project(new THREE.Vector3(wx, 0, wz));
+  }
+
+  private project(p: THREE.Vector3): { x: number; y: number } {
+    const v = p.clone().project(this.camera);
+    const r = this.canvas.getBoundingClientRect();
+    return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
+  }
+
   /** Drop resolution for DOM drags (from the hand) over the canvas. */
   resolveDrop(clientX: number, clientY: number, offset?: THREE.Vector3): DropResult | null {
     const p = this.tablePoint(clientX, clientY);
@@ -227,6 +255,7 @@ export class TableScene {
     this.cards.clear();
     for (const t of this.textures.values()) t.dispose();
     for (const m of this.materials.values()) m.dispose();
+    this.bodies.dispose();
     this.cardFaceGeo.dispose();
     this.cardBodyGeo.dispose();
     this.glowGeo.dispose();
@@ -364,15 +393,12 @@ export class TableScene {
 
   private makeCard(id: string): CardObj {
     const group = new THREE.Group();
-    const body = new THREE.Mesh(this.cardBodyGeo, this.bodyMat);
-    body.castShadow = this.quality !== "low";
-    body.position.y = 0;
     const face = new THREE.Mesh(this.cardFaceGeo, this.bodyMat);
     face.position.y = THICK + 0.0008;
     face.userData = { card: id };
     const glow = new THREE.Mesh(this.glowGeo, new THREE.MeshBasicMaterial({ color: "#fff", transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
     glow.position.y = -0.001;
-    group.add(glow, body, face);
+    group.add(glow, face);
     this.world.add(group);
     const obj: CardObj = { id, group, face, glow, badge: null, badgeText: "", faceKey: "", target: new THREE.Vector3(), rot: 0, tilt: 0, seen: true };
     this.cards.set(id, obj);
@@ -519,6 +545,51 @@ export class TableScene {
     }
     if (need.length) requestCards(need);
     this.stats.cards = this.cards.size;
+    this.syncArrows(view);
+  }
+
+  /** Attack, block and targeting arrows: arcs over the table from source to target. */
+  private syncArrows(view: GameView): void {
+    for (const child of [...this.arrows.children]) {
+      this.arrows.remove(child);
+      const m = child as THREE.Mesh;
+      m.geometry.dispose();
+      (m.material as THREE.Material).dispose();
+    }
+    const at = (id: string): THREE.Vector3 | null => {
+      const c = this.cards.get(id);
+      if (c) return c.target.clone().setY(c.target.y + 0.05);
+      const seat = this.seatList.find((s) => s.player === id);
+      if (!seat) return null;
+      const [wx, wz] = toWorld(seat, 0, MAT_D / 2 + 0.6);
+      return new THREE.Vector3(wx, 0.1, wz);
+    };
+    const add = (from: string, to: string, color: string) => {
+      const a = at(from);
+      const b = at(to);
+      if (!a || !b || a.distanceTo(b) < 0.3) return;
+      const mid = a.clone().lerp(b, 0.5);
+      mid.y += 1.2 + a.distanceTo(b) * 0.12;
+      const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, depthWrite: false });
+      const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 28, 0.035, 6), mat);
+      tube.renderOrder = 5;
+      const head = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.36, 10), mat.clone());
+      const end = curve.getPoint(1);
+      const dir = curve.getTangent(1).normalize();
+      head.position.copy(end).addScaledVector(dir, -0.12);
+      head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      this.arrows.add(tube, head);
+    };
+    for (const c of Object.values(view.cards)) {
+      if (c.attacking) add(c.id, c.attacking.id, "#e0463c");
+      if (c.blocking) add(c.id, c.blocking, "#5fa8ff");
+    }
+    for (const ar of view.arrows ?? []) {
+      const color = ar.kind === "attack" ? "#e0463c" : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;
+      for (const t of ar.targets) add(ar.source, t, color);
+    }
+    this.stats.arrows = this.arrows.children.length / 2;
   }
 
   private syncHandFan(seat: Seat, count: number): void {
@@ -781,11 +852,18 @@ export class TableScene {
     const dt = Math.min(0.5, this.clock.getDelta()); // real time: slow devices still settle quickly
     const t = this.clock.elapsedTime;
     const k = 1 - Math.exp(-dt * 14);
+    let n = 0;
     for (const c of this.cards.values()) {
       c.group.position.lerp(c.target, k);
       c.group.rotation.y = angleLerp(c.group.rotation.y, c.rot, k);
       c.group.rotation.x += (c.tilt - c.group.rotation.x) * k;
+      if (n < 1024) {
+        c.group.updateMatrix();
+        this.bodies.setMatrixAt(n++, c.group.matrix);
+      }
     }
+    this.bodies.count = n;
+    this.bodies.instanceMatrix.needsUpdate = true;
     const kc = 1 - Math.exp(-dt * 5);
     this.camPos.lerp(this.camGoalPos, kc);
     this.camLook.lerp(this.camGoalLook, kc);
@@ -795,7 +873,7 @@ export class TableScene {
     this.renderer.render(this.scene, this.camera);
     this.frames++;
     if (t - this.fpsAt >= 1) {
-      this.stats = { fps: Math.round(this.frames / (t - this.fpsAt)), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, cards: this.cards.size };
+      this.stats = { ...this.stats, fps: Math.round(this.frames / (t - this.fpsAt)), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, cards: this.cards.size };
       this.frames = 0;
       this.fpsAt = t;
     }
