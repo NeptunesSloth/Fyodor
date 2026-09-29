@@ -70,7 +70,7 @@ def test_import_file(tmp_path: Path):
     src = tmp_path / "bulk.jsonl.gz"
     write_jsonl_gz(fixture_cards(), src)
     result = import_file(src, tmp_path / "out.sqlite", meta={"bulk_type": "x"})
-    assert result.oracle_cards == 61
+    assert result.oracle_cards == 64
 
 
 def test_default_printing_prefers_regular_sets(cards: CardRepository):
@@ -104,7 +104,8 @@ def test_search(cards: CardRepository):
     assert set(names("t:instant c:r -t:creature")) == {"Fire // Ice", "Lightning Bolt", "Seething Song", "Pyroblast", "Stoke the Flames"}
     assert "Counterspell" in names("o:counter")
     assert set(names("t:land -t:basic")) == {"Command Tower", "Thornwood Falls", "Shivan Reef", "Sungrass Prairie",
-                                              "Ancient Ziggurat", "Vivid Marsh", "Tainted Isle", "Reflecting Pool", "Barren Moor"}
+                                              "Ancient Ziggurat", "Vivid Marsh", "Tainted Isle", "Reflecting Pool", "Barren Moor",
+                                              "Gaea's Cradle", "Cabal Coffers"}
     assert set(names("is:commander")) >= {"Krenko, Mob Boss", "Atraxa, Praetors' Voice"}
     assert "Atraxa, Praetors' Voice" not in names("is:commander id:r")
     assert set(names("mv=4 c=r")) == {"Krenko, Mob Boss", "Stoke the Flames"}

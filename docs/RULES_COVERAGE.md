@@ -56,6 +56,7 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Changeling, echo, "sacrifice ~ unless you pay" upkeep costs | 32,116 | 3,909 (12.2%) | 28,159 | 0 | 48 | 83 / 3,501 |
 | Landfall and ability-word triggers, "Activate only once each turn", attacking/blocking targets | 32,116 | 4,023 (12.5%) | 28,045 | 0 | 48 | 87 / 3,501 |
 | Convoke (+ generic-payment solver fix) | 32,116 | 4,061 (12.6%) | 28,007 | 0 | 48 | 88 / 3,501 |
+| Counted mana (Gaea's Cradle, Cabal Coffers, power), Scion/Spawn token makers | 32,116 | 4,080 (12.7%) | 27,988 | 0 | 48 | 89 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards

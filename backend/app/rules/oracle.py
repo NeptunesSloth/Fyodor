@@ -107,7 +107,8 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
     if _MANA_ABILITY.match(line):
         return "mana", (), "{T}"
     m = _ADD_MANA.match(line)
-    if m and not _LOYALTY.match(line) and "target" not in line:
+    if m and not _LOYALTY.match(line) and "target" not in line and '"' not in m.group("cost") \
+            and not _TRIGGER.match(line) and not line.startswith("•"):  # a granted/token ability isn't one
         return "mana", (), m.group("cost")
     kws = _keywords_line(line)
     if kws is not None and ":" not in line:

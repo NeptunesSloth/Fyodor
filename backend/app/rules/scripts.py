@@ -229,7 +229,8 @@ COLOR_WORDS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"
 _COLORS_RE = r"(?P<colors>colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*)"
 
 
-@effect(r"create {N} (?P<pt>\d+/\d+) " + _COLORS_RE + r" (?P<sub>[A-Z][A-Za-z' ]*?) (?P<art>artifact )?creature tokens?(?: with (?P<kws>[a-z ,]+?))?")
+@effect(r"create {N} (?P<pt>\d+/\d+) " + _COLORS_RE + r" (?P<sub>[A-Z][A-Za-z' ]*?) (?P<art>artifact )?creature tokens?"
+        r"(?: with (?P<kws>[a-z ,]+?)| with \"(?P<quoted>[^\"]+)\")?")
 def _create_creature(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     p, t = m["pt"].split("/")
     colors = [] if m["colors"] == "colorless" else [COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", m["colors"])]
@@ -238,8 +239,25 @@ def _create_creature(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
         raise _NoMatch
     type_line = f"Token {'Artifact ' if m['art'] else ''}Creature — {m['sub']}"
     text = "\n".join(k.capitalize() for k in kws)
+    if m["quoted"]:
+        text = _granted_token_text(m["quoted"])
     return [{"do": "create_token", "who": "you", "n": num(m["n"]),
              "token": {"name": m["sub"], "power": p, "toughness": t, "colors": colors, "type_line": type_line, "text": text}}], None
+
+
+def _granted_token_text(quoted: str) -> str:
+    """The quoted ability a token is created with; only ones the engine carries out (a mana
+    ability such as an Eldrazi Spawn's "Sacrifice this token: Add {C}.")."""
+    from app.rules.mana import parse_mana_ability
+
+    if parse_mana_ability(quoted) is None:
+        raise _NoMatch
+    return quoted
+
+
+@effect(r"(?:it has|they have) \"(?P<quoted>[^\"]+)\"")
+def _token_has(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "token_text", "text": _granted_token_text(m["quoted"])}], None
 
 
 @effect(r"create {N} (?P<kind>Treasure|Food|Gold|Clue|Blood|Shard|Powerstone|Heartwood) tokens?")
@@ -329,7 +347,7 @@ def _lower_first(s: str) -> str:
 def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | None:
     """One sentence (or two joined by ". ") of effects → (effects, target selector, optional)."""
     body = body.strip()
-    if not body.endswith("."):
+    if not body.endswith(".") and not body.endswith('."'):
         return None
     optional = False
     effects: list[dict[str, Any]] = []
@@ -350,6 +368,11 @@ def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | 
                 if sel and target and sel != target:
                     return None  # two different targets: not supported yet
                 target = sel or target
+                if found and found[0]["do"] == "token_text":  # "It has "…"": the token just created
+                    if not effects or effects[-1]["do"] != "create_token":
+                        return None
+                    effects[-1] = {**effects[-1], "token": {**effects[-1]["token"], "text": found[0]["text"]}}
+                    break
                 effects += found
                 break
         else:

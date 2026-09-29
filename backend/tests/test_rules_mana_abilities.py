@@ -15,7 +15,8 @@ from tests.test_rules_effects import run_until
 SPELLS = [(1, "Shivan Reef"), (1, "Sungrass Prairie"), (1, "Ancient Ziggurat"), (1, "Vivid Marsh"), (1, "Sol Grail"),
           (1, "Blightsoil Druid"), (1, "Tainted Isle"), (1, "Reflecting Pool"), (1, "Grizzly Bears"), (1, "Swamp"),
           (1, "Forest"), (1, "Mountain"), (1, "Lightning Bolt"), (1, "Sol Ring"), (1, "Barren Moor"),
-          (1, "Twisted Abomination"), (1, "Pyroclasm")]
+          (1, "Twisted Abomination"), (1, "Pyroclasm"),
+          (1, "Gaea's Cradle"), (1, "Cabal Coffers"), (1, "Incubator Drone")]
 LIBRARY = [(8, "Island")]  # stays in the library (draws later in the game)
 
 
@@ -154,3 +155,37 @@ def test_typecycling_finds_that_type_privately(cards):
     d = s.state.rules.decision
     assert d.kind == "choose_cards" and d.player == "p1"
     assert {s.state.cards[o.id].name for o in d.options} <= {"Swamp"}  # only Swamp cards (the library holds Islands)
+
+
+def test_gaeas_cradle_counts_creatures(cards):
+    s = table(cards, "Gaea's Cradle")
+    cradle = named(s, "Gaea's Cradle")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=cradle.id, ability=0)  # no creatures: no mana to add
+    for i in range(3):
+        act(s, "p1", type="create_token", player="p1", token={"name": f"Elf{i}", "type_line": "Token Creature — Elf",
+                                                             "power": "1", "toughness": "1"})
+    act(s, "p1", type="activate_ability", card_id=cradle.id, ability=0)
+    assert s.state.players["p1"].mana == {"G": 3}
+
+
+def test_cabal_coffers_counts_swamps(cards):
+    s = table(cards, "Cabal Coffers", "Swamp", "Sol Ring")
+    act(s, "p1", type="create_token", player="p1", token={"name": "Bog", "type_line": "Token Land — Swamp"})
+    act(s, "p1", type="activate_ability", card_id=named(s, "Sol Ring").id, ability=0)
+    act(s, "p1", type="activate_ability", card_id=named(s, "Cabal Coffers").id, ability=0)
+    assert s.state.players["p1"].mana == {"B": 2}  # {2} paid by Sol Ring; two Swamps
+
+
+def test_eldrazi_scion_maker_and_sacrificing_the_scion_for_mana(cards):
+    from tests.test_rules_effects import pass_until_stack_empty
+
+    s = table(cards)
+    act(s, "p1", type="add_mana", player="p1", mana={"U": 1, "C": 3})
+    cast(s, "Incubator Drone")
+    pass_until_stack_empty(s)
+    scion = next(c for c in s.state.cards.values() if c.name == "Eldrazi Scion")
+    assert scion.zone == "p1:battlefield"
+    act(s, "p1", type="activate_ability", card_id=scion.id, ability=0)
+    assert s.state.players["p1"].mana == {"C": 1}
+    assert scion.id not in s.state.cards or not s.state.cards[scion.id].zone.endswith(":battlefield")

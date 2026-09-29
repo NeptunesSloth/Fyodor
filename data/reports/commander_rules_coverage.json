@@ -1,20 +1,20 @@
 {
- "generated_at": "2026-09-29 15:33",
+ "generated_at": "2026-09-29 15:38",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32116,
  "commander_banned": 83,
  "levels": {
-  "FULL": 4061,
-  "PARTIAL": 28007,
+  "FULL": 4080,
+  "PARTIAL": 27988,
   "REVIEW": 0,
   "MANUAL": 48
  },
  "possible_commanders": 3501,
  "commander_levels": {
-  "FULL": 88,
-  "PARTIAL": 3413,
+  "FULL": 89,
+  "PARTIAL": 3412,
   "REVIEW": 0,
   "MANUAL": 0
  },
@@ -30,38 +30,38 @@
  },
  "by_type": {
   "Creature": {
-   "FULL": 2765,
-   "PARTIAL": 15156,
+   "FULL": 2774,
+   "PARTIAL": 15147,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Artifact": {
-   "FULL": 506,
-   "PARTIAL": 3087,
+   "FULL": 508,
+   "PARTIAL": 3085,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Enchantment": {
-   "FULL": 63,
-   "PARTIAL": 3584,
+   "FULL": 64,
+   "PARTIAL": 3583,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Sorcery": {
-   "FULL": 209,
-   "PARTIAL": 3359,
+   "FULL": 211,
+   "PARTIAL": 3357,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Instant": {
-   "FULL": 398,
-   "PARTIAL": 3356,
+   "FULL": 399,
+   "PARTIAL": 3355,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Land": {
-   "FULL": 400,
-   "PARTIAL": 812,
+   "FULL": 404,
+   "PARTIAL": 808,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -134,8 +134,8 @@
    "MANUAL": 1
   },
   "reach": {
-   "FULL": 98,
-   "PARTIAL": 325,
+   "FULL": 99,
+   "PARTIAL": 324,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -242,8 +242,8 @@
    "MANUAL": 0
   },
   "food": {
-   "FULL": 12,
-   "PARTIAL": 137,
+   "FULL": 13,
+   "PARTIAL": 136,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -1084,8 +1084,8 @@
    "MANUAL": 0
   },
   "afr": {
-   "FULL": 15,
-   "PARTIAL": 227,
+   "FULL": 16,
+   "PARTIAL": 226,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1150,8 +1150,8 @@
    "MANUAL": 0
   },
   "bfz": {
-   "FULL": 34,
-   "PARTIAL": 140,
+   "FULL": 35,
+   "PARTIAL": 139,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1210,8 +1210,8 @@
    "MANUAL": 0
   },
   "c14": {
-   "FULL": 2,
-   "PARTIAL": 37,
+   "FULL": 3,
+   "PARTIAL": 36,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1306,8 +1306,8 @@
    "MANUAL": 0
   },
   "cmm": {
-   "FULL": 37,
-   "PARTIAL": 420,
+   "FULL": 40,
+   "PARTIAL": 417,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1408,8 +1408,8 @@
    "MANUAL": 0
   },
   "ddp": {
-   "FULL": 4,
-   "PARTIAL": 20,
+   "FULL": 5,
+   "PARTIAL": 19,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1714,8 +1714,8 @@
    "MANUAL": 0
   },
   "hoc": {
-   "FULL": 13,
-   "PARTIAL": 60,
+   "FULL": 14,
+   "PARTIAL": 59,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1996,8 +1996,8 @@
    "MANUAL": 0
   },
   "mh2": {
-   "FULL": 21,
-   "PARTIAL": 218,
+   "FULL": 22,
+   "PARTIAL": 217,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2008,8 +2008,8 @@
    "MANUAL": 0
   },
   "mic": {
-   "FULL": 1,
-   "PARTIAL": 74,
+   "FULL": 2,
+   "PARTIAL": 73,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2080,8 +2080,8 @@
    "MANUAL": 0
   },
   "mrd": {
-   "FULL": 30,
-   "PARTIAL": 122,
+   "FULL": 31,
+   "PARTIAL": 121,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2188,8 +2188,8 @@
    "MANUAL": 0
   },
   "pca": {
-   "FULL": 6,
-   "PARTIAL": 48,
+   "FULL": 7,
+   "PARTIAL": 47,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2290,8 +2290,8 @@
    "MANUAL": 0
   },
   "roe": {
-   "FULL": 12,
-   "PARTIAL": 84,
+   "FULL": 14,
+   "PARTIAL": 82,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2356,8 +2356,8 @@
    "MANUAL": 0
   },
   "soc": {
-   "FULL": 35,
-   "PARTIAL": 283,
+   "FULL": 36,
+   "PARTIAL": 282,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2476,8 +2476,8 @@
    "MANUAL": 0
   },
   "tmt": {
-   "FULL": 19,
-   "PARTIAL": 170,
+   "FULL": 20,
+   "PARTIAL": 169,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2548,8 +2548,8 @@
    "MANUAL": 0
   },
   "usg": {
-   "FULL": 37,
-   "PARTIAL": 129,
+   "FULL": 39,
+   "PARTIAL": 127,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2596,8 +2596,8 @@
    "MANUAL": 0
   },
   "who": {
-   "FULL": 0,
-   "PARTIAL": 186,
+   "FULL": 1,
+   "PARTIAL": 185,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2651,15 +2651,15 @@
   }
  },
  "feature_kinds": {
-  "triggered": 14866,
+  "triggered": 14909,
   "keyword": 13914,
-  "spell_effect": 9141,
-  "activated": 7355,
-  "continuous": 3937,
-  "static": 3237,
-  "mana_ability": 2177,
+  "spell_effect": 9155,
+  "activated": 7358,
+  "continuous": 4014,
+  "static": 3238,
+  "mana_ability": 2038,
   "replacement": 1966,
-  "restriction": 1473,
+  "restriction": 1474,
   "loyalty": 882,
   "prevention": 320,
   "additional_cost": 307,
@@ -2672,16 +2672,16 @@
   {
    "feature": "mana:ability",
    "kind": "engine",
-   "commander_cards": 527,
+   "commander_cards": 367,
    "pod_cards": 0,
    "pod_commanders": 0,
-   "only_missing_piece_for": 245,
+   "only_missing_piece_for": 194,
    "examples": [
-    "Eldrazi Confluence",
-    "Divergent Growth",
-    "Discreet Retreat",
     "Saltcrusted Steppe",
-    "Flywheel Racer"
+    "Flywheel Racer",
+    "The Emperor of Palamecia // The Lord Master of Hell",
+    "City of Shadows",
+    "Pit of Offerings"
    ]
   },
   {
@@ -2697,6 +2697,21 @@
     "Brine Elemental",
     "Aven Liberator",
     "Shaper Parasite"
+   ]
+  },
+  {
+   "feature": "template:All Slivers have \u201c\u2026\u201d",
+   "kind": "continuous",
+   "commander_cards": 29,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 26,
+   "examples": [
+    "Magma Sliver",
+    "Sedge Sliver",
+    "Mnemonic Sliver",
+    "Basal Sliver",
+    "Harmonic Sliver"
    ]
   },
   {
@@ -2727,21 +2742,6 @@
     "Fatehold Chronologist // Peer Review",
     "Blazing Firesinger // Seething Song",
     "Semester Foreseer // Peer Review"
-   ]
-  },
-  {
-   "feature": "template:All Slivers have \u201c\u2026\u201d",
-   "kind": "continuous",
-   "commander_cards": 27,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 24,
-   "examples": [
-    "Magma Sliver",
-    "Sedge Sliver",
-    "Mnemonic Sliver",
-    "Harmonic Sliver",
-    "Mesmeric Sliver"
    ]
   },
   {
@@ -2847,6 +2847,21 @@
     "Anathemancer",
     "Scrapwork Cohort",
     "Tocasia's Onulet"
+   ]
+  },
+  {
+   "feature": "template:Devoid",
+   "kind": "static",
+   "commander_cards": 132,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 16,
+   "examples": [
+    "Void Grafter",
+    "Consuming Sinkhole",
+    "Slaughter Drone",
+    "Mind Raker",
+    "Fathom Feeder"
    ]
   },
   {
@@ -3180,6 +3195,21 @@
    ]
   },
   {
+   "feature": "template:Sliver creatures you control have \u201c\u2026\u201d",
+   "kind": "continuous",
+   "commander_cards": 11,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 11,
+   "examples": [
+    "Capricious Sliver",
+    "Lavabelly Sliver",
+    "Regal Sliver",
+    "Tempered Sliver",
+    "Thorncaster Sliver"
+   ]
+  },
+  {
    "feature": "template:~ can't be countered.",
    "kind": "restriction",
    "commander_cards": 87,
@@ -3375,21 +3405,6 @@
    ]
   },
   {
-   "feature": "template:Sliver creatures you control have \u201c\u2026\u201d",
-   "kind": "continuous",
-   "commander_cards": 10,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 10,
-   "examples": [
-    "Capricious Sliver",
-    "Lavabelly Sliver",
-    "Regal Sliver",
-    "Tempered Sliver",
-    "Thorncaster Sliver"
-   ]
-  },
-  {
    "feature": "template:~ enters tapped unless a player has N or less life.",
    "kind": "replacement",
    "commander_cards": 10,
@@ -3462,21 +3477,6 @@
     "Bountiful Promenade",
     "Undergrowth Stadium",
     "Luxury Suite"
-   ]
-  },
-  {
-   "feature": "template:Devoid",
-   "kind": "static",
-   "commander_cards": 132,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 9,
-   "examples": [
-    "Void Grafter",
-    "Consuming Sinkhole",
-    "Slaughter Drone",
-    "Mind Raker",
-    "Fathom Feeder"
    ]
   },
   {
@@ -3990,6 +3990,21 @@
    ]
   },
   {
+   "feature": "keyword:prototype",
+   "kind": "keyword",
+   "commander_cards": 19,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Goring Warplow",
+    "Combat Thresher",
+    "Woodcaller Automaton",
+    "Blitz Automaton",
+    "Cradle Clearcutter"
+   ]
+  },
+  {
    "feature": "keyword:extort",
    "kind": "keyword",
    "commander_cards": 17,
@@ -4242,21 +4257,6 @@
     "Prosperous Bandit",
     "Thornplate Intimidator",
     "Iridescent Vinelasher"
-   ]
-  },
-  {
-   "feature": "keyword:prototype",
-   "kind": "keyword",
-   "commander_cards": 19,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 6,
-   "examples": [
-    "Goring Warplow",
-    "Combat Thresher",
-    "Woodcaller Automaton",
-    "Blitz Automaton",
-    "Cradle Clearcutter"
    ]
   },
   {
@@ -5040,6 +5040,21 @@
    ]
   },
   {
+   "feature": "template:Creatures you control have \u201c\u2026\u201d",
+   "kind": "continuous",
+   "commander_cards": 12,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Cryptolith Rite",
+    "Phenax, God of Deception",
+    "Sporoloth Ancient",
+    "Sorcerer Class",
+    "Enduring Vitality"
+   ]
+  },
+  {
    "feature": "template:Tap up to N target creatures.",
    "kind": "spell_effect",
    "commander_cards": 12,
@@ -5652,21 +5667,6 @@
     "Orcish Cannoneers",
     "Orcish Artillery",
     "Brothers of Fire"
-   ]
-  },
-  {
-   "feature": "template:{M}: ~ gets \u00b1N/\u00b1N until end of turn. Activate no more than twice each turn.",
-   "kind": "activated",
-   "commander_cards": 5,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 5,
-   "examples": [
-    "Pit Imp",
-    "Phyrexian Battleflies",
-    "Fire-Belly Changeling",
-    "Roterothopter",
-    "Vampire Bats"
    ]
   }
  ],
@@ -7099,11 +7099,11 @@
    "pairing": [],
    "supported": [
     "Cast it (timing, costs, the stack)",
-    "Attack and block"
+    "Attack and block",
+    "{T}: Add an amount of {G} equal to Marwyn's power."
    ],
    "missing": [
-    "Whenever another Elf you control enters, put a +1/+1 counter on Marwyn.",
-    "{T}: Add an amount of {G} equal to Marwyn's power."
+    "Whenever another Elf you control enters, put a +1/+1 counter on Marwyn."
    ]
   },
   {

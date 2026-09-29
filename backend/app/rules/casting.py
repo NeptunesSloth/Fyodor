@@ -88,7 +88,31 @@ def _land_mana(state: GameState, players: list[str], info: CardInfo, *, skip: st
     return out
 
 
+def _mana_count(state: GameState, card: CardInstance, count: str, info: CardInfo) -> int:
+    """How many times a counted mana ability's mana is added (Gaea's Cradle, Cabal Coffers, …)."""
+    from app.rules.layers import derive
+
+    if count == "power":
+        ch = derive(state, card, chars.of(card, info))
+        if ch.pt:
+            return max(0, ch.pt[0])
+        return int(ch.power) if ch.power and ch.power.isdigit() else 0
+    what = count.split(":", 1)[1]
+    n = 0
+    for cid in state.zones.get(zone_key(card.controller, "battlefield"), []):
+        c = state.cards[cid]
+        if c.controller != card.controller:
+            continue
+        ch = derive(state, c, chars.of(c, info))
+        if what in ch.types or what in ch.subtypes:
+            n += 1
+    return n
+
+
 def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, info: CardInfo) -> tuple[tuple[str, ...], ...]:
+    if ab.count:
+        n = _mana_count(state, card, ab.count, info)
+        return tuple(opt * n for opt in ab.options) if n > 0 else ()
     out: list[tuple[str, ...]] = []
     for opt in ab.options:
         if "CHOSEN" in opt:

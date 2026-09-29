@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 88 · PARTIAL: 3413 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 89 · PARTIAL: 3412 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -875,8 +875,8 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ {T}: Add an amount of {G} equal to Marwyn's power.
 - ✗ Whenever another Elf you control enters, put a +1/+1 counter on Marwyn.
-- ✗ {T}: Add an amount of {G} equal to Marwyn's power.
 
 ### Xenagos, God of Revels — PARTIAL
 

@@ -92,6 +92,7 @@ class ManaAbility:
     spend_only: str | None = None  # "creature", "instant_sorcery", "artifact", "ability", "type:<T>", …
     once_per_turn: bool = False
     condition: str | None = None  # "control:<subtype or type>"
+    count: str | None = None  # each option is repeated N times: "control:<type>" (for each … you control), "power"
 
     @property
     def penalty(self) -> int:
@@ -150,6 +151,10 @@ _SPEND = [
 ]
 _DAMAGE_YOU = re.compile(r"^(This \w+|[A-Z][^.]{0,60}?) deals (?P<n>\d+) damage to you$")
 _CONTROL = re.compile(r"^Activate only if you control an? (?P<what>[A-Z][a-z]+)$")
+_FOR_EACH = re.compile(r"^Add \{(?P<sym>[WUBRGC])\} for each (?P<what>creature|artifact|enchantment|land|[A-Z][a-z]+) you control$")
+_COUNT_TYPES = {"creature": "Creature", "artifact": "Artifact", "enchantment": "Enchantment", "land": "Land"}
+_POWER_OF = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?:this creature|[A-Z][^.]{0,60}?)'s power$")
+_X_POWER = re.compile(r"^Add X mana of any one color, where X is (?:this creature|[A-Z][^.]{0,60}?)'s power$")
 _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it)$")
 _EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Remove (a|an|one|two|three) [a-z]+ counters? from (this \w+|it)$")
 
@@ -174,7 +179,18 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         else:
             return None  # e.g. tapping other creatures, energy, exiling cards: by hand for now
     sentences = [x.strip() for x in re.split(r"(?<=\.)\s+", m.group("effect").strip()) if x.strip()]
-    options = _effect_options(sentences[0], identity)
+    count: str | None = None
+    first = sentences[0].rstrip(".")
+    if c := _FOR_EACH.fullmatch(first):
+        what = c.group("what")
+        count = f"control:{_COUNT_TYPES.get(what, what)}"
+        options: tuple[tuple[str, ...], ...] | None = ((c.group("sym"),),)
+    elif c := _POWER_OF.fullmatch(first):
+        count, options = "power", ((c.group("sym"),),)
+    elif _X_POWER.fullmatch(first):
+        count, options = "power", tuple((col,) for col in COLORS)
+    else:
+        options = _effect_options(sentences[0], identity)
     if options is None:
         return None
     riders: list[tuple[str, int]] = []
@@ -199,7 +215,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             else:
                 return None  # a rider the engine doesn't know: leave the ability manual
     return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
-                       riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition)
+                       riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition,
+                       count=count)
 
 
 @dataclass(frozen=True)

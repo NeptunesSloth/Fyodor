@@ -209,5 +209,12 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Stoke the Flames", set_code="tst", number="L4", mana_cost="{2}{R}{R}", cmc=4.0, type_line="Instant",
              oracle_text="Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nStoke the Flames deals 4 damage to any target.",
              colors=["R"], color_identity=["R"]),
+        card("Gaea's Cradle", set_code="tst", number="L5", type_line="Legendary Land",
+             oracle_text="{T}: Add {G} for each creature you control."),
+        card("Cabal Coffers", set_code="tst", number="L6", type_line="Land",
+             oracle_text="{2}, {T}: Add {B} for each Swamp you control."),
+        card("Incubator Drone", set_code="tst", number="L7", mana_cost="{3}{U}", cmc=4.0, type_line="Creature — Eldrazi Drone",
+             oracle_text="Devoid (This card has no color.)\nWhen this creature enters, create a 1/1 colorless Eldrazi Scion creature token. It has \"Sacrifice this token: Add {C}.\"\n{1}{C}: Scry 1. ({C} represents colorless mana.)",
+             power="2", toughness="3", color_identity=["U"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]
