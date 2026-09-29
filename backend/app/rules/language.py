@@ -33,7 +33,11 @@ _LEGACY_TARGETS = {
     "any target": "any", "target player": "player", "target opponent": "opponent",
 }
 _PLAYER_GROUPS = {"you": "you", "each player": "each_player", "each opponent": "each_opponent",
-                  "each of your opponents": "each_opponent", "that player": "event_player"}
+                  "each of your opponents": "each_opponent", "that player": "event_player",
+                  # trigger references: the controller of the object the trigger event was about (a
+                  # pronoun, resolved by scripts.resolve_it against the trigger's event)
+                  "its controller": "it.controller", "that creature's controller": "it.controller",
+                  "that permanent's controller": "it.controller"}
 
 
 class _Fail(Exception):
@@ -196,9 +200,36 @@ def _amount(word: str) -> Any:
     return v
 
 
+# "… equal to its power" (a trigger reference: "its" / "that creature's" is the object the trigger
+# event was about, or the ability's target — scripts.resolve_it; its last known information if it
+# left, 608.2h). The amount goes where the sentence has none: "draw cards" → "draw X cards".
+_EQUAL_TO = re.compile(r" equal to (?P<who>its|that creature's|that permanent's|~'s) "
+                       r"(?P<stat>power|toughness|mana value)(?= to |$)")
+_AMOUNT_SLOT = re.compile(r"\b(draws?|gains?|loses?|mills?|deals?) (cards|life|damage)\b")
+
+
+def _equal_to(text: str) -> tuple[str, Any] | None:
+    m = _EQUAL_TO.search(text)
+    if m is None:
+        return None
+    rest = text[: m.start()] + text[m.end():]
+    if " for each " in rest or " where x is " in rest or re.search(r"\bx\b", rest):
+        raise _Fail
+    rest, n = _AMOUNT_SLOT.subn(r"\1 x \2", rest, count=1)
+    if n != 1:
+        raise _Fail
+    stat = "mana_value" if m["stat"] == "mana value" else m["stat"]
+    # "~ deals damage equal to its power to …": "its" is the subject's own (the source)
+    own = m["who"] == "~'s" or (m["who"] == "its" and rest.startswith("~ deals "))
+    return rest, ("x", {stat: "self" if own else "it"})
+
+
 def _with_rider(text: str) -> tuple[str, Any]:
     """Split "…, where X is the number of …" / "… for each …" off the sentence: the multiplier or
     the value of X (None if there's none)."""
+    found = _equal_to(text)
+    if found is not None:
+        return found
     m = re.search(r",? where x is (.+)$", text)
     if m:
         v = values.parse_count(m[1])
@@ -225,7 +256,7 @@ def _apply(n: Any, rider: Any) -> Any:
     return v if n == 1 else {"times": [n, v]}
 
 
-_SUBJ = r"(?:(?P<s>you|target player|target opponent|each player|each opponent|each of your opponents|that player) )?"
+_SUBJ = r"(?:(?P<s>you|target player|target opponent|each player|each opponent|each of your opponents|that player|its controller|that creature's controller|that permanent's controller) )?"
 
 
 def _subject(m: re.Match[str]) -> tuple[str, str | None]:
@@ -406,6 +437,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
                      r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?)", text)
     if m:
         kind, key, group = ref(m["o"])
+        if kind == "it" and m["d"] != "their owners' hands":
+            # a trigger reference: "When ~ dies, return it to the battlefield" — the card where the
+            # zone change put it (scripts.resolve_it accepts it only after "dies" / "leaves", 400.7e)
+            to = "hand" if m["d"] in ("its owner's hand", "your hand", "their owner's hand") else "battlefield"
+            if to == "hand" and m["d"] != "your hand":
+                return [{"do": "bounce", "who": "it"}], None
+            return [{"do": "return_card", "who": "it", "to": to, "tapped": bool(m["t"]),
+                     "under": "you" if m["d"] == "your hand" or m["u"] == "your" else "owner"}], None
         if kind in ("players", "self", "it", "them"):
             raise _Fail
         sel = selectors.from_key(key) if key.startswith(selectors.PREFIX) else None

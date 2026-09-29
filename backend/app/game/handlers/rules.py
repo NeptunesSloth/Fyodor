@@ -77,6 +77,9 @@ def rules_mana(state: GameState, a: A.RulesMana) -> None:
         log(state, a.actor, a.ts, parts, kind="mana")
     for cid in a.sacrifice:
         card = ops.card(state, cid)
+        # 701.21a: sacrificed to pay for a mana ability (a Treasure …): "whenever you sacrifice …"
+        emit(state, "sacrificed", object_id=state.rules.object_id(cid) if state.rules else cid, card=cid,
+             player=card.controller)
         if card.is_token:
             ops.delete(state, card)
         else:

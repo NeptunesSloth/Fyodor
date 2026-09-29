@@ -83,7 +83,6 @@ TRIGGERS = [
     (re.compile(r"^Whenever ~ enters or attacks, (?P<body>.+)$"), "enters_or_attacks_self"),
     (re.compile(r"^(?:Landfall — )?Whenever a land you control enters, (?P<body>.+)$"), "landfall"),
     (re.compile(r"^When ~ becomes the target of a spell or ability, (?P<body>.+)$"), "targeted_self"),
-    (re.compile(r"^Whenever ~ deals combat damage to a player, (?P<body>.+)$"), "combat_damage_player_self"),
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
@@ -116,16 +115,20 @@ def step_trigger(m: re.Match[str]) -> str:
     return f"step:{STEPS[m['step']]}:{WHOSE[m['whose']]}"
 
 
-_LEGACY_SELF = {"enter": "enters_self", "die": "dies_self", "leave": "ltb_self", "attack": "attacks_self",
-                "deal_combat_damage_player": "combat_damage_player_self"}
+# ("Whenever ~ deals combat damage to a player" is generic: its event has the player dealt the
+# damage and the amount — "that player", "that much", 510.2)
+_LEGACY_SELF = {"enter": "enters_self", "die": "dies_self", "leave": "ltb_self", "attack": "attacks_self"}
 
 
 def _legacy_trigger(cond: dict[str, Any]) -> str | None:
-    """Self conditions the engine already fires by name ("When ~ dies" → dies_self)."""
-    if cond.get("subject") == "self" and cond["event"] in _LEGACY_SELF:
-        return _LEGACY_SELF[cond["event"]]
+    """Plain self conditions the engine already fires by name ("When ~ dies" → dies_self); one with
+    more to it ("~ attacks alone", "~ attacks or blocks") is matched generically."""
     if cond.get("event") == "multi":
+        if cond.get("other") or not all(e in _LEGACY_SELF for e in cond["events"]):
+            return None
         return "multi:" + "+".join(_LEGACY_SELF[e] for e in cond["events"])
+    if cond.get("subject") == "self" and cond["event"] in _LEGACY_SELF and set(cond) == {"event", "subject"}:
+        return _LEGACY_SELF[cond["event"]]
     return None
 
 
@@ -188,7 +191,13 @@ def _it_source(word: str) -> dict[str, str]:
 # Events after which the object is still where it was, so "it" can name it (not dies / leaves:
 # that's a new object in another zone, 400.7)
 _STAYING = {"enter", "attack", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
-            "deal_combat_damage_player"}
+            "deal_combat_damage_player", "deal_damage", "counters_put", "targeted", "create_token"}
+# Zone-change events after which "it" is the new object the card became where it went — found
+# only there (400.7e, 603.6, 603.6c): "When ~ dies, return it to its owner's hand"
+_GONE = {"die", "leave"}
+# Instructions that act on a card where a zone change put it (a graveyard, exile): what "it" can do
+# after "dies" / "leaves the battlefield"
+_MOVES = {"bounce", "return_card", "exile"}
 
 
 def _condition_says_other(cond: dict[str, Any]) -> bool:
@@ -199,19 +208,35 @@ def _condition_says_other(cond: dict[str, Any]) -> bool:
 
 
 def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
-    """What "it" / "that creature" means in a triggered ability's effect: this object when the
-    trigger is about it; the object the event happened to ("Whenever another creature you control
-    enters, put a +1/+1 counter on it"), bound when it triggers; else nothing (manual)."""
+    """What "it" / "that creature" means in a triggered ability's effect (its TriggerEvent, 603.2,
+    608.2k): "self" — this object when the trigger is about it and it's still there; "self_gone" —
+    this object after it died / left (its last known information, 608.2h; a moving instruction
+    finds the new object where it went, 400.7e); "event" — the object the event happened to
+    ("Whenever another creature you control enters, put a +1/+1 counter on it"); "event_gone" — that
+    object after it died / left; "event_all" — every object of a "one or more" event ("they",
+    "those creatures"); else None (a pronoun then leaves the ability manual)."""
     if name in ("dies_self", "ltb_self") or name.startswith("multi:"):
-        # it left the battlefield: "it" is a new object elsewhere (400.7), which the engine
-        # doesn't follow yet; it may still be the source of damage (last known information)
         return "self_gone"
-    if name.endswith("_self") or (cond or {}).get("subject") == "self":
-        return "self"
+    cond = cond or {}
+    event = cond.get("event")
+    if cond.get("other") or (event == "deal_damage" and cond.get("to") == "creature"):
+        # "… becomes blocked by a creature, destroy that creature" / "… deals damage to a creature,
+        # exile that creature": the creature on the other side, which the event doesn't name
+        return None
+    if event == "multi":
+        return "self" if all(x in _STAYING for x in cond["events"]) else None
+    if name.endswith("_self") or cond.get("subject") == "self":
+        if event in _GONE or event == "sacrifice":
+            return "self_gone"
+        return "self" if event in _STAYING or event is None else None
     if name in ("enters_other", "landfall"):
         return "event"
-    if cond and cond.get("subject") in ("sel", "self_or") and not cond.get("aggregate") and cond["event"] in _STAYING:
-        return "event"
+    subject = cond.get("subject")
+    if subject in ("sel", "self_or", "host") or (subject == "player" and event == "create_token"):
+        if event in _STAYING:
+            return "event_all" if cond.get("aggregate") else "event"
+        if event in _GONE and not cond.get("aggregate"):
+            return "event_gone"
     return None
 
 
@@ -225,24 +250,72 @@ def _group_of(e: dict[str, Any]) -> int | None:
     return None
 
 
+_STATS = ("power", "toughness", "mana_value")
+
+
+def _stat_refs(value: Any, it: str | None) -> Any:
+    """"equal to its power" ({"power": "it"}): the object "it" names (``it``), or _NoMatch."""
+    if isinstance(value, list):
+        return [_stat_refs(v, it) for v in value]
+    if not isinstance(value, dict):
+        return value
+    out = {}
+    for k, v in value.items():
+        if k in _STATS and v == "it":
+            if it is None:
+                raise _NoMatch
+            v = it
+        out[k] = _stat_refs(v, it)
+    return out
+
+
+def _stat_it(value: Any) -> bool:
+    """Does a value read "its power" ({"power": "it"}, the pronoun not yet resolved)?"""
+    if isinstance(value, list):
+        return any(_stat_it(v) for v in value)
+    return isinstance(value, dict) and any((k in _STATS and v == "it") or _stat_it(v) for k, v in value.items())
+
+
+def _card_in_zone(what: Any) -> bool:
+    """Is a target group's selector a card in a zone other than the battlefield ("target creature
+    card from your graveyard")?"""
+    from app.rules import selectors  # (a leaf module)
+
+    return isinstance(what, str) and what.startswith(selectors.PREFIX) and selectors.from_key(what).card
+
+
 def resolve_it(effects: list[dict[str, Any]], antecedent: str | None,
                groups: list[dict[str, Any]] | None = None) -> list[dict[str, Any]] | None:
-    """Resolve the pronouns in parsed effects (placeholders "who": "it" / "them", "src": "it"):
-    after a target in the same ability, "it" is that target ("Untap target creature. It gets
-    +1/+4") — if that "target" allows one target; after "up to two target creatures" "it" is
-    ambiguous (None) — and "them" / "each of them" are the targets of the last group; otherwise
-    "it" is ``antecedent`` ("self" for "When ~ dies, return it …"). None when a pronoun names
-    something the engine doesn't track (the triggering object of "Whenever another creature
-    enters, put a counter on it", a spell just cast, …): the ability stays manual."""
+    """Resolve the pronouns in parsed effects (placeholders "who": "it" / "them" / "it.controller",
+    "src": "it", values {"power": "it"}): after a target in the same ability, "it" is that target
+    ("Untap target creature. It gets +1/+4") — if that "target" allows one target; after "up to
+    two target creatures" "it" is ambiguous (None) — and "them" / "each of them" are the targets
+    of the last group; otherwise "it" is ``antecedent`` (see _trigger_antecedent), read through the
+    trigger's TriggerEvent (app/rules/context.py): "event" — the object while it's still that
+    object where it was; "event.new" — after "dies" / "leaves", the new object where it went, for
+    an instruction that moves it from there (603.6c); its power / toughness from last known
+    information (608.2h). None when a pronoun names something the engine doesn't track (a spell
+    just cast, …): the ability stays manual."""
     out: list[dict[str, Any]] = []
     last: int | None = None
     previous: int | None = None  # the group the previous instruction acted on
+    hosted = False  # an earlier instruction acted on "enchanted creature": "it" may be that (manual)
     for e in effects:
         e = dict(e)
+        if hosted and (e.get("who") in ("it", "them", "it.controller") or e.get("src") == "it"
+                       or any(_stat_it(e.get(k)) for k in ("n", "p", "t"))):
+            return None
+        hosted = hosted or e.get("who") == "host"
         if e.get("who") == "them":
-            if previous is None:
+            if previous is not None:
+                e["who"] = "target" if groups is None else f"target:{previous}"
+            elif antecedent == "event_all" and last is None:
+                e["who"] = "event"  # "they get +1/+0": every object of the "one or more" event (603.2c)
+            else:
                 return None  # ("them" after something that wasn't those targets: not followed)
-            e["who"] = "target" if groups is None else f"target:{previous}"
+        if e.get("who") == "it" and e.get("do") == "return_card" and \
+                (last is not None or antecedent not in ("self_gone", "event_gone")):
+            return None  # ("exile target creature, then return it …": a blink, templated elsewhere)
         if e.get("who") == "it":
             if last is not None:
                 if groups is not None and groups[last]["max"] != 1:
@@ -250,12 +323,35 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None,
                 e["who"] = "target" if groups is None else f"target:{last}"
             elif antecedent in ("self", "event"):
                 e["who"] = antecedent
+            elif antecedent in ("self_gone", "event_gone") and e.get("do") in _MOVES:
+                e["who"] = "event.new"  # 400.7e / 603.6c: found only in the zone it went to
             else:
                 return None
+        if e.get("who") == "event_player" and last is not None:
+            return None  # ("… to target player. That player discards …": the target, not the event's player)
+        if e.get("who") == "it.controller":  # "its controller" / "that creature's controller"
+            if last is not None or antecedent not in ("event", "event_gone", "self_gone"):
+                return None
+            e["who"] = "ref:event.controller"  # (as it last existed if it left: 608.2h)
         if e.get("src") == "it":
             if last is not None or antecedent not in ("self", "self_gone"):
                 return None  # (the target, not the source, deals the damage / explores)
             del e["src"]
+        if any(k in e for k in ("n", "p", "t")):
+            if last is not None:
+                it: str | None = "target" if groups is None else f"target:{last}"
+                if groups is not None and (groups[last]["max"] != 1 or _card_in_zone(groups[last].get("what"))):
+                    # (several targets: which one? A card in a graveyard: its values once it moved
+                    # aren't the object's last known information here — not followed)
+                    it = None
+            else:
+                it = {"self": "self", "self_gone": "event", "event": "event", "event_gone": "event"}.get(antecedent or "")
+            try:
+                for k in ("n", "p", "t"):
+                    if k in e:
+                        e[k] = _stat_refs(e[k], it)
+            except _NoMatch:
+                return None
         g = _group_of(e)
         last = g if g is not None else last
         previous = g
@@ -986,28 +1082,43 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     return None
 
 
-# Trigger events that come with an amount ("that much"): life gained / lost, damage dealt
-_AMOUNT_EVENTS = {"gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player"}
+# Trigger events that come with an amount ("that much" / "that many", TriggerEvent.amount): life
+# gained / lost, damage dealt, counters put; for a "one or more" batch of sacrifices, discards,
+# tokens created … the number of them (603.2c)
+_AMOUNT_EVENTS = {"gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
+                  "deal_damage", "counters_put", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard"}
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
 
 
+def _has_player(cond: dict[str, Any]) -> bool:
+    """Does the event name a player ("that player")? The player who acted, or who was dealt damage."""
+    if cond.get("subject") == "player" or cond["event"] in _PLAYER_EVENTS:
+        return True
+    return cond["event"] == "deal_damage" and cond.get("to") in ("player", "opponent", "you")
+
+
+def _wants_amount(value: Any) -> bool:
+    if isinstance(value, list):
+        return any(_wants_amount(v) for v in value)
+    return isinstance(value, dict) and ("event_amount" in value or any(_wants_amount(v) for v in value.values()))
+
+
 def _event_refs_ok(d: Definition) -> bool:
     """"That player" / "that much" name what a trigger event was about (its TriggerEvent): only a
     generic trigger condition whose event has that player or amount can use them. A "one or more"
-    trigger has one event per batch — per damaged player for damage to players — so it can too."""
+    trigger has one event per batch (603.2c) — per damaged player for damage to players, per
+    acting player for a player's actions — so it can too."""
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
     wants_player = any(e.get("who") == "event_player" for e in effects)
-    wants_amount = any(e.get("n") == {"event_amount": 1} for e in effects)
+    wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t"))
     if not wants_player and not wants_amount:
         return True
     cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
-    if cond is None:
+    if cond is None or cond["event"] == "multi":
         return False
-    if cond.get("aggregate") and cond["event"] not in _PLAYER_EVENTS:
-        return False
-    if wants_player and cond.get("subject") != "player" and cond["event"] not in _PLAYER_EVENTS:
+    if wants_player and not _has_player(cond):
         return False
     return not wants_amount or cond["event"] in _AMOUNT_EVENTS
 

@@ -190,5 +190,8 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             plan.do({"type": "move", "card_ids": ids, "to": {"zone": "hand"}})
             record.returned += ids
     if sacrifice:  # 701.21a: to their owners' graveyards, all at once
+        from app.rules.triggers import sacrificing  # (the event "whenever you sacrifice …" triggers on)
+
+        sacrificing(plan, sacrifice)
         plan.do({"type": "move", "card_ids": sacrifice, "to": {"zone": "graveyard"}})
         record.sacrificed += sacrifice

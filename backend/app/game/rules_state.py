@@ -227,6 +227,9 @@ EventKind = Literal[
     "drew",  # a player drew a card (121.2: one event per card)
     "crewed",
     "turned_face_up",  # 702.37e (morph)  # a Vehicle became crewed (702.122)
+    # 701.21a: a permanent was sacrificed (emitted just before it moves, in the same batch; the
+    # object is the permanent as it was — "whenever you sacrifice …" looks back in time, 603.10a)
+    "sacrificed",
 ]
 
 
