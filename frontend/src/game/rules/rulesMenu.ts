@@ -16,15 +16,22 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   const items: MenuItem[] = [];
   const hints = rules.hints;
   const data = card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
-  const mine = card.controller === me || (player === me && (zone === "hand" || zone === "command" || zone === "graveyard"));
+  const mine = card.controller === me
+    || (player === me && (zone === "hand" || zone === "command" || zone === "graveyard" || zone === "exile" || zone === "library"));
+  const oracle = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
+  // Other zones (your graveyard, exile, the top of your library): only when the server says a
+  // permission lets you (flashback, "you may play that card this turn", "… from the top of your library").
+  const elsewhere = zone === "graveyard" || zone === "exile" || zone === "library";
   if (mine && zone === "hand" && isLand(card.id, view)) {
     items.push({ label: "Play land", disabled: !hints.playable_lands?.includes(card.id), onClick: () => void send({ type: "play_land", card_id: card.id }) });
+  } else if (mine && elsewhere && isLand(card.id, view) && hints.playable_lands?.includes(card.id)) {
+    items.push({ label: `Play land from ${zone}`, onClick: () => void send({ type: "play_land", card_id: card.id }) });
   } else if (mine && (zone === "hand" || zone === "command")) {
     items.push({ label: "Cast", disabled: !hints.castable?.includes(card.id), onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
-  } else if (mine && zone === "graveyard" && hints.castable?.includes(card.id)) {
-    items.push({ label: "Cast with flashback", onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
+  } else if (mine && elsewhere && hints.castable?.includes(card.id)) {
+    const flashback = zone === "graveyard" && abilityLines(oracle).some((l) => /^flashback \{/i.test(l));
+    items.push({ label: flashback ? "Cast with flashback" : `Cast from ${zone}`, onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
   }
-  const oracle = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
   const morph = abilityLines(oracle).find((l) => /^(mega)?morph \{/i.test(l));
   const evoke = abilityLines(oracle).find((l) => /^evoke \{/i.test(l));
   if (mine && zone === "hand" && evoke) {

@@ -42,6 +42,28 @@ def can_see(state: GameState, card: CardInstance, viewer: str) -> bool:
     for view in state.views:
         if view.viewer == viewer and view.zone == card.zone and (view.kind == "search" or card.id in view.card_ids):
             return True
+    return zone == "library" and top_revealed(state, card, viewer)
+
+
+def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
+    """"Play with the top card of your library revealed" / "You may look at the top card of your
+    library any time" (CR 401.5): granted by a permanent the rules engine listed
+    (``RulesState.top_reveals``), and only while that permanent is still on its controller's
+    battlefield — checked here, on the table itself, so a source removed by hand stops revealing
+    at once. Only the top card, as the library is now."""
+    rules = state.rules
+    if rules is None or not rules.top_reveals:
+        return False
+    library = state.zones.get(card.zone) or []
+    if not library or library[0] != card.id:
+        return False
+    for reveal in rules.top_reveals:
+        if reveal.player != card.owner or (reveal.to == "owner" and viewer != card.owner):
+            continue
+        source = state.cards.get(reveal.source)
+        if source is not None and source.controller == reveal.player and source.zone == f"{reveal.player}:battlefield" \
+                and not source.face_down:
+            return True
     return False
 
 

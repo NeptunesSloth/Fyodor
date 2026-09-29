@@ -668,6 +668,11 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             if found and found[0]["do"] == "token_text":
                 return None
             return found, sel
+    from app.rules import permissions  # cast / play permissions ("you may play that card this turn")
+
+    granted = permissions.parse_clause(text)
+    if granted is not None:
+        return granted
     return language.parse_sentence(text)
 
 
@@ -910,6 +915,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return {"kind": "static", "static": "deckbuilding", "effects": []}  # 903.3a: deck construction only
     if ability.kind == "static" and text in COMBAT_STATICS:
         return {"kind": "static", "static": COMBAT_STATICS[text], "effects": []}
+    if ability.kind in ("static", "spell"):
+        from app.rules import permissions  # permissions, cost modifiers, "play with the top card revealed"
+
+        granted = permissions.define_static(text, ability.kind)
+        if granted is not None:
+            return granted
     if ability.kind == "triggered":
         for pattern, trigger in TRIGGERS:
             m = pattern.match(text)
@@ -1175,7 +1186,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
         # (a spell has no trigger event: "that player" / "that much" can't be bound)
         return modal if modal is not None and _event_refs_ok(modal) else None
     defs = definitions(ch)
-    lines = [ab for ab in ch.abilities if ab.kind != "keywords"]
+    # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
+    lines = [ab for ab in ch.abilities if ab.kind != "keywords" and defs.get(ab.index, {}).get("static") != "self_cost"]
     if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):
         return None
     # Each line's "target" words are the spell's target groups, in printed order (601.2c, 115.3:

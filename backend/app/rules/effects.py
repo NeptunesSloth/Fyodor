@@ -16,7 +16,7 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption, StackEntry
 from app.game.state import zone_key
-from app.rules import context, layers, protection, regeneration, selectors, values
+from app.rules import context, layers, permissions, protection, regeneration, selectors, values
 from app.rules.plan import Plan, decide
 from app.rules.targets import source_of, still_legal
 
@@ -1264,7 +1264,8 @@ def rest_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looked": rest_looked})
+PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looked": rest_looked,
+                   "exile_top": permissions.exile_top, "grant_play": permissions.grant_play})
 
 
 def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

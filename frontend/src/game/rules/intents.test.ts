@@ -172,6 +172,21 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "activate_ability", card_id: "m1", ability: 2 }]);
   });
 
+  it("offers casting and land plays from exile, the graveyard and the top of the library only when the server lists them", () => {
+    const base = view({ ...RULES, hints: { castable: ["x1", "g2"], playable_lands: ["x2"] } });
+    const v = { ...base, cards: { ...base.cards, x1: card("x1", "p1:exile", "bolt"), x2: card("x2", "p1:exile", "forest"),
+      x3: card("x3", "p1:exile", "bolt"), g2: card("g2", "p1:graveyard", "bolt"), l1: card("l1", "p1:library", "bolt") } } as unknown as GameView;
+    expect(labels(rulesMenu(v.cards.x1!, v, "p1"))[0]).toBe("Cast from exile");
+    expect(labels(rulesMenu(v.cards.g2!, v, "p1"))[0]).toBe("Cast from graveyard");
+    expect(labels(rulesMenu(v.cards.x2!, v, "p1"))[0]).toBe("Play land from exile");
+    expect(labels(rulesMenu(v.cards.x3!, v, "p1"))).not.toContain("Cast from exile");
+    expect(labels(rulesMenu(v.cards.l1!, v, "p1"))).not.toContain("Cast from library");
+    const cast = rulesMenu(v.cards.x1!, v, "p1")[0];
+    if (!cast || cast === "separator") throw new Error("expected Cast");
+    cast.onClick?.();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "x1" }]);
+  });
+
   it("offers morph: cast face down from hand, turn face up on the battlefield", () => {
     const base = view(RULES);
     const v = { ...base, cards: { ...base.cards, mh: card("mh", "p1:hand", "slinger"), mb: { ...card("mb", "p1:battlefield", "slinger"), face_down: true } } } as unknown as GameView;

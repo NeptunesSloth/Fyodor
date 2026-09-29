@@ -399,6 +399,59 @@ class PaymentRecord(BaseModel):
     x: int | None = None
 
 
+class Permission(BaseModel):
+    """An effect that lets a player cast a spell or play a land they otherwise couldn't (CR 601.3,
+    305.1): from a zone other than their hand, as though it had flash, without paying its mana
+    cost, or once during each of their turns. Granted by a resolved spell or ability
+    (``app.rules.permissions``); static abilities of permanents are read from the table instead
+    and never stored."""
+
+    id: str
+    player: str
+    play: bool = False  # lands ("you may play …" covers both: 701.13 — "play" a land or cast a spell)
+    cast: bool = False  # spells
+    zone: Literal["hand", "graveyard", "exile", "library_top", "any"] = "any"  # where the card must be
+    # A specific object ("you may play that card this turn"): the permission follows the object,
+    # not the card (400.7h/i): once it changes zones it is a new object and the permission is spent
+    object_id: str | None = None
+    card: str | None = None
+    filter: str | None = None  # a selector key the spell must match ("creature spells")
+    free: bool = False  # "without paying its mana cost": an alternative cost of {0} (118.9)
+    flash: bool = False  # "as though it had flash" (601.3b)
+    once: bool = False  # "once during each of your turns"
+    used_turn: int = 0  # (once) the turn it was used
+    until: Literal["end_of_turn", "end_of_next_turn", "permanent"] = "end_of_turn"
+    turn: int = 0  # the turn it was granted (for end_of_next_turn)
+    source: str | None = None  # the granting object
+    label: str = Field(default="", max_length=120)
+
+
+class CostModifier(BaseModel):
+    """A cost increase or reduction that applies to spells as their total cost is determined
+    (601.2f): generic mana only (118.7a), never below {0}. Static ones ("Creature spells you cast
+    cost {1} less to cast.") are read from the table; effects with a duration are stored here."""
+
+    id: str
+    controller: str  # whose "you" (the source's controller)
+    delta: int  # +N: costs {N} more; −N: costs {N} less
+    caster: Literal["you", "opponent", "any"] = "you"
+    filter: str | None = None  # a selector key the spell must match, or None for every spell
+    until: Literal["end_of_turn", "permanent"] = "end_of_turn"
+    source: str | None = None
+    label: str = Field(default="", max_length=120)
+
+
+class TopReveal(BaseModel):
+    """"Play with the top card of your library revealed." / "You may look at the top card of your
+    library any time." — while ``source`` is on the battlefield under ``player``'s control, that
+    player's top library card is visible to everyone or to its owner (401.5). Refreshed by the
+    engine from the table; ``app.game.visibility`` checks the source is still there."""
+
+    source: str  # the permanent's card id
+    player: str
+    to: Literal["all", "owner"]
+
+
 class ReconcileItem(BaseModel):
     """Something the engine can't work out from the table after manual play (see reconcile)."""
 
@@ -486,6 +539,11 @@ class RulesState(BaseModel):
     # Each player's intents this turn, for REPEAT LAST VALIDATED SEQUENCE (payloads, newest last).
     recent: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     recent_turn: int = 0
+    # Cast / play permissions granted by effects, cost modifiers with a duration, and which top
+    # library cards are revealed by permanents on the table (app/rules/permissions.py).
+    permissions: list[Permission] = Field(default_factory=list)
+    cost_modifiers: list[CostModifier] = Field(default_factory=list)
+    top_reveals: list[TopReveal] = Field(default_factory=list)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)

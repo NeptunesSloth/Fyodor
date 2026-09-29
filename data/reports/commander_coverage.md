@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 342 · PARTIAL: 3159 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 357 · PARTIAL: 3144 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -163,9 +163,9 @@ Color identity R
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Cast it (timing, costs, the stack)
+- ✓ Discard a card: Exile the top two cards of your library. You may play those cards this turn.
 - ✗ Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.
 - ✗ Creatures you control can boast twice during each of your turns rather than once.
-- ✗ Discard a card: Exile the top two cards of your library. You may play those cards this turn.
 
 ### Six — PARTIAL
 
@@ -630,7 +630,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ You may look at the top card of your library any time.
+- ✓ You may look at the top card of your library any time.
 - ✗ As long as The Reality Chip is attached to a creature, you may play lands and cast spells from the top of your library.
 - ✗ Reconfigure
 
@@ -761,7 +761,7 @@ Color identity R
 - ✓ Flying
 - ✗ Whenever Drakuseth attacks, Drakuseth deals 4 damage to any target and 3 damage to each of up to two other targets.
 
-### Vilis, Broker of Blood — PARTIAL
+### Vilis, Broker of Blood — FULL
 
 Color identity B
 
@@ -769,7 +769,7 @@ Color identity B
 - ✓ Attack and block
 - ✓ Flying
 - ✓ {B}, Pay 2 life: Target creature gets -1/-1 until end of turn.
-- ✗ Whenever you lose life, draw that many cards.
+- ✓ Whenever you lose life, draw that many cards.
 
 ### Skrelv, Defector Mite — PARTIAL
 
@@ -1102,7 +1102,7 @@ Color identity R
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Haste
-- ✗ Whenever Laelia attacks, exile the top card of your library. You may play that card this turn.
+- ✓ Whenever Laelia attacks, exile the top card of your library. You may play that card this turn.
 - ✗ Whenever one or more cards are put into exile from your library and/or your graveyard, put a +1/+1 counter on Laelia.
 
 ### Jadar, Ghoulcaller of Nephalia — PARTIAL
@@ -1119,7 +1119,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Instant and sorcery spells you cast cost {1} less to cast.
+- ✓ Instant and sorcery spells you cast cost {1} less to cast.
 - ✗ Whenever a spell or ability you control counters a spell, you may draw a card. If you do, discard a card.
 
 ### Ulamog, the Ceaseless Hunger — PARTIAL
@@ -1764,15 +1764,15 @@ Color identity U
 - ✗ You may have Chameleon enter as a copy of a creature you control, except his name is Chameleon, Master of Disguise.
 - ✗ Mayhem {2}{U}
 
-### Grand Arbiter Augustin IV — PARTIAL
+### Grand Arbiter Augustin IV — FULL
 
 Color identity WU
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ White spells you cast cost {1} less to cast.
-- ✗ Blue spells you cast cost {1} less to cast.
-- ✗ Spells your opponents cast cost {1} more to cast.
+- ✓ White spells you cast cost {1} less to cast.
+- ✓ Blue spells you cast cost {1} less to cast.
+- ✓ Spells your opponents cast cost {1} more to cast.
 
 ### Lyra Dawnbringer — FULL
 
@@ -1817,14 +1817,14 @@ Color identity BG
 - ✗ {1}{B}{G}, Sacrifice another creature: Each opponent loses life equal to the sacrificed creature's power.
 - ✗ Sacrifice a Swamp and a Forest: Return this card from your graveyard to your hand.
 
-### Honest Rutstein — PARTIAL
+### Honest Rutstein — FULL
 
 Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ When Honest Rutstein enters, return target creature card from your graveyard to your hand.
-- ✗ Creature spells you cast cost {1} less to cast.
+- ✓ Creature spells you cast cost {1} less to cast.
 
 ### Juri, Master of the Revue — PARTIAL
 
@@ -2163,8 +2163,8 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ You may look at the top card of your library any time.
-- ✗ You may cast creature spells from the top of your library.
+- ✓ You may look at the top card of your library any time.
+- ✓ You may cast creature spells from the top of your library.
 - ✗ {G}, {T}, Tap two untapped creatures you control: Reveal a card from your hand or the top card of your library. If you reveal a creature card this way, put it onto the battlefield. Activate only during your turn.
 
 ### Sakashima the Impostor — PARTIAL
@@ -2208,7 +2208,7 @@ Color identity UR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Dragon spells you cast cost {1} less to cast.
+- ✓ Dragon spells you cast cost {1} less to cast.
 - ✗ Whenever a Dragon you control enters, you may have Sarkhan become a copy of it until end of turn, except its name is Sarkhan, Soul Aflame and it's legendary in addition to its other types.
 
 ### Gonti, Lord of Luxury — PARTIAL
@@ -2513,14 +2513,14 @@ Color identity G
 - ✓ {2}{G}{G}{G}: Elf creatures you control get +3/+3 and gain trample until end of turn.
 - ✗ {G}: Regenerate another target Elf.
 
-### Thalia, Guardian of Thraben — PARTIAL
+### Thalia, Guardian of Thraben — FULL
 
 Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ First strike
-- ✗ Noncreature spells cost {1} more to cast.
+- ✓ Noncreature spells cost {1} more to cast.
 
 ### Rograkh, Son of Rohgahh — FULL
 
