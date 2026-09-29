@@ -76,6 +76,7 @@ class Move(Base):
     y: Coord | None = None
     face_down: bool | None = None
     face_down_kind: FaceDownKind | None = None  # morph / disguise / manifest / cloak …
+    tapped: bool = False  # enters the battlefield tapped (a replacement effect, not a tap afterwards)
     r: MoveData | None = None
 
 
@@ -680,6 +681,7 @@ class ResolveTop(Base):
     type: Literal["resolve_top"] = "resolve_top"
     r: MoveData | None = None
     force: bool = False
+    tapped: bool = False  # a permanent spell that enters tapped
 
 
 # --- response helper -----------------------------------------------------------------
@@ -811,8 +813,27 @@ class Configure(Base):
     auto_commander_tax: bool | None = None
     auto_clear_combat: bool | None = None
     allow_test_objects: bool | None = None
-    automation: Literal["off", "rules"] | None = None  # turn rules automation on / off
+    # OFF / ASSISTED / FULL. Changing the level resets the options to its preset. Turning it off
+    # keeps the rules bookkeeping (the table simply continues as a sandbox); turning it back on
+    # or resuming reconciles it with the table (app/rules/reconcile.py).
+    automation: Literal["off", "assisted", "full"] | None = None
+    automation_options: AutomationOptionsPatch | None = None  # individual switches (→ CUSTOM)
     automation_paused: bool | None = None  # pause / resume automation (the sandbox keeps working)
+    r: list[dict[str, Any]] | None = None  # server-filled: reconciliation steps (like an intent's)
+
+
+class AutomationOptionsPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    auto_mana_payment: bool | None = None
+    auto_combat_damage: bool | None = None
+    auto_sba: bool | None = None
+    auto_priority_pass: bool | None = None
+    auto_cleanup: bool | None = None
+    auto_token_creation: bool | None = None
+    auto_counters: bool | None = None
+    auto_trigger_stacking: bool | None = None
+    auto_shuffle: bool | None = None
+    highlights: Literal["off", "subtle", "full"] | None = None
 
 
 # --- rules intents --------------------------------------------------------------------
@@ -829,6 +850,7 @@ class PlayLand(_Intent):
     face: int | None = Field(default=None, ge=0, le=3)  # which face of a modal double-faced card
     x: Coord | None = None
     y: Coord | None = None
+    pay_life: bool | None = None  # shock lands: the answer to "pay 2 life or enter tapped" (asked if missing)
 
 
 class CastSpell(_Intent):
@@ -839,15 +861,36 @@ class CastSpell(_Intent):
     targets: list[Id] = Field(default_factory=list, max_length=20)
     x_value: int | None = Field(default=None, ge=0, le=1000)
     modes: list[int] = Field(default_factory=list, max_length=10)
+    # MANUAL PAY: exactly these mana sources (plus your mana pool). None: the engine pays per
+    # your payment preference (AUTO pays, ASK suggests a payment first, MANUAL asks for sources).
+    sources: list[Id] | None = Field(default=None, max_length=60)
+    face_down: bool = False  # morph / megamorph (702.37): cast face down as a 2/2 for {3}
+    free: bool = False  # cast without paying its mana cost — only when the engine granted it (suspend)
+    buyback: bool = False  # 702.27: pay the buyback cost too; it returns to your hand as it resolves
+    evoke: bool = False  # 702.74: cast for its evoke cost (sacrificed when it enters)
+    dash: bool = False  # 702.109: cast for its dash cost (haste; returns to hand at the next end step)
+
+
+class TurnFaceUp(_Intent):
+    """Morph's special action (702.37e): pay the morph cost and turn your face-down permanent up."""
+
+    type: Literal["turn_face_up"] = "turn_face_up"
+    card_id: Id
+    sources: list[Id] | None = Field(default=None, max_length=60)
 
 
 class ActivateAbility(_Intent):
     type: Literal["activate_ability"] = "activate_ability"
     card_id: Id
-    ability: int = Field(ge=0, le=30)  # index into the card's abilities (see app/rules/oracle.py)
+    ability: int = Field(ge=0, le=140)  # index into the card's abilities (app/rules/oracle.py; 100+ = granted)
     targets: list[Id] = Field(default_factory=list, max_length=20)
     x_value: int | None = Field(default=None, ge=0, le=1000)
     mana_choice: Literal["W", "U", "B", "R", "G", "C"] | None = None  # which colour, for "R or G" abilities
+    sources: list[Id] | None = Field(default=None, max_length=60)  # MANUAL PAY (see CastSpell)
+    convoke: bool = False  # tap this creature for convoke while paying for a convoke spell
+    improvise: bool = False  # tap this artifact for improvise ({1})
+    delve: bool = False  # exile this card from your graveyard for delve ({1})
+    crew: list[Id] | None = Field(default=None, max_length=30)  # Crew N: the creatures tapped to pay it
 
 
 class AttackDeclaration(BaseModel):
@@ -872,8 +915,15 @@ class DeclareBlockers(_Intent):
     blocks: list[BlockDeclaration] = Field(default_factory=list, max_length=100)
 
 
+PASS_UNTIL = ("next_action", "stack_changes", "stack_empty", "next_step", "next_turn", "my_turn", "combat")
+
+
 class PassPriority(_Intent):
+    """Pass. ``until`` keeps passing for you until the condition is met (PASS UNTIL NEXT ACTION,
+    RESOLVE ONE = stack_changes, RESOLVE ALL = stack_empty …); decisions still come to you."""
+
     type: Literal["pass_priority"] = "pass_priority"
+    until: Literal["next_action", "stack_changes", "stack_empty", "next_step", "next_turn", "my_turn", "combat"] | None = None
 
 
 class Choose(_Intent):
@@ -882,6 +932,8 @@ class Choose(_Intent):
     type: Literal["choose"] = "choose"
     decision_id: Id
     option_ids: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=250)
+    # Remember this answer (for prompts that allow it): ALWAYS YES / NO THIS TURN, ALWAYS YIELD.
+    remember: Literal["yes_this_turn", "no_this_turn", "always_yield"] | None = None
 
 
 class Concede(_Intent):
@@ -904,6 +956,81 @@ class SetStops(_Intent):
         if bad:
             raise ValueError(f"unknown steps: {bad}")
         return list(dict.fromkeys(v))
+
+
+def _steps_list(v: list[str] | None) -> list[str] | None:
+    if v is None:
+        return None
+    bad = [s for s in v if s not in PHASES]
+    if bad:
+        raise ValueError(f"unknown steps: {bad}")
+    return list(dict.fromkeys(v))
+
+
+class SetPrefs(_Intent):
+    """Your automation preferences (RESPONSE, stops, payment, temporary overrides …). Allowed any
+    time, even without priority, while paused or during an animation: it only changes what the
+    engine does for you from now on. Only the fields you send change."""
+
+    type: Literal["set_prefs"] = "set_prefs"
+    response: Literal["off", "auto", "on"] | None = None
+    stops_my_turn: list[str] | None = Field(default=None, max_length=12)
+    stops_their_turn: list[str] | None = Field(default=None, max_length=12)
+    bluff_stops: bool | None = None
+    payment: Literal["self"] | None = None  # players always tap their own mana
+    auto_resolve_own_triggers: Literal["off", "safe", "on"] | None = None
+    auto_order_identical_triggers: bool | None = None
+    hold_priority: bool | None = None
+    full_control: bool | None = None
+    force_stop: bool | None = None
+    cancel_pass: bool = False  # cancel a PASS UNTIL … / HOLD AFTER THIS RESOLVES
+    stop_after: Id | None = None  # HOLD AFTER THIS RESOLVES: a card on the stack
+    # PREFER / NORMAL / SAVE for one of your mana sources ("normal" clears it).
+    mana_source: Id | None = None
+    mana_source_protection: Literal["prefer", "normal", "save"] | None = None
+    # Remembered answers: add one, or cancel one (by key) or all.
+    add_yield: YieldIn | None = None
+    cancel_yield: Annotated[str, Field(max_length=120)] | None = None
+    cancel_all_yields: bool = False
+
+    _stops = field_validator("stops_my_turn", "stops_their_turn")(_steps_list)
+
+
+class YieldIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["always_yield", "yes_this_turn", "no_this_turn"]
+    key: str = Field(min_length=1, max_length=120)
+
+
+class SetCardAutomation(_Intent):
+    """Right-click → Automation: MANUAL takes one card out of automation (its controller resolves
+    it by hand and the engine doesn't enforce its timing); AUTO gives it back."""
+
+    type: Literal["set_card_automation"] = "set_card_automation"
+    card_id: Id
+    mode: Literal["auto", "manual", "assisted"]
+
+
+class RepeatUntil(BaseModel):
+    """REPEAT UNTIL: stop once the condition holds (checked before each iteration)."""
+
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["mana", "tokens", "life_at_most", "life_at_least", "counter"]
+    value: int = Field(ge=-100000, le=100000)
+    player: Id | None = None  # whose mana / tokens / life (default: you)
+    card_id: Id | None = None  # counter: on which permanent
+    counter: Annotated[str, Field(max_length=30)] | None = None
+
+
+class RepeatSequence(_Intent):
+    """REPEAT LAST VALIDATED SEQUENCE: replay your last ``count`` intents (which you just did once)
+    up to ``times`` more times. Every iteration goes through the rules engine; it stops as soon as
+    an iteration becomes illegal, needs a choice or isn't deterministic."""
+
+    type: Literal["repeat_sequence"] = "repeat_sequence"
+    count: int = Field(ge=1, le=30)
+    times: int = Field(default=1, ge=1, le=500)
+    until: RepeatUntil | None = None
 
 
 class RulesSync(Base):
@@ -943,7 +1070,19 @@ class RulesDamage(Base):
     commander: list[CommanderHit] = Field(default_factory=list)  # combat damage by commanders (also in players)
     planeswalkers: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # loyalty removed
     lifelink: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # life gained
+    wither: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # card -> -1/-1 counters
+    poison: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # player -> poison counters
     first_strike: bool = False
+    combat: bool = True  # False: damage from a spell or ability
+    dealt: list[DamageDealt] = Field(default_factory=list, max_length=500)  # who dealt what to whom (events)
+
+
+class DamageDealt(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source: Annotated[str, Field(max_length=64)]  # source object id
+    target: Id  # card id or player id
+    target_object: Annotated[str, Field(max_length=64)] | None = None
+    amount: int = Field(ge=0, le=100000)
 
 
 class RulesLog(Base):
@@ -953,11 +1092,12 @@ class RulesLog(Base):
     text: str = Field(max_length=500)
     card_ids: list[Id] = Field(default_factory=list, max_length=20)  # cards appended to the line
     kind: str = Field(default="rules", max_length=20)
+    fold: int = Field(default=0, ge=0, le=100000)  # fold the previous N log lines under this one (repeats)
 
 
 INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
-     "choose", "concede", "set_stops"}
+     "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up"}
 )
 SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage"})
 
@@ -1055,6 +1195,7 @@ Action = Annotated[
     | Configure
     | PlayLand
     | CastSpell
+    | TurnFaceUp
     | ActivateAbility
     | DeclareAttackers
     | DeclareBlockers
@@ -1062,6 +1203,9 @@ Action = Annotated[
     | Choose
     | Concede
     | SetStops
+    | SetPrefs
+    | SetCardAutomation
+    | RepeatSequence
     | RulesSync
     | RulesMana
     | RulesDamage

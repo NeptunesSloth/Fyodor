@@ -61,6 +61,8 @@ def move(state: GameState, a: A.Move) -> None:
         if c.zone.endswith(":command") and dest == STACK and c.commander_key:
             commander_casts.append(c)
         ops.move_card(state, c, dest, index=index, position=a.position, x=x, y=y, face_down=a.face_down)
+        if a.tapped and ops.zone_name(dest) == "battlefield" and c.id in state.cards:
+            c.tapped = True
         if c.face_down and a.face_down:
             c.face_down_kind = a.face_down_kind or ("exile" if ops.zone_name(dest) == "exile" else "generic")
 

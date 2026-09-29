@@ -6,6 +6,7 @@ from app.game import actions as A
 from app.game import ops
 from app.game.errors import ActionError
 from app.game.ops import log, pname, text
+from app.game.rules_state import emit
 from app.game.state import DEFAULT_RESOURCES, GameState, LifeChange, zone_key
 
 LIFE_HISTORY_LIMIT = 200
@@ -17,6 +18,8 @@ def change_life(state: GameState, pid: str, new_value: int) -> int:
     p = state.players[pid]
     before = p.life
     p.life = new_value
+    if new_value != before:  # life loss and life gain are events (damage is a separate one)
+        emit(state, "life_loss" if new_value < before else "life_gain", player=pid, amount=abs(new_value - before))
     last = p.life_history[-1] if p.life_history else None
     # Consecutive clicks on the same player's life collapse into one history step (40 → 35, not 40 → 39 → …).
     if last and last.seq == state.seq - 1 and last.after == before:

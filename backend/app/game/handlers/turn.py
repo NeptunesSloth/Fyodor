@@ -160,7 +160,11 @@ def resolve_top(state: GameState, a: A.ResolveTop) -> None:
     x = y = None
     if a.r and top.id in a.r.positions:
         x, y = a.r.positions[top.id]
-    ops.move_card(state, top, dest, x=x, y=y)
+    # A face-down spell (morph) becomes a face-down permanent (702.37c); anything else turns up.
+    keep_down = True if top.face_down and top.face_down_kind == "morph" and dest.endswith(":battlefield") else None
+    ops.move_card(state, top, dest, x=x, y=y, face_down=keep_down)
+    if a.tapped and dest.endswith(":battlefield"):
+        top.tapped = True
     log(state, a.actor, a.ts, [text("Resolved "), part, text(f" → {ops.zone_label(state, dest, top.owner)}")])
 
 

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ColorPips } from "../components/ColorPips";
+import { CardFace } from "../cards/CardFace";
+import { useCard } from "../state/cardCache";
 import { Modal } from "../components/Modal";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
 import { toast, toastError } from "../components/Toasts";
@@ -80,7 +82,8 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
               Mulligan: {lobby.mulligan?.display_name ?? MULLIGAN_LABEL[s.mulligan_rule] ?? s.mulligan_rule}
               {lobby.mulligan?.needs_definition ? " (not defined yet)" : ""}
             </span>
-            <span>Response helper: {s.priority_helper === "simple" ? "On" : "Off"}</span>
+            <span>Automation: {(s.automation ?? "off").toUpperCase()}</span>
+            {(s.automation ?? "off") === "off" && <span>Response helper: {s.priority_helper === "simple" ? "On" : "Off"}</span>}
           </div>
         </div>
         {lobby.game.code && (
@@ -162,26 +165,33 @@ function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
   const iAmSeated = lobby.seats.some((s) => s.id === lobby.viewer);
   const state = !seat.claimed ? "open" : seat.ready ? "ready" : deck ? "deck" : "choosing";
 
+  const cmdId = deck?.commander_ids?.[0] ?? null;
+  const cov = deck?.coverage;
+  const covTotal = cov ? cov.FULL + cov.PARTIAL + cov.REVIEW + cov.MANUAL : 0;
+  const level = lobby.settings.automation ?? "off";
   return (
-    <section className={`seat-plate ${state} ${mine ? "mine" : ""}`} style={{ ["--seat" as string]: seat.color }} data-testid={`seat-${seat.id}`}>
-      <div className="seat-band" />
+    <section className={`seat-plate seat-card frame ${state} ${mine ? "mine" : ""}`} style={{ ["--seat" as string]: seat.color }} data-testid={`seat-${seat.id}`}>
       <div className="seat-top">
-        <span className="seat-no">{seat.id.slice(1)}</span>
-        {mine && editing ? (
-          <form className="seat-name-edit" onSubmit={(e) => {
-            e.preventDefault();
-            setEditing(false);
-            if (name.trim() && name.trim() !== seat.name) void onRun(() => setLobbyProfile(gameId, { name: name.trim() }));
-          }}>
-            <input autoFocus value={name} maxLength={40} onChange={(e) => setName(e.target.value)} onBlur={(e) => e.currentTarget.form?.requestSubmit()} />
-          </form>
-        ) : (
-          <b className="seat-name" title={mine ? "Click to rename" : undefined} onClick={() => mine && (setName(seat.name), setEditing(true))}>
-            {seat.claimed ? seat.name : "Open seat"}
-          </b>
-        )}
-        {seat.host && <span className="seat-tag">Host</span>}
-        {mine && <span className="seat-tag you">You</span>}
+        <span className="portrait" style={{ ["--size" as string]: "38px", borderColor: seat.claimed ? seat.color : undefined }}>
+          {seat.claimed ? seat.name.slice(0, 1).toUpperCase() : seat.id.slice(1)}
+        </span>
+        <span className="seat-who">
+          <span className="seat-no">Player {seat.id.slice(1)}{seat.host ? " · Host" : ""}{mine ? " · You" : ""}</span>
+          {mine && editing ? (
+            <form className="seat-name-edit" onSubmit={(e) => {
+              e.preventDefault();
+              setEditing(false);
+              if (name.trim() && name.trim() !== seat.name) void onRun(() => setLobbyProfile(gameId, { name: name.trim() }));
+            }}>
+              <input autoFocus value={name} maxLength={40} onChange={(e) => setName(e.target.value)} onBlur={(e) => e.currentTarget.form?.requestSubmit()} />
+            </form>
+          ) : (
+            <b className="seat-name" title={mine ? "Click to rename" : undefined} onClick={() => mine && (setName(seat.name), setEditing(true))}>
+              {seat.claimed ? seat.name : "Open seat"}
+            </b>
+          )}
+        </span>
+        <span className="spacer" />
         {seat.claimed && <span className={`presence ${seat.connected ? "on" : ""}`} title={seat.connected ? "Connected" : "Not connected"} />}
         {mine && (
           <input type="color" className="seat-color" value={seat.color} title="Your color"
@@ -194,17 +204,34 @@ function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
         )}
       </div>
 
+      <div className={`seat-art ${cmdId ? "" : "empty"}`}>
+        {cmdId ? <CommanderArt id={cmdId} /> : <span className="seat-art-glyph" aria-hidden>{seat.claimed ? "❖" : "+"}</span>}
+        <div className="seat-art-caption">
+          <b>{deck?.commanders?.length ? deck.commanders.join(" & ") : deck ? (deck.name ?? "A deck") : seat.claimed ? "No deck yet" : "Waiting for a player"}</b>
+          {deck?.commanders?.length ? <span>{deck.name}</span> : null}
+          {deck?.color_identity && <ColorPips colors={deck.color_identity} />}
+        </div>
+      </div>
+
+      <div className={`seat-status ${state}`} data-testid={`seat-status-${seat.id}`}>
+        {state === "ready" ? "✓ Ready" : state === "deck" ? "Not ready" : state === "choosing" ? (mine ? "Choose your deck" : "Choosing a deck…") : "Open seat"}
+      </div>
+
+      <div className="seat-facts">
+        <div className="seat-fact"><span>Automation</span><b>{level === "off" ? "Off" : level === "assisted" ? "Assisted" : "Full"}</b></div>
+        {cov && covTotal > 0 && (
+          <div className="seat-fact" title={`FULL ${cov.FULL} · PARTIAL ${cov.PARTIAL} · REVIEW ${cov.REVIEW} · MANUAL ${cov.MANUAL}`} data-testid={`coverage-${seat.id}`}>
+            <span>Fully automated</span>
+            <b className="cov">{Math.round((cov.FULL / covTotal) * 100)}%</b>
+            <span className="cov-count">({cov.FULL}/{covTotal})</span>
+          </div>
+        )}
+        {deck && <div className="seat-fact"><span>Deck</span><b>{deck.card_count} cards</b></div>}
+      </div>
+
       <div className="seat-deck">
-        {!seat.claimed ? (
-          <span className="hint">Waiting for a player</span>
-        ) : deck ? (
+        {deck && (
           <>
-            <div className="deck-line">
-              <b>{deck.name ?? "A deck"}</b>
-              {deck.color_identity && <ColorPips colors={deck.color_identity} />}
-            </div>
-            {deck.commanders && deck.commanders.length > 0 && <div className="deck-cmd">{deck.commanders.join(" & ")}</div>}
-            <div className="hint">{deck.card_count} cards</div>
             {mine && deck.report && deck.report.unresolved.length > 0 && (
               <div className="warn small">{deck.report.unresolved.length} line(s) not found — they'll be text proxies</div>
             )}
@@ -221,8 +248,6 @@ function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
             )}
             {deck.list && !mine && <DeckListPeek list={deck.list} />}
           </>
-        ) : (
-          <span className="hint">{mine ? "Choose the deck you're bringing." : "Choosing a deck…"}</span>
         )}
       </div>
 
@@ -251,6 +276,12 @@ function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
       </div>
     </section>
   );
+}
+
+/** The commander's art (or its text card offline), cropped for the seat card. */
+function CommanderArt({ id }: { id: string }) {
+  const card = useCard(id);
+  return <div className="seat-art-card"><CardFace card={card} /></div>;
 }
 
 function DeckListPeek({ list }: { list: { section: string; quantity: number; name: string }[] }) {
@@ -462,6 +493,13 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
         <label className="field">Mulligan
           <select value={draft.mulligan_rule} onChange={(e) => chooseRule(e.target.value)} data-testid="mulligan-rule">
             {MULLIGAN_RULES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+        <label className="field">Automation
+          <select data-testid="lobby-automation" value={draft.automation ?? "off"} onChange={(e) => set({ automation: e.target.value as LobbySettings["automation"] })}>
+            <option value="off">Off — sandbox, nothing enforced</option>
+            <option value="assisted">Assisted — validates and asks before important steps</option>
+            <option value="full">Full — supported rules happen by themselves</option>
           </select>
         </label>
         <label className="field">Response helper

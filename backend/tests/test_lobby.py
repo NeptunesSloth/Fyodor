@@ -116,6 +116,8 @@ def test_deck_privacy_controls_what_others_learn(client, privacy):
         elif privacy == "commander_only":
             assert deck["commanders"] == ["Krenko, Mob Boss"] and deck["name"] == "Goblins"
             assert "list" not in deck and "Lightning Bolt" not in text
+            # automation coverage: counts per level only (every card counted, nothing named)
+            assert set(deck["coverage"]) == {"FULL", "PARTIAL", "REVIEW", "MANUAL"} and sum(deck["coverage"].values()) == 14
         else:
             assert {"section": "main", "quantity": 1, "name": "Lightning Bolt"} in deck["list"]
     # the owner always sees their own list

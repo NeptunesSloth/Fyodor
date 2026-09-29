@@ -35,14 +35,27 @@ export interface DropResult {
   index?: number;
   /** Library: drop on the lower half means "bottom". */
   position?: "top" | "bottom";
+  /** The manual-override modifier (Alt) was held: do it by hand, not as a rules intent. */
+  manual?: boolean;
 }
 
 const THRESHOLD = 5;
+
+/** The 3D table resolves drops on its canvas (the canvas carries `data-drop3d`). */
+let resolver3d: ((clientX: number, clientY: number) => DropResult | null) | null = null;
+export function setDropResolver3D(fn: typeof resolver3d): void {
+  resolver3d = fn;
+}
 
 export function findDropTarget(clientX: number, clientY: number, offsetX: number, offsetY: number): DropResult | null {
   const stack = document.elementsFromPoint(clientX, clientY);
   for (const el of stack) {
     if (!(el instanceof HTMLElement)) continue;
+    if (el.dataset.drop3d !== undefined) {
+      const hit = resolver3d?.(clientX, clientY);
+      if (hit) return hit;
+      continue;
+    }
     const zone = el.dataset.drop;
     if (!zone) continue;
     const rect = el.getBoundingClientRect();
@@ -110,7 +123,10 @@ export function beginPointerDrag(
     window.removeEventListener("pointercancel", cancel);
     document.body.classList.remove("dragging");
     setDrag(null);
-    if (dragging) opts.onDrop(findDropTarget(ev.clientX, ev.clientY, offsetX, offsetY));
+    if (dragging) {
+      const target = findDropTarget(ev.clientX, ev.clientY, offsetX, offsetY);
+      opts.onDrop(target ? { ...target, manual: ev.altKey } : null);
+    }
   };
   const cancel = () => {
     window.removeEventListener("pointermove", move);

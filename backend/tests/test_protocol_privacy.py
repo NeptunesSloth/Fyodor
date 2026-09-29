@@ -221,7 +221,7 @@ def test_rules_prompts_and_hints_do_not_leak(client):
     a = client.post("/api/decks", json={"text": P1_DECK}).json()["id"]
     b = client.post("/api/decks", json={"text": P2_DECK}).json()["id"]
     game = client.post("/api/games", json={
-        "mode": "lan", "shuffle": True, "automation": "rules",
+        "mode": "lan", "shuffle": True, "automation": "full",
         "players": [{"name": "Alice", "deck_id": a}, {"name": "Bob", "deck_id": b}],
     }).json()
     gid, code, alice = game["game"]["id"], game["game"]["code"], game["seat"]["token"]

@@ -1,12 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { toast, toastError } from "../components/Toasts";
+import { api, ApiError } from "../services/api";
 import { effectiveHotkeys, collisions, comboOf, type HotkeyId } from "../game/hotkeys";
 import { play } from "../game/sound";
 import { listAssets, type Asset } from "../services/assets";
 import { pct, podPlayer, podPlayers, type PodPlayerDetail } from "../services/pod";
 import { GRAPHICS_NOTES } from "../state/applyPrefs";
 import { usePrefs, type Prefs } from "../state/prefs";
+import { PLANES, type PlaneTheme } from "../theme/planes";
 import "./settings.css";
+
+/** A tiny painting of a plane for its tile: sky, glow and table surface. */
+function planePreview(pl: PlaneTheme): string {
+  const e = pl.env;
+  return [
+    `radial-gradient(ellipse 30% 40% at 18% 35%, ${e.glow}66, transparent 70%)`,
+    `radial-gradient(ellipse 25% 35% at 82% 30%, ${e.rim}55, transparent 70%)`,
+    `linear-gradient(180deg, ${e.skyTop} 0%, ${e.skyBottom} 52%, ${e.surfaceBase} 53%, ${e.surfaceGrain} 100%)`,
+  ].join(", ");
+}
 
 const AVATARS = ["♠", "♥", "♦", "♣", "★", "☾", "☀", "⚔", "♛", "✦"];
 
@@ -41,6 +53,32 @@ export function SettingsPanel() {
 
   return (
     <div className="settings" data-testid="settings">
+      <section>
+        <h2>Table theme</h2>
+        <p className="hint">Each theme is a Magic plane: its table surface, lighting, props, ambient sound and accent colours. Cards and prompts always look the same.</p>
+        {[1, 2].map((wave) => (
+          <div key={wave} className="theme-grid" style={{ marginBottom: 12 }}>
+            {PLANES.filter((pl) => pl.wave === wave).map((pl) => (
+              <button key={pl.id} className={`theme-tile ${p.plane === pl.id ? "on" : ""}`} data-testid={`plane-${pl.id}`} onClick={() => set({ plane: pl.id })}>
+                <span className="preview" style={{ background: planePreview(pl) }} />
+                <span className="name">{pl.name}</span>
+                <span className="blurb">{pl.tagline}</span>
+                <span className="dots">{pl.swatches.map((c) => <i key={c} style={{ background: c }} />)}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+        <div className="settings-grid">
+          <label className="field">Table
+            <select value={p.renderer} data-testid="renderer" onChange={(e) => set({ renderer: e.target.value as Prefs["renderer"] })}>
+              <option value="auto">Auto (3D when this device supports it)</option>
+              <option value="3d">3D table</option>
+              <option value="2d">2D table (lighter, for slow devices)</option>
+            </select>
+          </label>
+          <label className="check"><input type="checkbox" checked={p.ambience} onChange={(e) => set({ ambience: e.target.checked })} /> Ambient sound of the plane (volume: Sound → Ambient)</label>
+        </div>
+      </section>
       <section>
         <h2>Profile</h2>
         <div className="profile-row">
@@ -169,6 +207,7 @@ export function SettingsPanel() {
       </section>
 
       <KeysSection />
+      <BackupSection />
       <DiagnosticsSection />
     </div>
   );
@@ -238,6 +277,85 @@ function KeysSection() {
           <tr><td>Recall / save a view</td><td className="hint">Ctrl+1…9 / Ctrl+Shift+1…9</td></tr>
         </tbody>
       </table>
+    </section>
+  );
+}
+
+interface BackupInfo { name: string; size: number; created_at: string }
+
+/** BACKUP FYODOR / restore (host computer only). */
+function BackupSection() {
+  const [list, setList] = useState<BackupInfo[] | null>(null);
+  const [denied, setDenied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [restartNeeded, setRestartNeeded] = useState(false);
+  const file = useRef<HTMLInputElement>(null);
+  const load = () => api.get<{ backups: BackupInfo[] }>("/backups").then((r) => setList(r.backups), (e: unknown) => {
+    if (e instanceof ApiError && e.status === 403) setDenied(true);
+  });
+  useEffect(() => void load(), []);
+  const run = async (fn: () => Promise<unknown>, done?: string) => {
+    setBusy(true);
+    try {
+      await fn();
+      if (done) toast(done);
+      await load();
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const restore = async (fn: () => Promise<unknown>) => {
+    if (!window.confirm("Restore this backup? Decks, saves, pod stats and custom assets are replaced by the backup's when Fyodor restarts. The current data is kept as a copy.")) return;
+    await run(async () => {
+      await fn();
+      setRestartNeeded(true);
+    }, "Backup staged — restart Fyodor to finish restoring");
+  };
+  return (
+    <section id="backups" data-testid="backups">
+      <h2>Backup &amp; restore</h2>
+      {denied ? (
+        <p className="hint">Backups are made on the host computer (the one running Fyodor).</p>
+      ) : (
+        <>
+          <p className="hint">A backup holds your decks, saves, live tables, pod stats, macros and custom sleeves / playmats. The card database isn't included; it is rebuilt from card data.</p>
+          <div className="settings-grid">
+            <button className="btn primary" disabled={busy} data-testid="backup-now"
+              onClick={() => void run(async () => {
+                const made = await api.post<BackupInfo>("/backups", {});
+                window.location.href = `/api/backups/${encodeURIComponent(made.name)}`;
+              }, "Backup saved")}>Back up Fyodor now</button>
+            <button className="btn" disabled={busy} onClick={() => file.current?.click()}>Restore from a file…</button>
+            <input ref={file} type="file" hidden accept=".zip,application/zip" onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void restore(() => fetch("/api/backups/restore", { method: "POST", body: f }).then(async (r) => {
+                if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { detail?: string }).detail ?? "Restore failed");
+              }));
+            }} />
+          </div>
+          {restartNeeded && <p className="warn">Restart Fyodor (close the window running it and start it again) to finish restoring.</p>}
+          {list && list.length > 0 && (
+            <table className="backups">
+              <tbody>
+                {list.map((b) => (
+                  <tr key={b.name}>
+                    <td>{b.created_at.replace("T", " ")}</td>
+                    <td className="hint">{(b.size / 1024 / 1024).toFixed(1)} MB</td>
+                    <td>
+                      <a className="tt-btn ghost" href={`/api/backups/${encodeURIComponent(b.name)}`} download>Download</a>
+                      <button className="tt-btn ghost" disabled={busy} onClick={() => void restore(() => api.post(`/backups/${encodeURIComponent(b.name)}/restore`, {}))}>Restore</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {list && list.length === 0 && <p className="hint">No backups yet.</p>}
+        </>
+      )}
     </section>
   );
 }

@@ -62,16 +62,17 @@ export function App() {
       page = <Home />;
   }
 
+  const home = !section;
   return (
-    <div className="app">
-      <nav className="topnav">
+    <div className={`app ${home ? "app-home" : ""}`}>
+      {!home && <nav className="topnav">
         <a className="brand" href="#/">Fyodor</a>
         {NAV.map((n) => (
           <a key={n.key} href={n.href} className={section === n.key ? "active" : ""}>
             {n.label}
           </a>
         ))}
-      </nav>
+      </nav>}
       <main className="app-main">{page}</main>
       <Toasts />
       <PromptHost />

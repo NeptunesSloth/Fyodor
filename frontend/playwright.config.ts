@@ -24,7 +24,8 @@ export default defineConfig({
     viewport: { width: 1440, height: 900 },
     launchOptions: {
       // Talk to the table directly (a system HTTP proxy would intercept LAN WebSocket upgrades).
-      args: ["--no-proxy-server"],
+      // WebGL for the 3D table in headless Chromium (software rendering)
+      args: ["--no-proxy-server", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
       ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
     },
   },

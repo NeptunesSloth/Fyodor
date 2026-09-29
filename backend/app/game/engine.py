@@ -8,7 +8,7 @@ from typing import Any
 from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.handlers import cards, marks, mulligan, objects, players, response, rules, solo, turn, zones
-from app.game.rules_state import track
+from app.game.rules_state import capture, track
 from app.game.state import GameState
 
 Handler = Callable[[GameState, Any], None]
@@ -137,16 +137,26 @@ def apply(state: GameState, action: A.Action) -> None:
         raise ActionError("Actions must be performed by a seated player")
     state.seq += 1
     log_start = len(state.log)
+    # Rules intents (and reconciling settings changes) track each of their own steps.
+    before = capture(state) if action.type not in A.INTENT_TYPES and action.type != "configure" else None
     try:
         handler(state, action)
     except ActionError:
         state.seq -= 1
+        state.departures().clear()
         raise
     if state.arrows:
         marks.prune_arrows(state)
-    if state.rules is not None:
-        if state.settings.automation == "rules" and action.type not in NOT_OVERRIDES:
-            state.rules.overrides += 1
+    rules = state.rules
+    if rules is not None:
+        manual = action.type not in NOT_OVERRIDES
+        if manual and state.settings.automation != "off" and not rules.paused:
+            rules.overrides += 1
             for entry in state.log[log_start:]:
                 entry.manual = True
-        track(state)
+        elif manual:
+            # Automation isn't running: the bookkeeping may drift from the table. Resuming or
+            # turning automation back on reconciles (app/rules/reconcile.py).
+            rules.unsynced = True
+        track(state, before, manual=manual)
+    state.departures().clear()

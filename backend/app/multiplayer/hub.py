@@ -23,6 +23,7 @@ from app.game.factory import PLAYER_COLORS
 from app.game.session import GameSession
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
+from app.storage.journal import RoomJournal
 
 log = logging.getLogger(__name__)
 
@@ -96,6 +97,8 @@ class Room:
     created_at: float = field(default_factory=time.time)
     revision: int = 0  # bumped on every authoritative update sent to clients
     result_id: str | None = None  # the recorded pod result for this game, if any
+    # client_action_id -> outcome ("ACCEPTED" / "REJECTED: …"): a retried action applies once.
+    client_actions: dict[str, str] = field(default_factory=dict)
     @property
     def id(self) -> str:
         return self.game_id
@@ -250,8 +253,9 @@ class Room:
 
 class GameHub:
     def __init__(self, *, autosave: Callable[[Room], None] | None = None, autosave_every: int = 10,
-                 asset_info: Callable[[set[str]], dict[str, Any]] | None = None) -> None:
+                 asset_info: Callable[[set[str]], dict[str, Any]] | None = None, journal: RoomJournal | None = None) -> None:
         self.rooms: dict[str, Room] = {}
+        self.journal = journal
         self.asset_info = asset_info  # asset id -> {url, width, height} for sleeves / playmats in views
         self.join_failures: dict[str, list[float]] = {}  # client ip -> recent failed join times
         self._autosave = autosave
@@ -264,6 +268,7 @@ class GameHub:
         for pid in session.state.seat_order:
             room.seats[pid] = Seat(player_id=pid)
         self.rooms[room.id] = room
+        self.track(room)
         log.info("Created %s room %s (%s)", mode, room.id, session.state.name)
         return room
 
@@ -300,7 +305,80 @@ class GameHub:
     def close(self, game_id: str) -> None:
         room = self.rooms.pop(game_id, None)
         if room:
+            if room.game is not None:
+                room.game.history.listener = None
             log.info("Closed room %s", game_id)
+        if self.journal is not None:
+            self.journal.forget(game_id)
+
+    # -- crash recovery --------------------------------------------------------------
+    def meta(self, room: Room) -> dict[str, Any]:
+        """Everything about a room that isn't the game itself (for restoring it after a restart)."""
+        return {
+            "mode": room.mode, "code": room.code, "host_token": room.host_token, "host_seat": room.host_seat,
+            "password_salt": room.password_salt.hex() if room.password_salt else None,
+            "password_hash": room.password_hash.hex() if room.password_hash else None,
+            "seats": {pid: {"token": s.token, "claimed_name": s.claimed_name} for pid, s in room.seats.items()},
+            "spectator_tokens": sorted(room.spectator_tokens), "result_id": room.result_id, "created_at": room.created_at,
+        }
+
+    def persist(self, room: Room) -> None:
+        """Store the room's seats and tokens (started tables only)."""
+        if self.journal is None or not room.started:
+            return
+        try:
+            self.journal.save_meta(room.id, self.meta(room))
+        except Exception:  # noqa: BLE001 - recovery data must never break play; it is logged loudly
+            log.exception("Could not store room %s for recovery", room.id)
+
+    def track(self, room: Room) -> None:
+        """Journal every change of a started table (do / undo / redo) until its next checkpoint."""
+        if self.journal is None or room.game is None:
+            return
+        journal = self.journal
+        gid = room.id
+
+        def record(kind: str, action: Any) -> None:
+            entry: dict[str, Any] = {"k": kind}
+            if action is not None:
+                entry["a"] = action.model_dump(mode="json")
+            journal.append(gid, entry)
+
+        room.game.history.listener = record
+        self.persist(room)
+
+    def restore(self, meta: dict[str, Any], session: GameSession, client_actions: dict[str, str]) -> Room:
+        """Put a recovered table back: same id, room code, seats and tokens."""
+        room = Room(mode=meta["mode"], code=meta["code"], host_token=meta["host_token"], game_id=session.state.id)
+        room.game = session
+        room.host_seat = meta.get("host_seat")
+        if meta.get("password_salt") and meta.get("password_hash"):
+            room.password_salt = bytes.fromhex(meta["password_salt"])
+            room.password_hash = bytes.fromhex(meta["password_hash"])
+        for pid in session.state.seat_order:
+            info = (meta.get("seats") or {}).get(pid) or {}
+            room.seats[pid] = Seat(player_id=pid, token=info.get("token"), claimed_name=info.get("claimed_name"),
+                                   last_seen=time.time())
+        room.spectator_tokens = set(meta.get("spectator_tokens") or [])
+        room.result_id = meta.get("result_id")
+        room.created_at = float(meta.get("created_at") or time.time())
+        room.client_actions = dict(client_actions)
+        if any(r.code == room.code for r in self.rooms.values()):
+            room.code = self._new_code()
+        self.rooms[room.id] = room
+        self.track(room)
+        return room
+
+    def remember_action(self, room: Room, client_action_id: str, outcome: str) -> None:
+        room.client_actions[client_action_id] = outcome
+        if len(room.client_actions) > 512:
+            for key in list(room.client_actions)[: len(room.client_actions) - 512]:
+                del room.client_actions[key]
+        if self.journal is not None and room.started:
+            try:
+                self.journal.remember_action(room.id, client_action_id, outcome)
+            except Exception:  # noqa: BLE001 - see persist()
+                log.exception("Could not store client action id for %s", room.id)
 
     # -- lobby -----------------------------------------------------------------------
     def resize_lobby(self, room: Room, count: int) -> None:
@@ -321,6 +399,7 @@ class GameHub:
         """Give a seat a fresh token (host tool): the old one stops working at once."""
         token = secrets.token_urlsafe(24)
         room.seats[pid].token = token
+        self.persist(room)
         return token
 
     async def drop_connections(self, room: Room, pid: str, *, code: int, reason: str) -> int:
@@ -378,6 +457,7 @@ class GameHub:
         room.game = session
         room.phase = "playing"
         room.lobby_seats = {}
+        self.track(room)
 
     # -- seats -----------------------------------------------------------------------
     def claim_seat(self, room: Room, *, name: str | None, seat: str | None, spectate: bool = False) -> tuple[str, str]:
@@ -385,6 +465,7 @@ class GameHub:
         token = secrets.token_urlsafe(24)
         if spectate:
             room.spectator_tokens.add(token)
+            self.persist(room)
             return SPECTATOR, token
         free = [s for s in room.seats.values() if s.token is None]
         if seat is not None:
@@ -401,6 +482,7 @@ class GameHub:
         chosen.claimed_name = name
         if not room.started:
             room.lobby_seats[chosen.player_id] = LobbySeatInfo(name=name or "")
+        self.persist(room)
         return chosen.player_id, token
 
     # -- live connections ------------------------------------------------------------
@@ -471,6 +553,7 @@ class GameHub:
         return room.session.view(viewer, meta=meta)
 
     def after_change(self, room: Room) -> None:
+        self.persist(room)
         room.actions_since_save += 1
         if self._autosave and room.actions_since_save >= self.autosave_every:
             room.actions_since_save = 0

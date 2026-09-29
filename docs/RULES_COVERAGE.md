@@ -1,24 +1,89 @@
 # Rules coverage
 
-Every card gets a coverage level from what the rules engine really implements
+Fyodor is Commander-only: coverage is measured over **cards legal in Commander today**
+(`legalities.commander == "legal"` in the local card data). Banned cards are COMMANDER_BANNED:
+their scripts are kept, but they leave every statistic until they are legal again. Cards only
+relevant to other formats are ignored.
+
+Every card gets a level from what the rules engine really implements
 (`backend/app/rules/coverage.py`):
 
 | Level | Meaning |
 |---|---|
-| **FULL** | Everything on the card is automated. |
+| **FULL** | Every gameplay ability is automated by tested engine behaviour. |
 | **PARTIAL** | Some of it is automated; the rest is listed as manual parts. |
-| **MANUAL** | The engine can move the card around, but its text and costs are handled by hand. |
+| **REVIEW** | A script exists but the card's Oracle text changed since it was validated (or the tools found something ambiguous). Handled by hand until reviewed. |
+| **MANUAL** | The engine treats it as a Magic object (it can be cast, move, attack), but its text is resolved by hand. |
 
-- **What counts:** a card is broken into features:
-  - how it's played (land drop, casting);
-  - combat, for creatures;
-  - intrinsic mana, for basic land types;
-  - one feature per ability line (keyword, mana ability, scripted ability or free text).
-- **The `SUPPORTED` set:** coverage compares a card's features with this set. A feature is
-  only added to it together with its scenario tests, so the report never claims more than
-  the engine does.
-- **Where it shows up:** coverage is served per card at `GET /api/rules/coverage`. Features
-  and keywords supported today are at `GET /api/rules/support`.
+- **What counts:** a card is broken into features: how it's played (land drop, casting),
+  combat for creatures, intrinsic mana for basic land types, and one feature per ability line
+  (keyword, mana ability, scripted ability, or text classified by `app/rules/analysis.py` into
+  triggered / activated / static / replacement / prevention / permission / restriction / cost
+  modifier / characteristic-defining / spell effect, with a normalised template).
+- **The `SUPPORTED` set:** a feature is added only together with its scenario tests, so the
+  report never claims more than the engine does. Casting it, attacking with it or recognising
+  its keywords never makes a card FULL by itself.
+- **Where it shows up:** `GET /api/rules/coverage` (per card) and `GET /api/rules/support`.
+
+## Commander pool coverage
+
+```bash
+python -m tools.commander_coverage                 # from backend/, reads the local card DB
+```
+
+It writes `data/reports/commander_rules_coverage.{md,json}` (totals, by type / keyword / set,
+commander eligibility, pod coverage, and **top Commander features to implement next**),
+`commander_coverage.md` (every possible commander, most played first, with supported and missing
+parts) and `mechanics.md` (every CR 701/702 mechanic with its Commander card count and status).
+
+Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
+
+| Milestone | Commander-legal cards | FULL | PARTIAL | REVIEW | MANUAL | Possible commanders FULL |
+|---|---|---|---|---|---|---|
+| M17b baseline (M15 engine) | 32,116 | 921 (2.9%) | 31,147 | 0 | 48 | 37 / 3,501 |
+| M16b triggers, targets, effects, layers, templates | 32,116 | 2,434 (7.6%) | 29,634 | 0 | 48 | 48 / 3,501 |
+| M16c Commander patterns (tokens, wipes, blink, tutors, monarch, looting, Treasure, proliferate) | 32,116 | 2,939 (9.2%) | 29,129 | 0 | 48 | 61 / 3,501 |
+| Mana abilities: filters, pain lands, restrictions, counters/life as costs, chosen color, lands' mana | 32,116 | 3,115 (9.7%) | 28,953 | 0 | 48 | 61 / 3,501 |
+| Evasion (landwalk, shadow, horsemanship, fear, intimidate, skulk), prowess, combat restrictions | 32,116 | 3,340 (10.4%) | 28,728 | 0 | 48 | 71 / 3,501 |
+| Cycling and typecycling (mana costs) | 32,116 | 3,474 (10.8%) | 28,594 | 0 | 48 | 73 / 3,501 |
+| Protection (colors, card types, creature types, multicolored, everything): DEBT | 32,116 | 3,564 (11.1%) | 28,504 | 0 | 48 | 76 / 3,501 |
+| Regeneration shields (destroy, lethal damage, "can't be regenerated") | 32,116 | 3,636 (11.3%) | 28,432 | 0 | 48 | 78 / 3,501 |
+| Flashback (mana costs; exiled as it leaves the stack) | 32,116 | 3,675 (11.4%) | 28,393 | 0 | 48 | 78 / 3,501 |
+| Crew (Vehicles; layer-4 type change until end of turn) | 32,116 | 3,712 (11.6%) | 28,356 | 0 | 48 | 78 / 3,501 |
+| Wither, infect (poison), exalted | 32,116 | 3,774 (11.8%) | 28,294 | 0 | 48 | 79 / 3,501 |
+| Enters with N (or X) counters | 32,116 | 3,812 (11.9%) | 28,256 | 0 | 48 | 79 / 3,501 |
+| Affinity (card types, creature and land types) | 32,116 | 3,841 (12.0%) | 28,227 | 0 | 48 | 80 / 3,501 |
+| Changeling, echo, "sacrifice ~ unless you pay" upkeep costs | 32,116 | 3,909 (12.2%) | 28,159 | 0 | 48 | 83 / 3,501 |
+| Landfall and ability-word triggers, "Activate only once each turn", attacking/blocking targets | 32,116 | 4,023 (12.5%) | 28,045 | 0 | 48 | 87 / 3,501 |
+| Convoke (+ generic-payment solver fix) | 32,116 | 4,061 (12.6%) | 28,007 | 0 | 48 | 88 / 3,501 |
+| Counted mana (Gaea's Cradle, Cabal Coffers, power), Scion/Spawn token makers | 32,116 | 4,080 (12.7%) | 27,988 | 0 | 48 | 89 / 3,501 |
+| Static anthems and lords (P/T and keyword grants, layers 6/7c) + derived P/T on the table | 32,116 | 4,223 (13.1%) | 27,845 | 0 | 48 | 100 / 3,501 |
+| Morph and megamorph (face-down casting, turn face up; hidden from opponents) | 32,116 | 4,275 (13.3%) | 27,793 | 0 | 48 | 100 / 3,501 |
+| Devoid, bushido, renown, bloodthirst, bounce lands | 32,116 | 4,359 (13.6%) | 27,709 | 0 | 48 | 101 / 3,501 |
+| Granted quoted abilities (All Slivers / Lands you control / Commander creatures you own have "…") | 32,116 | 4,386 (13.7%) | 27,682 | 0 | 48 | 105 / 3,501 |
+| Suspend (time counters, free cast, haste) | 32,116 | 4,408 (13.7%) | 27,660 | 0 | 48 | 105 / 3,501 |
+| Cascade, cumulative upkeep | 32,116 | 4,435 (13.8%) | 27,633 | 0 | 48 | 106 / 3,501 |
+| Unearth, dash (delayed end-step triggers, exile-instead replacement) | 32,116 | 4,463 (13.9%) | 27,605 | 0 | 48 | 106 / 3,501 |
+| Buyback, madness | 32,116 | 4,493 (14.0%) | 27,575 | 0 | 48 | 106 / 3,501 |
+| Counterspells ("counter target spell", "… unless its controller pays"), ward | 32,116 | 4,565 (14.2%) | 27,503 | 0 | 48 | 108 / 3,501 |
+| Shock lands, explore, investigate, "becomes the target … sacrifice it" | 32,116 | 4,633 (14.4%) | 27,435 | 0 | 48 | 108 / 3,501 |
+| Prevention shields, soulshift (graveyard targets), convoke with self-tap | 32,116 | 4,685 (14.6%) | 27,383 | 0 | 48 | 110 / 3,501 |
+| Persist, undying, toxic, flanking, "can't be countered", combat-damage-to-player triggers, mill, Island attack restriction | 32,116 | 4,817 (15.0%) | 27,251 | 0 | 48 | 117 / 3,501 |
+| Delve, improvise (player-paid), evoke, rebound | 32,116 | 4,861 (15.1%) | 27,207 | 0 | 48 | 117 / 3,501 |
+| "Exile … until ~ leaves the battlefield", fabricate | 32,116 | 4,895 (15.2%) | 27,173 | 0 | 48 | 117 / 3,501 |
+| Storm (spell copies; same or new targets) | 32,116 | 4,911 (15.3%) | 27,157 | 0 | 48 | 117 / 3,501 |
+
+83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
+pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards
+needing it. Current leaders: unsupported mana-ability wordings,
+
+**Commander eligibility and color identity** (`app/rules/commander.py`) follow CR 903.3 (a
+legendary creature, Vehicle, or Spacecraft with power/toughness, or "can be your commander"),
+702.124 (partner, partner—[text], partner with, choose a Background, Doctor's companion) and
+903.4. The same implementation serves the deck checks, the lobby and the rules engine. Checked
+against Scryfall's `color_identity` over the whole pool: the only differences are 104 lands with
+basic land types (the CR handles those with 903.5d, which the deck checks apply separately,
+plus the 903.12e colorless exception) and 3 meld results that can't be in a deck.
 
 ## Inventory of the pod's cards
 

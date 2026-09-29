@@ -35,13 +35,15 @@ from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
 from app.game.mulligan import resolve_policy
-from app.game.rules_state import start_rules
+from app.game.rules_state import AUTOMATION_PRESETS, AutomationLevel, start_rules
 from app.game.session import GameSession
 from app.game.state import GameSettings, MulliganPolicy
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room
 from app.multiplayer.lobby import DeckTooLarge, LobbySeatInfo, LobbySettings, SubmittedDeck, check_bounds
+from app.rules import commander as commander_rules
+from app.rules import coverage
 from app.services import Services
 from app.stats.repository import DuplicateResult, Participant, ResultError, deck_key_for
 from app.storage.save_format import SaveFormatError
@@ -115,6 +117,7 @@ async def _after_action(services: Services, room: Room, action: dict[str, Any]) 
         if pid in room.seats:
             await services.hub.drop_connections(room, pid, code=4403, reason="You left the table")
             room.seats[pid].token = None
+            services.hub.persist(room)
 
 
 def _room(services: Services, game_id: str) -> Room:
@@ -161,8 +164,8 @@ class CreateGameIn(BaseModel):
     mulligan_rule: str | None = Field(default=None, max_length=40)
     mulligan_policy: MulliganPolicy | None = None  # fields for boston_custom / custom
     priority_helper: Literal["off", "simple"] = "simple"
-    # Rules automation (see docs/ARCHITECTURE.md): "off" is the sandbox, "rules" automates play.
-    automation: Literal["off", "rules"] = "off"
+    # Rules automation (docs/AUTOMATION_UX.md): OFF is the sandbox (the safe default).
+    automation: AutomationLevel = "off"
 
     @field_validator("name")
     @classmethod
@@ -170,10 +173,15 @@ class CreateGameIn(BaseModel):
         return clean_text(v, 80) or "Game"
 
 
+ClientActionId = Annotated[str, Field(min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")]
+
+
 class ActionIn(BaseModel):
     action: dict[str, Any]
     as_player: str | None = Field(default=None, alias="as", max_length=16)
     viewer: str | None = Field(default=None, max_length=32)
+    # Idempotency: a retried action (same id) is applied once and answered ALREADY_APPLIED.
+    client_action_id: ClientActionId | None = None
 
 
 class MetaIn(BaseModel):
@@ -292,9 +300,10 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
                             deck_privacy=body.deck_privacy, mulligan=policy,
                             # one person runs a hot-seat table: nobody to ask; with rules, the engine asks
                             priority_helper=body.priority_helper if body.mode == "lan" and body.automation == "off" else "off",
-                            allow_test_objects=body.mode == "local", automation=body.automation)
+                            allow_test_objects=body.mode == "local", automation=body.automation,
+                            automation_options=AUTOMATION_PRESETS[body.automation].model_copy())
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
-    if body.automation == "rules":
+    if body.automation != "off":
         start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
     session.notice(f"Game created. {state.players[state.turn.active_player].name} goes first.")
@@ -330,17 +339,27 @@ async def post_action(
         raise HTTPException(403, "Spectators cannot act")
     _check_host_only(room, body.action, host=room.is_host(x_seat_token))
     _check_assets(services, body.action)
+    cid = body.client_action_id
     async with room.lock:
+        if cid is not None and cid in room.client_actions:
+            previous = room.client_actions[cid]
+            return {**services.hub.view(room, viewer), "status": "ALREADY_APPLIED", "outcome": previous}
         try:
             room.session.perform(actor, body.action)
         except ValidationError as exc:
+            if cid is not None:
+                services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")
             raise HTTPException(422, _validation_message(exc)) from exc
         except ActionError as exc:
+            if cid is not None:
+                services.hub.remember_action(room, cid, f"REJECTED: {exc}")
             raise HTTPException(409, str(exc)) from exc
+        if cid is not None:
+            services.hub.remember_action(room, cid, "ACCEPTED")
         services.hub.after_change(room)
         await _after_action(services, room, body.action)
     await services.hub.broadcast(room)
-    return services.hub.view(room, viewer)
+    return {**services.hub.view(room, viewer), "status": "ACCEPTED"}
 
 
 @router.post("/games/{game_id}/undo")
@@ -574,7 +593,7 @@ class LobbySettingsIn(BaseModel):
     mulligan_policy: MulliganPolicy | None = None
     priority_helper: Literal["off", "simple"] | None = None
     auto_untap: bool | None = None
-    automation: Literal["off", "rules"] | None = None
+    automation: AutomationLevel | None = None
 
 
 class StartIn(BaseModel):
@@ -650,9 +669,13 @@ def _submitted(
     }
     commander_ids = [c.printing_id for c in cards if c.section == "commander" and c.printing_id]
     data = services.cards.get_many(commander_ids) if commander_ids else {}
-    identity = sorted(
-        {x for d in data.values() for x in d.get("color_identity") or []}, key=lambda c: "WUBRG".find(c)
-    )
+    levels = {"FULL": 0, "PARTIAL": 0, "REVIEW": 0, "MANUAL": 0}
+    for e in playable:
+        if e.section == "sideboard":
+            continue
+        cd = card_data.get(e.printing_id) if e.printing_id else None
+        levels[coverage.of_card_data(cd).level if cd else "MANUAL"] += e.quantity
+    identity = list(commander_rules.deck_identity(list(data.values())))
     return SubmittedDeck(
         name=clean_text(name, 120) or "Deck",
         cards=cards,
@@ -663,6 +686,8 @@ def _submitted(
         report=report,
         source_kind=kind,
         warnings=warnings,
+        coverage=levels,
+        commander_ids=commander_ids,
     )
 
 
@@ -914,6 +939,7 @@ async def start_game(
             priority_helper=lobby.priority_helper if lobby.automation == "off" else "off",
             mulligan=lobby.policy(),
             automation=lobby.automation,
+            automation_options=AUTOMATION_PRESETS[lobby.automation].model_copy(),
         )
         state = new_game(
             setups,
@@ -924,7 +950,7 @@ async def start_game(
             first_player=first,
         )
         state.id = room.game_id  # same URL before and after the start
-        if lobby.automation == "rules":
+        if lobby.automation != "off":
             start_rules(state)
         session = GameSession(
             state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules
@@ -981,6 +1007,7 @@ async def record_result(game_id: str, body: ResultIn, request: Request, services
     except ResultError as exc:
         raise HTTPException(422, str(exc)) from exc
     room.result_id = result["id"]
+    services.hub.persist(room)
     what = {"single": f"{', '.join(result['winners'])} won", "multiple": f"{' and '.join(result['winners'])} won",
             "draw": "a draw", "no_result": "no result (not counted)"}[body.result_type]
     room.session.notice(f"Game over — {what}. Result recorded.")
@@ -1178,6 +1205,7 @@ class WsAction(BaseModel):
     action: dict[str, Any]
     as_player: str | None = Field(default=None, alias="as", max_length=16)
     id: int | None = None
+    client_action_id: ClientActionId | None = None
 
 
 class WsSimple(BaseModel):
@@ -1312,7 +1340,15 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
         except HTTPException as exc:
             await send({"type": "error", "id": msg.id, "message": str(exc.detail)})
             return
+    cid = msg.client_action_id if isinstance(msg, WsAction) else None
     async with room.lock:
+        if cid is not None and cid in room.client_actions:
+            previous = room.client_actions[cid]
+            if previous.startswith("REJECTED"):
+                await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": previous.removeprefix("REJECTED: ")})
+            else:
+                await send({"type": "ack", "id": msg.id, "status": "ALREADY_APPLIED"})
+            return
         try:
             if isinstance(msg, WsAction):
                 room.session.perform(actor, msg.action)
@@ -1321,13 +1357,19 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
             else:
                 room.session.redo(actor)
         except ValidationError as exc:
-            await send({"type": "error", "id": msg.id, "message": _validation_message(exc)})
+            if cid is not None:
+                services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")
+            await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": _validation_message(exc)})
             return
         except ActionError as exc:
-            await send({"type": "error", "id": msg.id, "message": str(exc)})
+            if cid is not None:
+                services.hub.remember_action(room, cid, f"REJECTED: {exc}")
+            await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": str(exc)})
             return
+        if cid is not None:
+            services.hub.remember_action(room, cid, "ACCEPTED")
         services.hub.after_change(room)
     if isinstance(msg, WsAction):
         await _after_action(services, room, msg.action)
-    await send({"type": "ack", "id": msg.id})
+    await send({"type": "ack", "id": msg.id, "status": "ACCEPTED"})
     await services.hub.broadcast(room)

@@ -1,0 +1,77 @@
+import { expect, test, type Page } from "@playwright/test";
+import { ALICE_DECK, BOB_DECK, menuPath } from "./helpers";
+
+/** The 3D table (M19): opt in on this device, then play a few moves with the mouse. */
+async function fourPlayerTable(page: Page, perSeatOnBattlefield: number, plane = "dominaria") {
+  await page.addInitScript((pl) => {
+    localStorage.setItem("fyodor.renderer", "3d");
+    localStorage.setItem("fyodor.welcomeDone", "1");
+    localStorage.setItem("fyodor.profiles", JSON.stringify({ version: 2, active: "t", profiles: [{ id: "t", name: "Alice", avatar: "A", prefs: { plane: pl, ambience: false } }] }));
+  }, plane);
+  for (const text of [ALICE_DECK, BOB_DECK]) expect((await page.request.post("/api/decks", { data: { text } })).ok()).toBeTruthy();
+  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string }[];
+  const res = await page.request.post("/api/games", {
+    data: {
+      name: "3D", format: "commander", mode: "local", shuffle: false, first_player: 0, auto_untap: true, mulligan_rule: "none",
+      players: ["Alice", "Bob", "Casey", "Jordan"].map((name, i) => ({ name, deck_id: decks[i % decks.length]!.id })),
+    },
+  });
+  expect(res.ok()).toBeTruthy();
+  const gameId = ((await res.json()) as { game: { id: string } }).game.id;
+  const act = async (action: Record<string, unknown>) => {
+    const r = await page.request.post(`/api/games/${gameId}/actions`, { data: { action } });
+    expect(r.ok(), await r.text()).toBeTruthy();
+  };
+  const view = async (viewer = "p1") => (await (await page.request.get(`/api/games/${gameId}/view?viewer=${viewer}`)).json()) as { seat_order: string[]; zones: Record<string, string[]>; cards: Record<string, { name: string; tapped?: boolean; zone: string; x?: number }> };
+  let v = await view();
+  for (const pid of v.seat_order) await act({ type: "draw", player: pid, count: Math.min(12, perSeatOnBattlefield + 3) });
+  for (const pid of v.seat_order) {
+    const own = await view(pid); // each player's own hand (the host computer may look from any seat)
+    const ids = own.zones[`${pid}:hand`]!.slice(0, perSeatOnBattlefield);
+    for (const [i, cid] of ids.entries()) await act({ type: "move", card_ids: [cid], to: { zone: "battlefield", player: pid }, x: 20 + (i % 10) * 95, y: 30 + Math.floor(i / 10) * 140 });
+  }
+  await page.goto(`/#/game/${gameId}`);
+  await expect(page.getByTestId("table-3d")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__fyodor3d?.stats().cards ?? 0), { timeout: 20_000 }).toBeGreaterThanOrEqual(perSeatOnBattlefield * 4);
+  return { gameId, act, view };
+}
+
+test("3D table: seats, drag from hand onto the table, right-click menu, tap", async ({ page }) => {
+  const { view } = await fourPlayerTable(page, 2);
+  // every player has a seat plate with their life total
+  for (const pid of ["p1", "p2", "p3", "p4"]) await expect(page.getByTestId(`life3d-${pid}`)).toHaveText("40");
+
+  // drag a card from the (2D) hand onto my 3D battlefield
+  const hand = page.locator("main.table > .hand .hand-card");
+  const id = (await hand.first().getAttribute("data-card-id"))!;
+  const box = (await hand.first().boundingBox())!;
+  const target = (await page.evaluate(() => window.__fyodor3d!.battlefieldAt("p1", 500, 250)))!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x, target.y, { steps: 12 });
+  await page.mouse.up();
+  await expect.poll(async () => (await view()).cards[id]!.zone).toBe("p1:battlefield");
+
+  // right-click the card on the 3D table → Tap
+  await expect.poll(() => page.evaluate((cid) => window.__fyodor3d!.cardAt(cid), id)).not.toBeNull();
+  await page.waitForTimeout(600); // let it settle where the server put it
+  const at = (await page.evaluate((cid) => window.__fyodor3d!.cardAt(cid), id))!;
+  await page.mouse.click(at.x, at.y, { button: "right" });
+  await menuPath(page, "Tap");
+  await expect.poll(async () => (await view()).cards[id]!.tapped).toBe(true);
+
+  // camera presets
+  await page.getByRole("toolbar", { name: "Camera" }).getByRole("button", { name: "Table" }).click();
+  await page.getByRole("toolbar", { name: "Camera" }).getByRole("button", { name: "Seat" }).click();
+});
+
+test("3D table performance: a large Commander board stays within its draw-call budget", async ({ page }) => {
+  await fourPlayerTable(page, 10);
+  await page.waitForTimeout(2500);
+  const stats = await page.evaluate(() => window.__fyodor3d!.stats());
+  test.info().annotations.push({ type: "perf", description: JSON.stringify(stats) });
+  console.log("3D perf", JSON.stringify(stats));
+  // one draw call per card face plus a fixed environment; bodies are instanced
+  expect(stats.cards).toBeGreaterThanOrEqual(40);
+  expect(stats.calls).toBeLessThan(stats.cards + 140);
+});

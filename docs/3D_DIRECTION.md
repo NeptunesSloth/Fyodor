@@ -17,6 +17,47 @@ manual override is always one modifier away.**
 primitives (`IMPLEMENTATION_PLAN.md`, M14–M18). It is integrated with the rules intent API
 from the start, so it never learns how to mutate game state directly.
 
+## 0. Status (M19, 2026-09-29): the 3D table is built
+
+`frontend/src/table3d/` renders the table with three.js, driven only by the per-viewer view:
+
+- **Seats:** each player's mat faces its owner (south = you, then clockwise), 2–6 players.
+  Library, graveyard, exile and command zone sit beside each mat; opponents' hands are fans of
+  card backs (a count, nothing more); the stack hovers over the centre of the table.
+- **Cards** ease to where the server says they are (tapped = turned 90°, attacking = lifted).
+  Faces are the cached card images, or a readable text card offline; hidden cards arrive
+  without identity and are drawn as backs. Card bodies are one instanced draw call.
+- **Gestures** reuse the 2D table's actions: drag (with Alt as the manual override), double-click
+  to tap, right-click for the card menu, click-to-target, pick mode, drag from the hand onto
+  the 3D table (a drop resolver on the canvas). Rules intents behave exactly as on the 2D table.
+- **Camera presets:** your seat, the whole table, or any opponent's side; wheel to zoom,
+  middle-drag to turn.
+- **Overlays stay DOM:** seat plates (portrait, name, life; click for the full player panel),
+  the hand, the automation HUD, prompts, the stack panel and the card preview.
+- **Fallback:** Settings → Table: AUTO (3D when WebGL works), 3D or 2D. Without WebGL the 2D
+  table is used automatically; automated browsers default to 2D unless they opt in.
+- **Tests:** `e2e/table3d.spec.ts` (drag from hand, right-click → Tap, camera presets) and a
+  draw-call budget check on a four-seat board (about one call per card face plus a fixed
+  environment). Frame rate is logged but not asserted: CI renders WebGL in software.
+
+### Table themes: Magic planes
+
+A theme is a plane (`frontend/src/theme/planes.ts`). One definition drives the UI accent
+tokens, the sky, fog and lighting, the table surface, props around (never on) the play area,
+drifting particles and a synthesised ambience. Everything is procedural: no downloaded art,
+works offline, and every theme keeps cards, counters and prompts identical.
+
+| Wave | Planes |
+|---|---|
+| 1 | **Dominaria** (default: oak, brass, candles, a Tolarian study), Ravnica (slate, lanterns, gothic spires), Innistrad (weathered wood, fog, a pale moon), Theros (marble, columns, Nyx starfield), Zendikar (stone, jade, floating hedrons) |
+| 2 | Kamigawa (red lacquer, torii, neon), Amonkhet (sandstone, obelisks, pyramids), Ixalan (jungle, gold), New Phyrexia (oil-slick metal, spikes, pipes), Lorwyn (meadow, mushrooms, willows) |
+
+The theme is a per-player preference (Settings → Table theme, or the arrows on the launcher);
+ambience volume is Settings → Sound → Ambient.
+
+Still to come: dice tray / cannon / Bag of Extras as physical objects, token piles as stacks,
+card flip and shuffle animations, hands in TABLETOP mode.
+
 ## 1. What exists (inspected 2026-09-28)
 
 | Layer | State | Verdict |
@@ -83,6 +124,14 @@ Rules for the renderer:
   "flip the table" effect are cosmetic. Only the server's view decides where things are.
 - **One gesture module.** `frontend/src/input/intents.ts` maps gestures to intents or sandbox
   actions for both the 2D board and the 3D scene, so behaviour is identical in both views.
+- **Animations never gate input.** RESPOND / STOP / HOLD PRIORITY are sent the moment they are
+  pressed (`set_prefs`, accepted at any time, with or without priority); the server registers
+  them immediately and the scene animates afterwards to catch up. Rules timing never waits for
+  an animation to finish.
+- **Renderer per player.** The 2D table stays a first-class renderer; players in the same
+  authoritative game may use 3D or 2D (weak hardware, no WebGL, preference).
+- **Automation HUD and prompts** come from `view.rules` (status, prefs, decision, hints,
+  reconcile list, failure); see `AUTOMATION_UX.md`.
 
 ## 2. Engine choice
 

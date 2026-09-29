@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.rules import cards as scripts
@@ -38,14 +39,19 @@ def test_card_coverage_levels(cards):
     # land drop + the intrinsic mana ability of its basic land type are both automated
     assert mountain.level == "FULL" and mountain.manual_parts == []
     assert tower.level == "FULL"  # "any color in your commander's color identity"
-    # casting is automated, the spell's effect isn't (yet)
-    assert bolt.level == "PARTIAL" and bolt.manual_parts == ["Lightning Bolt deals 3 damage to any target."]
+    # "~ deals N damage to any target" is a tested template: the whole spell is automated
+    assert bolt.level == "FULL" and bolt.manual_parts == []
+    counter = coverage.of_card_data(cards.resolve("Counterspell"))
+    assert counter.level == "FULL"  # "counter target spell" (test_rules_counter.py)
+    modal = coverage.of_card_data(cards.resolve("Pyroblast"))
+    # casting is automated, its conditional modes aren't (yet)
+    assert modal.level == "PARTIAL" and modal.manual_parts
     krenko = coverage.of_card_data(cards.resolve("Krenko, Mob Boss"))
     # casting and combat are automated; its {T} token ability isn't yet
     assert krenko.level == "PARTIAL" and krenko.manual_parts == [
         "{T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control."]
     atraxa = coverage.of_card_data(cards.resolve("Atraxa, Praetors' Voice"))
-    assert atraxa.manual_parts == ["At the beginning of your end step, proliferate."]  # its keywords are automated
+    assert atraxa.level == "FULL" and atraxa.manual_parts == []  # keywords + "at the beginning of your end step, proliferate"
 
 
 def test_full_only_when_every_part_is_supported(cards, monkeypatch):
@@ -59,22 +65,42 @@ def test_full_only_when_every_part_is_supported(cards, monkeypatch):
 
 def test_scripts_cover_abilities(cards):
     bolt = cards.resolve("Lightning Bolt")
-    script = scripts.CardScript(oracle_id=bolt["oracle_id"], name="Lightning Bolt", covers=frozenset({0}))
-    scripts._REGISTRY[script.oracle_id] = script
+    script = scripts.CardScript(oracle_id=bolt["oracle_id"], name="Lightning Bolt", covers=frozenset({0}),
+                                oracle_hash=scripts.oracle_hash(bolt["oracle_text"]))
+    scripts.register(script)
     try:
         cov = coverage.of_card_data(bolt)
         assert "Lightning Bolt deals 3 damage to any target." not in cov.manual_parts
-        assert cov.level == "FULL"  # casting is supported and the script covers the effect
+        assert cov.level == "FULL" and not cov.review_needed  # casting is supported and the script covers the effect
     finally:
-        del scripts._REGISTRY[script.oracle_id]
+        scripts.unregister(script.oracle_id)
+
+
+def test_changed_oracle_text_needs_review(cards):
+    bolt = cards.resolve("Lightning Bolt")
+    old_text = "Lightning Bolt deals 3 damage to target creature or player."  # an older wording
+    scripts.register(scripts.CardScript(oracle_id=bolt["oracle_id"], name="Lightning Bolt", covers=frozenset({0}),
+                                        oracle_hash=scripts.oracle_hash(old_text)))
+    try:
+        cov = coverage.of_card_data(bolt)
+        assert cov.level == "REVIEW" and cov.review_needed  # never FULL against text the script wasn't checked with
+        assert "Lightning Bolt deals 3 damage to any target." in cov.manual_parts
+        assert cov.as_dict()["review_needed"] is True
+    finally:
+        scripts.unregister(bolt["oracle_id"])
+    # reminder text and spacing don't count as a change
+    assert scripts.oracle_hash("Flying (This creature can't be blocked except by creatures with flying or reach.)") \
+        == scripts.oracle_hash("Flying")
+    with pytest.raises(ValueError, match="Oracle text"):
+        scripts.register(scripts.CardScript(oracle_id="x", name="Unchecked"))
 
 
 def test_coverage_api(client):
-    bolt = client.get("/api/cards/search?q=Lightning Bolt").json()["results"][0]
+    bolt = client.get("/api/cards/search?q=Pyroblast").json()["results"][0]
     res = client.get(f"/api/rules/coverage?card_ids={bolt['id']},nonexistent").json()
     assert res[bolt["id"]]["level"] == "PARTIAL" and "nonexistent" not in res
     by_oracle = client.get(f"/api/rules/coverage?oracle_ids={bolt['oracle_id']}").json()
-    assert by_oracle[bolt["oracle_id"]]["name"] == "Lightning Bolt"
+    assert by_oracle[bolt["oracle_id"]]["name"] == "Pyroblast"
     assert "play:land" in client.get("/api/rules/support").json()["features"]
     assert client.get("/api/rules/coverage?card_ids=" + ",".join(["x"] * 300)).status_code == 422
 
@@ -92,7 +118,7 @@ def test_pod_inventory_from_library_and_saved_games(client):
     assert rows["Sol Ring"]["deck_count"] == 2 and rows["Island"]["copies"] == 15 and rows["Island"]["basic_land"]
     assert rows["Lightning Bolt"]["deck_count"] == 2 and rows["Lightning Bolt"]["games"] == 1
     assert report["cards"][0]["deck_count"] == 2  # most-played first
-    assert rows["Lightning Bolt"]["coverage"] == "PARTIAL" and rows["Island"]["coverage"] == "FULL"
+    assert rows["Lightning Bolt"]["coverage"] == "FULL" and rows["Island"]["coverage"] == "FULL"
     assert rows["Sol Ring"]["coverage"] == "FULL"  # cast it, tap it for {C}{C}
     assert report["summary"]["FULL"] >= 2 and 0 < report["weighted_full"] <= 1
     md = client.get("/api/rules/inventory.md").text

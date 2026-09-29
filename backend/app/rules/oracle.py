@@ -20,7 +20,7 @@ _MANA_ABILITY = re.compile(
     rf"^\{{T\}}: Add (?:{_MANA_SYMBOL}(?:{_MANA_SYMBOL})*(?:(?:, | or |, or ){_MANA_SYMBOL})*|one mana of any color)\.$"
 )
 _LOYALTY = re.compile(r"^[+−-]?\d+: |^[+−-]X: ")
-_TRIGGER = re.compile(r"^(When|Whenever|At) ")
+_TRIGGER = re.compile(r"^(?:[A-Z][A-Za-z' ]+ — )?(When|Whenever|At) ")  # an ability word ("Landfall — ") may lead
 _COST_START = re.compile(
     r"^(\{[^}]+\}|Sacrifice|Tap|Untap|Discard|Pay|Remove|Exile|Return|Put|Reveal|Mill|Collect|Forage|[Ee]quip|Crew|"
     r"Channel|Cycling|Ninjutsu|Boast|Exhaust)"
@@ -30,6 +30,7 @@ _COST_START = re.compile(
 # (scry, surveil, proliferate…) and ability words are deliberately absent: in a spell they are the
 # effect. Being listed only means "recognised"; whether it's automated is up to coverage.
 KEYWORDS = frozenset({
+    "devoid", "renown", "bloodthirst", "soulshift",
     "flying", "reach", "vigilance", "trample", "deathtouch", "lifelink", "first strike", "double strike", "haste",
     "defender", "menace", "hexproof", "indestructible", "flash", "shroud", "fear", "intimidate", "skulk", "prowess",
     "protection", "ward", "equip", "enchant", "cycling", "kicker", "flashback", "convoke", "delve", "cascade",
@@ -69,6 +70,9 @@ def strip_reminders(text: str) -> str:
     return text
 
 
+_TYPECYCLING = re.compile(r"^((?:basic )?[a-z]+cycling)(?: \{|$)")
+
+
 def keyword_name(piece: str) -> str | None:
     """"Protection from red" → "protection"; "Ward {2}" → "ward"; "Equip {1}" → "equip"."""
     raw = piece.strip().rstrip(".").lower()
@@ -83,7 +87,10 @@ def keyword_name(piece: str) -> str | None:
     if first_two in KEYWORDS:
         return first_two
     first = raw.split()[0]
-    return first if first in KEYWORDS else None
+    if first in KEYWORDS:
+        return first
+    typecycling = _TYPECYCLING.match(raw)  # "Swampcycling {2}", "Basic landcycling {1}{G}", "Wizardcycling {3}"
+    return typecycling[1] if typecycling else None
 
 
 def _keywords_line(line: str) -> tuple[str, ...] | None:
@@ -101,7 +108,8 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
     if _MANA_ABILITY.match(line):
         return "mana", (), "{T}"
     m = _ADD_MANA.match(line)
-    if m and not _LOYALTY.match(line) and "target" not in line:
+    if m and not _LOYALTY.match(line) and "target" not in line and '"' not in m.group("cost") \
+            and not _TRIGGER.match(line) and not line.startswith("•"):  # a granted/token ability isn't one
         return "mana", (), m.group("cost")
     kws = _keywords_line(line)
     if kws is not None and ":" not in line:

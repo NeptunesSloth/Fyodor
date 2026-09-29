@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from tests.game_helpers import act, find
+from tests.game_helpers import act, enable, find
 from tests.test_rules_casting import build, put, rules
 
 
@@ -52,7 +52,6 @@ def test_players_lose_and_the_last_one_wins(cards):
 
 def test_poison_and_commander_damage(cards):
     from app.game.factory import DeckCard, PlayerSetup, new_game
-    from app.game.rules_state import start_rules
     from app.game.session import GameSession
 
     def deck(name):
@@ -61,8 +60,7 @@ def test_poison_and_commander_damage(cards):
 
     state = new_game([PlayerSetup("A", cards=deck("Krenko, Mob Boss")), PlayerSetup("B", cards=deck("Atraxa, Praetors' Voice")),
                       PlayerSetup("C", cards=deck("Krenko, Mob Boss"))], shuffle=False)
-    state.settings.automation = "rules"
-    start_rules(state)
+    enable(state)
     s = GameSession(state, cards=cards)
     krenko = find(s.state, "Krenko, Mob Boss", "p1")
     act(s, "p2", type="resource", player="p2", key="poison", delta=10)
@@ -111,3 +109,36 @@ def test_drawing_from_an_empty_library_loses(cards):
     act(s, "p2", type="pass_priority")
     act(s, "p2", type="pass_priority")  # … Alice's draw step: nothing to draw
     assert rules(s).lost.get("p1") == "drew from an empty library" and rules(s).winner == "p2"
+
+
+def _token(s, pid, name, type_line, text="", **extra):
+    act(s, pid, type="create_token", player=pid, token={"name": name, "type_line": type_line, "text": text, **extra})
+    return find(s.state, name, pid)
+
+
+def test_attachment_and_battle_state_based_actions(cards):
+    from tests.game_helpers import turn_on
+    from tests.test_rules_combat import creature, table
+
+    s = table(cards)
+    bear = creature(s, "p1", "Bear")
+    forest = find(s.state, "Forest", "p1")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "battlefield"})
+    loose = _token(s, "p1", "Loose Aura", "Token Enchantment — Aura", "Enchant creature")
+    wrong = _token(s, "p1", "Wrong Aura", "Token Enchantment — Aura", "Enchant creature")
+    fine = _token(s, "p1", "Fine Aura", "Token Enchantment — Aura", "Enchant creature")
+    sword = _token(s, "p1", "Sword", "Token Artifact — Equipment", "Equip {2}")
+    rider = creature(s, "p1", "Rider")
+    battle = _token(s, "p1", "Siegeless", "Token Battle — Test")
+    act(s, "p1", type="attach", card_ids=[wrong.id], to=forest.id)
+    act(s, "p1", type="attach", card_ids=[fine.id], to=bear.id)
+    act(s, "p1", type="attach", card_ids=[sword.id], to=forest.id)
+    act(s, "p1", type="attach", card_ids=[rider.id], to=bear.id)
+    turn_on(s)
+    act(s, "p1", type="pass_priority")
+    st = s.state
+    assert loose.id not in st.cards and wrong.id not in st.cards  # Auras on nothing / a land die (704.5m)
+    assert st.cards[fine.id].attached_to == bear.id  # a legal Aura stays
+    assert st.cards[sword.id].attached_to is None and st.cards[sword.id].zone == "p1:battlefield"  # 704.5n
+    assert st.cards[rider.id].attached_to is None  # a creature can't be attached (704.5p)
+    assert battle.id not in st.cards  # a non-Siege battle with no defense (704.5w)

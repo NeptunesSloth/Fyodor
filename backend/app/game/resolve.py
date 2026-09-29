@@ -68,6 +68,11 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
 
         a.r = compile_intent(state, a, actor=actor, info=info, rng=rng)  # type: ignore[union-attr]
         return a
+    if isinstance(a, A.Configure):
+        from app.rules.reconcile import compile_reconcile, needs_reconcile  # rules → game; imported late
+
+        if needs_reconcile(state, a):
+            a.r = compile_reconcile(state, a, actor=actor, info=info, rng=rng)
     if isinstance(a, A.RestoreState) and not trusted:
         raise ActionError("Restoring is done through snapshots or history")
 

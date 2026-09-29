@@ -9,6 +9,7 @@ dice, new ids) the rebuilt state is identical to the original, including library
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from app.game import engine
@@ -29,6 +30,15 @@ class History:
         self.actions: list[Action] = []
         self.cursor = 0  # number of actions currently applied (relative to base)
         self.snapshots: dict[int, dict[str, Any]] = {}
+        # Told about every change (do / undo / redo), e.g. the crash-recovery journal.
+        self.listener: Callable[[str, Action | None], None] | None = None
+
+    def _notify(self, kind: str, action: Action | None) -> None:
+        if self.listener is not None:
+            try:
+                self.listener(kind, action)
+            except Exception:  # noqa: BLE001 - recording must never break play; it is logged loudly
+                log.exception("History listener failed")
 
     # -- recording -------------------------------------------------------------------
     def record(self, action: Action, state_after: GameState) -> None:
@@ -42,6 +52,7 @@ class History:
             self.snapshots[self.cursor] = state_after.model_dump(mode="json")
         if len(self.actions) > self.limit:
             self._trim()
+        self._notify("do", action)
 
     def _trim(self) -> None:
         """Drop the oldest actions, re-basing on a snapshot."""
@@ -77,7 +88,9 @@ class History:
             raise ActionError("Nothing to undo")
         undone = self.actions[self.cursor - 1]
         self.cursor -= 1
-        return self.state_at(self.cursor), undone
+        state = self.state_at(self.cursor)
+        self._notify("undo", None)
+        return state, undone
 
     def redo(self, current: GameState) -> tuple[GameState, Action]:
         if not self.can_redo:
@@ -87,6 +100,7 @@ class History:
         self.cursor += 1
         if self.cursor % SNAPSHOT_EVERY == 0:
             self.snapshots[self.cursor] = current.model_dump(mode="json")
+        self._notify("redo", None)
         return current, action
 
     def rebuild(self) -> GameState:

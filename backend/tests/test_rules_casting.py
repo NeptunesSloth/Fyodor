@@ -8,9 +8,8 @@ import pytest
 
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
-from app.game.rules_state import start_rules
 from app.game.session import GameSession
-from tests.game_helpers import act, find, zone
+from tests.game_helpers import act, enable, find, zone
 
 
 def build(cards, p1: list[tuple[int, str]], p2: list[tuple[int, str]], *, c1="Krenko, Mob Boss", c2="Atraxa, Praetors' Voice"):
@@ -23,8 +22,7 @@ def build(cards, p1: list[tuple[int, str]], p2: list[tuple[int, str]], *, c1="Kr
         return out
 
     state = new_game([PlayerSetup("Alice", cards=deck(c1, p1)), PlayerSetup("Bob", cards=deck(c2, p2))], shuffle=False)
-    state.settings.automation = "rules"
-    start_rules(state)
+    enable(state)
     s = GameSession(state, cards=cards)
     act(s, "p1", type="pass_priority")  # → Alice's first main phase
     return s
@@ -78,7 +76,7 @@ def test_sorcery_speed_timing(cards):
         act(s, "p1", type="cast_spell", card_id=elves.id)
 
 
-def test_counterspell_response_and_manual_resolution(cards):
+def test_counterspell_response_counters_the_spell(cards):
     s = build(cards, [(1, "Llanowar Elves"), (3, "Forest")], [(1, "Counterspell"), (4, "Island")])
     put(s, "p1", "Forest", "battlefield")
     elves = put(s, "p1", "Llanowar Elves", "hand")
@@ -90,13 +88,10 @@ def test_counterspell_response_and_manual_resolution(cards):
     assert rules(s).priority == "p2" and s.state.zones["stack"] == [elves.id]
     assert s.view("p2")["rules"]["hints"]["castable"] == [counter.id]
     act(s, "p2", type="cast_spell", card_id=counter.id, targets=[elves.id])
-    # Alice can't respond: passed for her; Counterspell resolves → Bob resolves it by hand
-    d = rules(s).decision
-    assert d and d.kind == "manual_resolution" and d.player == "p2" and "Counterspell" in d.prompt
-    assert s.state.zones["stack"] == [elves.id]
-    act(s, "p2", type="move", card_ids=[elves.id], to={"zone": "graveyard"})  # countered, by hand
-    act(s, "p2", type="choose", decision_id=d.id, option_ids=["done"])
-    assert s.state.cards[elves.id].zone == "p1:graveyard" and rules(s).priority == "p1"
+    # Alice can't respond: passed for her; Counterspell resolves and counters the Elves by itself
+    assert rules(s).decision is None and not s.state.zones.get("stack")
+    assert s.state.cards[elves.id].zone == "p1:graveyard" and s.state.cards[counter.id].zone == "p2:graveyard"
+    assert rules(s).priority == "p1"
 
 
 def test_summoning_sick_creatures_cannot_tap_for_mana(cards):
@@ -172,8 +167,9 @@ def test_mana_costs_abilities_and_payment_solver():
     assert parse_cost("{2/B}{G/W}{U/P}").text() == "{2/B}{G/W}{U/P}"
     assert parse_mana_ability("{T}: Add {R} or {G}.").options == (("R",), ("G",))
     assert parse_mana_ability("{T}, Sacrifice this token: Add one mana of any color.").sacrifice_self
-    assert parse_mana_ability("{1}, {T}: Add {W}{U}.") is None  # extra costs: not automated yet
-    assert parse_mana_ability("{T}: Add {G} for each Elf you control.") is None
+    assert parse_mana_ability("{1}, {T}: Add {W}{U}.").extra_cost == "{1}"  # filters: paid with other mana
+    assert parse_mana_ability("{T}, Tap an untapped creature you control: Add one mana of any color.") is None
+    assert parse_mana_ability("{T}: Add {G} for each Elf you control.").count == "control:Elf"  # counted at use
     forest, mountain = Source("f", (("G",),)), Source("m", (("R",),))
     sol = Source("s", (("C", "C"),))
     dual = Source("d", (("R",), ("G",)))

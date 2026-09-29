@@ -8,6 +8,8 @@ whether first-strike damage has been dealt.
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.game import actions as A
@@ -15,6 +17,7 @@ from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption
 from app.game.state import CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
+from app.rules import protection, scripts
 from app.rules.casting import summoning_sick
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.plan import Plan, decide, live_players
@@ -33,20 +36,70 @@ def attack_problem(state: GameState, card: CardInstance, ch: Characteristics) ->
         return f"{ch.name} is tapped"
     if "defender" in ch.keywords:
         return f"{ch.name} has defender"
+    if {"cant_attack", "cant_attack_or_block"} & scripts.statics(ch):
+        return f"{ch.name} can't attack"
     if "haste" not in ch.keywords and summoning_sick(state, card):
         return f"{ch.name} has summoning sickness"
     return None
 
 
 def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics, attacker: CardInstance,
-                  ach: Characteristics) -> str | None:
+                  ach: Characteristics, info: CardInfo | None = None) -> str | None:
     if not blocker.zone.endswith(":battlefield") or not bch.is_creature:
         return "Only creatures on the battlefield can block"
     if blocker.tapped:
         return f"{bch.name} is tapped"
+    if {"cant_block", "cant_attack_or_block"} & scripts.statics(bch):
+        return f"{bch.name} can't block"
+    if "cant_be_blocked" in scripts.statics(ach):
+        return f"{ach.name} can't be blocked"
+    if "block_only_flying" in scripts.statics(bch) and "flying" not in ach.keywords:
+        return f"{bch.name} can block only creatures with flying"
     if "flying" in ach.keywords and not ({"flying", "reach"} & bch.keywords):
         return f"{ach.name} has flying: only creatures with flying or reach can block it"
+    # landwalk (702.14): unblockable while the defending player controls a land of that type
+    for walk, land in LANDWALK.items():
+        if walk in ach.keywords and _controls_land(state, blocker.controller, land, info):
+            return f"{ach.name} has {walk}: it can't be blocked while you control a {land}"
+    if "shadow" in ach.keywords and "shadow" not in bch.keywords:
+        return f"{ach.name} has shadow: only creatures with shadow can block it"
+    if "shadow" in bch.keywords and "shadow" not in ach.keywords:
+        return f"{bch.name} has shadow: it can only block creatures with shadow"
+    if "horsemanship" in ach.keywords and "horsemanship" not in bch.keywords:
+        return f"{ach.name} has horsemanship: only creatures with horsemanship can block it"
+    if "fear" in ach.keywords and not ("Artifact" in bch.types or "B" in bch.colors):
+        return f"{ach.name} has fear: only artifact and/or black creatures can block it"
+    if "intimidate" in ach.keywords and not ("Artifact" in bch.types or ach.colors & bch.colors):
+        return f"{ach.name} has intimidate: only artifact creatures and creatures that share a color with it can block it"
+    if "skulk" in ach.keywords and _power(bch) > _power(ach):
+        return f"{ach.name} has skulk: creatures with greater power can't block it"
+    if protection.protected_from(ach, bch):
+        return f"{ach.name} has protection: {bch.name} can't block it"
     return None
+
+
+def _power(ch: Characteristics) -> int:
+    if ch.pt is not None:
+        return ch.pt[0]
+    try:
+        return int(ch.power or 0)
+    except ValueError:
+        return 0
+
+
+LANDWALK = {"plainswalk": "Plains", "islandwalk": "Island", "swampwalk": "Swamp", "mountainwalk": "Mountain",
+            "forestwalk": "Forest", "desertwalk": "Desert"}
+
+
+def _controls_land(state: GameState, player: str, subtype: str, info: CardInfo | None) -> bool:
+    for cid in state.zones.get(zone_key(player, "battlefield"), []):
+        card = state.cards[cid]
+        if card.controller != player:
+            continue
+        ch = chars.of(card, info) if info is not None else None
+        if ch is not None and ch.is_land and subtype in ch.subtypes:
+            return True
+    return False
 
 
 def attack_targets(state: GameState, attacker: str, info: CardInfo) -> list[str]:
@@ -115,9 +168,19 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
             raise ActionError(problem)
         if decl.target not in targets:
             raise ActionError(f"{card.name} can't attack that")
+        if "attack_needs_island" in scripts.statics(plan.ch(card)):
+            defender = decl.target if decl.target in plan.state.players else plan.state.cards[decl.target].controller
+            if not _controls_land(plan.state, defender, "Island", plan.info):
+                raise ActionError(f"{card.name} can't attack unless defending player controls an Island")
         if decl.card_id in seen:
             raise ActionError(f"{card.name} can only attack once")
         seen.add(decl.card_id)
+    # 508.1d: a creature that "attacks each combat if able" must attack when it can
+    for cid in eligible - seen:
+        card = plan.state.cards.get(cid)
+        if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
+                attack_problem(plan.state, card, plan.ch(card)) is None and targets:
+            raise ActionError(f"{card.name} attacks each combat if able")
     r.decision = None
     if not a.attackers:
         r.no_attackers = True
@@ -132,6 +195,9 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         for target, ids in by_target.items():
             kind = "player" if target in plan.state.players else "card"
             plan.do({"type": "attack", "card_ids": ids, "target": {"kind": kind, "id": target}})
+        from app.rules import triggers  # triggers → plan; imported late
+
+        triggers.attacked(plan, [plan.state.cards[x.card_id] for x in a.attackers])
     r.priority = plan.active
     r.passed = []
     advance(plan)
@@ -194,7 +260,7 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         if decl.blocker_id in used:
             raise ActionError(f"{blocker.name} can only block one attacker")
         used.add(decl.blocker_id)
-        problem = block_problem(plan.state, blocker, plan.ch(blocker), attacker, plan.ch(attacker))
+        problem = block_problem(plan.state, blocker, plan.ch(blocker), attacker, plan.ch(attacker), plan.info)
         if problem:
             raise ActionError(problem)
         per_attacker[decl.attacker_id] = per_attacker.get(decl.attacker_id, 0) + 1
@@ -202,12 +268,20 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         ach = plan.ch(plan.state.cards[aid])
         if "menace" in ach.keywords and n < 2:
             raise ActionError(f"{ach.name} has menace: it can't be blocked except by two or more creatures")
+        if "max_one_blocker" in scripts.statics(ach) and n > 1:
+            raise ActionError(f"{ach.name} can't be blocked by more than one creature")
     r.decision = None
     if r.blockers_pending and r.blockers_pending[0] == plan.actor:
         r.blockers_pending.pop(0)
     for decl in a.blocks:
         plan.do({"type": "block", "card_id": decl.blocker_id, "attacker_id": decl.attacker_id})
     r.blocked = list(dict.fromkeys([*r.blocked, *per_attacker]))
+    if a.blocks:
+        from app.rules import triggers  # triggers → plan; imported late
+
+        triggers.blocked(plan, [plan.state.cards[d.blocker_id] for d in a.blocks],
+                         [plan.state.cards[aid] for aid in per_attacker])
+        triggers.flanking(plan, [(plan.state.cards[d.blocker_id], plan.state.cards[d.attacker_id]) for d in a.blocks])
     if not a.blocks:
         plan.note(f"{plan.name(plan.actor)} doesn't block")
     ask_next_blocker(plan)
@@ -236,36 +310,70 @@ def has_first_strike_round(plan: Plan) -> bool:
     )
 
 
-def deal_combat_damage(plan: Plan, rnd: Round) -> None:
+@dataclass
+class CombatDamage:
+    """All combat damage of one round, computed before any of it is dealt (it is simultaneous)."""
+
+    creatures: dict[str, int] = field(default_factory=dict)
+    players: dict[str, int] = field(default_factory=dict)
+    walkers: dict[str, int] = field(default_factory=dict)
+    lifelink: dict[str, int] = field(default_factory=dict)
+    wither: dict[str, int] = field(default_factory=dict)  # -1/-1 counters (wither, infect)
+    poison: dict[str, int] = field(default_factory=dict)  # poison counters (infect)
+    commander: dict[tuple[str, str], int] = field(default_factory=dict)
+    deathtouched: list[str] = field(default_factory=list)
+    dealt: list[tuple[str, str, int]] = field(default_factory=list)  # (source card, target card/player, amount)
+
+    @property
+    def empty(self) -> bool:
+        return not (self.creatures or self.players or self.walkers or self.wither or self.poison)
+
+
+def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
     state = plan.state
     r = plan.rules
-    creatures: dict[str, int] = {}
-    players: dict[str, int] = {}
-    walkers: dict[str, int] = {}
-    lifelink: dict[str, int] = {}
-    commander: dict[tuple[str, str], int] = {}
-    deathtouched: list[str] = []
+    out = CombatDamage()
 
-    def hit_creature(source: Characteristics, target: CardInstance, n: int) -> None:
-        creatures[target.id] = creatures.get(target.id, 0) + n
+    def hit_creature(source_card: CardInstance, source: Characteristics, target: CardInstance, n: int) -> int:
+        """Assign ``n`` damage to a creature; returns how much is dealt (protection prevents it, 702.16e)."""
+        if protection.protected_from(plan.ch(target), source):
+            return 0
+        into = out.wither if {"wither", "infect"} & source.keywords else out.creatures
+        into[target.id] = into.get(target.id, 0) + n
+        out.dealt.append((source_card.id, target.id, n))
         if "deathtouch" in source.keywords:
-            deathtouched.append(target.id)
+            out.deathtouched.append(target.id)
+        return n
 
     def gain(source_card: CardInstance, source: Characteristics, n: int) -> None:
         if n > 0 and "lifelink" in source.keywords:
-            lifelink[source_card.controller] = lifelink.get(source_card.controller, 0) + n
+            out.lifelink[source_card.controller] = out.lifelink.get(source_card.controller, 0) + n
 
-    def hit_target(att: CardInstance, n: int) -> None:
+    def hit_target(att: CardInstance, ach: Characteristics, n: int) -> int:
         tgt = att.attacking
         if tgt is None or n <= 0:
-            return
+            return 0
         if tgt.kind == "player":
-            if tgt.id in state.players:
-                players[tgt.id] = players.get(tgt.id, 0) + n
-                if att.commander_key:
-                    commander[(tgt.id, att.commander_key)] = commander.get((tgt.id, att.commander_key), 0) + n
+            if tgt.id not in state.players:
+                return 0
+            into = out.poison if "infect" in ach.keywords else out.players
+            into[tgt.id] = into.get(tgt.id, 0) + n
+            toxic = sum(int(x) for ab in ach.abilities if ab.kind == "keywords" and "toxic" in ab.keywords
+                        for x in re.findall(r"toxic (\d+)", ab.text.lower()))
+            if toxic:  # 702.164: combat damage to a player also gives N poison counters
+                out.poison[tgt.id] = out.poison.get(tgt.id, 0) + toxic
+            out.dealt.append((att.id, tgt.id, n))
+            if att.commander_key:
+                key = (tgt.id, att.commander_key)
+                out.commander[key] = out.commander.get(key, 0) + n
         elif tgt.id in state.cards and state.cards[tgt.id].zone.endswith(":battlefield"):
-            walkers[tgt.id] = walkers.get(tgt.id, 0) + n
+            if protection.protected_from(plan.ch(state.cards[tgt.id]), ach):
+                return 0
+            out.walkers[tgt.id] = out.walkers.get(tgt.id, 0) + n
+            out.dealt.append((att.id, tgt.id, n))
+        else:
+            return 0
+        return n
 
     blockers_all = [c for c in state.cards.values() if c.blocking and c.zone.endswith(":battlefield")]
     for att in attackers_on(state):
@@ -285,19 +393,16 @@ def deal_combat_damage(plan: Plan, rnd: Round) -> None:
                 elif t is None:
                     lethal = remaining
                 else:
-                    lethal = max(0, t - b.damage - creatures.get(b.id, 0))
+                    lethal = max(0, t - b.damage - out.creatures.get(b.id, 0) - out.wither.get(b.id, 0))
                 last = i == len(blockers) - 1
                 amount = remaining if last and "trample" not in ach.keywords else min(remaining, lethal)
                 if amount > 0:
-                    hit_creature(ach, b, amount)
-                    dealt += amount
+                    dealt += hit_creature(att, ach, b, amount)
                     remaining -= amount
             if remaining > 0 and "trample" in ach.keywords:
-                hit_target(att, remaining)
-                dealt += remaining
+                dealt += hit_target(att, ach, remaining)
         else:
-            hit_target(att, p)
-            dealt = p
+            dealt = hit_target(att, ach, p)
         gain(att, ach, dealt)
     for b in blockers_all:
         bch = plan.ch(b)
@@ -305,16 +410,80 @@ def deal_combat_damage(plan: Plan, rnd: Round) -> None:
         blocked = state.cards.get(b.blocking or "")
         if blocked is None or blocked.attacking is None or not _deals(bch, rnd) or p is None or p <= 0:
             continue
-        hit_creature(bch, blocked, p)
-        gain(b, bch, p)
-    if not (creatures or players or walkers):
+        gain(b, bch, hit_creature(b, bch, blocked, p))
+    return out
+
+
+def damage_preview(plan: Plan, rnd: Round) -> str:
+    """A compact public summary of the damage about to be dealt (for ASSISTED confirmation)."""
+    dmg = compute_combat_damage(plan, rnd)
+    parts = []
+    for source, target, n in dmg.dealt:
+        who = plan.state.players[target].name if target in plan.state.players else plan.state.cards[target].name
+        parts.append(f"{plan.state.cards[source].name} → {who} {n}")
+    return "; ".join(parts) or "none"
+
+
+def _apply_prevention(plan: Plan, dmg: CombatDamage) -> None:
+    """Prevention shields (615.7) reduce each assignment as it is dealt."""
+    if not plan.rules.prevention:
+        return
+    from app.rules.effects import shield
+
+    kept = []
+    for src, tgt, n in dmg.dealt:
+        key = tgt if tgt in plan.state.players else plan.oid(tgt)
+        left = shield(plan, key, n)
+        cut = n - left
+        if cut:
+            for pool in (dmg.players, dmg.poison, dmg.creatures, dmg.wither, dmg.walkers):
+                if tgt in pool:
+                    pool[tgt] -= min(cut, pool[tgt])
+                    if pool[tgt] <= 0:
+                        del pool[tgt]
+                    break
+            card = plan.state.cards.get(src)
+            if card is not None:
+                if "lifelink" in plan.ch(card).keywords and dmg.lifelink.get(card.controller):
+                    dmg.lifelink[card.controller] = max(0, dmg.lifelink[card.controller] - cut)
+                if card.commander_key and (tgt, card.commander_key) in dmg.commander:
+                    dmg.commander[(tgt, card.commander_key)] = max(0, dmg.commander[(tgt, card.commander_key)] - cut)
+                if not left and tgt in dmg.deathtouched:
+                    dmg.deathtouched.remove(tgt)
+        if left:
+            kept.append((src, tgt, left))
+    dmg.dealt = kept
+    dmg.lifelink = {k: v for k, v in dmg.lifelink.items() if v}
+    dmg.commander = {k: v for k, v in dmg.commander.items() if v}
+
+
+def deal_combat_damage(plan: Plan, rnd: Round) -> None:
+    dmg = compute_combat_damage(plan, rnd)
+    _apply_prevention(plan, dmg)
+    if dmg.empty:
         return
     plan.do({
-        "type": "rules_damage", "creatures": creatures, "players": players, "planeswalkers": walkers,
-        "lifelink": lifelink, "first_strike": rnd == "first",
-        "commander": [{"player": pid, "commander": key, "amount": n} for (pid, key), n in commander.items()],
+        "type": "rules_damage", "creatures": dmg.creatures, "players": dmg.players, "planeswalkers": dmg.walkers,
+        "lifelink": dmg.lifelink, "wither": dmg.wither, "poison": dmg.poison, "first_strike": rnd == "first",
+        "commander": [{"player": pid, "commander": key, "amount": n} for (pid, key), n in dmg.commander.items()],
+        "dealt": [{"source": plan.oid(src), "target": tgt, "amount": n,
+                   "target_object": plan.oid(tgt) if tgt in plan.state.cards else None} for src, tgt, n in dmg.dealt],
     }, actor=plan.active)
-    r.deathtouched = list(dict.fromkeys([*r.deathtouched, *deathtouched]))
+    plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *dmg.deathtouched]))
+    for pid in [*dmg.players, *dmg.poison]:
+        plan.rules.damaged[pid] = plan.state.turn.number
+    hit_players = [plan.state.cards[src] for src, tgt, n in dmg.dealt
+                   if tgt in plan.state.players and n > 0 and src in plan.state.cards]
+    if hit_players:
+        from app.rules import triggers  # triggers → plan; imported late
+
+        triggers.dealt_combat_damage_to_player(plan, list({c.id: c for c in hit_players}.values()))
+    monarch = plan.state.table.monarch
+    if monarch and (dmg.players.get(monarch) or dmg.poison.get(monarch)):
+        from app.rules import triggers  # triggers → plan; imported late
+
+        hitters = [plan.state.cards[src] for src, tgt, n in dmg.dealt if tgt == monarch and n > 0 and src in plan.state.cards]
+        triggers.monarch_damaged(plan, hitters[:1])  # one trigger per combat damage event
 
 
 def end_combat(plan: Plan) -> None:

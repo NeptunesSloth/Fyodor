@@ -68,6 +68,7 @@ async def delete_result(result_id: str, request: Request, services: ServicesDep)
     room = services.hub.get(game_id)
     if room is not None:
         room.result_id = None  # the game can be recorded again
+        services.hub.persist(room)
         await services.hub.broadcast(room)
     return Response(status_code=204)
 

@@ -5,9 +5,10 @@ from __future__ import annotations
 import copy
 
 from app.game.history import History
+from app.game.session import GameSession
 from app.storage.save_format import SAVE_VERSION, decode, encode
 from app.storage.saves import load_payload
-from tests.game_helpers import act, find, make_session, zone
+from tests.game_helpers import act, enable, find, make_session, zone
 
 
 def as_v1(state_dict: dict) -> dict:
@@ -40,7 +41,7 @@ def test_v1_save_migrates_and_keeps_history(cards):
         "history": {**history, "base": as_v1(history["base"])},
     }
     migrated = decode(encode(payload))
-    assert migrated["version"] == SAVE_VERSION == 5
+    assert migrated["version"] == SAVE_VERSION == 6
     state, restored_history = load_payload(migrated)
     assert state.players["p1"].life == 37
     assert state.searching("p1") == "p1:library"
@@ -122,8 +123,53 @@ def test_v4_save_becomes_a_sandbox_game_in_v5(cards):
     history["base"].pop("rules", None)
     payload = {"format": "fyodor-save", "version": 4, "saved_at": 0, "state": state, "history": history}
     migrated = decode(encode(payload))
-    assert migrated["version"] == SAVE_VERSION == 5 and migrated["migrated_from"] == 4
+    assert migrated["version"] == SAVE_VERSION == 6 and migrated["migrated_from"] == 4
     assert migrated["state"]["rules"] is None and migrated["state"]["settings"]["automation"] == "off"
     loaded, restored = load_payload(migrated)
     assert loaded.rules is None and loaded.settings.automation == "off"
     assert restored is not None and restored.cursor == 1
+
+
+def _as_v5_rules(rules):
+    if isinstance(rules, dict):
+        prefs = rules.pop("prefs", {})
+        rules["stops"] = {pid: {"own": p["stops_my_turn"], "others": p["stops_their_turn"],
+                                "hold_priority": p["hold_priority"], "smart_pass": p["response"] == "auto"}
+                          for pid, p in prefs.items()}
+
+
+def _as_v5(state):
+    state["settings"]["automation"] = "rules" if state["settings"]["automation"] == "full" else "off"
+    state["settings"].pop("automation_options", None)
+    _as_v5_rules(state.get("rules"))
+    return state
+
+
+def test_v5_rules_game_becomes_full_and_stops_become_preferences(cards):
+    s = GameSession(enable(make_session(cards).state), cards=cards)
+    act(s, "p2", type="set_stops", own=["upkeep", "main1"], others=["end"], smart_pass=False)
+    act(s, "p1", type="pass_priority")
+    history = s.history.to_dict()
+    for action in history["actions"]:
+        for step in action.get("r") or []:
+            if step["type"] == "rules_sync":
+                _as_v5_rules(step["rules"])
+    payload = {"format": "fyodor-save", "version": 5, "saved_at": 0,
+               "state": _as_v5(s.state.model_dump(mode="json")), "history": {**history, "base": _as_v5(history["base"])}}
+    migrated = decode(encode(payload))
+    assert migrated["version"] == SAVE_VERSION == 6
+    loaded, restored = load_payload(migrated)
+    assert loaded.settings.automation == "full" and loaded.settings.automation_options.auto_sba
+    bob = loaded.rules.prefs["p2"]
+    assert (bob.response, bob.stops_my_turn, bob.stops_their_turn) == ("on", ["upkeep", "main1"], ["end"])
+    assert restored is not None and restored.rebuild().model_dump(mode="json") == loaded.model_dump(mode="json")
+
+
+def test_v5_sandbox_game_stays_off(cards):
+    s = make_session(cards)
+    act(s, "p1", type="draw", count=2)
+    history = s.history.to_dict()
+    payload = {"format": "fyodor-save", "version": 5, "saved_at": 0,
+               "state": _as_v5(s.state.model_dump(mode="json")), "history": {**history, "base": _as_v5(history["base"])}}
+    loaded, restored = load_payload(decode(encode(payload)))
+    assert loaded.settings.automation == "off" and loaded.rules is None and restored is not None

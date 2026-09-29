@@ -111,6 +111,19 @@ export function CombatArrows() {
   );
 }
 
+/** A click on a card or player while picking targets. */
+export function pickClick(id: string): void {
+  const cur = useGame.getState().pick;
+  if (!cur) return;
+  if (!cur.multi) {
+    useGame.getState().setPick(null);
+    cur.onDone([id]);
+    return;
+  }
+  const picked = cur.picked.includes(id) ? cur.picked.filter((x) => x !== id) : [...cur.picked, id];
+  useGame.getState().setPick({ ...cur, picked });
+}
+
 /**
  * Pick mode: while choosing targets, clicks on cards and players pick them instead of acting.
  * Esc cancels; Done finishes a multi-pick.
@@ -128,15 +141,7 @@ export function PickLayer() {
       if (!id) return;
       e.preventDefault();
       e.stopPropagation();
-      const cur = useGame.getState().pick;
-      if (!cur) return;
-      if (!cur.multi) {
-        useGame.getState().setPick(null);
-        cur.onDone([id]);
-        return;
-      }
-      const picked = cur.picked.includes(id) ? cur.picked.filter((x) => x !== id) : [...cur.picked, id];
-      useGame.getState().setPick({ ...cur, picked });
+      pickClick(id);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {

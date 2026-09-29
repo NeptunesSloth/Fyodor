@@ -122,6 +122,7 @@ def move_card(
         return True
 
     if is_ephemeral(c) and dst_zone not in ("battlefield", STACK):
+        state.departures()[c.id] = dest  # it went there, then ceased to exist (rules tracking)
         delete(state, c)
         return False
 
@@ -143,30 +144,44 @@ def move_card(
             c.attached_to = None
             c.attach_offset = None
 
-    # A card that changes zones becomes a new object: manual markers don't follow it.
-    c.effects = []
-    c.damage = 0
-    c.choices = {}
-    if src_zone == STACK or dst_zone == STACK:
-        c.stack_info = None
-    if dst_zone not in ("exile", "foretell"):
-        c.exile_group = None
-    if src_zone == "battlefield" or dst_zone == "battlefield":
-        c.tapped = False
+    if src_zone == dst_zone == "battlefield":
+        # A control change (another player's battlefield) is not a zone change: the permanent
+        # stays the same object with its damage, counters and tapped state. It leaves combat.
         c.attacking = None
         c.blocking = None
-        c.flipped = False
-        if src_zone == "battlefield":
-            c.counters = {}
-            for other in state.cards.values():
-                if other.blocking == c.id:
-                    other.blocking = None
-                if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
-                    other.attacking = None
+        for other in state.cards.values():
+            if other.blocking == c.id:
+                other.blocking = None
+            if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
+                other.attacking = None
+    else:
+        # A card that changes zones becomes a new object: manual markers don't follow it.
+        c.effects = []
+        c.damage = 0
+        c.choices = {}
+        if src_zone == STACK or dst_zone == STACK:
+            c.stack_info = None
+        if dst_zone not in ("exile", "foretell"):
+            c.exile_group = None
+        if src_zone == "battlefield" or dst_zone == "battlefield":
+            c.tapped = False
+            c.attacking = None
+            c.blocking = None
+            c.flipped = False
+            if src_zone == "battlefield":
+                c.counters = {}
+                for other in state.cards.values():
+                    if other.blocking == c.id:
+                        other.blocking = None
+                    if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
+                        other.attacking = None
     if dst_zone in HIDDEN_ZONES or src_zone in HIDDEN_ZONES:
         c.face = 0
     c.revealed_to = []  # a reveal ends when the card changes zones
-    c.face_down = bool(face_down) if face_down is not None else False
+    if face_down is not None:
+        c.face_down = bool(face_down)
+    elif not src_zone == dst_zone == "battlefield":
+        c.face_down = False  # (a control change keeps a face-down permanent face down)
     if not c.face_down:
         c.face_down_kind = None
     if dst_zone == "battlefield":

@@ -13,9 +13,9 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
-from app.game.rules_state import RulesState
+from app.game.rules_state import AutomationLevel, AutomationOptions, RulesState
 
 ALL = "*"  # marker in ``revealed_to`` meaning "every player"
 
@@ -313,9 +313,11 @@ class GameSettings(BaseModel):
     # What opponents learn about a player's deck: nothing, the commander(s) and deck name, or the list.
     deck_privacy: Literal["private", "commander_only", "public"] = "commander_only"
     priority_helper: Literal["off", "simple"] = "off"
-    # Rules automation: "off" is the sandbox (players decide everything); "rules" lets the rules
-    # engine automate normal play for supported cards, with the sandbox still available.
-    automation: Literal["off", "rules"] = "off"
+    # Rules automation (docs/AUTOMATION_UX.md): OFF is the sandbox (players decide everything),
+    # ASSISTED prepares and asks, FULL automates like a digital card game. The sandbox tools stay
+    # available at every level. Options start as the level's preset; any change makes it CUSTOM.
+    automation: AutomationLevel = "off"
+    automation_options: AutomationOptions = Field(default_factory=AutomationOptions)
     mulligan: MulliganPolicy | None = None  # None: mulligans are done by hand (sandbox)
 
 
@@ -342,6 +344,7 @@ class LogEntry(BaseModel):
     parts: list[LogPart]
     kind: str = "action"
     manual: bool = False  # a sandbox action taken while rules automation was on
+    folded: bool = False  # shown collapsed under the following summary line (a repeated sequence)
 
 
 class GameState(BaseModel):
@@ -367,7 +370,13 @@ class GameState(BaseModel):
     auto_pass: dict[str, int] = Field(default_factory=dict)  # player -> turn number they auto-pass through
     passed_at: int | None = None  # seq at which everyone last passed (no need to ask again)
     log: list[LogEntry] = Field(default_factory=list)
-    rules: RulesState | None = None  # only while automation is on (see app/game/rules_state.py)
+    rules: RulesState | None = None  # rules bookkeeping; kept (dormant) when automation is turned off
+    # Where cards that ceased to exist during the step being applied were headed (a token "dies":
+    # it goes to the graveyard, then ceases to exist). In memory only; read by rules tracking.
+    _departed: dict[str, str] = PrivateAttr(default_factory=dict)
+
+    def departures(self) -> dict[str, str]:
+        return self._departed
 
     # -- helpers ---------------------------------------------------------------------
     def zone(self, key: str) -> list[str]:

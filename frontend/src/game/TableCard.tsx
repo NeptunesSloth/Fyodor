@@ -1,13 +1,15 @@
+import { tapGesture } from "./rules/intents";
 import { usePrefs } from "../state/prefs";
 import { memo } from "react";
 import { openMenu } from "../components/ContextMenu";
 import { useGame, useCardView } from "../state/gameStore";
-import { FACE_DOWN_LABEL, isVisible, splitZone } from "../types/game";
-import { moveCards, send, tapCards, targetsFor } from "./actions";
+import { FACE_DOWN_LABEL, isVisible, type CardStats } from "../types/game";
+import { moveCards, tapCards, targetsFor } from "./actions";
+import { dropCards } from "./drop";
 import { cardMenu } from "./cardMenu";
-import { beginPointerDrag, type DropResult } from "./dnd";
-import { groupPositions } from "./geometry";
+import { beginPointerDrag } from "./dnd";
 import { CounterBadges, GameCardFace } from "./GameCardFace";
+import { answerByClick, legalClass } from "./rules/RulesHud";
 
 interface Props {
   id: string;
@@ -23,6 +25,8 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
   const card = useCardView(id);
   const selected = useGame((s) => s.selection.includes(id));
   const showSources = usePrefs((s) => s.showTokenSources);
+  const legal = useGame((s) => legalClass(s.view, id, me));
+  const stats = useGame((s) => s.view?.rules?.stats?.[id]);
   if (!card) return null;
   const visible = isVisible(card);
   const rotation = (card.tapped ? 90 : 0) + (card.flipped ? 180 : 0) + (card.rotation ?? 0);
@@ -31,45 +35,26 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
     if (e.button !== 0) return;
     e.stopPropagation();
     const store = useGame.getState();
+    if (legal === "rules-target" && answerByClick(store.view, id, me)) return; // click-to-target
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       store.select([id], "toggle");
       return;
     }
     if (!store.selection.includes(id)) store.select([id]);
     const ids = targetsFor(id);
-    beginPointerDrag(e, { ids, from: card.zone, width, onDrop: (t) => onDrop(ids, t) });
-  };
-
-  const onDrop = (ids: string[], target: DropResult | null) => {
-    if (!target) return;
-    const view = useGame.getState().view;
-    if (!view) return;
-    const { zone } = splitZone(target.zone);
-    if (zone === "battlefield" && target.x != null && target.y != null) {
-      const same = target.zone === card.zone;
-      const positions = groupPositions(ids, id, { x: target.x, y: target.y }, view.cards, same);
-      useGame.getState().setPending(positions);
-      if (same) {
-        void send({ type: "set_position", moves: ids.map((cid) => [cid, ...positions[cid]!]) });
-      } else {
-        void moveCards(ids, "battlefield", { player: splitZone(target.zone).player, x: target.x, y: target.y });
-      }
-      return;
-    }
-    const player = splitZone(target.zone).player;
-    void moveCards(ids, zone, { player, position: target.position, index: target.index });
+    beginPointerDrag(e, { ids, from: card.zone, width, onDrop: (t) => dropCards(ids, id, t) });
   };
 
   return (
     <div
-      className={`table-card ${selected ? "selected" : ""} ${card.attacking ? "attacking" : ""} ${card.blocking ? "blocking" : ""}`}
+      className={`table-card ${selected ? "selected" : ""} ${card.attacking ? "attacking" : ""} ${card.blocking ? "blocking" : ""} ${legal}`}
       data-card-id={id}
       data-tapped={card.tapped ? "" : undefined}
       style={{ left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }}
       onPointerDown={onPointerDown}
       onDoubleClick={(e) => {
         e.stopPropagation();
-        void tapCards(targetsFor(id));
+        tapGesture(targetsFor(id), (x) => void tapCards(x));
       }}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -116,9 +101,30 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
         </div>
       ) : null}
       <CounterBadges counters={card.counters} />
+      {visible && stats && <StatBadge stats={stats} />}
     </div>
   );
 });
+
+/** The creature's current power/toughness and gained/lost keywords, when the rules change them. */
+export function StatBadge({ stats }: { stats: CardStats }) {
+  const base = Number(stats.base?.[0] ?? NaN) + Number(stats.base?.[1] ?? NaN);
+  const now = stats.pt ? stats.pt[0] + stats.pt[1] : NaN;
+  const trend = Number.isNaN(base) || Number.isNaN(now) || now === base ? "" : now > base ? " up" : " down";
+  const title = [stats.gained?.length ? `Has: ${stats.gained.join(", ")}` : "", stats.lost?.length ? `Lost: ${stats.lost.join(", ")}` : ""]
+    .filter(Boolean).join("\n");
+  return (
+    <span className={`stat-badge${trend}`} title={title || undefined} data-testid="stat-badge">
+      {stats.gained?.length ? <i>{stats.gained.map((k) => KEYWORD_GLYPH[k] ?? "✦").join("")}</i> : null}
+      {stats.pt ? `${stats.pt[0]}/${stats.pt[1]}` : ""}
+    </span>
+  );
+}
+
+const KEYWORD_GLYPH: Record<string, string> = {
+  flying: "🪶", haste: "»", trample: "⇶", vigilance: "◉", lifelink: "♥", deathtouch: "☠", "first strike": "⚡",
+  "double strike": "⚡⚡", menace: "⚔", reach: "↑", hexproof: "◈", indestructible: "⛨",
+};
 
 /** Right-click menu for moving a whole zone's content, used by piles. */
 export function zoneMoveAll(ids: string[], to: Parameters<typeof moveCards>[1], player: string | null) {

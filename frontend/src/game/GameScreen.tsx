@@ -1,6 +1,7 @@
+import { tapGesture } from "./rules/intents";
 import { useMacros } from "../state/macros";
 import { playmatStyle, usePlaymat } from "./appearance";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { perspective, useGame } from "../state/gameStore";
 import { SPECTATOR } from "../types/game";
 import { useCardCache } from "../state/cardCache";
@@ -18,13 +19,21 @@ import { ZoneBrowser } from "./ZoneBrowser";
 import { bookmarkSlot, matchHotkey } from "./hotkeys";
 import { recallBookmark, saveBookmark } from "./bookmarks";
 import { ResponseBar } from "./ResponseBar";
+import { AutomationErrorPanel, AutomationHud, DecisionPanel, PriorityBar, RulesStack } from "./rules/RulesHud";
+import { passPriority } from "./rules/intents";
+import "./rules/rules.css";
+import { resolveRenderer } from "../table3d/renderer";
+
+const Table3D = lazy(() => import("../table3d/Table3D").then((m) => ({ default: m.Table3D })));
 
 export function GameScreen() {
   const view = useGame((s) => s.view);
   const status = useGame((s) => s.status);
   const detail = useGame((s) => s.statusDetail);
+  const outbox = useGame((s) => s.outbox);
   const actingAs = useGame((s) => s.actingAs);
   const focus = useGame((s) => s.focus);
+  const rendererPref = usePrefs((s) => s.renderer);
   const browserOpen = useGame((s) => !!s.browser || (!!s.view && !!s.view.searches[s.view.viewer]));
   useShortcuts();
   useHudClass();
@@ -44,26 +53,32 @@ export function GameScreen() {
   const start = order.indexOf(me);
   const others = [...order.slice(start + 1), ...order.slice(0, Math.max(0, start))];
   const canSeeMyHand = view.viewer !== "__spectator__";
+  const three = resolveRenderer(rendererPref) === "3d";
 
   return (
     <div className="game-screen">
       <TopBar />
       <div className="game-body">
-        <main className="table">
-          <TablePlaymat />
-          <div className={`opponents n${others.length} ${focus && focus !== me ? "focused" : ""} ${focus === me ? "shrunk" : ""}`}>
+        <main className={`table ${three ? "is-3d" : ""}`}>
+          {three ? <Suspense fallback={<div className="table3d-loading">Setting the table…</div>}><Table3D me={me} /></Suspense> : <TablePlaymat />}
+          {!three && <div className={`opponents n${others.length} ${focus && focus !== me ? "focused" : ""} ${focus === me ? "shrunk" : ""}`}>
             {others.map((pid) => (
               <PlayerArea key={pid} player={pid} me={me} mine={false} compact={others.length > 1} focused={focus === pid} />
             ))}
-          </div>
-          <div className={`me ${focus === me ? "focused" : ""} ${focus && focus !== me ? "shrunk" : ""}`}>
+          </div>}
+          {!three && <div className={`me ${focus === me ? "focused" : ""} ${focus && focus !== me ? "shrunk" : ""}`}>
             <PlayerArea player={me} me={me} mine />
-          </div>
+          </div>}
           {browserOpen && <ZoneBrowser me={me} />}
           {canSeeMyHand && <Hand player={me} me={me} />}
         </main>
       </div>
-      {status !== "open" && <div className="conn-banner">{status === "reconnecting" ? "Connection lost — reconnecting…" : detail ?? status}</div>}
+      {status !== "open" && (
+        <div className={`conn-banner ${status}`} role="status" data-testid="conn-banner">
+          {status === "reconnecting" ? "Connection lost — reconnecting…" : status === "connecting" ? "Connecting to the table…" : detail ?? status}
+          {outbox > 0 && <span className="conn-outbox"> · {outbox} action{outbox === 1 ? "" : "s"} will be sent when the table is back</span>}
+        </div>
+      )}
       <StackWidget me={me} />
       <LogDrawer />
       <ToolTray />
@@ -72,8 +87,13 @@ export function GameScreen() {
       <GameDialogs me={me} />
       <MulliganOverlay />
       <ResponseBar />
+      <AutomationHud />
+      <RulesStack />
+      <PriorityBar />
+      <DecisionPanel />
+      <AutomationErrorPanel />
       <DragLayer />
-      <CombatArrows />
+      {!three && <CombatArrows />}
       <PickLayer />
     </div>
   );
@@ -111,7 +131,7 @@ function useShortcuts() {
         case "tap":
           if (targets.length) {
             e.preventDefault();
-            void tapCards(targets.filter((cid) => view.cards[cid]?.zone.endsWith(":battlefield")));
+            tapGesture(targets.filter((cid) => view.cards[cid]?.zone.endsWith(":battlefield")), (x) => void tapCards(x));
           }
           break;
         case "draw":
@@ -149,7 +169,8 @@ function useShortcuts() {
           s.openDialog("help");
           break;
         case "pass":
-          if (w?.waiting.includes(me)) void send({ type: "response_pass" });
+          if (view.rules && view.rules.priority === me && !view.rules.decision) void passPriority();
+          else if (w?.waiting.includes(me)) void send({ type: "response_pass" });
           break;
         case "respond":
           if (w && w.opener !== me) void send({ type: "response_respond" });

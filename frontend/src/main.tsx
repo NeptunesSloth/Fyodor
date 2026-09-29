@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./styles.css";
 import "./game/game.css";
+import "./theme/theme.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root element missing");

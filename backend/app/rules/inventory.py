@@ -76,7 +76,7 @@ class Inventory:
 
     def report(self) -> dict[str, Any]:
         rows = [c.as_dict() for c in self.ordered()]
-        summary = {level: sum(1 for r in rows if r["coverage"] == level) for level in ("FULL", "PARTIAL", "MANUAL")}
+        summary = {level: sum(1 for r in rows if r["coverage"] == level) for level in ("FULL", "PARTIAL", "REVIEW", "MANUAL")}
         # How much of what we actually play is automated, weighted by copies across decks.
         weight = sum(r["copies"] for r in rows) or 1
         return {

@@ -13,16 +13,14 @@ import pytest
 from pydantic import ValidationError
 
 from app.game.errors import ActionError
-from app.game.rules_state import start_rules
 from app.game.session import GameSession
-from tests.game_helpers import act, find, make_session, zone
+from tests.game_helpers import act, enable, find, make_session, turn_on, zone
 
 
 @pytest.fixture()
 def s(cards):
     state = make_session(cards).state
-    state.settings.automation = "rules"
-    start_rules(state)
+    enable(state)
     return GameSession(state, cards=cards)  # like the API: automation is set before play starts
 
 
@@ -183,14 +181,14 @@ def test_host_can_pause_and_turn_automation_off(s):
     act(s, "p1", type="configure", automation_paused=False)
     act(s, "p1", type="pass_priority")
     act(s, "p1", type="configure", automation="off")
-    assert s.state.rules is None and "rules" not in s.view("p1")
+    assert s.state.rules is not None and "rules" not in s.view("p1")  # dormant, not destroyed
 
 
 def test_turning_automation_on_mid_game(cards):
     sandbox = make_session(cards)
     act(sandbox, "p1", type="draw", count=7)
     act(sandbox, "p1", type="move", card_ids=[find(sandbox.state, "Llanowar Elves", "p1").id], to={"zone": "battlefield"})
-    act(sandbox, "p1", type="configure", automation="rules")
+    turn_on(sandbox)
     r = sandbox.state.rules
     assert r is not None and r.priority == "p1" and sandbox.state.settings.priority_helper == "off"
     elves = find(sandbox.state, "Llanowar Elves", "p1")
@@ -201,7 +199,7 @@ def test_concede(s):
     to_main(s)
     act(s, "p2", type="concede")
     assert "p2" in rules(s).conceded and "last player standing" in json.dumps(s.view("p1")["log"])
-    with pytest.raises(ActionError, match="conceded"):
+    with pytest.raises(ActionError, match="left this game"):
         act(s, "p2", type="pass_priority")
 
 
@@ -226,12 +224,12 @@ def test_hints_are_only_about_your_own_cards(s):
 
 
 def test_rules_tables_over_the_api(client):
-    body = client.post("/api/games", json={"mode": "local", "automation": "rules",
+    body = client.post("/api/games", json={"mode": "local", "automation": "full",
                                            "players": [{"name": "Alice"}, {"name": "Bob"}]}).json()
     gid = body["game"]["id"]
     view = client.get(f"/api/games/{gid}/view?viewer=p1").json()
-    assert view["rules"]["automation"] == "rules" and view["rules"]["priority"] == "p1"
-    assert view["game"]["settings"]["automation"] == "rules"
+    assert view["rules"]["automation"] == "full" and view["rules"]["priority"] == "p1"
+    assert view["game"]["settings"]["automation"] == "full"
     res = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "pass_priority"}, "viewer": "p1"})
     assert res.status_code == 200, res.text
     assert res.json()["turn"]["phase"] == "main1"
@@ -240,7 +238,7 @@ def test_rules_tables_over_the_api(client):
 
 
 def test_lan_lobby_can_turn_automation_on(client):
-    res = client.post("/api/games", json={"mode": "lan", "lobby": True, "automation": "rules", "players": [{"name": "Alice"}]})
+    res = client.post("/api/games", json={"mode": "lan", "lobby": True, "automation": "full", "players": [{"name": "Alice"}]})
     assert res.status_code == 201
     lobby = client.get(f"/api/games/{res.json()['game']['id']}/lobby", headers={"X-Seat-Token": res.json()["seat"]["token"]}).json()
-    assert lobby["settings"]["automation"] == "rules"
+    assert lobby["settings"]["automation"] == "full"

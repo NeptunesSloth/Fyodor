@@ -1,3 +1,4 @@
+import { tapGesture } from "./rules/intents";
 /** Context-menu contents for a card, depending on the zone it is in. */
 import { macrosFor } from "../state/macros";
 import { usePrefs } from "../state/prefs";
@@ -8,6 +9,7 @@ import { useCardCache } from "../state/cardCache";
 import { FACE_DOWN_LABEL, isVisible, splitZone, type FaceDownKind, type GameCard, type GameView, type ZoneName } from "../types/game";
 import { addCounter, COMMON_COUNTERS, moveCards, send, tapCards, targetsFor } from "./actions";
 import { choicesMenu, damageMenu, effectsMenu, exileGroupMenu, stackMenu, startArrow, startCopyTarget } from "./marksMenu";
+import { rulesMenu } from "./rules/rulesMenu";
 
 function moveMenu(ids: string[], current: ZoneName, owner: string | null, me: string): MenuItem[] {
   const items: MenuItem[] = [];
@@ -42,12 +44,12 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
   const cardData = visible && card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
   const multi = ids.length > 1;
   const title = multi ? `${ids.length} cards` : visible ? card.name : "Hidden card";
-  const items: MenuItem[] = [];
+  const items: MenuItem[] = multi ? [] : rulesMenu(card, view, me);
   const opponents = view.seat_order.filter((p) => p !== me);
   const players = view.players;
 
   if (zone === "battlefield") {
-    items.push({ label: card.tapped ? "Untap" : "Tap", hint: "T / double-click", onClick: () => void tapCards(ids) });
+    items.push({ label: card.tapped ? "Untap" : "Tap", hint: "T / double-click", onClick: () => tapGesture(ids, (x) => void tapCards(x)) });
     items.push({
       label: "Add counter",
       submenu: [

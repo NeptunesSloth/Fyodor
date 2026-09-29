@@ -1,6 +1,15 @@
 # Local data (card DB, images, saves) — never committed
 /data/*
 !/data/.gitkeep
+# …except researched rules and the (card-pool, not pod) coverage reports, which ship with the code
+!/data/rules/
+!/data/reports/
+/data/reports/*
+!/data/reports/commander_rules_coverage.*
+!/data/reports/commander_coverage.md
+!/data/reports/rules_changes.md
+!/data/reports/sba_audit.md
+!/data/reports/mechanics.md
 
 # Python
 __pycache__/

@@ -46,6 +46,10 @@ class Characteristics:
     oracle_id: str | None = None
     face_down: bool = False
     is_ability: bool = False  # an ability object on the stack
+    # Derived by app.rules.layers (never printed): current power/toughness, keywords gained/lost.
+    pt: tuple[int, int] | None = None
+    granted: frozenset[str] = frozenset()
+    lost: frozenset[str] = frozenset()
 
     @property
     def is_land(self) -> bool:
@@ -65,7 +69,8 @@ class Characteristics:
 
     @property
     def keywords(self) -> frozenset[str]:
-        return frozenset(k for a in self.abilities if a.kind == "keywords" for k in a.keywords)
+        printed = frozenset(k for a in self.abilities if a.kind == "keywords" for k in a.keywords)
+        return (printed | self.granted) - self.lost
 
     @property
     def has_flash(self) -> bool:
@@ -104,9 +109,17 @@ _printed_cache: dict[tuple[str, int], Characteristics] = {}
 _CACHE_MAX = 5000
 
 
-def _from_card_data(data: dict[str, Any], face: int) -> Characteristics:
+HALVES = ("split", "adventure", "aftermath")  # one card, two spells: you cast one half
+
+
+def _from_card_data(data: dict[str, Any], face: int, *, half: bool = False) -> Characteristics:
     faces = data.get("faces") or []
     layout = data.get("layout")
+    if half and faces and layout in HALVES:
+        face = min(face, len(faces) - 1)
+        src = faces[face]
+        text = str(src.get("oracle_text") or "")
+        return _build(data, src, text)
     # Split cards and adventures are one object with both halves' text while not on the stack;
     # double-faced / modal / flip cards use the face that is up.
     if faces and layout in ("transform", "modal_dfc", "flip", "meld", "reversible_card", "prepare"):
@@ -118,25 +131,45 @@ def _from_card_data(data: dict[str, Any], face: int) -> Characteristics:
     else:
         src = data
         text = str(data.get("oracle_text") or "")
+    return _build(data, src, text)
+
+
+def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characteristics:
     type_line = str(src.get("type_line") or data.get("type_line") or "")
     supertypes, types, subtypes = parse_type_line(type_line)
     cost = str(src.get("mana_cost") or (data.get("mana_cost") if src is data else "") or "")
     colors = src.get("colors") if src.get("colors") is not None else data.get("colors")
+    abilities = with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
     return Characteristics(
         name=str(src.get("name") or data.get("name") or ""),
         supertypes=supertypes,
         types=types,
-        subtypes=subtypes,
+        subtypes=changeling(subtypes, abilities),
         mana_cost=cost,
         mana_value=mana_value(cost),
-        colors=frozenset(colors or []),
+        colors=frozenset() if _devoid(abilities) else frozenset(colors or []),
         power=src.get("power"),
         toughness=src.get("toughness"),
         loyalty=src.get("loyalty"),
         oracle_text=text,
-        abilities=with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"})), subtypes),
+        abilities=abilities,
         oracle_id=data.get("oracle_id"),
     )
+
+
+def _devoid(abilities: tuple[AbilityText, ...]) -> bool:
+    """702.114a devoid: "This object is colorless" (a characteristic-defining ability, every zone)."""
+    return any(a.kind == "keywords" and "devoid" in a.keywords for a in abilities)
+
+
+def changeling(subtypes: frozenset[str], abilities: tuple[AbilityText, ...]) -> frozenset[str]:
+    """702.73a: changeling is a characteristic-defining ability, "this object is every creature
+    type" — in every zone (CR 205.3m list)."""
+    if any(a.kind == "keywords" and "changeling" in a.keywords for a in abilities):
+        from app.rules.creature_types import CREATURE_TYPES
+
+        return subtypes | CREATURE_TYPES
+    return subtypes
 
 
 def with_intrinsic_mana(abilities: list[AbilityText], subtypes: frozenset[str]) -> tuple[AbilityText, ...]:
@@ -161,20 +194,38 @@ def printed_from_data(data: dict[str, Any], face: int = 0) -> Characteristics:
     return hit
 
 
+def is_two_spell_card(card: CardInstance, info: CardInfo) -> bool:
+    data = info.get(card.card_id) if card.card_id else None
+    return bool(data and data.get("faces") and data.get("layout") in HALVES)
+
+
+def as_cast(card: CardInstance, info: CardInfo, face: int | None) -> Characteristics:
+    """The spell you cast from this card: for split cards and adventures, the half you chose
+    (its own cost and type), otherwise the card as it is (after turning it to ``face``)."""
+    data = info.get(card.card_id) if card.card_id else None
+    if data and data.get("faces") and data.get("layout") in HALVES and card.ability is None and not card.token:
+        key = (str(data.get("id")) + "#half", face or 0)
+        hit = _printed_cache.get(key)
+        if hit is None:
+            hit = _printed_cache[key] = _from_card_data(data, face or 0, half=True)
+        return hit
+    return of(card.model_copy(update={"face": face}) if face is not None else card, info)
+
+
 def of(card: CardInstance, info: CardInfo) -> Characteristics:
     """Current characteristics of a card instance (printed layer; see module docstring)."""
     if card.ability is not None:
         return Characteristics(name=card.ability.source_name or "Ability", oracle_text=card.ability.text,
                                abilities=tuple(parse_abilities(card.ability.text, spell=True)), is_ability=True)
-    if card.face_down and card.zone.endswith(":battlefield"):
+    if card.face_down and (card.zone.endswith(":battlefield") or card.zone == "stack"):
         return Characteristics(name="", types=frozenset({"Creature"}), power="2", toughness="2", face_down=True)
     if card.token is not None and not card.card_id:
         t = card.token
         supertypes, types, subtypes = parse_type_line(t.type_line)
+        abilities = with_intrinsic_mana(parse_abilities(t.text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
         return Characteristics(
-            name=t.name, supertypes=supertypes, types=types, subtypes=subtypes, colors=frozenset(t.colors),
-            power=t.power, toughness=t.toughness, oracle_text=t.text,
-            abilities=with_intrinsic_mana(parse_abilities(t.text, spell=bool(types & {"Instant", "Sorcery"})), subtypes),
+            name=t.name, supertypes=supertypes, types=types, subtypes=changeling(subtypes, abilities),
+            colors=frozenset() if _devoid(abilities) else frozenset(t.colors), power=t.power, toughness=t.toughness, oracle_text=t.text, abilities=abilities,
         )
     data = info.get(card.card_id) if card.card_id else None
     if data is None:

@@ -156,7 +156,7 @@ def test_websocket_sync_and_hidden_info(client, decks):
         wa.receive_json()  # broadcast after bob connected
         wa.send_json({"type": "action", "action": {"type": "draw", "count": 7}, "id": 1})
         msgs = [wa.receive_json(), wa.receive_json()]
-        assert {"type": "ack", "id": 1} in msgs
+        assert {"type": "ack", "id": 1, "status": "ACCEPTED"} in msgs
         state_a = next(m for m in msgs if m["type"] == "state")["view"]
         assert all("name" in state_a["cards"][c] for c in state_a["zones"]["p1:hand"])
         state_b = wb.receive_json()

@@ -120,6 +120,30 @@ MIGRATIONS: list[str] = [
     CREATE INDEX assets_kind ON assets(kind, name);
     CREATE INDEX assets_sha ON assets(sha256);
     """,
+    # 7: game-night recovery. A live table's room (code, seats and their tokens) and a journal of
+    # every change since its last checkpoint (autosave), so a crash loses nothing and players
+    # reconnect to the same seats. Local secrets on the host computer, never sent to clients.
+    """
+    CREATE TABLE live_rooms (
+        game_id TEXT PRIMARY KEY,
+        meta TEXT NOT NULL,
+        checkpoint TEXT,
+        updated_at REAL NOT NULL
+    );
+    CREATE TABLE room_journal (
+        game_id TEXT NOT NULL,
+        seq INTEGER NOT NULL,
+        entry TEXT NOT NULL,
+        PRIMARY KEY (game_id, seq)
+    );
+    CREATE TABLE client_actions (
+        game_id TEXT NOT NULL,
+        client_action_id TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        created_at REAL NOT NULL,
+        PRIMARY KEY (game_id, client_action_id)
+    );
+    """,
 ]
 
 
