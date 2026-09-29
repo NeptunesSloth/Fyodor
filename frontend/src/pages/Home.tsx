@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getHealth, type Health } from "../services/api";
+import { Welcome, resetWelcome, welcomeDone } from "./Welcome";
 
 export function Home() {
   const [health, setHealth] = useState<Health | null>(null);
@@ -8,8 +9,10 @@ export function Home() {
     getHealth().then(setHealth, (e: unknown) => setError(String(e)));
   }, []);
   const db = health?.card_database;
+  const [showWelcome, setShowWelcome] = useState(!welcomeDone());
   return (
     <div className="page home">
+      {showWelcome && <Welcome health={health} onClose={() => setShowWelcome(false)} />}
       <section className="hero">
         <h1>Fyodor</h1>
         <p>An offline tabletop for Magic: The Gathering. You play the rules; the table handles the rest.</p>
@@ -38,6 +41,7 @@ export function Home() {
             )}
           </ul>
         )}
+        {!showWelcome && <button className="btn small ghost" onClick={() => { resetWelcome(); setShowWelcome(true); }}>Setup guide</button>}
       </section>
     </div>
   );

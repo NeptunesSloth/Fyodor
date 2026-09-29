@@ -55,6 +55,18 @@ images.
 
 ## Running
 
+**Game night** (one command; sets up on first run, checks the card database, data folder and
+port, prints the address for the pod and opens your browser):
+
+```bash
+scripts/start.sh          # this computer only
+scripts/start.sh --lan    # let phones/laptops on your home network join
+scripts\start.cmd --lan   # Windows
+```
+
+The first time you open it, a short **setup guide** on the home page asks your name, confirms
+the card database and shows how others join. You can reopen it from the home page.
+
 **Development** (hot reload, two servers):
 
 ```bash
@@ -70,7 +82,7 @@ scripts/serve.sh    # builds the frontend, serves everything on http://127.0.0.1
 ### LAN play
 
 ```bash
-FYODOR_HOST=0.0.0.0 scripts/serve.sh
+scripts/start.sh --lan              # or: FYODOR_HOST=0.0.0.0 scripts/serve.sh
 ```
 
 1. On the host, open `http://127.0.0.1:8000` → **Play** → choose *LAN* → **Start game**.
@@ -154,7 +166,7 @@ frontend/src/
   state/            zustand stores (game, card cache), view reconciliation
   services/         REST + WebSocket clients
 docs/               plan, architecture, deck format, smoke test, security
-scripts/            setup, dev, serve, test, update-cards
+scripts/            start (launcher), setup, dev, serve, test, update-cards
 ```
 
 ## Privacy

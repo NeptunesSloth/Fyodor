@@ -18,6 +18,9 @@ test("hot-seat smoke: create a table, draw, tap, undo, redo", async ({ page }) =
   await expect(myHand).toHaveCount(1);
   await page.keyboard.press("Control+Shift+z");
   await expect(myHand).toHaveCount(2);
+  // No art cached and no Internet: cards render as readable text cards, never broken images.
+  await expect(myHand.first().locator(".text-card .tc-name")).not.toBeEmpty();
+  await expect(page.locator("main.table img:not([src])")).toHaveCount(0);
 
   // Play a land by double-clicking it, then tap it with T while hovered.
   const cardId = await myHand.first().getAttribute("data-card-id");

@@ -347,3 +347,12 @@ body.cb-markers .seat-glyph { display: inline; }
 
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .panel-head h2 { margin: 0; }
+
+.welcome { max-width: 760px; margin: 0 auto 20px; }
+.welcome-steps { display: grid; gap: 12px; padding-left: 22px; }
+.welcome-steps li { line-height: 1.5; }
+.welcome-steps li::marker { color: var(--room-brass); font-weight: 700; }
+.welcome-steps li.done::marker { content: "✓  "; color: #6fbf8f; }
+.welcome-steps li.todo::marker { content: "!  "; color: #e0a860; }
+.welcome-steps input { display: block; margin: 4px 0; max-width: 280px; }
+.welcome-steps code { margin-right: 6px; }
