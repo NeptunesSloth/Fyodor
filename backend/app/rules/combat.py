@@ -307,13 +307,15 @@ class CombatDamage:
     players: dict[str, int] = field(default_factory=dict)
     walkers: dict[str, int] = field(default_factory=dict)
     lifelink: dict[str, int] = field(default_factory=dict)
+    wither: dict[str, int] = field(default_factory=dict)  # -1/-1 counters (wither, infect)
+    poison: dict[str, int] = field(default_factory=dict)  # poison counters (infect)
     commander: dict[tuple[str, str], int] = field(default_factory=dict)
     deathtouched: list[str] = field(default_factory=list)
     dealt: list[tuple[str, str, int]] = field(default_factory=list)  # (source card, target card/player, amount)
 
     @property
     def empty(self) -> bool:
-        return not (self.creatures or self.players or self.walkers)
+        return not (self.creatures or self.players or self.walkers or self.wither or self.poison)
 
 
 def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
@@ -325,7 +327,8 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
         """Assign ``n`` damage to a creature; returns how much is dealt (protection prevents it, 702.16e)."""
         if protection.protected_from(plan.ch(target), source):
             return 0
-        out.creatures[target.id] = out.creatures.get(target.id, 0) + n
+        into = out.wither if {"wither", "infect"} & source.keywords else out.creatures
+        into[target.id] = into.get(target.id, 0) + n
         out.dealt.append((source_card.id, target.id, n))
         if "deathtouch" in source.keywords:
             out.deathtouched.append(target.id)
@@ -342,7 +345,8 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
         if tgt.kind == "player":
             if tgt.id not in state.players:
                 return 0
-            out.players[tgt.id] = out.players.get(tgt.id, 0) + n
+            into = out.poison if "infect" in ach.keywords else out.players
+            into[tgt.id] = into.get(tgt.id, 0) + n
             out.dealt.append((att.id, tgt.id, n))
             if att.commander_key:
                 key = (tgt.id, att.commander_key)
@@ -374,7 +378,7 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
                 elif t is None:
                     lethal = remaining
                 else:
-                    lethal = max(0, t - b.damage - out.creatures.get(b.id, 0))
+                    lethal = max(0, t - b.damage - out.creatures.get(b.id, 0) - out.wither.get(b.id, 0))
                 last = i == len(blockers) - 1
                 amount = remaining if last and "trample" not in ach.keywords else min(remaining, lethal)
                 if amount > 0:
@@ -411,14 +415,14 @@ def deal_combat_damage(plan: Plan, rnd: Round) -> None:
         return
     plan.do({
         "type": "rules_damage", "creatures": dmg.creatures, "players": dmg.players, "planeswalkers": dmg.walkers,
-        "lifelink": dmg.lifelink, "first_strike": rnd == "first",
+        "lifelink": dmg.lifelink, "wither": dmg.wither, "poison": dmg.poison, "first_strike": rnd == "first",
         "commander": [{"player": pid, "commander": key, "amount": n} for (pid, key), n in dmg.commander.items()],
         "dealt": [{"source": plan.oid(src), "target": tgt, "amount": n,
                    "target_object": plan.oid(tgt) if tgt in plan.state.cards else None} for src, tgt, n in dmg.dealt],
     }, actor=plan.active)
     plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *dmg.deathtouched]))
     monarch = plan.state.table.monarch
-    if monarch and dmg.players.get(monarch):
+    if monarch and (dmg.players.get(monarch) or dmg.poison.get(monarch)):
         from app.rules import triggers  # triggers → plan; imported late
 
         hitters = [plan.state.cards[src] for src, tgt, n in dmg.dealt if tgt == monarch and n > 0 and src in plan.state.cards]

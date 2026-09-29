@@ -111,7 +111,8 @@ def find(plan: Plan) -> Found:
                 out.dying.append((card, "0 toughness"))  # 704.5f (indestructible doesn't help)
             elif t is not None and card.damage >= t and "indestructible" not in ch.keywords:
                 out.dying.append((card, "lethal damage"))  # 704.5g
-            elif card.id in r.deathtouched and card.damage > 0 and "indestructible" not in ch.keywords:
+            elif card.id in r.deathtouched and (card.damage > 0 or card.counters.get("-1/-1", 0) > 0) \
+                    and "indestructible" not in ch.keywords:
                 out.dying.append((card, "damage from a deathtouch source"))  # 704.5h
         if "Planeswalker" in ch.types and card.counters.get("loyalty", 0) <= 0:
             out.dying.append((card, "no loyalty"))  # 704.5i

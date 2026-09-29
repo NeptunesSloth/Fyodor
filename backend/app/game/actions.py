@@ -1053,6 +1053,8 @@ class RulesDamage(Base):
     commander: list[CommanderHit] = Field(default_factory=list)  # combat damage by commanders (also in players)
     planeswalkers: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # loyalty removed
     lifelink: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # life gained
+    wither: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # card -> -1/-1 counters
+    poison: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # player -> poison counters
     first_strike: bool = False
     combat: bool = True  # False: damage from a spell or ability
     dealt: list[DamageDealt] = Field(default_factory=list, max_length=500)  # who dealt what to whom (events)

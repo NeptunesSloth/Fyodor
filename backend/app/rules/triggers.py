@@ -179,6 +179,8 @@ def at_step(plan: Plan, trigger: str) -> None:
 
 
 def attacked(plan: Plan, attackers: list[CardInstance]) -> None:
+    if len(attackers) == 1:
+        _exalted(plan, attackers[0])
     for card in attackers:
         if plan.manual(card):
             continue
@@ -186,6 +188,23 @@ def attacked(plan: Plan, attackers: list[CardInstance]) -> None:
         for i, d in abilities(plan, ch, "attacks_self"):
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
                  definition=d)
+
+
+def _exalted(plan: Plan, alone: CardInstance) -> None:
+    """702.83: "Whenever a creature you control attacks alone, that creature gets +1/+1 until end of
+    turn" — once for each instance of exalted among permanents its controller controls."""
+    target = f"object:{plan.oid(alone)}"
+    for card in list(plan.state.cards.values()):
+        if not card.zone.endswith(":battlefield") or card.controller != alone.controller or plan.manual(card):
+            continue
+        ch = plan.ch(card)
+        n = sum(1 for ab in ch.abilities if ab.kind == "keywords" for kw in ab.keywords if kw == "exalted")
+        if "exalted" in ch.granted and not n:
+            n = 1
+        for i in range(n if "exalted" in ch.keywords else 0):
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+                 index=2000 + i, definition={"kind": "triggered", "trigger": "exalted", "optional": False, "target": None,
+                                             "effects": [{"do": "pump", "who": target, "p": 1, "t": 1}]})
 
 
 def apnap(plan: Plan) -> list[str]:

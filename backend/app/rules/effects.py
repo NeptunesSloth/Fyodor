@@ -45,6 +45,9 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
             return [src.id]
         return []  # the source left: "it" is gone (a new object isn't affected)
+    if who.startswith("object:"):  # one specific rules object (e.g. the creature that attacked alone)
+        oid = who[7:]
+        return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid]
     if who == "creatures_you_control":
         return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == ctx["controller"]
                 and plan.in_game(c) and plan.ch(c).is_creature]
@@ -91,7 +94,7 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         keywords = plan.ch(source).keywords
     elif lki is not None and source is not None:
         keywords = plan.ch(source).keywords  # (printed keywords of the card; LKI of granted ones is M16 later)
-    creatures, walkers, dealt = {}, {}, []
+    creatures, walkers, withered, dealt = {}, {}, {}, []
     deathtouched = []
     for cid in cards:
         card = plan.state.cards[cid]
@@ -101,17 +104,21 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             continue
         if "Planeswalker" in ch.types and not ch.is_creature:
             walkers[cid] = n
+        elif {"wither", "infect"} & keywords:
+            withered[cid] = n
         else:
             creatures[cid] = n
-            if "deathtouch" in keywords:
-                deathtouched.append(cid)
+        if cid not in walkers and "deathtouch" in keywords:
+            deathtouched.append(cid)
         dealt.append({"source": ctx.get("source_object") or "", "target": cid, "target_object": plan.oid(cid), "amount": n})
     for pid in players:
         dealt.append({"source": ctx.get("source_object") or "", "target": pid, "amount": n})
     if not dealt or n <= 0:
         return True
     total = n * len(dealt)
-    plan.do({"type": "rules_damage", "creatures": creatures, "players": {p: n for p in players}, "planeswalkers": walkers,
+    infect = "infect" in keywords
+    plan.do({"type": "rules_damage", "creatures": creatures, "players": {} if infect else {p: n for p in players},
+             "poison": {p: n for p in players} if infect else {}, "wither": withered, "planeswalkers": walkers,
              "lifelink": {ctx["controller"]: total} if "lifelink" in keywords else {}, "combat": False,
              "dealt": dealt}, actor=ctx["controller"])
     plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *deathtouched]))

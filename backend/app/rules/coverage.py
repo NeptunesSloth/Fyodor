@@ -46,6 +46,10 @@ SUPPORTED_KEYWORDS: set[str] = {
     "shadow", "horsemanship", "fear", "intimidate", "skulk",
     # triggered keywords (app/rules/scripts.py KEYWORD_TRIGGERS)
     "prowess",
+    # damage as counters (test_rules_infect.py)
+    "wither", "infect",
+    # exalted (app/rules/triggers.py _exalted, test_rules_infect.py)
+    "exalted",
 }
 
 

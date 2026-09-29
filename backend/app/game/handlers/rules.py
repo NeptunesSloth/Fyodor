@@ -95,6 +95,10 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
         card = ops.card(state, cid)
         card.damage += n
         hurt.append(card)
+    for cid, n in a.wither.items():  # wither / infect (702.80, 702.90): -1/-1 counters instead of damage
+        card = ops.card(state, cid)
+        card.counters["-1/-1"] = card.counters.get("-1/-1", 0) + n
+        hurt.append(card)
     walkers = []
     for cid, n in a.planeswalkers.items():
         card = ops.card(state, cid)
@@ -109,10 +113,14 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
         p.commander_damage[hit.commander] = p.commander_damage.get(hit.commander, 0) + hit.amount
     for pid, n in a.players.items():
         change_life(state, pid, state.players[pid].life - n)
+    for pid, n in a.poison.items():  # infect: poison counters instead of life loss
+        p = state.players[pid]
+        p.resources["poison"] = p.resources.get("poison", 0) + n
     for pid, n in a.lifelink.items():
         change_life(state, pid, state.players[pid].life + n)
     parts = [text("First-strike combat damage: " if a.first_strike else "Combat damage: " if a.combat else "Damage: ")]
     pieces: list[list[LogPart]] = [[ops.pname(state, pid), text(f" takes {n}")] for pid, n in a.players.items()]
+    pieces += [[ops.pname(state, pid), text(f" gets {n} poison")] for pid, n in a.poison.items()]
     if hurt:
         pieces.append([ops.group(state, hurt), text(" dealt damage")])
     if walkers:
