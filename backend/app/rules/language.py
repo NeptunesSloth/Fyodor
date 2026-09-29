@@ -7,8 +7,14 @@ remove counters, pump / grant until end of turn), each accepting any subject or 
 the selector grammar (app/rules/selectors.py) reads and any amount the value grammar
 (app/rules/values.py) reads, including "for each …" and "where X is …".
 
-``parse_sentence`` returns ``(effects, target key or None)`` or None when any part of the
-sentence isn't understood (the card then stays manual: never a guess).
+``parse_sentence`` returns ``(effects, targets)`` or None when any part of the sentence isn't
+understood (the card then stays manual: never a guess). ``targets`` is None, a selector key (one
+"target [something]" with one target), or target group(s) (CR 115.1, 601.2c): a dict or a list
+of dicts ``{"what": key, "min": n, "max": n, "divide": …, "another": key}`` for "up to two target
+creatures", "one or two targets", "target creature and target artifact" (two groups: two
+instances of the word "target", 115.3), "N damage divided as you choose among …" (601.2d).
+Effects name a group with "target" (the sentence's first) or "target:<k>" (its k-th); "it" and
+"them" are pronouns, resolved against the ability's groups by scripts.resolve_it.
 """
 
 from __future__ import annotations
@@ -34,6 +40,81 @@ class _Fail(Exception):
     pass
 
 
+MAX_TARGETS = 20  # "any number of target …": at most this many (the intents' limit)
+_QTY = r"one|two|three|four|five|six|seven|eight|nine|ten|\d+"
+_GROUP = re.compile(rf"^(?:each of )?(?:up to (?P<upto>{_QTY})|(?P<range>one or two|one, two, or three)|"
+                    rf"(?P<any>any number of)|(?P<n>{_QTY})) (?P<rest>targets|target .+)$")
+
+
+def _qty(word: str) -> int:
+    return int(word) if word.isdigit() else values.NUMBERS[word]
+
+
+def simple(group: dict[str, Any]) -> bool:
+    """One "target [something]" with exactly one target: what definitions write as "target"."""
+    return (group["min"], group["max"]) == (1, 1) and not ({"divide", "another", "distinct_from"} & set(group))
+
+
+def target_group(phrase: str) -> dict[str, Any] | None:
+    """A target phrase → a target group (115.1; 601.2c: the number of targets): "target creature"
+    (1), "up to two target creatures" (0-2), "two target creatures" (2), "one or two targets"
+    (1-2), "any number of target creatures" (0-MAX_TARGETS). "another target creature" also
+    carries "another": its selector without "another" (scripts: when an earlier target of the
+    same ability exists, "another" means distinct from it). None if it isn't a target phrase."""
+    p = phrase.strip()
+    if p in _LEGACY_TARGETS:
+        return {"what": _LEGACY_TARGETS[p], "min": 1, "max": 1}
+    if p == "another target":  # 115.4 (Arc Trail): any target other than the earlier one
+        return {"what": "", "min": 1, "max": 1, "another": "any"}
+    if p.startswith(("target ", "another target ")):
+        group: dict[str, Any] = {"what": _target_key(p), "min": 1, "max": 1}
+        if p.startswith("another "):
+            group["another"] = _target_key(p[len("another "):])
+        return group
+    m = _GROUP.match(p)
+    if not m:
+        return None
+    what = "any" if m["rest"] == "targets" else _target_key(m["rest"])
+    if m["upto"]:
+        lo, hi = 0, _qty(m["upto"])
+    elif m["range"]:
+        lo, hi = 1, 2 if m["range"] == "one or two" else 3
+    elif m["any"]:
+        lo, hi = 0, MAX_TARGETS
+    else:
+        lo = hi = _qty(m["n"])
+    if not 1 <= hi <= MAX_TARGETS:
+        raise _Fail
+    if hi > 1 and re.search(r"\ban opponent(?:'s)?\b", m["rest"]):
+        raise _Fail  # "two target cards from an opponent's graveyard": the same opponent? (not a guess)
+    return {"what": what, "min": lo, "max": hi}
+
+
+def _out(groups: list[dict[str, Any]]) -> Any:
+    """A sentence's targets as parse_sentence returns them: None, a plain selector key (one
+    simple target, as before multi-target groups), one group, or a list of groups."""
+    if not groups:
+        return None
+    if len(groups) == 1:
+        return groups[0]["what"] if simple(groups[0]) else groups[0]
+    return groups
+
+
+def _divided(phrase: str, what: str, total: Any) -> dict[str, Any]:
+    """601.2d: "… divided as you choose among one, two, or three targets" / "distribute N
+    counters among …": each target gets at least one, so at least one target and at most
+    ``total`` of them."""
+    group = target_group(phrase)
+    if group is None or "another" in group or not (isinstance(total, int) or total == {"x": 1}):
+        raise _Fail
+    group = {**group, "min": max(1, group["min"]), "divide": {"what": what, "total": total}}
+    if isinstance(total, int):
+        if total < 1:
+            raise _Fail
+        group["max"] = min(group["max"], total)
+    return group
+
+
 def _target_key(phrase: str) -> str:
     if phrase in _LEGACY_TARGETS:
         return _LEGACY_TARGETS[phrase]
@@ -46,35 +127,62 @@ def _target_key(phrase: str) -> str:
     return sel.key()
 
 
-def ref(phrase: str) -> tuple[str, str]:
-    """An object or player phrase → ("target", selector key) | ("each", selector key) |
-    ("self", "") | ("players", "you" / "each_player" / "each_opponent")."""
+_THEM = ("them", "each of them", "they", "those creatures", "those permanents", "those cards")
+
+
+def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
+    """An object or player phrase → ("target", selector key, target group) | ("each", selector
+    key, None) | ("self", "", None) | ("players", "you" / "each_player" / "each_opponent", None) |
+    a pronoun ("it" / "them")."""
     p = phrase.strip()
     if p in ("~", "this creature", "this permanent"):
-        return "self", ""
+        return "self", "", None
     if p in ("it", "that creature", "that permanent"):
-        return "it", ""  # a pronoun: resolved against its antecedent (scripts.resolve_it)
+        return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
+    if p in _THEM:
+        return "them", "", None  # the targets just named (scripts.resolve_it)
     if p in ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact"):
-        return "host", ""  # what the source Aura / Equipment is attached to
+        return "host", "", None  # what the source Aura / Equipment is attached to
     if p in _PLAYER_GROUPS:
-        return "players", _PLAYER_GROUPS[p]
-    if p in _LEGACY_TARGETS or p.startswith(("target ", "another target ")):
-        return "target", _target_key(p)
+        return "players", _PLAYER_GROUPS[p], None
+    group = target_group(p)
+    if group is not None:
+        return "target", group["what"], group
     m = re.match(r"^(?:each|all) (other )?(.+)$", p)
     if m:
         sel = selectors.parse(("other " if m[1] else "") + m[2])
         if sel is None:
             raise _Fail
-        return "each", sel.key()
+        return "each", sel.key(), None
     if selectors.is_plural(p):  # "creatures you control get …", "other Elves you control …"
         sel = selectors.parse(p)
         if sel is not None and sel.player is None:
-            return "each", sel.key()
+            return "each", sel.key(), None
     raise _Fail
 
 
 def _who(kind: str, key: str) -> str:
-    return {"target": "target", "self": "self", "it": "it", "host": "host", "players": key, "each": key}[kind]
+    return {"target": "target", "self": "self", "it": "it", "them": "them", "host": "host", "players": key,
+            "each": key}[kind]
+
+
+# "… and target artifact", "… and up to one target creature", "… and another target creature"
+_AND_TARGET = r" and (?=(?:each of )?(?:another |up to \w+ |any number of |one or two |two |three )?targets?\b|any target)"
+
+
+def _objects(o: str) -> tuple[list[str], list[dict[str, Any]]]:
+    """"target creature and target artifact" → (who per part, target groups): each "target" is
+    its own group (115.3), named "target" (the first) / "target:<k>"."""
+    whos: list[str] = []
+    groups: list[dict[str, Any]] = []
+    for part in re.split(_AND_TARGET, o):
+        kind, key, group = ref(part)
+        if group is not None:
+            whos.append("target" if not groups else f"target:{len(groups)}")
+            groups.append(group)
+        else:
+            whos.append(_who(kind, key))
+    return whos, groups
 
 
 RESTRICTIONS = {"block": ["cant_block"], "attack": ["cant_attack"], "attack or block": ["cant_attack_or_block"],
@@ -200,14 +308,18 @@ def _looking(text: str) -> tuple[Effects, str | None] | None:
     return None
 
 
-def parse_sentence(text: str) -> tuple[Effects, str | None] | None:
+def parse_sentence(text: str) -> tuple[Effects, Any] | None:
     try:
         return _parse(text.strip())
     except _Fail:
         return None
 
 
-def _parse(text: str) -> tuple[Effects, str | None]:
+def _one(group: dict[str, Any] | None) -> Any:
+    return _out([group] if group is not None else [])
+
+
+def _parse(text: str) -> tuple[Effects, Any]:
     found = _search(text) or _looking(text)
     if found is not None:
         return found
@@ -235,48 +347,71 @@ def _parse(text: str) -> tuple[Effects, str | None]:
             raise _Fail
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
     # -- damage ---------------------------------------------------------------------------------
+    src: dict[str, Any] = {"src": "it"} if text.startswith("it ") else {}
+    m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage divided as you choose among (?P<o>.+)", text)
+    if m:  # 601.2d: the division is announced as the spell is cast (each target gets at least 1)
+        if rider is not None:
+            raise _Fail
+        return [{"do": "damage", "who": "target", "n": {"divided": 0}, **src}], _divided(m["o"], "damage", _amount(m["n"]))
+    m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage to (?P<o1>.+?) and (?P<m>{AMT}) damage to (?P<o2>.+)", text)
+    if m and rider is None:  # "… 2 damage to any target and 1 damage to another target" (two groups)
+        effects: Effects = []
+        groups: list[dict[str, Any]] = []
+        for o, n in ((m["o1"], m["n"]), (m["o2"], m["m"])):
+            whos, parts = _objects(o)
+            if len(whos) != 1:
+                raise _Fail
+            effects.append({"do": "damage", "who": whos[0] if not parts else ("target" if not groups else f"target:{len(groups)}"),
+                            "n": _amount(n), **src})
+            groups += parts
+        return effects, _out(groups)
     m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage to (?P<o>.+)", text)
     if m:
         n = _apply(_amount(m["n"]), rider)
-        effects: Effects = []
-        target = None
-        for part in re.split(r" and (?=each |target |you$|any )", m["o"]):
-            kind, key = ref(part)
-            if kind == "target":
-                if target is not None:
-                    raise _Fail  # (two targets: app/rules/targets multi-target groups)
-                target = key
-            effects.append({"do": "damage", "who": _who(kind, key), "n": n, **({"src": "it"} if m["src"] == "it" else {})})
-        return effects, target
+        effects = []
+        groups = []
+        for part in re.split(r" and (?=each |you$)|" + _AND_TARGET, m["o"]):
+            kind, key, group = ref(part)
+            who = _who(kind, key)
+            if group is not None:
+                who = "target" if not groups else f"target:{len(groups)}"
+                groups.append(group)
+            effects.append({"do": "damage", "who": who, "n": n, **src})
+        return effects, _out(groups)
     if rider is not None and not text.startswith(("put ", "remove ")):
         raise _Fail
     # -- objects --------------------------------------------------------------------------------
     m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap) (?P<o>.+)", text)
     if m:
-        kind, key = ref(m["o"])
+        whos, groups = _objects(m["o"])
+        if len(whos) > 1:  # "destroy target artifact and target enchantment": one group each (115.3)
+            if len(groups) != len(whos):
+                raise _Fail
+            return [{"do": m["v"], "who": w} for w in whos], _out(groups)
+        kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
         if kind == "each" and m["v"] == "destroy":
             return [{"do": "destroy", "who": key}], None
-        return [{"do": m["v"], "who": _who(kind, key)}], key if kind == "target" else None
+        return [{"do": m["v"], "who": _who(kind, key)}], _one(group)
     m = re.fullmatch(r"(?P<o>.+?) can't (?P<r>attack or block|block|attack|be blocked) this turn", text)
     if m:
-        kind, key = ref(m["o"])
+        kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
-        return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], key if kind == "target" else None
+        return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], _one(group)
     if text in ("return ~ to its owner's hand", "return it to its owner's hand"):
         return [{"do": "bounce", "who": "self" if text.startswith("return ~") else "it"}], None
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|your hand|"
                      r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?)", text)
     if m:
-        kind, key = ref(m["o"])
-        if kind in ("players", "self", "it"):
+        kind, key, group = ref(m["o"])
+        if kind in ("players", "self", "it", "them"):
             raise _Fail
         sel = selectors.from_key(key) if key.startswith(selectors.PREFIX) else None
         from_zone = sel is not None and sel.card
         who = _who(kind, key)
-        target = key if kind == "target" else None
+        target = _one(group)
         if m["d"].startswith("the battlefield"):
             if not from_zone:
                 raise _Fail  # (blink wordings are templated elsewhere)
@@ -287,36 +422,43 @@ def _parse(text: str) -> tuple[Effects, str | None]:
         if m["d"] == "your hand":
             raise _Fail
         return [{"do": "bounce", "who": who}], target
+    m = re.fullmatch(rf"distribute (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters among (?P<o>.+)", text)
+    if m and rider is None:  # 601.2d: counters divided among the targets as the ability is put on the stack
+        if m["k"] in values.UNMODELED_COUNTERS:
+            raise _Fail
+        return [{"do": "add_counters", "who": "target", "kind": m["k"], "n": {"divided": 0}}], \
+            _divided(m["o"], "counters", _amount(m["n"]))
     m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o>.+)", text)
     if m:
-        kind, key = ref(m["o"])
+        kind, key, group = ref(m["o"])
         if kind == "players" or m["k"] in values.UNMODELED_COUNTERS:
             raise _Fail
         return [{"do": "add_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
-            key if kind == "target" else None
+            _one(group)
     m = re.fullmatch(rf"remove (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
-        kind, key = ref(m["o"])
+        kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
         return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
-            key if kind == "target" else None
-    m = re.fullmatch(rf"(?P<o>.+?) gets? (?P<p>[+\-−]\d+)/(?P<t>[+\-−]\d+)(?: and gains? (?P<kw>{KEYWORDS}))? until end of turn", text)
+            _one(group)
+    m = re.fullmatch(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−]\d+)/(?P<t>[+\-−]\d+)(?: and gains? (?P<kw>{KEYWORDS}))? "
+                     r"until end of turn", text)
     if m:
-        kind, key = ref(m["o"])
+        kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
         who = _who(kind, key)
         out: Effects = [{"do": "pump", "who": who, "p": _signed(m["p"]), "t": _signed(m["t"])}]
         if m["kw"]:
             out.append({"do": "grant", "who": who, "keywords": [m["kw"]]})
-        return out, key if kind == "target" else None
+        return out, _one(group)
     m = re.fullmatch(rf"(?P<o>.+?) gains? (?P<kw>{KEYWORDS}) until end of turn", text)
     if m:
-        kind, key = ref(m["o"])
+        kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
-        return [{"do": "grant", "who": _who(kind, key), "keywords": [m["kw"]]}], key if kind == "target" else None
+        return [{"do": "grant", "who": _who(kind, key), "keywords": [m["kw"]]}], _one(group)
     raise _Fail
 
 

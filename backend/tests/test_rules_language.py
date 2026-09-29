@@ -47,7 +47,7 @@ def test_parse_selectors_and_values():
 @pytest.mark.parametrize("text", [
     "its controller draws a card",  # (a subject we don't model yet)
     "draw a card for each foo you control",
-    "destroy target creature and target artifact",
+    "destroy target creature and each artifact",  # (two targets are groups now: test_rules_multitarget.py)
     "return ~ to your hand",
 ])
 def test_unknown_wordings_stay_manual(text):

@@ -306,7 +306,7 @@ export interface DecisionOptionView {
 export interface DecisionView {
   id: string;
   player: string;
-  kind: "manual_resolution" | "declare_attackers" | "declare_blockers" | "choose_one" | "choose_cards" | "confirm" | "reconcile" | "order";
+  kind: "manual_resolution" | "declare_attackers" | "declare_blockers" | "choose_one" | "choose_cards" | "confirm" | "reconcile" | "order" | "divide";
   prompt: string;
   source_id: string | null;
   /** Only in the chooser's own view. */

@@ -28,6 +28,33 @@ def _amount(plan: Plan, ctx: Context, n: Any) -> int:
     return values.evaluate(plan, ctx, n)
 
 
+def target_refs(ctx: Context, who: str) -> list[dict[str, Any]]:
+    """The still-legal targets an effect names: "target" (the spell's or ability's target, or its
+    first target group) or "target:<g>" (group g). Illegal ones were dropped on resolution
+    (608.2b: they aren't affected)."""
+    if who == "target":
+        return list(ctx.get("targets") or [])
+    if not who.startswith("target:"):
+        return []
+    g = int(who[7:])
+    groups = ctx.get("groups") or []
+    return [t for t in groups[g] if t] if g < len(groups) else []
+
+
+def divided(ctx: Context, e: dict[str, Any]) -> dict[str, int] | None:
+    """601.2d / 115.7f: "divided as you choose": each legal target's share of a divided group (by
+    player or card id), as announced when it was put on the stack; an illegal target's share
+    isn't dealt to anyone else. None if the effect's amount isn't divided."""
+    n = e.get("n")
+    if not isinstance(n, dict) or "divided" not in n:
+        return None
+    g = n["divided"]
+    groups, division = ctx.get("groups") or [], ctx.get("division") or []
+    if g >= len(groups) or g >= len(division):
+        return {}
+    return {t["id"]: amount for t, amount in zip(groups[g], division[g], strict=False) if t}
+
+
 def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
     me = ctx["controller"]
     if who.startswith(selectors.PREFIX):  # "each opponent", "each player" … as a selector
@@ -39,8 +66,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return list(plan.live())
     if who == "each_opponent":
         return [p for p in plan.live() if p != me]
-    if who == "target":
-        return [t["id"] for t in ctx["targets"] if t["id"] in plan.state.players and t["id"] in plan.live()]
+    if who == "target" or who.startswith("target:"):
+        return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.players and t["id"] in plan.live()]
     if who.startswith("player:"):  # one specific player (the one a trigger event was about)
         return [who[7:]] if who[7:] in plan.live() else []
     return []
@@ -50,8 +77,8 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who.startswith(selectors.PREFIX):  # "each creature you control", "all other Goblins" …
         sel = selectors.from_key(who)
         return [] if sel.player else selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
-    if who == "target":
-        return [t["id"] for t in ctx["targets"] if t["id"] in plan.state.cards
+    if who == "target" or who.startswith("target:"):
+        return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.cards
                 and plan.oid(t["id"]) == t.get("object_id")]
     if who == "self":
         src = plan.state.cards.get(ctx.get("source_card") or "")
@@ -105,7 +132,11 @@ def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """Noncombat damage from the source (120.3): life loss for players, marked damage for
     creatures, loyalty loss for planeswalkers; lifelink and deathtouch of the source apply."""
-    n = _amount(plan, ctx, e["n"])
+    shares = divided(ctx, e)  # 601.2d: each target's share, as divided when it was put on the stack
+    n = 0 if shares is not None else _amount(plan, ctx, e["n"])
+
+    def amount(key: str) -> int:
+        return shares.get(key, 0) if shares is not None else n
     players = _players(plan, ctx, e["who"])
     cards = _cards(plan, ctx, e["who"])
     source = plan.state.cards.get(ctx.get("source_card") or "")
@@ -125,7 +156,7 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if protection.protected_from(ch, src_ch):  # 702.16e: the damage is prevented
             plan.note(f"Protection prevents the damage to {ch.name}", [cid], actor=ctx["controller"])
             continue
-        per[cid] = shield(plan, plan.oid(cid), n)
+        per[cid] = shield(plan, plan.oid(cid), amount(cid))
         if per[cid] <= 0:
             continue
         if "Planeswalker" in ch.types and not ch.is_creature:
@@ -137,11 +168,11 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if cid not in walkers and "deathtouch" in keywords:
             deathtouched.append(cid)
         dealt.append({"source": ctx.get("source_object") or "", "target": cid, "target_object": plan.oid(cid), "amount": per[cid]})
-    to_players = {pid: shield(plan, pid, n) for pid in players}
+    to_players = {pid: shield(plan, pid, amount(pid)) for pid in players}
     players = [pid for pid, m in to_players.items() if m > 0]
     for pid in players:
         dealt.append({"source": ctx.get("source_object") or "", "target": pid, "amount": to_players[pid]})
-    if not dealt or n <= 0:
+    if not dealt or (shares is None and n <= 0):
         return True
     total = sum(int(d["amount"]) for d in dealt)
     infect = "infect" in keywords
@@ -296,6 +327,12 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards = _cards(plan, ctx, e["who"])
+    shares = divided(ctx, e)
+    if shares is not None:  # "distribute N counters among …" (601.2d): each target its share
+        for cid in cards:
+            if shares.get(cid):
+                plan.do({"type": "counter", "card_ids": [cid], "kind": e["kind"], "delta": shares[cid]}, actor=ctx["controller"])
+        return True
     n = _amount(plan, ctx, e["n"])
     if cards and n:
         plan.do({"type": "counter", "card_ids": cards, "kind": e["kind"], "delta": n}, actor=ctx["controller"])
@@ -562,8 +599,8 @@ def counter_object(plan: Plan, stack_id: str, actor: str) -> None:
 def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
     if e.get("object"):
         return [e["object"]] if e["object"] in plan.state.cards and plan.state.cards[e["object"]].zone == "stack" else []
-    return [t["id"] for t in ctx["targets"] if t["id"] in plan.state.cards and plan.state.cards[t["id"]].zone == "stack"
-            and plan.oid(t["id"]) == t.get("object_id")]
+    return [t["id"] for t in target_refs(ctx, e.get("who") or "target") if t["id"] in plan.state.cards
+            and plan.state.cards[t["id"]].zone == "stack" and plan.oid(t["id"]) == t.get("object_id")]
 
 
 def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -760,7 +797,10 @@ def _copy_spell(plan: Plan, sid: str, entry: StackEntry, targets: list[Any], con
                                                effects=list(entry.effects), targets=list(targets),
                                                target_spec=entry.target_spec, x=entry.x,
                                                modes=list(entry.modes), slots=slots,  # 700.2g: the copy keeps its modes
-                                               slot_specs=list(entry.slot_specs))
+                                               slot_specs=list(entry.slot_specs),
+                                               # a copy has the original's targets and division (707.10)
+                                               groups=[list(g) for g in entry.groups], group_specs=list(entry.group_specs),
+                                               division=[list(d) for d in entry.division])
 
 
 def resume_storm(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -1250,6 +1290,23 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
             return
         ctx["slots"] = slots
         ctx["targets"] = []
+    if entry.group_specs:  # target groups: every target is checked on its own (608.2b)
+        src = source_of(plan, entry.source_card)
+        groups: list[list[dict[str, Any] | None]] = []
+        for refs, gspec in zip(entry.groups, entry.group_specs, strict=False):
+            # an illegal target keeps its place (None), so the division stays as announced (115.7f)
+            groups.append([t.model_dump() if still_legal(plan, gspec["what"], entry.controller, t, src, entry.source_card)
+                           else None for t in refs])
+        chosen = sum(len(refs) for refs in entry.groups)
+        if chosen and not any(t for g in groups for t in g):
+            # 608.2b: every target, for every word "target", is illegal: it doesn't resolve.
+            # (With zero targets chosen — "up to …" — it resolves normally: 115.6.)
+            plan.note(f"{entry.name or 'It'} does nothing: its targets are no longer legal")
+            finish(plan, ctx, countered=True)
+            return
+        ctx["groups"] = groups
+        ctx["division"] = [list(d) for d in entry.division]
+        ctx["targets"] = [t for t in groups[0] if t] if groups else []
     spec = entry.target_spec
     if spec and entry.targets:
         src = source_of(plan, entry.source_card)

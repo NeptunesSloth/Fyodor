@@ -11,7 +11,10 @@ Definition shape (JSON-able)::
     {"kind": "triggered" | "spell" | "activated" | "replacement",
      "trigger": "enters_self" | "dies_self" | "ltb_self" | "upkeep_you" | "end_step_you" | "attacks_self",
      "optional": bool,                       # "you may …": asked on resolution (603.5)
-     "target": {"what": "creature" | "any" | …} or None,
+     "target": {"what": "creature" | "any" | …} or None,   # one "target [something]", one target
+     # or target groups (115.1, 601.2c-d), one per word "target" in printed order; effects name
+     # them "target:<g>" and a divided amount {"divided": g}:
+     "targets": [{"what": sel, "min": 0, "max": 2, "distinct_from": [0], "divide": {"what": "damage", "total": 3}}],
      "cost": "{2}" (activated only),
      "effects": [{"do": "draw", "who": "you", "n": 1}, …],
      "replacement": "enters_tapped"}
@@ -205,29 +208,135 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     return None
 
 
-def resolve_it(effects: list[dict[str, Any]], antecedent: str | None) -> list[dict[str, Any]] | None:
-    """Resolve the pronoun "it" in parsed effects (placeholders "who": "it" / "src": "it"): after
-    a target in the same ability it is that target ("Untap target creature. It gets +1/+4");
-    otherwise it is ``antecedent`` ("self" for "When ~ dies, return it …"). None when "it" names
+def _group_of(e: dict[str, Any]) -> int | None:
+    """The target group an effect acts on ("target:<g>"; plain "target" is group 0)."""
+    who = e.get("who")
+    if who == "target":
+        return 0
+    if isinstance(who, str) and who.startswith("target:"):
+        return int(who[7:])
+    return None
+
+
+def resolve_it(effects: list[dict[str, Any]], antecedent: str | None,
+               groups: list[dict[str, Any]] | None = None) -> list[dict[str, Any]] | None:
+    """Resolve the pronouns in parsed effects (placeholders "who": "it" / "them", "src": "it"):
+    after a target in the same ability, "it" is that target ("Untap target creature. It gets
+    +1/+4") — if that "target" allows one target; after "up to two target creatures" "it" is
+    ambiguous (None) — and "them" / "each of them" are the targets of the last group; otherwise
+    "it" is ``antecedent`` ("self" for "When ~ dies, return it …"). None when a pronoun names
     something the engine doesn't track (the triggering object of "Whenever another creature
     enters, put a counter on it", a spell just cast, …): the ability stays manual."""
-    out, seen_target = [], False
+    out: list[dict[str, Any]] = []
+    last: int | None = None
+    previous: int | None = None  # the group the previous instruction acted on
     for e in effects:
         e = dict(e)
+        if e.get("who") == "them":
+            if previous is None:
+                return None  # ("them" after something that wasn't those targets: not followed)
+            e["who"] = "target" if groups is None else f"target:{previous}"
         if e.get("who") == "it":
-            if seen_target:
-                e["who"] = "target"
+            if last is not None:
+                if groups is not None and groups[last]["max"] != 1:
+                    return None  # "it" after several targets: which one? (manual)
+                e["who"] = "target" if groups is None else f"target:{last}"
             elif antecedent in ("self", "event"):
                 e["who"] = antecedent
             else:
                 return None
         if e.get("src") == "it":
-            if seen_target or antecedent not in ("self", "self_gone"):
+            if last is not None or antecedent not in ("self", "self_gone"):
                 return None  # (the target, not the source, deals the damage / explores)
             del e["src"]
-        seen_target = seen_target or e.get("who") == "target"
+        g = _group_of(e)
+        last = g if g is not None else last
+        previous = g
         out.append(e)
     return out
+
+
+_TARGET_REFS = ("who", "power", "toughness", "mana_value", "on")
+
+
+def _renumber(value: Any, index: list[int] | None) -> Any:
+    """Rewrite a clause's own target references ("target" = its first group, "target:<k>", n
+    {"divided": k}) to the ability's group numbers (``index[k]``); ``index`` None: back to the
+    plain "target" of an ability with one simple target."""
+    if isinstance(value, list):
+        return [_renumber(v, index) for v in value]
+    if not isinstance(value, dict):
+        return value
+    out = {}
+    for k, v in value.items():
+        if k in _TARGET_REFS and isinstance(v, str) and (v == "target" or v.startswith("target:")):
+            local = 0 if v == "target" else int(v[7:])
+            v = "target" if index is None else f"target:{index[local]}"
+        elif k == "divided" and isinstance(v, int):
+            if index is None:
+                raise _NoMatch
+            v = index[v]
+        else:
+            v = _renumber(v, index)
+        out[k] = v
+    return out
+
+
+def _as_groups(sel: Any) -> list[dict[str, Any]]:
+    """A clause's targets (None, a selector key, one group, several) as target groups."""
+    if sel is None:
+        return []
+    if isinstance(sel, str):
+        return [{"what": sel, "min": 1, "max": 1}]
+    return [dict(g) for g in ([sel] if isinstance(sel, dict) else sel)]
+
+
+def _add_groups(groups: list[dict[str, Any]], found: list[dict[str, Any]], sel: Any) -> list[dict[str, Any]]:
+    """Append a clause's target groups to the ability's: every word "target" is its own group
+    (115.3, 601.2c). "another target …" after an earlier target of the ability can't be the same
+    object as those; with no earlier target it means other than the source (as before)."""
+    index = []
+    for g in _as_groups(sel):
+        if "another" in g:
+            plain = g.pop("another")
+            if groups:
+                g = {**g, "what": plain, "distinct_from": list(range(len(groups)))}
+            elif not g["what"]:
+                raise _NoMatch  # "another target" with nothing before it
+        index.append(len(groups))
+        groups.append(g)
+    return _renumber(found, index)
+
+
+def _finish_targets(effects: list[dict[str, Any]], groups: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], Any]:
+    """(effects, the definition's targets): one simple target keeps the plain "target" shape
+    (``"target": {"what": key}``); anything else is a list of groups (``"targets"``)."""
+    from app.rules.language import simple
+
+    if not groups:
+        return effects, None
+    if len(groups) == 1 and simple(groups[0]):
+        return _renumber(effects, None), groups[0]["what"]
+    return effects, groups
+
+
+def target_fields(target: Any) -> dict[str, Any]:
+    """The definition keys for parsed targets: "target" (one simple target, or None) and, for
+    target groups, "targets": [{"what", "min", "max", "distinct_from"?, "divide"?}, …]."""
+    if target is None or isinstance(target, str):
+        return {"target": {"what": target} if target else None}
+    return {"target": None, "targets": target}
+
+
+def target_groups(definition: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """A definition's target groups in printed order (601.2c); the old single "target" is one
+    group of exactly one target."""
+    if not definition:
+        return []
+    if definition.get("targets"):
+        return [{"min": 1, "max": 1, **g} for g in definition["targets"]]
+    spec = definition.get("target")
+    return [{**spec, "min": 1, "max": 1}] if spec else []
 
 
 def effect(pattern: str):  # type: ignore[no-untyped-def]
@@ -538,7 +647,7 @@ def _lower_first(s: str) -> str:
     return s[:1].lower() + s[1:] if s[:1].isupper() and not s.startswith("~") else s
 
 
-def _one_clause(text: str) -> tuple[list[dict[str, Any]], str | None] | None:
+def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """One instruction: a literal template, else the generic grammar (app/rules/language.py)."""
     from app.rules import language  # the generic grammar (a leaf module)
 
@@ -555,9 +664,10 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], str | None] | None:
     return language.parse_sentence(text)
 
 
-def _clause(text: str) -> tuple[list[dict[str, Any]], str | None] | None:
+def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """An instruction, or two joined by ", then" / "and" ("Scry 1, then draw a card.", "You draw
-    two cards and you lose 2 life."): each half must be understood; one target at most."""
+    two cards and you lose 2 life."): each half must be understood. Each "target" word is its
+    own target group (115.3); the halves' groups are numbered in order."""
     found = _one_clause(text)
     if found is not None:
         return found
@@ -570,27 +680,42 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], str | None] | None:
         # left's (608.2c reads the whole text), not "you"
         subj = re.match(r"^(target player|target opponent|each player|each opponent|each of your opponents|"
                         r"that player) ", parts[0])
+        same_target = False
         if subj and re.match(r"^(?:draws|discards|mills|loses|gains|sacrifices|shuffles|puts|reveals|exiles|"
                              r"returns|creates|searches|scry|surveil)\b", parts[1]):
             parts[1] = f"{subj[1]} {parts[1]}"
+            same_target = subj[1].startswith("target")  # (one word "target": the same target)
         left, right = _clause(parts[0]), _clause(parts[1])
         if left is None or right is None:
             continue
-        if left[1] and right[1] and left[1] != right[1]:
-            continue
-        return left[0] + right[0], left[1] or right[1]
+        lgroups, rgroups = _as_groups(left[1]), _as_groups(right[1])
+        if same_target:
+            if not lgroups or len(rgroups) != 1:
+                continue
+            return left[0] + _renumber(right[0], [0]), left[1]
+        groups = lgroups + rgroups
+        index = list(range(len(lgroups), len(groups)))
+        return _renumber(left[0], list(range(len(lgroups)))) + _renumber(right[0], index), groups or None
     return None
 
 
-def parse_effects(body: str, it: str | None = None) -> tuple[list[dict[str, Any]], str | None, bool] | None:
-    """One sentence (or two joined by ". ") of effects → (effects, target selector, optional).
-    ``it``: what the pronoun "it" means when no target precedes it (see resolve_it)."""
+def parse_effects(body: str, it: str | None = None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """One sentence (or two joined by ". ") of effects → (effects, targets, optional). Targets:
+    None, a selector key (one "target [something]"), or a list of target groups (see
+    target_fields). ``it``: what the pronoun "it" means when no target precedes it (resolve_it)."""
+    try:
+        return _parse_effects(body, it)
+    except _NoMatch:
+        return None
+
+
+def _parse_effects(body: str, it: str | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
         return None
     optional = False
     effects: list[dict[str, Any]] = []
-    target: str | None = None
+    groups: list[dict[str, Any]] = []
     for sentence in [s for s in re.split(r"(?<=\.)\s+", body) if s]:
         text = _lower_first(sentence.rstrip(".").strip())
         cond_m = re.match(r"^if (?P<c>[^,]+), (?P<rest>.+)$", text)
@@ -601,11 +726,8 @@ def parse_effects(body: str, it: str | None = None) -> tuple[list[dict[str, Any]
             inner = _clause(cond_m["rest"]) if cond is not None and not cond_m["rest"].startswith("you may ") else None
             if inner is None:
                 return None
-            found, sel = inner
-            if sel and target and sel != target:
-                return None
-            target = sel or target
-            effects += [{"do": "only_if", "cond": cond, "skip": len(found)}, *found]
+            added = _add_groups(groups, *inner)  # (its target, if any: its own group, 115.3)
+            effects += [{"do": "only_if", "cond": cond, "skip": len(added)}, *added]
             continue
         if text.startswith("you may "):
             if effects:
@@ -613,38 +735,30 @@ def parse_effects(body: str, it: str | None = None) -> tuple[list[dict[str, Any]
                 own = _clause(text)
                 if own is None or not any(x.get("optional") for x in own[0]):
                     return None  # "…. You may …" mid-ability: not a simple optional trigger
-                effects += own[0]
+                effects += _add_groups(groups, own[0], own[1])
                 continue
             optional, text = True, text[len("you may "):]
         for pattern, build in EFFECTS:
             m = pattern.match(text)
             if m:
-                try:
-                    found, sel = build(m)
-                except _NoMatch:
-                    return None
-                if sel and target and sel != target:
-                    return None  # two different targets: not supported yet
-                target = sel or target
+                found, sel = build(m)
                 if found and found[0]["do"] == "token_text":  # "It has "…"": the token just created
                     if not effects or effects[-1]["do"] != "create_token":
                         return None
                     effects[-1] = {**effects[-1], "token": {**effects[-1]["token"], "text": found[0]["text"]}}
                     break
-                effects += found
+                effects += _add_groups(groups, found, sel)  # each word "target": its own group (115.3)
                 break
         else:
             parsed_clause = _clause(text)
             if parsed_clause is None:
                 return None
             found, sel = parsed_clause
-            if sel and target and sel != target:
-                return None  # two different targets: not supported yet
-            target = sel or target
-            effects += found
-    resolved = resolve_it(effects, it)
+            effects += _add_groups(groups, found, sel)
+    resolved = resolve_it(effects, it, groups)
     if resolved is None:
         return None
+    resolved, target = _finish_targets(resolved, groups)
     looked = False
     for e in resolved:  # "… from among them" needs the cards a look put aside (not milled ones)
         looked = looked or e["do"] == "look_top"
@@ -773,7 +887,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 intervening = effects[0]["cond"] if effects and effects[0]["do"] == "only_if" \
                     and m["body"].lower().startswith("if ") and effects[0]["skip"] == len(effects) - 1 else None
                 out = {"kind": "triggered", "trigger": name,
-                       "effects": effects, "optional": optional, "target": {"what": target} if target else None}
+                       "effects": effects, "optional": optional, **target_fields(target)}
                 if cond is not None and name == "event":
                     out["cond"] = cond
                 if intervening is not None:
@@ -787,7 +901,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if parsed is None or parsed[2]:
             return None
         effects, target, _ = parsed
-        return {"kind": "spell", "effects": effects, "target": {"what": target} if target else None}
+        return {"kind": "spell", "effects": effects, **target_fields(target)}
     if ability.kind == "loyalty" and ability.cost:
         # 606: a loyalty ability is an activated ability; its cost (loyalty counters) is paid on
         # activation (casting.activate_to_stack), its effect uses the same grammar
@@ -799,7 +913,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return None
         effects, target, _ = parsed
         return {"kind": "activated", "loyalty": True, "cost": ability.cost, "effects": effects,
-                "target": {"what": target} if target else None}
+                **target_fields(target)}
     if ability.kind == "activated" and ability.cost:
         cost = parse_ability_cost(ability.cost, card_name=ch.name)
         if cost.unsupported:
@@ -808,7 +922,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if parsed is None or parsed[2]:
             return None
         effects, target, _ = parsed
-        return {"kind": "activated", "cost": ability.cost, "effects": effects, "target": {"what": target} if target else None}
+        return {"kind": "activated", "cost": ability.cost, "effects": effects, **target_fields(target)}
     return None
 
 
@@ -974,6 +1088,8 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
         if parsed is None or parsed[2]:  # ("you may" inside a mode: not yet)
             return None
         effects, target, _ = parsed
+        if target is not None and not isinstance(target, str):
+            return None  # (a mode with several targets or a division: not yet)
         modes.append({"text": ab.text[2:], "effects": effects, "target": {"what": target} if target else None})
     if not repeat and lo > len(modes):
         return None
@@ -994,8 +1110,25 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     lines = [ab for ab in ch.abilities if ab.kind != "keywords"]
     if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):
         return None
-    targets = [defs[ab.index]["target"] for ab in lines if defs[ab.index].get("target")]
-    if len({t["what"] for t in targets}) > 1:
-        return None
-    return {"kind": "spell", "effects": [e for ab in lines for e in defs[ab.index]["effects"]],
-            "target": targets[0] if targets else None}
+    # Each line's "target" words are the spell's target groups, in printed order (601.2c, 115.3:
+    # "Destroy target creature. / Tap target creature." targets twice, not once).
+    groups: list[dict[str, Any]] = []
+    effects: list[dict[str, Any]] = []
+    for ab in lines:
+        own = target_groups(defs[ab.index])
+        if groups and any('"other":true' in g["what"] for g in own):
+            return None  # ("another target" on a later line: distinct from which target?)
+        offset = len(groups)
+        index = list(range(offset, offset + len(own)))
+        for g in own:
+            if g.get("distinct_from"):
+                g["distinct_from"] = [offset + d for d in g["distinct_from"]]
+            groups.append(g)
+        try:
+            effects += _renumber(defs[ab.index]["effects"], index)
+        except _NoMatch:
+            return None
+    if any(e.get("who") == "self" for e in effects):
+        return None  # ("Exile ~." on an instant or sorcery: the spell itself, which effects don't move)
+    effects, target = _finish_targets(effects, groups)
+    return {"kind": "spell", "effects": effects, **target_fields(target)}

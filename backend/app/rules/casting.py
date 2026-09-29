@@ -33,8 +33,8 @@ from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.costs import AbilityCost, parse_ability_cost
 from app.rules.oracle import AbilityText
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
+from app.rules.targets import choose_groups, legal_targets, source_of
 from app.rules.targets import label as target_label
-from app.rules.targets import legal_targets, source_of
 from app.rules.targets import ref as target_ref
 
 MAIN_PHASES = ("main1", "main2")
@@ -343,6 +343,87 @@ def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: di
            options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
            resume={"step": "cast_target", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
     return None
+
+
+@dataclass
+class ChosenTargets:
+    """The targets of a spell or ability as it's put on the stack: all of them (``flat``), and for
+    one with target groups, each group's and each divided group's division (601.2c-d)."""
+
+    flat: list[TargetRef]
+    groups: list[list[TargetRef]] | None = None
+    specs: list[dict[str, Any]] | None = None
+    division: list[list[int]] | None = None
+
+    def entry(self, definition: dict[str, Any] | None) -> dict[str, Any]:
+        """The StackEntry fields for them."""
+        if self.specs is None:
+            return {"targets": self.flat, "target_spec": (definition or {}).get("target")}
+        return {"targets": self.flat, "target_spec": None, "groups": self.groups, "group_specs": self.specs,
+                "division": self.division}
+
+
+def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any] | None, what: str,
+                   *, exclude: tuple[str, ...] = ()) -> ChosenTargets | None:
+    """All targets of an automated spell or ability (601.2c-d): one plain "target", or target
+    groups. None while waiting for a choice."""
+    if not definition or not definition.get("targets"):
+        chosen = choose_target(plan, a, definition, what, exclude=exclude)
+        return None if chosen is None else ChosenTargets(flat=chosen)
+    specs = scripts.target_groups(definition)
+    found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id), a.card_id, list(a.targets),
+                          list(a.target_counts), list(a.division), a.x_value, what, exclude)
+    if found.ask is not None:
+        ask_targets(plan, plan.actor, found, specs, what,
+                    {"step": "cast_group", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
+                     "counts": found.counts})
+        return None
+    groups = [[target_ref(plan, t) for t in g] for g in found.groups]
+    return ChosenTargets(flat=[t for g in groups for t in g], groups=groups, specs=specs, division=found.division)
+
+
+def ask_targets(plan: Plan, player: str, found: Any, specs: list[dict[str, Any]], what: str, resume: dict[str, Any]) -> None:
+    """The next missing choice of a spell or ability with target groups, asked privately: a
+    group's targets (601.2c), or a division (601.2d; answered with amounts, one per target)."""
+    many = len(specs) > 1
+    if found.ask[0] == "group":
+        _, g, options, lo, hi = found.ask
+        count = str(lo) if lo == hi else f"up to {hi}" if lo == 0 else f"{lo} to {hi}"
+        decide(plan, player=player, kind="choose_cards",
+               prompt=f"Choose {count} target{'s' if hi != 1 else ''} for {what}" + (f" (group {g + 1} of {len(specs)})" if many else ""),
+               options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None)
+                        for x in options],
+               min_choices=lo, max_choices=hi, resume=resume)
+        return
+    _, g, total = found.ask
+    chosen = found.groups[g]
+    noun = "damage" if specs[g]["divide"]["what"] == "damage" else "counters"
+    decide(plan, player=player, kind="divide", prompt=f"Divide {total} {noun} among the targets of {what} (at least 1 each)",
+           options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None)
+                    for x in chosen],
+           min_choices=len(chosen), max_choices=len(chosen), display={"kind": "divide", "total": total, "what": noun},
+           resume={**resume, "step": resume["step"].replace("group", "divide"), "total": total})
+
+
+def resume_cast_group(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.engine import INTENTS  # the engine imports this module
+
+    intent = A.parse_action(d.resume["intent"])
+    intent.targets = [*intent.targets, *chosen]  # type: ignore[union-attr]
+    intent.target_counts = [*d.resume["counts"], len(chosen)]  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
+
+
+def resume_cast_divide(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.engine import INTENTS  # the engine imports this module
+
+    intent = A.parse_action(d.resume["intent"])
+    intent.division = [*intent.division, *(int(c) for c in chosen)]  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
 
 
 def _controls_commander(plan: Plan, player: str) -> bool:
@@ -1110,11 +1191,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if found is None:
             return
         slots = found
-        chosen: list[TargetRef] | None = [t for slot in slots for t in slot]
+        picked_targets: ChosenTargets | None = ChosenTargets(flat=[t for slot in slots for t in slot])
     else:
-        chosen = choose_target(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
-    if chosen is None:
+        picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+    if picked_targets is None:
         return  # waiting for the target choice (601.2c comes before paying costs)
+    chosen = picked_targets.flat
     if payment_step(plan, a, cost, ch.name or "it", purpose=Purpose(spell=ch)):
         return
     commander_cast = from_command_zone(card, plan.actor)
@@ -1169,8 +1251,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
                                       x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs)
     elif definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
-                                      name=ch.name, effects=list(definition["effects"]), targets=chosen,
-                                      target_spec=definition.get("target"), x=a.x_value)
+                                      name=ch.name, effects=list(definition["effects"]), x=a.x_value,
+                                      **picked_targets.entry(definition))
     if aura is not None and chosen:
         r.aura_targets = {k: v for k, v in r.aura_targets.items() if plan.state.cards.get(k) is not None
                           and plan.state.cards[k].zone == STACK}
@@ -1408,8 +1490,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if card.id not in r.free_casts or card.zone != zone_key(card.owner, "exile") or card.owner != plan.actor:
         raise ActionError("You can't cast that without paying its mana cost now")
     definition = None if plan.manual(card) else scripts.spell_definition(ch)
-    chosen = choose_target(plan, a, definition, ch.name or "it")
-    if chosen is None:
+    picked_targets = choose_targets(plan, a, definition, ch.name or "it")
+    if picked_targets is None:
         return  # waiting for the target choice; the grant stays
     alt = r.alt_costs.get(card.id)
     if alt is not None:  # madness: pay that cost instead of the mana cost
@@ -1441,8 +1523,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         _cascade_triggers(plan, card, ch)
     if definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
-                                      name=ch.name, effects=list(definition["effects"]), targets=chosen,
-                                      target_spec=definition.get("target"), x=a.x_value)
+                                      name=ch.name, effects=list(definition["effects"]), x=a.x_value,
+                                      **picked_targets.entry(definition))
     turn = plan.state.turn.number
     r.spells_cast[plan.actor] = TurnCount(turn=turn, count=r.spells_this_turn(plan.actor, turn) + 1)
     r.passed = []
@@ -1665,9 +1747,10 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         definition = None
     if exclude_targets and set(a.targets) & set(exclude_targets):
         raise ActionError(f"{ch.name} can't target itself")
-    chosen = choose_target(plan, a, definition, f"{ch.name}’s ability", exclude=exclude_targets)
-    if chosen is None:
+    picked_targets = choose_targets(plan, a, definition, f"{ch.name}’s ability", exclude=exclude_targets)
+    if picked_targets is None:
         return
+    chosen = picked_targets.flat
     if payment_step(plan, a, mana.with_x(a.x_value or 0), f"{ch.name}’s ability",
                     exclude=(card.id,) if cost.tap else (), purpose=Purpose(ability_of=ch)):
         return
@@ -1696,8 +1779,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     r = plan.rules
     if definition is not None and ability_id:
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
-                                         name=ch.name, effects=list(definition["effects"]), targets=chosen,
-                                         target_spec=definition.get("target"), x=a.x_value)
+                                         name=ch.name, effects=list(definition["effects"]), x=a.x_value,
+                                         **picked_targets.entry(definition))
     if chosen and ability_id:
         from app.rules.triggers import targeted
 

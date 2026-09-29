@@ -302,6 +302,7 @@ def parse(phrase: str) -> Selector | None:
 def _parse(phrase: str) -> Selector | None:
     s = Selector()
     text = phrase
+    qualified = False  # a "with …" / "without …" qualifier
     try:
         changed = True
         while changed:
@@ -310,10 +311,15 @@ def _parse(phrase: str) -> Selector | None:
                 m = pattern.search(text)
                 if m:
                     s = fn(s, m)
+                    qualified = qualified or m.group(0).lstrip().startswith(("with ", "without "))
                     text = text[: m.start()]
                     changed = True
                     break
     except ValueError:
+        return None
+    if qualified and re.search(r", or \S+$", text):
+        # "artifact, enchantment, or creature with flying": the qualifier is the last item's
+        # only (any artifact; a creature with flying), which a selector can't say: not a guess
         return None
     words = text.replace(",", " ,").split()
     if not words:

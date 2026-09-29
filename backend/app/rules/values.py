@@ -111,8 +111,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 def _object(plan: Plan, ctx: dict[str, Any], who: str) -> Any:
     if who == "self":
         return plan.state.cards.get(ctx.get("source_card") or "")
-    if who == "target":
-        for t in ctx.get("targets") or []:
+    if who == "target" or who.startswith("target:"):
+        from app.rules.effects import target_refs  # (effects imports this module)
+
+        for t in target_refs(ctx, who):
             card = plan.state.cards.get(t["id"])
             if card is not None:
                 return card

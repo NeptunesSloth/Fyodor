@@ -762,7 +762,14 @@ def choose(plan: Plan, a: A.Choose) -> None:
         raise ActionError(f"It's {plan.name(d.player)}'s decision")
     chosen = list(a.option_ids)
     valid = {o.id for o in d.options}
-    if len(set(chosen)) != len(chosen) or not set(chosen) <= valid:
+    if d.kind == "divide":  # 601.2d: an amount per option (target), at least 1 each, adding up to the total
+        total = int((d.resume or {}).get("total", 0))
+        if chosen or len(a.amounts) != len(d.options) or any(n < 1 for n in a.amounts) or sum(a.amounts) != total:
+            raise ActionError(f"Divide {total} among the {len(d.options)} targets: at least 1 each, {total} in all")
+        chosen = [str(n) for n in a.amounts]
+    elif a.amounts:
+        raise ActionError("Amounts only answer a division")
+    elif len(set(chosen)) != len(chosen) or not set(chosen) <= valid:
         raise ActionError("Choose from the options offered")
     if d.kind == "reconcile":
         groups = {o.id: o.group for o in d.options}
@@ -933,6 +940,10 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "pick_looked": effects.resume_pick_looked,
     "cast_modes": casting.resume_cast_modes,
     "cast_slot_target": casting.resume_cast_slot_target,
+    "cast_group": casting.resume_cast_group,
+    "cast_divide": casting.resume_cast_divide,
+    "trigger_group": triggers.resume_group,
+    "trigger_divide": triggers.resume_divide,
     "fabricate": effects.resume_fabricate,
     "storm": effects.resume_storm,
     "shock": lambda plan, d, chosen: _resume_shock(plan, d, chosen),
