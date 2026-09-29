@@ -45,11 +45,12 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | M16c Commander patterns (tokens, wipes, blink, tutors, monarch, looting, Treasure, proliferate) | 32,116 | 2,939 (9.2%) | 29,129 | 0 | 48 | 61 / 3,501 |
 | Mana abilities: filters, pain lands, restrictions, counters/life as costs, chosen color, lands' mana | 32,116 | 3,115 (9.7%) | 28,953 | 0 | 48 | 61 / 3,501 |
 | Evasion (landwalk, shadow, horsemanship, fear, intimidate, skulk), prowess, combat restrictions | 32,116 | 3,340 (10.4%) | 28,728 | 0 | 48 | 71 / 3,501 |
+| Cycling and typecycling (mana costs) | 32,116 | 3,474 (10.8%) | 28,594 | 0 | 48 | 73 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards
-needing it. Current leaders: unsupported mana-ability wordings (832 cards), cycling (300),
-protection (186), regenerate (119), morph (153), convoke, prowess, affinity.
+needing it. Current leaders: unsupported mana-ability wordings, protection (186), regenerate (119),
+flashback, crew, morph (153), convoke, affinity.
 
 **Commander eligibility and color identity** (`app/rules/commander.py`) follow CR 903.3 (a
 legendary creature, Vehicle, or Spacecraft with power/toughness, or "can be your commander"),

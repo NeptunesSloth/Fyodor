@@ -285,6 +285,9 @@ def _matches(plan: Plan, card_id: str, what: str) -> bool:
     from app.rules import characteristics as chars
 
     ch = chars.of(plan.state.cards[card_id], plan.info)
+    if what.startswith("type:"):  # typecycling: "Swampcycling" finds a Swamp card, "Wizardcycling" a Wizard
+        t = what[5:]
+        return t in ch.subtypes or t in ch.types or t in ch.supertypes
     return {"any": True, "basic_land": ch.is_land and "Basic" in ch.supertypes, "land": ch.is_land,
             "creature": ch.is_creature, "artifact": "Artifact" in ch.types, "enchantment": "Enchantment" in ch.types,
             "instant_or_sorcery": ch.is_instant_or_sorcery}[what]

@@ -177,5 +177,10 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Monastery Swiftspear", set_code="tst", number="K1", mana_cost="{R}", cmc=1.0, type_line="Creature — Human Monk",
              oracle_text="Haste\nProwess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)",
              power="1", toughness="2", colors=["R"], color_identity=["R"], keywords=["Haste", "Prowess"]),
+        card("Barren Moor", set_code="tst", number="K2", type_line="Land",
+             oracle_text="Barren Moor enters tapped.\n{T}: Add {B}.\nCycling {B} ({B}, Discard this card: Draw a card.)", color_identity=["B"]),
+        card("Twisted Abomination", set_code="tst", number="K3", mana_cost="{5}{B}", cmc=6.0, type_line="Creature — Zombie Mutant",
+             oracle_text="{B}: Regenerate Twisted Abomination.\nSwampcycling {2} ({2}, Discard this card: Search your library for a Swamp card, reveal it, put it into your hand, then shuffle.)",
+             power="5", toughness="3", colors=["B"], color_identity=["B"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

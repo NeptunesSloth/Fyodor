@@ -69,6 +69,9 @@ def strip_reminders(text: str) -> str:
     return text
 
 
+_TYPECYCLING = re.compile(r"^((?:basic )?[a-z]+cycling)(?: \{|$)")
+
+
 def keyword_name(piece: str) -> str | None:
     """"Protection from red" → "protection"; "Ward {2}" → "ward"; "Equip {1}" → "equip"."""
     raw = piece.strip().rstrip(".").lower()
@@ -83,7 +86,10 @@ def keyword_name(piece: str) -> str | None:
     if first_two in KEYWORDS:
         return first_two
     first = raw.split()[0]
-    return first if first in KEYWORDS else None
+    if first in KEYWORDS:
+        return first
+    typecycling = _TYPECYCLING.match(raw)  # "Swampcycling {2}", "Basic landcycling {1}{G}", "Wizardcycling {3}"
+    return typecycling[1] if typecycling else None
 
 
 def _keywords_line(line: str) -> tuple[str, ...] | None:

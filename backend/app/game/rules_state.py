@@ -213,6 +213,7 @@ EventKind = Literal[
     "tapped",
     "untapped",
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
+    "cycled",  # a player cycled a card (702.29: "when you cycle …")
 ]
 
 

@@ -14,7 +14,8 @@ from tests.test_rules_effects import run_until
 
 SPELLS = [(1, "Shivan Reef"), (1, "Sungrass Prairie"), (1, "Ancient Ziggurat"), (1, "Vivid Marsh"), (1, "Sol Grail"),
           (1, "Blightsoil Druid"), (1, "Tainted Isle"), (1, "Reflecting Pool"), (1, "Grizzly Bears"), (1, "Swamp"),
-          (1, "Forest"), (1, "Mountain"), (1, "Lightning Bolt"), (1, "Sol Ring")]
+          (1, "Forest"), (1, "Mountain"), (1, "Lightning Bolt"), (1, "Sol Ring"), (1, "Barren Moor"),
+          (1, "Twisted Abomination")]
 LIBRARY = [(8, "Island")]  # stays in the library (draws later in the game)
 
 
@@ -127,3 +128,29 @@ def test_prowess(cards):
     pass_until_stack_empty(s)
     assert Plan(s.state, "p1", cards, None).ch(s.state.cards[monk.id]).pt == (2, 3)
     assert s.state.players["p2"].life == 37
+
+
+def test_cycling(cards):
+    from tests.test_rules_effects import pass_until_stack_empty
+
+    s = table(cards, "Swamp")
+    moor = named(s, "Barren Moor")
+    hand_before = len(zone(s.state, "p1", "hand"))
+    act(s, "p1", type="activate_ability", card_id=moor.id, ability=2)  # "Cycling {B}"
+    assert s.state.cards[moor.id].zone == "p1:graveyard" and named(s, "Swamp").tapped
+    pass_until_stack_empty(s)
+    assert len(zone(s.state, "p1", "hand")) == hand_before  # −Barren Moor, +1 card
+
+
+def test_typecycling_finds_that_type_privately(cards):
+    s = table(cards, "Swamp", "Mountain")
+    abomination = named(s, "Twisted Abomination")
+    act(s, "p1", type="activate_ability", card_id=abomination.id, ability=1)  # "Swampcycling {2}"
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d.kind == "choose_cards" and d.player == "p1"
+    assert {s.state.cards[o.id].name for o in d.options} <= {"Swamp"}  # only Swamp cards (the library holds Islands)

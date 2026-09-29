@@ -8,6 +8,7 @@ tap lands yourself first (``activate_ability`` on their mana ability) to pay a p
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -574,12 +575,71 @@ def _find_ability(ch: Characteristics, index: int) -> AbilityText:
     return ability
 
 
+CYCLING = re.compile(r"^(?P<kind>(?:basic )?(?:[a-z]+)?)cycling (?P<cost>(\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def hand_ability(ch: Characteristics, index: int) -> tuple[str, str] | None:
+    """A cycling keyword on ability line ``index``: (kind, mana cost). kind "" = plain cycling,
+    "basic land" / "Swamp" / "Wizard" … = typecycling (search for that card)."""
+    for ab in ch.abilities:
+        if ab.index != index or ab.kind != "keywords":
+            continue
+        m = CYCLING.fullmatch(ab.text.strip().rstrip("."))
+        if m:
+            kind = m["kind"].strip()
+            return (kind if kind.lower() != "basic land" else "basic land"), m["cost"]
+    return None
+
+
+def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility) -> None:
+    """Cycling (702.29): pay the cost and discard this card from your hand, then the ability on
+    the stack draws a card; typecycling searches your library for a card of that type instead."""
+    from app.rules.engine import advance  # the engine imports this module
+
+    found = hand_ability(ch, a.ability)
+    if found is None:
+        raise ActionError("That card has no ability to use from your hand")
+    kind, mana_text = found
+    mana = M.parse_cost(mana_text)
+    if payment_step(plan, a, mana, f"cycling {ch.name}", purpose=Purpose(ability_of=ch)):
+        return
+    if kind:
+        filt = "basic_land" if kind == "basic land" else f"type:{kind[0].upper()}{kind[1:].lower()}"
+        effects = [{"do": "search", "who": "you", "filter": filt, "to": "hand", "reveal": True}]
+        text = f"Search your library for a {kind} card, reveal it, put it into your hand, then shuffle."
+    else:
+        effects = [{"do": "draw", "who": "you", "n": 1}]
+        text = "Draw a card."
+    oid = plan.oid(card)
+    created = plan.do({"type": "create_ability", "text": text, "source_id": card.id, "kind": "activated"})
+    new_ids = getattr(created, "r", None)
+    ability_id = new_ids.ids[0] if new_ids is not None else None
+    pay(plan, plan.actor, mana, f"paid {mana.text()} to cycle {ch.name}", sources=a.sources, purpose=Purpose(ability_of=ch))
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "graveyard"}})
+    emit(plan.state, "cycled", object_id=oid, card=card.id, player=plan.actor)
+    r = plan.rules
+    if ability_id:
+        r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
+                                         name=ch.name, effects=effects, targets=[], target_spec=None)
+    r.passed = []
+    r.priority = plan.actor
+    if r.prefs_for(plan.actor).hold_priority:
+        plan.hold = plan.actor
+        return
+    r.passed.append(plan.actor)
+    r.priority = plan.after(plan.actor)
+    advance(plan)
+
+
 def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     require_no_decision(plan)
     require_priority(plan)
     card = plan.state.cards.get(a.card_id)
     if card is None:
         raise ActionError("That card isn't here any more")
+    if card.zone == zone_key(plan.actor, "hand"):
+        cycle(plan, card, plan.ch(card), a)
+        return
     if card.controller != plan.actor or not card.zone.endswith(":battlefield"):
         raise ActionError("You can only activate abilities of permanents you control")
     ch = plan.ch(card)

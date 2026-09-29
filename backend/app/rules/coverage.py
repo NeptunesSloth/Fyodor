@@ -9,6 +9,7 @@ report is honest: a card is FULL only when every part of it is automated.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -45,6 +46,16 @@ SUPPORTED_KEYWORDS: set[str] = {
     # triggered keywords (app/rules/scripts.py KEYWORD_TRIGGERS)
     "prowess",
 }
+
+
+# Cycling / typecycling with a plain mana cost (casting.cycle); "Cycling—Pay 2 life" and friends stay manual.
+_MANA_CYCLING = re.compile(r"(?:(?:basic )?[a-z]+)?cycling (?:\{[^}]+\})+")
+
+
+def _keyword_supported(kw: str, line: str) -> bool:
+    if kw.endswith("cycling"):
+        return _MANA_CYCLING.fullmatch(line.strip().rstrip(".").lower()) is not None
+    return kw in SUPPORTED_KEYWORDS
 
 
 @dataclass(frozen=True)
@@ -100,7 +111,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
             add(f"script:{ab.index}", ab.text, True)
         elif ab.kind == "keywords":
             for kw in ab.keywords:
-                add(f"keyword:{kw}", kw.capitalize(), kw in SUPPORTED_KEYWORDS)
+                add(f"keyword:{kw}", kw.capitalize(), _keyword_supported(kw, ab.text))
         elif ab.kind == "mana":
             add("mana:ability", ab.text, "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None)
         else:
