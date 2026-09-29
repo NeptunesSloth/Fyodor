@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.rules import cards as scripts
@@ -59,14 +60,34 @@ def test_full_only_when_every_part_is_supported(cards, monkeypatch):
 
 def test_scripts_cover_abilities(cards):
     bolt = cards.resolve("Lightning Bolt")
-    script = scripts.CardScript(oracle_id=bolt["oracle_id"], name="Lightning Bolt", covers=frozenset({0}))
-    scripts._REGISTRY[script.oracle_id] = script
+    script = scripts.CardScript(oracle_id=bolt["oracle_id"], name="Lightning Bolt", covers=frozenset({0}),
+                                oracle_hash=scripts.oracle_hash(bolt["oracle_text"]))
+    scripts.register(script)
     try:
         cov = coverage.of_card_data(bolt)
         assert "Lightning Bolt deals 3 damage to any target." not in cov.manual_parts
-        assert cov.level == "FULL"  # casting is supported and the script covers the effect
+        assert cov.level == "FULL" and not cov.review_needed  # casting is supported and the script covers the effect
     finally:
-        del scripts._REGISTRY[script.oracle_id]
+        scripts.unregister(script.oracle_id)
+
+
+def test_changed_oracle_text_needs_review(cards):
+    bolt = cards.resolve("Lightning Bolt")
+    old_text = "Lightning Bolt deals 3 damage to target creature or player."  # an older wording
+    scripts.register(scripts.CardScript(oracle_id=bolt["oracle_id"], name="Lightning Bolt", covers=frozenset({0}),
+                                        oracle_hash=scripts.oracle_hash(old_text)))
+    try:
+        cov = coverage.of_card_data(bolt)
+        assert cov.level == "PARTIAL" and cov.review_needed  # never FULL against text the script wasn't checked with
+        assert "Lightning Bolt deals 3 damage to any target." in cov.manual_parts
+        assert cov.as_dict()["review_needed"] is True
+    finally:
+        scripts.unregister(bolt["oracle_id"])
+    # reminder text and spacing don't count as a change
+    assert scripts.oracle_hash("Flying (This creature can't be blocked except by creatures with flying or reach.)") \
+        == scripts.oracle_hash("Flying")
+    with pytest.raises(ValueError, match="Oracle text"):
+        scripts.register(scripts.CardScript(oracle_id="x", name="Unchecked"))
 
 
 def test_coverage_api(client):

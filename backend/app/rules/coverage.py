@@ -49,6 +49,7 @@ class Coverage:
     name: str
     oracle_id: str | None
     features: tuple[Feature, ...] = field(default_factory=tuple)
+    review_needed: bool = False  # a script exists but the Oracle text changed since it was validated
 
     @property
     def manual_parts(self) -> list[str]:
@@ -61,11 +62,12 @@ class Coverage:
             "oracle_id": self.oracle_id,
             "features": [{"id": f.id, "label": f.label, "supported": f.supported} for f in self.features],
             "manual_parts": self.manual_parts,
+            "review_needed": self.review_needed,
         }
 
 
 def features_of(ch: Characteristics) -> list[Feature]:
-    script = scripts.get(ch.oracle_id)
+    script = scripts.trusted(ch.oracle_id, ch.oracle_text)
     out: list[Feature] = []
 
     def add(fid: str, label: str, ok: bool | None = None) -> None:
@@ -101,7 +103,10 @@ def of_characteristics(ch: Characteristics) -> Coverage:
         level = "PARTIAL"
     else:
         level = "MANUAL"
-    return Coverage(level=level, name=ch.name, oracle_id=ch.oracle_id, features=feats)
+    stale = scripts.get(ch.oracle_id) is not None and scripts.trusted(ch.oracle_id, ch.oracle_text) is None
+    if stale and level == "FULL":
+        level = "PARTIAL"
+    return Coverage(level=level, name=ch.name, oracle_id=ch.oracle_id, features=feats, review_needed=stale)
 
 
 def of_card_data(data: dict[str, Any]) -> Coverage:
@@ -112,13 +117,17 @@ def of_card_data(data: dict[str, Any]) -> Coverage:
         feats = tuple(f for p in parts for f in p.features)
         supported = sum(1 for f in feats if f.supported)
         level: Level = "FULL" if supported == len(feats) and feats else ("PARTIAL" if supported else "MANUAL")
-        return Coverage(level=level, name=str(data.get("name") or ""), oracle_id=data.get("oracle_id"), features=feats)
+        review = any(p.review_needed for p in parts)
+        if review and level == "FULL":
+            level = "PARTIAL"
+        return Coverage(level=level, name=str(data.get("name") or ""), oracle_id=data.get("oracle_id"), features=feats,
+                        review_needed=review)
     return of_characteristics(printed_from_data(data, 0))
 
 
 def ability_supported(ch: Characteristics, index: int) -> bool:
     """Whether the engine can carry out ability ``index`` of this object by itself."""
-    script = scripts.get(ch.oracle_id)
+    script = scripts.trusted(ch.oracle_id, ch.oracle_text)  # a script for other Oracle text: by hand
     if script is not None and index in script.covers:
         return True
     ab = next((a for a in ch.abilities if a.index == index), None)

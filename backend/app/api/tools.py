@@ -13,12 +13,12 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 
-from app import __version__
 from app.api.deps import get_services, require_local
+from app.buildinfo import build_info
 from app.logging_setup import RECENT_PROBLEMS
 from app.services import Services
 from app.storage.package import MAX_PACKAGE_BYTES, PackageError, export_package, import_package
-from app.storage.save_format import SAVE_VERSION, SaveFormatError
+from app.storage.save_format import SaveFormatError
 from app.storage.saves import SaveNotFound
 
 router = APIRouter(tags=["tools"], dependencies=[Depends(require_local)])
@@ -91,7 +91,7 @@ def diagnostics(services: ServicesDep, include_private: Annotated[bool, Query()]
     body = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "includes_private_information": include_private,
-        "app": {"version": __version__, "save_version": SAVE_VERSION, "app_db_schema": schema},
+        "app": {**build_info(), "app_db_schema": schema},
         "system": {"python": sys.version.split()[0], "platform": platform.platform(terse=True)},
         "settings": {"allow_network": services.settings.allow_network, "assistant_enabled": services.assistant is not None,
                      "frontend_bundled": services.settings.frontend_dist is not None,

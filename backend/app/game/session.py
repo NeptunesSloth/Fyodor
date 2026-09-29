@@ -9,8 +9,8 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.game import engine
-from app.game.actions import Action, parse_action
-from app.game.errors import ActionError
+from app.game.actions import INTENT_TYPES, Action, parse_action
+from app.game.errors import ActionError, AutomationError
 from app.game.history import History
 from app.game.ops import pname, text
 from app.game.resolve import CardInfo, NoCardInfo, resolve
@@ -39,6 +39,7 @@ class GameSession:
         self.updated_at = time.time()
         # Named table snapshots ("Before board wipe"): kept beside the game, saved with it.
         self.table_snapshots: list[dict[str, Any]] = []
+        self.rules_failure: dict[str, Any] | None = None  # the last unexpected rules-engine failure
 
     # -- actions ---------------------------------------------------------------------
     def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
@@ -48,7 +49,24 @@ class GameSession:
         if actor not in self.state.players:
             raise ActionError("Only seated players can act")
         action = parse_action(payload) if isinstance(payload, dict) else payload
-        resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+        try:
+            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+        except ActionError:
+            raise
+        except Exception as exc:
+            if action.type not in INTENT_TYPES and action.type != "configure":
+                raise
+            # A rules bug must never break game night: compiling works on a scratch copy, so
+            # nothing was applied. Remember the failure for EXPORT RULES SCENARIO.
+            log.exception("Rules engine failed on %s", action.type)
+            self.rules_failure = {
+                "intent": action.model_dump(mode="json", exclude={"r"}), "actor": actor, "seq": self.state.seq,
+                "error": f"{type(exc).__name__}: {exc}"[:500], "at": time.time(),
+            }
+            raise AutomationError(
+                f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
+                "Resolve it manually with the table tools, pause automation, or export a rules scenario."
+            ) from exc
         try:
             engine.apply(self.state, resolved)
         except ActionError:
@@ -100,6 +118,8 @@ class GameSession:
 
             rules = rules_view(self.state, viewer, self.cards or NoCardInfo())
             if rules is not None:
+                if self.rules_failure is not None:  # public: what failed, not the error internals
+                    rules["failure"] = {"intent": self.rules_failure["intent"]["type"], "at": self.rules_failure["at"]}
                 view["rules"] = rules
         return view
 

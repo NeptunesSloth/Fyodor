@@ -114,9 +114,10 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         return None
     cost = [c.strip() for c in m.group("cost").split(",")]
     tap = "{T}" in cost
+    free = cost == ["{0}"]
     sacrifice = any(re.fullmatch(r"Sacrifice (this \w+|it)", c) for c in cost)
-    if not tap or any(c != "{T}" and not re.fullmatch(r"Sacrifice (this \w+|it)", c) for c in cost):
-        return None  # costs beyond {T} / sacrificing itself aren't automated yet
+    if not (tap or free) or any(c not in ("{T}", "{0}") and not re.fullmatch(r"Sacrifice (this \w+|it)", c) for c in cost):
+        return None  # costs beyond {T} / {0} / sacrificing itself aren't automated yet
     options = _effect_options(m.group("effect"), identity)
     if options is None:
         return None

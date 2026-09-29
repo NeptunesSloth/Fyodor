@@ -991,6 +991,28 @@ class SetCardAutomation(_Intent):
     mode: Literal["auto", "manual", "assisted"]
 
 
+class RepeatUntil(BaseModel):
+    """REPEAT UNTIL: stop once the condition holds (checked before each iteration)."""
+
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["mana", "tokens", "life_at_most", "life_at_least", "counter"]
+    value: int = Field(ge=-100000, le=100000)
+    player: Id | None = None  # whose mana / tokens / life (default: you)
+    card_id: Id | None = None  # counter: on which permanent
+    counter: Annotated[str, Field(max_length=30)] | None = None
+
+
+class RepeatSequence(_Intent):
+    """REPEAT LAST VALIDATED SEQUENCE: replay your last ``count`` intents (which you just did once)
+    up to ``times`` more times. Every iteration goes through the rules engine; it stops as soon as
+    an iteration becomes illegal, needs a choice or isn't deterministic."""
+
+    type: Literal["repeat_sequence"] = "repeat_sequence"
+    count: int = Field(ge=1, le=30)
+    times: int = Field(default=1, ge=1, le=500)
+    until: RepeatUntil | None = None
+
+
 class RulesSync(Base):
     """Server-built only: the rules state after a compiled intent (always its last step)."""
 
@@ -1047,11 +1069,12 @@ class RulesLog(Base):
     text: str = Field(max_length=500)
     card_ids: list[Id] = Field(default_factory=list, max_length=20)  # cards appended to the line
     kind: str = Field(default="rules", max_length=20)
+    fold: int = Field(default=0, ge=0, le=100000)  # fold the previous N log lines under this one (repeats)
 
 
 INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
-     "choose", "concede", "set_stops", "set_prefs", "set_card_automation"}
+     "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence"}
 )
 SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage"})
 
@@ -1158,6 +1181,7 @@ Action = Annotated[
     | SetStops
     | SetPrefs
     | SetCardAutomation
+    | RepeatSequence
     | RulesSync
     | RulesMana
     | RulesDamage

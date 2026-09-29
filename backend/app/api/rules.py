@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app.api.deps import get_services, require_local
-from app.rules import coverage, inventory
+from app.rules import coverage, inventory, scenario
 from app.services import Services
 
 router = APIRouter(tags=["rules"])
@@ -77,3 +77,18 @@ def pod_inventory(services: ServicesDep) -> dict[str, Any]:
 @router.get("/rules/inventory.md", dependencies=[Depends(require_local)], response_class=PlainTextResponse)
 def pod_inventory_markdown(services: ServicesDep) -> PlainTextResponse:
     return PlainTextResponse(inventory.markdown(build_report(services)), media_type="text/markdown; charset=utf-8")
+
+
+@router.get("/games/{game_id}/rules/scenario", dependencies=[Depends(require_local)])
+def export_scenario(game_id: str, services: ServicesDep,
+                    intents: Annotated[int, Query(ge=1, le=20)] = 1) -> JSONResponse:
+    """EXPORT RULES SCENARIO (developer tool, host computer only): the last ``intents`` rules
+    intents with the table just before them, redacted, ready to become a regression test."""
+    if not services.settings.dev_tools:
+        raise HTTPException(403, "Developer tools are off (start Fyodor with FYODOR_DEV_TOOLS=1)")
+    room = services.hub.get(game_id)
+    if room is None:
+        raise HTTPException(404, "Game not found")
+    payload = scenario.export(room.session, services.cards, intents=intents, failure=room.session.rules_failure)
+    name = f"rules-scenario-{game_id}-{int(payload['exported_at'])}.json"
+    return JSONResponse(payload, headers={"Content-Disposition": f'attachment; filename="{name}"'})

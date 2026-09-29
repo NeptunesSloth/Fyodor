@@ -124,6 +124,9 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
 
 
 def rules_log(state: GameState, a: A.RulesLog) -> None:
+    if a.fold:
+        for entry in state.log[-a.fold:]:
+            entry.folded = True
     parts = [text(a.text)]
     for cid in a.card_ids:
         if cid in state.cards:

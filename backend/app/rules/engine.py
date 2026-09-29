@@ -39,7 +39,8 @@ NOT_YET: dict[str, str] = {}
 # -- entry point -------------------------------------------------------------------------
 RULES_ENGINE_VERSION = 2  # bump when the rules engine's behaviour changes (saved with scenarios/diagnostics)
 PREF_INTENTS = frozenset({"set_stops", "set_prefs", "set_card_automation"})  # allowed any time
-ACTION_INTENTS = frozenset({"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers"})
+ACTION_INTENTS = frozenset({"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers",
+                            "repeat_sequence"})
 
 
 def automation_on(state: GameState) -> bool:
@@ -76,6 +77,8 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         plan.rules.last_actor = actor
     handler(plan, intent)
     settle(plan)
+    if intent.type != "repeat_sequence":
+        remember_intent(plan, intent)
     plan.rules.engine_version = RULES_ENGINE_VERSION
     plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
     return plan.steps
@@ -131,6 +134,90 @@ def sync_step(plan: Plan) -> None:
         r.priority = plan.active if plan.active in plan.live() else plan.after(plan.active)
     elif r.priority is None and r.decision is None:
         r.priority = plan.active
+
+
+# -- repeating a sequence ------------------------------------------------------------------
+MAX_REPEAT_STEPS = 50000
+RECENT_LIMIT = 30
+RANDOM_STEPS = frozenset({"shuffle", "roll", "coin", "mulligan", "reset_deck"})
+
+
+def remember_intent(plan: Plan, intent: A.Action) -> None:
+    r = plan.rules
+    turn = plan.state.turn.number
+    if r.recent_turn != turn:
+        r.recent, r.recent_turn = {}, turn
+    mine = r.recent.setdefault(plan.actor, [])
+    mine.append(intent.model_dump(mode="json", exclude={"r", "actor", "ts"}))
+    del mine[:-RECENT_LIMIT]
+
+
+class _Stop(Exception):
+    pass
+
+
+def _until_met(plan: Plan, a: A.RepeatSequence) -> bool:
+    u = a.until
+    if u is None:
+        return False
+    state = plan.state
+    pid = u.player or plan.actor
+    player = state.players.get(pid)
+    if player is None:
+        raise ActionError("Unknown player")
+    if u.kind == "mana":
+        return sum(player.mana.values()) >= u.value
+    if u.kind == "tokens":
+        return sum(c.quantity for c in state.cards.values()
+                   if c.is_token and c.controller == pid and c.zone.endswith(":battlefield")) >= u.value
+    if u.kind == "life_at_most":
+        return player.life <= u.value
+    if u.kind == "life_at_least":
+        return player.life >= u.value
+    card = state.cards.get(u.card_id or "")
+    if card is None or not u.counter:
+        raise ActionError("Choose a permanent and a counter")
+    return card.counters.get(u.counter, 0) >= u.value
+
+
+def repeat_sequence(plan: Plan, a: A.RepeatSequence) -> None:
+    """Replay the actor's last ``count`` intents, iteration by iteration, through the engine. An
+    iteration that fails, needs a choice, or does anything random is rolled back and ends the
+    repeat; the table stays as it was after the last complete iteration. Never guesses that a
+    board state "is" an infinite loop: it only repeats what the player actually did."""
+    r = plan.rules
+    seq = r.recent.get(plan.actor, [])[-a.count:] if r.recent_turn == plan.state.turn.number else []
+    if len(seq) < a.count:
+        raise ActionError("Do the whole sequence once first (this turn), then repeat it")
+    if any(p["type"] in ("choose", "concede", "repeat_sequence") or p["type"] in PREF_INTENTS for p in seq):
+        raise ActionError("That sequence involves choices, so it can't be repeated automatically")
+    plan.max_steps = MAX_REPEAT_STEPS
+    log_start = len(plan.state.log)
+    done, reason = 0, ""
+    for _ in range(a.times):
+        if _until_met(plan, a):
+            reason = "the condition was reached"
+            break
+        snapshot, mark = plan.state.model_copy(deep=True), len(plan.steps)
+        try:
+            for payload in seq:
+                intent = A.parse_action(payload)
+                INTENTS[intent.type](plan, intent)
+                settle(plan)
+                if plan.rules.decision is not None:
+                    raise _Stop("it needed a choice")
+            if any(step["type"] in RANDOM_STEPS for step in plan.steps[mark:]):
+                raise _Stop("it isn't deterministic")
+        except (ActionError, _Stop) as exc:
+            plan.state, plan.steps = snapshot, plan.steps[:mark]
+            reason = str(exc).rstrip(".")
+            break
+        done += 1
+    if done == 0 and not (a.until is not None and reason == "the condition was reached"):
+        raise ActionError(f"The sequence can't be repeated: {reason or 'nothing to do'}")
+    folded = len(plan.state.log) - log_start
+    plan.do({"type": "rules_log", "text": f"{plan.name(plan.actor)} repeated the sequence ×{done}"
+             + (f" (stopped: {reason})" if reason else ""), "fold": folded})
 
 
 # -- priority ----------------------------------------------------------------------------
@@ -649,6 +736,7 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "declare_blockers": combat.declare_blockers,
     "choose": choose,
     "concede": concede,
+    "repeat_sequence": repeat_sequence,
 }
 RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "manual_done": _resume_manual_done,

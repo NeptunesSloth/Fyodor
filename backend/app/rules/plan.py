@@ -33,6 +33,7 @@ class Plan:
         self.info = info
         self.rng = rng
         self.steps: list[dict[str, Any]] = []
+        self.max_steps = MAX_STEPS
         self.hold: str | None = None  # a player keeping priority right now (HOLD PRIORITY, a cancelled cast)
 
     @property
@@ -45,7 +46,7 @@ class Plan:
         from app.game.engine import HANDLERS  # the game engine imports resolve → this module
         from app.game.resolve import resolve
 
-        if len(self.steps) >= MAX_STEPS:
+        if len(self.steps) >= self.max_steps:
             raise ActionError("The rules engine stopped: too many steps for one action")
         action = A.parse_action(payload)
         resolved = resolve(self.state, action, actor=actor or self.actor, cards=self.info, rng=self.rng, trusted=True)

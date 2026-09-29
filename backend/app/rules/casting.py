@@ -9,7 +9,6 @@ tap lands yourself first (``activate_ability`` on their mana ability) to pay a p
 from __future__ import annotations
 
 from dataclasses import replace
-
 from typing import Any
 
 from app.game import actions as A

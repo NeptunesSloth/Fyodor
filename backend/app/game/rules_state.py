@@ -289,6 +289,9 @@ class RulesState(BaseModel):
     actions: int = 0  # player actions (not passes) taken, for "pass until next action"
     last_actor: str | None = None
     engine_version: int = 0  # RULES_ENGINE_VERSION that last acted on this table
+    # Each player's intents this turn, for REPEAT LAST VALIDATED SEQUENCE (payloads, newest last).
+    recent: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    recent_turn: int = 0
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)

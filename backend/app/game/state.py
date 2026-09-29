@@ -344,6 +344,7 @@ class LogEntry(BaseModel):
     parts: list[LogPart]
     kind: str = "action"
     manual: bool = False  # a sandbox action taken while rules automation was on
+    folded: bool = False  # shown collapsed under the following summary line (a repeated sequence)
 
 
 class GameState(BaseModel):
