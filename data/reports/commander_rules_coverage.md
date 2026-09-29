@@ -1,6 +1,6 @@
 # Commander rules coverage
 
-Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 18:25
+Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 18:42
 
 Only cards that are **legal in Commander today** count. Banned cards (83) are COMMANDER_BANNED and excluded.
 
@@ -10,8 +10,8 @@ Commander-legal cards: **32116**
 
 | Level | Cards | Share |
 |---|---|---|
-| FULL | 5186 | 16.1% |
-| PARTIAL | 26882 | 83.7% |
+| FULL | 5196 | 16.2% |
+| PARTIAL | 26872 | 83.7% |
 | REVIEW | 0 | 0.0% |
 | MANUAL | 48 | 0.1% |
 
@@ -24,9 +24,9 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 ## Coverage quality
 
 - Ability features (lines, keywords, play/cast/combat) across Commander-legal cards: 113346
-- Automated: 73262 (64.6%) · unrecognized clauses: 40084
+- Automated: 73337 (64.7%) · unrecognized clauses: 40009
 - Oracle text classified (automated, or sorted into a concrete missing capability): 97.1% · unclassified clauses: 3291
-- Distinct missing-capability clusters: 9992
+- Distinct missing-capability clusters: 9991
 
 ## Missing capabilities by category
 
@@ -37,10 +37,10 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 | MISSING SELECTOR | 4306 | 4569 |
 | MISSING CONTINUOUS EFFECT | 2838 | 3016 |
 | UNSUPPORTED ORACLE PATTERN | 2480 | 3291 |
-| MISSING MECHANIC | 2184 | 2251 |
+| MISSING MECHANIC | 2136 | 2201 |
 | MISSING COST | 1761 | 1841 |
 | MISSING REPLACEMENT PATTERN | 1392 | 1431 |
-| MISSING RESTRICTION | 1043 | 1089 |
+| MISSING RESTRICTION | 1018 | 1064 |
 | MISSING COST / PERMISSION RULE | 935 | 955 |
 | MANA ABILITY WORDING | 367 | 369 |
 
@@ -60,14 +60,14 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 8 | MISSING EFFECT | choose n … | 35 | 46 | 669 | Road of Return, Saheeli's Artistry, Eldrazi Confluence |
 | 9 | UNSUPPORTED ORACLE PATTERN | planeswalker | 35 | 0 | 311 | Tamiyo, Compleated Sage, Jace, the Perfected Mind, Huatli, Dinosaur Knight |
 | 10 | MISSING EFFECT | put a ±n/±n counter(s) … | 33 | 134 | 227 | Benevolent Hydra, Gollum, Silent Slinker // Meager Meal, Ent-Draught Basin |
-| 11 | MISSING EFFECT | pay {m} … | 33 | 100 | 141 | Minion Reflector, Giant's Amulet, Order of the Golden Cricket |
-| 12 | MISSING EFFECT | search your library for … | 32 | 273 | 424 | Safewright Quest, Thunderherd Migration, Squadron Hawk |
+| 11 | MISSING EFFECT | pay {m} … | 33 | 101 | 141 | Minion Reflector, Giant's Amulet, Order of the Golden Cricket |
+| 12 | MISSING EFFECT | search your library for … | 32 | 274 | 424 | Safewright Quest, Thunderherd Migration, Squadron Hawk |
 | 13 | MISSING CONTINUOUS EFFECT | ~ gets ±N/±N for each … | 32 | 45 | 115 | Nim Lasher, Benalish Honor Guard, Anya, Merciless Angel |
 | 14 | MISSING MECHANIC | choose a background | 32 | 1 | 32 | Halsin, Emerald Archdruid, Karlach, Fury of Avernus, Jaheira, Friend of the Forest |
 | 15 | MISSING SELECTOR | target creature card | 28 | 145 | 248 | Hua Tuo, Honored Physician, Puppeteer Clique, Metamorphosis Fanatic |
 | 16 | MISSING CONTINUOUS EFFECT | ~'s power and toughness are each … | 28 | 57 | 127 | Eluge, the Shoreless Sea, Flora Colossus, Revenant |
 | 17 | MISSING TRIGGER EVENT | Whenever you gain life | 28 | 40 | 79 | South Wind Avatar, Voice of the Blessed, MJ, Rising Star |
-| 18 | MISSING TRIGGER EVENT | At the beginning of each end step | 28 | 35 | 83 | Tinybones, Trinket Thief, Syndicate Heavy, Crested Sunmare |
+| 18 | MISSING TRIGGER EVENT | At the beginning of each end step | 28 | 36 | 83 | Tinybones, Trinket Thief, Syndicate Heavy, Crested Sunmare |
 | 19 | MISSING MECHANIC | doctor's companion | 27 | 0 | 27 | Nyssa of Traken, Donna Noble, Barbara Wright |
 | 20 | MISSING TRIGGER EVENT | When ~ enters | 26 | 9 | 26 | Kiora of Fire and Ashes, Sharuum the Hegemon, Phage the Untouchable |
 | 21 | MISSING EFFECT | create n … | 25 | 109 | 233 | Summon the School, Cogwork Assembler, Endless Evil |
@@ -137,7 +137,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 |---|---|---|---|---|---|---|
 | 1 | MISSING EFFECT | choose n … | 669 | 46 | 35 | Road of Return, Saheeli's Artistry, Eldrazi Confluence |
 | 2 | MISSING EFFECT | draw n … | 626 | 184 | 58 | Errand-Rider of Gondor, Heal, Grip of Amnesia |
-| 3 | MISSING EFFECT | search your library for … | 424 | 273 | 32 | Safewright Quest, Thunderherd Migration, Squadron Hawk |
+| 3 | MISSING EFFECT | search your library for … | 424 | 274 | 32 | Safewright Quest, Thunderherd Migration, Squadron Hawk |
 | 4 | MISSING EFFECT | ~ deals n … | 389 | 238 | 13 | Deem Worthy, End-Blaze Epiphany, Harvest Pyre |
 | 5 | MISSING SELECTOR | target | 319 | 159 | 20 | Cinder Elemental, Archangel of Wrath, Granger Guildmage |
 | 6 | MISSING COST / PERMISSION RULE | As an additional cost to cast … | 312 | 26 | 6 | Thunderherd Migration, Mind Extraction, Harvest Pyre |
@@ -156,7 +156,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 19 | MISSING EFFECT | target creature you control … | 194 | 133 | 8 | Oracle's Restoration, Plumecreed Escort, Blessed Defiance |
 | 20 | MISSING EFFECT | you gain n … | 146 | 95 | 9 | River Hoopoe, Tatyova, Benthic Druid, Shu Farmer |
 | 21 | MISSING TRIGGER EVENT | Whenever ~ enters or attacks | 141 | 49 | 71 | Omo, Queen of Vesuva, Eluge, the Shoreless Sea, Great Goblin, Foul-Hearted |
-| 22 | MISSING EFFECT | pay {m} … | 141 | 100 | 33 | Minion Reflector, Giant's Amulet, Order of the Golden Cricket |
+| 22 | MISSING EFFECT | pay {m} … | 141 | 101 | 33 | Minion Reflector, Giant's Amulet, Order of the Golden Cricket |
 | 23 | MISSING EFFECT | exile target … | 136 | 85 | 4 | Astarion's Thirst, Reaver Ambush, Deadly Rollick |
 | 24 | MISSING EFFECT | put n … | 131 | 61 | 19 | Black Sun's Zenith, Breaking // Entering, Mind Raker |
 | 25 | MISSING SELECTOR | target card | 128 | 74 | 3 | Disposal Mummy, Crypt Creeper, Funeral Pyre |
@@ -174,7 +174,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 37 | MISSING TRIGGER EVENT | Whenever you attack | 90 | 34 | 40 | Labyrinth Adversary, Karlach, Fury of Avernus, Director Nick Fury |
 | 38 | MISSING EFFECT | it deals n … | 87 | 54 | 5 | Goblin Chainwhirler, Chaos Maw, Festering Evil |
 | 39 | MISSING EFFECT | creatures you control get … | 86 | 40 | 8 | Strength of Night, Zariel, Archduke of Avernus, Inner-Flame Igniter |
-| 40 | MISSING TRIGGER EVENT | At the beginning of each end step | 83 | 35 | 28 | Tinybones, Trinket Thief, Syndicate Heavy, Crested Sunmare |
+| 40 | MISSING TRIGGER EVENT | At the beginning of each end step | 83 | 36 | 28 | Tinybones, Trinket Thief, Syndicate Heavy, Crested Sunmare |
 | 41 | MISSING TRIGGER EVENT | At the beginning of each player's upkeep | 81 | 51 | 8 | Seizan, Perverter of Truth, Quicksilver Fountain, Power Surge |
 | 42 | MISSING TRIGGER EVENT | When you cast ~ | 80 | 22 | 18 | Empyrial Storm, The Fourteenth Doctor, Ulamog, the Ceaseless Hunger |
 | 43 | MISSING TRIGGER EVENT | Whenever you gain life | 79 | 40 | 28 | South Wind Avatar, Voice of the Blessed, MJ, Rising Star |
@@ -204,12 +204,12 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 | 10 | template:Equipped creature gets ±N/±N and has “…” | continuous | 0 | 25 | 15 | Giant's Amulet, Iconic Shield, Candlestick |
 | 11 | keyword:foretell | keyword | 0 | 51 | 13 | The Foretold Soldier, Rise of the Dread Marn, Green Slime |
 | 12 | template:Enchanted land has “…” | continuous | 0 | 14 | 13 | Chamber of Manipulation, Discreet Retreat, Farmstead |
-| 13 | keyword:splice | keyword | 0 | 30 | 12 | Evermind, Horobi's Whisper, Desperate Ritual |
-| 14 | template:When ~ enters, tap enchanted creature. | triggered | 0 | 29 | 12 | Waterknot, Colossification, Tangle Kelp |
-| 15 | keyword:backup | keyword | 0 | 25 | 12 | Saiba Cryptomancer, Chomping Kavu, Consuming Aetherborn |
-| 16 | keyword:myriad | keyword | 0 | 23 | 12 | The Master, Multiplied, Sumala Rumblers, Conclave Evangelist |
-| 17 | template:{M}: Return ~ from your graveyard to your hand. | activated | 0 | 22 | 12 | The Sound of Drums, Merchant of Many Hats, Convenient Target |
-| 18 | keyword:enchant | keyword | 0 | 117 | 11 | Utopia Sprawl, One with the Stars, Curse of the Restless Dead |
+| 13 | keyword:enchant | keyword | 0 | 67 | 12 | Utopia Sprawl, One with the Stars, Corrupted Roots |
+| 14 | keyword:splice | keyword | 0 | 30 | 12 | Evermind, Horobi's Whisper, Desperate Ritual |
+| 15 | template:When ~ enters, tap enchanted creature. | triggered | 0 | 29 | 12 | Waterknot, Colossification, Tangle Kelp |
+| 16 | keyword:backup | keyword | 0 | 25 | 12 | Saiba Cryptomancer, Chomping Kavu, Consuming Aetherborn |
+| 17 | keyword:myriad | keyword | 0 | 23 | 12 | The Master, Multiplied, Sumala Rumblers, Conclave Evangelist |
+| 18 | template:{M}: Return ~ from your graveyard to your hand. | activated | 0 | 22 | 12 | The Sound of Drums, Merchant of Many Hats, Convenient Target |
 | 19 | keyword:equip | keyword | 0 | 49 | 11 | Bloodthorn Flail, Strong Back, Team Pennant |
 | 20 | template:~ enters prepared. | static | 0 | 40 | 11 | Adventurous Eater // Have a Bite, Maelstrom Artisan // Rocket Volley, Fatehold Chronologist // Peer Review |
 | 21 | template:~ can't be blocked by creatures with power N or less. | restriction | 0 | 32 | 11 | Glinting Creeper, Dread Linnorm // Scale Deflection, Chomping Kavu |
@@ -259,7 +259,7 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 |---|---|---|---|---|
 | Creature | 3378 | 14543 | 0 | 0 |
 | Artifact | 620 | 2973 | 0 | 0 |
-| Enchantment | 300 | 3347 | 0 | 0 |
+| Enchantment | 310 | 3337 | 0 | 0 |
 | Sorcery | 259 | 3309 | 0 | 0 |
 | Instant | 515 | 3239 | 0 | 0 |
 | Land | 442 | 770 | 0 | 0 |

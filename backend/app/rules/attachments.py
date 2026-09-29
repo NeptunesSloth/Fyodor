@@ -1,23 +1,38 @@
-"""Auras and Equipment (CR 303.4, 301.5, 702.5, 702.6, 701.3).
+"""Attachments: Auras, Equipment, Fortifications (CR 301.5, 301.6, 303.4, 701.3, 702.5, 702.6).
 
-* **Enchant** (702.5a) restricts what an Aura spell can target (303.4a) and what the Aura can
-  enchant. The Aura spell targets as it's cast; as it resolves it enters attached to that object
-  (303.4f). If the target is illegal by then, the spell doesn't resolve (608.2b) and goes to its
-  owner's graveyard (303.4g). Only the "Enchant …" wordings mapped below are automated; any other
-  wording ("Enchant player", "Enchant creature card in a graveyard") stays manual.
-* **Equip** (702.6a): "[Cost]: Attach this permanent to target creature you control. Activate
-  only as a sorcery." Only equip abilities with a plain mana cost are automated. An Equipment
-  that's also a creature can't equip (301.5c).
-* Leaving an illegal host is a state-based action (704.5m / 704.5n, app/rules/sba.py).
+One model for everything that attaches. An attachment is a permanent (the *source*) attached to
+an object or player (the *host*): ``CardInstance.attached_to`` (a permanent) or
+``CardInstance.attached_player`` (an Aura with "Enchant player", 702.5d). What may be attached
+where is decided by one predicate, :func:`host_problem`, used everywhere:
+
+* casting an Aura spell targets a host its enchant ability allows (303.4a; targeting rules —
+  hexproof, shroud, protection — apply because it *targets*), rechecked on resolution (608.2b);
+* an Aura put onto the battlefield without being cast doesn't target: its controller chooses a
+  host the Aura could enchant (303.4f); with none it stays where it was (303.4g);
+* equip targets a creature you control and attaches on resolution (702.6a);
+* state-based actions (704.5m / 704.5n, app/rules/sba.py) remove what is no longer legal.
+
+Continuous effects of attachments ("Enchanted creature gets +2/+2", "Equipped creature has
+flying", "Enchanted creature can't block") are derived through the relationship each time
+(app/rules/layers.py), so they end the moment the source leaves or moves.
 """
 
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING, Any, Literal
 
+from app.game.rules_state import DecisionOption
+from app.game.state import CardInstance
+from app.rules import protection
 from app.rules.characteristics import Characteristics
 
-# "Enchant …" → the target selector (app/rules/targets.py) the Aura spell uses.
+if TYPE_CHECKING:
+    from app.rules.plan import Plan
+
+AttachKind = Literal["aura", "equipment", "fortification"]
+
+# "Enchant …" → the target selector (app/rules/targets.py) the Aura spell uses and hosts must match.
 ENCHANT_SELECTORS = {
     "creature": "creature",
     "creature you control": "creature_you_control",
@@ -33,10 +48,23 @@ ENCHANT_SELECTORS = {
     "planeswalker": "planeswalker",
     "creature or planeswalker": "creature_or_planeswalker",
     "artifact or creature": "artifact_or_creature",
+    "player": "player",
+    "opponent": "opponent",
 }
+PLAYER_SELECTORS = {"player", "opponent"}
 
 _ENCHANT = re.compile(r"^enchant (?P<what>.+?)\.?$", re.IGNORECASE)
 EQUIP = re.compile(r"^equip (?P<cost>(?:\{[^}]+\})+)\.?$", re.IGNORECASE)
+
+
+def attach_kind(ch: Characteristics) -> AttachKind | None:
+    if "Aura" in ch.subtypes:
+        return "aura"
+    if "Equipment" in ch.subtypes:
+        return "equipment"
+    if "Fortification" in ch.subtypes:
+        return "fortification"
+    return None
 
 
 def enchant_lines(ch: Characteristics) -> list[str]:
@@ -49,8 +77,8 @@ def enchant_selector_of(line: str) -> str | None:
 
 
 def enchant_selector(ch: Characteristics) -> str | None:
-    """The selector an Aura spell targets with, or None if its enchant ability isn't automated
-    (several different enchant abilities must all apply, 702.5c: left manual)."""
+    """The selector an Aura targets with and its hosts must match, or None if its enchant ability
+    isn't automated (several different enchant abilities must all apply, 702.5c: left manual)."""
     lines = enchant_lines(ch)
     if not lines or "Aura" not in ch.subtypes:
         return None
@@ -73,3 +101,147 @@ def supported_keyword(kw: str, line: str) -> bool:
     if kw == "equip":
         return EQUIP.match(line.strip()) is not None
     return False
+
+
+# -- the legality predicate ------------------------------------------------------------
+def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | None = None) -> str | None:
+    """Why ``source`` can't be attached to ``host`` (a card id or a player id) right now, or None
+    if it can. For an Aura with an enchant wording the engine doesn't map, "unknown" (never
+    remove an Aura on a guess). Targeting rules (hexproof, shroud) don't apply here: being
+    attached isn't being targeted; protection does (702.16c-d)."""
+    from app.rules.targets import SELECTORS
+
+    you = controller or source.controller  # (an Aura about to enter under someone: judged as theirs)
+    sch = plan.ch(source)
+    kind = attach_kind(sch)
+    if kind is None:
+        return "not an Aura, Equipment or Fortification"
+    if host == source.id:
+        return "it can't be attached to itself"  # 301.5c, 303.4d
+    if host in plan.state.players:
+        if kind != "aura":
+            return "only an Aura can be attached to a player"
+        selector = enchant_selector(sch)
+        if selector is None:
+            return "unknown"
+        if host not in plan.live():
+            return "that player left the game"  # 303.4c
+        if selector not in PLAYER_SELECTORS:
+            return "it can't enchant a player"
+        if selector == "opponent" and host == you:
+            return "it can only enchant an opponent"
+        return None
+    card = plan.state.cards.get(host)
+    if card is None or not card.zone.endswith(":battlefield"):
+        return "it's not on the battlefield"
+    hch = plan.ch(card)
+    if protection.protected_from(hch, sch):
+        return f"{hch.name} has protection from it"
+    if kind == "aura":
+        if sch.is_creature:
+            return "an Aura that's also a creature can't enchant anything"  # 303.4d
+        selector = enchant_selector(sch)
+        if selector is None:
+            return "unknown"
+        players, check = SELECTORS[selector]
+        if check is None or not check(plan, you, card, hch):
+            return f"it can't enchant {hch.name or 'that'}"
+        return None
+    if kind == "equipment":
+        if sch.is_creature:
+            return "an Equipment that's also a creature can't equip"  # 301.5c
+        return None if hch.is_creature else "Equipment can only equip a creature"
+    if sch.is_creature:
+        return "a Fortification that's also a creature can't fortify"  # 301.6
+    return None if hch.is_land else "a Fortification can only fortify a land"
+
+
+def legal_hosts(plan: Plan, source: CardInstance, controller: str | None = None) -> list[str]:
+    """Everything ``source`` could be attached to right now (no targeting involved)."""
+    out = [p for p in plan.live() if host_problem(plan, source, p, controller) is None]
+    for c in plan.state.cards.values():
+        if c.zone.endswith(":battlefield") and c.id != source.id and host_problem(plan, source, c.id, controller) is None:
+            out.append(c.id)
+    return out
+
+
+def attach(plan: Plan, source: str, host: str, actor: str) -> bool:
+    """701.3a-b: attach ``source`` to ``host`` if it can be; otherwise it doesn't move."""
+    card = plan.state.cards.get(source)
+    if card is None or host_problem(plan, card, host) is not None:
+        return False
+    if card.attached_to == host or card.attached_player == host:
+        return True  # already there: nothing happens (701.3b)
+    plan.do({"type": "attach", "card_ids": [source], "to": host}, actor=actor)
+    return True
+
+
+# -- putting permanents onto the battlefield (an Aura chooses its host, 303.4f-g) ------------
+def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None, *, shuffle: str | None = None) -> bool:
+    """Put cards onto the battlefield (each entry: card, player, actor, tapped). An Aura that
+    isn't being cast is attached as it enters to something its controller chooses that it could
+    enchant (303.4f); with nothing to enchant it stays in its zone (303.4g). Returns False while
+    waiting for a choice (the rest continue on resume, then ``shuffle``'s library is shuffled —
+    "put it onto the battlefield, then shuffle" — and ``ctx``'s effects go on)."""
+    from app.rules import characteristics as chars
+
+    for i, entry in enumerate(entries):
+        card = plan.state.cards.get(entry["card"])
+        if card is None:
+            continue
+        printed = chars.of(card, plan.info)
+        if attach_kind(printed) != "aura":
+            _move(plan, entry)
+            continue
+        hosts = _hosts_on_entering(plan, card, entry["player"])
+        if not hosts:
+            plan.note(f"{card.name or 'The Aura'} has nothing it could enchant: it stays where it is")
+            continue
+        if len(hosts) == 1:
+            _move(plan, entry)
+            attach(plan, card.id, hosts[0], entry["actor"])
+            continue
+        from app.rules.plan import decide
+        from app.rules.targets import label
+
+        decide(plan, player=entry["player"], kind="choose_one", prompt=f"Choose what {card.name or 'the Aura'} enchants",
+               options=[DecisionOption(id=h, label=label(plan, h), card_id=h if h in plan.state.cards else None)
+                        for h in hosts],
+               resume={"step": "aura_enters", "entry": entry, "rest": entries[i + 1:], "ctx": ctx, "shuffle": shuffle},
+               source=card)
+        return False
+    return True
+
+
+def _move(plan: Plan, entry: dict[str, Any]) -> None:
+    payload: dict[str, Any] = {"type": "move", "card_ids": [entry["card"]],
+                               "to": {"player": entry["player"], "zone": "battlefield"}}
+    if entry.get("tapped"):
+        payload["tapped"] = True
+    plan.do(payload, actor=entry["actor"])
+
+
+def _hosts_on_entering(plan: Plan, card: CardInstance, controller: str) -> list[str]:
+    """What an Aura entering under ``controller`` could enchant."""
+    return legal_hosts(plan, card, controller)
+
+
+def resume_aura_enters(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    entry, rest, ctx, shuffle = d.resume["entry"], d.resume["rest"], d.resume.get("ctx"), d.resume.get("shuffle")
+    card = plan.state.cards.get(entry["card"])
+    if card is not None:
+        probe_hosts = _hosts_on_entering(plan, card, entry["player"])
+        if chosen[0] not in probe_hosts:
+            from app.game.errors import ActionError
+
+            raise ActionError("It can't enchant that")
+        _move(plan, entry)
+        attach(plan, card.id, chosen[0], entry["actor"])
+    if not enter(plan, rest, ctx, shuffle=shuffle):
+        return  # another Aura is choosing
+    if shuffle:
+        plan.do({"type": "shuffle", "player": shuffle, "zone": "library"}, actor=shuffle)
+    if ctx is not None:
+        continue_effects(plan, ctx)

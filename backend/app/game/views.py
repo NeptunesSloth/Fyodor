@@ -114,6 +114,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
             view["locked"] = True
         if c.attached_to:
             view["attached_to"] = c.attached_to
+        if c.attached_player:
+            view["attached_player"] = c.attached_player
         if c.group:
             view["group"] = c.group
         if c.quantity != 1:

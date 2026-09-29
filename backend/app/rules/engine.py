@@ -621,7 +621,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
     x = top.stack_info.x if top.stack_info else None
     leave_stack(plan, top_id, controller, tapped=tapped)
     if aura_target is not None and not manual and plan.state.cards[top_id].zone.endswith(":battlefield"):
-        plan.do({"type": "attach", "card_ids": [top_id], "to": aura_target.id}, actor=controller)  # 303.4f
+        attachments.attach(plan, top_id, aura_target.id, controller)  # 303.4f: it enters attached to its target
     if ch.is_permanent_card and not manual:
         enter_with_counters(plan, top_id, ch, x, controller)
     if top_id in plan.rules.evoked:  # 702.74a: "When this permanent enters, if its evoke cost was paid, its controller sacrifices it."
@@ -917,6 +917,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "pay_or_sacrifice": effects.resume_pay_or_sacrifice,
     "return_yours": effects.resume_return_yours,
     "explore": effects.resume_explore,
+    "aura_enters": attachments.resume_aura_enters,
     "fabricate": effects.resume_fabricate,
     "storm": effects.resume_storm,
     "shock": lambda plan, d, chosen: _resume_shock(plan, d, chosen),

@@ -153,6 +153,8 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
     from app.rules.layers import derive
 
     ch = derive(state, card, chars.of(card, info), info)  # (granted mana abilities: Cryptolith Rite …)
+    if "cant_activate" in ch.imposed:  # "its activated abilities can't be activated" (mana abilities too)
+        return []
     identity = commander_identity(state, card.controller, info)
     r = state.rules
     out = []
@@ -1387,6 +1389,8 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if card.controller != plan.actor or not card.zone.endswith(":battlefield"):
         raise ActionError("You can only activate abilities of permanents you control")
     ch = plan.ch(card)
+    if "cant_activate" in ch.imposed:  # an Aura: "its activated abilities can't be activated" (crew, equip too)
+        raise ActionError(f"{ch.name}’s activated abilities can't be activated")
     ability = _find_ability(ch, a.ability)
     n = crew_power(ch, a.ability) if not plan.manual(card) else None
     if n is not None:
@@ -1494,6 +1498,8 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         return "You can only activate abilities of permanents you control"
     if cost.unsupported:
         return f"Pay “{', '.join(cost.unsupported)}” by hand with the table tools"
+    if "cant_activate" in ch.imposed:
+        return f"{ch.name}’s activated abilities can't be activated"
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
     sorcery = ability.kind == "loyalty" or "Activate only as a sorcery" in ability.text

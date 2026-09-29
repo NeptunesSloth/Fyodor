@@ -6,11 +6,9 @@ the next time the engine acts, so the sandbox never fights the players mid-edit.
 
 from __future__ import annotations
 
-import re
-
 from app.game.rules_state import Decision, DecisionOption
 from app.game.state import CardInstance
-from app.rules import protection
+from app.rules import attachments
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan, decide, live_players
 
@@ -123,54 +121,28 @@ def find(plan: Plan) -> Found:
 
 
 def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found) -> None:
-    """704.5m (Auras), 704.5n (Equipment/Fortifications), 704.5p (creatures and battles)."""
-    state = plan.state
-    host = state.cards.get(card.attached_to) if card.attached_to else None
-    if host is not None and not host.zone.endswith(":battlefield"):
-        host = None
-    if "Aura" in ch.subtypes:
+    """704.5m (Auras), 704.5n (Equipment/Fortifications), 704.5p (creatures and battles), judged by
+    the one attachment predicate (app/rules/attachments.py host_problem)."""
+    kind = attachments.attach_kind(ch)
+    host = card.attached_to or card.attached_player
+    if kind == "aura":
         if host is None:
             out.dying.append((card, "an Aura attached to nothing"))
-        elif not enchant_allows(ch, plan.ch(host), host, card):
-            out.dying.append((card, "an Aura attached to an illegal object"))
-        elif protection.protected_from(plan.ch(host), ch):
-            out.dying.append((card, f"{host.name} has protection from it"))  # 702.16c, 704.5m
+            return
+        problem = attachments.host_problem(plan, card, host)
+        if problem is not None and problem != "unknown":  # (an unmapped enchant wording: never on a guess)
+            out.dying.append((card, f"an Aura attached illegally: {problem}"))
         return
-    if card.attached_to is None:
+    if host is None:
         return
     if ch.is_creature or "Battle" in ch.types:
         out.unattach.append((card, "a creature or battle can't be attached"))
-    elif "Equipment" in ch.subtypes and (host is None or not plan.ch(host).is_creature):
-        out.unattach.append((card, "Equipment must be attached to a creature"))
-    elif "Fortification" in ch.subtypes and (host is None or not plan.ch(host).is_land):
-        out.unattach.append((card, "a Fortification must be attached to a land"))
-    elif ("Equipment" in ch.subtypes or "Fortification" in ch.subtypes) and host is not None \
-            and protection.protected_from(plan.ch(host), ch):
-        out.unattach.append((card, f"{host.name} has protection from it"))  # 702.16d, 704.5n
+    elif kind is not None:
+        problem = attachments.host_problem(plan, card, host)
+        if problem is not None:
+            out.unattach.append((card, problem))
     # Other noncreature permanents "attached" on the table are usually cards tucked under a
     # permanent by hand (a sandbox arrangement), so they are left alone (704.5p is partial).
-
-
-ENCHANT = re.compile(r"^Enchant (?P<what>[a-z ]+?)(?: you control| an opponent controls)?$", re.I)
-SIMPLE_ENCHANT = {"creature", "artifact", "land", "enchantment", "planeswalker", "permanent", "battle"}
-
-
-def enchant_allows(aura: Characteristics, host: Characteristics, host_card: CardInstance, aura_card: CardInstance) -> bool:
-    """Whether an Aura's "Enchant …" allows this host, for the simple wordings; anything else is
-    assumed legal (never destroy an Aura on a guess)."""
-    for ab in aura.abilities:
-        m = ENCHANT.match(ab.text.strip())
-        if not m:
-            continue
-        what = m.group("what").lower().strip()
-        if what not in SIMPLE_ENCHANT:
-            return True
-        if what != "permanent" and what.capitalize() not in host.types:
-            return False
-        if ab.text.lower().endswith("you control") and host_card.controller != aura_card.controller:
-            return False
-        return not (ab.text.lower().endswith("an opponent controls") and host_card.controller == aura_card.controller)
-    return True
 
 
 def _round(plan: Plan, *, confirmed: bool = False) -> bool:

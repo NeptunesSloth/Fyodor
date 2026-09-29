@@ -627,11 +627,14 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def return_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The exiled cards return to the battlefield under their owners' control (610.3c)."""
+    from app.rules import attachments  # attachments → effects (resume)
+
+    entries = []
     for cid in plan.rules.linked_exile.pop(e["source"], []):
         card = plan.state.cards.get(cid)
         if card is not None and card.zone.endswith(":exile"):
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "battlefield"}}, actor=card.owner)
-    return True
+            entries.append({"card": cid, "player": card.owner, "actor": card.owner})
+    return attachments.enter(plan, entries, ctx)
 
 
 SERVO = {"name": "Servo", "power": "1", "toughness": "1", "colors": [], "type_line": "Token Artifact Creature — Servo", "text": ""}
@@ -747,13 +750,16 @@ def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def blink(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """Exile, then return under its owner's control: a new object (400.7), so it enters again."""
+    from app.rules import attachments  # attachments → effects (resume)
+
+    entries = []
     for cid in _cards(plan, ctx, e["who"]):
         owner = plan.state.cards[cid].owner
         back = ctx["controller"] if e.get("under") == "you" else owner
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "exile"}}, actor=ctx["controller"])
         if cid in plan.state.cards:  # (a token ceases to exist in exile)
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": back, "zone": "battlefield"}}, actor=ctx["controller"])
-    return True
+            entries.append({"card": cid, "player": back, "actor": ctx["controller"]})
+    return attachments.enter(plan, entries, ctx)
 
 
 def _matches(plan: Plan, card_id: str, what: str) -> bool:
@@ -782,15 +788,19 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
+    from app.rules import attachments  # attachments → effects (resume)
+
     pid = d.player
+    entering = []
     for cid in chosen:
         if e.get("reveal"):
             plan.do({"type": "reveal", "card_ids": [cid]}, actor=pid)  # to everyone
         if e["to"] == "hand":
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "hand"}}, actor=pid)
         else:
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "battlefield"},
-                     "tapped": e["to"] == "battlefield_tapped"}, actor=pid)
+            entering.append({"card": cid, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped"})
+    if entering and not attachments.enter(plan, entering, ctx, shuffle=pid):  # an Aura chooses what it enchants (303.4f)
+        return
     plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
     continue_effects(plan, ctx)
 
@@ -870,15 +880,12 @@ def attach_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """Equip (702.6a): attach this Equipment to the target creature. Nothing happens if the
     Equipment left or stopped being an Equipment, is a creature (301.5c), or is already attached
     there (701.3b)."""
+    from app.rules import attachments  # attachments → effects (resume)
+
     src = _cards(plan, ctx, "self")
     targets = _cards(plan, ctx, "target")
-    if not src or not targets:
-        return True
-    card = plan.state.cards[src[0]]
-    ch = plan.ch(card)
-    if "Equipment" not in ch.subtypes or ch.is_creature or card.attached_to == targets[0] or targets[0] == card.id:
-        return True
-    plan.do({"type": "attach", "card_ids": [card.id], "to": targets[0]}, actor=ctx["controller"])
+    if src and targets:
+        attachments.attach(plan, src[0], targets[0], ctx["controller"])  # doesn't move if it can't (701.3b)
     return True
 
 

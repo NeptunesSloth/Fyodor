@@ -74,7 +74,8 @@ def anthems(state: GameState, info: CardInfo) -> list[tuple[str, str, dict]]:
 
 def _anthem_applies(src: str, controller: str, d: dict, card: CardInstance, ch: Characteristics,
                     state: GameState | None = None) -> bool:
-    if not (ch.is_land if d.get("lands") else ch.is_creature) or (d.get("other") and src == card.id):
+    kind_ok = True if d.get("permanent") else ch.is_land if d.get("lands") else ch.is_creature
+    if not kind_ok or (d.get("other") and src == card.id):
         return False
     if d["scope"] == "attached":  # "Enchanted creature gets …": only the object it's attached to
         host = state.cards.get(src) if state is not None else None
@@ -103,7 +104,7 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     for src, controller, d in anthems(state, info):
         if d["static"] == "attached_rule":
             if _anthem_applies(src, controller, {**d, "scope": "attached"}, card, out, state):
-                imposed.add(d["imposes"])
+                imposed.update(d["imposes"])
             continue
         if _anthem_applies(src, controller, d, card, out, state):
             p, t = p + d["p"], t + d["t"]

@@ -617,25 +617,36 @@ COMBAT_STATICS = {
 
 
 # Rules an Aura or Equipment imposes on the object it's attached to (not abilities it grants).
-ATTACHED_RULES = {
-    "can't attack or block.": "cant_attack_or_block",
-    "can't attack.": "cant_attack",
-    "can't block.": "cant_block",
-    "can't be blocked.": "cant_be_blocked",
-    "attacks each combat if able.": "must_attack",
-    "doesn't untap during its controller's untap step.": "doesnt_untap",
+# Each: the restrictions imposed (the names scripts.statics / Characteristics.imposed use).
+ATTACHED_RULES: dict[str, tuple[str, ...]] = {
+    "can't attack or block.": ("cant_attack_or_block",),
+    "can't attack.": ("cant_attack",),
+    "can't block.": ("cant_block",),
+    "can't be blocked.": ("cant_be_blocked",),
+    "attacks each combat if able.": ("must_attack",),
+    "doesn't untap during its controller's untap step.": ("doesnt_untap",),
+    "can't attack or block, and its activated abilities can't be activated.": ("cant_attack_or_block", "cant_activate"),
+    "can't attack or block and its activated abilities can't be activated.": ("cant_attack_or_block", "cant_activate"),
+}
+# "Enchanted creature's activated abilities can't be activated." (possessive subjects)
+_POSSESSIVE_RULES: dict[str, tuple[str, ...]] = {
+    "activated abilities can't be activated.": ("cant_activate",),
 }
 
 
 def attached_rule(text: str) -> Definition | None:
     """"Enchanted creature can't attack or block.", "Enchanted creature doesn't untap during its
     controller's untap step." …: a rule for whatever the source is attached to."""
-    for subject in ATTACHED_SUBJECTS:
+    text = text.replace("’", "'")
+    for subject in (*ATTACHED_SUBJECTS, "Enchanted permanent"):
+        imposed = None
         if text.startswith(subject + " "):
-            imposed = ATTACHED_RULES.get(text[len(subject) + 1:].replace("’", "'"))
-            if imposed is not None:
-                return {"kind": "static", "static": "attached_rule", "imposes": imposed, "effects": [],
-                        "lands": subject == "Enchanted land"}
+            imposed = ATTACHED_RULES.get(text[len(subject) + 1:])
+        elif text.startswith(subject + "'s "):
+            imposed = _POSSESSIVE_RULES.get(text[len(subject) + 3:])
+        if imposed is not None:
+            return {"kind": "static", "static": "attached_rule", "imposes": list(imposed), "effects": [],
+                    "lands": subject == "Enchanted land", "permanent": subject == "Enchanted permanent"}
     return None
 
 
