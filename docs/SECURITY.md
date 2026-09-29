@@ -5,9 +5,11 @@ and has no accounts, cloud services or telemetry. These are the protections in p
 
 ## Network exposure
 
-- By default the server binds to `127.0.0.1`. LAN exposure requires `FYODOR_HOST=0.0.0.0`.
-- **Hot-seat (local) games** and host-only endpoints (create/close games, list/load/delete
-  saves, LAN info) accept only loopback clients. Requests relayed by the dev proxy are
+- By default the server binds to `127.0.0.1`. LAN exposure requires `FYODOR_HOST=0.0.0.0`
+  (or `scripts/start.sh --lan`).
+- **Hot-seat (local) games** and host-only endpoints accept only loopback clients: create and
+  close games, saves, the deck library, pod-stat edits, packages, diagnostics, asset deletion and
+  LAN info. Requests relayed by the dev proxy are
   judged by their `X-Forwarded-For` address. That header is only trusted when the direct
   peer is loopback.
 - **LAN games** require a seat token. Tokens are random (`secrets.token_urlsafe(24)`),
@@ -15,15 +17,19 @@ and has no accounts, cloud services or telemetry. These are the protections in p
   Passwords are stored as PBKDF2-SHA256 hashes. Failed join attempts are rate-limited to
   10 per minute per client address.
 - In a LAN game each connection can only act as its own seat. Spectators cannot act.
-- Anyone who can reach the server can browse cards and manage decks. That is intended for
-  a shared table; saves and game management remain host-only.
+- Anyone who can reach the server can browse cards. LAN players bring decks through their
+  seat in the lobby (parsed on the host as data), not through the host's library.
+- Host-only game actions (start, remove player, restart, table playmat, force-close a response
+  check, restore a snapshot) are checked on the server against the host's seat.
+- Clients can't forge state restores: `restore_state` is accepted only from the server's own
+  snapshot and history endpoints.
 
 ## Hidden information
 
 - The server builds a separate sanitized view for each connection. It never broadcasts
   the full state and relies on the client to hide cards.
 - Hidden cards become placeholders with no printing id, name, note or face. Libraries are
-  sent as a count plus only the cards that viewer knows.
+  sent as a count plus only the cards that viewer can see right now (no memory of past sightings).
 - Library instance ids are re-keyed on every shuffle, so a known card can't be tracked
   through one.
 - Log entries name a card only for viewers who could see it at that moment.
@@ -49,6 +55,22 @@ and has no accounts, cloud services or telemetry. These are the protections in p
 - Images are served only from `/api/images/{uuid}`. The id must match a strict UUID
   pattern and size/face come from fixed enums, so paths cannot be influenced beyond a
   validated UUID.
+- **Custom images (assets)** are identified by their content, not their name or extension.
+  Only real PNG, JPEG or WEBP files within 20 MB and 8192×8192 are accepted, checked from the
+  magic bytes and header. SVG, GIF, executables and disguised files are rejected. Files are
+  stored as `data/assets/<sha256>.<ext>` and served only by opaque asset id; no client-supplied
+  path is ever used. LAN players may upload only sleeves and playmats, rate-limited, through
+  their seat.
+- **Game packages** (`.fyodor.zip`) are read by fixed member names only; nothing is extracted
+  by a name taken from the archive. Sizes are bounded before decompression, every image is
+  checksum-checked and content-sniffed, macros are re-validated, and the save is migrated and
+  validated before anything is written.
+- **Custom actions (macros)** are declarative JSON from a closed list of primitives (`extra`
+  fields forbidden, at most 20 steps). The server expands them into ordinary actions, and they
+  go through the same permission and hidden-information checks. Nothing in a deck, card,
+  macro or package is ever executed as code.
+- **Diagnostics** are a local download. They contain no hands, libraries, decklists or notes
+  unless the host explicitly opts in; nothing is sent anywhere.
 - The built frontend is served from its `dist` directory by Starlette's `StaticFiles`,
   which rejects traversal. No other filesystem path is exposed.
 - Responses carry `Content-Security-Policy` (same-origin only), `X-Content-Type-Options`,

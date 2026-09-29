@@ -62,8 +62,8 @@ CardInstance
   counters: {type: n}
   note, is_token, token: TokenDef?, copy_of: CopyRef?
   is_commander
-  known_to: set[player_id] | ALL        # who has seen this card while it is hidden
-  revealed: bool                        # temporarily shown to all while in a hidden zone
+  revealed_to: [player_id | "*"]        # an active reveal (cleared when the card moves or is shuffled)
+  face_down_kind: morph | manifest | disguise | cloak | foretell | … | null
   ability: AbilityObject?               # stack-only temporary objects
 ```
 
@@ -74,27 +74,23 @@ Per player: `library`, `hand`, `battlefield`, `graveyard`, `exile`,
 
 | Zone | Default visibility |
 |---|---|
-| library | nobody (not even the owner), except cards in `known_to`, or during a search by the searcher |
-| hand | owner |
-| foretell | owner |
-| sideboard | owner |
-| battlefield, graveyard, exile, command, companion, stack | everyone (face-down cards only for the controller plus `known_to`) |
+| library | nobody (not even the owner), except an active reveal or the looker/searcher during a look/search |
+| hand, sideboard, foretell, setaside (rejected mulligan cards) | owner |
+| battlefield, graveyard, exile, command, companion, stack | everyone (face-down cards only for the controller) |
 
 Control means battlefield placement. A card on `P2:battlefield` is controlled
 by P2, and "return to owner" moves it to the owner's battlefield.
 
-### Knowledge tracking
+### Visibility (`game/visibility.py`)
 
-`known_to` models what players have *actually seen*:
+`can_see(state, card, viewer)` is the single source of truth. It is computed from **current
+facts only**: the zone, face-down state, controller, an active reveal (`revealed_to`) and open
+look/search contexts (`state.views`).
 
-- Moving a card from a public zone into a hidden zone marks it known to
-  everyone. Everyone watched Sol Ring get bounced to hand, so everyone knows
-  that card in hand.
-- A face-down card is always known to its controller.
-- Looking at the top N adds the looker to `known_to`.
-- Shuffling a zone clears `known_to` and `revealed` for every card in it, and
-  **re-keys** the instance ids. After a shuffle the view carries no trace of
-  which card went where.
+There is deliberately **no memory of past sightings**. A card everyone watched get bounced to
+a hand is anonymous to opponents from then on, exactly like a physical table where you'd have to
+remember it yourself. Moving or shuffling a card ends any reveal. Shuffling also **re-keys** the
+instance ids, so nothing links a card before and after.
 
 ## Actions, events and history (`game/actions.py`, `game/engine.py`, `game/history.py`)
 
@@ -131,15 +127,26 @@ unless the viewer was allowed to see it. The same rule applies to
 `build_view(state, viewer)` where `viewer` is a player id, `SPECTATOR`, or
 `OMNISCIENT` (local hot-seat "open table" mode only).
 
-- Hidden cards become `{id, hidden: true, owner, zone}` with no `card_id`,
-  counters, or notes.
-- Libraries are sent as `{count, known: [{index, card}]}`. Hidden library
-  cards are never sent as objects, and their ids are not included.
-- Other players' hands are sent as a list of hidden cards (so the UI can draw
-  card backs), except for cards the viewer knows.
-- Search sessions expose the whole searched zone to the searcher only.
-- Tests in `tests/test_views.py` walk every view and assert that no hidden
-  `card_id` or name appears anywhere in the serialized JSON.
+- **Libraries** are sent as `{count, known: [[index, id]]}`. Only cards the viewer can see
+  right now (a reveal, a look at the top N, a search) are listed. Hidden library cards are
+  never sent as objects, and their ids never leave the server.
+- **Hands and other owner-only zones:** visible cards keep their ids. Every hidden card becomes
+  an opaque placeholder `hidden:<zone>:<n>`. Placeholders are ordered by a keyed BLAKE2b hash
+  (per-game secret salt), so the order says nothing about draw order or about a card seen
+  earlier. A placeholder carries only `{id, hidden, owner, controller, zone, face_down}`: no
+  printing id, Oracle id, name, image, set/collector number, counters, notes or markers.
+- **Clients act on placeholders.** They send the placeholder id, e.g. "play a card from my
+  hand" in hot-seat. The server maps it back for that viewer (`resolve_placeholder`), so real
+  ids are never needed.
+- **Face-down permanents** are shown to everyone else as a card back plus their
+  `face_down_kind` (morph, manifest…); the identity goes only to the controller.
+- **Log lines** carry the set of players who could see each card at that moment, and render
+  "a card" for everyone else.
+- **Deck privacy** (lobby setting) also controls whether opponents see deck names.
+- Protocol tests (`tests/test_protocol_privacy.py`, `tests/test_views.py`) serialize every
+  viewer's REST view and WebSocket frames after each step of mixed games. They assert that no
+  hidden id, name, printing id or image reference appears anywhere. The Playwright specs check
+  the same on real browser traffic.
 
 ## Multiplayer (`multiplayer/`)
 
