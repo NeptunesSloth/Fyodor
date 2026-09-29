@@ -43,6 +43,7 @@ from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room
 from app.multiplayer.lobby import DeckTooLarge, LobbySeatInfo, LobbySettings, SubmittedDeck, check_bounds
 from app.rules import commander as commander_rules
+from app.rules import coverage
 from app.services import Services
 from app.stats.repository import DuplicateResult, Participant, ResultError, deck_key_for
 from app.storage.save_format import SaveFormatError
@@ -652,6 +653,12 @@ def _submitted(
     }
     commander_ids = [c.printing_id for c in cards if c.section == "commander" and c.printing_id]
     data = services.cards.get_many(commander_ids) if commander_ids else {}
+    levels = {"FULL": 0, "PARTIAL": 0, "REVIEW": 0, "MANUAL": 0}
+    for e in playable:
+        if e.section == "sideboard":
+            continue
+        cd = card_data.get(e.printing_id) if e.printing_id else None
+        levels[coverage.of_card_data(cd).level if cd else "MANUAL"] += e.quantity
     identity = list(commander_rules.deck_identity(list(data.values())))
     return SubmittedDeck(
         name=clean_text(name, 120) or "Deck",
@@ -663,6 +670,8 @@ def _submitted(
         report=report,
         source_kind=kind,
         warnings=warnings,
+        coverage=levels,
+        commander_ids=commander_ids,
     )
 
 

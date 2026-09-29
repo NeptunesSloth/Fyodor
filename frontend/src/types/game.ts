@@ -438,7 +438,10 @@ export interface LobbyDeckSummary {
   card_count: number;
   name?: string;
   commanders?: string[];
+  commander_ids?: string[];
   color_identity?: string[];
+  /** Automation coverage of the deck: card counts per level. */
+  coverage?: { FULL: number; PARTIAL: number; REVIEW: number; MANUAL: number };
   list?: { section: string; quantity: number; name: string }[];
   /** Advisory deck checks for the table's format (never block the game). */
   warning_count?: number;

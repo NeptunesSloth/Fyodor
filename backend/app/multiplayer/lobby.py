@@ -71,6 +71,9 @@ class SubmittedDeck:
     report: dict[str, Any] = field(default_factory=dict)
     source_kind: str = "text"
     warnings: dict[str, list[dict[str, Any]]] = field(default_factory=dict)  # table format -> advisory warnings
+    # How much of the deck the rules engine automates: card counts per coverage level.
+    coverage: dict[str, int] = field(default_factory=dict)
+    commander_ids: list[str] = field(default_factory=list)  # printings, for the seat card's art
 
     def entries_public(self) -> list[dict[str, Any]]:
         return [
@@ -106,7 +109,11 @@ def deck_summary(deck: SubmittedDeck | None, *, privacy: DeckPrivacy, own: bool,
         return None
     summary: dict[str, Any] = {"card_count": deck.card_count}
     if own or privacy in ("commander_only", "public"):
-        summary.update(name=deck.name, commanders=deck.commanders, color_identity=deck.color_identity)
+        summary.update(name=deck.name, commanders=deck.commanders, color_identity=deck.color_identity,
+                       commander_ids=deck.commander_ids)
+        # Automation coverage is counts only (FULL / PARTIAL / REVIEW / MANUAL), never card names.
+        if deck.coverage:
+            summary["coverage"] = deck.coverage
     if own or privacy == "public":
         summary["list"] = deck.entries_public()
     if own:
