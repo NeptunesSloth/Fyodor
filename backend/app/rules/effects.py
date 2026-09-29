@@ -1049,7 +1049,8 @@ def use_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES = {
     "use_targets": use_targets,
-    "remove_counters": remove_counters, "restrict": restrict, "sacrifice_choice": sacrifice_choice, "return_card": return_card,
+    "remove_counters": remove_counters, "restrict": restrict,
+    "sacrifice_choice": sacrifice_choice, "return_card": return_card,
     "attach_self": attach_self,
     "draw": draw, "gain_life": gain_life, "lose_life": lose_life, "damage": damage, "pump": pump, "grant": grant,
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
@@ -1107,6 +1108,85 @@ def resume_order_library(plan: Plan, d: Any, chosen: list[str]) -> None:
                resume={"step": "order_library", "place": "bottom", "then_bottom": [], "ctx": r["ctx"]})
         return
     continue_effects(plan, r["ctx"])
+
+
+# -- looking at the top of a library ------------------------------------------------------
+def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Look at the top N cards of your library": only you see them (the choices that follow are
+    your private decisions); they stay where they are until an instruction moves them."""
+    pid = ctx["controller"]
+    ctx["looked"] = list(plan.state.zones.get(zone_key(pid, "library"), [])[: _amount(plan, ctx, e["n"])])
+    return True
+
+
+def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Put N of them into your hand", "you may reveal a creature card from among them and put it
+    into your hand", "put a land card from among them onto the battlefield tapped"."""
+    from app.rules import characteristics as chars
+
+    pid = ctx["controller"]
+    library = plan.state.zones.get(zone_key(pid, "library"), [])
+    looked = [c for c in ctx.get("looked") or [] if c in library]
+    sel = selectors.from_key(e["sel"]) if e.get("sel") else None
+    options = [c for c in looked if sel is None
+               or selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+    most = min(_amount(plan, ctx, e["n"]), len(options))
+    least = 0 if e.get("optional") else most
+    ctx["looked"] = looked
+    if most == 0:
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt=e.get("prompt") or "Choose from among them",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
+           min_choices=least, max_choices=most, resume={"step": "pick_looked", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_pick_looked(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import attachments  # attachments → effects (resume)
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    pid = d.player
+    if chosen and e.get("reveal"):
+        plan.do({"type": "reveal", "card_ids": chosen}, actor=pid)  # to everyone
+    ctx["looked"] = [c for c in ctx.get("looked") or [] if c not in chosen]
+    if e["to"] == "hand":
+        if chosen:
+            plan.do({"type": "move", "card_ids": chosen, "to": {"player": pid, "zone": "hand"}}, actor=pid)
+    else:
+        entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped"} for c in chosen]
+        if not attachments.enter(plan, entries, ctx):
+            return
+    continue_effects(plan, ctx)
+
+
+def rest_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"… and the rest into your graveyard / on the bottom of your library in any order / in a
+    random order"."""
+    import secrets
+
+    pid = ctx["controller"]
+    library = plan.state.zones.get(zone_key(pid, "library"), [])
+    rest = [c for c in ctx.get("looked") or [] if c in library]
+    ctx["looked"] = []
+    if not rest:
+        return True
+    if e["to"] == "graveyard":
+        plan.do({"type": "move", "card_ids": rest, "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
+        return True
+    if e["to"] == "bottom_random" or len(rest) == 1:
+        order = list(rest)
+        secrets.SystemRandom().shuffle(order)  # (recorded as moves: replay is deterministic)
+        for cid in order:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+        return True
+    decide(plan, player=pid, kind="order", prompt="Order the cards for the bottom of your library (first chosen ends up at the very bottom)",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in rest],
+           min_choices=len(rest), max_choices=len(rest),
+           resume={"step": "order_library", "place": "bottom", "then_bottom": [], "ctx": ctx})
+    return False
+
+
+PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looked": rest_looked})
 
 
 # -- resolving a definition -----------------------------------------------------------------

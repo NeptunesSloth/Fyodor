@@ -152,6 +152,50 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
              "to": to, "reveal": bool(m["reveal"]) or to == "top"}], None
 
 
+_REST = r"(?:the rest|the other|the others) (?P<rest>into your graveyard|on the bottom of your library(?: in (?:any|a random) order)?)"
+_TOP = re.compile(rf"look at the top (?:(?P<n>{AMT}) cards|card) of your library")
+_PICK = re.compile(
+    rf"(?:(?P<may>you may reveal) |put )(?P<q>up to {AMT}|any number of|{AMT}) (?:of them|(?P<sel>.+?) from among them)"
+    r"(?: and put (?:it|them|the revealed cards|that card|those cards))?"
+    r" (?P<to>into your hand|onto the battlefield tapped|onto the battlefield)"
+    rf"(?: and {_REST})?")
+_REST_ALONE = re.compile(rf"put {_REST}")
+
+
+def _rest(where: str) -> dict[str, Any]:
+    to = "graveyard" if where == "into your graveyard" else "bottom_random" if "random" in where else "bottom_any"
+    return {"do": "rest_looked", "to": to}
+
+
+def _looking(text: str) -> tuple[Effects, str | None] | None:
+    """701.xx "look at the top N cards of your library" and what follows ("put one of them into
+    your hand and the rest on the bottom …", "you may reveal a creature card from among them …")."""
+    m = _TOP.fullmatch(text)
+    if m:
+        return [{"do": "look_top", "n": _amount(m["n"]) if m["n"] else 1}], None
+    m = _PICK.fullmatch(text)
+    if m:
+        q = m["q"]
+        optional = bool(m["may"]) or q.startswith(("up to", "any number"))
+        n: Any = 99 if q == "any number of" else _amount(q[6:] if q.startswith("up to ") else q)
+        sel = None
+        if m["sel"]:
+            parsed = selectors.parse(m["sel"])
+            if parsed is None or parsed.player is not None:
+                raise _Fail
+            sel = parsed.key()
+        to = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped",
+              "onto the battlefield": "battlefield"}[m["to"]]
+        out: Effects = [{"do": "pick_looked", "n": n, "sel": sel, "to": to, "optional": optional, "reveal": bool(m["may"])}]
+        if m["rest"]:
+            out.append(_rest(m["rest"]))
+        return out, None
+    m = _REST_ALONE.fullmatch(text)
+    if m:
+        return [_rest(m["rest"])], None
+    return None
+
+
 def parse_sentence(text: str) -> tuple[Effects, str | None] | None:
     try:
         return _parse(text.strip())
@@ -160,7 +204,7 @@ def parse_sentence(text: str) -> tuple[Effects, str | None] | None:
 
 
 def _parse(text: str) -> tuple[Effects, str | None]:
-    found = _search(text)
+    found = _search(text) or _looking(text)
     if found is not None:
         return found
     text, rider = _with_rider(text)

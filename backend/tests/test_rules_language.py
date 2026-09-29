@@ -222,3 +222,29 @@ def test_search_then_put_on_top(cards):
     top = zone(s.state, "p1", "library")[0]  # (a shuffle gives library cards new ids)
     assert s.state.cards[top].name == name and len(zone(s.state, "p1", "library")) == size
     replay_matches(s)
+
+
+def test_look_at_top_put_one_rest_to_graveyard(cards):
+    s = build(cards)
+    src = token(s, "p1", "Oracle", text="{1}: Look at the top three cards of your library. Put one of them into your hand and the rest into your graveyard.")
+    top3 = zone(s.state, "p1", "library")[:3]
+    activate(s, src)
+    d = s.state.rules.decision
+    assert {o.id for o in d.options} == set(top3) and (d.min_choices, d.max_choices) == (1, 1)
+    assert s.view("p2")["rules"]["decision"].get("options") is None  # only the looking player sees them
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[top3[1]])
+    pass_until_stack_empty(s)
+    assert s.state.cards[top3[1]].zone == "p1:hand"
+    assert all(s.state.cards[c].zone == "p1:graveyard" for c in (top3[0], top3[2]))
+    replay_matches(s)
+
+
+def test_look_at_top_may_reveal_matching_rest_random_bottom(cards):
+    s = build(cards)
+    src = token(s, "p1", "Scout", text="{1}: Look at the top four cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.")
+    top4 = zone(s.state, "p1", "library")[:4]
+    activate(s, src)
+    assert s.state.rules.decision is None  # (no creature card among them: nothing to choose)
+    library = zone(s.state, "p1", "library")
+    assert set(library[-4:]) == set(top4)  # all four went to the bottom
+    replay_matches(s)

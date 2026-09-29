@@ -487,7 +487,12 @@ def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | 
         text = _lower_first(sentence.rstrip(".").strip())
         if text.startswith("you may "):
             if effects:
-                return None  # "…. You may …" mid-ability: not a simple optional trigger
+                # "…. You may reveal … from among them …": a clause that models its own choice
+                own = _clause(text)
+                if own is None or not any(x.get("optional") for x in own[0]):
+                    return None  # "…. You may …" mid-ability: not a simple optional trigger
+                effects += own[0]
+                continue
             optional, text = True, text[len("you may "):]
         for pattern, build in EFFECTS:
             m = pattern.match(text)
