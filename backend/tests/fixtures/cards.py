@@ -216,5 +216,11 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Incubator Drone", set_code="tst", number="L7", mana_cost="{3}{U}", cmc=4.0, type_line="Creature — Eldrazi Drone",
              oracle_text="Devoid (This card has no color.)\nWhen this creature enters, create a 1/1 colorless Eldrazi Scion creature token. It has \"Sacrifice this token: Add {C}.\"\n{1}{C}: Scry 1. ({C} represents colorless mana.)",
              power="2", toughness="3", color_identity=["U"]),
+        card("Gravel Slinger", set_code="tst", number="L8", mana_cost="{3}{W}", cmc=4.0, type_line="Creature — Human Soldier",
+             oracle_text="{T}: This creature deals 1 damage to target attacking or blocking creature.\nMorph {1}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+             power="1", toughness="3", colors=["W"], color_identity=["W"]),
+        card("Aerie Bowmasters", set_code="tst", number="L9", mana_cost="{2}{G}{G}", cmc=4.0, type_line="Creature — Hound Archer",
+             oracle_text="Reach\nMegamorph {5}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its megamorph cost and put a +1/+1 counter on it.)",
+             power="3", toughness="4", colors=["G"], color_identity=["G"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

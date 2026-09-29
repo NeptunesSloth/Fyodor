@@ -863,6 +863,15 @@ class CastSpell(_Intent):
     # MANUAL PAY: exactly these mana sources (plus your mana pool). None: the engine pays per
     # your payment preference (AUTO pays, ASK suggests a payment first, MANUAL asks for sources).
     sources: list[Id] | None = Field(default=None, max_length=60)
+    face_down: bool = False  # morph / megamorph (702.37): cast face down as a 2/2 for {3}
+
+
+class TurnFaceUp(_Intent):
+    """Morph's special action (702.37e): pay the morph cost and turn your face-down permanent up."""
+
+    type: Literal["turn_face_up"] = "turn_face_up"
+    card_id: Id
+    sources: list[Id] | None = Field(default=None, max_length=60)
 
 
 class ActivateAbility(_Intent):
@@ -1080,7 +1089,7 @@ class RulesLog(Base):
 
 INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
-     "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence"}
+     "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up"}
 )
 SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage"})
 
@@ -1178,6 +1187,7 @@ Action = Annotated[
     | Configure
     | PlayLand
     | CastSpell
+    | TurnFaceUp
     | ActivateAbility
     | DeclareAttackers
     | DeclareBlockers

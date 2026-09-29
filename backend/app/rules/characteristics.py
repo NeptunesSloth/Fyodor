@@ -212,7 +212,7 @@ def of(card: CardInstance, info: CardInfo) -> Characteristics:
     if card.ability is not None:
         return Characteristics(name=card.ability.source_name or "Ability", oracle_text=card.ability.text,
                                abilities=tuple(parse_abilities(card.ability.text, spell=True)), is_ability=True)
-    if card.face_down and card.zone.endswith(":battlefield"):
+    if card.face_down and (card.zone.endswith(":battlefield") or card.zone == "stack"):
         return Characteristics(name="", types=frozenset({"Creature"}), power="2", toughness="2", face_down=True)
     if card.token is not None and not card.card_id:
         t = card.token

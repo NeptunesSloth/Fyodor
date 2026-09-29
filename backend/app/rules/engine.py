@@ -40,7 +40,7 @@ NOT_YET: dict[str, str] = {}
 RULES_ENGINE_VERSION = 2  # bump when the rules engine's behaviour changes (saved with scenarios/diagnostics)
 PREF_INTENTS = frozenset({"set_stops", "set_prefs", "set_card_automation"})  # allowed any time
 ACTION_INTENTS = frozenset({"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers",
-                            "repeat_sequence"})
+                            "repeat_sequence", "turn_face_up"})
 
 
 def automation_on(state: GameState) -> bool:
@@ -795,6 +795,7 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "pass_priority": pass_priority,
     "play_land": play_land,
     "cast_spell": casting.cast_spell,
+    "turn_face_up": casting.turn_face_up,
     "activate_ability": casting.activate_ability,
     "declare_attackers": combat.declare_attackers,
     "declare_blockers": combat.declare_blockers,

@@ -58,11 +58,11 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Convoke (+ generic-payment solver fix) | 32,116 | 4,061 (12.6%) | 28,007 | 0 | 48 | 88 / 3,501 |
 | Counted mana (Gaea's Cradle, Cabal Coffers, power), Scion/Spawn token makers | 32,116 | 4,080 (12.7%) | 27,988 | 0 | 48 | 89 / 3,501 |
 | Static anthems and lords (P/T and keyword grants, layers 6/7c) + derived P/T on the table | 32,116 | 4,223 (13.1%) | 27,845 | 0 | 48 | 100 / 3,501 |
+| Morph and megamorph (face-down casting, turn face up; hidden from opponents) | 32,116 | 4,275 (13.3%) | 27,793 | 0 | 48 | 100 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards
 needing it. Current leaders: unsupported mana-ability wordings,
-morph (153).
 
 **Commander eligibility and color identity** (`app/rules/commander.py`) follow CR 903.3 (a
 legendary creature, Vehicle, or Spacecraft with power/toughness, or "can be your commander"),

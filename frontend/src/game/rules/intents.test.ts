@@ -132,6 +132,22 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "activate_ability", card_id: "m1", ability: 2 }]);
   });
 
+  it("offers morph: cast face down from hand, turn face up on the battlefield", () => {
+    const base = view(RULES);
+    const v = { ...base, cards: { ...base.cards, mh: card("mh", "p1:hand", "slinger"), mb: { ...card("mb", "p1:battlefield", "slinger"), face_down: true } } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        slinger: { id: "slinger", name: "Gravel Slinger", type_line: "Creature — Human Soldier", oracle_text: "Morph {1}{W} (You may cast this card face down.)" } as CardData,
+      },
+    });
+    expect(labels(rulesMenu(v.cards.mh!, v, "p1"))).toContain("Cast face down (morph, {3})");
+    const up = rulesMenu(v.cards.mb!, v, "p1").find((i) => i !== "separator" && i.label.startsWith("Turn face up"));
+    if (!up || up === "separator") throw new Error("expected Turn face up");
+    up.onClick?.();
+    expect(sent).toEqual([{ type: "turn_face_up", card_id: "mb" }]);
+  });
+
   it("shows nothing about hidden cards", () => {
     const v = view(RULES);
     expect(rulesMenu(v.cards.h!, v, "p1")).toEqual([]);

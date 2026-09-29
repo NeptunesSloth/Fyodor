@@ -19,8 +19,16 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   } else if (mine && zone === "graveyard" && hints.castable?.includes(card.id)) {
     items.push({ label: "Cast with flashback", onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
   }
+  const oracle = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
+  const morph = abilityLines(oracle).find((l) => /^(mega)?morph \{/i.test(l));
+  if (mine && zone === "hand" && morph) {
+    items.push({ label: "Cast face down (morph, {3})", onClick: () => void send({ type: "cast_spell", card_id: card.id, face_down: true }) });
+  }
+  if (mine && zone === "battlefield" && card.face_down && morph) {
+    items.push({ label: `Turn face up (${morph})`, onClick: () => void send({ type: "turn_face_up", card_id: card.id }) });
+  }
   if (mine && zone === "hand") {
-    const text = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
+    const text = oracle;
     abilityLines(text).forEach((line, i) => {
       if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line)) {
         items.push({ label: line.replace(/\s*\(.*$/, ""), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });

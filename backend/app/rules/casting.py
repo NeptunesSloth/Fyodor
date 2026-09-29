@@ -536,6 +536,44 @@ def from_graveyard(card: CardInstance, player: str, ch: Characteristics) -> bool
     return card.zone == zone_key(player, "graveyard") and card.owner == player and flashback_cost(ch) is not None
 
 
+MORPH = re.compile(r"^(?P<kind>morph|megamorph) (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+FACE_DOWN = Characteristics(name="", types=frozenset({"Creature"}), power="2", toughness="2", face_down=True)
+
+
+def morph_cost(ch: Characteristics) -> tuple[str, str] | None:
+    """702.37 morph / megamorph with a mana cost: (kind, cost), from the printed card."""
+    for ab in ch.abilities:
+        if ab.kind == "keywords" and ({"morph", "megamorph"} & set(ab.keywords)):
+            m = MORPH.fullmatch(ab.text.strip().rstrip("."))
+            if m:
+                return m["kind"].lower(), m["cost"]
+    return None
+
+
+def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
+    """702.37e: a special action any time you have priority (it doesn't use the stack)."""
+    require_no_decision(plan)
+    require_priority(plan)
+    card = plan.state.cards.get(a.card_id)
+    if card is None or card.controller != plan.actor or not card.zone.endswith(":battlefield") or not card.face_down:
+        raise ActionError("Turn face up a face-down permanent you control")
+    printed = chars.of(card.model_copy(update={"face_down": False}), plan.info)
+    found = morph_cost(printed)
+    if found is None:
+        raise ActionError(f"{printed.name} has no morph cost: turn it face up with the table tools")
+    kind, cost_text = found
+    cost = M.parse_cost(cost_text)
+    if not can_pay(plan.state, plan.actor, cost, plan.info, purpose=Purpose(ability_of=printed)):
+        raise ActionError(f"Not enough mana to pay {cost.text()}")
+    pay(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up", sources=a.sources,
+        purpose=Purpose(ability_of=printed))
+    plan.do({"type": "face_down", "card_ids": [card.id], "face_down": False})
+    if kind == "megamorph":
+        plan.do({"type": "counter", "card_ids": [card.id], "kind": "+1/+1", "delta": 1})
+    emit(plan.state, "turned_face_up", object_id=plan.oid(card), card=card.id, player=plan.actor)
+    plan.rules.passed = []
+
+
 def from_command_zone(card: CardInstance, player: str) -> bool:
     return card.zone == zone_key(player, "command") and card.commander_key is not None and card.owner == player
 
@@ -635,17 +673,21 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if card is None:
         raise ActionError("That card isn't here any more")
     ch = chars.as_cast(card, plan.info, a.face)  # split cards / adventures: the half being cast
+    if a.face_down:  # morph: a nameless 2/2 creature spell for {3}
+        if morph_cost(ch) is None or card.zone != zone_key(plan.actor, "hand"):
+            raise ActionError("Only a card with morph can be cast face down from your hand")
+        ch = FACE_DOWN
     problem = cast_problem(plan.state, plan.actor, card, ch)
     if problem:
         raise ActionError(problem)
     base = M.parse_cost(ch.mana_cost)
     if base.x and a.x_value is None:
         raise ActionError(f"Choose a value for X to cast {ch.name}")
-    cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info)
+    cost = M.parse_cost("{3}") if a.face_down else spell_cost(plan.state, card, ch, a.x_value or 0, plan.info)
     for target in a.targets:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
-    definition = None if plan.manual(card) else scripts.spell_definition(ch)
+    definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
     chosen = choose_target(plan, a, definition, ch.name or "it")
     if chosen is None:
         return  # waiting for the target choice (601.2c comes before paying costs)
@@ -655,10 +697,14 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     flashback = from_graveyard(card, plan.actor, ch)
     if a.face is not None and a.face != card.face:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
-    plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
+    if a.face_down:
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}, "face_down": True, "face_down_kind": "morph"})
+    else:
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
-    pay(plan, plan.actor, cost, f"paid {cost.text()} for {ch.name}", sources=a.sources, purpose=Purpose(spell=ch))
+    pay(plan, plan.actor, cost, f"paid {cost.text()} for {ch.name or 'a face-down spell'}", sources=a.sources,
+        purpose=Purpose(spell=ch))
     tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else []
     if flashback:
         plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else

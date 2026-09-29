@@ -1,13 +1,13 @@
 {
- "generated_at": "2026-09-29 15:43",
+ "generated_at": "2026-09-29 15:48",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32116,
  "commander_banned": 83,
  "levels": {
-  "FULL": 4223,
-  "PARTIAL": 27845,
+  "FULL": 4275,
+  "PARTIAL": 27793,
   "REVIEW": 0,
   "MANUAL": 48
  },
@@ -30,20 +30,20 @@
  },
  "by_type": {
   "Creature": {
-   "FULL": 2884,
-   "PARTIAL": 15037,
+   "FULL": 2934,
+   "PARTIAL": 14987,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Artifact": {
-   "FULL": 510,
-   "PARTIAL": 3083,
+   "FULL": 511,
+   "PARTIAL": 3082,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Enchantment": {
-   "FULL": 97,
-   "PARTIAL": 3550,
+   "FULL": 98,
+   "PARTIAL": 3549,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -60,8 +60,8 @@
    "MANUAL": 0
   },
   "Land": {
-   "FULL": 404,
-   "PARTIAL": 808,
+   "FULL": 405,
+   "PARTIAL": 807,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -80,8 +80,8 @@
  },
  "by_keyword": {
   "flying": {
-   "FULL": 586,
-   "PARTIAL": 2577,
+   "FULL": 595,
+   "PARTIAL": 2568,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -92,14 +92,14 @@
    "MANUAL": 0
   },
   "trample": {
-   "FULL": 148,
-   "PARTIAL": 845,
+   "FULL": 153,
+   "PARTIAL": 840,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "vigilance": {
-   "FULL": 146,
-   "PARTIAL": 579,
+   "FULL": 147,
+   "PARTIAL": 578,
    "REVIEW": 0,
    "MANUAL": 2
   },
@@ -134,8 +134,8 @@
    "MANUAL": 1
   },
   "reach": {
-   "FULL": 100,
-   "PARTIAL": 323,
+   "FULL": 103,
+   "PARTIAL": 320,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -158,14 +158,14 @@
    "MANUAL": 1
   },
   "first strike": {
-   "FULL": 96,
-   "PARTIAL": 278,
+   "FULL": 99,
+   "PARTIAL": 275,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "lifelink": {
-   "FULL": 59,
-   "PARTIAL": 301,
+   "FULL": 61,
+   "PARTIAL": 299,
    "REVIEW": 0,
    "MANUAL": 2
   },
@@ -182,14 +182,14 @@
    "MANUAL": 2
   },
   "defender": {
-   "FULL": 84,
-   "PARTIAL": 224,
+   "FULL": 87,
+   "PARTIAL": 221,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "regenerate": {
-   "FULL": 84,
-   "PARTIAL": 187,
+   "FULL": 86,
+   "PARTIAL": 185,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -212,8 +212,8 @@
    "MANUAL": 0
   },
   "protection": {
-   "FULL": 96,
-   "PARTIAL": 94,
+   "FULL": 99,
+   "PARTIAL": 91,
    "REVIEW": 0,
    "MANUAL": 3
   },
@@ -236,8 +236,8 @@
    "MANUAL": 0
   },
   "morph": {
-   "FULL": 0,
-   "PARTIAL": 153,
+   "FULL": 41,
+   "PARTIAL": 112,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -284,8 +284,8 @@
    "MANUAL": 0
   },
   "double strike": {
-   "FULL": 27,
-   "PARTIAL": 92,
+   "FULL": 29,
+   "PARTIAL": 90,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -326,8 +326,8 @@
    "MANUAL": 0
   },
   "hexproof": {
-   "FULL": 29,
-   "PARTIAL": 62,
+   "FULL": 30,
+   "PARTIAL": 61,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -692,8 +692,8 @@
    "MANUAL": 0
   },
   "megamorph": {
-   "FULL": 0,
-   "PARTIAL": 31,
+   "FULL": 11,
+   "PARTIAL": 20,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1054,8 +1054,8 @@
    "MANUAL": 0
   },
   "a25": {
-   "FULL": 17,
-   "PARTIAL": 88,
+   "FULL": 19,
+   "PARTIAL": 86,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1120,8 +1120,8 @@
    "MANUAL": 0
   },
   "arc": {
-   "FULL": 0,
-   "PARTIAL": 23,
+   "FULL": 1,
+   "PARTIAL": 22,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1240,8 +1240,8 @@
    "MANUAL": 0
   },
   "c19": {
-   "FULL": 10,
-   "PARTIAL": 95,
+   "FULL": 11,
+   "PARTIAL": 94,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1522,8 +1522,8 @@
    "MANUAL": 0
   },
   "dtk": {
-   "FULL": 25,
-   "PARTIAL": 141,
+   "FULL": 36,
+   "PARTIAL": 130,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1648,8 +1648,8 @@
    "MANUAL": 0
   },
   "fut": {
-   "FULL": 3,
-   "PARTIAL": 71,
+   "FULL": 4,
+   "PARTIAL": 70,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1798,8 +1798,8 @@
    "MANUAL": 0
   },
   "jvc": {
-   "FULL": 6,
-   "PARTIAL": 14,
+   "FULL": 7,
+   "PARTIAL": 13,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1822,8 +1822,8 @@
    "MANUAL": 0
   },
   "ktk": {
-   "FULL": 35,
-   "PARTIAL": 111,
+   "FULL": 48,
+   "PARTIAL": 98,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1846,8 +1846,8 @@
    "MANUAL": 0
   },
   "lgn": {
-   "FULL": 9,
-   "PARTIAL": 80,
+   "FULL": 12,
+   "PARTIAL": 77,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2026,8 +2026,8 @@
    "MANUAL": 0
   },
   "mkc": {
-   "FULL": 10,
-   "PARTIAL": 152,
+   "FULL": 13,
+   "PARTIAL": 149,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2158,8 +2158,8 @@
    "MANUAL": 0
   },
   "ons": {
-   "FULL": 11,
-   "PARTIAL": 181,
+   "FULL": 24,
+   "PARTIAL": 168,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2320,8 +2320,8 @@
    "MANUAL": 0
   },
   "scg": {
-   "FULL": 8,
-   "PARTIAL": 76,
+   "FULL": 10,
+   "PARTIAL": 74,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2518,8 +2518,8 @@
    "MANUAL": 0
   },
   "tsr": {
-   "FULL": 28,
-   "PARTIAL": 204,
+   "FULL": 29,
+   "PARTIAL": 203,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2675,28 +2675,13 @@
    "commander_cards": 367,
    "pod_cards": 0,
    "pod_commanders": 0,
-   "only_missing_piece_for": 194,
+   "only_missing_piece_for": 195,
    "examples": [
     "Saltcrusted Steppe",
     "Flywheel Racer",
     "The Emperor of Palamecia // The Lord Master of Hell",
     "City of Shadows",
     "Pit of Offerings"
-   ]
-  },
-  {
-   "feature": "keyword:morph",
-   "kind": "keyword",
-   "commander_cards": 153,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 44,
-   "examples": [
-    "Gravel Slinger",
-    "Willbender",
-    "Brine Elemental",
-    "Aven Liberator",
-    "Shaper Parasite"
    ]
   },
   {
@@ -2850,6 +2835,21 @@
    ]
   },
   {
+   "feature": "template:{M}: Prevent the next N damage that would be dealt to any target this turn.",
+   "kind": "activated",
+   "commander_cards": 22,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 17,
+   "examples": [
+    "Barrenton Medic",
+    "Militant Monk",
+    "Jhessian Balmgiver",
+    "Serra Paladin",
+    "Sanctum Custodian"
+   ]
+  },
+  {
    "feature": "template:Devoid",
    "kind": "static",
    "commander_cards": 132,
@@ -2877,21 +2877,6 @@
     "Elder Pine of Jukai",
     "Nightsoil Kami",
     "Thousand-legged Kami"
-   ]
-  },
-  {
-   "feature": "template:{M}: Prevent the next N damage that would be dealt to any target this turn.",
-   "kind": "activated",
-   "commander_cards": 22,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 16,
-   "examples": [
-    "Barrenton Medic",
-    "Militant Monk",
-    "Jhessian Balmgiver",
-    "Serra Paladin",
-    "Sanctum Custodian"
    ]
   },
   {
@@ -3105,6 +3090,21 @@
    ]
   },
   {
+   "feature": "template:~ can't be countered.",
+   "kind": "restriction",
+   "commander_cards": 87,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 11,
+   "examples": [
+    "Supreme Verdict",
+    "Rending Volley",
+    "Heated Debate",
+    "Thrun, the Last Troll",
+    "Glen Elendra's Answer"
+   ]
+  },
+  {
    "feature": "keyword:evoke",
    "kind": "keyword",
    "commander_cards": 35,
@@ -3117,21 +3117,6 @@
     "Mournwhelk",
     "Ingot Chewer",
     "Reveillark"
-   ]
-  },
-  {
-   "feature": "keyword:megamorph",
-   "kind": "keyword",
-   "commander_cards": 31,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 11,
-   "examples": [
-    "Kadena's Silencer",
-    "Segmented Krotiq",
-    "Kolaghan Stormsinger",
-    "Marang River Skeleton",
-    "Stormwing Dragon"
    ]
   },
   {
@@ -3207,21 +3192,6 @@
     "Regal Sliver",
     "Tempered Sliver",
     "Thorncaster Sliver"
-   ]
-  },
-  {
-   "feature": "template:~ can't be countered.",
-   "kind": "restriction",
-   "commander_cards": 87,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 10,
-   "examples": [
-    "Supreme Verdict",
-    "Rending Volley",
-    "Heated Debate",
-    "Thrun, the Last Troll",
-    "Glen Elendra's Answer"
    ]
   },
   {
@@ -3585,6 +3555,21 @@
    ]
   },
   {
+   "feature": "template:{M}, {M}: Target player mills N card(s).",
+   "kind": "activated",
+   "commander_cards": 12,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 9,
+   "examples": [
+    "Vedalken Entrancer",
+    "Persistent Petitioners",
+    "Relic Golem",
+    "Millstone",
+    "Zellix, Sanity Flayer"
+   ]
+  },
+  {
    "feature": "template:~ deals N damage to any target and you gain N life(s).",
    "kind": "spell_effect",
    "commander_cards": 12,
@@ -3732,21 +3717,6 @@
     "Kid Loki",
     "Gurgling Anointer",
     "Knights of Dol Amroth"
-   ]
-  },
-  {
-   "feature": "template:{M}, {M}: Target player mills N card(s).",
-   "kind": "activated",
-   "commander_cards": 12,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 8,
-   "examples": [
-    "Vedalken Entrancer",
-    "Persistent Petitioners",
-    "Relic Golem",
-    "Millstone",
-    "Zellix, Sanity Flayer"
    ]
   },
   {
@@ -4005,6 +3975,21 @@
    ]
   },
   {
+   "feature": "template:At the beginning of the end step, sacrifice ~.",
+   "kind": "triggered",
+   "commander_cards": 16,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Impetuous Devils",
+    "Underworld Breach",
+    "Putrefax",
+    "Spark Trooper",
+    "Spark Elemental"
+   ]
+  },
+  {
    "feature": "keyword:embalm",
    "kind": "keyword",
    "commander_cards": 15,
@@ -4077,6 +4062,21 @@
     "Hampering Snare",
     "Hysterical Blindness",
     "Suffocating Fumes"
+   ]
+  },
+  {
+   "feature": "template:Whenever ~ deals damage, you gain that much life.",
+   "kind": "triggered",
+   "commander_cards": 10,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Mourning Thrull",
+    "Doubtless One",
+    "Exalted Angel",
+    "Zebra Unicorn",
+    "Warrior Angel"
    ]
   },
   {
@@ -4350,21 +4350,6 @@
    ]
   },
   {
-   "feature": "template:At the beginning of the end step, sacrifice ~.",
-   "kind": "triggered",
-   "commander_cards": 16,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 6,
-   "examples": [
-    "Impetuous Devils",
-    "Underworld Breach",
-    "Putrefax",
-    "Spark Trooper",
-    "Spark Elemental"
-   ]
-  },
-  {
    "feature": "template:Instant and sorcery spells you cast cost {M} less to cast.",
    "kind": "cost_modifier",
    "commander_cards": 16,
@@ -4455,6 +4440,21 @@
    ]
   },
   {
+   "feature": "template:Whenever ~ deals combat damage to a player, that player discards N card(s).",
+   "kind": "triggered",
+   "commander_cards": 12,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 6,
+   "examples": [
+    "Chilling Apparition",
+    "Banshee of the Dread Choir",
+    "Silent Specter",
+    "Blazing Specter",
+    "Orzhov Racketeers"
+   ]
+  },
+  {
    "feature": "template:~'s power and toughness are each equal to the number of creatures you control.",
    "kind": "characteristic_defining",
    "commander_cards": 12,
@@ -4542,21 +4542,6 @@
     "Nessian Boar",
     "Nath's Elite",
     "Prized Unicorn"
-   ]
-  },
-  {
-   "feature": "template:Whenever ~ deals damage, you gain that much life.",
-   "kind": "triggered",
-   "commander_cards": 10,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 6,
-   "examples": [
-    "Mourning Thrull",
-    "Doubtless One",
-    "Exalted Angel",
-    "Zebra Unicorn",
-    "Warrior Angel"
    ]
   },
   {
@@ -5577,6 +5562,21 @@
     "Dromar's Cavern",
     "Rith's Grove",
     "Crosis's Catacombs"
+   ]
+  },
+  {
+   "feature": "template:When ~ is turned face up, put a \u00b1N/\u00b1N counter(s) on each other Dragon creature you control.",
+   "kind": "triggered",
+   "commander_cards": 5,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Stormwing Dragon",
+    "Shieldhide Dragon",
+    "Herdchaser Dragon",
+    "Belltoll Dragon",
+    "Acid-Spewer Dragon"
    ]
   },
   {

@@ -214,7 +214,8 @@ EventKind = Literal[
     "untapped",
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
     "cycled",  # a player cycled a card (702.29: "when you cycle …")
-    "crewed",  # a Vehicle became crewed (702.122)
+    "crewed",
+    "turned_face_up",  # 702.37e (morph)  # a Vehicle became crewed (702.122)
 ]
 
 

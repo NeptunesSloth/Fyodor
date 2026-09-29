@@ -75,6 +75,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
                                                                               keywords=("affinity",)),))) is not None
     if kw == "echo":  # triggers.echo_cost: a mana echo cost
         return re.fullmatch(r"echo (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+    if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
+        return re.fullmatch(r"(?:mega)?morph (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "crew":  # casting.crew: "Crew N"
         return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "flashback":  # casting.flashback_cost: a mana flashback cost
