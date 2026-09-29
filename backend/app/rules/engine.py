@@ -25,17 +25,14 @@ from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.rules_state import Decision, DecisionOption, Stops, TurnCount
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import casting, coverage, sba
+from app.rules import casting, combat, coverage, sba
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
 
 MAIN_PHASES = ("main1", "main2")
 MAX_HAND_SIZE = 7
 
-NOT_YET = {
-    "declare_attackers": "Declaring attackers",
-    "declare_blockers": "Declaring blockers",
-}
+NOT_YET: dict[str, str] = {}
 
 
 # -- entry point -------------------------------------------------------------------------
@@ -160,11 +157,23 @@ def empty_pools(plan: Plan) -> None:
 
 def next_step(plan: Plan) -> None:
     empty_pools(plan)
+    r = plan.rules
     phase = plan.state.turn.phase
     if phase == "cleanup":
         start_next_turn(plan)
         return
-    plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
+    if phase == "combat_damage" and r.combat_round == "first":
+        combat.deal_combat_damage(plan, "second")  # the regular damage step after first strike
+        r.combat_round = "done"
+        _mark_step(plan)
+        return
+    if phase == "end_combat":
+        combat.end_combat(plan)
+    if phase == "declare_attackers" and r.no_attackers:
+        # Nobody attacked: skip declare blockers and combat damage (rule 508.8).
+        plan.do({"type": "phase", "to": "end_combat", "force": True}, actor=plan.active)
+    else:
+        plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
     _mark_step(plan)
     on_step_start(plan)
 
@@ -197,6 +206,17 @@ def on_step_start(plan: Plan) -> None:
             plan.note(f"{plan.name(ap)} can't draw: their library is empty")
         else:
             plan.do({"type": "draw", "player": ap, "count": 1}, actor=ap)
+    elif phase == "declare_attackers":
+        combat.start_declare_attackers(plan)
+    elif phase == "declare_blockers":
+        combat.start_declare_blockers(plan)
+    elif phase == "combat_damage":
+        if combat.has_first_strike_round(plan):
+            combat.deal_combat_damage(plan, "first")
+            plan.rules.combat_round = "first"
+        else:
+            combat.deal_combat_damage(plan, "only")
+            plan.rules.combat_round = "done"
     elif phase == "cleanup":
         cleanup_step(plan)
 
@@ -319,6 +339,8 @@ def choose(plan: Plan, a: A.Choose) -> None:
     d = plan.rules.decision
     if d is None or d.id != a.decision_id:
         raise ActionError("That decision is no longer pending")
+    if d.kind in ("declare_attackers", "declare_blockers"):
+        raise ActionError(f"Answer this with {d.kind}")
     if d.player != plan.actor:
         raise ActionError(f"It's {plan.name(d.player)}'s decision")
     chosen = list(a.option_ids)
@@ -379,6 +401,8 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "play_land": play_land,
     "cast_spell": casting.cast_spell,
     "activate_ability": casting.activate_ability,
+    "declare_attackers": combat.declare_attackers,
+    "declare_blockers": combat.declare_blockers,
     "choose": choose,
     "concede": concede,
 }

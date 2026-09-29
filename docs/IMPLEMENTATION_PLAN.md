@@ -231,7 +231,20 @@ by default and the foundation doesn't change.
 
   Manual edits are picked up the next time the engine acts, so it never fights the players
   mid-edit.
-- **Still to do:** M15c combat, and M15d non-mana activated and loyalty abilities.
+- **Built, M15c: combat**, tested in `test_rules_combat.py`.
+  - Attackers are declared as a decision answered by `declare_attackers`. Eligibility covers
+    tapped, summoning sickness, haste and defender. Targets are opponents and their
+    planeswalkers; vigilance means the attacker doesn't tap.
+  - Blockers are declared in turn order, one defending player at a time, answered by
+    `declare_blockers`. Flying/reach and menace are enforced.
+  - Combat damage is dealt all at once. There's a separate first-strike round (double strike
+    deals in both). Trample assigns lethal damage first; deathtouch makes 1 damage lethal;
+    lifelink, commander damage and damage to planeswalkers are handled.
+  - With no attackers, the blockers and damage steps are skipped. Combat markers are cleared
+    at the end of combat.
+  - Multiple blockers are assigned damage in declaration order (lethal to each, then the
+    rest). Choosing that order interactively is a later refinement.
+- **Still to do:** M15d non-mana activated and loyalty abilities.
 
 - **Turn and priority:** the turn structure (untap, upkeep, draw, main, combat steps, end,
   cleanup with discard to hand size) and priority passing with Arena-style stops and

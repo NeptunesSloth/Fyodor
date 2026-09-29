@@ -23,10 +23,17 @@ SUPPORTED: set[str] = {
     "play:land",  # play_land: timing, one land per turn, priority (M14)
     "cast:spell",  # cast_spell: timing, costs (auto-paid), commander tax, the stack, resolution (M15)
     "mana:ability",  # {T}[, Sacrifice this]: Add … mana abilities, incl. basic land types (M15)
+    "combat",  # attacking and blocking, combat damage (M15c)
 }
 
 # Keyword abilities the engine implements (each needs tests before it is listed here).
-SUPPORTED_KEYWORDS: set[str] = set()
+SUPPORTED_KEYWORDS: set[str] = {
+    # combat (M15c): legality and damage, each covered by test_rules_combat.py
+    "flying", "reach", "vigilance", "trample", "deathtouch", "lifelink", "first strike", "double strike",
+    "haste", "defender", "menace",
+    # state-based actions (M15b)
+    "indestructible",
+}
 
 
 @dataclass(frozen=True)

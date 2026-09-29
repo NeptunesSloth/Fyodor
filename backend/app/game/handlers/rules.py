@@ -13,7 +13,7 @@ from app.game.errors import ActionError
 from app.game.handlers.players import change_life
 from app.game.ops import log, text
 from app.game.rules_state import RulesState, track
-from app.game.state import GameState
+from app.game.state import GameState, LogPart
 
 _NOT_A_STEP = A.INTENT_TYPES | {"run_macro", "restore_state", "response_open"}
 
@@ -73,6 +73,40 @@ def rules_mana(state: GameState, a: A.RulesMana) -> None:
             ops.delete(state, card)
         else:
             ops.move_card(state, card, f"{card.owner}:graveyard")
+
+
+def rules_damage(state: GameState, a: A.RulesDamage) -> None:
+    hurt = []
+    for cid, n in a.creatures.items():
+        card = ops.card(state, cid)
+        card.damage += n
+        hurt.append(card)
+    walkers = []
+    for cid, n in a.planeswalkers.items():
+        card = ops.card(state, cid)
+        left = card.counters.get("loyalty", 0) - n
+        if left > 0:
+            card.counters["loyalty"] = left
+        else:
+            card.counters.pop("loyalty", None)
+        walkers.append(card)
+    for hit in a.commander:
+        p = state.players[hit.player]
+        p.commander_damage[hit.commander] = p.commander_damage.get(hit.commander, 0) + hit.amount
+    for pid, n in a.players.items():
+        change_life(state, pid, state.players[pid].life - n)
+    for pid, n in a.lifelink.items():
+        change_life(state, pid, state.players[pid].life + n)
+    parts = [text("First-strike combat damage: " if a.first_strike else "Combat damage: ")]
+    pieces: list[list[LogPart]] = [[ops.pname(state, pid), text(f" takes {n}")] for pid, n in a.players.items()]
+    if hurt:
+        pieces.append([ops.group(state, hurt), text(" dealt damage")])
+    if walkers:
+        pieces.append([ops.group(state, walkers), text(" lose loyalty")])
+    pieces += [[ops.pname(state, pid), text(f" gains {n} life (lifelink)")] for pid, n in a.lifelink.items()]
+    for i, piece in enumerate(pieces or [[text("none")]]):
+        parts += ([text("; ")] if i else []) + piece
+    log(state, a.actor, a.ts, parts, kind="combat")
 
 
 def rules_log(state: GameState, a: A.RulesLog) -> None:

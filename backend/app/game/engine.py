@@ -109,6 +109,7 @@ HANDLERS: dict[str, Handler] = {
     "rules_sync": rules.rules_sync,
     "rules_log": rules.rules_log,
     "rules_mana": rules.rules_mana,
+    "rules_damage": rules.rules_damage,
 }
 
 # Actions that change nothing worth undoing or logging separately.

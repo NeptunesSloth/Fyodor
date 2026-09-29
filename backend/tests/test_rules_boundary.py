@@ -205,11 +205,14 @@ def test_concede(s):
         act(s, "p2", type="pass_priority")
 
 
-def test_not_yet_automated_intents_explain_themselves(s):
+def test_not_yet_automated_parts_explain_themselves(s):
     to_main(s)
-    act(s, "p1", type="draw", count=7)
-    with pytest.raises(ActionError, match="next milestone"):
-        act(s, "p1", type="declare_attackers", attackers=[])
+    with pytest.raises(ActionError, match="declare attackers step"):
+        act(s, "p1", type="declare_attackers", attackers=[])  # not in the declare attackers step
+    krenko = find(s.state, "Krenko, Mob Boss", "p1")
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"zone": "battlefield"})
+    with pytest.raises(ActionError, match="arrives later"):
+        act(s, "p1", type="activate_ability", card_id=krenko.id, ability=0)  # non-mana abilities: M15d
 
 
 def test_hints_are_only_about_your_own_cards(s):

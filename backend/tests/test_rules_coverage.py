@@ -41,7 +41,11 @@ def test_card_coverage_levels(cards):
     # casting is automated, the spell's effect isn't (yet)
     assert bolt.level == "PARTIAL" and bolt.manual_parts == ["Lightning Bolt deals 3 damage to any target."]
     krenko = coverage.of_card_data(cards.resolve("Krenko, Mob Boss"))
-    assert krenko.level == "PARTIAL" and "Attack and block" in krenko.manual_parts
+    # casting and combat are automated; its {T} token ability isn't yet
+    assert krenko.level == "PARTIAL" and krenko.manual_parts == [
+        "{T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control."]
+    atraxa = coverage.of_card_data(cards.resolve("Atraxa, Praetors' Voice"))
+    assert atraxa.manual_parts == ["At the beginning of your end step, proliferate."]  # its keywords are automated
 
 
 def test_full_only_when_every_part_is_supported(cards, monkeypatch):

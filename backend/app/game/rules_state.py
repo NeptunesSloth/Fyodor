@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
 DecisionKind = Literal[
     "manual_resolution",  # an effect Fyodor doesn't automate: resolve it by hand, then Done
+    "declare_attackers",  # answered with the declare_attackers intent
+    "declare_blockers",  # answered with the declare_blockers intent
     "choose_one",  # pick exactly one option (modes, "which player", …)
     "choose_cards",  # pick between min and max cards (targets, discard, …)
     "confirm",  # yes / no ("you may …")
@@ -91,6 +93,11 @@ class RulesState(BaseModel):
     winner: str | None = None
     drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check
     deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
+    # Combat bookkeeping; the attack/block markers on the table are the visible truth.
+    blocked: list[str] = Field(default_factory=list)  # attackers that became blocked (stay blocked)
+    no_attackers: bool = False  # nobody attacked: skip blockers and damage (rule 508.8)
+    blockers_pending: list[str] = Field(default_factory=list)  # defending players still to declare
+    combat_round: Literal["", "first", "done"] = ""
     # Commanders offered the move to the command zone, and from which zone (asked once per arrival).
     commander_offered: dict[str, str] = Field(default_factory=dict)
     overrides: int = 0  # manual (sandbox) actions taken while automation was on

@@ -927,6 +927,25 @@ class RulesMana(Base):
     label: str = Field(default="", max_length=200)  # "paid {1}{G} for Llanowar Elves"
 
 
+class CommanderHit(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    player: Id
+    commander: Id  # commander_key
+    amount: int = Field(ge=0, le=100000)
+
+
+class RulesDamage(Base):
+    """Server-built only: all combat damage of one damage step, dealt simultaneously."""
+
+    type: Literal["rules_damage"] = "rules_damage"
+    creatures: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # card -> damage
+    players: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # life lost
+    commander: list[CommanderHit] = Field(default_factory=list)  # combat damage by commanders (also in players)
+    planeswalkers: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # loyalty removed
+    lifelink: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # life gained
+    first_strike: bool = False
+
+
 class RulesLog(Base):
     """Server-built only: a log line written by the rules engine ("Alice passed", "Turn 3 …")."""
 
@@ -940,7 +959,7 @@ INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
      "choose", "concede", "set_stops"}
 )
-SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana"})
+SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage"})
 
 
 Action = Annotated[
@@ -1045,6 +1064,7 @@ Action = Annotated[
     | SetStops
     | RulesSync
     | RulesMana
+    | RulesDamage
     | RulesLog,
     Field(discriminator="type"),
 ]

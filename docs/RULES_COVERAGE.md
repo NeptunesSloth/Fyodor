@@ -48,6 +48,7 @@ Regenerate with the command above after each milestone.
 |---|---|---|---|---|---|
 | M14 | 0 | 32 | 121 | 0% | Land drop only |
 | M15a | 8 | 145 | 0 | 25.5% | Casting (timing, costs, commander tax, the stack), mana abilities incl. basic land types. Every card can now be cast or played through the engine. Mana rocks and basic lands are FULL. |
+| M15b–c | 8 | 145 | 0 | 25.5% | State-based actions and combat. These decks have no vanilla creatures: every creature still has manual text, so FULL doesn't move. Combat keywords (flying, trample, deathtouch, lifelink, first/double strike, menace, vigilance, haste, defender, reach, indestructible) are now automated everywhere. The remaining work is text effects (M16). |
 
 ## Baseline (milestone 14): the two sample decks
 
