@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 121 · PARTIAL: 3380 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 124 · PARTIAL: 3377 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -500,8 +500,8 @@ Color identity G · pairs via choose_background
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Choose a background
 - ✗ Tokens you control have "{T}: Add {G}."
-- ✗ Choose a background
 
 ### Old Gnawbone — PARTIAL
 
@@ -546,8 +546,8 @@ Color identity G · pairs via partner
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Reach
+- ✓ Partner
 - ✗ Whenever another permanent you control enters, if it wasn't put onto the battlefield with this ability, you may put a permanent card with equal or lesser mana value from your hand onto the battlefield.
-- ✗ Partner
 
 ### Sythis, Harvest's Hand — PARTIAL
 
@@ -621,8 +621,8 @@ Color identity R · pairs via choose_background
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Choose a background
 - ✗ Whenever you attack, if it's the first combat phase of the turn, untap all attacking creatures. They gain first strike until end of turn. After this phase, there is an additional combat phase.
-- ✗ Choose a background
 
 ### The Reality Chip — PARTIAL
 
@@ -640,9 +640,9 @@ Color identity U · pairs via partner
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Partner
 - ✗ You may have Sakashima enter as a copy of another creature you control, except it has Sakashima's other abilities.
 - ✗ The "legend rule" doesn't apply to permanents you control.
-- ✗ Partner
 
 ### Jhoira, Weatherlight Captain — PARTIAL
 
@@ -828,8 +828,8 @@ Color identity R · pairs via partner
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Partner
 - ✗ Whenever a commander you control deals combat damage to an opponent, it deals that much damage to each other opponent.
-- ✗ Partner
 
 ### Kambal, Profiteering Mayor — PARTIAL
 
@@ -1277,8 +1277,8 @@ Color identity W · pairs via choose_background
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Choose a background
 - ✗ If you would put one or more counters on a creature or planeswalker you control or on yourself, put that many plus one of each of those kinds of counters on that permanent or player instead.
-- ✗ Choose a background
 
 ### Thalia, Heretic Cathar — PARTIAL
 
@@ -1373,8 +1373,8 @@ Color identity R · pairs via choose_background
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
+- ✓ Choose a background
 - ✗ Whenever Ganax or another Dragon you control enters, create a Treasure token.
-- ✗ Choose a background
 
 ### Uro, Titan of Nature's Wrath — PARTIAL
 
@@ -1578,8 +1578,8 @@ Color identity W · pairs via partner
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Partner
 - ✗ At the beginning of combat on your turn, you may attach any number of Auras and Equipment you control to target permanent or player.
-- ✗ Partner
 
 ### Talion, the Kindly Lord — PARTIAL
 
@@ -2127,11 +2127,11 @@ Color identity RG
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
+- ✓ Daretti, Scrap Savant can be your commander.
 - ✗ Loyalty and damage to planeswalkers
 - ✗ +2: Discard up to two cards, then draw that many cards.
 - ✗ −2: Sacrifice an artifact. If you do, return target artifact card from your graveyard to the battlefield.
 - ✗ −10: You get an emblem with "Whenever an artifact is put into your graveyard from the battlefield, return that card to the battlefield at the beginning of the next end step."
-- ✗ Daretti, Scrap Savant can be your commander.
 
 ### Arixmethes, Slumbering Isle — PARTIAL
 
@@ -2522,7 +2522,7 @@ Color identity W
 - ✓ First strike
 - ✗ Noncreature spells cost {1} more to cast.
 
-### Rograkh, Son of Rohgahh — PARTIAL
+### Rograkh, Son of Rohgahh — FULL
 
 Color identity R · pairs via partner
 
@@ -2531,7 +2531,7 @@ Color identity R · pairs via partner
 - ✓ First strike
 - ✓ Menace
 - ✓ Trample
-- ✗ Partner
+- ✓ Partner
 
 ### Toxrill, the Corrosive — PARTIAL
 
@@ -2884,8 +2884,8 @@ Color identity UG · pairs via partner
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Partner
 - ✗ {4}: Scry 1, then reveal the top card of your library. If it's a land card, put it onto the battlefield tapped. Otherwise, draw a card.
-- ✗ Partner
 
 ### Esika, God of the Tree // The Prismatic Bridge — PARTIAL
 

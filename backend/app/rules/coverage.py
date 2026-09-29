@@ -65,7 +65,15 @@ _MANA_CYCLING = re.compile(r"(?:(?:basic )?[a-z]+)?cycling (?:\{[^}]+\})+")
 _MANA_FLASHBACK = re.compile(r"flashback (?:\{[^}]+\})+")
 
 
+# 702.124a: partner abilities modify deck construction and "function before the game begins":
+# during the game there's nothing to do (pairings are checked by app/rules/commander.py and the
+# deck checks). "Partner with [name]" also has an enters trigger (702.124j): not listed here.
+DECKBUILDING_KEYWORDS = {"partner", "choose a background", "doctor's companion", "friends forever"}
+
+
 def _keyword_supported(kw: str, line: str) -> bool:
+    if kw in DECKBUILDING_KEYWORDS:
+        return not line.strip().lower().startswith("partner with")
     if kw in ("enchant", "equip"):  # app/rules/attachments.py: the wordings it maps
         from app.rules import attachments
 

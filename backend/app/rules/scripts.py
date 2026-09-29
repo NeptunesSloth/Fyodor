@@ -567,6 +567,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return anthem
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
         return rule
+    if ability.kind == "static" and text == "~ can be your commander.":
+        return {"kind": "static", "static": "deckbuilding", "effects": []}  # 903.3a: deck construction only
     if ability.kind == "static" and text in COMBAT_STATICS:
         return {"kind": "static", "static": COMBAT_STATICS[text], "effects": []}
     if ability.kind == "triggered":
