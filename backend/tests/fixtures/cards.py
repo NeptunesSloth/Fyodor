@@ -295,6 +295,8 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Arrest", set_code="tst", number="Q5", mana_cost="{2}{W}", cmc=3.0, type_line="Enchantment — Aura",
              oracle_text="Enchant creature\nEnchanted creature can't attack or block, and its activated abilities can't be activated.",
              colors=["W"], color_identity=["W"]),
+        card("Test Herald", set_code="tst", number="R1", mana_cost="{1}", cmc=1.0, type_line="Creature — Test",
+             oracle_text="Whenever this creature enters or attacks, you gain 1 life.", power="1", toughness="1"),
         card("Test Frozen Aura", set_code="tst", number="P5", mana_cost="{U}", cmc=1.0, type_line="Enchantment — Aura",
              oracle_text="Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.",
              colors=["U"], color_identity=["U"]),

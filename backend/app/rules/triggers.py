@@ -40,8 +40,17 @@ def _zone(key: str | None) -> str:
     return (key or "").rsplit(":", 1)[-1]
 
 
+# A trigger condition naming several events triggers on each of them (603.2).
+TRIGGER_EVENTS = {"enters_or_attacks_self": ("enters_self", "attacks_self")}
+
+
+def _matches_trigger(name: str, trigger: str) -> bool:
+    return name == trigger or trigger in TRIGGER_EVENTS.get(name, ())
+
+
 def abilities(plan: Plan, ch: Characteristics, trigger: str) -> list[tuple[int, dict[str, Any]]]:
-    found = [(i, d) for i, d in scripts.definitions(ch).items() if d["kind"] == "triggered" and d["trigger"] == trigger]
+    found = [(i, d) for i, d in scripts.definitions(ch).items()
+             if d["kind"] == "triggered" and _matches_trigger(d["trigger"], trigger)]
     return found + [(i, d) for i, d in scripts.keyword_triggers(ch) if d["trigger"] == trigger]
 
 

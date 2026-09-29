@@ -76,6 +76,7 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Attachments (one model: Auras incl. player Auras, Equipment; targeted Aura casting, Auras entering without being cast choose a host, equip), "Enchanted/Equipped … gets/has", attached restrictions (can't attack/block/activate, doesn't untap) — +189 Auras, +74 Equipment | 32,116 | 5,196 (16.2%) | 26,872 | 0 | 48 | 119 / 3,501 |
 | "At the beginning of [whose] [step]" (your / each / each opponent's / enchanted player's; upkeep, draw, first/second main, beginning of combat, end step) | 32,116 | 5,219 (16.3%) | 26,849 | 0 | 48 | 121 / 3,501 |
 | Partner-family keywords and "~ can be your commander" (deck construction only, 702.124a / 903.3a) | 32,116 | 5,222 (16.3%) | 26,846 | 0 | 48 | 124 / 3,501 |
+| "Whenever ~ enters or attacks" (one ability, each event, 603.2) | 32,116 | 5,225 (16.3%) | 26,843 | 0 | 48 | 125 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards

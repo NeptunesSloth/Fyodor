@@ -76,6 +76,7 @@ TRIGGERS = [
     (re.compile(r"^At the beginning of your upkeep, (?P<body>.+)$"), "upkeep_you"),
     (re.compile(r"^At the beginning of your end step, (?P<body>.+)$"), "end_step_you"),
     (re.compile(r"^Whenever ~ attacks, (?P<body>.+)$"), "attacks_self"),
+    (re.compile(r"^Whenever ~ enters or attacks, (?P<body>.+)$"), "enters_or_attacks_self"),
     (re.compile(r"^(?:Landfall — )?Whenever a land you control enters, (?P<body>.+)$"), "landfall"),
     (re.compile(r"^When ~ becomes the target of a spell or ability, (?P<body>.+)$"), "targeted_self"),
     (re.compile(r"^Whenever ~ deals combat damage to a player, (?P<body>.+)$"), "combat_damage_player_self"),
