@@ -298,6 +298,11 @@ class StackEntry(BaseModel):
     target_spec: dict[str, Any] | None = None
     optional: bool = False  # "you may …": asked on resolution (603.5)
     x: int | None = None
+    # A modal spell (700.2): the chosen modes, and one target slot per chosen mode (700.2c, 700.2f);
+    # "use_targets" effects switch to a slot. Empty for a spell with one target list.
+    modes: list[int] = Field(default_factory=list)
+    slots: list[list[TargetRef]] = Field(default_factory=list)
+    slot_specs: list[dict[str, Any] | None] = Field(default_factory=list)
 
 
 class CostContribution(BaseModel):

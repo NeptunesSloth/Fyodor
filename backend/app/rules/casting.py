@@ -345,6 +345,88 @@ def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: di
     return None
 
 
+def _controls_commander(plan: Plan, player: str) -> bool:
+    return any(c.commander_key is not None and c.controller == player and c.zone.endswith(":battlefield")
+               for c in plan.state.cards.values())
+
+
+def choose_modes(plan: Plan, a: A.CastSpell, definition: dict[str, Any], what: str) -> list[int] | None:
+    """700.2a / 601.2b: the modes of a modal spell, validated if given, else asked. A mode whose
+    target can't be chosen can't be chosen (700.2a). Returns None while waiting."""
+    modal, modes = definition["modal"], definition["modes"]
+    lo, hi, repeat = modal["min"], modal["max"], modal["repeat"]
+    if modal.get("condition") == "commander" and _controls_commander(plan, plan.actor):
+        hi = 2  # "If you control a commander as you cast this spell, you may choose both instead."
+    src = source_of(plan, a.card_id)
+    allowed = [i for i, m in enumerate(modes)
+               if not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src)]
+    if a.modes:
+        if not lo <= len(a.modes) <= hi:
+            raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}")
+        if not repeat and len(set(a.modes)) != len(a.modes):
+            raise ActionError("You can't choose the same mode more than once")
+        if any(i not in allowed for i in a.modes):
+            raise ActionError("That mode can't be chosen (it has no legal target)")
+        return list(a.modes)
+    if not allowed or (not repeat and len(allowed) < lo):
+        raise ActionError(f"{what} has no mode you can choose")
+    per = hi if repeat else 1  # "You may choose the same mode more than once": each mode offered N times
+    decide(plan, player=plan.actor, kind="choose_cards",
+           prompt=f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}",
+           options=[DecisionOption(id=f"{i}:{k}", label=modes[i]["text"][:120]) for i in allowed for k in range(per)],
+           min_choices=lo, max_choices=hi,
+           resume={"step": "cast_modes", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
+    return None
+
+
+def resume_cast_modes(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.engine import INTENTS  # the engine imports this module
+
+    intent = A.parse_action(d.resume["intent"])
+    intent.modes = [int(c.split(":")[0]) for c in chosen]  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
+
+
+def choose_slot_targets(plan: Plan, a: A.CastSpell, specs: list[dict[str, Any] | None],
+                        what: str) -> list[list[TargetRef]] | None:
+    """One target per chosen mode that has one, in order (``a.targets``); the next one missing is
+    asked. The same object may be chosen for different modes (601.2c: another "target" word)."""
+    need = [k for k, spec in enumerate(specs) if spec]
+    if len(a.targets) > len(need):
+        raise ActionError("Too many targets for the chosen modes")
+    src = source_of(plan, a.card_id)
+    out: list[list[TargetRef]] = [[] for _ in specs]
+    for n, k in enumerate(need):
+        spec = specs[k]
+        assert spec is not None
+        legal = legal_targets(plan, spec["what"], plan.actor, src)
+        if n < len(a.targets):
+            if a.targets[n] not in legal:
+                raise ActionError("That isn't a legal target")
+            out[k] = [target_ref(plan, a.targets[n])]
+            continue
+        if not legal:
+            raise ActionError(f"{what} has no legal target for that mode")
+        decide(plan, player=plan.actor, kind="choose_one", prompt=f"Choose a target for {what} (mode {n + 1})",
+               options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None)
+                        for x in legal],
+               resume={"step": "cast_slot_target", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
+        return None
+    return out
+
+
+def resume_cast_slot_target(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.engine import INTENTS  # the engine imports this module
+
+    intent = A.parse_action(d.resume["intent"])
+    intent.targets = [*intent.targets, chosen[0]]  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
+
+
 def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules.engine import INTENTS  # the engine imports this module
 
@@ -1015,7 +1097,22 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             raise ActionError("A chosen target isn't on the table")
     definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
     aura = None if plan.manual(card) or a.face_down else attachments.enchant_selector(ch)
-    chosen = choose_target(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+    slots: list[list[TargetRef]] = []
+    slot_specs: list[dict[str, Any] | None] = []
+    picked: list[int] = []
+    if definition is not None and definition.get("modes"):
+        modes = choose_modes(plan, a, definition, ch.name or "it")  # 601.2b: modes first …
+        if modes is None:
+            return
+        picked = modes
+        slot_specs = [definition["modes"][i]["target"] for i in picked]
+        found = choose_slot_targets(plan, a, slot_specs, ch.name or "it")  # … then each mode's target (601.2c)
+        if found is None:
+            return
+        slots = found
+        chosen: list[TargetRef] | None = [t for slot in slots for t in slot]
+    else:
+        chosen = choose_target(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
     if chosen is None:
         return  # waiting for the target choice (601.2c comes before paying costs)
     if payment_step(plan, a, cost, ch.name or "it", purpose=Purpose(spell=ch)):
@@ -1064,7 +1161,13 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         _cascade_triggers(plan, card, ch)
     if "storm" in ch.keywords and not a.face_down and not plan.manual(card):
         _storm_trigger(plan, card, ch)
-    if definition is not None:
+    if definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
+        effects_in_order = [e for k, i in enumerate(picked)
+                            for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]
+        r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
+                                      name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
+                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs)
+    elif definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), targets=chosen,
                                       target_spec=definition.get("target"), x=a.x_value)

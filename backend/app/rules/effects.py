@@ -688,10 +688,17 @@ def _copy_spell(plan: Plan, sid: str, entry: StackEntry, targets: list[Any], con
     new_ids = getattr(created, "r", None)
     copy_id = new_ids.ids[0] if new_ids is not None else None
     if copy_id:
+        slots = [list(s) for s in entry.slots]
+        if entry.slot_specs and list(targets) != list(entry.targets):  # a new target for a modal copy's only targeted mode
+            targeted = [k for k, spec in enumerate(entry.slot_specs) if spec]
+            if len(targeted) == 1:
+                slots[targeted[0]] = list(targets)
         plan.rules.stack[copy_id] = StackEntry(kind="spell", controller=controller, source_card=entry.source_card,
                                                source_object=entry.source_object, name=f"Copy of {entry.name}",
                                                effects=list(entry.effects), targets=list(targets),
-                                               target_spec=entry.target_spec, x=entry.x)
+                                               target_spec=entry.target_spec, x=entry.x,
+                                               modes=list(entry.modes), slots=slots,  # 700.2g: the copy keeps its modes
+                                               slot_specs=list(entry.slot_specs))
 
 
 def resume_storm(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -715,7 +722,12 @@ def resume_storm(plan: Plan, d: Any, chosen: list[str]) -> None:
     if left <= 0:
         continue_effects(plan, ctx)
         return
-    spec = entry.target_spec or {}
+    spec = entry.target_spec or next((sp for sp in entry.slot_specs if sp), None) or {}
+    if len([sp for sp in entry.slot_specs if sp]) > 1:  # several targeted modes: the copies keep their targets
+        for _ in range(left):
+            _copy_spell(plan, r["spell"], entry, entry.targets, d.player)
+        continue_effects(plan, ctx)
+        return
     legal = legal_targets(plan, spec.get("what", "any"), d.player, source_of(plan, entry.source_card))
     if not legal:
         continue_effects(plan, ctx)
@@ -889,7 +901,16 @@ def attach_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def use_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """A modal spell's next mode: its own target slot (empty if that target became illegal: the
+    mode's targeted parts then do nothing, 608.2b)."""
+    slots = ctx.get("slots") or []
+    ctx["targets"] = slots[e["slot"]] if e["slot"] < len(slots) else []
+    return True
+
+
 PRIMITIVES = {
+    "use_targets": use_targets,
     "attach_self": attach_self,
     "draw": draw, "gain_life": gain_life, "lose_life": lose_life, "damage": damage, "pump": pump, "grant": grant,
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
@@ -955,6 +976,20 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     ctx: Context = {"controller": entry.controller, "source_card": entry.source_card, "source_object": entry.source_object,
                     "name": entry.name, "targets": [t.model_dump() for t in entry.targets], "stack_id": stack_id,
                     "kind": entry.kind, "effects": entry.effects, "next": 0}
+    if entry.slot_specs:  # a modal spell: each mode's target is checked on its own (608.2b)
+        src = source_of(plan, entry.source_card)
+        slots, targeted, legal_any = [], False, False
+        for refs, sspec in zip(entry.slots, entry.slot_specs, strict=False):
+            ok = [t for t in refs if sspec and still_legal(plan, sspec["what"], entry.controller, t, src)]
+            targeted = targeted or bool(sspec and refs)
+            legal_any = legal_any or bool(ok)
+            slots.append([t.model_dump() for t in ok])
+        if targeted and not legal_any:
+            plan.note(f"{entry.name or 'It'} does nothing: its targets are no longer legal")
+            finish(plan, ctx, countered=True)
+            return
+        ctx["slots"] = slots
+        ctx["targets"] = []
     spec = entry.target_spec
     if spec and entry.targets:
         src = source_of(plan, entry.source_card)

@@ -720,10 +720,48 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
     return out
 
 
+# 700.2: "Choose …" followed by bulleted modes. (n_min, n_max, same mode more than once?, condition)
+_MODAL_HEADERS = {
+    "Choose one —": (1, 1, False, None),
+    "Choose two —": (2, 2, False, None),
+    "Choose one or both —": (1, 2, False, None),
+    "Choose one or more —": (1, 99, False, None),
+    "Choose three. You may choose the same mode more than once.": (3, 3, True, None),
+    "Choose one. If you control a commander as you cast this spell, you may choose both instead.": (1, 1, False, "commander"),
+}
+
+
+def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | None:
+    """A modal spell (700.2): the header line, then one bulleted line per mode, each an effect
+    sentence the engine reads with at most one target. None if any part isn't understood (the
+    whole spell is then resolved by hand)."""
+    if len(lines) < 3 or lines[0].text not in _MODAL_HEADERS:
+        return None
+    lo, hi, repeat, condition = _MODAL_HEADERS[lines[0].text]
+    modes = []
+    for ab in lines[1:]:
+        if not ab.text.startswith("• "):
+            return None
+        parsed = parse_effects(self_text(ab.text[2:], name))
+        if parsed is None or parsed[2]:  # ("you may" inside a mode: not yet)
+            return None
+        effects, target, _ = parsed
+        modes.append({"text": ab.text[2:], "effects": effects, "target": {"what": target} if target else None})
+    if not repeat and lo > len(modes):
+        return None
+    if condition == "commander":  # "… you may choose both instead" (while you control a commander)
+        hi = 1
+    return {"kind": "spell", "effects": [], "target": None, "modes": modes,
+            "modal": {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": condition}}
+
+
 def spell_definition(ch: Characteristics) -> Definition | None:
     """A whole instant/sorcery as one definition, if every line is automated (else None)."""
     if not ch.is_instant_or_sorcery:
         return None
+    text_lines = [ab for ab in ch.abilities if ab.kind != "keywords"]
+    if text_lines and text_lines[0].text in _MODAL_HEADERS:
+        return modal_definition(text_lines, ch.name)
     defs = definitions(ch)
     lines = [ab for ab in ch.abilities if ab.kind != "keywords"]
     if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):

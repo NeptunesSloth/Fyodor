@@ -1,6 +1,6 @@
 # Commander rules coverage
 
-Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 18:49
+Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 18:55
 
 Only cards that are **legal in Commander today** count. Banned cards (83) are COMMANDER_BANNED and excluded.
 
@@ -10,8 +10,8 @@ Commander-legal cards: **32116**
 
 | Level | Cards | Share |
 |---|---|---|
-| FULL | 5225 | 16.3% |
-| PARTIAL | 26843 | 83.6% |
+| FULL | 5269 | 16.4% |
+| PARTIAL | 26799 | 83.4% |
 | REVIEW | 0 | 0.0% |
 | MANUAL | 48 | 0.1% |
 
@@ -24,22 +24,22 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 ## Coverage quality
 
 - Ability features (lines, keywords, play/cast/combat) across Commander-legal cards: 113346
-- Automated: 73566 (64.9%) · unrecognized clauses: 39780
+- Automated: 73732 (65.1%) · unrecognized clauses: 39614
 - Oracle text classified (automated, or sorted into a concrete missing capability): 97.1% · unclassified clauses: 3269
-- Distinct missing-capability clusters: 10097
+- Distinct missing-capability clusters: 10096
 
 ## Missing capabilities by category
 
 | Category | Cards affected | Clauses |
 |---|---|---|
-| MISSING EFFECT | 12279 | 14897 |
+| MISSING EFFECT | 12229 | 14734 |
 | MISSING TRIGGER EVENT | 5856 | 6216 |
-| MISSING SELECTOR | 4390 | 4657 |
+| MISSING SELECTOR | 4389 | 4656 |
 | MISSING CONTINUOUS EFFECT | 2838 | 3016 |
 | UNSUPPORTED ORACLE PATTERN | 2480 | 3269 |
 | MISSING MECHANIC | 2002 | 2065 |
 | MISSING COST | 1761 | 1841 |
-| MISSING REPLACEMENT PATTERN | 1392 | 1431 |
+| MISSING REPLACEMENT PATTERN | 1390 | 1429 |
 | MISSING RESTRICTION | 1018 | 1064 |
 | MISSING COST / PERMISSION RULE | 935 | 955 |
 | MANA ABILITY WORDING | 367 | 369 |
@@ -52,7 +52,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 |---|---|---|---|---|---|---|
 | 1 | MISSING EFFECT | draw n … | 59 | 193 | 636 | Errand-Rider of Gondor, Heal, Grip of Amnesia |
 | 2 | MISSING MECHANIC | ward | 47 | 7 | 97 | Tyranid Harridan, Grey Host Reinforcements, Kwia Vigorbloom |
-| 3 | MISSING EFFECT | choose n … | 45 | 46 | 684 | Road of Return, Saheeli's Artistry, Eldrazi Confluence |
+| 3 | MISSING EFFECT | choose n … | 45 | 46 | 634 | Road of Return, Saheeli's Artistry, Eldrazi Confluence |
 | 4 | MISSING EFFECT | look at the top … | 43 | 190 | 299 | Harald, King of Skemfar, Courageous Outrider, Lantern of Revealing |
 | 5 | MISSING EFFECT | pay {m} … | 42 | 110 | 162 | Minion Reflector, Giant's Amulet, Order of the Golden Cricket |
 | 6 | MISSING EFFECT | put a ±n/±n counter(s) … | 40 | 145 | 244 | Benevolent Hydra, Gollum, Silent Slinker // Meager Meal, Ent-Draught Basin |
@@ -66,7 +66,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 14 | MISSING TRIGGER EVENT | Whenever you gain life | 28 | 40 | 79 | South Wind Avatar, Voice of the Blessed, MJ, Rising Star |
 | 15 | MISSING TRIGGER EVENT | When ~ enters | 26 | 9 | 26 | Kiora of Fire and Ashes, Sharuum the Hegemon, Phage the Untouchable |
 | 16 | MISSING EFFECT | exile the top card … | 24 | 30 | 79 | Mezzio Mugger, Etali, Primal Storm, Abbot of Keral Keep |
-| 17 | MISSING SELECTOR | target | 23 | 162 | 324 | Cinder Elemental, Archangel of Wrath, Granger Guildmage |
+| 17 | MISSING SELECTOR | target | 23 | 162 | 323 | Cinder Elemental, Archangel of Wrath, Granger Guildmage |
 | 18 | MISSING EFFECT | put n … | 22 | 64 | 138 | Black Sun's Zenith, Breaking // Entering, Mind Raker |
 | 19 | UNSUPPORTED ORACLE PATTERN | As long as your devotion to … | 22 | 3 | 22 | Phenax, God of Deception, Erebos, God of the Dead, Thassa, Deep-Dwelling |
 | 20 | UNSUPPORTED ORACLE PATTERN | You may look at the top … | 22 | 2 | 45 | One with the Multiverse, The Lunar Whale, Cemetery Illuminator |
@@ -93,7 +93,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 41 | MISSING TRIGGER EVENT | Whenever you cast your second spell each turn | 14 | 21 | 34 | Sunstar Lightsmith, Wanda's Vision, Kraum, Violent Cacophony |
 | 42 | MISSING TRIGGER EVENT | Whenever another nontoken creature you control dies | 14 | 11 | 20 | Bhaal, Lord of Murder, Myrkul, Lord of Bones, Agent Venom |
 | 43 | MISSING EFFECT | exile ~ … | 14 | 7 | 54 | Stenn, Paranoid Partisan, Woodland Guidance, Teferi's Protection |
-| 44 | MISSING MECHANIC | sneak | 14 | 5 | 27 | Turncoat Kunoichi, Michelangelo, Improviser, Donatello's Technique |
+| 44 | MISSING MECHANIC | sneak | 14 | 6 | 27 | Turncoat Kunoichi, Michelangelo, Improviser, Donatello's Technique |
 | 45 | MISSING MECHANIC | partner | 14 | 3 | 24 | Lore Weaver, Blaring Captain, Rory Williams |
 | 46 | MISSING MECHANIC | firebending | 14 | 3 | 22 | Fire Sages, Loyal Fire Sage, Jeong Jeong, the Deserter |
 | 47 | UNSUPPORTED ORACLE PATTERN | • Put a ±N/±N counter(s) on … | 14 | 0 | 38 | Bejeweled Warg, Trusty Retriever, Inspired Inventor |
@@ -135,11 +135,11 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 
 | # | Category | Cluster | Commander cards | Only missing piece for | Commanders | Examples |
 |---|---|---|---|---|---|---|
-| 1 | MISSING EFFECT | choose n … | 684 | 46 | 45 | Road of Return, Saheeli's Artistry, Eldrazi Confluence |
-| 2 | MISSING EFFECT | draw n … | 636 | 193 | 59 | Errand-Rider of Gondor, Heal, Grip of Amnesia |
+| 1 | MISSING EFFECT | draw n … | 636 | 193 | 59 | Errand-Rider of Gondor, Heal, Grip of Amnesia |
+| 2 | MISSING EFFECT | choose n … | 634 | 46 | 45 | Road of Return, Saheeli's Artistry, Eldrazi Confluence |
 | 3 | MISSING EFFECT | search your library for … | 424 | 274 | 32 | Safewright Quest, Thunderherd Migration, Squadron Hawk |
 | 4 | MISSING EFFECT | ~ deals n … | 417 | 259 | 14 | Deem Worthy, End-Blaze Epiphany, Harvest Pyre |
-| 5 | MISSING SELECTOR | target | 324 | 162 | 23 | Cinder Elemental, Archangel of Wrath, Granger Guildmage |
+| 5 | MISSING SELECTOR | target | 323 | 162 | 23 | Cinder Elemental, Archangel of Wrath, Granger Guildmage |
 | 6 | MISSING COST / PERMISSION RULE | As an additional cost to cast … | 312 | 27 | 6 | Thunderherd Migration, Mind Extraction, Harvest Pyre |
 | 7 | UNSUPPORTED ORACLE PATTERN | planeswalker | 311 | 0 | 35 | Tamiyo, Compleated Sage, Jace, the Perfected Mind, Huatli, Dinosaur Knight |
 | 8 | MISSING SELECTOR | target creatures | 306 | 161 | 18 | Ravenous Gigantotherium, Fire Covenant, Amazing Acrobatics |
@@ -260,8 +260,8 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 | Creature | 3402 | 14519 | 0 | 0 |
 | Artifact | 621 | 2972 | 0 | 0 |
 | Enchantment | 315 | 3332 | 0 | 0 |
-| Sorcery | 259 | 3309 | 0 | 0 |
-| Instant | 515 | 3239 | 0 | 0 |
+| Sorcery | 273 | 3295 | 0 | 0 |
+| Instant | 545 | 3209 | 0 | 0 |
 | Land | 442 | 770 | 0 | 0 |
 | Planeswalker | 0 | 311 | 0 | 0 |
 | Battle | 0 | 36 | 0 | 0 |

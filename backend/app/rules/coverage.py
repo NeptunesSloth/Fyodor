@@ -139,8 +139,12 @@ class Coverage:
 def features_of(ch: Characteristics) -> list[Feature]:
     script = scripts.trusted(ch.oracle_id, ch.oracle_text)
     templated = set(templates.definitions(ch))
-    if ch.is_instant_or_sorcery and templates.spell_definition(ch) is None:
-        templated = set()  # a spell is automated as a whole or resolved by hand
+    if ch.is_instant_or_sorcery:
+        whole = templates.spell_definition(ch)
+        if whole is None:
+            templated = set()  # a spell is automated as a whole or resolved by hand
+        elif whole.get("modes"):
+            templated = {ab.index for ab in ch.abilities if ab.kind != "keywords"}  # a modal spell (700.2)
     out: list[Feature] = []
 
     def add(fid: str, label: str, ok: bool | None = None) -> None:
