@@ -194,8 +194,8 @@ def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristi
             if not only_keyword_subjects and _attached_rule_applies(source, d, card, ch):
                 imposed.update(d["imposes"])
             continue
-        if only_keyword_subjects and not _keyword_subject(d):
-            continue
+        if not _grants(d) or (only_keyword_subjects and not _keyword_subject(d)):
+            continue  # (a rules-only static is applied by _with_rules, after layer 7)
         if not _gate_open(view, st, tkey):
             continue
         if not grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True):
@@ -269,8 +269,6 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
             _depth -= 1
     elif effects:
         ch = _layer6(ch, [], effects)
-    if imposed:
-        ch = replace(ch, imposed=ch.imposed | frozenset(imposed))
     grants = [text for st in hits for text in st.definition["grants"]]
     if grants:  # layer 6: granted abilities, numbered after the printed ones (100, 101, …)
         from app.rules.scripts import granted_ability
@@ -292,7 +290,7 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     setters.sort(key=lambda x: x[0])
     power, toughness = _num(ch.power), _num(ch.toughness)
     if (power is None or toughness is None) and not setters:
-        return ch  # 7a: a characteristic-defining "*" the engine doesn't compute stays unknown
+        return _with_rules(state, card, ch, info, imposed)  # 7a: a characteristic-defining "*" stays unknown
     p, t = power or 0, toughness or 0
     for _, sp, stt in setters:
         p = sp if sp is not None else p
@@ -309,7 +307,45 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     for e in effects:
         if e.layer == "7d":
             p, t = t, p
-    return replace(ch, pt=(p, t))
+    return _with_rules(state, card, replace(ch, pt=(p, t)), info, imposed)
+
+
+def _grants(d: dict[str, Any]) -> bool:
+    """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
+    opponents control can't block.") is applied by ``_with_rules`` instead."""
+    return bool(d["p"] or d["t"] or d.get("base") or d["keywords"] or d["grants"])
+
+
+def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None,
+                imposed: set[str]) -> Characteristics:
+    """Rules imposed on the object (``Characteristics.imposed``): by resolved effects (already in
+    ``imposed``), and by static abilities with ``rules`` (app/rules/statics.py: "~ can't be blocked
+    by creatures with power 2 or less.", "Islands don't untap during their controllers' untap
+    steps.", an Aura's "Enchanted creature … attacks each combat if able."). Statics are read after
+    layer 7, so a subject like "creatures with power 4 or greater" sees the current power
+    (613.8-style dependency, as far as this engine models it)."""
+    global _depth
+    if info is not None and card.zone.endswith(":battlefield") and state.rules is not None and _depth == 0:
+        from app.rules import statics as grammar
+
+        view = _view(state, info)
+        table = [st for st in statics(state, info) if st.definition["static"] == "grant" and st.definition.get("rules")]
+        tkey = _table_key(state) if any(st.definition.get("conditions") or st.gate for st in table) else ()
+        _depth += 1
+        try:
+            for st in table:
+                d = st.definition
+                if set(d["rules"]) <= imposed or not _gate_open(view, st, tkey):
+                    continue
+                source = state.cards[st.source]
+                if grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True) \
+                        and _conditions(view, st, tkey):
+                    imposed.update(d["rules"])
+        finally:
+            _depth -= 1
+    if imposed:
+        ch = replace(ch, imposed=ch.imposed | frozenset(imposed))
+    return ch
 
 
 def _keyword_subject(d: dict[str, Any]) -> bool:

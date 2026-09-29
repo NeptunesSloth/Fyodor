@@ -1435,18 +1435,14 @@ def definitions(ch: Characteristics) -> dict[int, Definition]:
     return _cached(replace(ch, pt=None, granted=frozenset(), lost=frozenset(), imposed=frozenset()))
 
 
-# Combat restrictions and requirements printed on a permanent (CR 508.1c-d, 509.1b-c).
+# Combat restrictions and requirements printed on a permanent (CR 508.1c-d, 509.1b-c) that the
+# wording grammar doesn't read. "~ can't block.", "~ can't be blocked by creatures with power 2 or
+# less.", "Creatures your opponents control can't block.", "~ doesn't untap during your untap
+# step." … are app/rules/statics.py rules (see its docstring for the vocabulary), applied through
+# ``Characteristics.imposed`` by app/rules/layers.py and read here by ``statics``.
 COMBAT_STATICS = {
-    "~ can't block.": "cant_block",
-    "~ can't attack.": "cant_attack",
-    "~ can't attack or block.": "cant_attack_or_block",
-    "~ can't be blocked.": "cant_be_blocked",
-    "~ attacks each combat if able.": "must_attack",
-    "~ can block only creatures with flying.": "block_only_flying",
-    "~ can't be blocked by more than one creature.": "max_one_blocker",
     "~ can't attack unless defending player controls an Island.": "attack_needs_island",
     "~ can't be countered.": "cant_be_countered",
-    "~ doesn't untap during your untap step.": "doesnt_untap",
     "This spell can't be countered.": "cant_be_countered",
 }
 
