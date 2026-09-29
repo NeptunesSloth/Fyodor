@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ALICE_DECK, BOB_DECK, act, menuPath } from "./helpers";
+import { ALICE_DECK, BOB_DECK, menuPath } from "./helpers";
 
 test("Automation FULL: HUD, RESPONSE toggle, play a land through the rules, pass priority", async ({ page }) => {
   for (const text of [ALICE_DECK, BOB_DECK]) expect((await page.request.post("/api/decks", { data: { text } })).ok()).toBeTruthy();
