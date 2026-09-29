@@ -867,6 +867,7 @@ class CastSpell(_Intent):
     face_down: bool = False  # morph / megamorph (702.37): cast face down as a 2/2 for {3}
     free: bool = False  # cast without paying its mana cost — only when the engine granted it (suspend)
     buyback: bool = False  # 702.27: pay the buyback cost too; it returns to your hand as it resolves
+    evoke: bool = False  # 702.74: cast for its evoke cost (sacrificed when it enters)
     dash: bool = False  # 702.109: cast for its dash cost (haste; returns to hand at the next end step)
 
 
@@ -887,6 +888,8 @@ class ActivateAbility(_Intent):
     mana_choice: Literal["W", "U", "B", "R", "G", "C"] | None = None  # which colour, for "R or G" abilities
     sources: list[Id] | None = Field(default=None, max_length=60)  # MANUAL PAY (see CastSpell)
     convoke: bool = False  # tap this creature for convoke while paying for a convoke spell
+    improvise: bool = False  # tap this artifact for improvise ({1})
+    delve: bool = False  # exile this card from your graveyard for delve ({1})
     crew: list[Id] | None = Field(default=None, max_length=30)  # Crew N: the creatures tapped to pay it
 
 

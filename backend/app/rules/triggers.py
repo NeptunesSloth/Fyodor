@@ -183,6 +183,7 @@ def at_step(plan: Plan, trigger: str) -> None:
         _echo(plan)
         _suspend(plan)
         _cumulative_upkeep(plan)
+        _rebound(plan)
     for card in list(plan.state.cards.values()):
         if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
             continue
@@ -240,6 +241,19 @@ def _delayed(plan: Plan) -> None:
              index=7000, definition={"kind": "triggered", "trigger": "delayed", "optional": False, "target": None,
                                      "effects": [{"do": "delayed_move", "card": entry["card"], "object": entry["object"],
                                                   "to": entry["to"]}]})
+
+
+def _rebound(plan: Plan) -> None:
+    """702.88a: "At the beginning of your next upkeep, you may cast this card from exile without
+    paying its mana cost." """
+    for cid in list(plan.rules.rebounding):
+        card = plan.state.cards.get(cid)
+        if card is None or card.zone != f"{plan.active}:exile" or card.owner != plan.active:
+            continue
+        plan.rules.rebounding = [c for c in plan.rules.rebounding if c != cid]
+        _add(plan, controller=card.owner, source_card=cid, source_object=plan.oid(card), name=card.name, index=5200,
+             definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
+                         "effects": [{"do": "free_cast_offer", "card": cid}]})
 
 
 def _suspend(plan: Plan) -> None:

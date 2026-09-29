@@ -69,6 +69,7 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Shock lands, explore, investigate, "becomes the target … sacrifice it" | 32,116 | 4,633 (14.4%) | 27,435 | 0 | 48 | 108 / 3,501 |
 | Prevention shields, soulshift (graveyard targets), convoke with self-tap | 32,116 | 4,685 (14.6%) | 27,383 | 0 | 48 | 110 / 3,501 |
 | Persist, undying, toxic, flanking, "can't be countered", combat-damage-to-player triggers, mill, Island attack restriction | 32,116 | 4,817 (15.0%) | 27,251 | 0 | 48 | 117 / 3,501 |
+| Delve, improvise (player-paid), evoke, rebound | 32,116 | 4,861 (15.1%) | 27,207 | 0 | 48 | 117 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards

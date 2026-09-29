@@ -77,14 +77,31 @@ export function tapForMana(cardId: string, seat?: string): boolean {
   const c = view.cards[cardId];
   if (!c || c.hidden || c.tapped || c.face_down || c.controller !== me || !c.zone.endsWith(":battlefield")) return false;
   const d = view.rules?.decision;
-  const pay = d && d.player === me && d.display?.kind === "tap_mana" ? (d.display as { sources?: string[]; convoke?: string[] }) : null;
-  if (pay?.convoke?.includes(cardId) && !pay.sources?.includes(cardId)) {
-    void send({ type: "activate_ability", card_id: cardId, ability: 0, convoke: true });  // tap it for convoke
-    return true;
+  const pay = d && d.player === me && d.display?.kind === "tap_mana"
+    ? (d.display as { sources?: string[]; convoke?: string[]; improvise?: string[] }) : null;
+  if (pay && !pay.sources?.includes(cardId)) {
+    if (pay.convoke?.includes(cardId)) {
+      void send({ type: "activate_ability", card_id: cardId, ability: 0, convoke: true });  // tap it for convoke
+      return true;
+    }
+    if (pay.improvise?.includes(cardId)) {
+      void send({ type: "activate_ability", card_id: cardId, ability: 0, improvise: true });  // tap it for improvise
+      return true;
+    }
   }
   const index = manaAbilityIndex(cardId, view);
   if (index == null) return false;
   void send({ type: "activate_ability", card_id: cardId, ability: index });
+  return true;
+}
+
+/** Delve: exile this card from your graveyard to pay {1} (during the payment prompt). */
+export function delveCard(cardId: string): boolean {
+  const { view, actingAs } = useGame.getState();
+  const d = view?.rules?.decision;
+  if (!view || !d || d.player !== perspective(view, actingAs) || d.display?.kind !== "tap_mana") return false;
+  if (!((d.display as { delve?: string[] }).delve ?? []).includes(cardId)) return false;
+  void send({ type: "activate_ability", card_id: cardId, ability: 0, delve: true });
   return true;
 }
 

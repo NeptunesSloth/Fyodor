@@ -1,13 +1,13 @@
 {
- "generated_at": "2026-09-29 16:54",
+ "generated_at": "2026-09-29 16:57",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32116,
  "commander_banned": 83,
  "levels": {
-  "FULL": 4817,
-  "PARTIAL": 27251,
+  "FULL": 4861,
+  "PARTIAL": 27207,
   "REVIEW": 0,
   "MANUAL": 48
  },
@@ -30,14 +30,14 @@
  },
  "by_type": {
   "Creature": {
-   "FULL": 3315,
-   "PARTIAL": 14606,
+   "FULL": 3340,
+   "PARTIAL": 14581,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Artifact": {
-   "FULL": 539,
-   "PARTIAL": 3054,
+   "FULL": 542,
+   "PARTIAL": 3051,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -48,14 +48,14 @@
    "MANUAL": 0
   },
   "Sorcery": {
-   "FULL": 234,
-   "PARTIAL": 3334,
+   "FULL": 242,
+   "PARTIAL": 3326,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Instant": {
-   "FULL": 485,
-   "PARTIAL": 3269,
+   "FULL": 495,
+   "PARTIAL": 3259,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -80,8 +80,8 @@
  },
  "by_keyword": {
   "flying": {
-   "FULL": 653,
-   "PARTIAL": 2510,
+   "FULL": 660,
+   "PARTIAL": 2503,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -92,8 +92,8 @@
    "MANUAL": 0
   },
   "trample": {
-   "FULL": 180,
-   "PARTIAL": 813,
+   "FULL": 183,
+   "PARTIAL": 810,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -104,14 +104,14 @@
    "MANUAL": 2
   },
   "haste": {
-   "FULL": 136,
-   "PARTIAL": 503,
+   "FULL": 137,
+   "PARTIAL": 502,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "flash": {
-   "FULL": 84,
-   "PARTIAL": 524,
+   "FULL": 86,
+   "PARTIAL": 522,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -152,8 +152,8 @@
    "MANUAL": 0
   },
   "menace": {
-   "FULL": 40,
-   "PARTIAL": 341,
+   "FULL": 41,
+   "PARTIAL": 340,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -176,8 +176,8 @@
    "MANUAL": 1
   },
   "deathtouch": {
-   "FULL": 74,
-   "PARTIAL": 253,
+   "FULL": 75,
+   "PARTIAL": 252,
    "REVIEW": 0,
    "MANUAL": 2
   },
@@ -326,8 +326,8 @@
    "MANUAL": 0
   },
   "hexproof": {
-   "FULL": 34,
-   "PARTIAL": 57,
+   "FULL": 35,
+   "PARTIAL": 56,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -512,8 +512,8 @@
    "MANUAL": 0
   },
   "cascade": {
-   "FULL": 18,
-   "PARTIAL": 19,
+   "FULL": 19,
+   "PARTIAL": 18,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -590,8 +590,8 @@
    "MANUAL": 1
   },
   "evoke": {
-   "FULL": 0,
-   "PARTIAL": 35,
+   "FULL": 12,
+   "PARTIAL": 23,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -632,8 +632,8 @@
    "MANUAL": 0
   },
   "rebound": {
-   "FULL": 0,
-   "PARTIAL": 34,
+   "FULL": 11,
+   "PARTIAL": 23,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -764,8 +764,8 @@
    "MANUAL": 0
   },
   "delve": {
-   "FULL": 0,
-   "PARTIAL": 28,
+   "FULL": 10,
+   "PARTIAL": 18,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -974,8 +974,8 @@
    "MANUAL": 0
   },
   "improvise": {
-   "FULL": 0,
-   "PARTIAL": 23,
+   "FULL": 11,
+   "PARTIAL": 12,
    "REVIEW": 0,
    "MANUAL": 0
   }
@@ -994,14 +994,14 @@
    "MANUAL": 0
   },
   "2x2": {
-   "FULL": 25,
-   "PARTIAL": 189,
+   "FULL": 27,
+   "PARTIAL": 187,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "2xm": {
-   "FULL": 22,
-   "PARTIAL": 166,
+   "FULL": 23,
+   "PARTIAL": 165,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1072,8 +1072,8 @@
    "MANUAL": 0
   },
   "aer": {
-   "FULL": 17,
-   "PARTIAL": 123,
+   "FULL": 24,
+   "PARTIAL": 116,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1234,8 +1234,8 @@
    "MANUAL": 0
   },
   "c18": {
-   "FULL": 8,
-   "PARTIAL": 81,
+   "FULL": 9,
+   "PARTIAL": 80,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1300,14 +1300,14 @@
    "MANUAL": 0
   },
   "cmd": {
-   "FULL": 3,
-   "PARTIAL": 33,
+   "FULL": 4,
+   "PARTIAL": 32,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "cmm": {
-   "FULL": 66,
-   "PARTIAL": 391,
+   "FULL": 68,
+   "PARTIAL": 389,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1420,8 +1420,8 @@
    "MANUAL": 0
   },
   "ddr": {
-   "FULL": 7,
-   "PARTIAL": 18,
+   "FULL": 8,
+   "PARTIAL": 17,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1522,8 +1522,8 @@
    "MANUAL": 0
   },
   "dtk": {
-   "FULL": 42,
-   "PARTIAL": 124,
+   "FULL": 45,
+   "PARTIAL": 121,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1540,8 +1540,8 @@
    "MANUAL": 0
   },
   "ecc": {
-   "FULL": 18,
-   "PARTIAL": 98,
+   "FULL": 21,
+   "PARTIAL": 95,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1744,8 +1744,8 @@
    "MANUAL": 0
   },
   "ima": {
-   "FULL": 24,
-   "PARTIAL": 75,
+   "FULL": 27,
+   "PARTIAL": 72,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1798,8 +1798,8 @@
    "MANUAL": 0
   },
   "jvc": {
-   "FULL": 8,
-   "PARTIAL": 12,
+   "FULL": 9,
+   "PARTIAL": 11,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1822,8 +1822,8 @@
    "MANUAL": 0
   },
   "ktk": {
-   "FULL": 48,
-   "PARTIAL": 98,
+   "FULL": 51,
+   "PARTIAL": 95,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1858,8 +1858,8 @@
    "MANUAL": 0
   },
   "lrw": {
-   "FULL": 15,
-   "PARTIAL": 127,
+   "FULL": 17,
+   "PARTIAL": 125,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1990,14 +1990,14 @@
    "MANUAL": 0
   },
   "mh1": {
-   "FULL": 30,
-   "PARTIAL": 153,
+   "FULL": 33,
+   "PARTIAL": 150,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "mh2": {
-   "FULL": 35,
-   "PARTIAL": 204,
+   "FULL": 36,
+   "PARTIAL": 203,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2086,14 +2086,14 @@
    "MANUAL": 0
   },
   "msc": {
-   "FULL": 60,
-   "PARTIAL": 509,
+   "FULL": 62,
+   "PARTIAL": 507,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "msh": {
-   "FULL": 30,
-   "PARTIAL": 243,
+   "FULL": 31,
+   "PARTIAL": 242,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2356,8 +2356,8 @@
    "MANUAL": 0
   },
   "soc": {
-   "FULL": 36,
-   "PARTIAL": 282,
+   "FULL": 37,
+   "PARTIAL": 281,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2518,8 +2518,8 @@
    "MANUAL": 0
   },
   "tsr": {
-   "FULL": 48,
-   "PARTIAL": 184,
+   "FULL": 50,
+   "PARTIAL": 182,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2536,8 +2536,8 @@
    "MANUAL": 0
   },
   "uma": {
-   "FULL": 21,
-   "PARTIAL": 95,
+   "FULL": 25,
+   "PARTIAL": 91,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2775,21 +2775,6 @@
    ]
   },
   {
-   "feature": "keyword:evoke",
-   "kind": "keyword",
-   "commander_cards": 35,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 12,
-   "examples": [
-    "Walker of the Grove",
-    "Grief",
-    "Mournwhelk",
-    "Ingot Chewer",
-    "Reveillark"
-   ]
-  },
-  {
    "feature": "keyword:splice",
    "kind": "keyword",
    "commander_cards": 30,
@@ -2835,36 +2820,6 @@
    ]
   },
   {
-   "feature": "keyword:rebound",
-   "kind": "keyword",
-   "commander_cards": 34,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 11,
-   "examples": [
-    "World at War",
-    "Faithless Salvaging",
-    "Staggershock",
-    "Profound Journey",
-    "Ephemerate"
-   ]
-  },
-  {
-   "feature": "keyword:improvise",
-   "kind": "keyword",
-   "commander_cards": 23,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 11,
-   "examples": [
-    "Fen Hauler",
-    "Whir of Invention",
-    "Sly Requisitioner",
-    "Saheeli's Directive",
-    "Synth Infiltrator"
-   ]
-  },
-  {
    "feature": "keyword:fabricate",
    "kind": "keyword",
    "commander_cards": 16,
@@ -2892,21 +2847,6 @@
     "Chaos Imps",
     "Carnival Hellsteed",
     "Spawn of Rix Maadi"
-   ]
-  },
-  {
-   "feature": "keyword:delve",
-   "kind": "keyword",
-   "commander_cards": 28,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 10,
-   "examples": [
-    "Empty the Pits",
-    "Dead Drop",
-    "Afterlife from the Loam",
-    "Magmatic Sinkhole",
-    "Gurmag Angler"
    ]
   },
   {
@@ -4965,6 +4905,21 @@
    ]
   },
   {
+   "feature": "template:Tap up to N target creatures. Those creatures don't untap during their controller's next untap step.",
+   "kind": "spell_effect",
+   "commander_cards": 8,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Snow Day",
+    "Frost Breath",
+    "Chilling Grasp",
+    "Will of the Naga",
+    "Frostveil Ambush"
+   ]
+  },
+  {
    "feature": "template:Target player gains N life(s).",
    "kind": "spell_effect",
    "commander_cards": 8,
@@ -5667,6 +5622,51 @@
     "Frontline Devastator",
     "Eternal of Harsh Truths",
     "Lost Monarch of Ifnir"
+   ]
+  },
+  {
+   "feature": "keyword:eternalize",
+   "kind": "keyword",
+   "commander_cards": 10,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Proven Combatant",
+    "Steadfast Sentinel",
+    "Champion of Wits",
+    "Fanatic of Rhonas",
+    "Adorned Pouncer"
+   ]
+  },
+  {
+   "feature": "template:Creatures with power less than ~'s power can't block it.",
+   "kind": "restriction",
+   "commander_cards": 10,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Wandering Wolf",
+    "Shrill Howler // Howling Chorus",
+    "Shrill Howler // Howling Chorus",
+    "Elusive Otter // Grove's Bounty",
+    "Aura Gnarlid"
+   ]
+  },
+  {
+   "feature": "template:When ~ enters, exile target creature an opponent controls until ~ leaves the battlefield.",
+   "kind": "triggered",
+   "commander_cards": 10,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Fairgrounds Warden",
+    "On Thin Ice",
+    "Stasis Snare",
+    "Hardlight Containment",
+    "Dimensional Exile"
    ]
   }
  ],

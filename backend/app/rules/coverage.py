@@ -52,7 +52,7 @@ SUPPORTED_KEYWORDS: set[str] = {
     # exalted (app/rules/triggers.py _exalted, test_rules_infect.py)
     "exalted",
     # characteristic-defining (app/rules/characteristics.py changeling)
-    "changeling", "devoid", "cascade", "persist", "undying", "flanking",
+    "changeling", "devoid", "cascade", "persist", "undying", "flanking", "delve", "improvise", "rebound",
     # costs (casting._convoke_sources)
     "convoke",
 }
@@ -83,7 +83,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "cumulative upkeep":  # triggers.cumulative_cost: a mana cost
         return re.fullmatch(r"cumulative upkeep (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
-    if kw in ("unearth", "dash", "buyback", "madness", "ward"):  # casting.keyword_cost: a mana cost
+    if kw in ("unearth", "dash", "buyback", "madness", "ward", "evoke"):  # casting.keyword_cost: a mana cost
         return re.fullmatch(rf"{kw} (?:\{{[^}}]+\}})+", line.strip().rstrip(".").lower()) is not None
     if kw == "crew":  # casting.crew: "Crew N"
         return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None

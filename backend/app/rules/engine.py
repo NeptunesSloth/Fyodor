@@ -529,6 +529,13 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
     """A resolved spell leaves the stack: to the battlefield or its owner's graveyard, or into exile
     if it was cast with flashback (702.34a), or back to its owner's hand with buyback (702.27a)."""
     oid = plan.oid(card_id)
+    if oid in plan.rules.rebound_cast:  # 702.88a rebound: exiled as it resolves, cast again next upkeep
+        plan.rules.rebound_cast = [o for o in plan.rules.rebound_cast if o != oid]
+        if not countered:
+            card = plan.state.cards[card_id]
+            plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
+            plan.rules.rebounding.append(card_id)
+            return
     if oid in plan.rules.buyback:
         plan.rules.buyback = [o for o in plan.rules.buyback if o != oid]
         if not countered and oid not in plan.rules.flashback:
@@ -582,6 +589,14 @@ def resolve_top_of_stack(plan: Plan) -> None:
     leave_stack(plan, top_id, controller, tapped=tapped)
     if ch.is_permanent_card and not manual:
         enter_with_counters(plan, top_id, ch, x, controller)
+    if top_id in plan.rules.evoked:  # 702.74a: "When this permanent enters, if its evoke cost was paid, its controller sacrifices it."
+        plan.rules.evoked = [c for c in plan.rules.evoked if c != top_id]
+        entered_now = plan.state.cards.get(top_id)
+        if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            triggers._add(plan, controller=controller, source_card=top_id, source_object=plan.oid(top_id),
+                          name=entered_now.name, index=7100,
+                          definition={"kind": "triggered", "trigger": "evoke", "optional": False, "target": None,
+                                      "effects": [{"do": "sacrifice", "who": "self"}]})
     if top_id in plan.rules.dashed:  # 702.109a: haste, and back to its owner's hand at the next end step
         plan.rules.dashed = [c for c in plan.rules.dashed if c != top_id]
         entered_now = plan.state.cards.get(top_id)

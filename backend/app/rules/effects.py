@@ -447,6 +447,19 @@ def delayed_move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def free_cast_offer(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Rebound: you may cast it from exile without paying its mana cost (it stays exiled if not)."""
+    cid = e["card"]
+    card = plan.state.cards.get(cid)
+    if card is None or not card.zone.endswith(":exile"):
+        return True
+    plan.rules.free_casts.append(cid)
+    decide(plan, player=card.owner, kind="choose_one", prompt=f"Rebound: cast {card.name} without paying its mana cost?",
+           options=[DecisionOption(id="yes", label="Cast it"), DecisionOption(id="no", label="Leave it exiled")],
+           resume={"step": "suspend_cast", "ctx": ctx, "card": cid}, source=card)
+    return False
+
+
 def madness_offer(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """702.35a: "When this card is exiled this way, its owner may cast it by paying [cost] rather
     than its mana cost. If that player doesn't, they put this card into their graveyard." """
@@ -748,7 +761,7 @@ PRIMITIVES = {
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
-    "madness_offer": madness_offer, "counter": counter, "counter_unless": counter_unless,
+    "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
     "sacrifice": sacrifice, "explore": explore, "prevent": prevent, "mill": mill,
     "return_with_counter": return_with_counter,
 }

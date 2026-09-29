@@ -21,6 +21,10 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   }
   const oracle = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
   const morph = abilityLines(oracle).find((l) => /^(mega)?morph \{/i.test(l));
+  const evoke = abilityLines(oracle).find((l) => /^evoke \{/i.test(l));
+  if (mine && zone === "hand" && evoke) {
+    items.push({ label: `Cast with ${evoke}`, onClick: () => void send({ type: "cast_spell", card_id: card.id, evoke: true }) });
+  }
   const dash = abilityLines(oracle).find((l) => /^dash \{/i.test(l));
   if (mine && zone === "hand" && dash) {
     items.push({ label: `Cast with ${dash}`, onClick: () => void send({ type: "cast_spell", card_id: card.id, dash: true }) });

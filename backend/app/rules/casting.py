@@ -510,10 +510,25 @@ def ask_to_tap(plan: Plan, cost: M.ManaCost, what: str, resume: dict[str, Any]) 
             convoke = [c.id for c in plan.state.cards.values() if c.zone == zone_key(plan.actor, "battlefield")
                        and c.controller == plan.actor and not c.tapped
                        and derive(plan.state, c, chars.of(c, plan.info), plan.info).is_creature]
+    improvise: list[str] = []
+    delve: list[str] = []
+    if intent.get("type") == "cast_spell" and intent.get("card_id") in plan.state.cards and not intent.get("face_down"):
+        spell = chars.as_cast(plan.state.cards[intent["card_id"]], plan.info, intent.get("face"))
+        if "improvise" in spell.keywords:
+            from app.rules.layers import derive
+
+            improvise = [c.id for c in plan.state.cards.values() if c.zone == zone_key(plan.actor, "battlefield")
+                         and c.controller == plan.actor and not c.tapped
+                         and "Artifact" in derive(plan.state, c, chars.of(c, plan.info), plan.info).types]
+        if "delve" in spell.keywords:
+            delve = [c for c in plan.state.zones.get(zone_key(plan.actor, "graveyard"), []) if c != intent["card_id"]]
+    extra = " (you can tap creatures for convoke)" if convoke else " (you can tap artifacts for improvise)" if improvise \
+        else " (you can exile cards from your graveyard for delve)" if delve else ""
     decide(plan, player=plan.actor, kind="choose_one",
-           prompt=f"Tap mana to pay {cost.text()} for {what}" + (" (you can tap creatures for convoke)" if convoke else ""),
+           prompt=f"Tap mana to pay {cost.text()} for {what}{extra}",
            display={"kind": "tap_mana", "cost": cost.text(), "what": what, "sources": sources[:40],
-                    "convoke": convoke[:40], "pool": dict(plan.state.players[plan.actor].mana)},
+                    "convoke": convoke[:40], "improvise": improvise[:40], "delve": delve[:60],
+                    "pool": dict(plan.state.players[plan.actor].mana)},
            options=[DecisionOption(id="pay", label="Pay"), DecisionOption(id="cancel", label="Cancel")],
            resume=resume)
 
@@ -807,6 +822,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         extra_cost = M.parse_cost(extra)
         cost = M.ManaCost(cost.generic + extra_cost.generic, cost.colored + extra_cost.colored, cost.hybrid + extra_cost.hybrid,
                           cost.phyrexian + extra_cost.phyrexian, cost.x, cost.unsupported + extra_cost.unsupported)
+    if a.evoke:
+        evoke = keyword_cost(ch, "evoke", EVOKE)
+        if evoke is None or card.zone != zone_key(plan.actor, "hand"):
+            raise ActionError("Only a card with evoke can be cast for its evoke cost from your hand")
+        cost = M.parse_cost(evoke)
     if a.dash:
         dash = keyword_cost(ch, "dash", DASH)
         if dash is None or card.zone != zone_key(plan.actor, "hand"):
@@ -823,6 +843,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         return
     commander_cast = from_command_zone(card, plan.actor)
     flashback = from_graveyard(card, plan.actor, ch)
+    card_was_in_hand = card.zone == zone_key(plan.actor, "hand")
     if a.face is not None and a.face != card.face:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     if a.face_down:
@@ -839,6 +860,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.buyback:
         tags.append("Buyback")
         plan.rules.buyback.append(plan.oid(card))
+    if a.evoke:
+        tags.append("Evoked")
+        plan.rules.evoked.append(card.id)
+    if "rebound" in ch.keywords and card_was_in_hand:
+        plan.rules.rebound_cast.append(plan.oid(card))
     if flashback:
         plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else
     if a.x_value is not None or tags:
@@ -985,6 +1011,7 @@ def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAb
 UNEARTH = re.compile(r"^unearth (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 MADNESS = re.compile(r"^madness (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 BUYBACK = re.compile(r"^buyback (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+EVOKE = re.compile(r"^evoke (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 DASH = re.compile(r"^dash (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
@@ -1214,8 +1241,34 @@ def _convoke_tap(plan: Plan, card: CardInstance) -> None:
     after_tapping(plan)
 
 
+def _generic_helper(plan: Plan, card: CardInstance, kind: str) -> None:
+    """Improvise (702.126: tap an untapped artifact) and delve (702.66: exile a card from your
+    graveyard) each pay for {1} of the spell being cast."""
+    from app.rules.layers import derive
+
+    spell = _paying_for(plan)
+    if spell is None or kind not in spell.keywords:
+        raise ActionError(f"Only a spell with {kind} can be paid for that way")
+    if kind == "improvise":
+        ch = derive(plan.state, card, chars.of(card, plan.info), plan.info)
+        if card.tapped or "Artifact" not in ch.types or card.controller != plan.actor or not card.zone.endswith(":battlefield"):
+            raise ActionError("Tap an untapped artifact you control for improvise")
+        plan.do({"type": "rules_mana", "player": plan.actor, "tap": [card.id], "sacrifice": [], "delta": {"C": 1},
+                 "life": 0, "label": f"tapped {ch.name} for improvise"}, actor=plan.actor)
+    else:
+        if card.zone != zone_key(plan.actor, "graveyard"):
+            raise ActionError("Exile a card from your graveyard for delve")
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}}, actor=plan.actor)
+        plan.do({"type": "rules_mana", "player": plan.actor, "tap": [], "sacrifice": [], "delta": {"C": 1},
+                 "life": 0, "label": f"exiled {card.name} for delve"}, actor=plan.actor)
+    after_tapping(plan)
+
+
 def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     card = plan.state.cards.get(a.card_id)
+    if card is not None and (a.improvise or a.delve):
+        _generic_helper(plan, card, "improvise" if a.improvise else "delve")
+        return
     if card is None or card.controller != plan.actor or not card.zone.endswith(":battlefield"):
         raise ActionError("Tap mana sources you control")
     if a.convoke:

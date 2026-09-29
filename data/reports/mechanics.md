@@ -138,7 +138,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.63 | Vanishing | keyword ability | 20 | missing |
 | 702.64 | Absorb | keyword ability | 0 | ignore (no Commander-legal cards) |
 | 702.65 | Aura Swap | keyword ability | 1 | missing |
-| 702.66 | Delve | keyword ability | 28 | missing |
+| 702.66 | Delve | keyword ability | 28 | supported |
 | 702.67 | Fortify | keyword ability | 2 | missing |
 | 702.68 | Frenzy | keyword ability | 0 | ignore (no Commander-legal cards) |
 | 702.69 | Gravestorm | keyword ability | 3 | missing |
@@ -160,7 +160,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.85 | Cascade | keyword ability | 37 | supported |
 | 702.86 | Annihilator | keyword ability | 13 | missing |
 | 702.87 | Level Up | keyword ability | 25 | missing |
-| 702.88 | Rebound | keyword ability | 34 | missing |
+| 702.88 | Rebound | keyword ability | 34 | supported |
 | 702.89 | Umbra Armor | keyword ability | 15 | missing |
 | 702.90 | Infect | keyword ability | 46 | supported |
 | 702.91 | Battle Cry | keyword ability | 14 | missing |
@@ -198,7 +198,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.123 | Fabricate | keyword ability | 16 | missing |
 | 702.124 | Partner | keyword ability | 129 | missing |
 | 702.125 | Undaunted | keyword ability | 5 | missing |
-| 702.126 | Improvise | keyword ability | 23 | missing |
+| 702.126 | Improvise | keyword ability | 23 | supported |
 | 702.127 | Aftermath | keyword ability | 27 | missing |
 | 702.128 | Embalm | keyword ability | 15 | missing |
 | 702.129 | Eternalize | keyword ability | 12 | missing |

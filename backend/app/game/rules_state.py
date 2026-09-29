@@ -335,7 +335,10 @@ class RulesState(BaseModel):
     delayed: list[dict[str, Any]] = Field(default_factory=list)  # "at the beginning of the next end step" moves
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
-    dashed: list[str] = Field(default_factory=list)  # dashed spells: haste + back to hand at end step
+    dashed: list[str] = Field(default_factory=list)
+    evoked: list[str] = Field(default_factory=list)  # evoked spells: sacrificed as they enter (702.74)
+    rebound_cast: list[str] = Field(default_factory=list)  # rebound spells cast from a hand (on the stack)
+    rebounding: list[str] = Field(default_factory=list)  # exiled by rebound: cast at the owner's next upkeep  # dashed spells: haste + back to hand at end step
     suspended: list[str] = Field(default_factory=list)  # cards exiled with suspend (702.62)
     free_casts: list[str] = Field(default_factory=list)
     alt_costs: dict[str, str] = Field(default_factory=dict)  # card -> the cost to pay instead (madness)  # cards the engine lets be cast without paying (suspend)
