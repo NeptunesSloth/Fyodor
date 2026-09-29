@@ -858,6 +858,9 @@ class CastSpell(_Intent):
     targets: list[Id] = Field(default_factory=list, max_length=20)
     x_value: int | None = Field(default=None, ge=0, le=1000)
     modes: list[int] = Field(default_factory=list, max_length=10)
+    # MANUAL PAY: exactly these mana sources (plus your mana pool). None: the engine pays per
+    # your payment preference (AUTO pays, ASK suggests a payment first, MANUAL asks for sources).
+    sources: list[Id] | None = Field(default=None, max_length=60)
 
 
 class ActivateAbility(_Intent):
@@ -867,6 +870,7 @@ class ActivateAbility(_Intent):
     targets: list[Id] = Field(default_factory=list, max_length=20)
     x_value: int | None = Field(default=None, ge=0, le=1000)
     mana_choice: Literal["W", "U", "B", "R", "G", "C"] | None = None  # which colour, for "R or G" abilities
+    sources: list[Id] | None = Field(default=None, max_length=60)  # MANUAL PAY (see CastSpell)
 
 
 class AttackDeclaration(BaseModel):

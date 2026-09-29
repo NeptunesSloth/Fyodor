@@ -8,6 +8,8 @@ tap lands yourself first (``activate_ability`` on their mana ability) to pay a p
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from typing import Any
 
 from app.game import actions as A
@@ -88,17 +90,131 @@ def mana_sources(state: GameState, player: str, info: CardInfo) -> list[M.Source
     return out
 
 
-def pay(plan: Plan, player: str, cost: M.ManaCost, label: str) -> None:
-    if cost.is_free:
-        return
-    state = plan.state
+# -- paying mana ------------------------------------------------------------------------
+PaymentMode = str  # "auto" | "ask" | "manual"
+
+
+def payment_mode(plan: Plan, player: str) -> PaymentMode:
+    """AUTO pays; ASK shows the suggested payment first (also when the table's AUTO MANA PAYMENT is
+    off); MANUAL lets the player pick the exact sources."""
+    pref = plan.rules.prefs_for(player).payment
+    if pref == "manual":
+        return "manual"
+    if pref == "ask" or not plan.options.auto_mana_payment:
+        return "ask"
+    return "auto"
+
+
+def find_payment(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *,
+                 sources: list[str] | None = None, exclude: tuple[str, ...] = ()) -> M.Payment:
+    """How to pay ``cost``: with exactly ``sources`` when given (MANUAL PAY), else automatically,
+    PREFER sources first and SAVE sources only when there is no other way."""
+    available = [s for s in mana_sources(state, player, info) if s.card_id not in exclude]
+    pool = dict(state.players[player].mana)
+    life = state.players[player].life
+    if sources is not None:
+        chosen = [s for s in available if s.card_id in set(sources)]
+        if len(chosen) != len(set(sources)):
+            raise ActionError("Pick untapped mana sources you control")
+        try:
+            payment = M.solve(cost, pool, chosen, life=life)
+        except M.ManaError as exc:
+            raise ActionError(f"Those sources can't pay {cost.text()}") from exc
+        unused = set(sources) - set(payment.tapped)
+        if unused:
+            names = ", ".join(state.cards[c].name or "a source" for c in unused)
+            raise ActionError(f"{names} isn't needed to pay {cost.text()}")
+        return payment
+    protection = state.rules.prefs_for(player).mana_sources if state.rules else {}
+    marked = [replace(s, preferred=protection.get(s.card_id) == "prefer") for s in available]
+    normal = [s for s in marked if protection.get(s.card_id) != "save"]
     try:
-        payment = M.solve(cost, dict(state.players[player].mana), mana_sources(state, player, plan.info),
-                          life=state.players[player].life)
+        return M.solve(cost, pool, normal, life=life)
+    except M.ManaError:
+        pass
+    try:
+        return M.solve(cost, pool, marked, life=life)  # SAVE sources only when nothing else works
     except M.ManaError as exc:
         raise ActionError(f"{exc}. Tap mana yourself first, or use the table tools.") from exc
+
+
+def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[str] | None = None,
+        exclude: tuple[str, ...] = ()) -> None:
+    if cost.is_free and not sources:
+        return
+    payment = find_payment(plan.state, player, cost, plan.info, sources=sources, exclude=exclude)
     plan.do({"type": "rules_mana", "player": player, "tap": payment.tapped, "sacrifice": payment.sacrificed,
              "delta": payment.delta(), "life": payment.life, "label": label}, actor=player)
+
+
+def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCost, what: str, *,
+                 exclude: tuple[str, ...] = ()) -> bool:
+    """Before a spell or ability is put on the stack: does the player want to see or choose the
+    payment first? Returns True if a decision was opened (the intent then waits for it; nothing
+    has moved yet, so CANCEL simply leaves everything where it was)."""
+    if a.sources is not None or cost.is_free:
+        return False
+    mode = payment_mode(plan, plan.actor)
+    if mode == "auto":
+        return False
+    payment = find_payment(plan.state, plan.actor, cost, plan.info, exclude=exclude)  # (can it be paid at all?)
+    resume = {"step": "payment", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
+              "exclude": list(exclude), "cost": cost.text(), "what": what}
+    if mode == "manual":
+        ask_sources(plan, cost, what, resume)
+        return True
+    names = [plan.state.cards[c].name or "a source" for c in payment.tapped]
+    pool = sum(payment.spent.values()) - sum(payment.produced.values())
+    if pool > 0:
+        names.append(f"{pool} from your mana pool")
+    resume["suggested"] = payment.tapped
+    decide(plan, player=plan.actor, kind="choose_one",
+           prompt=f"Pay {cost.text()} for {what}. Suggested payment: {', '.join(names) or 'nothing'}",
+           options=[DecisionOption(id="pay", label="Pay"), DecisionOption(id="manual", label="Manual"),
+                    DecisionOption(id="cancel", label="Cancel")],
+           resume=resume)
+    return True
+
+
+def ask_sources(plan: Plan, cost: M.ManaCost, what: str, resume: dict[str, Any]) -> None:
+    exclude = tuple(resume.get("exclude") or ())
+    sources = [s for s in mana_sources(plan.state, plan.actor, plan.info) if s.card_id not in exclude]
+    options = [DecisionOption(id=s.card_id, label=plan.state.cards[s.card_id].name or "Source", card_id=s.card_id)
+               for s in sources]
+    decide(plan, player=plan.actor, kind="choose_cards",
+           prompt=f"Choose the mana sources to pay {cost.text()} for {what} (your mana pool is used first)",
+           options=options, min_choices=0, max_choices=max(len(options), 0),
+           resume={**resume, "step": "payment_sources"})
+
+
+def resume_payment(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """PAY (the suggestion), MANUAL (pick sources) or CANCEL."""
+    assert d.resume is not None
+    answer = chosen[0]
+    if answer == "cancel":
+        plan.note(f"{plan.name(d.player)} cancelled")
+        plan.rules.priority = d.player
+        plan.hold = d.player
+        return
+    intent = A.parse_action(d.resume["intent"])
+    if answer == "manual":
+        ask_sources(plan, M.parse_cost(d.resume["cost"]), d.resume["what"], d.resume)
+        return
+    _rerun(plan, d, intent, list(d.resume.get("suggested") or []))
+
+
+def resume_payment_sources(plan: Plan, d: Any, chosen: list[str]) -> None:
+    assert d.resume is not None
+    _rerun(plan, d, A.parse_action(d.resume["intent"]), chosen)
+
+
+def _rerun(plan: Plan, d: Any, intent: Any, sources: list[str]) -> None:
+    from app.rules.engine import INTENTS  # the engine imports this module
+
+    intent.sources = sources
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
 
 
 def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, exclude: tuple[str, ...] = ()) -> bool:
@@ -148,10 +264,13 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
 
 
 def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True) -> bool:
-    ch = chars.of(card, info)
-    if cast_problem(state, player, card, ch, check_priority=check_priority) is not None:
-        return False
-    return can_pay(state, player, spell_cost(state, card, ch), info)
+    faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
+    for face in faces:
+        ch = chars.as_cast(card, info, face)
+        if cast_problem(state, player, card, ch, check_priority=check_priority) is None and \
+                can_pay(state, player, spell_cost(state, card, ch), info):
+            return True
+    return False
 
 
 def cast_spell(plan: Plan, a: A.CastSpell) -> None:
@@ -161,8 +280,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     card = plan.state.cards.get(a.card_id)
     if card is None:
         raise ActionError("That card isn't here any more")
-    probe = card.model_copy(update={"face": a.face}) if a.face is not None else card
-    ch = plan.ch(probe)
+    ch = chars.as_cast(card, plan.info, a.face)  # split cards / adventures: the half being cast
     problem = cast_problem(plan.state, plan.actor, card, ch)
     if problem:
         raise ActionError(problem)
@@ -173,13 +291,15 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     for target in a.targets:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
+    if payment_step(plan, a, cost, ch.name or "it"):
+        return
     commander_cast = from_command_zone(card, plan.actor)
     if a.face is not None and a.face != card.face:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
-    pay(plan, plan.actor, cost, f"paid {cost.text()} for {ch.name}")
+    pay(plan, plan.actor, cost, f"paid {cost.text()} for {ch.name}", sources=a.sources)
     tags = ["Cast from the command zone"] if commander_cast else []
     if a.x_value is not None or tags:
         info: dict[str, Any] = {"type": "set_stack_info", "card_id": card.id}
@@ -196,6 +316,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     r.passed = []
     r.priority = plan.actor
     if r.prefs_for(plan.actor).hold_priority:
+        plan.hold = plan.actor
         return  # HOLD PRIORITY: you keep it, whatever your RESPONSE setting says
     r.passed.append(plan.actor)  # Arena-style: you pass after casting unless you hold priority
     r.priority = plan.after(plan.actor)
@@ -302,6 +423,9 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     mana = M.parse_cost(cost.mana)
     if mana.x and a.x_value is None:
         raise ActionError("Choose a value for X")
+    if payment_step(plan, a, mana.with_x(a.x_value or 0), f"{ch.name}’s ability",
+                    exclude=(card.id,) if cost.tap else ()):
+        return
     effect = ability.text.split(":", 1)[1].strip() if ":" in ability.text else ability.text
     created = plan.do({"type": "create_ability", "text": effect[:500], "source_id": card.id, "kind": "activated"})
     new_ids = getattr(created, "r", None)
@@ -315,7 +439,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n})
     if cost.life:
         plan.do({"type": "life", "player": plan.actor, "delta": -cost.life})
-    pay(plan, plan.actor, mana.with_x(a.x_value or 0), f"paid {mana.with_x(a.x_value or 0).text()} to activate {ch.name}")
+    pay(plan, plan.actor, mana.with_x(a.x_value or 0), f"paid {mana.with_x(a.x_value or 0).text()} to activate {ch.name}",
+        sources=a.sources)
     if cost.sacrifice_self:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "graveyard"}})
     if a.x_value is not None and ability_id:
@@ -330,6 +455,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     r.passed = []
     r.priority = plan.actor
     if r.prefs_for(plan.actor).hold_priority:
+        plan.hold = plan.actor
         return
     r.passed.append(plan.actor)
     r.priority = plan.after(plan.actor)

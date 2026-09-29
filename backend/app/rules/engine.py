@@ -190,6 +190,8 @@ def is_stop(plan: Plan, player: str) -> bool:
     r = plan.rules
     stored = r.prefs.get(player)
     prefs = stored or PlayerPrefs()
+    if plan.hold == player:
+        return True  # they just kept priority (HOLD PRIORITY)
     if plan.state.turn.phase == "untap" and not plan.state.zones.get(STACK):
         return False  # no one gets priority in the untap step (502.4)
     if prefs.force_stop:
@@ -654,6 +656,8 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "cleanup_manual": lambda plan, d, chosen: start_next_turn(plan),
     "sba_confirm": sba.resume_confirm,
     "reconcile": reconcile.resume_reconcile,
+    "payment": casting.resume_payment,
+    "payment_sources": casting.resume_payment_sources,
     "cleanup_discard": _resume_cleanup_discard,
     "mana_ability": casting.resume_mana_ability,
     "legend_rule": sba.resume_legend_rule,

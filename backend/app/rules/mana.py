@@ -129,6 +129,7 @@ class Source:
     options: tuple[tuple[str, ...], ...]
     sacrifice: bool = False
     rank: int = 0  # tie-breaker: lower is tapped first (lands before creatures, …)
+    preferred: bool = False  # the player marked it PREFER: used before anything else that fits
 
     @property
     def flexibility(self) -> int:
@@ -164,7 +165,7 @@ def _solve(reqs: list[tuple[str, ...]], generic: int, pool: dict[str, int], sour
     def generic_from(units: dict[str, int], remaining: list[Source], n: int, chosen: Chosen) -> Found | None:
         units = dict(units)
         # tap the sources that give the most mana first (Sol Ring before a Forest)
-        for src in sorted(remaining, key=lambda s: (-max(len(o) for o in s.options), s.flexibility, s.rank)):
+        for src in sorted(remaining, key=lambda s: (not s.preferred, -max(len(o) for o in s.options), s.flexibility, s.rank)):
             if sum(units.values()) >= n:
                 break
             opt = max(src.options, key=len)
@@ -225,7 +226,7 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
     """Find a payment for ``cost`` (X already fixed). Raises ManaError if there is none."""
     if cost.unsupported:
         raise ManaError(f"Can't pay {' '.join('{' + s + '}' for s in cost.unsupported)} automatically")
-    ordered = sorted(sources, key=lambda s: (s.flexibility, s.rank, -max(len(o) for o in s.options)))
+    ordered = sorted(sources, key=lambda s: (not s.preferred, s.flexibility, s.rank, -max(len(o) for o in s.options)))
     base = [(c,) for c in cost.colored] + sorted(cost.hybrid, key=len)
     attempts = [(base + [(c,) for c in cost.phyrexian], 0)]  # Phyrexian with mana first …
     if cost.phyrexian:

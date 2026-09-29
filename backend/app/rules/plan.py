@@ -33,6 +33,7 @@ class Plan:
         self.info = info
         self.rng = rng
         self.steps: list[dict[str, Any]] = []
+        self.hold: str | None = None  # a player keeping priority right now (HOLD PRIORITY, a cancelled cast)
 
     @property
     def rules(self) -> RulesState:

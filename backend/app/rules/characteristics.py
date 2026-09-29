@@ -104,9 +104,17 @@ _printed_cache: dict[tuple[str, int], Characteristics] = {}
 _CACHE_MAX = 5000
 
 
-def _from_card_data(data: dict[str, Any], face: int) -> Characteristics:
+HALVES = ("split", "adventure", "aftermath")  # one card, two spells: you cast one half
+
+
+def _from_card_data(data: dict[str, Any], face: int, *, half: bool = False) -> Characteristics:
     faces = data.get("faces") or []
     layout = data.get("layout")
+    if half and faces and layout in HALVES:
+        face = min(face, len(faces) - 1)
+        src = faces[face]
+        text = str(src.get("oracle_text") or "")
+        return _build(data, src, text)
     # Split cards and adventures are one object with both halves' text while not on the stack;
     # double-faced / modal / flip cards use the face that is up.
     if faces and layout in ("transform", "modal_dfc", "flip", "meld", "reversible_card", "prepare"):
@@ -118,6 +126,10 @@ def _from_card_data(data: dict[str, Any], face: int) -> Characteristics:
     else:
         src = data
         text = str(data.get("oracle_text") or "")
+    return _build(data, src, text)
+
+
+def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characteristics:
     type_line = str(src.get("type_line") or data.get("type_line") or "")
     supertypes, types, subtypes = parse_type_line(type_line)
     cost = str(src.get("mana_cost") or (data.get("mana_cost") if src is data else "") or "")
@@ -159,6 +171,24 @@ def printed_from_data(data: dict[str, Any], face: int = 0) -> Characteristics:
             _printed_cache.clear()
         hit = _printed_cache[key] = _from_card_data(data, face)
     return hit
+
+
+def is_two_spell_card(card: CardInstance, info: CardInfo) -> bool:
+    data = info.get(card.card_id) if card.card_id else None
+    return bool(data and data.get("faces") and data.get("layout") in HALVES)
+
+
+def as_cast(card: CardInstance, info: CardInfo, face: int | None) -> Characteristics:
+    """The spell you cast from this card: for split cards and adventures, the half you chose
+    (its own cost and type), otherwise the card as it is (after turning it to ``face``)."""
+    data = info.get(card.card_id) if card.card_id else None
+    if data and data.get("faces") and data.get("layout") in HALVES and card.ability is None and not card.token:
+        key = (str(data.get("id")) + "#half", face or 0)
+        hit = _printed_cache.get(key)
+        if hit is None:
+            hit = _printed_cache[key] = _from_card_data(data, face or 0, half=True)
+        return hit
+    return of(card.model_copy(update={"face": face}) if face is not None else card, info)
 
 
 def of(card: CardInstance, info: CardInfo) -> Characteristics:
