@@ -33,7 +33,7 @@ from app.rules import characteristics as chars
 from app.rules import scripts
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan, decide
-from app.rules.targets import label, legal_targets, ref, source_of
+from app.rules.targets import choose_groups, label, legal_targets, ref, source_of
 
 
 def _zone(key: str | None) -> str:
@@ -546,6 +546,9 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
     controls, counter it unless that player pays [cost]." """
     if not stack_id:
         return
+    # An object chosen for several words "target" (115.3) becomes the target of that spell or
+    # ability once: one event, one trigger.
+    targets = list({(t.id if hasattr(t, "id") else t): t for t in targets}.values())
     for t in targets:  # "When ~ becomes the target of a spell or ability, …" (any controller)
         card = plan.state.cards.get(t.id if hasattr(t, "id") else t)
         if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):
@@ -688,15 +691,39 @@ def flush(plan: Plan) -> bool:
 
 def _identical(plan: Plan, player: str, mine: list[PendingTrigger]) -> bool:
     return plan.rules.prefs_for(player).auto_order_identical_triggers and len({t.key for t in mine}) == 1 \
-        and not any(t.ability.get("target") for t in mine)
+        and not any(t.ability.get("target") or t.ability.get("targets") for t in mine)
 
 
-def put(plan: Plan, t: PendingTrigger, target: str | None = None) -> bool:
-    """Put one trigger on the stack. False if it waits for its controller's target choice."""
+def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
+    """Put one trigger on the stack. False if it waits for its controller's target choice.
+    ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
     r = plan.rules
     spec = t.ability.get("target")
     targets = []
-    if spec:
+    extra: dict[str, Any] = {}
+    if t.ability.get("targets"):
+        from app.game.errors import ActionError
+        from app.rules.casting import ask_targets
+        from app.rules.scripts import target_groups
+
+        specs = target_groups(t.ability)
+        picks = picks or {"targets": [], "counts": [], "division": []}
+        try:
+            found = choose_groups(plan, specs, t.controller, source_of(plan, t.source_card), t.source_card,
+                                  picks["targets"], picks["counts"], picks["division"], None, t.name or "It")
+        except ActionError:  # 603.3d: no legal choice for a required target: removed from the stack
+            r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+            plan.note(f"{t.name}'s ability doesn't have enough legal targets and is removed")
+            return True
+        if found.ask is not None:
+            ask_targets(plan, t.controller, found, specs, f"{t.name}'s ability",
+                        {"step": "trigger_group", "trigger": t.id, **picks, "counts": found.counts})
+            return False
+        groups = [[ref(plan, x) for x in g] for g in found.groups]
+        targets = [x for g in groups for x in g]
+        extra = {"groups": groups, "group_specs": specs, "division": found.division}
+        spec = None
+    elif spec:
         legal = legal_targets(plan, spec["what"], t.controller, source_of(plan, t.source_card), t.source_card)
         if target is None:
             if not legal:
@@ -718,7 +745,7 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None) -> bool:
         return True
     r.stack[ability_id] = StackEntry(kind="trigger", controller=t.controller, source_card=t.source_card,
                                      source_object=t.source_object, name=t.name, effects=list(t.ability["effects"]),
-                                     targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")))
+                                     targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")), **extra)
     if targets:
         plan.do({"type": "create_arrow", "source": ability_id, "targets": [x.id for x in targets], "kind": "target"},
                 actor=t.controller)
@@ -744,6 +771,28 @@ def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
     t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
     if t is not None:
         put(plan, t, target=chosen[0])
+    flush(plan)
+
+
+def resume_group(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """A target group of a trigger was chosen (603.3d): the next choice, or onto the stack."""
+    res = d.resume
+    t = next((p for p in plan.rules.pending_triggers if p.id == res["trigger"]), None)
+    if t is not None:
+        picks = {"targets": [*res["targets"], *chosen], "counts": [*res["counts"], len(chosen)], "division": res["division"]}
+        if not put(plan, t, picks=picks):
+            return
+    flush(plan)
+
+
+def resume_divide(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """A trigger's division was chosen (601.2d)."""
+    res = d.resume
+    t = next((p for p in plan.rules.pending_triggers if p.id == res["trigger"]), None)
+    if t is not None:
+        picks = {"targets": res["targets"], "counts": res["counts"], "division": [*res["division"], *(int(c) for c in chosen)]}
+        if not put(plan, t, picks=picks):
+            return
     flush(plan)
 
 

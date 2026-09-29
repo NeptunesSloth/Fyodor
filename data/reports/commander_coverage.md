@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 286 · PARTIAL: 3215 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 296 · PARTIAL: 3205 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -53,7 +53,7 @@ Color identity W
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Vigilance
-- ✗ When Loran enters, destroy up to one target artifact or enchantment.
+- ✓ When Loran enters, destroy up to one target artifact or enchantment.
 - ✗ {T}: You and target opponent each draw a card.
 
 ### Toski, Bearer of Secrets — FULL
@@ -423,7 +423,7 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ When Rishkar enters, put a +1/+1 counter on each of up to two target creatures.
+- ✓ When Rishkar enters, put a +1/+1 counter on each of up to two target creatures.
 - ✗ Each creature you control with a counter on it has "{T}: Add {G}."
 
 ### Loot, Exuberant Explorer — PARTIAL
@@ -2597,7 +2597,7 @@ Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever another Rat you control enters, exile up to one target card from an opponent's graveyard.
+- ✓ Whenever another Rat you control enters, exile up to one target card from an opponent's graveyard.
 - ✗ At the beginning of combat on your turn, create a 1/1 black Rat creature token with "This token can't block."
 
 ### The Indomitable — PARTIAL

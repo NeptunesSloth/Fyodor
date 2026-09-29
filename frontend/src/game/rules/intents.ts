@@ -117,7 +117,10 @@ export function tapGesture(ids: string[], tapPlain: (ids: string[]) => void): vo
 export const passPriority = (until?: string) => send({ type: "pass_priority", ...(until ? { until } : {}) });
 export const choose = (decisionId: string, optionIds: string[], remember?: string) =>
   send({ type: "choose", decision_id: decisionId, option_ids: optionIds, ...(remember ? { remember } : {}) });
-export const setPrefs = (patch: Record<string, unknown>) => send({ type: "set_prefs", ...patch });
+/** Answer a "divide" decision (601.2d): an amount per option, in the options' order. */
+export const divide = (decisionId: string, amounts: number[]) =>
+  send({ type: "choose", decision_id: decisionId, option_ids: [], amounts });
+export const setPrefs =(patch: Record<string, unknown>) => send({ type: "set_prefs", ...patch });
 
 export const RESPONSE_CYCLE: ResponseMode[] = ["off", "auto", "on"];
 

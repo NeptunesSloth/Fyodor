@@ -28,6 +28,7 @@ DecisionKind = Literal[
     "confirm",  # yes / no ("you may …")
     "reconcile",  # one answer per question (options grouped by ``group``) after manual play
     "order",  # choose every option, in order (trigger order, library order)
+    "divide",  # 601.2d: an amount (at least 1) per option, adding up to the total (answered with amounts)
 ]
 
 
@@ -314,6 +315,15 @@ class StackEntry(BaseModel):
     modes: list[int] = Field(default_factory=list)
     slots: list[list[TargetRef]] = Field(default_factory=list)
     slot_specs: list[dict[str, Any] | None] = Field(default_factory=list)
+    # Target groups (115.1, 601.2c): one per word "target", in printed order — "up to two target
+    # creatures", "target creature and another target creature". ``group_specs`` are the
+    # definition's groups ({"what", "min", "max", "distinct_from"?, "divide"?}), ``groups`` the
+    # chosen targets of each, ``division`` the amount per target of each divided group (601.2d;
+    # empty for the others). ``targets`` stays the flat list of all of them. Empty for a spell or
+    # ability with one plain "target" (target_spec) or modes (slots).
+    groups: list[list[TargetRef]] = Field(default_factory=list)
+    group_specs: list[dict[str, Any]] = Field(default_factory=list)
+    division: list[list[int]] = Field(default_factory=list)
 
 
 class CostContribution(BaseModel):
