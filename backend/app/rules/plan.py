@@ -75,8 +75,8 @@ class Plan:
 
 
 def live_players(state: GameState) -> list[str]:
-    conceded = set(state.rules.conceded) if state.rules else set()
-    return [p for p in state.seat_order if not state.players[p].left and p not in conceded]
+    out = set(state.rules.conceded) | set(state.rules.lost) if state.rules else set()
+    return [p for p in state.seat_order if not state.players[p].left and p not in out]
 
 
 def require_no_decision(plan: Plan) -> None:

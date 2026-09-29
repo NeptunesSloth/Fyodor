@@ -87,7 +87,12 @@ class RulesState(BaseModel):
     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
     controlled_since: dict[str, ControlMark] = Field(default_factory=dict)
     conceded: list[str] = Field(default_factory=list)
-    drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check (M15)
+    lost: dict[str, str] = Field(default_factory=dict)  # player -> why (0 life, poison, …)
+    winner: str | None = None
+    drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check
+    deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
+    # Commanders offered the move to the command zone, and from which zone (asked once per arrival).
+    commander_offered: dict[str, str] = Field(default_factory=dict)
     overrides: int = 0  # manual (sandbox) actions taken while automation was on
 
     def lands_this_turn(self, player: str, turn: int) -> int:

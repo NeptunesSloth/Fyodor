@@ -25,7 +25,7 @@ from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.rules_state import Decision, DecisionOption, Stops, TurnCount
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import casting, coverage
+from app.rules import casting, coverage, sba
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
 
@@ -61,8 +61,17 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         raise ActionError(f"{what} through the rules engine arrives with the next milestone. "
                           "Use the table tools for now (e.g. drag the card to the stack).")
     handler(plan, intent)
+    settle(plan)
     plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
     return plan.steps
+
+
+def settle(plan: Plan) -> None:
+    """After every intent: state-based actions, and make sure someone can act."""
+    sba.check(plan)
+    r = plan.rules
+    if r.decision is None and len(plan.live()) > 1 and (r.priority is None or r.priority not in plan.live()):
+        advance(plan)
 
 
 def sync_step(plan: Plan) -> None:
@@ -99,10 +108,16 @@ def advance(plan: Plan) -> None:
         r = plan.rules
         if r.decision is not None:
             return
-        players = plan.live()
-        if not players:
-            r.priority = None
+        sba.check(plan)  # before anyone gets priority (rule 117.5)
+        if r.decision is not None:
             return
+        players = plan.live()
+        if len(players) <= 1:
+            r.priority = players[0] if players else None  # game over: the table stays a sandbox
+            return
+        if plan.active not in players:
+            start_next_turn(plan)  # the active player has left the game: on to the next turn
+            continue
         if all(p in r.passed for p in players):
             if plan.state.zones.get(STACK):
                 resolve_top_of_stack(plan)
@@ -231,6 +246,11 @@ def resolve_top_of_stack(plan: Plan) -> None:
     controller = top.controller if top.controller in plan.live() else plan.active
     manual = needs_manual_resolution(ch)
     plan.do({"type": "resolve_top", "force": True}, actor=controller)
+    entered = plan.state.cards.get(top_id)
+    if entered is not None and entered.zone.endswith(":battlefield") and "Planeswalker" in ch.types:
+        loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else 0
+        if loyalty:
+            plan.do({"type": "counter", "card_ids": [top_id], "kind": "loyalty", "delta": loyalty}, actor=controller)
     if manual:
         resolved = plan.state.cards.get(top_id)
         what = ch.name or "the ability"
@@ -336,6 +356,7 @@ def concede(plan: Plan, _: A.Action) -> None:
     left = plan.live()
     if len(left) == 1:
         plan.note(f"{plan.name(left[0])} is the last player standing")
+        r.winner = left[0]
         r.priority = left[0]
         return
     if r.priority == plan.actor or r.priority is None:
@@ -365,4 +386,6 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "manual_done": _resume_manual_done,
     "cleanup_discard": _resume_cleanup_discard,
     "mana_ability": casting.resume_mana_ability,
+    "legend_rule": sba.resume_legend_rule,
+    "commander_zone": sba.resume_commander_zone,
 }

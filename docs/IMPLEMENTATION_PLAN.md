@@ -216,8 +216,22 @@ by default and the foundation doesn't change.
   - Priority: the caster passes unless they hold priority, and smart passing skips players
     with no possible response.
   - Mana pools empty between steps. Auras and spell effects fall back to manual resolution.
-- **Still to do:** M15b state-based actions and the commander zone choice, M15c combat, and
-  M15d non-mana activated and loyalty abilities.
+- **Built, M15b: state-based actions**, tested in `test_rules_sba.py`. They're checked before
+  anyone gets priority and after every intent:
+  - players losing to 0 life, 10 poison, 21 commander damage or drawing from an empty
+    library, with the last player standing named the winner;
+  - creatures dying to 0 toughness, lethal damage or deathtouch damage (indestructible
+    respected);
+  - planeswalkers with no loyalty (they enter with their printed loyalty);
+  - the legend rule, as a decision;
+  - tokens ceasing to exist outside the battlefield;
+  - +1/+1 and −1/−1 counters cancelling out;
+  - the commander's optional move to the command zone from graveyard or exile, asked once
+    per arrival.
+
+  Manual edits are picked up the next time the engine acts, so it never fights the players
+  mid-edit.
+- **Still to do:** M15c combat, and M15d non-mana activated and loyalty abilities.
 
 - **Turn and priority:** the turn structure (untap, upkeep, draw, main, combat steps, end,
   cleanup with discard to hand size) and priority passing with Arena-style stops and

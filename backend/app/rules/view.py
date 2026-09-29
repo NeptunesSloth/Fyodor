@@ -30,6 +30,8 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
         "priority": r.priority,
         "passed": list(r.passed),
         "conceded": list(r.conceded),
+        "lost": dict(r.lost),
+        "winner": r.winner,
         "overrides": r.overrides,
         "decision": None,
         "stops": r.stops_for(viewer).model_dump() if viewer in state.players else None,
