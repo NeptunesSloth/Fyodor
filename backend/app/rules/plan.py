@@ -131,11 +131,11 @@ def require_priority(plan: Plan) -> None:
 
 def decide(plan: Plan, *, player: str, kind: str, prompt: str, options: list[DecisionOption], resume: dict[str, Any],
            min_choices: int = 1, max_choices: int = 1, source: CardInstance | None = None,
-           memory_key: str | None = None, memory_context: str = "") -> None:
+           memory_key: str | None = None, memory_context: str = "", display: dict[str, Any] | None = None) -> None:
     source_id = source.id if source is not None and publicly_visible(plan.state, source) else None
     plan.rules.decision = Decision(
         id=secrets.token_hex(6), player=player, kind=kind, prompt=prompt[:300], options=options,  # type: ignore[arg-type]
         min_choices=min_choices, max_choices=max_choices, source_id=source_id, resume=resume,
-        memory_key=memory_key, memory_context=memory_context,
+        memory_key=memory_key, memory_context=memory_context, display=display,
     )
     plan.rules.priority = None

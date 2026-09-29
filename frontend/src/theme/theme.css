@@ -87,7 +87,6 @@ body { font-family: var(--font-ui); background: var(--bg); }
 
 /* A framed panel: warm gradient, thin metallic border, an inner hairline and soft depth. */
 .frame {
-  position: relative;
   background: var(--panel-grad);
   border: 1px solid var(--frame);
   border-radius: var(--radius);

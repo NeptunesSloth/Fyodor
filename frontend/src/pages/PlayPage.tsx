@@ -161,7 +161,7 @@ export function PlayPage({ route }: { route: Route }) {
 function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string | null }) {
   const [name, setName] = useState("Commander night");
   const [format, setFormat] = useState<"commander" | "constructed" | "sandbox">("commander");
-  const [mode, setMode] = useState<"local" | "lan">("local");
+  const [mode, setMode] = useState<"local" | "lan">(() => (window.location.hash.includes("mode=lan") ? "lan" : "local"));
   const [password, setPassword] = useState("");
   const [first, setFirst] = useState<string>("random");
   const [life, setLife] = useState<string>("");

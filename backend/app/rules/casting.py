@@ -198,7 +198,11 @@ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCos
     if pool > 0:
         names.append(f"{pool} from your mana pool")
     resume["suggested"] = payment.tapped
+    others = [s.card_id for s in mana_sources(plan.state, plan.actor, plan.info)
+              if s.card_id not in payment.tapped and s.card_id not in exclude][:12]
     decide(plan, player=plan.actor, kind="choose_one",
+           display={"kind": "payment", "cost": cost.text(), "what": what, "suggested": list(payment.tapped),
+                    "alternatives": others, "pool": pool},
            prompt=f"Pay {cost.text()} for {what}. Suggested payment: {', '.join(names) or 'nothing'}",
            options=[DecisionOption(id="pay", label="Pay"), DecisionOption(id="manual", label="Manual"),
                     DecisionOption(id="cancel", label="Cancel")],

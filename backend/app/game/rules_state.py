@@ -56,6 +56,9 @@ class Decision(BaseModel):
     # Server-only continuation: which rules step to run with the answer and its arguments.
     # Never sent to any client.
     resume: dict[str, Any] | None = None
+    # Presentation hints for the decider's prompt (e.g. a payment's suggested sources), shown only
+    # to the player deciding. Never needed to resolve the decision.
+    display: dict[str, Any] | None = None
 
 
 class TurnCount(BaseModel):

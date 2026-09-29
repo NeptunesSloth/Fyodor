@@ -527,3 +527,5 @@ body.hud-minimal .player-panel { padding: 3px 8px; }
 .macro-step .field input, .macro-step .field select { max-width: 150px; }
 .mana-field { display: flex; flex-direction: column; font-size: 11px; color: var(--room-bone-dim); }
 .mana-field input { width: 44px; }
+
+.stack-widget.below-hud { top: 92px; }

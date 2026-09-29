@@ -1,6 +1,6 @@
 import { useMacros } from "../state/macros";
 import { playmatStyle, usePlaymat } from "./appearance";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { perspective, useGame } from "../state/gameStore";
 import { SPECTATOR } from "../types/game";
 import { useCardCache } from "../state/cardCache";
@@ -21,8 +21,9 @@ import { ResponseBar } from "./ResponseBar";
 import { AutomationErrorPanel, AutomationHud, DecisionPanel, PriorityBar, RulesStack } from "./rules/RulesHud";
 import { passPriority } from "./rules/intents";
 import "./rules/rules.css";
-import { Table3D } from "../table3d/Table3D";
 import { resolveRenderer } from "../table3d/renderer";
+
+const Table3D = lazy(() => import("../table3d/Table3D").then((m) => ({ default: m.Table3D })));
 
 export function GameScreen() {
   const view = useGame((s) => s.view);
@@ -57,7 +58,7 @@ export function GameScreen() {
       <TopBar />
       <div className="game-body">
         <main className={`table ${three ? "is-3d" : ""}`}>
-          {three ? <Table3D me={me} /> : <TablePlaymat />}
+          {three ? <Suspense fallback={<div className="table3d-loading">Setting the table…</div>}><Table3D me={me} /></Suspense> : <TablePlaymat />}
           {!three && <div className={`opponents n${others.length} ${focus && focus !== me ? "focused" : ""} ${focus === me ? "shrunk" : ""}`}>
             {others.map((pid) => (
               <PlayerArea key={pid} player={pid} me={me} mine={false} compact={others.length > 1} focused={focus === pid} />

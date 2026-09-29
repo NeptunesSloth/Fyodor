@@ -6,7 +6,18 @@ import { listAssets, type Asset } from "../services/assets";
 import { pct, podPlayer, podPlayers, type PodPlayerDetail } from "../services/pod";
 import { GRAPHICS_NOTES } from "../state/applyPrefs";
 import { usePrefs, type Prefs } from "../state/prefs";
+import { PLANES, type PlaneTheme } from "../theme/planes";
 import "./settings.css";
+
+/** A tiny painting of a plane for its tile: sky, glow and table surface. */
+function planePreview(pl: PlaneTheme): string {
+  const e = pl.env;
+  return [
+    `radial-gradient(ellipse 30% 40% at 18% 35%, ${e.glow}66, transparent 70%)`,
+    `radial-gradient(ellipse 25% 35% at 82% 30%, ${e.rim}55, transparent 70%)`,
+    `linear-gradient(180deg, ${e.skyTop} 0%, ${e.skyBottom} 52%, ${e.surfaceBase} 53%, ${e.surfaceGrain} 100%)`,
+  ].join(", ");
+}
 
 const AVATARS = ["♠", "♥", "♦", "♣", "★", "☾", "☀", "⚔", "♛", "✦"];
 
@@ -41,6 +52,32 @@ export function SettingsPanel() {
 
   return (
     <div className="settings" data-testid="settings">
+      <section>
+        <h2>Table theme</h2>
+        <p className="hint">Each theme is a Magic plane: its table surface, lighting, props, ambient sound and accent colours. Cards and prompts always look the same.</p>
+        {[1, 2].map((wave) => (
+          <div key={wave} className="theme-grid" style={{ marginBottom: 12 }}>
+            {PLANES.filter((pl) => pl.wave === wave).map((pl) => (
+              <button key={pl.id} className={`theme-tile ${p.plane === pl.id ? "on" : ""}`} data-testid={`plane-${pl.id}`} onClick={() => set({ plane: pl.id })}>
+                <span className="preview" style={{ background: planePreview(pl) }} />
+                <span className="name">{pl.name}</span>
+                <span className="blurb">{pl.tagline}</span>
+                <span className="dots">{pl.swatches.map((c) => <i key={c} style={{ background: c }} />)}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+        <div className="settings-grid">
+          <label className="field">Table
+            <select value={p.renderer} data-testid="renderer" onChange={(e) => set({ renderer: e.target.value as Prefs["renderer"] })}>
+              <option value="auto">Auto (3D when this device supports it)</option>
+              <option value="3d">3D table</option>
+              <option value="2d">2D table (lighter, for slow devices)</option>
+            </select>
+          </label>
+          <label className="check"><input type="checkbox" checked={p.ambience} onChange={(e) => set({ ambience: e.target.checked })} /> Ambient sound of the plane (volume: Sound → Ambient)</label>
+        </div>
+      </section>
       <section>
         <h2>Profile</h2>
         <div className="profile-row">

@@ -1,5 +1,13 @@
 /** Which table renderer to use: the player's choice, with the 2D table as the fallback. */
-import { webglAvailable } from "./TableScene";
+
+export function webglAvailable(): boolean {
+  try {
+    const c = document.createElement("canvas");
+    return !!(c.getContext("webgl2") ?? c.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
 
 let webgl: boolean | null = null;
 

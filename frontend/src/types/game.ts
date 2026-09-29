@@ -313,6 +313,8 @@ export interface DecisionView {
   min_choices?: number;
   max_choices?: number;
   rememberable?: boolean;
+  /** Presentation hints for the chooser (e.g. a payment's suggested sources). */
+  display?: { kind: string; [key: string]: unknown };
 }
 
 export interface RulesPrefs {

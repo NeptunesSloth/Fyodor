@@ -584,11 +584,11 @@ export class TableScene {
       look = new THREE.Vector3(lx, 0, lz);
       pos = new THREE.Vector3(px, 8.5, pz);
     } else {
-      // behind my seat, looking across the table (the main view): my mat large, opponents beyond
-      const [lx, lz] = toWorld(mine, 0, -MAT_D / 2 - 2.4);
-      const [px, pz] = toWorld(mine, 0, MAT_D / 2 + span * 0.3);
+      // behind my seat, looking across the table (the main view): my mat large, every opponent visible
+      const [lx, lz] = toWorld(mine, 0, -MAT_D / 2 - 2.8);
+      const [px, pz] = toWorld(mine, 0, MAT_D / 2 + span * 0.4);
       look = new THREE.Vector3(lx, 0, lz);
-      pos = new THREE.Vector3(px, span * 0.55, pz);
+      pos = new THREE.Vector3(px, span * 0.7, pz);
     }
     const off = pos.clone().sub(look).multiplyScalar(this.zoom);
     off.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw);
@@ -778,7 +778,7 @@ export class TableScene {
 
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
-    const dt = Math.min(0.05, this.clock.getDelta());
+    const dt = Math.min(0.5, this.clock.getDelta()); // real time: slow devices still settle quickly
     const t = this.clock.elapsedTime;
     const k = 1 - Math.exp(-dt * 14);
     for (const c of this.cards.values()) {
@@ -801,14 +801,3 @@ export class TableScene {
     }
   };
 }
-
-export function webglAvailable(): boolean {
-  try {
-    const c = document.createElement("canvas");
-    return !!(c.getContext("webgl2") ?? c.getContext("webgl"));
-  } catch {
-    return false;
-  }
-}
-
-

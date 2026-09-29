@@ -8,6 +8,9 @@ import { useState } from "react";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { PHASE_LABEL, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
 import { choose, next, passPriority, PAYMENT_CYCLE, RESPONSE_CYCLE, send, setPrefs } from "./intents";
+import { GameCardFace } from "../GameCardFace";
+import { ManaText } from "../../cards/ManaText";
+import { useCardCache } from "../../state/cardCache";
 
 function useRules() {
   const view = useGame((s) => s.view);
@@ -18,24 +21,18 @@ function useRules() {
   return { view, rules: view.rules ?? null, me, isHost, seated: view.viewer !== "__spectator__" };
 }
 
-/** AUTO: FULL · RESP: AUTO · MANA: ASK — click to change. */
+/** AUTO: FULL · RESP: AUTO · MANA: ASK — click for the automation settings. */
 export function AutomationHud() {
   const ctx = useRules();
-  const [menu, setMenu] = useState(false);
+  const [open, setOpen] = useState(false);
   if (!ctx) return null;
-  const { view, rules, isHost, seated } = ctx;
+  const { view, rules, seated } = ctx;
   const level = rules ? (rules.paused ? "PAUSED" : rules.automation.toUpperCase()) : "OFF";
   const custom = rules?.preset === "custom" ? "*" : "";
   const prefs = rules?.prefs;
-  const configure = (patch: Record<string, unknown>) => {
-    setMenu(false);
-    void send({ type: "configure", ...patch });
-  };
   return (
     <div className="auto-hud" data-testid="automation-hud">
-      <button className={`auto-pill ${rules && !rules.paused ? "on" : ""}`} data-testid="auto-level"
-        title={isHost ? "Automation level (host)" : "Automation level (the host changes it)"}
-        onClick={() => isHost && setMenu(!menu)}>
+      <button className={`auto-pill ${rules && !rules.paused ? "on" : ""}`} data-testid="auto-level" title="Automation settings" onClick={() => setOpen(!open)}>
         AUTO: {level}{custom}
       </button>
       {rules && prefs && seated && (
@@ -50,22 +47,92 @@ export function AutomationHud() {
           </button>
         </>
       )}
-      {menu && isHost && (
-        <div className="auto-menu" role="menu">
-          {(["off", "assisted", "full"] as const).map((lv) => (
-            <button key={lv} className={`tt-btn ${rules?.automation === lv || (!rules && lv === "off") ? "on" : "ghost"}`}
-              onClick={() => configure({ automation: lv })}>{lv.toUpperCase()}</button>
-          ))}
-          {rules && (
-            <button className="tt-btn ghost" onClick={() => configure({ automation_paused: !rules.paused })}>
-              {rules.paused ? "Resume automation" : "Pause automation"}
-            </button>
-          )}
-          <span className="auto-menu-note">OFF keeps everything; turning it back on reconciles with the table.</span>
-        </div>
-      )}
+      {open && <AutomationSettings onClose={() => setOpen(false)} />}
       {view.rules?.winner && <span className="auto-pill winner">{playerName(view, view.rules.winner)} wins</span>}
     </div>
+  );
+}
+
+const STOP_STEPS = ["upkeep", "draw", "main1", "begin_combat", "declare_attackers", "declare_blockers", "combat_damage", "main2", "end"] as const;
+
+/** The automation panel: level (host), RESPONSE, MANA and where the engine stops for you. */
+export function AutomationSettings({ onClose }: { onClose: () => void }) {
+  const ctx = useRules();
+  if (!ctx) return null;
+  const { rules, isHost, seated } = ctx;
+  const prefs = rules?.prefs;
+  const level = rules?.automation ?? "off";
+  const configure = (patch: Record<string, unknown>) => void send({ type: "configure", ...patch });
+  const toggleStop = (key: "stops_my_turn" | "stops_their_turn", step: string) => {
+    if (!prefs) return;
+    const cur = prefs[key];
+    void setPrefs({ [key]: cur.includes(step) ? cur.filter((x) => x !== step) : [...cur, step] });
+  };
+  return (
+    <div className="auto-settings frame ornate" role="dialog" aria-label="Automation settings" data-testid="automation-settings">
+      <div className="auto-settings-head">
+        <span className="frame-title">Automation</span>
+        <button className="tt-icon" aria-label="Close" onClick={onClose}>✕</button>
+      </div>
+      <div className="segmented" role="radiogroup" aria-label="Automation level">
+        {(["off", "assisted", "full"] as const).map((lv) => (
+          <button key={lv} className={level === lv ? "on" : ""} disabled={!isHost} data-testid={`level-${lv}`} onClick={() => configure({ automation: lv })}
+            title={isHost ? undefined : "The host sets the automation level"}>{lv === "off" ? "Off" : lv === "assisted" ? "Assisted" : "Full"}</button>
+        ))}
+      </div>
+      {isHost && rules && (
+        <button className="tt-link auto-pause" onClick={() => configure({ automation_paused: !rules.paused })}>
+          {rules.paused ? "Resume automation" : "Pause automation"}
+        </button>
+      )}
+      {rules && prefs && seated && (
+        <>
+          <span className="frame-title">Responses</span>
+          <div className="segmented blue">
+            {RESPONSE_CYCLE.map((m) => (
+              <button key={m} className={prefs.response === m ? "on" : ""} onClick={() => void setPrefs({ response: m })}>{m[0]!.toUpperCase() + m.slice(1)}</button>
+            ))}
+          </div>
+          <span className="frame-title">Mana payment</span>
+          <div className="segmented">
+            {PAYMENT_CYCLE.map((m) => (
+              <button key={m} className={prefs.payment === m ? "on" : ""} onClick={() => void setPrefs({ payment: m })}>{m[0]!.toUpperCase() + m.slice(1)}</button>
+            ))}
+          </div>
+          <span className="frame-title">Stops</span>
+          <div className="stop-grid">
+            <span />
+            {STOP_STEPS.map((st) => <span key={st} className="stop-step">{PHASE_LABEL[st]}</span>)}
+            <span className="stop-row">My turn</span>
+            {STOP_STEPS.map((st) => (
+              <button key={st} className={`stop-cell ${prefs.stops_my_turn.includes(st) ? "on" : ""}`} aria-label={`Stop in my ${PHASE_LABEL[st]}`}
+                onClick={() => toggleStop("stops_my_turn", st)} />
+            ))}
+            <span className="stop-row">Others</span>
+            {STOP_STEPS.map((st) => (
+              <button key={st} className={`stop-cell ${prefs.stops_their_turn.includes(st) ? "on" : ""}`} aria-label={`Stop in opponents' ${PHASE_LABEL[st]}`}
+                onClick={() => toggleStop("stops_their_turn", st)} />
+            ))}
+          </div>
+          <div className="auto-switches">
+            <Switch label="Hold priority after I cast" on={prefs.hold_priority} set={(v) => void setPrefs({ hold_priority: v })} />
+            <Switch label="Full control (never pass for me)" on={prefs.full_control} set={(v) => void setPrefs({ full_control: v })} />
+            <Switch label="Bluff stops" on={prefs.bluff_stops} set={(v) => void setPrefs({ bluff_stops: v })} />
+            <Switch label="Auto-order identical triggers" on={prefs.auto_order_identical_triggers} set={(v) => void setPrefs({ auto_order_identical_triggers: v })} />
+          </div>
+        </>
+      )}
+      {!rules && <p className="hint">Automation is off: the table is a sandbox. {isHost ? "Choose Assisted or Full to let Fyodor enforce the rules." : "The host can turn it on."}</p>}
+    </div>
+  );
+}
+
+function Switch({ label, on, set }: { label: string; on: boolean; set: (v: boolean) => void }) {
+  return (
+    <label className="switch-row">
+      <span>{label}</span>
+      <span className="switch"><input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} /><span /></span>
+    </label>
   );
 }
 
@@ -117,32 +184,54 @@ export function PriorityBar() {
   );
 }
 
-/** STACK — N, top first, with controller and targets. */
+/** The Stack: most recent on top, with controller and targets; Pass / Respond / Auto-pass. */
 export function RulesStack() {
   const ctx = useRules();
+  const [responding, setResponding] = useState<string | null>(null);
   if (!ctx || !ctx.rules || !ctx.view.stack.length) return null;
-  const { view } = ctx;
+  const { view, rules, me } = ctx;
   const ids = [...view.stack].reverse();
+  const mine = rules.priority === me && !rules.decision;
+  const top = ids[0] ?? "";
   return (
-    <div className="rules-stack" data-testid="rules-stack">
-      <div className="rules-stack-title">STACK — {ids.length}</div>
+    <div className="rules-stack frame" data-testid="rules-stack">
+      <div className="rules-stack-title">The Stack <span className="rules-stack-count">{ids.length}</span></div>
       <ol>
-        {ids.map((id) => {
+        {ids.map((id, i) => {
           const c = view.cards[id];
           const name = c ? (c.hidden ? "A card" : c.name || "Ability") : "?";
+          const kind = c && !c.hidden ? (c.ability ? `${c.ability.kind === "triggered" ? "Triggered" : "Activated"} ability` : stackTypeLine(c.card_id)) : "";
           const targets = (view.arrows ?? []).filter((a) => a.source === id).flatMap((a) => a.targets);
           return (
-            <li key={id} data-testid="stack-entry">
-              <b>{name}</b>
-              <span className="rules-stack-who"> · {c ? playerName(view, c.controller) : ""}</span>
-              {targets.length > 0 && <span className="rules-stack-tgt"> → {targets.map((t) => targetName(view, t)).join(", ")}</span>}
-              <button className="tt-icon" title="Hold after this resolves" onClick={() => void setPrefs({ stop_after: id })}>⏸</button>
+            <li key={id} data-testid="stack-entry" className={i === 0 ? "top" : ""} onPointerEnter={() => useGame.getState().setHover(id)} onPointerLeave={() => useGame.getState().setHover(null)}>
+              <span className="rules-stack-thumb">{c && <GameCardFace card={c} size="small" />}</span>
+              <span className="rules-stack-body">
+                <b>{name}</b>
+                <span className="rules-stack-who">{c ? playerName(view, c.controller) : ""}{kind ? ` · ${kind}` : ""}</span>
+                {targets.length > 0 && <span className="rules-stack-tgt">→ {targets.map((t) => targetName(view, t)).join(", ")}</span>}
+              </span>
+              <button className="tt-icon" title="Hold after this resolves" aria-label="Hold after this resolves" onClick={() => void setPrefs({ stop_after: id })}>❚❚</button>
             </li>
           );
         })}
       </ol>
+      {mine && (
+        <div className="rules-stack-actions">
+          <button className="act-btn" data-testid="stack-pass" onClick={() => void passPriority()}>Pass</button>
+          <button className={`act-btn primary ${responding === top ? "on" : ""}`} data-testid="stack-respond"
+            title="Keep priority: cast or activate something in response" onClick={() => setResponding(top)}>Respond</button>
+          <button className="act-btn green" data-testid="stack-autopass" title="Pass until the stack is empty (you still get every decision)"
+            onClick={() => void passPriority("stack_empty")}>Auto-Pass</button>
+        </div>
+      )}
+      {mine && responding === top && <div className="rules-stack-hint">Cast or activate something, then pass.</div>}
     </div>
   );
+}
+
+function stackTypeLine(cardId: string | null | undefined): string {
+  const data = cardId ? useCardCache.getState().cards[cardId] : undefined;
+  return data?.type_line?.split("—")[0]?.trim() ?? "";
 }
 
 function targetName(view: GameView, id: string): string {
@@ -164,10 +253,60 @@ export function DecisionPanel() {
       </div>
     );
   }
+  if (d.display?.kind === "payment") return <PaymentPanel key={d.id} d={d} view={view} />;
+  const targeting = d.kind === "choose_one" && (d.options ?? []).some((o) => o.card_id) && (d.options ?? []).length > 1;
   return (
-    <div className="decision-panel" data-testid="decision-panel" data-kind={d.kind}>
+    <div className={`decision-panel frame ${targeting ? "targeting" : ""}`} data-testid="decision-panel" data-kind={d.kind}>
       <div className="decision-prompt">{d.prompt}</div>
+      {targeting && <div className="decision-hint">Click a highlighted card or player on the table, or choose below.</div>}
       <DecisionBody key={d.id} d={d} view={view} />
+    </div>
+  );
+}
+
+/** Pay {3}{W}: the suggested sources, the alternatives, Auto Pay / Edit Payment / Cancel. */
+function PaymentPanel({ d, view }: { d: DecisionView; view: GameView }) {
+  const info = d.display as unknown as { cost: string; what: string; suggested: string[]; alternatives: string[]; pool: number };
+  const [always, setAlways] = useState(false);
+  const pay = () => {
+    if (always) void setPrefs({ payment: "auto" });
+    void choose(d.id, ["pay"]);
+  };
+  const thumbs = (ids: string[], picked: boolean) => ids.map((id) => {
+    const c = view.cards[id];
+    return c ? (
+      <span key={id} className={`pay-thumb ${picked ? "picked" : ""}`} title={c.hidden ? "" : c.name}
+        onPointerEnter={() => useGame.getState().setHover(id)} onPointerLeave={() => useGame.getState().setHover(null)}>
+        <GameCardFace card={c} size="small" />
+      </span>
+    ) : null;
+  });
+  return (
+    <div className="decision-panel payment frame ornate" data-testid="decision-panel" data-kind="payment">
+      <div className="pay-head">
+        <span className="pay-title">Pay</span>
+        <span className="pay-cost"><ManaText text={info.cost} /></span>
+      </div>
+      <div className="pay-what">for {info.what}</div>
+      <div className="frame-title">Recommended payment</div>
+      <div className="pay-row">
+        {thumbs(info.suggested, true)}
+        {info.pool > 0 && <span className="pay-pool">+{info.pool} from your mana pool</span>}
+        {!info.suggested.length && !info.pool && <span className="hint">Nothing to tap.</span>}
+        <span className="pay-check" aria-hidden>✓</span>
+      </div>
+      {info.alternatives.length > 0 && (
+        <>
+          <div className="frame-title">Other sources</div>
+          <div className="pay-row alt">{thumbs(info.alternatives, false)}</div>
+        </>
+      )}
+      <label className="check pay-always"><input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} /> Always auto-pay with the best sources (MANA: AUTO)</label>
+      <div className="pay-actions">
+        <button className="act-btn primary" data-testid="option-pay" onClick={pay}>Auto Pay</button>
+        <button className="act-btn" data-testid="option-manual" onClick={() => void choose(d.id, ["manual"])}>Edit Payment</button>
+        <button className="act-btn red" data-testid="option-cancel" onClick={() => void choose(d.id, ["cancel"])}>Cancel</button>
+      </div>
     </div>
   );
 }

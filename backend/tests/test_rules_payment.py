@@ -59,6 +59,9 @@ def test_ask_suggests_a_payment_and_cancel_leaves_everything(cards):
     d = s.state.rules.decision
     assert d.player == "p1" and "Pay {R} for Lightning Bolt. Suggested payment: Mountain" in d.prompt
     assert s.state.cards[bolt.id].zone == "p1:hand"  # nothing has moved yet
+    shown = s.view("p1")["rules"]["decision"]["display"]  # the payment panel's thumbnails, for the decider
+    assert shown["kind"] == "payment" and shown["cost"] == "{R}" and len(shown["suggested"]) == 1
+    assert "display" not in s.view("p2")["rules"]["decision"]
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["cancel"])
     assert s.state.cards[bolt.id].zone == "p1:hand" and s.state.rules.priority == "p1"
     assert tapped(s, m1, m2, ring) == [False, False, False]

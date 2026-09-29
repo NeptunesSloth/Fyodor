@@ -56,6 +56,8 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
         if viewer in (d.player, OMNISCIENT):
             decision.update(options=[o.model_dump() for o in d.options], min_choices=d.min_choices,
                             max_choices=d.max_choices, rememberable=d.memory_key is not None)
+            if d.display is not None:
+                decision["display"] = d.display
         out["decision"] = decision
     if viewer in state.players and viewer in live_players(state) and not r.paused:
         out["hints"] = hints(state, viewer, info)
