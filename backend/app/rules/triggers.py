@@ -71,6 +71,10 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
          event_player: str | None = None, event_amount: int = 0) -> None:
     if manual:
         return
+    if definition.get("if_kicked"):  # 603.4: "When ~ enters, if it was kicked, …" (702.33e)
+        record = plan.rules.payments.get(source_object)
+        if record is None or not record.kicked:
+            return  # (it wasn't: the ability doesn't trigger; kicked status never changes later)
     if definition.get("if") is not None:  # 603.4: an intervening "if" must hold as it triggers
         from app.rules import conditions
 

@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 303 · PARTIAL: 3198 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 342 · PARTIAL: 3159 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -282,8 +282,8 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Sacrifice three Foods: Draw a card.
 - ✗ If one or more tokens would be created under your control, those tokens plus an additional Food token are created instead.
-- ✗ Sacrifice three Foods: Draw a card.
 
 ### Danitha Capashen, Paragon — PARTIAL
 
@@ -332,14 +332,14 @@ Color identity WR
 - ✓ Haste
 - ✗ Whenever Aurelia attacks for the first time each turn, untap all creatures you control. After this phase, there is an additional combat phase.
 
-### Sai, Master Thopterist — PARTIAL
+### Sai, Master Thopterist — FULL
 
 Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Whenever you cast an artifact spell, create a 1/1 colorless Thopter artifact creature token with flying.
-- ✗ {1}{U}, Sacrifice two artifacts: Draw a card.
+- ✓ {1}{U}, Sacrifice two artifacts: Draw a card.
 
 ### Ashaya, Soul of the Wild — PARTIAL
 
@@ -350,15 +350,15 @@ Color identity G
 - ✗ Ashaya's power and toughness are each equal to the number of lands you control.
 - ✗ Nontoken creatures you control are Forest lands in addition to their other types.
 
-### Yawgmoth, Thran Physician — PARTIAL
+### Yawgmoth, Thran Physician — FULL
 
 Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Protection
-- ✗ Pay 1 life, Sacrifice another creature: Put a -1/-1 counter on up to one target creature and draw a card.
-- ✗ {B}{B}, Discard a card: Proliferate.
+- ✓ Pay 1 life, Sacrifice another creature: Put a -1/-1 counter on up to one target creature and draw a card.
+- ✓ {B}{B}, Discard a card: Proliferate.
 
 ### Aesi, Tyrant of Gyre Strait — PARTIAL
 
@@ -388,14 +388,14 @@ Color identity G
 - ✗ Modified creatures you control have trample.
 - ✗ Whenever a modified creature you control deals combat damage to a player, search your library for a basic land card, put it onto the battlefield tapped, then shuffle.
 
-### Ayara, First of Locthwain — PARTIAL
+### Ayara, First of Locthwain — FULL
 
 Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life.
-- ✗ {T}, Sacrifice another black creature: Draw a card.
+- ✓ {T}, Sacrifice another black creature: Draw a card.
 
 ### Elesh Norn, Grand Cenobite — FULL
 
@@ -585,7 +585,7 @@ Color identity W
 - ✓ {1}{W}: Another target creature gains lifelink until end of turn.
 - ✗ As long as your devotion to white is less than five, Heliod isn't a creature.
 
-### Yahenni, Undying Partisan — PARTIAL
+### Yahenni, Undying Partisan — FULL
 
 Color identity B
 
@@ -593,7 +593,7 @@ Color identity B
 - ✓ Attack and block
 - ✓ Haste
 - ✓ Whenever a creature an opponent controls dies, put a +1/+1 counter on Yahenni.
-- ✗ Sacrifice another creature: Yahenni gains indestructible until end of turn.
+- ✓ Sacrifice another creature: Yahenni gains indestructible until end of turn.
 
 ### Elesh Norn, Mother of Machines — PARTIAL
 
@@ -1739,13 +1739,13 @@ Color identity WR
 - ✗ Whenever a player attacks with three or more creatures, you draw a card.
 - ✗ Whenever a player attacks with five or more creatures, Aurelia deals 3 damage to each of your opponents and you gain 3 life.
 
-### Bartolomé del Presidio — PARTIAL
+### Bartolomé del Presidio — FULL
 
 Color identity WB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Sacrifice another creature or artifact: Put a +1/+1 counter on Bartolomé del Presidio.
+- ✓ Sacrifice another creature or artifact: Put a +1/+1 counter on Bartolomé del Presidio.
 
 ### Tannuk, Memorial Ensign — PARTIAL
 
@@ -1904,7 +1904,7 @@ Color identity R · pairs via background
 - ✓ Cast it (timing, costs, the stack)
 - ✗ Commander creatures you own have "Whenever you cast a spell from exile, this creature deals damage equal to that spell's mana value to target opponent."
 
-### Razaketh, the Foulblooded — PARTIAL
+### Razaketh, the Foulblooded — FULL
 
 Color identity B
 
@@ -1912,7 +1912,7 @@ Color identity B
 - ✓ Attack and block
 - ✓ Flying
 - ✓ Trample
-- ✗ Pay 2 life, Sacrifice another creature: Search your library for a card, put that card into your hand, then shuffle.
+- ✓ Pay 2 life, Sacrifice another creature: Search your library for a card, put that card into your hand, then shuffle.
 
 ### Drivnod, Carnage Dominus — PARTIAL
 
@@ -2040,7 +2040,7 @@ Color identity U
 - ✓ Flash
 - ✗ When Venser enters, return target spell or permanent to its owner's hand.
 
-### Mikaeus, the Lunarch — PARTIAL
+### Mikaeus, the Lunarch — FULL
 
 Color identity W
 
@@ -2048,7 +2048,7 @@ Color identity W
 - ✓ Attack and block
 - ✓ Mikaeus enters with X +1/+1 counters on it.
 - ✓ {T}: Put a +1/+1 counter on Mikaeus.
-- ✗ {T}, Remove a +1/+1 counter from Mikaeus: Put a +1/+1 counter on each other creature you control.
+- ✓ {T}, Remove a +1/+1 counter from Mikaeus: Put a +1/+1 counter on each other creature you control.
 
 ### Grazilaxx, Illithid Scholar — FULL
 
@@ -2358,8 +2358,8 @@ Color identity RG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ {R}{G}, Return a land you control to its owner's hand: Target creature gains trample until end of turn.
 - ✗ You may play an additional land on each of your turns.
-- ✗ {R}{G}, Return a land you control to its owner's hand: Target creature gains trample until end of turn.
 
 ### Prosper, Tome-Bound — PARTIAL
 
@@ -2541,8 +2541,8 @@ Color identity UB
 - ✓ Attack and block
 - ✓ At the beginning of each end step, put a slime counter on each creature you don't control.
 - ✓ Whenever a creature you don't control with a slime counter on it dies, create a 1/1 black Slug creature token.
+- ✓ {U}{B}, Sacrifice a Slug: Draw a card.
 - ✗ Creatures you don't control get -1/-1 for each slime counter on them.
-- ✗ {U}{B}, Sacrifice a Slug: Draw a card.
 
 ### Samwise Gamgee — PARTIAL
 

@@ -800,7 +800,8 @@ def _copy_spell(plan: Plan, sid: str, entry: StackEntry, targets: list[Any], con
                                                slot_specs=list(entry.slot_specs),
                                                # a copy has the original's targets and division (707.10)
                                                groups=[list(g) for g in entry.groups], group_specs=list(entry.group_specs),
-                                               division=[list(d) for d in entry.division])
+                                               division=[list(d) for d in entry.division],
+                                               kicked=entry.kicked)  # 707.10: and whether it was kicked
 
 
 def resume_storm(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -1270,6 +1271,18 @@ def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 PRIMITIVES.update({"only_if": only_if})
 
 
+def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """702.33e: "If this spell was kicked, …" (``kicked`` True) — and, for "… instead", the
+    unkicked text (``kicked`` False): the next ``n`` effects happen only if the spell was (or
+    wasn't) kicked; otherwise they're skipped."""
+    if (values.kicked_count(plan, ctx) > 0) != bool(e["kicked"]):
+        ctx["next"] += int(e["n"])
+    return True
+
+
+PRIMITIVES["kicked_gate"] = kicked_gate
+
+
 # -- resolving a definition -----------------------------------------------------------------
 def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     """608.2: check targets, ask "you may", then carry out the effects in order."""
@@ -1371,5 +1384,5 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "surveil": "surveil {n}", "damage": "deal {n} damage", "player_counter": "get {n} {counter}",
              "create_token": "create {n} token(s)", "add_counters": "put {n} {kind} counter(s)", "proliferate": "proliferate",
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library"}
-    parts = [words.get(e["do"], e["do"]).format(**{k: v for k, v in e.items()}) for e in effects]
+    parts = [words.get(e["do"], e["do"]).format(**{k: v for k, v in e.items()}) for e in effects if e["do"] != "kicked_gate"]
     return (", ".join(parts) or "do it").capitalize()

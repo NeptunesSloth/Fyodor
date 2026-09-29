@@ -324,6 +324,8 @@ class StackEntry(BaseModel):
     groups: list[list[TargetRef]] = Field(default_factory=list)
     group_specs: list[dict[str, Any]] = Field(default_factory=list)
     division: list[list[int]] = Field(default_factory=list)
+    # 702.33d: how many times the spell was kicked (a copy keeps it: 707.10)
+    kicked: int = 0
 
 
 class CostContribution(BaseModel):
@@ -351,6 +353,10 @@ class PaymentRecord(BaseModel):
     tapped: list[str] = Field(default_factory=list)  # permanents tapped for mana while paying (engine-paid)
     sacrificed: list[str] = Field(default_factory=list)
     discarded: list[str] = Field(default_factory=list)
+    exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
+    returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
+    tapped_for_cost: list[str] = Field(default_factory=list)  # "Tap an untapped creature you control" (not for mana)
+    kicked: int = 0  # 702.33d: times its kicker cost was paid
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
     additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
     x: int | None = None

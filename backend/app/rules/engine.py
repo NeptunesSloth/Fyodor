@@ -30,6 +30,7 @@ from app.rules import (
     attachments,
     casting,
     combat,
+    cost_payment,
     coverage,
     effects,
     layers,
@@ -575,7 +576,7 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
     if stack and stack[-1] == card_id:
         plan.do({"type": "resolve_top", "force": True, "tapped": tapped}, actor=controller)
         record = plan.rules.payments.pop(oid, None)
-        if record is not None and plan.state.cards[card_id].zone.endswith(":battlefield"):
+        if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
     else:  # (defensive: resolution never adds to the stack today)
         plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "graveyard"}}, actor=controller)
@@ -606,6 +607,10 @@ def enter_with_counters(plan: Plan, card_id: str, ch: Characteristics, x: int | 
     for d in scripts.definitions(ch).values():
         if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
             n = (x or 0) if d["n"] == "X" else int(d["n"])
+            if d.get("if_kicked") or d.get("per_kick"):  # 702.33e: how its spell was cast (the payment record)
+                record = r.payments.get(plan.oid(card_id))
+                kicked = record.kicked if record is not None else 0
+                n = 0 if d.get("if_kicked") and not kicked else n * kicked if d.get("per_kick") else n
             if n > 0:
                 plan.do({"type": "counter", "card_ids": [card_id], "kind": d["counter"], "delta": n}, actor=controller)
 
@@ -956,6 +961,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "cleanup_discard": _resume_cleanup_discard,
     "mana_ability": casting.resume_mana_ability,
     "crew": casting.resume_crew,
+    "ability_cost": cost_payment.resume_choice,
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
 }
