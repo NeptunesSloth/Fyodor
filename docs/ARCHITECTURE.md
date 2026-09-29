@@ -8,7 +8,9 @@ automation + a manual sandbox override + an Archidekt-first pod workflow**.
 - The **rules layer** goes *underneath* the future 3D table.
   - **Built (M14):** the boundary (intents, compile-and-record, decisions, priority/stops, turn
     structure, land drop, manual fallback, overrides, coverage, pod inventory).
-  - **Planned:** casting, combat, effects and card scripts.
+  - **Built (M15):** the core rules: mana and casting, abilities, state-based actions,
+    combat.
+  - **Planned:** card effects and per-card scripts (M16+).
   - The roadmap is in `IMPLEMENTATION_PLAN.md`.
 
 ```
