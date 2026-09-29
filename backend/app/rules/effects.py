@@ -16,7 +16,7 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption, StackEntry
 from app.game.state import zone_key
-from app.rules import context, layers, protection, regeneration, selectors, values
+from app.rules import context, layers, optional_payment, protection, regeneration, selectors, values
 from app.rules.plan import Plan, decide
 from app.rules.targets import source_of, still_legal
 
@@ -1278,6 +1278,8 @@ def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES.update({"only_if": only_if})
+# "You may pay {2}. If you do, …" / "… unless that player pays {1}" (118.12): app/rules/optional_payment.py
+PRIMITIVES["optional_payment"] = optional_payment.optional_payment
 
 
 def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
