@@ -180,3 +180,45 @@ def test_enchanted_creature_reference(cards):
     act(s, "p1", type="activate_ability", card_id=chains.id, ability=1)
     pass_until_stack_empty(s)
     assert s.state.cards[bear.id].tapped
+
+
+def test_search_basic_land_to_hand_is_private(cards):
+    s = build(cards)
+    src = token(s, "p1", "Seeker", text="{1}: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.")
+    activate(s, src)
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.max_choices == 1 and d.options
+    assert all(s.state.cards[o.id].name == "Forest" for o in d.options)
+    assert s.view("p2")["rules"]["decision"].get("options") is None  # nobody else learns the library
+    hand = len(zone(s.state, "p1", "hand"))
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    pass_until_stack_empty(s)
+    assert len(zone(s.state, "p1", "hand")) == hand + 1
+    replay_matches(s)
+
+
+def test_search_up_to_two_onto_the_battlefield_tapped(cards):
+    s = build(cards)
+    src = token(s, "p1", "Ramp", text="{1}: Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.")
+    activate(s, src)
+    d = s.state.rules.decision
+    assert (d.min_choices, d.max_choices) == (0, 2)
+    picked = [o.id for o in d.options[:2]]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=picked)
+    pass_until_stack_empty(s)
+    assert all(s.state.cards[c].zone == "p1:battlefield" and s.state.cards[c].tapped for c in picked)
+
+
+def test_search_then_put_on_top(cards):
+    s = build(cards)
+    src = token(s, "p1", "Tutor", text="{1}: Search your library for a card, reveal it, then shuffle and put that card on top.")
+    size = len(zone(s.state, "p1", "library"))
+    activate(s, src)
+    d = s.state.rules.decision
+    pick = d.options[-1].id
+    name = s.state.cards[pick].name
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[pick])
+    pass_until_stack_empty(s)
+    top = zone(s.state, "p1", "library")[0]  # (a shuffle gives library cards new ids)
+    assert s.state.cards[top].name == name and len(zone(s.state, "p1", "library")) == size
+    replay_matches(s)

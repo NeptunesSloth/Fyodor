@@ -841,10 +841,21 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     in their private decision (nobody else learns the library's contents)."""
     pid = ctx["controller"]
     library = plan.state.zones.get(zone_key(pid, "library"), [])
-    matching = [c for c in library if _matches(plan, c, e["filter"])]
+    if e.get("sel"):  # a structured card selector (app/rules/selectors.py)
+        from app.rules import characteristics as chars
+
+        sel = selectors.from_key(e["sel"])
+        matching = [c for c in library if selectors.matches(plan, sel, plan.state.cards[c],
+                                                             chars.of(plan.state.cards[c], plan.info), pid)]
+        what = e.get("label") or "cards"
+    else:
+        matching = [c for c in library if _matches(plan, c, e["filter"])]
+        what = e["filter"].replace("_", " ")
+    most = _amount(plan, ctx, e.get("max", 1))
     options = [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in matching]
-    decide(plan, player=pid, kind="choose_cards", prompt=f"Search your library ({e['filter'].replace('_', ' ')})",
-           options=options, min_choices=0, max_choices=min(1, len(options)), resume={"step": "search", "ctx": ctx, "e": e})
+    # 701.19b: a search for cards with a stated quality may find fewer (or none)
+    decide(plan, player=pid, kind="choose_cards", prompt=f"Search your library ({what})",
+           options=options, min_choices=0, max_choices=min(most, len(options)), resume={"step": "search", "ctx": ctx, "e": e})
     return False
 
 
@@ -857,13 +868,21 @@ def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
     for cid in chosen:
         if e.get("reveal"):
             plan.do({"type": "reveal", "card_ids": [cid]}, actor=pid)  # to everyone
-        if e["to"] == "hand":
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "hand"}}, actor=pid)
-        else:
+        if e["to"] in ("hand", "graveyard", "exile"):
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": e["to"]}}, actor=pid)
+        elif e["to"] in ("battlefield", "battlefield_tapped"):
             entering.append({"card": cid, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped"})
     if entering and not attachments.enter(plan, entering, ctx, shuffle=pid):  # an Aura chooses what it enchants (303.4f)
         return
-    plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
+    before = list(plan.state.zones.get(zone_key(pid, "library"), []))
+    shuffled = plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
+    if e["to"] == "top":  # "then shuffle and put that card on top": follow it through the shuffle's new ids
+        r = getattr(shuffled, "r", None)
+        for cid in chosen:
+            if r is None or cid not in before:
+                continue
+            new_id = r.new_ids[r.perm.index(before.index(cid))]
+            plan.do({"type": "move", "card_ids": [new_id], "to": {"player": pid, "zone": "library"}, "index": 0}, actor=pid)
     continue_effects(plan, ctx)
 
 

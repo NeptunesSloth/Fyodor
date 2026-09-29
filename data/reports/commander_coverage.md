@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 182 · PARTIAL: 3319 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 183 · PARTIAL: 3318 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -1464,7 +1464,7 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ When Cloud enters, search your library for an Equipment card, reveal it, put it into your hand, then shuffle.
+- ✓ When Cloud enters, search your library for an Equipment card, reveal it, put it into your hand, then shuffle.
 - ✗ As long as Cloud is equipped, if a triggered ability of Cloud or an Equipment attached to it triggers, that ability triggers an additional time.
 
 ### Phelia, Exuberant Shepherd — PARTIAL

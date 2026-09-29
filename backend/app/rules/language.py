@@ -126,6 +126,32 @@ def _subject(m: re.Match[str]) -> tuple[str, str | None]:
     return _PLAYER_GROUPS[s], None
 
 
+_SEARCH = re.compile(
+    rf"search your library for (?:(?P<upto>up to) )?(?P<n>{AMT}) (?P<sel>.+?), "
+    r"(?:(?P<reveal>reveal (?:it|them|that card|those cards)), )?"
+    r"(?:(?:put (?:it|them|that card|those cards) (?P<dest>into your hand|onto the battlefield tapped|onto the battlefield|"
+    r"into your graveyard)|(?P<exile>exile (?:it|them|that card))), then shuffle"
+    r"|then shuffle and put (?:that card|it) on top)")
+_DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
+          "into your graveyard": "graveyard"}
+
+
+def _search(text: str) -> tuple[Effects, str | None] | None:
+    """701.19: "Search your library for [up to N] [card selector], [reveal it,] put it [where], then
+    shuffle" (or "…, reveal it, then shuffle and put that card on top")."""
+    m = _SEARCH.fullmatch(text)
+    if not m:
+        return None
+    sel = selectors.parse(m["sel"])
+    if sel is None or sel.player is not None or (not sel.card and m["sel"] not in ("a plains", "an island")):
+        raise _Fail
+    sel = selectors.replace(sel, zones=("library",), zone_owner="you", card=True)
+    n = _amount(m["n"])
+    to = "top" if m["dest"] is None and m["exile"] is None else ("exile" if m["exile"] else _DESTS[m["dest"]])
+    return [{"do": "search", "who": "you", "sel": sel.key(), "label": m["sel"], "max": n,
+             "to": to, "reveal": bool(m["reveal"]) or to == "top"}], None
+
+
 def parse_sentence(text: str) -> tuple[Effects, str | None] | None:
     try:
         return _parse(text.strip())
@@ -134,6 +160,9 @@ def parse_sentence(text: str) -> tuple[Effects, str | None] | None:
 
 
 def _parse(text: str) -> tuple[Effects, str | None]:
+    found = _search(text)
+    if found is not None:
+        return found
     text, rider = _with_rider(text)
     # -- players ------------------------------------------------------------------------------
     m = re.fullmatch(_SUBJ + rf"draws? (?P<n>{AMT}) cards?", text)

@@ -1,20 +1,20 @@
 {
- "generated_at": "2026-09-29 19:21",
+ "generated_at": "2026-09-29 19:24",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32116,
  "commander_banned": 83,
  "levels": {
-  "FULL": 7042,
-  "PARTIAL": 25026,
+  "FULL": 7179,
+  "PARTIAL": 24889,
   "REVIEW": 0,
   "MANUAL": 48
  },
  "possible_commanders": 3501,
  "commander_levels": {
-  "FULL": 182,
-  "PARTIAL": 3319,
+  "FULL": 183,
+  "PARTIAL": 3318,
   "REVIEW": 0,
   "MANUAL": 0
  },
@@ -30,38 +30,38 @@
  },
  "by_type": {
   "Creature": {
-   "FULL": 4266,
-   "PARTIAL": 13655,
+   "FULL": 4338,
+   "PARTIAL": 13583,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Artifact": {
-   "FULL": 740,
-   "PARTIAL": 2853,
+   "FULL": 756,
+   "PARTIAL": 2837,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Enchantment": {
-   "FULL": 447,
-   "PARTIAL": 3200,
+   "FULL": 448,
+   "PARTIAL": 3199,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Sorcery": {
-   "FULL": 622,
-   "PARTIAL": 2946,
+   "FULL": 654,
+   "PARTIAL": 2914,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Instant": {
-   "FULL": 903,
-   "PARTIAL": 2851,
+   "FULL": 915,
+   "PARTIAL": 2839,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Land": {
-   "FULL": 477,
-   "PARTIAL": 735,
+   "FULL": 493,
+   "PARTIAL": 719,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -80,8 +80,8 @@
  },
  "by_keyword": {
   "flying": {
-   "FULL": 838,
-   "PARTIAL": 2325,
+   "FULL": 842,
+   "PARTIAL": 2321,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -92,8 +92,8 @@
    "MANUAL": 0
   },
   "trample": {
-   "FULL": 213,
-   "PARTIAL": 780,
+   "FULL": 214,
+   "PARTIAL": 779,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -110,8 +110,8 @@
    "MANUAL": 1
   },
   "flash": {
-   "FULL": 161,
-   "PARTIAL": 447,
+   "FULL": 162,
+   "PARTIAL": 446,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -134,8 +134,8 @@
    "MANUAL": 1
   },
   "reach": {
-   "FULL": 125,
-   "PARTIAL": 298,
+   "FULL": 127,
+   "PARTIAL": 296,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -146,8 +146,8 @@
    "MANUAL": 0
   },
   "cycling": {
-   "FULL": 200,
-   "PARTIAL": 194,
+   "FULL": 205,
+   "PARTIAL": 189,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -158,8 +158,8 @@
    "MANUAL": 1
   },
   "first strike": {
-   "FULL": 117,
-   "PARTIAL": 257,
+   "FULL": 120,
+   "PARTIAL": 254,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -176,14 +176,14 @@
    "MANUAL": 1
   },
   "deathtouch": {
-   "FULL": 91,
-   "PARTIAL": 236,
+   "FULL": 92,
+   "PARTIAL": 235,
    "REVIEW": 0,
    "MANUAL": 2
   },
   "defender": {
-   "FULL": 104,
-   "PARTIAL": 204,
+   "FULL": 106,
+   "PARTIAL": 202,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -260,8 +260,8 @@
    "MANUAL": 0
   },
   "devoid": {
-   "FULL": 27,
-   "PARTIAL": 105,
+   "FULL": 28,
+   "PARTIAL": 104,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -278,8 +278,8 @@
    "MANUAL": 0
   },
   "landwalk": {
-   "FULL": 82,
-   "PARTIAL": 46,
+   "FULL": 84,
+   "PARTIAL": 44,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -296,8 +296,8 @@
    "MANUAL": 1
   },
   "convoke": {
-   "FULL": 53,
-   "PARTIAL": 51,
+   "FULL": 54,
+   "PARTIAL": 50,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -404,8 +404,8 @@
    "MANUAL": 0
   },
   "unearth": {
-   "FULL": 27,
-   "PARTIAL": 29,
+   "FULL": 28,
+   "PARTIAL": 28,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -470,14 +470,14 @@
    "MANUAL": 0
   },
   "swampwalk": {
-   "FULL": 29,
-   "PARTIAL": 12,
+   "FULL": 30,
+   "PARTIAL": 11,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "fear": {
-   "FULL": 19,
-   "PARTIAL": 21,
+   "FULL": 22,
+   "PARTIAL": 18,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -542,8 +542,8 @@
    "MANUAL": 1
   },
   "toxic": {
-   "FULL": 12,
-   "PARTIAL": 25,
+   "FULL": 13,
+   "PARTIAL": 24,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -626,8 +626,8 @@
    "MANUAL": 0
   },
   "islandwalk": {
-   "FULL": 15,
-   "PARTIAL": 19,
+   "FULL": 16,
+   "PARTIAL": 18,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -662,8 +662,8 @@
    "MANUAL": 0
   },
   "storm": {
-   "FULL": 18,
-   "PARTIAL": 15,
+   "FULL": 20,
+   "PARTIAL": 13,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -994,14 +994,14 @@
    "MANUAL": 0
   },
   "2x2": {
-   "FULL": 45,
-   "PARTIAL": 169,
+   "FULL": 47,
+   "PARTIAL": 167,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "2xm": {
-   "FULL": 40,
-   "PARTIAL": 148,
+   "FULL": 42,
+   "PARTIAL": 146,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1042,8 +1042,8 @@
    "MANUAL": 0
   },
   "8ed": {
-   "FULL": 40,
-   "PARTIAL": 59,
+   "FULL": 41,
+   "PARTIAL": 58,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1054,8 +1054,8 @@
    "MANUAL": 0
   },
   "a25": {
-   "FULL": 31,
-   "PARTIAL": 74,
+   "FULL": 33,
+   "PARTIAL": 72,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1084,8 +1084,8 @@
    "MANUAL": 0
   },
   "afr": {
-   "FULL": 27,
-   "PARTIAL": 215,
+   "FULL": 28,
+   "PARTIAL": 214,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1150,8 +1150,8 @@
    "MANUAL": 0
   },
   "bfz": {
-   "FULL": 51,
-   "PARTIAL": 123,
+   "FULL": 52,
+   "PARTIAL": 122,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1162,8 +1162,8 @@
    "MANUAL": 0
   },
   "blb": {
-   "FULL": 38,
-   "PARTIAL": 225,
+   "FULL": 39,
+   "PARTIAL": 224,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1174,8 +1174,8 @@
    "MANUAL": 0
   },
   "bng": {
-   "FULL": 23,
-   "PARTIAL": 97,
+   "FULL": 24,
+   "PARTIAL": 96,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1198,14 +1198,14 @@
    "MANUAL": 0
   },
   "bro": {
-   "FULL": 41,
-   "PARTIAL": 208,
+   "FULL": 42,
+   "PARTIAL": 207,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "c13": {
-   "FULL": 11,
-   "PARTIAL": 71,
+   "FULL": 12,
+   "PARTIAL": 70,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1252,8 +1252,8 @@
    "MANUAL": 0
   },
   "c21": {
-   "FULL": 14,
-   "PARTIAL": 107,
+   "FULL": 16,
+   "PARTIAL": 105,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1264,8 +1264,8 @@
    "MANUAL": 0
   },
   "chk": {
-   "FULL": 54,
-   "PARTIAL": 155,
+   "FULL": 56,
+   "PARTIAL": 153,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1276,8 +1276,8 @@
    "MANUAL": 0
   },
   "clb": {
-   "FULL": 44,
-   "PARTIAL": 419,
+   "FULL": 46,
+   "PARTIAL": 417,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1306,14 +1306,14 @@
    "MANUAL": 0
   },
   "cmm": {
-   "FULL": 98,
-   "PARTIAL": 359,
+   "FULL": 101,
+   "PARTIAL": 356,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "cmr": {
-   "FULL": 64,
-   "PARTIAL": 191,
+   "FULL": 67,
+   "PARTIAL": 188,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1336,8 +1336,8 @@
    "MANUAL": 0
   },
   "csp": {
-   "FULL": 17,
-   "PARTIAL": 94,
+   "FULL": 18,
+   "PARTIAL": 93,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1420,8 +1420,8 @@
    "MANUAL": 0
   },
   "ddr": {
-   "FULL": 12,
-   "PARTIAL": 13,
+   "FULL": 13,
+   "PARTIAL": 12,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1438,14 +1438,14 @@
    "MANUAL": 0
   },
   "ddu": {
-   "FULL": 5,
-   "PARTIAL": 15,
+   "FULL": 7,
+   "PARTIAL": 13,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "dft": {
-   "FULL": 46,
-   "PARTIAL": 213,
+   "FULL": 47,
+   "PARTIAL": 212,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1468,20 +1468,20 @@
    "MANUAL": 0
   },
   "dmc": {
-   "FULL": 10,
-   "PARTIAL": 89,
+   "FULL": 11,
+   "PARTIAL": 88,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "dmr": {
-   "FULL": 59,
-   "PARTIAL": 142,
+   "FULL": 63,
+   "PARTIAL": 138,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "dmu": {
-   "FULL": 35,
-   "PARTIAL": 179,
+   "FULL": 36,
+   "PARTIAL": 178,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1504,8 +1504,8 @@
    "MANUAL": 0
   },
   "dsc": {
-   "FULL": 33,
-   "PARTIAL": 149,
+   "FULL": 35,
+   "PARTIAL": 147,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1522,8 +1522,8 @@
    "MANUAL": 0
   },
   "dtk": {
-   "FULL": 61,
-   "PARTIAL": 105,
+   "FULL": 62,
+   "PARTIAL": 104,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1564,20 +1564,20 @@
    "MANUAL": 0
   },
   "emn": {
-   "FULL": 31,
-   "PARTIAL": 76,
+   "FULL": 32,
+   "PARTIAL": 75,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "eoc": {
-   "FULL": 28,
-   "PARTIAL": 89,
+   "FULL": 32,
+   "PARTIAL": 85,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "eoe": {
-   "FULL": 20,
-   "PARTIAL": 234,
+   "FULL": 21,
+   "PARTIAL": 233,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1588,8 +1588,8 @@
    "MANUAL": 0
   },
   "evg": {
-   "FULL": 5,
-   "PARTIAL": 17,
+   "FULL": 7,
+   "PARTIAL": 15,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1606,8 +1606,8 @@
    "MANUAL": 0
   },
   "fdn": {
-   "FULL": 145,
-   "PARTIAL": 281,
+   "FULL": 150,
+   "PARTIAL": 276,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1630,8 +1630,8 @@
    "MANUAL": 0
   },
   "fra": {
-   "FULL": 32,
-   "PARTIAL": 247,
+   "FULL": 33,
+   "PARTIAL": 246,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1708,8 +1708,8 @@
    "MANUAL": 0
   },
   "hob": {
-   "FULL": 22,
-   "PARTIAL": 166,
+   "FULL": 24,
+   "PARTIAL": 164,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1720,8 +1720,8 @@
    "MANUAL": 0
   },
   "hop": {
-   "FULL": 11,
-   "PARTIAL": 29,
+   "FULL": 13,
+   "PARTIAL": 27,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1750,14 +1750,14 @@
    "MANUAL": 0
   },
   "inr": {
-   "FULL": 51,
-   "PARTIAL": 205,
+   "FULL": 52,
+   "PARTIAL": 204,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "inv": {
-   "FULL": 63,
-   "PARTIAL": 158,
+   "FULL": 65,
+   "PARTIAL": 156,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1768,8 +1768,8 @@
    "MANUAL": 0
   },
   "j22": {
-   "FULL": 2,
-   "PARTIAL": 29,
+   "FULL": 3,
+   "PARTIAL": 28,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1834,8 +1834,8 @@
    "MANUAL": 0
   },
   "lci": {
-   "FULL": 42,
-   "PARTIAL": 232,
+   "FULL": 43,
+   "PARTIAL": 231,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1858,8 +1858,8 @@
    "MANUAL": 0
   },
   "lrw": {
-   "FULL": 29,
-   "PARTIAL": 113,
+   "FULL": 36,
+   "PARTIAL": 106,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1894,8 +1894,8 @@
    "MANUAL": 0
   },
   "m13": {
-   "FULL": 26,
-   "PARTIAL": 44,
+   "FULL": 28,
+   "PARTIAL": 42,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1984,26 +1984,26 @@
    "MANUAL": 0
   },
   "me4": {
-   "FULL": 53,
-   "PARTIAL": 139,
+   "FULL": 54,
+   "PARTIAL": 138,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "mh1": {
-   "FULL": 48,
-   "PARTIAL": 135,
+   "FULL": 51,
+   "PARTIAL": 132,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "mh2": {
-   "FULL": 53,
-   "PARTIAL": 186,
+   "FULL": 58,
+   "PARTIAL": 181,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "mh3": {
-   "FULL": 26,
-   "PARTIAL": 255,
+   "FULL": 33,
+   "PARTIAL": 248,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2044,20 +2044,20 @@
    "MANUAL": 0
   },
   "mm3": {
-   "FULL": 28,
-   "PARTIAL": 56,
+   "FULL": 30,
+   "PARTIAL": 54,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "mma": {
-   "FULL": 10,
-   "PARTIAL": 52,
+   "FULL": 11,
+   "PARTIAL": 51,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "mmq": {
-   "FULL": 41,
-   "PARTIAL": 204,
+   "FULL": 52,
+   "PARTIAL": 193,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2086,8 +2086,8 @@
    "MANUAL": 0
   },
   "msc": {
-   "FULL": 100,
-   "PARTIAL": 469,
+   "FULL": 102,
+   "PARTIAL": 467,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2098,8 +2098,8 @@
    "MANUAL": 0
   },
   "ncc": {
-   "FULL": 7,
-   "PARTIAL": 146,
+   "FULL": 9,
+   "PARTIAL": 144,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2110,14 +2110,14 @@
    "MANUAL": 0
   },
   "nem": {
-   "FULL": 19,
-   "PARTIAL": 87,
+   "FULL": 26,
+   "PARTIAL": 80,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "neo": {
-   "FULL": 22,
-   "PARTIAL": 231,
+   "FULL": 23,
+   "PARTIAL": 230,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2140,8 +2140,8 @@
    "MANUAL": 0
   },
   "ogw": {
-   "FULL": 31,
-   "PARTIAL": 91,
+   "FULL": 33,
+   "PARTIAL": 89,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2152,8 +2152,8 @@
    "MANUAL": 0
   },
   "one": {
-   "FULL": 45,
-   "PARTIAL": 199,
+   "FULL": 47,
+   "PARTIAL": 197,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2164,8 +2164,8 @@
    "MANUAL": 0
   },
   "ori": {
-   "FULL": 46,
-   "PARTIAL": 77,
+   "FULL": 48,
+   "PARTIAL": 75,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2224,14 +2224,14 @@
    "MANUAL": 0
   },
   "plst": {
-   "FULL": 6,
-   "PARTIAL": 45,
+   "FULL": 7,
+   "PARTIAL": 44,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "por": {
-   "FULL": 26,
-   "PARTIAL": 27,
+   "FULL": 27,
+   "PARTIAL": 26,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2380,8 +2380,8 @@
    "MANUAL": 0
   },
   "sos": {
-   "FULL": 39,
-   "PARTIAL": 225,
+   "FULL": 40,
+   "PARTIAL": 224,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2392,8 +2392,8 @@
    "MANUAL": 0
   },
   "spm": {
-   "FULL": 18,
-   "PARTIAL": 116,
+   "FULL": 19,
+   "PARTIAL": 115,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2404,8 +2404,8 @@
    "MANUAL": 0
   },
   "stx": {
-   "FULL": 40,
-   "PARTIAL": 180,
+   "FULL": 41,
+   "PARTIAL": 179,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2428,8 +2428,8 @@
    "MANUAL": 0
   },
   "tdc": {
-   "FULL": 41,
-   "PARTIAL": 194,
+   "FULL": 44,
+   "PARTIAL": 191,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2440,8 +2440,8 @@
    "MANUAL": 0
   },
   "thb": {
-   "FULL": 50,
-   "PARTIAL": 156,
+   "FULL": 51,
+   "PARTIAL": 155,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2452,8 +2452,8 @@
    "MANUAL": 0
   },
   "tla": {
-   "FULL": 45,
-   "PARTIAL": 235,
+   "FULL": 46,
+   "PARTIAL": 234,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2512,20 +2512,20 @@
    "MANUAL": 0
   },
   "tsp": {
-   "FULL": 23,
-   "PARTIAL": 78,
+   "FULL": 24,
+   "PARTIAL": 77,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "tsr": {
-   "FULL": 72,
-   "PARTIAL": 160,
+   "FULL": 74,
+   "PARTIAL": 158,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "uds": {
-   "FULL": 30,
-   "PARTIAL": 56,
+   "FULL": 31,
+   "PARTIAL": 55,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2548,8 +2548,8 @@
    "MANUAL": 0
   },
   "usg": {
-   "FULL": 50,
-   "PARTIAL": 116,
+   "FULL": 51,
+   "PARTIAL": 115,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2590,8 +2590,8 @@
    "MANUAL": 0
   },
   "war": {
-   "FULL": 34,
-   "PARTIAL": 119,
+   "FULL": 35,
+   "PARTIAL": 118,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2626,14 +2626,14 @@
    "MANUAL": 0
   },
   "xln": {
-   "FULL": 64,
-   "PARTIAL": 103,
+   "FULL": 65,
+   "PARTIAL": 102,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "zen": {
-   "FULL": 24,
-   "PARTIAL": 73,
+   "FULL": 25,
+   "PARTIAL": 72,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2675,7 +2675,7 @@
    "commander_cards": 367,
    "pod_cards": 0,
    "pod_commanders": 0,
-   "only_missing_piece_for": 226,
+   "only_missing_piece_for": 228,
    "examples": [
     "Saltcrusted Steppe",
     "Flywheel Racer",
@@ -2850,6 +2850,21 @@
    ]
   },
   {
+   "feature": "template:~ enters prepared.",
+   "kind": "static",
+   "commander_cards": 40,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 14,
+   "examples": [
+    "Adventurous Eater // Have a Bite",
+    "Maelstrom Artisan // Rocket Volley",
+    "Fatehold Chronologist // Peer Review",
+    "Blazing Firesinger // Seething Song",
+    "Semester Foreseer // Peer Review"
+   ]
+  },
+  {
    "feature": "template:{M}: Return ~ from your graveyard to your hand.",
    "kind": "activated",
    "commander_cards": 22,
@@ -2862,21 +2877,6 @@
     "Convenient Target",
     "Talons of Wildwood",
     "Deathless Pilot"
-   ]
-  },
-  {
-   "feature": "template:~ enters prepared.",
-   "kind": "static",
-   "commander_cards": 40,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 13,
-   "examples": [
-    "Adventurous Eater // Have a Bite",
-    "Maelstrom Artisan // Rocket Volley",
-    "Fatehold Chronologist // Peer Review",
-    "Blazing Firesinger // Seething Song",
-    "Semester Foreseer // Peer Review"
    ]
   },
   {
@@ -3060,6 +3060,21 @@
    ]
   },
   {
+   "feature": "keyword:sneak",
+   "kind": "keyword",
+   "commander_cards": 27,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 10,
+   "examples": [
+    "Turncoat Kunoichi",
+    "Michelangelo, Improviser",
+    "Donatello's Technique",
+    "Foot Ninjas",
+    "Leonardo, Leader in Blue"
+   ]
+  },
+  {
    "feature": "keyword:fading",
    "kind": "keyword",
    "commander_cards": 17,
@@ -3210,6 +3225,21 @@
    ]
   },
   {
+   "feature": "keyword:ninjutsu",
+   "kind": "keyword",
+   "commander_cards": 35,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 9,
+   "examples": [
+    "Higure, the Still Wind",
+    "Moonblade Shinobi",
+    "Mist-Syndicate Naga",
+    "Mistblade Shinobi",
+    "Spring-Leaf Avenger"
+   ]
+  },
+  {
    "feature": "keyword:warp",
    "kind": "keyword",
    "commander_cards": 31,
@@ -3222,21 +3252,6 @@
     "Loading Zone",
     "Mechanozoa",
     "Bygone Colossus"
-   ]
-  },
-  {
-   "feature": "keyword:sneak",
-   "kind": "keyword",
-   "commander_cards": 27,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 9,
-   "examples": [
-    "Turncoat Kunoichi",
-    "Michelangelo, Improviser",
-    "Donatello's Technique",
-    "Foot Ninjas",
-    "Leonardo, Leader in Blue"
    ]
   },
   {
@@ -3420,21 +3435,6 @@
    ]
   },
   {
-   "feature": "keyword:ninjutsu",
-   "kind": "keyword",
-   "commander_cards": 35,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 8,
-   "examples": [
-    "Higure, the Still Wind",
-    "Moonblade Shinobi",
-    "Mist-Syndicate Naga",
-    "Mistblade Shinobi",
-    "Spring-Leaf Avenger"
-   ]
-  },
-  {
    "feature": "keyword:mentor",
    "kind": "keyword",
    "commander_cards": 19,
@@ -3570,21 +3570,6 @@
    ]
   },
   {
-   "feature": "template:{M}, {M}: Search your library for a Rebel permanent card with mana value N or less, put it onto the battlefield, then shuffle.",
-   "kind": "activated",
-   "commander_cards": 10,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 8,
-   "examples": [
-    "Ramosian Commander",
-    "Blightspeaker",
-    "Ramosian Captain",
-    "Amrou Scout",
-    "Ramosian Sky Marshal"
-   ]
-  },
-  {
    "feature": "template:Threshold \u2014 As long as there are N or more cards in your graveyard, ~ has \u201c\u2026\u201d",
    "kind": "continuous",
    "commander_cards": 9,
@@ -3657,21 +3642,6 @@
     "Tornado Elemental",
     "Spinebiter",
     "Thorn Elemental"
-   ]
-  },
-  {
-   "feature": "template:{M}, {M}: Search your library for a Mercenary permanent card with mana value N or less, put it onto the battlefield, then shuffle.",
-   "kind": "activated",
-   "commander_cards": 9,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 8,
-   "examples": [
-    "Rathi Assassin",
-    "Cateran Persuader",
-    "Cateran Kidnappers",
-    "Rathi Intimidator",
-    "Cateran Enforcer"
    ]
   },
   {
@@ -4467,21 +4437,6 @@
     "Regal Sliver",
     "Hollowhead Sliver",
     "Spiteful Sliver"
-   ]
-  },
-  {
-   "feature": "template:When ~ enters, you may search your library for a basic land card, reveal it, then shuffle and put that card on top.",
-   "kind": "triggered",
-   "commander_cards": 6,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 6,
-   "examples": [
-    "Dune Mover",
-    "Loam Larva",
-    "Campus Guide",
-    "Giant Ladybug",
-    "Spider-Bot"
    ]
   },
   {
@@ -5667,6 +5622,51 @@
     "Savage Punch",
     "Prey Upon",
     "Prizefight"
+   ]
+  },
+  {
+   "feature": "template:When ~ enters, draw N card(s) at the beginning of the next turn's upkeep.",
+   "kind": "triggered",
+   "commander_cards": 7,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Ritual of Steel",
+    "Vampirism",
+    "Krovikan Fetish",
+    "Carrier Pigeons",
+    "Krovikan Plague"
+   ]
+  },
+  {
+   "feature": "template:When ~ enters, each player sacrifices N creature(s) of their choice.",
+   "kind": "triggered",
+   "commander_cards": 7,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Slum Reaper",
+    "Wasteland Raider",
+    "Merchant of Venom",
+    "Abyssal Gorestalker",
+    "Fleshbag Marauder"
+   ]
+  },
+  {
+   "feature": "template:Whenever ~ deals combat damage to N creature(s), tap that creature and it doesn't untap during its controller's next untap step.",
+   "kind": "triggered",
+   "commander_cards": 7,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Kashi-Tribe Warriors",
+    "Matsu-Tribe Birdstalker",
+    "Orochi Ranger",
+    "Matsu-Tribe Decoy",
+    "Frostwalk Bastion"
    ]
   }
  ],
@@ -8036,10 +8036,10 @@
    "pairing": [],
    "supported": [
     "Cast it (timing, costs, the stack)",
-    "Attack and block"
+    "Attack and block",
+    "When Cloud enters, search your library for an Equipment card, reveal it, put it into your hand, then shuffle."
    ],
    "missing": [
-    "When Cloud enters, search your library for an Equipment card, reveal it, put it into your hand, then shuffle.",
     "As long as Cloud is equipped, if a triggered ability of Cloud or an Equipment attached to it triggers, that ability triggers an additional time."
    ]
   },
@@ -10389,12 +10389,12 @@
  ],
  "quality": {
   "ability_lines": 113346,
-  "automated_lines": 76588,
-  "automated_share": "67.6%",
-  "unrecognized_clauses": 36758,
+  "automated_lines": 76769,
+  "automated_share": "67.7%",
+  "unrecognized_clauses": 36577,
   "classified_share": "97.1%",
   "unclassified_clauses": 3269,
-  "clusters": 9770
+  "clusters": 9769
  },
  "categories": {
   "MISSING MECHANIC": {
@@ -10402,12 +10402,12 @@
    "lines": 2065
   },
   "MISSING EFFECT": {
-   "cards": 10662,
-   "lines": 12779
+   "cards": 10498,
+   "lines": 12599
   },
   "MISSING SELECTOR": {
-   "cards": 3606,
-   "lines": 3826
+   "cards": 3605,
+   "lines": 3825
   },
   "MISSING TRIGGER EVENT": {
    "cards": 5855,
@@ -10446,7 +10446,7 @@
   {
    "category": "MISSING EFFECT",
    "cluster": "draw n \u2026",
-   "commander_cards": 566,
+   "commander_cards": 565,
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 51,
@@ -10476,7 +10476,7 @@
   {
    "category": "MISSING EFFECT",
    "cluster": "choose n \u2026",
-   "commander_cards": 531,
+   "commander_cards": 530,
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 45,
@@ -10549,28 +10549,13 @@
    ]
   },
   {
-   "category": "MISSING EFFECT",
-   "cluster": "search your library for \u2026",
-   "commander_cards": 423,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 32,
-   "only_missing_piece_for": 277,
-   "examples": [
-    "Safewright Quest",
-    "Thunderherd Migration",
-    "Squadron Hawk",
-    "Higure, the Still Wind"
-   ]
-  },
-  {
    "category": "MISSING CONTINUOUS EFFECT",
    "cluster": "~ gets \u00b1N/\u00b1N for each \u2026",
    "commander_cards": 115,
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 32,
-   "only_missing_piece_for": 49,
+   "only_missing_piece_for": 51,
    "examples": [
     "Nim Lasher",
     "Benalish Honor Guard",
@@ -10585,7 +10570,7 @@
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 28,
-   "only_missing_piece_for": 109,
+   "only_missing_piece_for": 111,
    "examples": [
     "Summon the School",
     "Cogwork Assembler",
@@ -10735,7 +10720,7 @@
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 21,
-   "only_missing_piece_for": 35,
+   "only_missing_piece_for": 36,
    "examples": [
     "Pompous Gadabout",
     "Long-Lost Lances",
@@ -10984,6 +10969,21 @@
    ]
   },
   {
+   "category": "MISSING EFFECT",
+   "cluster": "search your library for \u2026",
+   "commander_cards": 250,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 14,
+   "only_missing_piece_for": 146,
+   "examples": [
+    "Safewright Quest",
+    "Thunderherd Migration",
+    "Squadron Hawk",
+    "Nature's Rhythm"
+   ]
+  },
+  {
    "category": "MISSING COST",
    "cluster": "{M}, {M}, Discard N card(s)",
    "commander_cards": 79,
@@ -11029,6 +11029,21 @@
    ]
   },
   {
+   "category": "MISSING MECHANIC",
+   "cluster": "sneak",
+   "commander_cards": 27,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 14,
+   "only_missing_piece_for": 10,
+   "examples": [
+    "Turncoat Kunoichi",
+    "Michelangelo, Improviser",
+    "Donatello's Technique",
+    "Foot Ninjas"
+   ]
+  },
+  {
    "category": "MISSING EFFECT",
    "cluster": "exile ~ \u2026",
    "commander_cards": 52,
@@ -11041,21 +11056,6 @@
     "Woodland Guidance",
     "Teferi's Protection",
     "Vorinclex // The Grand Evolution"
-   ]
-  },
-  {
-   "category": "MISSING MECHANIC",
-   "cluster": "sneak",
-   "commander_cards": 27,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 14,
-   "only_missing_piece_for": 9,
-   "examples": [
-    "Turncoat Kunoichi",
-    "Michelangelo, Improviser",
-    "Donatello's Technique",
-    "Foot Ninjas"
    ]
   },
   {
@@ -11140,7 +11140,7 @@
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 13,
-   "only_missing_piece_for": 18,
+   "only_missing_piece_for": 19,
    "examples": [
     "Embraal Gear-Smasher",
     "Orcish Mechanics",
@@ -11260,7 +11260,7 @@
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 11,
-   "only_missing_piece_for": 36,
+   "only_missing_piece_for": 37,
    "examples": [
     "Rhonas's Last Stand",
     "Kasmina, Enigma Sage",
@@ -11886,11 +11886,11 @@
   {
    "category": "MISSING EFFECT",
    "cluster": "destroy target \u2026",
-   "commander_cards": 231,
+   "commander_cards": 230,
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 7,
-   "only_missing_piece_for": 131,
+   "only_missing_piece_for": 130,
    "examples": [
     "Kalitas, Bloodchief of Ghet",
     "Misfortune's Gain",
@@ -12280,7 +12280,7 @@
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 6,
-   "only_missing_piece_for": 69,
+   "only_missing_piece_for": 70,
    "examples": [
     "Saltcrusted Steppe",
     "Cabal Stronghold",
@@ -12439,6 +12439,21 @@
    ]
   },
   {
+   "category": "MISSING REPLACEMENT PATTERN",
+   "cluster": "If N or more \u00b1N/\u00b1N counter(s) would \u2026",
+   "commander_cards": 18,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 6,
+   "only_missing_piece_for": 10,
+   "examples": [
+    "Benevolent Hydra",
+    "Shang-Chi, Martial Mentor",
+    "Michelangelo, Weirdness to 11",
+    "Branching Evolution"
+   ]
+  },
+  {
    "category": "MISSING TRIGGER EVENT",
    "cluster": "Whenever you discard N card(s)(s)",
    "commander_cards": 19,
@@ -12451,21 +12466,6 @@
     "Cool but Rude",
     "Midnight Oil",
     "Brallin, Skyshark Rider"
-   ]
-  },
-  {
-   "category": "MISSING REPLACEMENT PATTERN",
-   "cluster": "If N or more \u00b1N/\u00b1N counter(s) would \u2026",
-   "commander_cards": 18,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 6,
-   "only_missing_piece_for": 9,
-   "examples": [
-    "Benevolent Hydra",
-    "Shang-Chi, Martial Mentor",
-    "Michelangelo, Weirdness to 11",
-    "Branching Evolution"
    ]
   },
   {
@@ -12696,11 +12696,11 @@
   {
    "category": "MISSING EFFECT",
    "cluster": "sacrifice n \u2026",
-   "commander_cards": 42,
+   "commander_cards": 39,
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 5,
-   "only_missing_piece_for": 23,
+   "only_missing_piece_for": 20,
    "examples": [
     "Excavating Anurid",
     "Phyrexian War Beast",
@@ -13444,6 +13444,21 @@
    ]
   },
   {
+   "category": "MISSING MECHANIC",
+   "cluster": "ninjutsu",
+   "commander_cards": 35,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 4,
+   "only_missing_piece_for": 9,
+   "examples": [
+    "Higure, the Still Wind",
+    "Moonblade Shinobi",
+    "Mist-Syndicate Naga",
+    "Mistblade Shinobi"
+   ]
+  },
+  {
    "category": "MISSING EFFECT",
    "cluster": "if there are n \u2026",
    "commander_cards": 26,
@@ -13516,21 +13531,6 @@
     "Fated Firepower",
     "Tomik, Izzet Sparkmage",
     "Angrath's Marauders"
-   ]
-  },
-  {
-   "category": "MISSING MECHANIC",
-   "cluster": "ninjutsu",
-   "commander_cards": 35,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 4,
-   "only_missing_piece_for": 8,
-   "examples": [
-    "Higure, the Still Wind",
-    "Moonblade Shinobi",
-    "Mist-Syndicate Naga",
-    "Mistblade Shinobi"
    ]
   },
   {
@@ -14155,7 +14155,7 @@
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 3,
-   "only_missing_piece_for": 18,
+   "only_missing_piece_for": 19,
    "examples": [
     "Temple Altisaur",
     "Nine Lives",
@@ -14194,6 +14194,21 @@
    ]
   },
   {
+   "category": "UNSUPPORTED ORACLE PATTERN",
+   "cluster": "~ enters prepared",
+   "commander_cards": 40,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 3,
+   "only_missing_piece_for": 14,
+   "examples": [
+    "Adventurous Eater // Have a Bite",
+    "Maelstrom Artisan // Rocket Volley",
+    "Fatehold Chronologist // Peer Review",
+    "Blazing Firesinger // Seething Song"
+   ]
+  },
+  {
    "category": "MISSING EFFECT",
    "cluster": "~ gets +n/+n until \u2026",
    "commander_cards": 17,
@@ -14206,21 +14221,6 @@
     "Hellkite Igniter",
     "Erratic Cyclops",
     "Arni, Renowned Champion"
-   ]
-  },
-  {
-   "category": "UNSUPPORTED ORACLE PATTERN",
-   "cluster": "~ enters prepared",
-   "commander_cards": 40,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 3,
-   "only_missing_piece_for": 13,
-   "examples": [
-    "Adventurous Eater // Have a Bite",
-    "Maelstrom Artisan // Rocket Volley",
-    "Fatehold Chronologist // Peer Review",
-    "Blazing Firesinger // Seething Song"
    ]
   },
   {
@@ -15243,6 +15243,21 @@
    ]
   },
   {
+   "category": "MISSING COST / PERMISSION RULE",
+   "cluster": "Spells you cast from your graveyard \u2026",
+   "commander_cards": 5,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 3,
+   "only_missing_piece_for": 2,
+   "examples": [
+    "Patrician Geist",
+    "Gravebreaker Lamia",
+    "Doc Aurlock, Grizzled Genius",
+    "Emet-Selch of the Third Seat"
+   ]
+  },
+  {
    "category": "MISSING REPLACEMENT PATTERN",
    "cluster": "Each other creature you control enters with \u2026",
    "commander_cards": 5,
@@ -15373,21 +15388,6 @@
     "Erebos, God of the Dead",
     "Knight of Dusk's Shadow",
     "Gr\u00edma Wormtongue"
-   ]
-  },
-  {
-   "category": "MISSING COST / PERMISSION RULE",
-   "cluster": "Spells you cast from your graveyard \u2026",
-   "commander_cards": 5,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 3,
-   "only_missing_piece_for": 1,
-   "examples": [
-    "Patrician Geist",
-    "Gravebreaker Lamia",
-    "Doc Aurlock, Grizzled Genius",
-    "Emet-Selch of the Third Seat"
    ]
   },
   {
@@ -15889,7 +15889,7 @@
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 2,
-   "only_missing_piece_for": 32,
+   "only_missing_piece_for": 33,
    "examples": [
     "Flywheel Racer",
     "Pit of Offerings",
@@ -16858,6 +16858,21 @@
    ]
   },
   {
+   "category": "MISSING COST",
+   "cluster": "{M}, {M}, Sacrifice an artifact",
+   "commander_cards": 9,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 2,
+   "only_missing_piece_for": 6,
+   "examples": [
+    "Tempestra, Dame of Games",
+    "Trading Post",
+    "Etherium Astrolabe",
+    "Castle Doom"
+   ]
+  },
+  {
    "category": "MANA ABILITY WORDING",
    "cluster": "{M}: Add N mana in any \u2026",
    "commander_cards": 8,
@@ -16960,21 +16975,6 @@
     "Shapers of Nature",
     "Spike Rogue",
     "Zameck Guildmage"
-   ]
-  },
-  {
-   "category": "MISSING COST",
-   "cluster": "{M}, {M}, Sacrifice an artifact",
-   "commander_cards": 9,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 2,
-   "only_missing_piece_for": 5,
-   "examples": [
-    "Tempestra, Dame of Games",
-    "Trading Post",
-    "Etherium Astrolabe",
-    "Castle Doom"
    ]
   },
   {
@@ -17920,6 +17920,21 @@
    ]
   },
   {
+   "category": "MISSING CONTINUOUS EFFECT",
+   "cluster": "Other creatures you control get \u00b1N/\u00b1N \u2026",
+   "commander_cards": 4,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 2,
+   "only_missing_piece_for": 2,
+   "examples": [
+    "Nadaar, Selfless Paladin",
+    "Kellan, the Fae-Blooded // Birthright Boon",
+    "Heavenly Blademaster",
+    "Weapons Trainer"
+   ]
+  },
+  {
    "category": "MISSING COST / PERMISSION RULE",
    "cluster": "Dragon spells you cast cost {M} \u2026",
    "commander_cards": 4,
@@ -18108,6 +18123,20 @@
    ]
   },
   {
+   "category": "MISSING TRIGGER EVENT",
+   "cluster": "Whenever ~ attacks for the first time each turn",
+   "commander_cards": 3,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 2,
+   "only_missing_piece_for": 2,
+   "examples": [
+    "Scourge of the Throne",
+    "Aurelia, the Warleader",
+    "Godo, Bandit Warlord"
+   ]
+  },
+  {
    "category": "MISSING CONTINUOUS EFFECT",
    "cluster": "Other permanents you control have indestructible",
    "commander_cards": 2,
@@ -18118,6 +18147,19 @@
    "examples": [
     "Avacyn, Angel of Hope",
     "The Walls of Ba Sing Se"
+   ]
+  },
+  {
+   "category": "MISSING EFFECT",
+   "cluster": "cast a spell with \u2026",
+   "commander_cards": 2,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 2,
+   "only_missing_piece_for": 2,
+   "examples": [
+    "Kaho, Minamo Historian",
+    "The Face of Boe"
    ]
   },
   {
@@ -18456,21 +18498,6 @@
     "Uvilda, Dean of Perfection // Nassari, Dean of Expression",
     "Quintorius Kand",
     "Nalfeshnee"
-   ]
-  },
-  {
-   "category": "MISSING CONTINUOUS EFFECT",
-   "cluster": "Other creatures you control get \u00b1N/\u00b1N \u2026",
-   "commander_cards": 4,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 2,
-   "only_missing_piece_for": 1,
-   "examples": [
-    "Nadaar, Selfless Paladin",
-    "Kellan, the Fae-Blooded // Birthright Boon",
-    "Heavenly Blademaster",
-    "Weapons Trainer"
    ]
   },
   {
@@ -18847,20 +18874,6 @@
    ]
   },
   {
-   "category": "MISSING TRIGGER EVENT",
-   "cluster": "Whenever ~ attacks for the first time each turn",
-   "commander_cards": 3,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 2,
-   "only_missing_piece_for": 1,
-   "examples": [
-    "Scourge of the Throne",
-    "Aurelia, the Warleader",
-    "Godo, Bandit Warlord"
-   ]
-  },
-  {
    "category": "UNSUPPORTED ORACLE PATTERN",
    "cluster": "If N permanent(s) entering causes a \u2026",
    "commander_cards": 3,
@@ -18938,19 +18951,6 @@
    "examples": [
     "Keskit, the Flesh Sculptor",
     "Mondrak, Glory Dominus"
-   ]
-  },
-  {
-   "category": "MISSING EFFECT",
-   "cluster": "cast a spell with \u2026",
-   "commander_cards": 2,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 2,
-   "only_missing_piece_for": 1,
-   "examples": [
-    "Kaho, Minamo Historian",
-    "The Face of Boe"
    ]
   },
   {
@@ -19276,6 +19276,19 @@
    "examples": [
     "Rat King, Pale Piper",
     "Splinter, the Mentor"
+   ]
+  },
+  {
+   "category": "UNSUPPORTED ORACLE PATTERN",
+   "cluster": "As long as ~ is equipped, \u2026",
+   "commander_cards": 2,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 2,
+   "only_missing_piece_for": 1,
+   "examples": [
+    "Cloud, Midgar Mercenary",
+    "Enkira, Hostile Scavenger"
    ]
   },
   {
@@ -20158,19 +20171,6 @@
   },
   {
    "category": "UNSUPPORTED ORACLE PATTERN",
-   "cluster": "As long as ~ is equipped, \u2026",
-   "commander_cards": 2,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 2,
-   "only_missing_piece_for": 0,
-   "examples": [
-    "Cloud, Midgar Mercenary",
-    "Enkira, Hostile Scavenger"
-   ]
-  },
-  {
-   "category": "UNSUPPORTED ORACLE PATTERN",
    "cluster": "The first instant or sorcery spell \u2026",
    "commander_cards": 2,
    "pod_cards": 0,
@@ -20338,7 +20338,7 @@
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 1,
-   "only_missing_piece_for": 30,
+   "only_missing_piece_for": 31,
    "examples": [
     "Ebon Praetor",
     "Nantuko Husk",
@@ -23481,6 +23481,20 @@
    ]
   },
   {
+   "category": "MISSING SELECTOR",
+   "cluster": "target sliver",
+   "commander_cards": 3,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 1,
+   "only_missing_piece_for": 3,
+   "examples": [
+    "Poultice Sliver",
+    "Sliver Overlord",
+    "Crypt Sliver"
+   ]
+  },
+  {
    "category": "MISSING TRIGGER EVENT",
    "cluster": "Delirium \u2014 At the beginning of your end step",
    "commander_cards": 3,
@@ -24627,20 +24641,6 @@
     "Space-Time Anomaly",
     "The Ancient One",
     "Veteran Ice Climber"
-   ]
-  },
-  {
-   "category": "MISSING SELECTOR",
-   "cluster": "target sliver",
-   "commander_cards": 3,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 1,
-   "only_missing_piece_for": 2,
-   "examples": [
-    "Poultice Sliver",
-    "Sliver Overlord",
-    "Crypt Sliver"
    ]
   },
   {
@@ -26911,6 +26911,19 @@
   },
   {
    "category": "MISSING EFFECT",
+   "cluster": "put an equipment card \u2026",
+   "commander_cards": 2,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 1,
+   "only_missing_piece_for": 1,
+   "examples": [
+    "Stoneforge Mystic",
+    "Nahiri, the Lithomancer"
+   ]
+  },
+  {
+   "category": "MISSING EFFECT",
    "cluster": "tap it \u2026",
    "commander_cards": 2,
    "pod_cards": 0,
@@ -28614,6 +28627,18 @@
   },
   {
    "category": "MISSING EFFECT",
+   "cluster": "ally creatures you control \u2026",
+   "commander_cards": 1,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 1,
+   "only_missing_piece_for": 1,
+   "examples": [
+    "General Tazri"
+   ]
+  },
+  {
+   "category": "MISSING EFFECT",
    "cluster": "as you cast spells \u2026",
    "commander_cards": 1,
    "pod_cards": 0,
@@ -28838,6 +28863,18 @@
    "only_missing_piece_for": 1,
    "examples": [
     "Living Laser"
+   ]
+  },
+  {
+   "category": "MISSING EFFECT",
+   "cluster": "for each equipment attached \u2026",
+   "commander_cards": 1,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 1,
+   "only_missing_piece_for": 1,
+   "examples": [
+    "Captain America, Liberator"
    ]
   },
   {
@@ -31334,42 +31371,6 @@
    "only_missing_piece_for": 1,
    "examples": [
     "Speedball, New Warrior"
-   ]
-  },
-  {
-   "category": "MISSING TRIGGER EVENT",
-   "cluster": "Whenever a player casts an artifact",
-   "commander_cards": 1,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 1,
-   "only_missing_piece_for": 1,
-   "examples": [
-    "April O'Neil, Human Element"
-   ]
-  },
-  {
-   "category": "MISSING TRIGGER EVENT",
-   "cluster": "Whenever a player discards N or more cards",
-   "commander_cards": 1,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 1,
-   "only_missing_piece_for": 1,
-   "examples": [
-    "Tinybones, Pocket Nuisance"
-   ]
-  },
-  {
-   "category": "MISSING TRIGGER EVENT",
-   "cluster": "Whenever a player or permanent becomes the target of an ability you control",
-   "commander_cards": 1,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 1,
-   "only_missing_piece_for": 1,
-   "examples": [
-    "Loki, God of Mischief"
    ]
   }
  ]
