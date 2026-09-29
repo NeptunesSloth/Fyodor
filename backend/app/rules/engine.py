@@ -34,6 +34,7 @@ from app.rules import (
     coverage,
     effects,
     layers,
+    optional_payment,
     reconcile,
     sba,
     scripts,
@@ -937,7 +938,9 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "proliferate": effects.resume_proliferate,
     "search": effects.resume_search,
     "discard": effects.resume_discard,
-    "pay_or_sacrifice": effects.resume_pay_or_sacrifice,
+    # optional payments as an effect (PAY / DECLINE, the objects for a part of the cost); the same
+    # step name also continues the older pay-or-sacrifice / counter-unless prompts
+    "pay_or_sacrifice": optional_payment.resume,
     "return_yours": effects.resume_return_yours,
     "explore": effects.resume_explore,
     "aura_enters": attachments.resume_aura_enters,

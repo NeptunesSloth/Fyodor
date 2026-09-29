@@ -724,7 +724,8 @@ def _parse_effects(body: str, it: str | None) -> tuple[list[dict[str, Any]], Any
     effects: list[dict[str, Any]] = []
     groups: list[dict[str, Any]] = []
     start = 0
-    for sentence in [s for s in re.split(r"(?<=\.)\s+", body) if s]:
+    sentences = [s for s in re.split(r"(?<=\.)\s+", body) if s]
+    for i, sentence in enumerate(sentences):
         text = _lower_first(sentence.rstrip(".").strip())
         prev_start, start = start, len(effects)
         if (kicked := _KICKED.match(text)) is not None:
@@ -732,6 +733,20 @@ def _parse_effects(body: str, it: str | None) -> tuple[list[dict[str, Any]], Any
             if with_kicker is None:
                 return None
             effects = with_kicker
+            continue
+        # "You may pay {2}. If you do, …" (118.12): the cost is an effect that records whether it
+        # was paid; "If you do" / "If you don't" then gates the sentence on that payment
+        if (paid := _may_pay_sentence(text, sentences[i + 1:i + 2], it, effects)) is not None:
+            effects.append(paid)
+            continue
+        if (if_do := _IF_YOU_DO.match(text)) is not None:
+            bind = _last_payment(effects)
+            inner = _clause(if_do["rest"]) if bind is not None and not if_do["rest"].startswith("you may ") else None
+            if inner is None:
+                return None
+            added = _add_groups(groups, *inner)
+            gate: dict[str, Any] = {"succeeded": bind, **({"negate": True} if if_do["neg"] else {})}
+            effects += [{"do": "only_if", "cond": gate, "skip": len(added)}, *added]
             continue
         cond_m = re.match(r"^if (?P<c>[^,]+), (?P<rest>.+)$", text)
         if cond_m:  # "If you control a Forest, draw a card." (608.2c): a condition on this sentence
@@ -765,7 +780,7 @@ def _parse_effects(body: str, it: str | None) -> tuple[list[dict[str, Any]], Any
                 effects += _add_groups(groups, found, sel)  # each word "target": its own group (115.3)
                 break
         else:
-            parsed_clause = _clause(text)
+            parsed_clause = _unless_sentence(text, effects) or _clause(text)
             if parsed_clause is None:
                 return None
             found, sel = parsed_clause
@@ -783,6 +798,83 @@ def _parse_effects(body: str, it: str | None) -> tuple[list[dict[str, Any]], Any
 
 
 _KICKED = re.compile(r"^if (?:this spell|it|~) was kicked, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$")
+
+
+# -- optional payments (118.12 / 118.12a): app/rules/optional_payment.py ------------------------------
+_IF_YOU_DO = re.compile(r"^if you (?:(?P<neg>don't)|do), (?P<rest>.+)$")
+_UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller) "
+                     r"pays? (?P<cost>.+)$")
+
+
+def _last_payment(effects: list[dict[str, Any]]) -> str | None:
+    """The binding of the most recent optional payment ("If you do" refers to it)."""
+    return next((e["bind"] for e in reversed(effects) if e["do"] == "optional_payment"), None)
+
+
+def _may_pay_sentence(text: str, following: list[str], it: str | None,
+                      effects: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """"You may [cost]." when the next sentence is "If you do, …" / "If you don't, …": the cost as
+    an optional_payment effect, bound as pay<k>. A cost about "it" is only read when "it" is this
+    object (the trigger's own source); "When you do" (a reflexive trigger, 603.12) isn't read."""
+    from app.rules import optional_payment
+
+    if not text.startswith("you may ") or not following or not re.match(r"^If you (?:do|don't), ", following[0]):
+        return None
+    phrase = text[len("you may "):]
+    if re.search(r"\bit\b", phrase) and it != "self":
+        return None
+    cost = optional_payment.cost_text(phrase)
+    if cost is None:
+        return None
+    bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
+    return {"do": "optional_payment", "who": "you", "cost": cost, "bind": bind}
+
+
+def _unless_sentence(text: str, effects: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], Any] | None:
+    """"[Effect] unless [you / that player / they / its controller] pay(s) [cost]." (118.12a): the
+    payer may pay; if they don't, the effect happens. "That player" / "they" is the effect's
+    target player or the trigger event's player; "its controller" the controller of the effect's
+    target object. Several payers ("each opponent … unless they pay") aren't read."""
+    from app.rules import optional_payment
+
+    m = _UNLESS.match(text)
+    if m is None or re.search(r"\bit\b", m["cost"]):
+        return None
+    cost = optional_payment.cost_text(m["cost"])
+    lead = _clause(m["lead"])
+    if cost is None or lead is None or not lead[0]:
+        return None
+    found, sel = lead
+    groups = _as_groups(sel)
+    who = m["who"]
+    whos = {e.get("who") for e in found}
+    group_player = bool(groups) and _player_target(groups[0]["what"])
+    if who == "you":
+        payer = "you"
+    elif who in ("its controller", "that creature's controller"):
+        if "target" not in whos or not groups or group_player is not False:
+            return None
+        payer = "target"
+    elif "target" in whos and groups and group_player:
+        payer = "target"
+    elif whos == {"event_player"}:
+        payer = "event_player"
+    else:
+        return None
+    bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
+    return [{"do": "optional_payment", "who": payer, "cost": cost, "bind": bind},
+            {"do": "only_if", "cond": {"succeeded": bind, "negate": True}, "skip": len(found)}, *found], sel
+
+
+def _player_target(what: str) -> bool | None:
+    """Is a target group's selector a player (True), an object (False), or either ("any target": None)?"""
+    from app.rules import selectors
+
+    if what in ("player", "opponent"):
+        return True
+    if what == "any" or not what:
+        return None
+    return selectors.from_key(what).player is not None if what.startswith(selectors.PREFIX) else False
 
 
 def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start: int) -> list[dict[str, Any]] | None:

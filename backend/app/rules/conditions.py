@@ -85,7 +85,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if "succeeded" in cond:  # "If you do": that payment (by its binding) was made in full (118.12)
         from app.rules import context
 
-        return context.succeeded(ctx, cond["succeeded"])
+        ok = context.succeeded(ctx, cond["succeeded"])
+        return not ok if cond.get("negate") else ok  # "If you don't" / "… unless … pays" (118.12a)
     v = cond["value"]
     n = cond["n"]
     if cond.get("per_opponent"):
