@@ -6,6 +6,8 @@ the next time the engine acts, so the sandbox never fights the players mid-edit.
 
 from __future__ import annotations
 
+import re
+
 from app.game.rules_state import Decision, DecisionOption
 from app.game.state import CardInstance
 from app.rules.characteristics import Characteristics
@@ -52,18 +54,20 @@ class Found:
         self.vanishing: list[CardInstance] = []  # tokens outside the battlefield (704.5d)
         self.annihilate: list[tuple[CardInstance, int]] = []
         self.dying: list[tuple[CardInstance, str]] = []
+        self.unattach: list[tuple[CardInstance, str]] = []
 
     def visible(self) -> bool:
-        return bool(self.losers or self.annihilate or self.dying)
+        return bool(self.losers or self.annihilate or self.dying or self.unattach)
 
     def fingerprint(self) -> str:
         return "|".join([*(f"L{p}" for p, _ in self.losers), *(f"D{c.id}:{why}" for c, why in self.dying),
-                         *(f"A{c.id}:{n}" for c, n in self.annihilate)])
+                         *(f"A{c.id}:{n}" for c, n in self.annihilate), *(f"U{c.id}" for c, _ in self.unattach)])
 
     def summary(self, plan: Plan) -> str:
         parts = [f"{plan.name(p)} loses ({why})" for p, why in self.losers]
         parts += [f"{c.name} dies ({why})" for c, why in self.dying]
         parts += [f"{c.name}: +1/+1 and -1/-1 counters cancel" for c, _ in self.annihilate]
+        parts += [f"{c.name} becomes unattached ({why})" for c, why in self.unattach]
         return "; ".join(parts)
 
 
@@ -105,7 +109,56 @@ def find(plan: Plan) -> Found:
                 out.dying.append((card, "damage from a deathtouch source"))  # 704.5h
         if "Planeswalker" in ch.types and card.counters.get("loyalty", 0) <= 0:
             out.dying.append((card, "no loyalty"))  # 704.5i
+        if "Battle" in ch.types and "Siege" not in ch.subtypes and card.counters.get("defense", 0) <= 0:
+            out.dying.append((card, "no defense"))  # 704.5w (Siege battles, 704.5v, wait for triggers: M16)
+        _attachment(plan, card, ch, out)
     return out
+
+
+def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found) -> None:
+    """704.5m (Auras), 704.5n (Equipment/Fortifications), 704.5p (creatures and battles)."""
+    state = plan.state
+    host = state.cards.get(card.attached_to) if card.attached_to else None
+    if host is not None and not host.zone.endswith(":battlefield"):
+        host = None
+    if "Aura" in ch.subtypes:
+        if host is None:
+            out.dying.append((card, "an Aura attached to nothing"))
+        elif not enchant_allows(ch, plan.ch(host), host, card):
+            out.dying.append((card, "an Aura attached to an illegal object"))
+        return
+    if card.attached_to is None:
+        return
+    if ch.is_creature or "Battle" in ch.types:
+        out.unattach.append((card, "a creature or battle can't be attached"))
+    elif "Equipment" in ch.subtypes and (host is None or not plan.ch(host).is_creature):
+        out.unattach.append((card, "Equipment must be attached to a creature"))
+    elif "Fortification" in ch.subtypes and (host is None or not plan.ch(host).is_land):
+        out.unattach.append((card, "a Fortification must be attached to a land"))
+    # Other noncreature permanents "attached" on the table are usually cards tucked under a
+    # permanent by hand (a sandbox arrangement), so they are left alone (704.5p is partial).
+
+
+ENCHANT = re.compile(r"^Enchant (?P<what>[a-z ]+?)(?: you control| an opponent controls)?$", re.I)
+SIMPLE_ENCHANT = {"creature", "artifact", "land", "enchantment", "planeswalker", "permanent", "battle"}
+
+
+def enchant_allows(aura: Characteristics, host: Characteristics, host_card: CardInstance, aura_card: CardInstance) -> bool:
+    """Whether an Aura's "Enchant …" allows this host, for the simple wordings; anything else is
+    assumed legal (never destroy an Aura on a guess)."""
+    for ab in aura.abilities:
+        m = ENCHANT.match(ab.text.strip())
+        if not m:
+            continue
+        what = m.group("what").lower().strip()
+        if what not in SIMPLE_ENCHANT:
+            return True
+        if what != "permanent" and what.capitalize() not in host.types:
+            return False
+        if ab.text.lower().endswith("you control") and host_card.controller != aura_card.controller:
+            return False
+        return not (ab.text.lower().endswith("an opponent controls") and host_card.controller == aura_card.controller)
+    return True
 
 
 def _round(plan: Plan, *, confirmed: bool = False) -> bool:
@@ -134,6 +187,9 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
     for card, n in found.annihilate:
         plan.do({"type": "counter", "card_ids": [card.id], "kind": "+1/+1", "delta": -n}, actor=card.controller)
         plan.do({"type": "counter", "card_ids": [card.id], "kind": "-1/-1", "delta": -n}, actor=card.controller)
+        happened = True
+    if found.unattach:
+        plan.do({"type": "detach", "card_ids": [c.id for c, _ in found.unattach]}, actor=found.unattach[0][0].controller)
         happened = True
     if found.dying:
         # All of them die at once: one move, one event batch (704.3), with last known information.

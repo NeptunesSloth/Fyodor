@@ -1,0 +1,14 @@
+[
+  {
+    "url": "https://magic.wizards.com/en/news/announcements/reality-fracture-update-bulletin",
+    "kind": "update_bulletin",
+    "title": "Reality Fracture Update Bulletin",
+    "discovered": "2026-09-29"
+  },
+  {
+    "url": "https://magic.wizards.com/en/news/feature/reality-fracture-release-notes",
+    "kind": "release_notes",
+    "title": "Reality Fracture Release Notes",
+    "discovered": "2026-09-29"
+  }
+]
