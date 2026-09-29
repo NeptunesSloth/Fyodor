@@ -53,6 +53,8 @@ SUPPORTED_KEYWORDS: set[str] = {
     "exalted",
     # characteristic-defining (app/rules/characteristics.py changeling)
     "changeling",
+    # costs (casting._convoke_sources)
+    "convoke",
 }
 
 

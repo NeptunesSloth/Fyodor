@@ -99,3 +99,11 @@ def test_sources_can_be_given_with_the_cast(cards):
     assert tapped(s, m1, m2) == [False, True] and s.state.players["p2"].life == 37  # paid, cast, resolved by the engine
     with pytest.raises(ActionError, match="untapped mana sources you control"):
         act(s, "p1", type="cast_spell", card_id=card(s, "Fire // Ice").id, sources=[m2.id, ring.id])
+
+
+def test_generic_spends_other_colors_once_colorless_runs_out():
+    """Regression: with {C} and {G} left over for {2}, both are spent (colorless never goes negative)."""
+    from app.rules import mana as M
+
+    payment = M.solve(M.parse_cost("{2}"), {}, [M.Source("a", (("C",),)), M.Source("b", (("G",),))])
+    assert payment.delta() == {} and sorted(payment.tapped) == ["a", "b"]

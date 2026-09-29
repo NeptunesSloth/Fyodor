@@ -123,7 +123,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.48 | Offering | keyword ability | 6 | missing |
 | 702.49 | Ninjutsu | keyword ability | 35 | missing |
 | 702.50 | Epic | keyword ability | 5 | missing |
-| 702.51 | Convoke | keyword ability | 104 | missing |
+| 702.51 | Convoke | keyword ability | 104 | supported |
 | 702.52 | Dredge | keyword ability | 14 | missing |
 | 702.53 | Transmute | keyword ability | 14 | missing |
 | 702.54 | Bloodthirst | keyword ability | 23 | missing |

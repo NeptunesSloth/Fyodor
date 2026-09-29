@@ -206,5 +206,8 @@ def fixture_cards() -> list[dict[str, Any]]:
              power="4", toughness="1", colors=["U"], color_identity=["U"]),
         card("Sandblast", set_code="tst", number="L3", mana_cost="{2}{W}", cmc=3.0, type_line="Instant",
              oracle_text="Sandblast deals 5 damage to target attacking or blocking creature.", colors=["W"], color_identity=["W"]),
+        card("Stoke the Flames", set_code="tst", number="L4", mana_cost="{2}{R}{R}", cmc=4.0, type_line="Instant",
+             oracle_text="Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nStoke the Flames deals 4 damage to any target.",
+             colors=["R"], color_identity=["R"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

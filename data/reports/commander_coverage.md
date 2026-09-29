@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 87 · PARTIAL: 3414 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 88 · PARTIAL: 3413 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -1851,7 +1851,7 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Convoke
+- ✓ Convoke
 - ✗ At the beginning of each end step, if you created a token this turn, draw a card.
 
 ### Emrakul, the Promised End — PARTIAL

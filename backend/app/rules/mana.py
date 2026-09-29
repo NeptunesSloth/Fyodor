@@ -258,7 +258,7 @@ def _solve(reqs: list[tuple[str, ...]], generic: int, pool: dict[str, int], sour
         if sum(units.values()) < n:
             return None
         for _ in range(n):  # spend colourless first, then the most plentiful colour
-            k = max(units, key=lambda c: (c == "C", units[c]))
+            k = max((c for c in units if units[c] > 0), key=lambda c: (c == "C", units[c]))
             units[k] -= 1
         return {k: v for k, v in units.items() if v}, chosen
 

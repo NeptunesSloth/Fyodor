@@ -199,6 +199,37 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
             if mana_cost and ab.tap and not ab.sacrifice_self:
                 out.append(M.Source(card.id, ab.options, rank=rank + 3, abilities=(i,) * len(ab.options),
                                     activation=M.parse_cost(mana_cost)))
+    if purpose is not None and purpose.spell is not None and "convoke" in purpose.spell.keywords:
+        out = _convoke_sources(state, player, info, out)
+    return out
+
+
+CONVOKE = -1  # the "ability index" of a creature tapped for convoke (not a mana ability)
+
+
+def _convoke_sources(state: GameState, player: str, info: CardInfo, out: list[M.Source]) -> list[M.Source]:
+    """702.51 convoke: each untapped creature you control can be tapped to pay for {1} or one mana
+    of that creature's color (summoning sickness doesn't matter: it isn't a {T} ability)."""
+    from app.rules.layers import derive
+
+    by_card = {s.card_id: k for k, s in enumerate(out)}
+    for cid in state.zones.get(zone_key(player, "battlefield"), []):
+        card = state.cards[cid]
+        if card.controller != player or card.tapped:
+            continue
+        ch = derive(state, card, chars.of(card, info))
+        if not ch.is_creature:
+            continue
+        opts = tuple((c,) for c in sorted(ch.colors)) + (("C",),)
+        if cid in by_card:  # a mana creature: its mana abilities or convoke, never both
+            src = out[by_card[cid]]
+            extra = tuple(o for o in opts if o not in src.options)
+            abilities = src.abilities or (0,) * len(src.options)
+            out[by_card[cid]] = M.Source(cid, src.options + extra, sacrifice=src.sacrifice, rank=src.rank,
+                                         preferred=src.preferred, abilities=abilities + (CONVOKE,) * len(extra),
+                                         activation=src.activation)
+        else:
+            out.append(M.Source(cid, opts, rank=4, abilities=(CONVOKE,) * len(opts)))
     return out
 
 
