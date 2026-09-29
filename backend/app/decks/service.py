@@ -16,6 +16,7 @@ from app.decks.models import (
     DeckCategory,
     DeckEntry,
     DeckImportRequest,
+    DeckIn,
     DeckSource,
     Finish,
     Requested,
@@ -331,11 +332,11 @@ def merge_source(local: list[DeckEntry], snapshot: list[DeckEntry], remote: list
     return [result[k] for k in sorted(result, key=lambda k: order[k])], conflicts
 
 
-def deck_cards(deck: Deck, cards: CardRepository) -> dict[str, dict[str, Any]]:
+def deck_cards(deck: DeckIn, cards: CardRepository) -> dict[str, dict[str, Any]]:
     return cards.get_many([e.printing_id for e in deck.entries if e.printing_id])
 
 
-def validate(deck: Deck, cards: CardRepository, card_data: dict[str, dict[str, Any]] | None = None) -> list[Warning]:
+def validate(deck: DeckIn, cards: CardRepository, card_data: dict[str, dict[str, Any]] | None = None) -> list[Warning]:
     """Advisory checks only. The table never refuses to start a game because of these."""
     data = card_data if card_data is not None else deck_cards(deck, cards)
     warnings: list[Warning] = []
