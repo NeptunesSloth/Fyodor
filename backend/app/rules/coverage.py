@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.rules import cards as scripts
+from app.rules import protection
 from app.rules import scripts as templates
 from app.rules.characteristics import Characteristics, printed_from_data
 from app.rules.mana import parse_mana_ability
@@ -53,6 +54,8 @@ _MANA_CYCLING = re.compile(r"(?:(?:basic )?[a-z]+)?cycling (?:\{[^}]+\})+")
 
 
 def _keyword_supported(kw: str, line: str) -> bool:
+    if kw == "protection":  # DEBT for the qualities app/rules/protection.py understands
+        return protection.supported(line)
     if kw.endswith("cycling"):
         return _MANA_CYCLING.fullmatch(line.strip().rstrip(".").lower()) is not None
     return kw in SUPPORTED_KEYWORDS

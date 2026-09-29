@@ -15,7 +15,7 @@ from tests.test_rules_effects import run_until
 SPELLS = [(1, "Shivan Reef"), (1, "Sungrass Prairie"), (1, "Ancient Ziggurat"), (1, "Vivid Marsh"), (1, "Sol Grail"),
           (1, "Blightsoil Druid"), (1, "Tainted Isle"), (1, "Reflecting Pool"), (1, "Grizzly Bears"), (1, "Swamp"),
           (1, "Forest"), (1, "Mountain"), (1, "Lightning Bolt"), (1, "Sol Ring"), (1, "Barren Moor"),
-          (1, "Twisted Abomination")]
+          (1, "Twisted Abomination"), (1, "Pyroclasm")]
 LIBRARY = [(8, "Island")]  # stays in the library (draws later in the game)
 
 

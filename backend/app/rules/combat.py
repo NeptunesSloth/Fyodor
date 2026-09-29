@@ -16,7 +16,7 @@ from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption
 from app.game.state import CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
-from app.rules import scripts
+from app.rules import protection, scripts
 from app.rules.casting import summoning_sick
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.plan import Plan, decide, live_players
@@ -72,6 +72,8 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
         return f"{ach.name} has intimidate: only artifact creatures and creatures that share a color with it can block it"
     if "skulk" in ach.keywords and _power(bch) > _power(ach):
         return f"{ach.name} has skulk: creatures with greater power can't block it"
+    if protection.protected_from(ach, bch):
+        return f"{ach.name} has protection: {bch.name} can't block it"
     return None
 
 
@@ -319,30 +321,40 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
     r = plan.rules
     out = CombatDamage()
 
-    def hit_creature(source_card: CardInstance, source: Characteristics, target: CardInstance, n: int) -> None:
+    def hit_creature(source_card: CardInstance, source: Characteristics, target: CardInstance, n: int) -> int:
+        """Assign ``n`` damage to a creature; returns how much is dealt (protection prevents it, 702.16e)."""
+        if protection.protected_from(plan.ch(target), source):
+            return 0
         out.creatures[target.id] = out.creatures.get(target.id, 0) + n
         out.dealt.append((source_card.id, target.id, n))
         if "deathtouch" in source.keywords:
             out.deathtouched.append(target.id)
+        return n
 
     def gain(source_card: CardInstance, source: Characteristics, n: int) -> None:
         if n > 0 and "lifelink" in source.keywords:
             out.lifelink[source_card.controller] = out.lifelink.get(source_card.controller, 0) + n
 
-    def hit_target(att: CardInstance, n: int) -> None:
+    def hit_target(att: CardInstance, ach: Characteristics, n: int) -> int:
         tgt = att.attacking
         if tgt is None or n <= 0:
-            return
+            return 0
         if tgt.kind == "player":
-            if tgt.id in state.players:
-                out.players[tgt.id] = out.players.get(tgt.id, 0) + n
-                out.dealt.append((att.id, tgt.id, n))
-                if att.commander_key:
-                    key = (tgt.id, att.commander_key)
-                    out.commander[key] = out.commander.get(key, 0) + n
+            if tgt.id not in state.players:
+                return 0
+            out.players[tgt.id] = out.players.get(tgt.id, 0) + n
+            out.dealt.append((att.id, tgt.id, n))
+            if att.commander_key:
+                key = (tgt.id, att.commander_key)
+                out.commander[key] = out.commander.get(key, 0) + n
         elif tgt.id in state.cards and state.cards[tgt.id].zone.endswith(":battlefield"):
+            if protection.protected_from(plan.ch(state.cards[tgt.id]), ach):
+                return 0
             out.walkers[tgt.id] = out.walkers.get(tgt.id, 0) + n
             out.dealt.append((att.id, tgt.id, n))
+        else:
+            return 0
+        return n
 
     blockers_all = [c for c in state.cards.values() if c.blocking and c.zone.endswith(":battlefield")]
     for att in attackers_on(state):
@@ -366,15 +378,12 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
                 last = i == len(blockers) - 1
                 amount = remaining if last and "trample" not in ach.keywords else min(remaining, lethal)
                 if amount > 0:
-                    hit_creature(att, ach, b, amount)
-                    dealt += amount
+                    dealt += hit_creature(att, ach, b, amount)
                     remaining -= amount
             if remaining > 0 and "trample" in ach.keywords:
-                hit_target(att, remaining)
-                dealt += remaining
+                dealt += hit_target(att, ach, remaining)
         else:
-            hit_target(att, p)
-            dealt = p
+            dealt = hit_target(att, ach, p)
         gain(att, ach, dealt)
     for b in blockers_all:
         bch = plan.ch(b)
@@ -382,8 +391,7 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
         blocked = state.cards.get(b.blocking or "")
         if blocked is None or blocked.attacking is None or not _deals(bch, rnd) or p is None or p <= 0:
             continue
-        hit_creature(b, bch, blocked, p)
-        gain(b, bch, p)
+        gain(b, bch, hit_creature(b, bch, blocked, p))
     return out
 
 

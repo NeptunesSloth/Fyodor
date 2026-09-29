@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 73 · PARTIAL: 3428 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 76 · PARTIAL: 3425 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -356,7 +356,7 @@ Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Protection
+- ✓ Protection
 - ✗ Pay 1 life, Sacrifice another creature: Put a -1/-1 counter on up to one target creature and draw a card.
 - ✗ {B}{B}, Discard a card: Proliferate.
 
@@ -1862,9 +1862,9 @@ Color identity C
 - ✓ Attack and block
 - ✓ Flying
 - ✓ Trample
+- ✓ Protection
 - ✗ This spell costs {1} less to cast for each card type among cards in your graveyard.
 - ✗ When you cast this spell, you gain control of target opponent during that player's next turn. After that turn, that player takes an extra turn.
-- ✗ Protection
 
 ### Knuckles the Echidna — PARTIAL
 
@@ -2587,8 +2587,8 @@ Color identity URG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Protection
 - ✓ Whenever you cast a creature spell, put a +1/+1 counter on Animar.
-- ✗ Protection
 - ✗ Creature spells you cast cost {1} less to cast for each +1/+1 counter on Animar.
 
 ### Lord Skitter, Sewer King — PARTIAL

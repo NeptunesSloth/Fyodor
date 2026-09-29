@@ -10,6 +10,7 @@ import re
 
 from app.game.rules_state import Decision, DecisionOption
 from app.game.state import CardInstance
+from app.rules import protection
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan, decide, live_players
 
@@ -131,6 +132,8 @@ def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found)
             out.dying.append((card, "an Aura attached to nothing"))
         elif not enchant_allows(ch, plan.ch(host), host, card):
             out.dying.append((card, "an Aura attached to an illegal object"))
+        elif protection.protected_from(plan.ch(host), ch):
+            out.dying.append((card, f"{host.name} has protection from it"))  # 702.16c, 704.5m
         return
     if card.attached_to is None:
         return
@@ -140,6 +143,9 @@ def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found)
         out.unattach.append((card, "Equipment must be attached to a creature"))
     elif "Fortification" in ch.subtypes and (host is None or not plan.ch(host).is_land):
         out.unattach.append((card, "a Fortification must be attached to a land"))
+    elif ("Equipment" in ch.subtypes or "Fortification" in ch.subtypes) and host is not None \
+            and protection.protected_from(plan.ch(host), ch):
+        out.unattach.append((card, f"{host.name} has protection from it"))  # 702.16d, 704.5n
     # Other noncreature permanents "attached" on the table are usually cards tucked under a
     # permanent by hand (a sandbox arrangement), so they are left alone (704.5p is partial).
 

@@ -25,7 +25,7 @@ from app.rules.costs import AbilityCost, parse_ability_cost
 from app.rules.oracle import AbilityText
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
 from app.rules.targets import label as target_label
-from app.rules.targets import legal_targets
+from app.rules.targets import legal_targets, source_of
 from app.rules.targets import ref as target_ref
 
 MAIN_PHASES = ("main1", "main2")
@@ -210,7 +210,7 @@ def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: di
     spec = definition.get("target") if definition else None
     if not spec:
         return []
-    legal = legal_targets(plan, spec["what"], plan.actor)
+    legal = legal_targets(plan, spec["what"], plan.actor, source_of(plan, a.card_id))
     if a.targets:
         if len(a.targets) != 1 or a.targets[0] not in legal:
             raise ActionError("That isn't a legal target")

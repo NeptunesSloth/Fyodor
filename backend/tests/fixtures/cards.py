@@ -182,5 +182,7 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Twisted Abomination", set_code="tst", number="K3", mana_cost="{5}{B}", cmc=6.0, type_line="Creature — Zombie Mutant",
              oracle_text="{B}: Regenerate Twisted Abomination.\nSwampcycling {2} ({2}, Discard this card: Search your library for a Swamp card, reveal it, put it into your hand, then shuffle.)",
              power="5", toughness="3", colors=["B"], color_identity=["B"]),
+        card("Pyroclasm", set_code="tst", number="K4", mana_cost="{1}{R}", cmc=2.0, type_line="Sorcery",
+             oracle_text="Pyroclasm deals 2 damage to each creature.", colors=["R"], color_identity=["R"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

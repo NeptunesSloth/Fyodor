@@ -16,9 +16,9 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption, StackEntry
 from app.game.state import zone_key
-from app.rules import layers
+from app.rules import layers, protection
 from app.rules.plan import Plan, decide
-from app.rules.targets import still_legal
+from app.rules.targets import source_of, still_legal
 
 Context = dict[str, Any]  # {"controller", "source_card", "source_object", "name", "targets": [...], "stack_id", "kind"}
 
@@ -86,6 +86,7 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     source = plan.state.cards.get(ctx.get("source_card") or "")
     lki = plan.rules.lki.get(ctx.get("source_object") or "")
     keywords: frozenset[str] = frozenset()
+    src_ch = plan.ch(source) if source is not None else None
     if source is not None and source.zone.endswith(":battlefield") and plan.oid(source) == ctx.get("source_object"):
         keywords = plan.ch(source).keywords
     elif lki is not None and source is not None:
@@ -95,6 +96,9 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for cid in cards:
         card = plan.state.cards[cid]
         ch = plan.ch(card)
+        if protection.protected_from(ch, src_ch):  # 702.16e: the damage is prevented
+            plan.note(f"Protection prevents the damage to {ch.name}", [cid], actor=ctx["controller"])
+            continue
         if "Planeswalker" in ch.types and not ch.is_creature:
             walkers[cid] = n
         else:
@@ -106,7 +110,7 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         dealt.append({"source": ctx.get("source_object") or "", "target": pid, "amount": n})
     if not dealt or n <= 0:
         return True
-    total = n * (len(cards) + len(players))
+    total = n * len(dealt)
     plan.do({"type": "rules_damage", "creatures": creatures, "players": {p: n for p in players}, "planeswalkers": walkers,
              "lifelink": {ctx["controller"]: total} if "lifelink" in keywords else {}, "combat": False,
              "dealt": dealt}, actor=ctx["controller"])
@@ -409,7 +413,8 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
                     "kind": entry.kind, "effects": entry.effects, "next": 0}
     spec = entry.target_spec
     if spec and entry.targets:
-        legal = [t for t in entry.targets if still_legal(plan, spec["what"], entry.controller, t)]
+        src = source_of(plan, entry.source_card)
+        legal = [t for t in entry.targets if still_legal(plan, spec["what"], entry.controller, t, src)]
         if not legal:
             plan.note(f"{entry.name or 'It'} does nothing: its target is no longer legal")
             finish(plan, ctx, countered=True)
