@@ -1560,8 +1560,8 @@ Color identity W
 - ✓ Attack and block
 - ✓ Flying
 - ✓ Vigilance
+- ✓ {T}: Add {W}. Spend this mana only to cast an Angel spell.
 - ✗ Each other Angel you control enters with an additional +1/+1 counter on it for each Angel you already control.
-- ✗ {T}: Add {W}. Spend this mana only to cast an Angel spell.
 
 ### Gwenna, Eyes of Gaea — PARTIAL
 

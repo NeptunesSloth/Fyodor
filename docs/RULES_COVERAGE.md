@@ -43,6 +43,7 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | M17b baseline (M15 engine) | 32,116 | 921 (2.9%) | 31,147 | 0 | 48 | 37 / 3,501 |
 | M16b triggers, targets, effects, layers, templates | 32,116 | 2,434 (7.6%) | 29,634 | 0 | 48 | 48 / 3,501 |
 | M16c Commander patterns (tokens, wipes, blink, tutors, monarch, looting, Treasure, proliferate) | 32,116 | 2,939 (9.2%) | 29,129 | 0 | 48 | 61 / 3,501 |
+| Mana abilities: filters, pain lands, restrictions, counters/life as costs, chosen color, lands' mana | 32,116 | 3,115 (9.7%) | 28,953 | 0 | 48 | 61 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards

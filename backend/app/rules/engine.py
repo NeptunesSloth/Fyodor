@@ -360,7 +360,8 @@ def pass_priority(plan: Plan, a: A.PassPriority) -> None:
             raise ActionError("The stack is empty")
         prefs = plan.prefs(plan.actor)
         prefs.pass_until, prefs.pass_mark = a.until, pass_mark(plan, a.until)
-    plan.rules.passed.append(plan.actor)
+    if plan.actor not in plan.rules.passed:
+        plan.rules.passed.append(plan.actor)
     plan.rules.priority = plan.after(plan.actor)
     advance(plan)
 

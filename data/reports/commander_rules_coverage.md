@@ -1,6 +1,6 @@
 # Commander rules coverage
 
-Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 06:08
+Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 11:13
 
 Only cards that are **legal in Commander today** count. Banned cards (83) are COMMANDER_BANNED and excluded.
 
@@ -10,8 +10,8 @@ Commander-legal cards: **32116**
 
 | Level | Cards | Share |
 |---|---|---|
-| FULL | 2939 | 9.2% |
-| PARTIAL | 29129 | 90.7% |
+| FULL | 3115 | 9.7% |
+| PARTIAL | 28953 | 90.2% |
 | REVIEW | 0 | 0.0% |
 | MANUAL | 48 | 0.1% |
 
@@ -27,13 +27,13 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 
 | # | Feature | Kind | Pod cards | Commander cards | Only missing piece for | Examples |
 |---|---|---|---|---|---|---|
-| 1 | mana:ability | engine | 0 | 832 | 420 | Talisman of Progress, Eldrazi Confluence, Divergent Growth |
-| 2 | keyword:cycling | keyword | 0 | 300 | 94 | Savai Triome, Deem Worthy, Curator of Mysteries |
+| 1 | mana:ability | engine | 0 | 527 | 235 | Eldrazi Confluence, Divergent Growth, Discreet Retreat |
+| 2 | keyword:cycling | keyword | 0 | 300 | 95 | Savai Triome, Deem Worthy, Curator of Mysteries |
 | 3 | keyword:protection | keyword | 0 | 186 | 82 | Valeron Outlander, Coast Watcher, Yavimaya Barbarian |
 | 4 | template:{M}: Regenerate ~. | activated | 0 | 119 | 56 | Darkling Stalker, Albino Troll, Ranger en-Vec |
 | 5 | keyword:flashback | keyword | 0 | 199 | 44 | Cabal Therapy, Scorching Missile, Alter Reality |
-| 6 | keyword:convoke | keyword | 0 | 104 | 35 | Vault Guardsman, Pack's Favor, Kavu Primarch |
-| 7 | keyword:crew | keyword | 0 | 181 | 34 | Mindlink Mech, War Balloon, Rover Blades |
+| 6 | keyword:crew | keyword | 0 | 181 | 35 | Mindlink Mech, War Balloon, Rover Blades |
+| 7 | keyword:convoke | keyword | 0 | 104 | 35 | Vault Guardsman, Pack's Favor, Kavu Primarch |
 | 8 | keyword:morph | keyword | 0 | 153 | 34 | Gravel Slinger, Willbender, Brine Elemental |
 | 9 | keyword:prowess | keyword | 0 | 93 | 32 | Soul-Scar Mage, Bedlam Reveler, Queen Brahne |
 | 10 | keyword:affinity | keyword | 0 | 74 | 29 | Refurbished Familiar, Icebreaker Kraken, Thrumming Hivepool |
@@ -47,13 +47,13 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 | 18 | template:Landfall — Whenever N land(s) you control enters, ~ gets ±N/±N until end of turn. | continuous | 0 | 27 | 21 | Akoum Hellhound, Hedron Scrabbler, Hedron Rover |
 | 19 | template:~ can block only creatures with flying. | static | 0 | 30 | 20 | Welkin Tern, Devoted Grafkeeper // Departed Soulkeeper, Cloud Elemental |
 | 20 | template:{M}: ~ gets ±N/±N until end of turn. Activate only once each turn. | activated | 0 | 28 | 20 | Mindful Biomancer, Frilled Oculus, Twinblade Slasher |
-| 21 | keyword:exalted | keyword | 0 | 34 | 19 | Aven Squire, Finest Hour, Nefarox, Overlord of Grixis |
-| 22 | template:~ enters with N ±N/±N counter(s) on it. | replacement | 0 | 163 | 18 | Yorvo, Lord of Garenbrig, Shrewd Hatchling, Benevolent Hydra |
-| 23 | keyword:suspend | keyword | 0 | 70 | 18 | Lotus Bloom, Resurgent Belief, Glimpse of Tomorrow |
-| 24 | keyword:forestwalk | keyword | 0 | 28 | 18 | Zendikar Farguide, Zodiac Rabbit, Willow Dryad |
-| 25 | keyword:cumulative upkeep | keyword | 0 | 80 | 17 | Prismatic Circle, Musician, Illusionary Terrain |
-| 26 | template:~ attacks each combat if able. | static | 0 | 63 | 17 | Phyrexian Juggernaut, Ashen Monstrosity, Bloodrock Cyclops |
-| 27 | keyword:changeling | keyword | 0 | 62 | 17 | Barkform Harvester, Guardian Gladewalker, Wings of Velis Vel |
+| 21 | keyword:suspend | keyword | 0 | 70 | 19 | Lotus Bloom, Resurgent Belief, Glimpse of Tomorrow |
+| 22 | keyword:exalted | keyword | 0 | 34 | 19 | Aven Squire, Finest Hour, Nefarox, Overlord of Grixis |
+| 23 | template:~ enters with N ±N/±N counter(s) on it. | replacement | 0 | 163 | 18 | Yorvo, Lord of Garenbrig, Shrewd Hatchling, Benevolent Hydra |
+| 24 | keyword:changeling | keyword | 0 | 62 | 18 | Barkform Harvester, Guardian Gladewalker, Wings of Velis Vel |
+| 25 | keyword:forestwalk | keyword | 0 | 28 | 18 | Zendikar Farguide, Zodiac Rabbit, Willow Dryad |
+| 26 | keyword:cumulative upkeep | keyword | 0 | 80 | 17 | Prismatic Circle, Musician, Illusionary Terrain |
+| 27 | template:~ attacks each combat if able. | static | 0 | 63 | 17 | Phyrexian Juggernaut, Ashen Monstrosity, Bloodrock Cyclops |
 | 28 | keyword:banding | keyword | 0 | 24 | 17 | Nalathni Dragon, Mishra's War Machine, Kjeldoran Escort |
 | 29 | keyword:cascade | keyword | 0 | 37 | 16 | Etherium-Horn Sorcerer, Call Forth the Tempest, Call Forth the Tempest |
 | 30 | template:~ can't be blocked. | restriction | 0 | 60 | 15 | Gilded Scuttler, Tidal Kraken, Talas Warrior |
@@ -92,12 +92,12 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 
 | Type | FULL | PARTIAL | REVIEW | MANUAL |
 |---|---|---|---|---|
-| Creature | 1990 | 15931 | 0 | 0 |
-| Artifact | 348 | 3245 | 0 | 0 |
-| Enchantment | 58 | 3589 | 0 | 0 |
+| Creature | 2042 | 15879 | 0 | 0 |
+| Artifact | 410 | 3183 | 0 | 0 |
+| Enchantment | 59 | 3588 | 0 | 0 |
 | Sorcery | 168 | 3400 | 0 | 0 |
 | Instant | 311 | 3443 | 0 | 0 |
-| Land | 283 | 929 | 0 | 0 |
+| Land | 357 | 855 | 0 | 0 |
 | Planeswalker | 0 | 311 | 0 | 0 |
 | Battle | 0 | 36 | 0 | 0 |
 

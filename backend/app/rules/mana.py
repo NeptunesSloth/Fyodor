@@ -77,9 +77,30 @@ def parse_cost(text: str | None) -> ManaCost:
 
 @dataclass(frozen=True)
 class ManaAbility:
+    """A mana ability the engine understands (CR 605).
+
+    ``options`` are the mana combinations it can add. Special entries resolved against the table:
+    ``("CHOSEN",)`` (the permanent's chosen color), ``("LANDS",)`` / ``("LANDS_OPP",)`` (a type of
+    mana that a land you control / an opponent controls could produce).
+    """
+
     tap: bool
     sacrifice_self: bool
     options: tuple[tuple[str, ...], ...]  # each option: the mana it adds, e.g. ("C", "C") or ("R",)
+    extra_cost: str = ""  # other activation costs: mana ("{1}"), "Pay N life", "Remove a … counter …"
+    riders: tuple[tuple[str, int], ...] = ()  # ("damage", n) to its controller, ("draw", n)
+    spend_only: str | None = None  # "creature", "instant_sorcery", "artifact", "ability", "type:<T>", …
+    once_per_turn: bool = False
+    condition: str | None = None  # "control:<subtype or type>"
+
+    @property
+    def penalty(self) -> int:
+        """How much using it costs beyond tapping (the payer avoids painful options first)."""
+        return sum(n for kind, n in self.riders if kind == "damage") * 3 + (5 if self.extra_cost else 0) + (4 if self.sacrifice_self else 0)
+
+
+_NUM = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+_N = r"(one|two|three|four|five|six|seven|eight|nine|ten)"
 
 
 def _effect_options(effect: str, identity: tuple[str, ...]) -> tuple[tuple[str, ...], ...] | None:
@@ -88,40 +109,97 @@ def _effect_options(effect: str, identity: tuple[str, ...]) -> tuple[tuple[str, 
         return tuple((c,) for c in COLORS)
     if effect == "Add one mana of any color in your commander's color identity":
         return tuple((c,) for c in COLORS if c in identity)
-    if effect == "Add two mana of any one color":
-        return tuple((c, c) for c in COLORS)
-    if effect == "Add two mana in any combination of colors":
-        return tuple(combinations_with_replacement(COLORS, 2))
+    if m := re.fullmatch(rf"Add {_N} mana of any one color", effect):
+        n = _NUM[m.group(1)]
+        return tuple((c,) * n for c in COLORS)
+    if m := re.fullmatch(rf"Add {_N} mana in any combination of colors", effect):
+        return tuple(combinations_with_replacement(COLORS, _NUM[m.group(1)]))
+    if m := re.fullmatch(rf"Add {_N} mana in any combination of \{{([WUBRGC])\}} and/or \{{([WUBRGC])\}}", effect):
+        return tuple(combinations_with_replacement((m.group(2), m.group(3)), _NUM[m.group(1)]))
+    if m := re.fullmatch(rf"Add {_N} mana of the chosen color", effect):
+        return (("CHOSEN",) * _NUM[m.group(1)],)
+    if m := re.fullmatch(r"Add \{([WUBRGC])\} or one mana of the chosen color", effect):
+        return ((m.group(1),), ("CHOSEN",))
+    if effect == "Add one mana of any type that a land you control could produce":
+        return (("LANDS",),)
+    if effect == "Add one mana of any color that a land an opponent controls could produce":
+        return (("LANDS_OPP",),)
     body = effect[len("Add "):]
     if not body.startswith("{"):
         return None
     # "{R} or {G}" / "{W}, {U}, or {B}" → one symbol each; "{C}{C}" / "{G}{G}" → one option
     if " or " in body or ", " in body:
         pieces = [p.strip() for p in re.split(r",? or |, ", body) if p.strip()]
-        if all(re.fullmatch(r"\{[WUBRGC]\}", p) for p in pieces):
-            return tuple((p[1],) for p in pieces)
+        if all(re.fullmatch(r"(\{[WUBRGC]\})+", p) for p in pieces):
+            return tuple(tuple(_SYMBOL.findall(p)) for p in pieces)
         return None
     if re.fullmatch(r"(\{[WUBRGC]\})+", body):
         return (tuple(_SYMBOL.findall(body)),)
     return None
 
 
+_SPEND = [
+    (re.compile(r"^Spend this mana only to cast (a |an )?creature spells?$"), "creature"),
+    (re.compile(r"^Spend this mana only to cast (an )?instant or sorcery spells?$"), "instant_sorcery"),
+    (re.compile(r"^Spend this mana only to cast (an )?artifact spells?$"), "artifact"),
+    (re.compile(r"^Spend this mana only to activate abilities$"), "ability"),
+    (re.compile(r"^Spend this mana only to cast (an )?artifact spells? or activate (an )?abilit(y|ies) of (an )?artifacts?( sources?)?$"),
+     "artifact_or_artifact_ability"),
+    (re.compile(r"^Spend this mana only to cast (a )?legendary spells?$"), "legendary"),
+    (re.compile(r"^Spend this mana only to cast (a |an )?(?P<t>[A-Z][a-z]+) (creature )?spells?$"), "type"),
+]
+_DAMAGE_YOU = re.compile(r"^(This \w+|[A-Z][^.]{0,60}?) deals (?P<n>\d+) damage to you$")
+_CONTROL = re.compile(r"^Activate only if you control an? (?P<what>[A-Z][a-z]+)$")
+_SAC_SELF = re.compile(r"^Sacrifice (this \w+|it)$")
+_EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Remove (a|an|one|two|three) [a-z]+ counters? from (this \w+|it)$")
+
+
 def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbility | None:
-    """Understand a mana ability whose cost is {T} (optionally "Sacrifice this …"). ``identity``
-    is the controller's commander color identity (for Command Tower-style wording)."""
+    """Understand a mana ability. ``identity`` is the controller's commander color identity (for
+    Command Tower-style wording). Returns None for wordings the engine doesn't carry out."""
     m = _COST_AND_EFFECT.match(text.strip())
     if not m:
         return None
     cost = [c.strip() for c in m.group("cost").split(",")]
     tap = "{T}" in cost
-    free = cost == ["{0}"]
-    sacrifice = any(re.fullmatch(r"Sacrifice (this \w+|it)", c) for c in cost)
-    if not (tap or free) or any(c not in ("{T}", "{0}") and not re.fullmatch(r"Sacrifice (this \w+|it)", c) for c in cost):
-        return None  # costs beyond {T} / {0} / sacrificing itself aren't automated yet
-    options = _effect_options(m.group("effect"), identity)
+    sacrifice = False
+    extra: list[str] = []
+    for part in cost:
+        if part in ("{T}", "{0}"):
+            continue
+        if _SAC_SELF.fullmatch(part):
+            sacrifice = True
+        elif _EXTRA.fullmatch(part) and part not in ("{Q}", "{E}", "{S}"):
+            extra.append(part)
+        else:
+            return None  # e.g. tapping other creatures, energy, exiling cards: by hand for now
+    sentences = [x.strip() for x in re.split(r"(?<=\.)\s+", m.group("effect").strip()) if x.strip()]
+    options = _effect_options(sentences[0], identity)
     if options is None:
         return None
-    return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options)
+    riders: list[tuple[str, int]] = []
+    spend_only: str | None = None
+    once = False
+    condition: str | None = None
+    for sentence in sentences[1:]:
+        s = sentence.rstrip(".")
+        if d := _DAMAGE_YOU.fullmatch(s):
+            riders.append(("damage", int(d.group("n"))))
+        elif s == "Draw a card":
+            riders.append(("draw", 1))
+        elif s == "Activate only once each turn":
+            once = True
+        elif c := _CONTROL.fullmatch(s):
+            condition = f"control:{c.group('what')}"
+        else:
+            for pattern, kind in _SPEND:
+                if sm := pattern.fullmatch(s):
+                    spend_only = f"type:{sm.group('t')}" if kind == "type" else kind
+                    break
+            else:
+                return None  # a rider the engine doesn't know: leave the ability manual
+    return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
+                       riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition)
 
 
 @dataclass(frozen=True)
@@ -131,6 +209,9 @@ class Source:
     sacrifice: bool = False
     rank: int = 0  # tie-breaker: lower is tapped first (lands before creatures, …)
     preferred: bool = False  # the player marked it PREFER: used before anything else that fits
+    # Parallel to ``options``: which of the permanent's abilities gives it (for riders and costs).
+    abilities: tuple[int, ...] = ()
+    activation: ManaCost | None = None  # a mana cost to activate (a filter), paid by other sources
 
     @property
     def flexibility(self) -> int:
@@ -144,6 +225,7 @@ class Payment:
     produced: dict[str, int] = field(default_factory=dict)  # mana added by the tapped sources
     spent: dict[str, int] = field(default_factory=dict)  # mana taken from the pool (after producing)
     life: int = 0  # life paid for Phyrexian symbols
+    used: list[tuple[str, int]] = field(default_factory=list)  # (source card, ability index) per tapped source
 
     def delta(self) -> dict[str, int]:
         out = dict(self.produced)
@@ -244,6 +326,8 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
             payment.tapped.append(src.card_id)
             if src.sacrifice:
                 payment.sacrificed.append(src.card_id)
+            if src.abilities:
+                payment.used.append((src.card_id, src.abilities[src.options.index(opt)]))
             for m in opt:
                 payment.produced[m] = payment.produced.get(m, 0) + 1
         total = {k: v for k, v in pool.items() if v > 0}

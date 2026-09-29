@@ -124,6 +124,8 @@ def require_no_decision(plan: Plan) -> None:
 
 
 def require_priority(plan: Plan) -> None:
+    if plan.rules.winner is not None:
+        raise ActionError(f"The game is over: {plan.name(plan.rules.winner)} won")
     holder = plan.rules.priority
     if holder != plan.actor:
         raise ActionError("You don't have priority" + (f" ({plan.name(holder)} does)" if holder else ""))
