@@ -191,6 +191,13 @@ _STAYING = {"enter", "attack", "block", "blocked", "tapped", "untapped", "dealt_
             "deal_combat_damage_player"}
 
 
+def _condition_says_other(cond: dict[str, Any]) -> bool:
+    from app.rules import selectors  # (a leaf module)
+
+    key = (cond.get("value") or {}).get("count")
+    return isinstance(key, str) and selectors.from_key(key).other
+
+
 def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     """What "it" / "that creature" means in a triggered ability's effect: this object when the
     trigger is about it; the object the event happened to ("Whenever another creature you control
@@ -926,8 +933,17 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 effects, target, optional = parsed
                 # 603.4: "When/Whenever/At …, if [condition], …" — an intervening "if": checked as it
                 # triggers (triggers._add) and again as it resolves (the only_if effect)
-                intervening = effects[0]["cond"] if effects and effects[0]["do"] == "only_if" \
-                    and m["body"].lower().startswith("if ") and effects[0]["skip"] == len(effects) - 1 else None
+                intervening = None
+                if body.lower().startswith("if "):
+                    if not effects or effects[0]["do"] != "only_if":
+                        return None
+                    # the whole ability, however many sentences follow: if it doesn't hold, the
+                    # ability doesn't trigger, or does nothing as it resolves
+                    intervening = effects[0]["cond"]
+                    effects = [{**effects[0], "skip": len(effects) - 1}, *effects[1:]]
+                if _trigger_antecedent(name, cond) != "self" and any(
+                        e["do"] == "only_if" and _condition_says_other(e["cond"]) for e in effects):
+                    return None  # ("other" than the object the event happened to, not ~: not modeled)
                 out = {"kind": "triggered", "trigger": name,
                        "effects": effects, "optional": optional, **target_fields(target)}
                 if cond is not None and name == "event":

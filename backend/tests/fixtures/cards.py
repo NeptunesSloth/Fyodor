@@ -306,6 +306,8 @@ def fixture_cards() -> list[dict[str, Any]]:
              colors=["G"], color_identity=["G"]),
         card("Test Shatter Charm", set_code="tst", number="R5", mana_cost="{R}", cmc=1.0, type_line="Instant",
              oracle_text="Choose one —\n• Destroy target artifact.\n• Draw a card.", colors=["R"], color_identity=["R"]),
+        card("Test Legendary Sorcery", set_code="tst", number="R8", mana_cost="{R}", cmc=1.0,
+             type_line="Legendary Sorcery", oracle_text="Draw a card.", colors=["R"], color_identity=["R"]),
         card("Test Barrage", set_code="tst", number="R6", mana_cost="{R}", cmc=1.0, type_line="Sorcery",
              oracle_text="Test Barrage deals 4 damage divided as you choose among one, two, or three targets.",
              colors=["R"], color_identity=["R"]),

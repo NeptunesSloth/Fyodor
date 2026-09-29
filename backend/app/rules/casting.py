@@ -1048,7 +1048,7 @@ def from_command_zone(card: CardInstance, player: str) -> bool:
 
 
 def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, *,
-                 check_priority: bool = True) -> str | None:
+                 check_priority: bool = True, info: CardInfo | None = None) -> str | None:
     """Why ``player`` can't cast ``card`` right now (costs aside), or None."""
     r = state.rules
     if r is None:
@@ -1061,6 +1061,9 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
         return "Fyodor doesn't know what that card is. Use the table tools."
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
+    if "Legendary" in ch.supertypes and ch.is_instant_or_sorcery and not _controls_legendary(state, player, info):
+        # 205.4e: a legendary instant or sorcery needs a legendary creature or planeswalker
+        return f"{ch.name} needs you to control a legendary creature or planeswalker"
     if "Instant" in ch.types or ch.has_flash:
         return None
     if state.turn.active_player != player:
@@ -1070,6 +1073,21 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     if state.zones.get(STACK):
         return f"{ch.name} can only be cast while the stack is empty"
     return None
+
+
+def _controls_legendary(state: GameState, player: str, info: CardInfo | None) -> bool:
+    if info is None:
+        return False  # (can't tell: refuse rather than allow a cast the rules forbid)
+    from app.rules.layers import derive
+
+    for cid in state.zones.get(zone_key(player, "battlefield"), []):
+        card = state.cards[cid]
+        if card.controller != player:
+            continue
+        ch = derive(state, card, chars.of(card, info), info)
+        if "Legendary" in ch.supertypes and (ch.is_creature or "Planeswalker" in ch.types):
+            return True
+    return False
 
 
 AFFINITY = re.compile(r"^affinity for (?P<what>[a-z ]+)$", re.IGNORECASE)
@@ -1128,7 +1146,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
     faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
     for face in faces:
         ch = chars.as_cast(card, info, face)
-        if cast_problem(state, player, card, ch, check_priority=check_priority) is None and \
+        if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is None and \
                 can_pay(state, player, spell_cost(state, card, ch, info=info), info, purpose=Purpose(spell=ch, card=card.id)):
             return True
     return False
@@ -1149,7 +1167,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if morph_cost(ch) is None or card.zone != zone_key(plan.actor, "hand"):
             raise ActionError("Only a card with morph can be cast face down from your hand")
         ch = FACE_DOWN
-    problem = cast_problem(plan.state, plan.actor, card, ch)
+    problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info)
     if problem:
         raise ActionError(problem)
     base = M.parse_cost(ch.mana_cost)
@@ -1371,7 +1389,7 @@ def suspend_info(ch: Characteristics, index: int) -> tuple[int, str] | None:
 def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int, cost_text: str) -> None:
     """702.62a: a special action — whenever you could begin to cast it, pay the suspend cost and
     exile it with N time counters. It doesn't use the stack."""
-    problem = cast_problem(plan.state, plan.actor, card, ch)
+    problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info)
     if problem:
         raise ActionError(problem)
     cost = M.parse_cost(cost_text)

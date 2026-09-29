@@ -52,8 +52,8 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
     }
     d = r.decision
     if d is not None:
-        decision: dict[str, Any] = {"id": d.id, "player": d.player, "kind": d.kind, "prompt": d.prompt,
-                                    "source_id": d.source_id}
+        decision: dict[str, Any] = {"id": d.id, "player": d.player, "kind": d.kind,
+                                    "prompt": _prompt_for(state, d.prompt, d.player, viewer), "source_id": d.source_id}
         if viewer in (d.player, OMNISCIENT):
             decision.update(options=[o.model_dump() for o in d.options], min_choices=d.min_choices,
                             max_choices=d.max_choices, rememberable=d.memory_key is not None)
@@ -63,6 +63,19 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
     if viewer in state.players and viewer in live_players(state) and not r.paused:
         out["hints"] = hints(state, viewer, info)
     return out
+
+
+def _prompt_for(state: GameState, prompt: str, decider: str, viewer: str) -> str:
+    """A decision's prompt as another player may see it: never naming a card they can't see (a
+    spell still in its caster's hand while its targets, modes or payment are chosen, 601.2a)."""
+    if viewer in (decider, OMNISCIENT) or not prompt:
+        return prompt
+    hidden = {c.name for c in state.cards.values() if c.name and len(c.name) >= 3 and not can_see(state, c, viewer)}
+    visible = {c.name for c in state.cards.values() if c.name and can_see(state, c, viewer)}
+    if any(name in prompt for name in hidden - visible):
+        who = state.players[decider].name if decider in state.players else "A player"
+        return f"{who} is making a choice"
+    return prompt
 
 
 def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, Any]]:

@@ -55,7 +55,12 @@ def parse(text: str) -> Condition | None:
                 return None
             n, op = 0, "=="
         key = _count(("another " if other else "") + m["sel"], "you control" if m["who"] == "you" else "an opponent controls")
-        return {"value": {"count": key}, "op": op, "n": n} if key else None
+        if not key:
+            return None
+        out: Condition = {"value": {"count": key}, "op": op, "n": n}
+        if m["who"] == "an opponent":
+            out["per_opponent"] = True  # one opponent must have that many, not all of them together
+        return out
     # "you have 5 or less life", "you have 30 or more life", "you have at least 10 life"
     m = re.fullmatch(r"you have (?:(?P<n>\w+) or (?P<cmp>less|more|fewer|greater)|at least (?P<least>\w+)) life", t)
     if m:
@@ -77,6 +82,11 @@ def parse(text: str) -> Condition | None:
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     v = cond["value"]
-    got = plan.state.players[ctx["controller"]].life if "life" in v else values.evaluate(plan, ctx, v)
     n = cond["n"]
+    if cond.get("per_opponent"):
+        found = selectors.candidates(plan, selectors.from_key(v["count"]), ctx["controller"], ctx.get("source_card"))
+        per = [sum(1 for c in found if plan.state.cards[c].controller == p) for p in plan.live() if p != ctx["controller"]]
+        # "an opponent controls two or more …" / "… controls no …": some one opponent does
+        return any({">=": x >= n, "<=": x <= n, "==": x == n}[cond["op"]] for x in per)
+    got = plan.state.players[ctx["controller"]].life if "life" in v else values.evaluate(plan, ctx, v)
     return {">=": got >= n, "<=": got <= n, "==": got == n}[cond["op"]]

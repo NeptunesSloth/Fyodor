@@ -20,7 +20,8 @@ def key(phrase):
     ("you control two or more Goblins", {"value": {"count": key("Goblins you control")}, "op": ">=", "n": 2}),
     ("you control no creatures", {"value": {"count": key("creatures you control")}, "op": "==", "n": 0}),
     ("you don't control a Forest", {"value": {"count": key("Forest you control")}, "op": "==", "n": 0}),
-    ("an opponent controls an artifact", {"value": {"count": key("artifact an opponent controls")}, "op": ">=", "n": 1}),
+    ("an opponent controls an artifact", {"value": {"count": key("artifact an opponent controls")}, "op": ">=", "n": 1,
+                                          "per_opponent": True}),
     ("you have 5 or less life", {"value": {"life": "you"}, "op": "<=", "n": 5}),
     ("you have no cards in hand", {"value": {"hand": "you"}, "op": "==", "n": 0}),
 ])
