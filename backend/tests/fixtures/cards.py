@@ -278,5 +278,11 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Staggershock", set_code="tst", number="P1", mana_cost="{2}{R}", cmc=3.0, type_line="Instant",
              oracle_text="Staggershock deals 2 damage to any target.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
              colors=["R"], color_identity=["R"]),
+        card("Banisher Priest", set_code="tst", number="P2", mana_cost="{1}{W}{W}", cmc=3.0, type_line="Creature — Human Cleric",
+             oracle_text="When this creature enters, exile target creature an opponent controls until this creature leaves the battlefield.",
+             power="2", toughness="2", colors=["W"], color_identity=["W"]),
+        card("Glint-Sleeve Artisan", set_code="tst", number="P3", mana_cost="{2}{W}", cmc=3.0, type_line="Creature — Dwarf Artificer",
+             oracle_text="Fabricate 1 (When this creature enters, put a +1/+1 counter on it or create a 1/1 colorless Servo artifact creature token.)",
+             power="2", toughness="2", colors=["W"], color_identity=["W"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

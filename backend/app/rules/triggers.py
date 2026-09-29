@@ -90,6 +90,10 @@ def collect(plan: Plan) -> None:
             if snap is None or plan.rules.card_mode(snap.card) == "manual" or snap.controller not in plan.live():
                 continue
             ch = _lki_characteristics(plan, snap)  # looks back in time (603.10a)
+            if snap.object_id in plan.rules.linked_exile:  # 610.3c: "… until ~ leaves" ends: they return at once
+                from app.rules.effects import return_linked
+
+                return_linked(plan, {"controller": snap.controller}, {"source": snap.object_id})
             kinds = ["ltb_self"] + (["dies_self"] if to == "graveyard" or (e.to_zone is None and snap.is_token) else [])
             for kind in kinds:
                 for i, d in abilities(plan, ch, kind):

@@ -1,13 +1,13 @@
 {
- "generated_at": "2026-09-29 16:57",
+ "generated_at": "2026-09-29 17:01",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32116,
  "commander_banned": 83,
  "levels": {
-  "FULL": 4861,
-  "PARTIAL": 27207,
+  "FULL": 4895,
+  "PARTIAL": 27173,
   "REVIEW": 0,
   "MANUAL": 48
  },
@@ -30,20 +30,20 @@
  },
  "by_type": {
   "Creature": {
-   "FULL": 3340,
-   "PARTIAL": 14581,
+   "FULL": 3359,
+   "PARTIAL": 14562,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Artifact": {
-   "FULL": 542,
-   "PARTIAL": 3051,
+   "FULL": 546,
+   "PARTIAL": 3047,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Enchantment": {
-   "FULL": 107,
-   "PARTIAL": 3540,
+   "FULL": 121,
+   "PARTIAL": 3526,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -60,8 +60,8 @@
    "MANUAL": 0
   },
   "Land": {
-   "FULL": 440,
-   "PARTIAL": 772,
+   "FULL": 441,
+   "PARTIAL": 771,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -80,8 +80,8 @@
  },
  "by_keyword": {
   "flying": {
-   "FULL": 660,
-   "PARTIAL": 2503,
+   "FULL": 662,
+   "PARTIAL": 2501,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -92,26 +92,26 @@
    "MANUAL": 0
   },
   "trample": {
-   "FULL": 183,
-   "PARTIAL": 810,
+   "FULL": 184,
+   "PARTIAL": 809,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "vigilance": {
-   "FULL": 157,
-   "PARTIAL": 568,
+   "FULL": 158,
+   "PARTIAL": 567,
    "REVIEW": 0,
    "MANUAL": 2
   },
   "haste": {
-   "FULL": 137,
-   "PARTIAL": 502,
+   "FULL": 138,
+   "PARTIAL": 501,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "flash": {
-   "FULL": 86,
-   "PARTIAL": 522,
+   "FULL": 88,
+   "PARTIAL": 520,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -128,14 +128,14 @@
    "MANUAL": 1
   },
   "scry": {
-   "FULL": 109,
-   "PARTIAL": 315,
+   "FULL": 110,
+   "PARTIAL": 314,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "reach": {
-   "FULL": 110,
-   "PARTIAL": 313,
+   "FULL": 111,
+   "PARTIAL": 312,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -146,14 +146,14 @@
    "MANUAL": 0
   },
   "cycling": {
-   "FULL": 154,
-   "PARTIAL": 240,
+   "FULL": 156,
+   "PARTIAL": 238,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "menace": {
-   "FULL": 41,
-   "PARTIAL": 340,
+   "FULL": 42,
+   "PARTIAL": 339,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -164,8 +164,8 @@
    "MANUAL": 1
   },
   "lifelink": {
-   "FULL": 67,
-   "PARTIAL": 293,
+   "FULL": 68,
+   "PARTIAL": 292,
    "REVIEW": 0,
    "MANUAL": 2
   },
@@ -218,8 +218,8 @@
    "MANUAL": 3
   },
   "ward": {
-   "FULL": 9,
-   "PARTIAL": 182,
+   "FULL": 10,
+   "PARTIAL": 181,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -242,8 +242,8 @@
    "MANUAL": 0
   },
   "food": {
-   "FULL": 16,
-   "PARTIAL": 133,
+   "FULL": 17,
+   "PARTIAL": 132,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -296,8 +296,8 @@
    "MANUAL": 1
   },
   "convoke": {
-   "FULL": 40,
-   "PARTIAL": 64,
+   "FULL": 41,
+   "PARTIAL": 63,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -320,8 +320,8 @@
    "MANUAL": 1
   },
   "typecycling": {
-   "FULL": 43,
-   "PARTIAL": 51,
+   "FULL": 44,
+   "PARTIAL": 50,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -332,8 +332,8 @@
    "MANUAL": 1
   },
   "landcycling": {
-   "FULL": 43,
-   "PARTIAL": 48,
+   "FULL": 44,
+   "PARTIAL": 47,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1000,8 +1000,8 @@
    "MANUAL": 0
   },
   "2xm": {
-   "FULL": 23,
-   "PARTIAL": 165,
+   "FULL": 26,
+   "PARTIAL": 162,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1282,8 +1282,8 @@
    "MANUAL": 0
   },
   "clu": {
-   "FULL": 55,
-   "PARTIAL": 140,
+   "FULL": 56,
+   "PARTIAL": 139,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1306,8 +1306,8 @@
    "MANUAL": 0
   },
   "cmm": {
-   "FULL": 68,
-   "PARTIAL": 389,
+   "FULL": 69,
+   "PARTIAL": 388,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1480,8 +1480,8 @@
    "MANUAL": 0
   },
   "dmu": {
-   "FULL": 26,
-   "PARTIAL": 188,
+   "FULL": 27,
+   "PARTIAL": 187,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1504,8 +1504,8 @@
    "MANUAL": 0
   },
   "dsc": {
-   "FULL": 29,
-   "PARTIAL": 153,
+   "FULL": 30,
+   "PARTIAL": 152,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1606,8 +1606,8 @@
    "MANUAL": 0
   },
   "fdn": {
-   "FULL": 102,
-   "PARTIAL": 324,
+   "FULL": 103,
+   "PARTIAL": 323,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1624,14 +1624,14 @@
    "MANUAL": 0
   },
   "fin": {
-   "FULL": 38,
-   "PARTIAL": 268,
+   "FULL": 39,
+   "PARTIAL": 267,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "fra": {
-   "FULL": 14,
-   "PARTIAL": 265,
+   "FULL": 15,
+   "PARTIAL": 264,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1714,8 +1714,8 @@
    "MANUAL": 0
   },
   "hoc": {
-   "FULL": 16,
-   "PARTIAL": 57,
+   "FULL": 17,
+   "PARTIAL": 56,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1816,8 +1816,8 @@
    "MANUAL": 0
   },
   "kld": {
-   "FULL": 39,
-   "PARTIAL": 134,
+   "FULL": 47,
+   "PARTIAL": 126,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1912,8 +1912,8 @@
    "MANUAL": 0
   },
   "m19": {
-   "FULL": 36,
-   "PARTIAL": 97,
+   "FULL": 37,
+   "PARTIAL": 96,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1924,8 +1924,8 @@
    "MANUAL": 0
   },
   "m21": {
-   "FULL": 40,
-   "PARTIAL": 148,
+   "FULL": 41,
+   "PARTIAL": 147,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2002,8 +2002,8 @@
    "MANUAL": 0
   },
   "mh3": {
-   "FULL": 17,
-   "PARTIAL": 264,
+   "FULL": 18,
+   "PARTIAL": 263,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2014,8 +2014,8 @@
    "MANUAL": 0
   },
   "mid": {
-   "FULL": 11,
-   "PARTIAL": 188,
+   "FULL": 12,
+   "PARTIAL": 187,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2032,8 +2032,8 @@
    "MANUAL": 0
   },
   "mkm": {
-   "FULL": 26,
-   "PARTIAL": 239,
+   "FULL": 27,
+   "PARTIAL": 238,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2062,14 +2062,14 @@
    "MANUAL": 0
   },
   "moc": {
-   "FULL": 15,
-   "PARTIAL": 161,
+   "FULL": 16,
+   "PARTIAL": 160,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "mom": {
-   "FULL": 26,
-   "PARTIAL": 239,
+   "FULL": 28,
+   "PARTIAL": 237,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2086,14 +2086,14 @@
    "MANUAL": 0
   },
   "msc": {
-   "FULL": 62,
-   "PARTIAL": 507,
+   "FULL": 63,
+   "PARTIAL": 506,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "msh": {
-   "FULL": 31,
-   "PARTIAL": 242,
+   "FULL": 32,
+   "PARTIAL": 241,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2428,20 +2428,20 @@
    "MANUAL": 0
   },
   "tdc": {
-   "FULL": 28,
-   "PARTIAL": 207,
+   "FULL": 29,
+   "PARTIAL": 206,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "tdm": {
-   "FULL": 28,
-   "PARTIAL": 237,
+   "FULL": 29,
+   "PARTIAL": 236,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "thb": {
-   "FULL": 28,
-   "PARTIAL": 178,
+   "FULL": 29,
+   "PARTIAL": 177,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2590,8 +2590,8 @@
    "MANUAL": 0
   },
   "war": {
-   "FULL": 20,
-   "PARTIAL": 133,
+   "FULL": 21,
+   "PARTIAL": 132,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2608,8 +2608,8 @@
    "MANUAL": 0
   },
   "woe": {
-   "FULL": 15,
-   "PARTIAL": 246,
+   "FULL": 16,
+   "PARTIAL": 245,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2820,21 +2820,6 @@
    ]
   },
   {
-   "feature": "keyword:fabricate",
-   "kind": "keyword",
-   "commander_cards": 16,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 11,
-   "examples": [
-    "Visionary Augmenter",
-    "Angel of Invention",
-    "Maulfist Squad",
-    "Ambitious Aetherborn",
-    "Marionette Apprentice"
-   ]
-  },
-  {
    "feature": "keyword:unleash",
    "kind": "keyword",
    "commander_cards": 15,
@@ -2850,6 +2835,21 @@
    ]
   },
   {
+   "feature": "template:~ can't be blocked by creatures with power N or less.",
+   "kind": "restriction",
+   "commander_cards": 32,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 10,
+   "examples": [
+    "Glinting Creeper",
+    "Dread Linnorm // Scale Deflection",
+    "Chomping Kavu",
+    "Rust-Shield Rampager",
+    "Demolition Stomper"
+   ]
+  },
+  {
    "feature": "template:Modular N",
    "kind": "static",
    "commander_cards": 23,
@@ -2862,21 +2862,6 @@
     "Arcbound Hybrid",
     "Arcbound Slith",
     "Arcbound Bruiser"
-   ]
-  },
-  {
-   "feature": "template:When ~ enters, exile target nonland permanent an opponent controls until ~ leaves the battlefield.",
-   "kind": "triggered",
-   "commander_cards": 19,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 10,
-   "examples": [
-    "Hieromancer's Cage",
-    "Journey to Oblivion",
-    "Static Net",
-    "Stormplain Detainment",
-    "Ixalan's Binding"
    ]
   },
   {
@@ -3057,21 +3042,6 @@
     "Shackles",
     "Cage of Hands",
     "Mourning"
-   ]
-  },
-  {
-   "feature": "template:~ can't be blocked by creatures with power N or less.",
-   "kind": "restriction",
-   "commander_cards": 32,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 9,
-   "examples": [
-    "Glinting Creeper",
-    "Dread Linnorm // Scale Deflection",
-    "Chomping Kavu",
-    "Rust-Shield Rampager",
-    "Demolition Stomper"
    ]
   },
   {
@@ -3300,6 +3270,21 @@
    ]
   },
   {
+   "feature": "keyword:embalm",
+   "kind": "keyword",
+   "commander_cards": 15,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 8,
+   "examples": [
+    "Heart-Piercer Manticore",
+    "Angel of Sanctions",
+    "Anointer Priest",
+    "Vizier of Many Faces",
+    "Tah-Crop Skirmisher"
+   ]
+  },
+  {
    "feature": "template:~ can block an additional creature each combat.",
    "kind": "static",
    "commander_cards": 12,
@@ -3432,21 +3417,6 @@
     "Zhao Zilong, Tiger General",
     "Sustainer of the Realm",
     "Fortress Cyclops"
-   ]
-  },
-  {
-   "feature": "template:Sliver creatures you control have \u201c\u2026\u201d",
-   "kind": "continuous",
-   "commander_cards": 8,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 8,
-   "examples": [
-    "Capricious Sliver",
-    "Lavabelly Sliver",
-    "Regal Sliver",
-    "Hollowhead Sliver",
-    "Scuttling Sliver"
    ]
   },
   {
@@ -3660,21 +3630,6 @@
    ]
   },
   {
-   "feature": "keyword:embalm",
-   "kind": "keyword",
-   "commander_cards": 15,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 7,
-   "examples": [
-    "Heart-Piercer Manticore",
-    "Angel of Sanctions",
-    "Anointer Priest",
-    "Vizier of Many Faces",
-    "Tah-Crop Skirmisher"
-   ]
-  },
-  {
    "feature": "template:{M}, Discard N card(s): Draw N card(s).",
    "kind": "activated",
    "commander_cards": 14,
@@ -3867,6 +3822,21 @@
     "Fallen Angel",
     "Phyrexian Ghoul",
     "Bloodthrone Vampire"
+   ]
+  },
+  {
+   "feature": "template:Sliver creatures you control have \u201c\u2026\u201d",
+   "kind": "continuous",
+   "commander_cards": 7,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Capricious Sliver",
+    "Lavabelly Sliver",
+    "Regal Sliver",
+    "Hollowhead Sliver",
+    "Scuttling Sliver"
    ]
   },
   {
@@ -5655,18 +5625,48 @@
    ]
   },
   {
-   "feature": "template:When ~ enters, exile target creature an opponent controls until ~ leaves the battlefield.",
-   "kind": "triggered",
-   "commander_cards": 10,
+   "feature": "template:Increment",
+   "kind": "static",
+   "commander_cards": 9,
    "pod_cards": 0,
    "pod_commanders": 0,
    "only_missing_piece_for": 4,
    "examples": [
-    "Fairgrounds Warden",
-    "On Thin Ice",
-    "Stasis Snare",
-    "Hardlight Containment",
-    "Dimensional Exile"
+    "Cuboid Colony",
+    "Pensive Professor",
+    "Topiary Lecturer",
+    "Berta, Wise Extrapolator",
+    "Hungry Graffalon"
+   ]
+  },
+  {
+   "feature": "template:Ingest",
+   "kind": "static",
+   "commander_cards": 9,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Fathom Feeder",
+    "Ruination Guide",
+    "Dominator Drone",
+    "Vile Aggregate",
+    "Salvage Drone"
+   ]
+  },
+  {
+   "feature": "template:When ~ enters, incubate N.",
+   "kind": "triggered",
+   "commander_cards": 9,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Phyrexian Awakening",
+    "Marauding Dreadship",
+    "Corruption of Towashi",
+    "Blighted Burgeoning",
+    "Converter Beast"
    ]
   }
  ],

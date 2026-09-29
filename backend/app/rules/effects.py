@@ -612,6 +612,53 @@ def return_with_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """610.3c: "exile … until ~ leaves the battlefield" — if the source already left, nothing happens."""
+    src = _cards(plan, ctx, "self")
+    if not src:
+        return True
+    cards = _cards(plan, ctx, e["who"])
+    if cards:
+        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
+        key = ctx["source_object"]
+        plan.rules.linked_exile[key] = [*plan.rules.linked_exile.get(key, []), *cards]
+    return True
+
+
+def return_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """The exiled cards return to the battlefield under their owners' control (610.3c)."""
+    for cid in plan.rules.linked_exile.pop(e["source"], []):
+        card = plan.state.cards.get(cid)
+        if card is not None and card.zone.endswith(":exile"):
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "battlefield"}}, actor=card.owner)
+    return True
+
+
+SERVO = {"name": "Servo", "power": "1", "toughness": "1", "colors": [], "type_line": "Token Artifact Creature — Servo", "text": ""}
+
+
+def fabricate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    n = e["n"]
+    me = _cards(plan, ctx, "self")
+    if not me:  # it left: only the Servos are possible (702.123b)
+        return create_token(plan, ctx, {"who": "you", "n": n, "token": SERVO})
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Fabricate {n}",
+           options=[DecisionOption(id="counters", label=f"{n} +1/+1 counter{'s' if n != 1 else ''} on it"),
+                    DecisionOption(id="servos", label=f"{n} 1/1 Servo{'s' if n != 1 else ''}")],
+           resume={"step": "fabricate", "ctx": ctx, "n": n}, source=plan.state.cards[me[0]])
+    return False
+
+
+def resume_fabricate(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, n = d.resume["ctx"], d.resume["n"]
+    me = _cards(plan, ctx, "self")
+    if chosen[0] == "counters" and me:
+        plan.do({"type": "counter", "card_ids": me, "kind": "+1/+1", "delta": n}, actor=d.player)
+    else:
+        create_token(plan, ctx, {"who": "you", "n": n, "token": SERVO})
+    continue_effects(plan, ctx)
+
+
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True  # read by destroy / destroy_all of the same spell or ability
 
@@ -763,7 +810,8 @@ PRIMITIVES = {
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
     "sacrifice": sacrifice, "explore": explore, "prevent": prevent, "mill": mill,
-    "return_with_counter": return_with_counter,
+    "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
+    "fabricate": fabricate,
 }
 
 

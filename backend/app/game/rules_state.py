@@ -332,6 +332,7 @@ class RulesState(BaseModel):
     deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
     prevention: dict[str, int] = Field(default_factory=dict)  # player / object id -> damage to prevent this turn
     regen_shields: dict[str, int] = Field(default_factory=dict)  # object id -> regeneration shields this turn
+    linked_exile: dict[str, list[str]] = Field(default_factory=dict)  # source object -> cards exiled "until it leaves"
     delayed: list[dict[str, Any]] = Field(default_factory=list)  # "at the beginning of the next end step" moves
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback

@@ -57,6 +57,9 @@ SELECTORS = {
     "target player": "player",
     "target opponent": "opponent",
     "target attacking or blocking creature": "attacking_or_blocking_creature",
+    "target nonland permanent an opponent controls": "nonland_permanent_opp",
+    "target artifact or enchantment an opponent controls": "artifact_or_enchantment_opp",
+    "target creature or planeswalker an opponent controls": "creature_or_planeswalker_opp",
     "target spell": "spell",
     "target creature spell": "creature_spell",
     "target noncreature spell": "noncreature_spell",
@@ -336,6 +339,11 @@ def uncounterable(ch: Characteristics) -> bool:
 @effect(r"mill {N} cards?")
 def _mill(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "mill", "who": "you", "n": num(m["n"])}], None
+
+
+@effect(r"exile (?P<sel>{SEL}) until ~ leaves the battlefield")
+def _exile_until(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "exile_until", "who": "target"}], SELECTORS[m["sel"]]
 
 
 @effect(r"investigate")
@@ -627,6 +635,11 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                     "kind": "triggered", "trigger": "dies_self", "optional": False, "target": None,
                     "unless_counter": "-1/-1" if kw == "persist" else "+1/+1",
                     "effects": [{"do": "return_with_counter", "counter": "-1/-1" if kw == "persist" else "+1/+1"}]}))
+            f = re.fullmatch(r"fabricate (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "fabricate" else None
+            if f:  # 702.123a: "When this permanent enters, put N +1/+1 counters on it or create N 1/1 Servos."
+                out.append((1000 + ab.index * 10 + k, {
+                    "kind": "triggered", "trigger": "enters_self", "optional": False, "target": None,
+                    "effects": [{"do": "fabricate", "n": int(f.group(1))}]}))
             m = re.fullmatch(r"soulshift (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "soulshift" else None
             if m:  # 702.46a: "When this creature dies, you may return target Spirit card with mana value N or less …"
                 out.append((1000 + ab.index * 10 + k, {
