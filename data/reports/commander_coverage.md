@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 522 · PARTIAL: 2979 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 531 · PARTIAL: 2970 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -375,7 +375,7 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Creatures you control with power 2 or less can't be blocked by creatures with power 3 or greater.
+- ✓ Creatures you control with power 2 or less can't be blocked by creatures with power 3 or greater.
 - ✗ If a triggered ability of a creature you control with power 2 or less triggers, that ability triggers an additional time.
 
 ### Kodama of the West Tree — PARTIAL
