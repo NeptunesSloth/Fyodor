@@ -8,13 +8,18 @@ resolver continues from there when it is answered.
 Primitives today: draw, gain_life, lose_life, damage (noncombat, as damage events; lifelink and
 deathtouch apply), pump / grant (continuous effects until end of turn, layer 7c / 6), destroy
 (indestructible respected), exile, bounce, tap, untap, scry, surveil, player_counter.
+
+A primitive given a binding name by the grammar (``"as": "e0"``) records the objects it acted on
+in the resolution context (``_remember`` before it changes them, ``_moved`` after it moved them:
+app/rules/context.py), so a later instruction of the same resolution can name them — "its
+controller", "its toughness" (608.2h: as they were), "return it" (400.7j: where it went).
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from app.game.rules_state import DecisionOption, StackEntry
+from app.game.rules_state import DecisionOption, ObjectRef, StackEntry
 from app.game.state import zone_key
 from app.rules import context, layers, protection, regeneration, selectors, values
 from app.rules.plan import Plan, decide
@@ -110,6 +115,27 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     return []
 
 
+# -- within-resolution references (app/rules/context.py) ---------------------------------------
+def _remember(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> list[ObjectRef]:
+    """Record the objects an effect is about to act on as its binding ("as": given by the grammar
+    when a later instruction refers back to them: "its controller", "it", "cards exiled this
+    way"). Recorded BEFORE the effect changes them, so the binding knows the objects as they were
+    (608.2h: last known information once they leave). Returns the refs for ``_moved``."""
+    name = e.get("as")
+    if not name:
+        return []
+    context.bind_objects(plan, ctx, name, cards)
+    return [r for r in (context.ref_of(plan, c) for c in cards) if r is not None]
+
+
+def _moved(plan: Plan, ctx: Context, e: dict[str, Any], before: list[ObjectRef]) -> None:
+    """AFTER an effect moved its objects: rebind to what each became where it went (400.7j: a
+    later instruction can find it in a public zone; 111.8 / 111.7: a token that left has ceased to
+    exist and is found nowhere), keeping what it was for information about it (608.2h)."""
+    if e.get("as"):
+        context.bind_moved(plan, ctx, e["as"], before)
+
+
 def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     want = _amount(plan, ctx, e["n"])
     for pid in _players(plan, ctx, e["who"]):
@@ -148,6 +174,7 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return shares.get(key, 0) if shares is not None else n
     players = _players(plan, ctx, e["who"])
     cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
     source = plan.state.cards.get(ctx.get("source_card") or "")
     lki = plan.rules.lki.get(ctx.get("source_object") or "")
     keywords: frozenset[str] = frozenset()
@@ -196,7 +223,9 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def pump(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    affected = [plan.oid(c) for c in _cards(plan, ctx, e["who"])]  # locked in now (611.2c)
+    cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
+    affected = [plan.oid(c) for c in cards]  # locked in now (611.2c)
     if affected:
         layers.add_effect(plan, affected=affected, layer="7c", source=ctx.get("source_object"), controller=ctx["controller"],
                           power=e["p"], toughness=e["t"], label=f"{e['p']:+d}/{e['t']:+d} until end of turn ({ctx.get('name', '')})")
@@ -206,6 +235,7 @@ def pump(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
     if cards:
         layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="6", source=ctx.get("source_object"),
                           controller=ctx["controller"], add_keywords=tuple(e["keywords"]),
@@ -229,6 +259,7 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     A named object (target, "it", self, host) stays that one object (a new object isn't it, 400.7)."""
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
+    _remember(plan, ctx, e, cards)
     group = who.startswith(selectors.PREFIX)
     if cards or group:
         layers.add_effect(plan, affected=[] if group else [plan.oid(c) for c in cards], layer="6",
@@ -251,17 +282,23 @@ def _can_regenerate(ctx: Context) -> bool:
 
 
 def destroy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    # The binding is every object the instruction was about ("Destroy target creature. Its
+    # controller …" means the target's controller even if it was indestructible or regenerated)
+    before = _remember(plan, ctx, e, _cards(plan, ctx, e["who"]))
     doomed = [c for c in _cards(plan, ctx, e["who"]) if "indestructible" not in plan.ch(plan.state.cards[c]).keywords]
     doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx))
     if doomed:
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+    _moved(plan, ctx, e, before)
     return True
 
 
 def exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards = _cards(plan, ctx, e["who"])
+    before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
+    _moved(plan, ctx, e, before)
     return True
 
 
@@ -269,12 +306,15 @@ def bounce(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """Return to the owner's hand: all of them at once, one move and one event batch (a "one or
     more" trigger fires once, 603.2c). The zone "hand" goes to each card's owner."""
     cards = _cards(plan, ctx, e["who"])
+    before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "hand"}}, actor=ctx["controller"])
+    _moved(plan, ctx, e, before)  # (a hidden zone: only what they were is kept, 608.2h)
     return True
 
 
 def tap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    _remember(plan, ctx, e, _cards(plan, ctx, e["who"]))
     cards = [c for c in _cards(plan, ctx, e["who"]) if not plan.state.cards[c].tapped]
     if cards:
         plan.do({"type": "tap", "card_ids": cards, "tapped": True}, actor=ctx["controller"])
@@ -282,6 +322,7 @@ def tap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def untap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    _remember(plan, ctx, e, _cards(plan, ctx, e["who"]))
     cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].tapped]
     if cards:
         plan.do({"type": "tap", "card_ids": cards, "tapped": False}, actor=ctx["controller"])
@@ -324,18 +365,24 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     t = e["token"]
     count = _amount(plan, ctx, e["n"])
     if count <= 0:
+        _remember(plan, ctx, e, [])
         return True
+    made: list[str] = []
     for pid in _players(plan, ctx, e["who"]):
-        plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False,
-                 "source_id": ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None,
-                 "token": {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
-                           "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}},
-                actor=pid)
+        created = plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False,
+                           "source_id": ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None,
+                           "token": {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
+                                     "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}},
+                          actor=pid)
+        new_ids = getattr(created, "r", None)
+        made += list(new_ids.ids) if new_ids is not None else []
+    _remember(plan, ctx, e, made)  # the tokens, as the new objects they are ("they gain haste")
     return True
 
 
 def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
     shares = divided(ctx, e)
     if shares is not None:  # "distribute N counters among …" (601.2d): each target its share
         for cid in cards:
@@ -351,7 +398,9 @@ def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def remove_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Remove N … counters from …" (as many as there are, 122.8)."""
     n = _amount(plan, ctx, e["n"])
-    for cid in _cards(plan, ctx, e["who"]):
+    cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
+    for cid in cards:
         have = plan.state.cards[cid].counters.get(e["kind"], 0)
         if have and n:
             plan.do({"type": "counter", "card_ids": [cid], "kind": e["kind"], "delta": -min(have, n)}, actor=ctx["controller"])
@@ -390,7 +439,9 @@ def resume_proliferate(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 def regenerate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.19: "Regenerate ~" / "Regenerate target creature": a shield for this turn."""
-    for cid in _cards(plan, ctx, e["who"]):
+    cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
+    for cid in cards:
         regeneration.add_shield(plan, cid)
         _mark(plan, [cid], "Regeneration shield")
     return True
@@ -639,7 +690,7 @@ def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    _sacrifice_cards(plan, _cards(plan, ctx, e["who"]), ctx["controller"])
+    _sacrifice_cards(plan, _cards(plan, ctx, e["who"]), ctx["controller"], ctx, e.get("as"))
     return True
 
 
@@ -702,10 +753,14 @@ def shield(plan: Plan, key: str, n: int) -> int:
 
 def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     want = _amount(plan, ctx, e["n"])
+    before: list[ObjectRef] = []
     for pid in _players(plan, ctx, e["who"]):
-        n = min(want, len(plan.state.zones.get(zone_key(pid, "library"), [])))
+        library = plan.state.zones.get(zone_key(pid, "library"), [])
+        n = min(want, len(library))
+        before += [r for r in (context.ref_of(plan, c) for c in library[:n]) if r is not None]
         if n:
             plan.do({"type": "mill", "player": pid, "count": n}, actor=pid)
+    _moved(plan, ctx, e, before)  # "cards milled this way": the new objects in the graveyards (400.7j)
     return True
 
 
@@ -724,12 +779,15 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """610.3c: "exile … until ~ leaves the battlefield" — if the source already left, nothing happens."""
     src = _cards(plan, ctx, "self")
     if not src:
+        _remember(plan, ctx, e, [])
         return True
     cards = _cards(plan, ctx, e["who"])
+    before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
         key = ctx["source_object"]
         plan.rules.linked_exile[key] = [*plan.rules.linked_exile.get(key, []), *cards]
+    _moved(plan, ctx, e, before)
     return True
 
 
@@ -867,8 +925,10 @@ def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if hit and "indestructible" not in ch.keywords:
             doomed.append(c.id)
     doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx))
+    before = _remember(plan, ctx, e, doomed)  # "creatures destroyed this way": the ones it destroys
     if doomed:
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+    _moved(plan, ctx, e, before)
     return True
 
 
@@ -877,13 +937,18 @@ def blink(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import attachments  # attachments → effects (resume)
 
     entries = []
-    for cid in _cards(plan, ctx, e["who"]):
+    cards = _cards(plan, ctx, e["who"])
+    before = _remember(plan, ctx, e, cards)
+    for cid in cards:
         owner = plan.state.cards[cid].owner
         back = ctx["controller"] if e.get("under") == "you" else owner
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "exile"}}, actor=ctx["controller"])
-        if cid in plan.state.cards:  # (a token ceases to exist in exile)
+        if cid in plan.state.cards:  # (a token ceases to exist in exile: 111.7, and can't come back, 111.8)
             entries.append({"card": cid, "player": back, "actor": ctx["controller"]})
-    return attachments.enter(plan, entries, ctx)
+    done = attachments.enter(plan, entries, ctx)
+    if done:  # (an Aura choosing what it enchants pauses: the binding then keeps what they were)
+        _moved(plan, ctx, e, before)  # the permanents they became: new objects (400.7)
+    return done
 
 
 def _matches(plan: Plan, card_id: str, what: str) -> bool:
@@ -932,6 +997,7 @@ def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
 
     pid = d.player
     entering = []
+    found = _remember(plan, ctx, e, list(chosen))  # (library objects: a hidden zone, so nothing is read from them)
     for cid in chosen:
         if e.get("reveal"):
             plan.do({"type": "reveal", "card_ids": [cid]}, actor=pid)  # to everyone
@@ -941,6 +1007,7 @@ def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
             entering.append({"card": cid, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped"})
     if entering and not attachments.enter(plan, entering, ctx, shuffle=pid):  # an Aura chooses what it enchants (303.4f)
         return
+    _moved(plan, ctx, e, found)  # the cards found, where they went (400.7j; a hand is hidden: nothing)
     before = list(plan.state.zones.get(zone_key(pid, "library"), []))
     shuffled = plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
     if e["to"] == "top":  # "then shuffle and put that card on top": follow it through the shuffle's new ids
@@ -966,10 +1033,11 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     one event batch."""
     who = _players(plan, ctx, e.get("who", "you")) if e.get("who") else [ctx["controller"]]
     order = [p for p in plan.apnap() if p in who]
-    return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [])
+    return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"))
 
 
-def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picked: list[str]) -> bool:
+def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picked: list[str],
+                  binding: str | None = None) -> bool:
     for i, pid in enumerate(players):
         hand = plan.state.zones.get(zone_key(pid, "hand"), [])
         n = min(want, len(hand))
@@ -981,18 +1049,22 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
         decide(plan, player=pid, kind="choose_cards", prompt=f"Discard {n} card{'s' if n != 1 else ''}",
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
                min_choices=n, max_choices=n,
-               resume={"step": "discard", "ctx": ctx, "want": want, "rest": players[i + 1:], "picked": picked})
+               resume={"step": "discard", "ctx": ctx, "want": want, "rest": players[i + 1:], "picked": picked,
+                       "as": binding})
         return False
     cards = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(":hand")]
+    e = {"as": binding}
+    before = _remember(plan, ctx, e, cards)
     if cards:  # each to its owner's graveyard (701.9a)
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+    _moved(plan, ctx, e, before)  # "cards discarded this way": found in the graveyards (400.7j)
     return True
 
 
 def resume_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx = d.resume["ctx"]
     picked = [*(d.resume.get("picked") or []), *chosen]
-    if _discard_next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or [], picked):
+    if _discard_next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or [], picked, d.resume.get("as")):
         continue_effects(plan, ctx)
 
 
@@ -1001,10 +1073,11 @@ def sacrifice_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     control that match, in APNAP order; then they're all sacrificed at once (101.4)."""
     who = _players(plan, ctx, e["who"])
     order = [p for p in plan.apnap() if p in who]
-    return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order, [])
+    return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order, [], e.get("as"))
 
 
-def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list[str], picked: list[str]) -> bool:
+def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list[str], picked: list[str],
+                    binding: str | None = None) -> bool:
     sel = selectors.from_key(key)
     for i, pid in enumerate(players):
         mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
@@ -1019,24 +1092,29 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
                min_choices=n, max_choices=n,
                resume={"step": "sacrifice_choice", "ctx": ctx, "sel": key, "want": want, "rest": players[i + 1:],
-                       "picked": picked})
+                       "picked": picked, "as": binding})
         return False
-    _sacrifice_cards(plan, picked, ctx["controller"])
+    _sacrifice_cards(plan, picked, ctx["controller"], ctx, binding)
     return True
 
 
-def _sacrifice_cards(plan: Plan, cards: list[str], actor: str) -> None:
+def _sacrifice_cards(plan: Plan, cards: list[str], actor: str, ctx: Context | None = None, binding: str | None = None) -> None:
     """701.21a: each to its owner's graveyard, all at once (one move, one event batch: a "one or
-    more" trigger fires once, 603.2c)."""
+    more" trigger fires once, 603.2c). ``binding``: recorded for "its power" / "creatures
+    sacrificed this way" — as they were (608.2h), and the cards they became (400.7j)."""
     cards = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+    e = {"as": binding}
+    before = _remember(plan, ctx, e, cards) if ctx is not None else []
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=actor)
+    if ctx is not None:
+        _moved(plan, ctx, e, before)
 
 
 def resume_sacrifice_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
     picked = [*(r.get("picked") or []), *chosen]
-    if _sacrifice_next(plan, r["ctx"], r["sel"], r["want"], r.get("rest") or [], picked):
+    if _sacrifice_next(plan, r["ctx"], r["sel"], r["want"], r.get("rest") or [], picked, r.get("as")):
         continue_effects(plan, r["ctx"])
 
 
@@ -1046,16 +1124,24 @@ def return_card(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     control]". A card that left its zone isn't there to return (a new object, 400.7)."""
     from app.rules import attachments  # attachments → effects (resume)
 
+    # A pronoun ("return it …") names the card an earlier instruction of this effect put there
+    # (400.7j); one that isn't there any more — or a token, which ceased to exist (111.7, 111.8)
+    # — is nothing to return (603.7c's principle: not in the zone it's expected in).
     cards = [c for c in _cards(plan, ctx, e["who"]) if not plan.state.cards[c].zone.endswith(":battlefield")]
+    before = _remember(plan, ctx, e, cards)
     if e["to"] == "hand":
         for cid in cards:
             card = plan.state.cards[cid]
             dest = ctx["controller"] if e.get("under") == "you" else card.owner
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": dest, "zone": "hand"}}, actor=ctx["controller"])
+        _moved(plan, ctx, e, before)
         return True
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
                 "actor": ctx["controller"], "tapped": bool(e.get("tapped"))} for cid in cards]
-    return attachments.enter(plan, entries, ctx)
+    done = attachments.enter(plan, entries, ctx)
+    if done:  # (an Aura choosing what it enchants pauses: the binding then keeps what they were)
+        _moved(plan, ctx, e, before)  # the permanents they became: new objects (400.7)
+    return done
 
 
 def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1227,6 +1313,7 @@ def resume_pick_looked(plan: Plan, d: Any, chosen: list[str]) -> None:
     if chosen and e.get("reveal"):
         plan.do({"type": "reveal", "card_ids": chosen}, actor=pid)  # to everyone
     ctx["looked"] = [c for c in ctx.get("looked") or [] if c not in chosen]
+    before = _remember(plan, ctx, e, list(chosen))
     if e["to"] == "hand":
         if chosen:
             plan.do({"type": "move", "card_ids": chosen, "to": {"player": pid, "zone": "hand"}}, actor=pid)
@@ -1234,6 +1321,7 @@ def resume_pick_looked(plan: Plan, d: Any, chosen: list[str]) -> None:
         entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped"} for c in chosen]
         if not attachments.enter(plan, entries, ctx):
             return
+    _moved(plan, ctx, e, before)
     continue_effects(plan, ctx)
 
 
