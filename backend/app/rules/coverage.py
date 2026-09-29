@@ -52,7 +52,7 @@ SUPPORTED_KEYWORDS: set[str] = {
     # exalted (app/rules/triggers.py _exalted, test_rules_infect.py)
     "exalted",
     # characteristic-defining (app/rules/characteristics.py changeling)
-    "changeling", "devoid", "cascade", "persist", "undying", "flanking", "delve", "improvise", "rebound",
+    "changeling", "devoid", "cascade", "persist", "undying", "flanking", "delve", "improvise", "rebound", "storm",
     # costs (casting._convoke_sources)
     "convoke",
 }

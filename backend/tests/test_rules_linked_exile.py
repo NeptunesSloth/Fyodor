@@ -51,3 +51,30 @@ def test_fabricate(cards):
         until(s, lambda s: not s.state.zones.get("stack"))
     assert s.state.cards[first.id].counters == {"+1/+1": 1} and not s.state.cards[second.id].counters
     assert sum(1 for c in s.state.cards.values() if c.name == "Servo") == 1
+
+
+def test_storm_copies(cards):
+    alice = deck(cards, "Krenko, Mob Boss", [(1, "Grapeshot"), (1, "Lightning Bolt"), (1, "Opt"), (7, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)),
+                    cards=cards)
+    act(s, "p1", type="pass_priority")
+    by = {c.name: c for c in s.state.cards.values() if c.name in ("Grapeshot", "Lightning Bolt", "Opt")}
+    act(s, "p1", type="move", card_ids=[c.id for c in by.values()], to={"zone": "hand"})
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=by["Lightning Bolt"].id, targets=["p2"])
+    until(s, lambda s: not s.state.zones.get("stack"))
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=by["Opt"].id)
+    until(s, lambda s: not s.state.zones.get("stack") or s.state.rules.decision is not None)
+    while s.state.rules.decision is not None:  # Opt's scry
+        d = s.state.rules.decision
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:max(d.min_choices, 0)] or [d.options[0].id])
+        until(s, lambda s: not s.state.zones.get("stack") or s.state.rules.decision is not None)
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=by["Grapeshot"].id, targets=["p2"])
+    until(s, lambda s: s.state.rules.decision is not None and "Storm" in s.state.rules.decision.prompt)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["same"])
+    until(s, lambda s: not s.state.zones.get("stack"))
+    assert s.state.players["p2"].life == 40 - 3 - 1 - 2  # Bolt, Grapeshot and its two copies

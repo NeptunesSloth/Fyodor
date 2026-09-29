@@ -112,7 +112,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.37 | Morph | keyword ability | 153 | missing |
 | 702.38 | Amplify | keyword ability | 9 | missing |
 | 702.39 | Provoke | keyword ability | 9 | missing |
-| 702.40 | Storm | keyword ability | 33 | missing |
+| 702.40 | Storm | keyword ability | 33 | supported |
 | 702.41 | Affinity | keyword ability | 74 | missing |
 | 702.42 | Entwine | keyword ability | 32 | missing |
 | 702.43 | Modular | keyword ability | 24 | missing |

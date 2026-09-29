@@ -659,6 +659,71 @@ def resume_fabricate(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
+def storm(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Put N copies of the spell on the stack; for a targeted spell its controller may choose
+    new targets (asked once: keep the target for all, or choose for each copy)."""
+    sid = e["spell"]
+    entry = plan.rules.stack.get(sid)
+    card = plan.state.cards.get(sid)
+    if entry is None or card is None or card.zone != "stack" or plan.oid(sid) != e["object"]:
+        plan.note("Storm: the spell is gone (or handled by hand), so there is nothing to copy")
+        return True
+    if entry.target_spec and entry.targets:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Storm: {e['n']} cop{'y' if e['n'] == 1 else 'ies'} of {entry.name}",
+               options=[DecisionOption(id="same", label="Same target for every copy"),
+                        DecisionOption(id="choose", label="Choose a target for each copy")],
+               resume={"step": "storm", "ctx": ctx, "spell": sid, "left": e["n"], "mode": None})
+        return False
+    for _ in range(e["n"]):
+        _copy_spell(plan, sid, entry, entry.targets, ctx["controller"])
+    return True
+
+
+def _copy_spell(plan: Plan, sid: str, entry: StackEntry, targets: list[Any], controller: str) -> None:
+    created = plan.do({"type": "create_ability", "text": f"Copy of {entry.name}"[:500], "source_id": sid, "kind": "other"},
+                      actor=controller)
+    new_ids = getattr(created, "r", None)
+    copy_id = new_ids.ids[0] if new_ids is not None else None
+    if copy_id:
+        plan.rules.stack[copy_id] = StackEntry(kind="spell", controller=controller, source_card=entry.source_card,
+                                               source_object=entry.source_object, name=f"Copy of {entry.name}",
+                                               effects=list(entry.effects), targets=list(targets),
+                                               target_spec=entry.target_spec, x=entry.x)
+
+
+def resume_storm(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.targets import legal_targets, ref, source_of
+
+    r = d.resume
+    entry = plan.rules.stack.get(r["spell"])
+    ctx = r["ctx"]
+    if entry is None:
+        continue_effects(plan, ctx)
+        return
+    left = r["left"]
+    if r["mode"] is None and chosen[0] == "same":
+        for _ in range(left):
+            _copy_spell(plan, r["spell"], entry, entry.targets, d.player)
+        continue_effects(plan, ctx)
+        return
+    if r["mode"] == "choose":  # a target for this copy was chosen
+        _copy_spell(plan, r["spell"], entry, [ref(plan, chosen[0])], d.player)
+        left -= 1
+    if left <= 0:
+        continue_effects(plan, ctx)
+        return
+    spec = entry.target_spec or {}
+    legal = legal_targets(plan, spec.get("what", "any"), d.player, source_of(plan, entry.source_card))
+    if not legal:
+        continue_effects(plan, ctx)
+        return
+    from app.rules.targets import label as target_label
+
+    decide(plan, player=d.player, kind="choose_one", prompt=f"Target for a copy of {entry.name} ({left} left)",
+           options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
+           resume={**r, "left": left, "mode": "choose"})
+
+
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True  # read by destroy / destroy_all of the same spell or ability
 
@@ -811,7 +876,7 @@ PRIMITIVES = {
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
     "sacrifice": sacrifice, "explore": explore, "prevent": prevent, "mill": mill,
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
-    "fabricate": fabricate,
+    "fabricate": fabricate, "storm": storm,
 }
 
 

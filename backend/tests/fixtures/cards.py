@@ -284,5 +284,8 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Glint-Sleeve Artisan", set_code="tst", number="P3", mana_cost="{2}{W}", cmc=3.0, type_line="Creature — Dwarf Artificer",
              oracle_text="Fabricate 1 (When this creature enters, put a +1/+1 counter on it or create a 1/1 colorless Servo artifact creature token.)",
              power="2", toughness="2", colors=["W"], color_identity=["W"]),
+        card("Grapeshot", set_code="tst", number="P4", mana_cost="{1}{R}", cmc=2.0, type_line="Sorcery",
+             oracle_text="Grapeshot deals 1 damage to any target.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+             colors=["R"], color_identity=["R"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

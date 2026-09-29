@@ -880,6 +880,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor)  # for "whenever you cast"
     if "cascade" in ch.keywords and not a.face_down and not plan.manual(card):
         _cascade_triggers(plan, card, ch)
+    if "storm" in ch.keywords and not a.face_down and not plan.manual(card):
+        _storm_trigger(plan, card, ch)
     if definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), targets=chosen,
@@ -1092,6 +1094,20 @@ def _cascade_triggers(plan: Plan, card: CardInstance, ch: Characteristics) -> No
         _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name,
              index=6000 + k, definition={"kind": "triggered", "trigger": "cascade", "optional": False, "target": None,
                                          "effects": [{"do": "cascade", "mv": ch.mana_value}]})
+
+
+def _storm_trigger(plan: Plan, card: CardInstance, ch: Characteristics) -> None:
+    """702.40a: "When you cast this spell, copy it for each other spell that was cast before it
+    this turn. You may choose new targets for the copies." """
+    from app.rules.triggers import _add
+
+    r = plan.rules
+    turn = plan.state.turn.number
+    before = sum(r.spells_this_turn(p, turn) for p in plan.state.seat_order)
+    if before:
+        _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6100,
+             definition={"kind": "triggered", "trigger": "storm", "optional": False, "target": None,
+                         "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": before}]})
 
 
 def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpell) -> None:

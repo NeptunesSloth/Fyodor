@@ -883,6 +883,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "return_yours": effects.resume_return_yours,
     "explore": effects.resume_explore,
     "fabricate": effects.resume_fabricate,
+    "storm": effects.resume_storm,
     "shock": lambda plan, d, chosen: _resume_shock(plan, d, chosen),
     "suspend_cast": effects.resume_suspend_cast,
     "order_triggers": triggers.resume_order,
