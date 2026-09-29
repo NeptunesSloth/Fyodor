@@ -97,7 +97,7 @@ either one later would mean rewriting the engine.
 
 ## Delivery notes
 
-- **Tests**: 241 backend tests (pytest), 28 frontend unit tests (vitest) and 16 browser
+- **Tests**: 244 backend tests (pytest), 30 frontend unit tests (vitest) and 16 browser
   end-to-end tests (Playwright, production build, fixture card data, no Internet). CI runs all
   three on every push; `E2E=1 scripts/test.sh` runs them locally.
 - **Manual smoke test**: `docs/SMOKE_TEST.md` covers the 25-step acceptance list.
