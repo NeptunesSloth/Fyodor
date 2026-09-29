@@ -195,6 +195,8 @@ class ObjectSnapshot(BaseModel):
     is_token: bool = False
     token_power: str | None = None
     token_toughness: str | None = None
+    token_type_line: str | None = None  # (a token's types and colors, for what it was: 608.2h)
+    token_colors: list[str] = Field(default_factory=list)
     commander_key: str | None = None
     counters: dict[str, int] = Field(default_factory=dict)
     damage: int = 0
@@ -481,6 +483,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         owner=c.owner, controller=c.controller, zone=c.zone, turn=state.turn.number, tapped=c.tapped,
         face_down=c.face_down, face=c.face, is_token=c.is_token,
         token_power=token.power if token else None, token_toughness=token.toughness if token else None,
+        token_type_line=token.type_line if token else None, token_colors=list(token.colors) if token else [],
         commander_key=c.commander_key, counters=dict(c.counters), damage=c.damage,
         effects=[e.value or e.name for e in c.effects], attacking=c.attacking is not None,
         blocking=c.blocking is not None, attached_to=c.attached_to, text=token.text if token else "",

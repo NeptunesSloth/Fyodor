@@ -26,6 +26,12 @@ from tests.test_rules_attachments import build, named, token
     ("Elves you control", {"subtypes": ("Elf",), "controller": "you"}),
     ("creature with flying", {"types": ("Creature",), "with_keywords": ("flying",)}),
     ("opponent", {"player": "opponent"}),
+    # "permanent card" / "permanent spell" (CR 110.4a-b): any of the permanent types, never an instant/sorcery.
+    ("permanent card", {"card": True, "types": S.PERMANENT_TYPES}),
+    ("nonland permanent card with mana value 3 or less from your graveyard",
+     {"zones": ("graveyard",), "types": S.PERMANENT_TYPES, "not_types": ("Land",), "compare": (("mv", "<=", 3),)}),
+    ("permanent spell", {"zones": ("stack",), "types": ("Artifact", "Creature", "Enchantment", "Planeswalker", "Battle")}),
+    ("nonland permanent", {"types": (), "not_types": ("Land",)}),  # on the battlefield: unchanged
 ])
 def test_parse(phrase, fields):
     sel = S.parse(phrase)
@@ -34,7 +40,13 @@ def test_parse(phrase, fields):
         assert getattr(sel, k) == v, (phrase, k)
 
 
-@pytest.mark.parametrize("phrase", ["foo creature", "artifact creature or enchantment", "white and blue creature", ""])
+@pytest.mark.parametrize("phrase", [
+    "foo creature", "artifact creature or enchantment", "white and blue creature", "",
+    "spell or permanent", "spell or creature", "creature card or planeswalker",  # unions across zones/kinds
+    "spell from your graveyard", "instant card spell",  # a spell elsewhere than the stack
+    "creature card from your graveyard in exile",  # two zones
+    "player from your graveyard",
+])
 def test_unknown_phrases_are_refused(phrase):
     assert S.parse(phrase) is None
 
@@ -61,3 +73,15 @@ def test_matching(cards):
     assert S.candidates(plan, S.parse("land card from your graveyard"), "p1") == [forest.id]
     assert S.candidates(plan, S.parse("land card from your graveyard"), "p2") == []  # Bob's graveyard is empty
     assert elf.id not in S.candidates(plan, S.parse("other creature you control"), "p1", source=elf.id)
+
+
+def test_permanent_card_excludes_instants_and_sorceries(cards):
+    s = build(cards, "Lightning Bolt", "Sol Ring")
+    from tests.game_helpers import act
+
+    bolt, ring, forest = named(s, "Lightning Bolt"), named(s, "Sol Ring"), named(s, "Forest")
+    act(s, "p1", type="move", card_ids=[bolt.id, ring.id, forest.id], to={"zone": "graveyard"})
+    plan = Plan(s.state, "p1", cards, None)
+    assert set(S.candidates(plan, S.parse("permanent card from your graveyard"), "p1")) == {ring.id, forest.id}
+    assert S.candidates(plan, S.parse("nonland permanent card from your graveyard"), "p1") == [ring.id]
+    assert S.candidates(plan, S.parse("card from your graveyard"), "p1").count(bolt.id) == 1

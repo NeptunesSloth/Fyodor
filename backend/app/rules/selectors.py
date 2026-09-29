@@ -50,6 +50,7 @@ _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves"
               "mice": "Mouse", "fungi": "Fungus", "sphinxes": "Sphinx", "foxes": "Fox", "djinn": "Djinn",
               "allies": "Ally", "fairies": "Faerie", "zombies": "Zombie", "sorceries": "Sorcery", "mercenaries": "Mercenary",
               "pegasi": "Pegasus", "octopi": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
+_MARKERS = {"card", "spell", "perm"}  # nouns that mark what kind of object, not its type
 ZONES = ("battlefield", "graveyard", "hand", "exile", "library", "stack", "command")
 
 
@@ -127,6 +128,13 @@ def _n(word: str) -> int | None:
 _SUFFIXES: list[tuple[re.Pattern[str], Any]] = []
 
 
+def _in_zone(s: Selector, zone: str, owner: str | None) -> Selector:
+    """A zone suffix ("from your graveyard"): two different zones is a phrase we don't understand."""
+    if s.zones != _DEFAULT.zones and (s.zones != (zone,) or s.zone_owner != owner):
+        raise ValueError("conflicting zones")
+    return replace(s, zones=(zone,), zone_owner=owner, card=True)
+
+
 def _suffix(pattern: str):  # type: ignore[no-untyped-def]
     def register(fn):  # type: ignore[no-untyped-def]
         _SUFFIXES.append((re.compile(r"(?:,)? " + pattern + r"$"), fn))
@@ -156,22 +164,22 @@ def _opp_own(s: Selector, m: re.Match[str]) -> Selector:
 
 @_suffix(r"(?:from|in) your (?P<z>graveyard|hand|library)")
 def _your_zone(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, zones=(m["z"],), zone_owner="you", card=True)
+    return _in_zone(s, m["z"], "you")
 
 
 @_suffix(r"(?:from|in) (?:a|any) graveyard")
 def _any_graveyard(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, zones=("graveyard",), card=True)
+    return _in_zone(s, "graveyard", None)
 
 
 @_suffix(r"(?:from|in) an opponent's graveyard")
 def _opp_graveyard(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, zones=("graveyard",), zone_owner="opponent", card=True)
+    return _in_zone(s, "graveyard", "opponent")
 
 
 @_suffix(r"(?:from|in) exile")
 def _exile(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, zones=("exile",), card=True)
+    return _in_zone(s, "exile", None)
 
 
 @_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM + r" or (?P<dir>less|greater|more)")
@@ -325,17 +333,19 @@ def _parse(phrase: str) -> Selector | None:
         c = _core(w)
         if c is None:
             break
-        if nouns and nouns[-1][0] not in ("card", "spell", "perm"):  # ("creature card": card marks the zone)
+        if nouns and pending_join and _MARKERS & {c[0], nouns[-1][0]}:
+            return None  # "spell or permanent", "creature card or planeswalker": a union we can't express
+        if nouns and nouns[-1][0] not in _MARKERS:  # ("creature card": card marks the zone)
             joins.add(pending_join or "and")
         nouns.append(c)
         pending_join = ""
         i -= 1
     if pending_join or not nouns:
         return None
-    kinds = [c for c in nouns if c[0] not in ("card", "spell", "perm")]
+    kinds = [c for c in nouns if c[0] not in _MARKERS]
     markers = {c[0] for c in nouns} - {"type", "sub", "player"}
     if any(k[0] == "player" for k in kinds):
-        if len(nouns) != 1 or i >= 0:
+        if len(nouns) != 1 or i >= 0 or s != _DEFAULT:  # ("player from your graveyard")
             return None
         return Selector(player="opponent" if kinds[0][1] == "opponent" else "any")
     types = tuple(dict.fromkeys(v for k, v in kinds if k == "type"))
@@ -344,12 +354,19 @@ def _parse(phrase: str) -> Selector | None:
         return None  # "artifact creature or enchantment": not yet
     if "or" in joins and types and subtypes:
         return None  # "artifact or Goblin": not yet
+    if "spell" in markers:
+        if "card" in markers or s.zones != _DEFAULT.zones:
+            return None  # "spell from your graveyard" (cast from a graveyard): not a selector
+        s = replace(s, zones=("stack",))
     if "card" in markers:
         s = replace(s, card=True)
         if s.zones == ("battlefield",):
             s = replace(s, zones=())  # "a creature card": the zone comes from the sentence
-    if "spell" in markers:
-        s = replace(s, zones=("stack",))
+    if "perm" in markers and not types and (s.card or "spell" in markers):
+        # "permanent card" (110.4a) / "permanent spell" (110.4b): only the permanent types, any of
+        # them — so an instant, a sorcery or a kindred sorcery doesn't match. (On the battlefield,
+        # matches() already requires a permanent type.)
+        types = PERMANENT_TYPES if s.card else tuple(t for t in PERMANENT_TYPES if t != "Land")
     if "and" in joins and len(types) > 1:
         s = replace(s, types=types, extras=(*s.extras, "all_types"))  # "artifact creature"
     else:

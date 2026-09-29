@@ -213,3 +213,62 @@ def test_attacking_creature_gets_the_bonus(cards):
 
     assert Plan(s.state, "p1", cards, None).ch(s.state.cards[a.id]).pt == (3, 2)
     replay_matches(s)
+
+
+# -- review regressions ---------------------------------------------------------------------
+def _activate(s, card, **kw):
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=card.id, ability=0, **kw)
+    pass_until_stack_empty(s)
+
+
+def test_dealt_lethal_damage_still_triggers(cards):
+    # 510.3a / 603.10a: the creature was dealt the damage, even though it then died
+    s = build(cards)
+    token(s, "p1", "Priest", "1/1", text="Whenever this creature is dealt damage, you gain 1 life.")
+    src = token(s, "p1", "Quake", "5/5", text="{1}: This creature deals 1 damage to each creature.")
+    _activate(s, src)
+    pass_until_stack_empty(s)
+    assert s.state.players["p1"].life == 41
+    replay_matches(s)
+
+
+def test_entered_then_sacrificed_still_entered(cards):
+    # 603.6a: it entered, even though it left again before the trigger was collected
+    s = build(cards)
+    token(s, "p1", "Watcher", "5/5", text="Whenever a creature you control enters, you gain 1 life.")
+    src = token(s, "p1", "Stitcher", text="{1}: Create a 1/1 blue Homunculus creature token, then sacrifice a creature.")
+    _activate(s, src)
+    d = s.state.rules.decision
+    hom = named(s, "Homunculus")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[hom.id])
+    pass_until_stack_empty(s)
+    pass_until_stack_empty(s)
+    assert s.state.players["p1"].life == 41
+    replay_matches(s)
+
+
+def test_target_player_draws_then_discards(cards):
+    # the second clause's subject is the first's (not "you")
+    s = build(cards)
+    act(s, "p2", type="draw", player="p2", count=1)
+    src = token(s, "p1", "Looter", text="{1}: Target player draws a card, then discards a card.")
+    h1, h2 = len(zone(s.state, "p1", "hand")), len(zone(s.state, "p2", "hand"))
+    _activate(s, src, targets=["p2"])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    pass_until_stack_empty(s)
+    assert len(zone(s.state, "p2", "hand")) == h2 and len(zone(s.state, "p1", "hand")) == h1
+
+
+def test_tutor_to_top_is_not_revealed(cards):
+    # 701.23e: nothing is revealed unless the text says so
+    s = build(cards)
+    src = token(s, "p1", "Vamp", text="{1}: Search your library for a card, then shuffle and put that card on top.")
+    _activate(s, src)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    pass_until_stack_empty(s)
+    top = s.state.cards[zone(s.state, "p1", "library")[0]]
+    assert top.name not in str(s.view("p2")["log"])

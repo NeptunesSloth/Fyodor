@@ -122,6 +122,8 @@ _SUBJ = r"(?:(?P<s>you|target player|target opponent|each player|each opponent|e
 
 def _subject(m: re.Match[str]) -> tuple[str, str | None]:
     """(who, target key)"""
+    if m["s"] is None and re.match(r"^\w+s\b", m.string):
+        raise _Fail  # "discards a card" with no subject: someone else's (the lead's subject), not "you"
     s = m["s"] or "you"
     if s in ("target player", "target opponent"):
         return "target", _LEGACY_TARGETS[s]
@@ -151,7 +153,7 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     n = _amount(m["n"])
     to = "top" if m["dest"] is None and m["exile"] is None else ("exile" if m["exile"] else _DESTS[m["dest"]])
     return [{"do": "search", "who": "you", "sel": sel.key(), "label": m["sel"], "max": n,
-             "to": to, "reveal": bool(m["reveal"]) or to == "top"}], None
+             "to": to, "reveal": bool(m["reveal"])}], None  # (only when the text says so: 701.23e)
 
 
 _REST = r"(?:the rest|the other|the others) (?P<rest>into your graveyard|on the bottom of your library(?: in (?:any|a random) order)?)"

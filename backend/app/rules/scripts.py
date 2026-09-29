@@ -540,6 +540,13 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], str | None] | None:
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
+        # "Target player draws a card, then discards a card": the right half's subject is the
+        # left's (608.2c reads the whole text), not "you"
+        subj = re.match(r"^(target player|target opponent|each player|each opponent|each of your opponents|"
+                        r"that player) ", parts[0])
+        if subj and re.match(r"^(?:draws|discards|mills|loses|gains|sacrifices|shuffles|puts|reveals|exiles|"
+                             r"returns|creates|searches|scry|surveil)\b", parts[1]):
+            parts[1] = f"{subj[1]} {parts[1]}"
         left, right = _clause(parts[0]), _clause(parts[1])
         if left is None or right is None:
             continue
@@ -598,6 +605,11 @@ def parse_effects(body: str, it: str | None = None) -> tuple[list[dict[str, Any]
     resolved = resolve_it(effects, it)
     if resolved is None:
         return None
+    looked = False
+    for e in resolved:  # "… from among them" needs the cards a look put aside (not milled ones)
+        looked = looked or e["do"] == "look_top"
+        if e["do"] in ("pick_looked", "rest_looked") and not looked:
+            return None
     return resolved, target, optional
 
 

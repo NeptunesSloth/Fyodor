@@ -100,9 +100,11 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
 def begin(plan: Plan) -> None:
     """Before an intent: take in what happened by hand since the engine last acted (a land put
     onto the battlefield by hand still counts as the land for the turn), then start a fresh
-    event list. Expired remembered answers are dropped."""
+    event list (keeping events not yet collected for triggers). Expired remembered answers are dropped."""
     absorb_manual_events(plan)
-    plan.rules.events = []
+    # (keep what hasn't been looked at for triggers yet: a resolution that stopped for a
+    # decision may have left events its triggers still have to see, 603.2)
+    plan.rules.events = [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch and not e.manual]
     turn = plan.state.turn.number
     for prefs in plan.rules.prefs.values():
         prefs.yields = [y for y in prefs.yields if y.kind == "always_yield" or y.turn == turn]

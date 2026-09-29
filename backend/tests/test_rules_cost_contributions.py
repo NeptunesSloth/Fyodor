@@ -209,9 +209,10 @@ def test_real_mana_is_seen_as_mana_contributions_are_not(cards):
     cast(s, card)
     act(s, "p1", type="activate_ability", card_id=island, ability=0)  # a mana ability: {U} is added
     assert [e.card for e in s.state.rules.events if e.kind == "mana_added"] == [island]
+    before = max(e.batch for e in s.state.rules.events)
     commit(s, made[0], "convoke")
     assert s.state.cards[card.id].zone == "stack"
-    assert not [e for e in s.state.rules.events if e.kind == "mana_added"]
+    assert not [e for e in s.state.rules.events if e.kind == "mana_added" and e.batch > before]  # (convoking adds none)
     rec = record(s, card)
     assert rec.mana_spent == {"U": 1} and [(c.card, c.pays) for c in rec.contributions] == [(made[0], "W")]
 
