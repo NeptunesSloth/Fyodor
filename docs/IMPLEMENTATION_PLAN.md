@@ -29,6 +29,12 @@ tests, and an updated status table.
 | 6 | Commander: tax, damage matrix, poison, monarch, initiative, custom resources | ✅ done |
 | 7 | History: event model, undo/redo, log, save/load, autosave | ✅ done |
 | 8 | LAN multiplayer: WebSocket sync, seats, reconnect, spectators, hidden-info filtering | ✅ done |
+| 9 | Pod hardening: explicit visibility model, protocol leak tests, LAN lobby (bring your own deck), mulligan policies (London / Commander London / Boston slot / Custom), response helper, Playwright + CI | ✅ done |
+| 10 | Pod P0: presence + reconnect grace, revisions + resync, host tools, owner/controller, face-down kinds, multi-commander, save migrations v3/v4 | ✅ done |
+| 11 | Pod tracker: results, corrections, Pod Stats, deck stats, backup | ✅ done |
+| 12 | Table tools (P1/P2): effects, damage, arrows, mana pool, mass actions, filters, choices, cast metadata, exile groups, cleanup, sleeves/playmats, asset manager, tabletop HUD | ✅ done |
+| 13 | P3: snapshots + history timeline, profiles/sound/keys/accessibility/perf presets, custom actions (declarative macros), solo tools, portable packages, diagnostics, launcher + first-run, lobby deck checks, full pod regression E2E | ✅ done |
+| 14 | 3D table client (three.js) and tabletop toys (dice objects, bags incl. hidden draw bag) | planned — see `3D_DIRECTION.md` |
 
 The history model (M7) and hidden-information views (M8) shape the engine
 itself, so they are built into the engine from Milestone 4. Retrofitting
@@ -91,9 +97,9 @@ either one later would mean rewriting the engine.
 
 ## Delivery notes
 
-- **Tests**: 110+ backend tests (pytest) and frontend unit tests (vitest) for state
-  reconciliation, deck editing, selection and board geometry. `scripts/test.sh` runs
-  everything.
+- **Tests**: 241 backend tests (pytest), 28 frontend unit tests (vitest) and 16 browser
+  end-to-end tests (Playwright, production build, fixture card data, no Internet). CI runs all
+  three on every push; `E2E=1 scripts/test.sh` runs them locally.
 - **Manual smoke test**: `docs/SMOKE_TEST.md` covers the 25-step acceptance list.
 - **Measured performance** (headless Chromium, 300 cards on the table): the server
   applies an action and builds a view in about 8 ms. A phase change round-trips and
@@ -101,24 +107,36 @@ either one later would mean rewriting the engine.
 - **Real data**: importing Scryfall `default_cards` (115k printings) takes about 17 s
   and produces a ~260 MB database. Search queries take about 40 ms.
 
-## Known limitations and next steps
+## Design decisions worth knowing (not gaps)
 
-- Undo is global and linear. A host-only undo setting and a history timeline are natural
-  next steps.
-- State sync sends a full sanitized view per change (~150 KB with 300 cards). Delta
-  sync can be added behind `view_version` if WAN play is ever needed.
-- LAN players cannot choose their deck when joining; the host assigns decks at
-  creation. They can import decks through the shared deck library first.
-- No automated mulligan bottoming (London): players put cards on the bottom by hand.
-- There is no browser-level end-to-end test in CI. The Playwright checks used during
-  development (drag, tap, context menus, LAN hidden information, performance) are
-  described in `docs/SMOKE_TEST.md`.
+- **One shared, linear undo history.** It's the table's history, not a player's: undo takes back
+  the latest action whoever did it, and everyone sees it in the log. The host can also restore
+  any earlier point from *Snapshots & history*. Per-player undo would let two people rewrite
+  the same board in conflicting ways.
+- **Full sanitized view per change**, with an increasing revision and resync on gaps. On a
+  home LAN this is ~150 KB for a 300-card table and renders in ~50 ms. Delta sync only matters
+  for WAN play, which the pod doesn't need.
 
-## Deliberately out of scope for now
+## Next
 
-Rules engine, automated priority, triggers, replacement effects, legality
-checks, matchmaking, accounts, cloud hosting, and AI players. The
-`rules/` and `assistant/` packages hold interfaces only; see
+- 3D table client (three.js) on top of the same server-authoritative state
+  (`3D_DIRECTION.md`), then tabletop toys (physical dice, dice tray, token bags, and a hidden
+  draw bag that uses the same per-viewer privacy as libraries).
+
+## Deliberately out of scope
+
+Fyodor is a physical-feeling table for one trusted pod, not Arena and not a judge. It does not
+include:
+
+- **Rules help:** a rules engine, automatic trigger / "missed trigger" / upkeep reminders,
+  enforced priority, replacement effects, or enforced legality. Deck checks are advisory, with
+  *Play anyway*.
+- **Online and competitive features:** tournament enforcement, matchmaking, accounts, cloud
+  saves, rankings / ELO / medals, achievements.
+- **Other formats and audiences:** sealed, draft, spectator/caster tooling.
+- **Ecosystem and oversight:** a mod marketplace, anti-cheat, telemetry or analytics.
+
+The `rules/` and `assistant/` packages hold interfaces only; see
 `docs/ARCHITECTURE.md#extension-points`.
 
 ## Decisions and defaults (documented so nobody has to ask)
