@@ -462,6 +462,25 @@ def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, 
 
 
 # -- casting ----------------------------------------------------------------------------
+FLASHBACK = re.compile(r"^flashback (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def flashback_cost(ch: Characteristics) -> str | None:
+    """702.34: the mana flashback cost printed on the card ("Flashback {2}{R}"), or None.
+    Flashback with other costs ("Flashback—Sacrifice …") stays manual."""
+    for ab in ch.abilities:
+        if ab.kind == "keywords" and "flashback" in ab.keywords:
+            m = FLASHBACK.fullmatch(ab.text.strip().rstrip("."))
+            if m:
+                return m["cost"]
+    return None
+
+
+def from_graveyard(card: CardInstance, player: str, ch: Characteristics) -> bool:
+    """Casting with flashback: from your own graveyard, when it has a (mana) flashback cost."""
+    return card.zone == zone_key(player, "graveyard") and card.owner == player and flashback_cost(ch) is not None
+
+
 def from_command_zone(card: CardInstance, player: str) -> bool:
     return card.zone == zone_key(player, "command") and card.commander_key is not None and card.owner == player
 
@@ -472,7 +491,7 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     r = state.rules
     if r is None:
         return "Rules automation is off"
-    if not (card.zone == zone_key(player, "hand") or from_command_zone(card, player)):
+    if not (card.zone == zone_key(player, "hand") or from_command_zone(card, player) or from_graveyard(card, player, ch)):
         return "You can cast spells from your hand, and your commander from the command zone"
     if ch.is_land:
         return f"{ch.name or 'That card'} is a land: play it instead"
@@ -492,7 +511,8 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
 
 
 def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int = 0) -> M.ManaCost:
-    cost = M.parse_cost(ch.mana_cost).with_x(x)
+    flashback = flashback_cost(ch) if card.zone == zone_key(card.owner, "graveyard") else None
+    cost = M.parse_cost(flashback or ch.mana_cost).with_x(x)
     if from_command_zone(card, card.owner) and card.commander_key:
         cost = cost.plus_generic(state.players[card.owner].commander_tax.get(card.commander_key, 0))
     return cost
@@ -533,13 +553,16 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if payment_step(plan, a, cost, ch.name or "it", purpose=Purpose(spell=ch)):
         return
     commander_cast = from_command_zone(card, plan.actor)
+    flashback = from_graveyard(card, plan.actor, ch)
     if a.face is not None and a.face != card.face:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
     pay(plan, plan.actor, cost, f"paid {cost.text()} for {ch.name}", sources=a.sources, purpose=Purpose(spell=ch))
-    tags = ["Cast from the command zone"] if commander_cast else []
+    tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else []
+    if flashback:
+        plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else
     if a.x_value is not None or tags:
         info: dict[str, Any] = {"type": "set_stack_info", "card_id": card.id}
         if a.x_value is not None:
@@ -836,7 +859,7 @@ def resume_mana_ability(plan: Plan, d: Any, chosen: list[str]) -> None:
 # -- responding -------------------------------------------------------------------------
 def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
     """Could ``player`` do anything at instant speed right now? (For Arena-style auto-passing.)"""
-    for key in (zone_key(player, "hand"), zone_key(player, "command")):
+    for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard")):
         for cid in state.zones.get(key, []):
             card = state.cards[cid]
             ch = chars.of(card, info)
@@ -849,7 +872,7 @@ def can_act(state: GameState, player: str, info: CardInfo) -> bool:
     """Could ``player`` do anything at all right now (a land, a spell, an ability)?"""
     from app.rules.engine import land_play_problem  # engine imports this module
 
-    for key in (zone_key(player, "hand"), zone_key(player, "command")):
+    for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard")):
         for cid in state.zones.get(key, []):
             card = state.cards[cid]
             if castable(state, player, card, info, check_priority=False):

@@ -483,10 +483,9 @@ def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
     stack = plan.state.zones.get("stack", [])
     plan.rules.stack.pop(stack_id, None)
     if stack_id in stack:
-        if stack[-1] != stack_id:  # (defensive: resolution never adds to the stack today)
-            plan.do({"type": "move", "card_ids": [stack_id], "to": {"zone": "graveyard"}}, actor=ctx["controller"])
-        else:
-            plan.do({"type": "resolve_top", "force": True}, actor=ctx["controller"])
+        from app.rules.engine import leave_stack  # engine imports this module
+
+        leave_stack(plan, stack_id, ctx["controller"])
     _after_resolution(plan)
 
 

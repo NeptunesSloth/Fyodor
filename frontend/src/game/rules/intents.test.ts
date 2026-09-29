@@ -115,6 +115,23 @@ describe("rules card menu", () => {
     expect(play !== "separator" && play?.disabled).toBe(true);
   });
 
+  it("offers flashback from the graveyard and cycling from the hand", () => {
+    const base = view({ ...RULES, hints: { castable: ["g1"] } });
+    const v = { ...base, cards: { ...base.cards, g1: card("g1", "p1:graveyard", "firebolt"), m1: card("m1", "p1:hand", "moor") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        firebolt: { id: "firebolt", name: "Firebolt", type_line: "Sorcery", oracle_text: "Firebolt deals 2 damage to any target.\nFlashback {4}{R}" } as CardData,
+        moor: { id: "moor", name: "Barren Moor", type_line: "Land", oracle_text: "Barren Moor enters tapped.\n{T}: Add {B}.\nCycling {B} ({B}, Discard this card: Draw a card.)" } as CardData,
+      },
+    });
+    expect(labels(rulesMenu(v.cards.g1!, v, "p1"))[0]).toBe("Cast with flashback");
+    const cyc = rulesMenu(v.cards.m1!, v, "p1").find((i) => i !== "separator" && i.label === "Cycling {B}");
+    if (!cyc || cyc === "separator") throw new Error("expected a cycling item");
+    cyc.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "m1", ability: 2 }]);
+  });
+
   it("shows nothing about hidden cards", () => {
     const v = view(RULES);
     expect(rulesMenu(v.cards.h!, v, "p1")).toEqual([]);

@@ -523,6 +523,22 @@ def enters_tapped(ch: Characteristics) -> bool:
     return any(d["kind"] == "replacement" and d.get("replacement") == "enters_tapped" for d in scripts.definitions(ch).values())
 
 
+def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = False) -> None:
+    """A resolved spell leaves the stack: to the battlefield or its owner's graveyard, or into exile
+    if it was cast with flashback (702.34a)."""
+    oid = plan.oid(card_id)
+    if oid in plan.rules.flashback:
+        plan.rules.flashback = [o for o in plan.rules.flashback if o != oid]
+        card = plan.state.cards[card_id]
+        plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
+        return
+    stack = plan.state.zones.get(STACK, [])
+    if stack and stack[-1] == card_id:
+        plan.do({"type": "resolve_top", "force": True, "tapped": tapped}, actor=controller)
+    else:  # (defensive: resolution never adds to the stack today)
+        plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "graveyard"}}, actor=controller)
+
+
 def resolve_top_of_stack(plan: Plan) -> None:
     top_id = plan.state.zones[STACK][-1]
     top = plan.state.cards[top_id]
@@ -536,7 +552,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
     # no recorded targets or choices: its controller resolves it by hand.
     manual = ch.is_instant_or_sorcery or ch.is_ability or needs_manual_resolution(ch) or plan.manual(top)
     tapped = ch.is_permanent_card and not manual and enters_tapped(ch)
-    plan.do({"type": "resolve_top", "force": True, "tapped": tapped}, actor=controller)
+    leave_stack(plan, top_id, controller, tapped=tapped)
     entered = plan.state.cards.get(top_id)
     if entered is not None and entered.zone.endswith(":battlefield") and "Planeswalker" in ch.types:
         loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else 0

@@ -11,11 +11,21 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   const items: MenuItem[] = [];
   const hints = rules.hints;
   const data = card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
-  const mine = card.controller === me || (player === me && (zone === "hand" || zone === "command"));
+  const mine = card.controller === me || (player === me && (zone === "hand" || zone === "command" || zone === "graveyard"));
   if (mine && zone === "hand" && isLand(card.id, view)) {
     items.push({ label: "Play land", disabled: !hints.playable_lands?.includes(card.id), onClick: () => void send({ type: "play_land", card_id: card.id }) });
   } else if (mine && (zone === "hand" || zone === "command")) {
     items.push({ label: "Cast", disabled: !hints.castable?.includes(card.id), onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
+  } else if (mine && zone === "graveyard" && hints.castable?.includes(card.id)) {
+    items.push({ label: "Cast with flashback", onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
+  }
+  if (mine && zone === "hand") {
+    const text = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
+    abilityLines(text).forEach((line, i) => {
+      if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line)) {
+        items.push({ label: line.replace(/\s*\(.*$/, ""), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
+      }
+    });
   }
   if (mine && zone === "battlefield") {
     const text = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";

@@ -78,7 +78,7 @@ def hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     out["activatable"] = activatable(state, viewer, info)
     out["castable"] = [
         cid
-        for key in (zone_key(viewer, "hand"), zone_key(viewer, "command"))
+        for key in (zone_key(viewer, "hand"), zone_key(viewer, "command"), zone_key(viewer, "graveyard"))
         for cid in state.zones.get(key, [])
         if castable(state, viewer, state.cards[cid], info)
     ]

@@ -53,9 +53,14 @@ SUPPORTED_KEYWORDS: set[str] = {
 _MANA_CYCLING = re.compile(r"(?:(?:basic )?[a-z]+)?cycling (?:\{[^}]+\})+")
 
 
+_MANA_FLASHBACK = re.compile(r"flashback (?:\{[^}]+\})+")
+
+
 def _keyword_supported(kw: str, line: str) -> bool:
     if kw == "protection":  # DEBT for the qualities app/rules/protection.py understands
         return protection.supported(line)
+    if kw == "flashback":  # casting.flashback_cost: a mana flashback cost
+        return _MANA_FLASHBACK.fullmatch(line.strip().rstrip(".").lower()) is not None
     if kw.endswith("cycling"):
         return _MANA_CYCLING.fullmatch(line.strip().rstrip(".").lower()) is not None
     return kw in SUPPORTED_KEYWORDS
