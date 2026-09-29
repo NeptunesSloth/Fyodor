@@ -367,6 +367,9 @@ export interface LobbyDeckSummary {
   commanders?: string[];
   color_identity?: string[];
   list?: { section: string; quantity: number; name: string }[];
+  /** Advisory deck checks for the table's format (never block the game). */
+  warning_count?: number;
+  warnings?: { level: "info" | "warning" | "error"; message: string; card?: string | null }[];
   report?: {
     cards_total?: number;
     exact_printings?: number;

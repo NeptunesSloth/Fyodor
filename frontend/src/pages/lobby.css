@@ -86,3 +86,8 @@
 .mull-editor-grid input { width: 100%; }
 .mull-editor-flags { display: flex; flex-direction: column; gap: 4px; }
 .mull-editor .row-check span, label.row-check span { display: flex; align-items: center; gap: 6px; color: var(--text); }
+
+.deck-checks summary { cursor: pointer; list-style: none; }
+.deck-checks ul { margin: 4px 0 0; padding-left: 16px; max-height: 140px; overflow: auto; font-size: 12px; color: var(--room-bone-dim); }
+.deck-checks li.error { color: #e08080; }
+.deck-checks li.info { opacity: 0.75; }

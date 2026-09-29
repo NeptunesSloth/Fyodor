@@ -68,6 +68,7 @@ class SubmittedDeck:
     format: str | None = None
     report: dict[str, Any] = field(default_factory=dict)
     source_kind: str = "text"
+    warnings: dict[str, list[dict[str, Any]]] = field(default_factory=dict)  # table format -> advisory warnings
 
     def entries_public(self) -> list[dict[str, Any]]:
         return [
@@ -97,7 +98,7 @@ class LobbySeatInfo:
     last_fetch: float = -1e9  # monotonic time of the last Archidekt fetch (rate limit)
 
 
-def deck_summary(deck: SubmittedDeck | None, *, privacy: DeckPrivacy, own: bool) -> dict[str, Any] | None:
+def deck_summary(deck: SubmittedDeck | None, *, privacy: DeckPrivacy, own: bool, table_format: str = "commander") -> dict[str, Any] | None:
     """What a viewer may learn about a seat's deck before the game."""
     if deck is None:
         return None
@@ -108,4 +109,12 @@ def deck_summary(deck: SubmittedDeck | None, *, privacy: DeckPrivacy, own: bool)
         summary["list"] = deck.entries_public()
     if own:
         summary["report"] = deck.report
+    # Deck checks are advisory ("Play anyway"). Their text names cards, so only the owner (or
+    # everyone, with a public list) reads it; with commander-only privacy the others just see how
+    # many there are, and with a private deck nothing at all.
+    warnings = deck.warnings.get(table_format, [])
+    if own or privacy != "private":
+        summary["warning_count"] = sum(1 for w in warnings if w["level"] != "info")
+    if own or privacy == "public":
+        summary["warnings"] = warnings
     return summary

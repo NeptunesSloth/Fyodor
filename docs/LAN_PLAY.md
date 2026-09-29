@@ -18,6 +18,16 @@ The host computer runs the server; everyone else opens `http://HOST-IP:PORT` in 
 colors and deck name), *Public* (full lists). In game, opponents never see a player's deck id,
 and with *Private* not even the deck name.
 
+**Deck checks (advisory):** after you choose a deck, the host checks it against the table format.
+For Commander that means 100 cards, singleton, color identity, commander count and the banned
+list; for Constructed, 60+ main, a sideboard of at most 15 and 4 copies. Sandbox has no checks.
+
+- **Who sees what:** you see the list of findings, and the Ready button becomes **Play anyway**.
+  With *Commander only* privacy the other players see only *how many* checks your deck has.
+  With *Private* they see nothing, and with *Public* they see the text.
+- **Never a blocker:** checks never stop anyone from readying or the host from starting. They
+  follow the format if the host changes it.
+
 ## Surviving home-network trouble
 
 Every seat has a **seat token** stored in that browser (`localStorage`). It is the player's

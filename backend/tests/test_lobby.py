@@ -207,3 +207,28 @@ def test_websocket_receives_lobby_then_game(lobby):
         text = json.dumps(msg["view"])
         for cid in state.zones["p1:library"]:
             assert cid not in text
+
+
+def test_deck_checks_are_advisory_and_private(lobby):
+    client, gid, code, alice, bob = lobby
+    client.post(f"/api/games/{gid}/lobby/settings", json={"deck_privacy": "commander_only"}, headers=h(alice))
+    # 14 cards and four Mountains-plus-Bolt: not a legal Commander deck
+    client.post(f"/api/games/{gid}/lobby/deck", json={"text": BOB_DECK + "2x Lightning Bolt (clb) 187\n"}, headers=h(bob))
+    mine = seat(lobby_of(client, gid, bob), "p2")["deck"]
+    messages = [w["message"] for w in mine["warnings"]]
+    assert any("100" in m for m in messages) and any("Lightning Bolt" in m and "singleton" in m for m in messages)
+    assert mine["warning_count"] == len([w for w in mine["warnings"] if w["level"] != "info"])
+    theirs = seat(lobby_of(client, gid, alice), "p2")["deck"]
+    assert theirs["warning_count"] == mine["warning_count"] and "warnings" not in theirs
+    assert "Lightning Bolt" not in json.dumps(lobby_of(client, gid, alice))
+    # "play anyway": readying and starting are never blocked by deck checks
+    client.post(f"/api/games/{gid}/lobby/deck", json={"text": ALICE_DECK}, headers=h(alice))
+    for t in (alice, bob):
+        assert client.post(f"/api/games/{gid}/lobby/ready", json={"ready": True}, headers=h(t)).status_code == 200
+    assert lobby_of(client, gid, alice)["start_blockers"] == []
+    # the checks follow the table format the host picks
+    client.post(f"/api/games/{gid}/lobby/settings", json={"format": "sandbox"}, headers=h(alice))
+    assert seat(lobby_of(client, gid, bob), "p2")["deck"]["warnings"] == []
+    for t in (alice, bob):  # changing table settings asks everyone to confirm again
+        client.post(f"/api/games/{gid}/lobby/ready", json={"ready": True}, headers=h(t))
+    assert client.post(f"/api/games/{gid}/lobby/start", json={}, headers=h(alice)).status_code == 200

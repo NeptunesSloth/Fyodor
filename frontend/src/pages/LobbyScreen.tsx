@@ -208,6 +208,17 @@ function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
             {mine && deck.report && deck.report.unresolved.length > 0 && (
               <div className="warn small">{deck.report.unresolved.length} line(s) not found — they'll be text proxies</div>
             )}
+            {mine && deck.warnings && deck.warnings.length > 0 && (
+              <details className="deck-checks" data-testid="deck-checks">
+                <summary className="warn small">
+                  {deck.warning_count ? `⚠ ${deck.warning_count} deck check${deck.warning_count === 1 ? "" : "s"}` : "ⓘ Notes"} — you can play anyway
+                </summary>
+                <ul>{deck.warnings.map((w, i) => <li key={i} className={w.level}>{w.message}</li>)}</ul>
+              </details>
+            )}
+            {!mine && !!deck.warning_count && (
+              <div className="hint" title={deck.warnings?.map((w) => w.message).join("\n")}>⚠ {deck.warning_count} deck check{deck.warning_count === 1 ? "" : "s"}</div>
+            )}
             {deck.list && !mine && <DeckListPeek list={deck.list} />}
           </>
         ) : (
@@ -229,7 +240,7 @@ function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
               disabled={busy || !deck}
               onClick={() => void onRun(() => setLobbyReady(gameId, !seat.ready))}
             >
-              {seat.ready ? "Ready ✓" : "Ready"}
+              {seat.ready ? "Ready ✓" : deck?.warning_count ? "Play anyway" : "Ready"}
             </button>
           </>
         )}

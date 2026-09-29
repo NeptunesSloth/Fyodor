@@ -207,7 +207,7 @@ class Room:
                     "presence": seat.presence(),
                     "ready": info.ready,
                     "host": pid == self.host_seat,
-                    "deck": deck_summary(info.deck, privacy=settings.deck_privacy, own=pid == viewer),
+                    "deck": deck_summary(info.deck, privacy=settings.deck_privacy, own=pid == viewer, table_format=settings.format),
                 }
             )
         return {

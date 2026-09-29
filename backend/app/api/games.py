@@ -28,7 +28,7 @@ from app.assets.store import AssetNotFound
 from app.assistant import AssistantUnavailable, build_context
 from app.decks import archidekt
 from app.decks import service as deck_service
-from app.decks.models import DeckEntry, DeckImportRequest
+from app.decks.models import DeckEntry, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge
 from app.decks.repository import DeckNotFound
 from app.game import actions as A
@@ -635,6 +635,13 @@ def _submitted(
 ) -> SubmittedDeck:
     cards = _deck_cards(services, entries)
     check_bounds(cards)
+    # Advisory legality checks for every table format (the host may change it after you submit).
+    playable = [e for e in entries if e.section != "maybeboard"]
+    card_data = services.cards.get_many([e.printing_id for e in playable if e.printing_id])
+    warnings = {
+        f: [w.model_dump() for w in deck_service.validate(DeckIn(name="deck", format=f, entries=playable), services.cards, card_data)][:40]
+        for f in ("commander", "constructed", "sandbox")
+    }
     commander_ids = [c.printing_id for c in cards if c.section == "commander" and c.printing_id]
     data = services.cards.get_many(commander_ids) if commander_ids else {}
     identity = sorted(
@@ -649,6 +656,7 @@ def _submitted(
         format=fmt,
         report=report,
         source_kind=kind,
+        warnings=warnings,
     )
 
 
