@@ -510,9 +510,53 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     return None
 
 
-def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int = 0) -> M.ManaCost:
+AFFINITY = re.compile(r"^affinity for (?P<what>[a-z ]+)$", re.IGNORECASE)
+_AFFINITY_TYPES = {"artifacts": "Artifact", "creatures": "Creature", "enchantments": "Enchantment", "lands": "Land",
+                   "planeswalkers": "Planeswalker"}
+_AFFINITY_SUBTYPES = {"Plains", "Island", "Swamp", "Mountain", "Forest", "Equipment", "Gate", "Town", "Food", "Clue",
+                      "Treasure", "Vehicle", "Aura"}
+
+
+def affinity_filter(ch: Characteristics) -> Any:
+    """702.41 "Affinity for X": a predicate on permanents, or None (no affinity / a wording we don't know)."""
+    for ab in ch.abilities:
+        if ab.kind != "keywords" or "affinity" not in ab.keywords:
+            continue
+        m = AFFINITY.fullmatch(ab.text.strip().rstrip("."))
+        if not m:
+            return None
+        what = m["what"].lower()
+        if what in _AFFINITY_TYPES:
+            t = _AFFINITY_TYPES[what]
+            return lambda c: t in c.types
+        if what == "artifact creatures":
+            return lambda c: "Artifact" in c.types and c.is_creature
+        from app.rules.creature_types import CREATURE_TYPES
+        from app.rules.protection import _PLURALS
+
+        sub = _PLURALS.get(what) or (what[:-1] if what.endswith("s") and what != "plains" else what).title()
+        if sub in CREATURE_TYPES or sub in _AFFINITY_SUBTYPES:
+            return lambda c: sub in c.subtypes
+        return None
+    return None
+
+
+def affinity_discount(state: GameState, player: str, ch: Characteristics, info: CardInfo) -> int:
+    pred = affinity_filter(ch)
+    if pred is None:
+        return 0
+    from app.rules.layers import derive
+
+    return sum(1 for c in state.cards.values() if c.zone == zone_key(player, "battlefield") and c.controller == player
+               and pred(derive(state, c, chars.of(c, info))))
+
+
+def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int = 0,
+               info: CardInfo | None = None) -> M.ManaCost:
     flashback = flashback_cost(ch) if card.zone == zone_key(card.owner, "graveyard") else None
     cost = M.parse_cost(flashback or ch.mana_cost).with_x(x)
+    if info is not None:  # cost reductions reduce only the generic part (601.2f)
+        cost = cost.plus_generic(-min(cost.generic, affinity_discount(state, card.owner, ch, info)))
     if from_command_zone(card, card.owner) and card.commander_key:
         cost = cost.plus_generic(state.players[card.owner].commander_tax.get(card.commander_key, 0))
     return cost
@@ -523,7 +567,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
     for face in faces:
         ch = chars.as_cast(card, info, face)
         if cast_problem(state, player, card, ch, check_priority=check_priority) is None and \
-                can_pay(state, player, spell_cost(state, card, ch), info, purpose=Purpose(spell=ch)):
+                can_pay(state, player, spell_cost(state, card, ch, info=info), info, purpose=Purpose(spell=ch)):
             return True
     return False
 
@@ -542,7 +586,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     base = M.parse_cost(ch.mana_cost)
     if base.x and a.x_value is None:
         raise ActionError(f"Choose a value for X to cast {ch.name}")
-    cost = spell_cost(plan.state, card, ch, a.x_value or 0)
+    cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info)
     for target in a.targets:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")

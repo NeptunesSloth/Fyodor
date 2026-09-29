@@ -195,5 +195,8 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Spike Feeder", set_code="tst", number="K8", mana_cost="{1}{G}{G}", cmc=3.0, type_line="Creature — Spike",
              oracle_text="This creature enters with two +1/+1 counters on it.\nRemove a +1/+1 counter from this creature: You gain 2 life.",
              power="0", toughness="0", colors=["G"], color_identity=["G"]),
+        card("Frogmite", set_code="tst", number="K9", mana_cost="{4}", cmc=4.0, type_line="Artifact Creature — Frog",
+             oracle_text="Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)",
+             power="2", toughness="2"),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

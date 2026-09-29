@@ -52,11 +52,12 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Crew (Vehicles; layer-4 type change until end of turn) | 32,116 | 3,712 (11.6%) | 28,356 | 0 | 48 | 78 / 3,501 |
 | Wither, infect (poison), exalted | 32,116 | 3,774 (11.8%) | 28,294 | 0 | 48 | 79 / 3,501 |
 | Enters with N (or X) counters | 32,116 | 3,812 (11.9%) | 28,256 | 0 | 48 | 79 / 3,501 |
+| Affinity (card types, creature and land types) | 32,116 | 3,841 (12.0%) | 28,227 | 0 | 48 | 80 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards
 needing it. Current leaders: unsupported mana-ability wordings,
-morph (153), convoke, affinity.
+morph (153), convoke.
 
 **Commander eligibility and color identity** (`app/rules/commander.py`) follow CR 903.3 (a
 legendary creature, Vehicle, or Spacecraft with power/toughness, or "can be your commander"),

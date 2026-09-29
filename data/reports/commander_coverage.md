@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 79 · PARTIAL: 3422 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 80 · PARTIAL: 3421 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -183,7 +183,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Affinity
+- ✓ Affinity
 - ✗ When Emry enters, mill four cards.
 - ✗ {T}: Choose target artifact card in your graveyard. You may cast that card this turn.
 

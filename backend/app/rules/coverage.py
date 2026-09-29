@@ -18,6 +18,7 @@ from app.rules import protection
 from app.rules import scripts as templates
 from app.rules.characteristics import Characteristics, printed_from_data
 from app.rules.mana import parse_mana_ability
+from app.rules.oracle import AbilityText
 
 Level = Literal["FULL", "PARTIAL", "REVIEW", "MANUAL"]
 
@@ -63,6 +64,11 @@ _MANA_FLASHBACK = re.compile(r"flashback (?:\{[^}]+\})+")
 def _keyword_supported(kw: str, line: str) -> bool:
     if kw == "protection":  # DEBT for the qualities app/rules/protection.py understands
         return protection.supported(line)
+    if kw == "affinity":  # casting.affinity_filter
+        from app.rules.casting import affinity_filter  # casting imports coverage (via engine)
+
+        return affinity_filter(Characteristics(name="", abilities=(AbilityText(index=0, text=line, kind="keywords",
+                                                                              keywords=("affinity",)),))) is not None
     if kw == "crew":  # casting.crew: "Crew N"
         return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "flashback":  # casting.flashback_cost: a mana flashback cost
