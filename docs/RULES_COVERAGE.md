@@ -1,9 +1,17 @@
 # Rules coverage
 
 Fyodor is Commander-only: coverage is measured over **cards legal in Commander today**
-(`legalities.commander == "legal"` in the local card data). Banned cards are COMMANDER_BANNED:
-their scripts are kept, but they leave every statistic until they are legal again. Cards only
-relevant to other formats are ignored.
+(`legalities.commander == "legal"` in the local card data, decided by
+`app/rules/commander.legality`, never by guessing from Oracle wording). Banned cards are
+COMMANDER_BANNED: their scripts are kept, but they leave every statistic until they are legal
+again. Cards only relevant to other formats (Alchemy/Arena-only designs and "A-" rebalances,
+acorn-stamped Un-cards, playtest cards) are ignored because the card data says so; Unfinity's
+oval-stamped cards (stickers, Attractions, d20 rolls) are legal and count. Objects that can't be
+deck cards (Unfinity sticker sheets, which the bulk data marks "legal", emblems, tokens,
+dungeons, planes, schemes …) never count, so the denominator is 32,068 with the 2026-09-28 data
+(32,116 before the sticker sheets were removed; they were the 48 MANUAL cards). Card data
+without stored legalities falls back to the printing's other fields (digital-only, set type,
+security stamp, border, the banned list) — see `commander._inferred_legality`.
 
 Every card gets a level from what the rules engine really implements
 (`backend/app/rules/coverage.py`):
@@ -89,6 +97,7 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Merge: target groups / divided damage and counters (115, 601.2c-d, 608.2b) | 32,116 | 8,240 | | | | 303 / 3,501 |
 | Merge: non-mana cost components ({Q}, sacrifice, discard, exile from graveyard, return, tap others, counters, {10}) and kicker/multikicker (702.33) | 32,116 | 8,852 (27.6%) | 23,216 | 0 | 48 | 341 / 3,501 |
 | Independent-review fixes (intervening-if scope, "other" in event conditions, per-opponent counts, 205.4e) | 32,116 | 8,855 (27.6%) | 23,213 | 0 | 48 | 342 / 3,501 |
+| Legality follows the card data; objects that aren't deck cards (48 Unfinity sticker sheets = the MANUAL cards) leave the denominator | 32,068 | 9,729 (30.3%) | 22,339 | 0 | 0 | 414 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards
