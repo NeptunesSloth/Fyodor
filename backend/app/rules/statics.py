@@ -51,10 +51,11 @@ Definition = dict[str, Any]
 # Keyword abilities a static may grant: only ones the engine carries out by reading
 # ``Characteristics.keywords`` (combat, targeting, damage). Keywords that are triggered abilities
 # (prowess, exalted …), characteristic-defining (changeling, devoid) or that carry a parameter
-# (ward {1}, protection from …) aren't granted this way: those lines stay manual.
+# (ward {1}, protection from …) aren't granted this way: those lines stay manual. So does flash: it
+# matters to a card in hand (702.8a, 113.6e), where a static of a permanent doesn't apply (611.3b).
 GRANTABLE_KEYWORDS: frozenset[str] = frozenset({
     "flying", "first strike", "double strike", "deathtouch", "lifelink", "vigilance", "trample", "haste",
-    "reach", "menace", "indestructible", "hexproof", "defender", "shroud", "flash",
+    "reach", "menace", "indestructible", "hexproof", "defender", "shroud",
     "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "desertwalk",
     "shadow", "horsemanship", "fear", "intimidate", "skulk", "wither", "infect",
 })
@@ -287,11 +288,20 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
 
 
 # -- applying -----------------------------------------------------------------------------------
+def conditions_hold(plan: Plan, d: Definition, *, source: CardInstance, controller: str) -> bool:
+    """All the static's conditions hold right now. They read the source and the table, never the
+    affected object, so one verdict serves every object the static may apply to."""
+    return all(holds(plan, c, source=source, controller=controller) for c in d.get("conditions", ()))
+
+
 def applies(plan: Plan, d: Definition, *, source: CardInstance, controller: str, card: CardInstance,
-            ch: Characteristics) -> bool:
+            ch: Characteristics, conditions: bool | None = None) -> bool:
     """Does this static's effect apply to ``card`` (as it is, ``ch``) right now? The source is on
     the battlefield (611.3b: the caller checks); "you" is its controller (613: the source's
-    controller, so the effect follows a change of control)."""
+    controller, so the effect follows a change of control). ``conditions``: the verdict of
+    :func:`conditions_hold` when the caller has it already (None: evaluated here)."""
+    if conditions is False:
+        return False
     who = d["who"]
     if who == "self":
         if card.id != source.id:
@@ -308,4 +318,4 @@ def applies(plan: Plan, d: Definition, *, source: CardInstance, controller: str,
             return False
     elif not selectors.matches(plan, selectors.from_key(who), card, ch, controller, source.id):
         return False
-    return all(holds(plan, c, source=source, controller=controller) for c in d.get("conditions", ()))
+    return conditions if conditions is not None else conditions_hold(plan, d, source=source, controller=controller)

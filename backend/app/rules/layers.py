@@ -16,17 +16,21 @@ the printed card. Layers implemented (each with tests): 4 (types added, e.g. a c
 6 (abilities: keywords gained / lost, quoted abilities granted, 613.1f), 7a (characteristic-defining
 values are left to the printed card: ``*`` stays unknown), 7b (setting effects, incl. "base power
 and toughness", 613.4b), 7c (modifying effects **and counters**, 613.4c), 7d (switching). Within a
-layer, resolved effects apply in timestamp order (613.7); a static ability's effect has its
-source's timestamp (613.7a), which the table doesn't track yet, so static effects apply before
-resolved ones in each layer (in a stable order among themselves). Dependencies (613.8) aren't
-modelled: a static's subject is read once, from the object as it is after layer 4 and the resolved
-layer-6 effects (so "creatures with flying" doesn't see flying another static grants). Layers 1–5
-(copy, control, text, color) are next; the model already carries the layer number.
+layer, effects apply in timestamp order (613.7): a resolved effect's is handed out when it begins
+(613.7b), a static ability's is its source's — the object number it got when it entered (613.7a,
+613.7d; ``RulesState.objects``), or the granting object's if later for a granted ability — and the
+two are interleaved through ``ContinuousEffect.object_seq`` (the last object to enter before the
+effect began). Not tracked: a new timestamp for an Aura or Equipment as it becomes attached
+(613.7e) and APNAP order among simultaneous entries (613.7m: creation order is used).
+Dependencies (613.8): a static's subject is read from the object after layer 4 and the resolved
+layer-6 effects; a subject that asks about keywords ("creatures with flying …") is read again once
+layer 6 is applied, until nothing changes — other dependencies (types, power) aren't modelled.
+Layers 1–5 (copy, control, text, color) are next; the model already carries the layer number.
 """
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.rules_state import ContinuousEffect
@@ -52,33 +56,62 @@ def affecting(state: GameState, card: CardInstance) -> list[ContinuousEffect]:
     return sorted((e for e in r.effects if oid in e.affected), key=lambda e: e.timestamp)
 
 
-_STATIC_CACHE: dict[tuple, list[tuple[str, str, dict]]] = {}
+@dataclass(frozen=True)
+class Static:
+    """One static ability's continuous effect, as found on the battlefield."""
+
+    source: str  # the permanent whose ability it is
+    controller: str
+    definition: dict[str, Any]
+    # Its timestamp (613.7a): its source's, i.e. the object number the source got when it entered
+    # (613.7d; ``RulesState.objects``) — or, for an ability another static grants, the granting
+    # object's if that is later.
+    seq: int
+    gate: tuple[str, dict[str, Any]] | None = None  # (granting permanent, its static) for a granted ability
 
 
-def statics(state: GameState, info: CardInfo) -> list[tuple[str, str, dict[str, Any]]]:
-    """Static grants and attached rules of permanents on the battlefield (source card, its
-    controller, definition), read from printed abilities; cached by what is on the battlefield.
-    Whether each applies to a given object, and its conditions, are evaluated by ``derive``."""
+_STATIC_CACHE: dict[tuple, list[Static]] = {}
+
+
+def statics(state: GameState, info: CardInfo) -> list[Static]:
+    """Static grants and attached rules of permanents on the battlefield, read from printed
+    abilities and from abilities other statics grant; cached by what is on the battlefield, in
+    timestamp order. Whether each applies to a given object, and its conditions, are evaluated
+    by ``derive``."""
     r = state.rules
     live = {p for p in state.seat_order if not state.players[p].left} - (set(r.conceded) | set(r.lost) if r else set())
     key = tuple(sorted((cid, c.controller, c.face_down, c.card_id or c.name, c.token.text if c.token else "",
-                        r.card_mode(cid) if r else "")
+                        r.card_mode(cid) if r else "", r.objects.get(cid, 0) if r else 0)
                        for cid, c in state.cards.items() if c.zone.endswith(":battlefield")))
     hit = _STATIC_CACHE.get(key)
     if hit is not None:
         return hit
     from app.rules import characteristics as chars
     from app.rules import scripts
+    from app.rules import statics as grammar
 
+    field = [(cid, c) for cid, c in state.cards.items()
+             if c.zone.endswith(":battlefield") and not c.face_down and c.controller in live and c.owner in live
+             and not (r is not None and r.card_mode(cid) == "manual")]
     out = []
-    for cid, c in state.cards.items():
-        if not c.zone.endswith(":battlefield") or c.face_down or c.controller not in live or c.owner not in live:
-            continue
-        if r is not None and r.card_mode(cid) == "manual":
-            continue
+    for cid, c in field:
         for d in scripts.definitions(chars.of(c, info)).values():
             if d["kind"] == "static" and d.get("static") in ("grant", "attached_rule"):
-                out.append((cid, c.controller, d))
+                out.append(Static(cid, c.controller, d, r.objects.get(cid, 0) if r else 0))
+    # An ability a static grants may itself be a static ("Commander creatures you own have
+    # "Creature tokens you control get +2/+2.""): it works on whatever it's granted to, with the
+    # later of the two timestamps (613.7a), while the granting static applies to that object.
+    for st in list(out):
+        if st.definition["static"] != "grant":
+            continue
+        for text in st.definition.get("grants", ()):
+            inner = grammar.parse(scripts.self_text(text, ""))
+            if inner is None:
+                continue
+            for cid, c in field:
+                out.append(Static(cid, c.controller, inner, max(st.seq, r.objects.get(cid, 0) if r else 0),
+                                  gate=(st.source, st.definition)))
+    out.sort(key=lambda st: st.seq)
     if len(_STATIC_CACHE) > 256:
         _STATIC_CACHE.clear()
     _STATIC_CACHE[key] = out
@@ -98,6 +131,104 @@ def _view(state: GameState, info: CardInfo) -> Plan:
 
 
 _depth = 0  # re-entrancy: a static's subject or condition reading another object's characteristics
+_COND_CACHE: dict[tuple, bool] = {}
+
+
+def _table_key(state: GameState) -> tuple:
+    """Everything a static's condition may read (611.3a: checked whenever it's looked at), so one
+    verdict per static serves a whole pass over the table."""
+    r = state.rules
+    players = tuple((pid, state.players[pid].life, len(state.zones.get(f"{pid}:hand", ())),
+                     len(state.zones.get(f"{pid}:graveyard", ()))) for pid in state.seat_order)
+    field = tuple((cid, c.controller, c.tapped, c.attacking is not None, bool(c.blocking), c.attached_to, c.face_down,
+                   tuple(sorted(c.counters.items())))
+                  for cid, c in state.cards.items() if c.zone.endswith(":battlefield"))
+    return (state.seq, state.turn.number, state.turn.active_player, players, field,
+            r.timestamp if r else 0, len(r.effects) if r else 0)
+
+
+def _conditions(view: Plan, st: Static, tkey: tuple) -> bool:
+    """The static's conditions, evaluated once per table state (they never read the affected object)."""
+    from app.rules import statics as grammar
+
+    d = st.definition
+    if not d.get("conditions"):
+        return True
+    key = (tkey, st.source, st.controller, repr(d["conditions"]))
+    hit = _COND_CACHE.get(key)
+    if hit is None:
+        if len(_COND_CACHE) > 4096:
+            _COND_CACHE.clear()
+        hit = _COND_CACHE[key] = grammar.conditions_hold(view, d, source=view.state.cards[st.source], controller=st.controller)
+    return hit
+
+
+def _gate_open(view: Plan, st: Static, tkey: tuple) -> bool:
+    """A granted static works while the static granting it applies to the object it's on."""
+    if st.gate is None:
+        return True
+    from app.rules import characteristics as chars
+    from app.rules import statics as grammar
+
+    granter, definition = st.gate
+    source = view.state.cards.get(granter)
+    holder = view.state.cards.get(st.source)
+    if source is None or holder is None:
+        return False
+    gate = Static(granter, source.controller, definition, 0)
+    return (grammar.applies(view, definition, source=source, controller=source.controller, card=holder,
+                            ch=chars.of(holder, view.info), conditions=True) and _conditions(view, gate, tkey))
+
+
+def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristics, tkey: tuple,
+          only_keyword_subjects: bool = False) -> tuple[list[Static], set[str]]:
+    """The statics that apply to ``card`` as it is (``ch``) and the rules attached ones impose."""
+    from app.rules import statics as grammar
+
+    hits: list[Static] = []
+    imposed: set[str] = set()
+    for st in table:
+        d = st.definition
+        source = view.state.cards[st.source]
+        if d["static"] == "attached_rule":
+            if not only_keyword_subjects and _attached_rule_applies(source, d, card, ch):
+                imposed.update(d["imposes"])
+            continue
+        if only_keyword_subjects and not _keyword_subject(d):
+            continue
+        if not _gate_open(view, st, tkey):
+            continue
+        if not grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True):
+            continue
+        if _conditions(view, st, tkey):
+            hits.append(st)
+    return hits, imposed
+
+
+def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEffect]) -> Characteristics:
+    """613.1f in timestamp order (613.7): static keyword grants and resolved effects that add or
+    remove keywords interleave — a "loses flying" resolved after a static's source entered beats
+    it; a static whose source enters later grants it again."""
+    ordered: list[tuple[tuple[int, int, int], Static | ContinuousEffect]] = []
+    for st in hits:
+        if st.definition["keywords"]:
+            ordered.append(((st.seq, 0, 0), st))
+    for e in effects:
+        if e.layer == "6":
+            ordered.append(((e.object_seq, 1, e.timestamp), e))
+    ordered.sort(key=lambda x: x[0])
+    granted: set[str] = set()
+    lost: set[str] = set()
+    for _, item in ordered:
+        if isinstance(item, Static):
+            granted |= set(item.definition["keywords"])
+            lost -= set(item.definition["keywords"])
+        else:
+            granted |= set(item.add_keywords)
+            granted -= set(item.remove_keywords)
+            lost |= set(item.remove_keywords)
+            lost -= set(item.add_keywords)
+    return replace(ch, granted=frozenset(granted), lost=frozenset(lost))
 
 
 def derive(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> Characteristics:
@@ -111,57 +242,37 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
         ch = replace(ch, types=ch.types | frozenset(added))
     imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …
     imposed |= _group_imposed(state, card, ch, info)
-    granted: set[str] = set()
-    lost: set[str] = set()
-    for e in effects:  # layer 6 (resolved effects), timestamp order
-        if e.layer == "6":
-            granted |= set(e.add_keywords)
-            granted -= set(e.remove_keywords)
-            lost |= set(e.remove_keywords)
-            lost -= set(e.add_keywords)
-    if effects or granted or lost:
-        ch = replace(ch, granted=frozenset(granted), lost=frozenset(lost))
-    hits: list[tuple[CardInstance, dict[str, Any]]] = []
+    hits: list[Static] = []
     on_field = card.zone.endswith(":battlefield") and state.rules is not None
     if info is not None and on_field and _depth == 0:
-        from app.rules import statics as grammar
-
         view = _view(state, info)
+        table = statics(state, info)
+        tkey = _table_key(state) if any(st.definition.get("conditions") or st.gate for st in table) else ()
         _depth += 1
         try:
-            for src, controller, d in statics(state, info):
-                source = state.cards[src]
-                if d["static"] == "attached_rule":
-                    if _attached_rule_applies(source, d, card, ch):
-                        imposed.update(d["imposes"])
-                    continue
-                if grammar.applies(view, d, source=source, controller=controller, card=card, ch=ch):
-                    hits.append((source, d))
+            # a static's subject is read from the object after layer 4 and the resolved layer-6 effects
+            hits, rules = _hits(view, table, card, _layer6(ch, [], effects), tkey)
+            imposed |= rules
+            ch = _layer6(ch, hits, effects)
+            if any(_keyword_subject(st.definition) for st in table):
+                # 613.8: "creatures with flying …" depends on layer-6 grants of flying: read again with
+                # layer 6 applied, until nothing changes (a dependency loop ends in timestamp order)
+                for _ in range(3):
+                    again, _unused = _hits(view, table, card, ch, tkey, only_keyword_subjects=True)
+                    merged = [st for st in hits if not _keyword_subject(st.definition)] + again
+                    merged.sort(key=lambda st: st.seq)
+                    if merged == hits:
+                        break
+                    hits = merged
+                    ch = _layer6(ch, hits, effects)
         finally:
             _depth -= 1
+    elif effects:
+        ch = _layer6(ch, [], effects)
     if imposed:
         ch = replace(ch, imposed=ch.imposed | frozenset(imposed))
-    # layer 6: static keyword and ability grants (613.1f)
-    kws = {k for _, d in hits for k in d["keywords"]}
-    grants = [text for _, d in hits for text in d["grants"]]
-    if kws:  # (a resolved "loses …" effect has the later timestamp: it wins, see the module docstring)
-        ch = replace(ch, granted=(ch.granted | frozenset(kws)) - ch.lost)
-        if _depth == 0 and info is not None:
-            # 613.8: a layer-7 effect on "creatures with flying" depends on layer-6 grants of flying:
-            # its subject is read again now that layer 6 is applied.
-            _depth += 1
-            try:
-                hits = [(source, d) for source, d in hits
-                        if not _keyword_subject(d) or grammar.applies(view, d, source=source, controller=source.controller,
-                                                                        card=card, ch=ch)]
-                for src, controller, d in statics(state, info):
-                    source = state.cards[src]
-                    if d["static"] == "grant" and _keyword_subject(d) and (source, d) not in hits \
-                            and grammar.applies(view, d, source=source, controller=controller, card=card, ch=ch):
-                        hits.append((source, d))
-            finally:
-                _depth -= 1
-    if grants:  # granted abilities, numbered after the printed ones (100, 101, …)
+    grants = [text for st in hits for text in st.definition["grants"]]
+    if grants:  # layer 6: granted abilities, numbered after the printed ones (100, 101, …)
         from app.rules.scripts import granted_ability
 
         extra = []
@@ -171,21 +282,24 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
                 extra.append(replace(ab, index=100 + k))
         ch = replace(ch, abilities=ch.abilities + tuple(extra))
     # layer 7
-    bases = [d["base"] for _, d in hits if d.get("base")]
+    setters: list[tuple[tuple[int, int, int], int | None, int | None]] = []
+    for st in hits:  # 7b: static "has base power and toughness N/N" (613.4b), by its source's timestamp
+        if st.definition.get("base"):
+            setters.append(((st.seq, 0, 0), st.definition["base"][0], st.definition["base"][1]))
+    for e in effects:  # 7b: resolved setting effects, interleaved by timestamp (613.7)
+        if e.layer == "7b":
+            setters.append(((e.object_seq, 1, e.timestamp), e.power, e.toughness))
+    setters.sort(key=lambda x: x[0])
     power, toughness = _num(ch.power), _num(ch.toughness)
-    sets = bases or any(e.layer == "7b" for e in effects)
-    if (power is None or toughness is None) and not sets:
+    if (power is None or toughness is None) and not setters:
         return ch  # 7a: a characteristic-defining "*" the engine doesn't compute stays unknown
     p, t = power or 0, toughness or 0
-    for base in bases:  # 7b: static "has base power and toughness N/N" (613.4b)
-        p, t = base
-    for e in effects:  # 7b: resolved setting effects
-        if e.layer == "7b":
-            p = e.power if e.power is not None else p
-            t = e.toughness if e.toughness is not None else t
-    for _, d in hits:  # 7c: static modifications (613.4c) …
-        p += d["p"]
-        t += d["t"]
+    for _, sp, stt in setters:
+        p = sp if sp is not None else p
+        t = stt if stt is not None else t
+    for st in hits:  # 7c: static modifications (613.4c) …
+        p += st.definition["p"]
+        t += st.definition["t"]
     p += card.counters.get("+1/+1", 0) - card.counters.get("-1/-1", 0)  # … counters …
     t += card.counters.get("+1/+1", 0) - card.counters.get("-1/-1", 0)
     for e in effects:  # … and resolved ones
@@ -200,7 +314,7 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
 
 def _keyword_subject(d: dict[str, Any]) -> bool:
     """Does the static's subject ask about keyword abilities ("creatures with flying")?"""
-    who = d["who"]
+    who = d.get("who") or ""
     return who.startswith("sel:") and ("with_keywords" in who or "without_keywords" in who)
 
 
@@ -251,7 +365,7 @@ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | N
                               power=power, toughness=toughness, add_keywords=list(add_keywords),
                               remove_keywords=list(remove_keywords), add_types=list(add_types), duration=duration,
                               imposes=list(imposes), who=who, source_card=source_card if who else None,
-                              timestamp=r.timestamp,
+                              timestamp=r.timestamp, object_seq=r.next_object,
                               label=label[:120])
     r.effects.append(effect)
     return effect
