@@ -6,6 +6,8 @@ import { moveCards, targetsFor } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
+import { dropAsIntent } from "./rules/intents";
+import { legalClass } from "./rules/RulesHud";
 
 /** Horizontal, overlapping hand. Only the owner (or an open-table view) sees card faces. */
 export function Hand({ player, me, compact = false }: { player: string; me: string; compact?: boolean }) {
@@ -27,9 +29,11 @@ export function Hand({ player, me, compact = false }: { player: string; me: stri
 const HandCard = memo(function HandCard({ id, index, me, compact }: { id: string; index: number; me: string; compact: boolean }) {
   const card = useCardView(id);
   const selected = useGame((s) => s.selection.includes(id));
+  const legal = useGame((s) => legalClass(s.view, id, me));
   if (!card) return null;
   const onDrop = (ids: string[], target: DropResult | null) => {
     if (!target) return;
+    if (dropAsIntent(ids, target, me)) return; // automation on: play the land / cast the spell
     const { zone, player } = splitZone(target.zone);
     if (target.zone === card.zone && target.index != null) {
       const adjusted = target.index > index ? target.index - 1 : target.index;
@@ -45,7 +49,7 @@ const HandCard = memo(function HandCard({ id, index, me, compact }: { id: string
   };
   return (
     <div
-      className={`hand-card ${selected ? "selected" : ""} ${!card.hidden && card.revealed ? "revealed" : ""}`}
+      className={`hand-card ${selected ? "selected" : ""} ${!card.hidden && card.revealed ? "revealed" : ""} ${legal}`}
       data-index={index}
       data-card-id={id}
       onPointerDown={(e) => {

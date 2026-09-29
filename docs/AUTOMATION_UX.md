@@ -171,11 +171,28 @@ animation. RESPOND / STOP / HOLD PRIORITY are preferences (`set_prefs`) that are
 time, even without priority. Renderers animate afterwards to catch up with the authoritative
 state.
 
-## Client work (M18)
+## Client (M18) — built on the 2D table
 
-HUD `AUTO: FULL / RESP: AUTO / MANA: ASK` (the view already provides `rules.status`), prompts for
-each decision kind (incl. the grouped reconciliation list), a compact STACK helper
-("STACK — 3: 1. Counterspell 2. Beast Within → Sol Ring 3. Rhystic Study trigger") with
-inspection, restrained highlights from `rules.hints`, resolution speed NORMAL / FAST / INSTANT
-with batched presentation ("Treasure ×30"), ability buttons (+1 / −2, SACRIFICE, ADD {C}{C}),
-the per-card automation menu, and the AUTOMATION ERROR panel.
+- **HUD** (top right): `AUTO: FULL · RESP: AUTO · MANA: ASK`. RESP and MANA cycle on click; the
+  host's AUTO menu switches OFF / ASSISTED / FULL and PAUSE / RESUME.
+- **Creating a table / LAN lobby:** an Automation selector (default OFF). The old response
+  helper is only offered with automation OFF.
+- **Priority bar:** whose priority, PASS / NEXT, RESOLVE ONE, RESOLVE ALL, END TURN, cancel a
+  pass-until, and the HOLD / FULL CONTROL / STOP overrides.
+- **STACK — N** helper with targets and HOLD AFTER THIS RESOLVES (⏸).
+- **Prompts** for every decision kind: choose one / confirm with remembered answers, order,
+  choose cards (private search, discard, scry), grouped reconciliation, declare attackers and
+  blockers.
+- **Gestures → intents:** dragging a land from your hand onto your battlefield plays it; dragging
+  a spell onto the table or the stack casts it. **Alt-drop** is the manual override (the card just
+  moves, logged as done by hand).
+- **Card menu:** Play land / Cast / Activate: <ability> (disabled unless the server lists it as
+  legal now), Automation AUTO / MANUAL, Mana source PREFER / NORMAL / SAVE, Hold after this
+  resolves.
+- **Highlights** come only from `rules.hints` (the viewer's own legal actions): subtle outlines,
+  never a glow on everything.
+- **AUTOMATION ERROR** panel: resolve manually, pause automation, or export the rules scenario.
+
+Still to come: resolution speed NORMAL / FAST / INSTANT with batched presentation
+("Treasure ×30"), ability buttons on permanents, player plates as click targets, and the 3D
+client (M19).

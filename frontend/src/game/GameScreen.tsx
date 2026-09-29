@@ -18,6 +18,9 @@ import { ZoneBrowser } from "./ZoneBrowser";
 import { bookmarkSlot, matchHotkey } from "./hotkeys";
 import { recallBookmark, saveBookmark } from "./bookmarks";
 import { ResponseBar } from "./ResponseBar";
+import { AutomationErrorPanel, AutomationHud, DecisionPanel, PriorityBar, RulesStack } from "./rules/RulesHud";
+import { passPriority } from "./rules/intents";
+import "./rules/rules.css";
 
 export function GameScreen() {
   const view = useGame((s) => s.view);
@@ -72,6 +75,11 @@ export function GameScreen() {
       <GameDialogs me={me} />
       <MulliganOverlay />
       <ResponseBar />
+      <AutomationHud />
+      <RulesStack />
+      <PriorityBar />
+      <DecisionPanel />
+      <AutomationErrorPanel />
       <DragLayer />
       <CombatArrows />
       <PickLayer />
@@ -149,7 +157,8 @@ function useShortcuts() {
           s.openDialog("help");
           break;
         case "pass":
-          if (w?.waiting.includes(me)) void send({ type: "response_pass" });
+          if (view.rules && view.rules.priority === me && !view.rules.decision) void passPriority();
+          else if (w?.waiting.includes(me)) void send({ type: "response_pass" });
           break;
         case "respond":
           if (w && w.opener !== me) void send({ type: "response_respond" });

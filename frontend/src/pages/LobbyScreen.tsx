@@ -80,7 +80,8 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
               Mulligan: {lobby.mulligan?.display_name ?? MULLIGAN_LABEL[s.mulligan_rule] ?? s.mulligan_rule}
               {lobby.mulligan?.needs_definition ? " (not defined yet)" : ""}
             </span>
-            <span>Response helper: {s.priority_helper === "simple" ? "On" : "Off"}</span>
+            <span>Automation: {(s.automation ?? "off").toUpperCase()}</span>
+            {(s.automation ?? "off") === "off" && <span>Response helper: {s.priority_helper === "simple" ? "On" : "Off"}</span>}
           </div>
         </div>
         {lobby.game.code && (
@@ -462,6 +463,13 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
         <label className="field">Mulligan
           <select value={draft.mulligan_rule} onChange={(e) => chooseRule(e.target.value)} data-testid="mulligan-rule">
             {MULLIGAN_RULES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+        <label className="field">Automation
+          <select data-testid="lobby-automation" value={draft.automation ?? "off"} onChange={(e) => set({ automation: e.target.value as LobbySettings["automation"] })}>
+            <option value="off">Off — sandbox, nothing enforced</option>
+            <option value="assisted">Assisted — validates and asks before important steps</option>
+            <option value="full">Full — supported rules happen by themselves</option>
           </select>
         </label>
         <label className="field">Response helper

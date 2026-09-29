@@ -2,7 +2,7 @@ import { activeProfile, usePrefs } from "../state/prefs";
 import { useCallback, useEffect, useState } from "react";
 import { ColorPips } from "../components/ColorPips";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
-import type { MulliganPolicy } from "../types/game";
+import type { AutomationLevel, MulliganPolicy } from "../types/game";
 import { toast, toastError } from "../components/Toasts";
 import { navigate, type Route } from "../hooks/useHashRoute";
 import { ApiError } from "../services/api";
@@ -25,6 +25,12 @@ import type { DeckSummary } from "../types/decks";
 import type { GameSummary, SaveSummary } from "../types/game";
 
 const COLORS = ["#d4a852", "#5fa8d3", "#c9677a", "#6fbf8f", "#a68bd6", "#d98c4a"];
+
+const AUTOMATION_HINT: Record<AutomationLevel, string> = {
+  off: "Pure sandbox: nothing is enforced; you move everything by hand.",
+  assisted: "The rules engine validates and prepares, and asks before important steps.",
+  full: "Supported rules happen by themselves; you're asked only when Magic needs a choice.",
+};
 
 export function PlayPage({ route }: { route: Route }) {
   const [host, setHost] = useState<boolean | null>(null);
@@ -170,6 +176,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
     setPolicy(CONFIGURABLE_RULES.has(rule) ? draftPolicy(rule) : null);
   };
   const [helper, setHelper] = useState<"off" | "simple">("simple");
+  const [automation, setAutomation] = useState<AutomationLevel>("off");
   const useLobby = mode === "lan" && lobby;
   const [players, setPlayers] = useState<CreatePlayer[]>([
     { name: "Player 1", deck_id: preselect, color: COLORS[0] },
@@ -203,6 +210,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         mulligan_rule: mulligan,
         mulligan_policy: configurable ? policy : null,
         priority_helper: helper,
+        automation,
         first_player: first === "random" ? "random" : Number(first),
         starting_life: life ? Number(life) : null,
         auto_untap: true,
@@ -233,6 +241,14 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         <label className="field">
           Starting life
           <input type="number" placeholder={format === "commander" ? "40" : "20"} value={life} min={1} onChange={(e) => setLife(e.target.value)} style={{ width: 90 }} />
+        </label>
+        <label className="field" title={AUTOMATION_HINT[automation]}>
+          Automation
+          <select data-testid="automation-level" value={automation} onChange={(e) => setAutomation(e.target.value as AutomationLevel)}>
+            <option value="off">Off (sandbox)</option>
+            <option value="assisted">Assisted</option>
+            <option value="full">Full</option>
+          </select>
         </label>
       </div>
       {useLobby ? (
@@ -292,7 +308,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         {!useLobby && (
         <label className="field">
           Who starts
-          <select value={first} onChange={(e) => setFirst(e.target.value)}>
+          <select data-testid="first-player" value={first} onChange={(e) => setFirst(e.target.value)}>
             <option value="random">Random</option>
             {players.map((p, i) => <option key={i} value={i}>{p.name}</option>)}
           </select>

@@ -68,6 +68,9 @@ interface GameStore {
   connect: (gameId: string, opts: { token?: string | null; viewer?: string | null }) => void;
   disconnect: () => void;
   send: (action: Action) => Promise<boolean>;
+  /** The last AUTOMATION ERROR (a rules-engine failure: nothing was applied). */
+  automationError: string | null;
+  setAutomationError: (message: string | null) => void;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   setViewer: (viewer: string) => void;
@@ -156,10 +159,14 @@ export const useGame = create<GameStore>((set, get) => ({
       return true;
     } catch (e) {
       set({ pendingPositions: {} });
-      toast(e instanceof Error ? e.message : String(e), "error");
+      const message = e instanceof Error ? e.message : String(e);
+      if (message.startsWith("AUTOMATION ERROR")) set({ automationError: message });
+      else toast(message, "error");
       return false;
     }
   },
+  automationError: null,
+  setAutomationError: (message) => set({ automationError: message }),
 
   undo: async () => {
     const { conn, view, actingAs } = get();

@@ -287,6 +287,76 @@ export interface GameView {
   zones: Record<string, string[] | LibraryView>;
   stack: string[];
   log: LogEntryView[];
+  /** Rules automation (absent when automation is OFF). See docs/AUTOMATION_UX.md. */
+  rules?: RulesView;
+}
+
+export type AutomationLevel = "off" | "assisted" | "full";
+export type ResponseMode = "off" | "auto" | "on";
+export type PaymentMode = "auto" | "ask" | "manual";
+
+export interface DecisionOptionView {
+  id: string;
+  label: string;
+  card_id: string | null;
+  group?: string | null;
+}
+
+export interface DecisionView {
+  id: string;
+  player: string;
+  kind: "manual_resolution" | "declare_attackers" | "declare_blockers" | "choose_one" | "choose_cards" | "confirm" | "reconcile" | "order";
+  prompt: string;
+  source_id: string | null;
+  /** Only in the chooser's own view. */
+  options?: DecisionOptionView[];
+  min_choices?: number;
+  max_choices?: number;
+  rememberable?: boolean;
+}
+
+export interface RulesPrefs {
+  response: ResponseMode;
+  stops_my_turn: string[];
+  stops_their_turn: string[];
+  bluff_stops: boolean;
+  payment: PaymentMode;
+  mana_sources: Record<string, "prefer" | "save">;
+  auto_resolve_own_triggers: "off" | "safe" | "on";
+  auto_order_identical_triggers: boolean;
+  hold_priority: boolean;
+  full_control: boolean;
+  force_stop: boolean;
+  pass_until: string | null;
+  stop_after: string | null;
+  yields: { kind: string; key: string; context: string; turn: number }[];
+}
+
+export interface RulesHints {
+  has_priority?: boolean;
+  playable_lands?: string[];
+  castable?: string[];
+  activatable?: { card_id: string; ability: number }[];
+}
+
+export interface RulesView {
+  automation: AutomationLevel;
+  preset: "sandbox" | "assisted" | "full" | "custom";
+  options: Record<string, boolean | string>;
+  status: { auto: string; resp: string | null };
+  paused: boolean;
+  priority: string | null;
+  passed: string[];
+  conceded: string[];
+  lost: Record<string, string>;
+  winner: string | null;
+  overrides: number;
+  decision: DecisionView | null;
+  prefs: RulesPrefs | null;
+  reconcile: { id: string; card: string | null; player: string | null; question: string }[];
+  card_modes: Record<string, "manual" | "assisted">;
+  hints: RulesHints;
+  failure?: { intent: string; at: number };
 }
 
 export interface Playmat {
@@ -359,6 +429,7 @@ export interface LobbySettings {
   mulligan_policy: MulliganPolicy | null;
   priority_helper: "off" | "simple";
   auto_untap: boolean;
+  automation: AutomationLevel;
 }
 
 export interface LobbyDeckSummary {

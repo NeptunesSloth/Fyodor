@@ -8,6 +8,7 @@ import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, type DropResult } from "./dnd";
 import { groupPositions } from "./geometry";
 import { CounterBadges, GameCardFace } from "./GameCardFace";
+import { answerByClick, legalClass } from "./rules/RulesHud";
 
 interface Props {
   id: string;
@@ -23,6 +24,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
   const card = useCardView(id);
   const selected = useGame((s) => s.selection.includes(id));
   const showSources = usePrefs((s) => s.showTokenSources);
+  const legal = useGame((s) => legalClass(s.view, id, me));
   if (!card) return null;
   const visible = isVisible(card);
   const rotation = (card.tapped ? 90 : 0) + (card.flipped ? 180 : 0) + (card.rotation ?? 0);
@@ -31,6 +33,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
     if (e.button !== 0) return;
     e.stopPropagation();
     const store = useGame.getState();
+    if (legal === "rules-target" && answerByClick(store.view, id, me)) return; // click-to-target
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
       store.select([id], "toggle");
       return;
@@ -62,7 +65,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
 
   return (
     <div
-      className={`table-card ${selected ? "selected" : ""} ${card.attacking ? "attacking" : ""} ${card.blocking ? "blocking" : ""}`}
+      className={`table-card ${selected ? "selected" : ""} ${card.attacking ? "attacking" : ""} ${card.blocking ? "blocking" : ""} ${legal}`}
       data-card-id={id}
       data-tapped={card.tapped ? "" : undefined}
       style={{ left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }}

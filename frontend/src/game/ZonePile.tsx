@@ -6,6 +6,7 @@ import { splitZone, type ZoneName } from "../types/game";
 import { draw, moveCards, send } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
+import { dropAsIntent } from "./rules/intents";
 import { GameCardFace } from "./GameCardFace";
 
 const LABEL: Partial<Record<ZoneName, string>> = {
@@ -20,6 +21,7 @@ const LABEL: Partial<Record<ZoneName, string>> = {
 
 function dropInto(ids: string[], target: DropResult | null) {
   if (!target) return;
+  if (dropAsIntent(ids, target)) return; // automation on: casting a commander from the command zone
   const { zone, player } = splitZone(target.zone);
   void moveCards(ids, zone, { player, position: target.position, index: target.index, x: target.x, y: target.y });
 }
