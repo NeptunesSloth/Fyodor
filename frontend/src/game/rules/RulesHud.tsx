@@ -241,7 +241,7 @@ export function DecisionPanel() {
   if (d.player !== me || !d.options) {
     return (
       <div className="decision-panel waiting" data-testid="decision-waiting">
-        {playerName(view, d.player)} is deciding: {d.prompt}
+        {d.public ? d.prompt : `${playerName(view, d.player)} is deciding: ${d.prompt}`}
       </div>
     );
   }

@@ -264,7 +264,7 @@ def test_divided_damage_is_asked_after_the_targets(cards):
     d = decision(s)
     assert d.kind == "divide" and [o.id for o in d.options] == [ogre.id, "p2"] and d.display["total"] == 4
     view = s.view("p2")["rules"]["decision"]
-    assert view["kind"] == "divide" and view.get("options") is None and view.get("display") is None  # privacy
+    assert view["kind"] == "waiting" and view.get("options") is None and view.get("display") is None  # privacy
     for bad in ([2, 1], [4, 0], [1, 1, 2]):  # the total, at least 1 each, one amount per target
         with pytest.raises(ActionError, match="Divide 4"):
             choose(s, amounts=bad)

@@ -52,30 +52,37 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
     }
     d = r.decision
     if d is not None:
-        decision: dict[str, Any] = {"id": d.id, "player": d.player, "kind": d.kind,
-                                    "prompt": _prompt_for(state, d.prompt, d.player, viewer), "source_id": d.source_id}
-        if viewer in (d.player, OMNISCIENT):
-            decision.update(options=[o.model_dump() for o in d.options], min_choices=d.min_choices,
-                            max_choices=d.max_choices, rememberable=d.memory_key is not None)
-            if d.display is not None:
-                decision["display"] = d.display
-        out["decision"] = decision
+        out["decision"] = decision_view(state, d, viewer)
     if viewer in state.players and viewer in live_players(state) and not r.paused:
         out["hints"] = hints(state, viewer, info)
     return out
 
 
-def _prompt_for(state: GameState, prompt: str, decider: str, viewer: str) -> str:
-    """A decision's prompt as another player may see it: never naming a card they can't see (a
-    spell still in its caster's hand while its targets, modes or payment are chosen, 601.2a)."""
-    if viewer in (decider, OMNISCIENT) or not prompt:
-        return prompt
-    hidden = {c.name for c in state.cards.values() if c.name and len(c.name) >= 3 and not can_see(state, c, viewer)}
-    visible = {c.name for c in state.cards.values() if c.name and can_see(state, c, viewer)}
-    if any(name in prompt for name in hidden - visible):
-        who = state.players[decider].name if decider in state.players else "A player"
-        return f"{who} is making a choice"
-    return prompt
+# Decisions whose existence and nature are public facts of the game (anyone watching knows combat is
+# being declared). Every other decision is shown to other players only as "someone is choosing".
+_PUBLIC_KINDS = {"declare_attackers": "is declaring attackers", "declare_blockers": "is declaring blockers"}
+
+
+def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
+    """The pending decision as ``viewer`` may see it. The chooser (and the omniscient host view)
+    gets all of it. Anyone else gets only public facts — who is choosing, and for combat
+    declarations what they're declaring — built from structured fields, never from the chooser's
+    prompt, options, labels, source card or presentation hints: a decision made while a spell is
+    still in its caster's hand (601.2a: its targets, modes, division, costs) or about hidden cards
+    (a search, a look, a private cost) must not reveal them (hidden information, 400.2)."""
+    if viewer in (d.player, OMNISCIENT):
+        full: dict[str, Any] = {"id": d.id, "player": d.player, "kind": d.kind, "prompt": d.prompt,
+                                "source_id": d.source_id, "options": [o.model_dump() for o in d.options],
+                                "min_choices": d.min_choices, "max_choices": d.max_choices,
+                                "rememberable": d.memory_key is not None}
+        if d.display is not None:
+            full["display"] = d.display
+        return full
+    chooser = state.players[d.player].name if d.player in state.players else "A player"
+    doing = _PUBLIC_KINDS.get(d.kind)
+    return {"id": d.id, "player": d.player, "kind": d.kind if doing else "waiting",
+            "prompt": f"{chooser} {doing or 'is making a choice'}", "source_id": None,
+            "public": {"type": "PLAYER_MAKING_CHOICE", "chooser": chooser}}
 
 
 def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, Any]]:

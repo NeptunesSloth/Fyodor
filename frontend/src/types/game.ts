@@ -306,7 +306,8 @@ export interface DecisionOptionView {
 export interface DecisionView {
   id: string;
   player: string;
-  kind: "manual_resolution" | "declare_attackers" | "declare_blockers" | "choose_one" | "choose_cards" | "confirm" | "reconcile" | "order" | "divide";
+  /** "waiting": someone else's decision whose nature isn't public (only ``public`` is sent). */
+  kind: "manual_resolution" | "declare_attackers" | "declare_blockers" | "choose_one" | "choose_cards" | "confirm" | "reconcile" | "order" | "divide" | "waiting";
   prompt: string;
   source_id: string | null;
   /** Only in the chooser's own view. */
@@ -316,6 +317,8 @@ export interface DecisionView {
   rememberable?: boolean;
   /** Presentation hints for the chooser (e.g. a payment's suggested sources). */
   display?: { kind: string; [key: string]: unknown };
+  /** Other players' view of someone's decision: only who is choosing. */
+  public?: { type: "PLAYER_MAKING_CHOICE"; chooser: string };
 }
 
 export interface RulesPrefs {
