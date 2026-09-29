@@ -67,7 +67,8 @@ def mechanics(cr_text: str | None, keyword_cards: dict[str, int], reports_dir: P
         low = name.lower()
         kind = "keyword action" if num.startswith("701") else "keyword ability"
         count = keyword_cards.get(low, 0)
-        status = "supported" if low in coverage.SUPPORTED_KEYWORDS else ("—" if count == 0 else "missing")
+        supported = low in (coverage.SUPPORTED_KEYWORDS if num.startswith("702") else coverage.SUPPORTED_KEYWORD_ACTIONS)
+        status = "supported" if supported else ("—" if count == 0 else "missing")
         if count == 0 and status != "supported":
             status = "ignore (no Commander-legal cards)"
         if num.startswith("701") and low not in known_actions:

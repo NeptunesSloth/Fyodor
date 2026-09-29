@@ -884,6 +884,88 @@ def _loot(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "draw", "who": "you", "n": num(m["n"])}, {"do": "discard", "who": "you", "n": num(m["m"])}], None
 
 
+# -- keyword actions (CR 701; app/rules/keyword_actions.py) and token wording (app/rules/token_grammar.py) --
+def _first(fn):  # type: ignore[no-untyped-def]
+    """The template just registered is tried before every earlier one: the older create-token
+    templates above reject (rather than decline) wordings they half-understand — "with prowess",
+    a quoted triggered ability — so the general token grammar must see the sentence first."""
+    EFFECTS.insert(0, EFFECTS.pop())
+    return fn
+
+
+@_first
+@effect(r"create (?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X) (?:tapped )?"
+        r"(?:\d+/\d+ (?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) "
+        r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)* (?:enchantment )?(?:artifact )?creature tokens?|[A-Z][a-z]+ tokens?)"
+        r"(?: named [A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*)?(?: with .+?)?(?: that(?:'s| are) tapped and attacking)?"
+        r"(?: for each [^\"]+|, where [xX] is [^\"]+)?")
+def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    """"Create [N] [tapped] [P/T colors Subtypes [artifact] creature | Predefined] token(s) [named …]
+    [with …] [that's tapped and attacking] [for each … | , where X is …]" (701.7, 111.10, 508.4)."""
+    from app.rules import token_grammar
+
+    found = token_grammar.parse(m.group(0))
+    if found is None:
+        raise _NoMatch
+    return found, None
+
+
+@_first
+@effect(r"(?:it has|they have) \"(?P<quoted>[^\"]+)\"")
+def _token_has_ability(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    """'It has "…"' after a create sentence: the quoted ability, if the engine carries it out."""
+    from app.rules import token_grammar
+
+    text = token_grammar.token_text(m["quoted"])
+    if text is None:
+        raise _NoMatch
+    return [{"do": "token_text", "text": text}], None
+
+
+@effect(r"amass (?P<sub>[A-Z][a-z]+) (?P<n>\d+|X)")
+def _amass(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    """701.47a: "amass [Subtype]s N" (the plural names the creature type the Army gets)."""
+    from app.rules.creature_types import CREATURE_TYPES
+    from app.rules.protection import _PLURALS
+
+    word = m["sub"]
+    sub = _PLURALS.get(word.lower()) or (word[:-1] if word.endswith("s") else word)
+    if sub not in CREATURE_TYPES:
+        raise _NoMatch
+    return [{"do": "amass", "sub": sub, "n": {"x": 1} if m["n"] == "X" else int(m["n"])}], None
+
+
+@effect(r"(?P<who>~|it|he|she|{SEL}) connives(?: {N})?")
+def _connive(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    """701.50a/d: "~ connives", "it connives", "target creature you control connives [N]"."""
+    n = num(m["n"]) if m["n"] else 1
+    if m["who"] == "~":
+        return [{"do": "connive", "who": "self", "n": n}], None
+    if m["who"] in ("it", "he", "she"):
+        return [{"do": "connive", "who": "it", "n": n}], None
+    if SELECTORS[m["who"]] not in ("creature", "creature_you_control", "creature_opponent_controls"):
+        raise _NoMatch
+    return [{"do": "connive", "who": "target", "n": n}], SELECTORS[m["who"]]
+
+
+@effect(r"monstrosity {N}")
+def _monstrosity(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "monstrosity", "n": num(m["n"])}], None  # 701.37a
+
+
+@effect(r"bolster {N}")
+def _bolster(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "bolster", "n": num(m["n"])}], None  # 701.39a
+
+
+@effect(r"support {N}")
+def _support(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """701.41a: "Put a +1/+1 counter on each of up to N other target creatures." ("other" than the
+    source: for an instant or sorcery, which is never on the battlefield, that's every creature.)"""
+    other_creature = 'sel:{"other":true,"types":["Creature"]}'  # selectors.parse("other creature").key()
+    return [{"do": "add_counters", "who": "target", "kind": "+1/+1", "n": 1}], {"what": other_creature, "min": 0, "max": num(m["n"])}
+
+
 class _NoMatch(Exception):
     """A template that matched the shape but not the details (e.g. an unknown keyword)."""
 

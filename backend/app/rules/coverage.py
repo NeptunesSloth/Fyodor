@@ -66,6 +66,18 @@ SUPPORTED_KEYWORDS: set[str] = {
 }
 
 
+# Keyword actions (CR 701) the engine carries out when an ability's text calls for them (a template
+# in app/rules/scripts.py over a primitive in app/rules/effects.py or app/rules/keyword_actions.py).
+# Coverage of a card is decided by its templates parsing; this set is the honest list for the
+# mechanics report (tools/commander_coverage.py). Each entry has scenario tests.
+SUPPORTED_KEYWORD_ACTIONS: set[str] = {
+    "counter", "create", "destroy", "discard", "exile", "mill", "regenerate", "sacrifice", "scry", "search", "surveil",
+    "tap and untap", "proliferate", "investigate", "explore",
+    # test_rules_keyword_actions.py
+    "amass", "connive", "monstrosity", "bolster", "support",
+}
+
+
 # Cycling / typecycling with a plain mana cost (casting.cycle); "Cycling—Pay 2 life" and friends stay manual.
 _MANA_CYCLING = re.compile(r"(?:(?:basic )?[a-z]+)?cycling (?:\{[^}]+\})+")
 

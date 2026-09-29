@@ -986,4 +986,5 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "ability_cost": cost_payment.resume_choice,
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
+    **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)
 }
