@@ -197,6 +197,39 @@ def at_step(plan: Plan, trigger: str) -> None:
                  definition=d)
 
 
+def at_step_generic(plan: Plan) -> None:
+    """"At the beginning of [whose] [step]" (503.1a, 504, 505, 507, 513): every permanent's
+    abilities for this step, when it's the right player's step."""
+    phase = plan.state.turn.phase
+    prefix = f"step:{phase}:"
+    ap = plan.active
+    for card in list(plan.state.cards.values()):
+        if not card.zone.endswith(":battlefield") or plan.manual(card) or card.controller not in plan.live():
+            continue
+        ch = plan.ch(card)
+        for i, d in scripts.definitions(ch).items():
+            if d["kind"] != "triggered" or not str(d["trigger"]).startswith(prefix):
+                continue
+            if _whose_step(plan, card, d["trigger"][len(prefix):], ap):
+                _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+                     index=i, definition=d)
+
+
+def _whose_step(plan: Plan, card: CardInstance, whose: str, ap: str) -> bool:
+    if whose == "you":
+        return card.controller == ap
+    if whose == "each":
+        return True
+    if whose == "opponent":
+        return card.controller != ap
+    if whose == "enchanted_player":
+        return card.attached_player == ap
+    if whose == "host_controller":  # "the upkeep of enchanted creature's controller"
+        host = plan.state.cards.get(card.attached_to or "")
+        return host is not None and host.controller == ap
+    return False
+
+
 ECHO = re.compile(r"^echo (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 

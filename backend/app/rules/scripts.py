@@ -81,9 +81,32 @@ TRIGGERS = [
     (re.compile(r"^Whenever ~ deals combat damage to a player, (?P<body>.+)$"), "combat_damage_player_self"),
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
+    # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
+    (re.compile(r"^At the beginning of (?:(?P<whose>your|each|each player's|each opponent's|the|enchanted player's) "
+                r"(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
+                r"postcombat main phase)|the (?P<hstep>upkeep|end step) of enchanted (?:creature|permanent|land|artifact|"
+                r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's) turn|(?P<each_combat>each combat)), "
+                r"(?P<body>.+)$"), "step"),
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
                 r"an artifact spell|an enchantment spell), (?P<body>.+)$"), "cast_you"),
 ]
+
+
+STEPS = {"upkeep": "upkeep", "draw step": "draw", "end step": "end", "first main phase": "main1",
+         "precombat main phase": "main1", "second main phase": "main2", "postcombat main phase": "main2"}
+WHOSE = {"your": "you", "each": "each", "each player's": "each", "the": "each", "each opponent's": "opponent",
+         "enchanted player's": "enchanted_player"}
+
+
+def step_trigger(m: re.Match[str]) -> str:
+    """"step:<phase>:<whose>": whose step it is decides whether it triggers (at_step)."""
+    if m["each_combat"]:
+        return "step:begin_combat:each"
+    if m["cwhose"]:
+        return f"step:begin_combat:{WHOSE[m['cwhose']]}"
+    if m["hstep"]:
+        return f"step:{STEPS[m['hstep']]}:host_controller"
+    return f"step:{STEPS[m['step']]}:{WHOSE[m['whose']]}"
 
 
 def num(word: str) -> int:
@@ -554,8 +577,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
-                out = {"kind": "triggered", "trigger": trigger, "effects": effects, "optional": optional,
-                       "target": {"what": target} if target else None}
+                out = {"kind": "triggered", "trigger": step_trigger(m) if trigger == "step" else trigger,
+                       "effects": effects, "optional": optional, "target": {"what": target} if target else None}
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
                 return out
