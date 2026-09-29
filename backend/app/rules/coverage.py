@@ -16,7 +16,7 @@ from typing import Any, Literal
 from app.rules import cards as scripts
 from app.rules import protection
 from app.rules import scripts as templates
-from app.rules.characteristics import Characteristics, printed_from_data
+from app.rules.characteristics import HALVES, Characteristics, half_from_data, printed_from_data
 from app.rules.mana import parse_mana_ability
 from app.rules.oracle import AbilityText
 
@@ -173,8 +173,10 @@ def of_characteristics(ch: Characteristics) -> Coverage:
 def of_card_data(data: dict[str, Any]) -> Coverage:
     """Coverage of a card from the card database (all faces of a double-faced card count)."""
     faces = data.get("faces") or []
-    if data.get("layout") in ("transform", "modal_dfc") and len(faces) > 1:
-        parts = [of_characteristics(printed_from_data(data, i)) for i in range(len(faces))]
+    if len(faces) > 1:  # double-faced, split, adventure, flip …: each face's text on its own (no "//" line)
+        halves = data.get("layout") in HALVES  # split cards / adventures: each half is its own spell
+        parts = [of_characteristics(half_from_data(data, i) if halves else printed_from_data(data, i))
+                 for i in range(len(faces))]
         feats = tuple(f for p in parts for f in p.features)
         supported = sum(1 for f in feats if f.supported)
         level: Level = "FULL" if supported == len(feats) and feats else ("PARTIAL" if supported else "MANUAL")

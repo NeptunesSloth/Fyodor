@@ -100,7 +100,7 @@ def self_text(text: str, name: str) -> str:
     for n in sorted({name, name.split(",")[0].strip()}, key=len, reverse=True):
         if len(n) >= 3:
             out = re.sub(rf"\b{re.escape(n)}\b", "~", out)
-    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|Equipment|Vehicle)\b", "~", out)
+    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|Equipment|Vehicle|Aura)\b", "~", out)
 
 
 EFFECTS: list[tuple[re.Pattern[str], Any]] = []
