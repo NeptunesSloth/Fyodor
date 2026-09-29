@@ -158,7 +158,11 @@ hot-seat "open table" mode only).
 - **Built (M14):** intents, compile-and-record, the rules state, decisions, priority and stops,
   the turn structure with its turn-based actions, the land drop, manual resolution, override
   logging, coverage and the pod inventory.
-- **Next (M15+):** casting, abilities, combat, state-based actions, effects and card scripts.
+- **Built (M15):** mana abilities and automatic payment, casting, activated and loyalty
+  abilities, state-based actions, combat and the commander rules.
+  - Code: `mana`, `costs`, `casting`, `sba`, `combat`.
+- **Next (M16+):** card effects (primitives, targeting, triggers, continuous effects) and
+  per-card scripts, in pod-inventory order.
 - **Code:** `app/rules/` (`engine`, `view`, `characteristics`, `oracle`, `coverage`,
   `inventory`, `cards/`) plus `app/game/rules_state.py` (data) and
   `app/game/handlers/rules.py` (pure replay).

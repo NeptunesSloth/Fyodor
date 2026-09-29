@@ -273,10 +273,14 @@ def resolve_top_of_stack(plan: Plan) -> None:
             plan.do({"type": "counter", "card_ids": [top_id], "kind": "loyalty", "delta": loyalty}, actor=controller)
     if manual:
         resolved = plan.state.cards.get(top_id)
-        what = ch.name or "the ability"
+        if ch.is_ability:
+            text = ch.oracle_text if len(ch.oracle_text) <= 160 else ch.oracle_text[:157] + "…"
+            prompt = f"Resolve {ch.name + '’s ability' if ch.name and ch.name != 'Ability' else 'the ability'} by hand: “{text}”. Then press Done"
+        else:
+            prompt = f"Resolve {ch.name or 'it'} by hand with the table tools, then press Done"
         decide(
             plan, player=controller, kind="manual_resolution",
-            prompt=f"Resolve {what} by hand with the table tools, then press Done",
+            prompt=prompt,
             options=[DecisionOption(id="done", label="Done")], resume={"step": "manual_done"},
             source=resolved,
         )

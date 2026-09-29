@@ -85,6 +85,8 @@ class RulesState(BaseModel):
     stops: dict[str, Stops] = Field(default_factory=dict)
     lands_played: dict[str, TurnCount] = Field(default_factory=dict)
     spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
+    loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
+    once_per_turn: dict[str, int] = Field(default_factory=dict)  # "<card>:<ability>" -> turn it was activated
     turn_seen: int = 0  # last turn number the bookkeeping saw
     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
     controlled_since: dict[str, ControlMark] = Field(default_factory=dict)

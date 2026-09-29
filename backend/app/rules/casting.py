@@ -17,6 +17,7 @@ from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
 from app.rules import mana as M
 from app.rules.characteristics import CardInfo, Characteristics
+from app.rules.costs import AbilityCost, parse_ability_cost
 from app.rules.oracle import AbilityText
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
 
@@ -100,9 +101,10 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str) -> None:
              "delta": payment.delta(), "life": payment.life, "label": label}, actor=player)
 
 
-def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo) -> bool:
+def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, exclude: tuple[str, ...] = ()) -> bool:
+    sources = [s for s in mana_sources(state, player, info) if s.card_id not in exclude]
     try:
-        M.solve(cost, dict(state.players[player].mana), mana_sources(state, player, info), life=state.players[player].life)
+        M.solve(cost, dict(state.players[player].mana), sources, life=state.players[player].life)
     except M.ManaError:
         return False
     return True
@@ -217,9 +219,11 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         raise ActionError("You can only activate abilities of permanents you control")
     ch = plan.ch(card)
     ability = _find_ability(ch, a.ability)
+    if ability.kind in ("activated", "loyalty"):
+        activate_to_stack(plan, card, ch, ability, a)
+        return
     if ability.kind != "mana":
-        raise ActionError("Activating abilities other than mana abilities arrives later in milestone 15. "
-                          "Use the table tools for now.")
+        raise ActionError(f"“{ability.text}” isn't an ability you activate")
     parsed = dict(mana_abilities(plan.state, card, plan.info)).get(a.ability)
     if parsed is None:
         raise ActionError(f"Fyodor can't carry out “{ability.text}” yet. Use the table tools.")
@@ -239,6 +243,112 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
                resume={"step": "mana_ability", "card": card.id, "ability": a.ability}, source=card)
         return
     plan.rules.passed = []
+
+
+# -- other activated abilities (they use the stack) -----------------------------------------
+def ability_cost(ch: Characteristics, ability: AbilityText) -> AbilityCost:
+    return parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
+
+
+def ability_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, ability: AbilityText,
+                    cost: AbilityCost, *, check_priority: bool = True, x: int = 0,
+                    info: CardInfo | None = None) -> str | None:
+    """Why ``player`` can't activate this ability now (None if they can, costs included when
+    ``info`` is given)."""
+    r = state.rules
+    if r is None:
+        return "Rules automation is off"
+    if card.controller != player or not card.zone.endswith(":battlefield"):
+        return "You can only activate abilities of permanents you control"
+    if cost.unsupported:
+        return f"Pay “{', '.join(cost.unsupported)}” by hand with the table tools"
+    if check_priority and (r.priority != player or r.decision is not None):
+        return "You don't have priority"
+    sorcery = ability.kind == "loyalty" or "Activate only as a sorcery" in ability.text
+    if sorcery and (state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK)):
+        return "That can only be activated in your main phase while the stack is empty"
+    if ability.kind == "loyalty":
+        if r.loyalty_used.get(card.id) == state.turn.number:
+            return f"{ch.name} has already used a loyalty ability this turn"
+        if cost.loyalty is not None and cost.loyalty < 0 and card.counters.get("loyalty", 0) < -cost.loyalty:
+            return f"{ch.name} doesn't have enough loyalty"
+    if "Activate only once each turn" in ability.text and r.once_per_turn.get(f"{card.id}:{ability.index}") == state.turn.number:
+        return "That can only be activated once each turn"
+    if cost.tap and not can_use_tap_abilities(state, card, ch):
+        return f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness"
+    for kind, n in cost.remove_counters:
+        if card.counters.get(kind, 0) < n:
+            return f"{ch.name} doesn't have {n} {kind} counter{'s' if n != 1 else ''}"
+    if cost.life and state.players[player].life < cost.life:
+        return f"You don't have {cost.life} life to pay"
+    if info is not None and cost.mana:
+        mana = M.parse_cost(cost.mana).with_x(x)
+        if not can_pay(state, player, mana, info, exclude=(card.id,) if cost.tap else ()):
+            return f"Not enough mana to pay {mana.text()}"
+    return None
+
+
+def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, ability: AbilityText,
+                      a: A.ActivateAbility) -> None:
+    from app.rules.engine import advance  # the engine imports this module
+
+    cost = ability_cost(ch, ability)
+    problem = ability_problem(plan.state, plan.actor, card, ch, ability, cost)
+    if problem:
+        raise ActionError(problem)
+    mana = M.parse_cost(cost.mana)
+    if mana.x and a.x_value is None:
+        raise ActionError("Choose a value for X")
+    effect = ability.text.split(":", 1)[1].strip() if ":" in ability.text else ability.text
+    created = plan.do({"type": "create_ability", "text": effect[:500], "source_id": card.id, "kind": "activated"})
+    new_ids = getattr(created, "r", None)
+    ability_id = new_ids.ids[0] if new_ids is not None else None
+    # Pay the costs (602.2): tap first so the source can't also pay for its own mana cost.
+    if cost.tap:
+        plan.do({"type": "tap", "card_ids": [card.id], "tapped": True})
+    if cost.loyalty:
+        plan.do({"type": "counter", "card_ids": [card.id], "kind": "loyalty", "delta": cost.loyalty})
+    for kind, n in cost.remove_counters:
+        plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n})
+    if cost.life:
+        plan.do({"type": "life", "player": plan.actor, "delta": -cost.life})
+    pay(plan, plan.actor, mana.with_x(a.x_value or 0), f"paid {mana.with_x(a.x_value or 0).text()} to activate {ch.name}")
+    if cost.sacrifice_self:
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "graveyard"}})
+    if a.x_value is not None and ability_id:
+        plan.do({"type": "set_stack_info", "card_id": ability_id, "x": a.x_value})
+    if a.targets and ability_id:
+        plan.do({"type": "create_arrow", "source": ability_id, "targets": list(a.targets), "kind": "target"})
+    r = plan.rules
+    if ability.kind == "loyalty":
+        r.loyalty_used[card.id] = plan.state.turn.number
+    if "Activate only once each turn" in ability.text:
+        r.once_per_turn[f"{card.id}:{ability.index}"] = plan.state.turn.number
+    r.passed = []
+    r.priority = plan.actor
+    if not r.stops_for(plan.actor).hold_priority:
+        r.passed.append(plan.actor)
+        r.priority = plan.after(plan.actor)
+    advance(plan)
+
+
+def activatable(state: GameState, player: str, info: CardInfo, *, check_priority: bool = True) -> list[dict[str, Any]]:
+    """Abilities of ``player``'s permanents that could be activated right now (for hints)."""
+    out: list[dict[str, Any]] = []
+    for cid in state.zones.get(zone_key(player, "battlefield"), []):
+        card = state.cards[cid]
+        if card.controller != player:
+            continue
+        ch = chars.of(card, info)
+        for ab in ch.abilities:
+            if ab.kind in ("activated", "loyalty"):
+                problem = ability_problem(state, player, card, ch, ab, ability_cost(ch, ab),
+                                          check_priority=check_priority, info=info)
+                if problem is None:
+                    out.append({"card_id": cid, "ability": ab.index})
+            elif ab.kind == "mana" and not check_priority:
+                continue
+    return out
 
 
 def _count(option: tuple[str, ...]) -> dict[str, int]:
@@ -276,12 +386,4 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
             ch = chars.of(card, info)
             if ("Instant" in ch.types or ch.has_flash) and castable(state, player, card, info, check_priority=False):
                 return True
-    for cid in state.zones.get(zone_key(player, "battlefield"), []):
-        card = state.cards[cid]
-        if card.controller != player:
-            continue
-        ch = chars.of(card, info)
-        for ab in ch.abilities:
-            if ab.kind == "activated" and (not ab.cost or "{T}" not in ab.cost or can_use_tap_abilities(state, card, ch)):
-                return True  # activated abilities aren't automated yet: assume they could matter
-    return False
+    return bool(activatable(state, player, info, check_priority=False))

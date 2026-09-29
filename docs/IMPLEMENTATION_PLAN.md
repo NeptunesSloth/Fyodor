@@ -49,8 +49,8 @@ docs, and an updated status table.
 | 12 | Table tools (P1/P2): effects, damage, arrows, mana pool, mass actions, filters, choices, cast metadata, exile groups, cleanup, sleeves/playmats, asset manager, tabletop HUD | ✅ done |
 | 13 | P3: snapshots + history timeline, profiles/sound/keys/accessibility/perf presets, custom actions (declarative macros), solo tools, portable packages, diagnostics, launcher + first-run, lobby deck checks, full pod regression E2E | ✅ done |
 | 14 | **Rules boundary:** intent protocol, `rules/` package, `RulesState`, decisions, override logging, automation setting, coverage metadata (FULL / PARTIAL / MANUAL), pod card inventory from Archidekt/saved decks | ✅ done |
-| 15 | **Core rules primitives:** mana costs and payment, casting and the stack, activated abilities, state-based actions, combat, commander rules | next |
-| 16 | **Card effects:** effect primitives, targeting, keywords, triggered and activated abilities, continuous effects (layers), common replacement effects, templated Oracle-text recognition | planned |
+| 15 | **Core rules primitives:** mana costs and payment, casting and the stack, activated abilities, state-based actions, combat, commander rules | ✅ done |
+| 16 | **Card effects:** effect primitives, targeting, keywords, triggered and activated abilities, continuous effects (layers), common replacement effects, templated Oracle-text recognition | next |
 | 17 | **Pod coverage:** script the pod's cards by frequency until our decks are mostly FULL; per-deck coverage in the deck view and lobby | planned |
 | 18 | **Rules-aware client (2D first):** playable highlights, prompts, stops and auto-pass, override affordances | planned |
 | 19 | **3D table** (three.js) on the intent API, then **tabletop toys** (dice objects, bags incl. a hidden draw bag) | planned — see `3D_DIRECTION.md` |
@@ -244,7 +244,20 @@ by default and the foundation doesn't change.
     at the end of combat.
   - Multiple blockers are assigned damage in declaration order (lethal to each, then the
     rest). Choosing that order interactively is a later refinement.
-- **Still to do:** M15d non-mana activated and loyalty abilities.
+- **Built, M15d: activated and loyalty abilities**, tested in `test_rules_abilities.py`.
+  - Costs are paid automatically when they're `{T}`, mana (with X), "Sacrifice this…",
+    "Pay N life" or removing counters from itself. Any other cost is refused with "pay it by
+    hand".
+  - Loyalty abilities are sorcery speed, once per turn per planeswalker, and check that
+    there's enough loyalty. "Activate only as a sorcery" and "only once each turn" are
+    respected.
+  - The ability goes on the stack and resolves by hand, with its text shown in the prompt,
+    until its effect is scripted (M16).
+  - Hints list your activatable abilities, and smart passing now uses the real "can I
+    activate anything" check.
+
+**M15 is complete.** The next milestone is M16 (card effects), prioritised by the pod
+inventory.
 
 - **Turn and priority:** the turn structure (untap, upkeep, draw, main, combat steps, end,
   cleanup with discard to hand size) and priority passing with Arena-style stops and

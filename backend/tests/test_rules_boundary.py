@@ -211,8 +211,8 @@ def test_not_yet_automated_parts_explain_themselves(s):
         act(s, "p1", type="declare_attackers", attackers=[])  # not in the declare attackers step
     krenko = find(s.state, "Krenko, Mob Boss", "p1")
     act(s, "p1", type="move", card_ids=[krenko.id], to={"zone": "battlefield"})
-    with pytest.raises(ActionError, match="arrives later"):
-        act(s, "p1", type="activate_ability", card_id=krenko.id, ability=0)  # non-mana abilities: M15d
+    with pytest.raises(ActionError, match="summoning sickness"):
+        act(s, "p1", type="activate_ability", card_id=krenko.id, ability=0)  # {T} the turn it arrived
 
 
 def test_hints_are_only_about_your_own_cards(s):
