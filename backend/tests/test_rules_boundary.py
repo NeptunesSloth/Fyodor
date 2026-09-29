@@ -141,6 +141,7 @@ def test_unsupported_effects_resolve_by_hand(s):
     assert rules(s).overrides == 2
     entry = s.view("p2")["log"][-1]
     assert entry.get("manual") is True
+    act(s, "p2", type="set_stops", smart_pass=False)  # Bob wants a say even with nothing to cast
     act(s, "p1", type="pass_priority")
     assert rules(s).priority == "p2"  # something on the stack: Bob really gets priority
     act(s, "p2", type="pass_priority")
@@ -208,7 +209,7 @@ def test_not_yet_automated_intents_explain_themselves(s):
     to_main(s)
     act(s, "p1", type="draw", count=7)
     with pytest.raises(ActionError, match="next milestone"):
-        act(s, "p1", type="cast_spell", card_id=find(s.state, "Sol Ring", "p1").id)
+        act(s, "p1", type="declare_attackers", attackers=[])
 
 
 def test_hints_are_only_about_your_own_cards(s):

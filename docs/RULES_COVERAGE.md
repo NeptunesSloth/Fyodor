@@ -40,6 +40,15 @@ python -m tools.rules_inventory --deck-file deck.txt                            
   companion, main deck and sideboard count; the maybeboard doesn't.
 - **Saved games** add cards from decks players brought to a LAN lobby without saving them.
 
+## Progress on the sample decks
+
+Regenerate with the command above after each milestone.
+
+| After | FULL | PARTIAL | MANUAL | Copies fully automated | What changed |
+|---|---|---|---|---|---|
+| M14 | 0 | 32 | 121 | 0% | Land drop only |
+| M15a | 8 | 145 | 0 | 25.5% | Casting (timing, costs, commander tax, the stack), mana abilities incl. basic land types. Every card can now be cast or played through the engine. Mana rocks and basic lands are FULL. |
+
 ## Baseline (milestone 14): the two sample decks
 
 `docs/sample-decks/atraxa-counters.txt` and `krenko-goblins.txt` were run against Scryfall's

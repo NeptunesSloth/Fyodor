@@ -59,6 +59,7 @@ class AbilityText:
     kind: AbilityKind
     keywords: tuple[str, ...] = ()  # for "keywords" lines: the normalised keyword names
     cost: str | None = None  # for activated/loyalty abilities: the text before the colon
+    intrinsic: bool = False  # granted by a basic land type rather than printed
 
 
 def strip_reminders(text: str) -> str:
@@ -93,9 +94,15 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
     return None
 
 
+_ADD_MANA = re.compile(r"^(?P<cost>[^:]+): Add ")
+
+
 def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], str | None]:
     if _MANA_ABILITY.match(line):
         return "mana", (), "{T}"
+    m = _ADD_MANA.match(line)
+    if m and not _LOYALTY.match(line) and "target" not in line:
+        return "mana", (), m.group("cost")
     kws = _keywords_line(line)
     if kws is not None and ":" not in line:
         return "keywords", kws, None

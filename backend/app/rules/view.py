@@ -14,8 +14,10 @@ from typing import Any
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT
 from app.rules import characteristics as chars
+from app.rules.casting import castable
 from app.rules.characteristics import CardInfo
-from app.rules.engine import land_play_problem, live_players
+from app.rules.engine import land_play_problem
+from app.rules.plan import live_players
 
 
 def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] | None:
@@ -57,4 +59,10 @@ def hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
         if land_play_problem(state, viewer, card, chars.of(card, info)) is None:
             playable.append(cid)
     out["playable_lands"] = playable
+    out["castable"] = [
+        cid
+        for key in (zone_key(viewer, "hand"), zone_key(viewer, "command"))
+        for cid in state.zones.get(key, [])
+        if castable(state, viewer, state.cards[cid], info)
+    ]
     return out

@@ -203,6 +203,22 @@ by default and the foundation doesn't change.
 
 ### M15 — Core rules primitives
 
+**Progress:**
+
+- **Built, M15a: mana and casting**, tested in `test_rules_casting.py`.
+  - Cost parsing covers generic, coloured, hybrid, twobrid, Phyrexian and X.
+  - Mana abilities with `{T}` / "sacrifice this" costs are understood, including basic land
+    types, "any color" and "commander's color identity". Activating one asks which colour
+    when there's a choice. Summoning sickness is derived from control marks.
+  - An auto-payment solver uses the pool first and keeps flexible sources for last.
+  - `cast_spell` handles timing (sorcery speed vs instant/flash), commander tax, X, targets
+    shown as arrows, and "can't pay → nothing happens".
+  - Priority: the caster passes unless they hold priority, and smart passing skips players
+    with no possible response.
+  - Mana pools empty between steps. Auras and spell effects fall back to manual resolution.
+- **Still to do:** M15b state-based actions and the commander zone choice, M15c combat, and
+  M15d non-mana activated and loyalty abilities.
+
 - **Turn and priority:** the turn structure (untap, upkeep, draw, main, combat steps, end,
   cleanup with discard to hand size) and priority passing with Arena-style stops and
   auto-pass.

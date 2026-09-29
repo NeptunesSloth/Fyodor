@@ -68,9 +68,8 @@ class Characteristics:
         return frozenset(k for a in self.abilities if a.kind == "keywords" for k in a.keywords)
 
     @property
-    def intrinsic_mana(self) -> tuple[str, ...]:
-        """Mana symbols from basic land types ("Forest" has an intrinsic {T}: Add {G})."""
-        return tuple(BASIC_LAND_MANA[t] for t in sorted(self.subtypes) if t in BASIC_LAND_MANA)
+    def has_flash(self) -> bool:
+        return "flash" in self.keywords
 
 
 def parse_type_line(type_line: str) -> tuple[frozenset[str], frozenset[str], frozenset[str]]:
@@ -135,9 +134,20 @@ def _from_card_data(data: dict[str, Any], face: int) -> Characteristics:
         toughness=src.get("toughness"),
         loyalty=src.get("loyalty"),
         oracle_text=text,
-        abilities=tuple(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"}))),
+        abilities=with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"})), subtypes),
         oracle_id=data.get("oracle_id"),
     )
+
+
+def with_intrinsic_mana(abilities: list[AbilityText], subtypes: frozenset[str]) -> tuple[AbilityText, ...]:
+    """Basic land types grant "{T}: Add [mana]." (rule 305.6), listed after the printed abilities."""
+    out = list(abilities)
+    for t in sorted(subtypes):
+        if t in BASIC_LAND_MANA:
+            text = f"{{T}}: Add {{{BASIC_LAND_MANA[t]}}}."
+            if not any(a.text == text for a in out):
+                out.append(AbilityText(index=len(out), text=text, kind="mana", cost="{T}", intrinsic=True))
+    return tuple(out)
 
 
 def printed_from_data(data: dict[str, Any], face: int = 0) -> Characteristics:
@@ -164,7 +174,7 @@ def of(card: CardInstance, info: CardInfo) -> Characteristics:
         return Characteristics(
             name=t.name, supertypes=supertypes, types=types, subtypes=subtypes, colors=frozenset(t.colors),
             power=t.power, toughness=t.toughness, oracle_text=t.text,
-            abilities=tuple(parse_abilities(t.text, spell=bool(types & {"Instant", "Sorcery"}))),
+            abilities=with_intrinsic_mana(parse_abilities(t.text, spell=bool(types & {"Instant", "Sorcery"})), subtypes),
         )
     data = info.get(card.card_id) if card.card_id else None
     if data is None:

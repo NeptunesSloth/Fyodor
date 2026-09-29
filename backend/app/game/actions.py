@@ -847,6 +847,7 @@ class ActivateAbility(_Intent):
     ability: int = Field(ge=0, le=30)  # index into the card's abilities (see app/rules/oracle.py)
     targets: list[Id] = Field(default_factory=list, max_length=20)
     x_value: int | None = Field(default=None, ge=0, le=1000)
+    mana_choice: Literal["W", "U", "B", "R", "G", "C"] | None = None  # which colour, for "R or G" abilities
 
 
 class AttackDeclaration(BaseModel):
@@ -893,6 +894,8 @@ class SetStops(_Intent):
     type: Literal["set_stops"] = "set_stops"
     own: list[str] = Field(default_factory=list, max_length=12)
     others: list[str] = Field(default_factory=list, max_length=12)
+    hold_priority: bool = False  # keep priority after casting (Arena's "full control")
+    smart_pass: bool = True  # pass for me while I have nothing I could respond with
 
     @field_validator("own", "others")
     @classmethod
@@ -910,6 +913,20 @@ class RulesSync(Base):
     rules: dict[str, Any] | None = None
 
 
+class RulesMana(Base):
+    """Server-built only: mana work in one step: tap/sacrifice sources, change one player's pool
+    (added minus spent), pay life for Phyrexian mana, or empty every pool at a step change."""
+
+    type: Literal["rules_mana"] = "rules_mana"
+    player: Id
+    tap: list[Id] = Field(default_factory=list, max_length=100)
+    sacrifice: list[Id] = Field(default_factory=list, max_length=100)
+    delta: dict[Literal["W", "U", "B", "R", "G", "C"], Annotated[int, Field(ge=-1000, le=1000)]] = Field(default_factory=dict)
+    life: int = Field(default=0, ge=0, le=1000)
+    empty_all: bool = False
+    label: str = Field(default="", max_length=200)  # "paid {1}{G} for Llanowar Elves"
+
+
 class RulesLog(Base):
     """Server-built only: a log line written by the rules engine ("Alice passed", "Turn 3 …")."""
 
@@ -923,7 +940,7 @@ INTENT_TYPES = frozenset(
     {"play_land", "cast_spell", "activate_ability", "declare_attackers", "declare_blockers", "pass_priority",
      "choose", "concede", "set_stops"}
 )
-SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log"})
+SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana"})
 
 
 Action = Annotated[
@@ -1027,6 +1044,7 @@ Action = Annotated[
     | Concede
     | SetStops
     | RulesSync
+    | RulesMana
     | RulesLog,
     Field(discriminator="type"),
 ]

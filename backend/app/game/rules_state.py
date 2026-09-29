@@ -70,6 +70,8 @@ class Stops(BaseModel):
 
     own: list[str] = Field(default_factory=lambda: ["main1", "main2"])
     others: list[str] = Field(default_factory=list)
+    hold_priority: bool = False  # after casting, keep priority instead of passing (Arena's "full control")
+    smart_pass: bool = True  # with something on the stack, pass for me if I have nothing to respond with
 
 
 class RulesState(BaseModel):
@@ -80,6 +82,7 @@ class RulesState(BaseModel):
     decision: Decision | None = None
     stops: dict[str, Stops] = Field(default_factory=dict)
     lands_played: dict[str, TurnCount] = Field(default_factory=dict)
+    spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
     turn_seen: int = 0  # last turn number the bookkeeping saw
     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
     controlled_since: dict[str, ControlMark] = Field(default_factory=dict)
@@ -89,6 +92,10 @@ class RulesState(BaseModel):
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)
+        return entry.count if entry and entry.turn == turn else 0
+
+    def spells_this_turn(self, player: str, turn: int) -> int:
+        entry = self.spells_cast.get(player)
         return entry.count if entry and entry.turn == turn else 0
 
     def stops_for(self, player: str) -> Stops:

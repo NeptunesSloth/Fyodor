@@ -108,6 +108,7 @@ HANDLERS: dict[str, Handler] = {
     **{t: rules.apply_intent for t in A.INTENT_TYPES},
     "rules_sync": rules.rules_sync,
     "rules_log": rules.rules_log,
+    "rules_mana": rules.rules_mana,
 }
 
 # Actions that change nothing worth undoing or logging separately.

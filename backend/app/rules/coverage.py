@@ -14,12 +14,15 @@ from typing import Any, Literal
 
 from app.rules import cards as scripts
 from app.rules.characteristics import Characteristics, printed_from_data
+from app.rules.mana import parse_mana_ability
 
 Level = Literal["FULL", "PARTIAL", "MANUAL"]
 
 # Everything the engine automates today. Add a feature only together with its scenario tests.
 SUPPORTED: set[str] = {
     "play:land",  # play_land: timing, one land per turn, priority (M14)
+    "cast:spell",  # cast_spell: timing, costs (auto-paid), commander tax, the stack, resolution (M15)
+    "mana:ability",  # {T}[, Sacrifice this]: Add … mana abilities, incl. basic land types (M15)
 }
 
 # Keyword abilities the engine implements (each needs tests before it is listed here).
@@ -69,8 +72,6 @@ def features_of(ch: Characteristics) -> list[Feature]:
         add("combat", "Attack and block")
     if "Planeswalker" in ch.types:
         add("planeswalker", "Loyalty and damage to planeswalkers")
-    if ch.intrinsic_mana:
-        add("mana:intrinsic", "{T}: Add " + "".join("{" + m + "}" for m in ch.intrinsic_mana) + " (basic land type)")
     for ab in ch.abilities:
         if script is not None and ab.index in script.covers:
             add(f"script:{ab.index}", ab.text, True)
@@ -78,7 +79,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
             for kw in ab.keywords:
                 add(f"keyword:{kw}", kw.capitalize(), kw in SUPPORTED_KEYWORDS)
         elif ab.kind == "mana":
-            add("mana:ability", ab.text, "mana:ability" in SUPPORTED)
+            add("mana:ability", ab.text, "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None)
         else:
             add(f"text:{ab.index}", ab.text, False)
     return out
@@ -119,5 +120,5 @@ def ability_supported(ch: Characteristics, index: int) -> bool:
     if ab.kind == "keywords":
         return all(k in SUPPORTED_KEYWORDS for k in ab.keywords)
     if ab.kind == "mana":
-        return "mana:ability" in SUPPORTED
+        return "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None
     return False

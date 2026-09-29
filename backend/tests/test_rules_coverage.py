@@ -35,13 +35,17 @@ def test_card_coverage_levels(cards):
     mountain = coverage.of_card_data(cards.resolve("Mountain"))
     bolt = coverage.of_card_data(cards.resolve("Lightning Bolt"))
     tower = coverage.of_card_data(cards.resolve("Command Tower"))
-    assert mountain.level == "PARTIAL" and mountain.manual_parts == ["{T}: Add {R} (basic land type)"]
-    assert tower.level == "PARTIAL"
-    assert bolt.level == "MANUAL" and "Lightning Bolt deals 3 damage to any target." in bolt.manual_parts
+    # land drop + the intrinsic mana ability of its basic land type are both automated
+    assert mountain.level == "FULL" and mountain.manual_parts == []
+    assert tower.level == "FULL"  # "any color in your commander's color identity"
+    # casting is automated, the spell's effect isn't (yet)
+    assert bolt.level == "PARTIAL" and bolt.manual_parts == ["Lightning Bolt deals 3 damage to any target."]
+    krenko = coverage.of_card_data(cards.resolve("Krenko, Mob Boss"))
+    assert krenko.level == "PARTIAL" and "Attack and block" in krenko.manual_parts
 
 
 def test_full_only_when_every_part_is_supported(cards, monkeypatch):
-    monkeypatch.setattr(coverage, "SUPPORTED", {"play:land", "mana:intrinsic"})
+    monkeypatch.setattr(coverage, "SUPPORTED", {"play:land", "mana:ability"})
     assert coverage.of_card_data(cards.resolve("Forest")).level == "FULL"
     vanilla = Characteristics(name="Grizzly Bears", types=frozenset({"Creature"}), power="2", toughness="2")
     assert coverage.of_characteristics(vanilla).level == "MANUAL"
@@ -56,7 +60,7 @@ def test_scripts_cover_abilities(cards):
     try:
         cov = coverage.of_card_data(bolt)
         assert "Lightning Bolt deals 3 damage to any target." not in cov.manual_parts
-        assert cov.level == "PARTIAL"  # still needs "cast:spell"
+        assert cov.level == "FULL"  # casting is supported and the script covers the effect
     finally:
         del scripts._REGISTRY[script.oracle_id]
 
@@ -64,7 +68,7 @@ def test_scripts_cover_abilities(cards):
 def test_coverage_api(client):
     bolt = client.get("/api/cards/search?q=Lightning Bolt").json()["results"][0]
     res = client.get(f"/api/rules/coverage?card_ids={bolt['id']},nonexistent").json()
-    assert res[bolt["id"]]["level"] == "MANUAL" and "nonexistent" not in res
+    assert res[bolt["id"]]["level"] == "PARTIAL" and "nonexistent" not in res
     by_oracle = client.get(f"/api/rules/coverage?oracle_ids={bolt['oracle_id']}").json()
     assert by_oracle[bolt["oracle_id"]]["name"] == "Lightning Bolt"
     assert "play:land" in client.get("/api/rules/support").json()["features"]
@@ -84,8 +88,9 @@ def test_pod_inventory_from_library_and_saved_games(client):
     assert rows["Sol Ring"]["deck_count"] == 2 and rows["Island"]["copies"] == 15 and rows["Island"]["basic_land"]
     assert rows["Lightning Bolt"]["deck_count"] == 2 and rows["Lightning Bolt"]["games"] == 1
     assert report["cards"][0]["deck_count"] == 2  # most-played first
-    assert rows["Lightning Bolt"]["coverage"] == "MANUAL" and rows["Island"]["coverage"] == "PARTIAL"
-    assert report["summary"]["PARTIAL"] >= 2 and 0 <= report["weighted_full"] <= 1
+    assert rows["Lightning Bolt"]["coverage"] == "PARTIAL" and rows["Island"]["coverage"] == "FULL"
+    assert rows["Sol Ring"]["coverage"] == "FULL"  # cast it, tap it for {C}{C}
+    assert report["summary"]["FULL"] >= 2 and 0 < report["weighted_full"] <= 1
     md = client.get("/api/rules/inventory.md").text
     assert "| Sol Ring |" in md and "Rules coverage" in md
     remote = TestClient(client.app, client=("192.168.1.20", 50000))

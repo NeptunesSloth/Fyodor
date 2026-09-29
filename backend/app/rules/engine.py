@@ -18,92 +18,24 @@ automate, decisions, and conceding. Casting, abilities and combat arrive with mi
 
 from __future__ import annotations
 
-import secrets
 from collections.abc import Callable
 from typing import Any
 
 from app.game import actions as A
 from app.game.errors import ActionError
-from app.game.rules_state import Decision, DecisionOption, RulesState, Stops, TurnCount, track
+from app.game.rules_state import Decision, DecisionOption, Stops, TurnCount
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.game.visibility import publicly_visible
-from app.rules import characteristics as chars
-from app.rules import coverage
+from app.rules import casting, coverage
 from app.rules.characteristics import CardInfo, Characteristics
+from app.rules.plan import Plan, decide, require_no_decision, require_priority
 
-MAX_STEPS = 400  # a safety valve: no single intent may expand into more table actions
 MAIN_PHASES = ("main1", "main2")
 MAX_HAND_SIZE = 7
 
 NOT_YET = {
-    "cast_spell": "Casting spells",
-    "activate_ability": "Activating abilities",
     "declare_attackers": "Declaring attackers",
     "declare_blockers": "Declaring blockers",
 }
-
-
-class Plan:
-    """A scratch copy of the table plus the table actions carried out on it so far."""
-
-    def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
-        self.state = state.model_copy(deep=True)
-        self.actor = actor
-        self.info = info
-        self.rng = rng
-        self.steps: list[dict[str, Any]] = []
-
-    @property
-    def rules(self) -> RulesState:
-        assert self.state.rules is not None
-        return self.state.rules
-
-    def do(self, payload: dict[str, Any], *, actor: str | None = None) -> A.Action:
-        """Resolve and apply one table action on the scratch copy, and record it."""
-        from app.game.engine import HANDLERS  # the game engine imports resolve → this module
-        from app.game.resolve import resolve
-
-        if len(self.steps) >= MAX_STEPS:
-            raise ActionError("The rules engine stopped: too many steps for one action")
-        action = A.parse_action(payload)
-        resolved = resolve(self.state, action, actor=actor or self.actor, cards=self.info, rng=self.rng, trusted=True)
-        HANDLERS[resolved.type](self.state, resolved)
-        track(self.state)
-        self.steps.append(resolved.model_dump(mode="json"))
-        return resolved
-
-    def note(self, message: str, card_ids: list[str] | tuple[str, ...] = (), *, actor: str | None = None) -> None:
-        self.do({"type": "rules_log", "text": message, "card_ids": list(card_ids)}, actor=actor)
-
-    def ch(self, card: CardInstance) -> Characteristics:
-        return chars.of(card, self.info)
-
-    # -- table helpers ---------------------------------------------------------------
-    def name(self, player: str) -> str:
-        return self.state.players[player].name
-
-    @property
-    def active(self) -> str:
-        return self.state.turn.active_player
-
-    def live(self) -> list[str]:
-        return live_players(self.state)
-
-    def after(self, player: str) -> str:
-        """The next live player after ``player`` in turn order."""
-        order = self.state.seat_order
-        live = set(self.live())
-        start = order.index(player) if player in order else -1
-        for i in range(1, len(order) + 1):
-            p = order[(start + i) % len(order)]
-            if p in live:
-                return p
-        return player
-
-
-def live_players(state: GameState) -> list[str]:
-    conceded = set(state.rules.conceded) if state.rules else set()
-    return [p for p in state.seat_order if not state.players[p].left and p not in conceded]
 
 
 # -- entry point -------------------------------------------------------------------------
@@ -146,34 +78,14 @@ def sync_step(plan: Plan) -> None:
         r.priority = plan.active
 
 
-def require_no_decision(plan: Plan) -> None:
-    d = plan.rules.decision
-    if d is not None:
-        raise ActionError(f"Waiting for {plan.name(d.player)}: {d.prompt}")
-
-
-def require_priority(plan: Plan) -> None:
-    holder = plan.rules.priority
-    if holder != plan.actor:
-        raise ActionError("You don't have priority" + (f" ({plan.name(holder)} does)" if holder else ""))
-
-
-def decide(plan: Plan, *, player: str, kind: str, prompt: str, options: list[DecisionOption], resume: dict[str, Any],
-           min_choices: int = 1, max_choices: int = 1, source: CardInstance | None = None) -> None:
-    source_id = source.id if source is not None and publicly_visible(plan.state, source) else None
-    plan.rules.decision = Decision(
-        id=secrets.token_hex(6), player=player, kind=kind, prompt=prompt[:300], options=options,  # type: ignore[arg-type]
-        min_choices=min_choices, max_choices=max_choices, source_id=source_id, resume=resume,
-    )
-    plan.rules.priority = None
-
-
 # -- priority ----------------------------------------------------------------------------
 def is_stop(plan: Plan, player: str) -> bool:
     phase = plan.state.turn.phase
-    if plan.state.zones.get(STACK):
-        return True  # something to respond to: everyone gets a real chance (M15: skip if no options)
     stops: Stops = plan.rules.stops_for(player)
+    if plan.state.zones.get(STACK):
+        # Something to respond to. With smart passing (the default) the engine passes for players
+        # who have nothing they could respond with, like Arena does.
+        return not stops.smart_pass or casting.has_responses(plan.state, player, plan.info)
     if player == plan.active:
         return phase == "main1" or phase in stops.own
     return phase in stops.others
@@ -225,7 +137,14 @@ def _mark_step(plan: Plan) -> None:
     r.priority = plan.active if plan.active in plan.live() else plan.after(plan.active)
 
 
+def empty_pools(plan: Plan) -> None:
+    """Mana empties from every pool at the end of each step and phase (rule 500.4)."""
+    if any(p.mana for p in plan.state.players.values()):
+        plan.do({"type": "rules_mana", "player": plan.active, "empty_all": True}, actor=plan.active)
+
+
 def next_step(plan: Plan) -> None:
+    empty_pools(plan)
     phase = plan.state.turn.phase
     if phase == "cleanup":
         start_next_turn(plan)
@@ -294,6 +213,8 @@ def needs_manual_resolution(ch: Characteristics) -> bool:
     """Does resolving this object do something the engine can't do by itself?"""
     if ch.is_ability:
         return True  # ability objects: scripted abilities arrive in M16
+    if "Aura" in ch.subtypes:
+        return True  # attaching an Aura as it resolves is done by hand until M16
     if ch.is_instant_or_sorcery:
         return any(not coverage.ability_supported(ch, a.index) for a in ch.abilities if a.kind != "keywords")
     # A permanent spell just enters; only "as/when it enters" text needs someone to act.
@@ -428,16 +349,20 @@ def concede(plan: Plan, _: A.Action) -> None:
 def set_stops(plan: Plan, a: A.SetStops) -> None:
     if plan.actor not in plan.state.players:
         raise ActionError("Only seated players have stops")
-    plan.rules.stops[plan.actor] = Stops(own=list(a.own), others=list(a.others))
+    plan.rules.stops[plan.actor] = Stops(own=list(a.own), others=list(a.others), hold_priority=a.hold_priority,
+                                         smart_pass=a.smart_pass)
 
 
 INTENTS: dict[str, Callable[[Plan, Any], None]] = {
     "pass_priority": pass_priority,
     "play_land": play_land,
+    "cast_spell": casting.cast_spell,
+    "activate_ability": casting.activate_ability,
     "choose": choose,
     "concede": concede,
 }
 RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "manual_done": _resume_manual_done,
     "cleanup_discard": _resume_cleanup_discard,
+    "mana_ability": casting.resume_mana_ability,
 }
