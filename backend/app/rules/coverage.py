@@ -79,6 +79,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"(?:mega)?morph (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("bushido", "renown", "bloodthirst"):  # numbered keywords (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
+        return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "crew":  # casting.crew: "Crew N"
         return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "flashback":  # casting.flashback_cost: a mana flashback cost

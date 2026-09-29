@@ -61,6 +61,7 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Morph and megamorph (face-down casting, turn face up; hidden from opponents) | 32,116 | 4,275 (13.3%) | 27,793 | 0 | 48 | 100 / 3,501 |
 | Devoid, bushido, renown, bloodthirst, bounce lands | 32,116 | 4,359 (13.6%) | 27,709 | 0 | 48 | 101 / 3,501 |
 | Granted quoted abilities (All Slivers / Lands you control / Commander creatures you own have "…") | 32,116 | 4,386 (13.7%) | 27,682 | 0 | 48 | 105 / 3,501 |
+| Suspend (time counters, free cast, haste) | 32,116 | 4,408 (13.7%) | 27,660 | 0 | 48 | 105 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards

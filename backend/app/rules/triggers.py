@@ -177,6 +177,7 @@ def at_step(plan: Plan, trigger: str) -> None:
     """"At the beginning of your upkeep / end step": the active player's permanents."""
     if trigger == "upkeep_you":
         _echo(plan)
+        _suspend(plan)
     for card in list(plan.state.cards.values()):
         if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
             continue
@@ -195,6 +196,18 @@ def echo_cost(ch: Any) -> str | None:
             m = ECHO.fullmatch(ab.text.strip().rstrip("."))
             return m["cost"] if m else None
     return None
+
+
+def _suspend(plan: Plan) -> None:
+    """702.62b: "At the beginning of your upkeep, if this card is suspended, remove a time counter
+    from it." (A triggered ability of the exiled card itself.)"""
+    for cid in list(plan.rules.suspended):
+        card = plan.state.cards.get(cid)
+        if card is None or card.zone != f"{plan.active}:exile" or card.owner != plan.active:
+            continue
+        _add(plan, controller=card.owner, source_card=card.id, source_object=plan.oid(card), name=card.name,
+             index=5000, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
+                                     "effects": [{"do": "suspend_tick", "card": card.id}]})
 
 
 def _echo(plan: Plan) -> None:

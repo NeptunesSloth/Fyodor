@@ -776,6 +776,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if card is None:
         raise ActionError("That card isn't here any more")
     ch = chars.as_cast(card, plan.info, a.face)  # split cards / adventures: the half being cast
+    if a.free:  # suspend's "cast it without paying its mana cost" (only what the engine granted)
+        cast_free(plan, card, ch, a)
+        return
     if a.face_down:  # morph: a nameless 2/2 creature spell for {3}
         if morph_cost(ch) is None or card.zone != zone_key(plan.actor, "hand"):
             raise ActionError("Only a card with morph can be cast face down from your hand")
@@ -915,6 +918,37 @@ def _stacked(plan: Plan, card: CardInstance, oid: str, ch: Characteristics, abil
 CREW = re.compile(r"^crew (?P<n>\d+)$", re.IGNORECASE)
 
 
+SUSPEND = re.compile(r"^suspend (?P<n>\d+)\s*[—-]\s*(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def suspend_info(ch: Characteristics, index: int) -> tuple[int, str] | None:
+    """702.62 "Suspend N—{cost}" on ability line ``index``: (N, cost)."""
+    for ab in ch.abilities:
+        if ab.index == index and ab.kind == "keywords" and "suspend" in ab.keywords:
+            m = SUSPEND.fullmatch(ab.text.strip().rstrip("."))
+            if m:
+                return int(m["n"]), m["cost"]
+    return None
+
+
+def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int, cost_text: str) -> None:
+    """702.62a: a special action — whenever you could begin to cast it, pay the suspend cost and
+    exile it with N time counters. It doesn't use the stack."""
+    problem = cast_problem(plan.state, plan.actor, card, ch)
+    if problem:
+        raise ActionError(problem)
+    cost = M.parse_cost(cost_text)
+    if payment_step(plan, a, cost, f"suspending {ch.name}", purpose=Purpose(spell=ch)):
+        return
+    pay(plan, plan.actor, cost, f"paid {cost.text()} to suspend {ch.name}", sources=a.sources, purpose=Purpose(spell=ch))
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}})
+    if n:
+        plan.do({"type": "counter", "card_ids": [card.id], "kind": "time", "delta": n})
+    plan.rules.suspended.append(card.id)
+    plan.note(f"{ch.name} is suspended with {n} time counter{'s' if n != 1 else ''}", [card.id])
+    plan.rules.passed = []
+
+
 def crew_power(ch: Characteristics, index: int) -> int | None:
     """Crew N (702.122) on ability line ``index``: N, or None."""
     for ab in ch.abilities:
@@ -957,6 +991,47 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
     _stacked(plan, card, oid, ch, ability_id, [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}])
 
 
+def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpell) -> None:
+    """702.62d: cast a suspended card without paying its mana cost, during its trigger's resolution
+    (timing permissions are ignored). Only cards the engine listed in ``free_casts``."""
+    from app.rules.engine import advance  # the engine imports this module
+
+    r = plan.rules
+    if card.id not in r.free_casts or card.zone != zone_key(card.owner, "exile") or card.owner != plan.actor:
+        raise ActionError("You can't cast that without paying its mana cost now")
+    definition = None if plan.manual(card) else scripts.spell_definition(ch)
+    chosen = choose_target(plan, a, definition, ch.name or "it")
+    if chosen is None:
+        return  # waiting for the target choice; the grant stays
+    r.free_casts = [c for c in r.free_casts if c != card.id]
+    r.suspended = [c for c in r.suspended if c != card.id]
+    if card.counters.get("time"):
+        plan.do({"type": "counter", "card_ids": [card.id], "kind": "time", "delta": -card.counters["time"]})
+    if a.x_value is None and M.parse_cost(ch.mana_cost).x:
+        a.x_value = 0  # X is 0 when a spell is cast without paying its mana cost (107.3b)
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
+    plan.do({"type": "set_stack_info", "card_id": card.id, "tags": ["Cast without paying its mana cost (suspend)"]})
+    if a.targets:
+        plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
+    if ch.is_creature:
+        r.suspend_haste.append(card.id)  # 702.62e: it gains haste
+    emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor)
+    if definition is not None:
+        r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
+                                      name=ch.name, effects=list(definition["effects"]), targets=chosen,
+                                      target_spec=definition.get("target"), x=a.x_value)
+    turn = plan.state.turn.number
+    r.spells_cast[plan.actor] = TurnCount(turn=turn, count=r.spells_this_turn(plan.actor, turn) + 1)
+    r.passed = []
+    r.priority = plan.actor
+    if r.prefs_for(plan.actor).hold_priority:
+        plan.hold = plan.actor
+        return
+    r.passed.append(plan.actor)
+    r.priority = plan.after(plan.actor)
+    advance(plan)
+
+
 def resume_crew(plan: Plan, d: Any, chosen: list[str]) -> None:
     intent = A.parse_action(d.resume["intent"])
     intent.crew = list(chosen)  # type: ignore[union-attr]
@@ -974,7 +1049,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if card is None:
         raise ActionError("That card isn't here any more")
     if card.zone == zone_key(plan.actor, "hand"):
-        cycle(plan, card, plan.ch(card), a)
+        ch = plan.ch(card)
+        found = suspend_info(ch, a.ability)
+        if found is not None:
+            suspend(plan, card, ch, a, *found)
+        else:
+            cycle(plan, card, ch, a)
         return
     if card.controller != plan.actor or not card.zone.endswith(":battlefield"):
         raise ActionError("You can only activate abilities of permanents you control")

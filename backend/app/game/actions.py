@@ -864,6 +864,7 @@ class CastSpell(_Intent):
     # your payment preference (AUTO pays, ASK suggests a payment first, MANUAL asks for sources).
     sources: list[Id] | None = Field(default=None, max_length=60)
     face_down: bool = False  # morph / megamorph (702.37): cast face down as a 2/2 for {3}
+    free: bool = False  # cast without paying its mana cost — only when the engine granted it (suspend)
 
 
 class TurnFaceUp(_Intent):

@@ -30,7 +30,7 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   if (mine && zone === "hand") {
     const text = oracle;
     abilityLines(text).forEach((line, i) => {
-      if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line)) {
+      if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line) || /^suspend \d+\s*[—-]/i.test(line)) {
         items.push({ label: line.replace(/\s*\(.*$/, ""), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
       }
     });

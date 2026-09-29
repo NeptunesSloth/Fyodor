@@ -331,6 +331,49 @@ def resume_return_yours(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, d.resume["ctx"])
 
 
+def suspend_tick(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """702.62b-d: remove a time counter; when the last is removed, its owner may cast it without
+    paying its mana cost."""
+    cid = e["card"]
+    card = plan.state.cards.get(cid)
+    r = plan.rules
+    if card is None or cid not in r.suspended or not card.zone.endswith(":exile"):
+        return True
+    if card.counters.get("time", 0) > 0:
+        plan.do({"type": "counter", "card_ids": [cid], "kind": "time", "delta": -1}, actor=card.owner)
+    if card.counters.get("time", 0) > 0:
+        return True
+    r.free_casts.append(cid)
+    decide(plan, player=card.owner, kind="choose_one", prompt=f"The last time counter was removed: cast {card.name} without paying its mana cost?",
+           options=[DecisionOption(id="yes", label="Cast it"), DecisionOption(id="no", label="Leave it exiled")],
+           resume={"step": "suspend_cast", "ctx": ctx, "card": cid}, source=card)
+    return False
+
+
+def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game import actions as A
+    from app.rules.casting import cast_spell
+
+    cid = d.resume["card"]
+    finish(plan, d.resume["ctx"])
+    r = plan.rules
+    if chosen[0] != "yes":
+        r.free_casts = [c for c in r.free_casts if c != cid]
+        r.suspended = [c for c in r.suspended if c != cid]
+        plan.note(f"{plan.name(d.player)} leaves it exiled")
+        return
+    if r.decision is not None:
+        plan.note("Cast it without paying its mana cost when the pending choice is done")
+        return
+    r.priority = d.player
+    prev = plan.actor
+    plan.actor = d.player
+    try:
+        cast_spell(plan, A.CastSpell(card_id=cid, free=True))
+    finally:
+        plan.actor = prev
+
+
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True  # read by destroy / destroy_all of the same spell or ability
 
@@ -467,7 +510,7 @@ PRIMITIVES = {
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
-    "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours,
+    "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick,
 }
 
 

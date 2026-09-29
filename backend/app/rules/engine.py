@@ -575,6 +575,12 @@ def resolve_top_of_stack(plan: Plan) -> None:
     leave_stack(plan, top_id, controller, tapped=tapped)
     if ch.is_permanent_card and not manual:
         enter_with_counters(plan, top_id, ch, x, controller)
+    if top_id in plan.rules.suspend_haste:  # 702.62e: a suspended creature has haste
+        plan.rules.suspend_haste = [c for c in plan.rules.suspend_haste if c != top_id]
+        entered_now = plan.state.cards.get(top_id)
+        if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            layers.add_effect(plan, affected=[plan.oid(top_id)], layer="6", source=None, controller=controller,
+                              add_keywords=("haste",), duration="permanent", label="Haste (suspend)")
     entered = plan.state.cards.get(top_id)
     if entered is not None and entered.zone.endswith(":battlefield") and "Planeswalker" in ch.types:
         loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else 0
@@ -826,6 +832,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "discard": effects.resume_discard,
     "pay_or_sacrifice": effects.resume_pay_or_sacrifice,
     "return_yours": effects.resume_return_yours,
+    "suspend_cast": effects.resume_suspend_cast,
     "order_triggers": triggers.resume_order,
     "trigger_target": triggers.resume_target,
     "trigger_confirm": triggers.resume_confirm,

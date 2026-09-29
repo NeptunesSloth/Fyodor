@@ -227,5 +227,11 @@ def fixture_cards() -> list[dict[str, Any]]:
              power="1", toughness="1", colors=["R"], color_identity=["R"]),
         card("Simic Growth Chamber", set_code="tst", number="N1", type_line="Land",
              oracle_text="This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {G}{U}."),
+        card("Rift Bolt", set_code="tst", number="N2", mana_cost="{2}{R}", cmc=3.0, type_line="Sorcery",
+             oracle_text="Rift Bolt deals 3 damage to any target.\nSuspend 1—{R} (Rather than cast this card from your hand, you may pay {R} and exile it with a time counter on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)",
+             colors=["R"], color_identity=["R"]),
+        card("Errant Ephemeron", set_code="tst", number="N3", mana_cost="{6}{U}", cmc=7.0, type_line="Creature — Illusion",
+             oracle_text="Flying\nSuspend 4—{1}{U} (Rather than cast this card from your hand, you may pay {1}{U} and exile it with four time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. If you cast it this way, it has haste.)",
+             power="4", toughness="4", colors=["U"], color_identity=["U"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]
