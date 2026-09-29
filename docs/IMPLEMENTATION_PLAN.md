@@ -351,22 +351,30 @@ prevention with affected-player choice and re-evaluation; copiable values; turn 
   Friends forever, Background, Doctor's companion, "can be your commander") derived from the
   CR and Oracle text; one tested color-identity implementation for deck checks and rules.
 - Reports: `commander_rules_coverage.md/json`, `commander_coverage.md`, the missing-feature
-  queue ranked by pod decks, pod commanders, then Commander cards unlocked. Pod decks move to
-  the front of the queue as soon as their Archidekt URLs are imported.
+  queue ranked by how many Commander-legal cards each missing mechanic would unlock. The pod
+  builds new decks all the time, so the goal is **the whole Commander-legal pool**, not a
+  fixed list of decks; there is no pod-deck shortcut.
 
-### M18 — Digital card game UX
+### M18 — Digital card game UX — built
 
-The engine side is built (`AUTOMATION_UX.md`); the client needs the HUD (AUTO / RESP / MANA),
-prompts for every decision kind, the compact STACK helper, restrained legal-action
-highlights, auto-yield controls, the reconciliation list, the per-card automation menu, and
-the AUTOMATION ERROR panel (RESOLVE MANUALLY / PAUSE AUTOMATION / EXPORT RULES SCENARIO).
+`AUTOMATION_UX.md`: the HUD (AUTO / RESP / MANA) and its settings panel (segmented levels,
+stops grid, overrides), prompts for every decision kind, The Stack panel with Pass / Respond /
+Auto-Pass, the Pay panel with suggested sources, targeting on the table, legal-action
+highlights, the per-card automation menu and the AUTOMATION ERROR panel.
 
-### M19 — Physical client
+### UI overhaul — built
+
+A theme-driven design system (framed panels, Cinzel/Inter bundled offline, segmented controls,
+switches, action buttons), a launcher with the plane's table live behind the menu, Arena-style
+lobby seat cards with commander art and deck automation coverage, and the table themes below.
+
+### M19 — Physical client — table built
 
 The three.js table renders the same per-viewer views and maps gestures to intents
-(`3D_DIRECTION.md`). The 2D table remains a first-class renderer; different players may use
-different renderers in one game. Then dice tray, dice cannon, Bag of Extras and bags with
-server-decided outcomes.
+(`3D_DIRECTION.md` §0). Table themes are Magic planes (Dominaria default; Ravnica, Innistrad,
+Theros, Zendikar; then Kamigawa, Amonkhet, Ixalan, New Phyrexia, Lorwyn). The 2D table remains
+a first-class renderer; different players may use different renderers in one game. Next:
+dice tray, dice cannon, Bag of Extras and bags with server-decided outcomes, token piles.
 
 ### M20 — Game-night hardening
 
@@ -409,5 +417,5 @@ prebuilt frontend for game night, an offline test and a multi-hour device soak.
 | Rules vs sandbox | Two inputs: rules **intents** compiled by `rules/`, and sandbox **actions** applied directly (logged as overrides when automation is on) | Arena-like play for supported cards without losing the physical table |
 | Rules history | An intent is planned on a scratch copy and recorded as primitive actions (one history entry) | Undo and saves keep working; old saves never re-run changed rules code |
 | Rules state | Only what the table can't show (priority, stack metadata, decisions, durations); characteristics are derived on demand | Manual overrides can't desync the engine |
-| Automation priority | Cards from the pod's own decks first, by how many decks play them | Most value for our actual games |
+| Automation priority | Mechanics ranked by how many Commander-legal cards they unlock | The pod keeps building new decks: the whole pool matters |
 | Renderer | Holds no rules logic; sends intents and draws views with server-provided hints | 2D and 3D clients share one engine |
