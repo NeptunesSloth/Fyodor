@@ -420,8 +420,11 @@ def next_step(plan: Plan) -> None:
 
 
 def _keep_tapped(plan: Plan) -> list[str]:
-    """Tapped permanents that don't untap during the untap step ("doesn't untap during its
-    controller's untap step", 502.3)."""
+    """Tapped permanents that don't untap during the untap step (502.3): the permanent's own
+    "~ doesn't untap during your untap step.", an Aura's "Enchanted creature doesn't untap during
+    its controller's untap step.", and a static over a selector ("Islands don't untap during their
+    controllers' untap steps.", "Creatures with power 3 or greater don't untap …"), all of which
+    app/rules/layers.py puts in ``Characteristics.imposed`` for whatever matches right now."""
     return [c.id for c in plan.state.cards.values() if c.tapped and c.zone.endswith(":battlefield")
             and not plan.manual(c) and "doesnt_untap" in scripts.statics(plan.ch(c))][:250]
 

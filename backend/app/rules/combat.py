@@ -17,11 +17,12 @@ from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption
 from app.game.state import CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
-from app.rules import protection, scripts
+from app.rules import protection, scripts, selectors
 from app.rules.casting import summoning_sick
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.plan import Plan, decide, live_players
 from app.rules.sba import power, toughness
+from app.rules.statics import rule_arg, rule_selectors
 
 Round = Literal["only", "first", "second"]
 
@@ -53,10 +54,27 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
         return f"{bch.name} can't block"
     if "cant_be_blocked" in scripts.statics(ach):
         return f"{ach.name} can't be blocked"
-    if "block_only_flying" in scripts.statics(bch) and "flying" not in ach.keywords:
-        return f"{bch.name} can block only creatures with flying"
-    if "flying" in ach.keywords and not ({"flying", "reach"} & bch.keywords):
-        return f"{ach.name} has flying: only creatures with flying or reach can block it"
+    # rules of the attacker about its blockers (evasion, 509.1b: flying is one of them) and of the
+    # blocker about what it may block (app/rules/statics.py has the vocabulary), each evaluated
+    # against the other creature in the block
+    for rule in sorted(evasion_rules(ach)):
+        name, arg = rule_arg(rule)
+        if name == "cant_be_blocked_by" and _any_selector(state, info, arg, blocker, bch, attacker):
+            return f"{ach.name} can't be blocked by {_phrase(arg)}"
+        if name == "cant_be_blocked_except_by" and not _any_selector(state, info, arg, blocker, bch, attacker):
+            return f"{ach.name} can't be blocked except by {_phrase(arg)}"
+        if name == "cant_be_blocked_by_power" and (_power(bch) < _power(ach) if arg == "less" else _power(bch) > _power(ach)):
+            return f"{ach.name} can't be blocked by creatures with {arg} power"
+        if name == "cant_be_blocked_if_defender_controls" and _defender_controls(state, info, arg, blocker.controller):
+            return f"{ach.name} can't be blocked while {state.players[blocker.controller].name} controls {_phrase(arg)}"
+    for rule in sorted(scripts.statics(bch)):
+        name, arg = rule_arg(rule)
+        if name == "block_only" and not _any_selector(state, info, arg, attacker, ach, blocker):
+            return f"{bch.name} can block only {_phrase(arg)}"
+        if name == "cant_block_sel" and _any_selector(state, info, arg, attacker, ach, blocker):
+            return f"{bch.name} can't block {_phrase(arg)}"
+        if name == "cant_block_power" and _power(ach) > _power(bch):
+            return f"{bch.name} can't block creatures with greater power"
     # landwalk (702.14): unblockable while the defending player controls a land of that type
     for walk, land in LANDWALK.items():
         if walk in ach.keywords and _controls_land(state, blocker.controller, land, info):
@@ -85,6 +103,69 @@ def _power(ch: Characteristics) -> int:
         return int(ch.power or 0)
     except ValueError:
         return 0
+
+
+# Evasion keywords the engine reads as the rules the wording grammar produces (702.9b flying: "can't
+# be blocked except by creatures with flying and/or reach"; 702.111b menace: "except by two or more
+# creatures"). Shadow, horsemanship, fear, intimidate, skulk and landwalk aren't selector vocabulary
+# and are checked by name in block_problem.
+_FLYING_OR_REACH = "|".join(selectors.Selector(types=("Creature",), with_keywords=(kw,)).key() for kw in ("flying", "reach"))
+KEYWORD_RULES: dict[str, str] = {"flying": f"cant_be_blocked_except_by:{_FLYING_OR_REACH}", "menace": "min_blockers:2"}
+
+
+def evasion_rules(ach: Characteristics) -> set[str]:
+    """The attacker's rules about what can block it: its statics, rules imposed on it, and its
+    evasion keywords (509.1b: "different evasion abilities are cumulative")."""
+    return scripts.statics(ach) | {rule for kw, rule in KEYWORD_RULES.items() if kw in ach.keywords}
+
+
+def min_blockers(ach: Characteristics) -> int:
+    """509.1b / 702.111b: the fewest creatures that may block it together (menace: 2)."""
+    n = 1
+    for rule in evasion_rules(ach):
+        name, arg = rule_arg(rule)
+        if name == "min_blockers" and arg.isdigit():
+            n = max(n, int(arg))
+    return n
+
+
+def _any_selector(state: GameState, info: CardInfo | None, arg: str, card: CardInstance, ch: Characteristics,
+                  source: CardInstance) -> bool:
+    """Does ``card`` match any of the rule's selectors? "You" is the controller of the creature the
+    rule is on (a table-wide "Cowards can't block Warriors" has no "you" to read)."""
+    if info is None:
+        return False
+    from app.rules.layers import _view
+
+    view = _view(state, info)
+    return any(selectors.matches(view, sel, card, ch, source.controller, source.id) for sel in rule_selectors(arg))
+
+
+def _defender_controls(state: GameState, info: CardInfo | None, arg: str, defender: str) -> bool:
+    if info is None:
+        return False
+    from app.rules.layers import _view
+
+    view = _view(state, info)
+    return any(selectors.candidates(view, sel, defender) for sel in rule_selectors(arg))
+
+
+def _phrase(arg: str) -> str:
+    """A short reading of a rule's selectors for error messages ("creatures with power 2 or less")."""
+    parts = []
+    for sel in rule_selectors(arg):
+        words = [*(c.lower() for c in sel.colors), *(t.lower() for t in sel.types), *sel.subtypes] or ["creatures"]
+        text = " ".join(words)
+        if not text.endswith("s"):
+            text += "s"
+        if sel.with_keywords:
+            text += " with " + " and ".join(sel.with_keywords)
+        if sel.without_keywords:
+            text += " without " + " and ".join(sel.without_keywords)
+        for what, op, n in sel.compare:
+            text += f" with {'mana value' if what == 'mv' else what} {n} or {'less' if op == '<=' else 'greater' if op == '>=' else 'equal'}"
+        parts.append(text)
+    return " or ".join(parts)
 
 
 LANDWALK = {"plainswalk": "Plains", "islandwalk": "Island", "swampwalk": "Swamp", "mountainwalk": "Mountain",
@@ -175,6 +256,8 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         if decl.card_id in seen:
             raise ActionError(f"{card.name} can only attack once")
         seen.add(decl.card_id)
+        if "cant_attack_alone" in scripts.statics(plan.ch(card)) and len(a.attackers) == 1:
+            raise ActionError(f"{card.name} can't attack alone")  # 506.5 / 508.1c
     # 508.1d: a creature that "attacks each combat if able" must attack when it can
     for cid in eligible - seen:
         card = plan.state.cards.get(cid)
@@ -266,10 +349,19 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         per_attacker[decl.attacker_id] = per_attacker.get(decl.attacker_id, 0) + 1
     for aid, n in per_attacker.items():
         ach = plan.ch(plan.state.cards[aid])
-        if "menace" in ach.keywords and n < 2:
-            raise ActionError(f"{ach.name} has menace: it can't be blocked except by two or more creatures")
+        least = min_blockers(ach)
+        if n < least:
+            raise ActionError(f"{ach.name} can't be blocked except by {least} or more creatures"
+                              + (" (menace)" if "menace" in ach.keywords else ""))
         if "max_one_blocker" in scripts.statics(ach) and n > 1:
             raise ActionError(f"{ach.name} can't be blocked by more than one creature")
+    if len(a.blocks) == 1:  # 506.5: blocking alone
+        lone = plan.state.cards[a.blocks[0].blocker_id]
+        if "cant_block_alone" in scripts.statics(plan.ch(lone)):
+            raise ActionError(f"{lone.name} can't block alone")
+    problem = block_requirements(plan, a, blockers, attackers, used, per_attacker)
+    if problem:
+        raise ActionError(problem)
     r.decision = None
     if r.blockers_pending and r.blockers_pending[0] == plan.actor:
         r.blockers_pending.pop(0)
@@ -289,6 +381,41 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         r.priority = plan.active
         r.passed = []
         advance(plan)
+
+
+def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], attackers: set[str],
+                       used: set[str], per_attacker: dict[str, int]) -> str | None:
+    """509.1c requirements the declaration disobeys although it could obey them: "~ blocks each
+    combat if able" (must_block, on a creature of the defending player) and "~ must be blocked if
+    able" (must_be_blocked, on an attacker). Each requirement is judged on its own, against the
+    blocks declared (one more block that no restriction forbids, 509.1b), not as the maximum over
+    every combination of blocks the rule describes; a creature that can't block alone counts as
+    able only once something else blocks."""
+    state = plan.state
+    idle = [state.cards[b] for b in blockers if b not in used]
+    att = [state.cards[x] for x in attackers]
+
+    def could(blocker: CardInstance, attacker: CardInstance, *, joined: int) -> bool:
+        bch, ach = plan.ch(blocker), plan.ch(attacker)
+        if block_problem(state, blocker, bch, attacker, ach, plan.info) is not None:
+            return False
+        if "cant_block_alone" in scripts.statics(bch) and not a.blocks:
+            return False
+        return min_blockers(ach) <= joined
+
+    for b in idle:
+        if "must_block" in scripts.statics(plan.ch(b)) and any(could(b, x, joined=1 + per_attacker.get(x.id, 0)) for x in att):
+            return f"{b.name} blocks each combat if able"
+    for x in att:
+        if x.id in per_attacker or "must_be_blocked" not in scripts.statics(plan.ch(x)):
+            continue
+        # creatures free to block it: idle ones, and ones blocking an attacker that needn't be blocked
+        free = idle + [state.cards[d.blocker_id] for d in a.blocks
+                       if "must_be_blocked" not in scripts.statics(plan.ch(state.cards[d.attacker_id]))]
+        able = [b for b in free if could(b, x, joined=len(free))]
+        if len(able) >= min_blockers(plan.ch(x)):
+            return f"{x.name} must be blocked if able"
+    return None
 
 
 # -- combat damage ----------------------------------------------------------------------
