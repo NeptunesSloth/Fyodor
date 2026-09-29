@@ -66,6 +66,10 @@ _MANA_FLASHBACK = re.compile(r"flashback (?:\{[^}]+\})+")
 
 
 def _keyword_supported(kw: str, line: str) -> bool:
+    if kw in ("enchant", "equip"):  # app/rules/attachments.py: the wordings it maps
+        from app.rules import attachments
+
+        return attachments.supported_keyword(kw, line)
     if kw == "protection":  # DEBT for the qualities app/rules/protection.py understands
         return protection.supported(line)
     if kw == "affinity":  # casting.affinity_filter

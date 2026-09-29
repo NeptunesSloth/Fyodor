@@ -50,6 +50,9 @@ class Characteristics:
     pt: tuple[int, int] | None = None
     granted: frozenset[str] = frozenset()
     lost: frozenset[str] = frozenset()
+    # Rules imposed on it by other objects (an Aura's "Enchanted creature can't block."): the same
+    # names as scripts.COMBAT_STATICS. They aren't abilities: losing abilities doesn't remove them.
+    imposed: frozenset[str] = frozenset()
 
     @property
     def is_land(self) -> bool:

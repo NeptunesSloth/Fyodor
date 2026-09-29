@@ -24,11 +24,11 @@ from app.game.rules_state import (
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
+from app.rules import attachments, scripts
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
 from app.rules import payment as P
-from app.rules import scripts
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.costs import AbilityCost, parse_ability_cost
 from app.rules.oracle import AbilityText
@@ -238,14 +238,14 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
 
 
 # -- paying with things that aren't mana: convoke / improvise / delve (app/rules/payment.py) ----
-HELPER_ABILITY = {"convoke": -1, "improvise": -2, "delve": -3}  # pseudo "ability index" in the can_pay hint
+HELPER_ABILITY: dict[P.Kind, int] = {"convoke": -1, "improvise": -2, "delve": -3}  # pseudo "ability index" in the can_pay hint
 
 
-def helper_kinds(spell: Characteristics | None) -> tuple[str, ...]:
+def helper_kinds(spell: Characteristics | None) -> tuple[P.Kind, ...]:
     return tuple(k for k in P.KINDS if spell is not None and k in spell.keywords)
 
 
-def helper_problem(state: GameState, player: str, info: CardInfo, kind: str, card: CardInstance | None,
+def helper_problem(state: GameState, player: str, info: CardInfo, kind: P.Kind, card: CardInstance | None,
                    spell_card: str | None) -> tuple[str | None, frozenset[str]]:
     """Why ``card`` can't be used for ``kind`` right now (or None), and its colors (convoke)."""
     from app.rules.layers import derive
@@ -272,8 +272,8 @@ def helpers_for(state: GameState, player: str, info: CardInfo, spell: Characteri
     out: list[P.Helper] = []
     seen: set[str] = set()
     for c in contributions:
-        kind, cid = c["kind"], c["card"]
-        if kind not in kinds:
+        kind, cid = P.kind_of(str(c["kind"])), str(c["card"])
+        if kind is None or kind not in kinds:
             raise ActionError(f"Only a spell with {kind} can be paid for that way")
         if cid in seen:
             raise ActionError("Each card can pay for only one mana of the cost")
@@ -324,13 +324,13 @@ def _helper_sources(state: GameState, player: str, info: CardInfo, spell: Charac
 
 # -- targets (601.2c) --------------------------------------------------------------------
 def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any] | None,
-                  what: str) -> list[TargetRef] | None:
+                  what: str, *, exclude: tuple[str, ...] = ()) -> list[TargetRef] | None:
     """The target of an automated spell or ability: validated if given, else asked (privately).
     Returns the chosen targets, or None while waiting for the choice."""
     spec = definition.get("target") if definition else None
     if not spec:
         return []
-    legal = legal_targets(plan, spec["what"], plan.actor, source_of(plan, a.card_id))
+    legal = [t for t in legal_targets(plan, spec["what"], plan.actor, source_of(plan, a.card_id)) if t not in exclude]
     if a.targets:
         if len(a.targets) != 1 or a.targets[0] not in legal:
             raise ActionError("That isn't a legal target")
@@ -584,9 +584,9 @@ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCos
         return False
     mode = payment_mode(plan, plan.actor)
     if mode == "self":  # the player taps their own mana: pay from the pool, or ask them to tap
-        contributions = [c.model_dump() for c in getattr(a, "contributions", [])]
-        resume = {"intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}
-        if _covered(plan, plan.actor, cost, _prompt_helpers(plan, plan.actor, resume) if contributions else []) is not None:
+        probe: dict[str, Any] = {"intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}
+        helpers = _prompt_helpers(plan, plan.actor, probe) if getattr(a, "contributions", None) else []
+        if _covered(plan, plan.actor, cost, helpers) is not None:
             a.sources = []
             return False
         ask_to_tap(plan, cost, what, {"step": "pay_mana", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
@@ -595,8 +595,8 @@ def payment_step(plan: Plan, a: A.CastSpell | A.ActivateAbility, cost: M.ManaCos
     if mode == "auto":
         return False
     payment = find_payment(plan.state, plan.actor, cost, plan.info, exclude=exclude, purpose=purpose)  # (can it be paid at all?)
-    resume = {"step": "payment", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
-              "exclude": list(exclude), "cost": cost.text(), "what": what}
+    resume: dict[str, Any] = {"step": "payment", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
+                              "exclude": list(exclude), "cost": cost.text(), "what": what}
     if mode == "manual":
         ask_sources(plan, cost, what, resume)
         return True
@@ -1012,7 +1012,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
     definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
-    chosen = choose_target(plan, a, definition, ch.name or "it")
+    aura = None if plan.manual(card) or a.face_down else attachments.enchant_selector(ch)
+    chosen = choose_target(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
     if chosen is None:
         return  # waiting for the target choice (601.2c comes before paying costs)
     if payment_step(plan, a, cost, ch.name or "it", purpose=Purpose(spell=ch)):
@@ -1065,6 +1066,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), targets=chosen,
                                       target_spec=definition.get("target"), x=a.x_value)
+    if aura is not None and chosen:
+        r.aura_targets = {k: v for k, v in r.aura_targets.items() if plan.state.cards.get(k) is not None
+                          and plan.state.cards[k].zone == STACK}
+        r.aura_targets[card.id] = chosen[0]  # 303.4a: the Aura spell's target
     if chosen:
         from app.rules.triggers import targeted
 
@@ -1387,6 +1392,10 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if n is not None:
         crew(plan, card, ch, a, n)
         return
+    equip = attachments.equip_cost(ch, a.ability) if not plan.manual(card) else None
+    if equip is not None:
+        equip_ability(plan, card, ch, a, equip)
+        return
     if ability.kind in ("activated", "loyalty"):
         activate_to_stack(plan, card, ch, ability, a)
         return
@@ -1417,7 +1426,7 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     plan.rules.passed = []
 
 
-def _commit_helper(plan: Plan, card: CardInstance | None, kind: str) -> None:
+def _commit_helper(plan: Plan, card: CardInstance | None, kind: P.Kind) -> None:
     """Click a creature (convoke), an artifact (improvise) or a graveyard card (delve) while paying
     for a spell with that keyword: it's committed to pay one symbol of the total cost — or, if it
     already was, taken back. Nothing is tapped or exiled, and no mana is added (702.51a,
@@ -1512,8 +1521,23 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     return None
 
 
+EQUIP_DEFINITION = {"kind": "activated", "effects": [{"do": "attach_self"}], "target": {"what": "creature_you_control"}}
+
+
+def equip_ability(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, cost: str) -> None:
+    """702.6a Equip [cost]: "[Cost]: Attach this permanent to target creature you control. Activate
+    only as a sorcery." An Equipment that's also a creature can't equip (301.5c)."""
+    if "Equipment" not in ch.subtypes or ch.is_creature:
+        raise ActionError(f"{ch.name} can't equip a creature" + (" while it's a creature" if ch.is_creature else ""))
+    ability = AbilityText(index=a.ability, kind="activated", cost=cost,
+                          text=f"{cost}: Attach {ch.name} to target creature you control. Activate only as a sorcery.")
+    activate_to_stack(plan, card, ch, ability, a, definition=EQUIP_DEFINITION,
+                      exclude_targets=(card.id,))
+
+
 def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, ability: AbilityText,
-                      a: A.ActivateAbility) -> None:
+                      a: A.ActivateAbility, *, definition: dict[str, Any] | None = None,
+                      exclude_targets: tuple[str, ...] = ()) -> None:
     from app.rules.engine import advance  # the engine imports this module
 
     cost = ability_cost(ch, ability)
@@ -1524,10 +1548,13 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     mana = M.parse_cost(cost.mana)
     if mana.x and a.x_value is None:
         raise ActionError("Choose a value for X")
-    definition = None if plan.manual(card) else scripts.definitions(ch).get(ability.index)
+    if definition is None:
+        definition = None if plan.manual(card) else scripts.definitions(ch).get(ability.index)
     if definition is not None and definition["kind"] != "activated":
         definition = None
-    chosen = choose_target(plan, a, definition, f"{ch.name}’s ability")
+    if exclude_targets and set(a.targets) & set(exclude_targets):
+        raise ActionError(f"{ch.name} can't target itself")
+    chosen = choose_target(plan, a, definition, f"{ch.name}’s ability", exclude=exclude_targets)
     if chosen is None:
         return
     if payment_step(plan, a, mana.with_x(a.x_value or 0), f"{ch.name}’s ability",

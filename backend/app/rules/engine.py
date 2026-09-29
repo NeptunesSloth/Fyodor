@@ -26,10 +26,22 @@ from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.rules_state import Decision, DecisionOption, PlayerPrefs, TurnCount, Yield
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import casting, combat, coverage, effects, layers, reconcile, sba, scripts, triggers
+from app.rules import (
+    attachments,
+    casting,
+    combat,
+    coverage,
+    effects,
+    layers,
+    reconcile,
+    sba,
+    scripts,
+    triggers,
+)
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.leave import leave_game
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
+from app.rules.targets import still_legal
 
 MAIN_PHASES = ("main1", "main2")
 MAX_HAND_SIZE = 7
@@ -403,13 +415,21 @@ def next_step(plan: Plan) -> None:
     on_step_start(plan)
 
 
+def _keep_tapped(plan: Plan) -> list[str]:
+    """Tapped permanents that don't untap during the untap step ("doesn't untap during its
+    controller's untap step", 502.3)."""
+    return [c.id for c in plan.state.cards.values() if c.tapped and c.zone.endswith(":battlefield")
+            and not plan.manual(c) and "doesnt_untap" in scripts.statics(plan.ch(c))][:250]
+
+
 def start_next_turn(plan: Plan) -> None:
+    keep = _keep_tapped(plan)
     for _ in range(len(plan.state.seat_order) + 1):
-        plan.do({"type": "next_turn", "force": True}, actor=plan.active)
+        plan.do({"type": "next_turn", "force": True, "keep_tapped": keep}, actor=plan.active)
         if plan.active in plan.live():
             break
     if not plan.state.settings.auto_untap:
-        plan.do({"type": "untap_all", "player": plan.active}, actor=plan.active)
+        plan.do({"type": "untap_all", "player": plan.active, "keep_tapped": keep}, actor=plan.active)
     # The untap step has no priority: straight on to upkeep.
     plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
     _mark_step(plan)
@@ -510,8 +530,8 @@ def needs_manual_resolution(ch: Characteristics) -> bool:
     """Does resolving this object do something the engine can't do by itself?"""
     if ch.is_ability:
         return True  # ability objects: scripted abilities arrive in M16
-    if "Aura" in ch.subtypes:
-        return True  # attaching an Aura as it resolves is done by hand until M16
+    if "Aura" in ch.subtypes and attachments.enchant_selector(ch) is None:
+        return True  # an enchant wording the engine doesn't map: attach it by hand
     if ch.is_instant_or_sorcery:
         return any(not coverage.ability_supported(ch, a.index) for a in ch.abilities if a.kind != "keywords")
     # A permanent spell just enters; only "as/when it enters" text needs someone to act.
@@ -584,12 +604,24 @@ def resolve_top_of_stack(plan: Plan) -> None:
         return
     ch = plan.ch(top)
     controller = top.controller if top.controller in plan.live() else plan.active
+    aura_target = plan.rules.aura_targets.pop(top_id, None)
     # An instant, sorcery or ability the engine didn't put on the stack (moved there by hand) has
-    # no recorded targets or choices: its controller resolves it by hand.
-    manual = ch.is_instant_or_sorcery or ch.is_ability or needs_manual_resolution(ch) or plan.manual(top)
+    # no recorded targets or choices: its controller resolves it by hand. So has an Aura without one.
+    manual = ch.is_instant_or_sorcery or ch.is_ability or needs_manual_resolution(ch) or plan.manual(top) \
+        or ("Aura" in ch.subtypes and aura_target is None)
+    if aura_target is not None and not manual:
+        selector = attachments.enchant_selector(ch)
+        if selector is None or not still_legal(plan, selector, controller, aura_target, ch):
+            # 608.2b / 303.4g: its target is illegal: it doesn't resolve and goes to the graveyard
+            plan.note(f"{ch.name or 'The Aura'} does nothing: its target is no longer legal")
+            plan.do({"type": "move", "card_ids": [top_id], "to": {"player": top.owner, "zone": "graveyard"}}, actor=controller)
+            _after_resolution(plan)
+            return
     tapped = ch.is_permanent_card and not manual and enters_tapped(ch)
     x = top.stack_info.x if top.stack_info else None
     leave_stack(plan, top_id, controller, tapped=tapped)
+    if aura_target is not None and not manual and plan.state.cards[top_id].zone.endswith(":battlefield"):
+        plan.do({"type": "attach", "card_ids": [top_id], "to": aura_target.id}, actor=controller)  # 303.4f
     if ch.is_permanent_card and not manual:
         enter_with_counters(plan, top_id, ch, x, controller)
     if top_id in plan.rules.evoked:  # 702.74a: "When this permanent enters, if its evoke cost was paid, its controller sacrifices it."

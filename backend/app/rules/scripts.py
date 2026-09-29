@@ -452,10 +452,12 @@ def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | 
 
 _ANTHEM = re.compile(
     r"^(?P<other>Other )?(?:(?P<all>All )|)(?P<who>[Cc]reatures|[Cc]reature tokens|Lands|Commander creatures"
+    r"|Enchanted creature|Equipped creature|Enchanted land"
     r"|(?P<sub>[A-Z][a-z]+?)(?:s| creatures)?)"
     r"(?P<scope> you control| your opponents control| you own|)"
-    r" (?:get (?P<p>[+-]\d+)/(?P<t>[+-]\d+)(?: and have (?P<kws1>[a-z ,]+))?|have (?P<kws2>[a-z ,]+)"
-    r"|have \"(?P<quoted>[^\"]+)\")\.?$")
+    r" (?:gets? (?P<p>[+-]\d+)/(?P<t>[+-]\d+)(?: and ha(?:s|ve) (?P<kws1>[a-z ,]+))?|ha(?:s|ve) (?P<kws2>[a-z ,]+)"
+    r"|ha(?:s|ve) \"(?P<quoted>[^\"]+)\")\.?$")
+ATTACHED_SUBJECTS = ("Enchanted creature", "Equipped creature", "Enchanted land")
 
 
 @lru_cache(maxsize=4096)
@@ -485,6 +487,9 @@ def parse_anthem(text: str) -> Definition | None:
     m = _ANTHEM.match(text)
     if not m:
         return None
+    attached = m["who"] in ATTACHED_SUBJECTS  # 303.4b / 301.5a: the object it's attached to
+    if attached and (m["scope"] or m["all"] or m["other"]):
+        return None
     from app.rules.creature_types import CREATURE_TYPES
     from app.rules.protection import _PLURALS
 
@@ -497,7 +502,9 @@ def parse_anthem(text: str) -> Definition | None:
         if sub not in CREATURE_TYPES:
             return None
     scope = {" you control": "you", " your opponents control": "opponents", " you own": "own", "": "all"}[m["scope"]]
-    if scope == "all" and not m["all"]:
+    if attached:
+        scope = "attached"
+    elif scope == "all" and not m["all"]:
         return None  # "Creatures get …" without "All": not this template
     commander = m["who"] == "Commander creatures"
     if commander != (scope == "own"):
@@ -511,7 +518,7 @@ def parse_anthem(text: str) -> Definition | None:
             return None
         grant = m["quoted"]
     return {"kind": "static", "static": "anthem", "effects": [], "other": bool(m["other"]), "scope": scope,
-            "sub": sub, "tokens": m["who"].lower() == "creature tokens", "lands": m["who"] == "Lands",
+            "sub": sub, "tokens": m["who"].lower() == "creature tokens", "lands": m["who"] in ("Lands", "Enchanted land"),
             "commander": commander, "grant": grant,
             "p": int(m["p"]) if m["p"] else 0, "t": int(m["t"]) if m["t"] else 0, "keywords": kws}
 
@@ -535,6 +542,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return {"kind": "replacement", "replacement": "enters_with_counters", "counter": m["kind"], "n": n, "effects": []}
     if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
         return anthem
+    if ability.kind == "static" and (rule := attached_rule(text)) is not None:
+        return rule
     if ability.kind == "static" and text in COMBAT_STATICS:
         return {"kind": "static", "static": COMBAT_STATICS[text], "effects": []}
     if ability.kind == "triggered":
@@ -588,7 +597,7 @@ def definitions(ch: Characteristics) -> dict[int, Definition]:
 
     if cards.get(ch.oracle_id) is not None and cards.trusted(ch.oracle_id, ch.oracle_text) is None:
         return {}  # REVIEW: a reviewed script exists for other Oracle text; nothing is automated until re-checked
-    return _cached(replace(ch, pt=None, granted=frozenset(), lost=frozenset()))
+    return _cached(replace(ch, pt=None, granted=frozenset(), lost=frozenset(), imposed=frozenset()))
 
 
 # Combat restrictions and requirements printed on a permanent (CR 508.1c-d, 509.1b-c).
@@ -602,13 +611,38 @@ COMBAT_STATICS = {
     "~ can't be blocked by more than one creature.": "max_one_blocker",
     "~ can't attack unless defending player controls an Island.": "attack_needs_island",
     "~ can't be countered.": "cant_be_countered",
+    "~ doesn't untap during your untap step.": "doesnt_untap",
     "This spell can't be countered.": "cant_be_countered",
 }
 
 
+# Rules an Aura or Equipment imposes on the object it's attached to (not abilities it grants).
+ATTACHED_RULES = {
+    "can't attack or block.": "cant_attack_or_block",
+    "can't attack.": "cant_attack",
+    "can't block.": "cant_block",
+    "can't be blocked.": "cant_be_blocked",
+    "attacks each combat if able.": "must_attack",
+    "doesn't untap during its controller's untap step.": "doesnt_untap",
+}
+
+
+def attached_rule(text: str) -> Definition | None:
+    """"Enchanted creature can't attack or block.", "Enchanted creature doesn't untap during its
+    controller's untap step." …: a rule for whatever the source is attached to."""
+    for subject in ATTACHED_SUBJECTS:
+        if text.startswith(subject + " "):
+            imposed = ATTACHED_RULES.get(text[len(subject) + 1:].replace("’", "'"))
+            if imposed is not None:
+                return {"kind": "static", "static": "attached_rule", "imposes": imposed, "effects": [],
+                        "lands": subject == "Enchanted land"}
+    return None
+
+
 def statics(ch: Characteristics) -> set[str]:
-    """The combat statics a card has (from its definitions)."""
-    return {d["static"] for d in definitions(ch).values() if d["kind"] == "static"}
+    """The combat statics a card has (from its definitions), and those imposed on it by
+    attached Auras / Equipment."""
+    return {d["static"] for d in definitions(ch).values() if d["kind"] == "static"} | ch.imposed
 
 
 # Keyword abilities that are triggered abilities (CR 702), as template definitions.

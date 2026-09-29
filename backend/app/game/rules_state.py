@@ -408,6 +408,8 @@ class RulesState(BaseModel):
     pending_triggers: list[PendingTrigger] = Field(default_factory=list)
     trigger_batch: int = 0  # last event batch the trigger collector looked at
     stack: dict[str, StackEntry] = Field(default_factory=dict)  # stack card id -> what it does
+    # Aura spells on the stack -> what they target (303.4a); they enter attached to it (303.4f).
+    aura_targets: dict[str, TargetRef] = Field(default_factory=dict)
     # How each spell was paid for (stack object id -> record); follows the spell onto the battlefield.
     payments: dict[str, PaymentRecord] = Field(default_factory=dict)
     # Each player's intents this turn, for REPEAT LAST VALIDATED SEQUENCE (payloads, newest last).

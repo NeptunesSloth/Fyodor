@@ -866,7 +866,24 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
+def attach_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Equip (702.6a): attach this Equipment to the target creature. Nothing happens if the
+    Equipment left or stopped being an Equipment, is a creature (301.5c), or is already attached
+    there (701.3b)."""
+    src = _cards(plan, ctx, "self")
+    targets = _cards(plan, ctx, "target")
+    if not src or not targets:
+        return True
+    card = plan.state.cards[src[0]]
+    ch = plan.ch(card)
+    if "Equipment" not in ch.subtypes or ch.is_creature or card.attached_to == targets[0] or targets[0] == card.id:
+        return True
+    plan.do({"type": "attach", "card_ids": [card.id], "to": targets[0]}, actor=ctx["controller"])
+    return True
+
+
 PRIMITIVES = {
+    "attach_self": attach_self,
     "draw": draw, "gain_life": gain_life, "lose_life": lose_life, "damage": damage, "pump": pump, "grant": grant,
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,

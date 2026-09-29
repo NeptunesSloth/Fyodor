@@ -2625,11 +2625,11 @@ Color identity W
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Cast it (timing, costs, the stack)
+- ✓ Equipped creature gets +2/+0 and has vigilance.
+- ✓ Equip
 - ✗ Creatures you control that are enchanted or equipped have double strike.
 - ✗ At the beginning of each combat, you may attach target Aura or Equipment attached to a creature you control to target creature you control.
-- ✗ Equipped creature gets +2/+0 and has vigilance.
 - ✗ Whenever equipped creature dies, return it to its owner's hand.
-- ✗ Equip
 
 ### Lightning, Army of One — PARTIAL
 

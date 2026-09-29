@@ -188,6 +188,22 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "turn_face_up", card_id: "mb" }]);
   });
 
+  it("offers Equip for an Equipment on the battlefield", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true } });
+    const v = { ...base, cards: { ...base.cards, eq: card("eq", "p1:battlefield", "splitter") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        splitter: { id: "splitter", name: "Bonesplitter", type_line: "Artifact — Equipment", oracle_text: "Equipped creature gets +2/+0.\nEquip {1}" } as CardData,
+      },
+    });
+    const equip = rulesMenu(v.cards.eq!, v, "p1").find((i) => i !== "separator" && i.label === "Activate: Equip {1}");
+    if (!equip || equip === "separator") throw new Error("expected Equip");
+    expect(equip.disabled).toBe(false);
+    equip.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "eq", ability: 1 }]);
+  });
+
   it("shows nothing about hidden cards", () => {
     const v = view(RULES);
     expect(rulesMenu(v.cards.h!, v, "p1")).toEqual([]);

@@ -21,10 +21,17 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from app.rules import mana as M
 
-KINDS = ("convoke", "improvise", "delve")
+Kind = Literal["convoke", "improvise", "delve"]
+KINDS: tuple[Kind, ...] = ("convoke", "improvise", "delve")
+
+
+def kind_of(name: str) -> Kind | None:
+    """A contribution kind from untrusted text (an intent, a stored decision), or None."""
+    return next((k for k in KINDS if k == name), None)
 GENERIC = "1"
 
 
@@ -33,7 +40,7 @@ class Helper:
     """Something offered to pay part of the cost: a creature (convoke), an artifact (improvise)
     or a graveyard card (delve). ``colors`` matters only for convoke."""
 
-    kind: str
+    kind: Kind
     card: str
     colors: frozenset[str] = frozenset()
 

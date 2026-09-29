@@ -72,6 +72,8 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Delve, improvise (player-paid), evoke, rebound | 32,116 | 4,861 (15.1%) | 27,207 | 0 | 48 | 117 / 3,501 |
 | "Exile … until ~ leaves the battlefield", fabricate | 32,116 | 4,895 (15.2%) | 27,173 | 0 | 48 | 117 / 3,501 |
 | Storm (spell copies; same or new targets) | 32,116 | 4,911 (15.3%) | 27,157 | 0 | 48 | 117 / 3,501 |
+| Split cards / adventures analysed per half (report fix) | 32,116 | 4,933 (15.4%) | 27,135 | 0 | 48 | 119 / 3,501 |
+| Auras (enchant: targeted cast, attach on resolution), equip, "Enchanted/Equipped creature gets/has", attached restrictions, "doesn't untap" | 32,116 | 5,186 (16.1%) | 26,882 | 0 | 48 | 119 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards
