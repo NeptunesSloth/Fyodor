@@ -1,0 +1,111 @@
+import { useState } from "react";
+import { Modal } from "../components/Modal";
+import { toast, toastError } from "../components/Toasts";
+import { api } from "../services/api";
+import { seatToken } from "../services/games";
+import { useGame } from "../state/gameStore";
+import { isVisible, splitZone } from "../types/game";
+import { send } from "./actions";
+
+const PRESENCE: Record<string, string> = {
+  connected: "Connected",
+  reconnecting: "Reconnecting…",
+  disconnected: "Disconnected",
+  open: "Open seat",
+};
+
+const hostHeaders = (gameId: string): Record<string, string> => {
+  const t = seatToken(gameId);
+  return t ? { "X-Seat-Token": t } : {};
+};
+
+/** True when this browser may use the host tools (the LAN host, or anyone at a hot-seat table). */
+export function useIsHost(): boolean {
+  return useGame((s) => !!s.view && (s.view.game.mode === "local" || s.view.game.host_seat === s.view.viewer));
+}
+
+/**
+ * HOST TOOLS: practical repairs for a private pod. Deliberately tucked away (⋯ → Host tools),
+ * not part of normal play.
+ */
+export function HostToolsDialog({ onClose }: { onClose: () => void }) {
+  const view = useGame((s) => s.view);
+  const selection = useGame((s) => s.selection);
+  const [link, setLink] = useState<{ seat: string; url: string } | null>(null);
+  if (!view) return null;
+  const gameId = view.game.id;
+  const lan = view.game.mode === "lan";
+  const post = <T,>(path: string, body: unknown = {}) => api.post<T>(`/games/${gameId}/host/${path}`, body, hostHeaders(gameId));
+  const run = (fn: () => Promise<unknown>, ok?: string) =>
+    void fn().then(() => ok && toast(ok), toastError);
+
+  const selected = selection.map((id) => view.cards[id]).filter((c) => !!c);
+  const stolen = selected.filter((c) => isVisible(c) && (c.controller !== c.owner || splitZone(c.zone).player !== c.owner));
+  const lost = Object.values(view.cards).filter(
+    (c) => c.zone.endsWith(":battlefield") && ((c.x ?? 0) < -40 || (c.y ?? 0) < -40 || (c.x ?? 0) > 3000 || (c.y ?? 0) > 2200),
+  );
+
+  return (
+    <Modal title="Host tools" onClose={onClose} wide>
+      <div className="host-tools" data-testid="host-tools">
+        {lan && (
+          <section>
+            <h3>Seats</h3>
+            {view.seat_order.map((pid) => {
+              const seat = view.game.seats[pid];
+              const p = view.players.find((x) => x.id === pid);
+              const presence = seat?.presence ?? (seat?.connected ? "connected" : "disconnected");
+              const hostSeat = pid === view.game.host_seat;
+              return (
+                <div key={pid} className="host-row" data-testid={`host-seat-${pid}`}>
+                  <b>{p?.name ?? pid}</b>
+                  <span className={`presence-label ${presence}`}>{PRESENCE[presence] ?? presence}</span>
+                  <span className="spacer" />
+                  <button className="tt-btn ghost" disabled={presence !== "connected"}
+                    onClick={() => run(() => post("reconnect", { seat: pid }), `Asked ${p?.name} to reconnect`)}>Force reconnect</button>
+                  {!hostSeat && (
+                    <button className="tt-btn ghost" title="Issue a new link for this seat (the old one stops working)" data-testid={`seat-link-${pid}`}
+                      onClick={() => run(async () => {
+                        const res = await post<{ path: string }>("seat-link", { seat: pid });
+                        setLink({ seat: pid, url: `${window.location.origin}${window.location.pathname}${res.path.replace(/^\//, "")}` });
+                      })}>Reclaim / assign seat</button>
+                  )}
+                  {!hostSeat && presence !== "connected" && (
+                    <button className="tt-btn ghost danger" onClick={() => {
+                      if (window.confirm(`Remove ${p?.name} from the game? Every card they own leaves the game.`)) void send({ type: "remove_player", player: pid });
+                    }}>Remove player</button>
+                  )}
+                </div>
+              );
+            })}
+            {link && (
+              <div className="host-link">
+                <span>Open this on the device that should sit in {view.players.find((x) => x.id === link.seat)?.name}'s seat:</span>
+                <code data-testid="seat-link">{link.url}</code>
+                <button className="tt-btn" onClick={() => void navigator.clipboard?.writeText(link.url).then(() => toast("Link copied"), () => undefined)}>Copy</button>
+              </div>
+            )}
+          </section>
+        )}
+        <section>
+          <h3>Table</h3>
+          <div className="host-grid">
+            <button className="tt-btn" data-testid="resync-all" disabled={!lan}
+              onClick={() => run(() => post("resync"), "Everyone received a fresh copy of the table")}>Resync all clients</button>
+            <button className="tt-btn" disabled={!view.response} onClick={() => void send({ type: "response_close", as_host: true })}>Force pass response</button>
+            <button className="tt-btn" disabled={!stolen.length} title="Selected cards go back to their owners"
+              onClick={() => void send({ type: "return_to_owner", card_ids: stolen.map((c) => c.id) })}>Return selected to owner</button>
+            <button className="tt-btn" disabled={!selected.length} onClick={() => void send({ type: "set_lock", card_ids: selected.map((c) => c.id), value: false })}>
+              Unlock selected
+            </button>
+            <button className="tt-btn" disabled={!lost.length} title="Bring cards dragged off the edge of the table back into view"
+              onClick={() => void send({ type: "set_position", moves: lost.map((c, i) => [c.id, 60 + (i % 10) * 24, 60 + Math.floor(i / 10) * 24]) })}>
+              Restore lost objects{lost.length ? ` (${lost.length})` : ""}
+            </button>
+          </div>
+          <p className="hint">Undo (Ctrl+Z) restores anything deleted by mistake. Dice objects arrive with the tabletop toys.</p>
+        </section>
+      </div>
+    </Modal>
+  );
+}

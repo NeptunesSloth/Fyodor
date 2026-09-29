@@ -1,0 +1,287 @@
+"""Hidden-information tests: private cards must never reach a viewer's serialized view."""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from app.game.state import STACK
+from app.game.visibility import OMNISCIENT, SPECTATOR
+from tests.game_helpers import act, find, make_session, zone
+
+
+@pytest.fixture()
+def s(cards):
+    return make_session(cards, shuffle=True)
+
+
+def dump(s, viewer) -> str:
+    return json.dumps(s.view(viewer))
+
+
+def hidden_identities(s, viewer):
+    """card_ids / names of every card the viewer must not be able to identify."""
+    from app.game.visibility import can_see
+
+    out = []
+    for c in s.state.cards.values():
+        if not can_see(s.state, c, viewer):
+            out.append(c)
+    return out
+
+
+def assert_no_leaks(s, viewer):
+    from app.game.visibility import can_see
+
+    view = s.view(viewer)
+    view.pop("log")  # the log may legitimately name cards that were public at the time
+    text = json.dumps(view)
+    visible_prints = {c.card_id for c in s.state.cards.values() if can_see(s.state, c, viewer)}
+    for c in hidden_identities(s, viewer):
+        if c.card_id not in visible_prints:  # another, visible copy may share the printing id
+            assert c.card_id not in text, f"{c.name} printing id leaked to {viewer}"
+        v = view["cards"].get(c.id)
+        if v is not None:
+            assert v.get("hidden") is True and "name" not in v and "card_id" not in v
+
+
+
+
+def test_libraries_are_counts_only(s):
+    for viewer in ("p1", "p2", SPECTATOR):
+        view = s.view(viewer)
+        for pid in ("p1", "p2"):
+            lib = view["zones"][f"{pid}:library"]
+            assert lib["known"] == []
+            assert lib["count"] == len(zone(s.state, pid, "library"))
+            for cid in zone(s.state, pid, "library"):
+                assert cid not in view["cards"]
+                assert cid not in json.dumps(view)  # not even the id
+        assert_no_leaks(s, viewer)
+
+
+def test_opponent_log_does_not_name_hidden_cards(s):
+    act(s, "p1", type="draw", count=2)
+    act(s, "p1", type="search_start", zone={"zone": "library"})
+    target = zone(s.state, "p1", "library")[5]
+    name = s.state.cards[target].name
+    act(s, "p1", type="move", card_ids=[target], to={"zone": "hand"})
+    act(s, "p1", type="search_end", shuffle=True)
+    p2_log = json.dumps(s.view("p2")["log"])
+    p1_log = json.dumps(s.view("p1")["log"])
+    if name != "Mountain":  # Mountain appears publicly elsewhere
+        assert name not in p2_log
+        assert name in p1_log
+    assert '"hidden": 1' in p2_log
+
+
+def test_search_exposes_library_only_to_searcher(s):
+    act(s, "p1", type="search_start", zone={"zone": "library"})
+    mine = s.view("p1")
+    assert len(mine["zones"]["p1:library"]["known"]) == 15
+    theirs = s.view("p2")
+    assert theirs["zones"]["p1:library"]["known"] == []
+    assert theirs["searches"] == {"p1": "p1:library"}
+    assert_no_leaks(s, "p2")
+    act(s, "p1", type="search_end", shuffle=True)
+    assert s.view("p1")["zones"]["p1:library"]["known"] == []
+
+
+def test_face_down_card_hidden_from_opponent(s):
+    act(s, "p1", type="draw", count=15)
+    sol = find(s.state, "Sol Ring")
+    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "battlefield"}, face_down=True, x=10, y=10)
+    theirs = s.view("p2")["cards"][sol.id]
+    assert theirs["hidden"] and theirs["face_down"] and theirs["x"] == 10
+    assert "card_id" in s.view("p1")["cards"][sol.id]
+    assert_no_leaks(s, "p2")
+    act(s, "p1", type="face_down", card_ids=[sol.id], face_down=False)
+    assert s.view("p2")["cards"][sol.id]["card_id"] == sol.card_id
+
+
+
+
+
+
+
+
+def test_spectator_and_omniscient(s):
+    act(s, "p1", type="draw", count=7)
+    act(s, "p2", type="draw", count=7)
+    assert_no_leaks(s, SPECTATOR)
+    everything = s.view(OMNISCIENT)
+    assert all("card_id" in everything["cards"][cid] for cid in zone(s.state, "p1", "hand"))
+    assert everything["zones"]["p1:library"]["count"] == len(everything["zones"]["p1:library"]["known"])
+
+
+def test_stack_and_abilities_public(s):
+    act(s, "p1", type="draw", count=15)
+    bolt = find(s.state, "Lightning Bolt")
+    act(s, "p1", type="move", card_ids=[bolt.id], to={"zone": "stack"})
+    act(s, "p1", type="create_ability", text="Draw a card")
+    view = s.view("p2")
+    assert [view["cards"][c].get("name") for c in view["zones"][STACK]] == ["Lightning Bolt", "Ability"]
+
+
+def test_token_shortcuts_private(s):
+    s.state.players["p1"].token_shortcuts = ["x"]
+    assert "token_shortcuts" not in s.view("p2")["players"][0]
+    assert s.view("p1")["players"][0]["token_shortcuts"] == ["x"]
+
+
+def test_mixed_game_never_leaks(s):
+    """Run a busy sequence and check every viewer after every step."""
+    steps = [
+        ("p1", {"type": "draw", "count": 7}),
+        ("p2", {"type": "draw", "count": 7}),
+        ("p1", {"type": "mulligan"}),
+        ("p2", {"type": "look_top", "player": "p2", "count": 3}),
+        ("p2", {"type": "mill", "count": 2}),
+        ("p1", {"type": "reveal_top"}),
+        ("p1", {"type": "shuffle"}),
+        ("p2", {"type": "search_start", "zone": {"zone": "library"}}),
+        ("p2", {"type": "search_end", "shuffle": True}),
+    ]
+    for actor, payload in steps:
+        s.perform(actor, payload)
+        for viewer in ("p1", "p2", SPECTATOR):
+            assert_no_leaks(s, viewer)
+
+
+def test_deck_categories_are_private_to_the_owner(s):
+    act(s, "p1", type="draw", count=15)
+    sol = find(s.state, "Sol Ring")
+    sol.categories = ["Ramp"]
+    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "battlefield"})
+    assert s.view("p1")["cards"][sol.id]["categories"] == ["Ramp"]
+    assert "categories" not in s.view("p2")["cards"][sol.id]  # public card, private deck metadata
+    assert "Ramp" not in json.dumps(s.view("p2"))
+
+
+def test_opponent_sees_hand_count_not_contents(s):
+    act(s, "p1", type="draw", count=7)
+    view = s.view("p2")
+    hand = view["zones"]["p1:hand"]
+    assert len(hand) == 7
+    assert all(cid.startswith("hidden:") and view["cards"][cid]["hidden"] for cid in hand)
+    assert not set(hand) & set(zone(s.state, "p1", "hand"))  # real ids never sent
+    assert_no_leaks(s, "p2")
+    mine = s.view("p1")
+    assert mine["zones"]["p1:hand"] == zone(s.state, "p1", "hand")
+    assert all("card_id" in mine["cards"][cid] for cid in mine["zones"]["p1:hand"])
+
+
+def test_bounced_card_becomes_anonymous_in_hand(s):
+    """A public card that returns to a hidden hand is logged, but no longer identifiable."""
+    act(s, "p1", type="draw", count=15)
+    sol = find(s.state, "Sol Ring")
+    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "battlefield"})
+    assert s.view("p2")["cards"][sol.id]["card_id"] == sol.card_id
+    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "hand"})
+    theirs = s.view("p2")
+    assert sol.id not in theirs["cards"]  # the real id disappears from their view
+    assert all(theirs["cards"][c].get("hidden") for c in theirs["zones"]["p1:hand"])
+    no_log = {k: v for k, v in theirs.items() if k != "log"}
+    assert sol.card_id not in json.dumps(no_log)
+    assert "Sol Ring" in json.dumps(theirs["log"][-1])  # the historical log may say what happened
+    # rearranging the hand doesn't change anything opponents receive
+    before_ids = theirs["zones"]["p1:hand"]
+    before_cards = {k: v for k, v in theirs["cards"].items() if k.startswith("hidden:")}
+    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "hand"}, index=0)
+    after = s.view("p2")
+    assert after["zones"]["p1:hand"] == before_ids
+    assert {k: v for k, v in after["cards"].items() if k.startswith("hidden:")} == before_cards
+    # on top of the library it isn't revealed, so nobody else knows it is there
+    act(s, "p1", type="move", card_ids=[sol.id], to={"zone": "library"}, position="top")
+    assert s.view("p2")["zones"]["p1:library"]["known"] == []
+    assert_no_leaks(s, "p2")
+
+
+def test_placeholder_order_does_not_follow_entry_order(s):
+    """Which placeholder a card becomes is a keyed hash, not "the last one is the new card"."""
+    from app.game.views import hidden_order
+
+    act(s, "p1", type="draw", count=15)
+    names = ("Sol Ring", "Lightning Bolt", "Llanowar Elves", "Fire // Ice", "Delver of Secrets // Insectile Aberration")
+    for name in names:
+        act(s, "p1", type="move", card_ids=[find(s.state, name).id], to={"zone": "battlefield"})
+    positions = []
+    for name in names:
+        c = find(s.state, name)
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+        positions.append(hidden_order(s.state, zone(s.state, "p1", "hand")).index(c.id))
+    last = [len(zone(s.state, "p1", "hand")) - len(names) + i for i in range(len(names))]
+    assert positions != last  # not simply appended in the order they arrived
+
+
+def test_reveal_ends_and_card_is_anonymous_again(s):
+    act(s, "p1", type="draw", count=3)
+    card = zone(s.state, "p1", "hand")[0]
+    act(s, "p1", type="reveal", card_ids=[card])
+    assert s.view("p2")["cards"][card]["revealed"] is True
+    assert s.view(SPECTATOR)["cards"][card]["card_id"]
+    act(s, "p1", type="hide", card_ids=[card])
+    theirs = s.view("p2")
+    assert card not in theirs["cards"] and len(theirs["zones"]["p1:hand"]) == 3
+    assert_no_leaks(s, "p2")
+
+
+def test_private_reveal_to_one_player(s):
+    act(s, "p1", type="draw", count=3)
+    b = zone(s.state, "p1", "hand")[1]
+    act(s, "p1", type="reveal", card_ids=[b], to=["p2"])
+    assert s.view("p2")["cards"][b]["card_id"]
+    assert b not in s.view(SPECTATOR)["cards"]  # only p2 was shown
+    act(s, "p1", type="hide", card_ids=[b])
+    assert b not in s.view("p2")["cards"]
+
+
+def test_reveal_ends_when_card_changes_zone(s):
+    act(s, "p1", type="draw", count=2)
+    card = zone(s.state, "p1", "hand")[0]
+    act(s, "p1", type="reveal", card_ids=[card])
+    act(s, "p1", type="move", card_ids=[card], to={"zone": "library"}, position="top")
+    assert s.view("p2")["zones"]["p1:library"]["known"] == []
+
+
+def test_look_top_is_private_and_ends(s):
+    act(s, "p2", type="look_top", player="p1", count=2)
+    top2 = zone(s.state, "p1", "library")[:2]
+    assert [cid for _, cid in s.view("p2")["zones"]["p1:library"]["known"]] == top2
+    assert s.view("p1")["zones"]["p1:library"]["known"] == []  # the owner did not look
+    assert_no_leaks(s, "p1")
+    act(s, "p2", type="end_view")
+    assert s.view("p2")["zones"]["p1:library"]["known"] == []
+
+
+def test_shuffle_invalidates_private_library_views(s):
+    act(s, "p1", type="look_top", count=3)
+    assert len(s.view("p1")["zones"]["p1:library"]["known"]) == 3
+    act(s, "p1", type="shuffle")
+    assert s.view("p1")["zones"]["p1:library"]["known"] == []
+    assert s.state.views == []
+
+
+def test_revealed_top_card_visible_to_all_until_it_moves(s):
+    act(s, "p1", type="reveal_top")
+    top = zone(s.state, "p1", "library")[0]
+    assert s.view("p2")["zones"]["p1:library"]["known"] == [[0, top]]
+    act(s, "p1", type="draw")
+    assert top not in s.view("p2")["cards"]
+
+
+def test_search_leaves_no_lingering_knowledge(s):
+    act(s, "p1", type="search_start", zone={"zone": "library"})
+    assert len(s.view("p1")["zones"]["p1:library"]["known"]) == 15
+    act(s, "p1", type="search_end", shuffle=False)
+    assert s.view("p1")["zones"]["p1:library"]["known"] == []
+
+
+def test_actions_on_placeholders_map_to_real_cards(s):
+    """An opponent can make a player discard an anonymous card without learning its id first."""
+    act(s, "p1", type="draw", count=3)
+    placeholder = s.view("p2")["zones"]["p1:hand"][0]
+    act(s, "p2", type="move", card_ids=[placeholder], to={"zone": "graveyard", "player": "p1"})
+    assert len(zone(s.state, "p1", "hand")) == 2
+    assert len(zone(s.state, "p1", "graveyard")) == 1

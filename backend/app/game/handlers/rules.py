@@ -1,0 +1,117 @@
+"""Applying rules-engine output. Pure replay: nothing here runs rules code.
+
+A rules intent (``play_land``, ``pass_priority``, …) was compiled by ``app.rules.engine`` into
+ordinary table actions, recorded on the intent as ``r``. Applying the intent replays exactly those
+steps, so undo/redo, saves and history replay never depend on the current rules code.
+"""
+
+from __future__ import annotations
+
+from app.game import actions as A
+from app.game import ops
+from app.game.errors import ActionError
+from app.game.handlers.players import change_life
+from app.game.ops import log, text
+from app.game.rules_state import RulesState, track
+from app.game.state import GameState, LogPart
+
+_NOT_A_STEP = A.INTENT_TYPES | {"run_macro", "restore_state", "response_open"}
+
+
+def apply_intent(state: GameState, a: A.Action) -> None:
+    from app.game.engine import HANDLERS  # the engine imports this module
+
+    steps = getattr(a, "r", None)
+    if not steps:
+        raise ActionError("unresolved rules intent")
+    for payload in steps:
+        step = A.parse_action(payload)
+        if step.type in _NOT_A_STEP:
+            raise ActionError("Invalid rules step")
+        HANDLERS[step.type](state, step)
+        track(state)
+
+
+def rules_sync(state: GameState, a: A.RulesSync) -> None:
+    state.rules = RulesState.model_validate(a.rules) if a.rules is not None else None
+
+
+def rules_mana(state: GameState, a: A.RulesMana) -> None:
+    if a.empty_all:
+        for p in state.players.values():
+            p.mana = {}
+        return
+    player = state.players.get(a.player)
+    if player is None:
+        raise ActionError("Unknown player")
+    tapped = []
+    for cid in a.tap:
+        card = ops.card(state, cid)
+        if card.tapped:
+            raise ActionError(f"{card.name or 'That card'} is already tapped")
+        card.tapped = True
+        tapped.append(card)
+    pool = player.mana
+    for color, amount in a.delta.items():
+        value = pool.get(color, 0) + amount
+        if value < 0:
+            raise ActionError("Not enough mana in the pool")
+        if value:
+            pool[color] = value
+        else:
+            pool.pop(color, None)
+    if a.life:
+        change_life(state, a.player, player.life - a.life)
+    if a.label:
+        parts = [ops.pname(state, a.player), text(" " + a.label)]
+        if tapped:
+            parts += [text(" (tapped "), ops.group(state, tapped), text(")")]
+        log(state, a.actor, a.ts, parts, kind="mana")
+    for cid in a.sacrifice:
+        card = ops.card(state, cid)
+        if card.is_token:
+            ops.delete(state, card)
+        else:
+            ops.move_card(state, card, f"{card.owner}:graveyard")
+
+
+def rules_damage(state: GameState, a: A.RulesDamage) -> None:
+    hurt = []
+    for cid, n in a.creatures.items():
+        card = ops.card(state, cid)
+        card.damage += n
+        hurt.append(card)
+    walkers = []
+    for cid, n in a.planeswalkers.items():
+        card = ops.card(state, cid)
+        left = card.counters.get("loyalty", 0) - n
+        if left > 0:
+            card.counters["loyalty"] = left
+        else:
+            card.counters.pop("loyalty", None)
+        walkers.append(card)
+    for hit in a.commander:
+        p = state.players[hit.player]
+        p.commander_damage[hit.commander] = p.commander_damage.get(hit.commander, 0) + hit.amount
+    for pid, n in a.players.items():
+        change_life(state, pid, state.players[pid].life - n)
+    for pid, n in a.lifelink.items():
+        change_life(state, pid, state.players[pid].life + n)
+    parts = [text("First-strike combat damage: " if a.first_strike else "Combat damage: ")]
+    pieces: list[list[LogPart]] = [[ops.pname(state, pid), text(f" takes {n}")] for pid, n in a.players.items()]
+    if hurt:
+        pieces.append([ops.group(state, hurt), text(" dealt damage")])
+    if walkers:
+        pieces.append([ops.group(state, walkers), text(" lose loyalty")])
+    pieces += [[ops.pname(state, pid), text(f" gains {n} life (lifelink)")] for pid, n in a.lifelink.items()]
+    for i, piece in enumerate(pieces or [[text("none")]]):
+        parts += ([text("; ")] if i else []) + piece
+    log(state, a.actor, a.ts, parts, kind="combat")
+
+
+def rules_log(state: GameState, a: A.RulesLog) -> None:
+    parts = [text(a.text)]
+    for cid in a.card_ids:
+        if cid in state.cards:
+            parts += [text(" "), ops.card_part(state, state.cards[cid])]
+    log(state, a.actor, a.ts, parts, kind=a.kind)

@@ -1,0 +1,110 @@
+"""Application settings.
+
+Settings come from environment variables prefixed with ``FYODOR_`` (a ``.env``
+file in the working directory is also read). Every path is resolved relative to
+the configured data directory, so no machine-specific path is hard-coded.
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _load_dotenv(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.is_file():
+        return values
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        values[key.strip()] = value.strip().strip('"').strip("'")
+    return values
+
+
+def _bool(value: str | None, default: bool) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+@dataclass(frozen=True)
+class Settings:
+    data_dir: Path
+    host: str = "127.0.0.1"
+    port: int = 8000
+    log_level: str = "INFO"
+    cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
+    frontend_dist: Path | None = None
+    autosave_every: int = 10
+    history_limit: int = 500
+    assistant_url: str | None = None  # Ollama-compatible endpoint; unset = assistant disabled
+    assistant_model: str = "llama3.1"
+    allow_network: bool = True  # explicit, user-initiated online features (Archidekt import, art caching)
+    scryfall_api: str = "https://api.scryfall.com"
+    user_agent: str = "Fyodor-MTG-Tabletop/0.1"
+    extra: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def cards_db_path(self) -> Path:
+        return self.data_dir / "cards.sqlite"
+
+    @property
+    def app_db_path(self) -> Path:
+        return self.data_dir / "app.sqlite"
+
+    @property
+    def images_dir(self) -> Path:
+        return self.data_dir / "images"
+
+    @property
+    def assets_dir(self) -> Path:
+        return self.data_dir / "assets"
+
+    @property
+    def downloads_dir(self) -> Path:
+        return self.data_dir / "downloads"
+
+    def ensure_dirs(self) -> None:
+        for path in (self.data_dir, self.images_dir / "cards", self.images_dir / "tokens", self.downloads_dir, self.assets_dir):
+            path.mkdir(parents=True, exist_ok=True)
+
+
+def load_settings(env: dict[str, str] | None = None) -> Settings:
+    source: dict[str, str] = {}
+    source.update(_load_dotenv(Path.cwd() / ".env"))
+    source.update(os.environ if env is None else env)
+
+    def get(name: str) -> str | None:
+        return source.get(f"FYODOR_{name}")
+
+    data_dir = Path(get("DATA_DIR") or (REPO_ROOT / "data")).expanduser().resolve()
+    dist = get("FRONTEND_DIST")
+    frontend_dist = Path(dist).expanduser().resolve() if dist else REPO_ROOT / "frontend" / "dist"
+    cors = get("CORS_ORIGINS")
+    return Settings(
+        data_dir=data_dir,
+        host=get("HOST") or "127.0.0.1",
+        port=int(get("PORT") or 8000),
+        log_level=(get("LOG_LEVEL") or "INFO").upper(),
+        cors_origins=tuple(o.strip() for o in cors.split(",") if o.strip())
+        if cors
+        else Settings.__dataclass_fields__["cors_origins"].default,  # type: ignore[arg-type]
+        frontend_dist=frontend_dist if frontend_dist.is_dir() else None,
+        autosave_every=int(get("AUTOSAVE_EVERY") or 10),
+        history_limit=int(get("HISTORY_LIMIT") or 500),
+        assistant_url=get("ASSISTANT_URL") or None,
+        assistant_model=get("ASSISTANT_MODEL") or "llama3.1",
+        allow_network=_bool(get("ALLOW_NETWORK"), True),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    return load_settings()

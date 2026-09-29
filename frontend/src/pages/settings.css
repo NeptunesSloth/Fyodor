@@ -1,0 +1,11 @@
+.settings { display: flex; flex-direction: column; gap: 18px; max-width: 900px; color: var(--room-bone); }
+.settings h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--room-bone-dim); margin: 0 0 8px; font-weight: 600; }
+.settings section { padding-bottom: 14px; border-bottom: 1px solid var(--room-edge); }
+.settings .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 14px; }
+.settings-checks { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 6px 0; align-items: center; }
+.settings-checks label { display: flex; gap: 6px; align-items: center; }
+.profile-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+.profile-stats { margin-top: 8px; }
+.keys { border-collapse: collapse; }
+.keys td { padding: 2px 10px 2px 0; }
+.settings-page { max-width: 960px; margin: 0 auto; }
