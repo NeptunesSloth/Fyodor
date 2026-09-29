@@ -10,7 +10,8 @@ A value is an int (a literal) or a dict:
 * ``{"opponents": 1}`` — the number of opponents still in the game;
 * ``{"power": "self" | "target"}`` / ``{"toughness": …}`` / ``{"mana_value": …}`` — of an object;
 * ``{"counters": kind, "on": "self"}`` — counters of a kind on an object;
-* ``{"times": [a, b]}`` — a product (e.g. "two for each …").
+* ``{"times": [a, b]}`` — a product (e.g. "two for each …");
+* ``{"event_amount": 1}`` — "that much": replaced by the trigger event's amount when it triggers.
 
 Parsing lives in :func:`parse_amount` (words) and :func:`parse_count` ("the number of …").
 """
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
 Value = int | dict[str, Any]
 NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
            "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "twenty": 20}
-AMOUNT = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x|X)"
+AMOUNT = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x|X|that much)"
 
 # Counters that carry rules the engine doesn't model yet (122.1b keyword counters, 122.1c shield,
 # 122.1d stun, 122.1h finality, 122.1i rad, 122.1j hone, 714 lore): an effect putting one of these
@@ -47,6 +48,8 @@ def parse_amount(word: str) -> Value | None:
         return NUMBERS[w]
     if w == "x":
         return {"x": 1}
+    if w == "that much":
+        return {"event_amount": 1}  # the amount of the trigger event (bound when it triggers)
     return None
 
 

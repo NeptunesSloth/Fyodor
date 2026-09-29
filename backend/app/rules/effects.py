@@ -41,6 +41,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if p != me]
     if who == "target":
         return [t["id"] for t in ctx["targets"] if t["id"] in plan.state.players and t["id"] in plan.live()]
+    if who.startswith("player:"):  # one specific player (the one a trigger event was about)
+        return [who[7:]] if who[7:] in plan.live() else []
     return []
 
 

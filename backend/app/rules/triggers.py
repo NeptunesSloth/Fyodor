@@ -67,14 +67,25 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
 
 
 def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, name: str, index: int,
-         definition: dict[str, Any], manual: bool = False, event_object: str | None = None) -> None:
+         definition: dict[str, Any], manual: bool = False, event_object: str | None = None,
+         event_player: str | None = None, event_amount: int = 0) -> None:
     if manual:
         return
-    if any(e.get("who") == "event" for e in definition.get("effects") or []):
-        # "it" / "that creature": the object the event happened to, bound now to that one rules
-        # object (400.7: if it changes zones, the effect no longer finds it)
-        definition = {**definition, "effects": [
-            {**e, "who": f"object:{event_object}"} if e.get("who") == "event" else e for e in definition["effects"]]}
+    effects = definition.get("effects") or []
+    if any(e.get("who") in ("event", "event_player") or e.get("n") == {"event_amount": 1} for e in effects):
+        # What the trigger event was about, bound now (603.2, 608.2k): "it" / "that creature" (that
+        # one rules object: if it changes zones, the effect no longer finds it, 400.7), "that
+        # player", "that much"
+        def bind(e: dict[str, Any]) -> dict[str, Any]:
+            if e.get("who") == "event":
+                e = {**e, "who": f"object:{event_object}"}
+            elif e.get("who") == "event_player":
+                e = {**e, "who": f"player:{event_player}"}
+            if e.get("n") == {"event_amount": 1}:
+                e = {**e, "n": event_amount}
+            return e
+
+        definition = {**definition, "effects": [bind(e) for e in effects]}
     plan.rules.pending_triggers.append(PendingTrigger(
         id=secrets.token_hex(4), controller=controller, source_card=source_card, source_object=source_object,
         name=name, ability=definition, key=f"{name}:{index}"))
@@ -225,7 +236,7 @@ Watcher = tuple[CardInstance, Characteristics, int, dict[str, Any]]
 
 
 def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: set[tuple[str, int, int]],
-                  watchers: list[tuple[Watcher, int, int]] | None = None) -> None:
+                  watchers: list[tuple[Watcher, int, int]] | None = None, amount: int = 0) -> None:
     """Each watcher (with the batches it was on the battlefield for: it sees events from when it
     entered, 603.6a, until it left, 603.10a) against each fact of one event."""
     for (watcher, ch, i, d), lo, hi in (watchers if watchers is not None else [(w, -1, -1) for w in _event_watchers(plan)]):
@@ -246,7 +257,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: set[tuple[st
             obj = fact[1]  # (a live object; a snapshot of one that left isn't there to refer to)
             live = obj is not None and plan.state.cards.get(obj.id) is obj
             _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher),
-                 name=ch.name, index=i, definition=d, event_object=plan.oid(obj) if live and obj is not None else None)
+                 name=ch.name, index=i, definition=d, event_object=plan.oid(obj) if live and obj is not None else None,
+                 event_player=fact[3], event_amount=amount)
 
 
 def _generic_events(plan: Plan, events: list[Event]) -> None:
@@ -282,7 +294,7 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             r.draws_this_turn[e.player] = r.draws_this_turn.get(e.player, 0) + 1
         facts = _facts(plan, e)
         if facts:
-            _fire_generic(plan, facts, e.batch, fired, watchers)
+            _fire_generic(plan, facts, e.batch, fired, watchers, amount=e.amount)
 
 
 def generic_combat(plan: Plan, event: str, cards: list[CardInstance]) -> None:

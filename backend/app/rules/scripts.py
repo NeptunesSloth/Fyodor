@@ -792,12 +792,32 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     return None
 
 
+# Trigger events that come with an amount ("that much"): life gained / lost, damage dealt
+_AMOUNT_EVENTS = {"gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player"}
+
+
+def _event_refs_ok(d: Definition) -> bool:
+    """"That player" / "that much" name what a trigger event was about: only a generic trigger
+    condition whose event has a player (a player subject) or an amount can bind them."""
+    effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
+    wants_player = any(e.get("who") == "event_player" for e in effects)
+    wants_amount = any(e.get("n") == {"event_amount": 1} for e in effects)
+    if not wants_player and not wants_amount:
+        return True
+    cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
+    if cond is None or cond.get("aggregate"):
+        return False
+    if wants_player and cond.get("subject") != "player":
+        return False
+    return not wants_amount or cond["event"] in _AMOUNT_EVENTS
+
+
 @lru_cache(maxsize=20000)
 def _cached(ch: Characteristics) -> dict[int, Definition]:
     out = {}
     for ab in ch.abilities:
         d = define(ab, ch)
-        if d is not None:
+        if d is not None and _event_refs_ok(d):
             out[ab.index] = d
     return out
 

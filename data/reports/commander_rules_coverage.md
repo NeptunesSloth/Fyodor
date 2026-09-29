@@ -1,6 +1,6 @@
 # Commander rules coverage
 
-Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 20:14
+Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 20:18
 
 Only cards that are **legal in Commander today** count. Banned cards (83) are COMMANDER_BANNED and excluded.
 
@@ -10,12 +10,12 @@ Commander-legal cards: **32116**
 
 | Level | Cards | Share |
 |---|---|---|
-| FULL | 7908 | 24.6% |
-| PARTIAL | 24160 | 75.2% |
+| FULL | 7941 | 24.7% |
+| PARTIAL | 24127 | 75.1% |
 | REVIEW | 0 | 0.0% |
 | MANUAL | 48 | 0.1% |
 
-Possible commanders (CR 903.3/903.3a, incl. Backgrounds): **3501** — FULL 286, PARTIAL 3215, REVIEW 0, MANUAL 0
+Possible commanders (CR 903.3/903.3a, incl. Backgrounds): **3501** — FULL 290, PARTIAL 3211, REVIEW 0, MANUAL 0
 
 ## Pod coverage
 
@@ -24,16 +24,16 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 ## Coverage quality
 
 - Ability features (lines, keywords, play/cast/combat) across Commander-legal cards: 113346
-- Automated: 78487 (69.2%) · unrecognized clauses: 34859
+- Automated: 78533 (69.3%) · unrecognized clauses: 34813
 - Oracle text classified (automated, or sorted into a concrete missing capability): 97.4% · unclassified clauses: 2952
-- Distinct missing-capability clusters: 9154
+- Distinct missing-capability clusters: 9150
 
 ## Missing capabilities by category
 
 | Category | Cards affected | Clauses |
 |---|---|---|
-| MISSING EFFECT | 11541 | 13615 |
-| MISSING SELECTOR | 3767 | 3981 |
+| MISSING EFFECT | 11508 | 13573 |
+| MISSING SELECTOR | 3764 | 3977 |
 | MISSING TRIGGER EVENT | 3465 | 3640 |
 | MISSING CONTINUOUS EFFECT | 2824 | 3001 |
 | UNSUPPORTED ORACLE PATTERN | 2183 | 2952 |
@@ -57,7 +57,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 5 | MISSING MECHANIC | ward | 47 | 10 | 97 | Tyranid Harridan, Grey Host Reinforcements, Kwia Vigorbloom |
 | 6 | MISSING EFFECT | look at the top … | 38 | 144 | 207 | Harald, King of Skemfar, Lantern of Revealing, Ponder |
 | 7 | MISSING CONTINUOUS EFFECT | ~ gets ±N/±N for each … | 32 | 54 | 115 | Nim Lasher, Benalish Honor Guard, Anya, Merciless Angel |
-| 8 | MISSING SELECTOR | target | 31 | 198 | 350 | Cinder Elemental, Archangel of Wrath, Granger Guildmage |
+| 8 | MISSING SELECTOR | target | 31 | 196 | 347 | Cinder Elemental, Archangel of Wrath, Granger Guildmage |
 | 9 | MISSING EFFECT | create n … | 31 | 127 | 239 | Summon the School, Cogwork Assembler, Endless Evil |
 | 10 | MISSING EFFECT | exile the top card … | 30 | 37 | 94 | Moonring Mirror, Mezzio Mugger, Etali, Primal Storm |
 | 11 | MISSING CONTINUOUS EFFECT | ~'s power and toughness are each … | 28 | 59 | 127 | Eluge, the Shoreless Sea, Flora Colossus, Revenant |
@@ -71,14 +71,14 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 19 | MISSING SELECTOR | target creatures | 19 | 170 | 311 | Ravenous Gigantotherium, Fire Covenant, Amazing Acrobatics |
 | 20 | MISSING EFFECT | until end of turn … | 19 | 141 | 218 | Divergent Growth, Doorman, Strength of Will |
 | 21 | UNSUPPORTED ORACLE PATTERN | ~ costs {M} less to cast … | 19 | 36 | 71 | Bedlam Reveler, Gargantuan Leech, Hamza, Guardian of Arashin |
-| 22 | MISSING EFFECT | ~ deals n … | 18 | 224 | 358 | Deem Worthy, End-Blaze Epiphany, Harvest Pyre |
-| 23 | MISSING EFFECT | mill n … | 18 | 58 | 100 | Sparring Dummy, Beluna Grandsquall // Seek Thrills, Cache Grab |
-| 24 | MISSING TRIGGER EVENT | When you cast ~ | 18 | 22 | 80 | Empyrial Storm, The Fourteenth Doctor, Ulamog, the Ceaseless Hunger |
-| 25 | MISSING EFFECT | discard n … | 17 | 39 | 78 | Keldon Raider, Witch's Mark, Seasoned Pyromancer |
-| 26 | MISSING CONTINUOUS EFFECT | Commander creatures you own have “…” | 17 | 17 | 17 | Dungeon Delver, Noble Heritage, Acolyte of Bahamut |
-| 27 | MISSING EFFECT | exile ~ … | 17 | 11 | 57 | Stenn, Paranoid Partisan, Woodland Guidance, Teferi's Protection |
-| 28 | MISSING EFFECT | if ~ … | 16 | 64 | 126 | Warden of the First Tree, Blinkmoth Urn, Mad Dog |
-| 29 | MISSING COST | {M}, Sacrifice another creature | 16 | 32 | 51 | Sanguine Spy, Skyclave Shadowcat, Phyrexian Warhorse |
+| 22 | MISSING EFFECT | mill n … | 18 | 58 | 100 | Sparring Dummy, Beluna Grandsquall // Seek Thrills, Cache Grab |
+| 23 | MISSING TRIGGER EVENT | When you cast ~ | 18 | 22 | 80 | Empyrial Storm, The Fourteenth Doctor, Ulamog, the Ceaseless Hunger |
+| 24 | MISSING EFFECT | discard n … | 17 | 39 | 78 | Keldon Raider, Witch's Mark, Seasoned Pyromancer |
+| 25 | MISSING CONTINUOUS EFFECT | Commander creatures you own have “…” | 17 | 17 | 17 | Dungeon Delver, Noble Heritage, Acolyte of Bahamut |
+| 26 | MISSING EFFECT | exile ~ … | 17 | 11 | 57 | Stenn, Paranoid Partisan, Woodland Guidance, Teferi's Protection |
+| 27 | MISSING EFFECT | if ~ … | 16 | 64 | 126 | Warden of the First Tree, Blinkmoth Urn, Mad Dog |
+| 28 | MISSING COST | {M}, Sacrifice another creature | 16 | 32 | 51 | Sanguine Spy, Skyclave Shadowcat, Phyrexian Warhorse |
+| 29 | MISSING EFFECT | ~ deals n … | 15 | 214 | 343 | Deem Worthy, End-Blaze Epiphany, Harvest Pyre |
 | 30 | MISSING CONTINUOUS EFFECT | ~'s power is equal to the … | 15 | 27 | 67 | Uurg, Spawn of Turg, Snow Villiers, Nethergoyf |
 | 31 | UNSUPPORTED ORACLE PATTERN | As ~ enters, … | 15 | 1 | 19 | Stenn, Paranoid Partisan, Arachne, Psionic Weaver, Pramikon, Sky Rampart |
 | 32 | UNSUPPORTED ORACLE PATTERN | More Than Meets the Eye {M} | 15 | 0 | 15 | Optimus Prime, Hero // Optimus Prime, Autobot Leader, Megatron, Tyrant // Megatron, Destructive Force, Jetfire, Ingenious Scientist // Jetfire, Air Guardian |
@@ -137,8 +137,8 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 |---|---|---|---|---|---|---|
 | 1 | MISSING EFFECT | draw n … | 573 | 191 | 58 | Errand-Rider of Gondor, Heal, Grip of Amnesia |
 | 2 | MISSING EFFECT | choose n … | 553 | 47 | 61 | Road of Return, Saheeli's Artistry, Eldrazi Confluence |
-| 3 | MISSING EFFECT | ~ deals n … | 358 | 224 | 18 | Deem Worthy, End-Blaze Epiphany, Harvest Pyre |
-| 4 | MISSING SELECTOR | target | 350 | 198 | 31 | Cinder Elemental, Archangel of Wrath, Granger Guildmage |
+| 3 | MISSING SELECTOR | target | 347 | 196 | 31 | Cinder Elemental, Archangel of Wrath, Granger Guildmage |
+| 4 | MISSING EFFECT | ~ deals n … | 343 | 214 | 15 | Deem Worthy, End-Blaze Epiphany, Harvest Pyre |
 | 5 | MISSING COST / PERMISSION RULE | As an additional cost to cast … | 312 | 34 | 6 | Thunderherd Migration, Mind Extraction, Harvest Pyre |
 | 6 | MISSING SELECTOR | target creatures | 311 | 170 | 19 | Ravenous Gigantotherium, Fire Covenant, Amazing Acrobatics |
 | 7 | MISSING EFFECT | pay {m} … | 263 | 186 | 65 | Labyrinth Adversary, Minion Reflector, Giant's Amulet |
@@ -146,7 +146,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 9 | MISSING EFFECT | create n … | 239 | 127 | 31 | Summon the School, Cogwork Assembler, Endless Evil |
 | 10 | MISSING REPLACEMENT PATTERN | As ~ enters, … | 237 | 47 | 4 | Kindred Discovery, Utopia Sprawl, Game Trail |
 | 11 | MISSING MECHANIC | kicker | 224 | 0 | 7 | Strength of Night, Goblin Barrage, Archangel of Wrath |
-| 12 | MISSING EFFECT | destroy target … | 219 | 132 | 5 | Kalitas, Bloodchief of Ghet, Misfortune's Gain, Raze |
+| 12 | MISSING EFFECT | destroy target … | 219 | 134 | 5 | Kalitas, Bloodchief of Ghet, Misfortune's Gain, Raze |
 | 13 | MISSING EFFECT | until end of turn … | 218 | 141 | 19 | Divergent Growth, Doorman, Strength of Will |
 | 14 | MISSING EFFECT | look at the top … | 207 | 144 | 38 | Harald, King of Skemfar, Lantern of Revealing, Ponder |
 | 15 | MISSING EFFECT | put a ±n/±n counter(s) … | 196 | 128 | 54 | Yorvo, Lord of Garenbrig, Gollum, Silent Slinker // Meager Meal, Ent-Draught Basin |
@@ -223,19 +223,19 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 | 29 | keyword:ninjutsu | keyword | 0 | 35 | 10 | Higure, the Still Wind, Moonblade Shinobi, Mist-Syndicate Naga |
 | 30 | keyword:entwine | keyword | 0 | 32 | 10 | Road of Return, Rain of Rust, Blinding Beam |
 | 31 | keyword:offspring | keyword | 0 | 20 | 10 | Splash Lasher, Rust-Shield Rampager, Prosperous Bandit |
-| 32 | template:Scavenge {M} | static | 0 | 14 | 10 | Terrus Wurm, Deadbridge Goliath, Dodgy Jalopy |
-| 33 | keyword:rampage | keyword | 0 | 12 | 10 | Craw Giant, Balduvian War-Makers, Varchild's War-Riders |
-| 34 | template:~ enters tapped unless you control N or fewer other lands. | replacement | 0 | 11 | 10 | Concealed Courtyard, Inspiring Vantage, Blackcleave Cliffs |
-| 35 | template:~ enters tapped unless a player has N or less life. | replacement | 0 | 10 | 10 | Abandoned Campground, Raucous Carnival, Strangled Cemetery |
-| 36 | template:~ enters tapped unless you control N or more basic lands. | replacement | 0 | 10 | 10 | Sodden Verdure, Smoldering Marsh, Vernal Fen |
-| 37 | template:~ enters tapped unless you control N or more other lands. | replacement | 0 | 10 | 10 | Rockfall Vale, Stormcarved Coast, Sundown Pass |
-| 38 | template:~ enters tapped unless you control a planeswalker. | replacement | 0 | 10 | 10 | Theorix Annex, Stingerquill Annex, Konstrari Annex |
-| 39 | template:~ enters tapped unless you have N or more opponents. | replacement | 0 | 10 | 10 | Spire Garden, Sea of Clouds, Bountiful Promenade |
-| 40 | keyword:disguise | keyword | 0 | 43 | 9 | Boltbender, Nightdrinker Moroii, Concealed Weapon |
-| 41 | keyword:cumulative upkeep | keyword | 0 | 23 | 9 | Varchild's War-Riders, Aboroth, Inner Sanctum |
-| 42 | template:When ~ is put into a graveyard from the battlefield, return it to its owner's hand. | triggered | 0 | 20 | 9 | Spine of Ish Sah, Slow Motion, Fiery Mantle |
-| 43 | keyword:living weapon | keyword | 0 | 19 | 9 | Nettlecyst, Lashwrithe, Skinwing |
-| 44 | keyword:mentor | keyword | 0 | 19 | 9 | Hammer Dropper, Legion Warboss, Tributary Instructor |
+| 32 | keyword:mentor | keyword | 0 | 19 | 10 | Hammer Dropper, Legion Warboss, Tributary Instructor |
+| 33 | template:Scavenge {M} | static | 0 | 14 | 10 | Terrus Wurm, Deadbridge Goliath, Dodgy Jalopy |
+| 34 | keyword:rampage | keyword | 0 | 12 | 10 | Craw Giant, Balduvian War-Makers, Varchild's War-Riders |
+| 35 | template:~ enters tapped unless you control N or fewer other lands. | replacement | 0 | 11 | 10 | Concealed Courtyard, Inspiring Vantage, Blackcleave Cliffs |
+| 36 | template:~ enters tapped unless a player has N or less life. | replacement | 0 | 10 | 10 | Abandoned Campground, Raucous Carnival, Strangled Cemetery |
+| 37 | template:~ enters tapped unless you control N or more basic lands. | replacement | 0 | 10 | 10 | Sodden Verdure, Smoldering Marsh, Vernal Fen |
+| 38 | template:~ enters tapped unless you control N or more other lands. | replacement | 0 | 10 | 10 | Rockfall Vale, Stormcarved Coast, Sundown Pass |
+| 39 | template:~ enters tapped unless you control a planeswalker. | replacement | 0 | 10 | 10 | Theorix Annex, Stingerquill Annex, Konstrari Annex |
+| 40 | template:~ enters tapped unless you have N or more opponents. | replacement | 0 | 10 | 10 | Spire Garden, Sea of Clouds, Bountiful Promenade |
+| 41 | keyword:disguise | keyword | 0 | 43 | 9 | Boltbender, Nightdrinker Moroii, Concealed Weapon |
+| 42 | keyword:cumulative upkeep | keyword | 0 | 23 | 9 | Varchild's War-Riders, Aboroth, Inner Sanctum |
+| 43 | template:When ~ is put into a graveyard from the battlefield, return it to its owner's hand. | triggered | 0 | 20 | 9 | Spine of Ish Sah, Slow Motion, Fiery Mantle |
+| 44 | keyword:living weapon | keyword | 0 | 19 | 9 | Nettlecyst, Lashwrithe, Skinwing |
 | 45 | keyword:prototype | keyword | 0 | 19 | 9 | Goring Warplow, Combat Thresher, Woodcaller Automaton |
 | 46 | keyword:extort | keyword | 0 | 17 | 9 | Syndicate Heavy, Tithe Drinker, Kingpin's Pet |
 | 47 | keyword:fading | keyword | 0 | 17 | 9 | Parallax Wave, Phyrexian Prowler, Skyshroud Ridgeback |
@@ -257,10 +257,10 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 
 | Type | FULL | PARTIAL | REVIEW | MANUAL |
 |---|---|---|---|---|
-| Creature | 4899 | 13022 | 0 | 0 |
-| Artifact | 797 | 2796 | 0 | 0 |
-| Enchantment | 522 | 3125 | 0 | 0 |
-| Sorcery | 704 | 2864 | 0 | 0 |
+| Creature | 4921 | 13000 | 0 | 0 |
+| Artifact | 798 | 2795 | 0 | 0 |
+| Enchantment | 535 | 3112 | 0 | 0 |
+| Sorcery | 705 | 2863 | 0 | 0 |
 | Instant | 949 | 2805 | 0 | 0 |
 | Land | 497 | 715 | 0 | 0 |
 | Planeswalker | 5 | 306 | 0 | 0 |

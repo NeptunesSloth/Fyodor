@@ -27,7 +27,7 @@ _LEGACY_TARGETS = {
     "any target": "any", "target player": "player", "target opponent": "opponent",
 }
 _PLAYER_GROUPS = {"you": "you", "each player": "each_player", "each opponent": "each_opponent",
-                  "each of your opponents": "each_opponent"}
+                  "each of your opponents": "each_opponent", "that player": "event_player"}
 
 
 class _Fail(Exception):
@@ -117,7 +117,7 @@ def _apply(n: Any, rider: Any) -> Any:
     return v if n == 1 else {"times": [n, v]}
 
 
-_SUBJ = r"(?:(?P<s>you|target player|target opponent|each player|each opponent|each of your opponents) )?"
+_SUBJ = r"(?:(?P<s>you|target player|target opponent|each player|each opponent|each of your opponents|that player) )?"
 
 
 def _subject(m: re.Match[str]) -> tuple[str, str | None]:

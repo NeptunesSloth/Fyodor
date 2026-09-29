@@ -272,3 +272,46 @@ def test_tutor_to_top_is_not_revealed(cards):
     pass_until_stack_empty(s)
     top = s.state.cards[zone(s.state, "p1", "library")[0]]
     assert top.name not in str(s.view("p2")["log"])
+
+
+# -- "that player" / "that much": what the event was about, bound when it triggers ------------
+def test_that_player(cards):
+    s = build(cards)
+    token(s, "p1", "Taxer", text="Whenever an opponent draws a card, that player loses 1 life.")
+    src = token(s, "p1", "Gift", text="{1}: Each opponent draws a card.")
+    _activate(s, src)
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].life == 39 and s.state.players["p1"].life == 40
+    replay_matches(s)
+
+
+def test_that_much_life(cards):
+    s = build(cards)
+    token(s, "p1", "Siphon", text="Whenever you gain life, each opponent loses that much life.")
+    src = token(s, "p1", "Font", text="{1}: You gain 3 life.")
+    _activate(s, src)
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].life == 37
+    replay_matches(s)
+
+
+def test_that_much_damage(cards):
+    s = build(cards)
+    token(s, "p1", "Spiker", "4/4", text="Whenever this creature is dealt damage, it deals that much damage to each opponent.")
+    src = token(s, "p1", "Quake", "5/5", text="{1}: This creature deals 2 damage to each creature.")
+    _activate(s, src)
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].life == 38
+    replay_matches(s)
+
+
+@pytest.mark.parametrize("text", [
+    "At the beginning of each opponent's upkeep, that player loses 1 life.",  # (no event player bound)
+    "Whenever you draw a card, you gain that much life.",  # (a draw has no amount)
+    "Whenever one or more creatures you control deal combat damage to a player, you gain that much life.",
+])
+def test_unbound_event_references_stay_manual(text):
+    from app.rules import scripts
+    from tests.test_rules_scripts import ch
+
+    assert not scripts.definitions(ch("X", "Creature", text))

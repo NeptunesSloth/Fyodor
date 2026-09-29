@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 286 · PARTIAL: 3215 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 290 · PARTIAL: 3211 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -147,14 +147,14 @@ Color identity W
 - ✗ Adeline's power is equal to the number of creatures you control.
 - ✗ Whenever you attack, for each opponent, create a 1/1 white Human creature token that's tapped and attacking that player or a planeswalker they control.
 
-### Vito, Thorn of the Dusk Rose — PARTIAL
+### Vito, Thorn of the Dusk Rose — FULL
 
 Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever you gain life, target opponent loses that much life.
 - ✓ {3}{B}{B}: Creatures you control gain lifelink until end of turn.
-- ✗ Whenever you gain life, target opponent loses that much life.
 
 ### Birgi, God of Storytelling // Harnfel, Horn of Bounty — PARTIAL
 
@@ -1056,13 +1056,13 @@ Color identity R
 - ✗ Whenever you cast an instant or sorcery spell, add {R}.
 - ✗ When Electro leaves the battlefield, you may pay {X}. When you do, he deals X damage to target player.
 
-### Kambal, Consul of Allocation — PARTIAL
+### Kambal, Consul of Allocation — FULL
 
 Color identity WB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever an opponent casts a noncreature spell, that player loses 2 life and you gain 2 life.
+- ✓ Whenever an opponent casts a noncreature spell, that player loses 2 life and you gain 2 life.
 
 ### Valgavoth, Terror Eater — PARTIAL
 
