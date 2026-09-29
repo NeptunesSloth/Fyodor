@@ -306,8 +306,8 @@ function PaymentPanel({ d, view }: { d: DecisionView; view: GameView }) {
 
 /** Pay {1}{G}: tap your own lands (click them on the table); it goes on once your pool covers it. */
 function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
-  const info = d.display as unknown as { cost: string; what: string; sources: string[]; pool: Record<string, number> };
-  const untapped = info.sources.filter((id) => view.cards[id] && !view.cards[id]!.tapped);
+  const info = d.display as unknown as { cost: string; what: string; sources: string[]; convoke?: string[]; pool: Record<string, number> };
+  const untapped = [...new Set([...info.sources, ...(info.convoke ?? [])])].filter((id) => view.cards[id] && !view.cards[id]!.tapped);
   const pool = Object.entries(info.pool ?? {}).filter(([, n]) => n > 0).map(([m, n]) => `{${m}}`.repeat(n)).join("");
   return (
     <div className="decision-panel payment tap-mana frame ornate" data-testid="decision-panel" data-kind="tap_mana">
@@ -517,8 +517,9 @@ export function legalClass(view: GameView | null, cardId: string, me: string): s
   if (!rules || rules.paused || rules.options.highlights === "off") return "";
   const d = rules.decision;
   if (d && d.player === me && d.display?.kind === "tap_mana") {
-    const sources = (d.display as { sources?: string[] }).sources ?? [];
-    return sources.includes(cardId) && !view?.cards[cardId]?.tapped ? "rules-mana-source" : "";
+    const info = d.display as { sources?: string[]; convoke?: string[] };
+    const usable = [...(info.sources ?? []), ...(info.convoke ?? [])];
+    return usable.includes(cardId) && !view?.cards[cardId]?.tapped ? "rules-mana-source" : "";
   }
   if (d && d.player === me && d.options?.some((o) => o.card_id === cardId && (d.kind === "choose_one" || d.kind === "choose_cards"))) {
     return "rules-target";

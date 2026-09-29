@@ -500,10 +500,20 @@ def ask_to_tap(plan: Plan, cost: M.ManaCost, what: str, resume: dict[str, Any]) 
     exclude = set(resume.get("exclude") or ())
     sources = list(dict.fromkeys(s.card_id for s in mana_sources(plan.state, plan.actor, plan.info)
                                  if s.card_id not in exclude and s.activation is None))
+    intent = resume.get("intent") or {}
+    convoke: list[str] = []
+    if intent.get("type") == "cast_spell" and not intent.get("face_down") and intent.get("card_id") in plan.state.cards:
+        spell = chars.as_cast(plan.state.cards[intent["card_id"]], plan.info, intent.get("face"))
+        if "convoke" in spell.keywords:
+            from app.rules.layers import derive
+
+            convoke = [c.id for c in plan.state.cards.values() if c.zone == zone_key(plan.actor, "battlefield")
+                       and c.controller == plan.actor and not c.tapped
+                       and derive(plan.state, c, chars.of(c, plan.info), plan.info).is_creature]
     decide(plan, player=plan.actor, kind="choose_one",
-           prompt=f"Tap mana to pay {cost.text()} for {what}",
+           prompt=f"Tap mana to pay {cost.text()} for {what}" + (" (you can tap creatures for convoke)" if convoke else ""),
            display={"kind": "tap_mana", "cost": cost.text(), "what": what, "sources": sources[:40],
-                    "pool": dict(plan.state.players[plan.actor].mana)},
+                    "convoke": convoke[:40], "pool": dict(plan.state.players[plan.actor].mana)},
            options=[DecisionOption(id="pay", label="Pay"), DecisionOption(id="cancel", label="Cancel")],
            resume=resume)
 
@@ -1177,10 +1187,40 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     plan.rules.passed = []
 
 
+def _paying_for(plan: Plan) -> Characteristics | None:
+    """The spell a pending "tap your mana" prompt is paying for (convoke needs to know)."""
+    d = plan.rules.decision
+    intent = (d.resume or {}).get("intent") if d is not None else None
+    if not intent or intent.get("type") != "cast_spell" or intent.get("face_down"):
+        return None
+    card = plan.state.cards.get(intent["card_id"])
+    return chars.as_cast(card, plan.info, intent.get("face")) if card is not None else None
+
+
+def _convoke_tap(plan: Plan, card: CardInstance) -> None:
+    """702.51a: tap an untapped creature you control; it pays for {1} or one mana of its color."""
+    from app.rules.layers import derive
+
+    spell = _paying_for(plan)
+    if spell is None or "convoke" not in spell.keywords:
+        raise ActionError("Only a spell with convoke can be paid for by tapping creatures")
+    ch = derive(plan.state, card, chars.of(card, plan.info), plan.info)
+    if card.tapped or not ch.is_creature:
+        raise ActionError("Tap an untapped creature you control for convoke")
+    options = tuple((c,) for c in sorted(ch.colors)) + (("C",),)
+    option = _best_option(plan, options)
+    plan.do({"type": "rules_mana", "player": plan.actor, "tap": [card.id], "sacrifice": [], "delta": {option[0]: 1},
+             "life": 0, "label": f"tapped {ch.name} for convoke"}, actor=plan.actor)
+    after_tapping(plan)
+
+
 def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     card = plan.state.cards.get(a.card_id)
     if card is None or card.controller != plan.actor or not card.zone.endswith(":battlefield"):
         raise ActionError("Tap mana sources you control")
+    if a.convoke:
+        _convoke_tap(plan, card)
+        return
     ch = plan.ch(card)
     ability = _find_ability(ch, a.ability)
     parsed = dict(mana_abilities(plan.state, card, plan.info)).get(a.ability) if ability.kind == "mana" else None

@@ -105,3 +105,31 @@ def test_echo_is_paid_from_the_mana_you_tap(cards):
         act(s, "p1", type="activate_ability", card_id=f, ability=0)  # tapping is allowed during the prompt
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
     assert s.state.cards[troll.id].zone == "p1:battlefield" and s.state.players["p1"].mana == {}
+
+
+def test_convoke_by_tapping_your_creatures(cards):
+    alice = deck(cards, "Krenko, Mob Boss", [(1, "Stoke the Flames"), (9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    state = enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False))
+    for prefs in state.rules.prefs.values():
+        prefs.payment = "self"
+    s = GameSession(state, cards=cards)
+    act(s, "p1", type="pass_priority")
+    stoke = next(c for c in s.state.cards.values() if c.name == "Stoke the Flames")
+    act(s, "p1", type="move", card_ids=[stoke.id], to={"zone": "hand"})
+    ids = []
+    for i, colors in enumerate([["R"], ["R"], [], ["G"]]):
+        act(s, "p1", type="create_token", player="p1", token={"name": f"T{i}", "type_line": "Token Creature — Test",
+                                                             "power": "1", "toughness": "1", "colors": colors})
+        ids.append(next(c.id for c in s.state.cards.values() if c.name == f"T{i}"))
+    act(s, "p1", type="cast_spell", card_id=stoke.id, targets=["p2"])
+    d = s.state.rules.decision
+    assert set(d.display["convoke"]) == set(ids) and not any(s.state.cards[c].tapped for c in ids)
+    for cid in ids:
+        act(s, "p1", type="activate_ability", card_id=cid, ability=0, convoke=True)
+    assert all(s.state.cards[c].tapped for c in ids)
+    for _ in range(6):
+        if not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.players["p2"].life == 36

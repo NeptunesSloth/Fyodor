@@ -126,8 +126,8 @@ is on), and every cost is paid from the mana pool.
   costs: tap first, then pay.
 - If a mana ability can add different colors, the one that helps the pending payment is added.
 
-Convoke creatures and spend-restricted mana still need a hand in some cases (tap them with the
-table tools). The older AUTO / ASK / MANUAL payers remain inside the engine for its own tests
+For a spell with convoke, your untapped creatures are highlighted too: click one to tap it for
+convoke ({1} or one mana of its color). Spend-restricted mana still needs a hand in some cases. The older AUTO / ASK / MANUAL payers remain inside the engine for its own tests
 only; clients can't select them.
 
 ## Smart prompting and optional effects — built for templated effects

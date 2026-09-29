@@ -76,6 +76,12 @@ export function tapForMana(cardId: string, seat?: string): boolean {
   const me = seat ?? perspective(view, actingAs);
   const c = view.cards[cardId];
   if (!c || c.hidden || c.tapped || c.face_down || c.controller !== me || !c.zone.endsWith(":battlefield")) return false;
+  const d = view.rules?.decision;
+  const pay = d && d.player === me && d.display?.kind === "tap_mana" ? (d.display as { sources?: string[]; convoke?: string[] }) : null;
+  if (pay?.convoke?.includes(cardId) && !pay.sources?.includes(cardId)) {
+    void send({ type: "activate_ability", card_id: cardId, ability: 0, convoke: true });  // tap it for convoke
+    return true;
+  }
   const index = manaAbilityIndex(cardId, view);
   if (index == null) return false;
   void send({ type: "activate_ability", card_id: cardId, ability: index });
