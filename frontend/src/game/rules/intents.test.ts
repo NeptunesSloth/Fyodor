@@ -93,6 +93,22 @@ describe("automation intents", () => {
     expect(tapForMana("c4", "p1")).toBe(false);  // not yours
   });
 
+  it("during a convoke / improvise payment, clicking a highlighted creature or artifact taps it for that", () => {
+    const base = view({ ...RULES, decision: { id: "d1", player: "p1", kind: "choose_one", prompt: "Tap mana",
+      display: { kind: "tap_mana", sources: ["f1"], convoke: ["cr"], improvise: ["ar"] }, options: [] } });
+    const v = { ...base, cards: { ...base.cards, f1: card("f1", "p1:battlefield", "forest"), cr: card("cr", "p1:battlefield", "looter"),
+      ar: card("ar", "p1:battlefield", "looter") } } as unknown as GameView;
+    useGame.setState({ view: v });
+    expect(tapForMana("cr", "p1")).toBe(true);
+    expect(tapForMana("ar", "p1")).toBe(true);
+    expect(tapForMana("f1", "p1")).toBe(true);
+    expect(sent).toEqual([
+      { type: "activate_ability", card_id: "cr", ability: 0, convoke: true },
+      { type: "activate_ability", card_id: "ar", ability: 0, improvise: true },
+      { type: "activate_ability", card_id: "f1", ability: 0 },
+    ]);
+  });
+
   it("splits ability lines without reminder text", () => {
     expect(abilityLines("Flying\n{T}: Add {C}{C}. (Mana ability.)\n")).toEqual(["Flying", "{T}: Add {C}{C}."]);
   });
