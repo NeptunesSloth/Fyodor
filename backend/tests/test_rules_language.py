@@ -289,3 +289,28 @@ def test_aura_host_prompt_doesnt_name_a_hidden_card(cards):
     d = s.state.rules.decision
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
     assert "Holy Strength" not in (s.view("p2")["rules"]["decision"] or {}).get("prompt", "")
+
+
+def test_stat_of_a_target_that_left_uses_last_known_information(cards):
+    # 608.2h: "its toughness" after it left is the toughness it last had on the battlefield,
+    # not the card's printed value in its new zone (400.7: that's a new object)
+    from app.rules import values
+    from app.rules.plan import Plan
+
+    s = build(cards)
+    ogre = token(s, "p2", "Ogre", "2/2")
+    act(s, "p2", type="counter", card_ids=[ogre.id], kind="+1/+1", delta=3)
+    oid = s.state.rules.object_id(ogre.id)
+    ctx = {"controller": "p1", "targets": [{"id": ogre.id, "object_id": oid}]}
+    plan = Plan(s.state, "p1", cards, None)
+    assert values.evaluate(plan, ctx, {"toughness": "target"}) == 5
+    plan.do({"type": "move", "card_ids": [ogre.id], "to": {"zone": "graveyard"}})  # (as the engine moves it)
+    assert values.evaluate(plan, ctx, {"toughness": "target"}) == 5  # (LKI, not the card's printed 2)
+
+
+def test_modal_spell_cant_use_trigger_references():
+    from app.rules import scripts
+    from tests.test_rules_scripts import ch
+
+    text = "Choose one —\n• Target player loses 2 life.\n• You gain that much life."
+    assert scripts.spell_definition(ch("X", "Sorcery", text)) is None

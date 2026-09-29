@@ -1149,7 +1149,9 @@ def spell_definition(ch: Characteristics) -> Definition | None:
         return None
     text_lines = [ab for ab in ch.abilities if ab.kind != "keywords"]
     if text_lines and text_lines[0].text in _MODAL_HEADERS:
-        return modal_definition(text_lines, ch.name)
+        modal = modal_definition(text_lines, ch.name)
+        # (a spell has no trigger event: "that player" / "that much" can't be bound)
+        return modal if modal is not None and _event_refs_ok(modal) else None
     defs = definitions(ch)
     lines = [ab for ab in ch.abilities if ab.kind != "keywords"]
     if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):

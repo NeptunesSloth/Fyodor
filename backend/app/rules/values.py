@@ -97,10 +97,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sum(1 for p in plan.live() if p != you)
     for stat in ("power", "toughness", "mana_value"):
         if stat in v:
-            card = _object(plan, ctx, v[stat])
-            if card is None:
+            got = _object(plan, ctx, v[stat])
+            if got is None:
                 return 0
-            ch = plan.ch(card)
+            _, ch = got
             if stat == "mana_value":
                 return int(ch.mana_value)
             value = ch.pt[0 if stat == "power" else 1] if ch.pt is not None else None
@@ -109,8 +109,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                 value = int(raw)
             return max(0, value or 0)
     if "counters" in v:
-        card = _object(plan, ctx, v.get("on", "self"))
-        return card.counters.get(v["counters"], 0) if card is not None else 0
+        got = _object(plan, ctx, v.get("on", "self"))
+        return got[0].counters.get(v["counters"], 0) if got is not None else 0
     raise ValueError(f"unknown value {v!r}")
 
 
@@ -124,14 +124,24 @@ def kicked_count(plan: Plan, ctx: dict[str, Any]) -> int:
     return record.kicked if record is not None else 0
 
 
-def _object(plan: Plan, ctx: dict[str, Any], who: str) -> Any:
+def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None:
+    """The object a value reads ("its power", "the target's toughness") and its characteristics:
+    as it is now while it's still that object, else as it last existed (608.2h, 400.7). An
+    object id with no current object and no last known information reads as nothing."""
+    refs: list[tuple[str, str | None]] = []
     if who == "self":
-        return plan.state.cards.get(ctx.get("source_card") or "")
-    if who == "target" or who.startswith("target:"):
+        refs = [(ctx.get("source_card") or "", ctx.get("source_object"))]
+    elif who == "target" or who.startswith("target:"):
         from app.rules.effects import target_refs  # (effects imports this module)
 
-        for t in target_refs(ctx, who):
-            card = plan.state.cards.get(t["id"])
-            if card is not None:
-                return card
+        refs = [(t["id"], t.get("object_id")) for t in target_refs(ctx, who)]
+    for card_id, oid in refs:
+        card = plan.state.cards.get(card_id)
+        if card is not None and (oid is None or plan.oid(card) == oid):
+            return card, plan.ch(card)
+        snap = plan.rules.lki.get(oid or "")
+        if snap is not None:
+            from app.rules.triggers import _snapshot_card  # (triggers imports this module's users)
+
+            return _snapshot_card(plan, snap)
     return None

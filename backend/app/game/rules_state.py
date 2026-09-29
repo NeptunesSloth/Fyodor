@@ -197,6 +197,10 @@ class ObjectSnapshot(BaseModel):
     token_power: str | None = None
     token_toughness: str | None = None
     token_type_line: str | None = None  # (a token's types and colors, for what it was: 608.2h)
+    # Its power and toughness as it last existed (layers applied, counters included): recorded by
+    # the rules engine as it moves the object (608.2h), None for moves made by hand
+    power: int | None = None
+    toughness: int | None = None
     token_colors: list[str] = Field(default_factory=list)
     commander_key: str | None = None
     counters: dict[str, int] = Field(default_factory=dict)

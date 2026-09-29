@@ -63,11 +63,27 @@ class Plan:
             payload = self._madness(payload, actor)
         action = A.parse_action(payload)
         resolved = resolve(self.state, action, actor=actor or self.actor, cards=self.info, rng=self.rng, trusted=True)
+        leaving = self._battlefield_pt(payload)
         before = capture(self.state)
         HANDLERS[resolved.type](self.state, resolved)
         track(self.state, before)
+        for oid, (p, t) in leaving.items():  # last known power / toughness (608.2h)
+            snap = self.rules.lki.get(oid)
+            if snap is not None:
+                snap.power, snap.toughness = p, t
         self.steps.append(resolved.model_dump(mode="json"))
         return resolved
+
+    def _battlefield_pt(self, payload: dict[str, Any]) -> dict[str, tuple[int, int]]:
+        """Current power / toughness of the creatures a step may move off the battlefield."""
+        out: dict[str, tuple[int, int]] = {}
+        for cid in payload.get("card_ids") or []:
+            card = self.state.cards.get(cid) if isinstance(cid, str) else None
+            if card is not None and card.zone.endswith(":battlefield"):
+                pt = self.ch(card).pt
+                if pt is not None:
+                    out[self.oid(card)] = pt
+        return out
 
     def _exile_instead(self, payload: dict[str, Any], actor: str | None) -> dict[str, Any]:
         """Unearth (702.84a): "If it would leave the battlefield, exile it instead of putting it

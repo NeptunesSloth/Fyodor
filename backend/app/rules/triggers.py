@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import re
 import secrets
+from dataclasses import replace
 from typing import Any
 
 from app.game.rules_state import DecisionOption, Event, ObjectSnapshot, PendingTrigger, StackEntry
@@ -63,7 +64,10 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
                                       colors=snap.token_colors,
                                       **({"type_line": snap.token_type_line} if snap.token_type_line else {}))
                         if snap.is_token and not snap.printing else None)
-    return chars.of(card, plan.info)
+    ch = chars.of(card, plan.info)
+    if snap.power is not None and snap.toughness is not None:
+        ch = replace(ch, pt=(snap.power, snap.toughness))  # as it last existed (608.2h)
+    return ch
 
 
 def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, name: str, index: int,
