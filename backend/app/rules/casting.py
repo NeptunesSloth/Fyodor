@@ -790,6 +790,13 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if base.x and a.x_value is None:
         raise ActionError(f"Choose a value for X to cast {ch.name}")
     cost = M.parse_cost("{3}") if a.face_down else spell_cost(plan.state, card, ch, a.x_value or 0, plan.info)
+    if a.buyback:
+        extra = keyword_cost(ch, "buyback", BUYBACK)
+        if extra is None:
+            raise ActionError(f"{ch.name} has no buyback cost")
+        extra_cost = M.parse_cost(extra)
+        cost = M.ManaCost(cost.generic + extra_cost.generic, cost.colored + extra_cost.colored, cost.hybrid + extra_cost.hybrid,
+                          cost.phyrexian + extra_cost.phyrexian, cost.x, cost.unsupported + extra_cost.unsupported)
     if a.dash:
         dash = keyword_cost(ch, "dash", DASH)
         if dash is None or card.zone != zone_key(plan.actor, "hand"):
@@ -819,6 +826,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else ["Dashed"] if a.dash else []
     if a.dash:
         plan.rules.dashed.append(card.id)
+    if a.buyback:
+        tags.append("Buyback")
+        plan.rules.buyback.append(plan.oid(card))
     if flashback:
         plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else
     if a.x_value is not None or tags:
@@ -959,6 +969,8 @@ def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAb
 
 
 UNEARTH = re.compile(r"^unearth (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+MADNESS = re.compile(r"^madness (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+BUYBACK = re.compile(r"^buyback (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 DASH = re.compile(r"^dash (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
@@ -1053,6 +1065,13 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     chosen = choose_target(plan, a, definition, ch.name or "it")
     if chosen is None:
         return  # waiting for the target choice; the grant stays
+    alt = r.alt_costs.get(card.id)
+    if alt is not None:  # madness: pay that cost instead of the mana cost
+        cost = M.parse_cost(alt)
+        if payment_step(plan, a, cost, ch.name or "it", purpose=Purpose(spell=ch)):
+            return
+        pay(plan, plan.actor, cost, f"paid {cost.text()} for {ch.name} (madness)", sources=a.sources, purpose=Purpose(spell=ch))
+        r.alt_costs.pop(card.id, None)
     r.free_casts = [c for c in r.free_casts if c != card.id]
     r.suspended = [c for c in r.suspended if c != card.id]
     if card.counters.get("time"):
@@ -1060,7 +1079,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if a.x_value is None and M.parse_cost(ch.mana_cost).x:
         a.x_value = 0  # X is 0 when a spell is cast without paying its mana cost (107.3b)
     plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
-    plan.do({"type": "set_stack_info", "card_id": card.id, "tags": ["Cast without paying its mana cost (suspend)"]})
+    plan.do({"type": "set_stack_info", "card_id": card.id,
+             "tags": ["Cast for its madness cost" if alt is not None else "Cast without paying its mana cost"]})
     if a.targets:
         plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
     if ch.is_creature:

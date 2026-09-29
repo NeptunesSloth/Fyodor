@@ -524,10 +524,16 @@ def enters_tapped(ch: Characteristics) -> bool:
     return any(d["kind"] == "replacement" and d.get("replacement") == "enters_tapped" for d in scripts.definitions(ch).values())
 
 
-def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = False) -> None:
+def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = False, countered: bool = False) -> None:
     """A resolved spell leaves the stack: to the battlefield or its owner's graveyard, or into exile
-    if it was cast with flashback (702.34a)."""
+    if it was cast with flashback (702.34a), or back to its owner's hand with buyback (702.27a)."""
     oid = plan.oid(card_id)
+    if oid in plan.rules.buyback:
+        plan.rules.buyback = [o for o in plan.rules.buyback if o != oid]
+        if not countered and oid not in plan.rules.flashback:
+            card = plan.state.cards[card_id]
+            plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "hand"}}, actor=controller)
+            return
     if oid in plan.rules.flashback:
         plan.rules.flashback = [o for o in plan.rules.flashback if o != oid]
         card = plan.state.cards[card_id]

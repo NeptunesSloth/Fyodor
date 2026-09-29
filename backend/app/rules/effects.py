@@ -360,6 +360,11 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     if chosen[0] != "yes":
         r.free_casts = [c for c in r.free_casts if c != cid]
         r.suspended = [c for c in r.suspended if c != cid]
+        r.alt_costs.pop(cid, None)
+        if d.resume.get("decline") == "graveyard" and cid in plan.state.cards:  # madness
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "graveyard"}},
+                    actor=d.player)
+            return
         if d.resume.get("decline") == "bottom" and cid in plan.state.cards:  # cascade: it joins the others
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
                      "position": "bottom"}, actor=d.player)
@@ -434,6 +439,19 @@ def delayed_move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True  # it's a different object now
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": e["to"]}}, actor=ctx["controller"])
     return True
+
+
+def madness_offer(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """702.35a: "When this card is exiled this way, its owner may cast it by paying [cost] rather
+    than its mana cost. If that player doesn't, they put this card into their graveyard." """
+    cid = e["card"]
+    card = plan.state.cards.get(cid)
+    if card is None or not card.zone.endswith(":exile") or cid not in plan.rules.free_casts:
+        return True
+    decide(plan, player=card.owner, kind="choose_one", prompt=f"Madness: cast {card.name} for {e['cost']}?",
+           options=[DecisionOption(id="yes", label=f"Cast it for {e['cost']}"), DecisionOption(id="no", label="Put it into your graveyard")],
+           resume={"step": "suspend_cast", "ctx": ctx, "card": cid, "decline": "graveyard"}, source=card)
+    return False
 
 
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -577,6 +595,7 @@ PRIMITIVES = {
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
+    "madness_offer": madness_offer,
 }
 
 
@@ -686,7 +705,7 @@ def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
     if stack_id in stack:
         from app.rules.engine import leave_stack  # engine imports this module
 
-        leave_stack(plan, stack_id, ctx["controller"])
+        leave_stack(plan, stack_id, ctx["controller"], countered=countered)
     _after_resolution(plan)
 
 

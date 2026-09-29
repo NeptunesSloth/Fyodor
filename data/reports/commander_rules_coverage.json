@@ -1,13 +1,13 @@
 {
- "generated_at": "2026-09-29 16:33",
+ "generated_at": "2026-09-29 16:36",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32116,
  "commander_banned": 83,
  "levels": {
-  "FULL": 4463,
-  "PARTIAL": 27605,
+  "FULL": 4493,
+  "PARTIAL": 27575,
   "REVIEW": 0,
   "MANUAL": 48
  },
@@ -30,8 +30,8 @@
  },
  "by_type": {
   "Creature": {
-   "FULL": 3083,
-   "PARTIAL": 14838,
+   "FULL": 3093,
+   "PARTIAL": 14828,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -48,14 +48,14 @@
    "MANUAL": 0
   },
   "Sorcery": {
-   "FULL": 222,
-   "PARTIAL": 3346,
+   "FULL": 230,
+   "PARTIAL": 3338,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Instant": {
-   "FULL": 404,
-   "PARTIAL": 3350,
+   "FULL": 416,
+   "PARTIAL": 3338,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -80,8 +80,8 @@
  },
  "by_keyword": {
   "flying": {
-   "FULL": 618,
-   "PARTIAL": 2545,
+   "FULL": 619,
+   "PARTIAL": 2544,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -92,8 +92,8 @@
    "MANUAL": 0
   },
   "trample": {
-   "FULL": 162,
-   "PARTIAL": 831,
+   "FULL": 164,
+   "PARTIAL": 829,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -104,8 +104,8 @@
    "MANUAL": 2
   },
   "haste": {
-   "FULL": 123,
-   "PARTIAL": 516,
+   "FULL": 125,
+   "PARTIAL": 514,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -128,8 +128,8 @@
    "MANUAL": 1
   },
   "scry": {
-   "FULL": 102,
-   "PARTIAL": 322,
+   "FULL": 103,
+   "PARTIAL": 321,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -146,8 +146,8 @@
    "MANUAL": 0
   },
   "cycling": {
-   "FULL": 145,
-   "PARTIAL": 249,
+   "FULL": 146,
+   "PARTIAL": 248,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -164,8 +164,8 @@
    "MANUAL": 1
   },
   "lifelink": {
-   "FULL": 63,
-   "PARTIAL": 297,
+   "FULL": 64,
+   "PARTIAL": 296,
    "REVIEW": 0,
    "MANUAL": 2
   },
@@ -296,8 +296,8 @@
    "MANUAL": 1
   },
   "convoke": {
-   "FULL": 38,
-   "PARTIAL": 66,
+   "FULL": 40,
+   "PARTIAL": 64,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -386,8 +386,8 @@
    "MANUAL": 0
   },
   "madness": {
-   "FULL": 0,
-   "PARTIAL": 61,
+   "FULL": 19,
+   "PARTIAL": 42,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -494,8 +494,8 @@
    "MANUAL": 0
   },
   "buyback": {
-   "FULL": 0,
-   "PARTIAL": 39,
+   "FULL": 11,
+   "PARTIAL": 28,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1474,8 +1474,8 @@
    "MANUAL": 0
   },
   "dmr": {
-   "FULL": 31,
-   "PARTIAL": 170,
+   "FULL": 33,
+   "PARTIAL": 168,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1564,8 +1564,8 @@
    "MANUAL": 0
   },
   "emn": {
-   "FULL": 20,
-   "PARTIAL": 87,
+   "FULL": 23,
+   "PARTIAL": 84,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1594,8 +1594,8 @@
    "MANUAL": 0
   },
   "exo": {
-   "FULL": 6,
-   "PARTIAL": 69,
+   "FULL": 8,
+   "PARTIAL": 67,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1648,8 +1648,8 @@
    "MANUAL": 0
   },
   "fut": {
-   "FULL": 4,
-   "PARTIAL": 70,
+   "FULL": 6,
+   "PARTIAL": 68,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1750,8 +1750,8 @@
    "MANUAL": 0
   },
   "inr": {
-   "FULL": 23,
-   "PARTIAL": 233,
+   "FULL": 26,
+   "PARTIAL": 230,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1942,8 +1942,8 @@
    "MANUAL": 0
   },
   "mat": {
-   "FULL": 0,
-   "PARTIAL": 47,
+   "FULL": 1,
+   "PARTIAL": 46,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1990,14 +1990,14 @@
    "MANUAL": 0
   },
   "mh1": {
-   "FULL": 26,
-   "PARTIAL": 157,
+   "FULL": 28,
+   "PARTIAL": 155,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "mh2": {
-   "FULL": 29,
-   "PARTIAL": 210,
+   "FULL": 32,
+   "PARTIAL": 207,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2362,8 +2362,8 @@
    "MANUAL": 0
   },
   "soi": {
-   "FULL": 22,
-   "PARTIAL": 134,
+   "FULL": 23,
+   "PARTIAL": 133,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2482,14 +2482,14 @@
    "MANUAL": 0
   },
   "tor": {
-   "FULL": 3,
-   "PARTIAL": 96,
+   "FULL": 4,
+   "PARTIAL": 95,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "tpr": {
-   "FULL": 61,
-   "PARTIAL": 134,
+   "FULL": 66,
+   "PARTIAL": 129,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2518,8 +2518,8 @@
    "MANUAL": 0
   },
   "tsr": {
-   "FULL": 42,
-   "PARTIAL": 190,
+   "FULL": 43,
+   "PARTIAL": 189,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2536,8 +2536,8 @@
    "MANUAL": 0
   },
   "uma": {
-   "FULL": 13,
-   "PARTIAL": 103,
+   "FULL": 16,
+   "PARTIAL": 100,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2560,8 +2560,8 @@
    "MANUAL": 0
   },
   "vma": {
-   "FULL": 30,
-   "PARTIAL": 95,
+   "FULL": 31,
+   "PARTIAL": 94,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2715,21 +2715,6 @@
    ]
   },
   {
-   "feature": "keyword:madness",
-   "kind": "keyword",
-   "commander_cards": 60,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 19,
-   "examples": [
-    "Strength of Lunacy",
-    "Muck Drubb",
-    "Gisa's Bidding",
-    "Psychotic Episode",
-    "Obsessive Search"
-   ]
-  },
-  {
    "feature": "keyword:banding",
    "kind": "keyword",
    "commander_cards": 24,
@@ -2805,21 +2790,6 @@
    ]
   },
   {
-   "feature": "keyword:buyback",
-   "kind": "keyword",
-   "commander_cards": 39,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 15,
-   "examples": [
-    "Walk the Aeons",
-    "Spell Burst",
-    "Pegasus Stampede",
-    "Searing Touch",
-    "Fanning the Flames"
-   ]
-  },
-  {
    "feature": "template:When ~ enters, it explores.",
    "kind": "triggered",
    "commander_cards": 15,
@@ -2840,7 +2810,7 @@
    "commander_cards": 35,
    "pod_cards": 0,
    "pod_commanders": 0,
-   "only_missing_piece_for": 13,
+   "only_missing_piece_for": 14,
    "examples": [
     "Volcanic Awakening",
     "Weather the Storm",
@@ -3135,6 +3105,21 @@
    ]
   },
   {
+   "feature": "template:Whenever ~ deals combat damage to a player, put a \u00b1N/\u00b1N counter(s) on it.",
+   "kind": "triggered",
+   "commander_cards": 19,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 10,
+   "examples": [
+    "Skullbriar, the Walking Grave",
+    "Hexgold Slith",
+    "Arcbound Slith",
+    "Stromkirk Patrol",
+    "Havengul Vampire"
+   ]
+  },
+  {
    "feature": "template:Scavenge {M}",
    "kind": "static",
    "commander_cards": 14,
@@ -3375,18 +3360,18 @@
    ]
   },
   {
-   "feature": "template:Whenever ~ deals combat damage to a player, put a \u00b1N/\u00b1N counter(s) on it.",
-   "kind": "triggered",
-   "commander_cards": 19,
+   "feature": "template:All creatures get \u00b1N/\u00b1N until end of turn.",
+   "kind": "spell_effect",
+   "commander_cards": 18,
    "pod_cards": 0,
    "pod_commanders": 0,
    "only_missing_piece_for": 9,
    "examples": [
-    "Skullbriar, the Walking Grave",
-    "Hexgold Slith",
-    "Arcbound Slith",
-    "Stromkirk Patrol",
-    "Havengul Vampire"
+    "Marsh Gas",
+    "Choking Miasma",
+    "Shrivel",
+    "Nausea",
+    "Magnify"
    ]
   },
   {
@@ -3480,6 +3465,21 @@
    ]
   },
   {
+   "feature": "template:~ deals N damage to each creature and each player.",
+   "kind": "spell_effect",
+   "commander_cards": 12,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 9,
+   "examples": [
+    "Rain of Embers",
+    "Famine",
+    "Psychotic Haze",
+    "Inferno",
+    "Sickening Dreams"
+   ]
+  },
+  {
    "feature": "template:Sliver creatures you control have \u201c\u2026\u201d",
    "kind": "continuous",
    "commander_cards": 9,
@@ -3507,6 +3507,21 @@
     "Oran-Rief Survivalist",
     "Nimana Sell-Sword",
     "Bojuka Brigand"
+   ]
+  },
+  {
+   "feature": "template:Counter target spell.",
+   "kind": "spell_effect",
+   "commander_cards": 41,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 8,
+   "examples": [
+    "Deprive",
+    "Scatter to the Winds",
+    "Spell Snuff",
+    "Saruman's Trickery",
+    "Disappearing Act"
    ]
   },
   {
@@ -3570,18 +3585,18 @@
    ]
   },
   {
-   "feature": "template:All creatures get \u00b1N/\u00b1N until end of turn.",
+   "feature": "template:Target player discards N card(s).",
    "kind": "spell_effect",
    "commander_cards": 18,
    "pod_cards": 0,
    "pod_commanders": 0,
    "only_missing_piece_for": 8,
    "examples": [
-    "Marsh Gas",
-    "Choking Miasma",
-    "Shrivel",
-    "Nausea",
-    "Magnify"
+    "Mind Rake",
+    "Cry of Contrition",
+    "Skull Fracture",
+    "Mindstab",
+    "Pain // Suffering"
    ]
   },
   {
@@ -3765,21 +3780,6 @@
    ]
   },
   {
-   "feature": "template:Counter target spell.",
-   "kind": "spell_effect",
-   "commander_cards": 41,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 7,
-   "examples": [
-    "Deprive",
-    "Scatter to the Winds",
-    "Spell Snuff",
-    "Saruman's Trickery",
-    "Disappearing Act"
-   ]
-  },
-  {
    "feature": "keyword:warp",
    "kind": "keyword",
    "commander_cards": 31,
@@ -3852,21 +3852,6 @@
     "Woodcaller Automaton",
     "Blitz Automaton",
     "Cradle Clearcutter"
-   ]
-  },
-  {
-   "feature": "template:Target player discards N card(s).",
-   "kind": "spell_effect",
-   "commander_cards": 18,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 7,
-   "examples": [
-    "Mind Rake",
-    "Cry of Contrition",
-    "Skull Fracture",
-    "Mindstab",
-    "Pain // Suffering"
    ]
   },
   {
@@ -3975,21 +3960,6 @@
    ]
   },
   {
-   "feature": "template:~ deals N damage to each creature and each player.",
-   "kind": "spell_effect",
-   "commander_cards": 12,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 7,
-   "examples": [
-    "Rain of Embers",
-    "Famine",
-    "Psychotic Haze",
-    "Inferno",
-    "Sickening Dreams"
-   ]
-  },
-  {
    "feature": "template:Creatures your opponents control get \u00b1N/\u00b1N until end of turn.",
    "kind": "spell_effect",
    "commander_cards": 11,
@@ -4047,6 +4017,21 @@
     "Wilt in the Heat",
     "Scorchmark",
     "Reduce to Ashes"
+   ]
+  },
+  {
+   "feature": "template:When ~ enters, return target instant or sorcery card from your graveyard to your hand.",
+   "kind": "triggered",
+   "commander_cards": 8,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Izzet Chronarch",
+    "Ardent Elementalist",
+    "Salvager of Secrets",
+    "Archaeomancer",
+    "Revolutionist"
    ]
   },
   {
@@ -4425,6 +4410,21 @@
    ]
   },
   {
+   "feature": "template:Destroy target tapped creature.",
+   "kind": "spell_effect",
+   "commander_cards": 10,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 6,
+   "examples": [
+    "Vengeance",
+    "Death Stroke",
+    "Swift Response",
+    "Sheer Drop",
+    "Push // Pull"
+   ]
+  },
+  {
    "feature": "template:When ~ enters, you get {M}, then you may put a sticker on a nonland permanent you own.",
    "kind": "triggered",
    "commander_cards": 9,
@@ -4497,21 +4497,6 @@
     "Aven Fateshaper",
     "Spire Owl",
     "Sage Owl"
-   ]
-  },
-  {
-   "feature": "template:When ~ enters, return target instant or sorcery card from your graveyard to your hand.",
-   "kind": "triggered",
-   "commander_cards": 8,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 6,
-   "examples": [
-    "Izzet Chronarch",
-    "Ardent Elementalist",
-    "Salvager of Secrets",
-    "Archaeomancer",
-    "Revolutionist"
    ]
   },
   {
@@ -4815,6 +4800,21 @@
    ]
   },
   {
+   "feature": "template:Return target creature card from your graveyard to your hand.",
+   "kind": "spell_effect",
+   "commander_cards": 14,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Morgue Theft",
+    "Grim Harvest",
+    "Order of Midnight // Alter Fate",
+    "Ghost Lantern // Bind Spirit",
+    "Soulless Revival"
+   ]
+  },
+  {
    "feature": "keyword:battle cry",
    "kind": "keyword",
    "commander_cards": 13,
@@ -4977,21 +4977,6 @@
     "Ravenous Giant",
     "Juz\u00e1m Djinn",
     "Sleeper Agent"
-   ]
-  },
-  {
-   "feature": "template:Destroy target tapped creature.",
-   "kind": "spell_effect",
-   "commander_cards": 10,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 5,
-   "examples": [
-    "Vengeance",
-    "Death Stroke",
-    "Swift Response",
-    "Sheer Drop",
-    "Push // Pull"
    ]
   },
   {
@@ -5310,6 +5295,21 @@
    ]
   },
   {
+   "feature": "template:~ deals N damage divided as you choose among any number of targets.",
+   "kind": "spell_effect",
+   "commander_cards": 7,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Amethyst Dragon // Explosive Crystal",
+    "Conflagrate",
+    "Boulderfall",
+    "Volley of Boulders",
+    "Pyrotechnics"
+   ]
+  },
+  {
    "feature": "template:~ deals N damage to each creature with flying.",
    "kind": "spell_effect",
    "commander_cards": 7,
@@ -5427,6 +5427,21 @@
     "Pillar of Flame",
     "Touch of the Void",
     "Annihilating Fire"
+   ]
+  },
+  {
+   "feature": "template:During your turn, ~ gets \u00b1N/\u00b1N.",
+   "kind": "continuous",
+   "commander_cards": 5,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Dapper Shieldmate",
+    "Skophos Reaver",
+    "Sporeback Wolf",
+    "Wildwood Geist",
+    "Hardy Veteran"
    ]
   },
   {
@@ -5610,6 +5625,21 @@
    ]
   },
   {
+   "feature": "template:~ deals N damage to any target.",
+   "kind": "spell_effect",
+   "commander_cards": 60,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Blaze",
+    "Choco-Comet",
+    "Geistblast",
+    "Sonic Burst",
+    "Punishing Fire"
+   ]
+  },
+  {
    "feature": "keyword:ninjutsu",
    "kind": "keyword",
    "commander_cards": 35,
@@ -5637,36 +5667,6 @@
     "Stirring Bard",
     "Goliath Paladin",
     "Undercellar Sweep"
-   ]
-  },
-  {
-   "feature": "keyword:blitz",
-   "kind": "keyword",
-   "commander_cards": 16,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 4,
-   "examples": [
-    "Mezzio Mugger",
-    "Workshop Warchief",
-    "Riveteers Decoy",
-    "Riveteers Requisitioner",
-    "Night Clubber"
-   ]
-  },
-  {
-   "feature": "template:Dredge N",
-   "kind": "spell_effect",
-   "commander_cards": 14,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 4,
-   "examples": [
-    "Shenanigans",
-    "Golgari Brownscale",
-    "Darkblast",
-    "Golgari Grave-Troll",
-    "Nightmare Void"
    ]
   }
  ],

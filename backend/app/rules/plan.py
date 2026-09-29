@@ -50,6 +50,8 @@ class Plan:
             raise ActionError("The rules engine stopped: too many steps for one action")
         if payload.get("type") == "move" and self.rules.exile_if_leaves:
             payload = self._exile_instead(payload, actor)
+        if payload.get("type") == "move" and (payload.get("to") or {}).get("zone") == "graveyard":
+            payload = self._madness(payload, actor)
         action = A.parse_action(payload)
         resolved = resolve(self.state, action, actor=actor or self.actor, cards=self.info, rng=self.rng, trusted=True)
         before = capture(self.state)
@@ -76,6 +78,35 @@ class Plan:
         rest = [c for c in payload["card_ids"] if c not in leaving]
         return {**payload, "card_ids": rest} if rest else {"type": "rules_log", "text": "Exiled instead (unearth)",
                                                             "card_ids": leaving}
+
+    def _madness(self, payload: dict[str, Any], actor: str | None) -> dict[str, Any]:
+        """702.35a madness: "If you discard this card, discard it into exile" (a card going from a
+        hand to a graveyard is a discard here); then its owner may cast it for its madness cost."""
+        from app.rules.casting import MADNESS, keyword_cost  # casting → plan
+
+        hits = []
+        for cid in payload["card_ids"]:
+            card = self.state.cards.get(cid)
+            if card is None or not card.zone.endswith(":hand") or self.manual(card):
+                continue
+            cost = keyword_cost(self.ch(card), "madness", MADNESS)
+            if cost is not None:
+                hits.append((cid, cost))
+        if not hits:
+            return payload
+        from app.rules.triggers import _add
+
+        for cid, cost in hits:
+            card = self.state.cards[cid]
+            self.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
+            self.rules.free_casts.append(cid)
+            self.rules.alt_costs[cid] = cost
+            _add(self, controller=card.owner, source_card=cid, source_object=self.oid(cid), name=card.name, index=8000,
+                 definition={"kind": "triggered", "trigger": "madness", "optional": False, "target": None,
+                             "effects": [{"do": "madness_offer", "card": cid, "cost": cost}]})
+        rest = [c for c in payload["card_ids"] if c not in {h[0] for h in hits}]
+        return {**payload, "card_ids": rest} if rest else {"type": "rules_log", "text": "Discarded into exile (madness)",
+                                                            "card_ids": [h[0] for h in hits]}
 
     def note(self, message: str, card_ids: list[str] | tuple[str, ...] = (), *, actor: str | None = None) -> None:
         self.do({"type": "rules_log", "text": message, "card_ids": list(card_ids)}, actor=actor)

@@ -242,5 +242,11 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Mardu Scout", set_code="tst", number="N6", mana_cost="{R}{R}", cmc=2.0, type_line="Creature — Goblin Scout",
              oracle_text="Dash {1}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
              power="2", toughness="1", colors=["R"], color_identity=["R"]),
+        card("Capsize", set_code="tst", number="N7", mana_cost="{1}{U}{U}", cmc=3.0, type_line="Instant",
+             oracle_text="Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nReturn target permanent to its owner's hand.",
+             colors=["U"], color_identity=["U"]),
+        card("Fiery Temper", set_code="tst", number="N8", mana_cost="{1}{R}{R}", cmc=3.0, type_line="Instant",
+             oracle_text="Fiery Temper deals 3 damage to any target.\nMadness {R} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+             colors=["R"], color_identity=["R"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]
