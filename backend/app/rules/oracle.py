@@ -47,7 +47,7 @@ KEYWORDS = frozenset({
     "read ahead", "ravenous", "squad", "enlist", "decayed", "cleave", "compleated", "demonstrate", "hideaway",
     "myriad", "melee", "friends forever", "choose a background", "doctor's companion", "space sculptor", "gift",
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
-    "firebending", "mobilize", "harmonize", "renew",
+    "firebending", "mobilize", "harmonize", "renew", "undaunted",
 })
 
 _PARAM = re.compile(r"(\{[^}]*\}|\d+|—.*$|\bfrom\b.*$| with .*$|walk$)")

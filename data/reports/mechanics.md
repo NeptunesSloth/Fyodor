@@ -197,7 +197,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.122 | Crew | keyword ability | 181 | missing |
 | 702.123 | Fabricate | keyword ability | 16 | missing |
 | 702.124 | Partner | keyword ability | 129 | missing |
-| 702.125 | Undaunted | keyword ability | 5 | missing |
+| 702.125 | Undaunted | keyword ability | 5 | supported |
 | 702.126 | Improvise | keyword ability | 23 | supported |
 | 702.127 | Aftermath | keyword ability | 27 | missing |
 | 702.128 | Embalm | keyword ability | 15 | missing |

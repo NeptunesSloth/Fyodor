@@ -30,6 +30,18 @@ export function libraryMenu(player: string, me: string, name: string): MenuItem[
   const mine = player === me;
   const items: MenuItem[] = [];
   if (mine) {
+    // A permission to play or cast the top card ("You may play lands from the top of your
+    // library"): the server lists it among your legal plays when you can see the card.
+    const view = useGame.getState().view;
+    const top = view?.zones[`${player}:library`];
+    const topId = top && !Array.isArray(top) ? top.known.find(([i]) => i === 0)?.[1] : undefined;
+    const hints = view?.rules?.hints;
+    if (topId && hints?.playable_lands?.includes(topId)) {
+      items.push({ label: "Play the top card as your land", onClick: () => void send({ type: "play_land", card_id: topId }) });
+    }
+    if (topId && hints?.castable?.includes(topId)) {
+      items.push({ label: "Cast the top card", onClick: () => void send({ type: "cast_spell", card_id: topId }) });
+    }
     items.push({ label: "Draw a card", hint: "D", onClick: () => void draw(player, 1) });
     items.push({
       label: "Draw several…",

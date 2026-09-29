@@ -61,6 +61,8 @@ SUPPORTED_KEYWORDS: set[str] = {
     "changeling", "devoid", "cascade", "persist", "undying", "flanking", "delve", "improvise", "rebound", "storm",
     # costs (casting._convoke_sources)
     "convoke",
+    # 702.125 undaunted: costs {1} less for each opponent (permissions.self_reduction)
+    "undaunted",
 }
 
 
