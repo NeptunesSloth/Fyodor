@@ -27,8 +27,8 @@ Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Dash
 - ✗ Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.
-- ✗ Dash
 
 ### Braids, Arisen Nightmare — PARTIAL
 

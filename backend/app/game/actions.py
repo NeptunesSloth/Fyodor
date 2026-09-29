@@ -865,6 +865,7 @@ class CastSpell(_Intent):
     sources: list[Id] | None = Field(default=None, max_length=60)
     face_down: bool = False  # morph / megamorph (702.37): cast face down as a 2/2 for {3}
     free: bool = False  # cast without paying its mana cost — only when the engine granted it (suspend)
+    dash: bool = False  # 702.109: cast for its dash cost (haste; returns to hand at the next end step)
 
 
 class TurnFaceUp(_Intent):

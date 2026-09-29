@@ -175,6 +175,8 @@ def monarch_damaged(plan: Plan, attackers: list[CardInstance]) -> None:
 
 def at_step(plan: Plan, trigger: str) -> None:
     """"At the beginning of your upkeep / end step": the active player's permanents."""
+    if trigger == "end_step_you":
+        _delayed(plan)
     if trigger == "upkeep_you":
         _echo(plan)
         _suspend(plan)
@@ -224,6 +226,18 @@ def _cumulative_upkeep(plan: Plan) -> None:
              index=5100, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
                                      "effects": [{"do": "add_counters", "who": "self", "kind": "age", "n": 1},
                                                  {"do": "pay_or_sacrifice", "cost": cost, "per": "age"}]})
+
+
+def _delayed(plan: Plan) -> None:
+    """Delayed triggers "at the beginning of the next end step" (unearth, dash)."""
+    due, plan.rules.delayed = plan.rules.delayed, []
+    for entry in due:
+        card = plan.state.cards.get(entry["card"])
+        controller = card.controller if card is not None else plan.active
+        _add(plan, controller=controller, source_card=entry["card"], source_object=entry["object"], name=entry.get("name", ""),
+             index=7000, definition={"kind": "triggered", "trigger": "delayed", "optional": False, "target": None,
+                                     "effects": [{"do": "delayed_move", "card": entry["card"], "object": entry["object"],
+                                                  "to": entry["to"]}]})
 
 
 def _suspend(plan: Plan) -> None:

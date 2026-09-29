@@ -413,6 +413,29 @@ def cascade(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
+def unearth(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    cid = e["card"]
+    card = plan.state.cards.get(cid)
+    if card is None or not card.zone.endswith(":graveyard") or plan.oid(cid) != e["object"]:
+        return True  # it left the graveyard: the ability does nothing
+    plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "battlefield"}}, actor=ctx["controller"])
+    oid = plan.oid(cid)
+    layers.add_effect(plan, affected=[oid], layer="6", source=None, controller=ctx["controller"], add_keywords=("haste",),
+                      duration="permanent", label="Haste (unearth)")
+    plan.rules.exile_if_leaves.append(oid)
+    plan.rules.delayed.append({"card": cid, "object": oid, "to": "exile", "name": card.name})
+    return True
+
+
+def delayed_move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """A delayed trigger's move ("exile it / return it to its owner's hand at the next end step")."""
+    card = plan.state.cards.get(e["card"])
+    if card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != e["object"]:
+        return True  # it's a different object now
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": e["to"]}}, actor=ctx["controller"])
+    return True
+
+
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True  # read by destroy / destroy_all of the same spell or ability
 
@@ -553,7 +576,7 @@ PRIMITIVES = {
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
-    "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade,
+    "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
 }
 
 

@@ -575,6 +575,14 @@ def resolve_top_of_stack(plan: Plan) -> None:
     leave_stack(plan, top_id, controller, tapped=tapped)
     if ch.is_permanent_card and not manual:
         enter_with_counters(plan, top_id, ch, x, controller)
+    if top_id in plan.rules.dashed:  # 702.109a: haste, and back to its owner's hand at the next end step
+        plan.rules.dashed = [c for c in plan.rules.dashed if c != top_id]
+        entered_now = plan.state.cards.get(top_id)
+        if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            oid = plan.oid(top_id)
+            layers.add_effect(plan, affected=[oid], layer="6", source=None, controller=controller,
+                              add_keywords=("haste",), duration="permanent", label="Haste (dash)")
+            plan.rules.delayed.append({"card": top_id, "object": oid, "to": "hand", "name": entered_now.name})
     if top_id in plan.rules.suspend_haste:  # 702.62e: a suspended creature has haste
         plan.rules.suspend_haste = [c for c in plan.rules.suspend_haste if c != top_id]
         entered_now = plan.state.cards.get(top_id)

@@ -331,6 +331,9 @@ class RulesState(BaseModel):
     drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check
     deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
     regen_shields: dict[str, int] = Field(default_factory=dict)  # object id -> regeneration shields this turn
+    delayed: list[dict[str, Any]] = Field(default_factory=list)  # "at the beginning of the next end step" moves
+    exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)
+    dashed: list[str] = Field(default_factory=list)  # dashed spells: haste + back to hand at end step
     suspended: list[str] = Field(default_factory=list)  # cards exiled with suspend (702.62)
     free_casts: list[str] = Field(default_factory=list)  # cards the engine lets be cast without paying (suspend)
     suspend_haste: list[str] = Field(default_factory=list)  # suspended creature spells: haste when they enter

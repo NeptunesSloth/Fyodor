@@ -48,6 +48,8 @@ class Plan:
 
         if len(self.steps) >= self.max_steps:
             raise ActionError("The rules engine stopped: too many steps for one action")
+        if payload.get("type") == "move" and self.rules.exile_if_leaves:
+            payload = self._exile_instead(payload, actor)
         action = A.parse_action(payload)
         resolved = resolve(self.state, action, actor=actor or self.actor, cards=self.info, rng=self.rng, trusted=True)
         before = capture(self.state)
@@ -55,6 +57,25 @@ class Plan:
         track(self.state, before)
         self.steps.append(resolved.model_dump(mode="json"))
         return resolved
+
+    def _exile_instead(self, payload: dict[str, Any], actor: str | None) -> dict[str, Any]:
+        """Unearth (702.84a): "If it would leave the battlefield, exile it instead of putting it
+        anywhere else." Those cards are moved to exile separately; the rest move as asked."""
+        dest = payload.get("to") or {}
+        if dest.get("zone") in ("exile", "battlefield"):
+            return payload
+        r = self.rules
+        leaving = [c for c in payload["card_ids"] if c in self.state.cards
+                   and self.state.cards[c].zone.endswith(":battlefield") and r.object_id(c) in r.exile_if_leaves]
+        if not leaving:
+            return payload
+        r.exile_if_leaves = [o for o in r.exile_if_leaves if o not in {r.object_id(c) for c in leaving}]
+        for c in leaving:
+            owner = self.state.cards[c].owner
+            self.do({"type": "move", "card_ids": [c], "to": {"player": owner, "zone": "exile"}}, actor=actor)
+        rest = [c for c in payload["card_ids"] if c not in leaving]
+        return {**payload, "card_ids": rest} if rest else {"type": "rules_log", "text": "Exiled instead (unearth)",
+                                                            "card_ids": leaving}
 
     def note(self, message: str, card_ids: list[str] | tuple[str, ...] = (), *, actor: str | None = None) -> None:
         self.do({"type": "rules_log", "text": message, "card_ids": list(card_ids)}, actor=actor)

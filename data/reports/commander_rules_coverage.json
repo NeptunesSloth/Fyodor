@@ -1,13 +1,13 @@
 {
- "generated_at": "2026-09-29 16:30",
+ "generated_at": "2026-09-29 16:33",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32116,
  "commander_banned": 83,
  "levels": {
-  "FULL": 4435,
-  "PARTIAL": 27633,
+  "FULL": 4463,
+  "PARTIAL": 27605,
   "REVIEW": 0,
   "MANUAL": 48
  },
@@ -30,14 +30,14 @@
  },
  "by_type": {
   "Creature": {
-   "FULL": 3055,
-   "PARTIAL": 14866,
+   "FULL": 3083,
+   "PARTIAL": 14838,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Artifact": {
-   "FULL": 521,
-   "PARTIAL": 3072,
+   "FULL": 529,
+   "PARTIAL": 3064,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -80,8 +80,8 @@
  },
  "by_keyword": {
   "flying": {
-   "FULL": 615,
-   "PARTIAL": 2548,
+   "FULL": 618,
+   "PARTIAL": 2545,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -92,8 +92,8 @@
    "MANUAL": 0
   },
   "trample": {
-   "FULL": 161,
-   "PARTIAL": 832,
+   "FULL": 162,
+   "PARTIAL": 831,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -146,8 +146,8 @@
    "MANUAL": 0
   },
   "cycling": {
-   "FULL": 144,
-   "PARTIAL": 250,
+   "FULL": 145,
+   "PARTIAL": 249,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -158,8 +158,8 @@
    "MANUAL": 1
   },
   "first strike": {
-   "FULL": 104,
-   "PARTIAL": 270,
+   "FULL": 105,
+   "PARTIAL": 269,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -404,8 +404,8 @@
    "MANUAL": 0
   },
   "unearth": {
-   "FULL": 0,
-   "PARTIAL": 56,
+   "FULL": 17,
+   "PARTIAL": 39,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1096,8 +1096,8 @@
    "MANUAL": 0
   },
   "ala": {
-   "FULL": 34,
-   "PARTIAL": 79,
+   "FULL": 37,
+   "PARTIAL": 76,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1114,8 +1114,8 @@
    "MANUAL": 0
   },
   "arb": {
-   "FULL": 12,
-   "PARTIAL": 65,
+   "FULL": 13,
+   "PARTIAL": 64,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1198,8 +1198,8 @@
    "MANUAL": 0
   },
   "bro": {
-   "FULL": 17,
-   "PARTIAL": 232,
+   "FULL": 23,
+   "PARTIAL": 226,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1276,8 +1276,8 @@
    "MANUAL": 0
   },
   "clb": {
-   "FULL": 21,
-   "PARTIAL": 442,
+   "FULL": 22,
+   "PARTIAL": 441,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1360,8 +1360,8 @@
    "MANUAL": 0
   },
   "ddh": {
-   "FULL": 3,
-   "PARTIAL": 23,
+   "FULL": 4,
+   "PARTIAL": 22,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1396,8 +1396,8 @@
    "MANUAL": 0
   },
   "ddn": {
-   "FULL": 6,
-   "PARTIAL": 14,
+   "FULL": 7,
+   "PARTIAL": 13,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1522,8 +1522,8 @@
    "MANUAL": 0
   },
   "dtk": {
-   "FULL": 36,
-   "PARTIAL": 130,
+   "FULL": 41,
+   "PARTIAL": 125,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1642,8 +1642,8 @@
    "MANUAL": 0
   },
   "frf": {
-   "FULL": 12,
-   "PARTIAL": 90,
+   "FULL": 15,
+   "PARTIAL": 87,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1864,8 +1864,8 @@
    "MANUAL": 0
   },
   "ltc": {
-   "FULL": 0,
-   "PARTIAL": 101,
+   "FULL": 1,
+   "PARTIAL": 100,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1990,8 +1990,8 @@
    "MANUAL": 0
   },
   "mh1": {
-   "FULL": 25,
-   "PARTIAL": 158,
+   "FULL": 26,
+   "PARTIAL": 157,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2002,8 +2002,8 @@
    "MANUAL": 0
   },
   "mh3": {
-   "FULL": 14,
-   "PARTIAL": 267,
+   "FULL": 15,
+   "PARTIAL": 266,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2044,8 +2044,8 @@
    "MANUAL": 0
   },
   "mm3": {
-   "FULL": 15,
-   "PARTIAL": 69,
+   "FULL": 19,
+   "PARTIAL": 65,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2745,21 +2745,6 @@
    ]
   },
   {
-   "feature": "keyword:unearth",
-   "kind": "keyword",
-   "commander_cards": 56,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 17,
-   "examples": [
-    "Royal Warden",
-    "Phyrexian Dragon Engine",
-    "Anathemancer",
-    "Scrapwork Cohort",
-    "Tocasia's Onulet"
-   ]
-  },
-  {
    "feature": "template:{M}: Prevent the next N damage that would be dealt to any target this turn.",
    "kind": "activated",
    "commander_cards": 22,
@@ -2880,21 +2865,6 @@
    ]
   },
   {
-   "feature": "keyword:dash",
-   "kind": "keyword",
-   "commander_cards": 22,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 13,
-   "examples": [
-    "Warbringer",
-    "Warbringer",
-    "Kolaghan Forerunners",
-    "Lightning Berserker",
-    "Vaultbreaker"
-   ]
-  },
-  {
    "feature": "keyword:foretell",
    "kind": "keyword",
    "commander_cards": 51,
@@ -2952,6 +2922,21 @@
     "Stomping Ground",
     "Steam Vents",
     "Breeding Pool"
+   ]
+  },
+  {
+   "feature": "keyword:backup",
+   "kind": "keyword",
+   "commander_cards": 25,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 12,
+   "examples": [
+    "Saiba Cryptomancer",
+    "Chomping Kavu",
+    "Consuming Aetherborn",
+    "Gloomfang Mauler",
+    "Cragsmasher Yeti"
    ]
   },
   {
@@ -3027,21 +3012,6 @@
     "Staggershock",
     "Profound Journey",
     "Ephemerate"
-   ]
-  },
-  {
-   "feature": "keyword:backup",
-   "kind": "keyword",
-   "commander_cards": 25,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 11,
-   "examples": [
-    "Saiba Cryptomancer",
-    "Chomping Kavu",
-    "Consuming Aetherborn",
-    "Gloomfang Mauler",
-    "Cragsmasher Yeti"
    ]
   },
   {
@@ -3435,6 +3405,36 @@
    ]
   },
   {
+   "feature": "template:At the beginning of the end step, sacrifice ~.",
+   "kind": "triggered",
+   "commander_cards": 16,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 9,
+   "examples": [
+    "Impetuous Devils",
+    "Underworld Breach",
+    "Putrefax",
+    "Spark Trooper",
+    "Spark Elemental"
+   ]
+  },
+  {
+   "feature": "template:When ~ enters, you may discard N card(s). If you do, draw N card(s).",
+   "kind": "triggered",
+   "commander_cards": 15,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 9,
+   "examples": [
+    "Keldon Raider",
+    "Bitter Reunion",
+    "Viashino Racketeer",
+    "Scrapwork Mutt",
+    "Yuyan Archers"
+   ]
+  },
+  {
    "feature": "template:Prevent all combat damage that would be dealt this turn.",
    "kind": "prevention",
    "commander_cards": 14,
@@ -3582,21 +3582,6 @@
     "Shrivel",
     "Nausea",
     "Magnify"
-   ]
-  },
-  {
-   "feature": "template:When ~ enters, you may discard N card(s). If you do, draw N card(s).",
-   "kind": "triggered",
-   "commander_cards": 15,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 8,
-   "examples": [
-    "Keldon Raider",
-    "Bitter Reunion",
-    "Viashino Racketeer",
-    "Scrapwork Mutt",
-    "Yuyan Archers"
    ]
   },
   {
@@ -3915,21 +3900,6 @@
    ]
   },
   {
-   "feature": "template:At the beginning of the end step, sacrifice ~.",
-   "kind": "triggered",
-   "commander_cards": 16,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 7,
-   "examples": [
-    "Impetuous Devils",
-    "Underworld Breach",
-    "Putrefax",
-    "Spark Trooper",
-    "Spark Elemental"
-   ]
-  },
-  {
    "feature": "keyword:embalm",
    "kind": "keyword",
    "commander_cards": 15,
@@ -3987,6 +3957,21 @@
     "Morbid Plunder",
     "Find // Finality",
     "Dead Revels"
+   ]
+  },
+  {
+   "feature": "template:Whenever ~ deals combat damage to a player, that player discards N card(s).",
+   "kind": "triggered",
+   "commander_cards": 12,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Chilling Apparition",
+    "Banshee of the Dread Choir",
+    "Silent Specter",
+    "Blazing Specter",
+    "Orzhov Racketeers"
    ]
   },
   {
@@ -4335,18 +4320,18 @@
    ]
   },
   {
-   "feature": "template:Whenever ~ deals combat damage to a player, that player discards N card(s).",
+   "feature": "template:When ~ enters, you draw N card(s) and you lose N life(s).",
    "kind": "triggered",
    "commander_cards": 12,
    "pod_cards": 0,
    "pod_commanders": 0,
    "only_missing_piece_for": 6,
    "examples": [
-    "Chilling Apparition",
-    "Banshee of the Dread Choir",
-    "Silent Specter",
-    "Blazing Specter",
-    "Orzhov Racketeers"
+    "Hemlock Vial",
+    "Merciless Harlequin",
+    "Eye of Vecna",
+    "Tithebearer Giant",
+    "Scrapwork Rager"
    ]
   },
   {
@@ -4935,6 +4920,21 @@
    ]
   },
   {
+   "feature": "template:At the beginning of your upkeep, you lose N life(s).",
+   "kind": "triggered",
+   "commander_cards": 11,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Dawn of the Dead",
+    "Herald of Torment",
+    "Grinning Demon",
+    "Moroii",
+    "Priest of the Blood Rite"
+   ]
+  },
+  {
    "feature": "template:When ~ enters, tap target creature an opponent controls and put a stun counter on it.",
    "kind": "triggered",
    "commander_cards": 11,
@@ -4947,6 +4947,21 @@
     "Floodpits Drowner",
     "Solitary Sanctuary",
     "Frostfist Strider"
+   ]
+  },
+  {
+   "feature": "template:~'s power is equal to the number of creatures you control.",
+   "kind": "characteristic_defining",
+   "commander_cards": 11,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Snow Villiers",
+    "Kolaghan Forerunners",
+    "Sumala Rumblers",
+    "Freedom Fighter Recruit",
+    "Adeline, Resplendent Cathar"
    ]
   },
   {
@@ -5653,21 +5668,6 @@
     "Golgari Grave-Troll",
     "Nightmare Void"
    ]
-  },
-  {
-   "feature": "template:Return target creature card from your graveyard to your hand.",
-   "kind": "spell_effect",
-   "commander_cards": 14,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 4,
-   "examples": [
-    "Morgue Theft",
-    "Grim Harvest",
-    "Order of Midnight // Alter Fate",
-    "Ghost Lantern // Bind Spirit",
-    "Soulless Revival"
-   ]
   }
  ],
  "commanders": [
@@ -5708,11 +5708,11 @@
    "pairing": [],
    "supported": [
     "Cast it (timing, costs, the stack)",
-    "Attack and block"
+    "Attack and block",
+    "Dash"
    ],
    "missing": [
-    "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.",
-    "Dash"
+    "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card."
    ]
   },
   {

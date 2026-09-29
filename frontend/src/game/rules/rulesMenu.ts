@@ -21,6 +21,15 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   }
   const oracle = data?.faces?.[card.face ?? 0]?.oracle_text ?? data?.oracle_text ?? "";
   const morph = abilityLines(oracle).find((l) => /^(mega)?morph \{/i.test(l));
+  const dash = abilityLines(oracle).find((l) => /^dash \{/i.test(l));
+  if (mine && zone === "hand" && dash) {
+    items.push({ label: `Cast with ${dash}`, onClick: () => void send({ type: "cast_spell", card_id: card.id, dash: true }) });
+  }
+  if (mine && zone === "graveyard") {
+    abilityLines(oracle).forEach((line, i) => {
+      if (/^unearth \{/i.test(line)) items.push({ label: line, onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
+    });
+  }
   if (mine && zone === "hand" && morph) {
     items.push({ label: "Cast face down (morph, {3})", onClick: () => void send({ type: "cast_spell", card_id: card.id, face_down: true }) });
   }

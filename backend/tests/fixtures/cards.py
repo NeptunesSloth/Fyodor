@@ -236,5 +236,11 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Bloodbraid Elf", set_code="tst", number="N4", mana_cost="{2}{R}{G}", cmc=4.0, type_line="Creature — Elf Berserker",
              oracle_text="Haste\nCascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom of your library in a random order.)",
              power="3", toughness="2", colors=["R", "G"], color_identity=["R", "G"]),
+        card("Dregscape Zombie", set_code="tst", number="N5", mana_cost="{1}{B}", cmc=2.0, type_line="Creature — Zombie",
+             oracle_text="Unearth {B} ({B}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)",
+             power="2", toughness="1", colors=["B"], color_identity=["B"]),
+        card("Mardu Scout", set_code="tst", number="N6", mana_cost="{R}{R}", cmc=2.0, type_line="Creature — Goblin Scout",
+             oracle_text="Dash {1}{R} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
+             power="2", toughness="1", colors=["R"], color_identity=["R"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

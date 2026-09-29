@@ -790,6 +790,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if base.x and a.x_value is None:
         raise ActionError(f"Choose a value for X to cast {ch.name}")
     cost = M.parse_cost("{3}") if a.face_down else spell_cost(plan.state, card, ch, a.x_value or 0, plan.info)
+    if a.dash:
+        dash = keyword_cost(ch, "dash", DASH)
+        if dash is None or card.zone != zone_key(plan.actor, "hand"):
+            raise ActionError("Only a card with dash can be cast for its dash cost from your hand")
+        cost = M.parse_cost(dash)
     for target in a.targets:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
@@ -811,7 +816,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
     pay(plan, plan.actor, cost, f"paid {cost.text()} for {ch.name or 'a face-down spell'}", sources=a.sources,
         purpose=Purpose(spell=ch))
-    tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else []
+    tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else ["Dashed"] if a.dash else []
+    if a.dash:
+        plan.rules.dashed.append(card.id)
     if flashback:
         plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else
     if a.x_value is not None or tags:
@@ -951,6 +958,36 @@ def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAb
     plan.rules.passed = []
 
 
+UNEARTH = re.compile(r"^unearth (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+DASH = re.compile(r"^dash (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def keyword_cost(ch: Characteristics, word: str, pattern: re.Pattern[str], index: int | None = None) -> str | None:
+    """The mana cost of a "<Keyword> {cost}" line (unearth, dash …), optionally on line ``index``."""
+    for ab in ch.abilities:
+        if ab.kind == "keywords" and word in ab.keywords and (index is None or ab.index == index):
+            m = pattern.fullmatch(ab.text.strip().rstrip("."))
+            if m:
+                return m["cost"]
+    return None
+
+
+def unearth(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, cost_text: str) -> None:
+    """702.84a: "{cost}: Return this card from your graveyard to the battlefield. It gains haste.
+    Exile it at the beginning of the next end step. If it would leave the battlefield, exile it
+    instead of putting it anywhere else. Activate only as a sorcery." """
+    state = plan.state
+    if state.turn.active_player != plan.actor or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
+        raise ActionError("Unearth only as a sorcery: in your main phase with an empty stack")
+    cost = M.parse_cost(cost_text)
+    if payment_step(plan, a, cost, f"unearthing {ch.name}", purpose=Purpose(ability_of=ch)):
+        return
+    oid = plan.oid(card)
+    ability_id = _new_ability(plan, card, f"Return {ch.name} to the battlefield. It gains haste. Exile it at the next end step.")
+    pay(plan, plan.actor, cost, f"paid {cost.text()} to unearth {ch.name}", sources=a.sources, purpose=Purpose(ability_of=ch))
+    _stacked(plan, card, oid, ch, ability_id, [{"do": "unearth", "card": card.id, "object": oid}])
+
+
 def crew_power(ch: Characteristics, index: int) -> int | None:
     """Crew N (702.122) on ability line ``index``: N, or None."""
     for ab in ch.abilities:
@@ -1070,6 +1107,13 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
             suspend(plan, card, ch, a, *found)
         else:
             cycle(plan, card, ch, a)
+        return
+    if card.zone == zone_key(plan.actor, "graveyard") and card.owner == plan.actor:
+        ch = plan.ch(card)
+        unearth_cost = keyword_cost(ch, "unearth", UNEARTH, a.ability)
+        if unearth_cost is None:
+            raise ActionError("That card has no ability to use from your graveyard")
+        unearth(plan, card, ch, a, unearth_cost)
         return
     if card.controller != plan.actor or not card.zone.endswith(":battlefield"):
         raise ActionError("You can only activate abilities of permanents you control")
