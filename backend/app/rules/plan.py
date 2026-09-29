@@ -63,7 +63,7 @@ class Plan:
         """Current characteristics: printed, then continuous effects in layer order."""
         from app.rules.layers import derive  # layers → plan (type hints only)
 
-        return derive(self.state, card, chars.of(card, self.info))
+        return derive(self.state, card, chars.of(card, self.info), self.info)
 
     def prefs(self, player: str) -> PlayerPrefs:
         """A player's preferences, created on first change (so they're saved with the rules state)."""

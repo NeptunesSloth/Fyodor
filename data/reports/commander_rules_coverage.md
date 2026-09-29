@@ -1,6 +1,6 @@
 # Commander rules coverage
 
-Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 15:38
+Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 15:43
 
 Only cards that are **legal in Commander today** count. Banned cards (83) are COMMANDER_BANNED and excluded.
 
@@ -10,12 +10,12 @@ Commander-legal cards: **32116**
 
 | Level | Cards | Share |
 |---|---|---|
-| FULL | 4080 | 12.7% |
-| PARTIAL | 27988 | 87.1% |
+| FULL | 4223 | 13.1% |
+| PARTIAL | 27845 | 86.7% |
 | REVIEW | 0 | 0.0% |
 | MANUAL | 48 | 0.1% |
 
-Possible commanders (CR 903.3/903.3a, incl. Backgrounds): **3501** — FULL 89, PARTIAL 3412, REVIEW 0, MANUAL 0
+Possible commanders (CR 903.3/903.3a, incl. Backgrounds): **3501** — FULL 100, PARTIAL 3401, REVIEW 0, MANUAL 0
 
 ## Pod coverage
 
@@ -28,15 +28,15 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 | # | Feature | Kind | Pod cards | Commander cards | Only missing piece for | Examples |
 |---|---|---|---|---|---|---|
 | 1 | mana:ability | engine | 0 | 367 | 194 | Saltcrusted Steppe, Flywheel Racer, The Emperor of Palamecia // The Lord Master of Hell |
-| 2 | keyword:morph | keyword | 0 | 153 | 43 | Gravel Slinger, Willbender, Brine Elemental |
-| 3 | template:All Slivers have “…” | continuous | 0 | 29 | 26 | Magma Sliver, Sedge Sliver, Mnemonic Sliver |
+| 2 | keyword:morph | keyword | 0 | 153 | 44 | Gravel Slinger, Willbender, Brine Elemental |
+| 3 | template:All Slivers have “…” | continuous | 0 | 29 | 29 | Magma Sliver, Sedge Sliver, Mnemonic Sliver |
 | 4 | template:Commander creatures you own have “…” | continuous | 0 | 25 | 25 | Dungeon Delver, Scion of Halaster, Noble Heritage |
 | 5 | template:~ enters prepared. | static | 0 | 40 | 24 | Adventurous Eater // Have a Bite, Maelstrom Artisan // Rocket Volley, Fatehold Chronologist // Peer Review |
 | 6 | keyword:suspend | keyword | 0 | 70 | 22 | Lotus Bloom, Resurgent Belief, Glimpse of Tomorrow |
-| 7 | keyword:cumulative upkeep | keyword | 0 | 80 | 19 | Prismatic Circle, Musician, Illusionary Terrain |
-| 8 | keyword:cascade | keyword | 0 | 37 | 19 | Etherium-Horn Sorcerer, Call Forth the Tempest, Call Forth the Tempest |
-| 9 | keyword:bushido | keyword | 0 | 35 | 19 | Numai Outcast, Nezumi Ronin, Toshiro Umezawa |
-| 10 | keyword:madness | keyword | 0 | 60 | 18 | Strength of Lunacy, Muck Drubb, Gisa's Bidding |
+| 7 | keyword:cascade | keyword | 0 | 37 | 21 | Etherium-Horn Sorcerer, Call Forth the Tempest, Call Forth the Tempest |
+| 8 | keyword:cumulative upkeep | keyword | 0 | 80 | 19 | Prismatic Circle, Musician, Illusionary Terrain |
+| 9 | keyword:madness | keyword | 0 | 60 | 19 | Strength of Lunacy, Muck Drubb, Gisa's Bidding |
+| 10 | keyword:bushido | keyword | 0 | 35 | 19 | Numai Outcast, Nezumi Ronin, Toshiro Umezawa |
 | 11 | keyword:banding | keyword | 0 | 24 | 18 | Nalathni Dragon, Mishra's War Machine, Kjeldoran Escort |
 | 12 | keyword:unearth | keyword | 0 | 56 | 17 | Royal Warden, Phyrexian Dragon Engine, Anathemancer |
 | 13 | template:Devoid | static | 0 | 132 | 16 | Void Grafter, Consuming Sinkhole, Slaughter Drone |
@@ -45,9 +45,9 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 | 16 | keyword:ward | keyword | 0 | 186 | 15 | Tyranid Harridan, Grey Host Reinforcements, Cactusfolk Sureshot |
 | 17 | keyword:buyback | keyword | 0 | 39 | 15 | Walk the Aeons, Spell Burst, Pegasus Stampede |
 | 18 | template:When ~ enters, it explores. | triggered | 0 | 15 | 15 | River Herald Scout, Merfolk Branchwalker, Pathfinding Axejaw |
-| 19 | keyword:dash | keyword | 0 | 22 | 13 | Warbringer, Warbringer, Kolaghan Forerunners |
-| 20 | keyword:foretell | keyword | 0 | 51 | 12 | The Foretold Soldier, Rise of the Dread Marn, Green Slime |
-| 21 | keyword:storm | keyword | 0 | 35 | 12 | Volcanic Awakening, Weather the Storm, Empty the Warrens |
+| 19 | keyword:storm | keyword | 0 | 35 | 13 | Volcanic Awakening, Weather the Storm, Empty the Warrens |
+| 20 | keyword:dash | keyword | 0 | 22 | 13 | Warbringer, Warbringer, Kolaghan Forerunners |
+| 21 | keyword:foretell | keyword | 0 | 51 | 12 | The Foretold Soldier, Rise of the Dread Marn, Green Slime |
 | 22 | keyword:splice | keyword | 0 | 30 | 12 | Evermind, Horobi's Whisper, Desperate Ritual |
 | 23 | template:Counter target spell unless its controller pays {M}. | spell_effect | 0 | 30 | 12 | Reasonable Doubt, Lose Focus, Runeboggle |
 | 24 | template:As ~ enters, you may pay N life(s). If you don't, it enters tapped. | replacement | 0 | 26 | 12 | Witch Enchanter // Witch-Blessed Meadow, Fell the Profane // Fell Mire, Stomping Ground |
@@ -57,10 +57,10 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 | 28 | template:{M}, {M}: Investigate. | activated | 0 | 13 | 12 | Dining Room, Library, Kitchen |
 | 29 | template:When ~ enters, return N land(s) you control to its owner's hand. | triggered | 0 | 12 | 12 | Selesnya Sanctuary, Simic Growth Chamber, Rakdos Carnarium |
 | 30 | keyword:evoke | keyword | 0 | 35 | 11 | Walker of the Grove, Grief, Mournwhelk |
-| 31 | template:Creatures you control get ±N/±N. | continuous | 0 | 34 | 11 | Angelic Shield, The Arkenstone // Seek the Heart, In the Trenches |
-| 32 | keyword:megamorph | keyword | 0 | 31 | 11 | Kadena's Silencer, Segmented Krotiq, Kolaghan Stormsinger |
-| 33 | keyword:flanking | keyword | 0 | 29 | 11 | Burning Shield Askari, Benalish Cavalry, Mtenda Herder |
-| 34 | keyword:backup | keyword | 0 | 25 | 11 | Saiba Cryptomancer, Chomping Kavu, Consuming Aetherborn |
+| 31 | keyword:megamorph | keyword | 0 | 31 | 11 | Kadena's Silencer, Segmented Krotiq, Kolaghan Stormsinger |
+| 32 | keyword:flanking | keyword | 0 | 29 | 11 | Burning Shield Askari, Benalish Cavalry, Mtenda Herder |
+| 33 | keyword:backup | keyword | 0 | 25 | 11 | Saiba Cryptomancer, Chomping Kavu, Consuming Aetherborn |
+| 34 | keyword:fabricate | keyword | 0 | 16 | 11 | Visionary Augmenter, Angel of Invention, Maulfist Squad |
 | 35 | keyword:unleash | keyword | 0 | 15 | 11 | Rakdos Drake, Grim Roustabout, Chaos Imps |
 | 36 | template:Sliver creatures you control have “…” | continuous | 0 | 11 | 11 | Capricious Sliver, Lavabelly Sliver, Regal Sliver |
 | 37 | template:~ can't be countered. | restriction | 0 | 87 | 10 | Supreme Verdict, Rending Volley, Heated Debate |
@@ -71,30 +71,30 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 | 42 | keyword:persist | keyword | 0 | 24 | 10 | Puppeteer Clique, Furystoke Giant, Trapjaw Kelpie |
 | 43 | keyword:improvise | keyword | 0 | 23 | 10 | Fen Hauler, Whir of Invention, Sly Requisitioner |
 | 44 | keyword:undying | keyword | 0 | 22 | 10 | Demonlord of Ashmouth, Hound of Griselbrand, Vengeful Vampire |
-| 45 | keyword:fabricate | keyword | 0 | 16 | 10 | Visionary Augmenter, Angel of Invention, Maulfist Squad |
-| 46 | template:Scavenge {M} | static | 0 | 14 | 10 | Terrus Wurm, Deadbridge Goliath, Dodgy Jalopy |
-| 47 | template:When ~ enters, each opponent discards N card(s). | triggered | 0 | 13 | 10 | Liliana's Specter, Cackling Fiend, Burglar Rat |
-| 48 | keyword:rampage | keyword | 0 | 12 | 10 | Craw Giant, Balduvian War-Makers, Varchild's War-Riders |
-| 49 | template:~ enters tapped unless you control N or fewer other lands. | replacement | 0 | 11 | 10 | Concealed Courtyard, Inspiring Vantage, Blackcleave Cliffs |
-| 50 | template:~ enters tapped unless a player has N or less life. | replacement | 0 | 10 | 10 | Abandoned Campground, Raucous Carnival, Strangled Cemetery |
-| 51 | template:~ enters tapped unless you control N or more basic lands. | replacement | 0 | 10 | 10 | Sodden Verdure, Smoldering Marsh, Vernal Fen |
-| 52 | template:~ enters tapped unless you control N or more other lands. | replacement | 0 | 10 | 10 | Rockfall Vale, Stormcarved Coast, Sundown Pass |
-| 53 | template:~ enters tapped unless you control a planeswalker. | replacement | 0 | 10 | 10 | Theorix Annex, Stingerquill Annex, Konstrari Annex |
-| 54 | template:~ enters tapped unless you have N or more opponents. | replacement | 0 | 10 | 10 | Spire Garden, Sea of Clouds, Bountiful Promenade |
-| 55 | keyword:delve | keyword | 0 | 28 | 9 | Empty the Pits, Dead Drop, Afterlife from the Loam |
-| 56 | template:Modular N | static | 0 | 23 | 9 | Arcbound Whelp, Arcbound Javelineer, Arcbound Hybrid |
-| 57 | keyword:evolve | keyword | 0 | 22 | 9 | Adaptive Snapjaw, Shambleshark, Tyranid Prime |
-| 58 | template:{M}: Return ~ from your graveyard to your hand. | activated | 0 | 22 | 9 | The Sound of Drums, Merchant of Many Hats, Convenient Target |
-| 59 | template:When ~ enters, exile target nonland permanent an opponent controls until ~ leaves the battlefield. | triggered | 0 | 19 | 9 | Hieromancer's Cage, Journey to Oblivion, Static Net |
-| 60 | template:Whenever ~ deals combat damage to a player, put a ±N/±N counter(s) on it. | triggered | 0 | 19 | 9 | Skullbriar, the Walking Grave, Hexgold Slith, Arcbound Slith |
+| 45 | template:Scavenge {M} | static | 0 | 14 | 10 | Terrus Wurm, Deadbridge Goliath, Dodgy Jalopy |
+| 46 | template:When ~ enters, each opponent discards N card(s). | triggered | 0 | 13 | 10 | Liliana's Specter, Cackling Fiend, Burglar Rat |
+| 47 | keyword:rampage | keyword | 0 | 12 | 10 | Craw Giant, Balduvian War-Makers, Varchild's War-Riders |
+| 48 | template:~ enters tapped unless you control N or fewer other lands. | replacement | 0 | 11 | 10 | Concealed Courtyard, Inspiring Vantage, Blackcleave Cliffs |
+| 49 | template:~ enters tapped unless a player has N or less life. | replacement | 0 | 10 | 10 | Abandoned Campground, Raucous Carnival, Strangled Cemetery |
+| 50 | template:~ enters tapped unless you control N or more basic lands. | replacement | 0 | 10 | 10 | Sodden Verdure, Smoldering Marsh, Vernal Fen |
+| 51 | template:~ enters tapped unless you control N or more other lands. | replacement | 0 | 10 | 10 | Rockfall Vale, Stormcarved Coast, Sundown Pass |
+| 52 | template:~ enters tapped unless you control a planeswalker. | replacement | 0 | 10 | 10 | Theorix Annex, Stingerquill Annex, Konstrari Annex |
+| 53 | template:~ enters tapped unless you have N or more opponents. | replacement | 0 | 10 | 10 | Spire Garden, Sea of Clouds, Bountiful Promenade |
+| 54 | keyword:delve | keyword | 0 | 28 | 9 | Empty the Pits, Dead Drop, Afterlife from the Loam |
+| 55 | template:Modular N | static | 0 | 23 | 9 | Arcbound Whelp, Arcbound Javelineer, Arcbound Hybrid |
+| 56 | keyword:evolve | keyword | 0 | 22 | 9 | Adaptive Snapjaw, Shambleshark, Tyranid Prime |
+| 57 | template:{M}: Return ~ from your graveyard to your hand. | activated | 0 | 22 | 9 | The Sound of Drums, Merchant of Many Hats, Convenient Target |
+| 58 | template:When ~ enters, exile target nonland permanent an opponent controls until ~ leaves the battlefield. | triggered | 0 | 19 | 9 | Hieromancer's Cage, Journey to Oblivion, Static Net |
+| 59 | template:Whenever ~ deals combat damage to a player, put a ±N/±N counter(s) on it. | triggered | 0 | 19 | 9 | Skullbriar, the Walking Grave, Hexgold Slith, Arcbound Slith |
+| 60 | keyword:fading | keyword | 0 | 17 | 9 | Parallax Wave, Phyrexian Prowler, Skyshroud Ridgeback |
 
 ## Coverage by card type
 
 | Type | FULL | PARTIAL | REVIEW | MANUAL |
 |---|---|---|---|---|
-| Creature | 2774 | 15147 | 0 | 0 |
-| Artifact | 508 | 3085 | 0 | 0 |
-| Enchantment | 64 | 3583 | 0 | 0 |
+| Creature | 2884 | 15037 | 0 | 0 |
+| Artifact | 510 | 3083 | 0 | 0 |
+| Enchantment | 97 | 3550 | 0 | 0 |
 | Sorcery | 211 | 3357 | 0 | 0 |
 | Instant | 399 | 3355 | 0 | 0 |
 | Land | 404 | 808 | 0 | 0 |

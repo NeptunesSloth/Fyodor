@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Literal
 
 from app.game.rules_state import ContinuousEffect
 from app.game.state import CardInstance, GameState
-from app.rules.characteristics import Characteristics
+from app.rules.characteristics import CardInfo, Characteristics
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -41,8 +41,68 @@ def affecting(state: GameState, card: CardInstance) -> list[ContinuousEffect]:
     return sorted((e for e in r.effects if oid in e.affected), key=lambda e: e.timestamp)
 
 
-def derive(state: GameState, card: CardInstance, ch: Characteristics) -> Characteristics:
-    """Current characteristics: printed + continuous effects in layer order + counters."""
+_ANTHEM_CACHE: dict[tuple, list[tuple[str, str, dict]]] = {}
+
+
+def anthems(state: GameState, info: CardInfo) -> list[tuple[str, str, dict]]:
+    """Static P/T and keyword grants on the battlefield (source card, its controller, definition),
+    read from printed abilities; cached by what is on the battlefield."""
+    r = state.rules
+    live = {p for p in state.seat_order if not state.players[p].left} - (set(r.conceded) | set(r.lost) if r else set())
+    key = tuple(sorted((cid, c.controller, c.face_down, c.card_id or c.name, r.card_mode(cid) if r else "")
+                       for cid, c in state.cards.items() if c.zone.endswith(":battlefield")))
+    hit = _ANTHEM_CACHE.get(key)
+    if hit is not None:
+        return hit
+    from app.rules import characteristics as chars
+    from app.rules import scripts
+
+    out = []
+    for cid, c in state.cards.items():
+        if not c.zone.endswith(":battlefield") or c.face_down or c.controller not in live or c.owner not in live:
+            continue
+        if r is not None and r.card_mode(cid) == "manual":
+            continue
+        for d in scripts.definitions(chars.of(c, info)).values():
+            if d["kind"] == "static" and d.get("static") == "anthem":
+                out.append((cid, c.controller, d))
+    if len(_ANTHEM_CACHE) > 256:
+        _ANTHEM_CACHE.clear()
+    _ANTHEM_CACHE[key] = out
+    return out
+
+
+def _anthem_applies(src: str, controller: str, d: dict, card: CardInstance, ch: Characteristics) -> bool:
+    if not ch.is_creature or (d["other"] and src == card.id):
+        return False
+    if d["scope"] == "you" and card.controller != controller:
+        return False
+    if d["scope"] == "opponents" and card.controller == controller:
+        return False
+    if d["sub"] and d["sub"] not in ch.subtypes:
+        return False
+    return not d["tokens"] or card.is_token
+
+
+def derive(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> Characteristics:
+    """Current characteristics: printed + continuous effects in layer order + counters. With
+    ``info``, static abilities of permanents (anthems, lords: layers 6 and 7c) apply too."""
+    out = _derive_resolved(state, card, ch)
+    if info is None or not card.zone.endswith(":battlefield") or state.rules is None:
+        return out
+    p = t = 0
+    kws: set[str] = set()
+    for src, controller, d in anthems(state, info):
+        if _anthem_applies(src, controller, d, card, out):
+            p, t = p + d["p"], t + d["t"]
+            kws |= set(d["keywords"])
+    if not (p or t or kws):
+        return out
+    pt = (out.pt[0] + p, out.pt[1] + t) if out.pt is not None else None
+    return replace(out, pt=pt, granted=out.granted | frozenset(kws))
+
+
+def _derive_resolved(state: GameState, card: CardInstance, ch: Characteristics) -> Characteristics:
     effects = affecting(state, card)
     added = {t for e in effects if e.layer == "4" for t in e.add_types}  # layer 4: type-changing
     if added - ch.types:

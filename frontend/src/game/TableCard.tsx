@@ -2,7 +2,7 @@ import { usePrefs } from "../state/prefs";
 import { memo } from "react";
 import { openMenu } from "../components/ContextMenu";
 import { useGame, useCardView } from "../state/gameStore";
-import { FACE_DOWN_LABEL, isVisible } from "../types/game";
+import { FACE_DOWN_LABEL, isVisible, type CardStats } from "../types/game";
 import { moveCards, tapCards, targetsFor } from "./actions";
 import { dropCards } from "./drop";
 import { cardMenu } from "./cardMenu";
@@ -25,6 +25,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
   const selected = useGame((s) => s.selection.includes(id));
   const showSources = usePrefs((s) => s.showTokenSources);
   const legal = useGame((s) => legalClass(s.view, id, me));
+  const stats = useGame((s) => s.view?.rules?.stats?.[id]);
   if (!card) return null;
   const visible = isVisible(card);
   const rotation = (card.tapped ? 90 : 0) + (card.flipped ? 180 : 0) + (card.rotation ?? 0);
@@ -99,9 +100,30 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
         </div>
       ) : null}
       <CounterBadges counters={card.counters} />
+      {visible && stats && <StatBadge stats={stats} />}
     </div>
   );
 });
+
+/** The creature's current power/toughness and gained/lost keywords, when the rules change them. */
+export function StatBadge({ stats }: { stats: CardStats }) {
+  const base = Number(stats.base?.[0] ?? NaN) + Number(stats.base?.[1] ?? NaN);
+  const now = stats.pt ? stats.pt[0] + stats.pt[1] : NaN;
+  const trend = Number.isNaN(base) || Number.isNaN(now) || now === base ? "" : now > base ? " up" : " down";
+  const title = [stats.gained?.length ? `Has: ${stats.gained.join(", ")}` : "", stats.lost?.length ? `Lost: ${stats.lost.join(", ")}` : ""]
+    .filter(Boolean).join("\n");
+  return (
+    <span className={`stat-badge${trend}`} title={title || undefined} data-testid="stat-badge">
+      {stats.gained?.length ? <i>{stats.gained.map((k) => KEYWORD_GLYPH[k] ?? "✦").join("")}</i> : null}
+      {stats.pt ? `${stats.pt[0]}/${stats.pt[1]}` : ""}
+    </span>
+  );
+}
+
+const KEYWORD_GLYPH: Record<string, string> = {
+  flying: "🪶", haste: "»", trample: "⇶", vigilance: "◉", lifelink: "♥", deathtouch: "☠", "first strike": "⚡",
+  "double strike": "⚡⚡", menace: "⚔", reach: "↑", hexproof: "◈", indestructible: "⛨",
+};
 
 /** Right-click menu for moving a whole zone's content, used by piles. */
 export function zoneMoveAll(ids: string[], to: Parameters<typeof moveCards>[1], player: string | null) {

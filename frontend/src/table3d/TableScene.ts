@@ -483,7 +483,10 @@ export class TableScene {
         this.place(c, seat, lx, lz, 0.004 + i * 0.0035 + lift, tapped);
         c.tilt = card.attacking ? -0.12 : 0;
         const counters = card.counters ? Object.entries(card.counters).filter(([, n]) => n) : [];
-        const label = card.damage ? `${card.damage} dmg` : counters.length ? counters.map(([k, n]) => (k === "+1/+1" ? `+${n}/+${n}` : k === "-1/-1" ? `-${n}/-${n}` : `${k} ${n}`)).join(" · ") : "";
+        const stats = view.rules?.stats?.[id];
+        const pt = stats?.pt ? `${stats.pt[0]}/${stats.pt[1]}` : "";
+        const label = [card.damage ? `${card.damage} dmg` : counters.length ? counters.map(([k, n]) => (k === "+1/+1" ? `+${n}/+${n}` : k === "-1/-1" ? `-${n}/-${n}` : `${k} ${n}`)).join(" · ") : "", pt]
+          .filter(Boolean).join(" · ");
         this.setBadge(c, label, card.damage ? "#9b2f27" : "#2c3a5a");
         this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55);
       });

@@ -380,6 +380,41 @@ def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | 
     return effects, target, optional
 
 
+_ANTHEM = re.compile(
+    r"^(?P<other>Other )?(?:(?P<all>All )|)(?P<who>[Cc]reatures|[Cc]reature tokens|(?P<sub>[A-Z][a-z]+?)(?:s| creatures)?)"
+    r"(?P<scope> you control| your opponents control|)"
+    r" (?:get (?P<p>[+-]\d+)/(?P<t>[+-]\d+)(?: and have (?P<kws1>[a-z ,]+))?|have (?P<kws2>[a-z ,]+))\.$")
+
+
+def parse_anthem(text: str) -> Definition | None:
+    """613 static P/T and keyword grants: "Creatures you control get +1/+1.", "Other Elves you
+    control get +1/+1 and have haste.", "Sliver creatures you control have flying.",
+    "All Slivers have first strike.", "Creatures your opponents control get -1/-1."."""
+    m = _ANTHEM.match(text)
+    if not m:
+        return None
+    from app.rules.creature_types import CREATURE_TYPES
+    from app.rules.protection import _PLURALS
+
+    sub = None
+    if m["sub"]:
+        word = m["sub"]
+        sub = _PLURALS.get(word.lower() + "s", word) if word not in CREATURE_TYPES else word
+        if m["who"].endswith("ves"):
+            sub = _PLURALS.get(m["who"].lower())
+        if sub not in CREATURE_TYPES:
+            return None
+    scope = {" you control": "you", " your opponents control": "opponents", "": "all"}[m["scope"]]
+    if scope == "all" and not m["all"]:
+        return None  # "Creatures get …" without "All": not this template
+    kws = [k.strip() for k in re.split(r", and |, | and ", m["kws1"] or m["kws2"] or "") if k.strip()]
+    if any(k not in GRANTABLE and k not in ("defender", "shroud", "flash") for k in kws):
+        return None
+    return {"kind": "static", "static": "anthem", "effects": [], "other": bool(m["other"]), "scope": scope,
+            "sub": sub, "tokens": m["who"].lower() == "creature tokens",
+            "p": int(m["p"]) if m["p"] else 0, "t": int(m["t"]) if m["t"] else 0, "keywords": kws}
+
+
 ENTERS_WITH = re.compile(r"^~ enters with (?P<n>X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "
                          r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it\.$")
 
@@ -393,6 +428,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if m:  # 614.1c: "~ enters with N … counters on it"
         n: int | str = "X" if m["n"] == "X" else num(m["n"])
         return {"kind": "replacement", "replacement": "enters_with_counters", "counter": m["kind"], "n": n, "effects": []}
+    if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
+        return anthem
     if ability.kind == "static" and text in COMBAT_STATICS:
         return {"kind": "static", "static": COMBAT_STATICS[text], "effects": []}
     if ability.kind == "triggered":

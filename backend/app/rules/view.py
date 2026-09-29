@@ -48,6 +48,7 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
         "card_modes": {cid: m for cid, m in r.card_modes.items()
                        if cid in state.cards and (viewer == OMNISCIENT or can_see(state, state.cards[cid], viewer))},
         "hints": {},
+        "stats": stats(state, viewer, info),
     }
     d = r.decision
     if d is not None:
@@ -61,6 +62,37 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
         out["decision"] = decision
     if viewer in state.players and viewer in live_players(state) and not r.paused:
         out["hints"] = hints(state, viewer, info)
+    return out
+
+
+def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, Any]]:
+    """Current power/toughness and keywords of visible battlefield creatures where the rules
+    change them (anthems, pumps, counters, crew …), so the table can show the real numbers."""
+    from app.rules.layers import derive
+
+    out: dict[str, dict[str, Any]] = {}
+    for cid in (c for z, ids in state.zones.items() if z.endswith(":battlefield") for c in ids):
+        card = state.cards[cid]
+        if card.face_down or not (viewer == OMNISCIENT or can_see(state, card, viewer)):
+            continue
+        printed = chars.of(card, info)
+        now = derive(state, card, printed, info)
+        if not now.is_creature:
+            continue
+        entry: dict[str, Any] = {}
+        if now.pt is not None and (str(now.pt[0]), str(now.pt[1])) != (printed.power, printed.toughness):
+            entry["pt"] = list(now.pt)
+            entry["base"] = [printed.power, printed.toughness]
+        gained = sorted(now.keywords - printed.keywords)
+        lost = sorted(printed.keywords - now.keywords)
+        if gained:
+            entry["gained"] = gained
+        if lost:
+            entry["lost"] = lost
+        if not printed.is_creature:
+            entry["creature"] = True  # e.g. a crewed Vehicle
+        if entry:
+            out[cid] = entry
     return out
 
 

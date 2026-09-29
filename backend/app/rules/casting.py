@@ -93,7 +93,7 @@ def _mana_count(state: GameState, card: CardInstance, count: str, info: CardInfo
     from app.rules.layers import derive
 
     if count == "power":
-        ch = derive(state, card, chars.of(card, info))
+        ch = derive(state, card, chars.of(card, info), info)
         if ch.pt:
             return max(0, ch.pt[0])
         return int(ch.power) if ch.power and ch.power.isdigit() else 0
@@ -103,7 +103,7 @@ def _mana_count(state: GameState, card: CardInstance, count: str, info: CardInfo
         c = state.cards[cid]
         if c.controller != card.controller:
             continue
-        ch = derive(state, c, chars.of(c, info))
+        ch = derive(state, c, chars.of(c, info), info)
         if what in ch.types or what in ch.subtypes:
             n += 1
     return n
@@ -241,7 +241,7 @@ def _convoke_sources(state: GameState, player: str, info: CardInfo, out: list[M.
         card = state.cards[cid]
         if card.controller != player or card.tapped:
             continue
-        ch = derive(state, card, chars.of(card, info))
+        ch = derive(state, card, chars.of(card, info), info)
         if not ch.is_creature:
             continue
         opts = tuple((c,) for c in sorted(ch.colors)) + (("C",),)
@@ -603,7 +603,7 @@ def affinity_discount(state: GameState, player: str, ch: Characteristics, info: 
     from app.rules.layers import derive
 
     return sum(1 for c in state.cards.values() if c.zone == zone_key(player, "battlefield") and c.controller == player
-               and pred(derive(state, c, chars.of(c, info))))
+               and pred(derive(state, c, chars.of(c, info), info)))
 
 
 def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int = 0,
@@ -998,7 +998,7 @@ def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteris
     total = 0
     for c in state.cards.values():
         if c.zone == card.zone and c.controller == player and c.id != card.id and not c.tapped:
-            cch = derive(state, c, chars.of(c, info))
+            cch = derive(state, c, chars.of(c, info), info)
             if cch.is_creature:
                 total += max(0, power(c, cch) or 0)
     return total >= n

@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 89 · PARTIAL: 3412 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 100 · PARTIAL: 3401 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -397,15 +397,15 @@ Color identity B
 - ✗ Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life.
 - ✗ {T}, Sacrifice another black creature: Draw a card.
 
-### Elesh Norn, Grand Cenobite — PARTIAL
+### Elesh Norn, Grand Cenobite — FULL
 
 Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Vigilance
-- ✗ Other creatures you control get +2/+2.
-- ✗ Creatures your opponents control get -2/-2.
+- ✓ Other creatures you control get +2/+2.
+- ✓ Creatures your opponents control get -2/-2.
 
 ### Boromir, Warden of the Tower — PARTIAL
 
@@ -914,7 +914,7 @@ Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Other Dwarves you control get +1/+0.
+- ✓ Other Dwarves you control get +1/+0.
 - ✗ Whenever a Dwarf you control becomes tapped, create a Treasure token.
 - ✗ Sacrifice five Treasures: Search your library for an artifact or Dragon card, put that card onto the battlefield, then shuffle.
 
@@ -1092,8 +1092,8 @@ Color identity WB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Creature tokens you control have vigilance and lifelink.
 - ✗ If a creature dying causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.
-- ✗ Creature tokens you control have vigilance and lifelink.
 
 ### Laelia, the Blade Reforged — PARTIAL
 
@@ -1259,8 +1259,8 @@ Color identity WR
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Indestructible
+- ✓ Creatures you control have menace.
 - ✗ As long as your devotion to red and white is less than seven, Iroas isn't a creature.
-- ✗ Creatures you control have menace.
 - ✗ Prevent all damage that would be dealt to attacking creatures you control.
 
 ### Isshin, Two Heavens as One — PARTIAL
@@ -1476,15 +1476,15 @@ Color identity W
 - ✓ Flash
 - ✗ Whenever Phelia attacks, exile up to one other target nonland permanent. At the beginning of the next end step, return that card to the battlefield under its owner's control. If it entered under your control, put a +1/+1 counter on Phelia.
 
-### Surrak and Goreclaw — PARTIAL
+### Surrak and Goreclaw — FULL
 
 Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Trample
+- ✓ Other creatures you control have trample.
 - ✓ Whenever another nontoken creature you control enters, put a +1/+1 counter on it. It gains haste until end of turn.
-- ✗ Other creatures you control have trample.
 
 ### Losheel, Clockwork Scholar — PARTIAL
 
@@ -1501,7 +1501,7 @@ Color identity URG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Creatures you control have haste.
+- ✓ Creatures you control have haste.
 - ✗ Cascade
 - ✗ Cascade
 
@@ -1724,7 +1724,7 @@ Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Creatures you control have haste.
+- ✓ Creatures you control have haste.
 - ✗ Creatures your opponents control enter tapped.
 
 ### Aurelia, the Law Above — PARTIAL
@@ -1774,7 +1774,7 @@ Color identity WU
 - ✗ Blue spells you cast cost {1} less to cast.
 - ✗ Spells your opponents cast cost {1} more to cast.
 
-### Lyra Dawnbringer — PARTIAL
+### Lyra Dawnbringer — FULL
 
 Color identity W
 
@@ -1783,7 +1783,7 @@ Color identity W
 - ✓ Flying
 - ✓ First strike
 - ✓ Lifelink
-- ✗ Other Angels you control get +1/+1 and have lifelink.
+- ✓ Other Angels you control get +1/+1 and have lifelink.
 
 ### Zacama, Primal Calamity — PARTIAL
 
@@ -2328,7 +2328,7 @@ Color identity UR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Creature tokens you control have haste.
+- ✓ Creature tokens you control have haste.
 - ✗ At the beginning of combat on your turn, create a 2/1 blue Phyrexian Myr artifact creature token. Then you may choose a token you control. If you do, each other token you control becomes a copy of that token.
 
 ### Kitsa, Otterball Elite — PARTIAL

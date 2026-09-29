@@ -358,6 +358,8 @@ export interface RulesView {
   reconcile: { id: string; card: string | null; player: string | null; question: string }[];
   card_modes: Record<string, "manual" | "assisted">;
   hints: RulesHints;
+  /** Current P/T and keyword changes of visible battlefield creatures (anthems, pumps, crew …). */
+  stats?: Record<string, CardStats>;
   failure?: { intent: string; at: number };
 }
 
@@ -479,4 +481,12 @@ export interface LobbyView {
   seats: LobbySeat[];
   spectators: number;
   start_blockers: string[];
+}
+
+export interface CardStats {
+  pt?: [number, number];
+  base?: [string | null, string | null];  // printed power/toughness
+  gained?: string[];
+  lost?: string[];
+  creature?: boolean;
 }
