@@ -36,17 +36,17 @@ commander eligibility, pod coverage, and **top Commander features to implement n
 `commander_coverage.md` (every possible commander, most played first, with supported and missing
 parts) and `mechanics.md` (every CR 701/702 mechanic with its Commander card count and status).
 
-Baseline (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25, rules engine v2):
+Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 
-| | Cards | FULL | PARTIAL | REVIEW | MANUAL |
-|---|---|---|---|---|---|
-| Commander-legal cards | 32,116 | 921 (2.9%) | 31,147 | 0 | 48 |
-| Possible commanders | 3,501 | 37 | 3,464 | 0 | 0 |
+| Milestone | Commander-legal cards | FULL | PARTIAL | REVIEW | MANUAL | Possible commanders FULL |
+|---|---|---|---|---|---|---|
+| M17b baseline (M15 engine) | 32,116 | 921 (2.9%) | 31,147 | 0 | 48 | 37 / 3,501 |
+| M16b triggers, targets, effects, layers, templates | 32,116 | 2,434 (7.6%) | 29,634 | 0 | 48 | 48 / 3,501 |
 
-83 banned cards are excluded. The queue is ranked by pod cards, pod commanders, how many cards
-a feature is the *only* missing piece for, then Commander cards needing it. Early leaders:
-unsupported mana-ability wordings (832 cards), "{cost}: ~ gets +N/+N until end of turn" (270),
-"~ enters tapped" (545), protection (186), flash (608).
+83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
+pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards
+needing it. Current leaders: unsupported mana-ability wordings (832 cards), cycling (300),
+protection (186), regenerate (119), morph (153), convoke, prowess, affinity.
 
 **Commander eligibility and color identity** (`app/rules/commander.py`) follow CR 903.3 (a
 legendary creature, Vehicle, or Spacecraft with power/toughness, or "can be your commander"),

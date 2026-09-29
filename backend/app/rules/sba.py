@@ -26,6 +26,9 @@ def _num(value: str | None) -> int | None:
 
 
 def toughness(card: CardInstance, ch: Characteristics) -> int | None:
+    """Current toughness: from ``ch.pt`` when the layers were applied (``Plan.ch``), else printed + counters."""
+    if ch.pt is not None:
+        return ch.pt[1]
     base = _num(ch.toughness)
     if base is None:
         return None
@@ -33,6 +36,8 @@ def toughness(card: CardInstance, ch: Characteristics) -> int | None:
 
 
 def power(card: CardInstance, ch: Characteristics) -> int | None:
+    if ch.pt is not None:
+        return ch.pt[0]
     base = _num(ch.power)
     if base is None:
         return None

@@ -45,7 +45,7 @@ def test_save_sources_are_used_when_there_is_no_other_way(cards):
 def test_prefer_sources_go_first(cards):
     s, (m1, m2), ring = setup(cards)
     act(s, "p1", type="set_prefs", mana_source=m2.id, mana_source_protection="prefer")
-    act(s, "p1", type="cast_spell", card_id=card(s, "Lightning Bolt").id)
+    act(s, "p1", type="cast_spell", card_id=card(s, "Lightning Bolt").id, targets=["p2"])
     assert tapped(s, m1, m2) == [False, True]
     with pytest.raises(ActionError, match="your own mana sources"):
         act(s, "p2", type="set_prefs", mana_source=m1.id, mana_source_protection="save")
@@ -55,21 +55,21 @@ def test_ask_suggests_a_payment_and_cancel_leaves_everything(cards):
     s, (m1, m2), ring = setup(cards)
     act(s, "p1", type="set_prefs", payment="ask")
     bolt = card(s, "Lightning Bolt")
-    act(s, "p1", type="cast_spell", card_id=bolt.id)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     d = s.state.rules.decision
     assert d.player == "p1" and "Pay {R} for Lightning Bolt. Suggested payment: Mountain" in d.prompt
     assert s.state.cards[bolt.id].zone == "p1:hand"  # nothing has moved yet
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["cancel"])
     assert s.state.cards[bolt.id].zone == "p1:hand" and s.state.rules.priority == "p1"
     assert tapped(s, m1, m2, ring) == [False, False, False]
-    act(s, "p1", type="cast_spell", card_id=bolt.id)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["pay"])
     assert s.state.cards[bolt.id].zone != "p1:hand" and sum(tapped(s, m1, m2)) == 1
 
 
 def test_assisted_asks_by_default(cards):
     s, _, _ = setup(cards, "assisted")
-    act(s, "p1", type="cast_spell", card_id=card(s, "Lightning Bolt").id)
+    act(s, "p1", type="cast_spell", card_id=card(s, "Lightning Bolt").id, targets=["p2"])
     assert "Suggested payment" in s.state.rules.decision.prompt
 
 
@@ -92,9 +92,7 @@ def test_manual_payment_picks_exact_sources(cards):
 def test_sources_can_be_given_with_the_cast(cards):
     s, (m1, m2), ring = setup(cards)
     act(s, "p1", type="set_prefs", payment="ask")  # explicit sources are an answer: no prompt
-    act(s, "p1", type="cast_spell", card_id=card(s, "Lightning Bolt").id, sources=[m2.id])
-    d = s.state.rules.decision
-    assert d.kind == "manual_resolution" and tapped(s, m1, m2) == [False, True]  # paid, cast, resolving
-    act(s, "p1", type="choose", decision_id=d.id, option_ids=["done"])
+    act(s, "p1", type="cast_spell", card_id=card(s, "Lightning Bolt").id, sources=[m2.id], targets=["p2"])
+    assert tapped(s, m1, m2) == [False, True] and s.state.players["p2"].life == 37  # paid, cast, resolved by the engine
     with pytest.raises(ActionError, match="untapped mana sources you control"):
         act(s, "p1", type="cast_spell", card_id=card(s, "Fire // Ice").id, sources=[m2.id, ring.id])

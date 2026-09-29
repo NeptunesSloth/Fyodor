@@ -13,15 +13,19 @@ from typing import Any
 
 from app.game import actions as A
 from app.game.errors import ActionError
-from app.game.rules_state import DecisionOption, TurnCount
+from app.game.rules_state import DecisionOption, StackEntry, TargetRef, TurnCount
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
+from app.rules import scripts
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.costs import AbilityCost, parse_ability_cost
 from app.rules.oracle import AbilityText
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
+from app.rules.targets import label as target_label
+from app.rules.targets import legal_targets
+from app.rules.targets import ref as target_ref
 
 MAIN_PHASES = ("main1", "main2")
 
@@ -83,6 +87,37 @@ def mana_sources(state: GameState, player: str, info: CardInfo) -> list[M.Source
         rank = 0 if ch.is_land else 2 if ch.is_creature else 1
         out.append(M.Source(card.id, options, sacrifice=not plain, rank=rank + (5 if not plain else 0)))
     return out
+
+
+# -- targets (601.2c) --------------------------------------------------------------------
+def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any] | None,
+                  what: str) -> list[TargetRef] | None:
+    """The target of an automated spell or ability: validated if given, else asked (privately).
+    Returns the chosen targets, or None while waiting for the choice."""
+    spec = definition.get("target") if definition else None
+    if not spec:
+        return []
+    legal = legal_targets(plan, spec["what"], plan.actor)
+    if a.targets:
+        if len(a.targets) != 1 or a.targets[0] not in legal:
+            raise ActionError("That isn't a legal target")
+        return [target_ref(plan, a.targets[0])]
+    if not legal:
+        raise ActionError(f"{what} has no legal target")
+    decide(plan, player=plan.actor, kind="choose_one", prompt=f"Choose a target for {what}",
+           options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
+           resume={"step": "cast_target", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
+    return None
+
+
+def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.engine import INTENTS  # the engine imports this module
+
+    intent = A.parse_action(d.resume["intent"])
+    intent.targets = list(chosen)  # type: ignore[union-attr]
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
 
 
 # -- paying mana ------------------------------------------------------------------------
@@ -286,6 +321,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     for target in a.targets:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
+    definition = None if plan.manual(card) else scripts.spell_definition(ch)
+    chosen = choose_target(plan, a, definition, ch.name or "it")
+    if chosen is None:
+        return  # waiting for the target choice (601.2c comes before paying costs)
     if payment_step(plan, a, cost, ch.name or "it"):
         return
     commander_cast = from_command_zone(card, plan.actor)
@@ -306,6 +345,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.targets:
         plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
     r = plan.rules
+    if definition is not None:
+        r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
+                                      name=ch.name, effects=list(definition["effects"]), targets=chosen,
+                                      target_spec=definition.get("target"), x=a.x_value)
     turn = plan.state.turn.number
     r.spells_cast[plan.actor] = TurnCount(turn=turn, count=r.spells_this_turn(plan.actor, turn) + 1)
     r.passed = []
@@ -418,6 +461,12 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     mana = M.parse_cost(cost.mana)
     if mana.x and a.x_value is None:
         raise ActionError("Choose a value for X")
+    definition = None if plan.manual(card) else scripts.definitions(ch).get(ability.index)
+    if definition is not None and definition["kind"] != "activated":
+        definition = None
+    chosen = choose_target(plan, a, definition, f"{ch.name}’s ability")
+    if chosen is None:
+        return
     if payment_step(plan, a, mana.with_x(a.x_value or 0), f"{ch.name}’s ability",
                     exclude=(card.id,) if cost.tap else ()):
         return
@@ -443,6 +492,10 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if a.targets and ability_id:
         plan.do({"type": "create_arrow", "source": ability_id, "targets": list(a.targets), "kind": "target"})
     r = plan.rules
+    if definition is not None and ability_id:
+        r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
+                                         name=ch.name, effects=list(definition["effects"]), targets=chosen,
+                                         target_spec=definition.get("target"), x=a.x_value)
     if ability.kind == "loyalty":
         r.loyalty_used[oid] = plan.state.turn.number
     if "Activate only once each turn" in ability.text:

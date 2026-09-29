@@ -1,0 +1,220 @@
+"""Triggered abilities (CR 603), researched against CR 2026-09-25.
+
+* **Triggering (603.2):** after each step the engine looks at the new event batch. "When ~
+  enters" checks the object as it is now; leaves-the-battlefield and "dies" abilities *look back
+  in time* (603.10a) and use the object's last known information, so a token that died still
+  triggers. Step triggers ("at the beginning of your upkeep") are added when the step starts;
+  "whenever ~ attacks" when attackers are declared.
+* **Waiting (603.3):** triggered abilities go on the stack the next time a player would receive
+  priority, after state-based actions.
+* **APNAP (603.3b):** the active player puts theirs on the stack first, then each other player
+  in turn order, so the last player's triggers resolve first. A player with several triggers
+  orders them (a private ORDER decision), unless they are identical and AUTO ORDER IDENTICAL
+  TRIGGERS is on. Network arrival order never matters: the engine decides the sequence.
+* **Targets (603.3d):** chosen as the ability goes on the stack; with no legal target the
+  ability is removed. "You may" is decided on resolution (603.5).
+* Triggers from manual (sandbox) changes are not created automatically: whoever moves cards by
+  hand handles their triggers by hand. With AUTO TRIGGER STACKING off (ASSISTED), the table
+  confirms before the engine puts them on the stack.
+
+Not yet: intervening-if (603.4), delayed and reflexive triggers (603.7, 603.12), "whenever
+another …" and other non-self trigger conditions.
+"""
+
+from __future__ import annotations
+
+import secrets
+from typing import Any
+
+from app.game.rules_state import DecisionOption, ObjectSnapshot, PendingTrigger, StackEntry
+from app.game.state import CardInstance, TokenDef
+from app.rules import characteristics as chars
+from app.rules import scripts
+from app.rules.characteristics import Characteristics
+from app.rules.plan import Plan, decide
+from app.rules.targets import label, legal_targets, ref
+
+
+def _zone(key: str | None) -> str:
+    return (key or "").rsplit(":", 1)[-1]
+
+
+def abilities(plan: Plan, ch: Characteristics, trigger: str) -> list[tuple[int, dict[str, Any]]]:
+    return [(i, d) for i, d in scripts.definitions(ch).items() if d["kind"] == "triggered" and d["trigger"] == trigger]
+
+
+def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
+    card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
+                        zone=snap.zone, face=snap.face, face_down=False, is_token=snap.is_token,
+                        token=TokenDef(name=snap.name, text=snap.text, power=snap.token_power, toughness=snap.token_toughness)
+                        if snap.is_token and not snap.printing else None)
+    return chars.of(card, plan.info)
+
+
+def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, name: str, index: int,
+         definition: dict[str, Any], manual: bool = False) -> None:
+    if manual:
+        return
+    plan.rules.pending_triggers.append(PendingTrigger(
+        id=secrets.token_hex(4), controller=controller, source_card=source_card, source_object=source_object,
+        name=name, ability=definition, key=f"{name}:{index}"))
+
+
+def collect(plan: Plan) -> None:
+    """Look at the events since the last look (603.2)."""
+    r = plan.rules
+    new = [e for e in r.events if e.batch > r.trigger_batch]
+    if not new:
+        return
+    r.trigger_batch = max(e.batch for e in new)
+    for e in new:
+        if e.kind != "zone_change" or e.manual:
+            continue
+        frm, to = _zone(e.from_zone), _zone(e.to_zone)
+        if to == "battlefield" and frm != "battlefield":
+            card = plan.state.cards.get(e.card or "")
+            if card is None or plan.rules.card_mode(card.id) == "manual" or plan.oid(card) != e.new_object_id:
+                continue
+            ch = plan.ch(card)
+            for i, d in abilities(plan, ch, "enters_self"):
+                _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card),
+                     name=ch.name, index=i, definition=d)
+        if frm == "battlefield" and to != "battlefield":
+            snap = r.lki.get(e.object_id or "")
+            if snap is None or plan.rules.card_mode(snap.card) == "manual" or snap.controller not in plan.live():
+                continue
+            ch = _lki_characteristics(plan, snap)  # looks back in time (603.10a)
+            kinds = ["ltb_self"] + (["dies_self"] if to == "graveyard" or (e.to_zone is None and snap.is_token) else [])
+            for kind in kinds:
+                for i, d in abilities(plan, ch, kind):
+                    _add(plan, controller=snap.controller, source_card=snap.card, source_object=snap.object_id,
+                         name=ch.name, index=i, definition=d)
+
+
+def at_step(plan: Plan, trigger: str) -> None:
+    """"At the beginning of your upkeep / end step": the active player's permanents."""
+    for card in list(plan.state.cards.values()):
+        if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
+            continue
+        ch = plan.ch(card)
+        for i, d in abilities(plan, ch, trigger):
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
+                 definition=d)
+
+
+def attacked(plan: Plan, attackers: list[CardInstance]) -> None:
+    for card in attackers:
+        if plan.manual(card):
+            continue
+        ch = plan.ch(card)
+        for i, d in abilities(plan, ch, "attacks_self"):
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
+                 definition=d)
+
+
+def apnap(plan: Plan) -> list[str]:
+    order, p = [], plan.active if plan.active in plan.live() else plan.after(plan.active)
+    for _ in plan.live():
+        order.append(p)
+        p = plan.after(p)
+    return order
+
+
+def flush(plan: Plan) -> bool:
+    """Put waiting triggers on the stack (603.3). True if the stack changed or a decision opened."""
+    collect(plan)
+    r = plan.rules
+    r.pending_triggers = [t for t in r.pending_triggers if t.controller in plan.live()]
+    if not r.pending_triggers:
+        return False
+    if not plan.options.auto_trigger_stacking and not getattr(plan, "triggers_confirmed", False):
+        names = ", ".join(t.name for t in r.pending_triggers)
+        decide(plan, player=plan.active, kind="confirm", prompt=f"Triggered: {names}",
+               options=[DecisionOption(id="yes", label="Put on the stack"), DecisionOption(id="no", label="By hand")],
+               resume={"step": "trigger_confirm"})
+        return True
+    for player in apnap(plan):
+        mine = [t for t in r.pending_triggers if t.controller == player]
+        if not mine:
+            continue
+        if len(mine) > 1 and not all(t.ordered for t in mine) and not _identical(plan, player, mine):
+            decide(plan, player=player, kind="order",
+                   prompt="Order your triggered abilities (the first you pick goes on the stack first and resolves last)",
+                   options=[DecisionOption(id=t.id, label=t.name) for t in mine],
+                   min_choices=len(mine), max_choices=len(mine), resume={"step": "order_triggers"})
+            return True
+        for t in mine:
+            if not put(plan, t):
+                return True  # waiting for a target choice
+    r.passed = []
+    r.priority = plan.active if plan.active in plan.live() else plan.after(plan.active)
+    return True
+
+
+def _identical(plan: Plan, player: str, mine: list[PendingTrigger]) -> bool:
+    return plan.rules.prefs_for(player).auto_order_identical_triggers and len({t.key for t in mine}) == 1 \
+        and not any(t.ability.get("target") for t in mine)
+
+
+def put(plan: Plan, t: PendingTrigger, target: str | None = None) -> bool:
+    """Put one trigger on the stack. False if it waits for its controller's target choice."""
+    r = plan.rules
+    spec = t.ability.get("target")
+    targets = []
+    if spec:
+        legal = legal_targets(plan, spec["what"], t.controller)
+        if target is None:
+            if not legal:
+                r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+                plan.note(f"{t.name}'s ability has no legal target and is removed")
+                return True
+            decide(plan, player=t.controller, kind="choose_one", prompt=f"{t.name}: choose a target",
+                   options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
+                   resume={"step": "trigger_target", "trigger": t.id})
+            return False
+        targets = [ref(plan, target)]
+    r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+    source = t.source_card if t.source_card in plan.state.cards else None
+    text = t.name + "’s ability" if t.name else "Triggered ability"
+    created = plan.do({"type": "create_ability", "text": text, "source_id": source, "kind": "triggered"}, actor=t.controller)
+    new_ids = getattr(created, "r", None)
+    ability_id = new_ids.ids[0] if new_ids is not None else None
+    if ability_id is None:
+        return True
+    r.stack[ability_id] = StackEntry(kind="trigger", controller=t.controller, source_card=t.source_card,
+                                     source_object=t.source_object, name=t.name, effects=list(t.ability["effects"]),
+                                     targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")))
+    if targets:
+        plan.do({"type": "create_arrow", "source": ability_id, "targets": [x.id for x in targets], "kind": "target"},
+                actor=t.controller)
+    return True
+
+
+def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
+    r = plan.rules
+    mine = {t.id: t for t in r.pending_triggers if t.controller == d.player}
+    ordered = [mine[c] for c in chosen if c in mine]
+    for t in ordered:
+        t.ordered = True
+    rest = [t for t in r.pending_triggers if t.controller != d.player]
+    r.pending_triggers = rest + ordered
+    for t in ordered:
+        if not put(plan, t):
+            return
+    flush(plan)
+
+
+def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
+    t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
+    if t is not None:
+        put(plan, t, target=chosen[0])
+    flush(plan)
+
+
+def resume_confirm(plan: Plan, d: Any, chosen: list[str]) -> None:
+    if chosen[0] == "yes":
+        plan.triggers_confirmed = True  # type: ignore[attr-defined]
+        flush(plan)
+    else:
+        plan.note(f"{plan.name(d.player)} will handle the triggered abilities by hand")
+        plan.rules.pending_triggers = []

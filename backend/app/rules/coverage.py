@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.rules import cards as scripts
+from app.rules import scripts as templates
 from app.rules.characteristics import Characteristics, printed_from_data
 from app.rules.mana import parse_mana_ability
 
@@ -24,6 +25,9 @@ SUPPORTED: set[str] = {
     "cast:spell",  # cast_spell: timing, costs (auto-paid), commander tax, the stack, resolution (M15)
     "mana:ability",  # {T}[, Sacrifice this]: Add … mana abilities, incl. basic land types (M15)
     "combat",  # attacking and blocking, combat damage (M15c)
+    # M16: templated Oracle text (app/rules/scripts.py): triggers, spell effects, activated abilities,
+    # "enters tapped"; every template has parsing and scenario tests.
+    "templates",
 }
 
 # Keyword abilities the engine implements (each needs tests before it is listed here).
@@ -33,6 +37,8 @@ SUPPORTED_KEYWORDS: set[str] = {
     "haste", "defender", "menace",
     # state-based actions (M15b)
     "indestructible",
+    # M16: casting timing and targeting (test_rules_effects.py)
+    "flash", "hexproof", "shroud",
 }
 
 
@@ -68,6 +74,9 @@ class Coverage:
 
 def features_of(ch: Characteristics) -> list[Feature]:
     script = scripts.trusted(ch.oracle_id, ch.oracle_text)
+    templated = set(templates.definitions(ch))
+    if ch.is_instant_or_sorcery and templates.spell_definition(ch) is None:
+        templated = set()  # a spell is automated as a whole or resolved by hand
     out: list[Feature] = []
 
     def add(fid: str, label: str, ok: bool | None = None) -> None:
@@ -90,7 +99,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
         elif ab.kind == "mana":
             add("mana:ability", ab.text, "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None)
         else:
-            add(f"text:{ab.index}", ab.text, False)
+            add(f"text:{ab.index}", ab.text, ab.index in templated)
     return out
 
 
@@ -137,4 +146,6 @@ def ability_supported(ch: Characteristics, index: int) -> bool:
         return all(k in SUPPORTED_KEYWORDS for k in ab.keywords)
     if ab.kind == "mana":
         return "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None
-    return False
+    if ch.is_instant_or_sorcery:
+        return templates.spell_definition(ch) is not None
+    return index in templates.definitions(ch)

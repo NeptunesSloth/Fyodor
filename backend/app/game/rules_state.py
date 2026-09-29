@@ -27,6 +27,7 @@ DecisionKind = Literal[
     "choose_cards",  # pick between min and max cards (targets, discard, …)
     "confirm",  # yes / no ("you may …")
     "reconcile",  # one answer per question (options grouped by ``group``) after manual play
+    "order",  # choose every option, in order (trigger order, library order)
 ]
 
 
@@ -196,6 +197,7 @@ class ObjectSnapshot(BaseModel):
     attacking: bool = False
     blocking: bool = False
     attached_to: str | None = None
+    text: str = ""  # a custom token's rules text (it has no printing to look up)
 
 
 EventKind = Literal[
@@ -232,6 +234,59 @@ class Event(BaseModel):
 
 MAX_EVENTS = 500  # unconsumed events kept (a trigger collector consumes them; M16)
 LKI_TURNS = 2  # how long last known information is kept
+
+
+class ContinuousEffect(BaseModel):
+    """A continuous effect from a resolved spell or ability (CR 611.2c): the objects it affects are
+    fixed when it begins. See ``app.rules.layers``."""
+
+    id: str
+    affected: list[str] = Field(default_factory=list)  # rules object ids
+    layer: Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
+    source: str | None = None  # source object id
+    controller: str
+    power: int | None = None
+    toughness: int | None = None
+    add_keywords: list[str] = Field(default_factory=list)
+    remove_keywords: list[str] = Field(default_factory=list)
+    duration: Literal["end_of_turn", "permanent"] = "end_of_turn"
+    timestamp: int = 0
+    label: str = ""
+
+
+class TargetRef(BaseModel):
+    """A chosen target: a player, or a rules object (card id + the object it was when chosen)."""
+
+    id: str
+    object_id: str | None = None
+
+
+class PendingTrigger(BaseModel):
+    """A triggered ability that has triggered but isn't on the stack yet (603.3)."""
+
+    id: str
+    controller: str
+    source_card: str  # physical card (may be gone: a token that died)
+    source_object: str
+    name: str = ""
+    ability: dict[str, Any]  # the ability's definition (data, see app.rules.scripts)
+    key: str = ""  # identical triggers share a key (AUTO ORDER IDENTICAL TRIGGERS)
+    ordered: bool = False  # its controller already chose the order
+
+
+class StackEntry(BaseModel):
+    """Rules metadata for an object on the stack: what it does and what it targets."""
+
+    kind: Literal["spell", "trigger", "activated"]
+    controller: str
+    source_card: str | None = None
+    source_object: str | None = None
+    name: str = ""
+    effects: list[dict[str, Any]] = Field(default_factory=list)
+    targets: list[TargetRef] = Field(default_factory=list)
+    target_spec: dict[str, Any] | None = None
+    optional: bool = False  # "you may …": asked on resolution (603.5)
+    x: int | None = None
 
 
 class ReconcileItem(BaseModel):
@@ -289,6 +344,11 @@ class RulesState(BaseModel):
     actions: int = 0  # player actions (not passes) taken, for "pass until next action"
     last_actor: str | None = None
     engine_version: int = 0  # RULES_ENGINE_VERSION that last acted on this table
+    effects: list[ContinuousEffect] = Field(default_factory=list)
+    timestamp: int = 0  # last timestamp handed out (613.7)
+    pending_triggers: list[PendingTrigger] = Field(default_factory=list)
+    trigger_batch: int = 0  # last event batch the trigger collector looked at
+    stack: dict[str, StackEntry] = Field(default_factory=dict)  # stack card id -> what it does
     # Each player's intents this turn, for REPEAT LAST VALIDATED SEQUENCE (payloads, newest last).
     recent: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     recent_turn: int = 0
@@ -349,7 +409,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         token_power=token.power if token else None, token_toughness=token.toughness if token else None,
         commander_key=c.commander_key, counters=dict(c.counters), damage=c.damage,
         effects=[e.value or e.name for e in c.effects], attacking=c.attacking is not None,
-        blocking=c.blocking is not None, attached_to=c.attached_to,
+        blocking=c.blocking is not None, attached_to=c.attached_to, text=token.text if token else "",
     )
 
 

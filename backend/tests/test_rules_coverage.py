@@ -39,8 +39,11 @@ def test_card_coverage_levels(cards):
     # land drop + the intrinsic mana ability of its basic land type are both automated
     assert mountain.level == "FULL" and mountain.manual_parts == []
     assert tower.level == "FULL"  # "any color in your commander's color identity"
-    # casting is automated, the spell's effect isn't (yet)
-    assert bolt.level == "PARTIAL" and bolt.manual_parts == ["Lightning Bolt deals 3 damage to any target."]
+    # "~ deals N damage to any target" is a tested template: the whole spell is automated
+    assert bolt.level == "FULL" and bolt.manual_parts == []
+    counter = coverage.of_card_data(cards.resolve("Counterspell"))
+    # casting is automated, countering a spell isn't (yet)
+    assert counter.level == "PARTIAL" and counter.manual_parts == ["Counter target spell."]
     krenko = coverage.of_card_data(cards.resolve("Krenko, Mob Boss"))
     # casting and combat are automated; its {T} token ability isn't yet
     assert krenko.level == "PARTIAL" and krenko.manual_parts == [
@@ -91,11 +94,11 @@ def test_changed_oracle_text_needs_review(cards):
 
 
 def test_coverage_api(client):
-    bolt = client.get("/api/cards/search?q=Lightning Bolt").json()["results"][0]
+    bolt = client.get("/api/cards/search?q=Counterspell").json()["results"][0]
     res = client.get(f"/api/rules/coverage?card_ids={bolt['id']},nonexistent").json()
     assert res[bolt["id"]]["level"] == "PARTIAL" and "nonexistent" not in res
     by_oracle = client.get(f"/api/rules/coverage?oracle_ids={bolt['oracle_id']}").json()
-    assert by_oracle[bolt["oracle_id"]]["name"] == "Lightning Bolt"
+    assert by_oracle[bolt["oracle_id"]]["name"] == "Counterspell"
     assert "play:land" in client.get("/api/rules/support").json()["features"]
     assert client.get("/api/rules/coverage?card_ids=" + ",".join(["x"] * 300)).status_code == 422
 
@@ -113,7 +116,7 @@ def test_pod_inventory_from_library_and_saved_games(client):
     assert rows["Sol Ring"]["deck_count"] == 2 and rows["Island"]["copies"] == 15 and rows["Island"]["basic_land"]
     assert rows["Lightning Bolt"]["deck_count"] == 2 and rows["Lightning Bolt"]["games"] == 1
     assert report["cards"][0]["deck_count"] == 2  # most-played first
-    assert rows["Lightning Bolt"]["coverage"] == "PARTIAL" and rows["Island"]["coverage"] == "FULL"
+    assert rows["Lightning Bolt"]["coverage"] == "FULL" and rows["Island"]["coverage"] == "FULL"
     assert rows["Sol Ring"]["coverage"] == "FULL"  # cast it, tap it for {C}{C}
     assert report["summary"]["FULL"] >= 2 and 0 < report["weighted_full"] <= 1
     md = client.get("/api/rules/inventory.md").text

@@ -80,17 +80,17 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.5 | Enchant | keyword ability | 1241 | missing |
 | 702.6 | Equip | keyword ability | 601 | missing |
 | 702.7 | First Strike | keyword ability | 375 | supported |
-| 702.8 | Flash | keyword ability | 608 | missing |
+| 702.8 | Flash | keyword ability | 608 | supported |
 | 702.9 | Flying | keyword ability | 3164 | supported |
 | 702.10 | Haste | keyword ability | 640 | supported |
-| 702.11 | Hexproof | keyword ability | 92 | missing |
+| 702.11 | Hexproof | keyword ability | 92 | supported |
 | 702.12 | Indestructible | keyword ability | 111 | supported |
 | 702.13 | Intimidate | keyword ability | 23 | missing |
 | 702.14 | Landwalk | keyword ability | 128 | missing |
 | 702.15 | Lifelink | keyword ability | 362 | supported |
 | 702.16 | Protection | keyword ability | 193 | missing |
 | 702.17 | Reach | keyword ability | 424 | supported |
-| 702.18 | Shroud | keyword ability | 35 | missing |
+| 702.18 | Shroud | keyword ability | 35 | supported |
 | 702.19 | Trample | keyword ability | 994 | supported |
 | 702.20 | Vigilance | keyword ability | 727 | supported |
 | 702.21 | Ward | keyword ability | 192 | missing |

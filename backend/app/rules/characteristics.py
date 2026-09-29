@@ -46,6 +46,10 @@ class Characteristics:
     oracle_id: str | None = None
     face_down: bool = False
     is_ability: bool = False  # an ability object on the stack
+    # Derived by app.rules.layers (never printed): current power/toughness, keywords gained/lost.
+    pt: tuple[int, int] | None = None
+    granted: frozenset[str] = frozenset()
+    lost: frozenset[str] = frozenset()
 
     @property
     def is_land(self) -> bool:
@@ -65,7 +69,8 @@ class Characteristics:
 
     @property
     def keywords(self) -> frozenset[str]:
-        return frozenset(k for a in self.abilities if a.kind == "keywords" for k in a.keywords)
+        printed = frozenset(k for a in self.abilities if a.kind == "keywords" for k in a.keywords)
+        return (printed | self.granted) - self.lost
 
     @property
     def has_flash(self) -> bool:

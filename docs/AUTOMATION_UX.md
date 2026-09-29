@@ -128,16 +128,19 @@ used only when no other legal payment exists).
 
 Not yet: detecting strategically different payments to force a confirmation in AUTO.
 
-## Smart prompting and optional effects — engine model built, effects in M16
+## Smart prompting and optional effects — built for templated effects
 
 - A single deterministic result is performed without asking.
 - Real choices are asked (target, mode, private filtered search, color).
 - Optional "may" effects get a compact YES/NO; declining is recorded, never nagged.
 - Mandatory vs optional is part of the effect model: mandatory deterministic → automatic;
   mandatory with a choice → ask the choice; optional → ask whether.
-- AUTO RESOLVE OWN TRIGGERS: OFF / SAFE ONLY (default: no targets, no choices, not optional,
-  no hidden choices) / ON, and AUTO ORDER IDENTICAL TRIGGERS are stored per player now and
-  apply once triggers exist (M16).
+- Triggered abilities go on the stack automatically (FULL) or after one confirmation listing
+  them (ASSISTED: "Triggered: Alpha, Beta [PUT ON THE STACK] [BY HAND]"). Several of your own
+  triggers at once: a private ORDER choice, skipped when they are identical and AUTO ORDER
+  IDENTICAL TRIGGERS is on. APNAP order across players is decided by the engine.
+- AUTO RESOLVE OWN TRIGGERS: OFF / SAFE ONLY / ON is stored per player; today your own triggers
+  already resolve without a stop unless you have a response (RESPONSE AUTO).
 
 ## Repeat a combo — built
 

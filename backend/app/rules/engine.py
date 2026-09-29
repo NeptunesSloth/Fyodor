@@ -25,7 +25,7 @@ from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.rules_state import Decision, DecisionOption, PlayerPrefs, TurnCount, Yield
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import casting, combat, coverage, reconcile, sba
+from app.rules import casting, combat, coverage, effects, layers, reconcile, sba, scripts, triggers
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.leave import leave_game
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
@@ -116,11 +116,13 @@ def absorb_manual_events(plan: Plan) -> None:
 
 
 def settle(plan: Plan) -> None:
-    """After every intent: state-based actions, and make sure someone can act."""
+    """After every intent: state-based actions, triggered abilities, and make sure someone can act."""
     sba.check(plan)
     r = plan.rules
     if r.decision is None and len(plan.live()) > 1 and (r.priority is None or r.priority not in plan.live()):
         advance(plan)
+    elif r.decision is None and len(plan.live()) > 1 and triggers.flush(plan) and r.decision is None:
+        advance(plan)  # e.g. a land's "enters" trigger: on the stack now, then priority as usual
 
 
 def sync_step(plan: Plan) -> None:
@@ -319,6 +321,12 @@ def advance(plan: Plan) -> None:
         sba.check(plan)  # before anyone gets priority (rule 117.5)
         if r.decision is not None:
             return
+        stack_now = set(plan.state.zones.get(STACK, []))
+        r.stack = {k: v for k, v in r.stack.items() if k in stack_now}  # (objects removed by hand)
+        if triggers.flush(plan):  # triggered abilities go on the stack now (603.3)
+            if r.decision is not None:
+                return
+            continue
         players = plan.live()
         if len(players) <= 1:
             r.priority = players[0] if players else None  # game over: the table stays a sandbox
@@ -421,6 +429,8 @@ def on_step_start(plan: Plan) -> None:
             plan.note(f"{plan.name(ap)} can't draw: their library is empty")
         else:
             plan.do({"type": "draw", "player": ap, "count": 1}, actor=ap)
+    elif phase in ("upkeep", "end"):
+        triggers.at_step(plan, "upkeep_you" if phase == "upkeep" else "end_step_you")
     elif phase == "declare_attackers":
         combat.start_declare_attackers(plan)
     elif phase == "declare_blockers":
@@ -477,8 +487,14 @@ def cleanup_step(plan: Plan) -> None:
 
 
 def finish_cleanup(plan: Plan) -> None:
+    """514.2: damage is removed and "until end of turn" effects end, simultaneously."""
     if any(c.damage for c in plan.state.cards.values()):
         plan.do({"type": "cleanup", "what": ["damage"]}, actor=plan.active)
+    if plan.rules.effects:
+        layers.end_of_turn(plan)
+    for card in list(plan.state.cards.values()):
+        for marker in [m for m in card.effects if m.text == "until end of turn"]:
+            plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
     # Cleanup normally grants no priority: the turn ends (triggers during cleanup arrive in M16).
     start_next_turn(plan)
 
@@ -499,13 +515,24 @@ def needs_manual_resolution(ch: Characteristics) -> bool:
     )
 
 
+def enters_tapped(ch: Characteristics) -> bool:
+    return any(d["kind"] == "replacement" and d.get("replacement") == "enters_tapped" for d in scripts.definitions(ch).values())
+
+
 def resolve_top_of_stack(plan: Plan) -> None:
     top_id = plan.state.zones[STACK][-1]
     top = plan.state.cards[top_id]
+    entry = plan.rules.stack.get(top_id)
+    if entry is not None:
+        effects.begin_resolution(plan, top_id, entry)  # an automated spell or ability
+        return
     ch = plan.ch(top)
     controller = top.controller if top.controller in plan.live() else plan.active
-    manual = needs_manual_resolution(ch) or plan.manual(top)  # right-click → Automation → Manual
-    plan.do({"type": "resolve_top", "force": True}, actor=controller)
+    # An instant, sorcery or ability the engine didn't put on the stack (moved there by hand) has
+    # no recorded targets or choices: its controller resolves it by hand.
+    manual = ch.is_instant_or_sorcery or ch.is_ability or needs_manual_resolution(ch) or plan.manual(top)
+    tapped = ch.is_permanent_card and not manual and enters_tapped(ch)
+    plan.do({"type": "resolve_top", "force": True, "tapped": tapped}, actor=controller)
     entered = plan.state.cards.get(top_id)
     if entered is not None and entered.zone.endswith(":battlefield") and "Planeswalker" in ch.types:
         loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else 0
@@ -569,7 +596,8 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         raise ActionError(problem)
     if a.face is not None and a.face != card.face:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
-    payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"}}
+    payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"},
+                               "tapped": not plan.manual(card) and enters_tapped(plan.ch(probe))}
     if a.x is not None and a.y is not None:
         payload.update(x=a.x, y=a.y)
     plan.do(payload)
@@ -745,6 +773,13 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "sba_confirm": sba.resume_confirm,
     "reconcile": reconcile.resume_reconcile,
     "payment": casting.resume_payment,
+    "look": effects.resume_look,
+    "order_library": effects.resume_order_library,
+    "may": effects.resume_may,
+    "order_triggers": triggers.resume_order,
+    "trigger_target": triggers.resume_target,
+    "trigger_confirm": triggers.resume_confirm,
+    "cast_target": casting.resume_target,
     "payment_sources": casting.resume_payment_sources,
     "cleanup_discard": _resume_cleanup_discard,
     "mana_ability": casting.resume_mana_ability,

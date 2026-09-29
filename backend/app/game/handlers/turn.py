@@ -161,6 +161,8 @@ def resolve_top(state: GameState, a: A.ResolveTop) -> None:
     if a.r and top.id in a.r.positions:
         x, y = a.r.positions[top.id]
     ops.move_card(state, top, dest, x=x, y=y)
+    if a.tapped and dest.endswith(":battlefield"):
+        top.tapped = True
     log(state, a.actor, a.ts, [text("Resolved "), part, text(f" → {ops.zone_label(state, dest, top.owner)}")])
 
 

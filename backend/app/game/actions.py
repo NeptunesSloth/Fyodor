@@ -76,6 +76,7 @@ class Move(Base):
     y: Coord | None = None
     face_down: bool | None = None
     face_down_kind: FaceDownKind | None = None  # morph / disguise / manifest / cloak …
+    tapped: bool = False  # enters the battlefield tapped (a replacement effect, not a tap afterwards)
     r: MoveData | None = None
 
 
@@ -680,6 +681,7 @@ class ResolveTop(Base):
     type: Literal["resolve_top"] = "resolve_top"
     r: MoveData | None = None
     force: bool = False
+    tapped: bool = False  # a permanent spell that enters tapped
 
 
 # --- response helper -----------------------------------------------------------------
@@ -1051,6 +1053,7 @@ class RulesDamage(Base):
     planeswalkers: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # loyalty removed
     lifelink: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # life gained
     first_strike: bool = False
+    combat: bool = True  # False: damage from a spell or ability
     dealt: list[DamageDealt] = Field(default_factory=list, max_length=500)  # who dealt what to whom (events)
 
 

@@ -89,7 +89,7 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
     # damage is dealt simultaneously (one event batch).
     for d in a.dealt:
         emit(state, "damage", object_id=d.target_object, card=d.target if d.target in state.cards else None,
-             player=d.target if d.target in state.players else None, source=d.source, amount=d.amount, combat=True)
+             player=d.target if d.target in state.players else None, source=d.source, amount=d.amount, combat=a.combat)
     hurt = []
     for cid, n in a.creatures.items():
         card = ops.card(state, cid)
@@ -111,7 +111,7 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
         change_life(state, pid, state.players[pid].life - n)
     for pid, n in a.lifelink.items():
         change_life(state, pid, state.players[pid].life + n)
-    parts = [text("First-strike combat damage: " if a.first_strike else "Combat damage: ")]
+    parts = [text("First-strike combat damage: " if a.first_strike else "Combat damage: " if a.combat else "Damage: ")]
     pieces: list[list[LogPart]] = [[ops.pname(state, pid), text(f" takes {n}")] for pid, n in a.players.items()]
     if hurt:
         pieces.append([ops.group(state, hurt), text(" dealt damage")])

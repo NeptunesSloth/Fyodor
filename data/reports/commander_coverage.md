@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 37 · PARTIAL: 3464 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 48 · PARTIAL: 3453 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -223,9 +223,9 @@ Color identity R
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Indestructible
+- ✓ {2}{R}: Creatures you control get +1/+0 until end of turn.
 - ✗ As long as your devotion to red is less than five, Purphoros isn't a creature.
 - ✗ Whenever another creature you control enters, Purphoros deals 2 damage to each opponent.
-- ✗ {2}{R}: Creatures you control get +1/+0 until end of turn.
 
 ### Sheoldred, Whispering One — PARTIAL
 
@@ -768,7 +768,7 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
-- ✗ {B}, Pay 2 life: Target creature gets -1/-1 until end of turn.
+- ✓ {B}, Pay 2 life: Target creature gets -1/-1 until end of turn.
 - ✗ Whenever you lose life, draw that many cards.
 
 ### Skrelv, Defector Mite — PARTIAL
@@ -936,8 +936,8 @@ Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Flash
 - ✓ Flying
-- ✗ Flash
 - ✗ You may cast colorless spells and artifact spells as though they had flash.
 - ✗ Whenever you cast a spell, if the amount of mana spent to cast that spell is greater than Liberator's power, put a +1/+1 counter on Liberator.
 
@@ -958,9 +958,9 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Flash
 - ✓ Flying
 - ✓ Vigilance
-- ✗ Flash
 - ✗ When Wan Shi Tong enters, put X +1/+1 counters on him. Then draw half X cards, rounded down.
 - ✗ Whenever an opponent searches their library, put a +1/+1 counter on Wan Shi Tong and draw a card.
 
@@ -1401,8 +1401,8 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Flash
 - ✓ Flying
-- ✗ Flash
 - ✗ Whenever Malcolm deals combat damage to a player, put a chorus counter on it. Draw a card, then discard a card. If there are four or more chorus counters on Malcolm, you may cast the discarded card without paying its mana cost.
 
 ### Kozilek, the Great Distortion — PARTIAL
@@ -1473,7 +1473,7 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Flash
+- ✓ Flash
 - ✗ Whenever Phelia attacks, exile up to one other target nonland permanent. At the beginning of the next end step, return that card to the battlefield under its owner's control. If it entered under your control, put a +1/+1 counter on Phelia.
 
 ### Surrak and Goreclaw — PARTIAL
@@ -1616,8 +1616,8 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Flash
-- ✗ At the beginning of your end step, draw seven cards.
+- ✓ Flash
+- ✓ At the beginning of your end step, draw seven cards.
 - ✗ Each opponent's maximum hand size is reduced by seven.
 
 ### Massacre Girl — PARTIAL
@@ -1794,10 +1794,10 @@ Color identity WRG
 - ✓ Reach
 - ✓ Vigilance
 - ✓ Trample
+- ✓ {2}{R}: Zacama deals 3 damage to target creature.
+- ✓ {2}{G}: Destroy target artifact or enchantment.
+- ✓ {2}{W}: You gain 3 life.
 - ✗ When Zacama enters, if you cast it, untap all lands you control.
-- ✗ {2}{R}: Zacama deals 3 damage to target creature.
-- ✗ {2}{G}: Destroy target artifact or enchantment.
-- ✗ {2}{W}: You gain 3 life.
 
 ### Kami of the Crescent Moon — PARTIAL
 
@@ -2037,7 +2037,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Flash
+- ✓ Flash
 - ✗ When Venser enters, return target spell or permanent to its owner's hand.
 
 ### Mikaeus, the Lunarch — PARTIAL
@@ -2080,8 +2080,8 @@ Color identity U
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Indestructible
+- ✓ At the beginning of your upkeep, scry 1.
 - ✗ As long as your devotion to blue is less than five, Thassa isn't a creature.
-- ✗ At the beginning of your upkeep, scry 1.
 - ✗ {1}{U}: Target creature you control can't be blocked this turn.
 
 ### Gix, Yawgmoth Praetor — PARTIAL

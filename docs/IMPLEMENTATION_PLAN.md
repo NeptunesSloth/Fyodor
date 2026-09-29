@@ -317,9 +317,21 @@ Reusable Magic semantics, researched against the current Comprehensive Rules.
 - **REPEAT LAST VALIDATED SEQUENCE** (N times or until a condition), every iteration through
   the engine.
 
-**Next, in order:** trigger engine (APNAP, may-triggers, delayed/reflexive, LKI-based dies
-triggers, ordering decisions) on top of the event batches; effect primitives and selectors
-(targets checked on cast and on resolution); the cost pipeline (alternative/additional costs,
+**Built (M16b):** the trigger engine on the event batches (enters / dies / leaves the
+battlefield with last known information / upkeep / end step / attacks; 603.3 timing; APNAP
+with a private ORDER decision and AUTO ORDER IDENTICAL TRIGGERS; targets when put on the stack;
+"may" on resolution with remembered answers; ASSISTED confirmation); target selectors with
+hexproof/shroud, checked on cast and on resolution (608.2b); effect primitives (draw, life,
+noncombat damage events with lifelink/deathtouch, pump/grant as continuous effects, destroy,
+exile, bounce, tap/untap, scry/surveil with private choices and ordering, player counters);
+continuous effects with layers 6 and 7a–d, timestamps, locked affected sets, end at cleanup;
+"enters tapped" as a replacement; the Oracle template library (`app/rules/scripts.py`) that
+turns exact wordings into declarative definitions; flash. Commander FULL coverage went from
+921 to 2,434 cards.
+
+**Next, in order:** more templates by the ranked queue (mana-ability wordings, cycling,
+protection, regenerate, "can't block", "whenever another …" triggers, intervening-if); token
+creation and counters primitives (with doubling/replacement); the cost pipeline (alternative/additional costs,
 increases/reductions, Convoke/Delve/Improvise); cast/play permissions (Flashback, Escape,
 Foretell, Adventure, cast from exile, …) and restrictions; linked abilities ("exiled with");
 continuous effects with the full layer system, timestamps and dependencies; replacement and

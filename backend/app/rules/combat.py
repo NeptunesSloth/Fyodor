@@ -133,6 +133,9 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         for target, ids in by_target.items():
             kind = "player" if target in plan.state.players else "card"
             plan.do({"type": "attack", "card_ids": ids, "target": {"kind": kind, "id": target}})
+        from app.rules import triggers  # triggers → plan; imported late
+
+        triggers.attacked(plan, [plan.state.cards[x.card_id] for x in a.attackers])
     r.priority = plan.active
     r.passed = []
     advance(plan)

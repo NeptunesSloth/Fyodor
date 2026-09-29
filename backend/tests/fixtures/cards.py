@@ -115,4 +115,17 @@ def fixture_cards() -> list[dict[str, Any]]:
              ]),
         TREASURE,
         GOBLIN,
+        # --- M16 effect scenarios (current Oracle text) ---
+        card("Elvish Visionary", set_code="tst", number="E1", mana_cost="{1}{G}", cmc=2.0, type_line="Creature — Elf Shaman",
+             oracle_text="When this creature enters, draw a card.", power="1", toughness="1", colors=["G"], color_identity=["G"]),
+        card("Thornwood Falls", set_code="tst", number="E2", type_line="Land",
+             oracle_text="This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {G} or {U}.", color_identity=["G", "U"]),
+        card("Murder", set_code="tst", number="E3", mana_cost="{1}{B}{B}", cmc=3.0, type_line="Instant",
+             oracle_text="Destroy target creature.", colors=["B"], color_identity=["B"]),
+        card("Giant Growth", set_code="tst", number="E4", mana_cost="{G}", cmc=1.0, type_line="Instant",
+             oracle_text="Target creature gets +3/+3 until end of turn.", colors=["G"], color_identity=["G"]),
+        card("Perilous Myr", set_code="tst", number="E6", mana_cost="{2}", cmc=2.0, type_line="Artifact Creature — Phyrexian Myr",
+             oracle_text="When this creature dies, it deals 2 damage to any target.", power="1", toughness="1"),
+        card("Ambush Viper", set_code="tst", number="E7", mana_cost="{1}{G}", cmc=2.0, type_line="Creature — Snake",
+             oracle_text="Flash\nDeathtouch", power="2", toughness="1", colors=["G"], color_identity=["G"], keywords=["Flash", "Deathtouch"]),
     ]
