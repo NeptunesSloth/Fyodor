@@ -1,23 +1,31 @@
 # Implementation Plan
 
-Fyodor is an offline-first digital tabletop for Magic: The Gathering for one trusted pod.
-The target is:
+Fyodor is an offline-first digital tabletop for **Commander** (and only Commander), for one
+trusted pod. The target is:
 
-> **Tabletop Simulator-style 3D interaction + MTG Arena-like rules automation + a manual
-> sandbox override + an Archidekt-first pod workflow.**
+> **Tabletop Simulator-style physical 3D Magic + MTG Arena-level rules automation + Master
+> Duel-style response/activation UX + a manual tabletop override + an Archidekt-first pod
+> workflow + offline game-night reliability.**
+>
+> Four people, four Commander decks, one LAN table, and a manual fallback that never
+> prevents us from finishing the game.
 
-- **Today (milestones 1–13):** a complete sandbox. The software runs the table (zones, cards,
-  counters, life, the stack, turn tracking, history, LAN, saves) and the players decide what
-  is legal. This is the **stable foundation**: it is extended, never rewritten, and its
-  tests stay green.
-- **Next (milestones 14–19):** a rules engine underneath the table that automates normal play
-  at roughly Arena's level **for the cards and mechanics we support**. The manual sandbox
-  stays available for everything else.
-  - The rules engine comes first. The 3D renderer is built only after it, on top of the rules
-    intent API (`3D_DIRECTION.md`), and it sends player **intents** rather than mutating
-    state.
-- **Priority:** cards from our own decks (Archidekt imports and saved decks) are automated
-  first.
+- **Milestones 1–15 (stable foundation):** the sandbox table, LAN, privacy, saves and history,
+  Archidekt, pod stats, macros, assets, profiles, mulligans, plus the rules boundary (M14) and
+  the core rules primitives (M15). This is extended, never rewritten, and its tests stay
+  green.
+- **Milestones 16–20:** the rules language (M16), Commander card knowledge researched from the
+  current Comprehensive Rules and the Commander-legal Oracle pool (M17), the digital card game
+  UX (M18), the physical 3D client (M19), and game-night hardening (M20).
+- **Scope:** Commander only. The engine implements the general Magic rules Commander games need
+  (priority, the stack, layers, replacement effects, copies, combat, multiplayer…); card and
+  mechanic coverage only counts **Commander-legal** cards. No other formats, no draft/sealed,
+  no rankings, no spectator product, no judge penalties.
+- **Priority:** our pod decks and commanders first, then reusable mechanics by how many
+  Commander-legal cards they unlock, then the rest of the Commander pool.
+- **Rules are researched, not remembered:** behaviour is checked against the current official
+  Comprehensive Rules (`docs/RULES_RESEARCH.md`), fetched and indexed at development time. The
+  finished app never needs the Internet.
 
 This document is the working plan. Each milestone ends with a commit, passing tests, updated
 docs, and an updated status table.
@@ -50,10 +58,11 @@ docs, and an updated status table.
 | 13 | P3: snapshots + history timeline, profiles/sound/keys/accessibility/perf presets, custom actions (declarative macros), solo tools, portable packages, diagnostics, launcher + first-run, lobby deck checks, full pod regression E2E | ✅ done |
 | 14 | **Rules boundary:** intent protocol, `rules/` package, `RulesState`, decisions, override logging, automation setting, coverage metadata (FULL / PARTIAL / MANUAL), pod card inventory from Archidekt/saved decks | ✅ done |
 | 15 | **Core rules primitives:** mana costs and payment, casting and the stack, activated abilities, state-based actions, combat, commander rules | ✅ done |
-| 16 | **Card effects:** effect primitives, targeting, keywords, triggered and activated abilities, continuous effects (layers), common replacement effects, templated Oracle-text recognition | next |
-| 17 | **Pod coverage:** script the pod's cards by frequency until our decks are mostly FULL; per-deck coverage in the deck view and lobby | planned |
-| 18 | **Rules-aware client (2D first):** playable highlights, prompts, stops and auto-pass, override affordances | planned |
-| 19 | **3D table** (three.js) on the intent API, then **tabletop toys** (dice objects, bags incl. a hidden draw bag) | planned — see `3D_DIRECTION.md` |
+| 16 | **Rules language:** events and event batches, object identity, LKI, costs, targeting, choices, triggers, continuous effects and layers, replacement/prevention, permissions/restrictions, copies, effect primitives, multiplayer leaving | in progress — foundations built (see M16) |
+| 17 | **Magic knowledge (Commander-only):** CR research/index/diff tooling, Oracle template library over the Commander-legal pool, mechanic registry, safe generated scripts, Commander + pod coverage | in progress |
+| 18 | **Digital card game UX:** AUTOMATION OFF/ASSISTED/FULL, RESPONSE OFF/AUTO/ON, MANA AUTO/ASK/MANUAL, stops, prompts, stack helper, highlights, auto-yields, reconciliation | engine side built; client next |
+| 19 | **Physical client:** three.js table, physical cards, camera, hands, playmats, dice/cannon/bags, 2D fallback | planned — see `3D_DIRECTION.md` |
+| 20 | **Game-night hardening:** crash recovery, durable autosave, idempotent actions, backups, DB recovery, offline test, long sessions, device soak | planned — see `GAME_NIGHT_RECOVERY.md` |
 
 The history model (M7) and hidden-information views (M8) shape the engine itself, so they
 were built into the engine from Milestone 4. The rules engine follows the same rule: it is
@@ -277,59 +286,96 @@ inventory.
 - **Commander:** the command zone replacement (a choice), commander tax, and commander damage.
 - **Tests:** a scenario test for each rule.
 
-### M16 — Card effects
+### M16 — Rules language
 
-- **Effect primitives:** damage, life, draw, discard, mill, destroy, exile, bounce,
-  reanimate, tokens, counters, pump until end of turn, tap/untap, sacrifice, search library
-  (reusing the private search view), gain control, copy, and add mana.
-- **Targeting:** target filters, legality on cast, and re-checking on resolution (fizzle).
-- **Keywords** as reusable static and triggered abilities.
-- **Abilities:** triggered abilities (ETB, dies, attacks, upkeep, cast, damage) with APNAP
-  ordering decisions; activated abilities with costs (tap, mana, sacrifice, remove counters,
-  loyalty).
-- **Continuous effects** with durations, applied in layer order: control, text, type, color,
-  abilities, P/T sublayers.
-- **Common replacement effects:** "enters tapped", "if it would die, exile it instead", and
-  prevention.
-- **Templated Oracle-text recognition** that proposes scripts for common wordings. Every
-  proposed script needs review and a test before a card counts as FULL.
+Reusable Magic semantics, researched against the current Comprehensive Rules.
 
-### M17 — Pod coverage
+**Built (this branch):**
 
-- Script the pod's cards in inventory order until our decks are mostly FULL, with PARTIAL
-  cards listing their manual parts.
-- Per-deck coverage appears in the deck view and in the lobby deck summary.
-- A re-import from Archidekt refreshes the coverage report.
+- **Automation levels** OFF / ASSISTED / FULL with per-feature options and presets (CUSTOM
+  when any option differs). OFF keeps the rules state dormant; turning automation back on or
+  resuming **reconciles** with the table and asks what it can't infer (`AUTOMATION_UX.md`).
+- **Rules object identity:** a card changing zones becomes a new rules object
+  (`<card id>.<n>`); a control change doesn't. Once-per-turn and loyalty bookkeeping is per
+  object. Sandbox moves between battlefields keep damage, counters and tapped state.
+- **Last known information:** captured *before* each step for everything on the battlefield
+  or the stack; kept for two turns.
+- **Events and batches:** zone changes (incl. created and ceased objects), damage, life
+  loss/gain, counters, player counters, tap/untap, one batch per applied step. SBA deaths
+  are one simultaneous move. Combat damage records source → recipient damage events
+  separately from the life loss they cause.
+- **Player counters** are generic (poison, energy, experience, rad, tickets, anything).
+- **Leaving the game** (concede or loss): owned objects leave, control effects end, their
+  stack abilities cease, combat against them ends, monarch/initiative pass on, their seat
+  stays as a record.
+- **Payment:** AUTO / ASK / MANUAL, PREFER / NORMAL / SAVE sources, exact-source payment,
+  CANCEL before anything moves. Split cards and adventures cast as the chosen half.
+- **Failure containment:** intents compile on a scratch copy; an unexpected engine error is an
+  AUTOMATION ERROR that changes nothing. **EXPORT RULES SCENARIO** turns it into a fixture.
+- **Script versioning:** scripts record the Oracle hash they were validated against; changed
+  text means PARTIAL + REVIEW NEEDED.
+- **REPEAT LAST VALIDATED SEQUENCE** (N times or until a condition), every iteration through
+  the engine.
 
-### M18 — Rules-aware client (2D board first)
+**Next, in order:** trigger engine (APNAP, may-triggers, delayed/reflexive, LKI-based dies
+triggers, ordering decisions) on top of the event batches; effect primitives and selectors
+(targets checked on cast and on resolution); the cost pipeline (alternative/additional costs,
+increases/reductions, Convoke/Delve/Improvise); cast/play permissions (Flashback, Escape,
+Foretell, Adventure, cast from exile, …) and restrictions; linked abilities ("exiled with");
+continuous effects with the full layer system, timestamps and dependencies; replacement and
+prevention with affected-player choice and re-evaluation; copiable values; turn modification
+(extra turns/combats); WIN_GAME / LOSE_GAME primitives; an SBA audit generated from the CR.
 
-- Playable highlights and prompts (targets, modes, X, payment, attackers and blockers, trigger
-  order), plus the stops and auto-pass settings.
-- A clear "manual override" affordance, and pausing automation for the table.
-- E2E: a scripted two-player game played entirely through intents, and a game that mixes
-  automated and manual play.
+### M17 — Magic knowledge (Commander-only)
 
-### M19 — 3D table, then toys
+- `tools/rules_research`: fetch the official Comprehensive Rules (TXT), store it versioned
+  with metadata and SHA-256, index it into searchable sections, and diff new versions into
+  `data/reports/rules_changes.md` with affected engine components.
+- A template library over the **Commander-legal** Oracle pool (`legalities.commander ==
+  "legal"`): ability segmentation, normalised templates, mapping to tested primitives,
+  declarative generated scripts only where every piece is tested, FULL only with scenario
+  tests. Banned cards are COMMANDER_BANNED and leave the statistics.
+- Commander eligibility (not "legendary = commander") and pairings (Partner, Partner with,
+  Friends forever, Background, Doctor's companion, "can be your commander") derived from the
+  CR and Oracle text; one tested color-identity implementation for deck checks and rules.
+- Reports: `commander_rules_coverage.md/json`, `commander_coverage.md`, the missing-feature
+  queue ranked by pod decks, pod commanders, then Commander cards unlocked. Pod decks move to
+  the front of the queue as soon as their Archidekt URLs are imported.
 
-- The three.js `TableScene` renders the same views and maps gestures to intents (see
-  `3D_DIRECTION.md`). The 2D board remains the fallback.
-- Then tabletop toys: dice objects, a dice tray, token bags, and a hidden draw bag that uses
-  the same per-viewer privacy as libraries.
+### M18 — Digital card game UX
+
+The engine side is built (`AUTOMATION_UX.md`); the client needs the HUD (AUTO / RESP / MANA),
+prompts for every decision kind, the compact STACK helper, restrained legal-action
+highlights, auto-yield controls, the reconciliation list, the per-card automation menu, and
+the AUTOMATION ERROR panel (RESOLVE MANUALLY / PAUSE AUTOMATION / EXPORT RULES SCENARIO).
+
+### M19 — Physical client
+
+The three.js table renders the same per-viewer views and maps gestures to intents
+(`3D_DIRECTION.md`). The 2D table remains a first-class renderer; different players may use
+different renderers in one game. Then dice tray, dice cannon, Bag of Extras and bags with
+server-decided outcomes.
+
+### M20 — Game-night hardening
+
+Crash recovery and seat reclaim, durable autosave after each intent, idempotent client
+actions (`client_action_id` → ACCEPTED / REJECTED / ALREADY_APPLIED), connection states,
+graceful shutdown, pre-migration backups, full install backup/restore, DB recovery mode,
+prebuilt frontend for game night, an offline test and a multi-hour device soak.
 
 ## Deliberately out of scope
 
-Rules automation is now **in scope** (M14–M18): the engine does Arena-level bookkeeping for the
-cards we support, and the players can always take over by hand. Still out of scope:
-
-- **Judge behaviour:** tournament enforcement, penalties, "missed trigger" warnings and nagging
-  reminders. Supported triggers are simply automated. Unsupported ones are resolved by hand,
-  without reminders.
-- **Online and competitive features:** matchmaking, accounts, cloud saves, rankings / ELO /
-  medals, achievements.
-- **Other formats and audiences:** sealed, draft, spectator/caster tooling.
-- **Ecosystem and oversight:** a mod marketplace, anti-cheat, telemetry or analytics.
-- **Code execution:** executing user-supplied or downloaded code. Card scripts are
-  repository code; user behaviour stays declarative macros.
+- **Other formats:** Standard, Modern, Pioneer, Legacy, Vintage, Pauper, Brawl, Oathbreaker,
+  draft, sealed. Card and mechanic work only targets Commander-legal cards (a host setting may
+  allow non-legal cards for house rules; they get no dedicated development).
+- **Judge behaviour:** tournament enforcement, penalties, "missed trigger" warnings. Supported
+  triggers are automated; unsupported ones are resolved by hand, without reminders.
+- **Online and competitive features:** matchmaking, accounts, cloud saves, rankings / ELO.
+- **Spectator/caster product work**, telemetry, analytics, a mod marketplace.
+- **A runtime AI judge:** research tooling may help developers; live outcomes are decided by
+  the deterministic engine only.
+- **Code execution** of user-supplied or downloaded code. Card scripts are repository code or
+  declarative data; user behaviour stays declarative macros.
 
 ## Decisions and defaults (documented so nobody has to ask)
 

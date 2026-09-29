@@ -83,6 +83,14 @@ Rules for the renderer:
   "flip the table" effect are cosmetic. Only the server's view decides where things are.
 - **One gesture module.** `frontend/src/input/intents.ts` maps gestures to intents or sandbox
   actions for both the 2D board and the 3D scene, so behaviour is identical in both views.
+- **Animations never gate input.** RESPOND / STOP / HOLD PRIORITY are sent the moment they are
+  pressed (`set_prefs`, accepted at any time, with or without priority); the server registers
+  them immediately and the scene animates afterwards to catch up. Rules timing never waits for
+  an animation to finish.
+- **Renderer per player.** The 2D table stays a first-class renderer; players in the same
+  authoritative game may use 3D or 2D (weak hardware, no WebGL, preference).
+- **Automation HUD and prompts** come from `view.rules` (status, prefs, decision, hints,
+  reconcile list, failure); see `AUTOMATION_UX.md`.
 
 ## 2. Engine choice
 

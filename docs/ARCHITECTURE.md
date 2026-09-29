@@ -163,10 +163,18 @@ hot-seat "open table" mode only).
 - **Built (M15):** mana abilities and automatic payment, casting, activated and loyalty
   abilities, state-based actions, combat and the commander rules.
   - Code: `mana`, `costs`, `casting`, `sba`, `combat`.
-- **Next (M16+):** card effects (primitives, targeting, triggers, continuous effects) and
-  per-card scripts, in pod-inventory order.
+- **Built (M16 foundations):** automation levels OFF / ASSISTED / FULL with per-feature
+  options, per-player RESPONSE / stops / temporary overrides / remembered answers, MANA
+  AUTO / ASK / MANUAL with source protection, reconciliation after manual play, per-card MANUAL,
+  rules object identity, last known information, event batches, damage events, leaving the
+  game, failure containment, EXPORT RULES SCENARIO, script Oracle hashes, REPEAT LAST
+  VALIDATED SEQUENCE. See `AUTOMATION_UX.md`.
+  - Code: `reconcile`, `leave`, `scenario`, `research`, plus the models in `rules_state`.
+- **Next (M16):** triggers, effect primitives and selectors, the cost pipeline, permissions
+  and restrictions, linked abilities, continuous effects and layers, replacement/prevention,
+  copies (`IMPLEMENTATION_PLAN.md#m16--rules-language`).
 - **Code:** `app/rules/` (`engine`, `view`, `characteristics`, `oracle`, `coverage`,
-  `inventory`, `cards/`) plus `app/game/rules_state.py` (data) and
+  `inventory`, `cards/`, …) plus `app/game/rules_state.py` (data) and
   `app/game/handlers/rules.py` (pure replay).
 
 The goal is Arena-level automation of normal play **for the cards and mechanics we support**,
@@ -200,8 +208,10 @@ attack: it came under your control this turn") and offers the manual override.
 
 ### Where rules state lives
 
-`GameState.rules: RulesState | None`. It is `None` when automation is off, so every
-existing game, save and test behaves exactly as today.
+`GameState.rules: RulesState | None`. It is `None` for tables that never had automation, so
+those games, saves and tests behave exactly as before. Turning automation OFF keeps it
+**dormant** (still tracked, not shown); turning it back on or resuming from PAUSE runs
+`rules/reconcile` before the engine acts again.
 
 - **The table stays the source of truth for physical facts:** zone, tapped, counters, damage,
   attachments, control, life. Rules state holds only what the table can't show:
@@ -215,6 +225,26 @@ existing game, save and test behaves exactly as today.
   controller are computed on demand from printed data plus continuous effects, in layer order
   (`rules/characteristics`). A manual override (say, moving a card or adding a counter) is
   simply picked up by the next computation; nothing goes out of sync.
+
+### Objects, last known information and events
+
+- **Physical card vs rules object.** A `CardInstance` keeps its id for rendering and history;
+  its rules object is `rules.object_id(card)` = `"<card id>.<n>"`, and `n` changes whenever the
+  card changes zones (a control change is not a zone change). Per-object bookkeeping
+  (once-per-turn, loyalty, stop-after, damage sources) uses object ids, so a flickered
+  permanent is a new object with no memory of the old one.
+- **Capture → apply → track.** Before every applied step (sandbox action, or each step of an
+  intent) `rules_state.capture` snapshots the zones and everything on the battlefield and the
+  stack (in memory only). After the step, `track` compares: zone changes get new object ids,
+  the old object's snapshot becomes its **last known information** (`rules.lki`, kept for
+  two turns), and the step's **events** (zone changes incl. created/ceased objects, counters,
+  player counters, taps) are recorded with one shared **batch** number. Handlers add what a
+  diff can't see: `rules_damage` emits damage events (source object → recipient), and
+  `change_life` emits life loss/gain, so damage and life loss are separate events.
+- **Simultaneity.** State-based actions move all dying permanents in one step (one batch);
+  combat damage is one step.
+- Events are consumed by the next intent (M16's trigger collector); manual events are first
+  taken in by the engine (a land put onto the battlefield by hand counts as the land drop).
 
 ### Determinism, history and replay
 
@@ -248,9 +278,12 @@ choosing a replacement effect) it stores a single pending `Decision` addressed t
 
 ### Priority and stops
 
-- The engine grants priority and waits for `pass_priority`.
-- Each player has Arena-style **stops** per step, auto-pass when they have no legal play, and a
-  "full control" toggle. These are player preferences stored in the table settings.
+- The engine grants priority and waits for `pass_priority` (optionally `until` a condition).
+- `engine.is_stop` decides whether the engine passes *for* a player: forced stops, then HOLD
+  AFTER THIS RESOLVES, then PASS UNTIL …, then FULL CONTROL / RESPONSE ON, then RESPONSE AUTO
+  (stops + real responses + optional bluff stops) or OFF. Preferences live in
+  `rules.prefs[player]` and are changed with `set_prefs`, which is accepted at any time.
+- Auto-passes are indistinguishable from passes; nothing reveals why someone passed.
 - With automation off, the existing response helper stays as the lightweight fallback.
 
 ### Card behaviour and coverage
