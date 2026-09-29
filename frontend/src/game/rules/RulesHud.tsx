@@ -432,11 +432,22 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
         <button key={o.id} className={`tt-btn ${picked.includes(o.id) ? "on" : "ghost"}`} data-testid={`option-${o.id}`}
           onClick={() => toggle(o.id)}>{optionLabel(o, view)}</button>
       ))}
-      <button className="tt-btn brass" data-testid="decision-done" disabled={picked.length < min || picked.length > max} onClick={() => done(picked)}>
-        Done{max > 1 ? ` (${picked.length})` : ""}
+      <button className="tt-btn brass" data-testid="decision-done" disabled={!canSubmitChoice(picked.length, min, max)} onClick={() => done(picked)}>
+        {doneLabel(picked.length, min, max)}
       </button>
     </div>
   );
+}
+
+/** A choose_cards answer is legal with min..max picks; min 0 lets an EMPTY answer through (a cost
+ * choice's "none to cancel", mana sources "pool only", "up to" choices). */
+export function canSubmitChoice(n: number, min: number, max: number): boolean {
+  return n >= min && n <= max;
+}
+
+export function doneLabel(n: number, min: number, max: number): string {
+  if (n === 0 && min === 0) return "Done (none)";
+  return `Done${max > 1 ? ` (${n})` : ""}`;
 }
 
 function optionLabel(o: DecisionOptionView, view: GameView): string {

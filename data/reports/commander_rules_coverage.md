@@ -1,6 +1,6 @@
 # Commander rules coverage
 
-Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 20:45
+Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 21:07
 
 Only cards that are **legal in Commander today** count. Banned cards (83) are COMMANDER_BANNED and excluded.
 
@@ -10,8 +10,8 @@ Commander-legal cards: **32116**
 
 | Level | Cards | Share |
 |---|---|---|
-| FULL | 8860 | 27.6% |
-| PARTIAL | 23208 | 72.3% |
+| FULL | 8855 | 27.6% |
+| PARTIAL | 23213 | 72.3% |
 | REVIEW | 0 | 0.0% |
 | MANUAL | 48 | 0.1% |
 
@@ -24,15 +24,15 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 ## Coverage quality
 
 - Ability features (lines, keywords, play/cast/combat) across Commander-legal cards: 113346
-- Automated: 80044 (70.6%) · unrecognized clauses: 33302
+- Automated: 80037 (70.6%) · unrecognized clauses: 33309
 - Oracle text classified (automated, or sorted into a concrete missing capability): 97.4% · unclassified clauses: 2936
-- Distinct missing-capability clusters: 8883
+- Distinct missing-capability clusters: 8884
 
 ## Missing capabilities by category
 
 | Category | Cards affected | Clauses |
 |---|---|---|
-| MISSING EFFECT | 11697 | 13788 |
+| MISSING EFFECT | 11703 | 13795 |
 | MISSING SELECTOR | 3615 | 3823 |
 | MISSING TRIGGER EVENT | 3465 | 3640 |
 | MISSING CONTINUOUS EFFECT | 2818 | 2995 |
@@ -93,7 +93,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 41 | UNSUPPORTED ORACLE PATTERN | Living metal | 13 | 0 | 13 | Optimus Prime, Hero // Optimus Prime, Autobot Leader, Megatron, Tyrant // Megatron, Destructive Force, Jetfire, Ingenious Scientist // Jetfire, Air Guardian |
 | 42 | MISSING RESTRICTION | ~ can't be blocked by creatures … | 12 | 26 | 56 | Lydia Frye, Pompous Gadabout, Ghost of Ramirez DePietro |
 | 43 | MISSING SELECTOR | target equipment | 12 | 16 | 25 | Stolen Uniform, Shagrat, Loot Bearer, Thor, God of Thunder |
-| 44 | UNSUPPORTED ORACLE PATTERN | Power-up — {M}: Put N ±N/±N … | 12 | 13 | 19 | Thanos, the Mad Titan, Shang-Chi, Martial Mentor, Hulk, Gamma Goliath |
+| 44 | UNSUPPORTED ORACLE PATTERN | Power-up — {M}: Put N ±N/±N … | 12 | 12 | 19 | Thanos, the Mad Titan, Shang-Chi, Martial Mentor, Hulk, Gamma Goliath |
 | 45 | MISSING EFFECT | add {m} … | 11 | 40 | 65 | Akki Rockspeaker, Brightstone Ritual, Infernal Plunge |
 | 46 | MISSING EFFECT | exile the top n … | 11 | 20 | 57 | Duplicity, Memorial Vault, Crossover Collaboration |
 | 47 | MISSING SELECTOR | target instant or sorcery card | 11 | 20 | 36 | Ogre Battlecaster, Flood of Recollection, Impulsivity |
@@ -124,7 +124,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 72 | MISSING MECHANIC | companion | 9 | 1 | 9 | Lutri, the Spellchaser, Gyruda, Doom of Depths, Lurrus of the Dream-Den |
 | 73 | UNSUPPORTED ORACLE PATTERN | • ~ deals N damage to … | 9 | 0 | 18 | Arbalest Engineers, Tectonic Giant, Umaro, Raging Yeti |
 | 74 | UNSUPPORTED ORACLE PATTERN | Storied | 9 | 0 | 9 | Balin, Loremaster, Dáin, Lord of the Iron Hills, Ori, Keeper of Songs |
-| 75 | MISSING EFFECT | if you control n … | 8 | 41 | 66 | Dawnhart Wardens, Boundary Lands Ranger, Dispatch |
+| 75 | MISSING EFFECT | if you control n … | 8 | 42 | 67 | Dawnhart Wardens, Boundary Lands Ranger, Dispatch |
 | 76 | MISSING COST | {M}, Discard ~ | 8 | 33 | 57 | Jiwari, the Earth Aflame, Favor of Jukai, Radiant Solar |
 | 77 | MISSING SELECTOR | target creature defending player controls | 8 | 27 | 34 | Fear of Falling, Impetuous Devils, Fiend Binder |
 | 78 | MISSING TRIGGER EVENT | Whenever N creature(s)(s) you control attacks alone | 8 | 19 | 22 | Finest Hour, Black Panther, Claws of Bast, Agents of S.H.I.E.L.D. |
@@ -181,7 +181,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 44 | MISSING EFFECT | it deals n … | 72 | 58 | 3 | Goblin Chainwhirler, Festering Evil, Unsparing Boltcaster |
 | 45 | UNSUPPORTED ORACLE PATTERN | ~ costs {M} less to cast … | 71 | 36 | 19 | Bedlam Reveler, Gargantuan Leech, Hamza, Guardian of Arashin |
 | 46 | MISSING CONTINUOUS EFFECT | ~'s power is equal to the … | 67 | 28 | 15 | Uurg, Spawn of Turg, Snow Villiers, Nethergoyf |
-| 47 | MISSING EFFECT | if you control n … | 66 | 41 | 8 | Dawnhart Wardens, Boundary Lands Ranger, Dispatch |
+| 47 | MISSING EFFECT | if you control n … | 67 | 42 | 8 | Dawnhart Wardens, Boundary Lands Ranger, Dispatch |
 | 48 | MISSING EFFECT | create a n/n colorless … | 66 | 35 | 7 | Karn, Scion of Urza, Stalactite Dagger, Serpent Generator |
 | 49 | MISSING EFFECT | transform ~ … | 65 | 21 | 23 | Ulvenwald Captive // Ulvenwald Abomination, Westvale Abbey // Ormendahl, Profane Prince, Seraph of New Capenna // Seraph of New Phyrexia |
 | 50 | MISSING EFFECT | add {m} … | 65 | 40 | 11 | Akki Rockspeaker, Brightstone Ritual, Infernal Plunge |
@@ -257,12 +257,12 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 
 | Type | FULL | PARTIAL | REVIEW | MANUAL |
 |---|---|---|---|---|
-| Creature | 5520 | 12401 | 0 | 0 |
-| Artifact | 874 | 2719 | 0 | 0 |
+| Creature | 5516 | 12405 | 0 | 0 |
+| Artifact | 873 | 2720 | 0 | 0 |
 | Enchantment | 618 | 3029 | 0 | 0 |
 | Sorcery | 791 | 2777 | 0 | 0 |
 | Instant | 1047 | 2707 | 0 | 0 |
-| Land | 517 | 695 | 0 | 0 |
+| Land | 516 | 696 | 0 | 0 |
 | Planeswalker | 9 | 302 | 0 | 0 |
 | Battle | 0 | 36 | 0 | 0 |
 

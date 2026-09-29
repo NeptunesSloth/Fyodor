@@ -88,6 +88,7 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Conditions: "If …, [effect]", intervening-if triggers (603.4) | 32,116 | 8,025 (25.0%) | 24,043 | 0 | 48 | 293 / 3,501 |
 | Merge: target groups / divided damage and counters (115, 601.2c-d, 608.2b) | 32,116 | 8,240 | | | | 303 / 3,501 |
 | Merge: non-mana cost components ({Q}, sacrifice, discard, exile from graveyard, return, tap others, counters, {10}) and kicker/multikicker (702.33) | 32,116 | 8,852 (27.6%) | 23,216 | 0 | 48 | 341 / 3,501 |
+| Independent-review fixes (intervening-if scope, "other" in event conditions, per-opponent counts, 205.4e) | 32,116 | 8,855 (27.6%) | 23,213 | 0 | 48 | 342 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards

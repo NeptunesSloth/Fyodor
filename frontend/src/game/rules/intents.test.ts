@@ -3,8 +3,8 @@ import { useCardCache } from "../../state/cardCache";
 import { useGame } from "../../state/gameStore";
 import type { CardData } from "../../types/cards";
 import type { GameView } from "../../types/game";
-import { abilityLines, automationOn, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, tapForMana } from "./intents";
-import { legalClass, paidSymbol } from "./RulesHud";
+import { abilityLines, automationOn, choose, divide, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, tapForMana } from "./intents";
+import { canSubmitChoice, doneLabel, legalClass, paidSymbol } from "./RulesHud";
 import { rulesMenu } from "./rulesMenu";
 
 const card = (id: string, zone: string, card_id: string) => ({ id, zone, card_id, name: card_id, owner: "p1", controller: "p1" });
@@ -204,8 +204,84 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "activate_ability", card_id: "eq", ability: 1 }]);
   });
 
+  const item = (items: ReturnType<typeof rulesMenu>, label: string) => {
+    const found = items.find((i) => i !== "separator" && i.label === label);
+    if (!found || found === "separator") throw new Error(`expected ${label}`);
+    return found;
+  };
+
+  it("offers kicker (cast with kicker=1) and multikicker (a count submenu)", () => {
+    const base = view({ ...RULES, hints: { castable: ["k1", "m1"] } });
+    const v = { ...base, cards: { ...base.cards, k1: card("k1", "p1:hand", "burst"), m1: card("m1", "p1:hand", "kraken") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        burst: { id: "burst", name: "Burst Lightning", type_line: "Instant",
+          oracle_text: "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nBurst Lightning deals 2 damage to any target. If this spell was kicked, it deals 4 damage instead." } as CardData,
+        kraken: { id: "kraken", name: "Gnarlid Colony", type_line: "Creature",
+          oracle_text: "Multikicker {1}{G} (You may pay an additional {1}{G} any number of times as you cast this spell.)\nThis enters with a +1/+1 counter on it for each time it was kicked." } as CardData,
+      },
+    });
+    const kick = item(rulesMenu(v.cards.k1!, v, "p1"), "Cast with Kicker {4}");
+    expect(kick.disabled).toBe(false);
+    kick.onClick?.();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "k1", kicker: 1 }]);
+    const multi = item(rulesMenu(v.cards.m1!, v, "p1"), "Cast with Multikicker {1}{G}");
+    expect(multi.submenu?.map((i) => (i === "separator" ? "—" : i.label))).toEqual(
+      ["Kicked ×1", "Kicked ×2", "Kicked ×3", "Kicked ×4", "Kicked ×5", "Kicked ×6"]);
+    const three = multi.submenu?.[2];
+    if (!three || three === "separator") throw new Error("expected ×3");
+    three.onClick?.();
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "m1", kicker: 3 });
+    expect(labels(rulesMenu(v.cards.c2!, v, "p1")).some((l) => /kicker/i.test(l))).toBe(false);  // no kicker line
+  });
+
+  it("offers graveyard-activated abilities (113.6m) only for graveyard costs or server-listed ones", () => {
+    const base = view({ ...RULES, hints: { activatable: [{ card_id: "g1", ability: 1 }] } });
+    const v = { ...base, cards: { ...base.cards, g1: card("g1", "p1:graveyard", "scrounger"), g2: card("g2", "p1:graveyard", "looter"),
+      g3: card("g3", "p1:graveyard", "bloodghast") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        scrounger: { id: "scrounger", name: "Scrapheap Scrounger", type_line: "Creature",
+          oracle_text: "{T}: Mill a card.\n{1}{B}, Exile another creature card from your graveyard, Exile Scrapheap Scrounger from your graveyard: Return Scrapheap Scrounger to the battlefield tapped." } as CardData,
+        bloodghast: { id: "bloodghast", name: "Ghoul", type_line: "Creature",
+          oracle_text: "{2}{B}, Exile this card from your graveyard: Create a 2/2 black Zombie creature token." } as CardData,
+      },
+    });
+    const menu = rulesMenu(v.cards.g1!, v, "p1");
+    const acts = menu.filter((i) => i !== "separator" && i.label.startsWith("Activate:"));
+    expect(acts).toHaveLength(1);  // not the {T} ability
+    const act = acts[0];
+    if (!act || act === "separator") throw new Error("expected Activate");
+    expect(act.disabled).toBe(false);
+    act.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "g1", ability: 1 }]);
+    expect(labels(rulesMenu(v.cards.g2!, v, "p1")).some((l) => l.startsWith("Activate"))).toBe(false);  // looter: no graveyard cost
+    const ghoul = rulesMenu(v.cards.g3!, v, "p1").filter((i) => i !== "separator" && i.label.startsWith("Activate:"));
+    expect(ghoul).toHaveLength(1);  // a graveyard cost, not listed right now: shown disabled
+    expect(ghoul[0] !== "separator" && ghoul[0]?.disabled).toBe(true);
+  });
+
   it("shows nothing about hidden cards", () => {
     const v = view(RULES);
     expect(rulesMenu(v.cards.h!, v, "p1")).toEqual([]);
+  });
+});
+
+describe("decision answers", () => {
+  it("lets an empty answer through when min_choices is 0 (cancel a cost choice)", () => {
+    expect(canSubmitChoice(0, 0, 2)).toBe(true);
+    expect(doneLabel(0, 0, 2)).toBe("Done (none)");
+    expect(canSubmitChoice(0, 1, 1)).toBe(false);
+    expect(canSubmitChoice(3, 0, 2)).toBe(false);
+    expect(doneLabel(2, 0, 2)).toBe("Done (2)");
+    void choose("d1", []);
+    expect(sent).toEqual([{ type: "choose", decision_id: "d1", option_ids: [] }]);
+  });
+
+  it("answers a divide decision with amounts in the options' order and no option ids", () => {
+    void divide("d2", [2, 1]);
+    expect(sent).toEqual([{ type: "choose", decision_id: "d2", option_ids: [], amounts: [2, 1] }]);
   });
 });

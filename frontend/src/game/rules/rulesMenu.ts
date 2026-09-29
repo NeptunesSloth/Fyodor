@@ -4,6 +4,11 @@ import { useCardCache } from "../../state/cardCache";
 import { isVisible, splitZone, type GameCard, type GameView } from "../../types/game";
 import { abilityLines, automationOn, isLand, send, setPrefs } from "./intents";
 
+/** 702.33a / 702.33c: a "Kicker {cost}" or "Multikicker {cost}" keyword line (mana costs only, as the server pays them). */
+const KICKER = /^(?:multi)?kicker (?:\{[^}]+\})+$/i;
+/** Multikicker: how many times to pay (a submenu; more is rare enough to do by hand). */
+export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
+
 export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[] {
   const rules = view.rules;
   if (!rules || !automationOn(view) || !isVisible(card)) return [];
@@ -34,9 +39,31 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     items.push({ label: `Cast with ${buyback}`, disabled: !hints.castable?.includes(card.id),
       onClick: () => void send({ type: "cast_spell", card_id: card.id, buyback: true }) });
   }
+  const kicker = abilityLines(oracle).find((l) => KICKER.test(l));
+  if (mine && (zone === "hand" || zone === "command") && kicker) {
+    const castable = !!hints.castable?.includes(card.id);
+    const cast = (times: number) => () => void send({ type: "cast_spell", card_id: card.id, kicker: times });
+    if (/^multikicker/i.test(kicker)) {
+      // 702.33c: any number of times. The server checks the total cost when it's paid.
+      items.push({ label: `Cast with ${kicker}`, disabled: !castable,
+        submenu: MULTIKICKER_COUNTS.map((n) => ({ label: `Kicked ×${n}`, onClick: cast(n) })) });
+    } else {
+      items.push({ label: `Cast with ${kicker}`, disabled: !castable, onClick: cast(1) });
+    }
+  }
   if (mine && zone === "graveyard") {
     abilityLines(oracle).forEach((line, i) => {
-      if (/^unearth \{/i.test(line)) items.push({ label: line, onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
+      if (/^unearth \{/i.test(line)) {
+        items.push({ label: line, onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
+        return;
+      }
+      // 113.6m: an ability whose cost exiles the card from the graveyard works only there. Offered
+      // when its cost says so or the server lists it; enabled only when the server lists it.
+      const listed = !!hints.activatable?.some((a) => a.card_id === card.id && a.ability === i);
+      const cost = /^([^:"]*):\s/.exec(line)?.[1];
+      if (!listed && !(cost && /\bfrom (?:your|a|its owner's) graveyard\b/i.test(cost))) return;
+      items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !listed,
+        onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
     });
   }
   if (mine && zone === "hand" && morph) {
