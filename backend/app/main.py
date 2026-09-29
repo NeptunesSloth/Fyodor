@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
-from app.api import assets, cards, decks, games, health, macros, pod, rules, tools
+from app.api import assets, backups, cards, decks, games, health, macros, pod, rules, tools
 from app.cards.repository import CardDatabaseUnavailable
 from app.config import Settings, get_settings
 from app.logging_setup import configure_logging
@@ -68,6 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(assets.router, prefix="/api")
     app.include_router(macros.router, prefix="/api")
     app.include_router(tools.router, prefix="/api")
+    app.include_router(backups.router, prefix="/api")
     app.include_router(rules.router, prefix="/api")
     app.add_api_websocket_route("/ws/games/{game_id}", games.game_socket)
 

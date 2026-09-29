@@ -46,6 +46,8 @@ interface GameStore {
   applyLobby: (lobby: LobbyView) => void;
   status: ConnStatus;
   statusDetail: string | null;
+  /** Actions waiting to reach the table (after a dropped connection they are sent again). */
+  outbox: number;
   conn: GameConnection | null;
   /** Local hot-seat: which seat actions are attributed to. */
   actingAs: string | null;
@@ -90,6 +92,7 @@ export const useGame = create<GameStore>((set, get) => ({
   lobby: null,
   status: "closed",
   statusDetail: null,
+  outbox: 0,
   conn: null,
   actingAs: null,
   selection: [],
@@ -140,6 +143,7 @@ export const useGame = create<GameStore>((set, get) => ({
       onLobby: (lobby) => get().applyLobby(lobby),
       onStatus: (status, detail) => set({ status, statusDetail: detail ?? null }),
       onClosedByServer: (reason) => set({ status: "closed", statusDetail: reason }),
+      onOutbox: (count) => set({ outbox: count }),
     });
     set({ gameId, conn, view: null, lobby: null, selection: [], browser: null, dialog: null, actingAs: null });
     conn.connect();
@@ -155,7 +159,7 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!conn || !view) return false;
     const as = view.game.mode === "local" ? actingAs ?? undefined : undefined;
     try {
-      await conn.request({ type: "action", action, as });
+      await conn.requestAction({ type: "action", action, as });
       return true;
     } catch (e) {
       set({ pendingPositions: {} });

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sqlite3
 import threading
 from collections.abc import Callable
 from typing import Any
@@ -15,22 +16,59 @@ from app.cards.repository import CardRepository
 from app.config import Settings
 from app.decks import archidekt
 from app.decks.repository import DeckRepository
+from app.game import engine
+from app.game.actions import ACTION_ADAPTER
+from app.game.session import GameSession
 from app.jobs import JobManager
 from app.multiplayer.hub import GameHub, Room
 from app.rules import RulesRegistry
 from app.stats.repository import PodStats
+from app.storage.app_db import MIGRATIONS as APP_MIGRATIONS
 from app.storage.app_db import open_app_db
+from app.storage.backup import (
+    RecoveryInfo,
+    apply_pending_restore,
+    list_backups,
+    pre_migration_backup,
+    quarantine_damaged,
+)
+from app.storage.journal import RoomJournal
 from app.storage.macros import MacroRepository
 from app.storage.saves import SaveRepository
 
 log = logging.getLogger(__name__)
 
 
+def replay_journal(session: GameSession, entries: list[dict[str, Any]]) -> int:
+    """Re-apply journaled changes on top of a checkpoint. Returns how many were applied."""
+    done = 0
+    for entry in entries:
+        kind = entry.get("k")
+        try:
+            if kind == "do":
+                action = ACTION_ADAPTER.validate_python(entry["a"])
+                engine.apply(session.state, action)  # resolved actions replay exactly (randomness included)
+                session.history.record(action, session.state)
+            elif kind == "undo":
+                session.state, _ = session.history.undo()
+            elif kind == "redo":
+                session.state, _ = session.history.redo(session.state)
+            else:
+                break
+        except Exception:  # noqa: BLE001 - keep everything up to the last good change
+            log.exception("Journal replay stopped at entry %d", done + 1)
+            session.state = session.history.rebuild()
+            break
+        done += 1
+    return done
+
+
 class Services:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         settings.ensure_dirs()
-        self.app_db = open_app_db(settings.app_db_path)
+        self.recovery: RecoveryInfo | None = None
+        self.app_db = self._open_app_db()
         self.app_db_lock = threading.RLock()
         self.decks = DeckRepository(self.app_db, self.app_db_lock)
         self.images = ImageStore(settings.images_dir)
@@ -39,13 +77,63 @@ class Services:
         self.stats = PodStats(self.app_db, self.app_db_lock)
         self.macros = MacroRepository(self.app_db, self.app_db_lock)
         self.assets = AssetStore(self.app_db, self.app_db_lock, settings.assets_dir)
-        self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every, asset_info=self.asset_info)
+        self.journal = RoomJournal(self.app_db, self.app_db_lock)
+        self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every, asset_info=self.asset_info,
+                           journal=self.journal)
         self.jobs = JobManager()
         self.source_cache: dict[str, tuple[float, Any]] = {}
         self.rules = RulesRegistry()  # no modules ship enabled; see app/rules/__init__.py
         self.assistant: RulesAssistant | None = (
             OllamaAssistant(settings.assistant_url, settings.assistant_model) if settings.assistant_url else None
         )
+        self.recovered: list[dict[str, Any]] = self.recover_rooms()
+
+    def recover_rooms(self) -> list[dict[str, Any]]:
+        """Bring back every table that was live when Fyodor stopped (crash or restart)."""
+        out: list[dict[str, Any]] = []
+        for live in self.journal.live():
+            if live.checkpoint is None:
+                self.journal.forget(live.game_id)  # never checkpointed: nothing to rebuild from
+                continue
+            try:
+                state, history = self.saves.load(live.checkpoint, history_limit=self.settings.history_limit)
+                session = GameSession(state, cards=self.cards, history=history, history_limit=self.settings.history_limit,
+                                      rules=self.rules)
+                snaps = self.saves.extras(live.checkpoint).get("table_snapshots")
+                if isinstance(snaps, list):
+                    session.table_snapshots = [x for x in snaps if isinstance(x, dict) and isinstance(x.get("state"), dict)]
+                replayed = replay_journal(session, live.entries)
+            except Exception:  # noqa: BLE001 - a damaged table must not stop the others from coming back
+                log.exception("Could not recover table %s; its autosaves are still in Saves", live.game_id)
+                self.journal.forget(live.game_id)
+                continue
+            room = self.hub.restore(live.meta, session, live.client_actions)
+            session.notice("Fyodor restarted — the table was restored. Reconnect to take your seat again.")
+            self.autosave(room)  # a fresh checkpoint (compacts the journal)
+            out.append({"game_id": room.id, "name": session.state.name, "replayed": replayed, "entries": len(live.entries)})
+            log.info("Recovered table %s (%s): %d of %d journal entries replayed", room.id, session.state.name,
+                     replayed, len(live.entries))
+        return out
+
+    def _open_app_db(self) -> sqlite3.Connection:
+        """Open app.sqlite: apply a staged restore, back up before migrating, recover if damaged."""
+        path = self.settings.app_db_path
+        if apply_pending_restore(self.settings.data_dir, path, self.settings.assets_dir):
+            log.warning("A backup was restored at start-up")
+        pre_migration_backup(path, len(APP_MIGRATIONS))
+        try:
+            conn = open_app_db(path)
+            check = conn.execute("PRAGMA quick_check").fetchone()[0]
+            if check != "ok":
+                conn.close()
+                raise sqlite3.DatabaseError(f"integrity check: {check}")
+            return conn
+        except sqlite3.DatabaseError as exc:
+            moved = quarantine_damaged(path)
+            log.error("app.sqlite is damaged (%s); moved to %s and starting in recovery mode", exc, moved)
+            self.recovery = RecoveryInfo(reason=str(exc)[:200], moved_to=moved.name,
+                                         backups=[b["name"] for b in list_backups(self.settings.data_dir)])
+            return open_app_db(path)
 
     def archidekt_fetch(self, deck_id: str) -> dict[str, Any]:
         """Fetch a public Archidekt deck (only called on explicit user action)."""
@@ -97,16 +185,25 @@ class Services:
         if not room.started:
             return  # nothing to save before the host starts the game
         state = room.session.state
-        self.saves.save(state, room.session.history, name=f"{state.name} (autosave)", autosave=True,
-                        extras={"table_snapshots": room.session.table_snapshots})
+        saved = self.saves.save(state, room.session.history, name=f"{state.name} (autosave)", autosave=True,
+                                extras={"table_snapshots": room.session.table_snapshots})
+        if room.id in self.hub.rooms:
+            self.hub.persist(room)
+            self.journal.checkpoint(room.id, saved["id"])
         log.debug("Autosaved game %s at action %d", state.id, state.seq)
 
     def health(self) -> dict[str, object]:
-        return {
+        out: dict[str, object] = {
             "card_database": self.cards.stats(),
             "games_active": len(self.hub.rooms),
             "assistant_enabled": self.assistant is not None,
         }
+        if self.recovery is not None:
+            out["recovery"] = {"reason": self.recovery.reason, "moved_to": self.recovery.moved_to,
+                               "backups": self.recovery.backups}
+        if self.recovered:
+            out["recovered_tables"] = [{"game_id": r["game_id"], "name": r["name"]} for r in self.recovered]
+        return out
 
     def close(self) -> None:
         for room in list(self.hub.rooms.values()):

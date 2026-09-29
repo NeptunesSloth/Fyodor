@@ -376,12 +376,14 @@ Theros, Zendikar; then Kamigawa, Amonkhet, Ixalan, New Phyrexia, Lorwyn). The 2D
 a first-class renderer; different players may use different renderers in one game. Next:
 dice tray, dice cannon, Bag of Extras and bags with server-decided outcomes, token piles.
 
-### M20 — Game-night hardening
+### M20 — Game-night hardening — built (`GAME_NIGHT_RECOVERY.md`)
 
-Crash recovery and seat reclaim, durable autosave after each intent, idempotent client
-actions (`client_action_id` → ACCEPTED / REJECTED / ALREADY_APPLIED), connection states,
-graceful shutdown, pre-migration backups, full install backup/restore, DB recovery mode,
-prebuilt frontend for game night, an offline test and a multi-hour device soak.
+Crash recovery with seat reclaim (room metadata + checkpoint + a journal of every change,
+replayed at start), idempotent client actions (`client_action_id` → ACCEPTED / REJECTED /
+ALREADY_APPLIED, remembered across restarts) with a client outbox that resends after a
+reconnect, connection states with pending actions, graceful shutdown, pre-migration backups,
+BACKUP FYODOR / restore, a DB recovery mode, an offline E2E and a long-session test. Still to
+do: a multi-hour device soak on real game-night hardware.
 
 ## Deliberately out of scope
 

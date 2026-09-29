@@ -73,6 +73,25 @@ export function Home() {
         </div>
         {!showWelcome && <button className="tt-link home-guide" onClick={() => { resetWelcome(); setShowWelcome(true); }}>Setup guide</button>}
       </section>
+      {(health?.recovery || health?.recovered_tables?.length) && (
+        <section className="home-notice frame" data-testid="home-notice">
+          {health.recovery && (
+            <p className="warn">
+              Fyodor's database was damaged, so it started with a fresh one (the damaged file is kept as {health.recovery.moved_to}).{" "}
+              <a href="#/settings">Restore a backup</a>{health.recovery.backups.length ? ` — ${health.recovery.backups.length} available` : ""}.
+            </p>
+          )}
+          {!!health.recovered_tables?.length && (
+            <p>
+              Restored after a restart:{" "}
+              {health.recovered_tables.map((t, i) => (
+                <span key={t.game_id}>{i > 0 && ", "}<a href={`#/game/${t.game_id}`}>{t.name}</a></span>
+              ))}
+              . Players reconnect to their seats automatically.
+            </p>
+          )}
+        </section>
+      )}
       <section className="home-plane">
         <div className="home-plane-row">
           <button className="home-arrow" onClick={() => step(-1)} aria-label="Previous table theme">‹</button>

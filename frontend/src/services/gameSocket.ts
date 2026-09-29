@@ -9,18 +9,35 @@ interface Handlers {
   onLobby: (lobby: LobbyView) => void;
   onStatus: (status: ConnStatus, detail?: string) => void;
   onClosedByServer: (reason: string) => void;
+  /** How many actions are waiting to reach the table (sent again after a reconnect). */
+  onOutbox?: (count: number) => void;
 }
 
 type ServerMessage =
   | { type: "state"; view: GameView; revision?: number; resync?: boolean }
   | { type: "lobby"; lobby: LobbyView }
   | { type: "kicked" }
-  | { type: "ack"; id: number | null }
-  | { type: "error"; id?: number | null; message: string }
+  | { type: "ack"; id: number | null; status?: "ACCEPTED" | "ALREADY_APPLIED" }
+  | { type: "error"; id?: number | null; message: string; status?: "REJECTED" }
   | { type: "pong"; id: number | null }
   | { type: "closed" };
 
 const FATAL_CODES = new Set([4403, 4404]);
+const OUTBOX_TTL = 45000; // an action waits this long for the table to come back
+
+interface Queued {
+  message: Record<string, unknown>;
+  resolve: () => void;
+  reject: (e: Error) => void;
+  deadline: number;
+  wireId: number | null;
+}
+
+export function newClientActionId(): string {
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  return "a" + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
 const RETRY_NOW = 4000; // the host asked this client to reconnect
 
 export class GameConnection {
@@ -30,6 +47,8 @@ export class GameConnection {
   private retry = 0;
   private stopped = false;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  /** Actions with a client_action_id, kept until the server answers (survive reconnects). */
+  private outbox = new Map<string, Queued>();
   /** Last authoritative revision applied (0 = none yet). */
   revision = 0;
 
@@ -53,6 +72,7 @@ export class GameConnection {
       this.retry = 0;
       this.handlers.onStatus("open");
       this.pingTimer = setInterval(() => this.raw({ type: "ping" }), 20000);
+      this.flushOutbox(); // the server applies each queued action once (client_action_id)
     };
     ws.onmessage = (ev) => this.onMessage(ev.data as string);
     ws.onclose = (ev) => {
@@ -73,6 +93,9 @@ export class GameConnection {
   close(): void {
     this.stopped = true;
     this.failPending("Closed");
+    for (const q of this.outbox.values()) q.reject(new Error("Closed"));
+    this.outbox.clear();
+    this.handlers.onOutbox?.(0);
     this.ws?.close();
     this.ws = null;
   }
@@ -102,6 +125,53 @@ export class GameConnection {
       this.pending.set(id, { resolve, reject, timer });
       this.ws.send(JSON.stringify({ ...message, id }));
     });
+  }
+
+  /**
+   * Send a game action safely: it carries a client_action_id, waits in an outbox while the
+   * connection is down and is sent again after a reconnect. The server answers a repeat with
+   * ALREADY_APPLIED, so it is never applied twice.
+   */
+  requestAction(message: Record<string, unknown>): Promise<void> {
+    const cid = newClientActionId();
+    return new Promise<void>((resolve, reject) => {
+      this.outbox.set(cid, { message: { ...message, client_action_id: cid }, resolve, reject, deadline: Date.now() + OUTBOX_TTL, wireId: null });
+      this.handlers.onOutbox?.(this.outbox.size);
+      this.sendQueued(cid);
+    });
+  }
+
+  private sendQueued(cid: string): void {
+    const q = this.outbox.get(cid);
+    if (!q || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    const id = this.nextId++;
+    q.wireId = id;
+    this.ws.send(JSON.stringify({ ...q.message, id }));
+  }
+
+  private flushOutbox(): void {
+    const now = Date.now();
+    for (const [cid, q] of this.outbox) {
+      if (q.deadline < now) {
+        this.outbox.delete(cid);
+        q.reject(new Error("Could not reach the table — the action was not sent"));
+      } else this.sendQueued(cid);
+    }
+    this.handlers.onOutbox?.(this.outbox.size);
+  }
+
+  /** Answer for a queued action (by its wire id): true when it was one of ours. */
+  private settleQueued(id: number | null, error: string | null): boolean {
+    if (id == null) return false;
+    for (const [cid, q] of this.outbox) {
+      if (q.wireId !== id) continue;
+      this.outbox.delete(cid);
+      this.handlers.onOutbox?.(this.outbox.size);
+      if (error) q.reject(new Error(error));
+      else q.resolve();
+      return true;
+    }
+    return false;
   }
 
   private raw(message: Record<string, unknown>): void {
@@ -140,9 +210,10 @@ export class GameConnection {
         this.handlers.onClosedByServer("The host removed you from this table.");
         break;
       case "ack":
-        this.settle(msg.id, null);
+        if (!this.settleQueued(msg.id, null)) this.settle(msg.id, null);
         break;
       case "error":
+        if (this.settleQueued(msg.id ?? null, msg.message)) break;
         if (msg.id != null && this.pending.has(msg.id)) this.settle(msg.id, msg.message);
         else console.warn("Server error:", msg.message);
         break;

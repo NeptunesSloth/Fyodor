@@ -117,6 +117,7 @@ async def _after_action(services: Services, room: Room, action: dict[str, Any]) 
         if pid in room.seats:
             await services.hub.drop_connections(room, pid, code=4403, reason="You left the table")
             room.seats[pid].token = None
+            services.hub.persist(room)
 
 
 def _room(services: Services, game_id: str) -> Room:
@@ -172,10 +173,15 @@ class CreateGameIn(BaseModel):
         return clean_text(v, 80) or "Game"
 
 
+ClientActionId = Annotated[str, Field(min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")]
+
+
 class ActionIn(BaseModel):
     action: dict[str, Any]
     as_player: str | None = Field(default=None, alias="as", max_length=16)
     viewer: str | None = Field(default=None, max_length=32)
+    # Idempotency: a retried action (same id) is applied once and answered ALREADY_APPLIED.
+    client_action_id: ClientActionId | None = None
 
 
 class MetaIn(BaseModel):
@@ -333,17 +339,27 @@ async def post_action(
         raise HTTPException(403, "Spectators cannot act")
     _check_host_only(room, body.action, host=room.is_host(x_seat_token))
     _check_assets(services, body.action)
+    cid = body.client_action_id
     async with room.lock:
+        if cid is not None and cid in room.client_actions:
+            previous = room.client_actions[cid]
+            return {**services.hub.view(room, viewer), "status": "ALREADY_APPLIED", "outcome": previous}
         try:
             room.session.perform(actor, body.action)
         except ValidationError as exc:
+            if cid is not None:
+                services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")
             raise HTTPException(422, _validation_message(exc)) from exc
         except ActionError as exc:
+            if cid is not None:
+                services.hub.remember_action(room, cid, f"REJECTED: {exc}")
             raise HTTPException(409, str(exc)) from exc
+        if cid is not None:
+            services.hub.remember_action(room, cid, "ACCEPTED")
         services.hub.after_change(room)
         await _after_action(services, room, body.action)
     await services.hub.broadcast(room)
-    return services.hub.view(room, viewer)
+    return {**services.hub.view(room, viewer), "status": "ACCEPTED"}
 
 
 @router.post("/games/{game_id}/undo")
@@ -991,6 +1007,7 @@ async def record_result(game_id: str, body: ResultIn, request: Request, services
     except ResultError as exc:
         raise HTTPException(422, str(exc)) from exc
     room.result_id = result["id"]
+    services.hub.persist(room)
     what = {"single": f"{', '.join(result['winners'])} won", "multiple": f"{' and '.join(result['winners'])} won",
             "draw": "a draw", "no_result": "no result (not counted)"}[body.result_type]
     room.session.notice(f"Game over — {what}. Result recorded.")
@@ -1188,6 +1205,7 @@ class WsAction(BaseModel):
     action: dict[str, Any]
     as_player: str | None = Field(default=None, alias="as", max_length=16)
     id: int | None = None
+    client_action_id: ClientActionId | None = None
 
 
 class WsSimple(BaseModel):
@@ -1322,7 +1340,15 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
         except HTTPException as exc:
             await send({"type": "error", "id": msg.id, "message": str(exc.detail)})
             return
+    cid = msg.client_action_id if isinstance(msg, WsAction) else None
     async with room.lock:
+        if cid is not None and cid in room.client_actions:
+            previous = room.client_actions[cid]
+            if previous.startswith("REJECTED"):
+                await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": previous.removeprefix("REJECTED: ")})
+            else:
+                await send({"type": "ack", "id": msg.id, "status": "ALREADY_APPLIED"})
+            return
         try:
             if isinstance(msg, WsAction):
                 room.session.perform(actor, msg.action)
@@ -1331,13 +1357,19 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
             else:
                 room.session.redo(actor)
         except ValidationError as exc:
-            await send({"type": "error", "id": msg.id, "message": _validation_message(exc)})
+            if cid is not None:
+                services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")
+            await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": _validation_message(exc)})
             return
         except ActionError as exc:
-            await send({"type": "error", "id": msg.id, "message": str(exc)})
+            if cid is not None:
+                services.hub.remember_action(room, cid, f"REJECTED: {exc}")
+            await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": str(exc)})
             return
+        if cid is not None:
+            services.hub.remember_action(room, cid, "ACCEPTED")
         services.hub.after_change(room)
     if isinstance(msg, WsAction):
         await _after_action(services, room, msg.action)
-    await send({"type": "ack", "id": msg.id})
+    await send({"type": "ack", "id": msg.id, "status": "ACCEPTED"})
     await services.hub.broadcast(room)

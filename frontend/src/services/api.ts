@@ -58,6 +58,10 @@ export interface Health {
   version: string;
   card_database?: CardDbStats;
   games_active?: number;
+  /** Set when the app database was damaged and Fyodor started with a fresh one. */
+  recovery?: { reason: string; moved_to: string | null; backups: string[] };
+  /** Tables brought back after a crash or restart. */
+  recovered_tables?: { game_id: string; name: string }[];
 }
 
 export interface CardDbStats {

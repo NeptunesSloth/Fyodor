@@ -29,6 +29,7 @@ export function GameScreen() {
   const view = useGame((s) => s.view);
   const status = useGame((s) => s.status);
   const detail = useGame((s) => s.statusDetail);
+  const outbox = useGame((s) => s.outbox);
   const actingAs = useGame((s) => s.actingAs);
   const focus = useGame((s) => s.focus);
   const rendererPref = usePrefs((s) => s.renderer);
@@ -71,7 +72,12 @@ export function GameScreen() {
           {canSeeMyHand && <Hand player={me} me={me} />}
         </main>
       </div>
-      {status !== "open" && <div className="conn-banner">{status === "reconnecting" ? "Connection lost — reconnecting…" : detail ?? status}</div>}
+      {status !== "open" && (
+        <div className={`conn-banner ${status}`} role="status" data-testid="conn-banner">
+          {status === "reconnecting" ? "Connection lost — reconnecting…" : status === "connecting" ? "Connecting to the table…" : detail ?? status}
+          {outbox > 0 && <span className="conn-outbox"> · {outbox} action{outbox === 1 ? "" : "s"} will be sent when the table is back</span>}
+        </div>
+      )}
       <StackWidget me={me} />
       <LogDrawer />
       <ToolTray />
