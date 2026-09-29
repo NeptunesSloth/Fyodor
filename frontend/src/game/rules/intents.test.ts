@@ -4,6 +4,7 @@ import { useGame } from "../../state/gameStore";
 import type { CardData } from "../../types/cards";
 import type { GameView } from "../../types/game";
 import { abilityLines, automationOn, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, tapForMana } from "./intents";
+import { legalClass, paidSymbol } from "./RulesHud";
 import { rulesMenu } from "./rulesMenu";
 
 const card = (id: string, zone: string, card_id: string) => ({ id, zone, card_id, name: card_id, owner: "p1", controller: "p1" });
@@ -107,6 +108,19 @@ describe("automation intents", () => {
       { type: "activate_ability", card_id: "ar", ability: 0, improvise: true },
       { type: "activate_ability", card_id: "f1", ability: 0 },
     ]);
+  });
+
+  it("a committed convoke / improvise / delve card is marked as paying, not tapped, and clicking it again takes it back", () => {
+    const base = view({ ...RULES, options: { highlights: "on" }, decision: { id: "d1", player: "p1", kind: "choose_one", prompt: "Tap mana",
+      display: { kind: "tap_mana", sources: [], convoke: ["cr"], improvise: [], delve: ["g1"], committed: ["cr"] }, options: [] } });
+    const v = { ...base, cards: { ...base.cards, cr: card("cr", "p1:battlefield", "looter"), g1: card("g1", "p1:graveyard", "bolt") } } as unknown as GameView;
+    useGame.setState({ view: v });
+    expect(legalClass(v, "cr", "p1")).toBe("rules-committed");
+    expect(legalClass(v, "g1", "p1")).toBe("rules-mana-source");
+    expect(tapForMana("cr", "p1")).toBe(true);
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "cr", ability: 0, convoke: true }]);
+    expect(paidSymbol("1")).toBe("{1}");
+    expect(paidSymbol("G")).toBe("{G}");
   });
 
   it("splits ability lines without reminder text", () => {

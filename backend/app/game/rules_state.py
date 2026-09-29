@@ -216,6 +216,7 @@ EventKind = Literal[
     "untapped",
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
     "cycled",  # a player cycled a card (702.29: "when you cycle …")
+    "mana_added",  # a mana ability produced mana (106.3, 106.12a); convoke/improvise/delve never do
     "crewed",
     "turned_face_up",  # 702.37e (morph)  # a Vehicle became crewed (702.122)
 ]
@@ -299,6 +300,36 @@ class StackEntry(BaseModel):
     x: int | None = None
 
 
+class CostContribution(BaseModel):
+    """One mana symbol of a spell's total cost paid by something that isn't mana (CR 702.51a
+    convoke, 702.126a improvise, 702.66a delve): which object, and which symbol it paid."""
+
+    kind: Literal["convoke", "improvise", "delve"]
+    card: str = Field(max_length=64)
+    object_id: str = Field(default="", max_length=80)  # the object as it was when used
+    name: str = Field(default="", max_length=200)
+    pays: str = Field(max_length=8)  # "1" (one generic), "G", "W/U", "2/G", "G/P"
+
+
+class PaymentRecord(BaseModel):
+    """How a spell's total cost was paid (601.2f-h), kept for "mana spent to cast it", "if its
+    kicker/alternative cost was paid", "the creatures that convoked it" … Contributions are NOT
+    mana spent (702.51a: "rather than pay that mana")."""
+
+    card: str = Field(max_length=64)
+    controller: str = Field(max_length=64)
+    total_cost: str = Field(default="", max_length=200)  # the locked-in total cost, e.g. "{3}{G}{G}"
+    mana_spent: dict[str, int] = Field(default_factory=dict)  # actual mana, by type (W U B R G C)
+    contributions: list[CostContribution] = Field(default_factory=list)
+    life: int = 0  # life paid (Phyrexian mana, …)
+    tapped: list[str] = Field(default_factory=list)  # permanents tapped for mana while paying (engine-paid)
+    sacrificed: list[str] = Field(default_factory=list)
+    discarded: list[str] = Field(default_factory=list)
+    alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
+    additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
+    x: int | None = None
+
+
 class ReconcileItem(BaseModel):
     """Something the engine can't work out from the table after manual play (see reconcile)."""
 
@@ -377,6 +408,8 @@ class RulesState(BaseModel):
     pending_triggers: list[PendingTrigger] = Field(default_factory=list)
     trigger_batch: int = 0  # last event batch the trigger collector looked at
     stack: dict[str, StackEntry] = Field(default_factory=dict)  # stack card id -> what it does
+    # How each spell was paid for (stack object id -> record); follows the spell onto the battlefield.
+    payments: dict[str, PaymentRecord] = Field(default_factory=dict)
     # Each player's intents this turn, for REPEAT LAST VALIDATED SEQUENCE (payloads, newest last).
     recent: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     recent_turn: int = 0

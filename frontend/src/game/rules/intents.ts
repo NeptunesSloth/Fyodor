@@ -80,14 +80,9 @@ export function tapForMana(cardId: string, seat?: string): boolean {
   const pay = d && d.player === me && d.display?.kind === "tap_mana"
     ? (d.display as { sources?: string[]; convoke?: string[]; improvise?: string[] }) : null;
   if (pay && !pay.sources?.includes(cardId)) {
-    if (pay.convoke?.includes(cardId)) {
-      void send({ type: "activate_ability", card_id: cardId, ability: 0, convoke: true });  // tap it for convoke
-      return true;
-    }
-    if (pay.improvise?.includes(cardId)) {
-      void send({ type: "activate_ability", card_id: cardId, ability: 0, improvise: true });  // tap it for improvise
-      return true;
-    }
+    // Not a mana source: commit it to pay part of the cost (or take it back). No mana is added.
+    if (pay.convoke?.includes(cardId)) return payWith(cardId, "convoke");
+    if (pay.improvise?.includes(cardId)) return payWith(cardId, "improvise");
   }
   const index = manaAbilityIndex(cardId, view);
   if (index == null) return false;
@@ -95,7 +90,15 @@ export function tapForMana(cardId: string, seat?: string): boolean {
   return true;
 }
 
-/** Delve: exile this card from your graveyard to pay {1} (during the payment prompt). */
+/** Convoke / improvise: this creature / artifact pays one symbol of the spell's cost (click again
+ * to take it back). The server taps it only when the whole cost is paid; it never adds mana. */
+export function payWith(cardId: string, kind: "convoke" | "improvise"): boolean {
+  void send({ type: "activate_ability", card_id: cardId, ability: 0, [kind]: true });
+  return true;
+}
+
+/** Delve: this card from your graveyard pays {1} (during the payment prompt; exiled only when the
+ * whole cost is paid; click again to take it back). */
 export function delveCard(cardId: string): boolean {
   const { view, actingAs } = useGame.getState();
   const d = view?.rules?.decision;

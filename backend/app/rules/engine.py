@@ -550,6 +550,9 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
     stack = plan.state.zones.get(STACK, [])
     if stack and stack[-1] == card_id:
         plan.do({"type": "resolve_top", "force": True, "tapped": tapped}, actor=controller)
+        record = plan.rules.payments.pop(oid, None)
+        if record is not None and plan.state.cards[card_id].zone.endswith(":battlefield"):
+            plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
     else:  # (defensive: resolution never adds to the stack today)
         plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "graveyard"}}, actor=controller)
 
