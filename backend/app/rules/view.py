@@ -77,9 +77,14 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
             continue
         printed = chars.of(card, info)
         now = derive(state, card, printed, info)
-        if not now.is_creature:
-            continue
         entry: dict[str, Any] = {}
+        granted = [{"index": a.index, "text": a.text, "kind": a.kind} for a in now.abilities if a.index >= 100]
+        if granted:
+            entry["abilities"] = granted  # granted by other permanents (All Slivers have "…")
+        if not now.is_creature:
+            if entry:
+                out[cid] = entry
+            continue
         if now.pt is not None and (str(now.pt[0]), str(now.pt[1])) != (printed.power, printed.toughness):
             entry["pt"] = list(now.pt)
             entry["base"] = [printed.power, printed.toughness]

@@ -73,8 +73,10 @@ def anthems(state: GameState, info: CardInfo) -> list[tuple[str, str, dict]]:
 
 
 def _anthem_applies(src: str, controller: str, d: dict, card: CardInstance, ch: Characteristics) -> bool:
-    if not ch.is_creature or (d["other"] and src == card.id):
+    if not (ch.is_land if d.get("lands") else ch.is_creature) or (d["other"] and src == card.id):
         return False
+    if d.get("commander"):  # "Commander creatures you own"
+        return card.commander_key is not None and card.owner == controller
     if d["scope"] == "you" and card.controller != controller:
         return False
     if d["scope"] == "opponents" and card.controller == controller:
@@ -92,14 +94,27 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
         return out
     p = t = 0
     kws: set[str] = set()
+    grants: list[str] = []
     for src, controller, d in anthems(state, info):
         if _anthem_applies(src, controller, d, card, out):
             p, t = p + d["p"], t + d["t"]
             kws |= set(d["keywords"])
-    if not (p or t or kws):
+            if d.get("grant"):
+                grants.append(d["grant"])
+    if not (p or t or kws or grants):
         return out
     pt = (out.pt[0] + p, out.pt[1] + t) if out.pt is not None else None
-    return replace(out, pt=pt, granted=out.granted | frozenset(kws))
+    out = replace(out, pt=pt, granted=out.granted | frozenset(kws))
+    if grants:  # layer 6: granted abilities, numbered after the printed ones (100, 101, …)
+        from app.rules.scripts import granted_ability
+
+        extra = []
+        for k, text in enumerate(grants):
+            ab = granted_ability(text)
+            if ab is not None:
+                extra.append(replace(ab, index=100 + k))
+        out = replace(out, abilities=out.abilities + tuple(extra))
+    return out
 
 
 def _derive_resolved(state: GameState, card: CardInstance, ch: Characteristics) -> Characteristics:

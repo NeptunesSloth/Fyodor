@@ -46,6 +46,12 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
       items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !ready,
         onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
     }
+    for (const g of rules.stats?.[card.id]?.abilities ?? []) {
+      if (g.kind !== "activated" && g.kind !== "mana") continue;
+      const ready = g.kind === "mana" || hints.activatable?.some((a) => a.card_id === card.id && a.ability === g.index);
+      items.push({ label: `Activate (granted): ${g.text.length > 50 ? g.text.slice(0, 47) + "…" : g.text}`, disabled: !ready,
+        onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: g.index }) });
+    }
     if (abilities.some(({ line }) => /: Add /.test(line))) {
       const current = rules.prefs?.mana_sources[card.id] ?? "normal";
       items.push({

@@ -141,7 +141,9 @@ def _controls(state: GameState, player: str, what: str, info: CardInfo) -> bool:
 def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list[tuple[int, M.ManaAbility]]:
     """The permanent's mana abilities the engine can carry out right now (options resolved:
     chosen color, lands' mana; conditions, once-per-turn and non-mana costs checked)."""
-    ch = chars.of(card, info)
+    from app.rules.layers import derive
+
+    ch = derive(state, card, chars.of(card, info), info)  # (granted mana abilities: Cryptolith Rite …)
     identity = commander_identity(state, card.controller, info)
     r = state.rules
     out = []
@@ -1141,7 +1143,9 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
         card = state.cards[cid]
         if card.controller != player:
             continue
-        ch = chars.of(card, info)
+        from app.rules.layers import derive
+
+        ch = derive(state, card, chars.of(card, info), info)
         for ab in ch.abilities:
             if ab.kind in ("activated", "loyalty"):
                 problem = ability_problem(state, player, card, ch, ab, ability_cost(ch, ab),

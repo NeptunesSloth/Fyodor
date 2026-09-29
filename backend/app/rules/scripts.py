@@ -29,7 +29,7 @@ from typing import Any
 
 from app.rules.characteristics import Characteristics
 from app.rules.costs import parse_ability_cost
-from app.rules.oracle import AbilityText
+from app.rules.oracle import AbilityText, parse_abilities
 
 Definition = dict[str, Any]
 
@@ -386,15 +386,37 @@ def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | 
 
 
 _ANTHEM = re.compile(
-    r"^(?P<other>Other )?(?:(?P<all>All )|)(?P<who>[Cc]reatures|[Cc]reature tokens|(?P<sub>[A-Z][a-z]+?)(?:s| creatures)?)"
-    r"(?P<scope> you control| your opponents control|)"
-    r" (?:get (?P<p>[+-]\d+)/(?P<t>[+-]\d+)(?: and have (?P<kws1>[a-z ,]+))?|have (?P<kws2>[a-z ,]+))\.$")
+    r"^(?P<other>Other )?(?:(?P<all>All )|)(?P<who>[Cc]reatures|[Cc]reature tokens|Lands|Commander creatures"
+    r"|(?P<sub>[A-Z][a-z]+?)(?:s| creatures)?)"
+    r"(?P<scope> you control| your opponents control| you own|)"
+    r" (?:get (?P<p>[+-]\d+)/(?P<t>[+-]\d+)(?: and have (?P<kws1>[a-z ,]+))?|have (?P<kws2>[a-z ,]+)"
+    r"|have \"(?P<quoted>[^\"]+)\")\.?$")
+
+
+@lru_cache(maxsize=4096)
+def granted_ability(text: str) -> AbilityText | None:
+    """A quoted ability granted by a static ("All Slivers have "…"") if the engine carries it out."""
+    from app.rules.mana import parse_mana_ability
+
+    parsed = parse_abilities(text)
+    if len(parsed) != 1:
+        return None
+    ab = parsed[0]
+    if ab.kind == "mana":
+        return ab if parse_mana_ability(ab.text) is not None else None
+    if ab.kind == "keywords":
+        from app.rules.coverage import SUPPORTED_KEYWORDS
+
+        return ab if set(ab.keywords) <= SUPPORTED_KEYWORDS else None
+    probe = Characteristics(name="\u0000", abilities=(ab,))
+    return ab if define(ab, probe) is not None else None
 
 
 def parse_anthem(text: str) -> Definition | None:
-    """613 static P/T and keyword grants: "Creatures you control get +1/+1.", "Other Elves you
-    control get +1/+1 and have haste.", "Sliver creatures you control have flying.",
-    "All Slivers have first strike.", "Creatures your opponents control get -1/-1."."""
+    """613 static P/T, keyword and ability grants: "Creatures you control get +1/+1.", "Other Elves
+    you control get +1/+1 and have haste.", "All Slivers have "{T}: Add one mana of any color."",
+    "Lands you control have "…"", "Commander creatures you own have "…"", "Creatures your
+    opponents control get -1/-1."."""
     m = _ANTHEM.match(text)
     if not m:
         return None
@@ -409,14 +431,23 @@ def parse_anthem(text: str) -> Definition | None:
             sub = _PLURALS.get(m["who"].lower())
         if sub not in CREATURE_TYPES:
             return None
-    scope = {" you control": "you", " your opponents control": "opponents", "": "all"}[m["scope"]]
+    scope = {" you control": "you", " your opponents control": "opponents", " you own": "own", "": "all"}[m["scope"]]
     if scope == "all" and not m["all"]:
         return None  # "Creatures get …" without "All": not this template
+    commander = m["who"] == "Commander creatures"
+    if commander != (scope == "own"):
+        return None
     kws = [k.strip() for k in re.split(r", and |, | and ", m["kws1"] or m["kws2"] or "") if k.strip()]
     if any(k not in GRANTABLE and k not in ("defender", "shroud", "flash") for k in kws):
         return None
+    grant = None
+    if m["quoted"]:
+        if granted_ability(m["quoted"]) is None:
+            return None
+        grant = m["quoted"]
     return {"kind": "static", "static": "anthem", "effects": [], "other": bool(m["other"]), "scope": scope,
-            "sub": sub, "tokens": m["who"].lower() == "creature tokens",
+            "sub": sub, "tokens": m["who"].lower() == "creature tokens", "lands": m["who"] == "Lands",
+            "commander": commander, "grant": grant,
             "p": int(m["p"]) if m["p"] else 0, "t": int(m["t"]) if m["t"] else 0, "keywords": kws}
 
 

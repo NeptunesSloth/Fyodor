@@ -877,7 +877,7 @@ class TurnFaceUp(_Intent):
 class ActivateAbility(_Intent):
     type: Literal["activate_ability"] = "activate_ability"
     card_id: Id
-    ability: int = Field(ge=0, le=30)  # index into the card's abilities (see app/rules/oracle.py)
+    ability: int = Field(ge=0, le=140)  # index into the card's abilities (app/rules/oracle.py; 100+ = granted)
     targets: list[Id] = Field(default_factory=list, max_length=20)
     x_value: int | None = Field(default=None, ge=0, le=1000)
     mana_choice: Literal["W", "U", "B", "R", "G", "C"] | None = None  # which colour, for "R or G" abilities

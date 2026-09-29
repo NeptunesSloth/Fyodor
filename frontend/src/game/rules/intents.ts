@@ -63,7 +63,9 @@ export function manaAbilityIndex(cardId: string, view: GameView): number | null 
   const i = lines.findIndex((l) => /^[^"]*\{T\}[^"]*: Add /.test(l));
   if (i >= 0) return i;
   const typeLine = face?.type_line ?? data.type_line ?? "";
-  return /\bLand\b/.test(typeLine) && BASIC_TYPES.test(typeLine.split("—")[1] ?? "") ? lines.length : null;
+  if (/\bLand\b/.test(typeLine) && BASIC_TYPES.test(typeLine.split("—")[1] ?? "")) return lines.length;
+  const granted = view.rules?.stats?.[cardId]?.abilities?.find((a) => a.kind === "mana" && /\{T\}/.test(a.text));
+  return granted ? granted.index : null;
 }
 
 /** With automation on, tapping one of your untapped mana sources taps it *for mana* (players

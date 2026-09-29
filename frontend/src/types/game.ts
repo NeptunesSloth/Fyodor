@@ -489,4 +489,6 @@ export interface CardStats {
   gained?: string[];
   lost?: string[];
   creature?: boolean;
+  /** Abilities granted by other permanents (numbered from 100). */
+  abilities?: { index: number; text: string; kind: string }[];
 }
