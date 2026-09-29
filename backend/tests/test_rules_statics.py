@@ -269,3 +269,153 @@ def test_conditions_that_count_the_table_with_other_statics_around(cards):
     act(s, "p2", type="set_controller", card_ids=[dragon.id], player="p2")
     assert "flying" not in ch(s, cards, rider).keywords and ch(s, cards, dragon).pt == (4, 4)
     replay_matches(s)
+
+
+# -- review findings: dependency, granted statics, timestamps, performance -------------------------
+def test_dependent_keyword_grant_on_a_static_keyword(cards):
+    """613.8: Kwende + Knighthood — the double strike static depends on the first strike static."""
+    s = table(cards)
+    creature(s, "p1", "Knighthood", "0/1", "Creatures you control have first strike.")
+    creature(s, "p1", "Kwende", "2/2", "Creatures you control with first strike have double strike.")
+    bear = creature(s, "p1", "Bear", "2/2")
+    turn_on(s)
+    assert {"first strike", "double strike"} <= ch(s, cards, bear).keywords
+
+
+def test_dependent_ability_grant_on_a_static_keyword(cards):
+    """613.8: Frondland Felidar + Serra's Blessing — a granted ability on "creatures with vigilance"."""
+    s = table(cards)
+    creature(s, "p1", "Blessing", "0/1", "Creatures you control have vigilance.")
+    creature(s, "p1", "Felidar", "3/5", 'Creatures you control with vigilance have "{1}, {T}: Tap target creature."')
+    bear = creature(s, "p1", "Bear", "2/2")
+    turn_on(s)
+    now = ch(s, cards, bear)
+    assert "vigilance" in now.keywords
+    assert [a.text for a in now.abilities if a.index >= 100] == ["{1}, {T}: Tap target creature."]
+
+
+def test_granted_static_is_applied(cards):
+    """A static another static grants (Inspiring Leader) works on whatever holds it, while the
+    granting static applies to that holder."""
+    s = table(cards)
+    leader = creature(s, "p1", "Leader", "2/2", 'Creatures you control have "Creature tokens you control get +2/+2."')
+    tok = creature(s, "p1", "Tok", "1/1")
+    turn_on(s)
+    now = ch(s, cards, tok)
+    assert [a.text for a in now.abilities if a.index >= 100] == ["Creature tokens you control get +2/+2."]
+    # every creature Alice controls has the ability, and each one's is its own effect: the Leader's
+    # copy and the Tok's own copy both apply to the Tok (both are creature tokens here)
+    assert now.pt == (5, 5) and ch(s, cards, leader).pt == (6, 6)
+    act(s, "p2", type="set_controller", card_ids=[tok.id], player="p2")  # the Leader's grant no longer reaches it
+    assert ch(s, cards, tok).pt == (1, 1) and not [a for a in ch(s, cards, tok).abilities if a.index >= 100]
+    act(s, "p1", type="move", card_ids=[leader.id], to={"zone": "graveyard"})
+    assert ch(s, cards, tok).pt == (1, 1)
+    replay_matches(s)
+
+
+def test_granted_enters_trigger_fires(cards):
+    """An ability a static grants is a real ability of the object: a granted "When this creature
+    enters" triggers as it enters (611.3c: the grant applies as the permanent enters)."""
+    from tests.test_rules_effects import build, draw_all, hand, mana, pass_until_stack_empty
+
+    s = build(cards)
+    draw_all(s)
+    token(s, "p1", "Leader", "Token Creature — Human",
+          'Creatures you control have "When this creature enters, you gain 1 life."', pt="2/2")
+    viper = hand(s, "p1", "Ambush Viper")
+    mana(s, G=2)
+    life = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=viper.id)
+    pass_until_stack_empty(s)
+    assert s.state.cards[viper.id].zone == "p1:battlefield" and s.state.players["p1"].life == life + 1
+
+
+def test_static_grant_after_a_resolved_loss(cards):
+    """613.7: "loses flying" resolved first, then Levitation enters (a later timestamp): flying."""
+    from app.rules import layers
+
+    s = table(cards)
+    bird = creature(s, "p1", "Bird", "1/1", "Flying")
+    turn_on(s)
+    plan = Plan(s.state, "p1", cards, None)
+    layers.add_effect(plan, affected=[plan.oid(s.state.cards[bird.id])], layer="6", source=None, controller="p1",
+                      remove_keywords=("flying",), label="loses flying")
+    s.state.rules.effects = plan.state.rules.effects
+    assert "flying" not in ch(s, cards, bird).keywords
+    creature(s, "p1", "Levitation", "0/1", "Creatures you control have flying.")
+    assert "flying" in ch(s, cards, bird).keywords
+    # and the other way round: the static's source there first, the loss resolved later, wins
+    plan = Plan(s.state, "p1", cards, None)
+    layers.add_effect(plan, affected=[plan.oid(s.state.cards[bird.id])], layer="6", source=None, controller="p1",
+                      remove_keywords=("flying",), label="loses flying")
+    s.state.rules.effects = plan.state.rules.effects
+    assert "flying" not in ch(s, cards, bird).keywords
+
+
+def test_two_base_setters_timestamp_order(cards):
+    """613.7d: of two "base power and toughness" statics, the one whose source entered later wins."""
+    s = table(cards)
+    bear = creature(s, "p1", "Bear", "5/5")
+    godhead = creature(s, "p1", "Godhead", "0/1", "Other creatures have base power and toughness 1/1.")
+    creature(s, "p1", "Archon", "0/1", "Other creatures have base power and toughness 3/3.")
+    turn_on(s)
+    assert ch(s, cards, bear).pt == (3, 3)
+    act(s, "p1", type="move", card_ids=[godhead.id], to={"zone": "graveyard"})  # (a token: it's gone)
+    creature(s, "p1", "Godhead", "0/1", "Other creatures have base power and toughness 1/1.")  # a new object: later
+    assert ch(s, cards, bear).pt == (1, 1)
+    replay_matches(s)
+
+
+def test_static_base_after_a_resolved_set(cards):
+    """613.7: "becomes 0/1 until end of turn" resolved, then Godhead of Awe enters: 1/1."""
+    from app.rules import layers
+
+    s = table(cards)
+    bear = creature(s, "p1", "Bear", "5/5")
+    turn_on(s)
+    plan = Plan(s.state, "p1", cards, None)
+    layers.add_effect(plan, affected=[plan.oid(s.state.cards[bear.id])], layer="7b", source=None, controller="p1",
+                      power=0, toughness=1, label="becomes 0/1")
+    s.state.rules.effects = plan.state.rules.effects
+    assert ch(s, cards, bear).pt == (0, 1)
+    creature(s, "p1", "Godhead", "0/1", "Other creatures have base power and toughness 1/1.")
+    assert ch(s, cards, bear).pt == (1, 1)
+
+
+def test_flash_static_stays_manual():
+    """702.8a / 113.6e: flash matters in hand, where a permanent's static doesn't apply (611.3b)."""
+    assert statics.parse("~ has flash as long as you control a Desert.") is None
+    assert statics.parse("Creatures you control have flash.") is None
+
+
+def test_full_board_derive_is_fast(cards):
+    """Conditions are evaluated once per static per table state, not once per affected object."""
+    import time
+
+    s = table(cards)
+    creature(s, "p1", "Banner", "0/4", "Creatures you control get +1/+1.")
+    creature(s, "p1", "Warden", "0/4", "Creatures you control get +2/+2 as long as you control three or more artifacts.")
+    creature(s, "p1", "W2", "0/4", "Creatures you control have flying as long as you control a Mountain.")
+    creature(s, "p1", "W3", "0/4", "Artifacts you control have shroud as long as you control three or more artifacts.")
+    creature(s, "p1", "Kwende", "2/2", "Creatures you control with first strike have double strike.")
+    creature(s, "p1", "Knight", "2/2", "Other creatures you control have first strike.")
+    creature(s, "p2", "W4", "0/4", "Creatures you control have hexproof as long as you control no untapped lands.")
+    creature(s, "p2", "Cumber", "0/4", "Creatures your opponents control get -1/-0.")
+    creature(s, "p2", "Hoof", "0/4", "During your turn, creatures you control get +2/+0.")
+    for i in range(35):
+        creature(s, "p1", f"A{i}", "2/2")
+    for i in range(36):
+        creature(s, "p2", f"B{i}", "2/2")
+    turn_on(s)
+    plan = Plan(s.state, "p1", cards, None)
+    field = [c for c in s.state.cards.values() if c.zone.endswith(":battlefield")]
+    assert len(field) == 80
+    for c in field:
+        plan.ch(c)
+    t0 = time.perf_counter()
+    for c in field:
+        plan.ch(c)
+    elapsed = time.perf_counter() - t0
+    a0 = next(c for c in field if c.name == "A0")
+    assert ch(s, cards, a0).pt == (2, 3) and "double strike" in ch(s, cards, a0).keywords  # Banner, Cumber, Kwende
+    assert elapsed < 0.5, f"{elapsed * 1000:.0f} ms for a pass over 80 permanents"  # (≈15 ms; was ≈300)

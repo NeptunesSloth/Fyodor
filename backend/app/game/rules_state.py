@@ -278,6 +278,9 @@ class ContinuousEffect(BaseModel):
     source_card: str | None = None
     duration: Literal["end_of_turn", "permanent"] = "end_of_turn"
     timestamp: int = 0
+    # ``RulesState.next_object`` when the effect began: the last object to enter a zone before it, so
+    # the effect can be ordered against static abilities (their timestamp is their source's, 613.7a/d).
+    object_seq: int = 0
     label: str = ""
 
 
@@ -702,6 +705,9 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
              from_zone=old_zone, to_zone=new_zone)
     for card_id, card in state.cards.items():
         if card_id not in before.zones and _zone_name(card.zone) in TRACKED_ZONES:
+            if card_id not in rules.objects:  # a created object is numbered like one that entered (613.7d)
+                rules.next_object += 1
+                rules.objects[card_id] = rules.next_object
             emit(state, "zone_change", new_object_id=rules.object_id(card_id), card=card_id, player=card.controller,
                  to_zone=card.zone)  # created: a token, a copy, an ability on the stack
     for card_id, snap in before.snaps.items():

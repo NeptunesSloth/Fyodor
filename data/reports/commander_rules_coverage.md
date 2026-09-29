@@ -1,6 +1,6 @@
 # Commander rules coverage
 
-Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 22:43
+Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 22:54
 
 Only cards that are **legal in Commander today** count. Banned cards (83) are COMMANDER_BANNED and excluded.
 
@@ -10,8 +10,8 @@ Commander-legal cards: **32116**
 
 | Level | Cards | Share |
 |---|---|---|
-| FULL | 9877 | 30.8% |
-| PARTIAL | 22191 | 69.1% |
+| FULL | 9876 | 30.8% |
+| PARTIAL | 22192 | 69.1% |
 | REVIEW | 0 | 0.0% |
 | MANUAL | 48 | 0.1% |
 
@@ -24,7 +24,7 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 ## Coverage quality
 
 - Ability features (lines, keywords, play/cast/combat) across Commander-legal cards: 113346
-- Automated: 81733 (72.1%) · unrecognized clauses: 31613
+- Automated: 81732 (72.1%) · unrecognized clauses: 31614
 - Oracle text classified (automated, or sorted into a concrete missing capability): 97.5% · unclassified clauses: 2841
 - Distinct missing-capability clusters: 8542
 
@@ -35,7 +35,7 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 | MISSING EFFECT | 11242 | 13220 |
 | MISSING SELECTOR | 3474 | 3674 |
 | MISSING TRIGGER EVENT | 3437 | 3607 |
-| MISSING CONTINUOUS EFFECT | 2188 | 2312 |
+| MISSING CONTINUOUS EFFECT | 2189 | 2313 |
 | UNSUPPORTED ORACLE PATTERN | 2079 | 2841 |
 | MISSING MECHANIC | 1816 | 1878 |
 | MISSING REPLACEMENT PATTERN | 1362 | 1401 |
@@ -257,7 +257,7 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 
 | Type | FULL | PARTIAL | REVIEW | MANUAL |
 |---|---|---|---|---|
-| Creature | 6166 | 11755 | 0 | 0 |
+| Creature | 6165 | 11756 | 0 | 0 |
 | Artifact | 1000 | 2593 | 0 | 0 |
 | Enchantment | 767 | 2880 | 0 | 0 |
 | Sorcery | 846 | 2722 | 0 | 0 |
