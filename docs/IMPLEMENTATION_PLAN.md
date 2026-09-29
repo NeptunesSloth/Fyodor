@@ -1,12 +1,26 @@
 # Implementation Plan
 
-Fyodor is an offline-first digital tabletop for Magic: The Gathering. It is a
-**sandbox**: the software handles the table (zones, cards, counters, life, the
-stack, turn tracking, history). The players decide whether actions are legal,
-the same way they would at a physical table.
+Fyodor is an offline-first digital tabletop for Magic: The Gathering for one trusted pod.
+The target is:
 
-This document is the working plan. Each milestone ends with a commit, passing
-tests, and an updated status table.
+> **Tabletop Simulator-style 3D interaction + MTG Arena-like rules automation + a manual
+> sandbox override + an Archidekt-first pod workflow.**
+
+- **Today (milestones 1–13):** a complete sandbox. The software runs the table (zones, cards,
+  counters, life, the stack, turn tracking, history, LAN, saves) and the players decide what
+  is legal. This is the **stable foundation**: it is extended, never rewritten, and its
+  tests stay green.
+- **Next (milestones 14–19):** a rules engine underneath the table that automates normal play
+  at roughly Arena's level **for the cards and mechanics we support**. The manual sandbox
+  stays available for everything else.
+  - The rules engine comes first. The 3D renderer is built only after it, on top of the rules
+    intent API (`3D_DIRECTION.md`), and it sends player **intents** rather than mutating
+    state.
+- **Priority:** cards from our own decks (Archidekt imports and saved decks) are automated
+  first.
+
+This document is the working plan. Each milestone ends with a commit, passing tests, updated
+docs, and an updated status table.
 
 ## Starting point (inspection, 2026-09-28)
 
@@ -34,11 +48,17 @@ tests, and an updated status table.
 | 11 | Pod tracker: results, corrections, Pod Stats, deck stats, backup | ✅ done |
 | 12 | Table tools (P1/P2): effects, damage, arrows, mana pool, mass actions, filters, choices, cast metadata, exile groups, cleanup, sleeves/playmats, asset manager, tabletop HUD | ✅ done |
 | 13 | P3: snapshots + history timeline, profiles/sound/keys/accessibility/perf presets, custom actions (declarative macros), solo tools, portable packages, diagnostics, launcher + first-run, lobby deck checks, full pod regression E2E | ✅ done |
-| 14 | 3D table client (three.js) and tabletop toys (dice objects, bags incl. hidden draw bag) | planned — see `3D_DIRECTION.md` |
+| 14 | **Rules boundary:** intent protocol, `rules/` package skeleton, `RulesState`, decisions, override logging, automation mode setting, coverage metadata (FULL / PARTIAL / MANUAL), pod card inventory from Archidekt/saved decks | next |
+| 15 | **Core rules primitives:** turn structure, priority, stack, mana costs and payment, casting timing and land drop, resolution, state-based actions, combat, commander rules | planned |
+| 16 | **Card effects:** effect primitives, targeting, keywords, triggered and activated abilities, continuous effects (layers), common replacement effects, templated Oracle-text recognition | planned |
+| 17 | **Pod coverage:** script the pod's cards by frequency until our decks are mostly FULL; per-deck coverage in the deck view and lobby | planned |
+| 18 | **Rules-aware client (2D first):** playable highlights, prompts, stops and auto-pass, override affordances | planned |
+| 19 | **3D table** (three.js) on the intent API, then **tabletop toys** (dice objects, bags incl. a hidden draw bag) | planned — see `3D_DIRECTION.md` |
 
-The history model (M7) and hidden-information views (M8) shape the engine
-itself, so they are built into the engine from Milestone 4. Retrofitting
-either one later would mean rewriting the engine.
+The history model (M7) and hidden-information views (M8) shape the engine itself, so they
+were built into the engine from Milestone 4. The rules engine follows the same rule: it is
+designed around deterministic, recorded history and per-viewer views from day one (see
+`ARCHITECTURE.md#rules-layer-planned`), so it slots in underneath without touching either.
 
 ## Milestones in detail
 
@@ -117,27 +137,123 @@ either one later would mean rewriting the engine.
   home LAN this is ~150 KB for a 300-card table and renders in ~50 ms. Delta sync only matters
   for WAN play, which the pod doesn't need.
 
-## Next
+## Roadmap: rules engine, then 3D
 
-- 3D table client (three.js) on top of the same server-authoritative state
-  (`3D_DIRECTION.md`), then tabletop toys (physical dice, dice tray, token bags, and a hidden
-  draw bag that uses the same per-viewer privacy as libraries).
+The order is deliberate. Each step keeps every existing test green, since automation is off
+by default and the foundation doesn't change.
+
+### M14 — Rules boundary
+
+1. **Intent protocol.** Add the `play_land`, `cast_spell`, `activate_ability`,
+   `declare_attackers`, `declare_blockers`, `pass_priority`, `choose` and `concede` inputs
+   to the same validated message path as sandbox actions. With automation off they are
+   rejected with a clear message. The existing actions become the "sandbox" set.
+2. **`rules/` package skeleton**, with no FastAPI, storage or renderer imports:
+   - `engine` (validate → plan → settle);
+   - `state` (`RulesState`, `Decision`);
+   - `characteristics`;
+   - `costs`;
+   - `coverage`;
+   - `cards/` (script registry);
+   - `keywords`.
+3. **`GameSettings.automation`** (`off` | `rules`) and `GameState.rules`.
+   - `off` is the default and behaves exactly as today.
+   - Adding the field requires save format v5, with a migration that fills `rules: null`.
+4. **Compile-and-record.** An intent is planned on a scratch copy into primitive table actions
+   and recorded as one history entry (the macro mechanism), so undo, replay and saves work
+   unchanged.
+5. **Decisions protocol:**
+   - one pending decision, addressed to one player, with the legal options in that player's
+     view only;
+   - the answer arrives through `choose`;
+   - privacy tests cover prompts.
+6. **Manual override.**
+   - Sandbox actions stay available with automation on and are logged as overrides.
+   - A `manual_resolution` decision covers unsupported effects.
+   - The host can pause and resume automation.
+7. **Coverage metadata.** Every card gets FULL / PARTIAL / MANUAL plus a list of its manual
+   parts, computed from the script registry and keyword support. It is exposed by
+   `GET /api/rules/coverage?oracle_ids=…`.
+8. **Pod card inventory.**
+   - `python -m tools.rules_inventory` reads the saved decks (Archidekt imports and pasted
+     lists) and the cards in saved games, and counts unique Oracle ids by how many pod decks
+     play them.
+   - It outputs a prioritised coverage report (`docs/RULES_COVERAGE.md` plus JSON).
+   - The same report is served at `GET /api/rules/inventory` on the host computer.
+
+### M15 — Core rules primitives
+
+- **Turn and priority:** the turn structure (untap, upkeep, draw, main, combat steps, end,
+  cleanup with discard to hand size) and priority passing with Arena-style stops and
+  auto-pass.
+- **Casting:** the stack with spell and ability objects, and resolution in LIFO order. Also
+  mana costs (parse `{2}{G}{G}`, hybrid, phyrexian, X), mana abilities, auto-payment from
+  untapped sources with manual payment as an option, and timing (sorcery speed vs instant,
+  one land per turn).
+- **Permanents:** they enter and leave the battlefield. Summoning sickness is derived from
+  "controlled continuously since the start of your most recent turn".
+- **State-based actions:** 0 toughness, lethal damage, deathtouch damage, 0 life, 10 poison,
+  21 commander damage, the legend rule, planeswalkers with 0 loyalty, tokens outside the
+  battlefield, and +1/+1 / −1/−1 counter annihilation.
+- **Combat:** attack and block legality (tapped, sick, defender, flying/reach, menace, can't
+  block), first and double strike, trample, deathtouch, lifelink, vigilance, and damage
+  assignment order.
+- **Commander:** the command zone replacement (a choice), commander tax, and commander damage.
+- **Tests:** a scenario test for each rule.
+
+### M16 — Card effects
+
+- **Effect primitives:** damage, life, draw, discard, mill, destroy, exile, bounce,
+  reanimate, tokens, counters, pump until end of turn, tap/untap, sacrifice, search library
+  (reusing the private search view), gain control, copy, and add mana.
+- **Targeting:** target filters, legality on cast, and re-checking on resolution (fizzle).
+- **Keywords** as reusable static and triggered abilities.
+- **Abilities:** triggered abilities (ETB, dies, attacks, upkeep, cast, damage) with APNAP
+  ordering decisions; activated abilities with costs (tap, mana, sacrifice, remove counters,
+  loyalty).
+- **Continuous effects** with durations, applied in layer order: control, text, type, color,
+  abilities, P/T sublayers.
+- **Common replacement effects:** "enters tapped", "if it would die, exile it instead", and
+  prevention.
+- **Templated Oracle-text recognition** that proposes scripts for common wordings. Every
+  proposed script needs review and a test before a card counts as FULL.
+
+### M17 — Pod coverage
+
+- Script the pod's cards in inventory order until our decks are mostly FULL, with PARTIAL
+  cards listing their manual parts.
+- Per-deck coverage appears in the deck view and in the lobby deck summary.
+- A re-import from Archidekt refreshes the coverage report.
+
+### M18 — Rules-aware client (2D board first)
+
+- Playable highlights and prompts (targets, modes, X, payment, attackers and blockers, trigger
+  order), plus the stops and auto-pass settings.
+- A clear "manual override" affordance, and pausing automation for the table.
+- E2E: a scripted two-player game played entirely through intents, and a game that mixes
+  automated and manual play.
+
+### M19 — 3D table, then toys
+
+- The three.js `TableScene` renders the same views and maps gestures to intents (see
+  `3D_DIRECTION.md`). The 2D board remains the fallback.
+- Then tabletop toys: dice objects, a dice tray, token bags, and a hidden draw bag that uses
+  the same per-viewer privacy as libraries.
 
 ## Deliberately out of scope
 
-Fyodor is a physical-feeling table for one trusted pod, not Arena and not a judge. It does not
-include:
+Rules automation is now **in scope** (M14–M18): the engine does Arena-level bookkeeping for the
+cards we support, and the players can always take over by hand. Still out of scope:
 
-- **Rules help:** a rules engine, automatic trigger / "missed trigger" / upkeep reminders,
-  enforced priority, replacement effects, or enforced legality. Deck checks are advisory, with
-  *Play anyway*.
-- **Online and competitive features:** tournament enforcement, matchmaking, accounts, cloud
-  saves, rankings / ELO / medals, achievements.
+- **Judge behaviour:** tournament enforcement, penalties, "missed trigger" warnings and nagging
+  reminders. Supported triggers are simply automated. Unsupported ones are resolved by hand,
+  without reminders.
+- **Online and competitive features:** matchmaking, accounts, cloud saves, rankings / ELO /
+  medals, achievements.
 - **Other formats and audiences:** sealed, draft, spectator/caster tooling.
 - **Ecosystem and oversight:** a mod marketplace, anti-cheat, telemetry or analytics.
-
-The `rules/` and `assistant/` packages hold interfaces only; see
-`docs/ARCHITECTURE.md#extension-points`.
+- **Code execution:** executing user-supplied or downloaded code. Card scripts are
+  repository code; user behaviour stays declarative macros.
 
 ## Decisions and defaults (documented so nobody has to ask)
 
@@ -156,3 +272,8 @@ The `rules/` and `assistant/` packages hold interfaces only; see
 | Frontend state | zustand store with selectors, normalized by id | Keeps rerenders to the components that changed. |
 | Instance ids | Random, and **re-keyed when a library is shuffled** | Stops opponents tracking a known card through a shuffle. |
 | Local vs LAN | A game created from the UI is "local" (hot-seat; any client may pick any seat). LAN games require seat tokens. | Hot-seat playtesting stays one click away. |
+| Rules vs sandbox | Two inputs: rules **intents** compiled by `rules/`, and sandbox **actions** applied directly (logged as overrides when automation is on) | Arena-like play for supported cards without losing the physical table |
+| Rules history | An intent is planned on a scratch copy and recorded as primitive actions (one history entry) | Undo and saves keep working; old saves never re-run changed rules code |
+| Rules state | Only what the table can't show (priority, stack metadata, decisions, durations); characteristics are derived on demand | Manual overrides can't desync the engine |
+| Automation priority | Cards from the pod's own decks first, by how many decks play them | Most value for our actual games |
+| Renderer | Holds no rules logic; sends intents and draws views with server-provided hints | 2D and 3D clients share one engine |

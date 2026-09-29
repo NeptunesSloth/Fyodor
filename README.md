@@ -1,10 +1,17 @@
 # Fyodor — offline MTG tabletop
 
-A fast, offline-first digital tabletop for **Magic: The Gathering**, built for Commander, 60-card
-constructed and casual sandbox games. It is a table, not a rules engine: you and your
-opponents decide what's legal, and Fyodor provides the zones, cards, counters, life totals,
-stack, turn tracker, log, undo and saves. Once the card data is downloaded, nothing needs the
+A fast, offline-first digital tabletop for **Magic: The Gathering**, built for a Commander pod,
+60-card constructed and casual games. Once the card data is downloaded, nothing needs the
 Internet.
+
+- **Today** it is a complete sandbox table. You and your opponents decide what's legal, and
+  Fyodor provides the zones, cards, counters, life totals, stack, turn tracker, log, undo,
+  saves and LAN play.
+- **Where it's going:** Tabletop Simulator-style 3D interaction on top of an **MTG Arena-like
+  rules engine**. It will automate normal play for the cards our decks use, while keeping the
+  manual sandbox for anything unsupported. See
+  [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) and
+  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 - **Tabletop**: free card positioning, drag and drop between every zone, tap/untap, counters,
   tokens, copies, face-down cards, transform/MDFC/adventure/split faces, notes, reveal,
