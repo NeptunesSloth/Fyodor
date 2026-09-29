@@ -8,7 +8,6 @@ from tests.game_helpers import act, find
 from tests.test_rules_casting import build, put, rules
 
 
-
 def test_lethal_damage_and_zero_toughness(cards):
     s = build(cards, [(1, "Llanowar Elves"), (3, "Forest")], [(5, "Island")])
     elves = put(s, "p1", "Llanowar Elves", "battlefield")
