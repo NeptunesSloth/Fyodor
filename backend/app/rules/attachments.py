@@ -216,13 +216,17 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
 
 
 def _move(plan: Plan, entry: dict[str, Any]) -> None:
-    payload: dict[str, Any] = {"type": "move", "card_ids": [entry["card"]],
-                               "to": {"player": entry["player"], "zone": "battlefield"}}
-    if entry.get("tapped"):
-        payload["tapped"] = True
-    plan.do(payload, actor=entry["actor"])
+    from app.rules import characteristics as chars
     from app.rules import engine  # (engine imports this module)
 
+    payload: dict[str, Any] = {"type": "move", "card_ids": [entry["card"]],
+                               "to": {"player": entry["player"], "zone": "battlefield"}}
+    entering = plan.state.cards.get(entry["card"])
+    # "~ enters tapped" is a replacement effect however the permanent enters (614.1c), not only
+    # when it resolves from the stack: a Guildgate put onto the battlefield by a search is tapped
+    if entry.get("tapped") or (entering is not None and engine.enters_tapped(chars.of(entering, plan.info))):
+        payload["tapped"] = True
+    plan.do(payload, actor=entry["actor"])
     card = plan.state.cards.get(entry["card"])
     if card is not None and card.zone.endswith(":battlefield"):  # its "enters with" replacements (614.1c, 306.5b)
         ch = plan.ch(card)

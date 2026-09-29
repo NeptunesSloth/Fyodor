@@ -67,3 +67,19 @@ def test_prompts_dont_name_a_spell_still_in_hand(cards):
     assert s.state.cards[spell.id].zone == "p1:hand"  # (targets are chosen before it moves)
     assert "Test Barrage" in s.view("p1")["rules"]["decision"]["prompt"]
     assert "Test Barrage" not in s.view("p2")["rules"]["decision"]["prompt"]
+
+
+def test_a_land_that_enters_tapped_does_so_when_an_effect_puts_it_onto_the_battlefield(cards):
+    # 614.1c: "enters tapped" applies however it enters, not only from the stack / as a land play
+    s = build(cards, "Barren Moor")
+    moor = named(s, "Barren Moor")
+    src = token(s, "p1", "Ramp", text="{1}: Search your library for a land card, put it onto the battlefield, then shuffle.")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=src.id, ability=0)
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    moor_now = next(o.id for o in d.options if s.state.cards[o.id].name == "Barren Moor")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[moor_now])
+    pass_until_stack_empty(s)
+    moor = named(s, "Barren Moor")
+    assert moor.zone == "p1:battlefield" and moor.tapped
