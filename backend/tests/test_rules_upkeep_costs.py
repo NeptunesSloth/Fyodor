@@ -67,3 +67,19 @@ def test_sacrifice_unless_you_pay_template(cards):
     d = until_prompt(s)
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["sacrifice"])
     assert s.state.cards[forces.id].zone == "p1:graveyard"
+
+
+def test_cumulative_upkeep_grows(cards):
+    s, _ = build(cards, "Forest")
+    forests = [c.id for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library"][:4]
+    act(s, "p1", type="move", card_ids=forests, to={"zone": "battlefield"})
+    act(s, "p1", type="create_token", player="p1", token={"name": "Glacier", "type_line": "Token Enchantment — Test",
+                                                         "text": "Cumulative upkeep {1}"})
+    glacier = next(c for c in s.state.cards.values() if c.name == "Glacier")
+    d = until_prompt(s)
+    assert "{1}" in d.prompt and s.state.cards[glacier.id].counters == {"age": 1}
+    answer(s, d, "pay")
+    d = until_prompt(s)
+    assert "{2}" in d.prompt and s.state.cards[glacier.id].counters == {"age": 2}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["sacrifice"])
+    assert glacier.id not in s.state.cards or not s.state.cards[glacier.id].zone.endswith(":battlefield")

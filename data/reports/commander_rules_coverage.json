@@ -1,20 +1,20 @@
 {
- "generated_at": "2026-09-29 16:27",
+ "generated_at": "2026-09-29 16:30",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32116,
  "commander_banned": 83,
  "levels": {
-  "FULL": 4408,
-  "PARTIAL": 27660,
+  "FULL": 4435,
+  "PARTIAL": 27633,
   "REVIEW": 0,
   "MANUAL": 48
  },
  "possible_commanders": 3501,
  "commander_levels": {
-  "FULL": 105,
-  "PARTIAL": 3396,
+  "FULL": 106,
+  "PARTIAL": 3395,
   "REVIEW": 0,
   "MANUAL": 0
  },
@@ -30,32 +30,32 @@
  },
  "by_type": {
   "Creature": {
-   "FULL": 3035,
-   "PARTIAL": 14886,
+   "FULL": 3055,
+   "PARTIAL": 14866,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Artifact": {
-   "FULL": 517,
-   "PARTIAL": 3076,
+   "FULL": 521,
+   "PARTIAL": 3072,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Enchantment": {
-   "FULL": 102,
-   "PARTIAL": 3545,
+   "FULL": 104,
+   "PARTIAL": 3543,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Sorcery": {
-   "FULL": 220,
-   "PARTIAL": 3348,
+   "FULL": 222,
+   "PARTIAL": 3346,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Instant": {
-   "FULL": 401,
-   "PARTIAL": 3353,
+   "FULL": 404,
+   "PARTIAL": 3350,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -80,8 +80,8 @@
  },
  "by_keyword": {
   "flying": {
-   "FULL": 608,
-   "PARTIAL": 2555,
+   "FULL": 615,
+   "PARTIAL": 2548,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -92,8 +92,8 @@
    "MANUAL": 0
   },
   "trample": {
-   "FULL": 158,
-   "PARTIAL": 835,
+   "FULL": 161,
+   "PARTIAL": 832,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -104,8 +104,8 @@
    "MANUAL": 2
   },
   "haste": {
-   "FULL": 120,
-   "PARTIAL": 519,
+   "FULL": 123,
+   "PARTIAL": 516,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -134,8 +134,8 @@
    "MANUAL": 1
   },
   "reach": {
-   "FULL": 103,
-   "PARTIAL": 320,
+   "FULL": 104,
+   "PARTIAL": 319,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -158,8 +158,8 @@
    "MANUAL": 1
   },
   "first strike": {
-   "FULL": 103,
-   "PARTIAL": 271,
+   "FULL": 104,
+   "PARTIAL": 270,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -182,14 +182,14 @@
    "MANUAL": 2
   },
   "defender": {
-   "FULL": 87,
-   "PARTIAL": 221,
+   "FULL": 88,
+   "PARTIAL": 220,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "regenerate": {
-   "FULL": 92,
-   "PARTIAL": 179,
+   "FULL": 93,
+   "PARTIAL": 178,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -212,8 +212,8 @@
    "MANUAL": 0
   },
   "protection": {
-   "FULL": 102,
-   "PARTIAL": 88,
+   "FULL": 103,
+   "PARTIAL": 87,
    "REVIEW": 0,
    "MANUAL": 3
   },
@@ -344,14 +344,14 @@
    "MANUAL": 0
   },
   "cumulative upkeep": {
-   "FULL": 0,
-   "PARTIAL": 80,
+   "FULL": 10,
+   "PARTIAL": 70,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "affinity": {
-   "FULL": 31,
-   "PARTIAL": 43,
+   "FULL": 32,
+   "PARTIAL": 42,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -476,8 +476,8 @@
    "MANUAL": 0
   },
   "fear": {
-   "FULL": 11,
-   "PARTIAL": 29,
+   "FULL": 12,
+   "PARTIAL": 28,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -512,8 +512,8 @@
    "MANUAL": 0
   },
   "cascade": {
-   "FULL": 0,
-   "PARTIAL": 37,
+   "FULL": 17,
+   "PARTIAL": 20,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -584,8 +584,8 @@
    "MANUAL": 0
   },
   "exalted": {
-   "FULL": 23,
-   "PARTIAL": 11,
+   "FULL": 24,
+   "PARTIAL": 10,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -994,8 +994,8 @@
    "MANUAL": 0
   },
   "2x2": {
-   "FULL": 22,
-   "PARTIAL": 192,
+   "FULL": 23,
+   "PARTIAL": 191,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1006,8 +1006,8 @@
    "MANUAL": 0
   },
   "40k": {
-   "FULL": 1,
-   "PARTIAL": 167,
+   "FULL": 2,
+   "PARTIAL": 166,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1078,8 +1078,8 @@
    "MANUAL": 0
   },
   "afc": {
-   "FULL": 7,
-   "PARTIAL": 99,
+   "FULL": 8,
+   "PARTIAL": 98,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1114,8 +1114,8 @@
    "MANUAL": 0
   },
   "arb": {
-   "FULL": 9,
-   "PARTIAL": 68,
+   "FULL": 12,
+   "PARTIAL": 65,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1276,8 +1276,8 @@
    "MANUAL": 0
   },
   "clb": {
-   "FULL": 20,
-   "PARTIAL": 443,
+   "FULL": 21,
+   "PARTIAL": 442,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1312,8 +1312,8 @@
    "MANUAL": 0
   },
   "cmr": {
-   "FULL": 30,
-   "PARTIAL": 225,
+   "FULL": 33,
+   "PARTIAL": 222,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1336,8 +1336,8 @@
    "MANUAL": 0
   },
   "csp": {
-   "FULL": 13,
-   "PARTIAL": 98,
+   "FULL": 15,
+   "PARTIAL": 96,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1540,8 +1540,8 @@
    "MANUAL": 0
   },
   "ecc": {
-   "FULL": 17,
-   "PARTIAL": 99,
+   "FULL": 18,
+   "PARTIAL": 98,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1732,8 +1732,8 @@
    "MANUAL": 0
   },
   "ice": {
-   "FULL": 14,
-   "PARTIAL": 116,
+   "FULL": 15,
+   "PARTIAL": 115,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1966,14 +1966,14 @@
    "MANUAL": 0
   },
   "me1": {
-   "FULL": 17,
-   "PARTIAL": 110,
+   "FULL": 20,
+   "PARTIAL": 107,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "me2": {
-   "FULL": 28,
-   "PARTIAL": 173,
+   "FULL": 29,
+   "PARTIAL": 172,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1996,14 +1996,14 @@
    "MANUAL": 0
   },
   "mh2": {
-   "FULL": 27,
-   "PARTIAL": 212,
+   "FULL": 29,
+   "PARTIAL": 210,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "mh3": {
-   "FULL": 13,
-   "PARTIAL": 268,
+   "FULL": 14,
+   "PARTIAL": 267,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2188,8 +2188,8 @@
    "MANUAL": 0
   },
   "pca": {
-   "FULL": 8,
-   "PARTIAL": 46,
+   "FULL": 11,
+   "PARTIAL": 43,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2554,8 +2554,8 @@
    "MANUAL": 0
   },
   "vis": {
-   "FULL": 5,
-   "PARTIAL": 94,
+   "FULL": 6,
+   "PARTIAL": 93,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2614,8 +2614,8 @@
    "MANUAL": 0
   },
   "wth": {
-   "FULL": 4,
-   "PARTIAL": 102,
+   "FULL": 6,
+   "PARTIAL": 100,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2715,36 +2715,6 @@
    ]
   },
   {
-   "feature": "keyword:cascade",
-   "kind": "keyword",
-   "commander_cards": 37,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 21,
-   "examples": [
-    "Etherium-Horn Sorcerer",
-    "Call Forth the Tempest",
-    "Call Forth the Tempest",
-    "Maelstrom Colossus",
-    "Noise Marine"
-   ]
-  },
-  {
-   "feature": "keyword:cumulative upkeep",
-   "kind": "keyword",
-   "commander_cards": 80,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 19,
-   "examples": [
-    "Prismatic Circle",
-    "Musician",
-    "Illusionary Terrain",
-    "Revered Unicorn",
-    "Heart of Bogardan"
-   ]
-  },
-  {
    "feature": "keyword:madness",
    "kind": "keyword",
    "commander_cards": 60,
@@ -2765,7 +2735,7 @@
    "commander_cards": 24,
    "pod_cards": 0,
    "pod_commanders": 0,
-   "only_missing_piece_for": 18,
+   "only_missing_piece_for": 19,
    "examples": [
     "Nalathni Dragon",
     "Mishra's War Machine",
@@ -3045,6 +3015,21 @@
    ]
   },
   {
+   "feature": "keyword:rebound",
+   "kind": "keyword",
+   "commander_cards": 34,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 11,
+   "examples": [
+    "World at War",
+    "Faithless Salvaging",
+    "Staggershock",
+    "Profound Journey",
+    "Ephemerate"
+   ]
+  },
+  {
    "feature": "keyword:backup",
    "kind": "keyword",
    "commander_cards": 25,
@@ -3102,21 +3087,6 @@
     "Bloodroot Apothecary",
     "Voidwing Hybrid",
     "Jawbone Duelist"
-   ]
-  },
-  {
-   "feature": "keyword:rebound",
-   "kind": "keyword",
-   "commander_cards": 34,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 10,
-   "examples": [
-    "World at War",
-    "Faithless Salvaging",
-    "Staggershock",
-    "Profound Journey",
-    "Ephemerate"
    ]
   },
   {
@@ -3330,6 +3300,21 @@
    ]
   },
   {
+   "feature": "template:{M}: Return ~ to its owner's hand.",
+   "kind": "activated",
+   "commander_cards": 33,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 9,
+   "examples": [
+    "Palinchron",
+    "Etherium-Horn Sorcerer",
+    "Shackles",
+    "Cage of Hands",
+    "Mourning"
+   ]
+  },
+  {
    "feature": "keyword:delve",
    "kind": "keyword",
    "commander_cards": 28,
@@ -3342,6 +3327,21 @@
     "Afterlife from the Loam",
     "Magmatic Sinkhole",
     "Gurmag Angler"
+   ]
+  },
+  {
+   "feature": "keyword:cumulative upkeep",
+   "kind": "keyword",
+   "commander_cards": 23,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 9,
+   "examples": [
+    "Varchild's War-Riders",
+    "Aboroth",
+    "Inner Sanctum",
+    "J\u00f6tun Owl Keeper",
+    "J\u00f6tun Grunt"
    ]
   },
   {
@@ -3507,21 +3507,6 @@
     "Oran-Rief Survivalist",
     "Nimana Sell-Sword",
     "Bojuka Brigand"
-   ]
-  },
-  {
-   "feature": "template:{M}: Return ~ to its owner's hand.",
-   "kind": "activated",
-   "commander_cards": 33,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 8,
-   "examples": [
-    "Palinchron",
-    "Etherium-Horn Sorcerer",
-    "Shackles",
-    "Cage of Hands",
-    "Mourning"
    ]
   },
   {
@@ -3795,6 +3780,21 @@
    ]
   },
   {
+   "feature": "template:Counter target spell.",
+   "kind": "spell_effect",
+   "commander_cards": 41,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Deprive",
+    "Scatter to the Winds",
+    "Spell Snuff",
+    "Saruman's Trickery",
+    "Disappearing Act"
+   ]
+  },
+  {
    "feature": "keyword:warp",
    "kind": "keyword",
    "commander_cards": 31,
@@ -3900,6 +3900,21 @@
    ]
   },
   {
+   "feature": "keyword:retrace",
+   "kind": "keyword",
+   "commander_cards": 17,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Flame Jab",
+    "Monstrify",
+    "Waves of Aggression",
+    "Decaying Time Loop",
+    "Oona's Grace"
+   ]
+  },
+  {
    "feature": "template:At the beginning of the end step, sacrifice ~.",
    "kind": "triggered",
    "commander_cards": 16,
@@ -3927,6 +3942,21 @@
     "Anointer Priest",
     "Vizier of Many Faces",
     "Tah-Crop Skirmisher"
+   ]
+  },
+  {
+   "feature": "template:{M}, Discard N card(s): Draw N card(s).",
+   "kind": "activated",
+   "commander_cards": 14,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 7,
+   "examples": [
+    "Rummaging Goblin",
+    "Compulsion",
+    "Anje Falkenrath",
+    "Professor Zei, Anthropologist",
+    "Mad Prophet"
    ]
   },
   {
@@ -4155,21 +4185,6 @@
    ]
   },
   {
-   "feature": "template:Counter target spell.",
-   "kind": "spell_effect",
-   "commander_cards": 41,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 6,
-   "examples": [
-    "Deprive",
-    "Scatter to the Winds",
-    "Spell Snuff",
-    "Saruman's Trickery",
-    "Disappearing Act"
-   ]
-  },
-  {
    "feature": "keyword:offspring",
    "kind": "keyword",
    "commander_cards": 20,
@@ -4215,21 +4230,6 @@
    ]
   },
   {
-   "feature": "keyword:retrace",
-   "kind": "keyword",
-   "commander_cards": 17,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 6,
-   "examples": [
-    "Flame Jab",
-    "Monstrify",
-    "Waves of Aggression",
-    "Decaying Time Loop",
-    "Oona's Grace"
-   ]
-  },
-  {
    "feature": "template:During your turn, ~ has first strike.",
    "kind": "continuous",
    "commander_cards": 17,
@@ -4272,21 +4272,6 @@
     "Ral, Monsoon Mage // Ral, Leyline Prodigy",
     "Jace's Sanctum",
     "Archmage of Runes"
-   ]
-  },
-  {
-   "feature": "template:{M}, Discard N card(s): Draw N card(s).",
-   "kind": "activated",
-   "commander_cards": 14,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 6,
-   "examples": [
-    "Rummaging Goblin",
-    "Compulsion",
-    "Anje Falkenrath",
-    "Professor Zei, Anthropologist",
-    "Mad Prophet"
    ]
   },
   {
@@ -5667,6 +5652,21 @@
     "Darkblast",
     "Golgari Grave-Troll",
     "Nightmare Void"
+   ]
+  },
+  {
+   "feature": "template:Return target creature card from your graveyard to your hand.",
+   "kind": "spell_effect",
+   "commander_cards": 14,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 4,
+   "examples": [
+    "Morgue Theft",
+    "Grim Harvest",
+    "Order of Midnight // Alter Fate",
+    "Ghost Lantern // Bind Spirit",
+    "Soulless Revival"
    ]
   }
  ],
@@ -8093,19 +8093,18 @@
   },
   {
    "name": "Maelstrom Wanderer",
-   "level": "PARTIAL",
+   "level": "FULL",
    "edhrec_rank": 1603,
    "color_identity": "URG",
    "pairing": [],
    "supported": [
     "Cast it (timing, costs, the stack)",
     "Attack and block",
-    "Creatures you control have haste."
-   ],
-   "missing": [
+    "Creatures you control have haste.",
     "Cascade",
     "Cascade"
-   ]
+   ],
+   "missing": []
   },
   {
    "name": "Chainer, Nightmare Adept",

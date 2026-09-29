@@ -360,7 +360,12 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     if chosen[0] != "yes":
         r.free_casts = [c for c in r.free_casts if c != cid]
         r.suspended = [c for c in r.suspended if c != cid]
-        plan.note(f"{plan.name(d.player)} leaves it exiled")
+        if d.resume.get("decline") == "bottom" and cid in plan.state.cards:  # cascade: it joins the others
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
+                     "position": "bottom"}, actor=d.player)
+            plan.note(f"{plan.name(d.player)} puts it on the bottom of their library")
+        else:
+            plan.note(f"{plan.name(d.player)} leaves it exiled")
         return
     if r.decision is not None:
         plan.note("Cast it without paying its mana cost when the pending choice is done")
@@ -372,6 +377,40 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
         cast_spell(plan, A.CastSpell(card_id=cid, free=True))
     finally:
         plan.actor = prev
+
+
+def cascade(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """702.85a: exile cards from the top of your library until a nonland card with lesser mana
+    value; you may cast it without paying its mana cost; the rest go on the bottom in a random order."""
+    from app.rules import characteristics as chars
+
+    pid = ctx["controller"]
+    missed: list[str] = []
+    hit: str | None = None
+    for _ in range(len(plan.state.zones.get(zone_key(pid, "library"), []))):
+        library = plan.state.zones.get(zone_key(pid, "library"), [])
+        if not library:
+            break
+        top = library[0]
+        plan.do({"type": "move", "card_ids": [top], "to": {"player": pid, "zone": "exile"}}, actor=pid)
+        ch = chars.of(plan.state.cards[top], plan.info)
+        if not ch.is_land and ch.mana_value < e["mv"]:
+            hit = top
+            break
+        missed.append(top)
+    order = list(missed)
+    plan.rng.shuffle(order)
+    for cid in order:
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+    if hit is None:
+        plan.note("Cascade found nothing")
+        return True
+    plan.rules.free_casts.append(hit)
+    name = plan.state.cards[hit].name
+    decide(plan, player=pid, kind="choose_one", prompt=f"Cascade: cast {name} without paying its mana cost?",
+           options=[DecisionOption(id="yes", label="Cast it"), DecisionOption(id="no", label="Put it on the bottom")],
+           resume={"step": "suspend_cast", "ctx": ctx, "card": hit, "decline": "bottom"}, source=plan.state.cards[hit])
+    return False
 
 
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -482,6 +521,10 @@ def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True  # it already left: nothing to sacrifice
     pid = ctx["controller"]
     cost = mana.parse_cost(e["cost"])
+    if e.get("per"):  # cumulative upkeep: the cost once for each age counter
+        n = plan.state.cards[src[0]].counters.get(e["per"], 0)
+        cost = mana.parse_cost(e["cost"] * n) if n else mana.parse_cost("{0}")
+    e = {**e, "cost": cost.text() if not cost.is_free else "{0}"}
     options = [DecisionOption(id="sacrifice", label=f"Sacrifice {plan.state.cards[src[0]].name}")]
     if casting.can_pay(plan.state, pid, cost, plan.info):  # (tap your mana first, then Pay)
         options.insert(0, DecisionOption(id="pay", label=f"Pay {cost.text()}"))
@@ -510,7 +553,7 @@ PRIMITIVES = {
     "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
     "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
-    "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick,
+    "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade,
 }
 
 

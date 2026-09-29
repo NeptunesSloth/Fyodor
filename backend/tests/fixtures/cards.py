@@ -233,5 +233,8 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Errant Ephemeron", set_code="tst", number="N3", mana_cost="{6}{U}", cmc=7.0, type_line="Creature — Illusion",
              oracle_text="Flying\nSuspend 4—{1}{U} (Rather than cast this card from your hand, you may pay {1}{U} and exile it with four time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. If you cast it this way, it has haste.)",
              power="4", toughness="4", colors=["U"], color_identity=["U"]),
+        card("Bloodbraid Elf", set_code="tst", number="N4", mana_cost="{2}{R}{G}", cmc=4.0, type_line="Creature — Elf Berserker",
+             oracle_text="Haste\nCascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom of your library in a random order.)",
+             power="3", toughness="2", colors=["R", "G"], color_identity=["R", "G"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

@@ -178,6 +178,7 @@ def at_step(plan: Plan, trigger: str) -> None:
     if trigger == "upkeep_you":
         _echo(plan)
         _suspend(plan)
+        _cumulative_upkeep(plan)
     for card in list(plan.state.cards.values()):
         if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
             continue
@@ -196,6 +197,33 @@ def echo_cost(ch: Any) -> str | None:
             m = ECHO.fullmatch(ab.text.strip().rstrip("."))
             return m["cost"] if m else None
     return None
+
+
+CUMULATIVE = re.compile(r"^cumulative upkeep (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def cumulative_cost(ch: Any) -> str | None:
+    for ab in ch.abilities:
+        if ab.kind == "keywords" and "cumulative upkeep" in ab.keywords:
+            m = CUMULATIVE.fullmatch(ab.text.strip().rstrip("."))
+            return m["cost"] if m else None
+    return None
+
+
+def _cumulative_upkeep(plan: Plan) -> None:
+    """702.24a: "At the beginning of your upkeep, if this permanent is on the battlefield, put an
+    age counter on it. Then you may pay [cost] for each age counter on it. If you don't, sacrifice it." """
+    for card in list(plan.state.cards.values()):
+        if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
+            continue
+        ch = plan.ch(card)
+        cost = cumulative_cost(ch)
+        if cost is None:
+            continue
+        _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+             index=5100, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
+                                     "effects": [{"do": "add_counters", "who": "self", "kind": "age", "n": 1},
+                                                 {"do": "pay_or_sacrifice", "cost": cost, "per": "age"}]})
 
 
 def _suspend(plan: Plan) -> None:

@@ -825,6 +825,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
     r = plan.rules
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor)  # for "whenever you cast"
+    if "cascade" in ch.keywords and not a.face_down and not plan.manual(card):
+        _cascade_triggers(plan, card, ch)
     if definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), targets=chosen,
@@ -991,6 +993,17 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
     _stacked(plan, card, oid, ch, ability_id, [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}])
 
 
+def _cascade_triggers(plan: Plan, card: CardInstance, ch: Characteristics) -> None:
+    """702.85a: "When you cast this spell, …" — one trigger per instance of cascade."""
+    from app.rules.triggers import _add
+
+    n = sum(1 for ab in ch.abilities if ab.kind == "keywords" for kw in ab.keywords if kw == "cascade")
+    for k in range(n):
+        _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+             index=6000 + k, definition={"kind": "triggered", "trigger": "cascade", "optional": False, "target": None,
+                                         "effects": [{"do": "cascade", "mv": ch.mana_value}]})
+
+
 def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpell) -> None:
     """702.62d: cast a suspended card without paying its mana cost, during its trigger's resolution
     (timing permissions are ignored). Only cards the engine listed in ``free_casts``."""
@@ -1016,6 +1029,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if ch.is_creature:
         r.suspend_haste.append(card.id)  # 702.62e: it gains haste
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor)
+    if "cascade" in ch.keywords and not plan.manual(card):
+        _cascade_triggers(plan, card, ch)
     if definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), targets=chosen,

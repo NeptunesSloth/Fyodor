@@ -157,7 +157,7 @@ Rules effective 2026-09-25. Card counts: Commander-legal cards whose Oracle keyw
 | 702.82 | Devour | keyword ability | 23 | missing |
 | 702.83 | Exalted | keyword ability | 35 | supported |
 | 702.84 | Unearth | keyword ability | 56 | missing |
-| 702.85 | Cascade | keyword ability | 37 | missing |
+| 702.85 | Cascade | keyword ability | 37 | supported |
 | 702.86 | Annihilator | keyword ability | 13 | missing |
 | 702.87 | Level Up | keyword ability | 25 | missing |
 | 702.88 | Rebound | keyword ability | 34 | missing |

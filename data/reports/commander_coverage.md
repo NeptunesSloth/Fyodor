@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 105 · PARTIAL: 3396 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 106 · PARTIAL: 3395 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -1495,15 +1495,15 @@ Color identity W
 - ✗ Prevent all combat damage that would be dealt to attacking artifact creatures you control.
 - ✗ Whenever one or more artifact creatures you control enter, draw a card. This ability triggers only once each turn.
 
-### Maelstrom Wanderer — PARTIAL
+### Maelstrom Wanderer — FULL
 
 Color identity URG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Creatures you control have haste.
-- ✗ Cascade
-- ✗ Cascade
+- ✓ Cascade
+- ✓ Cascade
 
 ### Chainer, Nightmare Adept — PARTIAL
 
