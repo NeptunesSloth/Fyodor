@@ -169,7 +169,32 @@ export function SettingsPanel() {
       </section>
 
       <KeysSection />
+      <DiagnosticsSection />
     </div>
+  );
+}
+
+/** A troubleshooting file saved to this computer (host only). Nothing is ever sent anywhere. */
+function DiagnosticsSection() {
+  const [priv, setPriv] = useState(false);
+  const [host, setHost] = useState<boolean | null>(null);
+  useEffect(() => {
+    fetch("/api/saves").then((r) => setHost(r.ok), () => setHost(false));
+  }, []);
+  if (!host) return null;
+  return (
+    <section>
+      <h2>Diagnostics</h2>
+      <p className="hint">
+        Saves a JSON file with versions, connection state, consistency checks and recent warnings, for when something
+        goes wrong. It stays on this computer. By default it has no hands, libraries, decklists or notes.
+      </p>
+      <div className="row">
+        <label className="check"><input type="checkbox" checked={priv} onChange={(e) => setPriv(e.target.checked)} data-testid="diag-private" />
+          Include private information (full table states and decklists)</label>
+        <a className="tt-btn ghost" data-testid="diag-download" href={`/api/diagnostics${priv ? "?include_private=true" : ""}`} download>Download diagnostics</a>
+      </div>
+    </section>
   );
 }
 

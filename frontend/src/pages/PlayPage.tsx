@@ -15,6 +15,8 @@ import {
   lanInfo,
   listGames,
   listSaves,
+  importPackage,
+  packageUrl,
   loadSave,
   rememberSeat,
   type CreatePlayer,
@@ -88,7 +90,24 @@ export function PlayPage({ route }: { route: Route }) {
           </section>
           {host && (
             <section className="panel">
-              <h2>Saved games</h2>
+              <div className="panel-head">
+                <h2>Saved games</h2>
+                <label className="btn small" title="Import a .fyodor.zip game package from another pod computer">
+                  Import package…
+                  <input type="file" accept=".zip,application/zip" hidden data-testid="package-import" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    try {
+                      const r = await importPackage(file);
+                      toast(`Imported “${r.save.name}” · ${r.assets_added} image(s), ${r.macros_added} macro(s) added`);
+                      refresh();
+                    } catch (err) {
+                      toastError(err);
+                    }
+                  }} />
+                </label>
+              </div>
               {saves.length === 0 && <p className="hint">Nothing saved yet. Games autosave while you play.</p>}
               {saves.map((s) => (
                 <div key={s.id} className="list-row">
@@ -116,6 +135,7 @@ export function PlayPage({ route }: { route: Route }) {
                       toastError(e);
                     }
                   }}>LAN</button>
+                  <a className="btn small" href={packageUrl(s.id)} download title="Download a portable package (save + custom images + macros)">⇩</a>
                   <button className="btn small danger" onClick={async () => {
                     if (!window.confirm(`Delete save “${s.name}”?`)) return;
                     await deleteSave(s.id).catch(toastError);

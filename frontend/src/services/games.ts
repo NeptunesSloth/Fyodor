@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { ApiError, api } from "./api";
 import type { GameSummary, LobbySettings, LobbyView, SaveSummary } from "../types/game";
 
 export interface CreatePlayer {
@@ -39,6 +39,14 @@ export const listSaves = () => api.get<SaveSummary[]>("/saves");
 export const loadSave = (id: string, mode: "local" | "lan" = "local", password?: string) =>
   api.post<CreatedGame>(`/saves/${id}/load`, { mode, password: password || null });
 export const deleteSave = (id: string) => api.del<void>(`/saves/${id}`);
+/** Portable package: the save plus its custom images and macros, as one zip (host only). */
+export const packageUrl = (id: string) => `/api/saves/${id}/package`;
+export async function importPackage(file: Blob): Promise<{ save: SaveSummary; assets_added: number; macros_added: number }> {
+  const res = await fetch("/api/packages/import", { method: "POST", headers: { "Content-Type": "application/zip" }, body: file });
+  const body = await res.json().catch(() => ({ detail: res.statusText }));
+  if (!res.ok) throw new ApiError(res.status, typeof body.detail === "string" ? body.detail : res.statusText, body);
+  return body;
+}
 export const joinGame = (body: { code: string; name?: string; password?: string; seat?: string | null; spectate?: boolean }) =>
   api.post<{ game_id: string; viewer: string; token: string; game: GameSummary }>("/join", body);
 export const lanInfo = () => api.get<{ addresses: string[]; port: number; bound_host: string; reachable: boolean }>("/lan-info");

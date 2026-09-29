@@ -344,3 +344,6 @@ body.inspect-large .card-preview { width: 360px; }
 body.inspect-large .card-preview .insp-image { width: 330px; }
 .seat-glyph { display: none; font-size: 11px; color: var(--player-color); }
 body.cb-markers .seat-glyph { display: inline; }
+
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.panel-head h2 { margin: 0; }

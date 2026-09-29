@@ -104,6 +104,17 @@ class AssetStore:
             )
         return self.get(aid)
 
+    def import_image(self, data: bytes, *, kind: str, name: str) -> tuple[dict[str, Any], bool]:
+        """Add an image from a package, reusing an existing asset with the same content and kind.
+        Returns (asset, created)."""
+        sniff(data)  # validate the content before looking anything up
+        sha = hashlib.sha256(data).hexdigest()
+        with self.lock:
+            row = self.conn.execute("SELECT id FROM assets WHERE sha256 = ? AND kind = ? ORDER BY rowid LIMIT 1", (sha, kind)).fetchone()
+        if row is not None:
+            return self.get(row["id"]), False
+        return self.add(data, kind=kind, name=name), True
+
     def replace(self, asset_id: str, data: bytes) -> dict[str, Any]:
         info = sniff(data)
         with self.lock, transaction(self.conn):
