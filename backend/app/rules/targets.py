@@ -13,7 +13,7 @@ from collections.abc import Callable
 
 from app.game.rules_state import TargetRef
 from app.game.state import CardInstance
-from app.rules import protection
+from app.rules import protection, selectors
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan
 
@@ -73,9 +73,13 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     return not protection.protected_from(ch, source)
 
 
-def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristics | None = None) -> list[str]:
+def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristics | None = None,
+                  source_card: str | None = None) -> list[str]:
     """Player ids and card ids that ``chooser`` may target with ``selector`` right now
-    (``source``: the spell or the ability's source, for protection)."""
+    (``source``: the spell or the ability's source, for protection; ``source_card``: that
+    object, for "another target …")."""
+    if selector.startswith(selectors.PREFIX):  # a structured selector (app/rules/selectors.py)
+        return _selector_targets(plan, selectors.from_key(selector), chooser, source, source_card)
     if selector.startswith("graveyard:"):  # "target Spirit card with mana value N or less from your graveyard"
         from app.rules import characteristics as chars
 
@@ -107,18 +111,33 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
     return out
 
 
+def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source: Characteristics | None,
+                      source_card: str | None) -> list[str]:
+    if sel.player is not None:  # 115.1: players (hexproof players: not yet modelled)
+        return [p for p in plan.live() if selectors.matches_player(plan, sel, p, chooser)]
+    out = []
+    for cid in selectors.candidates(plan, sel, chooser, source_card):
+        card = plan.state.cards[cid]
+        on_field = card.zone.endswith(":battlefield") or card.zone == "stack"
+        if on_field and not can_target(plan, chooser, card, plan.ch(card), source):  # hexproof / shroud / protection
+            continue
+        out.append(cid)
+    return out
+
+
 def ref(plan: Plan, target: str) -> TargetRef:
     return TargetRef(id=target, object_id=plan.oid(target) if target in plan.state.cards else None)
 
 
-def still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, source: Characteristics | None = None) -> bool:
+def still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, source: Characteristics | None = None,
+                source_card: str | None = None) -> bool:
     """608.2b: is a chosen target still legal? A card that changed zones is a new object: illegal."""
     if target.object_id is None:
-        return target.id in plan.live() and target.id in legal_targets(plan, selector, chooser, source)
+        return target.id in plan.live() and target.id in legal_targets(plan, selector, chooser, source, source_card)
     card = plan.state.cards.get(target.id)
     if card is None or plan.oid(card) != target.object_id:
         return False
-    return target.id in legal_targets(plan, selector, chooser, source)
+    return target.id in legal_targets(plan, selector, chooser, source, source_card)
 
 
 def source_of(plan: Plan, card_id: str | None) -> Characteristics | None:

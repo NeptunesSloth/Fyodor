@@ -16,15 +16,23 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption, StackEntry
 from app.game.state import zone_key
-from app.rules import layers, protection, regeneration
+from app.rules import layers, protection, regeneration, selectors, values
 from app.rules.plan import Plan, decide
 from app.rules.targets import source_of, still_legal
 
 Context = dict[str, Any]  # {"controller", "source_card", "source_object", "name", "targets": [...], "stack_id", "kind"}
 
 
+def _amount(plan: Plan, ctx: Context, n: Any) -> int:
+    """An effect's number: a literal or a value expression (app/rules/values.py)."""
+    return values.evaluate(plan, ctx, n)
+
+
 def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
     me = ctx["controller"]
+    if who.startswith(selectors.PREFIX):  # "each opponent", "each player" … as a selector
+        sel = selectors.from_key(who)
+        return [p for p in plan.live() if selectors.matches_player(plan, sel, p, me)] if sel.player else []
     if who == "you":
         return [me]
     if who == "each_player":
@@ -37,6 +45,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
+    if who.startswith(selectors.PREFIX):  # "each creature you control", "all other Goblins" …
+        sel = selectors.from_key(who)
+        return [] if sel.player else selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
     if who == "target":
         return [t["id"] for t in ctx["targets"] if t["id"] in plan.state.cards
                 and plan.oid(t["id"]) == t.get("object_id")]
@@ -58,32 +69,37 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 
 def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    want = _amount(plan, ctx, e["n"])
     for pid in _players(plan, ctx, e["who"]):
         library = plan.state.zones.get(zone_key(pid, "library"), [])
-        n = min(e["n"], len(library))
+        n = min(want, len(library))
         if n:
             plan.do({"type": "draw", "player": pid, "count": n}, actor=pid)
-        if n < e["n"] and pid not in plan.rules.drew_from_empty:
+        if n < want and pid not in plan.rules.drew_from_empty:
             plan.rules.drew_from_empty.append(pid)  # 704.5b at the next check
     return True
 
 
 def gain_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    n = _amount(plan, ctx, e["n"])
     for pid in _players(plan, ctx, e["who"]):
-        plan.do({"type": "life", "player": pid, "delta": e["n"]}, actor=ctx["controller"])
+        if n:
+            plan.do({"type": "life", "player": pid, "delta": n}, actor=ctx["controller"])
     return True
 
 
 def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    n = _amount(plan, ctx, e["n"])
     for pid in _players(plan, ctx, e["who"]):
-        plan.do({"type": "life", "player": pid, "delta": -e["n"]}, actor=ctx["controller"])
+        if n:
+            plan.do({"type": "life", "player": pid, "delta": -n}, actor=ctx["controller"])
     return True
 
 
 def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """Noncombat damage from the source (120.3): life loss for players, marked damage for
     creatures, loyalty loss for planeswalkers; lifelink and deathtouch of the source apply."""
-    n = e["n"]
+    n = _amount(plan, ctx, e["n"])
     players = _players(plan, ctx, e["who"])
     cards = _cards(plan, ctx, e["who"])
     source = plan.state.cards.get(ctx.get("source_card") or "")
@@ -218,13 +234,13 @@ def surveil(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     pid = ctx["controller"]
-    top = plan.state.zones.get(zone_key(pid, "library"), [])[: e["n"]]
+    top = plan.state.zones.get(zone_key(pid, "library"), [])[: _amount(plan, ctx, e["n"])]
     if not top:
         return True
     options = [DecisionOption(id=cid, label=plan.state.cards[cid].name or "Card", card_id=cid) for cid in top]
     verb = "Scry" if where == "bottom" else "Surveil"
     dest = "the bottom of your library" if where == "bottom" else "your graveyard"
-    decide(plan, player=pid, kind="choose_cards", prompt=f"{verb} {e['n']}: choose the cards to put into {dest} (the rest stay on top)",
+    decide(plan, player=pid, kind="choose_cards", prompt=f"{verb} {len(top)}: choose the cards to put into {dest} (the rest stay on top)",
            options=options, min_choices=0, max_choices=len(top),
            resume={"step": "look", "where": where, "cards": list(top), "ctx": ctx})
     return False
@@ -233,8 +249,11 @@ def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
 def create_token(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """111: tokens are individual objects for the rules; identical ones may be *shown* as a pile."""
     t = e["token"]
+    count = _amount(plan, ctx, e["n"])
+    if count <= 0:
+        return True
     for pid in _players(plan, ctx, e["who"]):
-        plan.do({"type": "create_token", "player": pid, "count": e["n"], "stacked": False,
+        plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False,
                  "source_id": ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None,
                  "token": {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
                            "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}},
@@ -244,8 +263,19 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cards = _cards(plan, ctx, e["who"])
-    if cards:
-        plan.do({"type": "counter", "card_ids": cards, "kind": e["kind"], "delta": e["n"]}, actor=ctx["controller"])
+    n = _amount(plan, ctx, e["n"])
+    if cards and n:
+        plan.do({"type": "counter", "card_ids": cards, "kind": e["kind"], "delta": n}, actor=ctx["controller"])
+    return True
+
+
+def remove_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Remove N … counters from …" (as many as there are, 122.8)."""
+    n = _amount(plan, ctx, e["n"])
+    for cid in _cards(plan, ctx, e["who"]):
+        have = plan.state.cards[cid].counters.get(e["kind"], 0)
+        if have and n:
+            plan.do({"type": "counter", "card_ids": [cid], "kind": e["kind"], "delta": -min(have, n)}, actor=ctx["controller"])
     return True
 
 
@@ -594,8 +624,9 @@ def shield(plan: Plan, key: str, n: int) -> int:
 
 
 def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    want = _amount(plan, ctx, e["n"])
     for pid in _players(plan, ctx, e["who"]):
-        n = min(e["n"], len(plan.state.zones.get(zone_key(pid, "library"), [])))
+        n = min(want, len(plan.state.zones.get(zone_key(pid, "library"), [])))
         if n:
             plan.do({"type": "mill", "player": pid, "count": n}, actor=pid)
     return True
@@ -825,23 +856,92 @@ def monarch(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    pid = ctx["controller"]
-    hand = plan.state.zones.get(zone_key(pid, "hand"), [])
-    n = min(e["n"], len(hand))
-    if n == 0:
-        return True
-    if n == len(hand):
-        plan.do({"type": "move", "card_ids": list(hand), "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
-        return True
-    decide(plan, player=pid, kind="choose_cards", prompt=f"Discard {n} card{'s' if n != 1 else ''}",
-           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
-           min_choices=n, max_choices=n, resume={"step": "discard", "ctx": ctx})
-    return False
+    """701.9: each affected player discards N cards of their choice, in APNAP order (101.4); each
+    chooses privately from their own hand."""
+    who = _players(plan, ctx, e.get("who", "you")) if e.get("who") else [ctx["controller"]]
+    order = [p for p in plan.apnap() if p in who]
+    return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order)
+
+
+def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str]) -> bool:
+    for i, pid in enumerate(players):
+        hand = plan.state.zones.get(zone_key(pid, "hand"), [])
+        n = min(want, len(hand))
+        if n == 0:
+            continue
+        if n == len(hand):
+            plan.do({"type": "move", "card_ids": list(hand), "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
+            continue
+        decide(plan, player=pid, kind="choose_cards", prompt=f"Discard {n} card{'s' if n != 1 else ''}",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
+               min_choices=n, max_choices=n, resume={"step": "discard", "ctx": ctx, "want": want, "rest": players[i + 1:]})
+        return False
+    return True
 
 
 def resume_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.do({"type": "move", "card_ids": chosen, "to": {"player": d.player, "zone": "graveyard"}}, actor=d.player)
-    continue_effects(plan, d.resume["ctx"])
+    ctx = d.resume["ctx"]
+    if _discard_next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or []):
+        continue_effects(plan, ctx)
+
+
+def sacrifice_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.21a: "[Players] sacrifice N [selector]": each affected player chooses permanents they
+    control that match, in APNAP order."""
+    who = _players(plan, ctx, e["who"])
+    order = [p for p in plan.apnap() if p in who]
+    return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order)
+
+
+def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list[str]) -> bool:
+    sel = selectors.from_key(key)
+    for i, pid in enumerate(players):
+        mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
+                if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
+        n = min(want, len(mine))
+        if n == 0:
+            continue
+        if n == len(mine):
+            _sacrifice_cards(plan, mine)
+            continue
+        decide(plan, player=pid, kind="choose_cards", prompt=f"Sacrifice {n}",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
+               min_choices=n, max_choices=n,
+               resume={"step": "sacrifice_choice", "ctx": ctx, "sel": key, "want": want, "rest": players[i + 1:]})
+        return False
+    return True
+
+
+def _sacrifice_cards(plan: Plan, cards: list[str]) -> None:
+    for cid in cards:
+        card = plan.state.cards[cid]
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "graveyard"}}, actor=card.controller)
+
+
+def resume_sacrifice_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
+    _sacrifice_cards(plan, chosen)
+    r = d.resume
+    if _sacrifice_next(plan, r["ctx"], r["sel"], r["want"], r.get("rest") or []):
+        continue_effects(plan, r["ctx"])
+
+
+def return_card(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Return cards (the target, or those matching) from a graveyard / exile to a hand or the
+    battlefield: "to your hand", "to its owner's hand", "to the battlefield [tapped] [under your
+    control]". A card that left its zone isn't there to return (a new object, 400.7)."""
+    from app.rules import attachments  # attachments → effects (resume)
+
+    cards = [c for c in _cards(plan, ctx, e["who"]) if not plan.state.cards[c].zone.endswith(":battlefield")]
+    if e["to"] == "hand":
+        for cid in cards:
+            card = plan.state.cards[cid]
+            dest = ctx["controller"] if e.get("under") == "you" else card.owner
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": dest, "zone": "hand"}}, actor=ctx["controller"])
+        return True
+    entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
+                "actor": ctx["controller"], "tapped": bool(e.get("tapped"))} for cid in cards]
+    return attachments.enter(plan, entries, ctx)
 
 
 def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -911,6 +1011,7 @@ def use_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES = {
     "use_targets": use_targets,
+    "remove_counters": remove_counters, "sacrifice_choice": sacrifice_choice, "return_card": return_card,
     "attach_self": attach_self,
     "draw": draw, "gain_life": gain_life, "lose_life": lose_life, "damage": damage, "pump": pump, "grant": grant,
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
@@ -975,12 +1076,12 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     """608.2: check targets, ask "you may", then carry out the effects in order."""
     ctx: Context = {"controller": entry.controller, "source_card": entry.source_card, "source_object": entry.source_object,
                     "name": entry.name, "targets": [t.model_dump() for t in entry.targets], "stack_id": stack_id,
-                    "kind": entry.kind, "effects": entry.effects, "next": 0}
+                    "kind": entry.kind, "effects": entry.effects, "next": 0, "x": entry.x}
     if entry.slot_specs:  # a modal spell: each mode's target is checked on its own (608.2b)
         src = source_of(plan, entry.source_card)
         slots, targeted, legal_any = [], False, False
         for refs, sspec in zip(entry.slots, entry.slot_specs, strict=False):
-            ok = [t for t in refs if sspec and still_legal(plan, sspec["what"], entry.controller, t, src)]
+            ok = [t for t in refs if sspec and still_legal(plan, sspec["what"], entry.controller, t, src, entry.source_card)]
             targeted = targeted or bool(sspec and refs)
             legal_any = legal_any or bool(ok)
             slots.append([t.model_dump() for t in ok])
@@ -993,7 +1094,7 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     spec = entry.target_spec
     if spec and entry.targets:
         src = source_of(plan, entry.source_card)
-        legal = [t for t in entry.targets if still_legal(plan, spec["what"], entry.controller, t, src)]
+        legal = [t for t in entry.targets if still_legal(plan, spec["what"], entry.controller, t, src, entry.source_card)]
         if not legal:
             plan.note(f"{entry.name or 'It'} does nothing: its target is no longer legal")
             finish(plan, ctx, countered=True)

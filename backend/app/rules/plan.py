@@ -152,6 +152,13 @@ class Plan:
     def live(self) -> list[str]:
         return live_players(self.state)
 
+    def apnap(self) -> list[str]:
+        """Live players in APNAP order (101.4): the active player, then the others in turn order."""
+        order = self.state.seat_order
+        live = set(self.live())
+        start = order.index(self.active) if self.active in order else 0
+        return [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in live]
+
     def after(self, player: str) -> str:
         """The next live player after ``player`` in turn order."""
         order = self.state.seat_order

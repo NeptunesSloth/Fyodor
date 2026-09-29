@@ -332,7 +332,7 @@ def choose_target(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: di
     spec = definition.get("target") if definition else None
     if not spec:
         return []
-    legal = [t for t in legal_targets(plan, spec["what"], plan.actor, source_of(plan, a.card_id)) if t not in exclude]
+    legal = [t for t in legal_targets(plan, spec["what"], plan.actor, source_of(plan, a.card_id), a.card_id) if t not in exclude]
     if a.targets:
         if len(a.targets) != 1 or a.targets[0] not in legal:
             raise ActionError("That isn't a legal target")
@@ -359,7 +359,7 @@ def choose_modes(plan: Plan, a: A.CastSpell, definition: dict[str, Any], what: s
         hi = 2  # "If you control a commander as you cast this spell, you may choose both instead."
     src = source_of(plan, a.card_id)
     allowed = [i for i, m in enumerate(modes)
-               if not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src)]
+               if not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, a.card_id)]
     if a.modes:
         if not lo <= len(a.modes) <= hi:
             raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}")
@@ -401,7 +401,7 @@ def choose_slot_targets(plan: Plan, a: A.CastSpell, specs: list[dict[str, Any] |
     for n, k in enumerate(need):
         spec = specs[k]
         assert spec is not None
-        legal = legal_targets(plan, spec["what"], plan.actor, src)
+        legal = legal_targets(plan, spec["what"], plan.actor, src, a.card_id)
         if n < len(a.targets):
             if a.targets[n] not in legal:
                 raise ActionError("That isn't a legal target")

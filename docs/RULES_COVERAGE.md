@@ -78,6 +78,7 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Partner-family keywords and "~ can be your commander" (deck construction only, 702.124a / 903.3a) | 32,116 | 5,222 (16.3%) | 26,846 | 0 | 48 | 124 / 3,501 |
 | "Whenever ~ enters or attacks" (one ability, each event, 603.2) | 32,116 | 5,225 (16.3%) | 26,843 | 0 | 48 | 125 / 3,501 |
 | Modal spells (700.2: choose one / two / one or both / one or more / same mode more than once / commander "choose both"; a target per mode) | 32,116 | 5,269 (16.4%) | 26,799 | 0 | 48 | 125 / 3,501 |
+| Generic selector + value expressions + effect grammar (draw, life, discard, mill, sacrifice, damage, destroy/exile/tap/untap, return, counters, pump/grant, "for each", "where X is") | 32,116 | 6,672 (20.8%) | 25,396 | 0 | 48 | 174 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards

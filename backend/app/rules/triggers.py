@@ -509,7 +509,7 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None) -> bool:
     spec = t.ability.get("target")
     targets = []
     if spec:
-        legal = legal_targets(plan, spec["what"], t.controller, source_of(plan, t.source_card))
+        legal = legal_targets(plan, spec["what"], t.controller, source_of(plan, t.source_card), t.source_card)
         if target is None:
             if not legal:
                 r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]

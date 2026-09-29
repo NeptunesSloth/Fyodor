@@ -1,0 +1,144 @@
+"""The generic effect grammar (app/rules/language.py) on the selector (selectors.py) and value
+(values.py) models: parsing, and the final game state when abilities using it resolve."""
+
+from __future__ import annotations
+
+import pytest
+
+from app.rules import selectors
+from app.rules.language import parse_sentence
+from tests.game_helpers import act, zone
+from tests.test_rules_attachments import build, mana, named, token
+from tests.test_rules_effects import pass_until_stack_empty, replay_matches
+
+
+def key(phrase):
+    return selectors.parse(phrase).key()
+
+
+# -- parsing ------------------------------------------------------------------------------
+@pytest.mark.parametrize(("text", "effects", "target"), [
+    ("draw two cards", [{"do": "draw", "who": "you", "n": 2}], None),
+    ("target player draws x cards", [{"do": "draw", "who": "target", "n": {"x": 1}}], "player"),
+    ("each opponent loses 2 life", [{"do": "lose_life", "who": "each_opponent", "n": 2}], None),
+    ("each opponent discards a card", [{"do": "discard", "who": "each_opponent", "n": 1}], None),
+    ("target opponent mills three cards", [{"do": "mill", "who": "target", "n": 3}], "opponent"),
+    ("remove a time counter from ~", [{"do": "remove_counters", "who": "self", "kind": "time", "n": 1}], None),
+])
+def test_parse_simple(text, effects, target):
+    assert parse_sentence(text) == (effects, target)
+
+
+def test_parse_selectors_and_values():
+    effects, target = parse_sentence("you gain 1 life for each creature you control")
+    assert effects == [{"do": "gain_life", "who": "you", "n": {"count": key("creature you control")}}] and target is None
+    effects, target = parse_sentence("~ deals x damage to target creature, where x is the number of goblins you control")
+    assert effects[0]["n"] == {"count": key("goblins you control")} and target == key("creature")
+    effects, _ = parse_sentence("~ deals 2 damage to each creature and each player")
+    assert [e["who"] for e in effects] == [key("creature"), "each_player"]
+    effects, _ = parse_sentence("each opponent sacrifices a creature")
+    assert effects == [{"do": "sacrifice_choice", "who": "each_opponent", "sel": key("creature"), "n": 1}]
+    effects, target = parse_sentence("return target creature card from your graveyard to the battlefield")
+    assert effects[0]["do"] == "return_card" and target == key("creature card from your graveyard")
+    effects, _ = parse_sentence("creatures you control get +1/+1 until end of turn")
+    assert effects == [{"do": "pump", "who": key("creature you control"), "p": 1, "t": 1}]
+
+
+@pytest.mark.parametrize("text", [
+    "its controller draws a card",  # (a subject we don't model yet)
+    "draw a card for each foo you control",
+    "destroy target creature and target artifact",
+    "return ~ to your hand",
+])
+def test_unknown_wordings_stay_manual(text):
+    assert parse_sentence(text) is None
+
+
+# -- resolution -----------------------------------------------------------------------------
+def activate(s, card, **kw):
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=card.id, ability=0, **kw)
+    pass_until_stack_empty(s)
+
+
+def test_gain_life_for_each(cards):
+    s = build(cards)
+    for i in range(3):
+        token(s, "p1", f"Elf{i}")
+    src = token(s, "p1", "Healer", text="{1}: You gain 1 life for each creature you control.")
+    activate(s, src)
+    assert s.state.players["p1"].life == 44  # three Elves and the Healer
+    replay_matches(s)
+
+
+def test_damage_each_creature_and_each_player(cards):
+    s = build(cards)
+    mine = token(s, "p1", "Mine", "3/3")
+    theirs = token(s, "p2", "Theirs", "1/1")
+    src = token(s, "p1", "Quake", "5/5", text="{1}: This creature deals 1 damage to each creature and each player.")
+    activate(s, src)
+    assert s.state.players["p1"].life == 39 and s.state.players["p2"].life == 39
+    assert s.state.cards[mine.id].damage == 1 and theirs.id not in s.state.cards  # the 1/1 token died
+    replay_matches(s)
+
+
+def test_each_opponent_sacrifices_their_choice(cards):
+    s = build(cards)
+    a = token(s, "p2", "A")
+    b = token(s, "p2", "B")
+    src = token(s, "p1", "Edict", text="{1}: Each opponent sacrifices a creature.")
+    activate(s, src)
+    d = s.state.rules.decision
+    assert d.player == "p2" and {o.id for o in d.options} == {a.id, b.id}
+    assert s.view("p1")["rules"]["decision"].get("options") is None  # only Bob sees his choices
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[a.id])
+    pass_until_stack_empty(s)
+    assert a.id not in s.state.cards and b.id in s.state.cards
+
+
+def test_counters_on_each_and_removal(cards):
+    s = build(cards)
+    x = token(s, "p1", "X")
+    y = token(s, "p1", "Y")
+    enemy = token(s, "p2", "Enemy")
+    src = token(s, "p1", "Captain", text="{1}: Put a +1/+1 counter on each other creature you control.")
+    activate(s, src)
+    assert s.state.cards[x.id].counters == {"+1/+1": 1} and s.state.cards[y.id].counters == {"+1/+1": 1}
+    assert not s.state.cards[src.id].counters and not s.state.cards[enemy.id].counters  # "other", "you control"
+    replay_matches(s)
+
+
+def test_return_creature_card_from_graveyard_to_battlefield(cards):
+    s = build(cards)
+    dead = named(s, "Forest")  # (a card in the graveyard that isn't a creature can't be chosen)
+    act(s, "p1", type="move", card_ids=[dead.id], to={"zone": "graveyard"})
+    src = token(s, "p1", "Necro", text="{1}: Return target creature card from your graveyard to the battlefield.")
+    mana(s, C=1)
+    with pytest.raises(Exception, match="legal target"):
+        act(s, "p1", type="activate_ability", card_id=src.id, ability=0, targets=[dead.id])
+
+
+def test_team_pump_is_locked_in(cards):
+    s = build(cards)
+    a = token(s, "p1", "A")
+    src = token(s, "p1", "Banner", text="{1}: Creatures you control get +1/+1 until end of turn.")
+    activate(s, src)
+    late = token(s, "p1", "Late")
+    from app.rules.plan import Plan
+
+    plan = Plan(s.state, "p1", cards, None)
+    assert plan.ch(s.state.cards[a.id]).pt == (3, 3) and plan.ch(s.state.cards[late.id]).pt == (2, 2)  # 611.2c
+
+
+def test_each_opponent_discards_privately(cards):
+    s = build(cards)
+    act(s, "p2", type="draw", player="p2", count=3)
+    src = token(s, "p1", "Mind Rot", text="{1}: Each opponent discards two cards.")
+    activate(s, src)
+    d = s.state.rules.decision
+    assert d.player == "p2" and d.min_choices == 2
+    assert s.view("p1")["rules"]["decision"].get("options") is None
+    hand = zone(s.state, "p2", "hand")
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=hand[:2])
+    pass_until_stack_empty(s)
+    assert len(zone(s.state, "p2", "hand")) == 1 and len(zone(s.state, "p2", "graveyard")) == 2

@@ -470,7 +470,16 @@ def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | 
                 effects += found
                 break
         else:
-            return None
+            from app.rules import language  # the generic grammar (a leaf module)
+
+            parsed = language.parse_sentence(text)
+            if parsed is None:
+                return None
+            found, sel = parsed
+            if sel and target and sel != target:
+                return None  # two different targets: not supported yet
+            target = sel or target
+            effects += found
     return effects, target, optional
 
 
