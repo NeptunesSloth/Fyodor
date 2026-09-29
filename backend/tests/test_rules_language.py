@@ -244,7 +244,48 @@ def test_look_at_top_may_reveal_matching_rest_random_bottom(cards):
     src = token(s, "p1", "Scout", text="{1}: Look at the top four cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.")
     top4 = zone(s.state, "p1", "library")[:4]
     activate(s, src)
-    assert s.state.rules.decision is None  # (no creature card among them: nothing to choose)
+    # (no creature card among them, but Alice is still asked: whether a decision appears mustn't
+    # tell the other players what the hidden cards were)
+    d = s.state.rules.decision
+    assert d is not None and d.options == [] and d.max_choices == 0
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+    pass_until_stack_empty(s)
     library = zone(s.state, "p1", "library")
     assert set(library[-4:]) == set(top4)  # all four went to the bottom
     replay_matches(s)
+
+
+@pytest.mark.parametrize("kind", ["stun", "shield", "flying", "finality", "lore"])
+def test_counters_with_unmodeled_rules_stay_manual(kind):
+    # 122.1b-j: these counters carry rules the engine doesn't apply yet; placing an inert marker
+    # would be wrong automation
+    assert parse_sentence(f"put a {kind} counter on target creature") is None
+
+
+def _artifact(s, name, text):
+    act(s, "p1", type="create_token", player="p1", token={"name": name, "type_line": "Token Artifact", "text": text})
+    return named(s, name)
+
+
+def test_aura_found_with_nothing_to_enchant_stays_hidden(cards):
+    import json
+
+    s = build(cards, "Holy Strength")  # (no creatures anywhere)
+    src = _artifact(s, "Rector", "{1}: Search your library for an Aura card, put it onto the battlefield, then shuffle.")
+    activate(s, src)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    pass_until_stack_empty(s)
+    assert named(s, "Holy Strength").zone == "p1:library"
+    assert "Holy Strength" not in json.dumps(s.view("p2"))
+
+
+def test_aura_host_prompt_doesnt_name_a_hidden_card(cards):
+    s = build(cards, "Holy Strength")
+    token(s, "p1", "BearA")
+    token(s, "p2", "BearB")
+    src = _artifact(s, "Rector", "{1}: Search your library for an Aura card, put it onto the battlefield, then shuffle.")
+    activate(s, src)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert "Holy Strength" not in (s.view("p2")["rules"]["decision"] or {}).get("prompt", "")

@@ -51,9 +51,9 @@ def test_templates(name, type_line, text, expected):
 
 
 @pytest.mark.parametrize("text", [
-    "Destroy target nonblack creature.",  # a selector the engine doesn't know: never guessed
-    "Whenever another creature dies, you gain 1 life.",  # a non-self dies trigger (not yet)
-    "When this creature enters, draw a card for each opponent you have.",
+    "Destroy target creature of the chosen type.",  # a selector the engine doesn't know: never guessed
+    "Whenever you commit a crime, you gain 1 life.",  # a trigger event the engine doesn't model yet
+    "When this creature enters, draw a card for each foo you control.",
     "Counter target spell.",
     "When this creature enters, if you control a Forest, draw a card.",  # intervening "if" (603.4): not yet
 ])
@@ -62,8 +62,38 @@ def test_unknown_wordings_stay_manual(text):
         scripts.definitions(ch("X", "Instant", text)) == {}
 
 
+def test_generic_grammar_now_reads_these():
+    assert scripts.definitions(ch("X", "Instant", "Destroy target nonblack creature."))
+    assert scripts.definitions(ch("X", "Creature", "Whenever another creature dies, you gain 1 life."))[0]["cond"]["event"] == "die"
+    assert scripts.definitions(ch("X", "Creature", "When this creature enters, draw a card for each opponent you have."))
+
+
 def test_a_spell_is_automated_only_as_a_whole():
     opt = ch("Opt", "Instant", "Scry 1.\nDraw a card.")
     assert [e["do"] for e in scripts.spell_definition(opt)["effects"]] == ["scry", "draw"]
     half = ch("Half", "Instant", "Draw a card.\nTarget player shuffles their graveyard into their library.")
     assert scripts.spell_definition(half) is None  # one manual line: the whole spell is resolved by hand
+
+
+@pytest.mark.parametrize(("text", "type_line", "ok"), [
+    # "it" after a target is that target
+    ("Untap target creature. It gets +1/+4 and gains reach until end of turn.", "Instant", True),
+    # "it" in a trigger about this object is this object
+    ("When this creature dies, it deals 2 damage to any target.", "Creature", True),
+    # "it" naming the object the event happened to: bound when it triggers (not self!)
+    ("Whenever another creature you control enters, put a +1/+1 counter on it.", "Creature", True),
+    ("Whenever a creature you control attacks, it gets +1/+0 until end of turn.", "Creature", True),
+    # … but not one that left (a new object, 400.7), nor a spell just cast: manual
+    ("Whenever another creature you control dies, return it to its owner's hand.", "Creature", False),
+    ("Whenever you cast a creature spell, it gains haste until end of turn.", "Creature", False),
+    ("At the beginning of your upkeep, put a +1/+1 counter on it.", "Creature", False),
+])
+def test_pronoun_it_is_resolved_or_refused(text, type_line, ok):
+    defs = scripts.definitions(ch("X", type_line, text))
+    assert bool(defs) == ok, text
+    if ok:
+        assert all(e.get("who") not in ("it", "self") for d in defs.values() for e in d["effects"]) \
+            or "this creature" in text  # (resolved to the target / the event object, not the source)
+        assert all(e.get("who") != "it" and "src" not in e for d in defs.values() for e in d["effects"])
+    if "Untap target" in text:
+        assert [e["who"] for e in defs[0]["effects"]] == ["target", "target", "target"]

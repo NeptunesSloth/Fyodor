@@ -1133,8 +1133,10 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     most = min(_amount(plan, ctx, e["n"]), len(options))
     least = 0 if e.get("optional") else most
     ctx["looked"] = looked
-    if most == 0:
+    if most == 0 and (sel is None or not looked):
         return True
+    # (with a filter, ask even when nothing matched, as search does: whether a decision appears
+    # mustn't tell the other players what the hidden cards were)
     decide(plan, player=pid, kind="choose_cards", prompt=e.get("prompt") or "Choose from among them",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
            min_choices=least, max_choices=most, resume={"step": "pick_looked", "ctx": ctx, "e": e})

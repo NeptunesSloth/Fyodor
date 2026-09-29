@@ -30,6 +30,14 @@ NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5
            "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "twenty": 20}
 AMOUNT = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x)"
 
+# Counters that carry rules the engine doesn't model yet (122.1b keyword counters, 122.1c shield,
+# 122.1d stun, 122.1h finality, 122.1i rad, 122.1j hone, 714 lore): an effect putting one of these
+# stays manual rather than placing an inert marker.
+UNMODELED_COUNTERS = frozenset({
+    "flying", "first strike", "double strike", "deathtouch", "decayed", "exalted", "haste", "hexproof",
+    "indestructible", "lifelink", "menace", "reach", "shadow", "trample", "vigilance",
+    "shield", "stun", "finality", "rad", "hone", "lore"})
+
 
 def parse_amount(word: str) -> Value | None:
     w = word.strip().lower()
@@ -51,7 +59,7 @@ def parse_count(phrase: str) -> Value | None:
     what = m["what"] if m else phrase.strip()
     if what in ("cards in your hand",):
         return {"hand": "you"}
-    if what in ("opponents you have", "your opponents"):
+    if what in ("opponents you have", "opponent you have", "your opponents", "opponent"):
         return {"opponents": 1}
     sel = selectors.parse(what)
     if sel is None:

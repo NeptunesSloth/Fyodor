@@ -7,6 +7,7 @@ from app.game import ops
 from app.game.errors import ActionError
 from app.game.handlers import objects, response
 from app.game.ops import group, log, pname, text, zone_label
+from app.game.rules_state import emit
 from app.game.state import ALL, STACK, CardInstance, GameState, ViewContext, split_zone, zone_key
 from app.game.visibility import seers
 
@@ -139,6 +140,7 @@ def draw_cards(state: GameState, pid: str, count: int) -> list[CardInstance]:
     drawn = [state.cards[cid] for cid in lib[:count]]
     for c in drawn:
         ops.move_card(state, c, zone_key(pid, "hand"))
+        emit(state, "drew", player=pid)  # 121.2: each card is its own draw
     return drawn
 
 

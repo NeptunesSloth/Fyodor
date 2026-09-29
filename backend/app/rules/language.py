@@ -50,8 +50,10 @@ def ref(phrase: str) -> tuple[str, str]:
     """An object or player phrase → ("target", selector key) | ("each", selector key) |
     ("self", "") | ("players", "you" / "each_player" / "each_opponent")."""
     p = phrase.strip()
-    if p in ("~", "it", "this creature", "this permanent"):
+    if p in ("~", "this creature", "this permanent"):
         return "self", ""
+    if p in ("it", "that creature", "that permanent"):
+        return "it", ""  # a pronoun: resolved against its antecedent (scripts.resolve_it)
     if p in ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact"):
         return "host", ""  # what the source Aura / Equipment is attached to
     if p in _PLAYER_GROUPS:
@@ -72,7 +74,7 @@ def ref(phrase: str) -> tuple[str, str]:
 
 
 def _who(kind: str, key: str) -> str:
-    return {"target": "target", "self": "self", "host": "host", "players": key, "each": key}[kind]
+    return {"target": "target", "self": "self", "it": "it", "host": "host", "players": key, "each": key}[kind]
 
 
 RESTRICTIONS = {"block": ["cant_block"], "attack": ["cant_attack"], "attack or block": ["cant_attack_or_block"],
@@ -231,7 +233,7 @@ def _parse(text: str) -> tuple[Effects, str | None]:
             raise _Fail
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
     # -- damage ---------------------------------------------------------------------------------
-    m = re.fullmatch(rf"(?:~|it) deals (?P<n>{AMT}) damage to (?P<o>.+)", text)
+    m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage to (?P<o>.+)", text)
     if m:
         n = _apply(_amount(m["n"]), rider)
         effects: Effects = []
@@ -242,7 +244,7 @@ def _parse(text: str) -> tuple[Effects, str | None]:
                 if target is not None:
                     raise _Fail  # (two targets: app/rules/targets multi-target groups)
                 target = key
-            effects.append({"do": "damage", "who": _who(kind, key), "n": n})
+            effects.append({"do": "damage", "who": _who(kind, key), "n": n, **({"src": "it"} if m["src"] == "it" else {})})
         return effects, target
     if rider is not None and not text.startswith(("put ", "remove ")):
         raise _Fail
@@ -262,12 +264,12 @@ def _parse(text: str) -> tuple[Effects, str | None]:
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], key if kind == "target" else None
     if text in ("return ~ to its owner's hand", "return it to its owner's hand"):
-        return [{"do": "bounce", "who": "self"}], None
+        return [{"do": "bounce", "who": "self" if text.startswith("return ~") else "it"}], None
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|your hand|"
                      r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?)", text)
     if m:
         kind, key = ref(m["o"])
-        if kind in ("players", "self"):
+        if kind in ("players", "self", "it"):
             raise _Fail
         sel = selectors.from_key(key) if key.startswith(selectors.PREFIX) else None
         from_zone = sel is not None and sel.card
@@ -286,7 +288,7 @@ def _parse(text: str) -> tuple[Effects, str | None]:
     m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o>.+)", text)
     if m:
         kind, key = ref(m["o"])
-        if kind == "players":
+        if kind == "players" or m["k"] in values.UNMODELED_COUNTERS:
             raise _Fail
         return [{"do": "add_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             key if kind == "target" else None

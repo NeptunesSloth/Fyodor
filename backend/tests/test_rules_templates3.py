@@ -62,7 +62,8 @@ def test_investigate_and_explore_parse():
     from app.rules.scripts import parse_effects
 
     assert parse_effects("Investigate.")[0][0]["token"]["name"] == "Clue"
-    assert parse_effects("It explores.")[0] == [{"do": "explore"}]
+    assert parse_effects("It explores.", it="self")[0] == [{"do": "explore"}]
+    assert parse_effects("It explores.") is None  # ("it" with no antecedent: manual)
 
 
 def test_explore(cards):

@@ -217,6 +217,7 @@ EventKind = Literal[
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
     "cycled",  # a player cycled a card (702.29: "when you cycle …")
     "mana_added",  # a mana ability produced mana (106.3, 106.12a); convoke/improvise/delve never do
+    "drew",  # a player drew a card (121.2: one event per card)
     "crewed",
     "turned_face_up",  # 702.37e (morph)  # a Vehicle became crewed (702.122)
 ]
@@ -416,6 +417,8 @@ class RulesState(BaseModel):
     pending_triggers: list[PendingTrigger] = Field(default_factory=list)
     trigger_batch: int = 0  # last event batch the trigger collector looked at
     stack: dict[str, StackEntry] = Field(default_factory=dict)  # stack card id -> what it does
+    draws_this_turn: dict[str, int] = Field(default_factory=dict)  # player -> cards drawn (for "your second card")
+    draws_turn: int = 0
     # Aura spells on the stack -> what they target (303.4a); they enter attached to it (303.4f).
     aura_targets: dict[str, TargetRef] = Field(default_factory=dict)
     # How each spell was paid for (stack object id -> record); follows the spell onto the battlefield.

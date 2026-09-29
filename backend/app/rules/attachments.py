@@ -195,7 +195,9 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
             continue
         hosts = _hosts_on_entering(plan, card, entry["player"])
         if not hosts:
-            plan.note(f"{card.name or 'The Aura'} has nothing it could enchant: it stays where it is")
+            # (no name in the text: the card may still be in a hidden zone; card_ids lets the log
+            # name it only to players who can see it)
+            plan.note("The Aura has nothing it could enchant: it stays where it is", [card.id])
             continue
         if len(hosts) == 1:
             _move(plan, entry)
@@ -204,7 +206,7 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
         from app.rules.plan import decide
         from app.rules.targets import label
 
-        decide(plan, player=entry["player"], kind="choose_one", prompt=f"Choose what {card.name or 'the Aura'} enchants",
+        decide(plan, player=entry["player"], kind="choose_one", prompt="Choose what the Aura enchants",  # (not named: it may come from a hidden zone)
                options=[DecisionOption(id=h, label=label(plan, h), card_id=h if h in plan.state.cards else None)
                         for h in hosts],
                resume={"step": "aura_enters", "entry": entry, "rest": entries[i + 1:], "ctx": ctx, "shuffle": shuffle},

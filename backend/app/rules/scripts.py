@@ -30,6 +30,7 @@ from typing import Any
 from app.rules.characteristics import Characteristics
 from app.rules.costs import parse_ability_cost
 from app.rules.oracle import AbilityText, parse_abilities
+from app.rules.values import UNMODELED_COUNTERS
 
 Definition = dict[str, Any]
 
@@ -90,6 +91,8 @@ TRIGGERS = [
                 r"(?P<body>.+)$"), "step"),
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
                 r"an artifact spell|an enchantment spell), (?P<body>.+)$"), "cast_you"),
+    # Anything else "When/Whenever [subject] [event], …": the generic condition grammar (app/rules/events.py)
+    (re.compile(r"^(?:When|Whenever) (?P<cond>[^,]+), (?P<body>.+)$"), "event"),
 ]
 
 
@@ -110,6 +113,19 @@ def step_trigger(m: re.Match[str]) -> str:
     return f"step:{STEPS[m['step']]}:{WHOSE[m['whose']]}"
 
 
+_LEGACY_SELF = {"enter": "enters_self", "die": "dies_self", "leave": "ltb_self", "attack": "attacks_self",
+                "deal_combat_damage_player": "combat_damage_player_self"}
+
+
+def _legacy_trigger(cond: dict[str, Any]) -> str | None:
+    """Self conditions the engine already fires by name ("When ~ dies" → dies_self)."""
+    if cond.get("subject") == "self" and cond["event"] in _LEGACY_SELF:
+        return _LEGACY_SELF[cond["event"]]
+    if cond.get("event") == "multi":
+        return "multi:" + "+".join(_LEGACY_SELF[e] for e in cond["events"])
+    return None
+
+
 def num(word: str) -> int:
     return int(word) if word.isdigit() else NUMBERS[word.lower()]
 
@@ -128,6 +144,64 @@ def self_text(text: str, name: str) -> str:
 
 
 EFFECTS: list[tuple[re.Pattern[str], Any]] = []
+
+
+def _self_or_it(word: str) -> str:
+    """"~" is the source; "it" is a pronoun resolved later against its antecedent (resolve_it)."""
+    return "it" if word == "it" else "self"
+
+
+def _it_source(word: str) -> dict[str, str]:
+    """"It deals …" / "It explores": the pronoun names the object doing it (resolve_it)."""
+    return {"src": "it"} if word == "it" else {}
+
+
+# Events after which the object is still where it was, so "it" can name it (not dies / leaves:
+# that's a new object in another zone, 400.7)
+_STAYING = {"enter", "attack", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
+            "deal_combat_damage_player"}
+
+
+def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
+    """What "it" / "that creature" means in a triggered ability's effect: this object when the
+    trigger is about it; the object the event happened to ("Whenever another creature you control
+    enters, put a +1/+1 counter on it"), bound when it triggers; else nothing (manual)."""
+    if name in ("dies_self", "ltb_self") or name.startswith("multi:"):
+        # it left the battlefield: "it" is a new object elsewhere (400.7), which the engine
+        # doesn't follow yet; it may still be the source of damage (last known information)
+        return "self_gone"
+    if name.endswith("_self") or (cond or {}).get("subject") == "self":
+        return "self"
+    if name in ("enters_other", "landfall"):
+        return "event"
+    if cond and cond.get("subject") in ("sel", "self_or") and not cond.get("aggregate") and cond["event"] in _STAYING:
+        return "event"
+    return None
+
+
+def resolve_it(effects: list[dict[str, Any]], antecedent: str | None) -> list[dict[str, Any]] | None:
+    """Resolve the pronoun "it" in parsed effects (placeholders "who": "it" / "src": "it"): after
+    a target in the same ability it is that target ("Untap target creature. It gets +1/+4");
+    otherwise it is ``antecedent`` ("self" for "When ~ dies, return it …"). None when "it" names
+    something the engine doesn't track (the triggering object of "Whenever another creature
+    enters, put a counter on it", a spell just cast, …): the ability stays manual."""
+    out, seen_target = [], False
+    for e in effects:
+        e = dict(e)
+        if e.get("who") == "it":
+            if seen_target:
+                e["who"] = "target"
+            elif antecedent in ("self", "event"):
+                e["who"] = antecedent
+            else:
+                return None
+        if e.get("src") == "it":
+            if seen_target or antecedent not in ("self", "self_gone"):
+                return None  # (the target, not the source, deals the damage / explores)
+            del e["src"]
+        seen_target = seen_target or e.get("who") == "target"
+        out.append(e)
+    return out
 
 
 def effect(pattern: str):  # type: ignore[no-untyped-def]
@@ -172,9 +246,9 @@ def _target_loses(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "lose_life", "who": "target", "n": num(m["n"])}], "player"
 
 
-@effect(r"(?:~|it) deals {N} damage to (?P<sel>{SEL})")
+@effect(r"(?P<src>~|it) deals {N} damage to (?P<sel>{SEL})")
 def _damage(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    return [{"do": "damage", "who": "target", "n": num(m["n"])}], SELECTORS[m["sel"]]
+    return [{"do": "damage", "who": "target", "n": num(m["n"]), **_it_source(m["src"])}], SELECTORS[m["sel"]]
 
 
 @effect(r"~ deals {N} damage to each opponent")
@@ -192,9 +266,9 @@ def _pump_target(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "pump", "who": "target", "p": _signed(m["p"]), "t": _signed(m["t"])}], SELECTORS[m["sel"]]
 
 
-@effect(r"(?:~|it) gets (?P<p>[+−-]\d+)/(?P<t>[+−-]\d+) until end of turn")
+@effect(r"(?P<who>~|it) gets (?P<p>[+−-]\d+)/(?P<t>[+−-]\d+) until end of turn")
 def _pump_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    return [{"do": "pump", "who": "self", "p": _signed(m["p"]), "t": _signed(m["t"])}], None
+    return [{"do": "pump", "who": _self_or_it(m["who"]), "p": _signed(m["p"]), "t": _signed(m["t"])}], None
 
 
 @effect(r"creatures you control get (?P<p>[+−-]\d+)/(?P<t>[+−-]\d+) until end of turn")
@@ -207,7 +281,7 @@ _KW = "|".join(GRANTABLE)
 
 @effect(rf"(?P<who>target creature|~|it) gains (?P<kw>{_KW}) until end of turn")
 def _grant(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    who = "target" if m["who"].startswith("target") else "self"
+    who = "target" if m["who"].startswith("target") else _self_or_it(m["who"])
     return [{"do": "grant", "who": who, "keywords": [m["kw"]]}], "creature" if who == "target" else None
 
 
@@ -302,7 +376,7 @@ def _create_predefined(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | No
 
 @effect(r"put {N} (?P<kind>\+1/\+1|-1/-1) counters? on (?P<who>target creature you control|target creature|~|it|each creature you control)")
 def _counters(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    who = {"~": "self", "it": "self", "each creature you control": "creatures_you_control"}.get(m["who"], "target")
+    who = {"~": "self", "it": "it", "each creature you control": "creatures_you_control"}.get(m["who"], "target")
     return [{"do": "add_counters", "who": who, "kind": m["kind"], "n": num(m["n"])}], SELECTORS.get(m["who"])
 
 
@@ -377,14 +451,14 @@ def _investigate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
              "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
 
 
-@effect(r"(?:~|it) explores")
+@effect(r"(?P<src>~|it) explores")
 def _explore(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    return [{"do": "explore"}], None
+    return [{"do": "explore", **_it_source(m["src"])}], None
 
 
-@effect(r"sacrifice (?:~|it)")
+@effect(r"sacrifice (?P<who>~|it)")
 def _sacrifice_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    return [{"do": "sacrifice", "who": "self"}], None
+    return [{"do": "sacrifice", "who": _self_or_it(m["who"])}], None
 
 
 @effect(r"activate only once each turn")
@@ -405,7 +479,7 @@ def _no_regeneration(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
 @effect(r"regenerate (?P<who>~|it|target creature|target creature you control)")
 def _regenerate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if m["who"] in ("~", "it"):
-        return [{"do": "regenerate", "who": "self"}], None
+        return [{"do": "regenerate", "who": _self_or_it(m["who"])}], None
     return [{"do": "regenerate", "who": "target"}], SELECTORS[m["who"]]
 
 
@@ -475,8 +549,9 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], str | None] | None:
     return None
 
 
-def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | None:
-    """One sentence (or two joined by ". ") of effects → (effects, target selector, optional)."""
+def parse_effects(body: str, it: str | None = None) -> tuple[list[dict[str, Any]], str | None, bool] | None:
+    """One sentence (or two joined by ". ") of effects → (effects, target selector, optional).
+    ``it``: what the pronoun "it" means when no target precedes it (see resolve_it)."""
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
         return None
@@ -520,7 +595,10 @@ def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | 
                 return None  # two different targets: not supported yet
             target = sel or target
             effects += found
-    return effects, target, optional
+    resolved = resolve_it(effects, it)
+    if resolved is None:
+        return None
+    return resolved, target, optional
 
 
 _ANTHEM = re.compile(
@@ -610,7 +688,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if m:  # shock lands: "As ~ enters, you may pay 2 life. If you don't, it enters tapped."
         return {"kind": "replacement", "replacement": "pay_life_or_tapped", "life": int(m["n"]), "effects": []}
     m = ENTERS_WITH.match(text) if ability.kind == "static" else None
-    if m:  # 614.1c: "~ enters with N … counters on it"
+    if m and m["kind"] not in UNMODELED_COUNTERS:  # 614.1c: "~ enters with N … counters on it"
         n: int | str = "X" if m["n"] == "X" else num(m["n"])
         return {"kind": "replacement", "replacement": "enters_with_counters", "counter": m["kind"], "n": n, "effects": []}
     if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
@@ -625,12 +703,23 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         for pattern, trigger in TRIGGERS:
             m = pattern.match(text)
             if m:
-                parsed = parse_effects(m["body"])
+                name = step_trigger(m) if trigger == "step" else trigger
+                cond = None
+                if trigger == "event":
+                    from app.rules import events as event_grammar  # (a leaf module)
+
+                    cond = event_grammar.parse_condition(m["cond"])
+                    if cond is None:
+                        return None
+                    name = _legacy_trigger(cond) or "event"
+                parsed = parse_effects(m["body"], it=_trigger_antecedent(name, cond))
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
-                out = {"kind": "triggered", "trigger": step_trigger(m) if trigger == "step" else trigger,
+                out = {"kind": "triggered", "trigger": name,
                        "effects": effects, "optional": optional, "target": {"what": target} if target else None}
+                if cond is not None and name == "event":
+                    out["cond"] = cond
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
                 return out

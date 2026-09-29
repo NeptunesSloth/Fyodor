@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 188 · PARTIAL: 3313 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 269 · PARTIAL: 3232 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -56,7 +56,7 @@ Color identity W
 - ✗ When Loran enters, destroy up to one target artifact or enchantment.
 - ✗ {T}: You and target opponent each draw a card.
 
-### Toski, Bearer of Secrets — PARTIAL
+### Toski, Bearer of Secrets — FULL
 
 Color identity G
 
@@ -65,7 +65,7 @@ Color identity G
 - ✓ This spell can't be countered.
 - ✓ Indestructible
 - ✓ Toski attacks each combat if able.
-- ✗ Whenever a creature you control deals combat damage to a player, draw a card.
+- ✓ Whenever a creature you control deals combat damage to a player, draw a card.
 
 ### Kutzil, Malamet Exemplar — PARTIAL
 
@@ -126,7 +126,7 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Deathtouch
-- ✗ Whenever you draw a card, you gain 2 life.
+- ✓ Whenever you draw a card, you gain 2 life.
 - ✗ Whenever an opponent draws a card, they lose 2 life.
 
 ### Tatyova, Benthic Druid — FULL
@@ -197,7 +197,7 @@ Color identity W
 - ✗ Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card.
 - ✗ Whenever an opponent casts their second spell each turn, draw a card.
 
-### Elas il-Kor, Sadistic Pilgrim — PARTIAL
+### Elas il-Kor, Sadistic Pilgrim — FULL
 
 Color identity WB
 
@@ -205,7 +205,7 @@ Color identity WB
 - ✓ Attack and block
 - ✓ Deathtouch
 - ✓ Whenever another creature you control enters, you gain 1 life.
-- ✗ Whenever another creature you control dies, each opponent loses 1 life.
+- ✓ Whenever another creature you control dies, each opponent loses 1 life.
 
 ### Goreclaw, Terror of Qal Sisma — PARTIAL
 
@@ -257,7 +257,7 @@ Color identity W
 - ✓ Indestructible
 - ✗ Other permanents you control have indestructible.
 
-### Niv-Mizzet, Parun — PARTIAL
+### Niv-Mizzet, Parun — FULL
 
 Color identity UR
 
@@ -265,8 +265,8 @@ Color identity UR
 - ✓ Attack and block
 - ✓ This spell can't be countered.
 - ✓ Flying
-- ✗ Whenever you draw a card, Niv-Mizzet deals 1 damage to any target.
-- ✗ Whenever a player casts an instant or sorcery spell, you draw a card.
+- ✓ Whenever you draw a card, Niv-Mizzet deals 1 damage to any target.
+- ✓ Whenever a player casts an instant or sorcery spell, you draw a card.
 
 ### Talrand, Sky Summoner — FULL
 
@@ -394,7 +394,7 @@ Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life.
+- ✓ Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life.
 - ✗ {T}, Sacrifice another black creature: Draw a card.
 
 ### Elesh Norn, Grand Cenobite — FULL
@@ -512,14 +512,14 @@ Color identity G
 - ✓ Flying
 - ✗ Whenever a creature you control deals combat damage to a player, create that many Treasure tokens.
 
-### Omnath, Locus of Rage — PARTIAL
+### Omnath, Locus of Rage — FULL
 
 Color identity RG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Landfall — Whenever a land you control enters, create a 5/5 red and green Elemental creature token.
-- ✗ Whenever Omnath or another Elemental you control dies, Omnath deals 3 damage to any target.
+- ✓ Whenever Omnath or another Elemental you control dies, Omnath deals 3 damage to any target.
 
 ### Moraug, Fury of Akoum — PARTIAL
 
@@ -536,8 +536,8 @@ Color identity BR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever an attacking creature dies, each opponent loses 1 life and you gain 1 life.
 - ✗ When Kardur enters, until your next turn, creatures your opponents control attack each combat if able and attack a player other than you if able.
-- ✗ Whenever an attacking creature dies, each opponent loses 1 life and you gain 1 life.
 
 ### Kodama of the East Tree — PARTIAL
 
@@ -565,14 +565,14 @@ Color identity R
 - ✓ Attack and block
 - ✗ If a red source you control would deal damage to an opponent or a permanent an opponent controls, it deals that much damage plus 2 instead.
 
-### Arasta of the Endless Web — PARTIAL
+### Arasta of the Endless Web — FULL
 
 Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Reach
-- ✗ Whenever an opponent casts an instant or sorcery spell, create a 1/2 green Spider creature token with reach.
+- ✓ Whenever an opponent casts an instant or sorcery spell, create a 1/2 green Spider creature token with reach.
 
 ### Heliod, Sun-Crowned — PARTIAL
 
@@ -581,9 +581,9 @@ Color identity W
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Indestructible
+- ✓ Whenever you gain life, put a +1/+1 counter on target creature or enchantment you control.
 - ✓ {1}{W}: Another target creature gains lifelink until end of turn.
 - ✗ As long as your devotion to white is less than five, Heliod isn't a creature.
-- ✗ Whenever you gain life, put a +1/+1 counter on target creature or enchantment you control.
 
 ### Yahenni, Undying Partisan — PARTIAL
 
@@ -592,7 +592,7 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Haste
-- ✗ Whenever a creature an opponent controls dies, put a +1/+1 counter on Yahenni.
+- ✓ Whenever a creature an opponent controls dies, put a +1/+1 counter on Yahenni.
 - ✗ Sacrifice another creature: Yahenni gains indestructible until end of turn.
 
 ### Elesh Norn, Mother of Machines — PARTIAL
@@ -677,18 +677,18 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Lifelink
+- ✓ Whenever you cast a black spell, put a +1/+1 counter on K'rrik.
 - ✗ For each {B} in a cost, you may pay 2 life rather than pay that mana.
-- ✗ Whenever you cast a black spell, put a +1/+1 counter on K'rrik.
 
-### Lathliss, Dragon Queen — PARTIAL
+### Lathliss, Dragon Queen — FULL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
+- ✓ Whenever another nontoken Dragon you control enters, create a 5/5 red Dragon creature token with flying.
 - ✓ {1}{R}: Dragons you control get +1/+0 until end of turn.
-- ✗ Whenever another nontoken Dragon you control enters, create a 5/5 red Dragon creature token with flying.
 
 ### Marvin, Murderous Mimic — PARTIAL
 
@@ -729,8 +729,8 @@ Color identity U
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ This spell can't be countered.
+- ✓ Whenever an opponent casts a noncreature spell, draw a card.
 - ✗ You have no maximum hand size.
-- ✗ Whenever an opponent casts a noncreature spell, draw a card.
 - ✗ Discard three cards: Exile Nezahal. Return it to the battlefield tapped under its owner's control at the beginning of the next end step.
 
 ### Vivi Ornitier — PARTIAL
@@ -739,8 +739,8 @@ Color identity UR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✓ Whenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier and it deals 1 damage to each opponent.
 - ✗ {0}: Add X mana in any combination of {U} and/or {R}, where X is Vivi Ornitier's power. Activate only during your turn and only once each turn.
+- ✗ Whenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier and it deals 1 damage to each opponent.
 
 ### Kozilek, Butcher of Truth — PARTIAL
 
@@ -813,14 +813,14 @@ Color identity WG
 - ✓ {4}{G}{G}: Put a +1/+1 counter on each creature you control.
 - ✗ You, planeswalkers you control, and other creatures you control have hexproof.
 
-### Titania, Protector of Argoth — PARTIAL
+### Titania, Protector of Argoth — FULL
 
 Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ When Titania enters, return target land card from your graveyard to the battlefield.
-- ✗ Whenever a land you control is put into a graveyard from the battlefield, create a 5/3 green Elemental creature token.
+- ✓ Whenever a land you control is put into a graveyard from the battlefield, create a 5/3 green Elemental creature token.
 
 ### Kediss, Emberclaw Familiar — PARTIAL
 
@@ -869,14 +869,14 @@ Color identity R
 - ✗ Afflict
 - ✗ At the beginning of each of your postcombat main phases, add {R} for each 1 life your opponents have lost this turn.
 
-### Marwyn, the Nurturer — PARTIAL
+### Marwyn, the Nurturer — FULL
 
 Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever another Elf you control enters, put a +1/+1 counter on Marwyn.
 - ✓ {T}: Add an amount of {G} equal to Marwyn's power.
-- ✗ Whenever another Elf you control enters, put a +1/+1 counter on Marwyn.
 
 ### Xenagos, God of Revels — PARTIAL
 
@@ -915,7 +915,7 @@ Color identity R
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Other Dwarves you control get +1/+0.
-- ✗ Whenever a Dwarf you control becomes tapped, create a Treasure token.
+- ✓ Whenever a Dwarf you control becomes tapped, create a Treasure token.
 - ✗ Sacrifice five Treasures: Search your library for an artifact or Dragon card, put that card onto the battlefield, then shuffle.
 
 ### Junji, the Midnight Sky — PARTIAL
@@ -1013,7 +1013,7 @@ Color identity WB
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Lifelink
-- ✗ Whenever another creature dies, put a +1/+1 counter on Elenda.
+- ✓ Whenever another creature dies, put a +1/+1 counter on Elenda.
 - ✗ When Elenda dies, create X 1/1 white Vampire creature tokens with lifelink, where X is Elenda's power.
 
 ### Mahadi, Emporium Master — PARTIAL
@@ -1303,7 +1303,7 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever Haliya or another creature or artifact you control enters, you gain 1 life.
+- ✓ Whenever Haliya or another creature or artifact you control enters, you gain 1 life.
 - ✗ At the beginning of your end step, draw a card if you've gained 3 or more life this turn.
 - ✗ Warp
 
@@ -1366,15 +1366,15 @@ Color identity R
 - ✓ Attack and block
 - ✗ {2}{R}, {T}: Create a token that's a copy of target creature card in your graveyard, except it's an artifact in addition to its other types. It gains haste. Sacrifice it at the beginning of the next end step.
 
-### Ganax, Astral Hunter — PARTIAL
+### Ganax, Astral Hunter — FULL
 
 Color identity R · pairs via choose_background
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
+- ✓ Whenever Ganax or another Dragon you control enters, create a Treasure token.
 - ✓ Choose a background
-- ✗ Whenever Ganax or another Dragon you control enters, create a Treasure token.
 
 ### Uro, Titan of Nature's Wrath — PARTIAL
 
@@ -1476,7 +1476,7 @@ Color identity W
 - ✓ Flash
 - ✗ Whenever Phelia attacks, exile up to one other target nonland permanent. At the beginning of the next end step, return that card to the battlefield under its owner's control. If it entered under your control, put a +1/+1 counter on Phelia.
 
-### Surrak and Goreclaw — FULL
+### Surrak and Goreclaw — PARTIAL
 
 Color identity G
 
@@ -1484,7 +1484,7 @@ Color identity G
 - ✓ Attack and block
 - ✓ Trample
 - ✓ Other creatures you control have trample.
-- ✓ Whenever another nontoken creature you control enters, put a +1/+1 counter on it. It gains haste until end of turn.
+- ✗ Whenever another nontoken creature you control enters, put a +1/+1 counter on it. It gains haste until end of turn.
 
 ### Losheel, Clockwork Scholar — PARTIAL
 
@@ -1636,8 +1636,8 @@ Color identity UR
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
+- ✓ Whenever you draw a card, create a 1/1 blue and red Insect creature token with flying and haste.
 - ✓ {2}{U}{R}: Draw a card, then discard a card.
-- ✗ Whenever you draw a card, create a 1/1 blue and red Insect creature token with flying and haste.
 - ✗ When The Locust God dies, return it to its owner's hand at the beginning of the next end step.
 
 ### Alesha, Who Laughs at Fate — PARTIAL
@@ -1875,7 +1875,7 @@ Color identity R
 - ✓ Double strike
 - ✓ Trample
 - ✓ Haste
-- ✗ Whenever one or more creatures you control deal combat damage to a player, create a Treasure token.
+- ✓ Whenever one or more creatures you control deal combat damage to a player, create a Treasure token.
 - ✗ Treasure Hunter — At the beginning of your upkeep, if you control thirty or more artifacts, you win the game.
 
 ### Multani, Yavimaya's Avatar — PARTIAL
@@ -2050,14 +2050,14 @@ Color identity W
 - ✓ {T}: Put a +1/+1 counter on Mikaeus.
 - ✗ {T}, Remove a +1/+1 counter from Mikaeus: Put a +1/+1 counter on each other creature you control.
 
-### Grazilaxx, Illithid Scholar — PARTIAL
+### Grazilaxx, Illithid Scholar — FULL
 
 Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever a creature you control becomes blocked, you may return it to its owner's hand.
-- ✗ Whenever one or more creatures you control deal combat damage to a player, draw a card.
+- ✓ Whenever a creature you control becomes blocked, you may return it to its owner's hand.
+- ✓ Whenever one or more creatures you control deal combat damage to a player, draw a card.
 
 ### Sheoldred // The True Scriptures — PARTIAL
 
@@ -2301,7 +2301,7 @@ Color identity W
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Lifelink
-- ✗ Whenever you gain life, put a +1/+1 counter on Aerith Gainsborough.
+- ✓ Whenever you gain life, put a +1/+1 counter on Aerith Gainsborough.
 - ✗ When Aerith Gainsborough dies, put X +1/+1 counters on each legendary creature you control, where X is the number of +1/+1 counters on Aerith Gainsborough.
 
 ### Kwain, Itinerant Meddler — PARTIAL
@@ -2450,7 +2450,7 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever an opponent casts a noncreature spell, create a Food token.
+- ✓ Whenever an opponent casts a noncreature spell, create a Food token.
 - ✗ Whenever a creature deals combat damage to you, sacrifice a Food token.
 - ✗ Tap two untapped Foods you control: Add one mana of any color.
 
@@ -2463,12 +2463,12 @@ Color identity B
 - ✓ Flying
 - ✗ When Kokusho dies, each opponent loses 5 life. You gain life equal to the life lost this way.
 
-### Agent of the Iron Throne — PARTIAL
+### Agent of the Iron Throne — FULL
 
 Color identity B · pairs via background
 
 - ✓ Cast it (timing, costs, the stack)
-- ✗ Commander creatures you own have "Whenever an artifact or creature you control is put into a graveyard from the battlefield, each opponent loses 1 life."
+- ✓ Commander creatures you own have "Whenever an artifact or creature you control is put into a graveyard from the battlefield, each opponent loses 1 life."
 
 ### Plargg and Nassari — PARTIAL
 
@@ -2501,7 +2501,7 @@ Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever you attack, target creature gains deathtouch until end of turn.
+- ✓ Whenever you attack, target creature gains deathtouch until end of turn.
 - ✗ Whenever one or more creatures you control deal combat damage to a player, create a Treasure token, then look at the top card of that player's library and exile it face down. You may cast that card for as long as it remains exiled.
 
 ### Ezuri, Renegade Leader — PARTIAL
@@ -2540,8 +2540,8 @@ Color identity UB
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ At the beginning of each end step, put a slime counter on each creature you don't control.
+- ✓ Whenever a creature you don't control with a slime counter on it dies, create a 1/1 black Slug creature token.
 - ✗ Creatures you don't control get -1/-1 for each slime counter on them.
-- ✗ Whenever a creature you don't control with a slime counter on it dies, create a 1/1 black Slug creature token.
 - ✗ {U}{B}, Sacrifice a Slug: Draw a card.
 
 ### Samwise Gamgee — PARTIAL
@@ -2606,8 +2606,8 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Trample
+- ✓ Whenever a creature you control deals combat damage to a player, draw a card.
 - ✓ Crew
-- ✗ Whenever a creature you control deals combat damage to a player, draw a card.
 - ✗ You may cast this card from your graveyard as long as you control three or more tapped Pirates and/or Vehicles.
 
 ### Kona, Rescue Beastie — PARTIAL
@@ -2875,7 +2875,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever you draw your second card each turn, create a 2/2 blue Drake creature token with flying.
+- ✓ Whenever you draw your second card each turn, create a 2/2 blue Drake creature token with flying.
 - ✗ Whenever you draw your fifth card each turn, Alandra and Drakes you control each get +X/+X until end of turn, where X is the number of cards in your hand.
 
 ### Thrasios, Triton Hero — PARTIAL
