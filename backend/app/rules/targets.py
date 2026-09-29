@@ -68,6 +68,16 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
 def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristics | None = None) -> list[str]:
     """Player ids and card ids that ``chooser`` may target with ``selector`` right now
     (``source``: the spell or the ability's source, for protection)."""
+    if selector.startswith("graveyard:"):  # "target Spirit card with mana value N or less from your graveyard"
+        from app.rules import characteristics as chars
+
+        _, sub, mv = selector.split(":")
+        found: list[str] = []
+        for cid in plan.state.zones.get(f"{chooser}:graveyard", []):
+            g = chars.of(plan.state.cards[cid], plan.info)
+            if (sub == "*" or sub in g.subtypes or sub in g.types) and g.mana_value <= int(mv):
+                found.append(cid)
+        return found
     if selector in SPELL_SELECTORS:  # spells on the stack (115.1)
         check_spell = SPELL_SELECTORS[selector]
         return [cid for cid in plan.state.zones.get("stack", []) if cid in plan.state.cards

@@ -414,8 +414,42 @@ def damage_preview(plan: Plan, rnd: Round) -> str:
     return "; ".join(parts) or "none"
 
 
+def _apply_prevention(plan: Plan, dmg: CombatDamage) -> None:
+    """Prevention shields (615.7) reduce each assignment as it is dealt."""
+    if not plan.rules.prevention:
+        return
+    from app.rules.effects import shield
+
+    kept = []
+    for src, tgt, n in dmg.dealt:
+        key = tgt if tgt in plan.state.players else plan.oid(tgt)
+        left = shield(plan, key, n)
+        cut = n - left
+        if cut:
+            for pool in (dmg.players, dmg.poison, dmg.creatures, dmg.wither, dmg.walkers):
+                if tgt in pool:
+                    pool[tgt] -= min(cut, pool[tgt])
+                    if pool[tgt] <= 0:
+                        del pool[tgt]
+                    break
+            card = plan.state.cards.get(src)
+            if card is not None:
+                if "lifelink" in plan.ch(card).keywords and dmg.lifelink.get(card.controller):
+                    dmg.lifelink[card.controller] = max(0, dmg.lifelink[card.controller] - cut)
+                if card.commander_key and (tgt, card.commander_key) in dmg.commander:
+                    dmg.commander[(tgt, card.commander_key)] = max(0, dmg.commander[(tgt, card.commander_key)] - cut)
+                if not left and tgt in dmg.deathtouched:
+                    dmg.deathtouched.remove(tgt)
+        if left:
+            kept.append((src, tgt, left))
+    dmg.dealt = kept
+    dmg.lifelink = {k: v for k, v in dmg.lifelink.items() if v}
+    dmg.commander = {k: v for k, v in dmg.commander.items() if v}
+
+
 def deal_combat_damage(plan: Plan, rnd: Round) -> None:
     dmg = compute_combat_damage(plan, rnd)
+    _apply_prevention(plan, dmg)
     if dmg.empty:
         return
     plan.do({

@@ -77,7 +77,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"echo (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
         return re.fullmatch(r"(?:mega)?morph (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
-    if kw in ("bushido", "renown", "bloodthirst"):  # numbered keywords (triggers.py, engine.enter_with_counters)
+    if kw in ("bushido", "renown", "bloodthirst", "soulshift"):  # numbered keywords (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
         return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None

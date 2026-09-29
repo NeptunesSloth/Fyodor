@@ -30,7 +30,7 @@ _COST_START = re.compile(
 # (scry, surveil, proliferate…) and ability words are deliberately absent: in a spell they are the
 # effect. Being listed only means "recognised"; whether it's automated is up to coverage.
 KEYWORDS = frozenset({
-    "devoid", "renown", "bloodthirst",
+    "devoid", "renown", "bloodthirst", "soulshift",
     "flying", "reach", "vigilance", "trample", "deathtouch", "lifelink", "first strike", "double strike", "haste",
     "defender", "menace", "hexproof", "indestructible", "flash", "shroud", "fear", "intimidate", "skulk", "prowess",
     "protection", "ward", "equip", "enchant", "cycling", "kicker", "flashback", "convoke", "delve", "cascade",

@@ -67,6 +67,7 @@ Progress (Scryfall data 2026-09-28, Comprehensive Rules 2026-09-25):
 | Buyback, madness | 32,116 | 4,493 (14.0%) | 27,575 | 0 | 48 | 106 / 3,501 |
 | Counterspells ("counter target spell", "… unless its controller pays"), ward | 32,116 | 4,565 (14.2%) | 27,503 | 0 | 48 | 108 / 3,501 |
 | Shock lands, explore, investigate, "becomes the target … sacrifice it" | 32,116 | 4,633 (14.4%) | 27,435 | 0 | 48 | 108 / 3,501 |
+| Prevention shields, soulshift (graveyard targets), convoke with self-tap | 32,116 | 4,685 (14.6%) | 27,383 | 0 | 48 | 110 / 3,501 |
 
 83 banned cards are excluded. The queue (`commander_rules_coverage.md`) is ranked by pod cards,
 pod commanders, how many cards a feature is the *only* missing piece for, then Commander cards

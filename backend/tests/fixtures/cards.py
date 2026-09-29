@@ -252,5 +252,11 @@ def fixture_cards() -> list[dict[str, Any]]:
              oracle_text="Counter target spell unless its controller pays {3}.", colors=["U"], color_identity=["U"]),
         card("Breeding Pool", set_code="tst", number="O1", type_line="Land — Forest Island",
              oracle_text="({T}: Add {G} or {U}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped."),
+        card("Hundred-Talon Kami", set_code="tst", number="O2", mana_cost="{5}{W}", cmc=6.0, type_line="Creature — Spirit",
+             oracle_text="Flying\nSoulshift 4 (When this creature dies, you may return target Spirit card with mana value 4 or less from your graveyard to your hand.)",
+             power="2", toughness="3", colors=["W"], color_identity=["W"]),
+        card("Kami of Ancient Law", set_code="tst", number="O3", mana_cost="{1}{W}", cmc=2.0, type_line="Creature — Spirit",
+             oracle_text="Sacrifice this creature: Destroy target enchantment.", power="2", toughness="2",
+             colors=["W"], color_identity=["W"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

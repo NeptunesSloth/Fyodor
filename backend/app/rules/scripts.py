@@ -314,6 +314,13 @@ def _counter_unless(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]
     return [{"do": "counter_unless", "who": "target", "cost": m["cost"]}], SELECTORS[m["sel"]]
 
 
+@effect(r"prevent the next {N} damage that would be dealt to (?P<sel>any target|target creature|target player|~) this turn")
+def _prevent(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if m["sel"] == "~":
+        return [{"do": "prevent", "who": "self", "n": num(m["n"])}], None
+    return [{"do": "prevent", "who": "target", "n": num(m["n"])}], SELECTORS[m["sel"]]
+
+
 @effect(r"investigate")
 def _investigate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     type_line, text = PREDEFINED_TOKENS["Clue"]
@@ -595,6 +602,12 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
         for k, kw in enumerate(ab.keywords):
             if kw in KEYWORD_TRIGGERS:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
+            m = re.fullmatch(r"soulshift (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "soulshift" else None
+            if m:  # 702.46a: "When this creature dies, you may return target Spirit card with mana value N or less …"
+                out.append((1000 + ab.index * 10 + k, {
+                    "kind": "triggered", "trigger": "dies_self", "optional": True,
+                    "target": {"what": f"graveyard:Spirit:{m.group(1)}"},
+                    "effects": [{"do": "bounce", "who": "target"}]}))
     return out
 
 

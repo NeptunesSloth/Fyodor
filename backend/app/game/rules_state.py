@@ -330,6 +330,7 @@ class RulesState(BaseModel):
     winner: str | None = None
     drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check
     deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
+    prevention: dict[str, int] = Field(default_factory=dict)  # player / object id -> damage to prevent this turn
     regen_shields: dict[str, int] = Field(default_factory=dict)  # object id -> regeneration shields this turn
     delayed: list[dict[str, Any]] = Field(default_factory=list)  # "at the beginning of the next end step" moves
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)

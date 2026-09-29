@@ -96,31 +96,37 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         keywords = plan.ch(source).keywords  # (printed keywords of the card; LKI of granted ones is M16 later)
     creatures, walkers, withered, dealt = {}, {}, {}, []
     deathtouched = []
+    per: dict[str, int] = {}
     for cid in cards:
         card = plan.state.cards[cid]
         ch = plan.ch(card)
         if protection.protected_from(ch, src_ch):  # 702.16e: the damage is prevented
             plan.note(f"Protection prevents the damage to {ch.name}", [cid], actor=ctx["controller"])
             continue
+        per[cid] = shield(plan, plan.oid(cid), n)
+        if per[cid] <= 0:
+            continue
         if "Planeswalker" in ch.types and not ch.is_creature:
-            walkers[cid] = n
+            walkers[cid] = per[cid]
         elif {"wither", "infect"} & keywords:
-            withered[cid] = n
+            withered[cid] = per[cid]
         else:
-            creatures[cid] = n
+            creatures[cid] = per[cid]
         if cid not in walkers and "deathtouch" in keywords:
             deathtouched.append(cid)
-        dealt.append({"source": ctx.get("source_object") or "", "target": cid, "target_object": plan.oid(cid), "amount": n})
+        dealt.append({"source": ctx.get("source_object") or "", "target": cid, "target_object": plan.oid(cid), "amount": per[cid]})
+    to_players = {pid: shield(plan, pid, n) for pid in players}
+    players = [pid for pid, m in to_players.items() if m > 0]
     for pid in players:
-        dealt.append({"source": ctx.get("source_object") or "", "target": pid, "amount": n})
+        dealt.append({"source": ctx.get("source_object") or "", "target": pid, "amount": to_players[pid]})
     if not dealt or n <= 0:
         return True
-    total = n * len(dealt)
+    total = sum(int(d["amount"]) for d in dealt)
     infect = "infect" in keywords
     for pid in players:
         plan.rules.damaged[pid] = plan.state.turn.number
-    plan.do({"type": "rules_damage", "creatures": creatures, "players": {} if infect else {p: n for p in players},
-             "poison": {p: n for p in players} if infect else {}, "wither": withered, "planeswalkers": walkers,
+    plan.do({"type": "rules_damage", "creatures": creatures, "players": {} if infect else {p: to_players[p] for p in players},
+             "poison": {p: to_players[p] for p in players} if infect else {}, "wither": withered, "planeswalkers": walkers,
              "lifelink": {ctx["controller"]: total} if "lifelink" in keywords else {}, "combat": False,
              "dealt": dealt}, actor=ctx["controller"])
     plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *deathtouched]))
@@ -545,6 +551,30 @@ def resume_explore(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, d.resume["ctx"])
 
 
+def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """615.7: "Prevent the next N damage that would be dealt to … this turn" — a shield."""
+    r = plan.rules
+    keys = [plan.oid(c) for c in _cards(plan, ctx, e["who"])] + _players(plan, ctx, e["who"])
+    for key in keys:
+        r.prevention[key] = r.prevention.get(key, 0) + e["n"]
+    return True
+
+
+def shield(plan: Plan, key: str, n: int) -> int:
+    """Use prevention shields on ``key`` (a player or object id): how much of ``n`` is still dealt."""
+    r = plan.rules
+    left = r.prevention.get(key, 0)
+    if not left or n <= 0:
+        return n
+    used = min(left, n)
+    if left - used:
+        r.prevention[key] = left - used
+    else:
+        r.prevention.pop(key, None)
+    plan.note(f"{used} damage prevented")
+    return n - used
+
+
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True  # read by destroy / destroy_all of the same spell or ability
 
@@ -695,7 +725,7 @@ PRIMITIVES = {
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "counter": counter, "counter_unless": counter_unless,
-    "sacrifice": sacrifice, "explore": explore,
+    "sacrifice": sacrifice, "explore": explore, "prevent": prevent,
 }
 
 
