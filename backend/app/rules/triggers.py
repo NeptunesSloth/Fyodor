@@ -71,6 +71,11 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
          event_player: str | None = None, event_amount: int = 0) -> None:
     if manual:
         return
+    if definition.get("if") is not None:  # 603.4: an intervening "if" must hold as it triggers
+        from app.rules import conditions
+
+        if not conditions.holds(plan, {"controller": controller, "source_card": source_card}, definition["if"]):
+            return
     effects = definition.get("effects") or []
     if any(e.get("who") in ("event", "event_player") or e.get("n") == {"event_amount": 1} for e in effects):
         # What the trigger event was about, bound now (603.2, 608.2k): "it" / "that creature" (that

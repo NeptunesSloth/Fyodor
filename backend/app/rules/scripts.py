@@ -593,6 +593,20 @@ def parse_effects(body: str, it: str | None = None) -> tuple[list[dict[str, Any]
     target: str | None = None
     for sentence in [s for s in re.split(r"(?<=\.)\s+", body) if s]:
         text = _lower_first(sentence.rstrip(".").strip())
+        cond_m = re.match(r"^if (?P<c>[^,]+), (?P<rest>.+)$", text)
+        if cond_m:  # "If you control a Forest, draw a card." (608.2c): a condition on this sentence
+            from app.rules import conditions
+
+            cond = conditions.parse(cond_m["c"])
+            inner = _clause(cond_m["rest"]) if cond is not None and not cond_m["rest"].startswith("you may ") else None
+            if inner is None:
+                return None
+            found, sel = inner
+            if sel and target and sel != target:
+                return None
+            target = sel or target
+            effects += [{"do": "only_if", "cond": cond, "skip": len(found)}, *found]
+            continue
         if text.startswith("you may "):
             if effects:
                 # "…. You may reveal … from among them …": a clause that models its own choice
@@ -754,10 +768,16 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
+                # 603.4: "When/Whenever/At …, if [condition], …" — an intervening "if": checked as it
+                # triggers (triggers._add) and again as it resolves (the only_if effect)
+                intervening = effects[0]["cond"] if effects and effects[0]["do"] == "only_if" \
+                    and m["body"].lower().startswith("if ") and effects[0]["skip"] == len(effects) - 1 else None
                 out = {"kind": "triggered", "trigger": name,
                        "effects": effects, "optional": optional, "target": {"what": target} if target else None}
                 if cond is not None and name == "event":
                     out["cond"] = cond
+                if intervening is not None:
+                    out["if"] = intervening
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
                 return out

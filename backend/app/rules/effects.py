@@ -1217,6 +1217,19 @@ def rest_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looked": rest_looked})
 
 
+def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"If [condition], [the next ``skip`` effects]" (608.2c), and an intervening "if" checked
+    again as the ability resolves (603.4): when it doesn't hold, those effects don't happen."""
+    from app.rules import conditions
+
+    if not conditions.holds(plan, ctx, e["cond"]):
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e.get("skip", len(ctx["effects"]))))
+    return True
+
+
+PRIMITIVES.update({"only_if": only_if})
+
+
 # -- resolving a definition -----------------------------------------------------------------
 def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     """608.2: check targets, ask "you may", then carry out the effects in order."""

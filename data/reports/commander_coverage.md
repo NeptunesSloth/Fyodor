@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 290 · PARTIAL: 3211 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 293 · PARTIAL: 3208 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -2859,15 +2859,15 @@ Color identity UB
 - ✗ Commander ninjutsu {U}{B}
 - ✗ Whenever a Ninja you control deals combat damage to a player, reveal the top card of your library and put that card into your hand. Each opponent loses life equal to that card's mana value.
 
-### Bugenhagen, Wise Elder — PARTIAL
+### Bugenhagen, Wise Elder — FULL
 
 Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Reach
+- ✓ At the beginning of your upkeep, if you control a creature with power 7 or greater, draw a card.
 - ✓ {T}: Add one mana of any color.
-- ✗ At the beginning of your upkeep, if you control a creature with power 7 or greater, draw a card.
 
 ### Alandra, Sky Dreamer — PARTIAL
 
