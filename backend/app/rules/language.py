@@ -32,8 +32,16 @@ KEYWORDS = "|".join(k for k in selectors.KEYWORDS if k not in ("protection",))
 _LEGACY_TARGETS = {
     "any target": "any", "target player": "player", "target opponent": "opponent",
 }
-_PLAYER_GROUPS = {"you": "you", "each player": "each_player", "each opponent": "each_opponent",
-                  "each of your opponents": "each_opponent", "that player": "event_player"}
+# Player phrases. The pronouns are placeholders resolved by scripts.resolve_it against what the
+# ability named earlier: "that player" → the target player (or the trigger event's player),
+# "its controller" / "its owner" → the controller / owner of the object the previous instruction
+# was about — as it was then, from last known information once it has left (608.2h, 108.4a).
+PLAYER_GROUPS = {"you": "you", "each player": "each_player", "each opponent": "each_opponent",
+                  "each of your opponents": "each_opponent", "that player": "that_player",
+                  "its controller": "it.controller", "its owner": "it.owner",
+                  "that creature's controller": "it.controller", "that permanent's controller": "it.controller",
+                  "that card's owner": "it.owner", "that creature's owner": "it.owner"}
+PLAYER_PHRASES = "|".join(sorted(PLAYER_GROUPS, key=len, reverse=True))
 
 
 class _Fail(Exception):
@@ -127,24 +135,34 @@ def _target_key(phrase: str) -> str:
     return sel.key()
 
 
-_THEM = ("them", "each of them", "they", "those creatures", "those permanents", "those cards")
+_THEM = ("them", "each of them", "they", "those creatures", "those permanents", "those cards", "those tokens")
+# "cards exiled this way", "creatures sacrificed this way", "the exiled card": the objects a
+# particular earlier instruction of this ability moved (400.7j: found where it put them)
+_THIS_WAY = re.compile(r"^(?:the )?(?:cards?|creatures?|permanents?|tokens?|artifacts?|enchantments?|lands?) "
+                       r"(?P<verb>exiled|sacrificed|destroyed|discarded|milled|returned) this way$")
+_THE_VERBED = re.compile(r"^the (?P<verb>exiled|sacrificed|destroyed|discarded|milled|returned) "
+                         r"(?P<what>card|creature|permanent|token|cards|creatures|permanents|tokens)$")
 
 
 def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
     """An object or player phrase → ("target", selector key, target group) | ("each", selector
     key, None) | ("self", "", None) | ("players", "you" / "each_player" / "each_opponent", None) |
-    a pronoun ("it" / "them")."""
+    a pronoun ("it" / "them", with the verb it names for "… exiled this way")."""
     p = phrase.strip()
     if p in ("~", "this creature", "this permanent"):
         return "self", "", None
-    if p in ("it", "that creature", "that permanent"):
+    if p in ("it", "that creature", "that permanent", "that card", "that token"):
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
     if p in _THEM:
-        return "them", "", None  # the targets just named (scripts.resolve_it)
+        return "them", "", None  # the objects just named (scripts.resolve_it)
+    m = _THIS_WAY.match(p) or _THE_VERBED.match(p)
+    if m:
+        plural = "what" not in m.groupdict() or m["what"].endswith("s")
+        return ("them" if plural else "it"), m["verb"], None  # (resolved to that instruction's objects)
     if p in ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact"):
         return "host", "", None  # what the source Aura / Equipment is attached to
-    if p in _PLAYER_GROUPS:
-        return "players", _PLAYER_GROUPS[p], None
+    if p in PLAYER_GROUPS:
+        return "players", PLAYER_GROUPS[p], None
     group = target_group(p)
     if group is not None:
         return "target", group["what"], group
@@ -162,8 +180,24 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
 
 
 def _who(kind: str, key: str) -> str:
-    return {"target": "target", "self": "self", "it": "it", "them": "them", "host": "host", "players": key,
-            "each": key}[kind]
+    if kind in ("it", "them"):
+        return f"{kind}:{key}" if key else kind  # "them:exiled": the objects the exile instruction moved
+    return {"target": "target", "self": "self", "host": "host", "players": key, "each": key}[kind]
+
+
+_STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
+
+
+def _stat(phrase: str, its: str = "it") -> dict[str, Any]:
+    """"its power" / "that creature's toughness" / "its mana value": a value read from the object
+    the previous instruction was about — as it is, or as it last existed (608.2h). A placeholder
+    ("it") until scripts.resolve_it binds it; ``its`` is what "its" means when the sentence has
+    its own subject ("~ deals damage equal to its power": ~'s)."""
+    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's) (?P<stat>power|toughness|mana value)",
+                     phrase)
+    if not m:
+        raise _Fail
+    return {_STATS[m["stat"]]: its if m["its"] else "it"}
 
 
 # "… and target artifact", "… and up to one target creature", "… and another target creature"
@@ -225,7 +259,7 @@ def _apply(n: Any, rider: Any) -> Any:
     return v if n == 1 else {"times": [n, v]}
 
 
-_SUBJ = r"(?:(?P<s>you|target player|target opponent|each player|each opponent|each of your opponents|that player) )?"
+_SUBJ = rf"(?:(?P<s>target player|target opponent|{PLAYER_PHRASES}) )?"
 
 
 def _subject(m: re.Match[str]) -> tuple[str, str | None]:
@@ -235,7 +269,7 @@ def _subject(m: re.Match[str]) -> tuple[str, str | None]:
     s = m["s"] or "you"
     if s in ("target player", "target opponent"):
         return "target", _LEGACY_TARGETS[s]
-    return _PLAYER_GROUPS[s], None
+    return PLAYER_GROUPS[s], None
 
 
 _SEARCH = re.compile(
@@ -329,10 +363,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m:
         who, target = _subject(m)
         return [{"do": "draw", "who": who, "n": _apply(_amount(m["n"]), rider)}], target
-    m = re.fullmatch(_SUBJ + rf"(?P<v>gains?|loses?) (?P<n>{AMT}) life", text)
+    m = re.fullmatch(_SUBJ + rf"(?P<v>gains?|loses?) (?:(?P<n>{AMT}) life|life equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)
         verb = "gain_life" if m["v"].startswith("gain") else "lose_life"
+        if m["stat"]:  # "… gains life equal to its toughness"
+            if rider is not None:
+                raise _Fail
+            return [{"do": verb, "who": who, "n": _stat(m["stat"])}], target
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?P<n>{AMT}) cards?", text)
     if m:
@@ -365,9 +403,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
                             "n": _amount(n), **src})
             groups += parts
         return effects, _out(groups)
-    m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage to (?P<o>.+)", text)
+    m = re.fullmatch(rf"(?P<src>~|it) deals (?:(?P<n>{AMT}) damage|damage equal to (?P<stat>.+?)) to (?P<o>.+)", text)
     if m:
-        n = _apply(_amount(m["n"]), rider)
+        if m["stat"] and rider is not None:
+            raise _Fail
+        # "~ deals damage equal to its power": its own (the subject's); "it deals … its power": it's
+        n = _stat(m["stat"], "self" if m["src"] == "~" else "it") if m["stat"] else _apply(_amount(m["n"]), rider)
         effects = []
         groups = []
         for part in re.split(r" and (?=each |you$)|" + _AND_TARGET, m["o"]):
@@ -406,10 +447,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
                      r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?)", text)
     if m:
         kind, key, group = ref(m["o"])
-        if kind in ("players", "self", "it", "them"):
+        if kind in ("players", "self"):
             raise _Fail
         sel = selectors.from_key(key) if key.startswith(selectors.PREFIX) else None
-        from_zone = sel is not None and sel.card
+        # a pronoun names cards an earlier instruction put in a graveyard or exile (400.7j:
+        # "Exile target creature. Return it to the battlefield …" finds it there)
+        from_zone = (sel is not None and sel.card) or kind in ("it", "them")
         who = _who(kind, key)
         target = _one(group)
         if m["d"].startswith("the battlefield"):
@@ -417,7 +460,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
                 raise _Fail  # (blink wordings are templated elsewhere)
             return [{"do": "return_card", "who": who, "to": "battlefield", "tapped": bool(m["t"]),
                      "under": "you" if m["u"] == "your" else "owner"}], target
-        if from_zone:
+        if from_zone and kind not in ("it", "them"):
             return [{"do": "return_card", "who": who, "to": "hand", "under": "you" if m["d"] == "your hand" else "owner"}], target
         if m["d"] == "your hand":
             raise _Fail

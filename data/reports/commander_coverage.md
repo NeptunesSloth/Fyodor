@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 397 · PARTIAL: 3104 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 405 · PARTIAL: 3096 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -1569,8 +1569,8 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever you cast a creature spell with power 5 or greater, put a +1/+1 counter on Gwenna and untap it.
 - ✗ {T}: Add two mana in any combination of colors. Spend this mana only to cast creature spells or activate abilities of creature sources.
-- ✗ Whenever you cast a creature spell with power 5 or greater, put a +1/+1 counter on Gwenna and untap it.
 
 ### Ardenn, Intrepid Archaeologist — PARTIAL
 
@@ -1832,8 +1832,8 @@ Color identity BR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ When Juri dies, it deals damage equal to its power to any target.
 - ✗ Whenever you sacrifice a permanent, put a +1/+1 counter on Juri.
-- ✗ When Juri dies, it deals damage equal to its power to any target.
 
 ### Korvold, Fae-Cursed King — PARTIAL
 

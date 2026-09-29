@@ -225,45 +225,227 @@ def _group_of(e: dict[str, Any]) -> int | None:
     return None
 
 
-def resolve_it(effects: list[dict[str, Any]], antecedent: str | None,
-               groups: list[dict[str, Any]] | None = None) -> list[dict[str, Any]] | None:
-    """Resolve the pronouns in parsed effects (placeholders "who": "it" / "them", "src": "it"):
-    after a target in the same ability, "it" is that target ("Untap target creature. It gets
-    +1/+4") — if that "target" allows one target; after "up to two target creatures" "it" is
-    ambiguous (None) — and "them" / "each of them" are the targets of the last group; otherwise
-    "it" is ``antecedent`` ("self" for "When ~ dies, return it …"). None when a pronoun names
-    something the engine doesn't track (the triggering object of "Whenever another creature
-    enters, put a counter on it", a spell just cast, …): the ability stays manual."""
-    out: list[dict[str, Any]] = []
-    last: int | None = None
-    previous: int | None = None  # the group the previous instruction acted on
-    for e in effects:
-        e = dict(e)
-        if e.get("who") == "them":
-            if previous is None:
-                return None  # ("them" after something that wasn't those targets: not followed)
-            e["who"] = "target" if groups is None else f"target:{previous}"
-        if e.get("who") == "it":
-            if last is not None:
-                if groups is not None and groups[last]["max"] != 1:
-                    return None  # "it" after several targets: which one? (manual)
-                e["who"] = "target" if groups is None else f"target:{last}"
-            elif antecedent in ("self", "event"):
-                e["who"] = antecedent
-            else:
-                return None
-        if e.get("src") == "it":
-            if last is not None or antecedent not in ("self", "self_gone"):
-                return None  # (the target, not the source, deals the damage / explores)
-            del e["src"]
+# -- within-resolution references ----------------------------------------------------------------
+# Primitives that record the objects they act on as a named binding of the resolution
+# (app/rules/context.py) when the grammar asks them to ("as": "e<k>"), so a later instruction of
+# the same spell or ability can refer to them explicitly — never by scanning the board later:
+# "Destroy target creature. Its controller gains life equal to its toughness." reads the creature's
+# last known information (608.2h); "Exile target creature. Return it to the battlefield" finds the
+# new object in exile (400.7j). Each maps to the verb "… <verb> this way" names, if any.
+_RECORDING: dict[str, str | None] = {
+    "destroy": "destroyed", "destroy_all": "destroyed", "exile": "exiled", "exile_until": "exiled",
+    "bounce": "returned", "return_card": "returned", "blink": "returned", "sacrifice": "sacrificed",
+    "sacrifice_choice": "sacrificed", "discard": "discarded", "mill": "milled", "search": None, "pick_looked": None,
+    "create_token": None, "tap": None, "untap": None, "pump": None, "grant": None, "restrict": None,
+    "add_counters": None, "remove_counters": None, "regenerate": None, "damage": None,
+}
+# Effects that introduce objects by themselves — by moving, choosing or creating them — rather than
+# by naming a target: a pronoun after them binds to their recorded objects (the object may be in
+# another zone by then, 400.7j, or gone, 608.2h). After a plain target, "it" stays the target.
+_MOVERS = {"destroy", "destroy_all", "exile", "exile_until", "bounce", "return_card", "blink", "sacrifice",
+           "sacrifice_choice", "discard", "mill", "search", "pick_looked", "create_token"}
+_CHOSEN = {"sacrifice_choice": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n"}
+_STAT_KEYS = ("power", "toughness", "mana_value")
+
+
+def _is_player_group(group: dict[str, Any]) -> bool:
+    from app.rules import selectors  # (a leaf module)
+
+    what = group.get("what") or ""
+    if what in ("player", "opponent"):
+        return True
+    return what.startswith(selectors.PREFIX) and selectors.from_key(what).player is not None
+
+
+class _Introducer:
+    """What one effect introduced: objects (with their number) and/or a player."""
+
+    __slots__ = ("index", "objects", "recording", "number", "player", "verb", "do")
+
+    def __init__(self, index: int, e: dict[str, Any], groups: list[dict[str, Any]] | None) -> None:
+        from app.rules import selectors  # (a leaf module)
+
+        self.index = index
+        self.do = e.get("do")
+        self.verb = _RECORDING.get(self.do or "")
+        self.recording = self.do in _RECORDING  # (can carry a binding: "its controller", "its power")
+        self.objects = self.recording
+        self.player = False
+        self.number: int | None = 1  # 1 (singular), 2 (several), None (unknown)
         g = _group_of(e)
-        last = g if g is not None else last
-        previous = g
-        out.append(e)
+        who = e.get("who") or ""
+        if g is not None and groups is not None and g < len(groups):
+            if _is_player_group(groups[g]):
+                self.player = groups[g]["max"] == 1
+                self.objects = self.objects and self.do in _CHOSEN  # ("target player sacrifices a creature")
+            else:
+                self.objects = True  # (a targeted object: "it" is that target, whatever the effect)
+            self.number = 1 if groups[g]["max"] == 1 else 2
+        elif who.startswith(selectors.PREFIX) or who in ("creatures_you_control", "each_creature", "all",
+                                                        "each_player", "each_opponent"):
+            self.number = 2  # ("exile all creatures", "each opponent sacrifices …")
+        if self.do in _CHOSEN:  # ("sacrifice a creature", "create two … tokens"): as many as it says
+            n = e.get(_CHOSEN[self.do], 1)
+            self.number = 1 if n == 1 else (2 if isinstance(n, int) else None)
+        if self.do == "destroy_all":
+            self.number = 2
+
+
+def _bind_stats(v: Any, bind: Any) -> Any:
+    """Rewrite {"power" | "toughness" | "mana_value": "it"} placeholders in a value expression."""
+    if isinstance(v, list):
+        return [_bind_stats(x, bind) for x in v]
+    if not isinstance(v, dict):
+        return v
+    out = {}
+    for k, x in v.items():
+        if k in _STAT_KEYS and x == "it":
+            x = bind()
+            if x is None:
+                raise _NoMatch
+        else:
+            x = _bind_stats(x, bind)
+        out[k] = x
+    return out
+
+
+def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: list[dict[str, Any]] | None = None,
+               *, sentences: list[int] | None = None, event_player: bool = False) -> list[dict[str, Any]] | None:
+    """Resolve the pronouns in parsed effects — the placeholders "who": "it" / "them" (with a verb:
+    "it:exiled" for "the exiled card", "them:exiled" for "cards exiled this way"), "it.controller"
+    / "it.owner", "that_player", "src": "it", and {"power": "it"} in values.
+
+    A pronoun binds to the nearest compatible *introducer* by number and kind: the latest sentence
+    (``sentences``: where each starts) before it that introduced something compatible — an object
+    for "it" (one) / "them" (several), a player for "that player". If that sentence introduced two
+    compatible candidates ("Destroy target creature and target artifact. Its controller …"), the
+    ability stays manual (None): never a guess.
+
+    After a plain target, "it" / "them" are that target ("Untap target creature. It gets +1/+4")
+    — the target as it was chosen, still that object (608.2b). After an instruction that moved,
+    chose or created objects, or for information about the object ("its controller", "its
+    toughness"), the pronoun names the instruction's recorded objects: it gets a binding ("as":
+    "e<k>") and the pronoun reads "ref:e<k>" (app/rules/context.py: the new object where it went,
+    400.7j, or its last known information, 608.2h). Otherwise "it" is ``antecedent`` ("self" for
+    "When ~ dies, return it …", "event" for the object a trigger was about); "that player" with no
+    target player is the trigger event's player (checked by _event_refs_ok), unless the event has
+    one *and* a player was targeted (ambiguous, None)."""
+    out: list[dict[str, Any]] = []
+    intros: list[_Introducer] = []
+    starts = sentences if sentences is not None else list(range(len(effects)))
+
+    def sentence_of(index: int) -> int:
+        return sum(1 for s in starts if s <= index) - 1
+
+    def find(ok: Any, before: int) -> _Introducer | None:
+        """The unique compatible introducer in the latest sentence that has one (None: none, or
+        two in the same sentence)."""
+        fitting = [i for i in intros if i.index < before and ok(i)]
+        if not fitting:
+            return None
+        latest = sentence_of(fitting[-1].index)
+        same = [i for i in fitting if sentence_of(i.index) == latest]
+        # ("target creature gets +2/+2 and gains reach": two effects on one target are one candidate)
+        distinct = {(("g", _group_of(out[i.index])) if _group_of(out[i.index]) is not None else ("i", i.index)): i
+                    for i in same}
+        if len(distinct) != 1:
+            raise _NoMatch  # (ambiguous)
+        return same[-1]
+
+    def bound(intro: _Introducer) -> str:
+        """The binding name of an introducer (marking its effect to record it)."""
+        if not intro.recording:
+            raise _NoMatch  # (an effect that doesn't record what it acted on: manual)
+        name = f"e{intro.index}"
+        out[intro.index]["as"] = name
+        return name
+
+    def objects(index: int, number: int | None, verb: str | None) -> _Introducer | None:
+        def ok(i: _Introducer) -> bool:
+            if not i.objects:
+                return False
+            if verb is not None:
+                return i.verb == verb
+            return i.number is None or number is None or i.number == number
+        return find(ok, index)
+
+    def stat_ref(index: int) -> Any:
+        intro = objects(index, 1, None)
+        if intro is not None:
+            return "ref:" + bound(intro)
+        # (the source's own power, as it is or as it last existed: values._object reads its LKI)
+        return "self" if antecedent in ("self", "self_gone") else antecedent if antecedent == "event" else None
+
+    try:
+        for index, e in enumerate(effects):
+            e = dict(e)
+            out.append(e)
+            who = e.get("who")
+            if isinstance(who, str) and (who in ("it", "them") or who.startswith(("it:", "them:"))):
+                pronoun, _, verb = who.partition(":")
+                intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
+                if intro is not None:
+                    if intro.do in _MOVERS or _group_of(out[intro.index]) is None:
+                        e["who"] = "ref:" + bound(intro)
+                    else:
+                        g = _group_of(out[intro.index])
+                        e["who"] = "target" if groups is None else f"target:{g}"
+                elif pronoun == "it" and not verb and antecedent in ("self", "event"):
+                    e["who"] = antecedent
+                else:
+                    return None
+            elif who in ("it.controller", "it.owner"):
+                intro = objects(index, 1, None)
+                if intro is not None:
+                    e["who"] = f"ref:{bound(intro)}.{who[3:]}"
+                elif antecedent == "event":
+                    e["who"] = f"ref:event.{who[3:]}"
+                else:
+                    return None
+            elif who == "that_player":
+                intro = find(lambda i: i.player, index)
+                if intro is not None:
+                    if event_player:
+                        return None  # the trigger's player or the target player? (manual)
+                    g = _group_of(out[intro.index])
+                    e["who"] = "target" if groups is None else f"target:{g}"
+                else:
+                    e["who"] = "event_player"  # (only a trigger about a player can: _event_refs_ok)
+            if "n" in e:
+                e["n"] = _bind_stats(e["n"], lambda at=index: stat_ref(at))
+            if e.get("src") == "it":
+                if any(i.index < index and _group_of(out[i.index]) is not None for i in intros) \
+                        or antecedent not in ("self", "self_gone"):
+                    return None  # (the target, not the source, deals the damage / explores)
+                del e["src"]
+            if e.get("do") in _RECORDING or _group_of(e) is not None:
+                intros.append(_Introducer(index, e, groups))
+    except _NoMatch:
+        return None
     return out
 
 
 _TARGET_REFS = ("who", "power", "toughness", "mana_value", "on")
+
+
+def rename_bindings(value: Any, prefix: str) -> Any:
+    """Prefix the resolution bindings ("as": "e0", "ref:e0", "ref:e0.controller") of one clause,
+    so clauses parsed separately and run as one resolution (a spell's lines, a modal spell's
+    modes) never share a name. The trigger event's binding ("ref:event…") is not a clause's."""
+    if isinstance(value, list):
+        return [rename_bindings(v, prefix) for v in value]
+    if not isinstance(value, dict):
+        return value
+    out = {}
+    for k, v in value.items():
+        if k == "as" and isinstance(v, str):
+            v = prefix + v
+        elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
+            v = "ref:" + prefix + v[4:]
+        else:
+            v = rename_bindings(v, prefix)
+        out[k] = v
+    return out
 
 
 def _renumber(value: Any, index: list[int] | None) -> Any:
@@ -504,6 +686,25 @@ def _granted_token_text(quoted: str) -> str:
     return quoted
 
 
+@effect(r"(?P<s>its controller|its owner|that player|that creature's controller|that permanent's controller|"
+        r"target player|target opponent|each opponent|each player) creates (?P<rest>.+)")
+def _someone_creates(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    """"Its controller creates a 3/3 green Beast creature token": the create templates with a
+    subject (a pronoun is resolved later, resolve_it)."""
+    from app.rules import language  # (a leaf module)
+
+    for pattern, build in EFFECTS:
+        if build not in (_create_creature, _create_predefined):
+            continue
+        found = pattern.match("create " + m["rest"])
+        if found:
+            effects, _ = build(found)
+            if m["s"] in ("target player", "target opponent"):
+                return [{**e, "who": "target"} for e in effects], SELECTORS[m["s"]]
+            return [{**e, "who": language.PLAYER_GROUPS[m["s"]]} for e in effects], None
+    raise _NoMatch
+
+
 @effect(r"(?:it has|they have) \"(?P<quoted>[^\"]+)\"")
 def _token_has(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "token_text", "text": _granted_token_text(m["quoted"])}], None
@@ -706,17 +907,18 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     return None
 
 
-def parse_effects(body: str, it: str | None = None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """One sentence (or two joined by ". ") of effects → (effects, targets, optional). Targets:
     None, a selector key (one "target [something]"), or a list of target groups (see
-    target_fields). ``it``: what the pronoun "it" means when no target precedes it (resolve_it)."""
+    target_fields). ``it``: what the pronoun "it" means when no target precedes it (resolve_it);
+    ``event_player``: the trigger event names a player ("that player" may mean them)."""
     try:
-        return _parse_effects(body, it)
+        return _parse_effects(body, it, event_player)
     except _NoMatch:
         return None
 
 
-def _parse_effects(body: str, it: str | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
         return None
@@ -724,10 +926,12 @@ def _parse_effects(body: str, it: str | None) -> tuple[list[dict[str, Any]], Any
     effects: list[dict[str, Any]] = []
     groups: list[dict[str, Any]] = []
     start = 0
-    sentences = [s for s in re.split(r"(?<=\.)\s+", body) if s]
-    for i, sentence in enumerate(sentences):
+    texts = [s for s in re.split(r"(?<=\.)\s+", body) if s]  # ("You may pay …" looks ahead at "If you do")
+    sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
+    for i, sentence in enumerate(texts):
         text = _lower_first(sentence.rstrip(".").strip())
         prev_start, start = start, len(effects)
+        sentences.append(start)
         if (kicked := _KICKED.match(text)) is not None:
             with_kicker = _kicked_sentence(kicked, effects, prev_start)
             if with_kicker is None:
@@ -736,7 +940,7 @@ def _parse_effects(body: str, it: str | None) -> tuple[list[dict[str, Any]], Any
             continue
         # "You may pay {2}. If you do, …" (118.12): the cost is an effect that records whether it
         # was paid; "If you do" / "If you don't" then gates the sentence on that payment
-        if (paid := _may_pay_sentence(text, sentences[i + 1:i + 2], it, effects)) is not None:
+        if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:
             effects.append(paid)
             continue
         if (if_do := _IF_YOU_DO.match(text)) is not None:
@@ -785,7 +989,7 @@ def _parse_effects(body: str, it: str | None) -> tuple[list[dict[str, Any]], Any
                 return None
             found, sel = parsed_clause
             effects += _add_groups(groups, found, sel)
-    resolved = resolve_it(effects, it, groups)
+    resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
     if resolved is None:
         return None
     resolved, target = _finish_targets(resolved, groups)
@@ -977,7 +1181,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     if cond is None:
                         return None
                     name = _legacy_trigger(cond) or "event"
-                parsed = parse_effects(body, it=_trigger_antecedent(name, cond))
+                # (a trigger about a player, or damage to one, names them: "that player")
+                has_player = cond is not None and (cond.get("subject") == "player" or cond.get("event") in _PLAYER_EVENTS)
+                parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
@@ -1196,7 +1402,7 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
     if len(lines) < 3 or lines[0].text not in _MODAL_HEADERS:
         return None
     lo, hi, repeat, condition = _MODAL_HEADERS[lines[0].text]
-    modes = []
+    modes: list[dict[str, Any]] = []
     for ab in lines[1:]:
         if not ab.text.startswith("• "):
             return None
@@ -1206,7 +1412,8 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
         effects, target, _ = parsed
         if target is not None and not isinstance(target, str):
             return None  # (a mode with several targets or a division: not yet)
-        modes.append({"text": ab.text[2:], "effects": effects, "target": {"what": target} if target else None})
+        modes.append({"text": ab.text[2:], "effects": rename_bindings(effects, f"m{len(modes)}_"),
+                      "target": {"what": target} if target else None})
     if not repeat and lo > len(modes):
         return None
     if condition == "commander":  # "… you may choose both instead" (while you control a commander)
@@ -1242,8 +1449,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
             if g.get("distinct_from"):
                 g["distinct_from"] = [offset + d for d in g["distinct_from"]]
             groups.append(g)
-        try:
-            effects += _renumber(defs[ab.index]["effects"], index)
+        try:  # (each line's bindings keep their own names: "e0" of line 2 isn't line 1's)
+            effects += rename_bindings(_renumber(defs[ab.index]["effects"], index), f"l{ab.index}_")
         except _NoMatch:
             return None
     if any(e.get("who") == "self" for e in effects):
