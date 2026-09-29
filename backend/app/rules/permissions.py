@@ -404,21 +404,6 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
 
 
 # -- effects ---------------------------------------------------------------------------------------
-def exile_top(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    """"Exile the top card of your library": the exiled card is bound (400.7j) for a permission
-    that follows ("You may play that card this turn")."""
-    from app.rules import context
-
-    pid = ctx["controller"]
-    top = list(plan.state.zones.get(zone_key(pid, "library"), [])[: e["n"]])
-    if not top:
-        return True
-    before = [ref for ref in (context.ref_of(plan, c) for c in top) if ref is not None]
-    plan.do({"type": "move", "card_ids": top, "to": {"player": pid, "zone": "exile"}}, actor=pid)
-    context.bind_moved(plan, ctx, e["bind"], before)
-    return True
-
-
 def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"You may play that card this turn" (the objects an earlier effect exiled, 400.7h/i) or
     "Until end of turn, you may play lands and cast spells from your graveyard"."""

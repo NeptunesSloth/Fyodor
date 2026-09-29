@@ -1,6 +1,6 @@
 # Commander rules coverage
 
-Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 22:58
+Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 23:02
 
 Only cards that are **legal in Commander today** count. Banned cards (83) are COMMANDER_BANNED and excluded.
 
@@ -10,12 +10,12 @@ Commander-legal cards: **32068**
 
 | Level | Cards | Share |
 |---|---|---|
-| FULL | 10539 | 32.9% |
-| PARTIAL | 21529 | 67.1% |
+| FULL | 10742 | 33.5% |
+| PARTIAL | 21326 | 66.5% |
 | REVIEW | 0 | 0.0% |
 | MANUAL | 0 | 0.0% |
 
-Possible commanders (CR 903.3/903.3a, incl. Backgrounds): **3501** — FULL 511, PARTIAL 2990, REVIEW 0, MANUAL 0
+Possible commanders (CR 903.3/903.3a, incl. Backgrounds): **3501** — FULL 522, PARTIAL 2979, REVIEW 0, MANUAL 0
 
 ## Pod coverage
 
@@ -24,16 +24,16 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 ## Coverage quality
 
 - Ability features (lines, keywords, play/cast/combat) across Commander-legal cards: 113154
-- Automated: 82731 (73.1%) · unrecognized clauses: 30423
+- Automated: 83032 (73.4%) · unrecognized clauses: 30122
 - Oracle text classified (automated, or sorted into a concrete missing capability): 97.6% · unclassified clauses: 2687
-- Distinct missing-capability clusters: 8329
+- Distinct missing-capability clusters: 8315
 
 ## Missing capabilities by category
 
 | Category | Cards affected | Clauses |
 |---|---|---|
-| MISSING EFFECT | 11318 | 13304 |
-| MISSING SELECTOR | 3486 | 3690 |
+| MISSING EFFECT | 11155 | 13102 |
+| MISSING SELECTOR | 3391 | 3591 |
 | MISSING TRIGGER EVENT | 2403 | 2515 |
 | MISSING CONTINUOUS EFFECT | 2169 | 2292 |
 | UNSUPPORTED ORACLE PATTERN | 2031 | 2687 |
@@ -50,34 +50,34 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 
 | # | Category | Cluster | Commanders | Only missing piece for | Commander cards | Examples |
 |---|---|---|---|---|---|---|
-| 1 | MISSING EFFECT | draw n … | 66 | 223 | 587 | Errand-Rider of Gondor, Krovikan Sorcerer, Heal |
-| 2 | MISSING EFFECT | choose n … | 65 | 50 | 561 | Road of Return, Saheeli's Artistry, Dawnbringer Cleric |
+| 1 | MISSING EFFECT | draw n … | 66 | 224 | 576 | Errand-Rider of Gondor, Krovikan Sorcerer, Heal |
+| 2 | MISSING EFFECT | choose n … | 65 | 50 | 553 | Road of Return, Saheeli's Artistry, Dawnbringer Cleric |
 | 3 | MISSING EFFECT | put a ±n/±n counter(s) … | 61 | 161 | 231 | Greta, Sweettooth Scourge, Yorvo, Lord of Garenbrig, Ent-Draught Basin |
-| 4 | MISSING EFFECT | pay {m} … | 54 | 114 | 171 | Labyrinth Adversary, Minion Reflector, Giant's Amulet |
+| 4 | MISSING EFFECT | pay {m} … | 54 | 112 | 169 | Labyrinth Adversary, Minion Reflector, Giant's Amulet |
 | 5 | MISSING MECHANIC | ward | 47 | 13 | 97 | Tyranid Harridan, Grey Host Reinforcements, Kwia Vigorbloom |
-| 6 | MISSING EFFECT | look at the top … | 39 | 161 | 217 | Harald, King of Skemfar, Lantern of Revealing, Puresight Merrow |
-| 7 | MISSING SELECTOR | target | 36 | 199 | 322 | Cinder Elemental, Archangel of Wrath, Chain of Plasma |
+| 6 | MISSING SELECTOR | target | 36 | 198 | 321 | Cinder Elemental, Archangel of Wrath, Chain of Plasma |
+| 7 | MISSING EFFECT | look at the top … | 33 | 139 | 185 | Harald, King of Skemfar, Lantern of Revealing, Puresight Merrow |
 | 8 | MISSING CONTINUOUS EFFECT | ~ gets ±N/±N for each … | 32 | 58 | 115 | Nim Lasher, Benalish Honor Guard, Anya, Merciless Angel |
-| 9 | MISSING EFFECT | put n … | 28 | 98 | 150 | Black Sun's Zenith, Breaking // Entering, Mind Raker |
+| 9 | MISSING EFFECT | put n … | 28 | 100 | 150 | Black Sun's Zenith, Breaking // Entering, Mind Raker |
 | 10 | MISSING CONTINUOUS EFFECT | ~'s power and toughness are each … | 28 | 68 | 127 | Eluge, the Shoreless Sea, Flora Colossus, Revenant |
 | 11 | MISSING EFFECT | create n … | 27 | 123 | 206 | Summon the School, Cogwork Assembler, Endless Evil |
-| 12 | MISSING EFFECT | exile the top card … | 26 | 30 | 66 | Moonring Mirror, Mezzio Mugger, Etali, Primal Storm |
-| 13 | MISSING SELECTOR | target creature card | 25 | 117 | 173 | Hua Tuo, Honored Physician, Puppeteer Clique, Metamorphosis Fanatic |
+| 12 | MISSING SELECTOR | target creature card | 25 | 114 | 169 | Hua Tuo, Honored Physician, Puppeteer Clique, Metamorphosis Fanatic |
+| 13 | MISSING EFFECT | exile the top card … | 25 | 30 | 60 | Mezzio Mugger, Etali, Primal Storm, Chandra, Torch of Defiance |
 | 14 | MISSING EFFECT | if n … | 24 | 61 | 92 | Airdrop Aeronauts, Hot Pursuit, Kotis, Sibsig Champion |
 | 15 | MISSING EFFECT | until end of turn … | 23 | 160 | 227 | Divergent Growth, Doorman, Strength of Will |
 | 16 | MISSING EFFECT | transform ~ … | 23 | 26 | 70 | Ulvenwald Captive // Ulvenwald Abomination, Westvale Abbey // Ormendahl, Profane Prince, Seraph of New Capenna // Seraph of New Phyrexia |
 | 17 | UNSUPPORTED ORACLE PATTERN | As long as your devotion to … | 22 | 7 | 22 | Phenax, God of Deception, Erebos, God of the Dead, Thassa, Deep-Dwelling |
 | 18 | MISSING EFFECT | exile ~ … | 20 | 13 | 61 | Stenn, Paranoid Partisan, Woodland Guidance, Teferi's Protection |
-| 19 | MISSING EFFECT | if ~ … | 19 | 75 | 130 | Warden of the First Tree, Hixus, Prison Warden, Blinkmoth Urn |
+| 19 | MISSING EFFECT | if ~ … | 19 | 76 | 130 | Warden of the First Tree, Hixus, Prison Warden, Blinkmoth Urn |
 | 20 | MISSING EFFECT | mill n … | 18 | 67 | 101 | Sparring Dummy, Loafing Giant, Beluna Grandsquall // Seek Thrills |
 | 21 | MISSING TRIGGER EVENT | When you cast ~ | 18 | 30 | 80 | Empyrial Storm, The Fourteenth Doctor, Ulamog, the Ceaseless Hunger |
-| 22 | MISSING EFFECT | search your library for … | 16 | 170 | 261 | Safewright Quest, Thunderherd Migration, Squadron Hawk |
+| 22 | MISSING EFFECT | search your library for … | 16 | 171 | 261 | Safewright Quest, Thunderherd Migration, Squadron Hawk |
 | 23 | MISSING CONTINUOUS EFFECT | Commander creatures you own have “…” | 16 | 16 | 16 | Dungeon Delver, Noble Heritage, Acolyte of Bahamut |
 | 24 | MISSING CONTINUOUS EFFECT | ~'s power is equal to the … | 15 | 31 | 67 | Uurg, Spawn of Turg, Snow Villiers, Nethergoyf |
 | 25 | UNSUPPORTED ORACLE PATTERN | As ~ enters, … | 15 | 1 | 19 | Stenn, Paranoid Partisan, Arachne, Psionic Weaver, Pramikon, Sky Rampart |
 | 26 | UNSUPPORTED ORACLE PATTERN | More Than Meets the Eye {M} | 15 | 0 | 15 | Optimus Prime, Hero // Optimus Prime, Autobot Leader, Megatron, Tyrant // Megatron, Destructive Force, Jetfire, Ingenious Scientist // Jetfire, Air Guardian |
-| 27 | MISSING EFFECT | ~ deals n … | 14 | 210 | 318 | Deem Worthy, End-Blaze Epiphany, Harvest Pyre |
-| 28 | MISSING EFFECT | return ~ … | 14 | 88 | 130 | Summon the School, Dragon Fangs, Haunted Dead |
+| 27 | MISSING EFFECT | ~ deals n … | 14 | 209 | 317 | Deem Worthy, End-Blaze Epiphany, Harvest Pyre |
+| 28 | MISSING EFFECT | return ~ … | 14 | 89 | 130 | Summon the School, Dragon Fangs, Haunted Dead |
 | 29 | UNSUPPORTED ORACLE PATTERN | ~ costs {M} less to cast … | 14 | 27 | 47 | Bedlam Reveler, Gargantuan Leech, Cryptic Serpent |
 | 30 | MISSING MECHANIC | sneak | 14 | 12 | 27 | Turncoat Kunoichi, Michelangelo, Improviser, Donatello's Technique |
 | 31 | MISSING MECHANIC | firebending | 14 | 8 | 22 | Fire Sages, Loyal Fire Sage, Jeong Jeong, the Deserter |
@@ -97,64 +97,64 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 45 | MISSING EFFECT | gain control of target … | 10 | 58 | 85 | Sauron, the Lidless Eye, New Blood, Unwilling Recruit |
 | 46 | MISSING EFFECT | reveal the top card … | 10 | 36 | 48 | Rashmi, Eternities Crafter, Counterbalance, Sorin, Grim Nemesis |
 | 47 | MISSING SELECTOR | target creature card with mana value | 10 | 27 | 39 | General Leo Cristophe, Yathan Roadwatcher, Lazotep Quarry |
-| 48 | MISSING SELECTOR | target instant or sorcery card | 10 | 20 | 35 | Ogre Battlecaster, Flood of Recollection, Impulsivity |
-| 49 | MISSING EFFECT | exile the top n … | 10 | 18 | 47 | Duplicity, Memorial Vault, Crossover Collaboration |
-| 50 | MISSING RESTRICTION | ~ can't attack or block unless … | 10 | 16 | 23 | Sab-Sunen, Luxa Embodied, Relic Golem, Hollow Warrior |
-| 51 | MISSING COST / PERMISSION RULE | You may cast ~ from your … | 10 | 11 | 25 | Marang River Prowler, Quilled Greatwurm, Gravecrawler |
-| 52 | MISSING EFFECT | return it to the … | 10 | 11 | 23 | Bronzehide Lion, Optimus Prime, Hero // Optimus Prime, Autobot Leader, Yedora, Grave Gardener |
-| 53 | MISSING COST / PERMISSION RULE | Once during each of your turns, … | 10 | 8 | 14 | Kotis, Sibsig Champion, One with the Multiverse, Jacob Hauken, Inspector // Hauken's Insight |
-| 54 | MISSING EFFECT | target creature you control … | 9 | 122 | 176 | Blessed Defiance, Hard-Hitting Question, Crowd of True Believers |
-| 55 | MISSING SELECTOR | target creatures | 9 | 107 | 207 | Ravenous Gigantotherium, Fire Covenant, Amazing Acrobatics |
-| 56 | MISSING EFFECT | choose target … | 9 | 71 | 83 | Arcbond, Deglamer, Wreck Hunter |
-| 57 | MISSING EFFECT | you gain n … | 9 | 65 | 91 | Belladonna Took, Shu Farmer, Essence Pulse |
-| 58 | MISSING EFFECT | reveal the top n … | 9 | 57 | 75 | Green Sun's Twilight, Benefaction of Rhonas, Karn, Scion of Urza |
-| 59 | MISSING EFFECT | reveal cards from the … | 9 | 26 | 32 | Treasure Hunt, Hei Bai, Forest Guardian, Hermit Druid |
-| 60 | MISSING EFFECT | exile up to n … | 9 | 17 | 26 | Salvation Swan, Liminal Hold, S.H.I.E.L.D. Flying Car |
-| 61 | MISSING EFFECT | double the number of … | 9 | 12 | 24 | Fractal Harness, Primordial Hydra, The Millennium Calendar |
-| 62 | MISSING CONTINUOUS EFFECT | You have no maximum hand size | 9 | 8 | 23 | Nyssa of Traken, Curiosity Crafter, Wizard Class |
-| 63 | UNSUPPORTED ORACLE PATTERN | Web-slinging {M} | 9 | 4 | 9 | Scarlet Spider, Ben Reilly, Arachne, Psionic Weaver, Spider-Man, Brooklyn Visionary |
-| 64 | MISSING TRIGGER EVENT | When ~ enters | 9 | 2 | 9 | Niv-Mizzet Reborn, Lobelia Sackville-Baggins, Drizzt Do'Urden |
-| 65 | MISSING MECHANIC | companion | 9 | 1 | 9 | Lutri, the Spellchaser, Gyruda, Doom of Depths, Lurrus of the Dream-Den |
-| 66 | UNSUPPORTED ORACLE PATTERN | • ~ deals N damage to … | 9 | 0 | 18 | Arbalest Engineers, Tectonic Giant, Umaro, Raging Yeti |
-| 67 | UNSUPPORTED ORACLE PATTERN | Storied | 9 | 0 | 9 | Balin, Loremaster, Dáin, Lord of the Iron Hills, Ori, Keeper of Songs |
-| 68 | MISSING COST | {M}, Discard ~ | 8 | 34 | 57 | Jiwari, the Earth Aflame, Favor of Jukai, Radiant Solar |
-| 69 | MISSING EFFECT | create a n/n colorless … | 8 | 34 | 54 | Karn, Scion of Urza, Serpent Generator, Command the Stage |
-| 70 | MISSING REPLACEMENT PATTERN | ~ enters with a ±N/±N counter(s) on … | 8 | 18 | 37 | Callous Sell-Sword // Burn Together, Avatar of the Resolute, The Duke, Rebel Sentry |
-| 71 | MISSING EFFECT | you draw n … | 8 | 17 | 31 | Fang, Fearless l'Cie, Live Fast, Greed's Gambit |
-| 72 | MISSING EFFECT | discard your hand … | 8 | 15 | 31 | Pyretic Charge, Bedlam Reveler, Balin, Loremaster |
-| 73 | MISSING EFFECT | up to n … | 8 | 14 | 32 | Wasp, Shrinking Savior, Restless Vinestalk, Kaito, Dancing Shadow |
-| 74 | MISSING EFFECT | discard n … | 8 | 14 | 26 | Witch's Mark, Seasoned Pyromancer, Party Thrasher |
-| 75 | UNSUPPORTED ORACLE PATTERN | Mayhem {M} | 8 | 7 | 11 | Swarm, Being of Bees, Chameleon, Master of Disguise, Spider-Islanders |
-| 76 | MISSING CONTINUOUS EFFECT | During your turn, … | 8 | 6 | 17 | Long-Lost Lances, Miriam, Herd Whisperer, Yuna, Hope of Spira |
-| 77 | UNSUPPORTED ORACLE PATTERN | You may play an additional land … | 8 | 5 | 17 | Exploration, Icetill Explorer, Case of the Locked Hothouse |
-| 78 | MISSING EFFECT | you get an experience … | 8 | 0 | 8 | Meren of Clan Nel Toth, Katara, Waterbending Master, Ezuri, Claw of Progress |
-| 79 | MISSING EFFECT | if you control n … | 7 | 39 | 63 | Dawnhart Wardens, Boundary Lands Ranger, Dispatch |
-| 80 | MISSING SELECTOR | target artifact or creature | 7 | 31 | 52 | Tamiyo, Compleated Sage, Starke of Rath, Mind Transfer Protocol |
+| 48 | MISSING SELECTOR | target instant or sorcery card | 10 | 17 | 30 | Ogre Battlecaster, Flood of Recollection, Impulsivity |
+| 49 | MISSING RESTRICTION | ~ can't attack or block unless … | 10 | 16 | 23 | Sab-Sunen, Luxa Embodied, Relic Golem, Hollow Warrior |
+| 50 | MISSING COST / PERMISSION RULE | You may cast ~ from your … | 10 | 11 | 25 | Marang River Prowler, Quilled Greatwurm, Gravecrawler |
+| 51 | MISSING EFFECT | return it to the … | 10 | 11 | 23 | Bronzehide Lion, Optimus Prime, Hero // Optimus Prime, Autobot Leader, Yedora, Grave Gardener |
+| 52 | MISSING COST / PERMISSION RULE | Once during each of your turns, … | 10 | 8 | 14 | Kotis, Sibsig Champion, One with the Multiverse, Jacob Hauken, Inspector // Hauken's Insight |
+| 53 | MISSING EFFECT | target creature you control … | 9 | 122 | 176 | Blessed Defiance, Hard-Hitting Question, Crowd of True Believers |
+| 54 | MISSING SELECTOR | target creatures | 9 | 107 | 207 | Ravenous Gigantotherium, Fire Covenant, Amazing Acrobatics |
+| 55 | MISSING EFFECT | choose target … | 9 | 71 | 83 | Arcbond, Deglamer, Wreck Hunter |
+| 56 | MISSING EFFECT | you gain n … | 9 | 64 | 90 | Belladonna Took, Shu Farmer, Essence Pulse |
+| 57 | MISSING EFFECT | exile the top n … | 9 | 17 | 41 | Memorial Vault, Crossover Collaboration, Ral, Monsoon Mage // Ral, Leyline Prodigy |
+| 58 | MISSING EFFECT | exile up to n … | 9 | 17 | 26 | Salvation Swan, Liminal Hold, S.H.I.E.L.D. Flying Car |
+| 59 | MISSING EFFECT | double the number of … | 9 | 12 | 24 | Fractal Harness, Primordial Hydra, The Millennium Calendar |
+| 60 | MISSING CONTINUOUS EFFECT | You have no maximum hand size | 9 | 8 | 23 | Nyssa of Traken, Curiosity Crafter, Wizard Class |
+| 61 | UNSUPPORTED ORACLE PATTERN | Web-slinging {M} | 9 | 4 | 9 | Scarlet Spider, Ben Reilly, Arachne, Psionic Weaver, Spider-Man, Brooklyn Visionary |
+| 62 | MISSING TRIGGER EVENT | When ~ enters | 9 | 2 | 9 | Niv-Mizzet Reborn, Lobelia Sackville-Baggins, Drizzt Do'Urden |
+| 63 | MISSING MECHANIC | companion | 9 | 1 | 9 | Lutri, the Spellchaser, Gyruda, Doom of Depths, Lurrus of the Dream-Den |
+| 64 | UNSUPPORTED ORACLE PATTERN | • ~ deals N damage to … | 9 | 0 | 18 | Arbalest Engineers, Tectonic Giant, Umaro, Raging Yeti |
+| 65 | UNSUPPORTED ORACLE PATTERN | Storied | 9 | 0 | 9 | Balin, Loremaster, Dáin, Lord of the Iron Hills, Ori, Keeper of Songs |
+| 66 | MISSING COST | {M}, Discard ~ | 8 | 35 | 57 | Jiwari, the Earth Aflame, Favor of Jukai, Radiant Solar |
+| 67 | MISSING EFFECT | create a n/n colorless … | 8 | 34 | 54 | Karn, Scion of Urza, Serpent Generator, Command the Stage |
+| 68 | MISSING REPLACEMENT PATTERN | ~ enters with a ±N/±N counter(s) on … | 8 | 18 | 37 | Callous Sell-Sword // Burn Together, Avatar of the Resolute, The Duke, Rebel Sentry |
+| 69 | MISSING EFFECT | you draw n … | 8 | 17 | 31 | Fang, Fearless l'Cie, Live Fast, Greed's Gambit |
+| 70 | MISSING EFFECT | discard your hand … | 8 | 15 | 31 | Pyretic Charge, Bedlam Reveler, Balin, Loremaster |
+| 71 | MISSING EFFECT | up to n … | 8 | 14 | 32 | Wasp, Shrinking Savior, Restless Vinestalk, Kaito, Dancing Shadow |
+| 72 | MISSING EFFECT | discard n … | 8 | 14 | 26 | Witch's Mark, Seasoned Pyromancer, Party Thrasher |
+| 73 | UNSUPPORTED ORACLE PATTERN | Mayhem {M} | 8 | 7 | 11 | Swarm, Being of Bees, Chameleon, Master of Disguise, Spider-Islanders |
+| 74 | MISSING CONTINUOUS EFFECT | During your turn, … | 8 | 6 | 17 | Long-Lost Lances, Miriam, Herd Whisperer, Yuna, Hope of Spira |
+| 75 | UNSUPPORTED ORACLE PATTERN | You may play an additional land … | 8 | 6 | 17 | Exploration, Icetill Explorer, Case of the Locked Hothouse |
+| 76 | MISSING EFFECT | you get an experience … | 8 | 0 | 8 | Meren of Clan Nel Toth, Katara, Waterbending Master, Ezuri, Claw of Progress |
+| 77 | MISSING EFFECT | if you control n … | 7 | 39 | 63 | Dawnhart Wardens, Boundary Lands Ranger, Dispatch |
+| 78 | MISSING SELECTOR | target artifact or creature | 7 | 30 | 51 | Tamiyo, Compleated Sage, Starke of Rath, Mind Transfer Protocol |
+| 79 | MISSING EFFECT | each opponent loses n … | 7 | 28 | 40 | Subversion, Faerie Bladecrafter, Scholar of Athreos |
+| 80 | MISSING EFFECT | if you cast it … | 7 | 24 | 38 | Weftwalking, Marina Vendrell's Grimoire, Bringer of the Last Gift |
 
 ## Largest clusters (Commander cards affected)
 
 | # | Category | Cluster | Commander cards | Only missing piece for | Commanders | Examples |
 |---|---|---|---|---|---|---|
-| 1 | MISSING EFFECT | draw n … | 587 | 223 | 66 | Errand-Rider of Gondor, Krovikan Sorcerer, Heal |
-| 2 | MISSING EFFECT | choose n … | 561 | 50 | 65 | Road of Return, Saheeli's Artistry, Dawnbringer Cleric |
-| 3 | MISSING SELECTOR | target | 322 | 199 | 36 | Cinder Elemental, Archangel of Wrath, Chain of Plasma |
-| 4 | MISSING EFFECT | ~ deals n … | 318 | 210 | 14 | Deem Worthy, End-Blaze Epiphany, Harvest Pyre |
+| 1 | MISSING EFFECT | draw n … | 576 | 224 | 66 | Errand-Rider of Gondor, Krovikan Sorcerer, Heal |
+| 2 | MISSING EFFECT | choose n … | 553 | 50 | 65 | Road of Return, Saheeli's Artistry, Dawnbringer Cleric |
+| 3 | MISSING SELECTOR | target | 321 | 198 | 36 | Cinder Elemental, Archangel of Wrath, Chain of Plasma |
+| 4 | MISSING EFFECT | ~ deals n … | 317 | 209 | 14 | Deem Worthy, End-Blaze Epiphany, Harvest Pyre |
 | 5 | MISSING COST / PERMISSION RULE | As an additional cost to cast … | 312 | 36 | 6 | Thunderherd Migration, Mind Extraction, Harvest Pyre |
-| 6 | MISSING EFFECT | search your library for … | 261 | 170 | 16 | Safewright Quest, Thunderherd Migration, Squadron Hawk |
+| 6 | MISSING EFFECT | search your library for … | 261 | 171 | 16 | Safewright Quest, Thunderherd Migration, Squadron Hawk |
 | 7 | MISSING REPLACEMENT PATTERN | As ~ enters, … | 237 | 47 | 4 | Kindred Discovery, Utopia Sprawl, Game Trail |
 | 8 | MISSING EFFECT | put a ±n/±n counter(s) … | 231 | 161 | 61 | Greta, Sweettooth Scourge, Yorvo, Lord of Garenbrig, Ent-Draught Basin |
 | 9 | MISSING EFFECT | until end of turn … | 227 | 160 | 23 | Divergent Growth, Doorman, Strength of Will |
-| 10 | MISSING EFFECT | look at the top … | 217 | 161 | 39 | Harald, King of Skemfar, Lantern of Revealing, Puresight Merrow |
-| 11 | MISSING SELECTOR | target creatures | 207 | 107 | 9 | Ravenous Gigantotherium, Fire Covenant, Amazing Acrobatics |
-| 12 | MISSING EFFECT | create n … | 206 | 123 | 27 | Summon the School, Cogwork Assembler, Endless Evil |
-| 13 | MISSING EFFECT | destroy target … | 187 | 112 | 4 | Kalitas, Bloodchief of Ghet, Raze, Unliving Psychopath |
+| 10 | MISSING SELECTOR | target creatures | 207 | 107 | 9 | Ravenous Gigantotherium, Fire Covenant, Amazing Acrobatics |
+| 11 | MISSING EFFECT | create n … | 206 | 123 | 27 | Summon the School, Cogwork Assembler, Endless Evil |
+| 12 | MISSING EFFECT | destroy target … | 187 | 112 | 4 | Kalitas, Bloodchief of Ghet, Raze, Unliving Psychopath |
+| 13 | MISSING EFFECT | look at the top … | 185 | 139 | 33 | Harald, King of Skemfar, Lantern of Revealing, Puresight Merrow |
 | 14 | MISSING EFFECT | target creature you control … | 176 | 122 | 9 | Blessed Defiance, Hard-Hitting Question, Crowd of True Believers |
-| 15 | MISSING SELECTOR | target creature card | 173 | 117 | 25 | Hua Tuo, Honored Physician, Puppeteer Clique, Metamorphosis Fanatic |
-| 16 | MISSING EFFECT | pay {m} … | 171 | 114 | 54 | Labyrinth Adversary, Minion Reflector, Giant's Amulet |
+| 15 | MISSING EFFECT | pay {m} … | 169 | 112 | 54 | Labyrinth Adversary, Minion Reflector, Giant's Amulet |
+| 16 | MISSING SELECTOR | target creature card | 169 | 114 | 25 | Hua Tuo, Honored Physician, Puppeteer Clique, Metamorphosis Fanatic |
 | 17 | MISSING EFFECT | target creature gets ±n/±n … | 169 | 102 | 4 | Stern Marshal, Spontaneous Flight, Rig for War |
-| 18 | MISSING EFFECT | put n … | 150 | 98 | 28 | Black Sun's Zenith, Breaking // Entering, Mind Raker |
-| 19 | MISSING EFFECT | if ~ … | 130 | 75 | 19 | Warden of the First Tree, Hixus, Prison Warden, Blinkmoth Urn |
-| 20 | MISSING EFFECT | return ~ … | 130 | 88 | 14 | Summon the School, Dragon Fangs, Haunted Dead |
+| 18 | MISSING EFFECT | put n … | 150 | 100 | 28 | Black Sun's Zenith, Breaking // Entering, Mind Raker |
+| 19 | MISSING EFFECT | if ~ … | 130 | 76 | 19 | Warden of the First Tree, Hixus, Prison Warden, Blinkmoth Urn |
+| 20 | MISSING EFFECT | return ~ … | 130 | 89 | 14 | Summon the School, Dragon Fangs, Haunted Dead |
 | 21 | MISSING CONTINUOUS EFFECT | ~'s power and toughness are each … | 127 | 68 | 28 | Eluge, the Shoreless Sea, Flora Colossus, Revenant |
 | 22 | MISSING CONTINUOUS EFFECT | ~ gets ±N/±N for each … | 115 | 58 | 32 | Nim Lasher, Benalish Honor Guard, Anya, Merciless Angel |
 | 23 | MISSING SELECTOR | target player or planeswalker | 111 | 79 | 5 | Goblin Barrage, Scorching Missile, Consuming Sinkhole |
@@ -163,28 +163,28 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 26 | MISSING EFFECT | exile target … | 99 | 66 | 5 | Astarion's Thirst, Deadly Rollick, Tawnos's Coffin |
 | 27 | MISSING MECHANIC | ward | 97 | 13 | 47 | Tyranid Harridan, Grey Host Reinforcements, Kwia Vigorbloom |
 | 28 | MISSING EFFECT | if n … | 92 | 61 | 24 | Airdrop Aeronauts, Hot Pursuit, Kotis, Sibsig Champion |
-| 29 | MISSING EFFECT | you gain n … | 91 | 65 | 9 | Belladonna Took, Shu Farmer, Essence Pulse |
+| 29 | MISSING EFFECT | you gain n … | 90 | 64 | 9 | Belladonna Took, Shu Farmer, Essence Pulse |
 | 30 | MISSING EFFECT | gain control of target … | 85 | 58 | 10 | Sauron, the Lidless Eye, New Blood, Unwilling Recruit |
 | 31 | MISSING EFFECT | choose target … | 83 | 71 | 9 | Arcbond, Deglamer, Wreck Hunter |
 | 32 | MISSING TRIGGER EVENT | When you cast ~ | 80 | 30 | 18 | Empyrial Storm, The Fourteenth Doctor, Ulamog, the Ceaseless Hunger |
 | 33 | MISSING SELECTOR | target opponent reveals their hand | 79 | 53 | 1 | Gix's Caress, Mindclaw Shaman, Grief |
 | 34 | MISSING EFFECT | tap target … | 78 | 45 | 4 | Spider-Woman, Secret Agent, Guardian of Tazeem, Gilded Scuttler |
 | 35 | MISSING EFFECT | if there are n … | 76 | 32 | 6 | Locked in the Cemetery, Sanguine Spy, Extricator of Sin // Extricator of Flesh |
-| 36 | MISSING EFFECT | reveal the top n … | 75 | 57 | 9 | Green Sun's Twilight, Benefaction of Rhonas, Karn, Scion of Urza |
-| 37 | MISSING EFFECT | it deals n … | 75 | 60 | 3 | Goblin Chainwhirler, Festering Evil, Unsparing Boltcaster |
-| 38 | MISSING SELECTOR | target card | 74 | 43 | 3 | Barkform Harvester, Carrion Locust, Heritage Reclamation |
-| 39 | MISSING EFFECT | cast ~ … | 72 | 0 | 1 | Twice Upon a Time // Unlikely Meeting, Defiant Stand, Asinine Antics |
-| 40 | MISSING EFFECT | transform ~ … | 70 | 26 | 23 | Ulvenwald Captive // Ulvenwald Abomination, Westvale Abbey // Ormendahl, Profane Prince, Seraph of New Capenna // Seraph of New Phyrexia |
-| 41 | MISSING EFFECT | add {m} … | 70 | 42 | 13 | Waste Not, Akki Rockspeaker, Brightstone Ritual |
-| 42 | MISSING EFFECT | return target … | 70 | 43 | 1 | Surging Aether, Perilous Voyage, Geistwave |
-| 43 | MISSING CONTINUOUS EFFECT | ~'s power is equal to the … | 67 | 31 | 15 | Uurg, Spawn of Turg, Snow Villiers, Nethergoyf |
-| 44 | MISSING EFFECT | create a n/n green … | 67 | 33 | 6 | Rhonas's Last Stand, Fractal Harness, Baloth Cage Trap |
-| 45 | MISSING EFFECT | exile the top card … | 66 | 30 | 26 | Moonring Mirror, Mezzio Mugger, Etali, Primal Storm |
-| 46 | MANA ABILITY WORDING | {M}: Add N mana of any … | 65 | 37 | 2 | Flywheel Racer, Pit of Offerings, Helga, Skittish Seer |
-| 47 | MISSING EFFECT | if you control n … | 63 | 39 | 7 | Dawnhart Wardens, Boundary Lands Ranger, Dispatch |
-| 48 | MISSING EFFECT | exile ~ … | 61 | 13 | 20 | Stenn, Paranoid Partisan, Woodland Guidance, Teferi's Protection |
-| 49 | MISSING EFFECT | you get an emblem … | 60 | 14 | 4 | Zariel, Archduke of Avernus, Elspeth, Sun's Champion, Teferi, Temporal Archmage |
-| 50 | MISSING REPLACEMENT PATTERN | Prevent all damage that would be dealt … | 59 | 36 | 6 | Comeuppance, Gideon's Intervention, Ethereal Haze |
+| 36 | MISSING EFFECT | it deals n … | 75 | 60 | 3 | Goblin Chainwhirler, Festering Evil, Unsparing Boltcaster |
+| 37 | MISSING EFFECT | cast ~ … | 72 | 0 | 1 | Twice Upon a Time // Unlikely Meeting, Defiant Stand, Asinine Antics |
+| 38 | MISSING EFFECT | transform ~ … | 70 | 26 | 23 | Ulvenwald Captive // Ulvenwald Abomination, Westvale Abbey // Ormendahl, Profane Prince, Seraph of New Capenna // Seraph of New Phyrexia |
+| 39 | MISSING EFFECT | add {m} … | 70 | 42 | 13 | Waste Not, Akki Rockspeaker, Brightstone Ritual |
+| 40 | MISSING EFFECT | return target … | 69 | 42 | 1 | Surging Aether, Perilous Voyage, Geistwave |
+| 41 | MISSING CONTINUOUS EFFECT | ~'s power is equal to the … | 67 | 31 | 15 | Uurg, Spawn of Turg, Snow Villiers, Nethergoyf |
+| 42 | MISSING EFFECT | create a n/n green … | 67 | 33 | 6 | Rhonas's Last Stand, Fractal Harness, Baloth Cage Trap |
+| 43 | MANA ABILITY WORDING | {M}: Add N mana of any … | 65 | 37 | 2 | Flywheel Racer, Pit of Offerings, Helga, Skittish Seer |
+| 44 | MISSING EFFECT | if you control n … | 63 | 39 | 7 | Dawnhart Wardens, Boundary Lands Ranger, Dispatch |
+| 45 | MISSING EFFECT | exile ~ … | 61 | 13 | 20 | Stenn, Paranoid Partisan, Woodland Guidance, Teferi's Protection |
+| 46 | MISSING EFFECT | exile the top card … | 60 | 30 | 25 | Mezzio Mugger, Etali, Primal Storm, Chandra, Torch of Defiance |
+| 47 | MISSING EFFECT | you get an emblem … | 60 | 14 | 4 | Zariel, Archduke of Avernus, Elspeth, Sun's Champion, Teferi, Temporal Archmage |
+| 48 | MISSING REPLACEMENT PATTERN | Prevent all damage that would be dealt … | 59 | 36 | 6 | Comeuppance, Gideon's Intervention, Ethereal Haze |
+| 49 | MISSING COST | {M}, Discard ~ | 57 | 35 | 8 | Jiwari, the Earth Aflame, Favor of Jukai, Radiant Solar |
+| 50 | MISSING REPLACEMENT PATTERN | Prevent all combat damage that would be … | 57 | 41 | 2 | Candletrap, Armored Transport, Sandskin |
 
 ## Top Commander features to implement next
 
@@ -206,19 +206,19 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 | 12 | keyword:warp | keyword | 0 | 31 | 16 | Starbreach Whale, Knight Luminary, Loading Zone |
 | 13 | keyword:splice | keyword | 0 | 30 | 16 | Evermind, Horobi's Whisper, Desperate Ritual |
 | 14 | template:Equipped creature has “…” | continuous | 0 | 24 | 16 | Field-Tested Frying Pan, Sorcerer's Wand, Fishing Pole |
-| 15 | template:Modular N | static | 0 | 23 | 15 | Arcbound Whelp, Arcbound Javelineer, Arcbound Hybrid |
+| 15 | template:Modular N | static | 0 | 23 | 16 | Arcbound Whelp, Arcbound Javelineer, Arcbound Hybrid |
 | 16 | template:~ can't be blocked by creatures with power N or less. | restriction | 0 | 32 | 14 | Glinting Creeper, Dread Linnorm // Scale Deflection, Chomping Kavu |
 | 17 | keyword:encore | keyword | 0 | 26 | 14 | Impulsivity, Sliver Gravemother, Belonging |
 | 18 | keyword:myriad | keyword | 0 | 23 | 14 | The Master, Multiplied, Sumala Rumblers, Conclave Evangelist |
 | 19 | template:{M}: Return ~ from your graveyard to your hand. | activated | 0 | 22 | 14 | The Sound of Drums, Merchant of Many Hats, Convenient Target |
 | 20 | keyword:ward | keyword | 0 | 97 | 13 | Tyranid Harridan, Grey Host Reinforcements, Kwia Vigorbloom |
 | 21 | template:−N: You get an emblem with “…” | loyalty | 0 | 64 | 13 | Zariel, Archduke of Avernus, Elspeth, Sun's Champion, Teferi, Temporal Archmage |
-| 22 | keyword:ninjutsu | keyword | 0 | 35 | 12 | Higure, the Still Wind, Moonblade Shinobi, Mist-Syndicate Naga |
-| 23 | keyword:overload | keyword | 0 | 27 | 12 | Mizzium Skin, Corporeal Projection, Mind Rake |
-| 24 | keyword:sneak | keyword | 0 | 27 | 12 | Turncoat Kunoichi, Michelangelo, Improviser, Donatello's Technique |
-| 25 | keyword:unleash | keyword | 0 | 15 | 12 | Rakdos Drake, Grim Roustabout, Chaos Imps |
-| 26 | keyword:disguise | keyword | 0 | 43 | 11 | Boltbender, Nightdrinker Moroii, Concealed Weapon |
-| 27 | keyword:entwine | keyword | 0 | 32 | 11 | Road of Return, Rain of Rust, Blinding Beam |
+| 22 | keyword:entwine | keyword | 0 | 32 | 13 | Road of Return, Rain of Rust, Blinding Beam |
+| 23 | keyword:ninjutsu | keyword | 0 | 35 | 12 | Higure, the Still Wind, Moonblade Shinobi, Mist-Syndicate Naga |
+| 24 | keyword:overload | keyword | 0 | 27 | 12 | Mizzium Skin, Corporeal Projection, Mind Rake |
+| 25 | keyword:sneak | keyword | 0 | 27 | 12 | Turncoat Kunoichi, Michelangelo, Improviser, Donatello's Technique |
+| 26 | keyword:unleash | keyword | 0 | 15 | 12 | Rakdos Drake, Grim Roustabout, Chaos Imps |
+| 27 | keyword:disguise | keyword | 0 | 43 | 11 | Boltbender, Nightdrinker Moroii, Concealed Weapon |
 | 28 | template:{M}: Adapt N. | activated | 0 | 22 | 11 | Zegana, Utopian Speaker, Temperamental Oozewagg, Evolution Witness |
 | 29 | keyword:offspring | keyword | 0 | 20 | 11 | Splash Lasher, Rust-Shield Rampager, Prosperous Bandit |
 | 30 | keyword:living weapon | keyword | 0 | 19 | 11 | Nettlecyst, Lashwrithe, Skinwing |
@@ -257,13 +257,13 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 
 | Type | FULL | PARTIAL | REVIEW | MANUAL |
 |---|---|---|---|---|
-| Creature | 6629 | 11292 | 0 | 0 |
-| Artifact | 1049 | 2544 | 0 | 0 |
-| Enchantment | 867 | 2780 | 0 | 0 |
-| Sorcery | 882 | 2686 | 0 | 0 |
-| Instant | 1161 | 2593 | 0 | 0 |
-| Land | 533 | 679 | 0 | 0 |
-| Planeswalker | 13 | 298 | 0 | 0 |
+| Creature | 6715 | 11206 | 0 | 0 |
+| Artifact | 1078 | 2515 | 0 | 0 |
+| Enchantment | 878 | 2769 | 0 | 0 |
+| Sorcery | 925 | 2643 | 0 | 0 |
+| Instant | 1204 | 2550 | 0 | 0 |
+| Land | 539 | 673 | 0 | 0 |
+| Planeswalker | 17 | 294 | 0 | 0 |
 | Battle | 0 | 36 | 0 | 0 |
 
 ## Rules features in the pool (ability lines)
