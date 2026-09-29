@@ -35,6 +35,7 @@ from app.rules import (
     effects,
     layers,
     optional_payment,
+    permissions,
     reconcile,
     sba,
     scripts,
@@ -94,6 +95,7 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
     settle(plan)
     if intent.type != "repeat_sequence":
         remember_intent(plan, intent)
+    permissions.refresh_reveals(plan.state, plan.info)  # 401.5: which top library cards the table reveals now
     plan.rules.engine_version = RULES_ENGINE_VERSION
     plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
     return plan.steps
@@ -113,6 +115,7 @@ def begin(plan: Plan) -> None:
     r = plan.rules
     r.loyalty_used = {k: t for k, t in r.loyalty_used.items() if t == turn}
     r.once_per_turn = {k: t for k, t in r.once_per_turn.items() if t == turn}
+    permissions.refresh_reveals(plan.state, plan.info)  # (a permanent put onto the table by hand since)
 
 
 def absorb_manual_events(plan: Plan) -> None:
@@ -527,6 +530,7 @@ def finish_cleanup(plan: Plan) -> None:
         layers.end_of_turn(plan)
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
     plan.rules.prevention = {}  # and so do prevention shields
+    permissions.expire(plan)  # "you may play that card this turn" and friends
     for card in list(plan.state.cards.values()):
         for marker in [m for m in card.effects if m.text == "until end of turn"]:
             plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
@@ -695,16 +699,26 @@ def _after_resolution(plan: Plan) -> None:
 
 
 # -- intents -----------------------------------------------------------------------------
+def land_play_grant(state: GameState, player: str, card: CardInstance, ch: Characteristics,
+                    info: CardInfo | None) -> permissions.Grant | None:
+    """How ``player`` may play this land from where it is: from their hand (305.1), or a
+    permission ("you may play lands from your graveyard", "you may play that card this turn")."""
+    if card.zone == zone_key(player, "hand"):
+        return permissions.Grant("hand")
+    found = [g for g in permissions.grants(state, player, card, ch, info, verb="play") if g.zone_ok] if info else []
+    return found[0] if found else None
+
+
 def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, *,
-                      check_priority: bool = True) -> str | None:
+                      check_priority: bool = True, info: CardInfo | None = None) -> str | None:
     """Why ``player`` can't play ``card`` as a land right now (None if they can)."""
     r = state.rules
     if r is None:
         return "Rules automation is off"
-    if card.zone != zone_key(player, "hand"):
-        return "You can only play lands from your hand"
     if not ch.is_land:
         return f"{ch.name or 'That card'} isn't a land"
+    if land_play_grant(state, player, card, ch, info) is None:
+        return "You can only play lands from your hand"
     if state.turn.active_player != player:
         return "You can only play a land during your own turn"
     if state.turn.phase not in MAIN_PHASES:
@@ -724,9 +738,10 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     if card is None:
         raise ActionError("That card isn't here any more")
     probe = card.model_copy(update={"face": a.face}) if a.face is not None else card
-    problem = land_play_problem(plan.state, plan.actor, card, plan.ch(probe))
+    problem = land_play_problem(plan.state, plan.actor, card, plan.ch(probe), info=plan.info)
     if problem:
         raise ActionError(problem)
+    grant = land_play_grant(plan.state, plan.actor, card, plan.ch(probe), plan.info)
     shock = None if plan.manual(card) else next(
         (d for d in scripts.definitions(plan.ch(probe)).values() if d.get("replacement") == "pay_life_or_tapped"), None)
     if shock is not None and a.pay_life is None:
@@ -745,7 +760,11 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"}, "tapped": tapped}
     if a.x is not None and a.y is not None:
         payload.update(x=a.x, y=a.y)
+    from_where = card.zone.rsplit(":", 1)[-1]
     plan.do(payload)
+    if grant is not None and grant.how == "permission":
+        permissions.consume(plan, grant)  # ("once during each of your turns")
+        plan.note(f"{plan.name(plan.actor)} plays {card.name} from their {from_where} ({grant.label})", [card.id])
     enter_with_counters(plan, card.id, plan.ch(probe), None, plan.actor)
     r = plan.rules
     turn = plan.state.turn.number
@@ -970,4 +989,5 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "ability_cost": cost_payment.resume_choice,
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
+    **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)
 }

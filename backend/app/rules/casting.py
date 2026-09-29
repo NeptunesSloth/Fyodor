@@ -24,7 +24,7 @@ from app.game.rules_state import (
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import attachments, cost_payment, scripts
+from app.rules import attachments, cost_payment, permissions, scripts
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
@@ -1047,24 +1047,52 @@ def from_command_zone(card: CardInstance, player: str) -> bool:
     return card.zone == zone_key(player, "command") and card.commander_key is not None and card.owner == player
 
 
+def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None, *,
+               free: bool = False) -> permissions.Grant | None:
+    """How ``player`` may cast this card from where it is (601.3): from their hand, their commander
+    from the command zone, flashback from their graveyard, or a permission (app/rules/permissions):
+    a static ability on the table or one an effect granted. ``free``: they want to use a "without
+    paying its mana cost" permission (118.9); otherwise a paid way is preferred, and a free
+    permission is used only when it is the only way."""
+    how = "hand" if card.zone == zone_key(player, "hand") else "command" if from_command_zone(card, player) else \
+        "flashback" if from_graveyard(card, player, ch) else None
+    found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
+    flash = any(g.flash for g in found)
+    if free:
+        ways = [g for g in found if g.zone_ok and g.free]
+    else:
+        ways = [g for g in found if g.zone_ok and not g.free]
+        if how is not None:
+            return permissions.Grant(how, flash=flash)
+        if not ways:
+            ways = [g for g in found if g.zone_ok]
+    if not ways:
+        return None
+    best = ways[0]
+    return replace(best, flash=flash or best.flash)
+
+
 def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, *,
-                 check_priority: bool = True, info: CardInfo | None = None) -> str | None:
+                 check_priority: bool = True, info: CardInfo | None = None, free: bool = False) -> str | None:
     """Why ``player`` can't cast ``card`` right now (costs aside), or None."""
     r = state.rules
     if r is None:
         return "Rules automation is off"
-    if not (card.zone == zone_key(player, "hand") or from_command_zone(card, player) or from_graveyard(card, player, ch)):
-        return "You can cast spells from your hand, and your commander from the command zone"
-    if ch.is_land:
-        return f"{ch.name or 'That card'} is a land: play it instead"
     if not ch.types:
         return "Fyodor doesn't know what that card is. Use the table tools."
+    if ch.is_land:  # 305.9: a land card is played, never cast
+        return f"{ch.name or 'That card'} is a land: play it instead"
+    grant = cast_grant(state, player, card, ch, info, free=free)
+    if grant is None:
+        if free:
+            return "Nothing lets you cast that without paying its mana cost now"
+        return "You can cast spells from your hand, and your commander from the command zone"
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
     if "Legendary" in ch.supertypes and ch.is_instant_or_sorcery and not _controls_legendary(state, player, info):
         # 205.4e: a legendary instant or sorcery needs a legendary creature or planeswalker
         return f"{ch.name} needs you to control a legendary creature or planeswalker"
-    if "Instant" in ch.types or ch.has_flash:
+    if "Instant" in ch.types or ch.has_flash or grant.flash:  # (601.3b: as though it had flash)
         return None
     if state.turn.active_player != player:
         return f"{ch.name} can only be cast during your turn"
@@ -1132,22 +1160,41 @@ def affinity_discount(state: GameState, player: str, ch: Characteristics, info: 
 
 
 def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int = 0,
-               info: CardInfo | None = None) -> M.ManaCost:
-    flashback = flashback_cost(ch) if card.zone == zone_key(card.owner, "graveyard") else None
-    cost = M.parse_cost(flashback or ch.mana_cost).with_x(x)
-    if info is not None:  # cost reductions reduce only the generic part (601.2f)
-        cost = cost.plus_generic(-min(cost.generic, affinity_discount(state, card.owner, ch, info)))
-    if from_command_zone(card, card.owner) and card.commander_key:
-        cost = cost.plus_generic(state.players[card.owner].commander_tax.get(card.commander_key, 0))
-    return cost
+               info: CardInfo | None = None, *, player: str | None = None, alternative: M.ManaCost | None = None,
+               free: bool = False, kicker: int = 0, additional: tuple[M.ManaCost, ...] = (),
+               face_down: bool = False) -> M.ManaCost:
+    """The total cost to cast (601.2f), in the rules' order: the mana cost (with X) or the
+    alternative cost — flashback from the graveyard, evoke, dash, a face-down {3}, or {0} for
+    "without paying its mana cost" (118.9) — plus additional costs (kicker 702.33a, buyback: 118.8)
+    and cost increases (commander tax 903.8, "cost {N} more"), minus cost reductions (affinity
+    702.41, "cost {N} less", the spell's own; 118.7a: generic only, never below {0}). Additional
+    costs, increases and reductions apply to an alternative cost too (118.9d)."""
+    player = player or card.owner
+    if free:
+        base = M.ManaCost()
+    elif alternative is not None:
+        base = alternative
+    else:
+        flashback = flashback_cost(ch) if card.zone == zone_key(card.owner, "graveyard") else None
+        base = M.parse_cost(flashback or ch.mana_cost).with_x(x)
+    extras = list(additional)
+    if kicker:
+        extras.append(kicker_extra(ch, kicker, face_down=face_down))
+    tax = state.players[card.owner].commander_tax.get(card.commander_key, 0) \
+        if from_command_zone(card, card.owner) and card.commander_key else 0
+    affinity = affinity_discount(state, player, ch, info) if info is not None else 0
+    return permissions.total_cost(state, player, card, ch, info, base=base, additional=tuple(extras), tax=tax, affinity=affinity)
 
 
 def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True) -> bool:
     faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
     for face in faces:
         ch = chars.as_cast(card, info, face)
-        if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is None and \
-                can_pay(state, player, spell_cost(state, card, ch, info=info), info, purpose=Purpose(spell=ch, card=card.id)):
+        if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None:
+            continue
+        grant = cast_grant(state, player, card, ch, info)
+        cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free)
+        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
             return True
     return False
 
@@ -1160,39 +1207,46 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if card is None:
         raise ActionError("That card isn't here any more")
     ch = chars.as_cast(card, plan.info, a.face)  # split cards / adventures: the half being cast
-    if a.free:  # suspend's "cast it without paying its mana cost" (only what the engine granted)
+    if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
         cast_free(plan, card, ch, a)
         return
     if a.face_down:  # morph: a nameless 2/2 creature spell for {3}
         if morph_cost(ch) is None or card.zone != zone_key(plan.actor, "hand"):
             raise ActionError("Only a card with morph can be cast face down from your hand")
         ch = FACE_DOWN
-    problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info)
+    problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free)
     if problem:
         raise ActionError(problem)
+    grant = cast_grant(plan.state, plan.actor, card, ch, plan.info, free=a.free)
+    free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
     base = M.parse_cost(ch.mana_cost)
     if base.x and a.x_value is None:
-        raise ActionError(f"Choose a value for X to cast {ch.name}")
-    cost = M.parse_cost("{3}") if a.face_down else spell_cost(plan.state, card, ch, a.x_value or 0, plan.info)
+        if not free:
+            raise ActionError(f"Choose a value for X to cast {ch.name}")
+        a.x_value = 0  # 107.3b: X is 0 when a spell is cast without paying its mana cost
+    alternative: M.ManaCost | None = M.parse_cost("{3}") if a.face_down else None
+    additional: list[M.ManaCost] = []
     if a.buyback:
         extra = keyword_cost(ch, "buyback", BUYBACK)
         if extra is None:
             raise ActionError(f"{ch.name} has no buyback cost")
-        extra_cost = M.parse_cost(extra)
-        cost = M.ManaCost(cost.generic + extra_cost.generic, cost.colored + extra_cost.colored, cost.hybrid + extra_cost.hybrid,
-                          cost.phyrexian + extra_cost.phyrexian, cost.x, cost.unsupported + extra_cost.unsupported)
+        additional.append(M.parse_cost(extra))
     if a.evoke:
         evoke = keyword_cost(ch, "evoke", EVOKE)
         if evoke is None or card.zone != zone_key(plan.actor, "hand"):
             raise ActionError("Only a card with evoke can be cast for its evoke cost from your hand")
-        cost = M.parse_cost(evoke)
+        alternative = M.parse_cost(evoke)
     if a.dash:
         dash = keyword_cost(ch, "dash", DASH)
         if dash is None or card.zone != zone_key(plan.actor, "hand"):
             raise ActionError("Only a card with dash can be cast for its dash cost from your hand")
-        cost = M.parse_cost(dash)
-    if a.kicker:  # 702.33a / 601.2f: the kicker cost is an additional cost (118.8), added to the total
-        cost = cost_with_kicker(ch, cost, a.kicker, face_down=a.face_down)
+        alternative = M.parse_cost(dash)
+    if free and (alternative is not None or a.face_down):
+        raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+    # 601.2f: the total cost in the rules' order — kicker is an additional cost (118.8) added
+    # before increases and reductions apply, so a reduction sees the kicked total
+    cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=alternative,
+                      free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down)
     for target in a.targets:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
@@ -1222,6 +1276,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     commander_cast = from_command_zone(card, plan.actor)
     flashback = from_graveyard(card, plan.actor, ch)
     card_was_in_hand = card.zone == zone_key(plan.actor, "hand")
+    from_where = {"graveyard": "the graveyard", "exile": "exile", "library": "the library", "hand": "the hand"}.get(
+        card.zone.rsplit(":", 1)[-1], card.zone)
     if a.face is not None and a.face != card.face:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     if a.face_down:
@@ -1232,11 +1288,14 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
     record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name or 'a face-down spell'}")
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else \
-        "flashback" if flashback else None
+        "flashback" if flashback else "free" if free else None
     record.additional = (["buyback"] if a.buyback else []) + (["kicker"] if a.kicker else [])
     record.kicked = a.kicker  # 702.33d
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else ["Dashed"] if a.dash else []
+    if grant is not None and grant.how == "permission":
+        permissions.consume(plan, grant)  # (a "once during each of your turns" permission is used up)
+        tags.append(f"Cast from {from_where}" + (" without paying its mana cost" if free else ""))
     if a.dash:
         plan.rules.dashed.append(card.id)
     if a.kicker:
@@ -1261,7 +1320,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.targets:
         plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
     r = plan.rules
-    emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor)  # for "whenever you cast"
+    # for "whenever you cast"; amount: the Nth spell its caster cast this turn ("your second spell each turn")
+    emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
+         amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)
     if "cascade" in ch.keywords and not a.face_down and not plan.manual(card):
         _cascade_triggers(plan, card, ch)
     if "storm" in ch.keywords and not a.face_down and not plan.manual(card):
@@ -1411,18 +1472,25 @@ EVOKE = re.compile(r"^evoke (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 DASH = re.compile(r"^dash (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
-def cost_with_kicker(ch: Characteristics, cost: M.ManaCost, times: int, *, face_down: bool = False) -> M.ManaCost:
-    """702.33a / 702.33c: pay the kicker cost ``times`` times on top of the total cost (601.2f). It's
-    an additional cost (118.8): the spell's mana cost and mana value don't change (118.8d)."""
+def kicker_extra(ch: Characteristics, times: int, *, face_down: bool = False) -> M.ManaCost:
+    """702.33a / 702.33c: the kicker cost paid ``times`` times — an additional cost (118.8) that
+    joins the total cost (601.2f) before increases and reductions; the spell's mana cost and mana
+    value don't change (118.8d)."""
     kick = None if face_down else kicker_cost(ch.abilities)  # (a face-down spell has no abilities, 708.2)
     if kick is None:
         raise ActionError(f"{ch.name or 'That spell'} has no kicker cost Fyodor can pay: kick it by hand with the table tools")
     if times > 1 and not kick.multi:
         raise ActionError(f"{ch.name} can be kicked only once")  # (multikicker: any number of times, 702.33c)
     extra = M.parse_cost(kick.cost)
-    return M.ManaCost(cost.generic + extra.generic * times, cost.colored + extra.colored * times,
-                      cost.hybrid + extra.hybrid * times, cost.phyrexian + extra.phyrexian * times, cost.x,
-                      cost.unsupported + extra.unsupported * times)
+    return M.ManaCost(extra.generic * times, extra.colored * times, extra.hybrid * times, extra.phyrexian * times, 0,
+                      extra.unsupported * times)
+
+
+def cost_with_kicker(ch: Characteristics, cost: M.ManaCost, times: int, *, face_down: bool = False) -> M.ManaCost:
+    """``cost`` plus the kicker cost ``times`` times (see ``kicker_extra``)."""
+    extra = kicker_extra(ch, times, face_down=face_down)
+    return M.ManaCost(cost.generic + extra.generic, cost.colored + extra.colored, cost.hybrid + extra.hybrid,
+                      cost.phyrexian + extra.phyrexian, cost.x, cost.unsupported + extra.unsupported)
 
 
 def keyword_cost(ch: Characteristics, word: str, pattern: re.Pattern[str], index: int | None = None) -> str | None:
@@ -1524,8 +1592,6 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     from app.rules.engine import advance  # the engine imports this module
 
     r = plan.rules
-    if a.kicker:
-        raise ActionError("Kick a spell cast this way by hand, with the table tools")
     if card.id not in r.free_casts or card.zone != zone_key(card.owner, "exile") or card.owner != plan.actor:
         raise ActionError("You can't cast that without paying its mana cost now")
     definition = None if plan.manual(card) else scripts.spell_definition(ch)
@@ -1533,12 +1599,17 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if picked_targets is None:
         return  # waiting for the target choice; the grant stays
     alt = r.alt_costs.get(card.id)
-    if alt is not None:  # madness: pay that cost instead of the mana cost
-        cost = M.parse_cost(alt)
+    # 118.9d / 601.2f: additional costs (kicker), increases and reductions still apply to the
+    # alternative cost — {0}, or the madness cost
+    cost = spell_cost(plan.state, card, ch, 0, plan.info, player=plan.actor, free=alt is None,
+                      alternative=M.parse_cost(alt) if alt is not None else None, kicker=a.kicker)
+    if alt is not None or not cost.is_free:
         if payment_step(plan, a, cost, ch.name or "it", purpose=Purpose(spell=ch)):
             return
-        record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name} (madness)")
-        record.alternative = "madness"
+        record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (" (madness)" if alt else ""))
+        record.alternative = "madness" if alt is not None else "free"
+        record.additional = ["kicker"] if a.kicker else []
+        record.kicked = a.kicker
         r.alt_costs.pop(card.id, None)
     else:
         record = PaymentRecord(card=card.id, controller=plan.actor, alternative="free")
@@ -1550,14 +1621,16 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         a.x_value = 0  # X is 0 when a spell is cast without paying its mana cost (107.3b)
     plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
     plan.do({"type": "set_stack_info", "card_id": card.id,
-             "tags": ["Cast for its madness cost" if alt is not None else "Cast without paying its mana cost"]})
+             "tags": ["Cast for its madness cost" if alt is not None else "Cast without paying its mana cost"]
+             + (["Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}"] if a.kicker else [])})
     record.x = a.x_value
     record_payment(plan, card.id, record)
     if a.targets:
         plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
     if ch.is_creature:
         r.suspend_haste.append(card.id)  # 702.62e: it gains haste
-    emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor)
+    emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
+         amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)  # (the Nth spell this turn)
     if "cascade" in ch.keywords and not plan.manual(card):
         _cascade_triggers(plan, card, ch)
     if definition is not None:
@@ -1952,13 +2025,22 @@ def resume_mana_ability(plan: Plan, d: Any, chosen: list[str]) -> None:
 # -- responding -------------------------------------------------------------------------
 def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
     """Could ``player`` do anything at instant speed right now? (For Arena-style auto-passing.)"""
-    for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard")):
+    for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"), zone_key(player, "exile")):
         for cid in state.zones.get(key, []):
             card = state.cards[cid]
             ch = chars.of(card, info)
-            if ("Instant" in ch.types or ch.has_flash) and castable(state, player, card, info, check_priority=False):
+            if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info)) \
+                    and castable(state, player, card, info, check_priority=False):
                 return True
     return bool(activatable(state, player, info, check_priority=False))
+
+
+def _flash_granted(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> bool:
+    """"You may cast creature spells as though they had flash" (601.3b) applies to this card."""
+    if ch.is_land or not ch.types:
+        return False
+    grant = cast_grant(state, player, card, ch, info)
+    return grant is not None and grant.flash
 
 
 def can_act(state: GameState, player: str, info: CardInfo) -> bool:

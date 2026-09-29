@@ -227,6 +227,9 @@ EventKind = Literal[
     "drew",  # a player drew a card (121.2: one event per card)
     "crewed",
     "turned_face_up",  # 702.37e (morph)  # a Vehicle became crewed (702.122)
+    # 701.21a: a permanent was sacrificed (emitted just before it moves, in the same batch; the
+    # object is the permanent as it was — "whenever you sacrifice …" looks back in time, 603.10a)
+    "sacrificed",
 ]
 
 
@@ -278,6 +281,9 @@ class ContinuousEffect(BaseModel):
     source_card: str | None = None
     duration: Literal["end_of_turn", "permanent"] = "end_of_turn"
     timestamp: int = 0
+    # ``RulesState.next_object`` when the effect began: the last object to enter a zone before it, so
+    # the effect can be ordered against static abilities (their timestamp is their source's, 613.7a/d).
+    object_seq: int = 0
     label: str = ""
 
 
@@ -399,6 +405,59 @@ class PaymentRecord(BaseModel):
     x: int | None = None
 
 
+class Permission(BaseModel):
+    """An effect that lets a player cast a spell or play a land they otherwise couldn't (CR 601.3,
+    305.1): from a zone other than their hand, as though it had flash, without paying its mana
+    cost, or once during each of their turns. Granted by a resolved spell or ability
+    (``app.rules.permissions``); static abilities of permanents are read from the table instead
+    and never stored."""
+
+    id: str
+    player: str
+    play: bool = False  # lands ("you may play …" covers both: 701.13 — "play" a land or cast a spell)
+    cast: bool = False  # spells
+    zone: Literal["hand", "graveyard", "exile", "library_top", "any"] = "any"  # where the card must be
+    # A specific object ("you may play that card this turn"): the permission follows the object,
+    # not the card (400.7h/i): once it changes zones it is a new object and the permission is spent
+    object_id: str | None = None
+    card: str | None = None
+    filter: str | None = None  # a selector key the spell must match ("creature spells")
+    free: bool = False  # "without paying its mana cost": an alternative cost of {0} (118.9)
+    flash: bool = False  # "as though it had flash" (601.3b)
+    once: bool = False  # "once during each of your turns"
+    used_turn: int = 0  # (once) the turn it was used
+    until: Literal["end_of_turn", "end_of_next_turn", "permanent"] = "end_of_turn"
+    turn: int = 0  # the turn it was granted (for end_of_next_turn)
+    source: str | None = None  # the granting object
+    label: str = Field(default="", max_length=120)
+
+
+class CostModifier(BaseModel):
+    """A cost increase or reduction that applies to spells as their total cost is determined
+    (601.2f): generic mana only (118.7a), never below {0}. Static ones ("Creature spells you cast
+    cost {1} less to cast.") are read from the table; effects with a duration are stored here."""
+
+    id: str
+    controller: str  # whose "you" (the source's controller)
+    delta: int  # +N: costs {N} more; −N: costs {N} less
+    caster: Literal["you", "opponent", "any"] = "you"
+    filter: str | None = None  # a selector key the spell must match, or None for every spell
+    until: Literal["end_of_turn", "permanent"] = "end_of_turn"
+    source: str | None = None
+    label: str = Field(default="", max_length=120)
+
+
+class TopReveal(BaseModel):
+    """"Play with the top card of your library revealed." / "You may look at the top card of your
+    library any time." — while ``source`` is on the battlefield under ``player``'s control, that
+    player's top library card is visible to everyone or to its owner (401.5). Refreshed by the
+    engine from the table; ``app.game.visibility`` checks the source is still there."""
+
+    source: str  # the permanent's card id
+    player: str
+    to: Literal["all", "owner"]
+
+
 class ReconcileItem(BaseModel):
     """Something the engine can't work out from the table after manual play (see reconcile)."""
 
@@ -445,6 +504,7 @@ class RulesState(BaseModel):
     alt_costs: dict[str, str] = Field(default_factory=dict)  # card -> the cost to pay instead (madness)  # cards the engine lets be cast without paying (suspend)
     suspend_haste: list[str] = Field(default_factory=list)  # suspended creature spells: haste when they enter
     renowned: list[str] = Field(default_factory=list)  # rules objects that became renowned (702.112)
+    monstrous: list[str] = Field(default_factory=list)  # rules objects that became monstrous (701.37b)
     damaged: dict[str, int] = Field(default_factory=dict)  # player -> last turn they were dealt damage (bloodthirst)
     echo_done: list[str] = Field(default_factory=list)  # "<object>:<controller>" whose echo upkeep came
     flashback: list[str] = Field(default_factory=list)  # stack objects cast with flashback (exiled as they leave)
@@ -486,6 +546,11 @@ class RulesState(BaseModel):
     # Each player's intents this turn, for REPEAT LAST VALIDATED SEQUENCE (payloads, newest last).
     recent: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     recent_turn: int = 0
+    # Cast / play permissions granted by effects, cost modifiers with a duration, and which top
+    # library cards are revealed by permanents on the table (app/rules/permissions.py).
+    permissions: list[Permission] = Field(default_factory=list)
+    cost_modifiers: list[CostModifier] = Field(default_factory=list)
+    top_reveals: list[TopReveal] = Field(default_factory=list)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)
@@ -644,6 +709,9 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
              from_zone=old_zone, to_zone=new_zone)
     for card_id, card in state.cards.items():
         if card_id not in before.zones and _zone_name(card.zone) in TRACKED_ZONES:
+            if card_id not in rules.objects:  # a created object is numbered like one that entered (613.7d)
+                rules.next_object += 1
+                rules.objects[card_id] = rules.next_object
             emit(state, "zone_change", new_object_id=rules.object_id(card_id), card=card_id, player=card.controller,
                  to_zone=card.zone)  # created: a token, a copy, an ability on the stack
     for card_id, snap in before.snaps.items():

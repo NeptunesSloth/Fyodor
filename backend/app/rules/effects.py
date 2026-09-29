@@ -21,7 +21,16 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption, ObjectRef, StackEntry
 from app.game.state import zone_key
-from app.rules import context, layers, optional_payment, protection, regeneration, selectors, values
+from app.rules import (
+    context,
+    layers,
+    optional_payment,
+    permissions,
+    protection,
+    regeneration,
+    selectors,
+    values,
+)
 from app.rules.plan import Plan, decide
 from app.rules.targets import source_of, still_legal
 
@@ -101,6 +110,9 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "event":  # "it" / "that creature": the object(s) the trigger event happened to — only while
         # each is still that object where it was (400.7: after a zone change it's a new object)
         return context.objects(plan, ctx, context.EVENT)
+    if who == context.EVENT_NEW:  # after "dies" / "leaves": the new object where it went — only while
+        # it's still there (400.7e, 603.6c)
+        return context.objects(plan, ctx, context.EVENT_NEW)
     if who.startswith(context.PREFIX):  # an earlier effect's objects ("it", "cards exiled this way")
         return context.objects(plan, ctx, who[len(context.PREFIX):])
     if who.startswith("object:"):  # one specific rules object (e.g. the creature that attacked alone)
@@ -369,7 +381,7 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True
     made: list[str] = []
     for pid in _players(plan, ctx, e["who"]):
-        created = plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False,
+        created = plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False, "tapped": bool(e.get("tapped")),
                            "source_id": ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None,
                            "token": {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
                                      "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}},
@@ -1106,6 +1118,9 @@ def _sacrifice_cards(plan: Plan, cards: list[str], actor: str, ctx: Context | No
     e = {"as": binding}
     before = _remember(plan, ctx, e, cards) if ctx is not None else []
     if cards:
+        from app.rules.triggers import sacrificing  # (triggers imports this module)
+
+        sacrificing(plan, cards)
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=actor)
     if ctx is not None:
         _moved(plan, ctx, e, before)
@@ -1183,7 +1198,10 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
         cost = mana.parse_cost(d.resume["cost"])
         casting.pay_from_pool(plan, d.player, cost, f"paid {cost.text()} for {ctx.get('name', '')}")
     elif src:
+        from app.rules.triggers import sacrificing  # (triggers imports this module)
+
         card = plan.state.cards[src[0]]
+        sacrificing(plan, src)
         plan.do({"type": "move", "card_ids": src, "to": {"player": card.owner, "zone": "graveyard"}}, actor=d.player)
     continue_effects(plan, ctx)
 
@@ -1352,7 +1370,8 @@ def rest_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looked": rest_looked})
+PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looked": rest_looked,
+                   "exile_top": permissions.exile_top, "grant_play": permissions.grant_play})
 
 
 def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1479,6 +1498,11 @@ def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
 
         leave_stack(plan, stack_id, ctx["controller"], countered=countered)
     _after_resolution(plan)
+
+
+from app.rules import keyword_actions  # noqa: E402, I001  (keyword actions, CR 701, and token wording: leaf modules over this one)
+
+PRIMITIVES.update(keyword_actions.PRIMITIVES)
 
 
 def describe(effects: list[dict[str, Any]]) -> str:

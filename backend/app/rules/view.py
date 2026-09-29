@@ -126,17 +126,20 @@ def hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     out: dict[str, Any] = {"has_priority": state.rules is not None and state.rules.priority == viewer}
     if not out["has_priority"]:
         return out
+    # Your hand, your commander, your graveyard and exile (flashback, "you may play that card this
+    # turn" …) and the top card of your library — that one only when you can see it (601.3f in
+    # spirit: a card you can't look at isn't offered, so the hint reveals nothing about it).
+    candidates = [cid for key in (zone_key(viewer, "hand"), zone_key(viewer, "command"), zone_key(viewer, "graveyard"),
+                                  zone_key(viewer, "exile")) for cid in state.zones.get(key, [])]
+    library = state.zones.get(zone_key(viewer, "library"), [])
+    if library and can_see(state, state.cards[library[0]], viewer):
+        candidates.append(library[0])
     playable = []
-    for cid in state.zones.get(zone_key(viewer, "hand"), []):
+    for cid in candidates:
         card = state.cards[cid]
-        if land_play_problem(state, viewer, card, chars.of(card, info)) is None:
+        if land_play_problem(state, viewer, card, chars.of(card, info), info=info) is None:
             playable.append(cid)
     out["playable_lands"] = playable
     out["activatable"] = activatable(state, viewer, info)
-    out["castable"] = [
-        cid
-        for key in (zone_key(viewer, "hand"), zone_key(viewer, "command"), zone_key(viewer, "graveyard"))
-        for cid in state.zones.get(key, [])
-        if castable(state, viewer, state.cards[cid], info)
-    ]
+    out["castable"] = [cid for cid in candidates if castable(state, viewer, state.cards[cid], info)]
     return out
