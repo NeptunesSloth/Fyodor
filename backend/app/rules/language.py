@@ -385,9 +385,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return found
     text, rider = _with_rider(text)
     # -- players ------------------------------------------------------------------------------
-    m = re.fullmatch(_SUBJ + rf"draws? (?P<n>{AMT}) cards?", text)
+    m = re.fullmatch(_SUBJ + rf"draws? (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)
+        if m["stat"]:  # "draw cards equal to its power" (a trigger's object, or an earlier instruction's)
+            if rider is not None:
+                raise _Fail
+            return [{"do": "draw", "who": who, "n": _stat(m["stat"])}], target
         return [{"do": "draw", "who": who, "n": _apply(_amount(m["n"]), rider)}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>gains?|loses?) (?:(?P<n>{AMT}) life|life equal to (?P<stat>.+))", text)
     if m:
@@ -398,10 +402,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
                 raise _Fail
             return [{"do": verb, "who": who, "n": _stat(m["stat"])}], target
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
-    m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?P<n>{AMT}) cards?", text)
+    m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)
         verb = "discard" if m["v"].startswith("discard") else "mill"
+        if m["stat"]:
+            if rider is not None:
+                raise _Fail
+            return [{"do": verb, "who": who, "n": _stat(m["stat"])}], target
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
     m = re.fullmatch(_SUBJ + rf"sacrifices? (?P<n>{AMT}) (?P<sel>.+)", text)
     if m and rider is None:

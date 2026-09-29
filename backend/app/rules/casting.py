@@ -1320,7 +1320,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.targets:
         plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
     r = plan.rules
-    emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor)  # for "whenever you cast"
+    # for "whenever you cast"; amount: the Nth spell its caster cast this turn ("your second spell each turn")
+    emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
+         amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)
     if "cascade" in ch.keywords and not a.face_down and not plan.manual(card):
         _cascade_triggers(plan, card, ch)
     if "storm" in ch.keywords and not a.face_down and not plan.manual(card):
@@ -1627,7 +1629,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
     if ch.is_creature:
         r.suspend_haste.append(card.id)  # 702.62e: it gains haste
-    emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor)
+    emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
+         amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)  # (the Nth spell this turn)
     if "cascade" in ch.keywords and not plan.manual(card):
         _cascade_triggers(plan, card, ch)
     if definition is not None:

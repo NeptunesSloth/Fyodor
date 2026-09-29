@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 426 · PARTIAL: 3075 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 478 · PARTIAL: 3023 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -76,13 +76,13 @@ Color identity WG
 - ✗ Your opponents can't cast spells during your turn.
 - ✗ Whenever one or more creatures you control each with power greater than its base power deals combat damage to a player, draw a card.
 
-### Lotho, Corrupt Shirriff — PARTIAL
+### Lotho, Corrupt Shirriff — FULL
 
 Color identity WB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token.
+- ✓ Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token.
 
 ### Selvala, Heart of the Wilds — PARTIAL
 
@@ -194,8 +194,8 @@ Color identity W
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Lifelink
+- ✓ Whenever an opponent casts their second spell each turn, draw a card.
 - ✗ Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card.
-- ✗ Whenever an opponent casts their second spell each turn, draw a card.
 
 ### Elas il-Kor, Sadistic Pilgrim — FULL
 
@@ -840,7 +840,7 @@ Color identity WB
 - ✓ Whenever one or more tokens you control enter, each opponent loses 1 life and you gain 1 life.
 - ✗ Whenever one or more tokens your opponents control enter, for each of them, create a tapped token that's a copy of it. This ability triggers only once each turn.
 
-### Captain Lannery Storm — PARTIAL
+### Captain Lannery Storm — FULL
 
 Color identity R
 
@@ -848,7 +848,7 @@ Color identity R
 - ✓ Attack and block
 - ✓ Haste
 - ✓ Whenever Captain Lannery Storm attacks, create a Treasure token.
-- ✗ Whenever you sacrifice a Treasure, Captain Lannery Storm gets +1/+0 until end of turn.
+- ✓ Whenever you sacrifice a Treasure, Captain Lannery Storm gets +1/+0 until end of turn.
 
 ### Zopandrel, Hunger Dominus — PARTIAL
 
@@ -1083,7 +1083,7 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Intimidate
-- ✗ Whenever a Human deals damage to you, destroy it.
+- ✓ Whenever a Human deals damage to you, destroy it.
 - ✗ Other non-Human creatures you control get +1/+1 and have undying.
 
 ### Teysa Karlov — PARTIAL
@@ -1426,14 +1426,14 @@ Color identity C
 - ✗ Ulamog enters with a number of +1/+1 counters on it equal to the greatest mana value among cards in exile.
 - ✗ Ulamog has annihilator X, where X is the number of +1/+1 counters on it.
 
-### Mazirek, Kraul Death Priest — PARTIAL
+### Mazirek, Kraul Death Priest — FULL
 
 Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
-- ✗ Whenever a player sacrifices another permanent, put a +1/+1 counter on each creature you control.
+- ✓ Whenever a player sacrifices another permanent, put a +1/+1 counter on each creature you control.
 
 ### Tergrid, God of Fright // Tergrid's Lantern — PARTIAL
 
@@ -1826,14 +1826,14 @@ Color identity BG
 - ✓ When Honest Rutstein enters, return target creature card from your graveyard to your hand.
 - ✓ Creature spells you cast cost {1} less to cast.
 
-### Juri, Master of the Revue — PARTIAL
+### Juri, Master of the Revue — FULL
 
 Color identity BR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever you sacrifice a permanent, put a +1/+1 counter on Juri.
 - ✓ When Juri dies, it deals damage equal to its power to any target.
-- ✗ Whenever you sacrifice a permanent, put a +1/+1 counter on Juri.
 
 ### Korvold, Fae-Cursed King — PARTIAL
 
@@ -1842,8 +1842,8 @@ Color identity BRG
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
+- ✓ Whenever you sacrifice a permanent, put a +1/+1 counter on Korvold and draw a card.
 - ✗ Whenever Korvold enters or attacks, sacrifice another permanent.
-- ✗ Whenever you sacrifice a permanent, put a +1/+1 counter on Korvold and draw a card.
 
 ### Bennie Bracks, Zoologist — PARTIAL
 
@@ -2451,7 +2451,7 @@ Color identity G
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Whenever an opponent casts a noncreature spell, create a Food token.
-- ✗ Whenever a creature deals combat damage to you, sacrifice a Food token.
+- ✓ Whenever a creature deals combat damage to you, sacrifice a Food token.
 - ✗ Tap two untapped Foods you control: Add one mana of any color.
 
 ### Kokusho, the Evening Star — PARTIAL

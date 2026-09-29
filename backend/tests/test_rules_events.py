@@ -48,8 +48,8 @@ def test_cast_conditions_select_spells_on_the_stack():
 @pytest.mark.parametrize("cond", [
     "you commit a crime",  # (an event we don't model)
     "a foo enters",
-    "you cast your first spell each turn",
-    "~ becomes the target of a spell",
+    "you cast a historic spell",  # (700.6: artifacts, legendaries and Sagas — not a selector yet)
+    "equipped creature dies",  # (what was attached is found only looking back in time: not yet)
 ])
 def test_unknown_conditions_stay_manual(cond):
     assert events.parse_condition(cond) is None

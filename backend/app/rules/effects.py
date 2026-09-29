@@ -110,6 +110,9 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "event":  # "it" / "that creature": the object(s) the trigger event happened to — only while
         # each is still that object where it was (400.7: after a zone change it's a new object)
         return context.objects(plan, ctx, context.EVENT)
+    if who == context.EVENT_NEW:  # after "dies" / "leaves": the new object where it went — only while
+        # it's still there (400.7e, 603.6c)
+        return context.objects(plan, ctx, context.EVENT_NEW)
     if who.startswith(context.PREFIX):  # an earlier effect's objects ("it", "cards exiled this way")
         return context.objects(plan, ctx, who[len(context.PREFIX):])
     if who.startswith("object:"):  # one specific rules object (e.g. the creature that attacked alone)
@@ -1115,6 +1118,9 @@ def _sacrifice_cards(plan: Plan, cards: list[str], actor: str, ctx: Context | No
     e = {"as": binding}
     before = _remember(plan, ctx, e, cards) if ctx is not None else []
     if cards:
+        from app.rules.triggers import sacrificing  # (triggers imports this module)
+
+        sacrificing(plan, cards)
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=actor)
     if ctx is not None:
         _moved(plan, ctx, e, before)
@@ -1192,7 +1198,10 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
         cost = mana.parse_cost(d.resume["cost"])
         casting.pay_from_pool(plan, d.player, cost, f"paid {cost.text()} for {ctx.get('name', '')}")
     elif src:
+        from app.rules.triggers import sacrificing  # (triggers imports this module)
+
         card = plan.state.cards[src[0]]
+        sacrificing(plan, src)
         plan.do({"type": "move", "card_ids": src, "to": {"player": card.owner, "zone": "graveyard"}}, actor=d.player)
     continue_effects(plan, ctx)
 
