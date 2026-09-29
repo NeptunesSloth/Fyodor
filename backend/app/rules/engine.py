@@ -581,6 +581,17 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "graveyard"}}, actor=controller)
 
 
+def enter_with_loyalty(plan: Plan, card_id: str, ch: Characteristics, controller: str) -> None:
+    """306.5b: a planeswalker enters with its printed loyalty in loyalty counters, however it
+    enters (cast, put onto the battlefield, returned)."""
+    card = plan.state.cards.get(card_id)
+    if card is None or not card.zone.endswith(":battlefield") or "Planeswalker" not in ch.types:
+        return
+    loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else 0
+    if loyalty:
+        plan.do({"type": "counter", "card_ids": [card_id], "kind": "loyalty", "delta": loyalty}, actor=controller)
+
+
 def enter_with_counters(plan: Plan, card_id: str, ch: Characteristics, x: int | None, controller: str) -> None:
     """614.1c: "~ enters with N counters on it" (N may be X, the value it was cast with)."""
     card = plan.state.cards.get(card_id)
@@ -650,11 +661,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
         if entered_now is not None and entered_now.zone.endswith(":battlefield"):
             layers.add_effect(plan, affected=[plan.oid(top_id)], layer="6", source=None, controller=controller,
                               add_keywords=("haste",), duration="permanent", label="Haste (suspend)")
-    entered = plan.state.cards.get(top_id)
-    if entered is not None and entered.zone.endswith(":battlefield") and "Planeswalker" in ch.types:
-        loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else 0
-        if loyalty:
-            plan.do({"type": "counter", "card_ids": [top_id], "kind": "loyalty", "delta": loyalty}, actor=controller)
+    enter_with_loyalty(plan, top_id, ch, controller)
     if manual:
         resolved = plan.state.cards.get(top_id)
         if ch.is_ability:

@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 269 · PARTIAL: 3232 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 286 · PARTIAL: 3215 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -1141,7 +1141,7 @@ Color identity UG
 - ✗ Whenever you tap a nonland permanent for mana, add one mana of any type that permanent produced.
 - ✗ {5}{G}{U}: Look at the top five cards of your library. You may put a non-Human creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
 
-### Atarka, World Render — PARTIAL
+### Atarka, World Render — FULL
 
 Color identity RG
 
@@ -1149,7 +1149,7 @@ Color identity RG
 - ✓ Attack and block
 - ✓ Flying
 - ✓ Trample
-- ✗ Whenever a Dragon you control attacks, it gains double strike until end of turn.
+- ✓ Whenever a Dragon you control attacks, it gains double strike until end of turn.
 
 ### Atsushi, the Blazing Sky — PARTIAL
 
@@ -1476,7 +1476,7 @@ Color identity W
 - ✓ Flash
 - ✗ Whenever Phelia attacks, exile up to one other target nonland permanent. At the beginning of the next end step, return that card to the battlefield under its owner's control. If it entered under your control, put a +1/+1 counter on Phelia.
 
-### Surrak and Goreclaw — PARTIAL
+### Surrak and Goreclaw — FULL
 
 Color identity G
 
@@ -1484,7 +1484,7 @@ Color identity G
 - ✓ Attack and block
 - ✓ Trample
 - ✓ Other creatures you control have trample.
-- ✗ Whenever another nontoken creature you control enters, put a +1/+1 counter on it. It gains haste until end of turn.
+- ✓ Whenever another nontoken creature you control enters, put a +1/+1 counter on it. It gains haste until end of turn.
 
 ### Losheel, Clockwork Scholar — PARTIAL
 
@@ -2031,14 +2031,14 @@ Color identity B
 - ✓ Deathtouch
 - ✗ Boast — {1}{B}: Target player searches their library for a card, then shuffles and puts that card on top.
 
-### Venser, Shaper Savant — FULL
+### Venser, Shaper Savant — PARTIAL
 
 Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flash
-- ✓ When Venser enters, return target spell or permanent to its owner's hand.
+- ✗ When Venser enters, return target spell or permanent to its owner's hand.
 
 ### Mikaeus, the Lunarch — PARTIAL
 
@@ -2127,8 +2127,8 @@ Color identity RG
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
+- ✓ Loyalty and damage to planeswalkers
 - ✓ Daretti, Scrap Savant can be your commander.
-- ✗ Loyalty and damage to planeswalkers
 - ✗ +2: Discard up to two cards, then draw that many cards.
 - ✗ −2: Sacrifice an artifact. If you do, return target artifact card from your graveyard to the battlefield.
 - ✗ −10: You get an emblem with "Whenever an artifact is put into your graveyard from the battlefield, return that card to the battlefield at the beginning of the next end step."

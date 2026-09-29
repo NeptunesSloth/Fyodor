@@ -97,3 +97,19 @@ def test_pronoun_it_is_resolved_or_refused(text, type_line, ok):
         assert all(e.get("who") != "it" and "src" not in e for d in defs.values() for e in d["effects"])
     if "Untap target" in text:
         assert [e["who"] for e in defs[0]["effects"]] == ["target", "target", "target"]
+
+
+@pytest.mark.parametrize(("text", "name", "expected"), [
+    # 207.2c: an ability word has no rules meaning
+    ("Landfall — Whenever a land you control enters, you gain 1 life.", "X",
+     "Whenever a land you control enters, you gain 1 life."),
+    ("Council’s dilemma — Draw a card.", "X", "Draw a card."),
+    # Oracle's short names for a card
+    ("Whenever Sharuum attacks, draw a card.", "Sharuum the Hegemon", "Whenever ~ attacks, draw a card."),
+    ("Whenever Kiora attacks, draw a card.", "Kiora, the Rising Tide", "Whenever ~ attacks, draw a card."),
+    # … but not a creature type that happens to start the name
+    ("Other Soldier creatures you control get +1/+1.", "Soldier of the Pantheon",
+     "Other Soldier creatures you control get +1/+1."),
+])
+def test_self_text(text, name, expected):
+    assert scripts.self_text(text, name) == expected

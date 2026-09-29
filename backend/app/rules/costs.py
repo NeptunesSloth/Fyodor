@@ -27,12 +27,15 @@ class AbilityCost:
     life: int = 0
     remove_counters: tuple[tuple[str, int], ...] = ()  # (kind, amount) from the source itself
     loyalty: int | None = None  # +N / −N / 0 for planeswalker abilities
+    loyalty_x: bool = False  # −X: remove X loyalty counters, X chosen as it's activated (107.3k)
     unsupported: tuple[str, ...] = field(default_factory=tuple)
 
 
 def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False) -> AbilityCost:
     if loyalty:
         raw = cost.strip().replace("−", "-")
+        if raw.upper() == "-X":
+            return AbilityCost(loyalty_x=True)
         if raw.upper().lstrip("+-") == "X":
             return AbilityCost(unsupported=(cost,))
         return AbilityCost(loyalty=int(raw))

@@ -134,13 +134,39 @@ def _signed(p: str) -> int:
     return -int(p[1:]) if p[0] in "-−" else int(p.lstrip("+"))
 
 
+# 207.2c: ability words tie abilities together but have no rules meaning
+ABILITY_WORDS = (
+    "adamant", "addendum", "alliance", "battalion", "bloodrush", "celebration", "channel", "chroma", "cohort",
+    "constellation", "converge", "council's dilemma", "coven", "delirium", "descend 4", "descend 8", "disappear",
+    "domain", "eerie", "eminence", "enrage", "fateful hour", "fathomless descent", "ferocious", "flurry", "formidable",
+    "grandeur", "hellbent", "heroic", "imprint", "infusion", "inspired", "join forces", "kinship", "landfall",
+    "lieutenant", "magecraft", "metalcraft", "morbid", "opus", "pack tactics", "paradox", "parley", "radiance", "raid",
+    "rally", "renew", "repartee", "revolt", "secret council", "spell mastery", "strive", "survival", "sweep",
+    "tempting offer", "threshold", "undergrowth", "valiant", "vivid", "void", "will of the council")
+_ABILITY_WORD = re.compile(r"^(?:" + "|".join(re.escape(w).replace("'", "['’]") for w in ABILITY_WORDS) + r") — ",
+                           re.IGNORECASE)
+
+
+def _short_name(name: str) -> str | None:
+    """How Oracle text shortens a name like "Sharuum the Hegemon" or "Zur the Enchanter" (the
+    first word), unless that word is also a creature type ("Soldier of the Pantheon")."""
+    from app.rules.creature_types import CREATURE_TYPES
+
+    m = re.match(r"^([A-Z][\w'-]{2,}) (?:the|of) ", name)
+    if m is None or m[1] in CREATURE_TYPES or m[1].rstrip("s") in CREATURE_TYPES:
+        return None
+    return m[1]
+
+
 def self_text(text: str, name: str) -> str:
-    """The ability with the card's own name (and "this creature" etc.) written as ~."""
-    out = text
-    for n in sorted({name, name.split(",")[0].strip()}, key=len, reverse=True):
+    """The ability with the card's own name (and "this creature" etc.) written as ~, without an
+    ability word (207.2c)."""
+    out = _ABILITY_WORD.sub("", text, count=1)
+    short = _short_name(name)
+    for n in sorted({name, name.split(",")[0].strip(), *([short] if short else [])}, key=len, reverse=True):
         if len(n) >= 3:
             out = re.sub(rf"\b{re.escape(n)}\b", "~", out)
-    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|Equipment|Vehicle|Aura)\b", "~", out)
+    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Equipment|Vehicle|Aura)\b", "~", out)
 
 
 EFFECTS: list[tuple[re.Pattern[str], Any]] = []
@@ -742,6 +768,18 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return None
         effects, target, _ = parsed
         return {"kind": "spell", "effects": effects, "target": {"what": target} if target else None}
+    if ability.kind == "loyalty" and ability.cost:
+        # 606: a loyalty ability is an activated ability; its cost (loyalty counters) is paid on
+        # activation (casting.activate_to_stack), its effect uses the same grammar
+        cost = parse_ability_cost(ability.cost, card_name=ch.name, loyalty=True)
+        if cost.unsupported:
+            return None
+        parsed = parse_effects(text.split(":", 1)[1])
+        if parsed is None or parsed[2]:
+            return None
+        effects, target, _ = parsed
+        return {"kind": "activated", "loyalty": True, "cost": ability.cost, "effects": effects,
+                "target": {"what": target} if target else None}
     if ability.kind == "activated" and ability.cost:
         cost = parse_ability_cost(ability.cost, card_name=ch.name)
         if cost.unsupported:

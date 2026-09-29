@@ -221,6 +221,13 @@ def _move(plan: Plan, entry: dict[str, Any]) -> None:
     if entry.get("tapped"):
         payload["tapped"] = True
     plan.do(payload, actor=entry["actor"])
+    from app.rules import engine  # (engine imports this module)
+
+    card = plan.state.cards.get(entry["card"])
+    if card is not None and card.zone.endswith(":battlefield"):  # its "enters with" replacements (614.1c, 306.5b)
+        ch = plan.ch(card)
+        engine.enter_with_loyalty(plan, card.id, ch, entry["player"])
+        engine.enter_with_counters(plan, card.id, ch, None, entry["player"])
 
 
 def _hosts_on_entering(plan: Plan, card: CardInstance, controller: str) -> list[str]:

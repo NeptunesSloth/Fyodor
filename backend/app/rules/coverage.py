@@ -28,6 +28,10 @@ SUPPORTED: set[str] = {
     "cast:spell",  # cast_spell: timing, costs (auto-paid), commander tax, the stack, resolution (M15)
     "mana:ability",  # {T}[, Sacrifice this]: Add … mana abilities, incl. basic land types (M15)
     "combat",  # attacking and blocking, combat damage (M15c)
+    # 306/606: loyalty on entering however it enters (306.5b), loyalty abilities (606.3-606.6, incl.
+    # −X), damage removing loyalty (120.3c), attacking planeswalkers, 0 loyalty (704.5i):
+    # test_rules_loyalty.py, test_rules_combat.py
+    "planeswalker",
     # M16: templated Oracle text (app/rules/scripts.py): triggers, spell effects, activated abilities,
     # "enters tapped"; every template has parsing and scenario tests.
     "templates",

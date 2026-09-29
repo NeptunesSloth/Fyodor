@@ -1655,8 +1655,10 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         raise ActionError(problem)
     oid = plan.oid(card)  # the object activating (paying a cost may move it: it'd be a new object)
     mana = M.parse_cost(cost.mana)
-    if mana.x and a.x_value is None:
+    if (mana.x or cost.loyalty_x) and a.x_value is None:
         raise ActionError("Choose a value for X")
+    if cost.loyalty_x and card.counters.get("loyalty", 0) < (a.x_value or 0):
+        raise ActionError(f"{ch.name} doesn't have {a.x_value} loyalty")  # 606.6
     if definition is None:
         definition = None if plan.manual(card) else scripts.definitions(ch).get(ability.index)
     if definition is not None and definition["kind"] != "activated":
@@ -1676,8 +1678,9 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     # Pay the costs (602.2): tap first so the source can't also pay for its own mana cost.
     if cost.tap:
         plan.do({"type": "tap", "card_ids": [card.id], "tapped": True})
-    if cost.loyalty:
-        plan.do({"type": "counter", "card_ids": [card.id], "kind": "loyalty", "delta": cost.loyalty})
+    if cost.loyalty or (cost.loyalty_x and a.x_value):
+        delta = cost.loyalty if not cost.loyalty_x else -(a.x_value or 0)
+        plan.do({"type": "counter", "card_ids": [card.id], "kind": "loyalty", "delta": delta})
     for kind, n in cost.remove_counters:
         plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n})
     if cost.life:
