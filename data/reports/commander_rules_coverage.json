@@ -1,15 +1,15 @@
 {
- "generated_at": "2026-09-29 22:48",
+ "generated_at": "2026-09-29 22:53",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
- "commander_legal_cards": 32116,
+ "commander_legal_cards": 32068,
  "commander_banned": 83,
  "levels": {
   "FULL": 10304,
   "PARTIAL": 21764,
   "REVIEW": 0,
-  "MANUAL": 48
+  "MANUAL": 0
  },
  "possible_commanders": 3501,
  "commander_levels": {
@@ -83,7 +83,7 @@
    "FULL": 1206,
    "PARTIAL": 1957,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "enchant": {
    "FULL": 387,
@@ -95,19 +95,19 @@
    "FULL": 283,
    "PARTIAL": 710,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "vigilance": {
    "FULL": 237,
    "PARTIAL": 488,
    "REVIEW": 0,
-   "MANUAL": 2
+   "MANUAL": 0
   },
   "haste": {
    "FULL": 229,
    "PARTIAL": 410,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "flash": {
    "FULL": 201,
@@ -125,23 +125,23 @@
    "FULL": 134,
    "PARTIAL": 446,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "scry": {
    "FULL": 202,
    "PARTIAL": 222,
    "REVIEW": 0,
-   "MANUAL": 1
-  },
-  "reach": {
-   "FULL": 182,
-   "PARTIAL": 241,
-   "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "transform": {
    "FULL": 0,
    "PARTIAL": 424,
+   "REVIEW": 0,
+   "MANUAL": 0
+  },
+  "reach": {
+   "FULL": 182,
+   "PARTIAL": 241,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -155,31 +155,31 @@
    "FULL": 92,
    "PARTIAL": 289,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "first strike": {
    "FULL": 144,
    "PARTIAL": 230,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "lifelink": {
    "FULL": 114,
    "PARTIAL": 246,
    "REVIEW": 0,
-   "MANUAL": 2
+   "MANUAL": 0
   },
   "treasure": {
    "FULL": 82,
    "PARTIAL": 267,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "deathtouch": {
    "FULL": 120,
    "PARTIAL": 207,
    "REVIEW": 0,
-   "MANUAL": 2
+   "MANUAL": 0
   },
   "defender": {
    "FULL": 129,
@@ -211,17 +211,17 @@
    "REVIEW": 0,
    "MANUAL": 0
   },
-  "protection": {
-   "FULL": 130,
-   "PARTIAL": 60,
-   "REVIEW": 0,
-   "MANUAL": 3
-  },
   "ward": {
    "FULL": 22,
    "PARTIAL": 169,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
+  },
+  "protection": {
+   "FULL": 130,
+   "PARTIAL": 60,
+   "REVIEW": 0,
+   "MANUAL": 0
   },
   "landfall": {
    "FULL": 67,
@@ -245,7 +245,7 @@
    "FULL": 43,
    "PARTIAL": 106,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "fight": {
    "FULL": 0,
@@ -287,13 +287,13 @@
    "FULL": 48,
    "PARTIAL": 71,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "indestructible": {
    "FULL": 36,
    "PARTIAL": 74,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "convoke": {
    "FULL": 62,
@@ -311,13 +311,7 @@
    "FULL": 48,
    "PARTIAL": 47,
    "REVIEW": 0,
-   "MANUAL": 1
-  },
-  "prowess": {
-   "FULL": 46,
-   "PARTIAL": 47,
-   "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "typecycling": {
    "FULL": 64,
@@ -325,11 +319,17 @@
    "REVIEW": 0,
    "MANUAL": 0
   },
+  "prowess": {
+   "FULL": 46,
+   "PARTIAL": 47,
+   "REVIEW": 0,
+   "MANUAL": 0
+  },
   "hexproof": {
    "FULL": 42,
    "PARTIAL": 49,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "landcycling": {
    "FULL": 62,
@@ -443,7 +443,7 @@
    "FULL": 31,
    "PARTIAL": 14,
    "REVIEW": 0,
-   "MANUAL": 1
+   "MANUAL": 0
   },
   "raid": {
    "FULL": 0,
@@ -523,24 +523,6 @@
    "REVIEW": 0,
    "MANUAL": 0
   },
-  "bushido": {
-   "FULL": 24,
-   "PARTIAL": 12,
-   "REVIEW": 0,
-   "MANUAL": 1
-  },
-  "shadow": {
-   "FULL": 18,
-   "PARTIAL": 18,
-   "REVIEW": 0,
-   "MANUAL": 1
-  },
-  "monstrosity": {
-   "FULL": 0,
-   "PARTIAL": 36,
-   "REVIEW": 0,
-   "MANUAL": 1
-  },
   "toxic": {
    "FULL": 16,
    "PARTIAL": 21,
@@ -550,6 +532,12 @@
   "power-up": {
    "FULL": 0,
    "PARTIAL": 37,
+   "REVIEW": 0,
+   "MANUAL": 0
+  },
+  "bushido": {
+   "FULL": 24,
+   "PARTIAL": 12,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -571,6 +559,18 @@
    "REVIEW": 0,
    "MANUAL": 0
   },
+  "shadow": {
+   "FULL": 18,
+   "PARTIAL": 18,
+   "REVIEW": 0,
+   "MANUAL": 0
+  },
+  "monstrosity": {
+   "FULL": 0,
+   "PARTIAL": 36,
+   "REVIEW": 0,
+   "MANUAL": 0
+  },
   "exhaust": {
    "FULL": 0,
    "PARTIAL": 36,
@@ -582,12 +582,6 @@
    "PARTIAL": 35,
    "REVIEW": 0,
    "MANUAL": 0
-  },
-  "exalted": {
-   "FULL": 28,
-   "PARTIAL": 6,
-   "REVIEW": 0,
-   "MANUAL": 1
   },
   "evoke": {
    "FULL": 20,
@@ -628,6 +622,12 @@
   "islandwalk": {
    "FULL": 18,
    "PARTIAL": 16,
+   "REVIEW": 0,
+   "MANUAL": 0
+  },
+  "exalted": {
+   "FULL": 28,
+   "PARTIAL": 6,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -865,12 +865,6 @@
    "REVIEW": 0,
    "MANUAL": 0
   },
-  "persist": {
-   "FULL": 14,
-   "PARTIAL": 10,
-   "REVIEW": 0,
-   "MANUAL": 1
-  },
   "gift": {
    "FULL": 0,
    "PARTIAL": 25,
@@ -913,6 +907,12 @@
    "REVIEW": 0,
    "MANUAL": 0
   },
+  "persist": {
+   "FULL": 14,
+   "PARTIAL": 10,
+   "REVIEW": 0,
+   "MANUAL": 0
+  },
   "modular": {
    "FULL": 0,
    "PARTIAL": 24,
@@ -930,12 +930,6 @@
    "PARTIAL": 24,
    "REVIEW": 0,
    "MANUAL": 0
-  },
-  "bolster": {
-   "FULL": 0,
-   "PARTIAL": 23,
-   "REVIEW": 0,
-   "MANUAL": 1
   },
   "bloodthirst": {
    "FULL": 13,
@@ -955,12 +949,6 @@
    "REVIEW": 0,
    "MANUAL": 0
   },
-  "undying": {
-   "FULL": 14,
-   "PARTIAL": 8,
-   "REVIEW": 0,
-   "MANUAL": 1
-  },
   "myriad": {
    "FULL": 0,
    "PARTIAL": 23,
@@ -973,9 +961,21 @@
    "REVIEW": 0,
    "MANUAL": 0
   },
+  "bolster": {
+   "FULL": 0,
+   "PARTIAL": 23,
+   "REVIEW": 0,
+   "MANUAL": 0
+  },
   "improvise": {
    "FULL": 16,
    "PARTIAL": 7,
+   "REVIEW": 0,
+   "MANUAL": 0
+  },
+  "behold": {
+   "FULL": 0,
+   "PARTIAL": 23,
    "REVIEW": 0,
    "MANUAL": 0
   }
@@ -2415,12 +2415,6 @@
    "REVIEW": 0,
    "MANUAL": 0
   },
-  "sunf": {
-   "FULL": 0,
-   "PARTIAL": 0,
-   "REVIEW": 0,
-   "MANUAL": 48
-  },
   "td2": {
    "FULL": 17,
    "PARTIAL": 9,
@@ -2654,10 +2648,10 @@
   "triggered": 14909,
   "keyword": 14139,
   "spell_effect": 9115,
-  "activated": 7358,
-  "continuous": 4014,
-  "static": 3053,
-  "mana_ability": 2038,
+  "activated": 7339,
+  "continuous": 3999,
+  "static": 2899,
+  "mana_ability": 2035,
   "replacement": 1966,
   "restriction": 1474,
   "loyalty": 882,
@@ -2665,14 +2659,14 @@
   "additional_cost": 307,
   "cost_modifier": 261,
   "characteristic_defining": 247,
-  "permission": 207,
+  "permission": 206,
   "alternative_cost": 180
  },
  "missing_features": [
   {
    "feature": "mana:ability",
    "kind": "engine",
-   "commander_cards": 367,
+   "commander_cards": 364,
    "pod_cards": 0,
    "pod_commanders": 0,
    "only_missing_piece_for": 248,
@@ -10355,13 +10349,13 @@
   }
  ],
  "quality": {
-  "ability_lines": 113346,
+  "ability_lines": 113154,
   "automated_lines": 82360,
-  "automated_share": "72.7%",
-  "unrecognized_clauses": 30986,
-  "classified_share": "97.5%",
-  "unclassified_clauses": 2841,
-  "clusters": 8400
+  "automated_share": "72.8%",
+  "unrecognized_clauses": 30794,
+  "classified_share": "97.6%",
+  "unclassified_clauses": 2687,
+  "clusters": 8339
  },
  "categories": {
   "MISSING MECHANIC": {
@@ -10385,28 +10379,28 @@
    "lines": 1401
   },
   "MISSING CONTINUOUS EFFECT": {
-   "cards": 2184,
-   "lines": 2308
+   "cards": 2169,
+   "lines": 2293
   },
   "MISSING RESTRICTION": {
    "cards": 937,
    "lines": 983
   },
   "MISSING COST": {
-   "cards": 504,
-   "lines": 517
+   "cards": 485,
+   "lines": 498
   },
   "MISSING COST / PERMISSION RULE": {
-   "cards": 801,
-   "lines": 811
+   "cards": 800,
+   "lines": 810
   },
   "MANA ABILITY WORDING": {
-   "cards": 367,
-   "lines": 369
+   "cards": 364,
+   "lines": 366
   },
   "UNSUPPORTED ORACLE PATTERN": {
-   "cards": 2079,
-   "lines": 2841
+   "cards": 2031,
+   "lines": 2687
   }
  },
  "clusters": [

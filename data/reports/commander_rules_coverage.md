@@ -1,19 +1,19 @@
 # Commander rules coverage
 
-Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 22:48
+Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 22:53
 
 Only cards that are **legal in Commander today** count. Banned cards (83) are COMMANDER_BANNED and excluded.
 
 ## Commander coverage
 
-Commander-legal cards: **32116**
+Commander-legal cards: **32068**
 
 | Level | Cards | Share |
 |---|---|---|
 | FULL | 10304 | 32.1% |
-| PARTIAL | 21764 | 67.8% |
+| PARTIAL | 21764 | 67.9% |
 | REVIEW | 0 | 0.0% |
-| MANUAL | 48 | 0.1% |
+| MANUAL | 0 | 0.0% |
 
 Possible commanders (CR 903.3/903.3a, incl. Backgrounds): **3501** — FULL 478, PARTIAL 3023, REVIEW 0, MANUAL 0
 
@@ -23,10 +23,10 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 
 ## Coverage quality
 
-- Ability features (lines, keywords, play/cast/combat) across Commander-legal cards: 113346
-- Automated: 82360 (72.7%) · unrecognized clauses: 30986
-- Oracle text classified (automated, or sorted into a concrete missing capability): 97.5% · unclassified clauses: 2841
-- Distinct missing-capability clusters: 8400
+- Ability features (lines, keywords, play/cast/combat) across Commander-legal cards: 113154
+- Automated: 82360 (72.8%) · unrecognized clauses: 30794
+- Oracle text classified (automated, or sorted into a concrete missing capability): 97.6% · unclassified clauses: 2687
+- Distinct missing-capability clusters: 8339
 
 ## Missing capabilities by category
 
@@ -35,14 +35,14 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 | MISSING EFFECT | 11625 | 13657 |
 | MISSING SELECTOR | 3501 | 3706 |
 | MISSING TRIGGER EVENT | 2403 | 2515 |
-| MISSING CONTINUOUS EFFECT | 2184 | 2308 |
-| UNSUPPORTED ORACLE PATTERN | 2079 | 2841 |
+| MISSING CONTINUOUS EFFECT | 2169 | 2293 |
+| UNSUPPORTED ORACLE PATTERN | 2031 | 2687 |
 | MISSING MECHANIC | 1816 | 1878 |
 | MISSING REPLACEMENT PATTERN | 1362 | 1401 |
 | MISSING RESTRICTION | 937 | 983 |
-| MISSING COST / PERMISSION RULE | 801 | 811 |
-| MISSING COST | 504 | 517 |
-| MANA ABILITY WORDING | 367 | 369 |
+| MISSING COST / PERMISSION RULE | 800 | 810 |
+| MISSING COST | 485 | 498 |
+| MANA ABILITY WORDING | 364 | 366 |
 
 ## Highest-payoff clusters
 
@@ -192,7 +192,7 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 
 | # | Feature | Kind | Pod cards | Commander cards | Only missing piece for | Examples |
 |---|---|---|---|---|---|---|
-| 1 | mana:ability | engine | 0 | 367 | 248 | Saltcrusted Steppe, Flywheel Racer, The Emperor of Palamecia // The Lord Master of Hell |
+| 1 | mana:ability | engine | 0 | 364 | 248 | Saltcrusted Steppe, Flywheel Racer, The Emperor of Palamecia // The Lord Master of Hell |
 | 2 | keyword:foretell | keyword | 0 | 51 | 21 | The Foretold Soldier, Rise of the Dread Marn, Green Slime |
 | 3 | template:~ enters prepared. | static | 0 | 40 | 21 | Adventurous Eater // Have a Bite, Maelstrom Artisan // Rocket Volley, Fatehold Chronologist // Peer Review |
 | 4 | template:Enchanted creature has “…” | continuous | 0 | 26 | 21 | Ghostly Touch, Mark of Sakiko, Unquenchable Fury |
@@ -268,4 +268,4 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 
 ## Rules features in the pool (ability lines)
 
-triggered 14909, keyword 14139, spell_effect 9115, activated 7358, continuous 4014, static 3053, mana_ability 2038, replacement 1966, restriction 1474, loyalty 882, prevention 320, additional_cost 307, cost_modifier 261, characteristic_defining 247, permission 207, alternative_cost 180
+triggered 14909, keyword 14139, spell_effect 9115, activated 7339, continuous 3999, static 2899, mana_ability 2035, replacement 1966, restriction 1474, loyalty 882, prevention 320, additional_cost 307, cost_modifier 261, characteristic_defining 247, permission 206, alternative_cost 180
