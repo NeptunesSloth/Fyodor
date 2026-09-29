@@ -2046,8 +2046,8 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Mikaeus enters with X +1/+1 counters on it.
 - ✓ {T}: Put a +1/+1 counter on Mikaeus.
-- ✗ Mikaeus enters with X +1/+1 counters on it.
 - ✗ {T}, Remove a +1/+1 counter from Mikaeus: Put a +1/+1 counter on each other creature you control.
 
 ### Grazilaxx, Illithid Scholar — PARTIAL

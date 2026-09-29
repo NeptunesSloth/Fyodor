@@ -190,5 +190,10 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Sky-Skiff", set_code="tst", number="K6", mana_cost="{2}", cmc=2.0, type_line="Artifact — Vehicle",
              oracle_text="Flying\nCrew 1 (Tap any number of untapped creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
              power="2", toughness="3"),
+        card("Endless One", set_code="tst", number="K7", mana_cost="{X}", cmc=0.0, type_line="Creature — Eldrazi",
+             oracle_text="This creature enters with X +1/+1 counters on it.", power="0", toughness="0"),
+        card("Spike Feeder", set_code="tst", number="K8", mana_cost="{1}{G}{G}", cmc=3.0, type_line="Creature — Spike",
+             oracle_text="This creature enters with two +1/+1 counters on it.\nRemove a +1/+1 counter from this creature: You gain 2 life.",
+             power="0", toughness="0", colors=["G"], color_identity=["G"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

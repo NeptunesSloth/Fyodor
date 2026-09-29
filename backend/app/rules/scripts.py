@@ -343,11 +343,19 @@ def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | 
     return effects, target, optional
 
 
+ENTERS_WITH = re.compile(r"^~ enters with (?P<n>X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "
+                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it\.$")
+
+
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     text = self_text(ability.text, ch.name)
     if ability.kind == "static" and text == "~ enters tapped.":
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
+    m = ENTERS_WITH.match(text) if ability.kind == "static" else None
+    if m:  # 614.1c: "~ enters with N … counters on it"
+        n: int | str = "X" if m["n"] == "X" else num(m["n"])
+        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": m["kind"], "n": n, "effects": []}
     if ability.kind == "static" and text in COMBAT_STATICS:
         return {"kind": "static", "static": COMBAT_STATICS[text], "effects": []}
     if ability.kind == "triggered":

@@ -1,13 +1,13 @@
 {
- "generated_at": "2026-09-29 15:18",
+ "generated_at": "2026-09-29 15:20",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32116,
  "commander_banned": 83,
  "levels": {
-  "FULL": 3774,
-  "PARTIAL": 28294,
+  "FULL": 3812,
+  "PARTIAL": 28256,
   "REVIEW": 0,
   "MANUAL": 48
  },
@@ -30,14 +30,14 @@
  },
  "by_type": {
   "Creature": {
-   "FULL": 2539,
-   "PARTIAL": 15382,
+   "FULL": 2573,
+   "PARTIAL": 15348,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "Artifact": {
-   "FULL": 473,
-   "PARTIAL": 3120,
+   "FULL": 481,
+   "PARTIAL": 3112,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -60,8 +60,8 @@
    "MANUAL": 0
   },
   "Land": {
-   "FULL": 398,
-   "PARTIAL": 814,
+   "FULL": 399,
+   "PARTIAL": 813,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -80,8 +80,8 @@
  },
  "by_keyword": {
   "flying": {
-   "FULL": 526,
-   "PARTIAL": 2637,
+   "FULL": 533,
+   "PARTIAL": 2630,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -92,26 +92,26 @@
    "MANUAL": 0
   },
   "trample": {
-   "FULL": 121,
-   "PARTIAL": 872,
+   "FULL": 123,
+   "PARTIAL": 870,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "vigilance": {
-   "FULL": 129,
-   "PARTIAL": 596,
+   "FULL": 130,
+   "PARTIAL": 595,
    "REVIEW": 0,
    "MANUAL": 2
   },
   "haste": {
-   "FULL": 108,
-   "PARTIAL": 531,
+   "FULL": 109,
+   "PARTIAL": 530,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "flash": {
-   "FULL": 68,
-   "PARTIAL": 540,
+   "FULL": 70,
+   "PARTIAL": 538,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -128,14 +128,14 @@
    "MANUAL": 1
   },
   "scry": {
-   "FULL": 99,
-   "PARTIAL": 325,
+   "FULL": 101,
+   "PARTIAL": 323,
    "REVIEW": 0,
    "MANUAL": 1
   },
   "reach": {
-   "FULL": 91,
-   "PARTIAL": 332,
+   "FULL": 92,
+   "PARTIAL": 331,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -182,14 +182,14 @@
    "MANUAL": 2
   },
   "defender": {
-   "FULL": 81,
-   "PARTIAL": 227,
+   "FULL": 82,
+   "PARTIAL": 226,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "regenerate": {
-   "FULL": 77,
-   "PARTIAL": 194,
+   "FULL": 80,
+   "PARTIAL": 191,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -212,8 +212,8 @@
    "MANUAL": 0
   },
   "protection": {
-   "FULL": 95,
-   "PARTIAL": 95,
+   "FULL": 96,
+   "PARTIAL": 94,
    "REVIEW": 0,
    "MANUAL": 3
   },
@@ -284,8 +284,8 @@
    "MANUAL": 0
   },
   "double strike": {
-   "FULL": 22,
-   "PARTIAL": 97,
+   "FULL": 23,
+   "PARTIAL": 96,
    "REVIEW": 0,
    "MANUAL": 1
   },
@@ -1000,8 +1000,8 @@
    "MANUAL": 0
   },
   "2xm": {
-   "FULL": 20,
-   "PARTIAL": 168,
+   "FULL": 21,
+   "PARTIAL": 167,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1180,8 +1180,8 @@
    "MANUAL": 0
   },
   "bok": {
-   "FULL": 6,
-   "PARTIAL": 124,
+   "FULL": 7,
+   "PARTIAL": 123,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1306,14 +1306,14 @@
    "MANUAL": 0
   },
   "cmm": {
-   "FULL": 36,
-   "PARTIAL": 421,
+   "FULL": 37,
+   "PARTIAL": 420,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "cmr": {
-   "FULL": 28,
-   "PARTIAL": 227,
+   "FULL": 29,
+   "PARTIAL": 226,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1402,8 +1402,8 @@
    "MANUAL": 0
   },
   "ddo": {
-   "FULL": 2,
-   "PARTIAL": 14,
+   "FULL": 3,
+   "PARTIAL": 13,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1474,14 +1474,14 @@
    "MANUAL": 0
   },
   "dmr": {
-   "FULL": 27,
-   "PARTIAL": 174,
+   "FULL": 28,
+   "PARTIAL": 173,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "dmu": {
-   "FULL": 24,
-   "PARTIAL": 190,
+   "FULL": 25,
+   "PARTIAL": 189,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1522,8 +1522,8 @@
    "MANUAL": 0
   },
   "dtk": {
-   "FULL": 23,
-   "PARTIAL": 143,
+   "FULL": 24,
+   "PARTIAL": 142,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1540,8 +1540,8 @@
    "MANUAL": 0
   },
   "ecc": {
-   "FULL": 12,
-   "PARTIAL": 104,
+   "FULL": 13,
+   "PARTIAL": 103,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1582,8 +1582,8 @@
    "MANUAL": 0
   },
   "eve": {
-   "FULL": 13,
-   "PARTIAL": 103,
+   "FULL": 15,
+   "PARTIAL": 101,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1738,8 +1738,8 @@
    "MANUAL": 0
   },
   "iko": {
-   "FULL": 34,
-   "PARTIAL": 180,
+   "FULL": 36,
+   "PARTIAL": 178,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1900,8 +1900,8 @@
    "MANUAL": 0
   },
   "m14": {
-   "FULL": 23,
-   "PARTIAL": 56,
+   "FULL": 24,
+   "PARTIAL": 55,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1918,8 +1918,8 @@
    "MANUAL": 0
   },
   "m20": {
-   "FULL": 54,
-   "PARTIAL": 137,
+   "FULL": 55,
+   "PARTIAL": 136,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1996,14 +1996,14 @@
    "MANUAL": 0
   },
   "mh2": {
-   "FULL": 19,
-   "PARTIAL": 220,
+   "FULL": 20,
+   "PARTIAL": 219,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "mh3": {
-   "FULL": 9,
-   "PARTIAL": 272,
+   "FULL": 10,
+   "PARTIAL": 271,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2062,8 +2062,8 @@
    "MANUAL": 0
   },
   "moc": {
-   "FULL": 7,
-   "PARTIAL": 169,
+   "FULL": 8,
+   "PARTIAL": 168,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2074,8 +2074,8 @@
    "MANUAL": 0
   },
   "mor": {
-   "FULL": 2,
-   "PARTIAL": 86,
+   "FULL": 3,
+   "PARTIAL": 85,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2152,8 +2152,8 @@
    "MANUAL": 0
   },
   "one": {
-   "FULL": 16,
-   "PARTIAL": 228,
+   "FULL": 19,
+   "PARTIAL": 225,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2350,14 +2350,14 @@
    "MANUAL": 0
   },
   "snc": {
-   "FULL": 27,
-   "PARTIAL": 204,
+   "FULL": 29,
+   "PARTIAL": 202,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "soc": {
-   "FULL": 33,
-   "PARTIAL": 285,
+   "FULL": 35,
+   "PARTIAL": 283,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2374,14 +2374,14 @@
    "MANUAL": 0
   },
   "som": {
-   "FULL": 30,
-   "PARTIAL": 87,
+   "FULL": 31,
+   "PARTIAL": 86,
    "REVIEW": 0,
    "MANUAL": 0
   },
   "sos": {
-   "FULL": 26,
-   "PARTIAL": 238,
+   "FULL": 27,
+   "PARTIAL": 237,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2398,8 +2398,8 @@
    "MANUAL": 0
   },
   "sth": {
-   "FULL": 5,
-   "PARTIAL": 51,
+   "FULL": 8,
+   "PARTIAL": 48,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2470,8 +2470,8 @@
    "MANUAL": 0
   },
   "tmp": {
-   "FULL": 14,
-   "PARTIAL": 103,
+   "FULL": 15,
+   "PARTIAL": 102,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2488,8 +2488,8 @@
    "MANUAL": 0
   },
   "tpr": {
-   "FULL": 47,
-   "PARTIAL": 148,
+   "FULL": 53,
+   "PARTIAL": 142,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -2675,7 +2675,7 @@
    "commander_cards": 527,
    "pod_cards": 0,
    "pod_commanders": 0,
-   "only_missing_piece_for": 240,
+   "only_missing_piece_for": 244,
    "examples": [
     "Eldrazi Confluence",
     "Divergent Growth",
@@ -2705,7 +2705,7 @@
    "commander_cards": 104,
    "pod_cards": 0,
    "pod_commanders": 0,
-   "only_missing_piece_for": 35,
+   "only_missing_piece_for": 36,
    "examples": [
     "Vault Guardsman",
     "Pack's Favor",
@@ -2787,21 +2787,6 @@
     "Mnemonic Sliver",
     "Harmonic Sliver",
     "Mesmeric Sliver"
-   ]
-  },
-  {
-   "feature": "template:~ enters with N \u00b1N/\u00b1N counter(s) on it.",
-   "kind": "replacement",
-   "commander_cards": 163,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 22,
-   "examples": [
-    "Yorvo, Lord of Garenbrig",
-    "Shrewd Hatchling",
-    "Benevolent Hydra",
-    "Chainbreaker",
-    "Marketback Walker"
    ]
   },
   {
@@ -3315,6 +3300,21 @@
    ]
   },
   {
+   "feature": "template:~ can't be countered.",
+   "kind": "restriction",
+   "commander_cards": 87,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 10,
+   "examples": [
+    "Supreme Verdict",
+    "Rending Volley",
+    "Heated Debate",
+    "Thrun, the Last Troll",
+    "Glen Elendra's Answer"
+   ]
+  },
+  {
    "feature": "keyword:toxic",
    "kind": "keyword",
    "commander_cards": 37,
@@ -3567,21 +3567,6 @@
     "Bountiful Promenade",
     "Undergrowth Stadium",
     "Luxury Suite"
-   ]
-  },
-  {
-   "feature": "template:~ can't be countered.",
-   "kind": "restriction",
-   "commander_cards": 87,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 9,
-   "examples": [
-    "Supreme Verdict",
-    "Rending Volley",
-    "Heated Debate",
-    "Thrun, the Last Troll",
-    "Glen Elendra's Answer"
    ]
   },
   {
@@ -4335,21 +4320,6 @@
    ]
   },
   {
-   "feature": "template:~ enters with a \u00b1N/\u00b1N counter(s) on it.",
-   "kind": "replacement",
-   "commander_cards": 26,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "only_missing_piece_for": 6,
-   "examples": [
-    "Festercreep",
-    "Bloodied Ghost",
-    "Star Pupil",
-    "Scholar of New Horizons",
-    "Wickerbough Elder"
-   ]
-  },
-  {
    "feature": "keyword:replicate",
    "kind": "keyword",
    "commander_cards": 19,
@@ -4812,6 +4782,21 @@
     "Scab-Clan Charger",
     "Scorchwalker",
     "Pyrewild Shaman"
+   ]
+  },
+  {
+   "feature": "template:If damage would be dealt to ~, prevent that damage. Remove a \u00b1N/\u00b1N counter(s) from ~.",
+   "kind": "prevention",
+   "commander_cards": 7,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 6,
+   "examples": [
+    "Phantom Nantuko",
+    "Phantom Tiger",
+    "Phantom Centaur",
+    "Phantom Wurm",
+    "Phantom Flock"
    ]
   },
   {
@@ -5667,6 +5652,21 @@
     "Shivan Phoenix",
     "Weatherseed Treefolk",
     "Endless Cockroaches"
+   ]
+  },
+  {
+   "feature": "template:When ~ enters, sacrifice it unless you return a non-Lair land you control to its owner's hand.",
+   "kind": "triggered",
+   "commander_cards": 5,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "only_missing_piece_for": 5,
+   "examples": [
+    "Darigaaz's Caldera",
+    "Treva's Ruins",
+    "Dromar's Cavern",
+    "Rith's Grove",
+    "Crosis's Catacombs"
    ]
   }
  ],
@@ -8986,10 +8986,10 @@
    "supported": [
     "Cast it (timing, costs, the stack)",
     "Attack and block",
+    "Mikaeus enters with X +1/+1 counters on it.",
     "{T}: Put a +1/+1 counter on Mikaeus."
    ],
    "missing": [
-    "Mikaeus enters with X +1/+1 counters on it.",
     "{T}, Remove a +1/+1 counter from Mikaeus: Put a +1/+1 counter on each other creature you control."
    ]
   },

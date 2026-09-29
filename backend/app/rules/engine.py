@@ -539,6 +539,18 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "graveyard"}}, actor=controller)
 
 
+def enter_with_counters(plan: Plan, card_id: str, ch: Characteristics, x: int | None, controller: str) -> None:
+    """614.1c: "~ enters with N counters on it" (N may be X, the value it was cast with)."""
+    card = plan.state.cards.get(card_id)
+    if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):
+        return
+    for d in scripts.definitions(ch).values():
+        if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
+            n = (x or 0) if d["n"] == "X" else int(d["n"])
+            if n > 0:
+                plan.do({"type": "counter", "card_ids": [card_id], "kind": d["counter"], "delta": n}, actor=controller)
+
+
 def resolve_top_of_stack(plan: Plan) -> None:
     top_id = plan.state.zones[STACK][-1]
     top = plan.state.cards[top_id]
@@ -552,7 +564,10 @@ def resolve_top_of_stack(plan: Plan) -> None:
     # no recorded targets or choices: its controller resolves it by hand.
     manual = ch.is_instant_or_sorcery or ch.is_ability or needs_manual_resolution(ch) or plan.manual(top)
     tapped = ch.is_permanent_card and not manual and enters_tapped(ch)
+    x = top.stack_info.x if top.stack_info else None
     leave_stack(plan, top_id, controller, tapped=tapped)
+    if ch.is_permanent_card and not manual:
+        enter_with_counters(plan, top_id, ch, x, controller)
     entered = plan.state.cards.get(top_id)
     if entered is not None and entered.zone.endswith(":battlefield") and "Planeswalker" in ch.types:
         loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else 0
@@ -621,6 +636,7 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     if a.x is not None and a.y is not None:
         payload.update(x=a.x, y=a.y)
     plan.do(payload)
+    enter_with_counters(plan, card.id, plan.ch(probe), None, plan.actor)
     r = plan.rules
     turn = plan.state.turn.number
     r.lands_played[plan.actor] = TurnCount(turn=turn, count=r.lands_this_turn(plan.actor, turn) + 1)
