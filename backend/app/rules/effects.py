@@ -205,10 +205,151 @@ def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     return False
 
 
+def create_token(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """111: tokens are individual objects for the rules; identical ones may be *shown* as a pile."""
+    t = e["token"]
+    for pid in _players(plan, ctx, e["who"]):
+        plan.do({"type": "create_token", "player": pid, "count": e["n"], "stacked": False,
+                 "source_id": ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None,
+                 "token": {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
+                           "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}},
+                actor=pid)
+    return True
+
+
+def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    cards = _cards(plan, ctx, e["who"])
+    if cards:
+        plan.do({"type": "counter", "card_ids": cards, "kind": e["kind"], "delta": e["n"]}, actor=ctx["controller"])
+    return True
+
+
+def proliferate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.34a: choose any number of permanents and/or players that have a counter; each gets one
+    more of each kind it already has."""
+    options = [DecisionOption(id=c.id, label=f"{c.name} ({', '.join(f'{v} {k}' for k, v in c.counters.items() if v)})", card_id=c.id)
+               for c in plan.state.cards.values()
+               if c.zone.endswith(":battlefield") and plan.in_game(c) and any(v > 0 for v in c.counters.values())]
+    options += [DecisionOption(id=pid, label=f"{plan.name(pid)} ({', '.join(f'{v} {k}' for k, v in p.resources.items() if v > 0)})")
+                for pid, p in plan.state.players.items() if pid in plan.live() and any(v > 0 for v in p.resources.values())]
+    if not options:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Proliferate: choose permanents and players",
+           options=options, min_choices=0, max_choices=len(options), resume={"step": "proliferate", "ctx": ctx})
+    return False
+
+
+def resume_proliferate(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx = d.resume["ctx"]
+    for x in chosen:
+        if x in plan.state.cards:
+            card = plan.state.cards[x]
+            for kind, v in list(card.counters.items()):
+                if v > 0:
+                    plan.do({"type": "counter", "card_ids": [x], "kind": kind, "delta": 1}, actor=d.player)
+        elif x in plan.state.players:
+            for kind, v in list(plan.state.players[x].resources.items()):
+                if v > 0:
+                    plan.do({"type": "resource", "player": x, "key": kind, "delta": 1}, actor=d.player)
+    continue_effects(plan, ctx)
+
+
+def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """All at once: one move, one event batch (their dies triggers see each other leave)."""
+    doomed = []
+    for c in plan.state.cards.values():
+        if not c.zone.endswith(":battlefield") or not plan.in_game(c):
+            continue
+        ch = plan.ch(c)
+        wanted = e["types"]
+        hit = (not ch.is_land) if wanted == ["*nonland"] else bool(ch.types & set(wanted))
+        if hit and "indestructible" not in ch.keywords:
+            doomed.append(c.id)
+    if doomed:
+        plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+    return True
+
+
+def blink(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Exile, then return under its owner's control: a new object (400.7), so it enters again."""
+    for cid in _cards(plan, ctx, e["who"]):
+        owner = plan.state.cards[cid].owner
+        back = ctx["controller"] if e.get("under") == "you" else owner
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "exile"}}, actor=ctx["controller"])
+        if cid in plan.state.cards:  # (a token ceases to exist in exile)
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": back, "zone": "battlefield"}}, actor=ctx["controller"])
+    return True
+
+
+def _matches(plan: Plan, card_id: str, what: str) -> bool:
+    from app.rules import characteristics as chars
+
+    ch = chars.of(plan.state.cards[card_id], plan.info)
+    return {"any": True, "basic_land": ch.is_land and "Basic" in ch.supertypes, "land": ch.is_land,
+            "creature": ch.is_creature, "artifact": "Artifact" in ch.types, "enchantment": "Enchantment" in ch.types,
+            "instant_or_sorcery": ch.is_instant_or_sorcery}[what]
+
+
+def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """A tutor. The server filters the library; only the searching player gets the matching cards
+    in their private decision (nobody else learns the library's contents)."""
+    pid = ctx["controller"]
+    library = plan.state.zones.get(zone_key(pid, "library"), [])
+    matching = [c for c in library if _matches(plan, c, e["filter"])]
+    options = [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in matching]
+    decide(plan, player=pid, kind="choose_cards", prompt=f"Search your library ({e['filter'].replace('_', ' ')})",
+           options=options, min_choices=0, max_choices=min(1, len(options)), resume={"step": "search", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    pid = d.player
+    for cid in chosen:
+        if e.get("reveal"):
+            plan.do({"type": "reveal", "card_ids": [cid]}, actor=pid)  # to everyone
+        if e["to"] == "hand":
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "hand"}}, actor=pid)
+        else:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "battlefield"},
+                     "tapped": e["to"] == "battlefield_tapped"}, actor=pid)
+    plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
+    continue_effects(plan, ctx)
+
+
+def monarch(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    for pid in _players(plan, ctx, e["who"]):
+        if plan.state.table.monarch != pid:
+            plan.do({"type": "set_monarch", "player": pid}, actor=pid)
+    return True
+
+
+def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    pid = ctx["controller"]
+    hand = plan.state.zones.get(zone_key(pid, "hand"), [])
+    n = min(e["n"], len(hand))
+    if n == 0:
+        return True
+    if n == len(hand):
+        plan.do({"type": "move", "card_ids": list(hand), "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt=f"Discard {n} card{'s' if n != 1 else ''}",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
+           min_choices=n, max_choices=n, resume={"step": "discard", "ctx": ctx})
+    return False
+
+
+def resume_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
+    plan.do({"type": "move", "card_ids": chosen, "to": {"player": d.player, "zone": "graveyard"}}, actor=d.player)
+    continue_effects(plan, d.resume["ctx"])
+
+
 PRIMITIVES = {
     "draw": draw, "gain_life": gain_life, "lose_life": lose_life, "damage": damage, "pump": pump, "grant": grant,
     "destroy": destroy, "exile": exile, "bounce": bounce, "tap": tap, "untap": untap, "scry": scry, "surveil": surveil,
-    "player_counter": player_counter,
+    "player_counter": player_counter, "create_token": create_token, "add_counters": add_counters,
+    "proliferate": proliferate, "destroy_all": destroy_all, "blink": blink, "search": search, "monarch": monarch,
+    "discard": discard,
 }
 
 
@@ -324,6 +465,8 @@ def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
 
 def describe(effects: list[dict[str, Any]]) -> str:
     words = {"draw": "draw {n} card(s)", "gain_life": "gain {n} life", "lose_life": "lose {n} life", "scry": "scry {n}",
-             "surveil": "surveil {n}", "damage": "deal {n} damage", "player_counter": "get {n} {counter}"}
+             "surveil": "surveil {n}", "damage": "deal {n} damage", "player_counter": "get {n} {counter}",
+             "create_token": "create {n} token(s)", "add_counters": "put {n} {kind} counter(s)", "proliferate": "proliferate",
+             "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library"}
     parts = [words.get(e["do"], e["do"]).format(**{k: v for k, v in e.items()}) for e in effects]
     return (", ".join(parts) or "do it").capitalize()

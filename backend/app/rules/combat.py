@@ -352,6 +352,12 @@ def deal_combat_damage(plan: Plan, rnd: Round) -> None:
                    "target_object": plan.oid(tgt) if tgt in plan.state.cards else None} for src, tgt, n in dmg.dealt],
     }, actor=plan.active)
     plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *dmg.deathtouched]))
+    monarch = plan.state.table.monarch
+    if monarch and dmg.players.get(monarch):
+        from app.rules import triggers  # triggers → plan; imported late
+
+        hitters = [plan.state.cards[src] for src, tgt, n in dmg.dealt if tgt == monarch and n > 0 and src in plan.state.cards]
+        triggers.monarch_damaged(plan, hitters[:1])  # one trigger per combat damage event
 
 
 def end_combat(plan: Plan) -> None:

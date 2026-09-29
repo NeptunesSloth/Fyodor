@@ -39,6 +39,9 @@ def ch(name, type_line, text):
      {"kind": "spell", "effects": [{"do": "bounce", "who": "target"}], "target": {"what": "creature"}}),
     ("Rally", "Instant", "Creatures you control get +1/+1 until end of turn.",
      {"kind": "spell", "effects": [{"do": "pump", "who": "creatures_you_control", "p": 1, "t": 1}], "target": None}),
+    ("Soul Warden", "Creature", "Whenever another creature enters, you gain 1 life.",
+     {"kind": "triggered", "trigger": "enters_other", "effects": [{"do": "gain_life", "who": "you", "n": 1}], "optional": False,
+      "target": None, "filter": "another creature"}),
     ("Falls", "Land", "This land enters tapped.", {"kind": "replacement", "replacement": "enters_tapped", "effects": []}),
     ("Firebreather", "Creature", "{R}: This creature gets +1/+0 until end of turn.",
      {"kind": "activated", "cost": "{R}", "effects": [{"do": "pump", "who": "self", "p": 1, "t": 0}], "target": None}),
@@ -49,7 +52,7 @@ def test_templates(name, type_line, text, expected):
 
 @pytest.mark.parametrize("text", [
     "Destroy target nonblack creature.",  # a selector the engine doesn't know: never guessed
-    "Whenever another creature enters, you gain 1 life.",  # not a self trigger (yet)
+    "Whenever another creature dies, you gain 1 life.",  # a non-self dies trigger (not yet)
     "When this creature enters, draw a card for each opponent you have.",
     "Counter target spell.",
     "When this creature enters, if you control a Forest, draw a card.",  # intervening "if" (603.4): not yet

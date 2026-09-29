@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 48 · PARTIAL: 3453 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 61 · PARTIAL: 3440 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -204,7 +204,7 @@ Color identity WB
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Deathtouch
-- ✗ Whenever another creature you control enters, you gain 1 life.
+- ✓ Whenever another creature you control enters, you gain 1 life.
 - ✗ Whenever another creature you control dies, each opponent loses 1 life.
 
 ### Goreclaw, Terror of Qal Sisma — PARTIAL
@@ -223,9 +223,9 @@ Color identity R
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Indestructible
+- ✓ Whenever another creature you control enters, Purphoros deals 2 damage to each opponent.
 - ✓ {2}{R}: Creatures you control get +1/+0 until end of turn.
 - ✗ As long as your devotion to red is less than five, Purphoros isn't a creature.
-- ✗ Whenever another creature you control enters, Purphoros deals 2 damage to each opponent.
 
 ### Sheoldred, Whispering One — PARTIAL
 
@@ -268,13 +268,13 @@ Color identity UR
 - ✗ Whenever you draw a card, Niv-Mizzet deals 1 damage to any target.
 - ✗ Whenever a player casts an instant or sorcery spell, you draw a card.
 
-### Talrand, Sky Summoner — PARTIAL
+### Talrand, Sky Summoner — FULL
 
 Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever you cast an instant or sorcery spell, create a 2/2 blue Drake creature token with flying.
+- ✓ Whenever you cast an instant or sorcery spell, create a 2/2 blue Drake creature token with flying.
 
 ### Peregrin Took — PARTIAL
 
@@ -338,7 +338,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever you cast an artifact spell, create a 1/1 colorless Thopter artifact creature token with flying.
+- ✓ Whenever you cast an artifact spell, create a 1/1 colorless Thopter artifact creature token with flying.
 - ✗ {1}{U}, Sacrifice two artifacts: Draw a card.
 
 ### Ashaya, Soul of the Wild — PARTIAL
@@ -810,8 +810,8 @@ Color identity WG
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
+- ✓ {4}{G}{G}: Put a +1/+1 counter on each creature you control.
 - ✗ You, planeswalkers you control, and other creatures you control have hexproof.
-- ✗ {4}{G}{G}: Put a +1/+1 counter on each creature you control.
 
 ### Titania, Protector of Argoth — PARTIAL
 
@@ -847,7 +847,7 @@ Color identity R
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Haste
-- ✗ Whenever Captain Lannery Storm attacks, create a Treasure token.
+- ✓ Whenever Captain Lannery Storm attacks, create a Treasure token.
 - ✗ Whenever you sacrifice a Treasure, Captain Lannery Storm gets +1/+0 until end of turn.
 
 ### Zopandrel, Hunger Dominus — PARTIAL
@@ -1483,8 +1483,8 @@ Color identity G
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Trample
+- ✓ Whenever another nontoken creature you control enters, put a +1/+1 counter on it. It gains haste until end of turn.
 - ✗ Other creatures you control have trample.
-- ✗ Whenever another nontoken creature you control enters, put a +1/+1 counter on it. It gains haste until end of turn.
 
 ### Losheel, Clockwork Scholar — PARTIAL
 
@@ -1636,8 +1636,8 @@ Color identity UR
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
+- ✓ {2}{U}{R}: Draw a card, then discard a card.
 - ✗ Whenever you draw a card, create a 1/1 blue and red Insect creature token with flying and haste.
-- ✗ {2}{U}{R}: Draw a card, then discard a card.
 - ✗ When The Locust God dies, return it to its owner's hand at the beginning of the next end step.
 
 ### Alesha, Who Laughs at Fate — PARTIAL
@@ -1647,7 +1647,7 @@ Color identity BR
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ First strike
-- ✗ Whenever Alesha attacks, put a +1/+1 counter on it.
+- ✓ Whenever Alesha attacks, put a +1/+1 counter on it.
 - ✗ Raid — At the beginning of your end step, if you attacked this turn, return target creature card with mana value less than or equal to Alesha's power from your graveyard to the battlefield.
 
 ### Delina, Wild Mage — PARTIAL
@@ -2046,8 +2046,8 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ {T}: Put a +1/+1 counter on Mikaeus.
 - ✗ Mikaeus enters with X +1/+1 counters on it.
-- ✗ {T}: Put a +1/+1 counter on Mikaeus.
 - ✗ {T}, Remove a +1/+1 counter from Mikaeus: Put a +1/+1 counter on each other creature you control.
 
 ### Grazilaxx, Illithid Scholar — PARTIAL
@@ -2338,8 +2338,8 @@ Color identity U
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Vigilance
+- ✓ {T}: Draw a card, then discard a card.
 - ✗ Prowess
-- ✗ {T}: Draw a card, then discard a card.
 - ✗ {2}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy. Activate only if Kitsa's power is 3 or greater.
 
 ### Klauth, Unrivaled Ancient — PARTIAL
@@ -2433,8 +2433,8 @@ Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever another creature you control enters, General Kreat deals 1 damage to each opponent.
 - ✗ Whenever one or more Goblins you control attack, create a 1/1 red Goblin creature token that's tapped and attacking.
-- ✗ Whenever another creature you control enters, General Kreat deals 1 damage to each opponent.
 
 ### Squee, the Immortal — PARTIAL
 
@@ -2550,7 +2550,7 @@ Color identity WG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever another nontoken creature you control enters, create a Food token.
+- ✓ Whenever another nontoken creature you control enters, create a Food token.
 - ✗ Sacrifice three Foods: Return target historic card from your graveyard to your hand.
 
 ### Bruenor Battlehammer — PARTIAL
@@ -2587,8 +2587,8 @@ Color identity URG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever you cast a creature spell, put a +1/+1 counter on Animar.
 - ✗ Protection
-- ✗ Whenever you cast a creature spell, put a +1/+1 counter on Animar.
 - ✗ Creature spells you cast cost {1} less to cast for each +1/+1 counter on Animar.
 
 ### Lord Skitter, Sewer King — PARTIAL
@@ -2658,7 +2658,7 @@ Color identity W
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Double strike
-- ✗ Whenever you cast a creature spell, create a 4/4 black Zombie Warrior creature token with vigilance.
+- ✓ Whenever you cast a creature spell, create a 4/4 black Zombie Warrior creature token with vigilance.
 - ✗ When God-Eternal Oketra dies or is put into exile from the battlefield, you may put it into its owner's library third from the top.
 
 ### Bruna, the Fading Light — PARTIAL
@@ -2682,7 +2682,7 @@ Color identity WRG
 - ✓ Haste
 - ✗ Whenever Gishath deals combat damage to a player, reveal that many cards from the top of your library. Put any number of Dinosaur creature cards from among them onto the battlefield and the rest on the bottom of your library in a random order.
 
-### Atraxa, Praetors' Voice — PARTIAL
+### Atraxa, Praetors' Voice — FULL
 
 Color identity WUBG
 
@@ -2692,7 +2692,7 @@ Color identity WUBG
 - ✓ Vigilance
 - ✓ Deathtouch
 - ✓ Lifelink
-- ✗ At the beginning of your end step, proliferate.
+- ✓ At the beginning of your end step, proliferate.
 
 ### Odric, Master Tactician — PARTIAL
 

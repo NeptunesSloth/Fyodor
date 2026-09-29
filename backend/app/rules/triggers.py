@@ -63,11 +63,14 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
 def collect(plan: Plan) -> None:
     """Look at the events since the last look (603.2)."""
     r = plan.rules
-    new = [e for e in r.events if e.batch > r.trigger_batch]
+    new = [e for e in r.events if r.trigger_batch < e.batch <= r.batch]  # finished batches only
     if not new:
         return
     r.trigger_batch = max(e.batch for e in new)
     for e in new:
+        if e.kind == "spell_cast" and not e.manual:
+            _cast_triggers(plan, e.card or "", e.player or "")
+            continue
         if e.kind != "zone_change" or e.manual:
             continue
         frm, to = _zone(e.from_zone), _zone(e.to_zone)
@@ -79,6 +82,7 @@ def collect(plan: Plan) -> None:
             for i, d in abilities(plan, ch, "enters_self"):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card),
                      name=ch.name, index=i, definition=d)
+            _other_enters(plan, card, ch)
         if frm == "battlefield" and to != "battlefield":
             snap = r.lki.get(e.object_id or "")
             if snap is None or plan.rules.card_mode(snap.card) == "manual" or snap.controller not in plan.live():
@@ -89,6 +93,77 @@ def collect(plan: Plan) -> None:
                 for i, d in abilities(plan, ch, kind):
                     _add(plan, controller=snap.controller, source_card=snap.card, source_object=snap.object_id,
                          name=ch.name, index=i, definition=d)
+
+
+def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
+    out = []
+    for card in plan.state.cards.values():
+        if not card.zone.endswith(":battlefield") or not plan.in_game(card) or plan.manual(card):
+            continue
+        ch = plan.ch(card)
+        out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger)]
+    return out
+
+
+def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics) -> None:
+    """603.6a: "Whenever [another] creature [you control] enters" on every permanent, including
+    ones entering at the same time."""
+    if not ech.is_creature:
+        return
+    for watcher, ch, i, d in _watchers(plan, "enters_other"):
+        f = d.get("filter", "")
+        if "another" in f and watcher.id == entered.id:
+            continue
+        if "you control" in f and entered.controller != watcher.controller:
+            continue
+        if "nontoken" in f and entered.is_token:
+            continue
+        _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher), name=ch.name,
+             index=i, definition=d)
+
+
+CAST_FILTERS = {
+    "a spell": lambda ch: True,
+    "a creature spell": lambda ch: ch.is_creature,
+    "a noncreature spell": lambda ch: not ch.is_creature,
+    "an instant or sorcery spell": lambda ch: ch.is_instant_or_sorcery,
+    "an artifact spell": lambda ch: "Artifact" in ch.types,
+    "an enchantment spell": lambda ch: "Enchantment" in ch.types,
+}
+
+
+def _cast_triggers(plan: Plan, spell_id: str, caster: str) -> None:
+    spell = plan.state.cards.get(spell_id)
+    if spell is None:
+        return
+    sch = plan.ch(spell)
+    for watcher, ch, i, d in _watchers(plan, "cast_you"):
+        if watcher.controller == caster and CAST_FILTERS[d.get("filter", "a spell")](sch):
+            _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher), name=ch.name,
+                 index=i, definition=d)
+
+
+MONARCH_DRAW = {"kind": "triggered", "trigger": "end_step_you", "effects": [{"do": "draw", "who": "you", "n": 1}],
+                "optional": False, "target": None}
+MONARCH_STEAL = {"kind": "triggered", "trigger": "combat_damage", "effects": [{"do": "monarch", "who": "you"}],
+                 "optional": False, "target": None}
+
+
+def monarch_end_step(plan: Plan) -> None:
+    """725.2: "At the beginning of the monarch's end step, that player draws a card" (no source)."""
+    if plan.state.table.monarch == plan.active:
+        _add(plan, controller=plan.active, source_card="", source_object="", name="The Monarch", index=0,
+             definition=MONARCH_DRAW)
+
+
+def monarch_damaged(plan: Plan, attackers: list[CardInstance]) -> None:
+    """725.2: "Whenever a creature deals combat damage to the monarch, its controller becomes the monarch."
+    """
+    monarch = plan.state.table.monarch
+    for card in attackers:
+        if card.controller != monarch:
+            _add(plan, controller=card.controller, source_card="", source_object="", name="The Monarch", index=1,
+                 definition=MONARCH_STEAL)
 
 
 def at_step(plan: Plan, trigger: str) -> None:

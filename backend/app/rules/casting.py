@@ -13,7 +13,7 @@ from typing import Any
 
 from app.game import actions as A
 from app.game.errors import ActionError
-from app.game.rules_state import DecisionOption, StackEntry, TargetRef, TurnCount
+from app.game.rules_state import DecisionOption, StackEntry, TargetRef, TurnCount, emit
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
@@ -345,6 +345,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.targets:
         plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
     r = plan.rules
+    emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor)  # for "whenever you cast"
     if definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), targets=chosen,

@@ -209,6 +209,7 @@ EventKind = Literal[
     "player_counters",  # poison, energy, experience, rad, tickets … (amount signed)
     "tapped",
     "untapped",
+    "spell_cast",  # a player cast a spell (the object is the spell on the stack)
 ]
 
 

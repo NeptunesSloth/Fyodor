@@ -431,6 +431,8 @@ def on_step_start(plan: Plan) -> None:
             plan.do({"type": "draw", "player": ap, "count": 1}, actor=ap)
     elif phase in ("upkeep", "end"):
         triggers.at_step(plan, "upkeep_you" if phase == "upkeep" else "end_step_you")
+        if phase == "end":
+            triggers.monarch_end_step(plan)
     elif phase == "declare_attackers":
         combat.start_declare_attackers(plan)
     elif phase == "declare_blockers":
@@ -776,6 +778,9 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "look": effects.resume_look,
     "order_library": effects.resume_order_library,
     "may": effects.resume_may,
+    "proliferate": effects.resume_proliferate,
+    "search": effects.resume_search,
+    "discard": effects.resume_discard,
     "order_triggers": triggers.resume_order,
     "trigger_target": triggers.resume_target,
     "trigger_confirm": triggers.resume_confirm,

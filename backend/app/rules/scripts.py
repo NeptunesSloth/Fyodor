@@ -66,6 +66,10 @@ TRIGGERS = [
     (re.compile(r"^At the beginning of your upkeep, (?P<body>.+)$"), "upkeep_you"),
     (re.compile(r"^At the beginning of your end step, (?P<body>.+)$"), "end_step_you"),
     (re.compile(r"^Whenever ~ attacks, (?P<body>.+)$"), "attacks_self"),
+    (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
+                r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
+    (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
+                r"an artifact spell|an enchantment spell), (?P<body>.+)$"), "cast_you"),
 ]
 
 
@@ -206,6 +210,97 @@ def _energy(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "player_counter", "who": "you", "counter": "energy", "n": m["e"].count("{E}")}], None
 
 
+# Predefined tokens (CR 111.10), created with their full rules text.
+PREDEFINED_TOKENS = {
+    "Treasure": ("Token Artifact — Treasure", "{T}, Sacrifice this token: Add one mana of any color."),
+    "Food": ("Token Artifact — Food", "{2}, {T}, Sacrifice this token: You gain 3 life."),
+    "Gold": ("Token Artifact — Gold", "Sacrifice this token: Add one mana of any color."),
+    "Clue": ("Token Artifact — Clue", "{2}, Sacrifice this token: Draw a card."),
+    "Blood": ("Token Artifact — Blood", "{1}, {T}, Discard a card, Sacrifice this token: Draw a card."),
+    "Shard": ("Token Enchantment — Shard", "{2}, Sacrifice this token: Scry 1, then draw a card."),
+    "Powerstone": ("Token Artifact — Powerstone", "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."),
+    "Heartwood": ("Token Artifact — Heartwood", "{T}: Add {R} or {G}."),
+}
+COLOR_WORDS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
+_COLORS_RE = r"(?P<colors>colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*)"
+
+
+@effect(r"create {N} (?P<pt>\d+/\d+) " + _COLORS_RE + r" (?P<sub>[A-Z][A-Za-z' ]*?) (?P<art>artifact )?creature tokens?(?: with (?P<kws>[a-z ,]+?))?")
+def _create_creature(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    p, t = m["pt"].split("/")
+    colors = [] if m["colors"] == "colorless" else [COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", m["colors"])]
+    kws = [k.strip() for k in re.split(r", and |, | and ", m["kws"] or "") if k.strip()]
+    if any(k not in GRANTABLE and k not in ("defender",) for k in kws):
+        raise _NoMatch
+    type_line = f"Token {'Artifact ' if m['art'] else ''}Creature — {m['sub']}"
+    text = "\n".join(k.capitalize() for k in kws)
+    return [{"do": "create_token", "who": "you", "n": num(m["n"]),
+             "token": {"name": m["sub"], "power": p, "toughness": t, "colors": colors, "type_line": type_line, "text": text}}], None
+
+
+@effect(r"create {N} (?P<kind>Treasure|Food|Gold|Clue|Blood|Shard|Powerstone|Heartwood) tokens?")
+def _create_predefined(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    type_line, text = PREDEFINED_TOKENS[m["kind"]]
+    return [{"do": "create_token", "who": "you", "n": num(m["n"]),
+             "token": {"name": m["kind"], "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
+
+
+@effect(r"put {N} (?P<kind>\+1/\+1|-1/-1) counters? on (?P<who>target creature you control|target creature|~|it|each creature you control)")
+def _counters(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    who = {"~": "self", "it": "self", "each creature you control": "creatures_you_control"}.get(m["who"], "target")
+    return [{"do": "add_counters", "who": who, "kind": m["kind"], "n": num(m["n"])}], SELECTORS.get(m["who"])
+
+
+@effect(r"proliferate")
+def _proliferate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "proliferate", "who": "you"}], None
+
+
+WIPES = {"creatures": ["Creature"], "artifacts": ["Artifact"], "enchantments": ["Enchantment"],
+         "artifacts and enchantments": ["Artifact", "Enchantment"], "creatures and planeswalkers": ["Creature", "Planeswalker"],
+         "nonland permanents": ["*nonland"], "artifacts, creatures, and enchantments": ["Artifact", "Creature", "Enchantment"]}
+
+
+@effect(r"destroy all (?P<what>creatures|artifacts|enchantments|artifacts and enchantments|creatures and planeswalkers|nonland permanents|artifacts, creatures, and enchantments)")
+def _wipe(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "destroy_all", "who": "all", "types": WIPES[m["what"]]}], None
+
+
+@effect(r"exile (?P<sel>target creature you control|target creature), then return (?:it|that card) to the battlefield under (?P<under>its owner's|your) control")
+def _blink(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "blink", "who": "target", "under": "you" if m["under"] == "your" else "owner"}], SELECTORS[m["sel"]]
+
+
+@effect(r"(?:it|they) can't be regenerated")
+def _no_regeneration(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [], None  # the engine never regenerates (regeneration isn't automated), so this changes nothing
+
+
+SEARCH_FILTERS = {"basic land card": "basic_land", "land card": "land", "creature card": "creature", "card": "any",
+                  "artifact card": "artifact", "enchantment card": "enchantment", "instant or sorcery card": "instant_or_sorcery"}
+
+
+@effect(r"search your library for an? (?P<what>basic land card|land card|creature card|artifact card|enchantment card|instant or sorcery card|card), (?:reveal it, )?put (?:it|that card) (?P<to>into your hand|onto the battlefield tapped|onto the battlefield), then shuffle")
+def _tutor(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    to = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield"}[m["to"]]
+    return [{"do": "search", "who": "you", "filter": SEARCH_FILTERS[m["what"]], "to": to,
+             "reveal": "reveal it" in m.group(0)}], None
+
+
+@effect(r"you become the monarch")
+def _monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "monarch", "who": "you"}], None
+
+
+@effect(r"draw {N} cards?, then discard {M} cards?")
+def _loot(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "draw", "who": "you", "n": num(m["n"])}, {"do": "discard", "who": "you", "n": num(m["m"])}], None
+
+
+class _NoMatch(Exception):
+    """A template that matched the shape but not the details (e.g. an unknown keyword)."""
+
+
 def _lower_first(s: str) -> str:
     return s[:1].lower() + s[1:] if s[:1].isupper() and not s.startswith("~") else s
 
@@ -227,7 +322,10 @@ def parse_effects(body: str) -> tuple[list[dict[str, Any]], str | None, bool] | 
         for pattern, build in EFFECTS:
             m = pattern.match(text)
             if m:
-                found, sel = build(m)
+                try:
+                    found, sel = build(m)
+                except _NoMatch:
+                    return None
                 if sel and target and sel != target:
                     return None  # two different targets: not supported yet
                 target = sel or target
@@ -251,8 +349,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
-                return {"kind": "triggered", "trigger": trigger, "effects": effects, "optional": optional,
-                        "target": {"what": target} if target else None}
+                out = {"kind": "triggered", "trigger": trigger, "effects": effects, "optional": optional,
+                       "target": {"what": target} if target else None}
+                if "filter" in pattern.groupindex:
+                    out["filter"] = m["filter"]
+                return out
         return None
     if ability.kind == "spell":
         parsed = parse_effects(text)

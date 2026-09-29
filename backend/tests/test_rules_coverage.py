@@ -49,7 +49,7 @@ def test_card_coverage_levels(cards):
     assert krenko.level == "PARTIAL" and krenko.manual_parts == [
         "{T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control."]
     atraxa = coverage.of_card_data(cards.resolve("Atraxa, Praetors' Voice"))
-    assert atraxa.manual_parts == ["At the beginning of your end step, proliferate."]  # its keywords are automated
+    assert atraxa.level == "FULL" and atraxa.manual_parts == []  # keywords + "at the beginning of your end step, proliferate"
 
 
 def test_full_only_when_every_part_is_supported(cards, monkeypatch):
