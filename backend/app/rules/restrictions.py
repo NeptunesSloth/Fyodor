@@ -18,8 +18,10 @@ Triggered abilities may end with "This ability triggers only once each turn.": a
 triggered once in a turn (603.2), later events don't make it trigger again — even if that first
 ability was countered or removed from the stack, it had triggered. "Do this only once each turn."
 is different (603.2h: the ability triggers only if its source's controller has not yet taken the
-indicated action that turn — an action they may decline): recording the action needs the
-resolution side, so those abilities stay manual for now (``TRIGGER_LIMIT_REFUSED``).
+indicated action that turn — an action they may decline): the action is recorded on the
+resolution side (app/rules/effects.py ``record_action``, appended to the ability's effects, so it
+counts only when the resolution got that far — not when the ability was countered, its "you may"
+declined, or a payment it hinges on wasn't made) and read by triggers._add as it would trigger.
 
 Uses are counted in ``RulesState.ability_uses`` (app/game/rules_state.py): a JSON dict keyed
 ``"<object id>:<ability index>:t<turn number>"`` for a turn's uses and
@@ -49,7 +51,17 @@ _BEFORE_ATTACKERS = tuple(PHASES[: PHASES.index("declare_attackers")])
 _RESTRICTION_SENTENCE = re.compile(r"^(?:Activate (?:this ability )?only|Activate no more than) (?P<rest>.+)\.$")
 # Trigger limits (the last sentence of a triggered ability's text)
 TRIGGER_LIMIT_ONCE = "This ability triggers only once each turn."
-TRIGGER_LIMIT_REFUSED = ("Do this only once each turn.",)  # 603.2h: needs the action recorded as it's taken
+# 603.2h: "Do this only once each turn." — the ability triggers only if its source's controller has
+# not yet taken the indicated action that turn: the action is recorded as the ability's resolution
+# gets to it (effects.record_action), and triggers._add reads that count as it would trigger.
+TRIGGER_LIMIT_DO_ONCE = "Do this only once each turn."
+TRIGGER_LIMIT_REFUSED: tuple[str, ...] = ()
+TRIGGER_LIMITS = {TRIGGER_LIMIT_ONCE: "once_each_turn", TRIGGER_LIMIT_DO_ONCE: "do_once"}
+
+
+def limit_kind(sentence: str) -> str:
+    """The definition's ``limit`` for a trigger-limit sentence split_trigger_limit found."""
+    return TRIGGER_LIMITS[sentence]
 
 _TIMES = {"once": 1, "twice": 2, "three times": 3, "four times": 4}
 _STEPS = {
@@ -84,7 +96,7 @@ def split(body: str) -> tuple[str, str | None]:
 def split_trigger_limit(body: str) -> tuple[str, str | None]:
     """Split a triggered ability's text into (effects, its trailing limit sentence or None)."""
     sentences = _sentences(body)
-    if sentences and (sentences[-1] == TRIGGER_LIMIT_ONCE or sentences[-1] in TRIGGER_LIMIT_REFUSED):
+    if sentences and (sentences[-1] in TRIGGER_LIMITS or sentences[-1] in TRIGGER_LIMIT_REFUSED):
         return " ".join(sentences[:-1]), sentences[-1]
     return body, None
 
