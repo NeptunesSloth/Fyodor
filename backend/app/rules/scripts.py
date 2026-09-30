@@ -699,6 +699,7 @@ PREDEFINED_TOKENS = {
     "Powerstone": ("Token Artifact — Powerstone", "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."),
     "Heartwood": ("Token Artifact — Heartwood", "{T}: Add {R} or {G}."),
 }
+PREDEFINED_COLORS = {"Heartwood": ["R", "G"]}  # 111.10x: "a red and green Heartwood artifact token" (the others are colorless)
 COLOR_WORDS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 _COLORS_RE = r"(?P<colors>colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*)"
 
@@ -757,7 +758,8 @@ def _token_has(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 def _create_predefined(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     type_line, text = PREDEFINED_TOKENS[m["kind"]]
     return [{"do": "create_token", "who": "you", "n": num(m["n"]),
-             "token": {"name": m["kind"], "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
+             "token": {"name": m["kind"], "power": None, "toughness": None, "colors": list(PREDEFINED_COLORS.get(m["kind"], ())),
+                       "type_line": type_line, "text": text}}], None
 
 
 @effect(r"put {N} (?P<kind>\+1/\+1|-1/-1) counters? on (?P<who>target creature you control|target creature|~|it|each creature you control)")
@@ -903,11 +905,14 @@ def _first(fn):  # type: ignore[no-untyped-def]
 @effect(r"create (?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X) (?:tapped )?"
         r"(?:\d+/\d+ (?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) "
         r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)* (?:enchantment )?(?:artifact )?creature tokens?|[A-Z][a-z]+ tokens?)"
-        r"(?: named [A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*)?(?: with .+?)?(?: that(?:'s| are) tapped and attacking)?"
-        r"(?: for each [^\"]+|, where [xX] is [^\"]+)?")
+        r"(?: named [A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*)?(?: with (?:(?!, then )[^\"])*(?:\"[^\"]+\")?)?"
+        r"(?: that(?:'s| are) tapped and attacking)?(?: for each [^\"]+|, where [xX] is [^\"]+)?")
 def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """"Create [N] [tapped] [P/T colors Subtypes [artifact] creature | Predefined] token(s) [named …]
-    [with …] [that's tapped and attacking] [for each … | , where X is …]" (701.7, 111.10, 508.4)."""
+    [with …] [that's tapped and attacking] [for each … | , where X is …]" (701.7, 111.10, 508.4).
+    The "with …" part never crosses ", then " ("create a 1/2 green Spider creature token with
+    reach, then each opponent loses 1 life …" is two instructions, which _clause splits; a match
+    here that the grammar then rejected used to fail the whole ability)."""
     from app.rules import token_grammar
 
     found = token_grammar.parse(m.group(0))
