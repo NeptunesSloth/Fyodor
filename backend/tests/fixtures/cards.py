@@ -394,5 +394,7 @@ def fixture_cards() -> list[dict[str, Any]]:
              oracle_text="You may look at the top card of your library any time.\nYou may cast spells from the top of your library."),
         card("Test Grave Recall", set_code="tst", number="M31", mana_cost="{B}", cmc=1.0, type_line="Sorcery",
              oracle_text="Until end of turn, you may play lands and cast spells from your graveyard.", colors=["B"], color_identity=["B"]),
+        card("Test Grave Pilfer", set_code="tst", number="M32", mana_cost="{B}", cmc=1.0, type_line="Sorcery",
+             oracle_text="Exile target card from a graveyard. You may play it this turn.", colors=["B"], color_identity=["B"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
     ]

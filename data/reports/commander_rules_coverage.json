@@ -1,20 +1,20 @@
 {
- "generated_at": "2026-09-29 23:04",
+ "generated_at": "2026-09-30 03:09",
  "card_data": "2026-09-28T21:01:54.353+00:00",
  "comprehensive_rules": "2026-09-25",
  "rules_engine_version": 2,
  "commander_legal_cards": 32068,
  "commander_banned": 83,
  "levels": {
-  "FULL": 10953,
-  "PARTIAL": 21115,
+  "FULL": 10950,
+  "PARTIAL": 21118,
   "REVIEW": 0,
   "MANUAL": 0
  },
  "possible_commanders": 3501,
  "commander_levels": {
-  "FULL": 531,
-  "PARTIAL": 2970,
+  "FULL": 530,
+  "PARTIAL": 2971,
   "REVIEW": 0,
   "MANUAL": 0
  },
@@ -30,8 +30,8 @@
  },
  "by_type": {
   "Creature": {
-   "FULL": 6869,
-   "PARTIAL": 11052,
+   "FULL": 6866,
+   "PARTIAL": 11055,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -140,8 +140,8 @@
    "MANUAL": 0
   },
   "reach": {
-   "FULL": 194,
-   "PARTIAL": 229,
+   "FULL": 193,
+   "PARTIAL": 230,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -152,8 +152,8 @@
    "MANUAL": 0
   },
   "menace": {
-   "FULL": 100,
-   "PARTIAL": 281,
+   "FULL": 99,
+   "PARTIAL": 282,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -170,8 +170,8 @@
    "MANUAL": 0
   },
   "treasure": {
-   "FULL": 88,
-   "PARTIAL": 261,
+   "FULL": 87,
+   "PARTIAL": 262,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -224,8 +224,8 @@
    "MANUAL": 0
   },
   "landfall": {
-   "FULL": 74,
-   "PARTIAL": 111,
+   "FULL": 73,
+   "PARTIAL": 112,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1576,8 +1576,8 @@
    "MANUAL": 0
   },
   "eoe": {
-   "FULL": 55,
-   "PARTIAL": 199,
+   "FULL": 54,
+   "PARTIAL": 200,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1606,8 +1606,8 @@
    "MANUAL": 0
   },
   "fdn": {
-   "FULL": 215,
-   "PARTIAL": 211,
+   "FULL": 214,
+   "PARTIAL": 212,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -1996,8 +1996,8 @@
    "MANUAL": 0
   },
   "mh2": {
-   "FULL": 94,
-   "PARTIAL": 145,
+   "FULL": 93,
+   "PARTIAL": 146,
    "REVIEW": 0,
    "MANUAL": 0
   },
@@ -5692,17 +5692,18 @@
   },
   {
    "name": "Ragavan, Nimble Pilferer",
-   "level": "FULL",
+   "level": "PARTIAL",
    "edhrec_rank": 281,
    "color_identity": "R",
    "pairing": [],
    "supported": [
     "Cast it (timing, costs, the stack)",
     "Attack and block",
-    "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.",
     "Dash"
    ],
-   "missing": []
+   "missing": [
+    "Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card."
+   ]
   },
   {
    "name": "Braids, Arisen Nightmare",
@@ -10338,9 +10339,9 @@
  ],
  "quality": {
   "ability_lines": 113154,
-  "automated_lines": 83381,
+  "automated_lines": 83378,
   "automated_share": "73.7%",
-  "unrecognized_clauses": 29773,
+  "unrecognized_clauses": 29776,
   "classified_share": "97.7%",
   "unclassified_clauses": 2630,
   "clusters": 8216
@@ -10351,8 +10352,8 @@
    "lines": 1878
   },
   "MISSING EFFECT": {
-   "cards": 11154,
-   "lines": 13101
+   "cards": 11157,
+   "lines": 13104
   },
   "MISSING SELECTOR": {
    "cards": 3391,
@@ -11623,6 +11624,21 @@
    ]
   },
   {
+   "category": "MISSING EFFECT",
+   "cluster": "create a treasure token \u2026",
+   "commander_cards": 17,
+   "pod_cards": 0,
+   "pod_commanders": 0,
+   "commanders": 7,
+   "only_missing_piece_for": 9,
+   "examples": [
+    "Beza, the Bounding Spring",
+    "Boxing Ring",
+    "Mahadi, Emporium Master",
+    "Hoard Hauler"
+   ]
+  },
+  {
    "category": "MISSING TRIGGER EVENT",
    "cluster": "Whenever you scry",
    "commander_cards": 14,
@@ -11924,27 +11940,12 @@
   },
   {
    "category": "MISSING EFFECT",
-   "cluster": "create a treasure token \u2026",
-   "commander_cards": 16,
-   "pod_cards": 0,
-   "pod_commanders": 0,
-   "commanders": 6,
-   "only_missing_piece_for": 8,
-   "examples": [
-    "Beza, the Bounding Spring",
-    "Boxing Ring",
-    "Mahadi, Emporium Master",
-    "Hoard Hauler"
-   ]
-  },
-  {
-   "category": "MISSING EFFECT",
    "cluster": "sacrifice another creature \u2026",
-   "commander_cards": 14,
+   "commander_cards": 15,
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 6,
-   "only_missing_piece_for": 8,
+   "only_missing_piece_for": 9,
    "examples": [
     "Rhovanion Rampager",
     "Killmonger, Scourge of Wakanda",
@@ -12315,16 +12316,16 @@
   {
    "category": "MISSING EFFECT",
    "cluster": "exile cards from the \u2026",
-   "commander_cards": 9,
+   "commander_cards": 10,
    "pod_cards": 0,
    "pod_commanders": 0,
    "commanders": 5,
-   "only_missing_piece_for": 7,
+   "only_missing_piece_for": 8,
    "examples": [
+    "Territorial Bruntar",
     "Wanda's Vision",
     "Venture Forth",
-    "Jodah, the Unifier",
-    "Nico Minoru, Runaway"
+    "Jodah, the Unifier"
    ]
   },
   {
