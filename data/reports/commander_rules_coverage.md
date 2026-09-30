@@ -1,6 +1,6 @@
 # Commander rules coverage
 
-Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-30 03:19
+Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-30 08:13
 
 Only cards that are **legal in Commander today** count. Banned cards (83) are COMMANDER_BANNED and excluded.
 
@@ -10,12 +10,12 @@ Commander-legal cards: **32068**
 
 | Level | Cards | Share |
 |---|---|---|
-| FULL | 11055 | 34.5% |
-| PARTIAL | 21013 | 65.5% |
+| FULL | 11061 | 34.5% |
+| PARTIAL | 21007 | 65.5% |
 | REVIEW | 0 | 0.0% |
 | MANUAL | 0 | 0.0% |
 
-Possible commanders (CR 903.3/903.3a, incl. Backgrounds): **3501** — FULL 534, PARTIAL 2967, REVIEW 0, MANUAL 0
+Possible commanders (CR 903.3/903.3a, incl. Backgrounds): **3501** — FULL 536, PARTIAL 2965, REVIEW 0, MANUAL 0
 
 ## Pod coverage
 
@@ -24,7 +24,7 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 ## Coverage quality
 
 - Ability features (lines, keywords, play/cast/combat) across Commander-legal cards: 113154
-- Automated: 83543 (73.8%) · unrecognized clauses: 29611
+- Automated: 83549 (73.8%) · unrecognized clauses: 29605
 - Oracle text classified (automated, or sorted into a concrete missing capability): 97.7% · unclassified clauses: 2630
 - Distinct missing-capability clusters: 8208
 
@@ -32,7 +32,7 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 
 | Category | Cards affected | Clauses |
 |---|---|---|
-| MISSING EFFECT | 11091 | 13014 |
+| MISSING EFFECT | 11085 | 13008 |
 | MISSING SELECTOR | 3322 | 3516 |
 | MISSING TRIGGER EVENT | 2403 | 2515 |
 | MISSING CONTINUOUS EFFECT | 2167 | 2290 |
@@ -60,7 +60,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 8 | MISSING CONTINUOUS EFFECT | ~ gets ±N/±N for each … | 32 | 59 | 115 | Nim Lasher, Benalish Honor Guard, Anya, Merciless Angel |
 | 9 | MISSING EFFECT | put n … | 28 | 100 | 149 | Black Sun's Zenith, Breaking // Entering, Mind Raker |
 | 10 | MISSING CONTINUOUS EFFECT | ~'s power and toughness are each … | 28 | 68 | 127 | Eluge, the Shoreless Sea, Flora Colossus, Revenant |
-| 11 | MISSING EFFECT | create n … | 27 | 123 | 206 | Summon the School, Cogwork Assembler, Endless Evil |
+| 11 | MISSING EFFECT | create n … | 27 | 122 | 205 | Summon the School, Cogwork Assembler, Endless Evil |
 | 12 | MISSING SELECTOR | target creature card | 25 | 114 | 168 | Hua Tuo, Honored Physician, Puppeteer Clique, Metamorphosis Fanatic |
 | 13 | MISSING EFFECT | exile the top card … | 25 | 31 | 60 | Mezzio Mugger, Etali, Primal Storm, Chandra, Torch of Defiance |
 | 14 | MISSING EFFECT | if n … | 24 | 61 | 92 | Airdrop Aeronauts, Hot Pursuit, Kotis, Sibsig Champion |
@@ -114,22 +114,22 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 62 | UNSUPPORTED ORACLE PATTERN | • ~ deals N damage to … | 9 | 0 | 18 | Arbalest Engineers, Tectonic Giant, Umaro, Raging Yeti |
 | 63 | UNSUPPORTED ORACLE PATTERN | Storied | 9 | 0 | 9 | Balin, Loremaster, Dáin, Lord of the Iron Hills, Ori, Keeper of Songs |
 | 64 | MISSING COST | {M}, Discard ~ | 8 | 36 | 57 | Jiwari, the Earth Aflame, Favor of Jukai, Radiant Solar |
-| 65 | MISSING EFFECT | create a n/n colorless … | 8 | 34 | 54 | Karn, Scion of Urza, Serpent Generator, Command the Stage |
-| 66 | MISSING REPLACEMENT PATTERN | ~ enters with a ±N/±N counter(s) on … | 8 | 18 | 37 | Callous Sell-Sword // Burn Together, Avatar of the Resolute, The Duke, Rebel Sentry |
-| 67 | MISSING EFFECT | you draw n … | 8 | 17 | 31 | Fang, Fearless l'Cie, Live Fast, Greed's Gambit |
-| 68 | MISSING EFFECT | up to n … | 8 | 15 | 32 | Wasp, Shrinking Savior, Restless Vinestalk, Kaito, Dancing Shadow |
-| 69 | MISSING EFFECT | discard your hand … | 8 | 15 | 31 | Pyretic Charge, Bedlam Reveler, Balin, Loremaster |
-| 70 | MISSING EFFECT | discard n … | 8 | 14 | 26 | Witch's Mark, Seasoned Pyromancer, Party Thrasher |
-| 71 | UNSUPPORTED ORACLE PATTERN | Mayhem {M} | 8 | 7 | 11 | Swarm, Being of Bees, Chameleon, Master of Disguise, Spider-Islanders |
-| 72 | MISSING CONTINUOUS EFFECT | During your turn, … | 8 | 6 | 17 | Long-Lost Lances, Miriam, Herd Whisperer, Yuna, Hope of Spira |
-| 73 | UNSUPPORTED ORACLE PATTERN | You may play an additional land … | 8 | 6 | 17 | Exploration, Icetill Explorer, Case of the Locked Hothouse |
-| 74 | MISSING EFFECT | you get an experience … | 8 | 0 | 8 | Meren of Clan Nel Toth, Katara, Waterbending Master, Ezuri, Claw of Progress |
-| 75 | MISSING EFFECT | if you control n … | 7 | 39 | 63 | Dawnhart Wardens, Boundary Lands Ranger, Dispatch |
-| 76 | MISSING SELECTOR | target artifact or creature | 7 | 30 | 51 | Tamiyo, Compleated Sage, Starke of Rath, Mind Transfer Protocol |
-| 77 | MISSING EFFECT | each opponent loses n … | 7 | 28 | 40 | Subversion, Faerie Bladecrafter, Scholar of Athreos |
-| 78 | MISSING EFFECT | if you cast it … | 7 | 24 | 38 | Weftwalking, Marina Vendrell's Grimoire, Bringer of the Last Gift |
-| 79 | MISSING EFFECT | create a n/n black … | 7 | 23 | 37 | Grist, the Hunger Tide, Ghoulcaller's Accomplice, Balduvian Dead |
-| 80 | MANA ABILITY WORDING | {M}: Add {M}. Spend this mana … | 7 | 23 | 27 | Guidelight Optimizer, Karfell Harbinger, Soldevi Machinist |
+| 65 | MISSING REPLACEMENT PATTERN | ~ enters with a ±N/±N counter(s) on … | 8 | 18 | 37 | Callous Sell-Sword // Burn Together, Avatar of the Resolute, The Duke, Rebel Sentry |
+| 66 | MISSING EFFECT | you draw n … | 8 | 17 | 31 | Fang, Fearless l'Cie, Live Fast, Greed's Gambit |
+| 67 | MISSING EFFECT | up to n … | 8 | 15 | 32 | Wasp, Shrinking Savior, Restless Vinestalk, Kaito, Dancing Shadow |
+| 68 | MISSING EFFECT | discard your hand … | 8 | 15 | 31 | Pyretic Charge, Bedlam Reveler, Balin, Loremaster |
+| 69 | MISSING EFFECT | discard n … | 8 | 14 | 26 | Witch's Mark, Seasoned Pyromancer, Party Thrasher |
+| 70 | UNSUPPORTED ORACLE PATTERN | Mayhem {M} | 8 | 7 | 11 | Swarm, Being of Bees, Chameleon, Master of Disguise, Spider-Islanders |
+| 71 | MISSING CONTINUOUS EFFECT | During your turn, … | 8 | 6 | 17 | Long-Lost Lances, Miriam, Herd Whisperer, Yuna, Hope of Spira |
+| 72 | UNSUPPORTED ORACLE PATTERN | You may play an additional land … | 8 | 6 | 17 | Exploration, Icetill Explorer, Case of the Locked Hothouse |
+| 73 | MISSING EFFECT | you get an experience … | 8 | 0 | 8 | Meren of Clan Nel Toth, Katara, Waterbending Master, Ezuri, Claw of Progress |
+| 74 | MISSING EFFECT | if you control n … | 7 | 39 | 63 | Dawnhart Wardens, Boundary Lands Ranger, Dispatch |
+| 75 | MISSING SELECTOR | target artifact or creature | 7 | 30 | 51 | Tamiyo, Compleated Sage, Starke of Rath, Mind Transfer Protocol |
+| 76 | MISSING EFFECT | each opponent loses n … | 7 | 28 | 40 | Subversion, Faerie Bladecrafter, Scholar of Athreos |
+| 77 | MISSING EFFECT | if you cast it … | 7 | 24 | 38 | Weftwalking, Marina Vendrell's Grimoire, Bringer of the Last Gift |
+| 78 | MANA ABILITY WORDING | {M}: Add {M}. Spend this mana … | 7 | 23 | 27 | Guidelight Optimizer, Karfell Harbinger, Soldevi Machinist |
+| 79 | MISSING EFFECT | create a n/n black … | 7 | 22 | 36 | Grist, the Hunger Tide, Ghoulcaller's Accomplice, Balduvian Dead |
+| 80 | MISSING TRIGGER EVENT | Magecraft — Whenever you cast or copy an instant or sorcery spell | 7 | 20 | 29 | Zaffai, Thunder Conductor, Karok Wrangler, Extus, Oriq Overlord // Awaken the Blood Avatar |
 
 ## Largest clusters (Commander cards affected)
 
@@ -145,7 +145,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 8 | MISSING EFFECT | put a ±n/±n counter(s) … | 231 | 161 | 61 | Greta, Sweettooth Scourge, Yorvo, Lord of Garenbrig, Ent-Draught Basin |
 | 9 | MISSING EFFECT | until end of turn … | 227 | 161 | 23 | Divergent Growth, Doorman, Strength of Will |
 | 10 | MISSING SELECTOR | target creatures | 207 | 107 | 9 | Ravenous Gigantotherium, Fire Covenant, Amazing Acrobatics |
-| 11 | MISSING EFFECT | create n … | 206 | 123 | 27 | Summon the School, Cogwork Assembler, Endless Evil |
+| 11 | MISSING EFFECT | create n … | 205 | 122 | 27 | Summon the School, Cogwork Assembler, Endless Evil |
 | 12 | MISSING EFFECT | destroy target … | 187 | 112 | 4 | Kalitas, Bloodchief of Ghet, Raze, Unliving Psychopath |
 | 13 | MISSING EFFECT | look at the top … | 185 | 139 | 33 | Harald, King of Skemfar, Lantern of Revealing, Puresight Merrow |
 | 14 | MISSING EFFECT | target creature you control … | 176 | 122 | 9 | Blessed Defiance, Hard-Hitting Question, Crowd of True Believers |
@@ -175,7 +175,7 @@ Ranked by pod cards, pod commanders, possible commanders affected, cards it alon
 | 38 | MISSING EFFECT | add {m} … | 70 | 42 | 13 | Waste Not, Akki Rockspeaker, Brightstone Ritual |
 | 39 | MISSING EFFECT | return target … | 69 | 42 | 1 | Surging Aether, Perilous Voyage, Geistwave |
 | 40 | MISSING CONTINUOUS EFFECT | ~'s power is equal to the … | 67 | 31 | 15 | Uurg, Spawn of Turg, Snow Villiers, Nethergoyf |
-| 41 | MISSING EFFECT | create a n/n green … | 67 | 35 | 6 | Rhonas's Last Stand, Fractal Harness, Baloth Cage Trap |
+| 41 | MISSING EFFECT | create a n/n green … | 65 | 33 | 6 | Rhonas's Last Stand, Fractal Harness, Baloth Cage Trap |
 | 42 | MANA ABILITY WORDING | {M}: Add N mana of any … | 65 | 37 | 2 | Flywheel Racer, Pit of Offerings, Helga, Skittish Seer |
 | 43 | MISSING EFFECT | if you control n … | 63 | 39 | 7 | Dawnhart Wardens, Boundary Lands Ranger, Dispatch |
 | 44 | MISSING EFFECT | exile ~ … | 61 | 13 | 20 | Stenn, Paranoid Partisan, Woodland Guidance, Teferi's Protection |
@@ -257,11 +257,11 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 
 | Type | FULL | PARTIAL | REVIEW | MANUAL |
 |---|---|---|---|---|
-| Creature | 6895 | 11026 | 0 | 0 |
+| Creature | 6898 | 11023 | 0 | 0 |
 | Artifact | 1104 | 2489 | 0 | 0 |
-| Enchantment | 930 | 2717 | 0 | 0 |
+| Enchantment | 932 | 2715 | 0 | 0 |
 | Sorcery | 981 | 2587 | 0 | 0 |
-| Instant | 1219 | 2535 | 0 | 0 |
+| Instant | 1221 | 2533 | 0 | 0 |
 | Land | 539 | 673 | 0 | 0 |
 | Planeswalker | 17 | 294 | 0 | 0 |
 | Battle | 0 | 36 | 0 | 0 |
