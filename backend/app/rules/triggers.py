@@ -57,7 +57,7 @@ from app.game.rules_state import (
 )
 from app.game.state import CardInstance, TokenDef
 from app.rules import characteristics as chars
-from app.rules import delayed, scripts
+from app.rules import delayed, scripts, selectors
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan, decide
 from app.rules.targets import choose_groups, label, legal_targets, ref, source_of
@@ -1065,6 +1065,9 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
     spec = t.ability.get("target")
     targets = []
     extra: dict[str, Any] = {}
+    # "Whenever a creature you control attacks, … target creature defending player controls": the
+    # defending player is the one *that* creature attacks (508.5, 508.5a), not the source's
+    attacker = selectors.attacker_of(t.event)
     if t.ability.get("targets"):
         from app.game.errors import ActionError
         from app.rules.casting import ask_targets
@@ -1074,7 +1077,8 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
         picks = picks or {"targets": [], "counts": [], "division": []}
         try:
             found = choose_groups(plan, specs, t.controller, source_of(plan, t.source_card), t.source_card,
-                                  picks["targets"], picks["counts"], picks["division"], None, t.name or "It")
+                                  picks["targets"], picks["counts"], picks["division"], None, t.name or "It",
+                                  attacker=attacker)
         except ActionError:  # 603.3d: no legal choice for a required target: removed from the stack
             r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
             plan.note(f"{t.name}'s ability doesn't have enough legal targets and is removed")
@@ -1088,7 +1092,7 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
         extra = {"groups": groups, "group_specs": specs, "division": found.division}
         spec = None
     elif spec:
-        legal = legal_targets(plan, spec["what"], t.controller, source_of(plan, t.source_card), t.source_card)
+        legal = legal_targets(plan, spec["what"], t.controller, source_of(plan, t.source_card), t.source_card, attacker)
         if target is None:
             if not legal:
                 r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]

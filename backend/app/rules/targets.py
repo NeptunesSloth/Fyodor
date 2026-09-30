@@ -76,12 +76,13 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
 
 
 def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristics | None = None,
-                  source_card: str | None = None) -> list[str]:
+                  source_card: str | None = None, attacker: str | None = None) -> list[str]:
     """Player ids and card ids that ``chooser`` may target with ``selector`` right now
     (``source``: the spell or the ability's source, for protection; ``source_card``: that
-    object, for "another target …")."""
+    object, for "another target …"; ``attacker``: the creature an "attacks" trigger is about,
+    whose defending player "defending player" means, 508.5)."""
     if selector.startswith(selectors.PREFIX):  # a structured selector (app/rules/selectors.py)
-        return _selector_targets(plan, selectors.from_key(selector), chooser, source, source_card)
+        return _selector_targets(plan, selectors.from_key(selector), chooser, source, source_card, attacker)
     if selector.startswith("graveyard:"):  # "target Spirit card with mana value N or less from your graveyard"
         from app.rules import characteristics as chars
 
@@ -114,11 +115,11 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
 
 
 def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source: Characteristics | None,
-                      source_card: str | None) -> list[str]:
+                      source_card: str | None, attacker: str | None = None) -> list[str]:
     if sel.player is not None:  # 115.1: players (hexproof players: not yet modelled)
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, chooser)]
     out = []
-    for cid in selectors.candidates(plan, sel, chooser, source_card):
+    for cid in selectors.candidates(plan, sel, chooser, source_card, attacker):
         card = plan.state.cards[cid]
         on_field = card.zone.endswith(":battlefield") or card.zone == "stack"
         if on_field and not can_target(plan, chooser, card, plan.ch(card), source):  # hexproof / shroud / protection
@@ -132,14 +133,14 @@ def ref(plan: Plan, target: str) -> TargetRef:
 
 
 def still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, source: Characteristics | None = None,
-                source_card: str | None = None) -> bool:
+                source_card: str | None = None, attacker: str | None = None) -> bool:
     """608.2b: is a chosen target still legal? A card that changed zones is a new object: illegal."""
     if target.object_id is None:
-        return target.id in plan.live() and target.id in legal_targets(plan, selector, chooser, source, source_card)
+        return target.id in plan.live() and target.id in legal_targets(plan, selector, chooser, source, source_card, attacker)
     card = plan.state.cards.get(target.id)
     if card is None or plan.oid(card) != target.object_id:
         return False
-    return target.id in legal_targets(plan, selector, chooser, source, source_card)
+    return target.id in legal_targets(plan, selector, chooser, source, source_card, attacker)
 
 
 @dataclass
@@ -175,7 +176,7 @@ def group_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
 
 def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source: Characteristics | None,
                   source_card: str | None, targets: list[str], counts: list[int], division: list[int],
-                  x: int | None, what: str, exclude: tuple[str, ...] = ()) -> GroupChoice:
+                  x: int | None, what: str, exclude: tuple[str, ...] = (), attacker: str | None = None) -> GroupChoice:
     """Check the choices made so far for each target group, in printed order (601.2c): the
     number of targets (``counts``: how many of ``targets`` are each group's), no object twice
     for one word "target" (115.3; the same object may be chosen for another group unless it says
@@ -191,7 +192,7 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
     pos = 0
     for g, spec in enumerate(specs):
         banned = {t for d in spec.get("distinct_from") or [] if d < len(out.groups) for t in out.groups[d]}
-        options = [t for t in legal_targets(plan, spec["what"], chooser, source, source_card)
+        options = [t for t in legal_targets(plan, spec["what"], chooser, source, source_card, attacker)
                    if t not in exclude and t not in banned]
         lo, hi = group_limits(spec, x)
         if g >= len(out.counts):

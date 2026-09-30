@@ -995,4 +995,5 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
     **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)
+    **effects.RESUME,  # player choices: edicts, "chooses a", a revealed hand, "choose a color" (app/rules/effects.py)
 }

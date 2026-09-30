@@ -412,6 +412,12 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if isinstance(who, str) and (who in ("it", "them") or who.startswith(("it:", "them:"))):
                 pronoun, _, verb = who.partition(":")
                 intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
+                if e.get("do") == "grant_play" and (intro is None or intro.do not in _MOVERS):
+                    # "You may play that card this turn": only what an earlier instruction of this
+                    # ability moved (exiled, found), where it went (400.7h/j) — never the source,
+                    # a trigger's object, or a card an instruction put in a hidden zone ("draw a
+                    # card. You may play it": the hand is hidden, 400.7 — manual)
+                    return None
                 if intro is not None:
                     if intro.do in _MOVERS or _group_of(out[intro.index]) is None:
                         e["who"] = "ref:" + bound(intro)
@@ -1291,7 +1297,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if ability.kind in ("static", "spell"):
         from app.rules import permissions  # permissions, cost modifiers, "play with the top card revealed"
 
-        granted = permissions.define_static(text, ability.kind)
+        granted = permissions.define_static(text, ability.kind, tuple(self_text(ab.text, ch.name) for ab in ch.abilities))
         if granted is not None:
             return granted
     if ability.kind == "triggered":
@@ -1703,3 +1709,32 @@ def _exile_until_any(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
     return _from_language(language.parse_exile_until(m["o"]))
+
+
+# -- player choices (app/rules/language.py "player choices", app/rules/effects.py) -------------------
+# Edicts ("each opponent sacrifices a creature of their choice"), "target opponent chooses a
+# creature they control", a revealed hand ("target player reveals their hand. You choose a nonland
+# card from it. That player discards that card."), "choose a color". The choosing primitives
+# introduce objects a pronoun can name ("that card", "that creature", "it"): they record them.
+def _choice_template(pattern: str, build: Any) -> None:
+    def template(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+        from app.rules import language
+
+        try:
+            return build(m)
+        except language._Fail:
+            raise _NoMatch from None
+    effect(pattern)(template)
+
+
+from app.rules import language as _language  # noqa: E402  (a leaf module)
+
+for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OTHERS, _language.edict),
+                         (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.REVEAL_HAND, _language.reveal_hand),
+                         (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
+                         (_language.CHOOSE_VALUE, _language.choose_value)):
+    _choice_template(_pattern, _build)
+_RECORDING.update({"edict": "sacrificed", "player_chooses": None, "choose_from_hand": None, "discard_named": "discarded",
+                   "reveal_hand": None, "choose_value": None})
+_MOVERS.update({"edict", "player_chooses", "choose_from_hand", "discard_named"})
+_CHOSEN.update({"edict": "n", "player_chooses": "n", "choose_from_hand": "n"})
