@@ -107,7 +107,10 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
     if definition.get("if") is not None:  # 603.4: an intervening "if" must hold as it triggers
         from app.rules import conditions
 
-        if not conditions.holds(plan, {"controller": controller, "source_card": source_card}, definition["if"]):
+        # (the source and the event it triggered on: "if ~ is an enchantment", "if it's a Dragon", 603.4)
+        check = {"controller": controller, "source_card": source_card, "source_object": source_object,
+                 "event": event.model_dump(mode="json") if event is not None else None}
+        if not conditions.holds(plan, check, definition["if"]):
             return None
     if definition.get("limit") == "once_each_turn":  # "This ability triggers only once each turn." (app/rules/restrictions.py)
         from app.rules import restrictions
@@ -1174,6 +1177,10 @@ def _identical(plan: Plan, player: str, mine: list[PendingTrigger]) -> bool:
 def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
     """Put one trigger on the stack. False if it waits for its controller's target choice.
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
+    if t.ability.get("modes"):  # -- modal triggered abilities (wave 1A): the modes first (603.3c, 700.2b) --
+        from app.rules import modal_abilities
+
+        return modal_abilities.put_trigger(plan, t, picks)
     r = plan.rules
     spec = t.ability.get("target")
     targets = []

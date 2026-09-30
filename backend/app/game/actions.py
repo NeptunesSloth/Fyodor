@@ -920,6 +920,9 @@ class ActivateAbility(_Intent):
     target_counts: TargetCounts = Field(default_factory=list)  # (see CastSpell)
     division: Division = Field(default_factory=list)
     x_value: int | None = Field(default=None, ge=0, le=1000)
+    # A modal ability (700.2a, 602.2b → 601.2b): the chosen modes, in printed order; ``targets`` then
+    # lists one target per chosen mode that has one, in that order (as for a modal spell).
+    modes: list[int] = Field(default_factory=list, max_length=10)
     mana_choice: Literal["W", "U", "B", "R", "G", "C"] | None = None  # which colour, for "R or G" abilities
     sources: list[Id] | None = Field(default=None, max_length=60)  # MANUAL PAY (see CastSpell)
     # While paying for a spell with that keyword: commit (or, again, release) this card to pay one

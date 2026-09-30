@@ -1761,10 +1761,16 @@ PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looke
 
 def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"If [condition], [the next ``skip`` effects]" (608.2c), and an intervening "if" checked
-    again as the ability resolves (603.4): when it doesn't hold, those effects don't happen."""
+    again as the ability resolves (603.4): when it doesn't hold, those effects don't happen.
+    With ``bind`` (an "instead" / "Otherwise" clause follows, conditional / instead clauses wave 1B) the
+    verdict is recorded under that name as the resolution reaches it: the clause that belongs to it
+    reads that verdict, it doesn't judge the table a second time (608.2c)."""
     from app.rules import conditions
 
-    if not conditions.holds(plan, ctx, e["cond"]):
+    ok = conditions.holds(plan, ctx, e["cond"])
+    if e.get("bind"):
+        context.bind_flag(ctx, e["bind"], ok)
+    if not ok:
         ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e.get("skip", len(ctx["effects"]))))
     return True
 
@@ -1896,8 +1902,9 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "surveil": "surveil {n}", "damage": "deal {n} damage", "player_counter": "get {n} {counter}",
              "create_token": "create {n} token(s)", "add_counters": "put {n} {kind} counter(s)", "proliferate": "proliferate",
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library"}
-    parts = [words.get(e["do"], e["do"]).format(**{k: v for k, v in e.items()}) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate")]
+    # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
+    parts = [words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if")]
     return (", ".join(parts) or "do it").capitalize()
 
 

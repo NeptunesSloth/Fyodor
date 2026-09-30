@@ -23,7 +23,9 @@ unchanged. Two parts:
   - ``{"kind": "players", "players": [id, …]}`` — "that player";
   - ``{"kind": "amount", "n": int}`` — "that much" / "that many" of an earlier effect;
   - ``{"kind": "payment", "ok": bool, "objects": [ObjectRef, …]}`` — an optional payment's
-    result ("If you do", 118.12): ``ok`` only if the whole cost was paid.
+    result ("If you do", 118.12): ``ok`` only if the whole cost was paid;
+  - ``{"kind": "flag", "ok": bool}`` — the verdict of a condition, judged once as the resolution
+    reached it, for the "instead" / "Otherwise" clause that belongs to it (608.2c).
 
 Effects address bindings by string: ``who: "ref:<name>"`` (the objects, or the players),
 ``"ref:<name>.controller"`` / ``"ref:<name>.owner"`` (players, from last known information once the
@@ -101,6 +103,12 @@ def bind_amount(ctx: Context, name: str, n: int) -> None:
 
 def bind_payment(ctx: Context, name: str, ok: bool, objects: list[ObjectRef] = ()) -> None:  # type: ignore[assignment]
     refs(ctx)[name] = {"kind": "payment", "ok": bool(ok), "objects": [o.model_dump(mode="json") for o in objects]}
+
+
+def bind_flag(ctx: Context, name: str, ok: bool) -> None:
+    """Record a condition's verdict as this resolution reached it (608.2c): the "instead" /
+    "Otherwise" text that belongs to it reads this, never asks the table again."""
+    refs(ctx)[name] = {"kind": "flag", "ok": bool(ok)}
 
 
 # -- lookup ----------------------------------------------------------------------------------------
@@ -201,3 +209,9 @@ def succeeded(ctx: Context, name: str) -> bool:
     """"If you do": whether that payment (by its binding) was made in full (118.12)."""
     b = (ctx.get("refs") or {}).get(name) or {}
     return b.get("kind") == "payment" and bool(b.get("ok"))
+
+
+def flag(ctx: Context, name: str) -> bool:
+    """A condition's recorded verdict (an "instead" / "Otherwise" clause); False if none was recorded."""
+    b = (ctx.get("refs") or {}).get(name) or {}
+    return b.get("kind") == "flag" and bool(b.get("ok"))

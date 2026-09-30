@@ -15,10 +15,10 @@ A value is an int (a literal) or a dict:
 * ``{"player_counters": kind}`` — counters a player has ("experience counters you have", 122.1e);
 * ``{"life": "you" | "target" | "opponent_max"}`` — a life total ("your life total", "the highest
   life total among your opponents");
-* ``{"distinct": "types" | "colors" | "basic_land_types" | "creature_types", "among": "<selector key>"}``
-  — how many different card types (205.2a) / colors (105.1) / basic land types (205.3i) /
-  creature types are represented among the objects a selector names ("the number of card types
-  among cards in all graveyards", domain);
+* ``{"distinct": "types" | "colors" | "basic_land_types" | "creature_types" | "powers", "among":
+  "<selector key>"}`` — how many different card types (205.2a) / colors (105.1) / basic land types
+  (205.3i) / creature types / power values are represented among the objects a selector names ("the
+  number of card types among cards in all graveyards", domain; "creatures with different powers");
 * ``{"devotion": ["B"]}`` / ``["W", "U"]`` — devotion to a color or two colors (700.5);
 * ``{"sum" | "max": "power" | "toughness" | "mana_value", "of": "<selector key>"}`` — "the total
   power of creatures you control", "the greatest mana value among …";
@@ -298,6 +298,10 @@ def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:
             found |= set(ch.colors)
         elif kind == "basic_land_types":
             found |= ch.subtypes & set(BASIC_LAND_TYPES)
+        elif kind == "powers":  # "creatures with different powers" (conditions.py): how many distinct values
+            power = _stat_of(ch, "power")
+            if power is not None:
+                found.add(str(power))
         else:
             from app.rules.creature_types import CREATURE_TYPES
 

@@ -55,7 +55,7 @@ def test_templates(name, type_line, text, expected):
     "Whenever you commit a crime, you gain 1 life.",  # a trigger event the engine doesn't model yet
     "When this creature enters, draw a card for each foo you control.",
     "Counter target spell.",
-    "When this creature enters, if you gained life this turn, draw a card.",  # (a condition not read yet)
+    "When this creature enters, if you control the most creatures, draw a card.",  # (a condition not read yet)
 ])
 def test_unknown_wordings_stay_manual(text):
     assert scripts.definitions(ch("X", "Creature", text)) == {} or \

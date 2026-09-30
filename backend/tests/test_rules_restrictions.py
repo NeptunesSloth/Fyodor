@@ -48,10 +48,11 @@ def test_parse(text, expected):
 
 
 @pytest.mark.parametrize("text", [
-    "{1}: Foo. Activate only if there are four or more card types among cards in your graveyard.",
+    # (card types among graveyard cards, "a creature died this turn": read since conditional clauses, wave 1B —
+    # test_rules_conditionals.py)
     "{1}: Foo. Activate only as a sorcery and only if you've cast an instant or sorcery spell this turn.",
     "{1}: Foo. Activate only if this creature is attacking.",
-    "{1}: Foo. Activate only if a creature died this turn.",
+    "{1}: Foo. Activate only if you control the most creatures.",
 ])
 def test_unread_restrictions_are_refused(text):
     assert restrictions.parse(text) is None
