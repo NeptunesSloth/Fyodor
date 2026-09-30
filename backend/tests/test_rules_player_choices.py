@@ -75,6 +75,9 @@ def key(phrase):
       {"do": "exile", "who": "ref:e1"}], "opponent"),
     ("Choose a color.", [{"do": "choose_value", "who": "you", "what": "color"}], None),
     ("Choose a creature type.", [{"do": "choose_value", "who": "you", "what": "creature type"}], None),
+    # "creature or Vehicle": a type or a subtype (selectors.Selector.union)
+    ("Each opponent sacrifices a creature or Vehicle of their choice.",
+     [{"do": "edict", "who": "each_opponent", "sel": key("creature or Vehicle"), "n": 1, "label": "creature or Vehicle"}], None),
 ])
 def test_parse_player_choice_wordings(text, effects_, target):
     assert parse_effects(text) == (effects_, target, False)
@@ -83,7 +86,6 @@ def test_parse_player_choice_wordings(text, effects_, target):
 @pytest.mark.parametrize("text", [
     "Defending player sacrifices a creature of their choice.",  # which defending player (508.5)? not read
     "Each opponent reveals their hand. You choose a card from it. That player discards that card.",  # whose hand?
-    "Each opponent sacrifices a creature or Vehicle of their choice.",  # (no such selector)
     "Target opponent chooses a creature.",  # any creature, not one they control: not read
     "Target opponent sacrifices a creature they control of their choice.",
     "Choose a card name.",  # no card-name vocabulary
