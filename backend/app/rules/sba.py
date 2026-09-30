@@ -219,7 +219,19 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
                    resume={"step": "legend_rule", "cards": [c.id for c in group]})
             return True
 
-    # 903.9a: a commander put into a graveyard or exile may go to the command zone instead
+    # 903.9b: a commander just put into its owner's hand or library may go to the command zone
+    # instead (app/rules/replacements.py: the move happened; the owner is asked before priority)
+    if r.pending_903_9b:
+        from app.rules.replacements import offer_903_9b  # replacements → plan; imported late
+
+        if offer_903_9b(plan):
+            return True
+    # 903.9a: a commander put into a graveyard or exile may go to the command zone instead — a
+    # state-based action, so it still applies after a replacement effect sent the commander to exile
+    # ("If ~ would die, exile it instead", Rest in Peace: app/rules/replacements.py). 903.9b (a
+    # commander that would go to its owner's hand or library) is a replacement effect and lives
+    # there too; it shares this prompt's memory key ("commander_zone:<key>") with the destination as
+    # its context, so "always" answers carry over.
     for card in state.cards.values():
         if not card.commander_key:
             continue

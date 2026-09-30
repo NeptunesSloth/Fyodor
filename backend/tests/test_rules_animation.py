@@ -293,6 +293,25 @@ def test_creature_types_added_in_addition_but_replaced_otherwise(cards):
     replay_matches(s)
 
 
+def test_gideon_becomes_a_creature_thats_still_a_planeswalker_and_damage_to_him_is_prevented(cards):
+    s = build(cards, extra=[(1, "Gideon Jura"), (1, "Lightning Bolt")])
+    gideon = onto_battlefield(s, "Gideon Jura")
+    act(s, "p1", type="counter", card_ids=[gideon.id], kind="loyalty", delta=6)
+    act(s, "p1", type="activate_ability", card_id=gideon.id, ability=2)  # "0: Until end of turn, …"
+    pass_until_stack_empty(s)
+    now = ch(s, cards, gideon.id)
+    assert now.types == frozenset({"Planeswalker", "Creature"}) and now.pt == (6, 6)
+    assert now.subtypes == frozenset({"Gideon", "Human", "Soldier"})  # 205.1b: still a planeswalker, keeps "Gideon"
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[gideon.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[gideon.id].zone == "p1:battlefield"
+    assert s.state.cards[gideon.id].counters.get("loyalty") == 6 and not s.state.cards[gideon.id].damage  # 615: prevented
+    run_until(s, lambda s: s.state.turn.active_player == "p2")
+    assert not ch(s, cards, gideon.id).is_creature  # 514.2
+    replay_matches(s)
+
+
 def test_has_base_power_and_toughness_is_layer_7b_only(cards):
     s = build(cards)
     bear = token(s, "p1", "Bear", "2/2", "Flying")

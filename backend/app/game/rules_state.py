@@ -568,6 +568,16 @@ class RulesState(BaseModel):
     linked_exile: dict[str, list[str]] = Field(default_factory=dict)  # source object -> cards exiled "until it leaves"
     delayed: list[DelayedTrigger] = Field(default_factory=list)  # delayed triggered abilities (603.7; app/rules/delayed.py)
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)
+    # Replacement / prevention records with a duration (app/rules/replacements.py): "Prevent all
+    # combat damage that would be dealt this turn" and friends. Each: {"id", "kind", "turn",
+    # "controller", "source", "scope"}; a record for another turn has expired (614.3, 615.3).
+    replacements: list[dict[str, Any]] = Field(default_factory=list)
+    # 903.9b: commanders just put into their owner's hand / library (card id -> "hand" | "library")
+    # whose owner hasn't yet said whether it goes to the command zone instead (asked before priority)
+    pending_903_9b: dict[str, str] = Field(default_factory=dict)
+    # "As ~ enters, choose …" answers given while a permanent spell / land is about to enter (card
+    # id -> {"color": "Blue"}), consumed by the entry (614.12a)
+    entry_choices: dict[str, dict[str, str]] = Field(default_factory=dict)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
     dashed: list[str] = Field(default_factory=list)
     evoked: list[str] = Field(default_factory=list)  # evoked spells: sacrificed as they enter (702.74)
