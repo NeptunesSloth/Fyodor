@@ -491,11 +491,11 @@ def test_effect_wordings():
     assert P.parse_clause("exile the top card of your library") is None  # (the library grammar's: app/rules/language.py)
     granted = P.parse_clause("until the end of your next turn, you may play those cards")
     assert granted is not None and granted[0][0]["until"] == "end_of_next_turn" and granted[0][0]["play"]
-    assert granted[0][0]["who"] == "them"  # a pronoun: bound by scripts.resolve_it to what was exiled
+    assert granted[0][0]["who"] == "them:card"  # a pronoun: bound by scripts.resolve_it to what was exiled
     cast_only = P.parse_clause("until end of turn, you may cast that card")
     assert cast_only is not None and cast_only[0][0]["play"] is False and cast_only[0][0]["cast"]
     assert P.parse_clause("you may play that card this turn")[0][0] == {
-        "do": "grant_play", "who": "it", "play": True, "cast": True, "until": "end_of_turn", "optional": True}
+        "do": "grant_play", "who": "it:card", "play": True, "cast": True, "until": "end_of_turn", "optional": True}
     assert P.parse_clause("until end of turn, you may play that card this turn") is None
     assert P.parse_clause("you may play that card until your next end step") is None
     # a bare "you may cast that card": cast it as this resolves, ignoring timing — not a permission
@@ -524,6 +524,13 @@ def test_that_card_binds_to_what_the_ability_moved_or_stays_manual():
     assert scripts.parse_effects("You may play that card this turn.") is None
     assert scripts.parse_effects("Tap target creature. You may play it this turn.") is None  # (not moved anywhere)
     assert scripts.parse_effects("Exile the top card of your library. You may cast that card.") is None  # (no duration)
+    # Ragavan, Nimble Pilferer: a token the same sentence created is not "that card" (111.1), so
+    # the exiled card is the only candidate
+    ragavan = scripts.parse_effects("Create a Treasure token and exile the top card of that player's library. "
+                                    "Until end of turn, you may cast that card.")
+    assert ragavan is not None and [e["do"] for e in ragavan[0]] == ["create_token", "exile_top", "grant_play"]
+    assert ragavan[0][1]["as"] == "e1" and ragavan[0][2]["who"] == "ref:e1"
+    assert scripts.parse_effects("Create a Treasure token. You may play that card this turn.") is None
     trigger = "When this creature enters, draw a card. You may play it this turn."
     ch = Characteristics(name="X", types=frozenset({"Creature"}), oracle_text=trigger, abilities=tuple(parse_abilities(trigger)))
     assert scripts.definitions(ch) == {}

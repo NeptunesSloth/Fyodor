@@ -184,7 +184,8 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             return None  # (a bare "you may cast that card": cast it as this resolves, not modelled)
         until = "end_of_next_turn" if m["until"] == "until the end of your next turn" else "end_of_turn"
         # "who": a pronoun for scripts.resolve_it — the object(s) the preceding instruction moved
-        return [{"do": "grant_play", "who": "them" if m["what"] == "those cards" else "it", "play": m["verb"] == "play",
+        # ("that card": a card — never a token the same sentence created, 111.1: scripts.resolve_it)
+        return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play",
                  "cast": True, "until": until, "optional": True}], None
     m = GRANT_ZONE.fullmatch(text)
     if m:

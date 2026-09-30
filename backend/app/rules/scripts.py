@@ -269,6 +269,7 @@ _RECORDING: dict[str, str | None] = {
 # another zone by then, 400.7j, or gone, 608.2h). After a plain target, "it" stays the target.
 _MOVERS = {"destroy", "destroy_all", "exile", "exile_until", "bounce", "return_card", "blink", "sacrifice",
            "sacrifice_choice", "discard", "mill", "search", "pick_looked", "create_token"}
+_TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are tokens, not cards: 111.1)
 _CHOSEN = {"sacrifice_choice": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n"}
 _STAT_KEYS = ("power", "toughness", "mana_value")
 
@@ -389,6 +390,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         def ok(i: _Introducer) -> bool:
             if not i.objects:
                 return False
+            if verb == "card":  # "that card": a card, so not a token an instruction created (111.1)
+                return i.do not in _TOKEN_MAKERS and (i.number is None or number is None or i.number == number)
             if verb is not None:
                 return i.verb == verb
             return i.number is None or number is None or i.number == number
