@@ -23,6 +23,7 @@ from app.game.rules_state import DecisionOption, ObjectRef, StackEntry
 from app.game.state import zone_key
 from app.rules import (
     context,
+    delayed,
     layers,
     optional_payment,
     permissions,
@@ -606,7 +607,7 @@ def unearth(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     layers.add_effect(plan, affected=[oid], layer="6", source=None, controller=ctx["controller"], add_keywords=("haste",),
                       duration="permanent", label="Haste (unearth)")
     plan.rules.exile_if_leaves.append(oid)
-    plan.rules.delayed.append({"card": cid, "object": oid, "to": "exile", "name": card.name})
+    delayed.create_move(plan, ctx["controller"], cid, oid, "exile", card.name)  # (a delayed trigger, 603.7)
     return True
 
 
@@ -1724,6 +1725,13 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library"}
     parts = [words.get(e["do"], e["do"]).format(**{k: v for k, v in e.items()}) for e in effects if e["do"] != "kicked_gate"]
     return (", ".join(parts) or "do it").capitalize()
+
+
+# -- delayed triggered abilities (603.7) and durations (611.2): app/rules/delayed.py (agent J) ------
+# "delayed": capture the next n effects as a delayed triggered ability with the objects they name
+# bound now; "until": run the next n effects and give their continuous effects a stated duration;
+# "bind_refs": a delayed trigger's own resolution context, restored as it resolves.
+PRIMITIVES.update({"delayed": delayed.create, "until": delayed.apply_duration, "bind_refs": delayed.bind_refs})
 
 
 # -- player choices (agent I) ----------------------------------------------------------------------

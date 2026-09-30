@@ -70,7 +70,7 @@ def test_import_file(tmp_path: Path):
     src = tmp_path / "bulk.jsonl.gz"
     write_jsonl_gz(fixture_cards(), src)
     result = import_file(src, tmp_path / "out.sqlite", meta={"bulk_type": "x"})
-    assert result.oracle_cards == 143
+    assert result.oracle_cards == 145
 
 
 def test_default_printing_prefers_regular_sets(cards: CardRepository):

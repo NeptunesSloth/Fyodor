@@ -39,6 +39,14 @@ SUPPORTED: set[str] = {
     "templates",
 }
 
+# Activation restrictions and trigger limits (app/rules/restrictions.py, test_rules_restrictions.py)
+# are part of "templates": an activated ability whose trailing "Activate only …" sentence the engine
+# reads (as a sorcery / instant, once or N times each turn, once, during your turn / upkeep /
+# combat / a step, before attackers are declared, if a condition app/rules/conditions.py reads) is
+# automated with it enforced; any other restriction wording leaves the ability manual. Refused on
+# purpose (never guessed): "Do this only once each turn." (603.2h: the action itself has to be
+# recorded as it's taken), "Activate only if …" conditions the engine can't evaluate (card types
+# among graveyard cards, total power, "a creature died this turn", "this creature is attacking").
 # Keyword abilities the engine implements (each needs tests before it is listed here).
 SUPPORTED_KEYWORDS: set[str] = {
     # combat (M15c): legality and damage, each covered by test_rules_combat.py

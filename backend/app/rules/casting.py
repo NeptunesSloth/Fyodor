@@ -24,7 +24,7 @@ from app.game.rules_state import (
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import attachments, cost_payment, permissions, scripts
+from app.rules import attachments, cost_payment, permissions, restrictions, scripts
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
@@ -1789,9 +1789,9 @@ def ability_cost(ch: Characteristics, ability: AbilityText) -> AbilityCost:
 
 def ability_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, ability: AbilityText,
                     cost: AbilityCost, *, check_priority: bool = True, x: int = 0,
-                    info: CardInfo | None = None) -> str | None:
+                    info: CardInfo | None = None, plan: Plan | None = None) -> str | None:
     """Why ``player`` can't activate this ability now (None if they can, costs included when
-    ``info`` is given)."""
+    ``info`` is given; "Activate only if …" conditions need ``plan`` or ``info``)."""
     r = state.rules
     if r is None:
         return "Rules automation is off"
@@ -1806,17 +1806,21 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         return f"{ch.name}’s activated abilities can't be activated"
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
-    sorcery = ability.kind == "loyalty" or "Activate only as a sorcery" in ability.text
-    if sorcery and (state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK)):
-        return "That can only be activated in your main phase while the stack is empty"
-    if ability.kind == "loyalty":
+    if ability.kind == "loyalty":  # 606.3: as a sorcery, once per permanent each turn
+        if state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
+            return "That can only be activated in your main phase while the stack is empty"
         if r.loyalty_used.get(r.object_id(card.id)) == state.turn.number:
             return f"{ch.name} has already used a loyalty ability this turn"
         if cost.loyalty is not None and cost.loyalty < 0 and card.counters.get("loyalty", 0) < -cost.loyalty:
             return f"{ch.name} doesn't have enough loyalty"
-    once_key = f"{r.object_id(card.id)}:{ability.index}"  # per object: a flickered permanent is a new one
-    if "Activate only once each turn" in ability.text and r.once_per_turn.get(once_key) == state.turn.number:
-        return "That can only be activated once each turn"
+    # -- activation restrictions (602.5; app/rules/restrictions.py): "Activate only as a sorcery",
+    # "… only once each turn" (per object, 602.5b / 400.7), "… only during your turn", "… only if …"
+    limits = restrictions.parse(ability.text) or []  # (a wording it doesn't read: the ability is manual anyway)
+    if limits:
+        view = plan or (Plan.view(state, player, info) if info is not None else None)
+        why = restrictions.problem(state, player, card, ability.index, limits, view, ch.name)
+        if why:
+            return why
     if cost.tap and not can_use_tap_abilities(state, card, ch):
         return f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness"
     for kind, n in cost.remove_counters:
@@ -1855,7 +1859,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     from app.rules.engine import advance  # the engine imports this module
 
     cost = ability_cost(ch, ability)
-    problem = ability_problem(plan.state, plan.actor, card, ch, ability, cost)
+    problem = ability_problem(plan.state, plan.actor, card, ch, ability, cost, plan=plan)
     if problem:
         raise ActionError(problem)
     oid = plan.oid(card)  # the object activating (paying a cost may move it: it'd be a new object)
@@ -1921,8 +1925,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         targeted(plan, ability_id, plan.actor, chosen)
     if ability.kind == "loyalty":
         r.loyalty_used[oid] = plan.state.turn.number
-    if "Activate only once each turn" in ability.text:
-        r.once_per_turn[f"{oid}:{ability.index}"] = plan.state.turn.number
+    if restrictions.limited(restrictions.parse(ability.text) or []):  # "Activate only once each turn" / "… only once"
+        restrictions.record_use(r, oid, ability.index, plan.state.turn.number)
     r.passed = []
     r.priority = plan.actor
     if r.prefs_for(plan.actor).hold_priority:
