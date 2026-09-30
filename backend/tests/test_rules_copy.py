@@ -124,6 +124,12 @@ EXTRA = [
           "{2}, {T}: Copy target activated or triggered ability you control. You may choose new targets for the copy.\n"
           "{3}, {T}: Copy target instant or sorcery spell you control. You may choose new targets for the copy.\n"
           "{4}, {T}: Copy target permanent spell you control. (The copy becomes a token.)", []),
+    # Diregraf Ghoul
+    _card("Diregraf Ghoul", "C27", "{B}", "Creature — Zombie", "This creature enters tapped.", ["B"], power="2", toughness="2"),
+    # Quirion Elves
+    _card("Quirion Elves", "C28", "{1}{G}", "Creature — Elf Druid",
+          "As this creature enters, choose a color.\n{T}: Add {G}.\n{T}: Add one mana of the chosen color.", ["G"],
+          power="1", toughness="1"),
     # Spark Double (its exception is an additional effect, 707.9e: refused)
     _card("Spark Double", "C26", "{3}{U}", "Creature — Illusion",
           "You may have this creature enter as a copy of a creature or planeswalker you control, except it enters with an "
@@ -609,6 +615,38 @@ def test_clone_may_copy_nothing_and_a_dying_clone_has_the_copied_dies_ability(ca
             break
     assert s.state.cards[clone.id].zone == "p1:graveyard"
     assert len(zone(s.state, "p1", "hand")) == hand + 1
+    replay_matches(s)
+
+
+def test_clone_uses_the_copied_entry_replacements_and_makes_its_own_choices(cards):
+    """707.5: the copied "This creature enters tapped" applies as the Clone enters; 707.6: the
+    copied "As this creature enters, choose a color" is the Clone controller's own choice."""
+    s = build(cards, "Clone", "Diregraf Ghoul", "Quirion Elves")
+    ghoul = on_battlefield(s, "Diregraf Ghoul")
+    first = cast_clone(s, pick=ghoul.id)
+    pass_until_stack_empty(s)
+    assert ch(s, s.state.cards[first.id]).name == "Diregraf Ghoul" and s.state.cards[first.id].tapped
+    elves = to_hand(s, "Quirion Elves")
+    pay(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=elves.id)
+    for _ in range(4):
+        if decision(s) is not None:
+            break
+        pass_once(s)
+    choose(s, "Blue")
+    pass_until_stack_empty(s)
+    act(s, "p1", type="move", card_ids=[first.id], to={"zone": "hand"})
+    second = cast_clone(s, name="Clone", pick=elves.id)
+    for _ in range(4):
+        d = decision(s)
+        if d is not None and "choose a color" in d.prompt:
+            break
+        pass_once(s)
+    choose(s, "Red")
+    pass_until_stack_empty(s)
+    assert s.state.cards[elves.id].choices == {"Chosen color": "Blue"}
+    assert s.state.cards[second.id].choices == {"Chosen color": "Red"}
+    assert not s.state.cards[second.id].tapped
     replay_matches(s)
 
 

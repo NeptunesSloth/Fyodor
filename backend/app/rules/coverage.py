@@ -132,7 +132,10 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\btarget \w+(?: \w+)* that player controls\b", re.I),
      "a selector relative to a player named earlier (\"target creature that player controls\"): not modelled"),
     (re.compile(r"\bup to x target\b", re.I), "a variable number of targets announced as X (601.2c): not modelled"),
-    (re.compile(r"\bcopy target .*abilit", re.I), "copying an ability on the stack (707.10): not modelled"),
+    # -- copy system (wave 2F): copying a target spell or ability is read (app/rules/copying.py); copying
+    # the spell a cast trigger was about is not yet
+    (re.compile(r"\bcopy (?:it|that spell|that ability|that spell or ability)\b", re.I),
+     "copying the spell or ability a trigger was about (\"copy it\", 707.10): the cast trigger doesn't bind that spell yet"),
     (re.compile(r"\bshuffles? up to \w+ target cards? from their graveyard\b", re.I),
      "cards from a target player's graveyard (a zone bound to an earlier target): not modelled"),
     (re.compile(r"\btarget creature with the greatest\b", re.I), "\"the greatest … among\" (a computed extreme): not modelled"),

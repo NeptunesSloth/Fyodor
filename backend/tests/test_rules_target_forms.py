@@ -116,7 +116,6 @@ def test_target_forms_are_parsed(text, effects_, target):
     "Counter target activated or triggered ability from an artifact or enchantment source.",
     "Exile target player's graveyard.",  # (a target player's zone as the objects: not modelled)
     "Exile it until ~ leaves the battlefield.",
-    "Copy target activated or triggered ability you control.",
     "Tap up to two target creatures and put a stun counter on each of them.",  # (stun: values.UNMODELED_COUNTERS)
     "Target player shuffles up to four target cards from their graveyard into their library.",
     "Tap up to X target creatures.",
@@ -135,7 +134,9 @@ def test_refusals_are_registered():
         ("Exile target player's graveyard.", "zone"),
         ("Destroy target creature that player controls.", "named earlier"),
         ("Destroy up to X target artifacts.", "variable number"),
-        ("Copy target activated or triggered ability you control.", "copying"),
+        # (copy system, wave 2F: "Copy target activated or triggered ability you control." is read now —
+        # tests/test_rules_copy.py; copying the spell a trigger was about is still refused)
+        ("Whenever you cast an instant or sorcery spell, copy it.", "copying"),
         ("Target player shuffles up to four target cards from their graveyard into their library.", "earlier target"),
         ("Switch target creature's power and toughness until end of turn.", "P/T"),
     ]:

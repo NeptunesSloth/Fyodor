@@ -618,6 +618,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
     if ch.is_permanent_card and not plan.manual(top) and not needs_manual_resolution(ch) \
             and replacements.stack_entry_choice(plan, top, controller):
         return  # "As ~ enters, choose a color": chosen before it enters (614.12a); resolved again with the answer
+    ch = plan.ch(top)  # -- copy system (wave 2F): as it will enter — entering as a copy, the copied text (707.5, 614.12)
     aura_target = plan.rules.aura_targets.pop(top_id, None)
     # An instant, sorcery or ability the engine didn't put on the stack (moved there by hand) has
     # no recorded targets or choices: its controller resolves it by hand. So has an Aura without one.
