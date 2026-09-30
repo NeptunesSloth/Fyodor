@@ -77,6 +77,16 @@ EXTRA = [
     card("Monument to Endurance", set_code="tst", number="M12", mana_cost="{3}", cmc=3.0, type_line="Artifact",
          oracle_text="Whenever you discard a card, choose one that hasn't been chosen this turn —\n• Draw a card.\n"
                      "• Create a Treasure token.\n• Each opponent loses 3 life."),
+    card("Black Market Connections", set_code="tst", number="M13", mana_cost="{2}{B}", cmc=3.0, type_line="Enchantment",
+         oracle_text="At the beginning of your first main phase, choose one or more —\n• Sell Contraband — Create a Treasure "
+                     "token. You lose 1 life.\n• Buy Information — Draw a card. You lose 2 life.\n• Hire a Mercenary — Create a "
+                     "3/2 colorless Shapeshifter creature token with changeling. You lose 3 life. (It is every creature type.)",
+         colors=["B"], color_identity=["B"]),
+    card("Skinshifter", set_code="tst", number="M14", mana_cost="{1}{G}", cmc=2.0, type_line="Creature — Human Shaman",
+         oracle_text="{G}: Choose one. Activate only once each turn.\n• Until end of turn, this creature becomes a Rhino with "
+                     "base power and toughness 4/4 and gains trample.\n• Until end of turn, this creature becomes a Bird with "
+                     "base power and toughness 2/2 and gains flying.\n• Until end of turn, this creature becomes a Plant with "
+                     "base power and toughness 0/8.", power="1", toughness="1", colors=["G"], color_identity=["G"]),
     card("Phoenix Down", set_code="tst", number="M11", mana_cost="{W}", cmc=1.0, type_line="Artifact",
          oracle_text="{1}{W}, {T}, Exile this artifact: Choose one —\n• Return target creature card with mana value 4 or less "
                      "from your graveyard to the battlefield tapped.\n• Exile target Skeleton, Spirit, or Zombie.",
@@ -348,8 +358,9 @@ def test_fewer_legal_modes_than_the_instruction_needs_removes_the_ability(cards)
 # -- a target for each chosen mode, carried out in printed order (700.2c, 700.2d, 601.2c, 608.2c) --------------------
 def test_each_chosen_mode_has_its_own_target_and_modes_run_in_printed_order(cards):
     """Flash Thompson: choose one or both — Heckle (tap target creature) / Hero Worship (untap target creature).
-    Both modes may target the same creature (601.2c: another "target"); they are carried out as printed, so
-    chosen in either order the creature ends up untapped (tap, then untap)."""
+    Both modes may target the same creature (601.2c: another "target"); they are carried out as printed (608.2c;
+    ruling 2025-09-19: "if you choose the same target for both modes, it will be tapped before it is untapped"),
+    so chosen in either order the creature ends up untapped."""
     s = build(cards, "Flash Thompson, Spider-Fan")
     respond_on(s)
     bear = token(s, "p1", "Bear", "2/2")
@@ -647,6 +658,322 @@ def test_two_players_modal_triggers_are_announced_in_apnap_order(cards):
     replay_matches(s)
 
 
+# -- resolution: each mode's target is checked on its own (608.2b); restrictions on the ability ------------------
+def test_one_modes_target_becomes_illegal_the_other_mode_still_happens(cards):
+    """Flash Thompson with both modes: if one target is gone as the ability resolves, the other mode still
+    happens; if both are, the ability does nothing (608.2b)."""
+    s = build(cards, "Flash Thompson, Spider-Fan")
+    respond_on(s)
+    ogre = token(s, "p2", "Ogre", "5/5")
+    bear = token(s, "p1", "Bear", "2/2")
+    act(s, "p1", type="tap", card_ids=[bear.id], tapped=True)
+    cast(s, "Flash Thompson, Spider-Fan", W=1, C=1)
+    pass_until_stack_empty(s)
+    choose(s, "0:0", "1:0")
+    choose(s, ogre.id)  # Heckle: tap the Ogre
+    choose(s, bear.id)  # Hero Worship: untap the Bear
+    act(s, "p1", type="pass_priority")  # (Bob may respond)
+    act(s, "p2", type="move", card_ids=[ogre.id], to={"zone": "graveyard"})  # the Ogre is gone
+    pass_until_stack_empty(s)
+    assert not s.state.cards[bear.id].tapped  # (Hero Worship still untapped the Bear)
+    replay_matches(s)
+
+
+def test_the_only_target_becoming_illegal_removes_the_whole_ability(cards):
+    """Craftwork Crusher, ruling 2026-08-21: "If the first mode is chosen and the target … becomes an illegal target
+    before the ability resolves, then the ability will be removed from the stack and none of its other effects
+    will happen." (608.2b: every target is illegal, so the ability doesn't resolve; the Cadet isn't created.)"""
+    s = build(cards, "Craftwork Crusher")
+    respond_on(s)
+    ogre = token(s, "p2", "Ogre", "5/5")
+    cast(s, "Craftwork Crusher", R=2, G=2, C=3)
+    pass_until_stack_empty(s)
+    choose(s, "0:0", "1:0")  # 4 damage to target creature or planeswalker; a Cadet
+    choose(s, ogre.id)
+    act(s, "p1", type="pass_priority")
+    act(s, "p2", type="move", card_ids=[ogre.id], to={"zone": "graveyard"})
+    pass_until_stack_empty(s)
+    assert not [c for c in s.state.cards.values() if c.name == "Cadet"]
+    assert "does nothing: its targets are no longer legal" in log_text(s)
+    replay_matches(s)
+
+
+def test_a_modal_abilitys_own_restriction_still_applies(cards):
+    """Skinshifter: {G}: Choose one. Activate only once each turn. (602.5b: the limit is per object.)"""
+    s = build(cards, "Skinshifter")
+    respond_on(s)
+    shifter = battlefield(s, "Skinshifter")
+    mana(s, G=2)
+    act(s, "p1", type="activate_ability", card_id=shifter.id, ability=0)
+    assert offered(s) == ["0:0", "1:0", "2:0"]
+    choose(s, "1:0")  # a Bird with base power and toughness 2/2 and flying
+    pass_until_stack_empty(s)
+    from tests.test_rules_attachments import ch as characteristics_of
+
+    now = characteristics_of(s, shifter)
+    assert now.pt == (2, 2) and "flying" in now.keywords and "Bird" in now.subtypes
+    with pytest.raises(ActionError, match="once each turn"):
+        act(s, "p1", type="activate_ability", card_id=shifter.id, ability=0)
+    assert s.state.players["p1"].mana == {"G": 1}  # (the second activation didn't cost anything)
+    replay_matches(s)
+
+
+# -- undo, redo, the other automation levels, combat triggers, costs with choices -----------------------------------
+def test_undo_and_redo_take_back_a_mode_choice_and_its_memory(cards):
+    s = build(cards, "Three Bowls of Porridge")
+    respond_on(s)
+    bowls = battlefield(s, "Three Bowls of Porridge")
+    ogre = token(s, "p2", "Ogre", "5/5")
+    activate_bowls(s, bowls)
+    choose(s, "1:0")
+    choose(s, ogre.id)
+    assert list(rules(s).modes_chosen.values()) == [[1]] and len(rules(s).stack) == 1
+    s.undo("p1")  # takes back the last choice (the target): the modes are chosen, the target isn't
+    assert step(s) == "cast_slot_target" and rules(s).modes_chosen == {} and rules(s).stack == {}
+    assert not s.state.cards[bowls.id].tapped and s.state.players["p1"].mana == {"C": 2}  # (nothing paid)
+    s.undo("p1")  # … and the modes
+    assert step(s) == "cast_modes"
+    s.redo("p1")
+    s.redo("p1")
+    assert list(rules(s).modes_chosen.values()) == [[1]] and s.state.cards[bowls.id].tapped
+    pass_until_stack_empty(s)
+    assert s.state.cards[ogre.id].tapped
+    replay_matches(s)
+
+
+def assisted(cards, *names):
+    from app.game.factory import PlayerSetup, new_game
+    from tests.game_helpers import deck, enable
+
+    alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in names), (9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False),
+                           "assisted"), cards=cards)
+    act(s, "p1", type="pass_priority")
+    return s
+
+
+def test_in_assisted_mode_the_table_confirms_then_the_modes_are_chosen(cards):
+    """ASSISTED doesn't stack triggers by itself: the table confirms first (app/rules/triggers.flush); the
+    modes are announced once the ability is put on the stack."""
+    s = assisted(cards, "Knight of Autumn")
+    respond_on(s)
+    cast(s, "Knight of Autumn", G=1, W=1, C=1)
+    assert step(s) == "payment"
+    choose(s, "pay")
+    pass_until_stack_empty(s)
+    assert step(s) == "trigger_confirm"
+    choose(s, "yes")
+    assert step(s) == "trigger_modes" and offered(s) == ["0:0", "2:0"]
+    choose(s, "0:0")
+    pass_until_stack_empty(s)
+    assert s.state.cards[named(s, "Knight of Autumn").id].counters == {"+1/+1": 2}
+    replay_matches(s)
+
+
+def test_a_payment_decision_after_the_modes_keeps_them(cards):
+    """The modes and targets announced first (601.2b-c) are part of the intent a payment decision resumes."""
+    s = assisted(cards, "Cankerbloom", "Sol Ring")
+    respond_on(s)
+    bloom = battlefield(s, "Cankerbloom")
+    ring = battlefield(s, "Sol Ring")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=bloom.id, ability=0)
+    choose(s, "0:0")
+    choose(s, ring.id)
+    assert step(s) == "payment" and s.state.cards[bloom.id].zone == "p1:battlefield"  # (nothing paid yet)
+    choose(s, "pay")
+    assert s.state.cards[bloom.id].zone == "p1:graveyard" and stack_modes(s) == [["Destroy target artifact."]]
+    pass_until_stack_empty(s)
+    assert s.state.cards[ring.id].zone == "p1:graveyard"
+    replay_matches(s)
+
+
+def test_a_modal_attack_trigger(cards):
+    """Elder Gargaroth: Whenever this creature attacks or blocks, choose one — Beast / 3 life / draw."""
+    from tests.test_rules_combat import attack, automate, creature, table
+
+    s = table(cards)
+    garg = creature(s, "p1", "Elder Gargaroth", "6/6", text="Reach, vigilance, trample\nWhenever this creature attacks or blocks, "
+                    "choose one —\n• Create a 3/3 green Beast creature token.\n• You gain 3 life.\n• Draw a card.")
+    automate(s)
+    respond_on(s)
+    attack(s, (garg, "p2"))
+    assert step(s) == "trigger_modes" and offered(s) == ["0:0", "1:0", "2:0"]
+    choose(s, "1:0")
+    assert stack_modes(s)[0] == ["You gain 3 life."]
+    advance(s, lambda s: s.state.turn.phase == "main2")  # (the ability resolves, then combat damage)
+    assert s.state.players["p1"].life == 43 and s.state.players["p2"].life == 34
+    replay_matches(s)
+
+
+RANKLE = ("Flying, haste\nWhenever this creature deals combat damage to a player, choose any number —\n"
+          "• Each player discards a card.\n• Each player loses 1 life and draws a card.\n"
+          "• Each player sacrifices a creature of their choice.")
+
+
+def test_choose_any_number_may_choose_none_and_runs_the_chosen_modes(cards):
+    """Rankle, Master of Pranks (ruling 2019-10-04: you may choose zero modes; a mode can't be chosen more than
+    once; each chosen mode is performed in full, in the order printed). Choosing zero removes the ability."""
+    from tests.test_rules_combat import attack, automate, creature, table
+
+    for picked in ((), ("1:0",)):
+        s = table(cards)
+        rankle = creature(s, "p1", "Rankle", "3/3", text=RANKLE)
+        automate(s)
+        respond_on(s)
+        attack(s, (rankle, "p2"))
+        advance(s, lambda s: rules(s).decision is not None and rules(s).decision.kind == "choose_cards")
+        d = rules(s).decision
+        assert step(s) == "trigger_modes" and (d.min_choices, d.max_choices) == (0, 3) and d.prompt == "Rankle: choose up to three modes"
+        choose(s, *picked)
+        if picked:
+            advance(s, lambda s: s.state.turn.phase == "main2")
+            assert s.state.players["p1"].life == 39 and s.state.players["p2"].life == 40 - 3 - 1  # (combat damage, then 1 each)
+        else:
+            assert rules(s).decision is None and "has no mode chosen and is removed" in log_text(s)
+        replay_matches(s)
+
+
+BREYA = ("{2}, Sacrifice two artifacts: Choose one —\n• Breya deals 3 damage to target player or planeswalker.\n"
+         "• Target creature gets -4/-4 until end of turn.\n• You gain 5 life.")
+
+
+def test_costs_with_choices_come_after_the_modes_and_targets(cards):
+    """Breya, Etherium Shaper: the artifacts to sacrifice are chosen (602.2b → 601.2h) after the modes and the
+    target, and nothing is sacrificed until everything is chosen."""
+    s = build(cards, "Sol Ring")
+    respond_on(s)
+    breya = token(s, "p1", "Breya", "4/4", text=BREYA)
+    rings = [battlefield(s, "Sol Ring")]
+    act(s, "p1", type="create_token", player="p1", token={"name": "Gadget", "type_line": "Token Artifact — Test", "text": ""})
+    act(s, "p1", type="create_token", player="p1", token={"name": "Gizmo", "type_line": "Token Artifact — Test", "text": ""})
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=breya.id, ability=0)
+    assert step(s) == "cast_modes" and offered(s) == ["0:0", "1:0", "2:0"]
+    choose(s, "2:0")  # You gain 5 life.
+    d = rules(s).decision
+    assert d is not None and d.resume["step"] == "ability_cost"  # (which two artifacts: only now)
+    assert all(s.state.cards[c.id].zone == "p1:battlefield" for c in rings) and s.state.players["p1"].mana == {"C": 2}
+    choose(s, *[o.id for o in d.options][:2])
+    assert s.state.players["p1"].mana == {}
+    life = s.state.players["p1"].life
+    pass_until_stack_empty(s)
+    assert s.state.players["p1"].life == life + 5
+    replay_matches(s)
+
+
+# -- step triggers: "choose one or more", and a mode that returns the object itself -------------------------------
+def advance(s, done, limit=80):
+    """Pass priority (declaring no attackers or blockers) until ``done(s)``; stops at any other decision."""
+    for _ in range(limit):
+        if done(s):
+            return
+        d = rules(s).decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            return
+        else:
+            act(s, rules(s).priority, type="pass_priority")
+    raise AssertionError("never got there")
+
+
+def test_choose_one_or_more_at_the_beginning_of_the_first_main_phase(cards):
+    """Black Market Connections: choose one or more — Sell Contraband / Buy Information / Hire a Mercenary, each
+    with its own life loss; the modes are carried out in printed order."""
+    s = build(cards, "Black Market Connections")
+    respond_on(s)
+    battlefield(s, "Black Market Connections")
+    advance(s, lambda s: s.state.turn.number == 3 and rules(s).decision is not None)  # (Alice's next turn, main phase 1)
+    d = rules(s).decision
+    assert step(s) == "trigger_modes" and (d.min_choices, d.max_choices) == (1, 3) and s.state.turn.active_player == "p1"
+    assert d.prompt == "Black Market Connections: choose one to three modes"
+    assert offered(s) == ["0:0", "1:0", "2:0"]
+    life, hand = s.state.players["p1"].life, len(zone(s.state, "p1", "hand"))
+    choose(s, "1:0", "0:0")  # Buy Information and Sell Contraband (in either order)
+    assert stack_modes(s)[0] == ["Sell Contraband — Create a Treasure token. You lose 1 life.",
+                                 "Buy Information — Draw a card. You lose 2 life."]
+    pass_until_stack_empty(s)
+    assert s.state.players["p1"].life == life - 3 and named(s, "Treasure").zone == "p1:battlefield"
+    assert len(zone(s.state, "p1", "hand")) == hand + 1
+    replay_matches(s)
+
+
+def test_choosing_none_of_a_one_or_more_ability_isnt_allowed(cards):
+    s = build(cards, "Black Market Connections")
+    respond_on(s)
+    battlefield(s, "Black Market Connections")
+    advance(s, lambda s: s.state.turn.number == 3 and rules(s).decision is not None)
+    with pytest.raises(ActionError, match="Choose 1"):
+        choose(s)
+    assert step(s) == "trigger_modes"
+
+
+def test_a_mode_that_returns_the_object_makes_it_a_new_one_with_no_memory(cards):
+    """Kimoyo Beads (At the beginning of your end step, choose one that hasn't been chosen —): its third mode
+    exiles it and returns it, a new object (400.7) — so next turn all three modes are offered again."""
+    s = build(cards, "Kimoyo Beads")
+    respond_on(s)
+    beads = battlefield(s, "Kimoyo Beads")
+    advance(s, lambda s: rules(s).decision is not None)  # (Alice's end step this turn)
+    assert step(s) == "trigger_modes" and offered(s) == ["0:0", "1:0", "2:0"] and s.state.turn.phase == "end"
+    first = rules(s).object_id(beads.id)
+    choose(s, "2:0")  # Prime Bead
+    assert list(rules(s).modes_chosen.items()) == [(f"{first}:0:game", [2])]
+    pass_until_stack_empty(s)
+    assert rules(s).object_id(beads.id) != first and s.state.cards[beads.id].zone == "p1:battlefield"
+    s = reloaded(s)
+    advance(s, lambda s: rules(s).decision is not None and s.state.turn.number == 3)
+    assert step(s) == "trigger_modes" and offered(s) == ["0:0", "1:0", "2:0"]  # (a new object: nothing chosen yet)
+    choose(s, "0:0")
+    second = rules(s).object_id(beads.id)
+    assert rules(s).modes_chosen[f"{second}:0:game"] == [0]
+    pass_until_stack_empty(s)
+    replay_matches(s)
+
+
+# -- hidden information ------------------------------------------------------------------------------------------
+def test_a_hidden_source_is_not_named_in_prompts_or_shown_in_the_stack_text(cards):
+    """The chosen modes are public (601.2b, 603.3c) — as text of the ability — but a card in a hidden zone isn't
+    named or quoted: its prompts say "A triggered ability" and the stack annotation says "Mode N"."""
+    from app.game.rules_state import PendingTrigger
+    from app.rules import modal_abilities
+    from app.rules.plan import Plan
+
+    s = build(cards, "Knight of Autumn")
+    knight = to_hand(s, "Knight of Autumn")  # (in Alice's hand: nobody else can see it)
+    plan = Plan(s.state, "p1", s.cards, None)
+    definition = scripts.definitions(plan.ch(plan.state.cards[knight.id]))[0]
+    assert modal_abilities._public_texts(plan, knight.id, definition, [0, 2]) == ["Mode 1", "Mode 3"]
+    t = PendingTrigger(id="t1", controller="p1", source_card=knight.id, source_object=plan.oid(knight),
+                       name="Knight of Autumn", ability=definition)
+    plan.rules.pending_triggers.append(t)
+    assert modal_abilities.put_trigger(plan, t) is False
+    d = plan.rules.decision
+    assert d.prompt == "A triggered ability: choose one mode" and d.source_id is None and "Knight" not in d.prompt
+    # on the battlefield it is public, and so is what it says
+    battlefield(s, "Knight of Autumn")
+    plan = Plan(s.state, "p1", s.cards, None)
+    shown = modal_abilities._public_texts(plan, knight.id, definition, [0, 2])
+    assert shown == ["Put two +1/+1 counters on this creature.", "You gain 4 life."]
+
+
+def test_the_other_players_see_only_who_is_choosing(cards):
+    s = build(cards, "Knight of Autumn")
+    respond_on(s)
+    cast(s, "Knight of Autumn", G=1, W=1, C=1)
+    pass_until_stack_empty(s)
+    shown = json.dumps(s.view("p2")["rules"]["decision"])
+    assert "gain 4 life" not in shown and "Knight" not in shown and "trigger_modes" not in shown
+    assert s.view("p2")["rules"]["decision"]["public"] == {"type": "PLAYER_MAKING_CHOICE", "chooser": "Alice"}
+    assert "gain 4 life" in json.dumps(s.view("p1")["rules"]["decision"])  # (the chooser sees the modes)
+    choose(s, "2:0")  # the modes chosen are announced: everybody sees them on the ability
+    ability_id = s.state.zones["stack"][-1]
+    assert s.view("p2")["cards"][ability_id]["stack_info"]["modes"] == ["You gain 4 life."]
+    assert '": You gain 4 life."' in log_text(s)  # (and in the log, after the ability's name)
+
+
 # -- loyalty abilities (606.2 → 602.2b) -------------------------------------------------------------------------
 WALKER = ("+1: Choose one —\n• You gain 2 life.\n• Draw a card.\n"
           "−2: Choose one —\n• Target creature gets -2/-2 until end of turn.\n• You gain 3 life.")
@@ -812,6 +1139,31 @@ def test_real_cards_are_fully_automated(cards):
                  "Monument to Endurance", "Kimoyo Beads"):
         data = cards.get(cards.resolve(name)["id"])
         assert coverage.of_characteristics(printed_from_data(data)).level == "FULL", name
+
+
+def test_one_players_different_modal_triggers_are_ordered_then_announced_one_by_one(cards):
+    """603.3b: a player with several triggers chooses their order; each is announced as it is put on the stack."""
+    s = build(cards, "Lightning Bolt")
+    respond_on(s)
+    token(s, "p1", "Seer A", "1/1", text="Whenever a player casts a spell, choose one —\n• You gain 2 life.\n• Draw a card.")
+    token(s, "p1", "Seer B", "1/1", text="Whenever a player casts a spell, choose one —\n• You gain 3 life.\n• Scry 1.")
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    assert step(s) == "order_triggers"
+    d = rules(s).decision
+    first = next(o.id for o in d.options if o.label == "Seer B")
+    second = next(o.id for o in d.options if o.label == "Seer A")
+    choose(s, first, second)  # (the first picked goes on the stack first, resolves last)
+    assert step(s) == "trigger_modes" and rules(s).decision.prompt.startswith("Seer B")
+    choose(s, "0:0")
+    assert step(s) == "trigger_modes" and rules(s).decision.prompt.startswith("Seer A")
+    choose(s, "0:0")
+    assert on_stack(s) == ["Lightning Bolt", "Seer B", "Seer A"]
+    life = s.state.players["p1"].life
+    pass_until_stack_empty(s)
+    assert s.state.players["p1"].life == life + 2 + 3
+    replay_matches(s)
 
 
 # -- end of tests --

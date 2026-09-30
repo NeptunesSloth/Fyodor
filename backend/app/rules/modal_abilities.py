@@ -252,9 +252,16 @@ def _pending(plan: Plan, trigger_id: str) -> PendingTrigger | None:
     return next((p for p in plan.rules.pending_triggers if p.id == trigger_id), None)
 
 
+def _name(plan: Plan, t: PendingTrigger) -> str:
+    """How prompts and the log call the source: by name, unless it is a card the table can't see."""
+    card = plan.state.cards.get(t.source_card)
+    return t.name if t.name and (card is None or publicly_visible(plan.state, card)) else "A triggered ability"
+
+
 def _remove(plan: Plan, t: PendingTrigger, why: str) -> None:
     plan.rules.pending_triggers = [p for p in plan.rules.pending_triggers if p.id != t.id]
-    plan.note(f"{t.name}'s ability {why} and is removed")
+    who = _name(plan, t)
+    plan.note(f"{who}'s ability {why} and is removed" if who != "A triggered ability" else f"{who} {why} and is removed")
 
 
 def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = None) -> bool:
@@ -281,7 +288,7 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
             _remove(plan, t, "has no mode that can be chosen")
             return True
         decide(plan, player=t.controller, kind="choose_cards",
-               prompt=f"{t.name or 'Triggered ability'}: choose {_phrase(lo, hi, modal['memory'])}",
+               prompt=f"{_name(plan, t)}: choose {_phrase(lo, hi, modal['memory'])}",
                options=[DecisionOption(id=f"{i}:0", label=modes[i]["text"][:120]) for i in allowed],
                min_choices=lo, max_choices=hi, resume={"step": "trigger_modes", "trigger": t.id}, source=card)
         return False
@@ -299,7 +306,7 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
             _remove(plan, t, "has no legal target")
             return True
         decide(plan, player=t.controller, kind="choose_one",
-               prompt=f"{t.name or 'Triggered ability'}: choose a target ({modes[i]['text'][:60]})",
+               prompt=f"{_name(plan, t)}: choose a target ({modes[i]['text'][:60]})",
                options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None)
                         for x in options],
                resume={"step": "trigger_slot_target", "trigger": t.id, "modes": chosen, "targets": targets}, source=card)
