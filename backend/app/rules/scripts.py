@@ -468,7 +468,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
     return out
 
 
-_TARGET_REFS = ("who", "power", "toughness", "mana_value", "on")
+_TARGET_REFS = ("who", "power", "toughness", "mana_value", "on", "with")  # ("with": the other creature of a fight)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:

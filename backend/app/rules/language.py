@@ -31,6 +31,8 @@ KEYWORDS = "|".join(k for k in selectors.KEYWORDS if k not in ("protection",))
 # Legacy selector keys the rest of the engine already uses (targets.SELECTORS).
 _LEGACY_TARGETS = {
     "any target": "any", "target player": "player", "target opponent": "opponent",
+    # -- target forms (agent T) --  a player, or any planeswalker (whoever controls it)
+    "target player or planeswalker": "player_or_planeswalker", "target opponent or planeswalker": "opponent_or_planeswalker",
 }
 # Player phrases. The pronouns are placeholders resolved by scripts.resolve_it against what the
 # ability named earlier: "that player" → the target player (or the trigger event's player),
@@ -50,8 +52,10 @@ class _Fail(Exception):
 
 MAX_TARGETS = 20  # "any number of target …": at most this many (the intents' limit)
 _QTY = r"one|two|three|four|five|six|seven|eight|nine|ten|\d+"
+# -- target forms (agent T) --  "up to one other target creature", "each of up to two other targets",
+# "any number of other target nonland permanents you control": "other" inside a counted group
 _GROUP = re.compile(rf"^(?:each of )?(?:up to (?P<upto>{_QTY})|(?P<range>one or two|one, two, or three)|"
-                    rf"(?P<any>any number of)|(?P<n>{_QTY})) (?P<rest>targets|target .+)$")
+                    rf"(?P<any>any number of)|(?P<n>{_QTY})) (?P<other>(?:an)?other )?(?P<rest>targets|target .+)$")
 
 
 def _qty(word: str) -> int:
@@ -72,7 +76,7 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     p = phrase.strip()
     if p in _LEGACY_TARGETS:
         return {"what": _LEGACY_TARGETS[p], "min": 1, "max": 1}
-    if p == "another target":  # 115.4 (Arc Trail): any target other than the earlier one
+    if p in ("another target", "any other target"):  # 115.4 (Arc Trail): any target other than the earlier one
         return {"what": "", "min": 1, "max": 1, "another": "any"}
     if p.startswith(("target ", "another target ")):
         what, _ = _group_constraints(_target_key(p))  # (one target: "a single graveyard" is vacuous)
@@ -84,6 +88,12 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     if not m:
         return None
     what, constraints = ("any", {}) if m["rest"] == "targets" else _group_constraints(_target_key(m["rest"]))
+    if m["other"]:  # "up to two other target creatures": other than the source, or than an earlier target
+        if m["rest"] == "targets":
+            what, constraints = "", {"another": "any"}  # ("each of up to two other targets": than the earlier one)
+        else:
+            constraints = {**constraints, "another": what}
+            what = _group_constraints(_target_key("another " + m["rest"]))[0]
     if m["upto"]:
         lo, hi = 0, _qty(m["upto"])
     elif m["range"]:
@@ -227,7 +237,8 @@ def _stat(phrase: str, its: str = "it") -> dict[str, Any]:
 
 
 # "… and target artifact", "… and up to one target creature", "… and another target creature"
-_AND_TARGET = r" and (?=(?:each of )?(?:another |up to \w+ |any number of |one or two |two |three )?targets?\b|any target)"
+_AND_TARGET = (r" and (?=(?:each of )?(?:another |up to \w+ |any number of |one or two |two |three )?(?:(?:an)?other )?targets?\b"
+               r"|any (?:other )?target)")
 
 
 def _objects(o: str) -> tuple[list[str], list[dict[str, Any]]]:
@@ -561,6 +572,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if rider is not None and not text.startswith(("put ", "remove ")):
         raise _Fail
     # -- objects --------------------------------------------------------------------------------
+    found = _target_forms(text)  # -- target forms (agent T) --
+    if found is not None:
+        return found
     m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap) (?P<o>.+)", text)
     if m:
         whos, groups = _objects(m["o"])
@@ -612,8 +626,16 @@ def _parse(text: str) -> tuple[Effects, Any]:
             _divided(m["o"], "counters", _amount(m["n"]))
     m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o>.+)", text)
     if m:
+        if m["k"] in values.UNMODELED_COUNTERS:
+            raise _Fail
+        whos, groups = _objects(m["o"])  # -- target forms (agent T) --  "on up to one target land and up to one target creature"
+        if len(whos) > 1:
+            if len(groups) != len(whos):
+                raise _Fail  # (each part of "… and …" is a target of its own: 115.3)
+            return [{"do": "add_counters", "who": w, "kind": m["k"], "n": _apply(_amount(m["n"]), rider)} for w in whos], \
+                _out(groups)
         kind, key, group = ref(m["o"])
-        if kind == "players" or m["k"] in values.UNMODELED_COUNTERS:
+        if kind == "players":
             raise _Fail
         return [{"do": "add_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             _one(group)
@@ -646,6 +668,67 @@ def _parse(text: str) -> tuple[Effects, Any]:
 
 def _signed(p: str) -> int:
     return -int(p[1:]) if p[0] in "-−" else int(p.lstrip("+"))
+
+
+# -- target forms (agent T) ---------------------------------------------------------------------------
+# Sentences whose whole point is their targets (CR 115, 601.2c): "Choose up to one target creature."
+# (a later sentence acts on it: "That creature can't block this turn"), "[~ / it / target creature
+# you control] fights [another] target creature" (701.14: two words "target", so two groups, and
+# "another" means an object distinct from the first, 115.3), "exile [targets] until ~ leaves the
+# battlefield" (610.3c) for any target phrase the selector grammar reads, and "counter [target spell
+# / activated or triggered ability]" (115.1c-d; a mana ability never uses the stack, 605.3a). A
+# sentence is only read when the engine has the primitive that carries it out: the ones whose
+# primitive another module hasn't added yet are refused (app/rules/coverage.py REFUSED).
+_CHOOSE = re.compile(r"choose (?P<o>(?:each of )?(?:up to \w+ |any number of |one or two |\w+ )?(?:(?:an)?other )?targets?\b.*)")
+_FIGHTS = re.compile(r"(?P<a>.+?) fights (?P<b>.+)")
+_EXILE_UNTIL = re.compile(r"exile (?P<o>.+?) until ~ leaves the battlefield")
+_COUNTER = re.compile(r"counter (?P<o>.+)")
+
+
+def has_primitive(name: str) -> bool:
+    """Does the effects module carry out this primitive? (Never claim a wording the engine can't run.)"""
+    from app.rules import effects  # (effects imports this module's users; a lazy import)
+
+    return name in effects.PRIMITIVES
+
+
+def _target_forms(text: str) -> tuple[Effects, Any] | None:
+    m = _CHOOSE.fullmatch(text)
+    if m:
+        if not has_primitive("choose_targets"):
+            raise _Fail  # (refused until the primitive exists: coverage.REFUSED "choose_targets")
+        whos, groups = _objects(m["o"])
+        if len(whos) != len(groups):
+            raise _Fail  # ("choose a creature": a choice, not a target — the player-choices grammar)
+        return [{"do": "choose_targets", "who": w} for w in whos], _out(groups)
+    m = _FIGHTS.fullmatch(text)
+    if m:
+        if not has_primitive("fight"):
+            raise _Fail  # (refused until the fight primitive exists: coverage.REFUSED "fight")
+        a_kind, a_key, a_group = ref(m["a"])
+        b_kind, b_key, b_group = ref(m["b"])
+        if a_kind not in ("self", "it", "host", "target") or b_kind != "target":
+            raise _Fail  # (a creature fights "each creature …": one at a time, in what order? not read)
+        groups = [g for g in (a_group, b_group) if g is not None]
+        for g in groups:
+            if not g["what"].startswith(selectors.PREFIX) or selectors.from_key(g["what"]).player is not None:
+                raise _Fail  # (only creatures fight, 701.14a: "any target" can't be one)
+        who = "target" if a_group is not None else _who(a_kind, a_key)
+        partner = "target" if a_group is None else "target:1"
+        return [{"do": "fight", "who": who, "with": partner}], _out(groups)
+    m = _EXILE_UNTIL.fullmatch(text)
+    if m:
+        whos, groups = _objects(m["o"])
+        if len(whos) != len(groups):
+            raise _Fail  # ("exile it until …": what an earlier instruction named — not read)
+        return [{"do": "exile_until", "who": w} for w in whos], _out(groups)
+    m = _COUNTER.fullmatch(text)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind != "target" or not key.startswith(selectors.PREFIX) or selectors.from_key(key).zones != ("stack",):
+            raise _Fail  # (only an object on the stack can be countered, 701.6a)
+        return [{"do": "counter", "who": "target"}], _one(group)
+    return None
 
 
 # -- player choices (agent I) ---------------------------------------------------------------------

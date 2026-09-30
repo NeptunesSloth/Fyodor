@@ -86,6 +86,12 @@ class Selector:
     # "enchanted", "equipped", "counter:+1/+1", "all_types", "attacking_you", "single_graveyard"
     # (a group constraint: every target from one graveyard — read by language.target_group)
     extras: tuple[str, ...] = field(default_factory=tuple)
+    # -- target forms (agent T) --
+    # "creature or Vehicle": the types and the subtypes are alternatives (either matches), not both
+    union: bool = False
+    # an activated or triggered ability on the stack (115.1c-d, 115.2b: "target activated or
+    # triggered ability"): "any" | "activated" | "triggered". Mana abilities never use the stack.
+    ability: str | None = None
 
     def key(self) -> str:
         """Canonical and compact: only fields that differ from the defaults."""
@@ -356,6 +362,9 @@ def _prefix(s: Selector, word: str) -> Selector | None:
     return None
 
 
+_ABILITY = re.compile(r"(?P<kind>activated or triggered|activated|triggered) abilit(?:y|ies)")
+
+
 def parse(phrase: str) -> Selector | None:
     """A noun phrase without its determiner ("nonland permanent an opponent controls") → Selector."""
     return _parse(phrase.strip())
@@ -387,6 +396,12 @@ def _parse(phrase: str) -> Selector | None:
     words = text.replace(",", " ,").split()
     if not words:
         return None
+    ability = _ABILITY.fullmatch(text.strip())
+    if ability is not None:  # -- target forms (agent T) --
+        if s.zones != _DEFAULT.zones or s.owner is not None or s.controller not in (None, "you", "opponent"):
+            return None  # ("ability from an artifact source": its source's qualities aren't read)
+        kind = {"activated or triggered": "any", "activated": "activated", "triggered": "triggered"}[ability["kind"]]
+        return replace(s, zones=("stack",), ability=kind)
     # The core: the trailing nouns. Joined by "or" / "," they're alternatives ("artifact or
     # enchantment"); side by side they narrow each other ("artifact creature", "Goblin creature").
     nouns: list[tuple[str, str]] = []
@@ -421,8 +436,9 @@ def _parse(phrase: str) -> Selector | None:
     subtypes = tuple(dict.fromkeys(v for k, v in kinds if k == "sub"))
     if "or" in joins and "and" in joins:
         return None  # "artifact creature or enchantment": not yet
+    union = False
     if "or" in joins and types and subtypes:
-        return None  # "artifact or Goblin": not yet
+        union = True  # "creature or Vehicle": either kind matches (-- target forms (agent T) --)
     if "spell" in markers:
         if "card" in markers or s.zones != _DEFAULT.zones:
             return None  # "spell from your graveyard" (cast from a graveyard): not a selector
@@ -448,7 +464,7 @@ def _parse(phrase: str) -> Selector | None:
         s = replace(s, types=types, extras=(*s.extras, "all_types"))  # "artifact creature"
     else:
         s = replace(s, types=types)
-    s = replace(s, subtypes=subtypes)
+    s = replace(s, subtypes=subtypes, union=union)
     prefix_words = _join_statuses(words[: i + 1])
     for k, w in enumerate(reversed(prefix_words)):
         if w in (",",):
@@ -554,9 +570,14 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.zone_owner == "opponent" and card.owner == you:
         return False
-    if zone == "stack" and card.ability is not None:
+    if zone == "stack" and (card.ability is not None) != (sel.ability is not None):
+        return False  # a spell isn't an ability, and an ability isn't a spell (115.2b)
+    if sel.ability is not None and not _ability_kind(plan, card, sel.ability):
         return False
-    if sel.types:
+    if sel.union:  # "creature or Vehicle": either the type or the subtype (-- target forms (agent T) --)
+        if not (set(sel.types) & ch.types or set(sel.subtypes) & ch.subtypes):
+            return False
+    elif sel.types:
         if "all_types" in sel.extras:
             if not set(sel.types) <= ch.types:
                 return False
@@ -566,7 +587,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if set(sel.not_types) & ch.types:
         return False
-    if sel.subtypes and not set(sel.subtypes) & ch.subtypes:
+    if sel.subtypes and not sel.union and not set(sel.subtypes) & ch.subtypes:
         return False
     if set(sel.not_subtypes) & ch.subtypes:
         return False
@@ -624,6 +645,18 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
     return True
+
+
+def _ability_kind(plan: Plan, card: CardInstance, kind: str) -> bool:
+    """Is this stack object an ability of the wanted kind ("any" / "activated" / "triggered")?
+    Read from the stack entry (its rules metadata), never guessed from the text."""
+    entry = plan.rules.stack.get(card.id) if plan.rules is not None else None
+    actual = entry.kind if entry is not None else (card.ability.kind if card.ability is not None else None)
+    if actual == "trigger":
+        actual = "triggered"
+    if actual not in ("activated", "triggered"):
+        return False
+    return kind == "any" or kind == actual
 
 
 def _stat(ch: Characteristics, what: str) -> int | None:
