@@ -506,7 +506,10 @@ def ask_targets(plan: Plan, job: Job, copy_id: str, picks: list[str]) -> bool:
     while len(picks) < len(pos):
         k = len(picks)
         kind, g, _ = pos[k]
-        taken = {p for p, q in zip(picks, pos, strict=False) if p != "keep" and q[0] == kind and q[1] == g}
+        chosen = [(q, _current(entry, q).id if p == "keep" else p) for p, q in zip(picks, pos, strict=False)]
+        # (115.3: not twice for this word "target", nor the object an earlier "another target" names)
+        others = set(_spec(entry, pos[k]).get("distinct_from") or []) if kind == "group" else set()
+        taken = {x for q, x in chosen if q[0] == kind and (q[1] == g or q[1] in others)}
         options = _options(plan, entry, pos[k], controller, copy_id, taken)
         if len(options) == 1:  # nothing else it could target: it keeps this one
             picks.append("keep")
