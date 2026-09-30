@@ -668,7 +668,9 @@ def create_token_copies(plan: Plan, ctx: Context, controller: str, recipe: CopyR
     )
 
 
-    made = replace_.create_tokens(plan, controller, {**spec, "_copy": recipe.model_dump(mode="json")}, count,
+    # (the copy's types as it's created, for type-restricted token replacements — Ojer Taq; 614.16, 707.2)
+    made = replace_.create_tokens(plan, controller, {**spec, "type_line": probe["type_line"],
+                                                     "_copy": recipe.model_dump(mode="json")}, count,
                                  source=source, tapped=tapped)
     return made or []
 

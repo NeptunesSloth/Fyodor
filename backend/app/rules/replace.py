@@ -1047,7 +1047,8 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
 
         return replacements._applies(plan, c.legacy, ev)
     if c.op["do"] == "shield":
-        return sim.get("shields", {}).get(c.op["key"], 0) > 0
+        # 615.7: a shield prevents only damage to what it protects
+        return c.op["key"] == _shield_key(plan, ev["target"]) and sim.get("shields", {}).get(c.op["key"], 0) > 0
     m = c.match
     if m.get("combat") is not None and bool(m["combat"]) != bool(ev.get("combat")):
         return False
