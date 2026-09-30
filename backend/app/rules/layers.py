@@ -180,8 +180,12 @@ def _table_key(state: GameState) -> tuple:
     field = tuple((cid, c.controller, c.tapped, c.attacking is not None, bool(c.blocking), c.attached_to, c.face_down,
                    tuple(sorted(c.counters.items())))
                   for cid, c in state.cards.items() if c.zone.endswith(":battlefield"))
+    log = r.turn_log if r else None  # (conditions read this turn's history: "a creature died this turn")
+    history = (log.turn, tuple(log.attacked), tuple(sorted(log.gained.items())), tuple(sorted(log.lost.items())),
+               tuple(sorted(log.drew.items())), len(log.left), len(log.left_graveyard),
+               len(log.entered_graveyard)) if log is not None else ()
     return (state.seq, state.turn.number, state.turn.active_player, players, field,
-            r.timestamp if r else 0, len(r.effects) if r else 0)
+            r.timestamp if r else 0, len(r.effects) if r else 0, history)
 
 
 def _conditions(view: Plan, st: Static, tkey: tuple) -> bool:
