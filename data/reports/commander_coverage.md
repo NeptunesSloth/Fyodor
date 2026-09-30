@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 551 · PARTIAL: 2950 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 577 · PARTIAL: 2924 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -1492,8 +1492,8 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever one or more artifact creatures you control enter, draw a card. This ability triggers only once each turn.
 - ✗ Prevent all combat damage that would be dealt to attacking artifact creatures you control.
-- ✗ Whenever one or more artifact creatures you control enter, draw a card. This ability triggers only once each turn.
 
 ### Maelstrom Wanderer — FULL
 
@@ -2099,8 +2099,8 @@ Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Sacrifice three Treasures: Create a 4/4 red Scorpion Dragon creature token with flying and haste. Activate only as a sorcery.
 - ✗ Whenever you commit a crime, create a tapped Treasure token. This ability triggers only once each turn.
-- ✗ Sacrifice three Treasures: Create a 4/4 red Scorpion Dragon creature token with flying and haste. Activate only as a sorcery.
 
 ### Lathril, Blade of the Elves — PARTIAL
 
