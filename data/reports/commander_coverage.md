@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 619 · PARTIAL: 2882 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 651 · PARTIAL: 2850 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -898,15 +898,15 @@ Color identity U
 - ✗ If you would proliferate, proliferate twice instead.
 - ✗ {1}{U/P}{U/P}, Remove three counters from among other artifacts, creatures, and planeswalkers you control: Put an indestructible counter on Tekuthal.
 
-### Kogla, the Titan Ape — PARTIAL
+### Kogla, the Titan Ape — FULL
 
 Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ When Kogla enters, it fights up to one target creature you don't control.
 - ✓ Whenever Kogla attacks, destroy target artifact or enchantment defending player controls.
 - ✓ {1}{G}: Return target Human you control to its owner's hand. Kogla gains indestructible until end of turn.
-- ✗ When Kogla enters, it fights up to one target creature you don't control.
 
 ### Magda, Brazen Outlaw — FULL
 
@@ -2112,7 +2112,7 @@ Color identity BG
 - ✗ Whenever Lathril deals combat damage to a player, create that many 1/1 green Elf Warrior creature tokens.
 - ✗ {T}, Tap ten untapped Elves you control: Each opponent loses 10 life and you gain 10 life.
 
-### Halana and Alena, Partners — PARTIAL
+### Halana and Alena, Partners — FULL
 
 Color identity RG
 
@@ -2120,7 +2120,7 @@ Color identity RG
 - ✓ Attack and block
 - ✓ Reach
 - ✓ First strike
-- ✗ At the beginning of combat on your turn, put X +1/+1 counters on another target creature you control, where X is Halana and Alena's power. That creature gains haste until end of turn.
+- ✓ At the beginning of combat on your turn, put X +1/+1 counters on another target creature you control, where X is Halana and Alena's power. That creature gains haste until end of turn.
 
 ### Daretti, Scrap Savant — PARTIAL
 
