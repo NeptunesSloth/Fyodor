@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 577 · PARTIAL: 2924 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 608 · PARTIAL: 2893 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -144,7 +144,7 @@ Color identity W
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Vigilance
-- ✗ Adeline's power is equal to the number of creatures you control.
+- ✓ Adeline's power is equal to the number of creatures you control.
 - ✗ Whenever you attack, for each opponent, create a 1/1 white Human creature token that's tapped and attacking that player or a planeswalker they control.
 
 ### Vito, Thorn of the Dusk Rose — FULL
@@ -302,7 +302,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ When Urza enters, create a 0/0 colorless Construct artifact creature token with "This token gets +1/+1 for each artifact you control."
+- ✓ When Urza enters, create a 0/0 colorless Construct artifact creature token with "This token gets +1/+1 for each artifact you control."
 - ✗ Tap an untapped artifact you control: Add {U}.
 - ✗ {5}: Shuffle your library, then exile the top card. Until end of turn, you may play that card without paying its mana cost.
 
@@ -347,7 +347,7 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Ashaya's power and toughness are each equal to the number of lands you control.
+- ✓ Ashaya's power and toughness are each equal to the number of lands you control.
 - ✗ Nontoken creatures you control are Forest lands in addition to their other types.
 
 ### Yawgmoth, Thran Physician — FULL
@@ -706,13 +706,13 @@ Color identity R
 - ✓ Attack and block
 - ✓ {T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.
 
-### Anim Pakal, Thousandth Moon — PARTIAL
+### Anim Pakal, Thousandth Moon — FULL
 
 Color identity WR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever you attack with one or more non-Gnome creatures, put a +1/+1 counter on Anim Pakal, then create X 1/1 colorless Gnome artifact creature tokens that are tapped and attacking, where X is the number of +1/+1 counters on Anim Pakal.
+- ✓ Whenever you attack with one or more non-Gnome creatures, put a +1/+1 counter on Anim Pakal, then create X 1/1 colorless Gnome artifact creature tokens that are tapped and attacking, where X is the number of +1/+1 counters on Anim Pakal.
 
 ### Muldrotha, the Gravetide — PARTIAL
 
@@ -789,7 +789,7 @@ Color identity G
 - ✓ Attack and block
 - ✓ Reach
 - ✓ Vigilance
-- ✗ Lumra's power and toughness are each equal to the number of lands you control.
+- ✓ Lumra's power and toughness are each equal to the number of lands you control.
 - ✗ When Lumra enters, mill four cards. Then return all land cards from your graveyard to the battlefield tapped.
 
 ### Gisela, Blade of Goldnight — PARTIAL
@@ -1704,7 +1704,7 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Daxos's toughness is equal to your devotion to white.
+- ✓ Daxos's toughness is equal to your devotion to white.
 - ✗ Whenever another creature you control enters or dies, you gain 1 life.
 
 ### Ghalta and Mavren — PARTIAL
@@ -1813,7 +1813,7 @@ Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Jarad gets +1/+1 for each creature card in your graveyard.
+- ✓ Jarad gets +1/+1 for each creature card in your graveyard.
 - ✗ {1}{B}{G}, Sacrifice another creature: Each opponent loses life equal to the sacrificed creature's power.
 - ✗ Sacrifice a Swamp and a Forest: Return this card from your graveyard to your hand.
 
@@ -2294,7 +2294,7 @@ Color identity UG
 - ✗ Ward
 - ✗ Whenever Koma deals combat damage to a player, create four 3/3 blue Serpent creature tokens named Koma's Coil.
 
-### Aerith Gainsborough — PARTIAL
+### Aerith Gainsborough — FULL
 
 Color identity W
 
@@ -2302,7 +2302,7 @@ Color identity W
 - ✓ Attack and block
 - ✓ Lifelink
 - ✓ Whenever you gain life, put a +1/+1 counter on Aerith Gainsborough.
-- ✗ When Aerith Gainsborough dies, put X +1/+1 counters on each legendary creature you control, where X is the number of +1/+1 counters on Aerith Gainsborough.
+- ✓ When Aerith Gainsborough dies, put X +1/+1 counters on each legendary creature you control, where X is the number of +1/+1 counters on Aerith Gainsborough.
 
 ### Kwain, Itinerant Meddler — PARTIAL
 
@@ -2390,13 +2390,13 @@ Color identity U
 - ✗ Spells can't be countered.
 - ✗ Each instant and sorcery card in your graveyard has flashback. The flashback cost is equal to that card's mana cost.
 
-### Arabella, Abandoned Doll — PARTIAL
+### Arabella, Abandoned Doll — FULL
 
 Color identity WR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever Arabella attacks, it deals X damage to each opponent and you gain X life, where X is the number of creatures you control with power 2 or less.
+- ✓ Whenever Arabella attacks, it deals X damage to each opponent and you gain X life, where X is the number of creatures you control with power 2 or less.
 
 ### Jetmir, Nexus of Revels — PARTIAL
 
@@ -2905,5 +2905,5 @@ Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Karn's power and toughness are each equal to the greatest mana value among artifacts you control.
+- ✓ Karn's power and toughness are each equal to the greatest mana value among artifacts you control.
 - ✗ At the beginning of your upkeep, add {C} for each artifact you control. This mana can't be spent to cast nonartifact spells. Until end of turn, you don't lose this mana as steps and phases end.
