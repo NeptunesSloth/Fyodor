@@ -182,16 +182,18 @@ def layer1(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     return ch if recipe is None else characteristics(recipe, info)
 
 
-def copy_index(rules: RulesState | None) -> dict[str, int]:
-    """Object id → timestamp of the copy effect that applies to it (for caches keyed by what's on
-    the battlefield: a copy effect changes an object's abilities, 613.2a)."""
-    out: dict[str, int] = {}
+def copy_index(rules: RulesState | None) -> dict[str, tuple[int, str]]:
+    """Object id → (timestamp, recipe) of the latest copy effect that applies to it (for caches keyed
+    by what's on the battlefield: a copy effect changes an object's abilities, 613.2a). The recipe is
+    part of the key: after an undo, a new choice can reuse the same object id and timestamp."""
+    out: dict[str, tuple[int, str]] = {}
     if rules is None:
         return out
     for e in rules.effects:
         if e.layer == "1" and e.copy_recipe is not None:
             for oid in e.affected:
-                out[oid] = max(out.get(oid, 0), e.timestamp)
+                if oid not in out or e.timestamp >= out[oid][0]:
+                    out[oid] = (e.timestamp, e.copy_recipe.model_dump_json())
     return out
 
 

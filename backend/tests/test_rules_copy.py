@@ -898,3 +898,25 @@ def test_copy_grammar():
                         "excepts": [{"power": "1", "toughness": "1", "add_text": ["Haste"]}]}]
     assert scripts.parse_effects("~ becomes a copy of target creature until end of turn.")[0] == [
         {"do": "become_copy", "who": "self", "with": "target", "duration": "end_of_turn"}]
+
+
+def test_a_different_copy_choice_after_undo_is_not_served_from_the_static_cache(cards):
+    """Review (Codex, PR #9): after an undo, a new copy choice can reuse the same object id and
+    timestamp; the static-ability cache must key on the copied values, not just the timestamp."""
+    s = build(cards, "Mirage Mirror", "Glorious Anthem")
+    mirror = on_battlefield(s, "Mirage Mirror")
+    anthem = on_battlefield(s, "Glorious Anthem")
+    bear = token(s, "p1", "Bear", "2/2")
+    act(s, "p1", type="move", card_ids=[anthem.id], to={"zone": "graveyard"})
+    anthem2 = on_battlefield(s, "Glorious Anthem")
+    pay(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=mirror.id, ability=0, targets=[anthem2.id])
+    pass_until_stack_empty(s)
+    assert ch(s, bear).pt == (4, 4)  # two anthems: the real one and the Mirror as a copy
+    while s.state.cards[mirror.id].zone.endswith("battlefield") and ch(s, s.state.cards[mirror.id]).name != "Mirage Mirror":
+        s.undo("p1")
+    pay(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=mirror.id, ability=0, targets=[bear.id])
+    pass_until_stack_empty(s)
+    assert ch(s, s.state.cards[mirror.id]).name == "Bear" and ch(s, bear).pt == (3, 3)  # only the real anthem
+    replay_matches(s)

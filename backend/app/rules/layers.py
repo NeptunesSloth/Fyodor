@@ -105,7 +105,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     # face's characteristics, 712.8e — its front face's statics are gone, 611.3a)
     key = tuple(sorted((cid, c.controller, c.face_down, c.face, c.flipped, c.card_id or c.name, c.token.text if c.token else "",
                         r.card_mode(cid) if r else "", timestamp(state, cid),
-                        copies.get(r.object_id(cid), 0) if r else 0)
+                        copies.get(r.object_id(cid), (0, "")) if r else (0, ""))
                        for cid, c in state.cards.items() if c.zone.endswith(":battlefield")))
     hit = _STATIC_CACHE.get(key)
     if hit is not None:
