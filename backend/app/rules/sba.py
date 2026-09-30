@@ -93,8 +93,13 @@ def find(plan: Plan) -> Found:
             reason = "drew from an empty library"
         if reason:
             out.losers.append((pid, reason))
+    from app.rules.copying import ceases_to_exist
+
     for card in list(state.cards.values()):
         if card.is_token and not card.zone.endswith(":battlefield") and card.zone != "stack":
+            out.vanishing.append(card)
+            continue
+        if ceases_to_exist(plan, card):  # -- copy system (wave 2F): 704.5d (a token on the stack), 704.5e --
             out.vanishing.append(card)
             continue
         if not card.zone.endswith(":battlefield") or not plan.in_game(card):

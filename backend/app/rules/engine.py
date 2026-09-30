@@ -29,6 +29,7 @@ from app.rules import (
     attachments,
     casting,
     combat,
+    copying,
     cost_payment,
     coverage,
     delayed,
@@ -603,6 +604,7 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
+        copying.resolved(plan, card_id, oid)  # -- copy system (wave 2F): a permanent spell's copy became a token (608.3f)
     else:  # (defensive: resolution never adds to the stack today)
         plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "graveyard"}}, actor=controller)
 
@@ -619,6 +621,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
     if ch.is_permanent_card and not plan.manual(top) and not needs_manual_resolution(ch) \
             and replacements.stack_entry_choice(plan, top, controller):
         return  # "As ~ enters, choose a color": chosen before it enters (614.12a); resolved again with the answer
+    ch = plan.ch(top)  # -- copy system (wave 2F): as it will enter — entering as a copy, the copied text (707.5, 614.12)
     aura_target = plan.rules.aura_targets.pop(top_id, None)
     # An instant, sorcery or ability the engine didn't put on the stack (moved there by hand) has
     # no recorded targets or choices: its controller resolves it by hand. So has an Aura without one.
@@ -1008,6 +1011,9 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     # -- replacement effects stage 2 (wave 2E): which of several replacement / prevention effects
     # applies first (616.1), then the paused site runs again (app/rules/replace.py) --
     "replace_order": effects.replace.resume_order,
+    # -- copy system (wave 2F): copies of spells and abilities — same or new targets for several
+    # copies, one copy's targets (707.10c), a copy made by hand (app/rules/copying.py) --
+    **copying.RESUME,
 }
 # (the draw step, once its draw is done after a 616.1 choice: its "at the beginning of" triggers)
 effects.replace.THEN["draw_step"] = lambda plan, then: triggers.at_step_generic(plan)
