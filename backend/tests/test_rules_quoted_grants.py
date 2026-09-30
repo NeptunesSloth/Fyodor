@@ -106,6 +106,10 @@ EXTRA = [
     real("Warriors' Lesson", "Instant",
          'Until end of turn, up to two target creatures you control each gain "Whenever this creature deals combat damage to a player, draw a card."',
          "{G}", colors=("G",), number="Q22"),
+    real("Furystoke Giant", "Creature — Giant Warrior",
+         'When this creature enters, other creatures you control gain "{T}: This creature deals 2 damage to any target" until end of turn.\n'
+         "Persist (When this creature dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.)",
+         "{3}{R}{R}", pt=("3", "3"), colors=("R",), number="Q33"),
     real("Showstopper", "Instant",
          'Until end of turn, creatures you control gain "When this creature dies, it deals 2 damage to target creature an opponent controls."',
          "{1}{B}{R}", colors=("B", "R"), number="Q31"),
@@ -211,6 +215,79 @@ def test_wordings_of_real_cards():
     wild = definition("Run Wild", "Instant", EXTRA[2]["oracle_text"])
     assert wild is not None and wild["effects"][0]["keywords"] == ["trample"]  # keywords and the quote: one grant
     assert wild["effects"][0]["abilities"] == ["{G}: Regenerate this permanent."]
+
+
+@pytest.mark.parametrize(("body", "sentences"), [
+    ("Draw a card. You gain 1 life.", ["Draw a card.", "You gain 1 life."]),
+    # a stop inside a quote doesn't end a sentence; `."` does
+    ('Target creature gains "{0}: Untap this creature. Activate only once." Draw a card.',
+     ['Target creature gains "{0}: Untap this creature. Activate only once."', "Draw a card."]),
+    ('Until end of turn, this land becomes a 3/3 Elemental creature with "Whenever this creature attacks, put a +1/+1 counter on it." It\'s still a land.',
+     ['Until end of turn, this land becomes a 3/3 Elemental creature with "Whenever this creature attacks, put a +1/+1 counter on it."',
+      "It's still a land."]),
+    ('Create a 1/1 token with "{T}: Do this. Then that." Scry 1.', ['Create a 1/1 token with "{T}: Do this. Then that."', "Scry 1."]),
+    ("No stops at all", ["No stops at all"]),
+    ("", []),
+])
+def test_sentences_split_outside_quotes_only(body, sentences):
+    assert oracle.split_sentences(body) == sentences
+
+
+def test_activation_restrictions_split_off_after_a_quote():
+    from app.rules import restrictions
+
+    text = 'Target creature gains "{0}: Untap this creature. Activate only once." Activate only as a sorcery.'
+    effect, restriction = restrictions.split(text)
+    assert effect == 'Target creature gains "{0}: Untap this creature. Activate only once."'
+    assert restriction == "Activate only as a sorcery."
+
+
+@pytest.mark.parametrize(("text", "keywords", "quotes"), [
+    ("flying, ⟦0⟧, and ⟦1⟧", ["flying"], [0, 1]),
+    ("first strike, trample, and lifelink", ["first strike", "trample", "lifelink"], []),
+    ("trample and ⟦0⟧", ["trample"], [0]),
+])
+def test_a_grant_list_names_keywords_and_quotes(text, keywords, quotes):
+    from app.rules import granted
+
+    assert granted.items(text) == (keywords, quotes)
+
+
+def test_quotes_are_set_aside_and_must_pair_up():
+    from app.rules import granted
+
+    assert granted.protect('it gains "a. b" and "c"') == ("it gains ⟦0⟧ and ⟦1⟧", ["a. b", "c"])
+    assert granted.protect('it gains "a') is None
+
+
+@pytest.mark.parametrize(("text", "expected"), [
+    # "until end of turn" first reads like the trailing wording (611.2a: the same duration)
+    ("Until end of turn, target creature gets +1/+0 and gains indestructible.",
+     [{"do": "pump", "who": "target", "p": 1, "t": 0}, {"do": "grant", "who": "target", "keywords": ["indestructible"]}]),
+    ("Until end of turn, target creature can't block.", [{"do": "restrict", "who": "target", "rules": ["cant_block"]}]),
+    # "has" / "have" grant like "gains"
+    ("Target creature has flying until end of turn.", [{"do": "grant", "who": "target", "keywords": ["flying"]}]),
+    ("Up to two target creatures each gain flying until end of turn.", [{"do": "grant", "who": "target", "keywords": ["flying"]}]),
+])
+def test_unquoted_grants_with_the_duration_first(text, expected):
+    from app.rules.language import parse_sentence
+
+    found = parse_sentence(text[0].lower() + text[1:].rstrip("."))  # (as scripts reads a sentence: first word lower-cased)
+    assert found is not None and found[0] == expected
+
+
+@pytest.mark.parametrize("text", [
+    'until end of turn, target creature gains "Flashback {2}{R}."',  # (an ability the engine doesn't carry out)
+    'until end of turn, target creature gains "{T}: Add {G}." and "Whatever you like."',  # (a quote that doesn't parse)
+    "until end of turn, draw a card",  # (not a continuous effect: no "until end of turn" clause to give it)
+    'target creature gains "{T}: Add {G}." until end of combat',  # (a duration the grammar doesn't read)
+    'until end of turn, target player gains "{T}: Add {G}."',  # (players don't gain an ability an effect grants)
+    'creature cards in your graveyard gain "{T}: Add {G}." until end of turn',  # (only permanents do)
+])
+def test_grants_not_read_stay_manual(text):
+    from app.rules.language import parse_sentence
+
+    assert parse_sentence(text) is None
 
 
 # -- 603.10a: a granted "When this creature dies" looks back at the abilities it had --------------------
@@ -385,6 +462,39 @@ def test_quicksmith_spy_grant_lasts_while_you_control_it(cards):
     replay_matches(s)
 
 
+def test_a_grant_stays_when_the_creature_that_granted_it_leaves(cards):
+    """Furystoke Giant: "other creatures you control gain …" — the Giant dies (persist brings it back and it
+    grants again as a new object), and the first grant is still there: the effect doesn't depend on its source."""
+    s = build(cards, "Furystoke Giant", "Murder")
+    mine = creature(s, "p1", "Old Bear")
+    giant = cast(s, "Furystoke Giant", R=5)
+    pass_until_stack_empty(s)
+    assert len(grants(s, mine)) == 1 and grants(s, s.state.cards[giant.id]) == []  # "other creatures"
+    cast(s, "Murder", [giant.id], B=3)
+    pass_until_stack_empty(s)
+    assert s.state.cards[giant.id].zone == "p1:battlefield" and s.state.cards[giant.id].counters == {"-1/-1": 1}  # persist
+    assert len(grants(s, mine)) == 2  # the first grant, and the returned Giant's own
+    assert grants(s, s.state.cards[giant.id]) == []
+    replay_matches(s)
+
+
+def test_until_your_next_turn_a_grant_outlasts_the_turn_and_ends_as_yours_begins(cards):
+    """Song of Freyalise, chapters I and II (as an activated ability of a custom-text token): "Until your next turn,
+    creatures you control gain "{T}: Add one mana of any color."" ends as the turn begins (500.4)."""
+    s = build(cards)
+    mine = creature(s, "p1", "Old Bear")
+    song = creature(s, "p1", "Song", "0/1", '{1}: Until your next turn, creatures you control gain "{T}: Add one mana of any color."')
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=song.id, ability=0)
+    pass_until_stack_empty(s)
+    assert len(grants(s, mine)) == 1 and [e.duration for e in rules(s).effects] == ["next_turn"]
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main2")
+    assert len(grants(s, mine)) == 1  # (not an end-of-turn effect: Bob's turn, still there)
+    until(s, lambda s: s.state.turn.number == 3)
+    assert grants(s, mine) == [] and rules(s).effects == []  # 500.4: it expired as Alice's turn began
+    replay_matches(s)
+
+
 def test_the_grant_stays_when_its_source_dies_unless_the_text_says_otherwise(cards):
     """Run Wild is long gone when its grant is used; a creature that dies after granting changes nothing
     either: only "for as long as …" ties a grant to its source."""
@@ -540,6 +650,28 @@ def test_timestamps_decide_between_a_grant_and_loses_all_abilities(cards, frog_f
         assert g.kind == "triggered" and ch(s, bears).pt == (3, 0 + 1)  # frog 1/1, +2/+0
     else:
         assert grants(s, bears) == [] and ch(s, bears).abilities == ()  # the frog lost what it had, granted too
+    replay_matches(s)
+
+
+def test_a_granted_ability_keeps_its_activation_instructions(cards):
+    """113.10a: "Activate only once." is part of the ability Touch of Vitae grants — once per that ability
+    (602.5b); the same spell's "Draw a card at the beginning of the next turn's upkeep" is its own delayed trigger."""
+    s = build(cards, "Touch of Vitae", "Grizzly Bears")
+    bears = on_battlefield(s, "Grizzly Bears")
+    act(s, "p1", type="tap", card_ids=[bears.id], tapped=True)
+    cast(s, "Touch of Vitae", [bears.id], G=3)
+    pass_until_stack_empty(s)
+    (g,) = grants(s, bears)
+    assert "haste" in ch(s, bears).keywords and g.text == "{0}: Untap this permanent. Activate only once."
+    act(s, "p1", type="activate_ability", card_id=bears.id, ability=g.index)
+    pass_until_stack_empty(s)
+    assert not s.state.cards[bears.id].tapped
+    act(s, "p1", type="tap", card_ids=[bears.id], tapped=True)
+    with pytest.raises(ActionError, match="once"):
+        act(s, "p1", type="activate_ability", card_id=bears.id, ability=g.index)
+    hand = len(zone(s.state, "p1", "hand"))
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")
+    assert len(zone(s.state, "p1", "hand")) == hand + 1  # the delayed trigger drew at the next turn's upkeep
     replay_matches(s)
 
 
