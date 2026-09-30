@@ -87,6 +87,15 @@ EXTRA = [
                      "base power and toughness 4/4 and gains trample.\n• Until end of turn, this creature becomes a Bird with "
                      "base power and toughness 2/2 and gains flying.\n• Until end of turn, this creature becomes a Plant with "
                      "base power and toughness 0/8.", power="1", toughness="1", colors=["G"], color_identity=["G"]),
+    # (not a real card: a transform card with a "hasn't been chosen" ability on each face)
+    card("Test Shifting Idol // Test Shifted Idol", set_code="tst", number="X2", layout="transform", mana_cost="{1}", cmc=1.0,
+         type_line="Artifact // Artifact", image_uris=None,
+         card_faces=[
+             {"object": "card_face", "name": "Test Shifting Idol", "mana_cost": "{1}", "type_line": "Artifact",
+              "oracle_text": "{1}: Choose one that hasn't been chosen —\n• You gain 1 life.\n• Draw a card."},
+             {"object": "card_face", "name": "Test Shifted Idol", "mana_cost": "", "type_line": "Artifact",
+              "oracle_text": "{1}: Choose one that hasn't been chosen —\n• Scry 1.\n• You gain 2 life."},
+         ]),
     card("Phoenix Down", set_code="tst", number="M11", mana_cost="{W}", cmc=1.0, type_line="Artifact",
          oracle_text="{1}{W}, {T}, Exile this artifact: Choose one —\n• Return target creature card with mana value 4 or less "
                      "from your graveyard to the battlefield tapped.\n• Exile target Skeleton, Spirit, or Zombie.",
@@ -528,6 +537,51 @@ def test_a_new_object_has_no_memory_of_the_modes(cards):
     new = rules(s).object_id(bowls.id)
     assert rules(s).modes_chosen[f"{new}:0:game"] == [1]  # (its own memory: the old object's [1] doesn't count)
     pass_until_stack_empty(s)
+    replay_matches(s)
+
+
+def test_a_mode_counts_even_if_the_ability_doesnt_resolve(cards):
+    """Demonic Pact ruling: "If the ability doesn't resolve (either for having its target become illegal or because
+    a spell or ability counters it), the mode chosen for that instance of the ability still counts as being
+    chosen." The memory is written as the ability is put on the stack, not as it resolves."""
+    s = build(cards, "Three Bowls of Porridge")
+    respond_on(s)
+    bowls = battlefield(s, "Three Bowls of Porridge")
+    ogre = token(s, "p2", "Ogre", "5/5")
+    activate_bowls(s, bowls)
+    choose(s, "1:0")  # Tap target creature.
+    choose(s, ogre.id)  # (Alice passes after activating: Bob has priority with it on the stack)
+    act(s, "p2", type="move", card_ids=[ogre.id], to={"zone": "graveyard"})  # the target is gone
+    pass_until_stack_empty(s)
+    assert "does nothing: its targets are no longer legal" in log_text(s)
+    oid = rules(s).object_id(bowls.id)
+    assert rules(s).modes_chosen == {f"{oid}:0:game": [1]}  # (chosen, though nothing happened)
+    untap(s, bowls)
+    goblin = token(s, "p2", "Goblin", "1/1")
+    activate_bowls(s, bowls)
+    assert offered(s) == ["0:0", "2:0"] and goblin.id
+    replay_matches(s)
+
+
+def test_the_two_faces_of_one_object_keep_separate_memory(cards):
+    """A double-faced permanent is one object (712), but its faces' abilities are different abilities: what was
+    chosen for the front's doesn't count for the back's (not a real card)."""
+    s = build(cards, "Test Shifting Idol // Test Shifted Idol")
+    respond_on(s)
+    idol = battlefield(s, "Test Shifting Idol // Test Shifted Idol")
+    for face, choice in ((0, "0:0"), (1, "1:0")):  # (front: gain 1 life; back: gain 2 life)
+        act(s, "p1", type="set_face", card_id=idol.id, face=face)
+        mana(s, C=1)
+        act(s, "p1", type="activate_ability", card_id=idol.id, ability=0)
+        assert offered(s) == ["0:0", "1:0"]  # (the other face's choice isn't remembered here)
+        choose(s, choice)
+        pass_until_stack_empty(s)
+    act(s, "p1", type="set_face", card_id=idol.id, face=0)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=idol.id, ability=0)
+    assert offered(s) == ["1:0"]  # (back on the front: its own memory is still there)
+    oid = rules(s).object_id(idol.id)
+    assert rules(s).modes_chosen == {f"{oid}:0:game": [0], f"{oid}:0.1:game": [1]}
     replay_matches(s)
 
 
@@ -1133,12 +1187,49 @@ def test_mode_names_are_labels_not_rules_text():
     assert [m["effects"][0]["do"] for m in d["modes"]] == ["tap", "untap"]
 
 
+def test_a_form_the_engine_doesnt_list_stays_partial(cards, monkeypatch):
+    """Coverage follows SUPPORTED_MODAL_ABILITIES, not just what parses: take a form out and every card that
+    uses it is PARTIAL again (the mode lines with it)."""
+    data = cards.get(cards.resolve("Kargan Intimidator")["id"])
+    assert coverage.of_characteristics(printed_from_data(data)).level == "FULL"
+    monkeypatch.setattr(coverage, "SUPPORTED_MODAL_ABILITIES", coverage.SUPPORTED_MODAL_ABILITIES - {"memory:turn"})
+    partial = coverage.of_characteristics(printed_from_data(data))
+    assert partial.level == "PARTIAL" and len(partial.manual_parts) == 4  # ({1}: Choose one … and its three modes)
+    knight = cards.get(cards.resolve("Knight of Autumn")["id"])
+    assert coverage.of_characteristics(printed_from_data(knight)).level == "FULL"  # (other forms aren't affected)
+    monkeypatch.setattr(coverage, "SUPPORTED_MODAL_ABILITIES", set())
+    assert coverage.of_characteristics(printed_from_data(knight)).level == "PARTIAL"
+
+
 def test_real_cards_are_fully_automated(cards):
     for name in ("Knight of Autumn", "Felidar Retreat", "Cankerbloom", "Flash Thompson, Spider-Fan", "Shambling Ghast",
                  "Three Bowls of Porridge", "Kargan Intimidator", "Sawblade Slinger", "Craftwork Crusher", "Phoenix Down",
                  "Monument to Endurance", "Kimoyo Beads"):
         data = cards.get(cards.resolve(name)["id"])
         assert coverage.of_characteristics(printed_from_data(data)).level == "FULL", name
+
+
+def test_a_mode_can_create_a_delayed_trigger(cards):
+    """Kykar, Zephyr Awakener (Whenever you cast a noncreature spell, choose one —): the first mode exiles another
+    target creature you control and returns it at the beginning of the next end step (603.7: the delayed trigger
+    is created as the mode resolves, with the object bound then)."""
+    s = build(cards, "Lightning Bolt")
+    respond_on(s)
+    token(s, "p1", "Kykar", "3/4", text="Flying\nWhenever you cast a noncreature spell, choose one —\n• Exile another target "
+          "creature you control. Return that card to the battlefield under its owner's control at the beginning of the next "
+          "end step.\n• Create a 1/1 white Spirit creature token with flying.")
+    bear = token(s, "p1", "Bear", "2/2")
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    assert offered(s) == ["0:0", "1:0"]
+    choose(s, "0:0")
+    assert step(s) == "trigger_slot_target" and offered(s) == [bear.id]  # ("another": not Kykar itself)
+    choose(s, bear.id)
+    pass_until_stack_empty(s)
+    assert s.state.cards.get(bear.id) is None or s.state.cards[bear.id].zone != "p1:battlefield"  # (exiled: a token is gone)
+    assert len(rules(s).delayed) == 1 and rules(s).delayed[0].when == {"kind": "step", "step": "end", "whose": "next"}
+    replay_matches(s)
 
 
 def test_one_players_different_modal_triggers_are_ordered_then_announced_one_by_one(cards):

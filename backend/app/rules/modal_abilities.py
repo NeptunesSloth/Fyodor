@@ -36,6 +36,13 @@ instead", "choose X", reflexive "When you do, choose …" (603.12), a mode with 
 targets or a division, a header with anything else after it, and "up to" / "any number" on an
 activated ability (choosing no mode isn't modelled there).
 
+Definition shape (JSON-able, what ``scripts.definitions`` gives for the header line): the ability's
+ordinary fields (``trigger`` / ``cond`` / ``if`` / ``limit``, or ``cost`` / ``restriction`` / ``loyalty``),
+``"effects": []``, ``"modes": [{"text", "effects", "target": {"what": selector} | None}]`` and ``"modal":
+{"min", "max", "repeat": False, "condition": None, "memory": None | "game" | "turn", "index", "form"}``. Each
+bulleted line is ``{"kind": "mode", "of": <header index>, "form", "memory", "effects": []}``: it has no
+behaviour, it only makes the line count as part of the ability (coverage, app/rules/engine.py).
+
 Hidden information: the chosen modes go into the stack object's public annotations (they are announced,
 601.2b/603.3c) — as text of the ability, which is public — except when the source is a card in a hidden
 zone: then only "Mode N". The decision shows its labels only to the player who chooses (app/rules/view.py).
@@ -174,13 +181,16 @@ def _bullets(ch: Characteristics, index: int) -> list[AbilityText]:
 
 
 # -- "choose one that hasn't been chosen [this turn]" ---------------------------------------------------
-def _key(oid: str, index: int, memory: str, turn: int) -> str:
-    return f"{oid}:{index}:game" if memory == "game" else f"{oid}:{index}:t{turn}"
+def _key(oid: str, index: int, memory: str, turn: int, face: int = 0) -> str:
+    """The memory of one ability: its index on the face that is up (a double-faced permanent is one object, but
+    its faces' abilities are different abilities), for the game or for one turn."""
+    slot = str(index) if not face else f"{index}.{face}"
+    return f"{oid}:{slot}:game" if memory == "game" else f"{oid}:{slot}:t{turn}"
 
 
-def chosen_before(rules: RulesState, oid: str, index: int, memory: str | None, turn: int) -> tuple[int, ...]:
+def chosen_before(rules: RulesState, oid: str, index: int, memory: str | None, turn: int, face: int = 0) -> tuple[int, ...]:
     """The modes already chosen for this ability of this object ("this turn": in ``turn``)."""
-    return tuple(rules.modes_chosen.get(_key(oid, index, memory, turn), ())) if memory else ()
+    return tuple(rules.modes_chosen.get(_key(oid, index, memory, turn, face), ())) if memory else ()
 
 
 def _alive(rules: RulesState, key: str) -> bool:
@@ -191,14 +201,15 @@ def _alive(rules: RulesState, key: str) -> bool:
     return oid in rules.lki or rules.object_id(card_id) == oid
 
 
-def remember(rules: RulesState, oid: str, index: int, memory: str | None, turn: int, modes: list[int]) -> None:
+def remember(rules: RulesState, oid: str, index: int, memory: str | None, turn: int, modes: list[int],
+             face: int = 0) -> None:
     """These modes were chosen for this ability of this object, as it was put on the stack. Earlier
     turns' memory and that of objects that are gone (400.7) is dropped: nothing reads it any more."""
     if memory is None:
         return
     rules.modes_chosen = {k: v for k, v in rules.modes_chosen.items()
                           if k.endswith(f":t{turn}") or (k.endswith(":game") and _alive(rules, k))}
-    key = _key(oid, index, memory, turn)
+    key = _key(oid, index, memory, turn, face)
     rules.modes_chosen[key] = sorted({*rules.modes_chosen.get(key, ()), *modes})
 
 
@@ -252,6 +263,13 @@ def _pending(plan: Plan, trigger_id: str) -> PendingTrigger | None:
     return next((p for p in plan.rules.pending_triggers if p.id == trigger_id), None)
 
 
+def _face(plan: Plan, t: PendingTrigger) -> int:
+    """The face of its source that has the ability: as it last was if it left (608.2h), else as it is."""
+    snap = plan.rules.lki.get(t.source_object)
+    card = plan.state.cards.get(t.source_card)
+    return snap.face if snap is not None else card.face if card is not None else 0
+
+
 def _name(plan: Plan, t: PendingTrigger) -> str:
     """How prompts and the log call the source: by name, unless it is a card the table can't see."""
     card = plan.state.cards.get(t.source_card)
@@ -281,7 +299,7 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
 
     chosen: list[int] | None = picks.get("modes")
     if chosen is None:
-        done = chosen_before(r, t.source_object, modal["index"], modal["memory"], plan.state.turn.number)
+        done = chosen_before(r, t.source_object, modal["index"], modal["memory"], plan.state.turn.number, _face(plan, t))
         allowed = [i for i, m in enumerate(modes) if i not in done and (not m["target"] or legal(i))]
         lo, hi = modal["min"], min(modal["max"], len(allowed))
         if not allowed or len(allowed) < lo:  # 700.2b: no mode can be chosen: removed from the stack
@@ -333,7 +351,7 @@ def _on_the_stack(plan: Plan, t: PendingTrigger, chosen: list[int], picked: list
                                      source_object=t.source_object, name=t.name, effects=mode_effects(d, chosen),
                                      targets=flat, target_spec=None, event=t.event, modes=chosen, slots=slots,
                                      slot_specs=specs)
-    remember(r, t.source_object, d["modal"]["index"], d["modal"]["memory"], plan.state.turn.number, chosen)
+    remember(r, t.source_object, d["modal"]["index"], d["modal"]["memory"], plan.state.turn.number, chosen, _face(plan, t))
     plan.do({"type": "set_stack_info", "card_id": ability_id, "modes": _public_texts(plan, t.source_card, d, chosen)},
             actor=t.controller)
     if flat:
@@ -394,7 +412,7 @@ def announce(plan: Plan, a: A.ActivateAbility, card: CardInstance, definition: D
     from app.rules import casting
 
     modal = definition["modal"]
-    done = chosen_before(plan.rules, oid, index, modal["memory"], plan.state.turn.number)
+    done = chosen_before(plan.rules, oid, index, modal["memory"], plan.state.turn.number, card.face)
     a.modes = sorted(a.modes)  # (printed order, 608.2c: ``a.targets`` then follows the modes in that order)
     modes = casting.choose_modes(plan, a, definition, what, exclude=done)
     if modes is None:
@@ -410,6 +428,6 @@ def announce(plan: Plan, a: A.ActivateAbility, card: CardInstance, definition: D
 def announced(plan: Plan, ability_id: str, card: CardInstance, found: Announced, oid: str) -> None:
     """The ability is on the stack: the modes chosen are public (601.2b) and, for "hasn't been chosen",
     remembered for that ability of that object."""
-    remember(plan.rules, oid, found.index, found.definition["modal"]["memory"], plan.state.turn.number, found.modes)
+    remember(plan.rules, oid, found.index, found.definition["modal"]["memory"], plan.state.turn.number, found.modes, card.face)
     plan.do({"type": "set_stack_info", "card_id": ability_id,
              "modes": _public_texts(plan, card.id, found.definition, found.modes)}, actor=plan.actor)
