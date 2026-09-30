@@ -30,6 +30,7 @@ from dataclasses import replace
 from functools import lru_cache
 from typing import Any
 
+from app.rules import restrictions
 from app.rules.characteristics import Characteristics
 from app.rules.costs import parse_ability_cost
 from app.rules.oracle import AbilityText, parse_abilities
@@ -852,11 +853,6 @@ def _sacrifice_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]
     return [{"do": "sacrifice", "who": _self_or_it(m["who"])}], None
 
 
-@effect(r"activate only once each turn")
-def _once_each_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    return [], None  # an activation restriction (enforced by casting.ability_problem), not an effect
-
-
 @effect(r"sacrifice ~ unless you pay (?P<cost>(?:\{{[^}}]+\}})+)")
 def _pay_or_sacrifice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "pay_or_sacrifice", "cost": m["cost"]}], None
@@ -1313,7 +1309,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             m = pattern.match(text)
             if m:
                 name = step_trigger(m) if trigger == "step" else trigger
-                body = m["body"]
+                # -- trigger limits (app/rules/restrictions.py): "This ability triggers only once
+                # each turn." is split off and enforced as it triggers (triggers._add); "Do this
+                # only once each turn." (603.2h) isn't modeled yet: the ability stays manual
+                body, limit = restrictions.split_trigger_limit(m["body"])
+                if limit in restrictions.TRIGGER_LIMIT_REFUSED:
+                    return None
                 kicked = re.match(r"^if (?:it|~) was kicked, (?P<rest>.+)$", body) if name == "enters_self" else None
                 if kicked is not None:  # 603.4 intervening "if": checked as it triggers (triggers._add)
                     body = kicked["rest"]
@@ -1352,6 +1353,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     out["if"] = intervening
                 if kicked is not None:
                     out["if_kicked"] = True
+                if limit is not None:
+                    out["limit"] = "once_each_turn"
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
                 return out
@@ -1378,11 +1381,21 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         cost = parse_ability_cost(ability.cost, card_name=ch.name)
         if cost.unsupported:
             return None
-        parsed = parse_effects(text.split(":", 1)[1])
+        # -- activation restrictions (app/rules/restrictions.py): the trailing "Activate only …"
+        # sentences are split off the effect and enforced as it's activated (casting.ability_problem);
+        # a restriction the engine doesn't read leaves the ability manual
+        body, restriction = restrictions.split(text.split(":", 1)[1])
+        parsed_restriction = restrictions.parse(text) if restriction is not None else []
+        if parsed_restriction is None:
+            return None
+        parsed = parse_effects(body)
         if parsed is None or parsed[2]:
             return None
         effects, target, _ = parsed
-        return {"kind": "activated", "cost": ability.cost, "effects": effects, **target_fields(target)}
+        out = {"kind": "activated", "cost": ability.cost, "effects": effects, **target_fields(target)}
+        if parsed_restriction:
+            out["restriction"] = parsed_restriction
+        return out
     return None
 
 

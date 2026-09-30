@@ -531,6 +531,10 @@ class RulesState(BaseModel):
     spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
     loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
     once_per_turn: dict[str, int] = Field(default_factory=dict)  # "<card>:<ability>" -> turn it was activated
+    # Activation restrictions and trigger limits (app/rules/restrictions.py): how many times an
+    # object's ability was activated / triggered — "<object id>:<ability index>:t<turn>" -> count this
+    # turn, "<object id>:<ability index>:game" -> count this game (602.5b, 400.7: per object).
+    ability_uses: dict[str, int] = Field(default_factory=dict)
     turn_seen: int = 0  # last turn number the bookkeeping saw
     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
     controlled_since: dict[str, ControlMark] = Field(default_factory=dict)
