@@ -23,6 +23,9 @@ from app.rules.plan import Plan
 def leave_game(plan: Plan, player: str) -> None:
     state = plan.state
     r = plan.rules
+    # The leaver's permanents (wherever they are) leave the game with them: their "until ~ leaves
+    # the battlefield" links end (610.3). Captured before anything moves.
+    leaving = {plan.oid(c) for c in state.cards.values() if c.owner == player and c.zone.endswith(":battlefield")}
     for card in list(state.cards.values()):
         if card.id not in state.cards:
             continue
@@ -42,7 +45,7 @@ def leave_game(plan: Plan, player: str) -> None:
             elif card.zone == STACK:
                 plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}},
                         actor=player)
-    _end_linked(plan, player)
+    _end_linked(plan, leaving)
     gone = {player} | {cid for cid, c in state.cards.items() if c.controller == player and c.zone.endswith(":battlefield")}
     stop = [c.id for c in state.cards.values() if c.attacking is not None and c.attacking.id in gone]
     if stop:
@@ -61,17 +64,17 @@ def leave_game(plan: Plan, player: str) -> None:
     plan.note(f"{plan.name(player)} has left the game")
 
 
-def _end_linked(plan: Plan, player: str) -> None:
+def _end_linked(plan: Plan, leaving: set[str]) -> None:
     """610.3: "exile … until ~ leaves the battlefield" — a source the leaver owned left the game
     with them (800.4a), so what it exiled returns now (to its owners still in the game). The
-    leaver's own cards in exile have left the game too and stay put. "For as long as …"
-    durations whose source left this way end with the next check (app/rules/delayed.expire)."""
+    leaver's own cards in exile have left the game too and stay put. A source taken out of
+    automation (per-card MANUAL) is left to the players, as when it leaves the battlefield
+    (app/rules/triggers.py). "For as long as …" durations whose source left this way end with
+    the next check (app/rules/delayed.expire)."""
     from app.rules.effects import return_linked  # (effects imports this module's callers)
 
-    for key in list(plan.rules.linked_exile):
-        cid = key.rsplit(".", 1)[0]
-        card = plan.state.cards.get(cid)
-        if card is None or card.owner == player or plan.oid(cid) != key or not card.zone.endswith(":battlefield"):
-            live = plan.live()
-            actor = plan.active if plan.active in live else (live[0] if live else player)
-            return_linked(plan, {"controller": actor}, {"source": key})
+    live = plan.live()
+    for key in [k for k in plan.rules.linked_exile if k in leaving]:
+        if plan.rules.card_mode(key.rsplit(".", 1)[0]) == "manual" or not live:
+            continue
+        return_linked(plan, {"controller": plan.active if plan.active in live else live[0]}, {"source": key})
