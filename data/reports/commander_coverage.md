@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 666 · PARTIAL: 2835 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 677 · PARTIAL: 2824 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -1727,7 +1727,7 @@ Color identity R
 - ✓ Creatures you control have haste.
 - ✗ Creatures your opponents control enter tapped.
 
-### Aurelia, the Law Above — PARTIAL
+### Aurelia, the Law Above — FULL
 
 Color identity WR
 
@@ -1736,8 +1736,8 @@ Color identity WR
 - ✓ Flying
 - ✓ Vigilance
 - ✓ Haste
-- ✗ Whenever a player attacks with three or more creatures, you draw a card.
-- ✗ Whenever a player attacks with five or more creatures, Aurelia deals 3 damage to each of your opponents and you gain 3 life.
+- ✓ Whenever a player attacks with three or more creatures, you draw a card.
+- ✓ Whenever a player attacks with five or more creatures, Aurelia deals 3 damage to each of your opponents and you gain 3 life.
 
 ### Bartolomé del Presidio — FULL
 
@@ -2312,15 +2312,15 @@ Color identity WU
 - ✓ Attack and block
 - ✗ {T}: Each player may draw a card, then each player who drew a card this way gains 1 life.
 
-### Ruby, Daring Tracker — PARTIAL
+### Ruby, Daring Tracker — FULL
 
 Color identity RG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Haste
+- ✓ Whenever Ruby attacks while you control a creature with power 4 or greater, Ruby gets +2/+2 until end of turn.
 - ✓ {T}: Add {R} or {G}.
-- ✗ Whenever Ruby attacks while you control a creature with power 4 or greater, Ruby gets +2/+2 until end of turn.
 
 ### Brudiclad, Telchor Engineer — PARTIAL
 
