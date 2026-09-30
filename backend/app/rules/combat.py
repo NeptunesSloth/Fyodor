@@ -17,7 +17,7 @@ from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption
 from app.game.state import CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
-from app.rules import protection, scripts, selectors
+from app.rules import protection, replace, scripts, selectors
 from app.rules.casting import summoning_sick
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.plan import Plan, decide, live_players
@@ -562,96 +562,70 @@ def damage_preview(plan: Plan, rnd: Round) -> str:
     return "; ".join(parts) or "none"
 
 
-def _apply_prevention(plan: Plan, dmg: CombatDamage, rnd: Round, shield_order: list[str] | None = None) -> bool:
-    """Prevention effects (615: "prevent all combat damage …" in force, then the "prevent the next N"
-    shields, 615.7) reduce each assignment as it is dealt — app/rules/replacements.py. Returns False
-    while the shielded player / permanent's controller is choosing which source's damage a shield
-    prevents (``shield_order`` carries their answers when the damage step is run again)."""
-    from app.rules import replacements
-
-    events = [{"source_card": src, "source_oid": plan.oid(src), "target": tgt, "amount": n, "combat": True}
-              for src, tgt, n in dmg.dealt]
-    if not events:
-        return True
-    done = replacements.apply_prevention(plan, events, order=shield_order, resume={"round": rnd})
-    if done is None:
-        return False
-    dmg.dealt = [(ev["source_card"], ev["target"], ev["amount"] - int(ev["prevented"])) for ev in done
-                 if ev["amount"] - int(ev["prevented"]) > 0]
-    _fill_pools(plan, dmg)  # per source: what is still dealt decides every pool (702.2b, 702.90, 702.15b, 903.10a)
-    return True
+_DAMAGE_KEYWORDS = frozenset({"lifelink", "deathtouch", "wither", "infect"})
 
 
-def _fill_pools(plan: Plan, dmg: CombatDamage) -> None:
-    """Rebuild the damage pools from ``dmg.dealt`` (source, target, amount), the one record of what
-    each source deals to each target: marked damage or -1/-1 counters (wither / infect), life or
-    poison (infect; toxic N adds poison only when damage is actually dealt, 702.164c), loyalty,
-    lifelink per source (702.15e), commander damage (903.10a), deathtouch per source (702.2b)."""
-    state = plan.state
-    dmg.creatures, dmg.players, dmg.walkers, dmg.wither, dmg.poison = {}, {}, {}, {}, {}
-    dmg.lifelink, dmg.commander, dmg.deathtouched = {}, {}, []
+def _toxic(sch: Characteristics) -> int:
+    return sum(int(x) for ab in sch.abilities if ab.kind == "keywords" and "toxic" in ab.keywords
+               for x in re.findall(r"toxic (\d+)", ab.text.lower()))
+
+
+def combat_damage_events(plan: Plan, dmg: CombatDamage) -> list[dict[str, Any]]:
+    """-- replacement effects stage 2 (wave 2E) -- The round's assignments (source, recipient,
+    amount) as damage events for app/rules/replace.py, each with what its source is (609.7c), its
+    damage keywords, whose lifelink gain it is (702.15e: per source) and its toxic value
+    (702.164c: combat damage to a player)."""
+    events = []
     for src, tgt, n in dmg.dealt:
-        if n <= 0:
+        card = plan.state.cards.get(src)
+        if card is None or n <= 0:
             continue
-        source = state.cards.get(src)
-        if source is None:
-            continue
-        sch = plan.ch(source)
-        if "lifelink" in sch.keywords:
-            dmg.lifelink[src] = dmg.lifelink.get(src, 0) + n
-        if tgt in state.players:
-            into = dmg.poison if "infect" in sch.keywords else dmg.players
-            into[tgt] = into.get(tgt, 0) + n
-            toxic = sum(int(x) for ab in sch.abilities if ab.kind == "keywords" and "toxic" in ab.keywords
-                        for x in re.findall(r"toxic (\d+)", ab.text.lower()))
-            if toxic:  # 702.164c: combat damage to a player also gives N poison counters
-                dmg.poison[tgt] = dmg.poison.get(tgt, 0) + toxic
-            if source.commander_key:
-                key = (tgt, source.commander_key)
-                dmg.commander[key] = dmg.commander.get(key, 0) + n
-            continue
-        target = state.cards.get(tgt)
-        if target is None:
-            continue
-        tch = plan.ch(target)
-        if "Planeswalker" in tch.types and not tch.is_creature:
-            dmg.walkers[tgt] = dmg.walkers.get(tgt, 0) + n
-            continue
-        into = dmg.wither if {"wither", "infect"} & sch.keywords else dmg.creatures
-        into[tgt] = into.get(tgt, 0) + n
-        if "deathtouch" in sch.keywords and tgt not in dmg.deathtouched:
-            dmg.deathtouched.append(tgt)
+        sch = plan.ch(card)
+        events.append({"source_card": src, "source_oid": plan.oid(src), "target": tgt, "amount": n, "combat": True,
+                       "src": replace.source_info(plan, src, plan.oid(src), sch, card.controller),
+                       "kw": sorted(sch.keywords & _DAMAGE_KEYWORDS), "lkey": src,
+                       "toxic": _toxic(sch) if tgt in plan.state.players else 0})
+    return events
 
 
-def deal_combat_damage(plan: Plan, rnd: Round, shield_order: list[str] | None = None) -> bool:
-    """Deal this round's combat damage. False: a prevention choice (615.7) is open; the round is
-    dealt again with the answer (replacements.resume_shield_order)."""
+def deal_combat_damage(plan: Plan, rnd: Round, shield_order: list[str] | None = None,
+                       answers: dict[str, str] | None = None) -> bool:
+    """Deal this round's combat damage, all at once (510.2): the assignments as damage events
+    through the replacement and prevention effects (614, 615, 616 — app/rules/replace.py), then
+    their results (120.3; lifelink, wither / infect counters and poison through their own
+    replacement effects, 120.4c). False: a choice is open — which effect applies first (616.1) or
+    which source's damage a shield prevents (615.7); the round is dealt again with the answers
+    (``shield_order``, ``answers``: replace.resume_site)."""
     dmg = compute_combat_damage(plan, rnd)
-    if not _apply_prevention(plan, dmg, rnd, shield_order):
+    events = combat_damage_events(plan, dmg)
+    out = replace.damage_outcome(plan, events, answers=dict(answers or {}), order=shield_order, ask=True)
+    if isinstance(out, replace.ShieldAsk):
+        replace.ask_shield(plan, out, {"round": rnd, "answers": dict(answers or {})}, list(shield_order or []))
         return False
-    if dmg.empty:
-        return True
-    plan.do({
-        "type": "rules_damage", "creatures": dmg.creatures, "players": dmg.players, "planeswalkers": dmg.walkers,
-        "lifelink": dmg.lifelink, "wither": dmg.wither, "poison": dmg.poison, "first_strike": rnd == "first",
-        "commander": [{"player": pid, "commander": key, "amount": n} for (pid, key), n in dmg.commander.items()],
-        "dealt": [{"source": plan.oid(src), "target": tgt, "amount": n,
-                   "target_object": plan.oid(tgt) if tgt in plan.state.cards else None} for src, tgt, n in dmg.dealt],
-    }, actor=plan.active)
-    plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *dmg.deathtouched]))
-    for pid in [*dmg.players, *dmg.poison]:
-        plan.rules.damaged[pid] = plan.state.turn.number
-    hit_players = [plan.state.cards[src] for src, tgt, n in dmg.dealt
+    if not isinstance(out, replace.DamageOutcome):
+        replace.ask(plan, out, dict(answers or {}), {"round": rnd, "order": list(shield_order or [])})
+        return False
+    commander: dict[tuple[str, str], int] = {}
+    for ev in out.events:  # 903.10a: combat damage a commander dealt to a player (as dealt)
+        source = plan.state.cards.get(ev["source_card"])
+        if ev["target"] in plan.state.players and source is not None and source.commander_key:
+            key = (ev["target"], source.commander_key)
+            commander[key] = commander.get(key, 0) + int(ev["amount"])
+    replace.do_damage(plan, out, actor=plan.active, combat=True, extra={
+        "first_strike": rnd == "first",
+        "commander": [{"player": pid, "commander": key, "amount": n} for (pid, key), n in commander.items()]})
+    dealt = [(ev["source_card"], ev["target"], int(ev["amount"])) for ev in out.events]
+    hit_players = [plan.state.cards[src] for src, tgt, n in dealt
                    if tgt in plan.state.players and n > 0 and src in plan.state.cards]
     if hit_players:
         from app.rules import triggers  # triggers → plan; imported late
 
         triggers.dealt_combat_damage_to_player(plan, list({c.id: c for c in hit_players}.values()))
     monarch = plan.state.table.monarch
-    if monarch and (dmg.players.get(monarch) or dmg.poison.get(monarch)):
+    if monarch and (out.players.get(monarch) or out.poison.get(monarch)):
         from app.rules import triggers  # triggers → plan; imported late
 
-        hitters = [plan.state.cards[src] for src, tgt, n in dmg.dealt if tgt == monarch and n > 0 and src in plan.state.cards]
+        hitters = [plan.state.cards[src] for src, tgt, n in dealt if tgt == monarch and n > 0 and src in plan.state.cards]
         triggers.monarch_damaged(plan, hitters[:1])  # one trigger per combat damage event
     return True
 

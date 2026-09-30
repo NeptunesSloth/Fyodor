@@ -1842,7 +1842,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         if this_turn or target is not None:
             return None  # a static ability doesn't last "this turn" and doesn't target
         return {"kind": "static", "static": "prevent", "scope": scope, "effects": []}
-    return None
+    # -- replacement effects stage 2 (wave 2E): token / counter / draw / life / damage statics and
+    # "[Objects] enter tapped" (app/rules/replace_grammar.py, applied by app/rules/replace.py) --
+    from app.rules import replace_grammar  # (a leaf module)
+
+    return replace_grammar.parse(text)
 
 
 @effect(r"(?P<text>prevent all (?:combat |noncombat )?damage that would be dealt.*)")

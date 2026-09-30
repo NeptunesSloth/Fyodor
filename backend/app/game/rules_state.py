@@ -645,6 +645,11 @@ class RulesState(BaseModel):
     permissions: list[Permission] = Field(default_factory=list)
     cost_modifiers: list[CostModifier] = Field(default_factory=list)
     top_reveals: list[TopReveal] = Field(default_factory=list)
+    # -- replacement effects stage 2 (wave 2E; app/rules/replace.py) --
+    # Cards each player actually drew in the step ``replace_step_key`` ("<turn>:<phase>"), counted as
+    # they're drawn (for "except the first one they draw in each of their draw steps", 504.1).
+    replace_step_key: str = ""
+    replace_step_draws: dict[str, int] = Field(default_factory=dict)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)

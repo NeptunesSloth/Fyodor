@@ -459,12 +459,14 @@ def on_step_start(plan: Plan) -> None:
         first_turn_skip = state.turn.number == 1 and len(plan.live()) == 2
         if first_turn_skip:
             plan.note(f"{plan.name(ap)} skips the first draw (two-player game)")
-        elif not state.zones.get(zone_key(ap, "library")):
-            if ap not in plan.rules.drew_from_empty:
-                plan.rules.drew_from_empty.append(ap)
-            plan.note(f"{plan.name(ap)} can't draw: their library is empty")
         else:
-            plan.do({"type": "draw", "player": ap, "count": 1}, actor=ap)
+            # -- replacement effects stage 2 (wave 2E): the turn-based draw (504.1) through the draw
+            # choke point — replaced even from an empty library (121.6a, 614.11), else 704.5b --
+            empty = not state.zones.get(zone_key(ap, "library"))
+            if not effects.replace.draw_cards(plan, [ap], 1, then={"do": "draw_step"}):
+                return  # the drawing player chooses an order first (616.1); the step goes on after
+            if empty and ap in plan.rules.drew_from_empty:
+                plan.note(f"{plan.name(ap)} can't draw: their library is empty")
     elif phase in ("upkeep", "end"):
         triggers.at_step(plan, "upkeep_you" if phase == "upkeep" else "end_step_you")
         if phase == "end":
@@ -999,4 +1001,9 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "land_enter_choice": replacements.resume_land_enter_choice,
     "commander_instead": replacements.resume_commander_instead,
     "shield_order": replacements.resume_shield_order,
+    # -- replacement effects stage 2 (wave 2E): which of several replacement / prevention effects
+    # applies first (616.1), then the paused site runs again (app/rules/replace.py) --
+    "replace_order": effects.replace.resume_order,
 }
+# (the draw step, once its draw is done after a 616.1 choice: its "at the beginning of" triggers)
+effects.replace.THEN["draw_step"] = lambda plan, then: triggers.at_step_generic(plan)
