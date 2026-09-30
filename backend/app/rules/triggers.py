@@ -1174,6 +1174,10 @@ def _identical(plan: Plan, player: str, mine: list[PendingTrigger]) -> bool:
 def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
     """Put one trigger on the stack. False if it waits for its controller's target choice.
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
+    if t.ability.get("modes"):  # -- modal triggered abilities (wave 1A): the modes first (603.3c, 700.2b) --
+        from app.rules import modal_abilities
+
+        return modal_abilities.put_trigger(plan, t, picks)
     r = plan.rules
     spec = t.ability.get("target")
     targets = []
