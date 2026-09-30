@@ -42,6 +42,7 @@ def leave_game(plan: Plan, player: str) -> None:
             elif card.zone == STACK:
                 plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}},
                         actor=player)
+    _end_linked(plan, player)
     gone = {player} | {cid for cid, c in state.cards.items() if c.controller == player and c.zone.endswith(":battlefield")}
     stop = [c.id for c in state.cards.values() if c.attacking is not None and c.attacking.id in gone]
     if stop:
@@ -58,3 +59,19 @@ def leave_game(plan: Plan, player: str) -> None:
     if state.table.initiative == player:
         plan.do({"type": "set_initiative", "player": successor}, actor=successor)
     plan.note(f"{plan.name(player)} has left the game")
+
+
+def _end_linked(plan: Plan, player: str) -> None:
+    """610.3: "exile … until ~ leaves the battlefield" — a source the leaver owned left the game
+    with them (800.4a), so what it exiled returns now (to its owners still in the game). The
+    leaver's own cards in exile have left the game too and stay put. "For as long as …"
+    durations whose source left this way end with the next check (app/rules/delayed.expire)."""
+    from app.rules.effects import return_linked  # (effects imports this module's callers)
+
+    for key in list(plan.rules.linked_exile):
+        cid = key.rsplit(".", 1)[0]
+        card = plan.state.cards.get(cid)
+        if card is None or card.owner == player or plan.oid(cid) != key or not card.zone.endswith(":battlefield"):
+            live = plan.live()
+            actor = plan.active if plan.active in live else (live[0] if live else player)
+            return_linked(plan, {"controller": actor}, {"source": key})

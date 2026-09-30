@@ -435,11 +435,13 @@ def _keep_tapped(plan: Plan) -> list[str]:
 
 def start_next_turn(plan: Plan) -> None:
     keep = _keep_tapped(plan)
+    skipped: list[tuple[str, int]] = []  # 800.4k: a departed player's turn doesn't begin
     for _ in range(len(plan.state.seat_order) + 1):
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep}, actor=plan.active)
         if plan.active in plan.live():
             break
-    delayed.turn_began(plan)  # 500.4: "until your next turn" effects of the new active player end
+        skipped.append((plan.active, plan.state.turn.number))
+    delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
     if not plan.state.settings.auto_untap:
         plan.do({"type": "untap_all", "player": plan.active, "keep_tapped": keep}, actor=plan.active)
     # The untap step has no priority: straight on to upkeep.

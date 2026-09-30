@@ -294,6 +294,9 @@ class ContinuousEffect(BaseModel):
     # the effect can be ordered against static abilities (their timestamp is their source's, 613.7a/d).
     object_seq: int = 0
     label: str = ""
+    # The table markers ("until your next turn", …) this effect wrote: removed when it ends, and
+    # only those (another effect's marker with the same wording stays).
+    markers: list[str] = Field(default_factory=list)
     # -- animation (agent A2): the type-, color- and ability-changing parts of "becomes a …" -------
     # Layer 4 (613.1d). ``set_types``: the card types replace the object's (205.1a; the subtypes
     # of a card type it no longer has drop with it) — None when the effect only adds types
