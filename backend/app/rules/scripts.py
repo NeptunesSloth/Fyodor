@@ -403,9 +403,15 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         out[intro.index]["as"] = name
         return name
 
-    def objects(index: int, number: int | None, verb: str | None) -> _Introducer | None:
+    def closed_gate(k: int, index: int) -> bool:
+        """Is effect k inside a gated (only_if) block that ended before ``index``? (what a gated
+        instruction moved may never have happened: a later condition's "it" isn't that)"""
+        return any(g.get("do") == "only_if" and g_i < k <= g_i + int(g.get("skip", 0)) < index
+                   for g_i, g in enumerate(out[:index]))
+
+    def objects(index: int, number: int | None, verb: str | None, skip_gated: bool = False) -> _Introducer | None:
         def ok(i: _Introducer) -> bool:
-            if not i.objects:
+            if not i.objects or (skip_gated and closed_gate(i.index, index)):
                 return False
             if verb == "card":  # "that card": a card, so not a token an instruction created (111.1)
                 return i.do not in _TOKEN_MAKERS and (i.number is None or number is None or i.number == number)
@@ -428,7 +434,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         """The object "it" names in a condition (conditional / instead clauses, wave 1B): what an earlier
         instruction moved, chose or created (its recorded object, 400.7j), a plain target of one
         (the target itself), the source, or the trigger event's object."""
-        intro = objects(index, 1, None)
+        intro = objects(index, 1, None, skip_gated=True)
         if intro is None:
             return stat_ref(index)
         if intro.do in _MOVERS or _group_of(out[intro.index]) is None:
@@ -520,7 +526,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
         return value
     out = {}
     for k, v in value.items():
-        if k in ("as", "bind", "succeeded", "flag") and isinstance(v, str):  # ("bind": the library primitives' recorder;
+        if k in ("as", "bind", "succeeded", "flag", "did") and isinstance(v, str):  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -1134,7 +1140,16 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 after_may = _if_you_do_after_may(if_do, effects, optional, i, len(texts))
                 if after_may is None:
                     return None
-                effects += _add_groups(groups, after_may, None)
+                added = _add_groups(groups, after_may, None)
+                # (A may be replaced or impossible: "If you do" reads what A actually did)
+                tracked = [e for e in effects if e["do"] in _PROBED]
+                probes = [f"did{k}" for k in range(len(tracked))]
+                for e, name in zip(tracked, probes, strict=True):
+                    e["did"] = name
+                if probes:
+                    did_gate: dict[str, Any] = {"succeeded": probes[0]} if len(probes) == 1 else {"all": [{"succeeded": n} for n in probes]}
+                    added = [{"do": "only_if", "cond": did_gate, "skip": len(added)}, *added]
+                effects += added
                 continue
             inner = _clause(if_do["rest"]) if not if_do["rest"].startswith("you may ") else None
             if inner is None:
@@ -2404,6 +2419,7 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 # was) might not be there: "If you do" would then be false, which this reading can't tell.
 _CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token"})
 _CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce"})
+_PROBED = frozenset({"draw", "exile", "bounce"})  # (their "If you do" reads the result: effects._did)
 
 
 def _certain_when_chosen(e: dict[str, Any]) -> bool:

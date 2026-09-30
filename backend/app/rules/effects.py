@@ -1760,6 +1760,28 @@ PRIMITIVES.update({"only_if": only_if})
 PRIMITIVES["optional_payment"] = optional_payment.optional_payment
 
 
+def _did(fn: Any, kind: str) -> Any:
+    """An instruction whose "If you do" is judged by what it actually did ("did": a binding name,
+    ``{"succeeded": name}`` in the gate after it): a card drawn (121.2: not from an empty library,
+    not a replaced draw), an object that ended in the zone asked for (903.9b: a commander may go to the
+    command zone instead). Probed before the first run only: a paused primitive runs again (616.1)."""
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        if name and name not in context.refs(ctx):
+            if kind == "draw":
+                context.refs(ctx)[name] = {"kind": "probe", "hands": {
+                    p: len(plan.state.zones.get(f"{p}:hand", [])) for p in _players(plan, ctx, e["who"])}}
+            else:
+                context.refs(ctx)[name] = {"kind": "probe", "to": kind, "cards": {
+                    c: plan.oid(plan.state.cards[c]) for c in _cards(plan, ctx, e["who"])}}
+        return bool(fn(plan, ctx, e))
+    return run
+
+
+for _name in ("draw", "exile", "bounce"):
+    PRIMITIVES[_name] = _did(PRIMITIVES[_name], {"draw": "draw", "exile": "exile", "bounce": "hand"}[_name])
+
+
 def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """702.33e: "If this spell was kicked, …" (``kicked`` True) — and, for "… instead", the
     unkicked text (``kicked`` False): the next ``n`` effects happen only if the spell was (or
