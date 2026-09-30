@@ -398,4 +398,34 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Test Grave Pilfer", set_code="tst", number="M32", mana_cost="{B}", cmc=1.0, type_line="Sorcery",
              oracle_text="Exile target card from a graveyard. You may play it this turn.", colors=["B"], color_identity=["B"]),
         card("Swamp", set_code="cmm", number="1004", type_line="Basic Land — Swamp", oracle_text="({T}: Add {B}.)", color_identity=["B"]),
+        # animation (agent A2): real Oracle text
+        card("Mutavault", set_code="tst", number="A1", type_line="Land",
+             oracle_text="{T}: Add {C}.\n{1}: This land becomes a 2/2 creature with all creature types until end of turn. It's still a land."),
+        card("Mishra's Factory", set_code="tst", number="A2", type_line="Land",
+             oracle_text="{T}: Add {C}.\n{1}: This land becomes a 2/2 Assembly-Worker artifact creature until end of turn. It's still a land.\n"
+                         "{T}: Target Assembly-Worker creature gets +1/+1 until end of turn."),
+        card("Treetop Village", set_code="tst", number="A3", type_line="Land", color_identity=["G"],
+             oracle_text="This land enters tapped.\n{T}: Add {G}.\n{1}{G}: This land becomes a 3/3 green Ape creature with trample until end of turn. "
+                         "It's still a land. (It can deal excess combat damage to the player or planeswalker it's attacking.)"),
+        card("Liquimetal Coating", set_code="tst", number="A4", mana_cost="{2}", cmc=2.0, type_line="Artifact",
+             oracle_text="{T}: Target permanent becomes an artifact in addition to its other types until end of turn."),
+        card("Karn's Touch", set_code="tst", number="A5", mana_cost="{U}{U}", cmc=2.0, type_line="Instant", colors=["U"], color_identity=["U"],
+             oracle_text="Target noncreature artifact becomes an artifact creature with power and toughness each equal to its mana value "
+                         "until end of turn. (It retains its abilities.)"),
+        card("Turn to Frog", set_code="tst", number="A6", mana_cost="{1}{U}", cmc=2.0, type_line="Instant", colors=["U"], color_identity=["U"],
+             oracle_text="Until end of turn, target creature loses all abilities and becomes a blue Frog with base power and toughness 1/1."),
+        card("Mind Transfer Protocol", set_code="tst", number="A7", mana_cost="{2}{U}", cmc=3.0, type_line="Instant", colors=["U"],
+             color_identity=["U"], oracle_text="Until end of turn, target artifact or creature becomes an artifact creature with base power and toughness 4/5.\nDraw a card."),
+        card("Cyberdrive Awakener", set_code="tst", number="A8", mana_cost="{5}{U}", cmc=6.0, type_line="Artifact Creature — Construct",
+             power="4", toughness="4", colors=["U"], color_identity=["U"],
+             oracle_text="Flying\nOther artifact creatures you control have flying.\n"
+                         "When this creature enters, each noncreature artifact you control becomes a 4/4 artifact creature until end of turn."),
+        card("Lifespark Spellbomb", set_code="tst", number="A9", mana_cost="{1}", cmc=1.0, type_line="Artifact",
+             oracle_text="{G}, Sacrifice this artifact: Until end of turn, target land becomes a 3/3 creature that's still a land.\n"
+                         "{1}, Sacrifice this artifact: Draw a card."),
+        card("Celestial Colonnade", set_code="tst", number="A10", type_line="Land", color_identity=["W", "U"],
+             oracle_text="This land enters tapped.\n{T}: Add {W} or {U}.\n{3}{W}{U}: Until end of turn, this land becomes a 4/4 white and blue "
+                         "Elemental creature with flying and vigilance. It's still a land."),
+        card("Stuffed Bear", set_code="tst", number="A11", mana_cost="{2}", cmc=2.0, type_line="Artifact",
+             oracle_text="{2}: This artifact becomes a 4/4 green Bear artifact creature until end of turn."),
     ]

@@ -1953,3 +1953,137 @@ PRIMITIVES.update({"edict": edict, "player_chooses": player_chooses, "reveal_han
                    "choose_from_hand": choose_from_hand, "discard_named": discard_named, "choose_value": choose_value})
 RESUME = {"edict": resume_edict, "player_chooses": resume_player_chooses, "choose_from_hand": resume_choose_from_hand,
           "choose_value": resume_choose_value}
+
+
+# -- animation (agent A2): "becomes a N/N [color] [creature type] [artifact] creature …" ----------
+# One instruction, several layers (613.6): the types (4), colors (5), keywords / quoted abilities
+# / "loses all abilities" (6) and base power and toughness (7b) it names each become their own
+# continuous effect on the same objects, locked in now (611.2c), with the stated duration ("until
+# end of turn" ends at cleanup, 514.2; none: the game, 611.2a). Types replace the object's (205.1a)
+# unless it says "in addition to its other types", "that's still a land", or "artifact creature"
+# (205.1b) — or a following sentence "It's still a land." (``still_a``) says so; creature types
+# replace the object's creature types (205.1a: the land types of a land stay); a color named
+# replaces its colors (105.3), none named leaves them; "all creature types" is every creature
+# type. A permanent that became a creature this way attacks and taps under 302.6 like any other
+# (summoning sickness reads how long it has been controlled, not how long it has been a creature).
+# X and "its mana value" are read once, as the effect begins (611.2d, 608.2h).
+def _animate_value(plan: Plan, ctx: Context, n: Any, cid: str) -> int | None:
+    """A P/T value: a number, X, "its mana value" (the object's own, bound per object) …"""
+    if n is None:
+        return None
+    if isinstance(n, int):
+        return n
+    context.bind_objects(plan, ctx, "_animated", [cid])
+    return values.evaluate(plan, ctx, _its(n))
+
+
+def _its(v: Any) -> Any:
+    """"its power" / "its mana value" placeholders → the object being animated."""
+    if isinstance(v, list):
+        return [_its(x) for x in v]
+    if isinstance(v, dict):
+        return {k: ("ref:_animated" if k in ("power", "toughness", "mana_value") and x == "it" else _its(x))
+                for k, x in v.items()}
+    return v
+
+
+def _reads_it(v: Any) -> bool:
+    if isinstance(v, list):
+        return any(_reads_it(x) for x in v)
+    return isinstance(v, dict) and any((k in ("power", "toughness", "mana_value") and x == "it") or _reads_it(x)
+                                       for k, x in v.items())
+
+
+def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """See above. ``e``: who; types (card types named, [] for "becomes a blue Frog"); retain
+    (types added, 205.1b); creature_types (None: unchanged); all_creature_types; legendary;
+    colors (None: unchanged; []: colorless); add_colors; keywords; abilities (quoted texts);
+    lose_abilities; p / t (None: unchanged); duration."""
+    cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
+    if not cards:
+        return True
+    per_object = _reads_it(e.get("p")) or _reads_it(e.get("t"))
+    groups = [[c] for c in cards] if per_object else [cards]
+    duration = e.get("duration", "end_of_turn")
+    name = ctx.get("name", "")
+    for group in groups:
+        affected = [plan.oid(c) for c in group]  # locked in now (611.2c)
+        p = _animate_value(plan, ctx, e.get("p"), group[0])
+        t = _animate_value(plan, ctx, e.get("t"), group[0])
+        label = _become_label(e, p, t)
+        common: dict[str, Any] = {"affected": affected, "source": ctx.get("source_object"), "controller": ctx["controller"],
+                                  "duration": duration, "label": f"{label} ({name})" if name else label}
+        made: list[str] = []
+        types = list(e.get("types") or [])
+        if types or e.get("creature_types") is not None or e.get("all_creature_types") or e.get("legendary"):
+            made.append(layers.add_effect(plan, layer="4", **common,
+                                          add_types=tuple(types) if e.get("retain") else (),
+                                          set_types=None if e.get("retain") or not types else types,
+                                          set_creature_types=e.get("creature_types"),
+                                          all_creature_types=bool(e.get("all_creature_types")),
+                                          add_supertypes=["Legendary"] if e.get("legendary") else []).id)
+        if e.get("colors") is not None or e.get("add_colors"):
+            made.append(layers.add_effect(plan, layer="5", **common, set_colors=e.get("colors"),
+                                          add_colors=list(e.get("add_colors") or [])).id)
+        if e.get("keywords") or e.get("abilities") or e.get("lose_abilities"):
+            made.append(layers.add_effect(plan, layer="6", **common, add_keywords=tuple(e.get("keywords") or ()),
+                                          add_abilities=list(e.get("abilities") or []),
+                                          remove_abilities=bool(e.get("lose_abilities"))).id)
+        if p is not None or t is not None:
+            made.append(layers.add_effect(plan, layer="7b", **common, power=p, toughness=t).id)
+        if duration == "next_turn":  # "until your next turn": whose, and from which turn (app/rules/delayed.py)
+            for effect in plan.rules.effects:
+                if effect.id in made:
+                    effect.until_player, effect.turn = ctx["controller"], plan.state.turn.number
+        ctx["animated"] = [*ctx.get("animated", []), *made]  # (for a following "It's still a land.")
+        for cid in group:  # the table marker (cleared at cleanup for "until end of turn", 514.2; by a zone change, 400.7)
+            plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60],
+                     "value": f"{p}/{t}" if p is not None and t is not None else None,
+                     "text": _MARKER_TEXT.get(duration, "as long as it's on the battlefield")})
+        for cid in group:
+            plan.note(f"{plan.state.cards[cid].name or 'It'} becomes {label}"
+                      + (f" {_MARKER_TEXT[duration]}" if duration in _MARKER_TEXT else ""), [cid], actor=ctx["controller"])
+    return True
+
+
+_MARKER_TEXT = {"end_of_turn": "until end of turn", "next_turn": delayed.LABELS["next_turn"]}
+_COLOR_WORDS = {"W": "white", "U": "blue", "B": "black", "R": "red", "G": "green"}
+
+
+def _become_label(e: dict[str, Any], p: int | None, t: int | None) -> str:
+    words: list[str] = []
+    if e.get("lose_abilities"):
+        words.append("(loses all abilities)")
+    if e.get("legendary"):
+        words.append("legendary")
+    if p is not None and t is not None:
+        words.append(f"{p}/{t}")
+    if e.get("colors"):
+        words.append(" and ".join(_COLOR_WORDS.get(c, c) for c in e["colors"]))
+    elif e.get("colors") == []:
+        words.append("colorless")
+    words += list(e.get("creature_types") or [])
+    words += [w.lower() for w in e.get("types") or []]
+    extras = list(e.get("keywords") or [])
+    if e.get("all_creature_types"):
+        extras.append("all creature types")
+    if e.get("abilities"):
+        extras += [f'"{a}"' for a in e["abilities"]]
+    if extras:
+        words.append("with " + ", ".join(extras))
+    return " ".join(words) or "a creature"
+
+
+def still_a(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"It's still a land." (205.1b): the types the sentence before set are added instead — the
+    object keeps its card types (and so their subtypes, which layer 4 recomputes)."""
+    ids = set(ctx.get("animated") or [])
+    for effect in plan.rules.effects:
+        if effect.id in ids and effect.layer == "4" and effect.set_types is not None:
+            effect.add_types = list(dict.fromkeys([*effect.add_types, *effect.set_types]))
+            effect.set_types = None
+    return True
+
+
+PRIMITIVES.update({"become": become, "still_a": still_a})
