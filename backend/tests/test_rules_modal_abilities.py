@@ -1250,6 +1250,34 @@ def test_real_cards_are_fully_automated(cards):
         assert coverage.of_characteristics(printed_from_data(data)).level == "FULL", name
 
 
+def test_an_intervening_if_is_checked_as_it_triggers_and_again_as_it_resolves(cards):
+    """603.4: "…, if you control a Forest, choose one —" doesn't trigger without a Forest (no modes are asked) and
+    does nothing if the Forest is gone as it resolves. (Wording of Ojutai Exemplars' header plus an intervening
+    "if"; not a real card.)"""
+    s = build(cards, "Lightning Bolt", "Opt")
+    respond_on(s)
+    token(s, "p1", "Forester", "1/1", text="Whenever you cast a noncreature spell, if you control a Forest, choose one —\n"
+          "• You gain 5 life.\n• Draw a card.")
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    assert rules(s).decision is None and rules(s).pending_triggers == []  # (no Forest: it didn't trigger)
+    pass_until_stack_empty(s)
+    forest = battlefield(s, "Forest")
+    opt = to_hand(s, "Opt")
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    assert step(s) == "trigger_modes"
+    choose(s, "0:0")
+    entry = next(e for e in rules(s).stack.values() if e.kind == "trigger")
+    assert entry.effects[0]["do"] == "only_if" and entry.effects[0]["skip"] == len(entry.effects) - 1
+    act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "graveyard"})  # the Forest is gone before it resolves
+    life = s.state.players["p1"].life
+    pass_until_stack_empty(s)
+    assert s.state.players["p1"].life == life  # (nothing happened: the condition no longer holds)
+    replay_matches(s)
+
+
 def test_a_mode_can_create_a_delayed_trigger(cards):
     """Kykar, Zephyr Awakener (Whenever you cast a noncreature spell, choose one —): the first mode exiles another
     target creature you control and returns it at the beginning of the next end step (603.7: the delayed trigger
