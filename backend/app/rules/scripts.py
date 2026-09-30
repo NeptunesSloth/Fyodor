@@ -1608,3 +1608,33 @@ def spell_definition(ch: Characteristics) -> Definition | None:
 _RECORDING.update({"exile_top": "exiled", "look_top": None, "to_library": None})
 _MOVERS.update({"exile_top", "to_library"})
 _CHOSEN.update({"exile_top": "n", "look_top": "n"})
+
+
+
+# -- player choices (app/rules/language.py "player choices", app/rules/effects.py) -------------------
+# Edicts ("each opponent sacrifices a creature of their choice"), "target opponent chooses a
+# creature they control", a revealed hand ("target player reveals their hand. You choose a nonland
+# card from it. That player discards that card."), "choose a color". The choosing primitives
+# introduce objects a pronoun can name ("that card", "that creature", "it"): they record them.
+def _choice_template(pattern: str, build: Any) -> None:
+    def template(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+        from app.rules import language
+
+        try:
+            return build(m)
+        except language._Fail:
+            raise _NoMatch from None
+    effect(pattern)(template)
+
+
+from app.rules import language as _language  # noqa: E402  (a leaf module)
+
+for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OTHERS, _language.edict),
+                         (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.REVEAL_HAND, _language.reveal_hand),
+                         (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
+                         (_language.CHOOSE_VALUE, _language.choose_value)):
+    _choice_template(_pattern, _build)
+_RECORDING.update({"edict": "sacrificed", "player_chooses": None, "choose_from_hand": None, "discard_named": "discarded",
+                   "reveal_hand": None, "choose_value": None})
+_MOVERS.update({"edict", "player_chooses", "choose_from_hand", "discard_named"})
+_CHOSEN.update({"edict": "n", "player_chooses": "n", "choose_from_hand": "n"})
