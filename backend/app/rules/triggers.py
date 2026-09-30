@@ -93,7 +93,10 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
     ch = chars.of(card, plan.info)
     if snap.power is not None and snap.toughness is not None:
         ch = replace(ch, pt=(snap.power, snap.toughness))  # as it last existed (608.2h)
-    return ch
+    # -- quoted grants (wave 2D) -- the abilities and keywords it had (603.10a): granted ones too
+    from app.rules import granted
+
+    return granted.as_last_existed(ch, snap)
 
 
 def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, name: str, index: int,

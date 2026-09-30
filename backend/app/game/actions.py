@@ -915,7 +915,9 @@ class TurnFaceUp(_Intent):
 class ActivateAbility(_Intent):
     type: Literal["activate_ability"] = "activate_ability"
     card_id: Id
-    ability: int = Field(ge=0, le=140)  # index into the card's abilities (app/rules/oracle.py; 100+ = granted)
+    # index into the card's abilities (app/rules/oracle.py): printed 0…99, granted by a static ability 100…, granted
+    # by a resolved effect 10 000 + 16 × its timestamp + k (app/rules/granted.py ``index_of``, ``MAX_INDEX``)
+    ability: int = Field(ge=0, le=2_000_000)
     targets: list[Id] = Field(default_factory=list, max_length=20)
     target_counts: TargetCounts = Field(default_factory=list)  # (see CastSpell)
     division: Division = Field(default_factory=list)

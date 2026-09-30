@@ -395,17 +395,31 @@ def pump(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"… gains flying [and lifelink] until end of turn" (layer 6, 613.1f), and "… loses flying
     until end of turn" (``remove``: keywords taken away, later than any static that grants
-    them — 613.7: this effect's timestamp is now)."""
+    them — 613.7: this effect's timestamp is now).
+
+    -- quoted grants (wave 2D, app/rules/granted.py) -- ``abilities``: quoted abilities the objects
+    gain too ("gains trample and "{G}: Regenerate this creature."", "It gains "If this creature would
+    die, exile it instead.""), in the same layer-6 effect: one timestamp (613.7b), the set of objects
+    fixed now (611.2c), and only permanents on the battlefield gain one (611.2e). ``duration``: the
+    game when the text states none (611.2a); an ``until`` wrapper (app/rules/delayed.py) sets any other."""
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
     keywords = list(e.get("keywords") or [])
     removed = list(e.get("remove") or [])
-    if cards and (keywords or removed):
-        words = [*keywords, *(f"loses {k}" for k in removed)]
+    abilities = list(e.get("abilities") or [])
+    if abilities:
+        cards = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
+    if cards and (keywords or removed or abilities):
+        words = [*keywords, *(f"loses {k}" for k in removed), *(f'"{a}"' for a in abilities)]
+        duration = e.get("duration", "end_of_turn")
+        when = "until end of turn" if duration == "end_of_turn" else "for the rest of the game"
         layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="6", source=ctx.get("source_object"),
                           controller=ctx["controller"], add_keywords=tuple(keywords), remove_keywords=tuple(removed),
-                          label=f"{', '.join(words)} until end of turn")
-        _mark(plan, cards, ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed)]))
+                          duration=duration, label=f"{', '.join(words)} {when}", add_abilities=abilities)
+        marker = ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed),
+                            *(f'Gains "{a}"' for a in abilities)])
+        _mark(plan, cards, marker, value="Ability" if abilities and not (keywords or removed) else None,
+              text="until end of turn" if duration == "end_of_turn" else "as long as it's on the battlefield")
     return True
 
 
@@ -436,12 +450,12 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-def _mark(plan: Plan, cards: list[str], label: str) -> None:
+def _mark(plan: Plan, cards: list[str], label: str, *, value: str | None = None, text: str = "until end of turn") -> None:
     """The visible table marker for an engine effect (it goes away at cleanup with the effect)."""
     # (AddEffect: the name is at most 60 characters, the short value 20 — "Deathtouch, Indestructible")
-    value = label if len(label) <= 20 else label[:19] + "…"
+    value = value if value is not None else label if len(label) <= 20 else label[:19] + "…"
     for cid in cards:
-        plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60], "value": value, "text": "until end of turn"})
+        plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60], "value": value, "text": text})
 
 
 def _can_regenerate(ctx: Context) -> bool:

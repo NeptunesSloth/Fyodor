@@ -210,6 +210,13 @@ class ObjectSnapshot(BaseModel):
     blocking: bool = False
     attached_to: str | None = None
     text: str = ""  # a custom token's rules text (it has no printing to look up)
+    # -- quoted grants (wave 2D) --
+    # Its abilities and keywords as they last existed (603.10a: leaves-the-battlefield abilities look
+    # back in time; 608.2h), recorded by the rules engine as it moves the object — only when they
+    # differ from the printed ones (granted by a resolved effect or a static ability, or lost): each
+    # ability line as {index, text, kind, keywords, cost, intrinsic}. None: the printed ones.
+    abilities: list[dict[str, Any]] | None = None
+    keywords: list[str] | None = None
 
 
 EventKind = Literal[

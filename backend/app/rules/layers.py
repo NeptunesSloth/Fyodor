@@ -352,21 +352,15 @@ def _wipe_key(effects: list[ContinuousEffect]) -> tuple[int, int, int] | None:
 
 def _granted_by_effects(ch: Characteristics, effects: list[ContinuousEffect],
                         wipe: tuple[int, int, int] | None) -> Characteristics:
-    """Layer 6: quoted abilities resolved effects granted ("becomes a … creature with "{T}: …""),
-    numbered from 200 so they never collide with statics' grants (100…); one that a later "loses
-    all abilities" precedes is gone."""
-    texts = [text for e in effects if e.layer == "6" and e.add_abilities
-             and (wipe is None or (e.object_seq, 1, e.timestamp) > wipe) for text in e.add_abilities]
-    if not texts:
+    """Layer 6: quoted abilities resolved effects granted ("gains "{T}: …"", "becomes a … creature
+    with "{T}: …""), after the printed (0…99) and static-granted (100…) ones; one that a later
+    "loses all abilities" precedes is gone. Each is numbered from its effect's timestamp
+    (app/rules/granted.py ``index_of``), so its number doesn't change while other grants end."""
+    if not any(e.layer == "6" and e.add_abilities for e in effects):
         return ch
-    from app.rules.scripts import granted_ability
+    from app.rules import granted
 
-    extra = []
-    for k, text in enumerate(texts):
-        ab = granted_ability(text)
-        if ab is not None:
-            extra.append(replace(ab, index=200 + k))
-    return replace(ch, abilities=ch.abilities + tuple(extra)) if extra else ch
+    return granted.layer6(ch, effects, wipe)
 
 
 def derive(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> Characteristics:
