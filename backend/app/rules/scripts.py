@@ -1624,6 +1624,105 @@ _MOVERS.update({"exile_top", "to_library"})
 _CHOSEN.update({"exile_top": "n", "look_top": "n"})
 
 
+# -- delayed triggers & durations (app/rules/delayed.py, agent J) ----------------------------------
+# "At the beginning of the next end step, exile it." / "Sacrifice it at the beginning of the next
+# end step." / "When that creature dies this turn, return it to the battlefield." become a
+# ``delayed`` effect over the deferred effects (flat, so resolve_it binds their pronouns to the
+# earlier instructions of the same ability: 603.7c). "… until your next turn" / "for as long as ~
+# remains on the battlefield" become an ``until`` effect over a pump / grant / restriction (611.2).
+from app.rules import delayed as _delayed  # noqa: E402  (a leaf module over rules_state)
+
+# A deferred move of "it" after "When ~ dies" / "Whenever a creature dies" still means the new
+# object where it went (400.7e); deferred effects are never introducers (not in _RECORDING): a
+# later sentence's "that creature" can't name what a move that hasn't happened yet would record.
+_MOVES.update({_delayed.DEFERRED + x for x in _MOVES})
+
+
+def _deferred(clause: str, when: dict[str, Any]) -> tuple[list[dict[str, Any]], Any]:
+    inner = _clause(clause)
+    if inner is None or any(e.get("do") in ("delayed", "until", "optional_payment") for e in inner[0]):
+        raise _NoMatch
+    return _delayed.wrap_when(inner[0], when), inner[1]
+
+
+@effect(rf"at the beginning of (?P<when>{_delayed.WHEN_RE}), (?P<clause>.+)")
+def _delayed_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _deferred(m["clause"], _delayed.WHEN[m["when"]])
+
+
+@effect(rf"(?P<clause>.+?) at the beginning of (?P<when>{_delayed.WHEN_RE})")
+def _delayed_trailing(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _deferred(m["clause"], _delayed.WHEN[m["when"]])
+
+
+@effect(_delayed.EVENT.pattern.lstrip("^").rstrip("$"))
+def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    inner = _clause(m["clause"])
+    if inner is None or inner[1] is not None:  # (the deferred effect's own target: not modeled)
+        raise _NoMatch
+    effects = _delayed.inner_for_event(inner[0])
+    if effects is None or any(e.get("do") in ("delayed", "until", "optional_payment") for e in effects):
+        raise _NoMatch
+    when, who = _delayed.event_when(m)
+    sel = None
+    if who == "target":  # "When target creature dies this turn, …": the creature is this ability's target
+        from app.rules import language
+
+        group = language.target_group(m["subject"])
+        if group is None:
+            raise _NoMatch
+        sel = group["what"]
+    return _delayed.wrap_when(effects, when, who=who, this_turn=True), sel
+
+
+def _with_duration(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    clause, duration = _delayed.duration_clause(m)
+    inner = _clause(clause)
+    if inner is None:
+        raise _NoMatch
+    wrapped = _delayed.wrap_duration(inner[0], duration)
+    if wrapped is None:
+        raise _NoMatch
+    return wrapped, inner[1]
+
+
+@effect(rf"(?P<duration>{_delayed.DURATION_RE}), (?P<clause>.+)")
+def _until_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _with_duration(m)
+
+
+@effect(rf"(?P<clause>.+?) (?P<duration>{_delayed.DURATION_RE})")
+def _until_trailing(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _with_duration(m)
+
+
+def _from_language(found: tuple[list[dict[str, Any]], Any] | None) -> tuple[list[dict[str, Any]], Any]:
+    if found is None:
+        raise _NoMatch
+    return found
+
+
+@effect(r"sacrifice (?P<o>them|those tokens|those creatures|the tokens|those permanents|that creature|that token|"
+        r"the token|that permanent|that card)")
+def _sacrifice_pronoun(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    return _from_language(language.parse_sacrifice_pronoun(m["o"]))
+
+
+@effect(r"return (?P<o>.+?) to the battlefield(?P<t> tapped)? under (?:their|its) owner's control")
+def _return_owner(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    return _from_language(language.parse_return_owner(m.group(0)))
+
+
+@effect(r"exile (?P<o>.+?) until ~ leaves the battlefield")
+def _exile_until_any(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    return _from_language(language.parse_exile_until(m["o"]))
+
 
 # -- player choices (app/rules/language.py "player choices", app/rules/effects.py) -------------------
 # Edicts ("each opponent sacrifices a creature of their choice"), "target opponent chooses a

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 if TYPE_CHECKING:
     from app.game.state import GameState
@@ -280,7 +280,15 @@ class ContinuousEffect(BaseModel):
     # selector key, read for ``controller`` ("you"), ``source_card`` for "other".
     who: str | None = Field(default=None, max_length=2000)
     source_card: str | None = None
-    duration: Literal["end_of_turn", "permanent"] = "end_of_turn"
+    # 611.2a: how long it lasts — "until end of turn" (ends at cleanup, 514.2), "permanent" (the
+    # game), "next_turn" ("until your next turn": ends as ``until_player``'s next turn begins,
+    # 500.4), "source_on_battlefield" / "source_controlled" / "source_tapped" ("for as long as ~
+    # remains on the battlefield / you control ~ / ~ remains tapped", 611.2b: ends as soon as
+    # that stops being true; app/rules/delayed.py expires them).
+    duration: Literal["end_of_turn", "permanent", "next_turn", "source_on_battlefield", "source_controlled",
+                      "source_tapped"] = "end_of_turn"
+    until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
+    turn: int = 0  # the turn the effect began (next_turn: it ends on a later turn of until_player)
     timestamp: int = 0
     # ``RulesState.next_object`` when the effect began: the last object to enter a zone before it, so
     # the effect can be ordered against static abilities (their timestamp is their source's, 613.7a/d).
@@ -337,6 +345,47 @@ class PendingTrigger(BaseModel):
     key: str = ""  # identical triggers share a key (AUTO ORDER IDENTICAL TRIGGERS)
     ordered: bool = False  # its controller already chose the order
     event: TriggerEvent | None = None  # what it triggered on
+
+
+class DelayedTrigger(BaseModel):
+    """A delayed triggered ability (CR 603.7), created as a spell or ability resolved (603.7a) and
+    waiting for its trigger event. Everything it will need is captured now: the objects it refers
+    to as ObjectRefs (603.7c: still affected whatever their characteristics become, but not once
+    they have left the zone they are expected in — a new object isn't them, 400.7), its source
+    and controller as they were (603.7d-e), and the effects to carry out. When its event happens
+    it triggers like any other triggered ability (a PendingTrigger, put on the stack in APNAP
+    order, 603.3b) and resolves with these refs as its own resolution context
+    (app/rules/context.py); it never rescans the table for "it". See app/rules/delayed.py."""
+
+    id: str
+    controller: str  # 603.7d-e: whoever controlled the creating spell or ability as it resolved
+    source_card: str | None = None  # 603.7d-e: the spell, or the ability's source
+    source_object: str | None = None
+    name: str = ""
+    # When it triggers: {"kind": "step", "step": "end" | "upkeep", "whose": "next" | "you" | "next_turn"}
+    # ("at the beginning of the next end step / your next end step / the next turn's upkeep /
+    # your next upkeep"), or {"kind": "event", "event": "die" | "leave"} about the object(s) bound
+    # as ``refs["watch"]`` ("when that creature dies this turn")
+    when: dict[str, Any]
+    effects: list[dict[str, Any]] = Field(default_factory=list)
+    refs: dict[str, Any] = Field(default_factory=dict)  # its resolution bindings (app/rules/context.py)
+    event: dict[str, Any] | None = None  # the creating trigger's TriggerEvent, for "it" of a "When ~ dies, … at the beginning of …"
+    turn: int = 0  # the turn and step it was created in ("the next end step" is after this one)
+    step: str = ""
+    once: bool = True  # 603.7b: it triggers only once (an "each" duration would say otherwise)
+    until_turn: int | None = None  # "this turn": it stops watching at that turn's cleanup (514.2)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy(cls, data: Any) -> Any:
+        """Older saves kept "at the beginning of the next end step, move it" as a plain dict
+        ({"card", "object", "to", "name"}: unearth, dash)."""
+        if isinstance(data, dict) and "when" not in data and "card" in data and "to" in data:
+            return {"id": f"legacy:{data['object']}", "controller": "", "source_card": data["card"],
+                    "source_object": data["object"], "name": data.get("name", ""),
+                    "when": {"kind": "step", "step": "end", "whose": "next"},
+                    "effects": [{"do": "delayed_move", "card": data["card"], "object": data["object"], "to": data["to"]}]}
+        return data
 
 
 class StackEntry(BaseModel):
@@ -493,7 +542,7 @@ class RulesState(BaseModel):
     prevention: dict[str, int] = Field(default_factory=dict)  # player / object id -> damage to prevent this turn
     regen_shields: dict[str, int] = Field(default_factory=dict)  # object id -> regeneration shields this turn
     linked_exile: dict[str, list[str]] = Field(default_factory=dict)  # source object -> cards exiled "until it leaves"
-    delayed: list[dict[str, Any]] = Field(default_factory=list)  # "at the beginning of the next end step" moves
+    delayed: list[DelayedTrigger] = Field(default_factory=list)  # delayed triggered abilities (603.7; app/rules/delayed.py)
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
     dashed: list[str] = Field(default_factory=list)

@@ -27,7 +27,12 @@
   put (122.6), cards leaving a graveyard (603.10a); and, as they happen, attacks (alone, with N
   creatures: 506.5, 508.3), blocks (509.3a-d) and targeting (115.1).
 
-Not yet: delayed and reflexive triggers beyond the next end step (603.7, 603.12); "dies" of what
+* **Delayed triggered abilities (603.7, app/rules/delayed.py):** created as a spell or ability
+  resolves, with the objects they refer to bound then; they trigger here like the others (at a
+  step's start, or from the event log: ``delayed.at_step`` / ``delayed.on_events``) and take the
+  same APNAP road onto the stack.
+
+Not yet: reflexive triggers (603.12); "dies" of what
 an Aura or Equipment was attached to (needs the attachment as it was, 603.10a); copies of spells
 (707.10) as "cast or copy"; state triggers (603.8).
 """
@@ -52,7 +57,7 @@ from app.game.rules_state import (
 )
 from app.game.state import CardInstance, TokenDef
 from app.rules import characteristics as chars
-from app.rules import scripts, selectors
+from app.rules import delayed, scripts, selectors
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan, decide
 from app.rules.targets import choose_groups, label, legal_targets, ref, source_of
@@ -147,6 +152,7 @@ def sacrificing(plan: Plan, card_ids: list[str]) -> None:
 def collect(plan: Plan) -> None:
     """Look at the events since the last look (603.2)."""
     r = plan.rules
+    delayed.expire(plan)  # "for as long as …" effects whose duration ended (611.2b; app/rules/delayed.py)
     if any(e.batch > r.batch for e in r.events):
         # An event recorded after the step's last table change (a spell becoming cast, 601.2i)
         # is its own batch: close it now, before anyone would receive priority (603.3), rather
@@ -157,6 +163,7 @@ def collect(plan: Plan) -> None:
         return
     r.trigger_batch = max(e.batch for e in new)
     _generic_events(plan, new)
+    delayed.on_events(plan, new)  # "when that creature dies this turn" (603.7; app/rules/delayed.py)
     for e in new:
         if e.kind == "spell_cast" and not e.manual:
             _cast_triggers(plan, e.card or "", e.player or "")
@@ -708,8 +715,9 @@ def monarch_damaged(plan: Plan, attackers: list[CardInstance]) -> None:
 
 def at_step(plan: Plan, trigger: str) -> None:
     """"At the beginning of your upkeep / end step": the active player's permanents."""
-    if trigger == "end_step_you":
-        _delayed(plan)
+    # delayed triggers "at the beginning of the next end step / your next upkeep" (603.7): they join
+    # this step's triggers and go on the stack with them in APNAP order (603.3b)
+    delayed.at_step(plan, "end" if trigger == "end_step_you" else "upkeep")
     if trigger == "upkeep_you":
         _echo(plan)
         _suspend(plan)
@@ -793,18 +801,6 @@ def _cumulative_upkeep(plan: Plan) -> None:
              index=5100, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
                                      "effects": [{"do": "add_counters", "who": "self", "kind": "age", "n": 1},
                                                  {"do": "pay_or_sacrifice", "cost": cost, "per": "age"}]})
-
-
-def _delayed(plan: Plan) -> None:
-    """Delayed triggers "at the beginning of the next end step" (unearth, dash)."""
-    due, plan.rules.delayed = plan.rules.delayed, []
-    for entry in due:
-        card = plan.state.cards.get(entry["card"])
-        controller = card.controller if card is not None else plan.active
-        _add(plan, controller=controller, source_card=entry["card"], source_object=entry["object"], name=entry.get("name", ""),
-             index=7000, definition={"kind": "triggered", "trigger": "delayed", "optional": False, "target": None,
-                                     "effects": [{"do": "delayed_move", "card": entry["card"], "object": entry["object"],
-                                                  "to": entry["to"]}]})
 
 
 def _rebound(plan: Plan) -> None:

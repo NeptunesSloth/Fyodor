@@ -648,6 +648,55 @@ def _signed(p: str) -> int:
     return -int(p[1:]) if p[0] in "-−" else int(p.lstrip("+"))
 
 
+# -- delayed triggers & durations (agent J) --------------------------------------------------------
+# Sentence forms app/rules/delayed.py needs that the grammar above doesn't read on its own. Each is
+# registered as a template by the appended block of app/rules/scripts.py, so the pronoun resolver
+# and the target-group bookkeeping treat the deferred effects like any others.
+_PRONOUN_SACRIFICE = {"them": "them", "those tokens": "them", "those creatures": "them", "the tokens": "them",
+                      "those permanents": "them", "that creature": "it", "that token": "it", "the token": "it",
+                      "that permanent": "it", "that card": "it"}
+_OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)? under (?:their|its) owner's control$")
+
+
+def parse_sacrifice_pronoun(phrase: str) -> tuple[Effects, Any] | None:
+    """"Sacrifice that creature / those tokens / the token": the objects an earlier instruction
+    named (a pronoun for scripts.resolve_it)."""
+    who = _PRONOUN_SACRIFICE.get(phrase.strip())
+    return ([{"do": "sacrifice", "who": who}], None) if who else None
+
+
+def parse_return_owner(text: str) -> tuple[Effects, Any] | None:
+    """"Return those cards to the battlefield under their owner's control" (the singular "owner's"
+    of current Oracle wording): the cards an earlier instruction moved (400.7j), each to its
+    owner's side."""
+    m = _OWNER_RETURN.fullmatch(text.strip())
+    if not m:
+        return None
+    try:
+        kind, key, group = ref(m["o"])
+    except _Fail:
+        return None
+    if kind not in ("it", "them"):
+        return parse_sentence(text)  # ("return all creature cards from your graveyard …": the grammar above)
+    return [{"do": "return_card", "who": _who(kind, key), "to": "battlefield", "tapped": bool(m["t"]),
+             "under": "owner"}], _one(group)
+
+
+def parse_exile_until(phrase: str) -> tuple[Effects, Any] | None:
+    """"Exile <objects> until ~ leaves the battlefield" (610.3) for any target phrase the selector
+    grammar reads ("target artifact or creature an opponent controls", "up to one target nonland
+    permanent …"). Not a pronoun: "exile that card until …" may name a card in a hand, and 610.3
+    returns it to its previous zone, while the engine's linked return puts it onto the
+    battlefield (610.3c) — that wording stays manual."""
+    try:
+        kind, key, group = ref(phrase.strip())
+    except _Fail:
+        return None
+    if kind in ("players", "self", "host", "it", "them"):
+        return None
+    return [{"do": "exile_until", "who": _who(kind, key)}], _one(group)
+
+
 # -- player choices (agent I) ---------------------------------------------------------------------
 # Sentences whose choice belongs to a named player, read by the templates registered at the end of
 # app/rules/scripts.py (they run before the generic grammar): edicts — "[each opponent / target
