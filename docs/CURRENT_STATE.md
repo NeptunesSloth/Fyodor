@@ -160,17 +160,11 @@ The current coverage report's top missing features (`data/reports/commander_rule
 - **Non-mana ward costs** are unsupported (manual).
 - **903.9b without a remembered answer:** the commander briefly lands in the hand or library, then
   its owner is asked. With a remembered "yes" it goes straight to the command zone.
+- **"Dies" triggers miss animated permanents and crewed Vehicles** (LKI keeps power/toughness but
+  not types; strict xfail test).
 - **`prevent_all` bug:** records created on resolution don't store `source_card`; Gideon uses a
   `prevent_self` workaround.
-- **Quoted grants** (`app/rules/granted.py`): "Until end of turn, target creature gets +2/+0 and gains
-  "When this creature dies, …"", "creatures you control gain "{T}: …"", "It gains "…"" (no duration: the
-  game), "… becomes a … creature with "…". It's still a land.", "for as long as you control ~" /
-  "… has a bounty counter on it" / "until your next turn". Only abilities read from the object as it
-  is now are granted (triggered, activated, mana, characteristic-defining P/T, "If ~ would die, exile
-  it instead"; "can't be blocked" and the like become restrictions on the same objects). Other
-  statics granted by an effect (anthems, conditional statics such as Restless Spire's first strike),
-  permissions ("you may cast this card from exile"), grants to cards in other zones or to players,
-  and a quote that names its granter (Hellish Rebuke) stay manual. "You don't lose this mana" is manual.
+- **Grants:** quoted granted abilities with a duration and "you don't lose this mana" are manual.
 - **Simultaneous entries** are processed one after another; 613.7m (APNAP order of simultaneous
   entries) isn't tracked.
 - **"Before attackers are declared"** is modelled conservatively.
