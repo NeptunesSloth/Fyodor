@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 530 · PARTIAL: 2971 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 534 · PARTIAL: 2967 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -2066,8 +2066,8 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Menace
+- ✓ When Sheoldred enters, each opponent sacrifices a nontoken creature or planeswalker of their choice.
 - ✓ Cast it (timing, costs, the stack)
-- ✗ When Sheoldred enters, each opponent sacrifices a nontoken creature or planeswalker of their choice.
 - ✗ {4}{B}: Exile Sheoldred, then return it to the battlefield transformed under its owner's control. Activate only as a sorcery and only if an opponent has eight or more cards in their graveyard.
 - ✗ I — For each opponent, destroy up to one target creature or planeswalker that player controls.
 - ✗ II — Each opponent discards three cards, then mills three cards.
