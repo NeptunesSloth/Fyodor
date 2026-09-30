@@ -2021,9 +2021,6 @@ def test_bontu_cant_block_unless_a_creature_died_under_your_control(cards, died)
 # -- what is never guessed (the ability stays manual: "wrong automation is worse than manual") --------------------
 REFUSED = [
     # (why, the wording, the same wording with only a condition the engine reads: it is automated)
-    ("a replacement effect the spell creates for the rest of the turn (614.1a) — Lava Coil, Anger of the Gods",
-     "~ deals 4 damage to target creature. If that creature would die this turn, exile it instead.",
-     "~ deals 4 damage to target creature. If you control a Forest, ~ deals 6 damage to that creature instead."),
     ("how the spell was cast isn't modelled — Might of Old Krosa",
      "Target creature gets +2/+2 until end of turn. If you cast this spell during your main phase, that creature gets +4/+4 until end of "
      "turn instead.",
@@ -2062,9 +2059,6 @@ def test_forms_that_are_not_guessed(why, text, control):
 
 
 @pytest.mark.parametrize(("text", "piece"), [
-    ("~ deals 4 damage to target creature. If that creature would die this turn, exile it instead.", "614.1a"),  # Lava Coil
-    ("~ deals 3 damage to each creature. If a creature dealt damage this way would die this turn, exile it instead.", "614.1a"),  # Anger of the Gods
-    ("All creatures get -2/-2 until end of turn. If a creature an opponent controls would die this turn, exile it instead.", "614.1a"),  # Malicious Eclipse
     ("Target creature gets +2/+2 until end of turn. If you cast this spell during your main phase, that creature gets +4/+4 until end "
      "of turn instead.", "phase"),  # Might of Old Krosa
     ("Put five +1/+1 counters on target creature. If this spell was cast from a graveyard, put ten +1/+1 counters on that creature "
@@ -2082,7 +2076,7 @@ def test_refused_wordings_are_registered_with_their_reason(text, piece):
     assert scripts.parse_effects(text) is None
 
 
-@pytest.mark.parametrize("name", ["Lava Coil", "Martial Coup"])
+@pytest.mark.parametrize("name", ["Martial Coup"])
 def test_the_cards_with_those_forms_stay_partial(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL"
 

@@ -1112,6 +1112,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 return None
             effects = with_kicker
             continue
+        if (instead := replacement_sentence(text, effects, groups)) is not None:  # -- replacement effects stage 2 (wave 2E) --  (before 1B: a replacement, not a condition)
+            effects += instead
+            continue
         # -- conditional / instead clauses (wave 1B) --  "If C, Y instead." / "Y instead if C." / "Otherwise, Z."
         if (branch := _instead_or_otherwise(text, effects, prev_start, groups)) is not None:
             if branch is False:
@@ -1139,9 +1142,6 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             added = _add_groups(groups, *inner)
             gate: dict[str, Any] = {"succeeded": bind, **({"negate": True} if if_do["neg"] else {})}
             effects += [{"do": "only_if", "cond": gate, "skip": len(added)}, *added]
-            continue
-        if (instead := replacement_sentence(text, effects, groups)) is not None:  # -- replacement effects stage 2 (wave 2E) --
-            effects += instead
             continue
         cond_m = re.match(r"^if (?P<c>[^,]+), (?P<rest>.+)$", text)
         if cond_m:  # "If you control a Forest, draw a card." (608.2c): a condition on this sentence

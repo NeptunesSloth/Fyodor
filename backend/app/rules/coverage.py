@@ -201,10 +201,6 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\btarget creature's power and toughness\b", re.I), "switching or reading a target's P/T pair: not modelled"),
     # -- conditional / instead clauses (wave 1B) --------------------------------------------------------
     # Conditions app/rules/conditions.py deliberately doesn't read: the clause (or the whole ability) stays manual.
-    (re.compile(r"\bwould (?:die|be put into (?:a|your|an opponent's|its owner's|their owner's) graveyard)\b[^.]*"
-                r"\bthis turn, exile (?:it|that card|that permanent|them|those cards) instead\b", re.I),
-     "a replacement effect a spell or ability creates for the rest of the turn (614.1a, 614.6): only a permanent's own "
-     "\"If ~ would die\" replacement (exile_instead) is modelled, not one a resolving spell sets up"),
     (re.compile(r"\bif you cast (?:this spell|it) during your main phase\b", re.I),
      "the phase a spell was cast in isn't recorded (the \"cast during your main phase\" instead clauses): not modelled"),
     (re.compile(r"\b(?:(?:this spell|it) was cast from|you cast (?:this spell|it) from) (?:a|your|an opponent's|their) "
