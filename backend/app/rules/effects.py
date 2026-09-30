@@ -107,7 +107,12 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         return []  # the source left: "it" is gone (a new object isn't affected)
     if who == "host":  # "enchanted creature" / "equipped creature": what the source is attached to now
         src = plan.state.cards.get(ctx.get("source_card") or "")
-        host = plan.state.cards.get(src.attached_to or "") if src is not None and src.zone.endswith(":battlefield") else None
+        if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
+            host = plan.state.cards.get(src.attached_to or "")
+        else:  # the Aura / Equipment left (sacrificed as a cost: "Sacrifice ~: Equipped creature can't be
+            # blocked this turn"): what it was attached to as it last existed (608.2h, its LKI snapshot)
+            snap = plan.rules.lki.get(ctx.get("source_object") or "")
+            host = plan.state.cards.get(snap.attached_to or "") if snap is not None else None
         return [host.id] if host is not None and host.zone.endswith(":battlefield") else []
     if who == "event":  # "it" / "that creature": the object(s) the trigger event happened to — only while
         # each is still that object where it was (400.7: after a zone change it's a new object)
@@ -178,17 +183,22 @@ def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """Noncombat damage from the source (120.3): life loss for players, marked damage for
-    creatures, loyalty loss for planeswalkers; lifelink and deathtouch of the source apply."""
-    shares = divided(ctx, e)  # 601.2d: each target's share, as divided when it was put on the stack
-    n = 0 if shares is not None else _amount(plan, ctx, e["n"])
+class _Source:
+    """What deals damage: the spell or ability's source, or a creature the text names ("target
+    creature you control deals damage equal to its power to …", a fight). ``keywords`` and ``ch``
+    are the object's as it is, or as it last existed if it left (702.15c, 702.2e: last known
+    information decides whether it had lifelink / deathtouch); ``key`` is what a lifelink gain is
+    recorded under (the card while it's there — each source is its own gain event, 702.15e — else
+    its controller as it last existed, 702.15b)."""
 
-    def amount(key: str) -> int:
-        return shares.get(key, 0) if shares is not None else n
-    players = _players(plan, ctx, e["who"])
-    cards = _cards(plan, ctx, e["who"])
-    _remember(plan, ctx, e, cards)
+    __slots__ = ("oid", "keywords", "ch", "key", "card")
+
+    def __init__(self, oid: str, keywords: frozenset[str], ch: Any, key: str, card: str | None) -> None:
+        self.oid, self.keywords, self.ch, self.key, self.card = oid, keywords, ch, key, card
+
+
+def _ability_source(plan: Plan, ctx: Context) -> _Source:
+    """The damage source of "~ deals N damage": the ability's source object (608.2h)."""
     source = plan.state.cards.get(ctx.get("source_card") or "")
     lki = plan.rules.lki.get(ctx.get("source_object") or "")
     keywords: frozenset[str] = frozenset()
@@ -197,78 +207,210 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         keywords = plan.ch(source).keywords
     elif lki is not None and source is not None:
         keywords = plan.ch(source).keywords  # (printed keywords of the card; LKI of granted ones is M16 later)
-    creatures, walkers, withered, dealt = {}, {}, {}, []
-    deathtouched = []
-    per: dict[str, int] = {}
-    # prevention effects (615: "prevent all …" in force, then "prevent the next N" shields) on this
-    # one simultaneous damage event — app/rules/replacements.py
-    source_oid = ctx.get("source_object") or ""
-    events = [{"source_card": source.id if source is not None else None, "source_oid": source_oid, "target": cid,
-               "amount": amount(cid), "combat": False}
-              for cid in cards if not protection.protected_from(plan.ch(plan.state.cards[cid]), src_ch)]
-    events += [{"source_card": source.id if source is not None else None, "source_oid": source_oid, "target": pid,
-                "amount": amount(pid), "combat": False} for pid in players]
-    after = replacements.apply_prevention(plan, events) or []
-    left = {ev["target"]: ev["amount"] - ev["prevented"] for ev in after}
-    for cid in cards:
-        card = plan.state.cards[cid]
-        ch = plan.ch(card)
-        if protection.protected_from(ch, src_ch):  # 702.16e: the damage is prevented
-            plan.note(f"Protection prevents the damage to {ch.name}", [cid], actor=ctx["controller"])
+    return _Source(ctx.get("source_object") or "", keywords, src_ch, ctx["controller"], source.id if source is not None else None)
+
+
+def _named_source(plan: Plan, ctx: Context, who: str) -> _Source | None:
+    """The damage source an instruction names — "target creature you control deals damage …"
+    (``who``: "target", "target:<g>", "self", "host", "event", "ref:<b>"): the object as it is
+    while it's still that object on the battlefield, else as it last existed (608.2h; 702.15c /
+    702.2e for lifelink and deathtouch). None if nothing (or no longer anything) is named."""
+    refs: list[tuple[str, str | None]] = []
+    if who == "self":
+        refs = [(ctx.get("source_card") or "", ctx.get("source_object"))]
+    elif who == "target" or who.startswith("target:"):
+        refs = [(t["id"], t.get("object_id")) for t in target_refs(ctx, who) if t["id"] in plan.state.cards]
+    elif who == "host":
+        refs = [(c, plan.oid(c)) for c in _cards(plan, ctx, "host")]
+    elif who == "event" or who.startswith("ref:"):
+        name = context.EVENT if who == "event" else who[4:]
+        refs = [(r.card, r.object_id) for r in context._object_refs(ctx, name, was=True)]
+    for card_id, oid in refs[:1]:
+        card = plan.state.cards.get(card_id)
+        if card is not None and card.zone.endswith(":battlefield") and (oid is None or plan.oid(card) == oid):
+            return _card_source(plan, card.id)
+        snap = plan.rules.lki.get(oid or "")
+        if snap is not None:
+            from app.rules.triggers import _snapshot_card  # (triggers imports this module)
+
+            _, ch = _snapshot_card(plan, snap)
+            return _Source(snap.object_id, ch.keywords, ch, snap.controller,
+                           snap.card if snap.card in plan.state.cards else None)
+    return None
+
+
+def _card_source(plan: Plan, cid: str) -> _Source:
+    """A creature on the battlefield as a damage source (a fight, a bite)."""
+    ch = plan.ch(plan.state.cards[cid])
+    return _Source(plan.oid(cid), ch.keywords, ch, cid, cid)
+
+
+def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]]) -> None:
+    """Deal the damage of ``hits`` (source, a player or permanent, amount) all at once: one damage
+    event batch (a fight's two creatures deal their damage simultaneously, 701.14a). Protection
+    from the source prevents it (702.16e), prevention shields absorb it (615.7); wither / infect
+    give -1/-1 counters (120.3d), infect poison to players (120.3b), deathtouch marks the
+    creature for the next state-based check (702.2b), lifelink gains the source's controller that
+    much (120.3f / 702.15b)."""
+    creatures: dict[str, int] = {}
+    walkers: dict[str, int] = {}
+    withered: dict[str, int] = {}
+    to_players: dict[str, int] = {}
+    poison: dict[str, int] = {}
+    lifelink: dict[str, int] = {}
+    dealt: list[dict[str, Any]] = []
+    deathtouched: list[str] = []
+    battles: dict[str, int] = {}
+    # prevention (615): protection from the source first (702.16e), then the prevention effects on
+    # this one simultaneous damage event batch (app/rules/replacements.py: "prevent all …", shields)
+    kept: list[tuple[_Source, str, dict[str, Any]]] = []
+    for src, key, want in hits:
+        if want <= 0:
             continue
-        per[cid] = left.get(cid, 0)
-        if per[cid] <= 0:
+        if key not in plan.state.players and protection.protected_from(plan.ch(plan.state.cards[key]), src.ch):
+            plan.note(f"Protection prevents the damage to {plan.ch(plan.state.cards[key]).name}", [key], actor=ctx["controller"])
             continue
-        if "Planeswalker" in ch.types and not ch.is_creature:
-            walkers[cid] = per[cid]
-        elif {"wither", "infect"} & keywords:
-            withered[cid] = per[cid]
+        kept.append((src, key, {"source_card": src.card, "source_oid": src.oid, "target": key, "amount": want, "combat": False}))
+    replacements.apply_prevention(plan, [ev for _, _, ev in kept])
+    for src, key, ev in kept:
+        n = ev["amount"] - ev.get("prevented", 0)
+        if n <= 0:
+            continue
+        if key in plan.state.players:
+            if "infect" in src.keywords:
+                poison[key] = poison.get(key, 0) + n
+            else:
+                to_players[key] = to_players.get(key, 0) + n
+            dealt.append({"source": src.oid, "target": key, "amount": n})
         else:
-            creatures[cid] = per[cid]
-        if cid not in walkers and "deathtouch" in keywords:
-            deathtouched.append(cid)
-        dealt.append({"source": ctx.get("source_object") or "", "target": cid, "target_object": plan.oid(cid), "amount": per[cid]})
-    to_players = {pid: left.get(pid, 0) for pid in players}
-    players = [pid for pid, m in to_players.items() if m > 0]
-    for pid in players:
-        dealt.append({"source": ctx.get("source_object") or "", "target": pid, "amount": to_players[pid]})
-    if not dealt or (shares is None and n <= 0):
-        return True
-    total = sum(int(d["amount"]) for d in dealt)
-    infect = "infect" in keywords
-    for pid in players:
+            ch = plan.ch(plan.state.cards[key])
+            if "Planeswalker" in ch.types and not ch.is_creature:
+                walkers[key] = walkers.get(key, 0) + n
+            elif "Battle" in ch.types and not ch.is_creature:  # 120.3h: defense counters are removed
+                battles[key] = battles.get(key, 0) + n
+            elif {"wither", "infect"} & src.keywords:
+                withered[key] = withered.get(key, 0) + n
+            else:
+                creatures[key] = creatures.get(key, 0) + n
+            if key not in walkers and key not in battles and "deathtouch" in src.keywords:
+                deathtouched.append(key)
+            dealt.append({"source": src.oid, "target": key, "target_object": plan.oid(key), "amount": n})
+        if "lifelink" in src.keywords:
+            lifelink[src.key] = lifelink.get(src.key, 0) + n
+    if not dealt:
+        return
+    for pid in [*to_players, *poison]:
         plan.rules.damaged[pid] = plan.state.turn.number
-    plan.do({"type": "rules_damage", "creatures": creatures, "players": {} if infect else {p: to_players[p] for p in players},
-             "poison": {p: to_players[p] for p in players} if infect else {}, "wither": withered, "planeswalkers": walkers,
-             "lifelink": {ctx["controller"]: total} if "lifelink" in keywords else {}, "combat": False,
-             "dealt": dealt}, actor=ctx["controller"])
+    plan.do({"type": "rules_damage", "creatures": creatures, "players": to_players, "poison": poison, "wither": withered,
+             "planeswalkers": walkers, "lifelink": lifelink, "combat": False, "dealt": dealt}, actor=ctx["controller"])
+    for key, n in battles.items():
+        have = plan.state.cards[key].counters.get("defense", 0)
+        if have:
+            plan.do({"type": "counter", "card_ids": [key], "kind": "defense", "delta": -min(have, n)}, actor=ctx["controller"])
     plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *deathtouched]))
+
+
+def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Noncombat damage from the source (120.3): life loss for players, marked damage for
+    creatures, loyalty loss for planeswalkers; lifelink and deathtouch of the source apply. With
+    ``src`` ("target", "target:<g>", "host", "self", "ref:…"), the named creature is the source
+    ("target creature you control deals damage equal to its power to target creature you don't
+    control": the biting creature's lifelink and deathtouch count, 120.3f, 702.2b; nothing is
+    dealt if it's gone and has no last known information)."""
+    shares = divided(ctx, e)  # 601.2d: each target's share, as divided when it was put on the stack
+    n = 0 if shares is not None else _amount(plan, ctx, e["n"])
+
+    def amount(key: str) -> int:
+        return shares.get(key, 0) if shares is not None else n
+    players = _players(plan, ctx, e["who"])
+    cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
+    if e.get("src"):
+        src = _named_source(plan, ctx, e["src"])
+        if src is None:
+            plan.note(f"{ctx.get('name') or 'It'}: the creature that would deal the damage is gone", actor=ctx["controller"])
+            return True
+    else:
+        src = _ability_source(plan, ctx)
+    if shares is None and n <= 0:
+        return True
+    _deal(plan, ctx, [(src, key, amount(key)) for key in [*cards, *players]])
     return True
 
 
+def fight(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.14: ``who`` fights ``with``: each deals damage equal to its power to the other, at
+    once (701.14a, one damage batch; not combat damage, 701.14d). Nothing happens if either isn't
+    on the battlefield or isn't a creature any more, or was an illegal target (701.14b: illegal
+    targets were dropped on resolution; "up to one target" with none chosen: nothing to fight).
+    A creature fighting itself deals damage equal to twice its power to itself (701.14c)."""
+    a = _cards(plan, ctx, e["who"])
+    b = _cards(plan, ctx, e["with"])
+    _remember(plan, ctx, e, a)
+    if len(a) != 1 or len(b) != 1:
+        plan.note(f"{ctx.get('name') or 'It'}: no fight (one of the creatures is gone or wasn't chosen)", actor=ctx["controller"])
+        return True
+    pair = []
+    for cid in (a[0], b[0]):
+        card = plan.state.cards[cid]
+        ch = plan.ch(card)
+        if not card.zone.endswith(":battlefield") or not ch.is_creature:
+            plan.note(f"{ctx.get('name') or 'It'}: no fight ({ch.name or 'it'} isn't a creature on the battlefield)",
+                      actor=ctx["controller"])
+            return True
+        pair.append((cid, max(0, ch.pt[0]) if ch.pt is not None else 0))
+    (ca, pa), (cb, pb) = pair
+    plan.note(f"{plan.ch(plan.state.cards[ca]).name} fights {plan.ch(plan.state.cards[cb]).name}", [ca, cb], actor=ctx["controller"])
+    _deal(plan, ctx, [(_card_source(plan, ca), cb, pa), (_card_source(plan, cb), ca, pb)])
+    return True
+
+
+def choose_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Choose up to one target creature." — only names its targets (chosen on casting, 601.2c)
+    for the sentences that follow ("That creature can't block this turn"): nothing to do here."""
+    return True
+
+
+def _stat_label(v: int) -> str:
+    return f"{v:+d}"
+
+
 def pump(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"… gets +N/+N until end of turn" (layer 7c). ``p`` / ``t`` are ints or value expressions
+    ("+X/+0", "+1/+1 for each creature you control", "-X/-X where X is …": app/rules/values.py),
+    read once as the effect begins (611.2d, 608.2h) — unlike a static's "for each", never again."""
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
     affected = [plan.oid(c) for c in cards]  # locked in now (611.2c)
     if affected:
+        # (a literal keeps its sign: values.evaluate reads a *count*, never negative, 107.1b)
+        p = e["p"] if isinstance(e["p"], int) else values.evaluate_signed(plan, ctx, e["p"])
+        t = e["t"] if isinstance(e["t"], int) else values.evaluate_signed(plan, ctx, e["t"])
         layers.add_effect(plan, affected=affected, layer="7c", source=ctx.get("source_object"), controller=ctx["controller"],
-                          power=e["p"], toughness=e["t"], label=f"{e['p']:+d}/{e['t']:+d} until end of turn ({ctx.get('name', '')})")
-        _mark(plan, _cards(plan, ctx, e["who"]), f"{e['p']:+d}/{e['t']:+d}")
+                          power=p, toughness=t, label=f"{_stat_label(p)}/{_stat_label(t)} until end of turn ({ctx.get('name', '')})")
+        _mark(plan, _cards(plan, ctx, e["who"]), f"{_stat_label(p)}/{_stat_label(t)}")
     return True
 
 
 def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"… gains flying [and lifelink] until end of turn" (layer 6, 613.1f), and "… loses flying
+    until end of turn" (``remove``: keywords taken away, later than any static that grants
+    them — 613.7: this effect's timestamp is now)."""
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
-    if cards:
+    keywords = list(e.get("keywords") or [])
+    removed = list(e.get("remove") or [])
+    if cards and (keywords or removed):
+        words = [*keywords, *(f"loses {k}" for k in removed)]
         layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="6", source=ctx.get("source_object"),
-                          controller=ctx["controller"], add_keywords=tuple(e["keywords"]),
-                          label=f"{', '.join(e['keywords'])} until end of turn")
-        _mark(plan, cards, ", ".join(k.capitalize() for k in e["keywords"]))
+                          controller=ctx["controller"], add_keywords=tuple(keywords), remove_keywords=tuple(removed),
+                          label=f"{', '.join(words)} until end of turn")
+        _mark(plan, cards, ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed)]))
     return True
 
 
-RESTRICTION_LABELS = {"cant_block": "Can't block", "cant_attack": "Can't attack", "cant_attack_or_block": "Can't attack or block",
+# (the table marker's value is at most 20 characters: app/game/actions.py AddEffect.value)
+RESTRICTION_LABELS = {"cant_block": "Can't block", "cant_attack": "Can't attack", "cant_attack_or_block": "Can't attack/block",
                       "cant_be_blocked": "Can't be blocked", "must_attack": "Attacks if able"}
 
 
@@ -296,8 +438,10 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def _mark(plan: Plan, cards: list[str], label: str) -> None:
     """The visible table marker for an engine effect (it goes away at cleanup with the effect)."""
+    # (AddEffect: the name is at most 60 characters, the short value 20 — "Deathtouch, Indestructible")
+    value = label if len(label) <= 20 else label[:19] + "…"
     for cid in cards:
-        plan.do({"type": "add_effect", "card_ids": [cid], "name": label, "value": label, "text": "until end of turn"})
+        plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60], "value": value, "text": "until end of turn"})
 
 
 def _can_regenerate(ctx: Context) -> bool:
@@ -1246,6 +1390,7 @@ PRIMITIVES = {
     "sacrifice": sacrifice, "explore": explore, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
     "fabricate": fabricate, "storm": storm,
+    "fight": fight, "choose_targets": choose_targets,
 }
 
 
@@ -1725,7 +1870,8 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "surveil": "surveil {n}", "damage": "deal {n} damage", "player_counter": "get {n} {counter}",
              "create_token": "create {n} token(s)", "add_counters": "put {n} {kind} counter(s)", "proliferate": "proliferate",
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library"}
-    parts = [words.get(e["do"], e["do"]).format(**{k: v for k, v in e.items()}) for e in effects if e["do"] != "kicked_gate"]
+    parts = [words.get(e["do"], e["do"]).format(**{k: v for k, v in e.items()}) for e in effects
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate")]
     return (", ".join(parts) or "do it").capitalize()
 
 
@@ -1955,3 +2101,37 @@ PRIMITIVES.update({"edict": edict, "player_chooses": player_chooses, "reveal_han
                    "choose_from_hand": choose_from_hand, "discard_named": discard_named, "choose_value": choose_value})
 RESUME = {"edict": resume_edict, "player_chooses": resume_player_chooses, "choose_from_hand": resume_choose_from_hand,
           "choose_value": resume_choose_value}
+
+
+# -- temporary grants & riders (agent G) ------------------------------------------------------------
+# ``pump`` reads value expressions ("+X/+0", "+1/+1 for each …", "-X/-X where X is …": 611.2d, once);
+# ``damage`` takes its source from a named creature ("src": a bite); ``fight`` (701.14);
+# ``choose_targets`` (a sentence that only names targets); ``grant`` also removes keywords
+# ("loses flying until end of turn"). "Do this only once each turn." (603.2h: the ability triggers
+# only if its controller hasn't taken the indicated action that turn) is enforced by triggers._add
+# reading the uses it records here: ``record_action`` is appended to such an ability's effects,
+# so the action counts as taken only when the resolution got that far — not when the ability was
+# countered, its "you may" declined, or an optional payment it hinges on wasn't made.
+def record_action(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import restrictions
+
+    refs = ctx.get("refs") or {}
+    if any(b.get("kind") == "payment" and not b.get("ok") for b in refs.values()):
+        return True  # ("you may pay … If you do, …": declined — the action wasn't taken)
+    restrictions.record_use(plan.rules, e["object"], int(e["index"]), plan.state.turn.number)
+    return True
+
+
+def action_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """The first effect of a "Do this only once each turn." ability: if another instance (one that
+    triggered at the same time) already took the action as it resolved, this one does nothing —
+    the action is taken only once each turn (603.2h)."""
+    from app.rules import restrictions
+
+    if restrictions.uses(plan.rules, e["object"], int(e["index"]), plan.state.turn.number):
+        plan.note(f"{ctx.get('name') or 'It'}: already done this turn (only once each turn)", actor=ctx["controller"])
+        ctx["next"] = len(ctx["effects"])
+    return True
+
+
+PRIMITIVES.update({"record_action": record_action, "action_gate": action_gate})

@@ -146,11 +146,9 @@ def test_refusals_are_registered():
 
 
 # -- the primitives another module must add: the grammar is ready, the wording is refused until then
-def test_fight_grammar_waits_for_its_primitive(monkeypatch):
+def test_fight_grammar_now_has_its_primitive():
     text = "Target creature you control fights another target creature."
-    if "fight" not in effects.PRIMITIVES:
-        assert parse_effects(text) is None
-    monkeypatch.setitem(effects.PRIMITIVES, "fight", lambda plan, ctx, e: True)
+    assert "fight" in effects.PRIMITIVES  # (agent G: app/rules/effects.fight)
     assert parse_effects(text) == ([{"do": "fight", "who": "target:0", "with": "target:1"}], [
         {"what": 'sel:{"controller":"you","types":["Creature"]}', "min": 1, "max": 1},
         {"what": CREATURE, "min": 1, "max": 1, "distinct_from": [0]}], False)  # 115.3: "another": not the first
@@ -163,11 +161,9 @@ def test_fight_grammar_waits_for_its_primitive(monkeypatch):
     assert parse_effects("~ fights each creature you don't control.") is None
 
 
-def test_choose_targets_grammar_waits_for_its_primitive(monkeypatch):
+def test_choose_targets_grammar_now_has_its_primitive():
     text = "Choose up to one target creature. That creature can't block this turn."
-    if "choose_targets" not in effects.PRIMITIVES:
-        assert parse_effects(text) is None
-    monkeypatch.setitem(effects.PRIMITIVES, "choose_targets", lambda plan, ctx, e: True)
+    assert "choose_targets" in effects.PRIMITIVES  # (agent G: app/rules/effects.choose_targets)
     assert parse_effects(text) == ([{"do": "choose_targets", "who": "target:0"}, {"do": "restrict", "who": "target:0", "rules": ["cant_block"]}],
                                    [{"what": CREATURE, "min": 0, "max": 1}], False)
     assert parse_effects("Choose two target creatures. Untap them. Put two +1/+1 counters on each of them.") == (
@@ -176,10 +172,9 @@ def test_choose_targets_grammar_waits_for_its_primitive(monkeypatch):
     assert parse_effects("Choose a creature you control.") is None  # (not a target: the player-choices grammar)
 
 
-def test_choose_targets_binds_a_later_pronoun_end_to_end(cards, monkeypatch):
+def test_choose_targets_binds_a_later_pronoun_end_to_end(cards):
     """With the (no-op) primitive in place, "Choose up to one target creature. That creature can't
     block this turn." targets on activation (601.2c) and the second sentence acts on the target."""
-    monkeypatch.setitem(effects.PRIMITIVES, "choose_targets", lambda plan, ctx, e: True)
     scripts._cached.cache_clear()
     s = build(cards)
     wall = token(s, "p2", "Wall", "0/4")
@@ -195,11 +190,9 @@ def test_choose_targets_binds_a_later_pronoun_end_to_end(cards, monkeypatch):
     scripts._cached.cache_clear()
 
 
-def test_fight_targets_end_to_end(cards, monkeypatch):
+def test_fight_targets_end_to_end(cards):
     """The two words "target" of "… fights another target creature" are two groups; the second
-    can't be the first's object (115.3); the effect sees both groups."""
-    seen = []
-    monkeypatch.setitem(effects.PRIMITIVES, "fight", lambda plan, ctx, e: seen.append((e, ctx["groups"])) or True)
+    can't be the first's object (115.3); each deals damage equal to its power to the other (701.14a)."""
     scripts._cached.cache_clear()
     s = build(cards)
     mine, theirs = token(s, "p1", "Mine", "3/3"), token(s, "p2", "Theirs", "2/2")
@@ -210,8 +203,7 @@ def test_fight_targets_end_to_end(cards, monkeypatch):
     assert mine.id not in {o.id for o in d.options} and theirs.id in {o.id for o in d.options}
     choose(s, [theirs.id])
     pass_until_stack_empty(s)
-    assert seen and seen[0][0] == {"do": "fight", "who": "target:0", "with": "target:1"}
-    assert [[t["id"] for t in g] for g in seen[0][1]] == [[mine.id], [theirs.id]]
+    assert s.state.cards[mine.id].damage == 2 and theirs.id not in s.state.cards  # (a 2/2 token dealt 3 dies)
     replay_matches(s)
     scripts._cached.cache_clear()
 

@@ -108,7 +108,6 @@ def test_other_amounts():
 
 
 @pytest.mark.parametrize("text", [
-    "draw a card for each +1/+1 counter on it",  # (bound by nothing here: see the lead's _STAT_KEYS note)
     "~ deals damage to target creature equal to the number of cards in that player's hand",
     "draw a card for each Aura attached to it",
     "each opponent loses X life and you draw a card, where X is the number of Shrines you control",  # X in one half only
@@ -413,23 +412,29 @@ def test_each_opponent_discards_for_each_privately(cards):
     replay_matches(s)
 
 
-# -- needs the lead: primitives outside this agent's files -----------------------------------
-@pytest.mark.xfail(strict=True, reason="effects.pump takes ints: it must evaluate p/t with values.evaluate_signed "
-                                       "before the grammar may emit '+X/+0 until end of turn' / '+1/+1 … for each'")
+# -- primitives added by agent G (app/rules/effects.py: pump values, fight, bite) ----------------------
 def test_pump_with_a_dynamic_amount(cards):
     effects, target = parse_sentence("target creature gets +x/+0 until end of turn")
     assert effects == [{"do": "pump", "who": "target", "p": {"x": 1}, "t": 0}]
 
 
-@pytest.mark.xfail(strict=True, reason="701.14 fight needs a primitive: each deals damage equal to its power to the "
-                                       "other at once (701.14a), nothing if either left or isn't a creature (701.14b)")
 def test_fight(cards):
     effects, targets = parse_sentence("target creature you control fights target creature you don't control")
-    assert effects == [{"do": "fight", "who": "target", "other": "target:1"}]
+    assert effects == [{"do": "fight", "who": "target", "with": "target:1"}]
 
 
-@pytest.mark.xfail(strict=True, reason="bite needs effects.damage to take its source from a target ('src': 'target'), "
-                                       "so lifelink and deathtouch are the biting creature's (120.3, 702.2c)")
 def test_bite(cards):
     effects, targets = parse_sentence("target creature you control deals damage equal to its power to target creature you don't control")
     assert effects == [{"do": "damage", "who": "target:1", "n": {"power": "target"}, "src": "target"}]
+
+
+def test_counters_on_it_binds_through_the_pronoun_resolver():
+    """"on": "it" is a placeholder like {"power": "it"}: scripts.resolve_it binds it to the object
+    the ability named (agent G: scripts._STAT_KEYS), or the ability stays manual."""
+    from app.rules.scripts import parse_effects
+
+    assert parse_sentence("draw a card for each +1/+1 counter on it")[0] == \
+        [{"do": "draw", "who": "you", "n": {"counters": "+1/+1", "on": "it"}}]
+    assert parse_effects("Draw a card for each +1/+1 counter on it.") is None  # (nothing to bind "it" to)
+    assert parse_effects("Draw a card for each +1/+1 counter on it.", it="self")[0] == \
+        [{"do": "draw", "who": "you", "n": {"counters": "+1/+1", "on": "self"}}]

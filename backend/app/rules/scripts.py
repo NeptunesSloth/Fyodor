@@ -272,7 +272,10 @@ _MOVERS = {"destroy", "destroy_all", "exile", "exile_until", "bounce", "return_c
            "sacrifice_choice", "discard", "mill", "search", "pick_looked", "create_token"}
 _TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are tokens, not cards: 111.1)
 _CHOSEN = {"sacrifice_choice": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n"}
-_STAT_KEYS = ("power", "toughness", "mana_value")
+# ("on": "for each +1/+1 counter on it" — the object a pronoun names, as for its power. Not "hand":
+# "that player's hand" names a player, which _bind_stats (objects only) can't bind — values reads
+# only "you" / "target" hands, so the phrase stays manual.)
+_STAT_KEYS = ("power", "toughness", "mana_value", "on")
 
 
 def _is_player_group(group: dict[str, Any]) -> bool:
@@ -472,7 +475,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
     return out
 
 
-_TARGET_REFS = ("who", "power", "toughness", "mana_value", "on", "with")  # ("with": the other creature of a fight)
+_TARGET_REFS = ("who", "power", "toughness", "mana_value", "on", "with", "src")  # ("with": the other creature of a fight; "src": a bite's biter)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -1340,7 +1343,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if kicked is not None:
                     out["if_kicked"] = True
                 if limit is not None:
-                    out["limit"] = "once_each_turn"
+                    out["limit"] = restrictions.limit_kind(limit)
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
                 return out
@@ -1986,3 +1989,22 @@ _RECORDING.update({"edict": "sacrificed", "player_chooses": None, "choose_from_h
                    "reveal_hand": None, "choose_value": None})
 _MOVERS.update({"edict", "player_chooses", "choose_from_hand", "discard_named"})
 _CHOSEN.update({"edict": "n", "player_chooses": "n", "choose_from_hand": "n"})
+
+
+# -- temporary grants & riders (agent G: app/rules/language.py "temporary grants & riders") ----------
+# "Target player draws two cards and loses 2 life": one subject for two instructions — each half is
+# read with the subject repeated; a target subject is ONE target (one word "target", 115.3), so the
+# second half's group is the first's. Both halves must parse, or the sentence stays manual.
+@effect(_language.COMPOUND)
+def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    left, right = _clause(f"{m['s']} {m['l']}"), _clause(f"{m['s']} {m['r']}")
+    if left is None or right is None:
+        raise _NoMatch
+    lgroups, rgroups = _as_groups(left[1]), _as_groups(right[1])
+    if m["s"].startswith("target"):
+        if len(lgroups) != 1 or lgroups != rgroups:
+            raise _NoMatch
+        return left[0] + right[0], left[1]  # (both halves name the one group: "target" / "target:0")
+    if lgroups or rgroups:
+        raise _NoMatch  # (a target inside a half: not read here)
+    return left[0] + right[0], None
