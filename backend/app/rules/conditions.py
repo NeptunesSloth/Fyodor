@@ -3,7 +3,8 @@ wording, evaluated against the table. Used by intervening-if triggers (CR 603.4:
 ability triggers and again as it resolves) and by "If …, [effect]" sentences (608.2c).
 
 A condition is ``{"value": <value>, "op": ">=" | "<=" | "==", "n": int}``: a quantity (see
-app/rules/values.py) compared with a number. :func:`parse` returns None for wordings it doesn't
+app/rules/values.py) compared with a number; or ``{"succeeded": <binding>}``: an optional payment
+of this resolution was made in full ("If you do", app/rules/context.py). :func:`parse` returns None for wordings it doesn't
 read (the ability then stays manual).
 """
 
@@ -81,6 +82,11 @@ def parse(text: str) -> Condition | None:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "succeeded" in cond:  # "If you do": that payment (by its binding) was made in full (118.12)
+        from app.rules import context
+
+        ok = context.succeeded(ctx, cond["succeeded"])
+        return not ok if cond.get("negate") else ok  # "If you don't" / "… unless … pays" (118.12a)
     v = cond["value"]
     n = cond["n"]
     if cond.get("per_opponent"):

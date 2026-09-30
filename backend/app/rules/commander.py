@@ -104,12 +104,92 @@ def basic_land_mana(data: dict[str, Any]) -> set[str]:
     return out
 
 
+# Objects that are never deck cards, whatever a legality field says: sticker sheets (CR 123.1 —
+# stickers are not cards; the sheets stay outside the game), emblems, tokens, dungeons, planes,
+# phenomena, schemes, Vanguard, conspiracies and Theros hero cards. (Attractions *are* cards:
+# they are legal in Commander and live in the Attraction deck.)
+NON_DECK_TYPES = frozenset({"Stickers", "Emblem", "Token", "Dungeon", "Plane", "Phenomenon", "Scheme", "Vanguard",
+                            "Conspiracy", "Hero"})
+
+# Set types whose cards aren't sanctioned paper Magic unless a printing proves it (Alchemy
+# rebalances and Arena-only designs, Un-sets, memorabilia such as gold-bordered tournament decks,
+# tokens and minigames). Used only when the card data lacks Scryfall's legalities.
+UNSANCTIONED_SET_TYPES = frozenset({"alchemy", "funny", "memorabilia", "token", "minigame"})
+
+# The Commander banned list (2026-09-28 card data), for card data that lacks legalities. When
+# legalities are stored they win, so a stale copy here can't unban or ban anything in the DB.
+COMMANDER_BANNED = frozenset({
+    "Adriana's Valor", "Advantageous Proclamation", "Amulet of Quoz", "Ancestral Recall", "Assemble the Rank and Vile",
+    "Backup Plan", "Balance", "Black Lotus", "Brago's Favor", "Bronze Tablet", "Channel", "Chaos Orb", "Cleanse",
+    "Contract from Below", "Crusade", "Darkpact", "Demonic Attorney", "Dockside Extortionist", "Double Stroke",
+    "Echoing Boon", "Emissary's Ploy", "Emrakul, the Aeons Torn", "Erayo, Soratami Ascendant", "Falling Star",
+    "Fastbond", "Flash", "Golos, Tireless Pilgrim", "Griselbrand", "Hired Heist", "Hold the Perimeter", "Hullbreacher",
+    "Hymn of the Wilds", "Immediate Action", "Imprison", "Incendiary Dissent", "Invoke Prejudice",
+    "Iona, Shield of Emeria", "Iterative Analysis", "Jeweled Bird", "Jeweled Lotus", "Jihad", "Karakas",
+    "Leovold, Emissary of Trest", "Library of Alexandria", "Limited Resources", "Mana Crypt", "Mox Emerald", "Mox Jet",
+    "Mox Pearl", "Mox Ruby", "Mox Sapphire", "Muzzio's Preparations", "Nadu, Winged Wisdom", "Natural Unity",
+    "Paradox Engine", "Power Play", "Pradesh Gypsies", "Primeval Titan", "Prophet of Kruphix", "Rebirth",
+    "Recurring Nightmare", "Rofellos, Llanowar Emissary", "Secret Summoning", "Secrets of Paradise",
+    "Sentinel Dispatch", "Shahrazad", "Sovereign's Realm", "Stone-Throwing Devils", "Summoner's Bond",
+    "Sundering Titan", "Sylvan Primordial", "Tempest Efreet", "Time Vault", "Time Walk", "Timmerian Fiends", "Tinker",
+    "Tolarian Academy", "Trade Secrets", "Unexpected Potential", "Upheaval", "Weight Advantage", "Worldknit",
+    "Yawgmoth's Bargain",
+})
+
+_DIGITAL_GAMES = frozenset({"arena", "mtgo"})
+
+
+def _is_non_deck_object(data: dict[str, Any]) -> bool:
+    for part in [data, *_faces(data)]:
+        type_line = str(part.get("type_line") or "")
+        supertypes = type_line.split("—", 1)[0].split("//", 1)[0].split()
+        if any(t in NON_DECK_TYPES for t in supertypes):
+            return True
+    return False
+
+
+def _inferred_legality(data: dict[str, Any]) -> str:
+    """Commander legality from a printing's other Scryfall fields, for card data without
+    ``legalities``: the banned list, digital-only printings (Arena/MTGO only), Alchemy rebalanced
+    "A-" cards, unsanctioned set types (Un-sets count only with the oval eternal-legal stamp),
+    acorn-stamped, silver- and gold-bordered cards."""
+    name = str(data.get("name") or "")
+    if name in COMMANDER_BANNED or name.split(" // ", 1)[0] in COMMANDER_BANNED:
+        return "banned"
+    if name.startswith("A-") or any(str(f.get("name") or "").startswith("A-") for f in _faces(data)):
+        return "not_legal"
+    if data.get("security_stamp") == "acorn" or data.get("border_color") in ("silver", "gold"):
+        return "not_legal"
+    if data.get("digital"):
+        games = {str(g) for g in (data.get("games") or [])}
+        if not games or games <= _DIGITAL_GAMES:
+            return "not_legal"
+    set_type = str(data.get("set_type") or "")
+    if set_type in UNSANCTIONED_SET_TYPES:
+        if set_type == "funny" and data.get("security_stamp") == "oval":
+            return "legal"  # Unfinity's eternal-legal cards carry the oval stamp; acorn ones don't
+        return "not_legal"
+    return "legal"
+
+
 def legality(data: dict[str, Any]) -> str:
-    """"legal", "banned", "not_legal" … in Commander, from the card database's legalities."""
+    """"legal", "banned" or "not_legal" in Commander.
+
+    Follows the card data: the stored Scryfall ``legalities.commander`` decides when it is there
+    (any other status, e.g. "restricted", is "not_legal"). Objects that can't be deck cards at all
+    (``NON_DECK_TYPES``, e.g. Unfinity sticker sheets, which the bulk data marks "legal") are never
+    legal. Without stored legalities, ``_inferred_legality`` uses the printing's other fields."""
     if "commander_legal" in data:
         return str(data.get("commander_legal") or "not_legal")
-    legal = data.get("legalities") or {}
-    return str(legal.get("commander") or "not_legal")
+    legal = data.get("legalities")
+    if isinstance(legal, dict) and "commander" in legal:
+        status = str(legal.get("commander") or "not_legal")
+        status = status if status in ("legal", "banned") else "not_legal"
+    else:
+        status = _inferred_legality(data)
+    if status == "legal" and _is_non_deck_object(data):
+        return "not_legal"  # a stored "banned" (e.g. conspiracies) is kept as the data says
+    return status
 
 
 def legal_in_commander(data: dict[str, Any]) -> bool:

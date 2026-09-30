@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 342 · PARTIAL: 3159 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 677 · PARTIAL: 2824 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -21,14 +21,14 @@ Color identity R
 - ✓ Attack and block
 - ✗ Whenever Etali attacks, exile the top card of each player's library, then you may cast any number of spells from among those cards without paying their mana costs.
 
-### Ragavan, Nimble Pilferer — PARTIAL
+### Ragavan, Nimble Pilferer — FULL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.
 - ✓ Dash
-- ✗ Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.
 
 ### Braids, Arisen Nightmare — PARTIAL
 
@@ -76,13 +76,13 @@ Color identity WG
 - ✗ Your opponents can't cast spells during your turn.
 - ✗ Whenever one or more creatures you control each with power greater than its base power deals combat damage to a player, draw a card.
 
-### Lotho, Corrupt Shirriff — PARTIAL
+### Lotho, Corrupt Shirriff — FULL
 
 Color identity WB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token.
+- ✓ Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token.
 
 ### Selvala, Heart of the Wilds — PARTIAL
 
@@ -144,7 +144,7 @@ Color identity W
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Vigilance
-- ✗ Adeline's power is equal to the number of creatures you control.
+- ✓ Adeline's power is equal to the number of creatures you control.
 - ✗ Whenever you attack, for each opponent, create a 1/1 white Human creature token that's tapped and attacking that player or a planeswalker they control.
 
 ### Vito, Thorn of the Dusk Rose — FULL
@@ -163,9 +163,9 @@ Color identity R
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Cast it (timing, costs, the stack)
+- ✓ Discard a card: Exile the top two cards of your library. You may play those cards this turn.
 - ✗ Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.
 - ✗ Creatures you control can boast twice during each of your turns rather than once.
-- ✗ Discard a card: Exile the top two cards of your library. You may play those cards this turn.
 
 ### Six — PARTIAL
 
@@ -194,8 +194,8 @@ Color identity W
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Lifelink
+- ✓ Whenever an opponent casts their second spell each turn, draw a card.
 - ✗ Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card.
-- ✗ Whenever an opponent casts their second spell each turn, draw a card.
 
 ### Elas il-Kor, Sadistic Pilgrim — FULL
 
@@ -246,7 +246,7 @@ Color identity UR
 - ✗ Magecraft — Whenever you cast or copy an instant or sorcery spell, Veyran gets +1/+1 until end of turn.
 - ✗ If you casting or copying an instant or sorcery spell causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.
 
-### Avacyn, Angel of Hope — PARTIAL
+### Avacyn, Angel of Hope — FULL
 
 Color identity W
 
@@ -255,7 +255,7 @@ Color identity W
 - ✓ Flying
 - ✓ Vigilance
 - ✓ Indestructible
-- ✗ Other permanents you control have indestructible.
+- ✓ Other permanents you control have indestructible.
 
 ### Niv-Mizzet, Parun — FULL
 
@@ -302,7 +302,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ When Urza enters, create a 0/0 colorless Construct artifact creature token with "This token gets +1/+1 for each artifact you control."
+- ✓ When Urza enters, create a 0/0 colorless Construct artifact creature token with "This token gets +1/+1 for each artifact you control."
 - ✗ Tap an untapped artifact you control: Add {U}.
 - ✗ {5}: Shuffle your library, then exile the top card. Until end of turn, you may play that card without paying its mana cost.
 
@@ -347,7 +347,7 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Ashaya's power and toughness are each equal to the number of lands you control.
+- ✓ Ashaya's power and toughness are each equal to the number of lands you control.
 - ✗ Nontoken creatures you control are Forest lands in addition to their other types.
 
 ### Yawgmoth, Thran Physician — FULL
@@ -375,7 +375,7 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Creatures you control with power 2 or less can't be blocked by creatures with power 3 or greater.
+- ✓ Creatures you control with power 2 or less can't be blocked by creatures with power 3 or greater.
 - ✗ If a triggered ability of a creature you control with power 2 or less triggers, that ability triggers an additional time.
 
 ### Kodama of the West Tree — PARTIAL
@@ -450,7 +450,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Artifacts you control have hexproof.
+- ✓ Artifacts you control have hexproof.
 - ✗ At the beginning of your upkeep, if you control the artifact with the greatest mana value or tied for the greatest mana value, draw a card.
 
 ### The Gitrog Monster — PARTIAL
@@ -494,14 +494,14 @@ Color identity G
 - ✓ Landfall — Whenever a land you control enters, put a +1/+1 counter on target creature.
 - ✗ {3}{G}{G}: Double the number of +1/+1 counters on each creature you control.
 
-### Jaheira, Friend of the Forest — PARTIAL
+### Jaheira, Friend of the Forest — FULL
 
 Color identity G · pairs via choose_background
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Tokens you control have "{T}: Add {G}."
 - ✓ Choose a background
-- ✗ Tokens you control have "{T}: Add {G}."
 
 ### Old Gnawbone — PARTIAL
 
@@ -630,7 +630,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ You may look at the top card of your library any time.
+- ✓ You may look at the top card of your library any time.
 - ✗ As long as The Reality Chip is attached to a creature, you may play lands and cast spells from the top of your library.
 - ✗ Reconfigure
 
@@ -698,21 +698,21 @@ Color identity C
 - ✓ Attack and block
 - ✗ Marvin has all activated abilities of creatures you control that don't have the same name as this creature.
 
-### Krenko, Mob Boss — PARTIAL
+### Krenko, Mob Boss — FULL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ {T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.
+- ✓ {T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.
 
-### Anim Pakal, Thousandth Moon — PARTIAL
+### Anim Pakal, Thousandth Moon — FULL
 
 Color identity WR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever you attack with one or more non-Gnome creatures, put a +1/+1 counter on Anim Pakal, then create X 1/1 colorless Gnome artifact creature tokens that are tapped and attacking, where X is the number of +1/+1 counters on Anim Pakal.
+- ✓ Whenever you attack with one or more non-Gnome creatures, put a +1/+1 counter on Anim Pakal, then create X 1/1 colorless Gnome artifact creature tokens that are tapped and attacking, where X is the number of +1/+1 counters on Anim Pakal.
 
 ### Muldrotha, the Gravetide — PARTIAL
 
@@ -730,8 +730,8 @@ Color identity U
 - ✓ Attack and block
 - ✓ This spell can't be countered.
 - ✓ Whenever an opponent casts a noncreature spell, draw a card.
+- ✓ Discard three cards: Exile Nezahal. Return it to the battlefield tapped under its owner's control at the beginning of the next end step.
 - ✗ You have no maximum hand size.
-- ✗ Discard three cards: Exile Nezahal. Return it to the battlefield tapped under its owner's control at the beginning of the next end step.
 
 ### Vivi Ornitier — PARTIAL
 
@@ -752,16 +752,16 @@ Color identity C
 - ✗ Annihilator
 - ✗ When Kozilek is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.
 
-### Drakuseth, Maw of Flames — PARTIAL
+### Drakuseth, Maw of Flames — FULL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
-- ✗ Whenever Drakuseth attacks, Drakuseth deals 4 damage to any target and 3 damage to each of up to two other targets.
+- ✓ Whenever Drakuseth attacks, Drakuseth deals 4 damage to any target and 3 damage to each of up to two other targets.
 
-### Vilis, Broker of Blood — PARTIAL
+### Vilis, Broker of Blood — FULL
 
 Color identity B
 
@@ -769,7 +769,7 @@ Color identity B
 - ✓ Attack and block
 - ✓ Flying
 - ✓ {B}, Pay 2 life: Target creature gets -1/-1 until end of turn.
-- ✗ Whenever you lose life, draw that many cards.
+- ✓ Whenever you lose life, draw that many cards.
 
 ### Skrelv, Defector Mite — PARTIAL
 
@@ -789,7 +789,7 @@ Color identity G
 - ✓ Attack and block
 - ✓ Reach
 - ✓ Vigilance
-- ✗ Lumra's power and toughness are each equal to the number of lands you control.
+- ✓ Lumra's power and toughness are each equal to the number of lands you control.
 - ✗ When Lumra enters, mill four cards. Then return all land cards from your graveyard to the battlefield tapped.
 
 ### Gisela, Blade of Goldnight — PARTIAL
@@ -837,10 +837,10 @@ Color identity WB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever one or more tokens you control enter, each opponent loses 1 life and you gain 1 life.
 - ✗ Whenever one or more tokens your opponents control enter, for each of them, create a tapped token that's a copy of it. This ability triggers only once each turn.
-- ✗ Whenever one or more tokens you control enter, each opponent loses 1 life and you gain 1 life.
 
-### Captain Lannery Storm — PARTIAL
+### Captain Lannery Storm — FULL
 
 Color identity R
 
@@ -848,7 +848,7 @@ Color identity R
 - ✓ Attack and block
 - ✓ Haste
 - ✓ Whenever Captain Lannery Storm attacks, create a Treasure token.
-- ✗ Whenever you sacrifice a Treasure, Captain Lannery Storm gets +1/+0 until end of turn.
+- ✓ Whenever you sacrifice a Treasure, Captain Lannery Storm gets +1/+0 until end of turn.
 
 ### Zopandrel, Hunger Dominus — PARTIAL
 
@@ -898,17 +898,17 @@ Color identity U
 - ✗ If you would proliferate, proliferate twice instead.
 - ✗ {1}{U/P}{U/P}, Remove three counters from among other artifacts, creatures, and planeswalkers you control: Put an indestructible counter on Tekuthal.
 
-### Kogla, the Titan Ape — PARTIAL
+### Kogla, the Titan Ape — FULL
 
 Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ When Kogla enters, it fights up to one target creature you don't control.
+- ✓ Whenever Kogla attacks, destroy target artifact or enchantment defending player controls.
 - ✓ {1}{G}: Return target Human you control to its owner's hand. Kogla gains indestructible until end of turn.
-- ✗ When Kogla enters, it fights up to one target creature you don't control.
-- ✗ Whenever Kogla attacks, destroy target artifact or enchantment defending player controls.
 
-### Magda, Brazen Outlaw — PARTIAL
+### Magda, Brazen Outlaw — FULL
 
 Color identity R
 
@@ -916,7 +916,7 @@ Color identity R
 - ✓ Attack and block
 - ✓ Other Dwarves you control get +1/+0.
 - ✓ Whenever a Dwarf you control becomes tapped, create a Treasure token.
-- ✗ Sacrifice five Treasures: Search your library for an artifact or Dragon card, put that card onto the battlefield, then shuffle.
+- ✓ Sacrifice five Treasures: Search your library for an artifact or Dragon card, put that card onto the battlefield, then shuffle.
 
 ### Junji, the Midnight Sky — PARTIAL
 
@@ -970,10 +970,10 @@ Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever Sephiroth enters or attacks, you may sacrifice another creature. If you do, draw a card.
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
-- ✗ Whenever Sephiroth enters or attacks, you may sacrifice another creature. If you do, draw a card.
 - ✗ Whenever another creature dies, target opponent loses 1 life and you gain 1 life. If this is the fourth time this ability has resolved this turn, transform Sephiroth.
 - ✗ Super Nova — As this creature transforms into Sephiroth, One-Winged Angel, you get an emblem with "Whenever a creature dies, target opponent loses 1 life and you gain 1 life."
 - ✗ Whenever Sephiroth attacks, you may sacrifice any number of other creatures. If you do, draw that many cards.
@@ -987,15 +987,15 @@ Color identity W
 - ✗ When Rosie Cotton enters, create a Food token.
 - ✗ Whenever you create a token, put a +1/+1 counter on target creature you control other than Rosie Cotton.
 
-### Saryth, the Viper's Fang — PARTIAL
+### Saryth, the Viper's Fang — FULL
 
 Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Other tapped creatures you control have deathtouch.
+- ✓ Other untapped creatures you control have hexproof.
 - ✓ {1}, {T}: Untap another target creature or land you control.
-- ✗ Other tapped creatures you control have deathtouch.
-- ✗ Other untapped creatures you control have hexproof.
 
 ### Kiki-Jiki, Mirror Breaker — PARTIAL
 
@@ -1041,9 +1041,9 @@ Color identity U
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Indestructible
+- ✓ At the beginning of your end step, exile up to one other target creature you control, then return that card to the battlefield under your control.
 - ✓ {3}{U}: Tap another target creature.
 - ✗ As long as your devotion to blue is less than five, Thassa isn't a creature.
-- ✗ At the beginning of your end step, exile up to one other target creature you control, then return that card to the battlefield under your control.
 
 ### Electro, Assaulting Battery — PARTIAL
 
@@ -1083,7 +1083,7 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Intimidate
-- ✗ Whenever a Human deals damage to you, destroy it.
+- ✓ Whenever a Human deals damage to you, destroy it.
 - ✗ Other non-Human creatures you control get +1/+1 and have undying.
 
 ### Teysa Karlov — PARTIAL
@@ -1102,7 +1102,7 @@ Color identity R
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Haste
-- ✗ Whenever Laelia attacks, exile the top card of your library. You may play that card this turn.
+- ✓ Whenever Laelia attacks, exile the top card of your library. You may play that card this turn.
 - ✗ Whenever one or more cards are put into exile from your library and/or your graveyard, put a +1/+1 counter on Laelia.
 
 ### Jadar, Ghoulcaller of Nephalia — PARTIAL
@@ -1119,7 +1119,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Instant and sorcery spells you cast cost {1} less to cast.
+- ✓ Instant and sorcery spells you cast cost {1} less to cast.
 - ✗ Whenever a spell or ability you control counters a spell, you may draw a card. If you do, discard a card.
 
 ### Ulamog, the Ceaseless Hunger — PARTIAL
@@ -1138,8 +1138,8 @@ Color identity UG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ {5}{G}{U}: Look at the top five cards of your library. You may put a non-Human creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
 - ✗ Whenever you tap a nonland permanent for mana, add one mana of any type that permanent produced.
-- ✗ {5}{G}{U}: Look at the top five cards of your library. You may put a non-Human creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
 
 ### Atarka, World Render — FULL
 
@@ -1184,8 +1184,8 @@ Color identity W
 - ✓ Attack and block
 - ✓ Flying
 - ✓ Lifelink
+- ✓ Other creatures you control with flying have indestructible.
 - ✗ You may pay {W} and tap four untapped creatures you control with flying rather than pay this spell's mana cost.
-- ✗ Other creatures you control with flying have indestructible.
 
 ### Ulamog, the Infinite Gyre — PARTIAL
 
@@ -1232,15 +1232,15 @@ Color identity UG
 - ✗ • Tap target permanent. Its activated abilities can't be activated this turn.
 - ✗ • Koma gains indestructible until end of turn.
 
-### Beledros Witherbloom — PARTIAL
+### Beledros Witherbloom — FULL
 
 Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
+- ✓ At the beginning of each upkeep, create a 1/1 black and green Pest creature token with "When this token dies, you gain 1 life."
 - ✓ Pay 10 life: Untap all lands you control. Activate only once each turn.
-- ✗ At the beginning of each upkeep, create a 1/1 black and green Pest creature token with "When this token dies, you gain 1 life."
 
 ### Miirym, Sentinel Wyrm — PARTIAL
 
@@ -1260,8 +1260,8 @@ Color identity WR
 - ✓ Attack and block
 - ✓ Indestructible
 - ✓ Creatures you control have menace.
+- ✓ Prevent all damage that would be dealt to attacking creatures you control.
 - ✗ As long as your devotion to red and white is less than seven, Iroas isn't a creature.
-- ✗ Prevent all damage that would be dealt to attacking creatures you control.
 
 ### Isshin, Two Heavens as One — PARTIAL
 
@@ -1322,8 +1322,8 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever Myrel attacks, create X 1/1 colorless Soldier artifact creature tokens, where X is the number of Soldiers you control.
 - ✗ During your turn, your opponents can't cast spells or activate abilities of artifacts, creatures, or enchantments.
-- ✗ Whenever Myrel attacks, create X 1/1 colorless Soldier artifact creature tokens, where X is the number of Soldiers you control.
 
 ### Drana, Liberator of Malakir — FULL
 
@@ -1426,14 +1426,14 @@ Color identity C
 - ✗ Ulamog enters with a number of +1/+1 counters on it equal to the greatest mana value among cards in exile.
 - ✗ Ulamog has annihilator X, where X is the number of +1/+1 counters on it.
 
-### Mazirek, Kraul Death Priest — PARTIAL
+### Mazirek, Kraul Death Priest — FULL
 
 Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
-- ✗ Whenever a player sacrifices another permanent, put a +1/+1 counter on each creature you control.
+- ✓ Whenever a player sacrifices another permanent, put a +1/+1 counter on each creature you control.
 
 ### Tergrid, God of Fright // Tergrid's Lantern — PARTIAL
 
@@ -1454,7 +1454,7 @@ Color identity WUBRG
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Changeling
-- ✗ As Morophon enters, choose a creature type.
+- ✓ As Morophon enters, choose a creature type.
 - ✗ Spells of the chosen type you cast cost {W}{U}{B}{R}{G} less to cast. This effect reduces only the amount of colored mana you pay.
 - ✗ Other creatures you control of the chosen type get +1/+1.
 
@@ -1486,14 +1486,14 @@ Color identity G
 - ✓ Other creatures you control have trample.
 - ✓ Whenever another nontoken creature you control enters, put a +1/+1 counter on it. It gains haste until end of turn.
 
-### Losheel, Clockwork Scholar — PARTIAL
+### Losheel, Clockwork Scholar — FULL
 
 Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Prevent all combat damage that would be dealt to attacking artifact creatures you control.
-- ✗ Whenever one or more artifact creatures you control enter, draw a card. This ability triggers only once each turn.
+- ✓ Prevent all combat damage that would be dealt to attacking artifact creatures you control.
+- ✓ Whenever one or more artifact creatures you control enter, draw a card. This ability triggers only once each turn.
 
 ### Maelstrom Wanderer — FULL
 
@@ -1569,8 +1569,8 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever you cast a creature spell with power 5 or greater, put a +1/+1 counter on Gwenna and untap it.
 - ✗ {T}: Add two mana in any combination of colors. Spend this mana only to cast creature spells or activate abilities of creature sources.
-- ✗ Whenever you cast a creature spell with power 5 or greater, put a +1/+1 counter on Gwenna and untap it.
 
 ### Ardenn, Intrepid Archaeologist — PARTIAL
 
@@ -1598,7 +1598,7 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Menace
-- ✗ Creatures you control have wither.
+- ✓ Creatures you control have wither.
 - ✗ Whenever a creature an opponent controls dies, if its toughness was less than 1, draw a card.
 
 ### Shigeki, Jukai Visionary — PARTIAL
@@ -1607,7 +1607,7 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ {1}{G}, {T}, Return Shigeki to its owner's hand: Reveal the top four cards of your library. You may put a land card from among them onto the battlefield tapped. Put the rest into your graveyard.
+- ✓ {1}{G}, {T}, Return Shigeki to its owner's hand: Reveal the top four cards of your library. You may put a land card from among them onto the battlefield tapped. Put the rest into your graveyard.
 - ✗ Channel — {X}{X}{G}{G}, Discard this card: Return X target nonlegendary cards from your graveyard to your hand.
 
 ### Jin-Gitaxias, Core Augur — PARTIAL
@@ -1629,7 +1629,7 @@ Color identity B
 - ✓ Menace
 - ✗ When Massacre Girl enters, each other creature gets -1/-1 until end of turn. Whenever a creature dies this turn, each creature other than Massacre Girl gets -1/-1 until end of turn.
 
-### The Locust God — PARTIAL
+### The Locust God — FULL
 
 Color identity UR
 
@@ -1638,7 +1638,7 @@ Color identity UR
 - ✓ Flying
 - ✓ Whenever you draw a card, create a 1/1 blue and red Insect creature token with flying and haste.
 - ✓ {2}{U}{R}: Draw a card, then discard a card.
-- ✗ When The Locust God dies, return it to its owner's hand at the beginning of the next end step.
+- ✓ When The Locust God dies, return it to its owner's hand at the beginning of the next end step.
 
 ### Alesha, Who Laughs at Fate — PARTIAL
 
@@ -1684,9 +1684,9 @@ Color identity UB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ When The Scarab God dies, return it to its owner's hand at the beginning of the next end step.
 - ✗ At the beginning of your upkeep, each opponent loses X life and you scry X, where X is the number of Zombies you control.
 - ✗ {2}{U}{B}: Exile target creature card from a graveyard. Create a token that's a copy of it, except it's a 4/4 black Zombie.
-- ✗ When The Scarab God dies, return it to its owner's hand at the beginning of the next end step.
 
 ### Vorinclex, Voice of Hunger — PARTIAL
 
@@ -1704,7 +1704,7 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Daxos's toughness is equal to your devotion to white.
+- ✓ Daxos's toughness is equal to your devotion to white.
 - ✗ Whenever another creature you control enters or dies, you gain 1 life.
 
 ### Ghalta and Mavren — PARTIAL
@@ -1727,7 +1727,7 @@ Color identity R
 - ✓ Creatures you control have haste.
 - ✗ Creatures your opponents control enter tapped.
 
-### Aurelia, the Law Above — PARTIAL
+### Aurelia, the Law Above — FULL
 
 Color identity WR
 
@@ -1736,8 +1736,8 @@ Color identity WR
 - ✓ Flying
 - ✓ Vigilance
 - ✓ Haste
-- ✗ Whenever a player attacks with three or more creatures, you draw a card.
-- ✗ Whenever a player attacks with five or more creatures, Aurelia deals 3 damage to each of your opponents and you gain 3 life.
+- ✓ Whenever a player attacks with three or more creatures, you draw a card.
+- ✓ Whenever a player attacks with five or more creatures, Aurelia deals 3 damage to each of your opponents and you gain 3 life.
 
 ### Bartolomé del Presidio — FULL
 
@@ -1764,15 +1764,15 @@ Color identity U
 - ✗ You may have Chameleon enter as a copy of a creature you control, except his name is Chameleon, Master of Disguise.
 - ✗ Mayhem {2}{U}
 
-### Grand Arbiter Augustin IV — PARTIAL
+### Grand Arbiter Augustin IV — FULL
 
 Color identity WU
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ White spells you cast cost {1} less to cast.
-- ✗ Blue spells you cast cost {1} less to cast.
-- ✗ Spells your opponents cast cost {1} more to cast.
+- ✓ White spells you cast cost {1} less to cast.
+- ✓ Blue spells you cast cost {1} less to cast.
+- ✓ Spells your opponents cast cost {1} more to cast.
 
 ### Lyra Dawnbringer — FULL
 
@@ -1813,27 +1813,27 @@ Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Jarad gets +1/+1 for each creature card in your graveyard.
+- ✓ Jarad gets +1/+1 for each creature card in your graveyard.
 - ✗ {1}{B}{G}, Sacrifice another creature: Each opponent loses life equal to the sacrificed creature's power.
 - ✗ Sacrifice a Swamp and a Forest: Return this card from your graveyard to your hand.
 
-### Honest Rutstein — PARTIAL
+### Honest Rutstein — FULL
 
 Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ When Honest Rutstein enters, return target creature card from your graveyard to your hand.
-- ✗ Creature spells you cast cost {1} less to cast.
+- ✓ Creature spells you cast cost {1} less to cast.
 
-### Juri, Master of the Revue — PARTIAL
+### Juri, Master of the Revue — FULL
 
 Color identity BR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever you sacrifice a permanent, put a +1/+1 counter on Juri.
-- ✗ When Juri dies, it deals damage equal to its power to any target.
+- ✓ Whenever you sacrifice a permanent, put a +1/+1 counter on Juri.
+- ✓ When Juri dies, it deals damage equal to its power to any target.
 
 ### Korvold, Fae-Cursed King — PARTIAL
 
@@ -1842,8 +1842,8 @@ Color identity BRG
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
+- ✓ Whenever you sacrifice a permanent, put a +1/+1 counter on Korvold and draw a card.
 - ✗ Whenever Korvold enters or attacks, sacrifice another permanent.
-- ✗ Whenever you sacrifice a permanent, put a +1/+1 counter on Korvold and draw a card.
 
 ### Bennie Bracks, Zoologist — PARTIAL
 
@@ -1985,14 +1985,14 @@ Color identity W
 - ✓ Flying
 - ✗ Whenever you cast a historic spell, return target creature card with mana value 3 or less from your graveyard to the battlefield.
 
-### The Walls of Ba Sing Se — PARTIAL
+### The Walls of Ba Sing Se — FULL
 
 Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Defender
-- ✗ Other permanents you control have indestructible.
+- ✓ Other permanents you control have indestructible.
 
 ### Inti, Seneschal of the Sun — PARTIAL
 
@@ -2066,8 +2066,8 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Menace
+- ✓ When Sheoldred enters, each opponent sacrifices a nontoken creature or planeswalker of their choice.
 - ✓ Cast it (timing, costs, the stack)
-- ✗ When Sheoldred enters, each opponent sacrifices a nontoken creature or planeswalker of their choice.
 - ✗ {4}{B}: Exile Sheoldred, then return it to the battlefield transformed under its owner's control. Activate only as a sorcery and only if an opponent has eight or more cards in their graveyard.
 - ✗ I — For each opponent, destroy up to one target creature or planeswalker that player controls.
 - ✗ II — Each opponent discards three cards, then mills three cards.
@@ -2099,8 +2099,8 @@ Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Sacrifice three Treasures: Create a 4/4 red Scorpion Dragon creature token with flying and haste. Activate only as a sorcery.
 - ✗ Whenever you commit a crime, create a tapped Treasure token. This ability triggers only once each turn.
-- ✗ Sacrifice three Treasures: Create a 4/4 red Scorpion Dragon creature token with flying and haste. Activate only as a sorcery.
 
 ### Lathril, Blade of the Elves — PARTIAL
 
@@ -2112,7 +2112,7 @@ Color identity BG
 - ✗ Whenever Lathril deals combat damage to a player, create that many 1/1 green Elf Warrior creature tokens.
 - ✗ {T}, Tap ten untapped Elves you control: Each opponent loses 10 life and you gain 10 life.
 
-### Halana and Alena, Partners — PARTIAL
+### Halana and Alena, Partners — FULL
 
 Color identity RG
 
@@ -2120,7 +2120,7 @@ Color identity RG
 - ✓ Attack and block
 - ✓ Reach
 - ✓ First strike
-- ✗ At the beginning of combat on your turn, put X +1/+1 counters on another target creature you control, where X is Halana and Alena's power. That creature gains haste until end of turn.
+- ✓ At the beginning of combat on your turn, put X +1/+1 counters on another target creature you control, where X is Halana and Alena's power. That creature gains haste until end of turn.
 
 ### Daretti, Scrap Savant — PARTIAL
 
@@ -2139,9 +2139,9 @@ Color identity UG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Arixmethes enters tapped with five slumber counters on it.
 - ✓ Whenever you cast a spell, you may remove a slumber counter from Arixmethes.
 - ✓ {T}: Add {G}{U}.
-- ✗ Arixmethes enters tapped with five slumber counters on it.
 - ✗ As long as Arixmethes has a slumber counter on it, it's a land.
 
 ### Ojer Kaslem, Deepest Growth // Temple of Cultivation — PARTIAL
@@ -2163,8 +2163,8 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ You may look at the top card of your library any time.
-- ✗ You may cast creature spells from the top of your library.
+- ✓ You may look at the top card of your library any time.
+- ✓ You may cast creature spells from the top of your library.
 - ✗ {G}, {T}, Tap two untapped creatures you control: Reveal a card from your hand or the top card of your library. If you reveal a creature card this way, put it onto the battlefield. Activate only during your turn.
 
 ### Sakashima the Impostor — PARTIAL
@@ -2208,7 +2208,7 @@ Color identity UR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Dragon spells you cast cost {1} less to cast.
+- ✓ Dragon spells you cast cost {1} less to cast.
 - ✗ Whenever a Dragon you control enters, you may have Sarkhan become a copy of it until end of turn, except its name is Sarkhan, Soul Aflame and it's legendary in addition to its other types.
 
 ### Gonti, Lord of Luxury — PARTIAL
@@ -2246,7 +2246,7 @@ Color identity U
 - ✓ Attack and block
 - ✗ If an opponent would mill one or more cards, they mill twice that many cards instead.
 
-### Liesa, Forgotten Archangel — PARTIAL
+### Liesa, Forgotten Archangel — FULL
 
 Color identity WB
 
@@ -2254,8 +2254,8 @@ Color identity WB
 - ✓ Attack and block
 - ✓ Flying
 - ✓ Lifelink
-- ✗ Whenever another nontoken creature you control dies, return that card to its owner's hand at the beginning of the next end step.
-- ✗ If a creature an opponent controls would die, exile it instead.
+- ✓ Whenever another nontoken creature you control dies, return that card to its owner's hand at the beginning of the next end step.
+- ✓ If a creature an opponent controls would die, exile it instead.
 
 ### Balmor, Battlemage Captain — FULL
 
@@ -2294,7 +2294,7 @@ Color identity UG
 - ✗ Ward
 - ✗ Whenever Koma deals combat damage to a player, create four 3/3 blue Serpent creature tokens named Koma's Coil.
 
-### Aerith Gainsborough — PARTIAL
+### Aerith Gainsborough — FULL
 
 Color identity W
 
@@ -2302,7 +2302,7 @@ Color identity W
 - ✓ Attack and block
 - ✓ Lifelink
 - ✓ Whenever you gain life, put a +1/+1 counter on Aerith Gainsborough.
-- ✗ When Aerith Gainsborough dies, put X +1/+1 counters on each legendary creature you control, where X is the number of +1/+1 counters on Aerith Gainsborough.
+- ✓ When Aerith Gainsborough dies, put X +1/+1 counters on each legendary creature you control, where X is the number of +1/+1 counters on Aerith Gainsborough.
 
 ### Kwain, Itinerant Meddler — PARTIAL
 
@@ -2312,15 +2312,15 @@ Color identity WU
 - ✓ Attack and block
 - ✗ {T}: Each player may draw a card, then each player who drew a card this way gains 1 life.
 
-### Ruby, Daring Tracker — PARTIAL
+### Ruby, Daring Tracker — FULL
 
 Color identity RG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Haste
+- ✓ Whenever Ruby attacks while you control a creature with power 4 or greater, Ruby gets +2/+2 until end of turn.
 - ✓ {T}: Add {R} or {G}.
-- ✗ Whenever Ruby attacks while you control a creature with power 4 or greater, Ruby gets +2/+2 until end of turn.
 
 ### Brudiclad, Telchor Engineer — PARTIAL
 
@@ -2390,13 +2390,13 @@ Color identity U
 - ✗ Spells can't be countered.
 - ✗ Each instant and sorcery card in your graveyard has flashback. The flashback cost is equal to that card's mana cost.
 
-### Arabella, Abandoned Doll — PARTIAL
+### Arabella, Abandoned Doll — FULL
 
 Color identity WR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever Arabella attacks, it deals X damage to each opponent and you gain X life, where X is the number of creatures you control with power 2 or less.
+- ✓ Whenever Arabella attacks, it deals X damage to each opponent and you gain X life, where X is the number of creatures you control with power 2 or less.
 
 ### Jetmir, Nexus of Revels — PARTIAL
 
@@ -2404,7 +2404,7 @@ Color identity WRG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Creatures you control get +1/+0 and have vigilance as long as you control three or more creatures.
+- ✓ Creatures you control get +1/+0 and have vigilance as long as you control three or more creatures.
 - ✗ Creatures you control also get +1/+0 and have trample as long as you control six or more creatures.
 - ✗ Creatures you control also get +1/+0 and have double strike as long as you control nine or more creatures.
 
@@ -2427,14 +2427,14 @@ Color identity R
 - ✓ Flying
 - ✗ Whenever Dragonhawk enters or attacks, exile the top X cards of your library, where X is the number of creatures you control with power 4 or greater. You may play those cards until your next end step. At the beginning of your next end step, Dragonhawk deals 2 damage to each opponent for each of those cards that are still exiled.
 
-### General Kreat, the Boltbringer — PARTIAL
+### General Kreat, the Boltbringer — FULL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever one or more Goblins you control attack, create a 1/1 red Goblin creature token that's tapped and attacking.
 - ✓ Whenever another creature you control enters, General Kreat deals 1 damage to each opponent.
-- ✗ Whenever one or more Goblins you control attack, create a 1/1 red Goblin creature token that's tapped and attacking.
 
 ### Squee, the Immortal — PARTIAL
 
@@ -2451,7 +2451,7 @@ Color identity G
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Whenever an opponent casts a noncreature spell, create a Food token.
-- ✗ Whenever a creature deals combat damage to you, sacrifice a Food token.
+- ✓ Whenever a creature deals combat damage to you, sacrifice a Food token.
 - ✗ Tap two untapped Foods you control: Add one mana of any color.
 
 ### Kokusho, the Evening Star — PARTIAL
@@ -2478,14 +2478,14 @@ Color identity R
 - ✓ Attack and block
 - ✗ At the beginning of your upkeep, each player exiles cards from the top of their library until they exile a nonland card. An opponent chooses a nonland card exiled this way. You may cast up to two spells from among the other cards exiled this way without paying their mana costs.
 
-### Brago, King Eternal — PARTIAL
+### Brago, King Eternal — FULL
 
 Color identity WU
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
-- ✗ Whenever Brago deals combat damage to a player, exile any number of target nonland permanents you control, then return those cards to the battlefield under their owner's control.
+- ✓ Whenever Brago deals combat damage to a player, exile any number of target nonland permanents you control, then return those cards to the battlefield under their owner's control.
 
 ### Shorikai, Genesis Engine — PARTIAL
 
@@ -2513,14 +2513,14 @@ Color identity G
 - ✓ {2}{G}{G}{G}: Elf creatures you control get +3/+3 and gain trample until end of turn.
 - ✗ {G}: Regenerate another target Elf.
 
-### Thalia, Guardian of Thraben — PARTIAL
+### Thalia, Guardian of Thraben — FULL
 
 Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ First strike
-- ✗ Noncreature spells cost {1} more to cast.
+- ✓ Noncreature spells cost {1} more to cast.
 
 ### Rograkh, Son of Rohgahh — FULL
 
@@ -2591,14 +2591,14 @@ Color identity URG
 - ✓ Whenever you cast a creature spell, put a +1/+1 counter on Animar.
 - ✗ Creature spells you cast cost {1} less to cast for each +1/+1 counter on Animar.
 
-### Lord Skitter, Sewer King — PARTIAL
+### Lord Skitter, Sewer King — FULL
 
 Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Whenever another Rat you control enters, exile up to one target card from an opponent's graveyard.
-- ✗ At the beginning of combat on your turn, create a 1/1 black Rat creature token with "This token can't block."
+- ✓ At the beginning of combat on your turn, create a 1/1 black Rat creature token with "This token can't block."
 
 ### The Indomitable — PARTIAL
 
@@ -2642,14 +2642,14 @@ Color identity WR
 - ✓ Lifelink
 - ✗ Stagger — Whenever Lightning deals combat damage to a player, until your next turn, if a source would deal damage to that player or a permanent that player controls, it deals double that damage instead.
 
-### Ioreth of the Healing House — PARTIAL
+### Ioreth of the Healing House — FULL
 
 Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ {T}: Untap another target permanent.
-- ✗ {T}: Untap two other target legendary creatures.
+- ✓ {T}: Untap two other target legendary creatures.
 
 ### God-Eternal Oketra — PARTIAL
 
@@ -2713,7 +2713,7 @@ Color identity UBG
 - ✓ Lifelink
 - ✗ If a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.
 
-### Ureni of the Unwritten — PARTIAL
+### Ureni of the Unwritten — FULL
 
 Color identity URG
 
@@ -2721,7 +2721,7 @@ Color identity URG
 - ✓ Attack and block
 - ✓ Flying
 - ✓ Trample
-- ✗ Whenever Ureni enters or attacks, look at the top eight cards of your library. You may put a Dragon creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
+- ✓ Whenever Ureni enters or attacks, look at the top eight cards of your library. You may put a Dragon creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
 
 ### Emrakul, the World Anew — PARTIAL
 
@@ -2768,7 +2768,7 @@ Color identity WR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Other artifact creatures you control have haste.
+- ✓ Other artifact creatures you control have haste.
 - ✗ Whenever one or more artifact creatures you control attack, Alibou deals X damage to any target and you scry X, where X is the number of tapped artifacts you control.
 
 ### Gonti, Night Minister — PARTIAL
@@ -2794,8 +2794,8 @@ Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Other colorless creatures you control get +3/+2.
 - ✗ When you cast this spell, up to two target players each manifest two cards from their hands. For each card manifested this way, you draw a card.
-- ✗ Other colorless creatures you control get +3/+2.
 
 ### Ilharg, the Raze-Boar — PARTIAL
 
@@ -2807,14 +2807,14 @@ Color identity R
 - ✗ Whenever Ilharg attacks, you may put a creature card from your hand onto the battlefield tapped and attacking. Return that creature to your hand at the beginning of the next end step.
 - ✗ When Ilharg dies or is put into exile from the battlefield, you may put it into its owner's library third from the top.
 
-### The Regalia — PARTIAL
+### The Regalia — FULL
 
 Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Haste
+- ✓ Whenever The Regalia attacks, reveal cards from the top of your library until you reveal a land card. Put that card onto the battlefield tapped and the rest on the bottom of your library in a random order.
 - ✓ Crew
-- ✗ Whenever The Regalia attacks, reveal cards from the top of your library until you reveal a land card. Put that card onto the battlefield tapped and the rest on the bottom of your library in a random order.
 
 ### Inga and Esika — PARTIAL
 
@@ -2887,7 +2887,7 @@ Color identity UG · pairs via partner
 - ✓ Partner
 - ✗ {4}: Scry 1, then reveal the top card of your library. If it's a land card, put it onto the battlefield tapped. Otherwise, draw a card.
 
-### Esika, God of the Tree // The Prismatic Bridge — PARTIAL
+### Esika, God of the Tree // The Prismatic Bridge — FULL
 
 Color identity WUBRG
 
@@ -2895,9 +2895,9 @@ Color identity WUBRG
 - ✓ Attack and block
 - ✓ Vigilance
 - ✓ {T}: Add one mana of any color.
+- ✓ Other legendary creatures you control have vigilance and "{T}: Add one mana of any color."
 - ✓ Cast it (timing, costs, the stack)
-- ✗ Other legendary creatures you control have vigilance and "{T}: Add one mana of any color."
-- ✗ At the beginning of your upkeep, reveal cards from the top of your library until you reveal a creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of your library in a random order.
+- ✓ At the beginning of your upkeep, reveal cards from the top of your library until you reveal a creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of your library in a random order.
 
 ### Karn, Legacy Reforged — PARTIAL
 
@@ -2905,5 +2905,5 @@ Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Karn's power and toughness are each equal to the greatest mana value among artifacts you control.
+- ✓ Karn's power and toughness are each equal to the greatest mana value among artifacts you control.
 - ✗ At the beginning of your upkeep, add {C} for each artifact you control. This mana can't be spent to cast nonartifact spells. Until end of turn, you don't lose this mana as steps and phases end.

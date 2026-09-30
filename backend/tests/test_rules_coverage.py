@@ -47,9 +47,9 @@ def test_card_coverage_levels(cards):
     # casting is automated, its conditional modes aren't (yet)
     assert modal.level == "PARTIAL" and modal.manual_parts
     krenko = coverage.of_card_data(cards.resolve("Krenko, Mob Boss"))
-    # casting and combat are automated; its {T} token ability isn't yet
-    assert krenko.level == "PARTIAL" and krenko.manual_parts == [
-        "{T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control."]
+    # casting, combat and its {T} token ability ("Create X … tokens, where X is the number of
+    # Goblins you control": app/rules/token_grammar.py, test_rules_tokens.py)
+    assert krenko.level == "FULL" and krenko.manual_parts == []
     atraxa = coverage.of_card_data(cards.resolve("Atraxa, Praetors' Voice"))
     assert atraxa.level == "FULL" and atraxa.manual_parts == []  # keywords + "at the beginning of your end step, proliferate"
 

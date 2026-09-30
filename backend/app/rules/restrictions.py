@@ -1,0 +1,252 @@
+"""Activation restrictions (CR 602.5) and trigger limits, researched against CR 2026-09-25.
+
+An activated ability's text may end with a restriction sentence: "Activate only as a sorcery."
+(602.5d, 307.5: the player must have priority, during a main phase of their turn, with the
+stack empty), "Activate only as an instant." (602.5e, 304.5: priority is all it takes),
+"Activate only once each turn." / "Activate no more than twice each turn." (602.5b: the limit
+belongs to the object — a permanent that left and came back is a new object, 400.7, and a
+change of controller doesn't reset it), "Activate only once." (per object, for the game),
+"Activate only during your turn." / "… during your upkeep." / "… during combat." / "… during the
+declare blockers step." / "… during your turn, before attackers are declared." (the steps of a
+turn, 500.1, 506.1, 508.1: attackers are declared as the declare attackers step begins) and
+"Activate only if [condition]." (a condition the engine reads, app/rules/conditions.py, checked
+as the ability would be activated — 602.5: a player can't begin to activate a prohibited
+ability). Several restrictions may be joined ("Activate only as a sorcery and only once each
+turn."): all of them apply.
+
+Triggered abilities may end with "This ability triggers only once each turn.": after it has
+triggered once in a turn (603.2), later events don't make it trigger again — even if that first
+ability was countered or removed from the stack, it had triggered. "Do this only once each turn."
+is different (603.2h: the ability triggers only if its source's controller has not yet taken the
+indicated action that turn — an action they may decline): the action is recorded on the
+resolution side (app/rules/effects.py ``record_action``, appended to the ability's effects, so it
+counts only when the resolution got that far — not when the ability was countered, its "you may"
+declined, or a payment it hinges on wasn't made) and read by triggers._add as it would trigger.
+
+Uses are counted in ``RulesState.ability_uses`` (app/game/rules_state.py): a JSON dict keyed
+``"<object id>:<ability index>:t<turn number>"`` for a turn's uses and
+``"<object id>:<ability index>:game"`` for the game's, so the count survives saving, loading and
+replay, resets with the turn number (extra turns have their own number) and dies with the object.
+Wordings this module doesn't read leave the ability manual: nothing is guessed.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import TYPE_CHECKING, Any
+
+from app.game.state import COMBAT_PHASES, PHASES, STACK
+
+if TYPE_CHECKING:
+    from app.game.rules_state import RulesState
+    from app.game.state import CardInstance, GameState
+    from app.rules.plan import Plan
+
+Restriction = dict[str, Any]
+
+MAIN_PHASES = ("main1", "main2")
+_BEFORE_ATTACKERS = tuple(PHASES[: PHASES.index("declare_attackers")])
+
+# The sentence(s) that carry an activation restriction, at the end of an activated ability's text.
+_RESTRICTION_SENTENCE = re.compile(r"^(?:Activate (?:this ability )?only|Activate no more than) (?P<rest>.+)\.$")
+# Trigger limits (the last sentence of a triggered ability's text)
+TRIGGER_LIMIT_ONCE = "This ability triggers only once each turn."
+# 603.2h: "Do this only once each turn." — the ability triggers only if its source's controller has
+# not yet taken the indicated action that turn: the action is recorded as the ability's resolution
+# gets to it (effects.record_action), and triggers._add reads that count as it would trigger.
+TRIGGER_LIMIT_DO_ONCE = "Do this only once each turn."
+TRIGGER_LIMIT_REFUSED: tuple[str, ...] = ()
+TRIGGER_LIMITS = {TRIGGER_LIMIT_ONCE: "once_each_turn", TRIGGER_LIMIT_DO_ONCE: "do_once"}
+
+
+def limit_kind(sentence: str) -> str:
+    """The definition's ``limit`` for a trigger-limit sentence split_trigger_limit found."""
+    return TRIGGER_LIMITS[sentence]
+
+_TIMES = {"once": 1, "twice": 2, "three times": 3, "four times": 4}
+_STEPS = {
+    "your upkeep": ("upkeep", "you"),
+    "any upkeep step": ("upkeep", None),
+    "an upkeep step": ("upkeep", None),
+    "combat": (tuple(sorted(COMBAT_PHASES, key=PHASES.index)), None),
+    "the declare blockers step": ("declare_blockers", None),
+    "the declare attackers step": ("declare_attackers", None),
+    "the end of combat step": ("end_combat", None),
+    "your end step": ("end", "you"),
+    "the end step": ("end", None),
+}
+
+
+def _sentences(body: str) -> list[str]:
+    return [s for s in re.split(r"(?<=\.)\s+", body.strip()) if s]
+
+
+def split(body: str) -> tuple[str, str | None]:
+    """Split an activated ability's effect text into (effects, the restriction sentences or
+    None). The restriction sentences are the trailing ones that start with "Activate only …"."""
+    sentences = _sentences(body)
+    found: list[str] = []
+    while sentences and _RESTRICTION_SENTENCE.match(sentences[-1]):
+        found.insert(0, sentences.pop())
+    if not found:
+        return body, None
+    return " ".join(sentences), " ".join(found)
+
+
+def split_trigger_limit(body: str) -> tuple[str, str | None]:
+    """Split a triggered ability's text into (effects, its trailing limit sentence or None)."""
+    sentences = _sentences(body)
+    if sentences and (sentences[-1] in TRIGGER_LIMITS or sentences[-1] in TRIGGER_LIMIT_REFUSED):
+        return " ".join(sentences[:-1]), sentences[-1]
+    return body, None
+
+
+def parse(text: str) -> list[Restriction] | None:
+    """The restrictions in an ability's text (an empty list: none), or None when a restriction
+    sentence isn't one this module reads (the ability then stays manual)."""
+    _, found = split(text.split(":", 1)[1] if ":" in text else text)
+    if found is None:
+        return []
+    out: list[Restriction] = []
+    for sentence in _sentences(found):
+        m = _RESTRICTION_SENTENCE.match(sentence)
+        assert m is not None  # (split only keeps matching sentences)
+        rest = m["rest"]
+        if sentence.startswith("Activate no more than"):
+            rest = "no more than " + rest
+        for clause in re.split(r" and (?:only )?(?=if |as |once|during |before |no more than |twice|three times)", rest):
+            one = _clause(clause.strip())
+            if one is None:
+                return None
+            out.append(one)
+    return out
+
+
+def _clause(clause: str) -> Restriction | None:
+    if clause == "as a sorcery":
+        return {"kind": "sorcery"}
+    if clause == "as an instant":
+        return {"kind": "instant"}
+    if clause == "once":
+        return {"kind": "per_game", "n": 1}
+    m = re.fullmatch(r"(?:no more than )?(?P<times>once|twice|three times|four times) each turn", clause)
+    if m:
+        return {"kind": "per_turn", "n": _TIMES[m["times"]]}
+    if clause == "during your turn":
+        return {"kind": "your_turn"}
+    if clause == "during an opponent's turn":
+        return {"kind": "opponents_turn"}
+    m = re.fullmatch(r"(?:during your turn, )?before attackers are declared", clause)
+    if m:
+        return {"kind": "step", "phases": list(_BEFORE_ATTACKERS), "whose": "you" if clause.startswith("during your turn") else None}
+    m = re.fullmatch(r"during (?P<step>.+)", clause)
+    if m and m["step"] in _STEPS:
+        phases, whose = _STEPS[m["step"]]
+        return {"kind": "step", "phases": [phases] if isinstance(phases, str) else list(phases), "whose": whose}
+    m = re.fullmatch(r"if (?P<cond>.+)", clause)
+    if m:
+        cond = _condition(m["cond"])
+        return {"kind": "if", "cond": cond, "text": m["cond"]} if cond is not None else None
+    return None
+
+
+def _condition(text: str) -> dict[str, Any] | None:
+    from app.rules import conditions, selectors
+
+    cond = conditions.parse(text)
+    if cond is not None:
+        return cond
+    # "there are seven or more cards in your graveyard" (a count the selector grammar reads)
+    m = re.fullmatch(r"there are (?P<n>\w+) or more (?P<what>(?:\w+ )?cards in your graveyard)", text)
+    if m:
+        n = conditions._num(m["n"])
+        sel = selectors.parse(m["what"])
+        if n is not None and sel is not None and sel.player is None:
+            return {"value": {"count": sel.key()}, "op": ">=", "n": n}
+    return None
+
+
+# -- counting uses -----------------------------------------------------------------------------
+def use_key(object_id: str, index: int, turn: int | None) -> str:
+    return f"{object_id}:{index}:t{turn}" if turn is not None else f"{object_id}:{index}:game"
+
+
+def uses(rules: RulesState, object_id: str, index: int, turn: int | None) -> int:
+    return rules.ability_uses.get(use_key(object_id, index, turn), 0)
+
+
+def record_use(rules: RulesState, object_id: str, index: int, turn: int) -> None:
+    """Count one activation (or triggering) of this object's ability in this turn, for the game
+    too. Earlier turns' counts are dropped: nothing reads them any more."""
+    keep = (f":t{turn}", ":game")
+    rules.ability_uses = {k: v for k, v in rules.ability_uses.items() if k.endswith(keep)}
+    for key in (use_key(object_id, index, turn), use_key(object_id, index, None)):
+        rules.ability_uses[key] = rules.ability_uses.get(key, 0) + 1
+
+
+def limited(restrictions: list[Restriction]) -> bool:
+    """Does activating count against a limit (so the activation must be recorded)?"""
+    return any(r["kind"] in ("per_turn", "per_game") for r in restrictions)
+
+
+# -- checking ----------------------------------------------------------------------------------
+def problem(state: GameState, player: str, card: CardInstance, index: int, restrictions: list[Restriction],
+            plan: Plan | None = None, name: str = "") -> str | None:
+    """Why ``player`` can't activate the ability under these restrictions right now (None: they can).
+    ``plan`` (any view of the table) is needed for "only if" conditions."""
+    r = state.rules
+    assert r is not None
+    turn = state.turn
+    for x in restrictions:
+        kind = x["kind"]
+        if kind == "sorcery":  # 602.5d, 307.5
+            if turn.active_player != player or turn.phase not in MAIN_PHASES or state.zones.get(STACK):
+                return "That can only be activated as a sorcery: in your main phase while the stack is empty"
+        elif kind == "your_turn":
+            if turn.active_player != player:
+                return "That can only be activated during your turn"
+        elif kind == "opponents_turn":
+            if turn.active_player == player:
+                return "That can only be activated during an opponent's turn"
+        elif kind == "step":
+            if x["whose"] == "you" and turn.active_player != player:
+                return f"That can only be activated during your {_phase_words(x['phases'])}"
+            if turn.phase not in x["phases"]:
+                return f"That can only be activated {_when(x)}"
+        elif kind == "per_turn":
+            if uses(r, r.object_id(card.id), index, turn.number) >= x["n"]:
+                return "That can only be activated once each turn" if x["n"] == 1 else \
+                    f"That can be activated only {_times(x['n'])} each turn"
+        elif kind == "per_game":
+            if uses(r, r.object_id(card.id), index, None) >= x["n"]:
+                return "That can only be activated once"
+        elif kind == "if":
+            if plan is None:
+                return f"That can only be activated if {x['text']}"
+            from app.rules import conditions
+
+            if not conditions.holds(plan, {"controller": player, "source_card": card.id}, x["cond"]):
+                return f"That can only be activated if {x['text']}"
+    return None
+
+
+def _times(n: int) -> str:
+    return {1: "once", 2: "twice"}.get(n, f"{n} times")
+
+
+def _phase_words(phases: list[str]) -> str:
+    if phases == list(_BEFORE_ATTACKERS):
+        return "turn, before attackers are declared"
+    names = {"upkeep": "upkeep", "end": "end step", "declare_blockers": "declare blockers step",
+             "declare_attackers": "declare attackers step", "end_combat": "end of combat step"}
+    if set(phases) == COMBAT_PHASES:
+        return "combat"
+    return " or ".join(names.get(p, p) for p in phases)
+
+
+def _when(x: Restriction) -> str:
+    if x["phases"] == list(_BEFORE_ATTACKERS):
+        return "before attackers are declared"
+    if set(x["phases"]) == COMBAT_PHASES:
+        return "during combat"
+    return f"during {'your ' if x['whose'] == 'you' else 'the '}{_phase_words(x['phases'])}"

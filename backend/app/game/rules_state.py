@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 if TYPE_CHECKING:
     from app.game.state import GameState
@@ -227,6 +227,9 @@ EventKind = Literal[
     "drew",  # a player drew a card (121.2: one event per card)
     "crewed",
     "turned_face_up",  # 702.37e (morph)  # a Vehicle became crewed (702.122)
+    # 701.21a: a permanent was sacrificed (emitted just before it moves, in the same batch; the
+    # object is the permanent as it was — "whenever you sacrifice …" looks back in time, 603.10a)
+    "sacrificed",
 ]
 
 
@@ -268,6 +271,7 @@ class ContinuousEffect(BaseModel):
     add_keywords: list[str] = Field(default_factory=list)
     remove_keywords: list[str] = Field(default_factory=list)
     add_types: list[str] = Field(default_factory=list)  # layer 4: "becomes an artifact creature"
+    add_subtypes: list[str] = Field(default_factory=list)  # layer 4: "becomes a Goblin in addition to its other types" (701.47a)
     # Rule-modifying effects on the objects (not a layer; 611.2c duration): "can't block this turn"
     # — the names scripts.statics uses (cant_block, cant_be_blocked, …).
     imposes: list[str] = Field(default_factory=list)
@@ -276,9 +280,40 @@ class ContinuousEffect(BaseModel):
     # selector key, read for ``controller`` ("you"), ``source_card`` for "other".
     who: str | None = Field(default=None, max_length=2000)
     source_card: str | None = None
-    duration: Literal["end_of_turn", "permanent"] = "end_of_turn"
+    # 611.2a: how long it lasts — "until end of turn" (ends at cleanup, 514.2), "permanent" (the
+    # game), "next_turn" ("until your next turn": ends as ``until_player``'s next turn begins,
+    # 500.4), "source_on_battlefield" / "source_controlled" / "source_tapped" ("for as long as ~
+    # remains on the battlefield / you control ~ / ~ remains tapped", 611.2b: ends as soon as
+    # that stops being true; app/rules/delayed.py expires them).
+    duration: Literal["end_of_turn", "permanent", "next_turn", "source_on_battlefield", "source_controlled",
+                      "source_tapped"] = "end_of_turn"
+    until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
+    turn: int = 0  # the turn the effect began (next_turn: it ends on a later turn of until_player)
     timestamp: int = 0
+    # ``RulesState.next_object`` when the effect began: the last object to enter a zone before it, so
+    # the effect can be ordered against static abilities (their timestamp is their source's, 613.7a/d).
+    object_seq: int = 0
     label: str = ""
+    # -- animation (agent A2): the type-, color- and ability-changing parts of "becomes a …" -------
+    # Layer 4 (613.1d). ``set_types``: the card types replace the object's (205.1a; the subtypes
+    # of a card type it no longer has drop with it) — None when the effect only adds types
+    # ("in addition to its other types", "it's still a land", "becomes an artifact creature":
+    # 205.1b, ``add_types``). ``add_supertypes``: "becomes a legendary …" (205.4b: the others
+    # stay). ``set_creature_types``: replaces its creature types, other subtypes stay (205.1a /
+    # 205.1b "[creature type] creature") — None: unchanged; ``all_creature_types``: "with all
+    # creature types" (every creature type, as changeling has, 702.73a).
+    set_types: list[str] | None = None
+    add_supertypes: list[str] = Field(default_factory=list)
+    set_creature_types: list[str] | None = None
+    all_creature_types: bool = False
+    # Layer 5 (613.1e, 105.3): ``set_colors`` replaces its colors ([]: colorless) — None: unchanged;
+    # ``add_colors``: "in addition to its other colors".
+    set_colors: list[str] | None = None
+    add_colors: list[str] = Field(default_factory=list)
+    # Layer 6 (613.1f): "loses all abilities" (its printed abilities and everything granted before
+    # this effect's timestamp; later grants apply again) and quoted abilities it gains (their text).
+    remove_abilities: bool = False
+    add_abilities: list[str] = Field(default_factory=list)
 
 
 class TargetRef(BaseModel):
@@ -286,6 +321,36 @@ class TargetRef(BaseModel):
 
     id: str
     object_id: str | None = None
+
+
+class ObjectRef(BaseModel):
+    """A stable reference to one rules object (400.7): the physical card, which object it was, and
+    where it was then. A later reference finds it only while the card is still that object in that
+    zone; otherwise only its last known information remains (``snapshot``, or ``RulesState.lki``;
+    608.2h)."""
+
+    card: str = Field(max_length=64)
+    object_id: str = Field(max_length=80)
+    zone: str | None = Field(default=None, max_length=80)
+    snapshot: ObjectSnapshot | None = None  # as it last existed, when it had already left (603.10a)
+
+
+class TriggerEvent(BaseModel):
+    """What a triggered ability triggered on (603.2), captured as it triggered and carried with it
+    to the stack and through resolution (603.3, 608.2k): the resolving ability reads this, never the
+    board as it is later. One event for a "one or more" trigger holds every object of the batch
+    (603.2c)."""
+
+    kind: str = Field(max_length=40)  # the condition's event: "die", "draw", "gain_life", …
+    batch: int = 0
+    objects: list[ObjectRef] = Field(default_factory=list)  # the object(s) the event happened to
+    # For a zone change: the object each became where it went (400.7e: a "dies" ability can find
+    # it in the graveyard, and only there)
+    new_objects: list[ObjectRef] = Field(default_factory=list)
+    players: list[str] = Field(default_factory=list)  # the player it was about (who drew / gained / was dealt damage)
+    source: ObjectRef | None = None  # the source of damage dealt
+    amount: int = 0  # life gained or lost, damage dealt (summed over a "one or more" batch)
+    count: int = 0  # how many objects / events the batch had
 
 
 class PendingTrigger(BaseModel):
@@ -299,6 +364,48 @@ class PendingTrigger(BaseModel):
     ability: dict[str, Any]  # the ability's definition (data, see app.rules.scripts)
     key: str = ""  # identical triggers share a key (AUTO ORDER IDENTICAL TRIGGERS)
     ordered: bool = False  # its controller already chose the order
+    event: TriggerEvent | None = None  # what it triggered on
+
+
+class DelayedTrigger(BaseModel):
+    """A delayed triggered ability (CR 603.7), created as a spell or ability resolved (603.7a) and
+    waiting for its trigger event. Everything it will need is captured now: the objects it refers
+    to as ObjectRefs (603.7c: still affected whatever their characteristics become, but not once
+    they have left the zone they are expected in — a new object isn't them, 400.7), its source
+    and controller as they were (603.7d-e), and the effects to carry out. When its event happens
+    it triggers like any other triggered ability (a PendingTrigger, put on the stack in APNAP
+    order, 603.3b) and resolves with these refs as its own resolution context
+    (app/rules/context.py); it never rescans the table for "it". See app/rules/delayed.py."""
+
+    id: str
+    controller: str  # 603.7d-e: whoever controlled the creating spell or ability as it resolved
+    source_card: str | None = None  # 603.7d-e: the spell, or the ability's source
+    source_object: str | None = None
+    name: str = ""
+    # When it triggers: {"kind": "step", "step": "end" | "upkeep", "whose": "next" | "you" | "next_turn"}
+    # ("at the beginning of the next end step / your next end step / the next turn's upkeep /
+    # your next upkeep"), or {"kind": "event", "event": "die" | "leave"} about the object(s) bound
+    # as ``refs["watch"]`` ("when that creature dies this turn")
+    when: dict[str, Any]
+    effects: list[dict[str, Any]] = Field(default_factory=list)
+    refs: dict[str, Any] = Field(default_factory=dict)  # its resolution bindings (app/rules/context.py)
+    event: dict[str, Any] | None = None  # the creating trigger's TriggerEvent, for "it" of a "When ~ dies, … at the beginning of …"
+    turn: int = 0  # the turn and step it was created in ("the next end step" is after this one)
+    step: str = ""
+    once: bool = True  # 603.7b: it triggers only once (an "each" duration would say otherwise)
+    until_turn: int | None = None  # "this turn": it stops watching at that turn's cleanup (514.2)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy(cls, data: Any) -> Any:
+        """Older saves kept "at the beginning of the next end step, move it" as a plain dict
+        ({"card", "object", "to", "name"}: unearth, dash)."""
+        if isinstance(data, dict) and "when" not in data and "card" in data and "to" in data:
+            return {"id": f"legacy:{data['object']}", "controller": "", "source_card": data["card"],
+                    "source_object": data["object"], "name": data.get("name", ""),
+                    "when": {"kind": "step", "step": "end", "whose": "next"},
+                    "effects": [{"do": "delayed_move", "card": data["card"], "object": data["object"], "to": data["to"]}]}
+        return data
 
 
 class StackEntry(BaseModel):
@@ -330,6 +437,8 @@ class StackEntry(BaseModel):
     division: list[list[int]] = Field(default_factory=list)
     # 702.33d: how many times the spell was kicked (a copy keeps it: 707.10)
     kicked: int = 0
+    # A triggered ability: what it triggered on (603.2), for "it", "that player", "that much"
+    event: TriggerEvent | None = None
 
 
 class CostContribution(BaseModel):
@@ -366,6 +475,59 @@ class PaymentRecord(BaseModel):
     x: int | None = None
 
 
+class Permission(BaseModel):
+    """An effect that lets a player cast a spell or play a land they otherwise couldn't (CR 601.3,
+    305.1): from a zone other than their hand, as though it had flash, without paying its mana
+    cost, or once during each of their turns. Granted by a resolved spell or ability
+    (``app.rules.permissions``); static abilities of permanents are read from the table instead
+    and never stored."""
+
+    id: str
+    player: str
+    play: bool = False  # lands ("you may play …" covers both: 701.13 — "play" a land or cast a spell)
+    cast: bool = False  # spells
+    zone: Literal["hand", "graveyard", "exile", "library_top", "any"] = "any"  # where the card must be
+    # A specific object ("you may play that card this turn"): the permission follows the object,
+    # not the card (400.7h/i): once it changes zones it is a new object and the permission is spent
+    object_id: str | None = None
+    card: str | None = None
+    filter: str | None = None  # a selector key the spell must match ("creature spells")
+    free: bool = False  # "without paying its mana cost": an alternative cost of {0} (118.9)
+    flash: bool = False  # "as though it had flash" (601.3b)
+    once: bool = False  # "once during each of your turns"
+    used_turn: int = 0  # (once) the turn it was used
+    until: Literal["end_of_turn", "end_of_next_turn", "permanent"] = "end_of_turn"
+    turn: int = 0  # the turn it was granted (for end_of_next_turn)
+    source: str | None = None  # the granting object
+    label: str = Field(default="", max_length=120)
+
+
+class CostModifier(BaseModel):
+    """A cost increase or reduction that applies to spells as their total cost is determined
+    (601.2f): generic mana only (118.7a), never below {0}. Static ones ("Creature spells you cast
+    cost {1} less to cast.") are read from the table; effects with a duration are stored here."""
+
+    id: str
+    controller: str  # whose "you" (the source's controller)
+    delta: int  # +N: costs {N} more; −N: costs {N} less
+    caster: Literal["you", "opponent", "any"] = "you"
+    filter: str | None = None  # a selector key the spell must match, or None for every spell
+    until: Literal["end_of_turn", "permanent"] = "end_of_turn"
+    source: str | None = None
+    label: str = Field(default="", max_length=120)
+
+
+class TopReveal(BaseModel):
+    """"Play with the top card of your library revealed." / "You may look at the top card of your
+    library any time." — while ``source`` is on the battlefield under ``player``'s control, that
+    player's top library card is visible to everyone or to its owner (401.5). Refreshed by the
+    engine from the table; ``app.game.visibility`` checks the source is still there."""
+
+    source: str  # the permanent's card id
+    player: str
+    to: Literal["all", "owner"]
+
+
 class ReconcileItem(BaseModel):
     """Something the engine can't work out from the table after manual play (see reconcile)."""
 
@@ -389,6 +551,10 @@ class RulesState(BaseModel):
     spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
     loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
     once_per_turn: dict[str, int] = Field(default_factory=dict)  # "<card>:<ability>" -> turn it was activated
+    # Activation restrictions and trigger limits (app/rules/restrictions.py): how many times an
+    # object's ability was activated / triggered — "<object id>:<ability index>:t<turn>" -> count this
+    # turn, "<object id>:<ability index>:game" -> count this game (602.5b, 400.7: per object).
+    ability_uses: dict[str, int] = Field(default_factory=dict)
     turn_seen: int = 0  # last turn number the bookkeeping saw
     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
     controlled_since: dict[str, ControlMark] = Field(default_factory=dict)
@@ -400,8 +566,18 @@ class RulesState(BaseModel):
     prevention: dict[str, int] = Field(default_factory=dict)  # player / object id -> damage to prevent this turn
     regen_shields: dict[str, int] = Field(default_factory=dict)  # object id -> regeneration shields this turn
     linked_exile: dict[str, list[str]] = Field(default_factory=dict)  # source object -> cards exiled "until it leaves"
-    delayed: list[dict[str, Any]] = Field(default_factory=list)  # "at the beginning of the next end step" moves
+    delayed: list[DelayedTrigger] = Field(default_factory=list)  # delayed triggered abilities (603.7; app/rules/delayed.py)
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)
+    # Replacement / prevention records with a duration (app/rules/replacements.py): "Prevent all
+    # combat damage that would be dealt this turn" and friends. Each: {"id", "kind", "turn",
+    # "controller", "source", "scope"}; a record for another turn has expired (614.3, 615.3).
+    replacements: list[dict[str, Any]] = Field(default_factory=list)
+    # 903.9b: commanders just put into their owner's hand / library (card id -> "hand" | "library")
+    # whose owner hasn't yet said whether it goes to the command zone instead (asked before priority)
+    pending_903_9b: dict[str, str] = Field(default_factory=dict)
+    # "As ~ enters, choose …" answers given while a permanent spell / land is about to enter (card
+    # id -> {"color": "Blue"}), consumed by the entry (614.12a)
+    entry_choices: dict[str, dict[str, str]] = Field(default_factory=dict)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
     dashed: list[str] = Field(default_factory=list)
     evoked: list[str] = Field(default_factory=list)  # evoked spells: sacrificed as they enter (702.74)
@@ -412,6 +588,7 @@ class RulesState(BaseModel):
     alt_costs: dict[str, str] = Field(default_factory=dict)  # card -> the cost to pay instead (madness)  # cards the engine lets be cast without paying (suspend)
     suspend_haste: list[str] = Field(default_factory=list)  # suspended creature spells: haste when they enter
     renowned: list[str] = Field(default_factory=list)  # rules objects that became renowned (702.112)
+    monstrous: list[str] = Field(default_factory=list)  # rules objects that became monstrous (701.37b)
     damaged: dict[str, int] = Field(default_factory=dict)  # player -> last turn they were dealt damage (bloodthirst)
     echo_done: list[str] = Field(default_factory=list)  # "<object>:<controller>" whose echo upkeep came
     flashback: list[str] = Field(default_factory=list)  # stack objects cast with flashback (exiled as they leave)
@@ -432,6 +609,12 @@ class RulesState(BaseModel):
     # physical card keeps its id; its rules object is "<card id>.<n>".
     objects: dict[str, int] = Field(default_factory=dict)
     next_object: int = 0
+    # A permanent's later timestamp, when it got one after entering (613.7e: an Aura, Equipment or
+    # Fortification each time it becomes attached; 613.7g: a double-faced permanent each time it
+    # transforms): card id -> a number from the ``next_object`` counter, so it orders against the
+    # objects' entry timestamps and resolved effects' ``object_seq``. The object's identity
+    # (``objects``) is untouched. Read by ``app.rules.layers.timestamp``.
+    restamped: dict[str, int] = Field(default_factory=dict)
     lki: dict[str, ObjectSnapshot] = Field(default_factory=dict)  # object id -> last known information
     batch: int = 0  # last event batch number
     events: list[Event] = Field(default_factory=list)  # events since the engine last acted (this intent's, or manual ones)
@@ -453,6 +636,11 @@ class RulesState(BaseModel):
     # Each player's intents this turn, for REPEAT LAST VALIDATED SEQUENCE (payloads, newest last).
     recent: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     recent_turn: int = 0
+    # Cast / play permissions granted by effects, cost modifiers with a duration, and which top
+    # library cards are revealed by permanents on the table (app/rules/permissions.py).
+    permissions: list[Permission] = Field(default_factory=list)
+    cost_modifiers: list[CostModifier] = Field(default_factory=list)
+    top_reveals: list[TopReveal] = Field(default_factory=list)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)
@@ -598,6 +786,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
         if snap is not None:
             rules.lki[old_oid] = snap.model_copy(update={"turn": state.turn.number})
         new_oid = None
+        rules.restamped.pop(card_id, None)  # a new object gets its own timestamp as it enters (613.7d)
         if card is not None:
             rules.next_object += 1
             rules.objects[card_id] = rules.next_object
@@ -611,6 +800,9 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
              from_zone=old_zone, to_zone=new_zone)
     for card_id, card in state.cards.items():
         if card_id not in before.zones and _zone_name(card.zone) in TRACKED_ZONES:
+            if card_id not in rules.objects:  # a created object is numbered like one that entered (613.7d)
+                rules.next_object += 1
+                rules.objects[card_id] = rules.next_object
             emit(state, "zone_change", new_object_id=rules.object_id(card_id), card=card_id, player=card.controller,
                  to_zone=card.zone)  # created: a token, a copy, an ability on the stack
     for card_id, snap in before.snaps.items():
@@ -624,6 +816,14 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
                 emit(state, "counters", object_id=oid, card=card_id, counter=kind, amount=delta)
         if card.tapped != snap.tapped:
             emit(state, "tapped" if card.tapped else "untapped", object_id=oid, card=card_id)
+        # 613.7e: an attachment gets a new timestamp each time it becomes attached; 613.7f: a
+        # permanent each time it turns face up or down; 613.7g: a double-faced permanent each
+        # time it transforms (a face change on the battlefield)
+        if _zone_name(card.zone) == "battlefield" and (
+                (card.attached_to is not None and card.attached_to != snap.attached_to)
+                or card.face != snap.face or card.face_down != snap.face_down):
+            rules.next_object += 1
+            rules.restamped[card_id] = rules.next_object
     for pid, old in before.resources.items():
         p = state.players.get(pid)
         if p is None:

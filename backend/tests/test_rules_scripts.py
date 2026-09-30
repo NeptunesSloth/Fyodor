@@ -71,7 +71,7 @@ def test_generic_grammar_now_reads_these():
 def test_a_spell_is_automated_only_as_a_whole():
     opt = ch("Opt", "Instant", "Scry 1.\nDraw a card.")
     assert [e["do"] for e in scripts.spell_definition(opt)["effects"]] == ["scry", "draw"]
-    half = ch("Half", "Instant", "Draw a card.\nTarget player shuffles their graveyard into their library.")
+    half = ch("Half", "Instant", "Draw a card.\nTarget player chooses a card name.")
     assert scripts.spell_definition(half) is None  # one manual line: the whole spell is resolved by hand
 
 
@@ -83,8 +83,10 @@ def test_a_spell_is_automated_only_as_a_whole():
     # "it" naming the object the event happened to: bound when it triggers (not self!)
     ("Whenever another creature you control enters, put a +1/+1 counter on it.", "Creature", True),
     ("Whenever a creature you control attacks, it gets +1/+0 until end of turn.", "Creature", True),
-    # … but not one that left (a new object, 400.7), nor a spell just cast: manual
-    ("Whenever another creature you control dies, return it to its owner's hand.", "Creature", False),
+    # one that died: the new object in the graveyard, for an instruction that moves it (400.7e, 603.6c) …
+    ("Whenever another creature you control dies, return it to its owner's hand.", "Creature", True),
+    # … but nothing else about the new object, nor a spell just cast: manual
+    ("Whenever another creature you control dies, put a +1/+1 counter on it.", "Creature", False),
     ("Whenever you cast a creature spell, it gains haste until end of turn.", "Creature", False),
     ("At the beginning of your upkeep, put a +1/+1 counter on it.", "Creature", False),
 ])

@@ -42,6 +42,32 @@ def can_see(state: GameState, card: CardInstance, viewer: str) -> bool:
     for view in state.views:
         if view.viewer == viewer and view.zone == card.zone and (view.kind == "search" or card.id in view.card_ids):
             return True
+    return zone == "library" and top_revealed(state, card, viewer)
+
+
+def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
+    """"Play with the top card of your library revealed" / "You may look at the top card of your
+    library any time" (CR 401.5). The rules engine lists which cards of the game have such an
+    ability (``RulesState.top_reveals``: it needs the card database, which the view has not);
+    everything else is read from the table itself, here: the source must be on a battlefield
+    now, face up and automated, and the library it reveals is its *current* controller's — so a
+    source put onto the battlefield, taken or removed by hand is right at once, with no engine
+    action in between. Only the top card, as the library is now."""
+    rules = state.rules
+    if rules is None or not rules.top_reveals:
+        return False
+    library = state.zones.get(card.zone) or []
+    if not library or library[0] != card.id:
+        return False
+    for reveal in rules.top_reveals:
+        source = state.cards.get(reveal.source)
+        if source is None or source.face_down or not source.zone.endswith(":battlefield") \
+                or rules.card_mode(source.id) == "manual":
+            continue
+        controller = source.controller
+        if card.zone != f"{controller}:library" or (reveal.to == "owner" and viewer != controller):
+            continue
+        return True
     return False
 
 

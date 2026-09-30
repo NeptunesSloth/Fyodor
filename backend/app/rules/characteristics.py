@@ -50,8 +50,12 @@ class Characteristics:
     pt: tuple[int, int] | None = None
     granted: frozenset[str] = frozenset()
     lost: frozenset[str] = frozenset()
-    # Rules imposed on it by other objects (an Aura's "Enchanted creature can't block."): the same
-    # names as scripts.COMBAT_STATICS. They aren't abilities: losing abilities doesn't remove them.
+    # Rules imposed on it: by resolved effects ("can't block this turn"), by other objects (an
+    # Aura's "Enchanted creature can't block.", "Creatures your opponents control can't block.")
+    # and by its own restriction statics ("~ can't be blocked by creatures with power 2 or less.").
+    # The vocabulary is app/rules/statics.py's (cant_block, must_attack, doesnt_untap,
+    # cant_be_blocked_by:<selector> …). They aren't abilities: losing abilities doesn't remove
+    # the ones other objects impose.
     imposed: frozenset[str] = frozenset()
 
     @property
