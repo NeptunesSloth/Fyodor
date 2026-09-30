@@ -32,6 +32,7 @@ from app.rules import (
     combat,
     cost_payment,
     coverage,
+    delayed,
     effects,
     layers,
     optional_payment,
@@ -438,6 +439,7 @@ def start_next_turn(plan: Plan) -> None:
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep}, actor=plan.active)
         if plan.active in plan.live():
             break
+    delayed.turn_began(plan)  # 500.4: "until your next turn" effects of the new active player end
     if not plan.state.settings.auto_untap:
         plan.do({"type": "untap_all", "player": plan.active, "keep_tapped": keep}, actor=plan.active)
     # The untap step has no priority: straight on to upkeep.
@@ -531,6 +533,7 @@ def finish_cleanup(plan: Plan) -> None:
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
     plan.rules.prevention = {}  # and so do prevention shields
     permissions.expire(plan)  # "you may play that card this turn" and friends
+    delayed.cleanup(plan)  # "when … this turn" delayed triggers stop watching (514.2)
     for card in list(plan.state.cards.values()):
         for marker in [m for m in card.effects if m.text == "until end of turn"]:
             plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
@@ -667,7 +670,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
             oid = plan.oid(top_id)
             layers.add_effect(plan, affected=[oid], layer="6", source=None, controller=controller,
                               add_keywords=("haste",), duration="permanent", label="Haste (dash)")
-            plan.rules.delayed.append({"card": top_id, "object": oid, "to": "hand", "name": entered_now.name})
+            delayed.create_move(plan, controller, top_id, oid, "hand", entered_now.name)  # (a delayed trigger, 603.7)
     if top_id in plan.rules.suspend_haste:  # 702.62e: a suspended creature has haste
         plan.rules.suspend_haste = [c for c in plan.rules.suspend_haste if c != top_id]
         entered_now = plan.state.cards.get(top_id)
