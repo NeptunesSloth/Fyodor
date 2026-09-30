@@ -46,7 +46,8 @@ KEYWORDS = ("flying", "first strike", "double strike", "deathtouch", "lifelink",
 OTHER_SUBTYPES = {"Equipment", "Aura", "Vehicle", "Food", "Clue", "Treasure", "Blood", "Gold", "Saga", "Shrine",
                   "Curse", "Plains", "Island", "Swamp", "Mountain", "Forest", "Desert", "Gate", "Cave", "Town",
                   "Sphere", "Lesson", "Adventure", "Arcane", "Trap", "Room", "Class", "Case", "Background",
-                  "Fortification", "Attraction", "Contraption", "Powerstone", "Map", "Incubator", "Junk"}
+                  "Fortification", "Attraction", "Contraption", "Powerstone", "Map", "Incubator", "Junk",
+                  "Lair"}  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
 _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves": "Werewolf", "thieves": "Thief",
               "mice": "Mouse", "fungi": "Fungus", "sphinxes": "Sphinx", "foxes": "Fox", "djinn": "Djinn",
               "allies": "Ally", "fairies": "Faerie", "zombies": "Zombie", "sorceries": "Sorcery", "mercenaries": "Mercenary",

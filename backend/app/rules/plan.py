@@ -67,6 +67,8 @@ class Plan:
         resolved = resolve(self.state, action, actor=actor or self.actor, cards=self.info, rng=self.rng, trusted=True)
         leaving = self._battlefield_pt(payload)
         before = capture(self.state)
+        if before is not None:  # (the turn log: what a permanent was as it left, layers applied)
+            before.types = self._battlefield_types(payload)
         HANDLERS[resolved.type](self.state, resolved)
         track(self.state, before)
         for oid, (p, t) in leaving.items():  # last known power / toughness (608.2h)
@@ -75,6 +77,17 @@ class Plan:
                 snap.power, snap.toughness = p, t
         self.steps.append(resolved.model_dump(mode="json"))
         return resolved
+
+    def _battlefield_types(self, payload: dict[str, Any]) -> dict[str, list[str]]:
+        """Card types (layers applied) of the permanents a step may move off the battlefield: "a
+        creature died this turn" asks what it was as it last existed there (608.2i, 700.4) — an
+        animated land or a crewed Vehicle was a creature, whatever its printed types."""
+        out: dict[str, list[str]] = {}
+        for cid in payload.get("card_ids") or []:
+            card = self.state.cards.get(cid) if isinstance(cid, str) else None
+            if card is not None and card.zone.endswith(":battlefield"):
+                out[cid] = sorted(self.ch(card).types)
+        return out
 
     def _battlefield_pt(self, payload: dict[str, Any]) -> dict[str, tuple[int, int]]:
         """Current power / toughness of the creatures a step may move off the battlefield."""

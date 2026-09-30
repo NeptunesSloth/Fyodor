@@ -26,9 +26,10 @@ Every template is covered by ``tests/test_rules_scripts.py`` (parsing) and the s
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import replace
 from functools import lru_cache
-from typing import Any
+from typing import Any, Literal
 
 from app.rules import restrictions
 from app.rules.characteristics import Characteristics
@@ -204,6 +205,9 @@ _MOVES = {"bounce", "return_card", "exile"}
 def _condition_says_other(cond: dict[str, Any]) -> bool:
     from app.rules import selectors  # (a leaf module)
 
+    subs = [*cond.get("all", ()), *cond.get("any", ()), *([cond["not"]] if "not" in cond else [])]
+    if any(_condition_says_other(c) for c in subs):  # (conditional / instead clauses, wave 1B: composed conditions)
+        return True
     key = (cond.get("value") or {}).get("count")
     return isinstance(key, str) and selectors.from_key(key).other
 
@@ -411,6 +415,18 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         # the trigger event's object, as it is or as it last existed (603.10a, 608.2h)
         return "event" if antecedent in ("event", "event_gone") else None
 
+    def cond_ref(index: int) -> Any:
+        """The object "it" names in a condition (conditional / instead clauses, wave 1B): what an earlier
+        instruction moved, chose or created (its recorded object, 400.7j), a plain target of one
+        (the target itself), the source, or the trigger event's object."""
+        intro = objects(index, 1, None)
+        if intro is None:
+            return stat_ref(index)
+        if intro.do in _MOVERS or _group_of(out[intro.index]) is None:
+            return "ref:" + bound(intro)
+        g = _group_of(out[intro.index])
+        return "target" if groups is None else f"target:{g}"
+
     try:
         for index, e in enumerate(effects):
             e = dict(e)
@@ -458,6 +474,13 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e["who"] = "target" if groups is None else f"target:{g}"
                 else:
                     e["who"] = "event_player"  # (only a trigger about a player can: _event_refs_ok)
+            # -- conditional / instead clauses (wave 1B) --  "If it's a land card, …": the object the pronoun
+            # names, read as it is (or as it last existed, 608.2h): a plain target stays "target"
+            if e.get("do") == "only_if" and _cond_has_it(e["cond"]):
+                ref = cond_ref(index)
+                if ref is None:
+                    return None
+                e["cond"] = _bind_cond(e["cond"], ref)
             if "n" in e:
                 e["n"] = _bind_stats(e["n"], lambda at=index: stat_ref(at))
             if e.get("src") == "it":
@@ -475,7 +498,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
     return out
 
 
-_TARGET_REFS = ("who", "power", "toughness", "mana_value", "on", "with", "src")  # ("with": the other creature of a fight; "src": a bite's biter)
+_TARGET_REFS = ("who", "power", "toughness", "mana_value", "on", "with", "src", "object")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -488,8 +511,9 @@ def rename_bindings(value: Any, prefix: str) -> Any:
         return value
     out = {}
     for k, v in value.items():
-        if k in ("as", "bind", "succeeded") and isinstance(v, str):  # ("bind": the library primitives' recorder;
-            v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on)
+        if k in ("as", "bind", "succeeded", "flag") and isinstance(v, str):  # ("bind": the library primitives' recorder;
+            v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
+            # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
             v = "ref:" + prefix + v[4:]
         else:
@@ -1079,6 +1103,14 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 return None
             effects = with_kicker
             continue
+        # -- conditional / instead clauses (wave 1B) --  "If C, Y instead." / "Y instead if C." / "Otherwise, Z."
+        if (branch := _instead_or_otherwise(text, effects, prev_start, groups)) is not None:
+            if branch is False:
+                return None
+            effects, shift = branch
+            start += shift  # (an effect was put before this sentence's first: the pronouns' reach moves with it)
+            sentences[-1] = start
+            continue
         # "You may pay {2}. If you do, …" (118.12): the cost is an effect that records whether it
         # was paid; "If you do" / "If you don't" then gates the sentence on that payment
         if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:
@@ -1097,8 +1129,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if cond_m:  # "If you control a Forest, draw a card." (608.2c): a condition on this sentence
             from app.rules import conditions
 
-            cond = conditions.parse(cond_m["c"])
-            inner = _clause(cond_m["rest"]) if cond is not None and not cond_m["rest"].startswith("you may ") else None
+            cond = conditions.parse(cond_m["c"], objects=True)
+            inner = _conditional_inner(cond_m["rest"], cond) if cond is not None else None
             if inner is None:
                 return None
             added = _add_groups(groups, *inner)  # (its target, if any: its own group, 115.3)
@@ -1125,13 +1157,13 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 effects += _add_groups(groups, found, sel)  # each word "target": its own group (115.3)
                 break
         else:
-            parsed_clause = _unless_sentence(text, effects) or _clause(text)
+            parsed_clause = _unless_sentence(text, effects) or _trailing_conditional(text) or _clause(text)
             if parsed_clause is None:
                 return None
             found, sel = parsed_clause
             effects += _add_groups(groups, found, sel)
     resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
-    if resolved is None:
+    if resolved is None or not _branch_refs_ok(resolved) or not _gated_other_ok(resolved):  # (conditional clauses, wave 1B)
         return None
     resolved, target = _finish_targets(resolved, groups)
     looked = False
@@ -1148,7 +1180,7 @@ _KICKED = re.compile(r"^if (?:this spell|it|~) was kicked, (?P<instead1>instead 
 # -- optional payments (118.12 / 118.12a): app/rules/optional_payment.py ------------------------------
 _IF_YOU_DO = re.compile(r"^if you (?:(?P<neg>don't)|do), (?P<rest>.+)$")
 _UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller) "
-                     r"pays? (?P<cost>.+)$")
+                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?) .+)$")  # (wave 1B: any cost the engine pays)
 
 
 def _last_payment(effects: list[dict[str, Any]]) -> str | None:
@@ -1179,13 +1211,21 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]]) -> tuple[list[dic
     """"[Effect] unless [you / that player / they / its controller] pay(s) [cost]." (118.12a): the
     payer may pay; if they don't, the effect happens. "That player" / "they" is the effect's
     target player or the trigger event's player; "its controller" the controller of the effect's
-    target object. Several payers ("each opponent … unless they pay") aren't read."""
+    target object. Several payers ("each opponent … unless they pay") aren't read. The cost is any
+    the engine pays (conditional / instead clauses, wave 1B): mana, life, "discard a card",
+    "sacrifice a land", "return a land you control to its owner's hand", "exile a card from your
+    graveyard" — 118.12a reads "X unless [a player] discards a card" as "[That player] may discard a
+    card. If they don't, X."."""
     from app.rules import optional_payment
 
     m = _UNLESS.match(text)
-    if m is None or re.search(r"\bit\b", m["cost"]):
+    if m is None:
         return None
-    cost = optional_payment.cost_text(m["cost"])
+    verb, _, rest = m["act"].partition(" ")
+    phrase = rest if verb.startswith("pay") else f"{verb[:-1] if verb.endswith('s') else verb} {rest}"
+    if re.search(r"\bit\b", phrase):
+        return None
+    cost = optional_payment.cost_text(phrase)
     lead = _clause(m["lead"])
     if cost is None or lead is None or not lead[0]:
         return None
@@ -1204,6 +1244,10 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]]) -> tuple[list[dic
         payer = "target"
     elif whos == {"event_player"}:
         payer = "event_player"
+    elif who in ("that player", "they") and whos == {"that_player"}:
+        payer = "that_player"  # the player the lead is about (the trigger event's, or a target: resolve_it binds it)
+    elif who in ("that player", "they") and whos == {"target"} and groups and group_player is False:
+        payer = "target"  # "Counter target spell unless they pay {1}": they = the spell's controller
     else:
         return None
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
@@ -1229,6 +1273,8 @@ def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start
     rest = m["rest"]
     if rest.startswith("you may ") or rest.startswith("instead "):
         return None
+    if rest.startswith("it deals "):
+        rest = "~ deals " + rest[len("it deals "):]  # "If this spell was kicked, it deals …": the spell (wave 1B)
     found = _clause(rest)
     if found is None or found[1] is not None or not found[0]:
         return None
@@ -1329,8 +1375,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # triggers (triggers._add) and again as it resolves (the only_if effect)
                 intervening = None
                 if body.lower().startswith("if "):
-                    if not effects or effects[0]["do"] != "only_if":
-                        return None
+                    if not effects or effects[0]["do"] != "only_if" or effects[0].get("bind"):
+                        return None  # (with "Otherwise, …" the condition isn't the whole ability's: wave 1B)
                     # the whole ability, however many sentences follow: if it doesn't hold, the
                     # ability doesn't trigger, or does nothing as it resolves
                     intervening = effects[0]["cond"]
@@ -2064,3 +2110,233 @@ def _prevent_to_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 _RECORDING.update({"become": None})
+
+
+# =====================================================================================================
+# -- conditional / instead clauses (wave 1B) --
+# Conditions (app/rules/conditions.py) gating the effects that follow, read against CR 608.2c ("later
+# text on the card may modify the meaning of earlier text … read the whole text and apply the rules of
+# English"), 608.2h (information from the game is determined once, as the effect is applied), 608.2i
+# (effects that look back in time) and 614.1a ("instead" effects are replacement effects: the resolving
+# spell or ability applies its own "instead" text to the instruction it modifies, as it reaches it).
+#
+#   "If C, X."                — X happens only if C holds as it's carried out
+#   "X. If C, Y instead."     — C is judged ONCE, as X would be carried out (the verdict is recorded: a
+#     "X. Y instead if C."      ``flag`` binding); if it holds, Y replaces X — all of X: Y must be at least
+#     "X. If C, instead Y."     as big (an "instead" that could replace only part of the sentence before it
+#                               is never guessed) and have no target of its own
+#   "If C, X. Otherwise, Z."  — Z happens when C didn't hold (the same recorded verdict)
+#   "X if C." / "X unless C." — one instruction, gated (a lead of several instructions isn't read: which
+#                               of them the condition belongs to is English, not grammar)
+# "It" in a condition is the object the sentence is about: a plain target, what an earlier instruction
+# moved or chose (its recorded object, 400.7j), the source, the trigger event's object.
+# Refused, never guessed: an "instead" clause that isn't a condition the engine reads (replacement
+# effects a resolving spell creates, "If that creature would die this turn, exile it instead": 614.1a
+# continuous replacement effects are a different mechanism), a pronoun in one branch that names what
+# the other branch's instruction would have moved, a chain of "instead" clauses.
+# =====================================================================================================
+_BRANCHING = frozenset({"only_if", "kicked_gate", "optional_payment", "delayed", "until", "record_action", "action_gate",
+                        "bind_refs"})
+_INSTEAD_FORMS = (re.compile(r"^if (?P<c>[^,]+), (?P<rest>.+) instead$"),
+                  re.compile(r"^if (?P<c>[^,]+), instead (?P<rest>.+)$"),
+                  re.compile(r"^(?P<rest>.+) instead if (?P<c>.+)$"))
+_OTHERWISE = re.compile(r"^otherwise, (?P<rest>.+)$")
+_TRAILING = re.compile(r"^(?P<lead>.+?) (?P<kw>if|unless) (?P<c>.+)$")
+_REF_NAME = re.compile(r"^ref:(?P<name>e\d+)(?:\..*)?$")
+
+
+def _cond_has_it(cond: dict[str, Any]) -> bool:
+    from app.rules import conditions
+
+    return conditions._has_objects(cond)
+
+
+def _bind_cond(cond: dict[str, Any], ref: str) -> dict[str, Any]:
+    from app.rules import conditions
+
+    return conditions.bind_objects(cond, ref)
+
+
+def _conditional_inner(rest: str, cond: dict[str, Any] | None = None) -> tuple[list[dict[str, Any]], Any] | None:
+    """The instruction(s) of "If C, [rest]" / "Otherwise, [rest]": its own targets (115.3) are its own
+    groups; "you may …" only when the clause models its own choice (else the gate would make the whole
+    effect optional, or ask nothing). ``cond``: the condition it belongs to, whose subject "it" names
+    when that is the source ("If this enchantment isn't a creature, it becomes …")."""
+    found = _clause(rest)
+    if found is None or not found[0]:
+        return None
+    if rest.startswith("you may ") and not any(e.get("optional") for e in found[0]):
+        return None
+    return _bind_subject(cond, found) if cond is not None else found
+
+
+def _holds_pronoun(value: Any) -> bool:
+    """Does an effect still hold a pronoun placeholder (its controller, its power, them, "it deals")?"""
+    if isinstance(value, list):
+        return any(_holds_pronoun(v) for v in value)
+    if not isinstance(value, dict):
+        return False
+    for k, x in value.items():
+        if k == "who" and isinstance(x, str) and (x == "them" or x.startswith(("it.", "it:", "them:"))):
+            return True
+        if (k == "src" or k in _STAT_KEYS) and x == "it":
+            return True
+        if _holds_pronoun(x):
+            return True
+    return False
+
+
+def _bind_subject(cond: dict[str, Any], found: tuple[list[dict[str, Any]], Any] | None) -> tuple[list[dict[str, Any]], Any] | None:
+    """"If this enchantment isn't a creature, it becomes …": when the condition is about the source itself
+    ("~"), "it" in what follows is the source — the subject of the sentence — not the trigger event's
+    object or an earlier sentence's. Other pronouns there (its controller, its power, them) aren't read."""
+    from app.rules import conditions
+
+    if found is None or set(conditions.objects_in(cond)) != {"self"}:
+        return found
+    effects = []
+    for e in found[0]:
+        e = {**e, "who": "self"} if e.get("who") == "it" else e
+        if _holds_pronoun(e):
+            return None
+        effects.append(e)
+    return effects, found[1]
+
+
+def _replaceable(base: list[dict[str, Any]], alt: list[dict[str, Any]]) -> bool:
+    """Does ``alt`` take the place of all of ``base`` ("X. If C, Y instead.")? Y must be at least as big
+    as X: a Y with fewer instructions could be replacing only part of X's sentence, and dropping the
+    rest of X would be wrong. Neither may itself branch (a chain of "instead" clauses)."""
+    if not base or not alt or len(alt) < len(base):
+        return False
+    return not any(e["do"] in _BRANCHING for e in (*base, *alt))
+
+
+def _next_flag(effects: list[dict[str, Any]]) -> str:
+    return f"cond{sum(1 for e in effects if str(e.get('bind') or '').startswith('cond'))}"
+
+
+def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: int,
+                          groups: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int] | Literal[False] | None:
+    """One sentence as an "instead" / "Otherwise" clause of the sentence before it: None (it isn't one),
+    False (it is, but not one the engine reads: the whole ability stays manual), or the effects so far
+    with it added and how many effects it put before its own first (the gate goes before the sentence
+    it replaces). The condition is judged once, before the replaced instruction (608.2c)."""
+    from app.rules import conditions
+
+    m = next((found for found in (form.match(text) for form in _INSTEAD_FORMS) if found is not None), None)
+    if m is not None:
+        cond = conditions.parse(m["c"], objects=True)
+        rest = m["rest"]
+        base = effects[prev_start:]
+        if cond is None or rest.startswith("you may ") or not base:
+            return False
+        if rest.startswith("it deals ") and base[0]["do"] == "damage" and not base[0].get("src"):
+            rest = "~ deals " + rest[len("it deals "):]  # (the source of the damage the sentence before it dealt)
+        alt = _bind_subject(cond, _clause(rest))
+        if alt is None or alt[1] is not None or not _replaceable(base, alt[0]):
+            return False
+        if _cond_has_it(cond):  # "it": what the replaced sentence is about — its one target (else an earlier object)
+            whos = {str(e["who"]) for e in base if str(e.get("who") or "").startswith("target")}
+            if len(whos) > 1:
+                return False
+            if whos:
+                cond = _bind_cond(cond, next(iter(whos)))
+        flag = _next_flag(effects)
+        return [*effects[:prev_start], {"do": "only_if", "cond": {"not": cond}, "skip": len(base), "bind": flag}, *base,
+                {"do": "only_if", "cond": {"flag": flag, "negate": True}, "skip": len(alt[0])}, *alt[0]], 1
+    m = _OTHERWISE.match(text)
+    if m is not None:
+        gate = effects[prev_start] if prev_start < len(effects) else None
+        if (gate is None or gate["do"] != "only_if" or gate.get("bind") or "succeeded" in gate["cond"]
+                or gate.get("skip") != len(effects) - prev_start - 1):
+            return False  # ("Otherwise" belongs to the "If C, X." sentence right before it, and to nothing else)
+        alt = _conditional_inner(m["rest"], gate["cond"])
+        if alt is None:
+            return False
+        flag = _next_flag(effects)
+        added = _add_groups(groups, *alt)
+        return [*effects[:prev_start], {**gate, "bind": flag}, *effects[prev_start + 1:],
+                {"do": "only_if", "cond": {"flag": flag, "negate": True}, "skip": len(added)}, *added], 0
+    return None
+
+
+def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
+    """"[One instruction] if [condition]." / "… unless [condition].": the instruction gated by the
+    condition as it's carried out. "It" in the condition is the instruction's own target (a plain target
+    is read as it is, 608.2h)."""
+    from app.rules import conditions
+
+    m = _TRAILING.match(text)
+    if m is None or m["lead"].startswith(("if ", "unless ", "you may ")):
+        return None
+    cond = conditions.parse(m["c"], objects=True)
+    found = _bind_subject(cond, _clause(m["lead"])) if cond is not None else None
+    if cond is None or found is None or len(found[0]) != 1:
+        return None
+    lead_groups = _as_groups(found[1])
+    if _cond_has_it(cond) and lead_groups:
+        if len(lead_groups) > 1 or _is_player_group(lead_groups[0]):
+            return None
+        cond = _bind_cond(cond, "target")  # (the lead's one target: numbered with its group by _add_groups)
+    if m["kw"] == "unless":
+        cond = {"not": cond}
+    return [{"do": "only_if", "cond": cond, "skip": 1}, *found[0]], found[1]
+
+
+def _refs_in(value: Any) -> Iterator[str]:
+    """The names of the earlier effects' bindings a value refers to ("ref:e3", "ref:e3.controller")."""
+    if isinstance(value, str):
+        m = _REF_NAME.match(value)
+        if m:
+            yield m["name"]
+    elif isinstance(value, list):
+        for v in value:
+            yield from _refs_in(v)
+    elif isinstance(value, dict):
+        for v in value.values():
+            yield from _refs_in(v)
+
+
+def _mentions_other(value: Any) -> bool:
+    """Does an effect select "other" objects ("destroy all other creatures": other than what)?"""
+    from app.rules import selectors
+
+    if isinstance(value, str):
+        return value.startswith(selectors.PREFIX) and selectors.from_key(value).other
+    if isinstance(value, list):
+        return any(_mentions_other(v) for v in value)
+    return isinstance(value, dict) and any(_mentions_other(v) for v in value.values())
+
+
+def _gated_other_ok(effects: list[dict[str, Any]]) -> bool:
+    """A gated instruction that says "other" after the ability made tokens ("Create X 1/1 Soldier creature
+    tokens. If X is 5 or more, destroy all other creatures." — Martial Coup's rulings: other than the tokens)
+    is refused: the engine's "other" is other than the source, which for a spell isn't on the battlefield, so
+    it would destroy the tokens too."""
+    made = False
+    for i, e in enumerate(effects):
+        made = made or e["do"] in ("create_token", "create_attacking")
+        if made and e["do"] == "only_if" and _mentions_other(effects[i + 1:i + 1 + int(e.get("skip", len(effects)))]):
+            return False
+    return True
+
+
+def _branch_refs_ok(effects: list[dict[str, Any]]) -> bool:
+    """Nothing refers to what an instruction in an "instead" / "Otherwise" branch moved or chose, from
+    outside that branch: only one of the branches happens, so the other branch's (and any later)
+    "it" / "its controller" would name nothing, silently — the ability stays manual instead."""
+    blocks = [(i + 1, min(len(effects), i + 1 + int(e.get("skip", len(effects)))))
+              for i, e in enumerate(effects) if e["do"] == "only_if" and (e.get("bind") or "flag" in e["cond"])]
+    if not blocks:
+        return True
+    produced = {e["as"]: i for i, e in enumerate(effects) if e.get("as")}
+    for i, e in enumerate(effects):
+        for name in _refs_in(e):
+            k = produced.get(name)
+            if k is None:
+                continue
+            for lo, hi in blocks:
+                if lo <= k < hi and not lo <= i < hi:
+                    return False
+    return True

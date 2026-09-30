@@ -44,8 +44,12 @@ def test_card_coverage_levels(cards):
     counter = coverage.of_card_data(cards.resolve("Counterspell"))
     assert counter.level == "FULL"  # "counter target spell" (test_rules_counter.py)
     modal = coverage.of_card_data(cards.resolve("Pyroblast"))
-    # casting is automated, its conditional modes aren't (yet)
-    assert modal.level == "PARTIAL" and modal.manual_parts
+    # its conditional modes ("Counter target spell if it's blue.": app/rules/conditions.py, tested in
+    # test_rules_conditionals.py) are automated too
+    assert modal.level == "FULL" and not modal.manual_parts
+    split = coverage.of_card_data(cards.resolve("Fire // Ice"))
+    # casting is automated, "divided as you choose" without targets isn't (yet)
+    assert split.level == "PARTIAL" and split.manual_parts
     krenko = coverage.of_card_data(cards.resolve("Krenko, Mob Boss"))
     # casting, combat and its {T} token ability ("Create X … tokens, where X is the number of
     # Goblins you control": app/rules/token_grammar.py, test_rules_tokens.py)
@@ -96,11 +100,11 @@ def test_changed_oracle_text_needs_review(cards):
 
 
 def test_coverage_api(client):
-    bolt = client.get("/api/cards/search?q=Pyroblast").json()["results"][0]
+    bolt = client.get("/api/cards/search?q=Bonecrusher").json()["results"][0]
     res = client.get(f"/api/rules/coverage?card_ids={bolt['id']},nonexistent").json()
     assert res[bolt["id"]]["level"] == "PARTIAL" and "nonexistent" not in res
     by_oracle = client.get(f"/api/rules/coverage?oracle_ids={bolt['oracle_id']}").json()
-    assert by_oracle[bolt["oracle_id"]]["name"] == "Pyroblast"
+    assert by_oracle[bolt["oracle_id"]]["name"] == "Bonecrusher Giant // Stomp"
     assert "play:land" in client.get("/api/rules/support").json()["features"]
     assert client.get("/api/rules/coverage?card_ids=" + ",".join(["x"] * 300)).status_code == 422
 

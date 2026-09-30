@@ -133,7 +133,7 @@ def test_parse_rules(text, who, rules, extra):
     "~ can block an additional creature each combat.",  # one creature blocking two: not on this table yet
     "~ can block any number of creatures.",
     "Enchanted permanent can't attack or block, and its activated abilities can't be activated unless they're mana abilities.",
-    "~ can't be blocked as long as you've drawn two or more cards this turn.",  # no such condition
+    "~ can't be blocked as long as it's night.",  # no such condition (the day/night designation isn't read)
     "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
     "~ gets +1/+1 if you control a Forest.",  # "if" belongs to restrictions only
     "No more than one creature can attack each combat.",
