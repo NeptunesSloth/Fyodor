@@ -592,7 +592,9 @@ def create_token_batch(plan: Plan, requests: list[tuple[str, dict[str, Any], int
 def _make_tokens(plan: Plan, ev: Event) -> list[str]:
     from app.rules import replacements
 
-    pid, spec, left = ev["player"], ev["token"], int(ev["count"])
+    pid, left = ev["player"], int(ev["count"])
+    spec = {k: v for k, v in ev["token"].items() if k != "_copy"}
+    recipe = ev["token"].get("_copy")  # a token copy (app/rules/copying.py): its copiable values (707.2)
     made: list[str] = []
     while left > 0:
         k = min(left, MAX_TOKENS_STEP)
@@ -603,6 +605,10 @@ def _make_tokens(plan: Plan, ev: Event) -> list[str]:
         new_ids = getattr(created, "r", None)
         made += list(new_ids.ids) if new_ids is not None else []
     for tid in made:
+        if recipe is not None:  # the copy effect applies before anything looks at it, then it enters (707.5)
+            from app.rules import copying
+
+            copying.add_copy_effect(plan, [plan.oid(tid)], copying.CopyRecipe.model_validate(recipe), pid)
         replacements.after_entry(plan, tid, pid)  # 616.1g: created first, then it enters (its "enters with" counters)
     return made
 

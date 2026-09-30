@@ -663,14 +663,14 @@ def create_token_copies(plan: Plan, ctx: Context, controller: str, recipe: CopyR
              "type_line": type_line(ch), "text": ch.oracle_text}
     tapped = tapped or replacements.token_enters_tapped(plan, controller, probe)
     source = ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None
-    created = plan.do({"type": "create_token", "player": controller, "count": count, "stacked": False, "tapped": tapped,
-                       "source_id": source, "token": spec}, actor=controller)
-    new_ids = getattr(created, "r", None)
-    fresh = list(new_ids.ids) if new_ids is not None else []
-    for tid in fresh:
-        add_copy_effect(plan, [plan.oid(tid)], recipe, controller)
-        replacements.after_entry(plan, tid, controller)
-    return fresh
+    from app.rules import (
+        replace as replace_,  # replacement-aware token path (614.16: doubling applies to copies)
+    )
+
+
+    made = replace_.create_tokens(plan, controller, {**spec, "_copy": recipe.model_dump(mode="json")}, count,
+                                 source=source, tapped=tapped)
+    return made or []
 
 
 def _entry_choice(plan: Plan, card_id: str) -> str | None:

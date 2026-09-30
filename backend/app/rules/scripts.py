@@ -2485,7 +2485,7 @@ def _branch_refs_ok(effects: list[dict[str, Any]]) -> bool:
                 if lo <= k < hi and not lo <= i < hi:
                     return False
     return True
-=======
+
 # -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py) --
 # "Copy target instant or sorcery spell[, except that the copy is red]." / "Copy target triggered
 # ability you control." then "You may choose new targets for the copy." (707.10, 707.10c); "Create
