@@ -65,7 +65,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from app.rules import conditions, selectors
+from app.rules import conditions, selectors, values
 
 if TYPE_CHECKING:
     from app.game.state import CardInstance
@@ -112,6 +112,14 @@ def parse(text: str) -> Definition | None:
     if t.count(". ") or "\n" in t:
         return None  # two sentences: one of them says something we'd silently drop
     body = t[:-1] if t.endswith(".") else t
+    cda = parse_cda(body)
+    if cda is not None:
+        return cda
+    # -- dynamic values (agent F): "~ gets +X/+X, where X is …" (the X of a static is defined by its text)
+    x_phrase: str | None = None
+    m = re.match(r"^(?P<rest>.+), where X is (?P<x>.+)$", body)
+    if m:
+        x_phrase, body = m["x"], m["rest"]
     # "Creatures with power less than ~'s power can't block it." (Wandering Wolf): an evasion ability
     # of the source, worded from the blockers' side.
     m = re.fullmatch(r"Creatures with power (?P<dir>less|greater) than ~'s power can't block it", body)
@@ -162,17 +170,26 @@ def parse(text: str) -> Definition | None:
         return None
     if who != "self" and any(c.get("static") == "self" or c.get("static") == "self_counter" for c in conds):
         return None  # "it's attacking" means the source; a group subject would need "each … that's attacking"
-    parts = _predicate(predicate)
+    # "counters on it": "it" is the source only when the source is the subject ("~ gets …"); for
+    # "Equipped creature gets +1/+1 for each counter on it" it's the equipped creature (not read)
+    it = "self" if who == "self" else None
+    x_value = values.parse_count(x_phrase, it=it) if x_phrase is not None else None
+    if x_phrase is not None and x_value is None:
+        return None
+    parts = _predicate(predicate, x_value, it)
     if parts is None:
         return None
-    if who == "self" and not conds and not parts["rules"]:
+    if x_value is not None and parts["each"] is None:
+        return None  # ("where X is …" with no X in the sentence)
+    if who == "self" and not conds and not parts["rules"] and parts["each"] is None:
         return None  # "~ has flying." unconditionally is a keyword line, not a static: not a template
     if rule_cond and not parts["rules"]:
         return None  # "~ gets +1/+1 if …" isn't how a static grant is worded
     if who != "self" and any(_relative(sel) for r in parts["rules"] for sel in rule_selectors(rule_arg(r)[1])):
         return None  # "Blue creatures can't block creatures you control": the rule, once on a blue creature, has lost "you"
     if defender_sel is not None:
-        if parts["rules"] != ["cant_be_blocked"] or parts["p"] or parts["t"] or parts["keywords"] or parts["grants"]:
+        if parts["rules"] != ["cant_be_blocked"] or parts["p"] or parts["t"] or parts["keywords"] or parts["grants"] \
+                or parts["each"]:
             return None
         parts["rules"] = [f"cant_be_blocked_if_defender_controls:{defender_sel}"]
     return _definition(who, kind, conds, **parts)
@@ -180,10 +197,67 @@ def parse(text: str) -> Definition | None:
 
 def _definition(who: str, kind: str | None, conds: list[dict[str, Any]], *, p: int = 0, t: int = 0,
                 base: list[int] | None = None, keywords: list[str] | None = None, grants: list[str] | None = None,
-                rules: list[str] | None = None) -> Definition:
-    return {"kind": "static", "static": "grant", "effects": [], "who": who, "attached_kind": kind,
-            "conditions": conds, "p": p, "t": t, "base": base, "keywords": keywords or [], "grants": grants or [],
-            "rules": rules or []}
+                rules: list[str] | None = None, each: dict[str, Any] | None = None) -> Definition:
+    out: Definition = {"kind": "static", "static": "grant", "effects": [], "who": who, "attached_kind": kind,
+           "conditions": conds, "p": p, "t": t, "base": base, "keywords": keywords or [], "grants": grants or [],
+           "rules": rules or []}
+    if each is not None:
+        out["each"] = each
+    return out
+
+
+# -- dynamic values (agent F): "gets +N/+N for each …", characteristic-defining P/T ---------------
+_PT_EACH = re.compile(r"^(?P<p>[+−-]\d+)/(?P<t>[+−-]\d+) for each (?P<each>.+)$")
+_PT_X = re.compile(r"^(?P<p>[+−-])X/(?P<t>[+−-])(?P<t2>X|0)$|^(?P<p2>[+−-])0/(?P<t3>[+−-])X$")
+_CDA = re.compile(r"^(?:[A-Z][a-z]+ — )?~'s (?:(?P<both>power and toughness are each)|(?P<power>power is)|"
+                  r"(?P<toughness>toughness is)) equal to (?P<v>.+?)"
+                  r"(?: and its toughness is equal to that number plus (?P<plus>\d+))?$")
+
+
+def _each_part(rest: str, x_value: values.Value | None, it: str | None) -> dict[str, Any] | None:
+    """"+1/+0 for each artifact you control" / "+X/+X" (with the sentence's "where X is …") → the
+    dynamic part of a 7c modification (613.4c): ``{"p": ±k, "t": ±k, "value": <value>}`` — the
+    object gets p×value / t×value, read whenever its characteristics are (611.3a). None if it
+    isn't one.
+
+    Definition key ``each`` on a grant static; app/rules/layers.py applies it in layer 7c."""
+    m = _PT_EACH.match(rest)
+    if m:
+        v = values.parse_count(m["each"], it=it)  # ("counters on it": on the source, when ~ is the subject)
+        if v is None:
+            return None
+        return {"p": _signed(m["p"]), "t": _signed(m["t"]), "value": v}
+    m = _PT_X.match(rest)
+    if m and x_value is not None:
+        if m["p2"]:  # "+0/+X"
+            return {"p": 0, "t": 1 if m["t3"] == "+" else -1, "value": x_value}
+        p = 1 if m["p"] == "+" else -1
+        t = 0 if m["t2"] == "0" else (1 if m["t"] == "+" else -1)
+        return {"p": p, "t": t, "value": x_value}
+    return None
+
+
+def parse_cda(body: str) -> Definition | None:
+    """A characteristic-defining ability setting power and/or toughness (604.3, 604.3a): "~'s
+    power and toughness are each equal to the number of lands you control", "~'s power is equal
+    to the number of cards in your hand", "Domain — ~'s power is equal to the number of basic land
+    types among lands you control", "~'s power is equal to the number of card types among cards in
+    all graveyards and its toughness is equal to that number plus 1". Applied in layer 7a
+    (613.4a), in every zone (604.3) — app/rules/layers.py. Definition: ``{"kind": "static",
+    "static": "cda", "p": <value> | None, "t": <value> | None}``."""
+    m = _CDA.match(body)
+    if m is None:
+        return None
+    v = values.parse_count(m["v"], it="self")
+    if v is None:
+        return None
+    if m["plus"]:
+        if not m["power"]:
+            return None
+        return {"kind": "static", "static": "cda", "effects": [], "p": v, "t": {"plus": [v, int(m["plus"])]}}
+    both = bool(m["both"])
+    return {"kind": "static", "static": "cda", "effects": [], "p": v if both or m["power"] else None,
+            "t": v if both or m["toughness"] else None}
 
 
 def _split_subject(body: str) -> tuple[str | None, str | None]:
@@ -252,7 +326,7 @@ def _pieces(predicate: str) -> list[str]:
     return [p.replace("power_and_toughness", "power and toughness") for p in out if p]
 
 
-def _predicate(predicate: str) -> dict[str, Any] | None:
+def _predicate(predicate: str, x_value: values.Value | None = None, it: str | None = None) -> dict[str, Any] | None:
     """"get +1/+1 and have haste" / "has base power and toughness 2/2" / "have "{T}: Add {G}."" →
     the P/T, base, keyword and ability parts (any that are absent are empty)."""
     from app.rules.scripts import granted_ability  # (scripts imports this module)
@@ -262,6 +336,7 @@ def _predicate(predicate: str) -> dict[str, Any] | None:
     keywords: list[str] = []
     grants: list[str] = []
     rules: list[str] = []
+    each: dict[str, Any] | None = None
     verb: str | None = None
     for piece in _pieces(predicate):
         rule = _rule(piece)
@@ -278,7 +353,12 @@ def _predicate(predicate: str) -> dict[str, Any] | None:
         if verb == "get":
             pt = _PT.match(rest)
             if pt is None:
-                return None
+                if each is not None:
+                    return None  # (two dynamic parts: not a template)
+                each = _each_part(rest, x_value, it)
+                if each is None:
+                    return None
+                continue
             p += _signed(pt["p"])
             t += _signed(pt["t"])
             continue
@@ -298,9 +378,9 @@ def _predicate(predicate: str) -> dict[str, Any] | None:
             keywords.append(rest)
             continue
         return None
-    if not (p or t or base or keywords or grants or rules):
+    if not (p or t or base or keywords or grants or rules or each):
         return None
-    return {"p": p, "t": t, "base": base, "keywords": keywords, "grants": grants, "rules": rules}
+    return {"p": p, "t": t, "base": base, "keywords": keywords, "grants": grants, "rules": rules, "each": each}
 
 
 # -- rules (restrictions and requirements) ----------------------------------------------------

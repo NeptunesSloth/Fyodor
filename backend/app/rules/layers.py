@@ -14,8 +14,10 @@ Two kinds of continuous effect meet here:
 Printed characteristics are never overwritten: ``derive`` computes the current ones each time from
 the printed card. Layers implemented (each with tests): 4 (types added, e.g. a crewed Vehicle),
 6 (abilities: keywords gained / lost, quoted abilities granted, 613.1f), 7a (characteristic-defining
-values are left to the printed card: ``*`` stays unknown), 7b (setting effects, incl. "base power
-and toughness", 613.4b), 7c (modifying effects **and counters**, 613.4c), 7d (switching). Within a
+abilities the static grammar reads — "~'s power is equal to the number of …" — computed in every
+zone, 604.3 / 613.4a; any other ``*`` stays unknown), 7b (setting effects, incl. "base power
+and toughness", 613.4b), 7c (modifying effects **and counters**, 613.4c, incl. "gets +1/+1 for each
+…" read whenever the characteristics are, 611.3a), 7d (switching). Within a
 layer, effects apply in timestamp order (613.7): a resolved effect's is handed out when it begins
 (613.7b), a static ability's is its source's — the object number it got when it entered (613.7a,
 613.7d; ``RulesState.objects``), or the granting object's if later for a granted ability — and the
@@ -135,11 +137,14 @@ _COND_CACHE: dict[tuple, bool] = {}
 
 
 def _table_key(state: GameState) -> tuple:
-    """Everything a static's condition may read (611.3a: checked whenever it's looked at), so one
-    verdict per static serves a whole pass over the table."""
+    """Everything a static's condition or dynamic amount ("for each …", a CDA's count) may read
+    (611.3a: checked whenever it's looked at), so one verdict per static serves a whole pass over
+    the table: life, hands, graveyards and exile (which cards: "creature cards in your graveyard"),
+    players' counters, the permanents with their status and counters, and the resolved effects."""
     r = state.rules
     players = tuple((pid, state.players[pid].life, len(state.zones.get(f"{pid}:hand", ())),
-                     len(state.zones.get(f"{pid}:graveyard", ()))) for pid in state.seat_order)
+                     tuple(state.zones.get(f"{pid}:graveyard", ())), tuple(state.zones.get(f"{pid}:exile", ())),
+                     tuple(sorted(state.players[pid].resources.items()))) for pid in state.seat_order)
     field = tuple((cid, c.controller, c.tapped, c.attacking is not None, bool(c.blocking), c.attached_to, c.face_down,
                    tuple(sorted(c.counters.items())))
                   for cid, c in state.cards.items() if c.zone.endswith(":battlefield"))
@@ -234,9 +239,10 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
 def derive(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> Characteristics:
     """Current characteristics: printed + continuous effects in layer order + counters. With
     ``info``, static abilities of permanents apply too (layers 6, 7b, 7c and rules imposed on the
-    object it's attached to)."""
+    object it's attached to), and the object's own characteristic-defining P/T (7a, every zone)."""
     global _depth
     effects = affecting(state, card)
+    each_amounts: dict[int, int] = {}
     added = {t for e in effects if e.layer == "4" for t in e.add_types}  # layer 4: type-changing
     if added - ch.types:
         ch = replace(ch, types=ch.types | frozenset(added))
@@ -247,7 +253,8 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     if info is not None and on_field and _depth == 0:
         view = _view(state, info)
         table = statics(state, info)
-        tkey = _table_key(state) if any(st.definition.get("conditions") or st.gate for st in table) else ()
+        tkey = _table_key(state) if any(st.definition.get("conditions") or st.gate or st.definition.get("each")
+                                        for st in table) else ()
         _depth += 1
         try:
             # a static's subject is read from the object after layer 4 and the resolved layer-6 effects
@@ -265,6 +272,9 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
                         break
                     hits = merged
                     ch = _layer6(ch, hits, effects)
+            # "… gets +1/+1 for each Elf you control": the count, read now (611.3a), while other
+            # objects' characteristics are read without statics (as a condition's are)
+            each_amounts = {id(st): _each_amount(view, st, tkey, card) for st in hits if st.definition.get("each")}
         finally:
             _depth -= 1
     elif effects:
@@ -289,6 +299,10 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
             setters.append(((e.object_seq, 1, e.timestamp), e.power, e.toughness))
     setters.sort(key=lambda x: x[0])
     power, toughness = _num(ch.power), _num(ch.toughness)
+    if info is not None and (power is None or toughness is None):
+        cda_p, cda_t = _cda(state, card, ch, info)  # 7a: the object's own characteristic-defining ability (613.4a)
+        power = cda_p if cda_p is not None else power
+        toughness = cda_t if cda_t is not None else toughness
     if (power is None or toughness is None) and not setters:
         return _with_rules(state, card, ch, info, imposed)  # 7a: a characteristic-defining "*" stays unknown
     p, t = power or 0, toughness or 0
@@ -298,6 +312,11 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     for st in hits:  # 7c: static modifications (613.4c) …
         p += st.definition["p"]
         t += st.definition["t"]
+        each = st.definition.get("each")
+        if each is not None:  # "… gets +1/+1 for each Elf you control" (613.4c, a dynamic amount)
+            n = each_amounts.get(id(st), 0)
+            p += each["p"] * n
+            t += each["t"] * n
     p += card.counters.get("+1/+1", 0) - card.counters.get("-1/-1", 0)  # … counters …
     t += card.counters.get("+1/+1", 0) - card.counters.get("-1/-1", 0)
     for e in effects:  # … and resolved ones
@@ -313,7 +332,78 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
 def _grants(d: dict[str, Any]) -> bool:
     """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
     opponents control can't block.") is applied by ``_with_rules`` instead."""
-    return bool(d["p"] or d["t"] or d.get("base") or d["keywords"] or d["grants"])
+    return bool(d["p"] or d["t"] or d.get("base") or d["keywords"] or d["grants"] or d.get("each"))
+
+
+# -- dynamic values (agent F): "for each …" modifications (7c) and characteristic-defining P/T (7a) --
+_EACH_CACHE: dict[tuple, int] = {}
+_CDA_CACHE: dict[tuple, tuple[int | None, int | None]] = {}
+_CDA_VISITING: set[str] = set()
+
+
+def _static_ctx(view: Plan, source: str, controller: str) -> dict[str, Any]:
+    """The context a static's amount is read in: "you" is the source's controller (613), "~" is
+    the source (as it is now: it's on the battlefield)."""
+    return {"controller": controller, "source_card": source, "source_object": view.oid(source)}
+
+
+def _each_amount(view: Plan, st: Static, tkey: tuple, card: CardInstance) -> int:
+    """The count a "gets +N/+N for each …" static multiplies by, read now (611.3a) and cached per
+    table state (``_table_key`` covers everything a value reads). "Other" in the count leaves out
+    the affected object (``card``): "Enchanted creature gets +1/+1 for each other creature you
+    control", "Each legendary creature you control gets +1/+1 for each other legendary creature"."""
+    from app.rules import values
+
+    each = st.definition["each"]
+    other = '"other":true' in repr(each["value"])
+    key = (tkey, st.source, st.controller, repr(each["value"]), card.id if other else "")
+    hit = _EACH_CACHE.get(key) if tkey else None
+    if hit is None:
+        if len(_EACH_CACHE) > 4096:
+            _EACH_CACHE.clear()
+        ctx = {**_static_ctx(view, st.source, st.controller), "other_than": card.id}
+        hit = values.evaluate(view, ctx, each["value"])
+        if tkey:
+            _EACH_CACHE[key] = hit
+    return hit
+
+
+def _cda(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo) -> tuple[int | None, int | None]:
+    """Layer 7a (613.4a): the object's own characteristic-defining ability that defines its power
+    and/or toughness ("~'s power and toughness are each equal to the number of lands you control",
+    app/rules/statics.py ``parse_cda``). It functions in every zone (604.3); "you" is its
+    controller, or its owner for a card that has none (108.4a). A card played by hand (``manual``
+    mode) keeps its printed "*" (unknown). A count that leads back to this object (a loop of CDAs
+    reading each other's power) reads it as unknown rather than recursing (613.8: no dependency
+    order is modelled beyond that)."""
+    r = state.rules
+    if r is None or card.id in _CDA_VISITING or r.card_mode(card.id) == "manual":
+        return None, None
+    from app.rules import scripts, values
+
+    defs = [d for d in scripts.definitions(ch).values() if d.get("static") == "cda"]
+    if not defs:
+        return None, None
+    d = defs[0]
+    on_stack_or_field = card.zone == "stack" or card.zone.endswith(":battlefield")
+    controller = card.controller if on_stack_or_field else card.owner
+    tkey = _table_key(state)
+    key = (tkey, card.id, card.zone, controller, repr(d["p"]), repr(d["t"]))
+    hit = _CDA_CACHE.get(key)
+    if hit is not None:
+        return hit
+    view = _view(state, info)
+    ctx = {"controller": controller, "source_card": card.id, "source_object": r.object_id(card.id)}
+    _CDA_VISITING.add(card.id)
+    try:
+        p = values.evaluate(view, ctx, d["p"]) if d["p"] is not None else None
+        t = values.evaluate(view, ctx, d["t"]) if d["t"] is not None else None
+    finally:
+        _CDA_VISITING.discard(card.id)
+    if len(_CDA_CACHE) > 4096:
+        _CDA_CACHE.clear()
+    _CDA_CACHE[key] = (p, t)
+    return p, t
 
 
 def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None,

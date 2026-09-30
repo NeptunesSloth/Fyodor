@@ -6,17 +6,33 @@ A value is an int (a literal) or a dict:
 
 * ``{"x": 1}`` — the X the spell or ability was cast / activated with (107.3);
 * ``{"count": "<selector key>"}`` — the number of objects (or players) matching a selector;
-* ``{"hand": "you"}`` — the number of cards in a player's hand;
+* ``{"hand": "you" | "target"}`` — the number of cards in a player's hand;
 * ``{"opponents": 1}`` — the number of opponents still in the game;
-* ``{"power": "self" | "target"}`` / ``{"toughness": …}`` / ``{"mana_value": …}`` — of an object;
-* ``{"counters": kind, "on": "self"}`` — counters of a kind on an object;
-* ``{"times": [a, b]}`` — a product (e.g. "two for each …");
+* ``{"power": "self" | "target" | "it" | "event" | "ref:<b>"}`` / ``{"toughness": …}`` /
+  ``{"mana_value": …}`` — of an object (as it is, or as it last existed: 608.2h);
+* ``{"counters": kind | None, "on": "self" | "target" | …}`` — counters of a kind (None: of all
+  kinds) on an object;
+* ``{"player_counters": kind}`` — counters a player has ("experience counters you have", 122.1e);
+* ``{"life": "you" | "target" | "opponent_max"}`` — a life total ("your life total", "the highest
+  life total among your opponents");
+* ``{"distinct": "types" | "colors" | "basic_land_types" | "creature_types", "among": "<selector key>"}``
+  — how many different card types (205.2a) / colors (105.1) / basic land types (205.3i) /
+  creature types are represented among the objects a selector names ("the number of card types
+  among cards in all graveyards", domain);
+* ``{"devotion": ["B"]}`` / ``["W", "U"]`` — devotion to a color or two colors (700.5);
+* ``{"sum" | "max": "power" | "toughness" | "mana_value", "of": "<selector key>"}`` — "the total
+  power of creatures you control", "the greatest mana value among …";
+* ``{"times": [a, b]}`` — a product (e.g. "two for each …", "twice …");
+* ``{"plus": [a, b]}`` — a sum ("that number plus 1");
+* ``{"half": v, "round": "up" | "down"}`` — half, rounded as the text says (107.1: integers only);
+* ``{"neg": v}`` — a negative amount (only through :func:`evaluate_signed`: "-1/-1 for each …");
 * ``{"event_amount": 1}`` — "that much" / "that many": the trigger event's amount, read from the
   context the ability carries from when it triggered (app.game.rules_state.TriggerEvent).
 * ``{"kicked": 1}`` — the number of times the spell (or the permanent it became) was kicked
   (702.33d; "for each time it was kicked").
 
-Parsing lives in :func:`parse_amount` (words) and :func:`parse_count` ("the number of …").
+Parsing lives in :func:`parse_amount` (words) and :func:`parse_count` ("the number of …"; any
+of the quantity phrases above). Everything is data: nothing from a card is ever executed.
 """
 
 from __future__ import annotations
@@ -42,6 +58,13 @@ UNMODELED_COUNTERS = frozenset({
     "indestructible", "lifelink", "menace", "reach", "shadow", "trample", "vigilance",
     "shield", "stun", "finality", "rad", "hone", "lore"})
 
+BASIC_LAND_TYPES = ("Plains", "Island", "Swamp", "Mountain", "Forest")  # 205.3i
+# 205.2a: the card types (as the type line writes them; "Tribal" is the old name of kindred)
+CARD_TYPES = frozenset({"Artifact", "Battle", "Conspiracy", "Creature", "Dungeon", "Enchantment", "Instant", "Kindred",
+                        "Land", "Phenomenon", "Plane", "Planeswalker", "Scheme", "Sorcery", "Vanguard"})
+_COLOR_WORDS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
+_MANA_SYMBOL = re.compile(r"\{([^}]+)\}")
+
 
 def parse_amount(word: str) -> Value | None:
     w = word.strip().lower()
@@ -56,27 +79,113 @@ def parse_amount(word: str) -> Value | None:
     return None
 
 
-_COUNT = re.compile(r"^the number of (?P<what>.+?)$")
+# -- dynamic values (agent F): "the number of …" and friends --------------------------------------
+_COUNT = re.compile(r"^the (?:total )?number of (?P<what>.+?)$")
+_STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
+_COUNTERS_ON = re.compile(r"^(?:(?P<kind>\+1/\+1|-1/-1|[a-z]+) )?counters? on (?P<on>.+)$")
+_ON = {"~": "self", "it": "it", "this creature": "self", "this permanent": "self", "this artifact": "self",
+       "this enchantment": "self", "this land": "self", "this equipment": "self", "this aura": "self",
+       "that creature": "it", "that permanent": "it"}
+_DISTINCT = {"card types": "types", "different card types": "types", "card type": "types",
+             "colors": "colors", "different colors": "colors", "color": "colors",
+             "basic land types": "basic_land_types", "basic land type": "basic_land_types",
+             "creature types": "creature_types", "different creature types": "creature_types",
+             "creature type": "creature_types"}
+_AMONG = re.compile(r"^(?P<kind>" + "|".join(sorted(map(re.escape, _DISTINCT), key=len, reverse=True)) + r") among (?P<sel>.+)$")
+_DEVOTION = re.compile(r"^your devotion to (?P<c1>white|blue|black|red|green)(?: and (?P<c2>white|blue|black|red|green))?$")
+_AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power|toughness|mana value) "
+                        r"(?:among|of) (?P<sel>.+)$")
+_PLAYER_COUNTERS = re.compile(r"^(?P<kind>[a-z]+) counters? you have$")
+_HALF = re.compile(r"^half (?P<v>.+?), rounded (?P<round>up|down)$")
+_PLUS = re.compile(r"^(?P<v>.+?) plus (?P<n>\d+|one|two|three|four|five)$")
+_TYPE_WORDS = "|".join(selectors.CARD_TYPES)
 
 
-def parse_count(phrase: str) -> Value | None:
-    """"the number of creatures you control" / "cards in your hand" / "opponents you have"."""
-    m = _COUNT.match(phrase.strip())
-    what = m["what"] if m else phrase.strip()
-    if what in ("cards in your hand",):
+def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
+    """A quantity phrase → value: "the number of creatures you control" / "cards in your hand" /
+    "opponents you have" / "+1/+1 counters on ~" / "card types among cards in all graveyards" /
+    "your devotion to green" / "your life total" / "twice …" / "half …, rounded up" / "X".
+
+    ``it`` is what a bare "it" means for the caller ("counters on it": the static's own source
+    is "self"); None refuses it (a pronoun the caller can't bind is never guessed)."""
+    p = phrase.strip()
+    m = _COUNT.match(p)
+    what = m["what"] if m else p
+    if what.lower() == "x":
+        return {"x": 1}
+    m = re.match(r"^twice (?P<v>.+)$", what)
+    if m:
+        inner = parse_count(m["v"], it=it)
+        return {"times": [2, inner]} if inner is not None else None
+    m = _HALF.match(what)
+    if m:
+        inner = parse_count(m["v"], it=it)
+        return {"half": inner, "round": m["round"]} if inner is not None else None
+    m = _PLUS.match(what)
+    if m:
+        inner = parse_count(m["v"], it=it)
+        return {"plus": [inner, int(m["n"]) if m["n"].isdigit() else NUMBERS[m["n"]]]} if inner is not None else None
+    if what in ("cards in your hand", "card in your hand"):
         return {"hand": "you"}
-    if what in ("opponents you have", "opponent you have", "your opponents", "opponent"):
+    if what in ("cards in target player's hand", "cards in target opponent's hand"):
+        return {"hand": "target"}
+    if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
         return {"opponents": 1}
     if what in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
         return {"kicked": 1}
-    sel = selectors.parse(what)
+    if what == "your life total":
+        return {"life": "you"}
+    if what in ("target player's life total", "target opponent's life total"):
+        return {"life": "target"}
+    if what in ("the highest life total among your opponents", "the greatest life total among your opponents"):
+        return {"life": "opponent_max"}
+    m = _DEVOTION.match(what)
+    if m:
+        return {"devotion": [_COLOR_WORDS[c] for c in (m["c1"], m["c2"]) if c]}
+    m = _PLAYER_COUNTERS.match(what)
+    if m:
+        return {"player_counters": m["kind"]}
+    m = _COUNTERS_ON.match(what)
+    if m:
+        on = _ON.get(m["on"].lower())
+        if on == "it":
+            on = it
+        if on is None or (m["kind"] and m["kind"] in UNMODELED_COUNTERS):
+            return None
+        return {"counters": m["kind"], "on": on}
+    m = _AMONG.match(what)
+    if m:
+        key = _selector_key(m["sel"])
+        return {"distinct": _DISTINCT[m["kind"]], "among": key} if key else None
+    m = _AGGREGATE.match(what)
+    if m:
+        key = _selector_key(m["sel"])
+        if key is None or selectors.from_key(key).player is not None:
+            return None
+        return {"max" if m["max"] else "sum": _STATS[m["stat"]], "of": key}
+    if what.startswith(("the ", "a ", "an ")):
+        return None
+    sel = selectors.parse(_normalise(what))
     if sel is None:
         return None
     return {"count": sel.key()}
 
 
+def _normalise(what: str) -> str:
+    """Noun phrases the selector grammar spells differently: "cards in all graveyards" (400.1:
+    every player's), "instant and sorcery cards" (cards of either type: a list, not "artifact
+    creature"'s both-types reading)."""
+    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", what)
+    return re.sub(rf"\b(?P<a>{_TYPE_WORDS}) and (?P<b>{_TYPE_WORDS}) (?P<n>cards?|spells?)\b", r"\g<a> or \g<b> \g<n>", out)
+
+
+def _selector_key(phrase: str) -> str | None:
+    sel = selectors.parse(_normalise(phrase))
+    return sel.key() if sel is not None else None
+
+
 def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
-    """The number a value stands for right now (never negative)."""
+    """The number a value stands for right now (never negative: 107.1b)."""
     if isinstance(v, int):
         return max(0, v)
     you = ctx["controller"]
@@ -85,13 +194,20 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "times" in v:
         a, b = v["times"]
         return evaluate(plan, ctx, a) * evaluate(plan, ctx, b)
+    if "plus" in v:
+        return sum(evaluate(plan, ctx, x) for x in v["plus"])
+    if "half" in v:
+        n = evaluate(plan, ctx, v["half"])
+        return (n + 1) // 2 if v.get("round") == "up" else n // 2
+    if "neg" in v:
+        return 0  # a negative result of an effect is zero (107.1b); the sign is evaluate_signed's
     if "kicked" in v:
         return kicked_count(plan, ctx)
     if "count" in v:
         sel = selectors.from_key(v["count"])
         if sel.player is not None:
             return sum(1 for p in plan.live() if selectors.matches_player(plan, sel, p, you))
-        return len(selectors.candidates(plan, sel, you, ctx.get("source_card")))
+        return len(selectors.candidates(plan, sel, you, _other_than(ctx)))
     if "event_amount" in v:  # "that much" / "that many": the trigger event's amount (608.2k)
         from app.rules import context  # (context → triggers → … → values)
 
@@ -103,26 +219,105 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "event_count" in v:  # how many objects the "one or more" batch had
         return max(0, int((ctx.get("event") or {}).get("count") or 0))
     if "hand" in v:
-        return len(plan.state.zones.get(f"{you}:hand", []))
+        players = [you] if v["hand"] == "you" else _target_players(plan, ctx)
+        return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in players)
     if "opponents" in v:
         return sum(1 for p in plan.live() if p != you)
+    if "life" in v:
+        if v["life"] == "you":
+            return max(0, plan.state.players[you].life)
+        if v["life"] == "opponent_max":
+            return max([plan.state.players[p].life for p in plan.live() if p != you] or [0])
+        return max([plan.state.players[p].life for p in _target_players(plan, ctx)] or [0])
+    if "player_counters" in v:
+        return max(0, int(plan.state.players[you].resources.get(v["player_counters"], 0)))
+    if "distinct" in v:
+        return _distinct(plan, ctx, v["distinct"], v["among"])
+    if "devotion" in v:
+        return _devotion(plan, you, v["devotion"])
+    if "sum" in v or "max" in v:
+        stat = v.get("sum") or v["max"]
+        found = [_stat_of(plan.ch(plan.state.cards[c]), stat)
+                 for c in selectors.candidates(plan, selectors.from_key(v["of"]), you, _other_than(ctx))]
+        nums = [n for n in found if n is not None]
+        return max(0, sum(nums) if "sum" in v else max(nums or [0]))
     for stat in ("power", "toughness", "mana_value"):
         if stat in v:
             got = _object(plan, ctx, v[stat])
             if got is None:
                 return 0
             _, ch = got
-            if stat == "mana_value":
-                return int(ch.mana_value)
-            value = ch.pt[0 if stat == "power" else 1] if ch.pt is not None else None
-            raw = ch.power if stat == "power" else ch.toughness
-            if value is None and raw is not None and raw.lstrip("-").isdigit():
-                value = int(raw)
-            return max(0, value or 0)
+            return max(0, _stat_of(ch, stat) or 0)
     if "counters" in v:
         got = _object(plan, ctx, v.get("on", "self"))
-        return got[0].counters.get(v["counters"], 0) if got is not None else 0
+        if got is None:
+            return 0
+        counters = got[0].counters
+        return counters.get(v["counters"], 0) if v["counters"] else sum(counters.values())
     raise ValueError(f"unknown value {v!r}")
+
+
+def evaluate_signed(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
+    """A modification's amount, with its sign ("-1/-1 for each …": ``{"neg": …}``; 613.4c)."""
+    if isinstance(v, dict) and "neg" in v:
+        return -evaluate(plan, ctx, v["neg"])
+    return evaluate(plan, ctx, v)
+
+
+def _stat_of(ch: Any, stat: str) -> int | None:
+    if stat == "mana_value":
+        return int(ch.mana_value)
+    if ch.pt is not None:
+        return int(ch.pt[0 if stat == "power" else 1])
+    raw = ch.power if stat == "power" else ch.toughness
+    return int(raw) if raw is not None and raw.lstrip("-").isdigit() else None
+
+
+def _other_than(ctx: dict[str, Any]) -> str | None:
+    """What "other" / "another" in a counted selector leaves out: the source, unless the context
+    says which object the count is about (``other_than``: a static's affected object — "Enchanted
+    creature gets +1/+1 for each other creature you control" counts the others than IT)."""
+    return ctx.get("other_than") or ctx.get("source_card")
+
+
+def _target_players(plan: Plan, ctx: dict[str, Any]) -> list[str]:
+    from app.rules.effects import target_refs  # (effects imports this module)
+
+    return [t["id"] for t in target_refs(ctx, "target") if t["id"] in plan.state.players and t["id"] in plan.live()]
+
+
+def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:
+    """How many different card types / colors / basic land types / creature types the objects a
+    selector names have between them."""
+    found: set[str] = set()
+    for cid in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], _other_than(ctx)):
+        ch = plan.ch(plan.state.cards[cid])
+        if kind == "types":
+            found |= {"Kindred" if t == "Tribal" else t for t in ch.types if t in CARD_TYPES}
+        elif kind == "colors":
+            found |= set(ch.colors)
+        elif kind == "basic_land_types":
+            found |= ch.subtypes & set(BASIC_LAND_TYPES)
+        else:
+            from app.rules.creature_types import CREATURE_TYPES
+
+            found |= ch.subtypes & CREATURE_TYPES
+    return len(found)
+
+
+def _devotion(plan: Plan, you: str, colors: list[str]) -> int:
+    """700.5: the number of mana symbols of those colors among the mana costs of permanents you
+    control (a hybrid symbol of two of them counts once; a Phyrexian or twobrid symbol is a symbol
+    of its color, 107.4e-f)."""
+    wanted = set(colors)
+    total = 0
+    for card in plan.state.cards.values():
+        if not card.zone.endswith(":battlefield") or card.controller != you or not plan.in_game(card):
+            continue
+        for sym in _MANA_SYMBOL.findall(plan.ch(card).mana_cost):
+            if set(sym.split("/")) & wanted:
+                total += 1
+    return total
 
 
 def kicked_count(plan: Plan, ctx: dict[str, Any]) -> int:
