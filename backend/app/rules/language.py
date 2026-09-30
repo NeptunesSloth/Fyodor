@@ -969,9 +969,20 @@ def parse_exile_until(phrase: str) -> tuple[Effects, Any] | None:
         kind, key, group = ref(phrase.strip())
     except _Fail:
         return None
-    if kind in ("players", "self", "host", "it", "them"):
-        return None
+    if kind in ("players", "self", "host", "it", "them") or not on_battlefield_only(key):
+        return None  # (a card exiled from a graveyard returns there, 610.3: not the linked return)
     return [{"do": "exile_until", "who": _who(kind, key)}], _one(group)
+
+
+def on_battlefield_only(key: str | None) -> bool:
+    """Does the selector name only objects on the battlefield (the only ones "until ~ leaves the
+    battlefield" returns to the battlefield, 610.3c)? ``key``: a selector key, or a named target
+    kind ("creature", "nonland_permanent_opp", "creature_spell", …)."""
+    if not key:
+        return False
+    if key.startswith(selectors.PREFIX):
+        return set(selectors.from_key(key).zones) == {"battlefield"}
+    return not key.endswith("spell") and key not in ("any", "player", "opponent")
 
 
 # -- player choices (agent I) ---------------------------------------------------------------------

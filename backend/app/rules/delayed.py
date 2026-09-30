@@ -296,6 +296,7 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not PRIMITIVES[x["do"]](plan, ctx, x):
             raise AssertionError("a duration wraps only effects that never pause")  # (the grammar only wraps pumps and grants)
     label = LABELS[duration].replace("~", ctx.get("name") or "it")
+    written = _relabel(plan, before, label)
     for effect in r.effects:
         if effect.timestamp > mark:
             effect.duration = duration
@@ -304,24 +305,30 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             if duration.startswith("source_"):
                 effect.source = ctx.get("source_object")
                 effect.source_card = ctx.get("source_card")
-            _relabel(plan, effect, before, label)
+            # each effect of the clause ("gets +2/+2 and gains flying") owns the markers on the
+            # objects it affects; ``_end`` keeps a marker another effect still owns
+            effect.markers = [m for cid, ids in written.items() if plan.oid(cid) in effect.affected for m in ids]
     return True
 
 
-def _relabel(plan: Plan, effect: ContinuousEffect, before: dict[str, set[str]], label: str) -> None:
-    """The table markers the effects just wrote say "until end of turn": say the real duration."""
+def _relabel(plan: Plan, before: dict[str, set[str]], label: str) -> dict[str, list[str]]:
+    """The table markers the clause's effects just wrote say "until end of turn": say the real
+    duration. Returns the new markers' ids by card (the effects remember them: ``_end``)."""
+    written: dict[str, list[str]] = {}
     for cid, card in plan.state.cards.items():
-        if plan.oid(card) not in effect.affected:
-            continue
         for m in [m for m in card.effects if m.id not in before.get(cid, set()) and m.text == MARKER]:
             plan.do({"type": "remove_effect", "card_ids": [cid], "effect_id": m.id})
-            plan.do({"type": "add_effect", "card_ids": [cid], "name": m.name, "value": m.value, "text": label[:200]})
+            added = plan.do({"type": "add_effect", "card_ids": [cid], "name": m.name, "value": m.value, "text": label[:200]})
+            written.setdefault(cid, []).extend(marker_ids(added))
+    return written
 
 
 def _source_ok(plan: Plan, duration: str, source_card: str | None, source_object: str | None, controller: str | None) -> bool:
     card = plan.state.cards.get(source_card or "")
     if card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != source_object:
         return False
+    if not plan.in_game(card):
+        return False  # 800.4a: its owner (or controller) left the game, and it left with them
     if duration == "source_controlled":
         return card.controller == controller
     if duration == "source_tapped":
@@ -329,26 +336,43 @@ def _source_ok(plan: Plan, duration: str, source_card: str | None, source_object
     return True
 
 
+def marker_ids(action: Any) -> list[str]:
+    """The ids of the table markers an ``add_effect`` action just wrote."""
+    return list(getattr(getattr(action, "r", None), "ids", None) or [])
+
+
 def _end(plan: Plan, ended: list[ContinuousEffect]) -> None:
+    """The effects end, and with them the table markers they wrote (keyed by the effect: another
+    effect's marker with the same wording on the same creature stays)."""
     r = plan.rules
     ids = {e.id for e in ended}
     r.effects = [e for e in r.effects if e.id not in ids]
+    still = {m for e in r.effects for m in e.markers or ()}  # (one marker can stand for several effects)
     for effect in ended:
         label = LABELS.get(effect.duration, "")
-        if not label:
+        if effect.markers is None and not label:
             continue
         for cid, card in plan.state.cards.items():
-            if plan.oid(card) not in effect.affected:
+            if effect.markers is not None:
+                gone = [m for m in card.effects if m.id in effect.markers and m.id not in still]
+            elif plan.oid(card) in effect.affected:  # (an effect saved before effects remembered their markers)
+                gone = [m for m in card.effects if m.text and m.text.startswith(label.split("~")[0].strip())
+                        and m.text != MARKER and m.id not in still]
+            else:
                 continue
-            for m in [m for m in card.effects if m.text and m.text.startswith(label.split("~")[0].strip()) and m.text != MARKER]:
+            for m in gone:
                 plan.do({"type": "remove_effect", "card_ids": [cid], "effect_id": m.id})
 
 
-def turn_began(plan: Plan) -> None:
-    """500.4: as a player's turn begins, effects lasting "until [their] next turn" end."""
+def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None:
+    """500.4: as a player's turn begins, effects lasting "until [their] next turn" end. 800.4m:
+    for a player who left the game, they end when that turn would have begun (``skipped``: the
+    seats of departed players passed on the way here, with the turn number each would have had)."""
     r = plan.rules
     turn, active = plan.state.turn.number, plan.active
-    ended = [e for e in r.effects if e.duration == "next_turn" and e.until_player == active and turn > e.turn]
+    ended = [e for e in r.effects if e.duration == "next_turn" and (
+        (e.until_player == active and turn > e.turn)
+        or any(e.until_player == p and n > e.turn for p, n in skipped or ()))]
     if ended:
         _end(plan, ended)
 

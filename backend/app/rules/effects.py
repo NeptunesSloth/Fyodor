@@ -863,7 +863,15 @@ def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    _sacrifice_cards(plan, _cards(plan, ctx, e["who"]), ctx["controller"], ctx, e.get("as"))
+    """701.21a: a player can't sacrifice a permanent they don't control ("sacrifice it" after the
+    creature changed control does nothing to it). ``by`` "controller": "its controller sacrifices
+    it" (evoke, 702.74a) — whoever controls it as the effect happens."""
+    you = ctx["controller"]
+    cards = _cards(plan, ctx, e["who"])
+    if e.get("by") != "controller":
+        cards = [c for c in cards if plan.state.cards[c].controller == you]
+    actor = plan.state.cards[cards[0]].controller if cards else you
+    _sacrifice_cards(plan, cards, actor, ctx, e.get("as"))
     return True
 
 
@@ -945,21 +953,39 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
         key = ctx["source_object"]
-        plan.rules.linked_exile[key] = [*plan.rules.linked_exile.get(key, []), *cards]
+        exiled = [plan.oid(c) for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
+        plan.rules.linked_exile[key] = [*plan.rules.linked_exile.get(key, []), *exiled]  # the objects in exile (400.7)
     _moved(plan, ctx, e, before)
     return True
 
 
-def return_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """The exiled cards return to the battlefield under their owners' control (610.3c)."""
+def return_linked(plan: Plan, ctx: Context | None, e: dict[str, Any]) -> bool:
+    """The exiled cards return to the battlefield under their owners' control (610.3c). ``ctx``:
+    the resolving effects to go on with after an Aura's choice of what to enchant (303.4f); None
+    when the return isn't part of a resolution (the source just left the battlefield)."""
     from app.rules import attachments  # attachments → effects (resume)
 
+    return attachments.enter(plan, linked_entries(plan, e["source"]), ctx)
+
+
+def linked_entries(plan: Plan, source: str) -> list[dict[str, Any]]:
+    """The link ends: the entries for the cards "exiled until ``source`` leaves the battlefield"
+    that return — each only while it's still the object that was exiled (a card that left exile
+    and came back is a new object, 400.7). A card whose owner left the game stays where it is
+    (800.4a-b)."""
     entries = []
-    for cid in plan.rules.linked_exile.pop(e["source"], []):
-        card = plan.state.cards.get(cid)
-        if card is not None and card.zone.endswith(":exile"):
+    live = plan.live()
+    for ref in plan.rules.linked_exile.pop(source, []):
+        if ref in plan.state.cards:  # (a game saved before this kept card ids)
+            cid = ref
+        else:
+            cid = ref.rsplit(".", 1)[0]
+            if cid not in plan.state.cards or plan.oid(cid) != ref:
+                continue
+        card = plan.state.cards[cid]
+        if card.zone.endswith(":exile") and card.owner in live:
             entries.append({"card": cid, "player": card.owner, "actor": card.owner})
-    return attachments.enter(plan, entries, ctx)
+    return entries
 
 
 SERVO = {"name": "Servo", "power": "1", "toughness": "1", "colors": [], "type_line": "Token Artifact Creature — Servo", "text": ""}
@@ -2221,10 +2247,14 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                 if effect.id in made:
                     effect.until_player, effect.turn = ctx["controller"], plan.state.turn.number
         ctx["animated"] = [*ctx.get("animated", []), *made]  # (for a following "It's still a land.")
+        markers: list[str] = []
         for cid in group:  # the table marker (cleared at cleanup for "until end of turn", 514.2; by a zone change, 400.7)
-            plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60],
-                     "value": f"{p}/{t}" if p is not None and t is not None else None,
-                     "text": _MARKER_TEXT.get(duration, "as long as it's on the battlefield")})
+            markers += delayed.marker_ids(plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60],
+                                                   "value": f"{p}/{t}" if p is not None and t is not None else None,
+                                                   "text": _MARKER_TEXT.get(duration, "as long as it's on the battlefield")}))
+        for effect in plan.rules.effects:  # ending the effects removes these markers (app/rules/delayed.py)
+            if effect.id in made:
+                effect.markers = [*(effect.markers or []), *markers]
         for cid in group:
             plan.note(f"{plan.state.cards[cid].name or 'It'} becomes {label}"
                       + (f" {_MARKER_TEXT[duration]}" if duration in _MARKER_TEXT else ""), [cid], actor=ctx["controller"])

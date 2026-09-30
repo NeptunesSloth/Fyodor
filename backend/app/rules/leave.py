@@ -23,6 +23,9 @@ from app.rules.plan import Plan
 def leave_game(plan: Plan, player: str) -> None:
     state = plan.state
     r = plan.rules
+    # The leaver's permanents (wherever they are) leave the game with them: their "until ~ leaves
+    # the battlefield" links end (610.3). Captured before anything moves.
+    leaving = {plan.oid(c) for c in state.cards.values() if c.owner == player and c.zone.endswith(":battlefield")}
     for card in list(state.cards.values()):
         if card.id not in state.cards:
             continue
@@ -42,6 +45,7 @@ def leave_game(plan: Plan, player: str) -> None:
             elif card.zone == STACK:
                 plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}},
                         actor=player)
+    _end_linked(plan, leaving)
     gone = {player} | {cid for cid, c in state.cards.items() if c.controller == player and c.zone.endswith(":battlefield")}
     stop = [c.id for c in state.cards.values() if c.attacking is not None and c.attacking.id in gone]
     if stop:
@@ -58,3 +62,21 @@ def leave_game(plan: Plan, player: str) -> None:
     if state.table.initiative == player:
         plan.do({"type": "set_initiative", "player": successor}, actor=successor)
     plan.note(f"{plan.name(player)} has left the game")
+
+
+def _end_linked(plan: Plan, leaving: set[str]) -> None:
+    """610.3: "exile … until ~ leaves the battlefield" — a source the leaver owned left the game
+    with them (800.4a), so what it exiled returns now (to its owners still in the game). The
+    leaver's own cards in exile have left the game too and stay put. A source taken out of
+    automation (per-card MANUAL) is left to the players, as when it leaves the battlefield
+    (app/rules/triggers.py). "For as long as …" durations whose source left this way end with
+    the next check (app/rules/delayed.expire)."""
+    from app.rules import attachments
+    from app.rules.effects import linked_entries  # (effects imports this module's callers)
+
+    entries = []
+    for key in [k for k in plan.rules.linked_exile if k in leaving]:
+        if plan.rules.card_mode(key.rsplit(".", 1)[0]) != "manual":
+            entries += linked_entries(plan, key)
+    if entries:
+        attachments.enter(plan, entries, None)  # all at once (610.3d); an Aura may ask what it enchants

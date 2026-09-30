@@ -631,7 +631,7 @@ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | N
                               add_subtypes=list(add_subtypes), duration=duration,
                               imposes=list(imposes), who=who, source_card=source_card if who else None,
                               timestamp=r.timestamp, object_seq=r.next_object,
-                              label=label[:120], **animation)
+                              label=label[:120], markers=[], **animation)
     r.effects.append(effect)
     return effect
 
