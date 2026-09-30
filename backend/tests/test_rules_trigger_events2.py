@@ -78,7 +78,7 @@ def test_parse_more_conditions(cond, event, extra):
 @pytest.mark.parametrize("cond", [
     "you cast your second spell",  # (no "each turn")
     "you sacrifice two creatures",
-    "~ deals damage to a player or planeswalker",
+    "~ attacks a battle",  # (battles aren't modelled: 310)
     "you create a Goblin",  # (not a token phrase)
 ])
 def test_more_unknown_conditions_stay_manual(cond):

@@ -299,6 +299,16 @@ def start_declare_blockers(plan: Plan) -> None:
     start = order.index(plan.active)
     r.blockers_pending = [p for p in order[start + 1:] + order[:start] if p in attacked and p in plan.live()]
     ask_next_blocker(plan)
+    if r.decision is None:
+        blocks_declared(plan)
+
+
+def blocks_declared(plan: Plan) -> None:
+    """Every defending player has declared blockers (509.1): "Whenever ~ attacks and isn't blocked"
+    triggers for each attacking creature no creature was declared as a blocker for (509.3g, 509.1h)."""
+    from app.rules import triggers  # triggers → plan; imported late
+
+    triggers.unblocked(plan, [c for c in attackers_on(plan.state) if c.id not in plan.rules.blocked])
 
 
 def ask_next_blocker(plan: Plan) -> None:
@@ -378,6 +388,7 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         plan.note(f"{plan.name(plan.actor)} doesn't block")
     ask_next_blocker(plan)
     if r.decision is None:
+        blocks_declared(plan)
         r.priority = plan.active
         r.passed = []
         advance(plan)

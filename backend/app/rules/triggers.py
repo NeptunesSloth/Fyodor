@@ -353,7 +353,10 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     if got is not None:
         out.append(("dealt_damage", got[0], got[1], got[0].controller,
                     {"oid": e.object_id, "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or ""),
-                     "amount": e.amount, "source_oid": e.source}))
+                     "amount": e.amount, "source_oid": e.source, "combat": e.combat}))
+    elif e.player is not None:  # "you're dealt combat damage", "an opponent is dealt noncombat damage"
+        out.append(("dealt_damage", None, None, e.player,
+                    {"recipient": e.player, "amount": e.amount, "source_oid": e.source, "combat": e.combat}))
     source = next((c for c in plan.state.cards.values() if plan.oid(c) == e.source), None) if e.source else None
     src = (source, plan.ch(source)) if source is not None else (
         _snapshot_card(plan, r.lki[e.source]) if e.source and e.source in r.lki else None)
@@ -362,8 +365,11 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     base = {"oid": e.source, "snap": None if source is not None else r.lki.get(e.source or ""), "amount": e.amount}
     # "~ deals damage [to a creature / a player]" (120.1): the recipient, as it is or last was
     recipient_is_creature = got is not None and got[1].is_creature
+    # (120.1: a planeswalker is dealt damage too — "to a player or planeswalker", 510.2)
+    recipient_is_walker = got is not None and "Planeswalker" in got[1].types
     out.append(("deal_damage", src[0], src[1], src[0].controller,
-                {**base, "combat": e.combat, "recipient": e.player, "recipient_creature": recipient_is_creature}))
+                {**base, "combat": e.combat, "recipient": e.player, "recipient_creature": recipient_is_creature,
+                 "recipient_planeswalker": recipient_is_walker}))
     if e.player is not None and e.player != src[0].controller:
         info = {**base, "recipient": e.player}
         out.append(("deal_damage_opponent", src[0], src[1], src[0].controller, info))
@@ -395,6 +401,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         pw = cond["player"]
         if player is None or (pw == "you" and player != you) or (pw == "opponent" and player == you):
             return False
+        if event == "dealt_damage" and obj is not None:
+            return False  # ("you're dealt damage": a player, not a permanent that player controls)
         if event == "cast":
             return obj is not None and och is not None and selectors.matches(
                 plan, selectors.from_key(cond["spell"]), obj, och, you, watcher.id)
@@ -406,6 +414,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         return False
     if subject == "host":  # "enchanted creature" / "equipped creature": what the source is attached to
         return watcher.attached_to is not None and obj.id == watcher.attached_to
+    if subject == "self_or_host":  # "~ or equipped creature"
+        return obj.id == watcher.id or (watcher.attached_to is not None and obj.id == watcher.attached_to)
     if subject in ("self", "self_or") and obj.id == watcher.id:
         return True
     if subject == "self":
@@ -434,9 +444,28 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if cond.get("alone") and info.get("attackers") != 1:  # 506.5
         return False
+    if event in ("attack", "unblocked", "you_attack"):
+        want = cond.get("defender")
+        # "whenever you attack" is once per combat; "whenever a player attacks you" once per player
+        # attacked (508.3d, 508.3e): each reads only its own fact
+        if event == "you_attack" and bool(want) != ("defended" in info):
+            return False
+        if want and not _defender_ok(want, watcher, info):
+            return False
+        if cond.get("first_each_turn") and not info.get("first"):
+            return False
+        if cond.get("while") is not None:  # "attacks while you control …": part of the trigger event
+            from app.rules import conditions
+
+            if not conditions.holds(plan, {"controller": you, "source_card": watcher.id}, cond["while"]):
+                return False
+    if event == "dealt_damage" and cond.get("combat") is not None and bool(info.get("combat")) != cond["combat"]:
+        return False
     n = cond.get("min_attackers")
     if n:
-        attackers = [plan.state.cards[c] for c in info.get("attacking") or [] if c in plan.state.cards]
+        direct = cond.get("defender") not in (None, "you_or_pw")  # (only the creatures attacking that player)
+        attackers = [plan.state.cards[c] for c in info.get("attacking_direct" if direct and "attacking_direct" in info
+                                                           else "attacking") or [] if c in plan.state.cards]
         if cond.get("sel"):
             sel = selectors.from_key(cond["sel"])
             attackers = [c for c in attackers if selectors.matches(plan, sel, c, plan.ch(c), you, watcher.id)]
@@ -472,9 +501,31 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         recipient = info.get("recipient")
         if (to == "player" and recipient is None) or (to == "you" and recipient != you) or \
                 (to == "opponent" and (recipient is None or recipient == you)) or \
-                (to == "creature" and not info.get("recipient_creature")):
+                (to == "creature" and not info.get("recipient_creature")) or \
+                (to == "planeswalker" and not info.get("recipient_planeswalker")) or \
+                (to == "player_or_pw" and recipient is None and not info.get("recipient_planeswalker")) or \
+                (to == "enchanted_player" and (recipient is None or recipient != watcher.attached_player)):
             return False
     return True
+
+
+def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any]) -> bool:
+    """Whom the attack was declared against (508.3a, 508.3e, 508.6): ``defended`` is the defending
+    player (a planeswalker's controller), ``direct`` whether it was that player (not a planeswalker)."""
+    defended, you = info.get("defended"), watcher.controller
+    if defended is None:
+        return False
+    if want == "you_or_pw":  # "attacks you or a planeswalker you control"
+        return defended == you
+    if not info.get("direct"):
+        return False
+    if want == "you":
+        return defended == you
+    if want == "opponent":  # "attacks one of your opponents"
+        return defended != you
+    if want == "enchanted_player":
+        return defended == watcher.attached_player
+    return want == "player"
 
 
 def _targets_ok(plan: Plan, want: str, watcher: CardInstance, targets: list[tuple[str, str | None]]) -> bool:
@@ -560,7 +611,9 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             # One damage event to several recipients at once is one "deals damage" (and several
             # sources at once one "is dealt damage"): once per batch per object, amounts summed
             one_event = cond["event"] == "dealt_damage" or (cond["event"] == "deal_damage" and cond.get("to", "any") == "any")
-            per = info.get("oid") or "" if one_event else info.get("recipient") or info.get("actor") or ""
+            # ("one or more creatures you control attack a player": once for each player attacked, 508.3e)
+            per = (info.get("oid") or info.get("recipient") or "") if one_event else \
+                info.get("recipient") or info.get("actor") or (info.get("defended") if cond.get("defender") else "") or ""
             if cond.get("aggregate") or one_event:  # "one or more …": once per event batch (603.2c) …
                 # (… and per player dealt the damage: "one or more creatures deal combat damage to a player")
                 key = (watcher.id, i, batch, per)
@@ -634,13 +687,56 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
         return
     fired: Fired = {}
     attacking = [c.id for c in cards]
-    facts: list[Fact] = [(event, c, plan.ch(c), c.controller,
-                          {"oid": plan.oid(c), "attackers": len(cards), "attacking": attacking}) for c in cards]
+    turn = plan.state.turn.number
+    facts: list[Fact] = []
+    for c in cards:
+        info: dict[str, Any] = {"oid": plan.oid(c), "attackers": len(cards), "attacking": attacking}
+        if event in ("attack", "unblocked"):  # whom it attacks (508.3a, 509.3g)
+            info["defended"], info["direct"] = _defended(plan, c)
+        if event == "attack":  # "attacks for the first time each turn" (kept per object per turn)
+            key = f"attacked:{info['oid']}"
+            info["first"] = plan.rules.once_per_turn.get(key) != turn
+            plan.rules.once_per_turn[key] = turn
+        facts.append((event, c, plan.ch(c), c.controller, info))
     if event == "attack":  # 506.5 / 508.3d: how many creatures were declared as attackers
         facts.append(("you_attack", None, None, cards[0].controller, {"attackers": len(cards), "attacking": attacking}))
+        # 508.3e / 508.3b: once for each player attacked (directly, or through a planeswalker they
+        # control), with the creatures attacking them
+        groups: dict[str, dict[str, list[str]]] = {}
+        for c in cards:
+            defended, direct = _defended(plan, c)
+            if defended is None:
+                continue
+            g = groups.setdefault(defended, {"all": [], "direct": []})
+            g["all"].append(c.id)
+            if direct:
+                g["direct"].append(c.id)
+        for defended, g in groups.items():
+            facts.append(("you_attack", None, None, cards[0].controller,
+                          {"defended": defended, "direct": bool(g["direct"]), "attackers": len(g["all"]),
+                           "attacking": g["all"], "attacking_direct": g["direct"]}))
     facts += [(_PAIRED[event], c, plan.ch(c), c.controller, {"oid": plan.oid(c), "other": other.id})
               for c, other in pairs if event in _PAIRED]
     _fire_generic(plan, facts, -1, fired)
+
+
+def _defended(plan: Plan, c: CardInstance) -> tuple[str | None, bool]:
+    """The defending player an attacking creature attacks (508.5: a planeswalker's controller), and
+    whether it attacks that player rather than a planeswalker."""
+    t = c.attacking
+    if t is None:
+        return None, False
+    if t.kind == "player":
+        return str(t.id), True
+    walker = plan.state.cards.get(t.id)
+    return (walker.controller if walker is not None else None), False
+
+
+def unblocked(plan: Plan, attackers: list[CardInstance]) -> None:
+    """509.3g: "Whenever ~ attacks and isn't blocked" — once blockers are declared, each attacking
+    creature no creature was declared as a blocker for (509.1h), including one put onto the
+    battlefield attacking."""
+    generic_combat(plan, "unblocked", attackers)
 
 
 def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
