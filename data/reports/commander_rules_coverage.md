@@ -1,6 +1,6 @@
 # Commander rules coverage
 
-Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-29 23:04
+Card data: Scryfall `2026-09-28T21:01:54.353+00:00` · Comprehensive Rules 2026-09-25 · rules engine v2 · generated 2026-09-30 03:09
 
 Only cards that are **legal in Commander today** count. Banned cards (83) are COMMANDER_BANNED and excluded.
 
@@ -10,12 +10,12 @@ Commander-legal cards: **32068**
 
 | Level | Cards | Share |
 |---|---|---|
-| FULL | 10953 | 34.2% |
-| PARTIAL | 21115 | 65.8% |
+| FULL | 10950 | 34.1% |
+| PARTIAL | 21118 | 65.9% |
 | REVIEW | 0 | 0.0% |
 | MANUAL | 0 | 0.0% |
 
-Possible commanders (CR 903.3/903.3a, incl. Backgrounds): **3501** — FULL 531, PARTIAL 2970, REVIEW 0, MANUAL 0
+Possible commanders (CR 903.3/903.3a, incl. Backgrounds): **3501** — FULL 530, PARTIAL 2971, REVIEW 0, MANUAL 0
 
 ## Pod coverage
 
@@ -24,7 +24,7 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 ## Coverage quality
 
 - Ability features (lines, keywords, play/cast/combat) across Commander-legal cards: 113154
-- Automated: 83381 (73.7%) · unrecognized clauses: 29773
+- Automated: 83378 (73.7%) · unrecognized clauses: 29776
 - Oracle text classified (automated, or sorted into a concrete missing capability): 97.7% · unclassified clauses: 2630
 - Distinct missing-capability clusters: 8216
 
@@ -32,7 +32,7 @@ No pod decks in the inventory yet (`python -m tools.rules_inventory`); the queue
 
 | Category | Cards affected | Clauses |
 |---|---|---|
-| MISSING EFFECT | 11154 | 13101 |
+| MISSING EFFECT | 11157 | 13104 |
 | MISSING SELECTOR | 3391 | 3591 |
 | MISSING TRIGGER EVENT | 2403 | 2515 |
 | MISSING CONTINUOUS EFFECT | 2167 | 2290 |
@@ -257,7 +257,7 @@ Ranked by pod cards, pod commanders, cards for which it is the only missing piec
 
 | Type | FULL | PARTIAL | REVIEW | MANUAL |
 |---|---|---|---|---|
-| Creature | 6869 | 11052 | 0 | 0 |
+| Creature | 6866 | 11055 | 0 | 0 |
 | Artifact | 1102 | 2491 | 0 | 0 |
 | Enchantment | 923 | 2724 | 0 | 0 |
 | Sorcery | 928 | 2640 | 0 | 0 |

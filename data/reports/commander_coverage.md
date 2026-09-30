@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 531 · PARTIAL: 2970 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 530 · PARTIAL: 2971 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -21,14 +21,14 @@ Color identity R
 - ✓ Attack and block
 - ✗ Whenever Etali attacks, exile the top card of each player's library, then you may cast any number of spells from among those cards without paying their mana costs.
 
-### Ragavan, Nimble Pilferer — FULL
+### Ragavan, Nimble Pilferer — PARTIAL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✓ Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.
 - ✓ Dash
+- ✗ Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.
 
 ### Braids, Arisen Nightmare — PARTIAL
 
