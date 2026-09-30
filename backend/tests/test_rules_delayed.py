@@ -68,17 +68,17 @@ def parsed(text):
 @pytest.mark.parametrize("text, head, tail", [
     # trailing and leading "at the beginning of …" (one real card each)
     ("Exile target creature. Return it to the battlefield under its owner's control at the beginning of the next end step.",  # Voyager Staff-style
-     {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1}, "return_card"),
+     {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1}, "deferred:return_card"),
     ("Create a 1/1 red Elemental creature token. At the beginning of the next end step, sacrifice it.",  # Spinal Embrace-style
-     {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1}, "sacrifice"),
+     {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1}, "deferred:sacrifice"),
     ("Create a 1/1 red Elemental creature token. Exile that token at the beginning of your next end step.",  # Akoum Stonewaker
-     {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "you"}, "n": 1}, "exile"),
+     {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "you"}, "n": 1}, "deferred:exile"),
     ("Draw a card at the beginning of the next turn's upkeep.",  # Heal
-     {"do": "delayed", "when": {"kind": "step", "step": "upkeep", "whose": "next_turn"}, "n": 1}, "draw"),
+     {"do": "delayed", "when": {"kind": "step", "step": "upkeep", "whose": "next_turn"}, "n": 1}, "deferred:draw"),
     ("Exile target creature you control. Return that card to the battlefield under its owner's control at the beginning of your next upkeep.",  # Kaya, Ghost Assassin
-     {"do": "delayed", "when": {"kind": "step", "step": "upkeep", "whose": "you"}, "n": 1}, "return_card"),
+     {"do": "delayed", "when": {"kind": "step", "step": "upkeep", "whose": "you"}, "n": 1}, "deferred:return_card"),
     ("Target creature gets +1/+1 until end of turn. When that creature dies this turn, return it to the battlefield under its owner's control.",  # Graceful Reprieve-style
-     {"do": "delayed", "when": {"kind": "event", "event": "die"}, "n": 1, "who": "target", "this_turn": True}, "return_card"),
+     {"do": "delayed", "when": {"kind": "event", "event": "die"}, "n": 1, "who": "target", "this_turn": True}, "deferred:return_card"),
     ("Target creature gets +2/+2 until your next turn.", {"do": "until", "duration": "next_turn", "n": 1}, "pump"),  # Garruk, Veiled Butcher-style
     ("Until your next turn, up to one target creature gets -3/-0.", {"do": "until", "duration": "next_turn", "n": 1}, "pump"),  # Jace, the Perfected Mind
     ("Another target permanent gains indestructible for as long as you control ~.",  # Aegis Angel
@@ -90,6 +90,14 @@ def test_wordings(text, head, tail):
     assert effects is not None
     i = next(k for k, e in enumerate(effects) if e["do"] == head["do"])
     assert effects[i] == head and effects[i + 1]["do"] == tail
+
+
+def test_a_deferred_effect_is_not_an_antecedent_for_a_later_sentence():
+    # Elemental Appeal: "that creature" is the token, not what the deferred exile will record
+    effects = parsed("Create a 7/1 red Elemental creature token with trample and haste. Exile it at the beginning of the "
+                     "next end step. If this spell was kicked, that creature gets +7/+0 until end of turn.")
+    assert [e["do"] for e in effects] == ["create_token", "delayed", "deferred:exile", "kicked_gate", "pump"]
+    assert effects[2]["who"] == "ref:e0" and effects[4]["who"] == "ref:e0"
 
 
 def test_pronouns_inside_a_deferred_effect_bind_to_the_earlier_instruction():
@@ -105,6 +113,7 @@ def test_pronouns_inside_a_deferred_effect_bind_to_the_earlier_instruction():
     "Target creature gets +2/+2 until your next turn. Draw a card for as long as ~ remains tapped.",  # not a continuous effect
     "When a creature dealt damage this way dies this turn, create a 1/1 black Skeleton creature token.",  # Skeletonize: several objects
     "At the beginning of the next end step, sacrifice it.",  # nothing earlier for "it" to be
+    "Target opponent reveals their hand and you choose a nonland card from it. Exile that card until ~ leaves the battlefield.",  # Brain Maggot: 610.3 returns it to the hand
 ])
 def test_refusals(text):
     assert parsed(text) is None

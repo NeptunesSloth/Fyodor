@@ -685,12 +685,14 @@ def parse_return_owner(text: str) -> tuple[Effects, Any] | None:
 def parse_exile_until(phrase: str) -> tuple[Effects, Any] | None:
     """"Exile <objects> until ~ leaves the battlefield" (610.3) for any target phrase the selector
     grammar reads ("target artifact or creature an opponent controls", "up to one target nonland
-    permanent …") or a pronoun ("that card")."""
+    permanent …"). Not a pronoun: "exile that card until …" may name a card in a hand, and 610.3
+    returns it to its previous zone, while the engine's linked return puts it onto the
+    battlefield (610.3c) — that wording stays manual."""
     try:
         kind, key, group = ref(phrase.strip())
     except _Fail:
         return None
-    if kind in ("players", "self", "host"):
+    if kind in ("players", "self", "host", "it", "them"):
         return None
     return [{"do": "exile_until", "who": _who(kind, key)}], _one(group)
 

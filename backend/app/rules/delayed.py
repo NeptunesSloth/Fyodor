@@ -88,7 +88,12 @@ def wrap_when(effects: list[dict[str, Any]], when: dict[str, Any], *, who: str |
         head["who"] = who
     if this_turn:
         head["this_turn"] = True
-    return [head, *effects]
+    # (marked as deferred: a later sentence's "that creature" must not bind to what the deferred
+    # exile will record — it hasn't happened when the creating ability resolves)
+    return [head, *({**e, "do": DEFERRED + e["do"]} for e in effects)]
+
+
+DEFERRED = "deferred:"
 
 
 _MOVES = {"bounce", "return_card", "exile", "destroy", "sacrifice"}
@@ -146,7 +151,7 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     triggered ability (603.7a) and skip them now."""
     n = int(e.get("n", 0))
     start = ctx["next"]
-    deferred = list(ctx["effects"][start:start + n])
+    deferred = [{**x, "do": x["do"].removeprefix(DEFERRED)} for x in ctx["effects"][start:start + n]]
     ctx["next"] = start + n
     refs = {k: v for k, v in (ctx.get("refs") or {}).items()}
     when = dict(e["when"])

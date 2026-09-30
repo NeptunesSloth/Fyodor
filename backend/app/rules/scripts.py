@@ -1624,6 +1624,11 @@ _CHOSEN.update({"exile_top": "n", "look_top": "n"})
 # remains on the battlefield" become an ``until`` effect over a pump / grant / restriction (611.2).
 from app.rules import delayed as _delayed  # noqa: E402  (a leaf module over rules_state)
 
+# A deferred move of "it" after "When ~ dies" / "Whenever a creature dies" still means the new
+# object where it went (400.7e); deferred effects are never introducers (not in _RECORDING): a
+# later sentence's "that creature" can't name what a move that hasn't happened yet would record.
+_MOVES.update({_delayed.DEFERRED + x for x in _MOVES})
+
 
 def _deferred(clause: str, when: dict[str, Any]) -> tuple[list[dict[str, Any]], Any]:
     inner = _clause(clause)
