@@ -75,6 +75,7 @@ def test_parse(cond, expected):
 @pytest.mark.parametrize("cond", [
     "~ attacks a battle",  # (310: battles aren't modelled)
     "~ deals combat damage to a battle",
+    "~ deals damage to a player or battle",  # (noncombat damage can reach a battle: 120.3h)
     "~ attacks while saddled",  # (702.171: saddle isn't modelled)
     "~ attacks while you control a foo",
 ])
