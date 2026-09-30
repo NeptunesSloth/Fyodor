@@ -104,6 +104,12 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
 
         if not conditions.holds(plan, {"controller": controller, "source_card": source_card}, definition["if"]):
             return None
+    if definition.get("limit") == "once_each_turn":  # "This ability triggers only once each turn." (app/rules/restrictions.py)
+        from app.rules import restrictions
+
+        if restrictions.uses(plan.rules, source_object, index, plan.state.turn.number):
+            return None  # it triggered this turn already (even if that ability was countered or removed)
+        restrictions.record_use(plan.rules, source_object, index, plan.state.turn.number)
     pending = PendingTrigger(id=secrets.token_hex(4), controller=controller, source_card=source_card,
                              source_object=source_object, name=name, ability=definition, key=f"{name}:{index}",
                              event=event)
