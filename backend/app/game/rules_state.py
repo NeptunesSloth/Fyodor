@@ -273,12 +273,21 @@ class Departure(BaseModel):
     types: list[str] | None = None
 
 
+class Arrival(BaseModel):
+    """A card (never a token: 111.1) put into a graveyard this turn from anywhere, for "if you descended this
+    turn" (700.11: a permanent card put into your graveyard — it needn't still be there). Whether it is a
+    permanent card is read from the card when the condition is asked."""
+
+    card: str = Field(max_length=64)
+    owner: str = Field(max_length=64)  # whose graveyard it went to
+
+
 class TurnLog(BaseModel):
     """What happened during one turn that later text can ask about (608.2i): who attacked (508.1),
     life gained and lost (damage included, 120.3a), cards drawn, permanents that left the
-    battlefield, cards that left a graveyard. Recorded deterministically from the steps applied to
-    the table (``track`` / ``emit``) and the declaration of attackers, so replays, saves and undo
-    reproduce it exactly. Only this turn's and the previous turn's logs are kept."""
+    battlefield, cards that left a graveyard or went into one. Recorded deterministically from the
+    steps applied to the table (``track`` / ``emit``) and the declaration of attackers, so replays,
+    saves and undo reproduce it exactly. Only this turn's and the previous turn's logs are kept."""
 
     turn: int = 0
     attacked: list[str] = Field(default_factory=list)  # players who declared one or more attackers
@@ -287,6 +296,7 @@ class TurnLog(BaseModel):
     drew: dict[str, int] = Field(default_factory=dict)  # player -> cards drawn
     left: list[Departure] = Field(default_factory=list)
     left_graveyard: list[str] = Field(default_factory=list)  # the owner of each card that left a graveyard
+    entered_graveyard: list[Arrival] = Field(default_factory=list)
 
 
 class ContinuousEffect(BaseModel):
@@ -877,6 +887,9 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
                                           types=before.types.get(card_id)))
         elif old_name == "graveyard" and (log := turn_log_now(state)) is not None:
             log.left_graveyard.append(old_zone.split(":")[0])  # (a zone key is "<owner>:graveyard")
+        if new_name == "graveyard" and new_zone and card is not None and card.card_id is not None \
+                and (log := turn_log_now(state)) is not None:  # (a token is no card: it never "descends")
+            log.entered_graveyard.append(Arrival(card=card_id, owner=new_zone.split(":")[0]))
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
              from_zone=old_zone, to_zone=new_zone)

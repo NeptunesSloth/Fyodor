@@ -14,7 +14,7 @@ import pytest
 from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
-from app.rules import conditions, coverage, history, scripts
+from app.rules import conditions, coverage, effects, history, scripts
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable, find, turn_on, zone
@@ -144,6 +144,18 @@ EXTRA = [
     card("Demoralize", set_code="tst", number="W610", mana_cost="{2}{R}", cmc=3.0, type_line="Instant",
          oracle_text="All creatures gain menace until end of turn. (They can't be blocked except by two or more creatures.)\nThreshold — If there are seven or more cards in your graveyard, creatures can't block this turn.",
          colors=["R"], color_identity=["R"], keywords=["Threshold"]),
+    card("Carrion Imp", set_code="tst", number="W611", mana_cost="{3}{B}", cmc=4.0, type_line="Creature — Imp",
+         oracle_text="Flying\nWhen this creature enters, you may exile target creature card from a graveyard. If you do, you gain 2 life.",
+         power="2", toughness="3", colors=["B"], color_identity=["B"], keywords=["Flying"]),
+    card("Niambi, Esteemed Speaker", set_code="tst", number="W612", mana_cost="{W}{U}", cmc=2.0, type_line="Legendary Creature — Human Cleric",
+         oracle_text="Flash\nWhen Niambi enters, you may return another target creature you control to its owner's hand. If you do, you gain life equal to that creature's mana value.\n{1}{W}{U}, {T}, Discard a legendary card: Draw two cards.",
+         power="2", toughness="1", colors=["U", "W"], color_identity=["U", "W"], keywords=["Flash"]),
+    card("Turntimber Ranger", set_code="tst", number="W613", mana_cost="{3}{G}{G}", cmc=5.0, type_line="Creature — Elf Scout Ranger Ally",
+         oracle_text="Whenever this creature or another Ally you control enters, you may create a 2/2 green Wolf creature token. If you do, put a +1/+1 counter on this creature.",
+         power="2", toughness="2", colors=["G"], color_identity=["G"]),
+    card("Academy Rector", set_code="tst", number="W614", mana_cost="{3}{W}", cmc=4.0, type_line="Creature — Human Cleric",
+         oracle_text="When this creature dies, you may exile it. If you do, search your library for an enchantment card, put that card onto the battlefield, then shuffle.",
+         power="1", toughness="2", colors=["W"], color_identity=["W"]),
 ]
 
 
@@ -241,6 +253,7 @@ def key(phrase):
     ("you've cast two or more spells this turn", {"history": "spells", "n": 2}),  # Brightspear Zealot
     ("you didn't cast a spell this turn", {"not": {"history": "spells", "n": 1}}),  # Nightpack Ambusher
     ("a card left your graveyard this turn", {"history": "left_graveyard"}),  # Relic Retriever
+    ("you descended this turn", {"history": "descended", "n": 1}),  # Deep Goblin Skulltaker (700.11)
     ("it's your turn", {"turn": "yours"}),  # Feed the Cauldron
     ("it's not your turn", {"not": {"turn": "yours"}}),  # Ghost Town
     ("you're the monarch", {"status": "monarch"}),  # Throne Warden
@@ -546,6 +559,49 @@ def test_gained_three_or_more_life_this_turn_sums_the_gains(cards, changes, grif
     assert conditions.holds(plan, {"controller": "p1"}, conditions.parse("you gained 3 or more life this turn")) == bool(griffins)
     the_end_step(s)
     assert names_on_field(s).count("Griffin") == griffins
+    replay_matches(s)
+
+
+DEEP_GOBLIN_SKULLTAKER = "At the beginning of your end step, if you descended this turn, put a +1/+1 counter on this creature."
+
+
+@pytest.mark.parametrize(("name", "pid", "exile_after", "counter"), [
+    ("Grizzly Bears", "p1", False, 1),  # a permanent card put into your graveyard from anywhere (700.11)
+    ("Forest", "p1", False, 1),  # (a land card)
+    ("Sol Ring", "p1", False, 1),  # (an artifact card)
+    ("Giant Growth", "p1", False, 0),  # an instant isn't a permanent card
+    ("Grizzly Bears", "p2", False, 0),  # "your graveyard": not an opponent's
+    ("Grizzly Bears", "p1", True, 1),  # it needn't still be there afterwards
+])
+def test_you_descended_this_turn(cards, name, pid, exile_after, counter):
+    """Deep Goblin Skulltaker (and the other "descended" cards)."""
+    s = sandbox(cards, name, p2=(name,))
+    skulltaker = creature(s, "p1", "Deep Goblin Skulltaker", "1/1", "Token Creature — Goblin Warrior", text=DEEP_GOBLIN_SKULLTAKER)
+    target = find(s.state, name, pid)
+    turn_on(s)
+    act(s, pid, type="move", card_ids=[target.id], to={"zone": "graveyard"})
+    if exile_after:
+        act(s, pid, type="move", card_ids=[target.id], to={"zone": "exile"})
+    the_end_step(s)
+    assert counters(s, skulltaker) == counter
+    replay_matches(s)
+
+
+def test_a_token_is_no_card_so_it_doesnt_descend_but_a_card_that_died_does(cards):
+    s = sandbox(cards, "Grizzly Bears")
+    skulltaker = creature(s, "p1", "Deep Goblin Skulltaker", "1/1", "Token Creature — Goblin Warrior", text=DEEP_GOBLIN_SKULLTAKER)
+    bears = on_field(s, "Grizzly Bears")
+    goblin = creature(s, "p1", "Goblin")
+    turn_on(s)
+    act(s, "p1", type="move", card_ids=[goblin.id], to={"zone": "graveyard"})  # a token dies: no card
+    assert s.state.rules.turn_log.entered_graveyard == []
+    plan = Plan.view(s.state, "p1", s.cards)
+    assert not conditions.holds(plan, {"controller": "p1"}, conditions.parse("you descended this turn"))
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "graveyard"})  # a creature card dies
+    assert [a.card for a in s.state.rules.turn_log.entered_graveyard] == [bears.id]
+    assert reloaded(s).state.rules.turn_log == s.state.rules.turn_log
+    the_end_step(s)
+    assert counters(s, skulltaker) == 1
     replay_matches(s)
 
 
@@ -2050,6 +2106,133 @@ COVERED = [  # every one of these has its scenarios above (both branches of each
 @pytest.mark.parametrize("name", COVERED)
 def test_coverage_says_full_only_for_the_cards_tested_here(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+# -- "You may [do A]. If you do, [B]." : one choice, as a whole-ability "you may" (608.2d) ------------------------
+def answer_may(s, answer="yes", limit=30):
+    """Resolve the stack, answering a "you may" with ``answer`` (any other choice: the first option offered)."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [answer] if d.kind == "confirm" else [o.id for o in d.options][: max(1, d.min_choices)]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+RIDDLESMITH = "Whenever you cast an artifact spell, you may draw a card. If you do, discard a card."
+
+
+@pytest.mark.parametrize("answer", ["yes", "no"])
+def test_you_may_draw_and_if_you_do_discard(cards, answer):
+    """Riddlesmith: yes — draw a card, then discard a card; no — neither (one choice covers both)."""
+    s = build(cards, "Sol Ring", "Forest", "Forest")
+    creature(s, "p1", "Riddlesmith", "2/1", "Token Creature — Human Artificer", text=RIDDLESMITH)
+    ring = to_hand(s, "Sol Ring")
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=ring.id)
+    hand, library, graveyard = (len(zone(s.state, "p1", z)) for z in ("hand", "library", "graveyard"))
+    answer_may(s, answer)
+    assert len(zone(s.state, "p1", "hand")) == hand  # drew one and discarded one, or did neither
+    assert len(zone(s.state, "p1", "library")) == library - (answer == "yes")
+    assert len(zone(s.state, "p1", "graveyard")) == graveyard + (answer == "yes")
+    replay_matches(s)
+
+
+@pytest.mark.parametrize(("answer", "gain"), [("yes", 2), ("no", 0)])
+def test_you_may_exile_a_creature_card_and_if_you_do_gain_life(cards, answer, gain):
+    """Carrion Imp."""
+    s = build(cards, "Carrion Imp", "Grizzly Bears")
+    bears = find(s.state, "Grizzly Bears", "p1")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "graveyard"})
+    imp = to_hand(s, "Carrion Imp")
+    mana(s, B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=imp.id)
+    answer_may(s, answer)
+    assert (s.state.cards[bears.id].zone == "p1:exile") == (answer == "yes") and life(s) == 40 + gain
+    replay_matches(s)
+
+
+def test_no_creature_card_in_any_graveyard_means_nothing_to_choose(cards):
+    s = build(cards, "Carrion Imp", "Giant Growth")
+    act(s, "p1", type="move", card_ids=[find(s.state, "Giant Growth", "p1").id], to={"zone": "graveyard"})  # (not a creature card)
+    imp = to_hand(s, "Carrion Imp")
+    mana(s, B=1, C=3)
+    cast(s, imp)
+    assert s.state.rules.decision is None and life(s) == 40 and s.state.cards[imp.id].zone == "p1:battlefield"
+    replay_matches(s)
+
+
+@pytest.mark.parametrize(("name", "answer", "gain"), [
+    ("Linvala, the Preserver", "yes", 6), ("Grizzly Bears", "yes", 2), ("Linvala, the Preserver", "no", 0)])
+def test_you_may_return_another_creature_and_if_you_do_gain_life_equal_to_its_mana_value(cards, name, answer, gain):
+    """Niambi, Esteemed Speaker: the returned creature's mana value, read as it last existed (608.2h)."""
+    s = build(cards, "Niambi, Esteemed Speaker", name)
+    friend = on_field(s, name)
+    niambi = to_hand(s, "Niambi, Esteemed Speaker")
+    mana(s, W=1, U=1)
+    act(s, "p1", type="cast_spell", card_id=niambi.id)
+    answer_may(s, answer)
+    assert (s.state.cards[friend.id].zone == "p1:hand") == (answer == "yes") and life(s) == 40 + gain
+    replay_matches(s)
+
+
+def test_the_prompt_of_an_optional_ability_names_an_amount_worked_out_later_as_x():
+    assert effects.describe([{"do": "bounce", "who": "target"}, {"do": "gain_life", "who": "you", "n": {"mana_value": "ref:e0"}}]) \
+        == "Bounce, gain x life"
+    assert effects.describe([{"do": "draw", "who": "you", "n": 1}, {"do": "discard", "who": "you", "n": 1}]) == "Draw 1 card(s), discard 1"
+
+
+@pytest.mark.parametrize(("answer", "wolves"), [("yes", 1), ("no", 0)])
+def test_you_may_create_a_token_and_if_you_do_put_a_counter_on_this_creature(cards, answer, wolves):
+    """Turntimber Ranger."""
+    s = build(cards, "Turntimber Ranger")
+    ranger = to_hand(s, "Turntimber Ranger")
+    mana(s, G=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=ranger.id)
+    answer_may(s, answer)
+    assert names_on_field(s).count("Wolf") == wolves and counters(s, ranger) == wolves
+    replay_matches(s)
+
+
+ASTRAL_SLIDE = ("Whenever a player cycles a card, you may exile target creature. If you do, return that card to the battlefield under "
+                "its owner's control at the beginning of the next end step.")
+
+
+@pytest.mark.parametrize("answer", ["yes", "no"])
+def test_you_may_exile_a_creature_and_if_you_do_it_returns_at_the_next_end_step(cards, answer):
+    """Astral Slide: the delayed return belongs to the choice (603.7): only the exiled card comes back."""
+    s = build(cards, "Barren Moor", p2=("Grizzly Bears",))
+    token_of(s, "p1", "Astral Slide", "Token Enchantment — Test", pt="0/0", text=ASTRAL_SLIDE)
+    bears = on_field(s, "Grizzly Bears", "p2")
+    moor = to_hand(s, "Barren Moor")
+    mana(s, B=1)
+    act(s, "p1", type="activate_ability", card_id=moor.id, ability=2)  # Cycling {B}
+    answer_may(s, answer)
+    assert s.state.cards[bears.id].zone == ("p2:exile" if answer == "yes" else "p2:battlefield")
+    the_end_step(s)
+    assert s.state.cards[bears.id].zone == "p2:battlefield"
+    replay_matches(s)
+
+
+@pytest.mark.parametrize(("text", "it"), [
+    ("You may draw a card. If you don't, discard a card.", None),  # (no such "If you don't" without a payment)
+    ("You may draw a card. If you do, you may discard a card.", None),  # (a second choice)
+    ("You may draw a card. If you do, discard a card. You gain 1 life.", None),  # (a third sentence would be optional too)
+    ("You gain 1 life. You may draw a card. If you do, discard a card.", None),  # (a "you may" that isn't the whole ability)
+    ("You may draw X cards. If you do, discard a card.", None),  # (a count that could be zero)
+    ("You may draw a card. If you do, target creature gets +1/+1 until end of turn.", None),  # (B's target)
+    ("You may exile it. If you do, draw a card.", "self_gone"),  # Academy Rector: "it" may have left the graveyard
+])
+def test_optional_then_if_you_do_forms_that_are_not_read(text, it):
+    assert scripts.parse_effects(text, it=it) is None
+
+
+def test_academy_rector_stays_manual(cards):
+    assert coverage.of_card_data(cards.resolve("Academy Rector")).level == "PARTIAL"
 
 
 # -- saved games, undo and redo ---------------------------------------------------------------------------

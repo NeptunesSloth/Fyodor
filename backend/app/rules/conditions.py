@@ -21,7 +21,7 @@ A condition is one of
 * ``{"history": <kind>, …}`` — what happened earlier this turn (or ``"last": True``: the turn before;
   608.2i: such an effect looks back in time): you attacked (508.1), creatures died (700.4), a
   permanent left the battlefield under your control, life gained / lost, cards drawn, spells cast,
-  cards left your graveyard (app/rules/history.py);
+  cards left your graveyard, you descended (a permanent card went into it, 700.11) (app/rules/history.py);
 * ``{"object": <who>, "is": <selector key>}`` / ``{"object": <who>, "test": "tapped" | …}`` — the
   object an effect refers to ("it", "that creature", "~") is / was a … (608.2h: as it is, or as it
   last existed once it left; only read where the ability has those objects: ``parse(…, objects=True)``).
@@ -302,6 +302,11 @@ def _no_spells(m: re.Match[str]) -> Condition:
 @_history_pattern(r"a card left your graveyard this turn")
 def _left_graveyard(m: re.Match[str]) -> Condition:
     return {"history": "left_graveyard"}
+
+
+@_history_pattern(r"you descended this turn")
+def _descended(m: re.Match[str]) -> Condition:
+    return {"history": "descended", "n": 1}  # 700.11: a permanent card was put into your graveyard from anywhere
 
 
 def _history(t: str) -> Condition | None:

@@ -1118,7 +1118,13 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         if (if_do := _IF_YOU_DO.match(text)) is not None:
             bind = _last_payment(effects)
-            inner = _clause(if_do["rest"]) if bind is not None and not if_do["rest"].startswith("you may ") else None
+            if bind is None:  # -- conditional / instead clauses (wave 1B) --  "You may draw a card. If you do, discard a card."
+                after_may = _if_you_do_after_may(if_do, effects, optional, i, len(texts))
+                if after_may is None:
+                    return None
+                effects += _add_groups(groups, after_may, None)
+                continue
+            inner = _clause(if_do["rest"]) if not if_do["rest"].startswith("you may ") else None
             if inner is None:
                 return None
             added = _add_groups(groups, *inner)
@@ -2282,6 +2288,38 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if m["kw"] == "unless":
         cond = {"not": cond}
     return [{"do": "only_if", "cond": cond, "skip": 1}, *found[0]], found[1]
+
+
+# Optional actions that, once the player has said yes, can't come out as "did nothing": a card drawn (an
+# empty library loses the game at the next check whatever follows), a token created, a chosen target
+# exiled or returned (115.3 / 608.2b: a target that is no longer legal stops the whole ability, so one that
+# is still legal is acted on). An object named any other way ("exile it": the card may have left where it
+# was) might not be there: "If you do" would then be false, which this reading can't tell.
+_CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token"})
+_CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce"})
+
+
+def _certain_when_chosen(e: dict[str, Any]) -> bool:
+    if not isinstance(e.get("n", 1), int):
+        return False  # (a count that could be zero)
+    return e["do"] in _CERTAIN_WHEN_CHOSEN or (e["do"] in _CERTAIN_ON_A_TARGET and str(e.get("who")).startswith("target"))
+
+
+def _if_you_do_after_may(if_do: re.Match[str], effects: list[dict[str, Any]], optional: bool, index: int,
+                         sentences: int) -> list[dict[str, Any]] | None:
+    """"You may [do A]. If you do, [B]." as a whole-ability "you may" (608.2d): the player chooses once,
+    and either does A and then B, or neither — exactly what "If you do" says while A can't fail once
+    chosen (``_certain_when_chosen``; A itself decides nothing else: no cost). Only the two-sentence form:
+    anything after B would then be optional too. B has no target of its own (115.3: it would be chosen
+    whether or not A is done) and is no "you may" itself. Returns B's effects, or None (not read)."""
+    if not optional or index != 1 or sentences != 2 or if_do["neg"] or if_do["rest"].startswith("you may "):
+        return None
+    if not effects or not all(_certain_when_chosen(e) for e in effects):
+        return None
+    found = _clause(if_do["rest"])
+    if found is None or found[1] is not None or not found[0]:
+        return None
+    return found[0]
 
 
 def _refs_in(value: Any) -> Iterator[str]:
