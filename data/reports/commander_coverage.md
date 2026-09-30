@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 614 · PARTIAL: 2887 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 619 · PARTIAL: 2882 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -1260,8 +1260,8 @@ Color identity WR
 - ✓ Attack and block
 - ✓ Indestructible
 - ✓ Creatures you control have menace.
+- ✓ Prevent all damage that would be dealt to attacking creatures you control.
 - ✗ As long as your devotion to red and white is less than seven, Iroas isn't a creature.
-- ✗ Prevent all damage that would be dealt to attacking creatures you control.
 
 ### Isshin, Two Heavens as One — PARTIAL
 
@@ -1454,7 +1454,7 @@ Color identity WUBRG
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Changeling
-- ✗ As Morophon enters, choose a creature type.
+- ✓ As Morophon enters, choose a creature type.
 - ✗ Spells of the chosen type you cast cost {W}{U}{B}{R}{G} less to cast. This effect reduces only the amount of colored mana you pay.
 - ✗ Other creatures you control of the chosen type get +1/+1.
 
@@ -1486,14 +1486,14 @@ Color identity G
 - ✓ Other creatures you control have trample.
 - ✓ Whenever another nontoken creature you control enters, put a +1/+1 counter on it. It gains haste until end of turn.
 
-### Losheel, Clockwork Scholar — PARTIAL
+### Losheel, Clockwork Scholar — FULL
 
 Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Prevent all combat damage that would be dealt to attacking artifact creatures you control.
 - ✓ Whenever one or more artifact creatures you control enter, draw a card. This ability triggers only once each turn.
-- ✗ Prevent all combat damage that would be dealt to attacking artifact creatures you control.
 
 ### Maelstrom Wanderer — FULL
 
@@ -2139,9 +2139,9 @@ Color identity UG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Arixmethes enters tapped with five slumber counters on it.
 - ✓ Whenever you cast a spell, you may remove a slumber counter from Arixmethes.
 - ✓ {T}: Add {G}{U}.
-- ✗ Arixmethes enters tapped with five slumber counters on it.
 - ✗ As long as Arixmethes has a slumber counter on it, it's a land.
 
 ### Ojer Kaslem, Deepest Growth // Temple of Cultivation — PARTIAL
@@ -2246,7 +2246,7 @@ Color identity U
 - ✓ Attack and block
 - ✗ If an opponent would mill one or more cards, they mill twice that many cards instead.
 
-### Liesa, Forgotten Archangel — PARTIAL
+### Liesa, Forgotten Archangel — FULL
 
 Color identity WB
 
@@ -2255,7 +2255,7 @@ Color identity WB
 - ✓ Flying
 - ✓ Lifelink
 - ✓ Whenever another nontoken creature you control dies, return that card to its owner's hand at the beginning of the next end step.
-- ✗ If a creature an opponent controls would die, exile it instead.
+- ✓ If a creature an opponent controls would die, exile it instead.
 
 ### Balmor, Battlemage Captain — FULL
 
