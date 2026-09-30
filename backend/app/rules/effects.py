@@ -205,8 +205,13 @@ def _ability_source(plan: Plan, ctx: Context) -> _Source:
     src_ch = plan.ch(source) if source is not None else None
     if source is not None and source.zone.endswith(":battlefield") and plan.oid(source) == ctx.get("source_object"):
         keywords = plan.ch(source).keywords
-    elif lki is not None and source is not None:
-        keywords = plan.ch(source).keywords  # (printed keywords of the card; LKI of granted ones is M16 later)
+    elif lki is not None:
+        # as it last existed (603.10a, 702.15c, 702.2e): keywords granted by an effect or a static count, and a
+        # token that ceased to exist still has them (quoted grants, wave 2D: ObjectSnapshot.abilities/keywords)
+        from app.rules.triggers import _snapshot_card  # (triggers imports this module)
+
+        _, src_ch = _snapshot_card(plan, lki)
+        keywords = src_ch.keywords
     return _Source(ctx.get("source_object") or "", keywords, src_ch, ctx["controller"], source.id if source is not None else None)
 
 
@@ -395,17 +400,34 @@ def pump(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"… gains flying [and lifelink] until end of turn" (layer 6, 613.1f), and "… loses flying
     until end of turn" (``remove``: keywords taken away, later than any static that grants
-    them — 613.7: this effect's timestamp is now)."""
+    them — 613.7: this effect's timestamp is now).
+
+    -- quoted grants (wave 2D, app/rules/granted.py) -- ``abilities``: quoted abilities the objects
+    gain too ("gains trample and "{G}: Regenerate this creature."", "It gains "If this creature would
+    die, exile it instead.""), in the same layer-6 effect: one timestamp (613.7b), the set of objects
+    fixed now (611.2c), and only permanents on the battlefield gain one (611.2e). ``duration``: the
+    game when the text states none (611.2a); an ``until`` wrapper (app/rules/delayed.py) sets any other."""
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
     keywords = list(e.get("keywords") or [])
     removed = list(e.get("remove") or [])
-    if cards and (keywords or removed):
-        words = [*keywords, *(f"loses {k}" for k in removed)]
+    abilities = list(e.get("abilities") or [])
+    if abilities:
+        permanents = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
+        if len(permanents) < len(cards):
+            plan.note(f"{ctx.get('name') or 'The effect'}: only a permanent on the battlefield gains an ability", actor=ctx["controller"])
+        cards = permanents
+    if cards and (keywords or removed or abilities):
+        words = [*keywords, *(f"loses {k}" for k in removed), *(f'"{a}"' for a in abilities)]
+        duration = e.get("duration", "end_of_turn")
+        when = "until end of turn" if duration == "end_of_turn" else "for the rest of the game"
         layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="6", source=ctx.get("source_object"),
                           controller=ctx["controller"], add_keywords=tuple(keywords), remove_keywords=tuple(removed),
-                          label=f"{', '.join(words)} until end of turn")
-        _mark(plan, cards, ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed)]))
+                          duration=duration, label=f"{', '.join(words)} {when}", add_abilities=abilities)
+        marker = ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed),
+                            *(f'Gains "{a}"' for a in abilities)])
+        _mark(plan, cards, marker, value="Ability" if abilities and not (keywords or removed) else None,
+              text="until end of turn" if duration == "end_of_turn" else "as long as it's on the battlefield")
     return True
 
 
@@ -422,26 +444,34 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"… can't block this turn", "… can't be blocked this turn": a rule-modifying effect, ending
     at cleanup (514.2). It doesn't change characteristics or control, so its set of objects isn't
     locked in (611.2c): "Creatures can't block this turn" also stops a creature that enters later.
-    A named object (target, "it", self, host) stays that one object (a new object isn't it, 400.7)."""
+    A named object (target, "it", self, host) stays that one object (a new object isn't it, 400.7).
+
+    -- quoted grants (wave 2D) -- ``locked``: the restriction a granted ability states ("gains "This
+    creature can't be blocked."", app/rules/granted.py ``rules_of``) is an ability: the objects it
+    affects are the ones there as it begins, even for a group (611.2c). ``duration``: the game when
+    the text states none (611.2a)."""
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
     _remember(plan, ctx, e, cards)
-    group = who.startswith(selectors.PREFIX)
+    group = who.startswith(selectors.PREFIX) and not e.get("locked")
+    duration = e.get("duration", "end_of_turn")
     if cards or group:
         layers.add_effect(plan, affected=[] if group else [plan.oid(c) for c in cards], layer="6",
                           source=ctx.get("source_object"), controller=ctx["controller"], imposes=tuple(e["rules"]),
-                          label=", ".join(e["rules"]), who=who if group else None, source_card=ctx.get("source_card"))
+                          label=", ".join(e["rules"]), who=who if group else None, source_card=ctx.get("source_card"),
+                          duration=duration)
     if cards:
-        _mark(plan, cards, ", ".join(RESTRICTION_LABELS.get(r, r) for r in e["rules"]))
+        _mark(plan, cards, ", ".join(RESTRICTION_LABELS.get(r, r) for r in e["rules"]),
+              text="until end of turn" if duration == "end_of_turn" else "as long as it's on the battlefield")
     return True
 
 
-def _mark(plan: Plan, cards: list[str], label: str) -> None:
+def _mark(plan: Plan, cards: list[str], label: str, *, value: str | None = None, text: str = "until end of turn") -> None:
     """The visible table marker for an engine effect (it goes away at cleanup with the effect)."""
     # (AddEffect: the name is at most 60 characters, the short value 20 — "Deathtouch, Indestructible")
-    value = label if len(label) <= 20 else label[:19] + "…"
+    value = value if value is not None else label if len(label) <= 20 else label[:19] + "…"
     for cid in cards:
-        plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60], "value": value, "text": "until end of turn"})
+        plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60], "value": value, "text": text})
 
 
 def _can_regenerate(ctx: Context) -> bool:
@@ -1326,7 +1356,8 @@ def return_card(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         _moved(plan, ctx, e, before)
         return True
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
-                "actor": ctx["controller"], "tapped": bool(e.get("tapped"))} for cid in cards]
+                "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
+                **({"counter": e["counter"]} if e.get("counter") else {})} for cid in cards]  # (a counter it enters with, 122.6)
     done = attachments.enter(plan, entries, ctx)
     if done:  # (an Aura choosing what it enchants pauses: the binding then keeps what they were)
         _moved(plan, ctx, e, before)  # the permanents they became: new objects (400.7)

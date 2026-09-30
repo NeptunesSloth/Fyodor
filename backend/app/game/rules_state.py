@@ -210,6 +210,17 @@ class ObjectSnapshot(BaseModel):
     blocking: bool = False
     attached_to: str | None = None
     text: str = ""  # a custom token's rules text (it has no printing to look up)
+    # -- quoted grants (wave 2D) --
+    # Its abilities and keywords as they last existed (603.10a: leaves-the-battlefield abilities look
+    # back in time; 608.2h), recorded by the rules engine as it moves the object — only when they
+    # differ from the printed ones (granted by a resolved effect or a static ability, or lost): each
+    # ability line as {index, text, kind, keywords, cost, intrinsic}. None: the printed ones.
+    abilities: list[dict[str, Any]] | None = None
+    keywords: list[str] | None = None
+    # Its types, subtypes, supertypes and colors as they last existed, when layer 4 / 5 had changed them
+    # (an animated land or a crewed Vehicle died as a creature, 700.4): {"types": […], "subtypes": […],
+    # "supertypes": […], "colors": […]}. None: the printed ones.
+    traits: dict[str, list[str]] | None = None
 
 
 EventKind = Literal[
@@ -327,8 +338,12 @@ class ContinuousEffect(BaseModel):
     # 500.4), "source_on_battlefield" / "source_controlled" / "source_tapped" ("for as long as ~
     # remains on the battlefield / you control ~ / ~ remains tapped", 611.2b: ends as soon as
     # that stops being true; app/rules/delayed.py expires them).
+    # -- quoted grants (wave 2D) -- "while_counter": "for as long as that creature has a bounty counter on
+    # it" (``counter`` names the kind; an affected object that has none left drops out, and the effect
+    # ends with the last one: 611.2b, app/rules/delayed.expire).
     duration: Literal["end_of_turn", "permanent", "next_turn", "source_on_battlefield", "source_controlled",
-                      "source_tapped"] = "end_of_turn"
+                      "source_tapped", "while_counter"] = "end_of_turn"
+    counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
     turn: int = 0  # the turn the effect began (next_turn: it ends on a later turn of until_player)
     timestamp: int = 0

@@ -65,16 +65,19 @@ class Plan:
             payload = replace_move(self, payload, actor)
         action = A.parse_action(payload)
         resolved = resolve(self.state, action, actor=actor or self.actor, cards=self.info, rng=self.rng, trusted=True)
-        leaving = self._battlefield_pt(payload)
+        leaving = self._battlefield_lki(payload)
         before = capture(self.state)
         if before is not None:  # (the turn log: what a permanent was as it left, layers applied)
             before.types = self._battlefield_types(payload)
         HANDLERS[resolved.type](self.state, resolved)
         track(self.state, before)
-        for oid, (p, t) in leaving.items():  # last known power / toughness (608.2h)
+        for oid, (pt, abilities, keywords, traits) in leaving.items():  # last known information (608.2h)
             snap = self.rules.lki.get(oid)
             if snap is not None:
-                snap.power, snap.toughness = p, t
+                if pt is not None:  # power / toughness
+                    snap.power, snap.toughness = pt
+                # -- quoted grants (wave 2D) -- its abilities, keywords and types as they last existed (603.10a)
+                snap.abilities, snap.keywords, snap.traits = abilities, keywords, traits
         self.steps.append(resolved.model_dump(mode="json"))
         return resolved
 
@@ -89,15 +92,22 @@ class Plan:
                 out[cid] = sorted(self.ch(card).types)
         return out
 
-    def _battlefield_pt(self, payload: dict[str, Any]) -> dict[str, tuple[int, int]]:
-        """Current power / toughness of the creatures a step may move off the battlefield."""
-        out: dict[str, tuple[int, int]] = {}
+    def _battlefield_lki(self, payload: dict[str, Any]) -> dict[str, tuple[Any, Any, Any, Any]]:
+        """What a step may move off the battlefield looks like right now: the current power /
+        toughness of the creatures (608.2h) and — quoted grants, wave 2D — the abilities, keywords
+        and types of any permanent when they differ from the printed ones (603.10a: abilities that
+        trigger as it leaves look back at the abilities it had; 700.4: an animated land dies as a
+        creature)."""
+        from app.rules import granted  # (granted → plan for type hints only)
+
+        out: dict[str, tuple[Any, Any, Any, Any]] = {}
         for cid in payload.get("card_ids") or []:
             card = self.state.cards.get(cid) if isinstance(cid, str) else None
             if card is not None and card.zone.endswith(":battlefield"):
-                pt = self.ch(card).pt
-                if pt is not None:
-                    out[self.oid(card)] = pt
+                now = self.ch(card)
+                abilities, keywords, traits = granted.last_existed(chars.of(card, self.info), now)
+                if now.pt is not None or abilities is not None or keywords is not None or traits is not None:
+                    out[self.oid(card)] = (now.pt, abilities, keywords, traits)
         return out
 
     def note(self, message: str, card_ids: list[str] | tuple[str, ...] = (), *, actor: str | None = None) -> None:

@@ -34,7 +34,7 @@ from typing import Any, Literal
 from app.rules import restrictions
 from app.rules.characteristics import Characteristics
 from app.rules.costs import parse_ability_cost
-from app.rules.oracle import AbilityText, parse_abilities
+from app.rules.oracle import AbilityText, parse_abilities, split_sentences
 from app.rules.values import UNMODELED_COUNTERS
 
 Definition = dict[str, Any]
@@ -171,9 +171,18 @@ def self_text(text: str, name: str) -> str:
     ability word (207.2c)."""
     out = _ABILITY_WORD.sub("", text, count=1)
     short = _short_name(name)
-    for n in sorted({name, name.split(",")[0].strip(), *([short] if short else [])}, key=len, reverse=True):
-        if len(n) >= 3:
-            out = re.sub(rf"\b{re.escape(n)}\b", "~", out)
+    names = [n for n in sorted({name, name.split(",")[0].strip(), *([short] if short else [])}, key=len, reverse=True)
+             if len(n) >= 3]
+
+    def own(part: str) -> str:
+        for n in names:
+            part = re.sub(rf"\b{re.escape(n)}\b", "~", part)
+        return part
+
+    # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the
+    # object that gets it ("this creature" is): it stays as written, so no ~ there means the granter
+    parts = out.split('"')
+    out = '"'.join(own(p) if i % 2 == 0 else p for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
     return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Equipment|Vehicle|Aura)\b", "~", out)
 
 
@@ -1091,7 +1100,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     effects: list[dict[str, Any]] = []
     groups: list[dict[str, Any]] = []
     start = 0
-    texts = [s for s in re.split(r"(?<=\.)\s+", body) if s]  # ("You may pay …" looks ahead at "If you do")
+    texts = [s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     for i, sentence in enumerate(texts):
         text = _lower_first(sentence.rstrip(".").strip())
@@ -2090,9 +2099,15 @@ def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     found = language.parse_become(m["text"])
     if found is None:
         raise _NoMatch
+    # (quoted grants, wave 2D: each quote is one the engine carries out as granted)
+    from app.rules import granted
+
     for e in found[0]:
-        if e["do"] == "become" and any(granted_ability(text) is None for text in e.get("abilities", ())):
-            raise _NoMatch
+        if e["do"] == "become" and e.get("abilities"):
+            checked = [granted.quote(text) for text in e["abilities"]]
+            if any(c is None for c in checked):
+                raise _NoMatch
+            e["abilities"] = checked
     return found
 
 
