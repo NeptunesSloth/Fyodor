@@ -54,7 +54,12 @@ SELECTORS: dict[str, tuple[bool, Check | None]] = {
     "blocking_creature": (False, lambda plan, who, card, ch: ch.is_creature and bool(card.blocking)),
     "player": (True, None),
     "opponent": (True, None),
+    # -- target forms (agent T) --  "target player or planeswalker" / "target opponent or planeswalker"
+    # (a player, or any planeswalker: not only an opponent's)
+    "player_or_planeswalker": (True, _types("Planeswalker")),
+    "opponent_or_planeswalker": (True, _types("Planeswalker")),
 }
+OPPONENTS_ONLY = ("opponent", "opponent_or_planeswalker")
 
 
 SPELL_SELECTORS: dict[str, Callable[[Characteristics], bool]] = {
@@ -101,7 +106,7 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
     out: list[str] = []
     if players_ok:
         for pid in plan.live():
-            if selector == "opponent" and pid == chooser:
+            if selector in OPPONENTS_ONLY and pid == chooser:
                 continue
             out.append(pid)
     if check is not None:
