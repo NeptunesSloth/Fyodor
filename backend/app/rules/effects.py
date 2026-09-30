@@ -1621,11 +1621,12 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
                     # what a triggered ability triggered on (603.2, 608.2k): JSON, so it survives
                     # pauses for decisions, saves and replay with the rest of the context
                     "event": entry.event.model_dump(mode="json") if entry.event is not None else None}
+    attacker = selectors.attacker_of(entry.event)  # (508.5: "defending player" of an attack trigger)
     if entry.slot_specs:  # a modal spell: each mode's target is checked on its own (608.2b)
         src = source_of(plan, entry.source_card)
         slots, targeted, legal_any = [], False, False
         for refs, sspec in zip(entry.slots, entry.slot_specs, strict=False):
-            ok = [t for t in refs if sspec and still_legal(plan, sspec["what"], entry.controller, t, src, entry.source_card)]
+            ok = [t for t in refs if sspec and still_legal(plan, sspec["what"], entry.controller, t, src, entry.source_card, attacker)]
             targeted = targeted or bool(sspec and refs)
             legal_any = legal_any or bool(ok)
             slots.append([t.model_dump() for t in ok])
@@ -1640,7 +1641,7 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         groups: list[list[dict[str, Any] | None]] = []
         for refs, gspec in zip(entry.groups, entry.group_specs, strict=False):
             # an illegal target keeps its place (None), so the division stays as announced (115.7f)
-            groups.append([t.model_dump() if still_legal(plan, gspec["what"], entry.controller, t, src, entry.source_card)
+            groups.append([t.model_dump() if still_legal(plan, gspec["what"], entry.controller, t, src, entry.source_card, attacker)
                            else None for t in refs])
         chosen = sum(len(refs) for refs in entry.groups)
         if chosen and not any(t for g in groups for t in g):
@@ -1655,7 +1656,7 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     spec = entry.target_spec
     if spec and entry.targets:
         src = source_of(plan, entry.source_card)
-        legal = [t for t in entry.targets if still_legal(plan, spec["what"], entry.controller, t, src, entry.source_card)]
+        legal = [t for t in entry.targets if still_legal(plan, spec["what"], entry.controller, t, src, entry.source_card, attacker)]
         if not legal:
             plan.note(f"{entry.name or 'It'} does nothing: its target is no longer legal")
             finish(plan, ctx, countered=True)

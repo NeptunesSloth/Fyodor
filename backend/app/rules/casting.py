@@ -1052,8 +1052,9 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
     """How ``player`` may cast this card from where it is (601.3): from their hand, their commander
     from the command zone, flashback from their graveyard, or a permission (app/rules/permissions):
     a static ability on the table or one an effect granted. ``free``: they want to use a "without
-    paying its mana cost" permission (118.9); otherwise a paid way is preferred, and a free
-    permission is used only when it is the only way."""
+    paying its mana cost" permission (118.9) — an alternative cost, which is optional (118.9b), so
+    it is never applied to a plain cast: without the opt-in only paid ways count, and a card that
+    only a free permission lets them cast isn't castable that way."""
     how = "hand" if card.zone == zone_key(player, "hand") else "command" if from_command_zone(card, player) else \
         "flashback" if from_graveyard(card, player, ch) else None
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
@@ -1064,8 +1065,6 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
         ways = [g for g in found if g.zone_ok and not g.free]
         if how is not None:
             return permissions.Grant(how, flash=flash)
-        if not ways:
-            ways = [g for g in found if g.zone_ok]
     if not ways:
         return None
     best = ways[0]

@@ -483,31 +483,49 @@ def _join_statuses(words: list[str]) -> list[str]:
 
 # -- evaluation ---------------------------------------------------------------------------
 def _defender(plan: Plan, target: Any) -> str | None:
-    """The player a creature is attacking, or the controller of the planeswalker / battle."""
+    """The player a creature is attacking, or the controller of the planeswalker it's attacking
+    (508.5, 506.2: a planeswalker is attacked on its controller's behalf). Battles aren't
+    modelled as attack targets: the defending player relative to a battle would be its
+    *protector*, not its controller (310.9d) — not invented here."""
     if target is None:
         return None
     if target.kind == "player":
         return str(target.id)
     attacked = plan.state.cards.get(target.id)
-    return attacked.controller if attacked is not None else None
+    if attacked is None or not attacked.zone.endswith(":battlefield"):
+        return None
+    return attacked.controller
 
 
-def defending_players(plan: Plan, source: str | None) -> set[str]:
-    """Who "defending player" means (508.5): for an attacking source, the player it's attacking
-    (or whose planeswalker / battle it's attacking); otherwise the players being attacked in
-    this combat (508.5a: one of them — the chooser picks by picking a target of theirs).
-    Empty outside combat."""
-    src = plan.state.cards.get(source or "")
-    if src is not None and src.attacking is not None:
-        d = _defender(plan, src.attacking)
-        return {d} if d else set()
-    out = set()
-    for c in plan.state.cards.values():
-        if c.attacking is not None and c.zone.endswith(":battlefield"):
-            d = _defender(plan, c.attacking)
-            if d:
-                out.add(d)
-    return out
+def attacker_of(event: Any) -> str | None:
+    """The attacking creature an "attacks" trigger event is about (its card id), from the
+    TriggerEvent (a model, or its JSON in a resolution context); None for any other event."""
+    if event is None:
+        return None
+    kind = event.get("kind") if isinstance(event, dict) else getattr(event, "kind", None)
+    if kind != "attack":
+        return None
+    objects = event.get("objects") if isinstance(event, dict) else getattr(event, "objects", None)
+    if not objects:
+        return None
+    first = objects[0]
+    card = first.get("card") if isinstance(first, dict) else getattr(first, "card", None)
+    return str(card) if card else None
+
+
+def defending_players(plan: Plan, source: str | None, attacker: str | None = None) -> set[str]:
+    """Who "defending player" means (508.5): the player the creature in question is attacking
+    (or whose planeswalker it's attacking) — ``attacker`` for an "attacks" trigger (the event's
+    creature, which may not be the ability's source: "Whenever a creature you control attacks",
+    508.5a determines it for each attacking creature), else the source itself when it is
+    attacking. With neither — a source that isn't attacking and no attack event — the rule would
+    let the ability's controller pick one defending player (508.5a); that choice isn't modelled:
+    nothing matches. Empty outside combat."""
+    creature = plan.state.cards.get(attacker or source or "")
+    if creature is None or creature.attacking is None:
+        return set()
+    d = _defender(plan, creature.attacking)
+    return {d} if d else set()
 
 
 def matches_player(plan: Plan, sel: Selector, pid: str, you: str) -> bool:
@@ -521,8 +539,10 @@ def matches_player(plan: Plan, sel: Selector, pid: str, you: str) -> bool:
 
 
 def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, you: str,
-            source: str | None = None) -> bool:
-    """Does this object match the selector (``you``: the player it's evaluated for)?"""
+            source: str | None = None, attacker: str | None = None) -> bool:
+    """Does this object match the selector (``you``: the player it's evaluated for; ``source``:
+    the ability's source, for "another …" and "defending player"; ``attacker``: the creature an
+    "attacks" trigger is about, whose defending player "defending player" then means, 508.5)?"""
     zone = card.zone.split(":")[-1] if ":" in card.zone else card.zone
     if sel.player is not None:
         return False
@@ -558,7 +578,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.controller == "opponent" and card.controller == you:
         return False
-    if sel.controller == "defending" and card.controller not in defending_players(plan, source):
+    if sel.controller == "defending" and card.controller not in defending_players(plan, source, attacker):
         return False
     if sel.owner == "you" and card.owner != you:
         return False
@@ -619,7 +639,7 @@ def _has_attached(plan: Plan, card: CardInstance, subtype: str) -> bool:
     return any(c.attached_to == card.id and subtype in plan.ch(c).subtypes for c in plan.state.cards.values())
 
 
-def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None) -> list[str]:
+def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None, attacker: str | None = None) -> list[str]:
     """Card ids (not players) matching the selector, in a deterministic order."""
     zones = sel.zones or ("graveyard", "hand", "exile")
     out = []
@@ -633,6 +653,6 @@ def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None) -
             card = plan.state.cards.get(cid)
             if card is None or (zone == "battlefield" and not plan.in_game(card)):
                 continue
-            if matches(plan, sel, card, plan.ch(card), you, source):
+            if matches(plan, sel, card, plan.ch(card), you, source, attacker):
                 out.append(cid)
     return out

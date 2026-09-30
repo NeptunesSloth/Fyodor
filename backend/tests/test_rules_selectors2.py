@@ -113,16 +113,20 @@ def test_combat_statuses_and_defending_players(cards):
     attack(s, (axe, "p3"), (bow, "p2"))
     plan = Plan(s.state, "p1", cards, None)
 
-    def found(phrase, you="p1", source=None):
-        return set(S.candidates(plan, S.parse(phrase), you, source))
+    def found(phrase, you="p1", source=None, attacker=None):
+        return set(S.candidates(plan, S.parse(phrase), you, source, attacker))
 
     assert found("attacking or blocking creature") == {axe.id, bow.id}
     assert found("attacking creature") == {axe.id, bow.id}
     # 508.5: the defending player of an attacking creature's ability is the player it attacks
     assert found("creature defending player controls", source=axe.id) == {guard_c.id, small_c.id}
     assert found("creature defending player controls", source=bow.id) == {guard_b.id}
-    # a source that isn't attacking: any player being attacked (508.5a: the chooser picks one)
-    assert found("creature defending player controls") == {guard_b.id, guard_c.id, small_c.id}
+    # a source that isn't attacking, and no attack event: 508.5a would let the controller pick one
+    # defending player — that choice isn't modelled, so nothing matches (never all of them)
+    assert found("creature defending player controls") == set()
+    # the creature an "attacks" trigger is about, whatever the ability's source (508.5, 508.5a)
+    assert found("creature defending player controls", attacker=axe.id) == {guard_c.id, small_c.id}
+    assert found("creature defending player controls", attacker=bow.id) == {guard_b.id}
     assert found("creature that's attacking you", you="p2") == {bow.id}
     assert found("creature that's attacking you", you="p3") == {axe.id}
     assert found("creature that's attacking you", you="p1") == set()
@@ -139,7 +143,7 @@ def test_combat_statuses_and_defending_players(cards):
     assert found("blocking creature") == {guard_b.id}
     assert found("attacking or blocking creature") == {axe.id, bow.id, guard_b.id}
     assert found("attacking or blocking creature", you="p2") == {axe.id, bow.id, guard_b.id}
-    assert found("creature defending player controls") == {guard_b.id, guard_c.id, small_c.id}
+    assert found("creature defending player controls", source=bow.id) == {guard_b.id}
 
 
 def test_outside_combat_nothing_is_attacking_blocking_or_defending(cards):
@@ -195,6 +199,44 @@ def test_attack_trigger_targets_the_defending_players_creature(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[guard_c.id])
     pass_until_stack_empty(s)
     assert s.state.cards[guard_c.id].tapped and not s.state.cards[guard_b.id].tapped
+    replay_matches(s)
+
+
+def test_each_attack_trigger_means_its_own_attackers_defending_player(cards):
+    """"Whenever a creature you control attacks, target creature defending player controls gets
+    -1/-1 until end of turn." on a third creature, in a three-player game: Axe attacks Carol and
+    Bow attacks Bob, so the ability triggers twice and each trigger's "defending player" is the
+    player *that* attacker is attacking (508.5a: determined for each attacking creature) — not
+    the source's, which isn't attacking, and never every defending player."""
+    s = table(cards, players=3)
+    hex_ = creature(s, "p1", "Hex", "1/1", "Whenever a creature you control attacks, target creature defending player controls gets -1/-1 until end of turn.")
+    axe = creature(s, "p1", "Axe")
+    bow = creature(s, "p1", "Bow")
+    guard_b = creature(s, "p2", "Guard B")
+    guard_c = creature(s, "p3", "Guard C")
+    small_c = creature(s, "p3", "Small C", "1/1")
+    automate(s)
+    attack(s, (axe, "p3"), (bow, "p2"))
+    d = decision(s)
+    assert d.kind == "order" and d.player == "p1"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+    offered = []
+    for _ in range(2):
+        d = decision(s)
+        assert d.kind == "choose_one" and d.player == "p1" and d.prompt.startswith("Hex")
+        assert "options" not in s.view("p2")["rules"]["decision"]  # (the chooser's business only)
+        assert "options" not in s.view("p3")["rules"]["decision"]
+        options = {o.id for o in d.options}
+        offered.append(options)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[sorted(options)[0]])
+    assert sorted(offered, key=len) == [{guard_b.id}, {guard_c.id, small_c.id}]  # Bob's for the Bow, Carol's for the Axe
+    assert hex_.id not in {x for o in offered for x in o}
+    pass_until_stack_empty(s)
+    plan = Plan(s.state, "p1", cards, None)
+    assert plan.ch(s.state.cards[guard_b.id]).pt == (1, 1)  # Bob's guard, for the Bow
+    guard_c_shrunk = plan.ch(s.state.cards[guard_c.id]).pt == (1, 1)
+    small_c_died = small_c.id not in s.state.cards  # (a 1/1 token at -1/-1 dies and ceases to exist: 704.5f, 111.7)
+    assert guard_c_shrunk != small_c_died  # exactly one of Carol's, for the Axe
     replay_matches(s)
 
 
