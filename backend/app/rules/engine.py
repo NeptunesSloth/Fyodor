@@ -31,6 +31,7 @@ from app.rules import (
     combat,
     cost_payment,
     coverage,
+    delayed,
     effects,
     layers,
     optional_payment,
@@ -438,6 +439,7 @@ def start_next_turn(plan: Plan) -> None:
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep}, actor=plan.active)
         if plan.active in plan.live():
             break
+    delayed.turn_began(plan)  # 500.4: "until your next turn" effects of the new active player end
     if not plan.state.settings.auto_untap:
         plan.do({"type": "untap_all", "player": plan.active, "keep_tapped": keep}, actor=plan.active)
     # The untap step has no priority: straight on to upkeep.
@@ -531,6 +533,7 @@ def finish_cleanup(plan: Plan) -> None:
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
     plan.rules.prevention = {}  # and so do prevention shields
     permissions.expire(plan)  # "you may play that card this turn" and friends
+    delayed.cleanup(plan)  # "when … this turn" delayed triggers stop watching (514.2)
     for card in list(plan.state.cards.values()):
         for marker in [m for m in card.effects if m.text == "until end of turn"]:
             plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
@@ -595,6 +598,9 @@ def resolve_top_of_stack(plan: Plan) -> None:
         return
     ch = plan.ch(top)
     controller = top.controller if top.controller in plan.live() else plan.active
+    if ch.is_permanent_card and not plan.manual(top) and not needs_manual_resolution(ch) \
+            and replacements.stack_entry_choice(plan, top, controller):
+        return  # "As ~ enters, choose a color": chosen before it enters (614.12a); resolved again with the answer
     aura_target = plan.rules.aura_targets.pop(top_id, None)
     # An instant, sorcery or ability the engine didn't put on the stack (moved there by hand) has
     # no recorded targets or choices: its controller resolves it by hand. So has an Aura without one.
@@ -613,7 +619,8 @@ def resolve_top_of_stack(plan: Plan) -> None:
     # app/rules/replacements.py; the tapped status is part of the move itself). No permanent
     # spell asks a question as it enters today (the pay-life wording is printed on lands only).
     entering = ch.is_permanent_card and not manual
-    ep = replacements.entry_plan(plan, top, controller) if entering else {"tapped": False}
+    answers = plan.rules.entry_choices.pop(top_id, None)
+    ep: dict[str, Any] = replacements.entry_plan(plan, top, controller, answers=answers) if entering else {"tapped": False}
     x = top.stack_info.x if top.stack_info else None
     if ep.get("life"):
         plan.do({"type": "life", "player": controller, "delta": -int(ep["life"])}, actor=controller)
@@ -621,7 +628,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
     if aura_target is not None and not manual and plan.state.cards[top_id].zone.endswith(":battlefield"):
         attachments.attach(plan, top_id, aura_target.id, controller)  # 303.4f: it enters attached to its target
     if entering:
-        replacements.after_entry(plan, top_id, controller, x=x)
+        replacements.after_entry(plan, top_id, controller, x=x, choices=ep.get("choices"))
     if top_id in plan.rules.evoked:  # 702.74a: "When this permanent enters, if its evoke cost was paid, its controller sacrifices it."
         plan.rules.evoked = [c for c in plan.rules.evoked if c != top_id]
         entered_now = plan.state.cards.get(top_id)
@@ -637,7 +644,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
             oid = plan.oid(top_id)
             layers.add_effect(plan, affected=[oid], layer="6", source=None, controller=controller,
                               add_keywords=("haste",), duration="permanent", label="Haste (dash)")
-            plan.rules.delayed.append({"card": top_id, "object": oid, "to": "hand", "name": entered_now.name})
+            delayed.create_move(plan, controller, top_id, oid, "hand", entered_now.name)  # (a delayed trigger, 603.7)
     if top_id in plan.rules.suspend_haste:  # 702.62e: a suspended creature has haste
         plan.rules.suspend_haste = [c for c in plan.rules.suspend_haste if c != top_id]
         entered_now = plan.state.cards.get(top_id)
@@ -716,7 +723,13 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     # The land's own "enters" replacement effects (614.1c-d, app/rules/replacements.py): "enters
     # tapped [unless …]", a shock land's pay-life-or-tapped choice (made before it enters: 614.12a),
     # "enters [tapped] with … counters" as it enters (122.6).
-    ep = replacements.entry_plan(plan, probe, plan.actor, pay_life=a.pay_life)
+    ep = replacements.entry_plan(plan, probe, plan.actor, pay_life=a.pay_life, answers=plan.rules.entry_choices.get(card.id))
+    if ep.get("choice") is not None and "what" in ep["choice"]:  # "As ~ enters, choose …": before it enters
+        prompt, options = replacements.choice_prompt(plan, card, plan.actor, ep["choice"])
+        decide(plan, player=plan.actor, kind="choose_one", prompt=prompt, options=options, source=card,
+               resume={"step": "land_enter_choice", "card": card.id, "what": ep["choice"]["what"],
+                       "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
+        return
     if ep.get("choice") is not None:
         n = ep["choice"]["life"]
         decide(plan, player=plan.actor, kind="choose_one", prompt=f"{plan.ch(probe).name}: pay {n} life, or it enters tapped?",
@@ -732,10 +745,11 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         payload.update(x=a.x, y=a.y)
     from_where = card.zone.rsplit(":", 1)[-1]
     plan.do(payload)
+    plan.rules.entry_choices.pop(card.id, None)
     if grant is not None and grant.how == "permission":
         permissions.consume(plan, grant)  # ("once during each of your turns")
         plan.note(f"{plan.name(plan.actor)} plays {card.name} from their {from_where} ({grant.label})", [card.id])
-    replacements.after_entry(plan, card.id, plan.actor)
+    replacements.after_entry(plan, card.id, plan.actor, choices=ep.get("choices"))
     r = plan.rules
     turn = plan.state.turn.number
     r.lands_played[plan.actor] = TurnCount(turn=turn, count=r.lands_this_turn(plan.actor, turn) + 1)
@@ -962,9 +976,12 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
     **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)
+    **effects.RESUME,  # player choices: edicts, "chooses a", a revealed hand, "choose a color" (app/rules/effects.py)
     # replacement / prevention effects (app/rules/replacements.py): a shock land put onto the
     # battlefield by an effect, 903.9b before a commander is returned to a hand, 615.7 shields
     "enter_choice": replacements.resume_entry_choice,
+    "stack_enter_choice": replacements.resume_stack_enter_choice,
+    "land_enter_choice": replacements.resume_land_enter_choice,
     "commander_instead": replacements.resume_commander_instead,
     "shield_order": replacements.resume_shield_order,
 }

@@ -45,6 +45,7 @@ SUPPORTED: set[str] = {
 SUPPORTED_REPLACEMENTS: set[str] = {
     "enters_tapped",  # "~ enters tapped [unless …]" (614.1d), on every path onto the battlefield
     "pay_life_or_tapped",  # shock lands (614.1c, 614.12a): a private decision on every path
+    "enters_choice",  # "As ~ enters, choose a color / creature type / …" (614.12a): chosen before it enters, recorded on it
     "enters_with_counters",  # "~ enters [tapped] with N … counters on it [for each …]" (614.1c, 122.6)
     "exile_instead",  # "If ~ would die / be put into a graveyard from anywhere, exile it instead" (own and statics)
     "prevent",  # "Prevent all [combat] damage that would be dealt [to …] [by …] [this turn]" (615)
@@ -61,6 +62,14 @@ def definition_supported(d: dict[str, Any]) -> bool:
         return "prevent" in SUPPORTED_REPLACEMENTS
     return True
 
+# Activation restrictions and trigger limits (app/rules/restrictions.py, test_rules_restrictions.py)
+# are part of "templates": an activated ability whose trailing "Activate only …" sentence the engine
+# reads (as a sorcery / instant, once or N times each turn, once, during your turn / upkeep /
+# combat / a step, before attackers are declared, if a condition app/rules/conditions.py reads) is
+# automated with it enforced; any other restriction wording leaves the ability manual. Refused on
+# purpose (never guessed): "Do this only once each turn." (603.2h: the action itself has to be
+# recorded as it's taken), "Activate only if …" conditions the engine can't evaluate (card types
+# among graveyard cards, total power, "a creature died this turn", "this creature is attacking").
 # Keyword abilities the engine implements (each needs tests before it is listed here).
 SUPPORTED_KEYWORDS: set[str] = {
     # combat (M15c): legality and damage, each covered by test_rules_combat.py
@@ -98,6 +107,41 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
     # test_rules_keyword_actions.py
     "amass", "connive", "monstrosity", "bolster", "support",
 }
+
+
+# -- refusals (agent T) ------------------------------------------------------------------------------
+# Wordings the grammar reads far enough to know it must NOT automate them, and why. A card with
+# one of these stays PARTIAL/MANUAL on purpose; the reason names the missing piece so the gap
+# report can rank it (never a guess at what the card does). ``refusal(text)`` gives the reason.
+REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bfights?\b", re.I),
+     "fight (701.14): needs the fight primitive in app/rules/effects.py (the target grammar is ready: language._FIGHTS)"),
+    (re.compile(r"\bchoose (?:each of )?(?:up to \w+ |any number of |one or two |\w+ )?(?:(?:an)?other )?targets?\b", re.I),
+     "choose_targets: needs a no-op primitive that only names the chosen targets for later sentences "
+     "(the target grammar is ready: language._CHOOSE)"),
+    (re.compile(r"\bstun counters?\b", re.I), "stun counters (122.1d) aren't modelled (values.UNMODELED_COUNTERS)"),
+    (re.compile(r"\bfor each target beyond the first\b", re.I),
+     "a cost per extra target (601.2b/601.2c): the cost grammar doesn't read it"),
+    (re.compile(r"\btarget (?:player|opponent)'s (?:graveyard|hand|library)\b", re.I),
+     "a target player's zone as the object set (\"exile target player's graveyard\"): the effects can't "
+     "reach the chosen player from a selector"),
+    (re.compile(r"\btarget \w+(?: \w+)* that player controls\b", re.I),
+     "a selector relative to a player named earlier (\"target creature that player controls\"): not modelled"),
+    (re.compile(r"\bup to x target\b", re.I), "a variable number of targets announced as X (601.2c): not modelled"),
+    (re.compile(r"\bcopy target .*abilit", re.I), "copying an ability on the stack (707.10): not modelled"),
+    (re.compile(r"\bshuffles? up to \w+ target cards? from their graveyard\b", re.I),
+     "cards from a target player's graveyard (a zone bound to an earlier target): not modelled"),
+    (re.compile(r"\btarget creature with the greatest\b", re.I), "\"the greatest … among\" (a computed extreme): not modelled"),
+    (re.compile(r"\btarget creature's power and toughness\b", re.I), "switching or reading a target's P/T pair: not modelled"),
+)
+
+
+def refusal(text: str) -> str | None:
+    """Why the engine refuses to automate this wording, if it is a known refusal (else None)."""
+    for pattern, reason in REFUSED:
+        if pattern.search(text):
+            return reason
+    return None
 
 
 # Cycling / typecycling with a plain mana cost (casting.cycle); "Cycling—Pay 2 life" and friends stay manual.

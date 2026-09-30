@@ -68,16 +68,16 @@ PERMISSION = re.compile(
 FLASH = re.compile(rf"^you may cast (?:{_SEL} )?spells as though they had flash$")
 TOP_REVEAL = "play with the top card of your library revealed"
 TOP_LOOK = "you may look at the top card of your library any time"
-# Effect sentences: "Exile the top card of your library. You may play that card this turn."
-EXILE_TOP = re.compile(r"^exile the top (?P<n>card|two cards|three cards) of your library$")
+# Effect sentences: "Exile the top card of your library. You may play that card this turn." — the
+# pronoun ("that card" / "it" / "those cards") is bound by scripts.resolve_it to what an earlier
+# instruction of the same ability moved (400.7j: found where it went); with no such instruction
+# the ability stays manual. A bare "You may cast that card." (no duration) means "cast it now, as
+# this resolves, ignoring timing" — not a permission that lasts: refused.
 GRANT_THAT = re.compile(r"^(?:(?P<until>until end of turn|until the end of your next turn), )?you may (?P<verb>play|cast) "
                         r"(?P<what>that card|those cards|it)(?P<this_turn> this turn)?$")
 # "Until end of turn, you may play lands and cast spells from your graveyard." (Yawgmoth's Will)
 GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>play lands and cast spells|play lands|cast spells)"
                         r" from your graveyard(?P<this_turn> this turn)?$")
-_COUNTS = {"card": 1, "two cards": 2, "three cards": 3}
-
-
 def _lower_first(s: str) -> str:
     return s[:1].lower() + s[1:] if s[:1].isupper() else s
 
@@ -109,10 +109,12 @@ def _permission_what(what: str, sel: str | None, qual: str | None) -> dict[str, 
     return {"play": False, "cast": True, "filter": key}
 
 
-def define_static(text: str, kind: str) -> Definition | None:
+def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definition | None:
     """The definition of one ability line (``scripts.define`` calls this for "static" lines, and
     for the "spell" lines of instants and sorceries so a cost-reduction line on a spell is
-    understood). ``text`` is the line with the card's own name written as ~."""
+    understood). ``text`` is the line with the card's own name written as ~; ``lines`` are all
+    the card's ability lines (a permission to cast from the top of the library is only usable
+    when the card also reveals that card, or lets its owner look at it)."""
     t = _lower_first(text.strip().rstrip("."))
     if kind not in ("static", "spell"):
         return None
@@ -151,6 +153,11 @@ def define_static(text: str, kind: str) -> Definition | None:
         zone = "graveyard" if m["zone"] == "your graveyard" else "library_top"
         if what.get("self") and zone != "graveyard":
             return None
+        if zone == "library_top" and not any(_lower_first(x.strip().rstrip(".")) in (TOP_REVEAL, TOP_LOOK) for x in lines):
+            # The engine offers a cast from the top of the library only when the player can see
+            # that card (401.5; app/rules/view.hints): without a reveal / look line on the same
+            # card the permission could never be used — refused rather than claimed
+            return None
         return {"kind": "static", "static": "permission", "zone": zone, "once": bool(m["once"]), "flash": False,
                 "self": bool(what.get("self")), "play": what["play"], "cast": what["cast"], "filter": what["filter"],
                 "effects": []}
@@ -169,17 +176,17 @@ def define_static(text: str, kind: str) -> Definition | None:
 
 
 def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
-    """An effect sentence of the permission grammar (see ``scripts._one_clause``), or None."""
-    m = EXILE_TOP.fullmatch(text)
-    if m:
-        return [{"do": "exile_top", "n": _COUNTS[m["n"]], "bind": "top"}], None
+    """An effect sentence of the permission grammar (see ``scripts._one_clause``), or None.
+    ("Exile the top card of your library" itself is the library grammar's: app/rules/language.py.)"""
     m = GRANT_THAT.fullmatch(text)
     if m:
-        if m["until"] and m["this_turn"]:
-            return None
+        if (m["until"] and m["this_turn"]) or not (m["until"] or m["this_turn"]):
+            return None  # (a bare "you may cast that card": cast it as this resolves, not modelled)
         until = "end_of_next_turn" if m["until"] == "until the end of your next turn" else "end_of_turn"
-        return [{"do": "grant_play", "who": "ref:top", "play": m["verb"] == "play", "cast": True, "until": until,
-                 "optional": True}], None
+        # "who": a pronoun for scripts.resolve_it — the object(s) the preceding instruction moved
+        # ("that card": a card — never a token the same sentence created, 111.1: scripts.resolve_it)
+        return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play",
+                 "cast": True, "until": until, "optional": True}], None
     m = GRANT_ZONE.fullmatch(text)
     if m:
         if m["until"] and m["this_turn"]:
@@ -405,8 +412,9 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
 
 # -- effects ---------------------------------------------------------------------------------------
 def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    """"You may play that card this turn" (the objects an earlier effect exiled, 400.7h/i) or
-    "Until end of turn, you may play lands and cast spells from your graveyard"."""
+    """"You may play that card this turn" (the objects an earlier instruction of this ability
+    moved — bound by scripts.resolve_it, found where they went: 400.7h/j) or "Until end of turn,
+    you may play lands and cast spells from your graveyard"."""
     from app.rules import context
 
     pid = ctx["controller"]
@@ -415,6 +423,8 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     when = "until the end of their next turn" if e["until"] == "end_of_next_turn" else "this turn"
     verb = "play" if e["play"] else "cast"
     if e.get("who"):
+        if not str(e["who"]).startswith(context.PREFIX):
+            return True  # (an unbound pronoun never reaches here: resolve_it refuses the ability)
         for cid in context.objects(plan, ctx, e["who"][len(context.PREFIX):]):
             card = plan.state.cards[cid]
             r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone="any",
@@ -451,12 +461,29 @@ def expire(plan: Plan) -> None:
 
 
 def refresh_reveals(state: GameState, info: CardInfo) -> None:
-    """Recompute which top library cards permanents on the table reveal (401.5). Pure: a function
-    of the table, so replay reproduces it."""
+    """Recompute which cards of the game have a "play with the top card of your library revealed"
+    / "you may look at the top card of your library any time" ability (401.5): every card, in
+    whatever zone, since the view (``app.game.visibility``, which has no card database) reads the
+    *table* for the rest — whether the source is on a battlefield right now, face up, and under
+    whose control — so a source put onto the battlefield, taken or removed by hand reveals the
+    right library at once, with no engine action in between. Pure: a function of the cards and
+    the database, so replay reproduces it. ``player`` records the controller as listed, for
+    information only."""
+    from app.rules import scripts
+    from app.rules.layers import derive
+
     r = state.rules
     if r is None:
         return
-    found = [TopReveal(source=src.id, player=src.controller, to=d["to"])
-             for src, _index, d in _table_statics(state, info, {"top_reveal"})]
+    found = []
+    for card in state.cards.values():
+        if card.ability is not None:
+            continue
+        ch = chars.of(card, info)
+        if card.zone.endswith(":battlefield") and not card.face_down:
+            ch = derive(state, card, ch, info)
+        for d in scripts.definitions(ch).values():
+            if d.get("kind") == "static" and d.get("static") == "top_reveal":
+                found.append(TopReveal(source=card.id, player=card.controller, to=d["to"]))
     if found != r.top_reveals:
         r.top_reveals = found

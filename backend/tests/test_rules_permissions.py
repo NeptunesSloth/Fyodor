@@ -14,9 +14,10 @@ from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.rules_state import CostModifier, Permission
 from app.game.session import GameSession
+from app.rules import coverage, scripts
 from app.rules import permissions as P
-from app.rules import scripts
 from app.rules.casting import castable, spell_cost
+from app.rules.characteristics import Characteristics, parse_abilities
 from app.rules.characteristics import of as chars_of
 from app.rules.engine import land_play_problem
 from app.rules.mana import parse_cost
@@ -368,6 +369,49 @@ def test_casting_from_the_top_of_the_library_reveals_only_what_the_card_says(car
     replay_matches(s)
 
 
+def test_a_reveal_source_taken_by_hand_reveals_its_new_controllers_library(cards):
+    """The view derives what is revealed from the table (401.5): Garruk's Horde moved to Bob's
+    side by hand stops revealing Alice's top card and reveals Bob's at once — on every action,
+    and after the history is rebuilt."""
+    s = build(cards, [(1, "Garruk's Horde"), (1, "Grizzly Bears"), (4, "Forest")], bob=[(1, "Llanowar Elves"), (9, "Island")])
+    bears = put(s, "Grizzly Bears", "library", position="top")
+    elves = put(s, "Llanowar Elves", "library", pid="p2", position="top")
+    horde = put(s, "Garruk's Horde", "battlefield")
+    assert s.view("p2")["zones"]["p1:library"]["known"] == [[0, bears.id]]
+    assert s.view("p1")["zones"]["p2:library"]["known"] == []
+    act(s, "p2", type="set_controller", card_ids=[horde.id], player="p2")  # taken by hand (no engine intent)
+    assert s.state.cards[horde.id].controller == "p2"
+    assert s.view("p2")["zones"]["p1:library"]["known"] == []  # Alice's top card is hidden again
+    assert s.view("__spectator__")["zones"]["p1:library"]["known"] == []
+    assert s.view("p1")["zones"]["p2:library"]["known"] == [[0, elves.id]]  # and Bob's is revealed
+    assert s.view("p1")["cards"][elves.id]["name"] == "Llanowar Elves"
+    rebuilt = s.history.rebuild()
+    from app.game.views import build_view
+
+    assert build_view(rebuilt, "p1")["zones"]["p2:library"]["known"] == [[0, elves.id]]
+    assert build_view(rebuilt, "p2")["zones"]["p1:library"]["known"] == []
+    # Bob may now cast creature spells from the top of his library (the Horde's other ability)
+    run_until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")
+    mana(s, pid="p2", G=1)
+    assert elves.id in hints(s, "p2")["castable"]
+    act(s, "p2", type="cast_spell", card_id=elves.id)
+    pass_until_stack_empty(s)
+    assert s.state.cards[elves.id].zone == "p2:battlefield"
+    # a "you may look" source taken by hand: only its new controller sees their own top card
+    s2 = build(cards, [(1, "Test Oracle Lens"), (1, "Grizzly Bears"), (4, "Forest")], bob=[(1, "Llanowar Elves"), (9, "Island")])
+    bears = put(s2, "Grizzly Bears", "library", position="top")
+    elves = put(s2, "Llanowar Elves", "library", pid="p2", position="top")
+    lens = put(s2, "Test Oracle Lens", "battlefield")
+    assert s2.view("p1")["zones"]["p1:library"]["known"] == [[0, bears.id]]
+    act(s2, "p2", type="set_controller", card_ids=[lens.id], player="p2")
+    assert s2.view("p1")["zones"]["p1:library"]["known"] == []
+    assert s2.view("p2")["zones"]["p2:library"]["known"] == [[0, elves.id]]
+    assert s2.view("p1")["zones"]["p2:library"]["known"] == []
+    assert s2.view("__spectator__")["zones"]["p2:library"]["known"] == []
+    replay_matches(s)
+    replay_matches(s2)
+
+
 def test_look_at_the_top_card_any_time_is_private(cards):
     s = build(cards, [(1, "Test Oracle Lens"), (1, "Grizzly Bears"), (1, "Lightning Bolt"), (4, "Forest")])
     bears = put(s, "Grizzly Bears", "library", position="top")
@@ -391,11 +435,14 @@ def test_look_at_the_top_card_any_time_is_private(cards):
 def test_play_lands_from_the_top_of_the_library(cards):
     s = build(cards, [(1, "Courser of Kruphix"), (1, "Grizzly Bears"), (4, "Forest")])
     forest = put(s, "Forest", "library", position="top")
+    assert s.view("p2")["zones"]["p1:library"]["known"] == []
     put(s, "Courser of Kruphix", "battlefield")
-    assert forest.id not in hints(s)["playable_lands"]  # (hidden until the engine looks at the table)
+    # placed by hand: the view reads the table — revealed at once, no engine action in between
+    assert s.view("p2")["zones"]["p1:library"]["known"] == [[0, forest.id]]
+    assert forest.id in hints(s)["playable_lands"]
     mana(s, G=1, C=1)
     bears = put(s, "Grizzly Bears", "hand")
-    act(s, "p1", type="cast_spell", card_id=bears.id)  # (any intent: the engine looks at the table)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
     pass_until_stack_empty(s)
     assert s.view("p2")["zones"]["p1:library"]["known"] == [[0, forest.id]]
     assert forest.id in hints(s)["playable_lands"]
@@ -441,14 +488,118 @@ def test_wordings_the_grammar_refuses(text):
 
 
 def test_effect_wordings():
-    assert P.parse_clause("exile the top card of your library") == ([{"do": "exile_top", "n": 1, "bind": "top"}], None)
+    assert P.parse_clause("exile the top card of your library") is None  # (the library grammar's: app/rules/language.py)
     granted = P.parse_clause("until the end of your next turn, you may play those cards")
     assert granted is not None and granted[0][0]["until"] == "end_of_next_turn" and granted[0][0]["play"]
+    assert granted[0][0]["who"] == "them:card"  # a pronoun: bound by scripts.resolve_it to what was exiled
     cast_only = P.parse_clause("until end of turn, you may cast that card")
     assert cast_only is not None and cast_only[0][0]["play"] is False and cast_only[0][0]["cast"]
-    assert P.parse_clause("you may play that card this turn")[0][0]["until"] == "end_of_turn"
+    assert P.parse_clause("you may play that card this turn")[0][0] == {
+        "do": "grant_play", "who": "it:card", "play": True, "cast": True, "until": "end_of_turn", "optional": True}
     assert P.parse_clause("until end of turn, you may play that card this turn") is None
     assert P.parse_clause("you may play that card until your next end step") is None
+    # a bare "you may cast that card": cast it as this resolves, ignoring timing — not a permission
+    # that lasts the turn (Chandra, Torch of Defiance's wording): refused, never a turn-long grant
+    assert P.parse_clause("you may cast that card") is None
+    assert P.parse_clause("you may play it") is None
+
+
+def test_that_card_binds_to_what_the_ability_moved_or_stays_manual():
+    """"You may play that card / it": the object an earlier instruction of the same ability
+    exiled — found where it went (400.7h/j) — never a guess at "the top card"."""
+    top = scripts.parse_effects("Exile the top card of your library. Until end of turn, you may play that card.", it="self")
+    assert top is not None
+    exiled, grant = top[0]
+    assert exiled["do"] == "exile_top" and exiled["as"] == "e0" and grant == {
+        "do": "grant_play", "who": "ref:e0", "play": True, "cast": True, "until": "end_of_turn", "optional": True}
+    two = scripts.parse_effects("Exile the top two cards of your library. You may play those cards this turn.")
+    assert two is not None and two[0][1]["who"] == "ref:e0"
+    from_grave = scripts.parse_effects("Exile target card from a graveyard. You may play it this turn.")
+    assert from_grave is not None and from_grave[0][0]["do"] == "exile" and from_grave[0][1]["who"] == "ref:e0"
+    # number: one card exiled, "those cards" — not the same thing
+    assert scripts.parse_effects("Exile the top card of your library. You may play those cards this turn.") is None
+    # nothing was moved into a public zone before the grant: manual, never FULL-and-no-op
+    assert scripts.parse_effects("Draw a card. You may play it this turn.") is None  # (the hand is hidden, 400.7)
+    assert scripts.parse_effects("Draw a card. You may play it this turn.", it="self") is None  # (not the source either)
+    assert scripts.parse_effects("You may play that card this turn.") is None
+    assert scripts.parse_effects("Tap target creature. You may play it this turn.") is None  # (not moved anywhere)
+    assert scripts.parse_effects("Exile the top card of your library. You may cast that card.") is None  # (no duration)
+    # Ragavan, Nimble Pilferer: a token the same sentence created is not "that card" (111.1), so
+    # the exiled card is the only candidate
+    ragavan = scripts.parse_effects("Create a Treasure token and exile the top card of that player's library. "
+                                    "Until end of turn, you may cast that card.")
+    assert ragavan is not None and [e["do"] for e in ragavan[0]] == ["create_token", "exile_top", "grant_play"]
+    assert ragavan[0][1]["as"] == "e1" and ragavan[0][2]["who"] == "ref:e1"
+    assert scripts.parse_effects("Create a Treasure token. You may play that card this turn.") is None
+    trigger = "When this creature enters, draw a card. You may play it this turn."
+    ch = Characteristics(name="X", types=frozenset({"Creature"}), oracle_text=trigger, abilities=tuple(parse_abilities(trigger)))
+    assert scripts.definitions(ch) == {}
+    assert coverage.of_characteristics(ch).level != "FULL"
+
+
+def test_play_the_card_exiled_from_a_graveyard_this_turn(cards):
+    """"Exile target card from a graveyard. You may play it this turn." grants the new object in
+    exile (400.7j), for its controller — and only that object."""
+    s = build(cards, [(1, "Test Grave Pilfer"), (1, "Grizzly Bears"), (1, "Lightning Bolt"), (4, "Forest")])
+    pilfer = put(s, "Test Grave Pilfer", "hand")
+    bears, bolt = put(s, "Grizzly Bears", "graveyard"), put(s, "Lightning Bolt", "graveyard")
+    assert coverage.of_characteristics(chars_of(pilfer, cards)).level == "FULL"
+    mana(s, B=1)
+    act(s, "p1", type="cast_spell", card_id=pilfer.id, targets=[bears.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:exile"
+    perms = rules(s).permissions
+    assert len(perms) == 1 and perms[0].card == bears.id and perms[0].object_id == rules(s).object_id(bears.id)
+    mana(s, G=1, C=1, R=1)
+    h = hints(s)
+    assert bears.id in h["castable"] and bolt.id not in h["castable"]
+    hold(s)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    assert s.view("p2")["cards"][bears.id]["stack_info"]["tags"] == ["Cast from exile"]
+    act(s, "p1", type="pass_priority")
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and rules(s).permissions == []
+    replay_matches(s)
+
+
+def test_top_of_library_permission_needs_a_reveal_or_look_line():
+    """"You may cast creature spells from the top of your library" is only offered for a card the
+    player can see (401.5): without a reveal / look line on the same card it could never be used —
+    refused at define time rather than claimed as automated."""
+    line = "You may cast creature spells from the top of your library."
+    assert P.define_static(line, "static") is None
+    assert P.define_static(line, "static", (line, "Flying.")) is None
+    with_reveal = P.define_static(line, "static", ("Play with the top card of your library revealed.", line))
+    assert with_reveal is not None and with_reveal["zone"] == "library_top"
+    with_look = P.define_static(line, "static", (line, "You may look at the top card of your library any time."))
+    assert with_look is not None and with_look["zone"] == "library_top"
+    text = "You may cast creature spells from the top of your library."
+    ch = Characteristics(name="Lone", types=frozenset({"Creature"}), oracle_text=text, abilities=tuple(parse_abilities(text)))
+    assert scripts.definitions(ch) == {} and coverage.of_characteristics(ch).level != "FULL"
+
+
+def test_free_permission_is_never_applied_to_a_plain_cast(cards):
+    """118.9b: an alternative cost is optional. A "without paying its mana cost" permission is
+    used only when the caster opts in (``free``): a plain cast with no paid way is refused, not
+    silently made free."""
+    s = build(cards, [(1, "Grizzly Bears"), (4, "Forest")])
+    bears = put(s, "Grizzly Bears", "exile")
+    rules(s).permissions.append(Permission(id="p", player="p1", cast=True, zone="exile", free=True, label="test"))
+    mana(s, G=1, C=1)  # (she could pay: still no paid way to cast from exile)
+    assert not castable(s.state, "p1", bears, cards)
+    assert bears.id not in hints(s)["castable"]
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bears.id)
+    assert s.state.cards[bears.id].zone == "p1:exile" and rules(s).payments == {}
+    hold(s)
+    act(s, "p1", type="cast_spell", card_id=bears.id, free=True)
+    record = rules(s).payments[rules(s).object_id(bears.id)]
+    assert record.alternative == "free" and record.total_cost == "{0}"
+    assert s.view("p2")["cards"][bears.id]["stack_info"]["tags"] == ["Cast from exile without paying its mana cost"]
+    act(s, "p1", type="pass_priority")
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
+    replay_matches(s)
 
 
 def test_parse_cost_helper_sanity():

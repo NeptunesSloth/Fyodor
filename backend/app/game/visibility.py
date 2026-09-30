@@ -47,10 +47,12 @@ def can_see(state: GameState, card: CardInstance, viewer: str) -> bool:
 
 def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
     """"Play with the top card of your library revealed" / "You may look at the top card of your
-    library any time" (CR 401.5): granted by a permanent the rules engine listed
-    (``RulesState.top_reveals``), and only while that permanent is still on its controller's
-    battlefield — checked here, on the table itself, so a source removed by hand stops revealing
-    at once. Only the top card, as the library is now."""
+    library any time" (CR 401.5). The rules engine lists which cards of the game have such an
+    ability (``RulesState.top_reveals``: it needs the card database, which the view has not);
+    everything else is read from the table itself, here: the source must be on a battlefield
+    now, face up and automated, and the library it reveals is its *current* controller's — so a
+    source put onto the battlefield, taken or removed by hand is right at once, with no engine
+    action in between. Only the top card, as the library is now."""
     rules = state.rules
     if rules is None or not rules.top_reveals:
         return False
@@ -58,12 +60,14 @@ def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
     if not library or library[0] != card.id:
         return False
     for reveal in rules.top_reveals:
-        if reveal.player != card.owner or (reveal.to == "owner" and viewer != card.owner):
-            continue
         source = state.cards.get(reveal.source)
-        if source is not None and source.controller == reveal.player and source.zone == f"{reveal.player}:battlefield" \
-                and not source.face_down:
-            return True
+        if source is None or source.face_down or not source.zone.endswith(":battlefield") \
+                or rules.card_mode(source.id) == "manual":
+            continue
+        controller = source.controller
+        if card.zone != f"{controller}:library" or (reveal.to == "owner" and viewer != controller):
+            continue
+        return True
     return False
 
 

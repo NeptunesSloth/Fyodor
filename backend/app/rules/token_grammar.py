@@ -31,6 +31,15 @@ NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5
            "nine": 9, "ten": 10}
 COLOR_WORDS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 
+# 205.3g / 205.3h: an artifact creature token or an enchantment creature token may carry an
+# artifact type ("Sculpture Treasure artifact creature token") or an enchantment type ("Shrine
+# enchantment creature token") among its subtypes.
+ARTIFACT_TYPES = frozenset({"Attraction", "Blood", "Bobblehead", "Book", "Clue", "Contraption", "Equipment", "Food",
+                            "Fortification", "Gold", "Heartwood", "Incubator", "Infinity", "Junk", "Lander", "Map",
+                            "Mutagen", "Powerstone", "Spacecraft", "Stone", "Treasure", "Vehicle", "Vibranium"})
+ENCHANTMENT_TYPES = frozenset({"Aura", "Background", "Cartouche", "Case", "Class", "Curse", "Plan", "Role", "Room",
+                               "Rune", "Saga", "Shard", "Shrine"})
+
 # 111.10s–v, colorless artifact tokens with the CR's rules text (the older ones are in
 # app.rules.scripts.PREDEFINED_TOKENS; both are consulted).
 PREDEFINED_TOKENS = {
@@ -59,16 +68,17 @@ def _qty(word: str) -> Any:
     return int(word) if word.isdigit() else NUMBERS[word]
 
 
-def _subtypes(phrase: str) -> list[str] | None:
+def _subtypes(phrase: str, extra: frozenset[str] = frozenset()) -> list[str] | None:
     """"Human Soldier" → ["Human", "Soldier"]; "Time Lord" is one type. None for a word the rules
-    don't list as a creature type (205.3m)."""
+    don't list as a creature type (205.3m) — or, for an artifact / enchantment creature token, as
+    an artifact type (205.3g) / enchantment type (205.3h): ``extra``."""
     words = phrase.split(" ")
     out: list[str] = []
     while words:
         if len(words) >= 2 and " ".join(words[:2]) in CREATURE_TYPES:
             out.append(" ".join(words[:2]))
             words = words[2:]
-        elif words[0] in CREATURE_TYPES:
+        elif words[0] in CREATURE_TYPES or words[0] in extra:
             out.append(words.pop(0))
         else:
             return None
@@ -145,10 +155,12 @@ def parse(sentence: str) -> list[Effect] | None:
         if found is None:
             return None
         type_line, ability = found
-        token: dict[str, Any] = {"name": m["pre"], "power": None, "toughness": None, "colors": [], "type_line": type_line,
+        token: dict[str, Any] = {"name": m["pre"], "power": None, "toughness": None,
+                                 "colors": list(scripts.PREDEFINED_COLORS.get(m["pre"], ())), "type_line": type_line,
                                  "text": ability}
     else:
-        subtypes = _subtypes(m["sub"])
+        extra = (ARTIFACT_TYPES if m["art"] else frozenset()) | (ENCHANTMENT_TYPES if m["ench"] else frozenset())
+        subtypes = _subtypes(m["sub"], extra)
         parsed_with = _with(m["with"])
         if subtypes is None or parsed_with is None:
             return None

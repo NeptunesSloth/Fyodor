@@ -211,6 +211,38 @@ def test_planeswalker_loyalty_on_the_effect_path(cards):
     replay_matches(s)
 
 
+def test_as_enters_choose_a_color_is_asked_before_it_enters_on_the_stack(cards):
+    """614.12a: the choice is made before it enters; recorded on the permanent (Sol Grail)."""
+    s = build(cards, "Sol Grail")
+    grail = to_hand(s, "Sol Grail")
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=grail.id)
+    pass_until_stack_empty(s)
+    d = rules(s).decision
+    assert d is not None and d.player == "p1" and d.resume["step"] == "stack_enter_choice" and "color" in d.prompt
+    assert s.state.cards[grail.id].zone == "stack"  # not yet entered
+    assert {o.id for o in d.options} == {"White", "Blue", "Black", "Red", "Green"}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Blue"])
+    grail = s.state.cards[grail.id]
+    assert grail.zone == "p1:battlefield" and grail.choices == {"Chosen color": "Blue"} and rules(s).decision is None
+    assert not rules(s).entry_choices
+    replay_matches(s)
+
+
+def test_as_enters_choose_on_the_effect_path(cards):
+    s = build(cards, "Sol Grail")
+    grail = named(s, "Sol Grail")
+    act(s, "p1", type="move", card_ids=[grail.id], to={"zone": "graveyard"})
+    src = token(s, "p1", "Necro", text="{1}: Return target artifact card from your graveyard to the battlefield.")
+    activate(s, src, targets=[grail.id])
+    d = rules(s).decision
+    assert d is not None and d.resume["step"] == "enter_choice" and d.resume["choice"] == {"what": "color"}
+    assert s.state.cards[grail.id].zone == "p1:graveyard"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Red"])
+    assert s.state.cards[grail.id].zone == "p1:battlefield" and s.state.cards[grail.id].choices == {"Chosen color": "Red"}
+    replay_matches(s)
+
+
 # -- static prevention (615.1, 615.10) ------------------------------------------------------------
 def test_prevent_all_combat_damage_to_you(cards):
     s = table(cards)

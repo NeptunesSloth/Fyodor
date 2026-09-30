@@ -30,6 +30,7 @@ from dataclasses import replace
 from functools import lru_cache
 from typing import Any
 
+from app.rules import restrictions
 from app.rules.characteristics import Characteristics
 from app.rules.costs import parse_ability_cost
 from app.rules.oracle import AbilityText, parse_abilities
@@ -269,6 +270,7 @@ _RECORDING: dict[str, str | None] = {
 # another zone by then, 400.7j, or gone, 608.2h). After a plain target, "it" stays the target.
 _MOVERS = {"destroy", "destroy_all", "exile", "exile_until", "bounce", "return_card", "blink", "sacrifice",
            "sacrifice_choice", "discard", "mill", "search", "pick_looked", "create_token"}
+_TOKEN_MAKERS = {"create_token", "create_attacking"}  # (what they introduce are tokens, not cards: 111.1)
 _CHOSEN = {"sacrifice_choice": "n", "discard": "n", "mill": "n", "create_token": "n", "search": "max", "pick_looked": "n"}
 _STAT_KEYS = ("power", "toughness", "mana_value")
 
@@ -389,6 +391,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         def ok(i: _Introducer) -> bool:
             if not i.objects:
                 return False
+            if verb == "card":  # "that card": a card, so not a token an instruction created (111.1)
+                return i.do not in _TOKEN_MAKERS and (i.number is None or number is None or i.number == number)
             if verb is not None:
                 return i.verb == verb
             return i.number is None or number is None or i.number == number
@@ -412,6 +416,12 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if isinstance(who, str) and (who in ("it", "them") or who.startswith(("it:", "them:"))):
                 pronoun, _, verb = who.partition(":")
                 intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
+                if e.get("do") == "grant_play" and (intro is None or intro.do not in _MOVERS):
+                    # "You may play that card this turn": only what an earlier instruction of this
+                    # ability moved (exiled, found), where it went (400.7h/j) — never the source,
+                    # a trigger's object, or a card an instruction put in a hidden zone ("draw a
+                    # card. You may play it": the hand is hidden, 400.7 — manual)
+                    return None
                 if intro is not None:
                     if intro.do in _MOVERS or _group_of(out[intro.index]) is None:
                         e["who"] = "ref:" + bound(intro)
@@ -462,7 +472,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
     return out
 
 
-_TARGET_REFS = ("who", "power", "toughness", "mana_value", "on")
+_TARGET_REFS = ("who", "power", "toughness", "mana_value", "on", "with")  # ("with": the other creature of a fight)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -475,8 +485,8 @@ def rename_bindings(value: Any, prefix: str) -> Any:
         return value
     out = {}
     for k, v in value.items():
-        if k in ("as", "bind") and isinstance(v, str):  # ("bind": the library primitives' recorder)
-            v = prefix + v
+        if k in ("as", "bind", "succeeded") and isinstance(v, str):  # ("bind": the library primitives' recorder;
+            v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
             v = "ref:" + prefix + v[4:]
         else:
@@ -693,6 +703,7 @@ PREDEFINED_TOKENS = {
     "Powerstone": ("Token Artifact — Powerstone", "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."),
     "Heartwood": ("Token Artifact — Heartwood", "{T}: Add {R} or {G}."),
 }
+PREDEFINED_COLORS = {"Heartwood": ["R", "G"]}  # 111.10x: "a red and green Heartwood artifact token" (the others are colorless)
 COLOR_WORDS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 _COLORS_RE = r"(?P<colors>colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*)"
 
@@ -751,7 +762,8 @@ def _token_has(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 def _create_predefined(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     type_line, text = PREDEFINED_TOKENS[m["kind"]]
     return [{"do": "create_token", "who": "you", "n": num(m["n"]),
-             "token": {"name": m["kind"], "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
+             "token": {"name": m["kind"], "power": None, "toughness": None, "colors": list(PREDEFINED_COLORS.get(m["kind"], ())),
+                       "type_line": type_line, "text": text}}], None
 
 
 @effect(r"put {N} (?P<kind>\+1/\+1|-1/-1) counters? on (?P<who>target creature you control|target creature|~|it|each creature you control)")
@@ -841,11 +853,6 @@ def _sacrifice_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]
     return [{"do": "sacrifice", "who": _self_or_it(m["who"])}], None
 
 
-@effect(r"activate only once each turn")
-def _once_each_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    return [], None  # an activation restriction (enforced by casting.ability_problem), not an effect
-
-
 @effect(r"sacrifice ~ unless you pay (?P<cost>(?:\{{[^}}]+\}})+)")
 def _pay_or_sacrifice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "pay_or_sacrifice", "cost": m["cost"]}], None
@@ -897,11 +904,14 @@ def _first(fn):  # type: ignore[no-untyped-def]
 @effect(r"create (?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X) (?:tapped )?"
         r"(?:\d+/\d+ (?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) "
         r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)* (?:enchantment )?(?:artifact )?creature tokens?|[A-Z][a-z]+ tokens?)"
-        r"(?: named [A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*)?(?: with .+?)?(?: that(?:'s| are) tapped and attacking)?"
-        r"(?: for each [^\"]+|, where [xX] is [^\"]+)?")
+        r"(?: named [A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*)?(?: with (?:(?!, then )[^\"])*(?:\"[^\"]+\")?)?"
+        r"(?: that(?:'s| are) tapped and attacking)?(?: for each [^\"]+|, where [xX] is [^\"]+)?")
 def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """"Create [N] [tapped] [P/T colors Subtypes [artifact] creature | Predefined] token(s) [named …]
-    [with …] [that's tapped and attacking] [for each … | , where X is …]" (701.7, 111.10, 508.4)."""
+    [with …] [that's tapped and attacking] [for each … | , where X is …]" (701.7, 111.10, 508.4).
+    The "with …" part never crosses ", then " ("create a 1/2 green Spider creature token with
+    reach, then each opponent loses 1 life …" is two instructions, which _clause splits; a match
+    here that the grammar then rejected used to fail the whole ability)."""
     from app.rules import token_grammar
 
     found = token_grammar.parse(m.group(0))
@@ -1277,7 +1287,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if ability.kind in ("static", "spell"):
         from app.rules import permissions  # permissions, cost modifiers, "play with the top card revealed"
 
-        granted = permissions.define_static(text, ability.kind)
+        granted = permissions.define_static(text, ability.kind, tuple(self_text(ab.text, ch.name) for ab in ch.abilities))
         if granted is not None:
             return granted
     if ability.kind == "triggered":
@@ -1285,7 +1295,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             m = pattern.match(text)
             if m:
                 name = step_trigger(m) if trigger == "step" else trigger
-                body = m["body"]
+                # -- trigger limits (app/rules/restrictions.py): "This ability triggers only once
+                # each turn." is split off and enforced as it triggers (triggers._add); "Do this
+                # only once each turn." (603.2h) isn't modeled yet: the ability stays manual
+                body, limit = restrictions.split_trigger_limit(m["body"])
+                if limit in restrictions.TRIGGER_LIMIT_REFUSED:
+                    return None
                 kicked = re.match(r"^if (?:it|~) was kicked, (?P<rest>.+)$", body) if name == "enters_self" else None
                 if kicked is not None:  # 603.4 intervening "if": checked as it triggers (triggers._add)
                     body = kicked["rest"]
@@ -1324,6 +1339,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     out["if"] = intervening
                 if kicked is not None:
                     out["if_kicked"] = True
+                if limit is not None:
+                    out["limit"] = "once_each_turn"
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
                 return out
@@ -1350,11 +1367,21 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         cost = parse_ability_cost(ability.cost, card_name=ch.name)
         if cost.unsupported:
             return None
-        parsed = parse_effects(text.split(":", 1)[1])
+        # -- activation restrictions (app/rules/restrictions.py): the trailing "Activate only …"
+        # sentences are split off the effect and enforced as it's activated (casting.ability_problem);
+        # a restriction the engine doesn't read leaves the ability manual
+        body, restriction = restrictions.split(text.split(":", 1)[1])
+        parsed_restriction = restrictions.parse(text) if restriction is not None else []
+        if parsed_restriction is None:
+            return None
+        parsed = parse_effects(body)
         if parsed is None or parsed[2]:
             return None
         effects, target, _ = parsed
-        return {"kind": "activated", "cost": ability.cost, "effects": effects, **target_fields(target)}
+        out = {"kind": "activated", "cost": ability.cost, "effects": effects, **target_fields(target)}
+        if parsed_restriction:
+            out["restriction"] = parsed_restriction
+        return out
     return None
 
 
@@ -1748,6 +1775,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return None
     if text == "~ enters tapped.":
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
+    from app.rules import language  # (a leaf module)
+
+    chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
+    if chosen is not None:
+        return chosen
     m = ENTERS_TAPPED_UNLESS.match(text)
     if m:  # check lands, fast lands, battle lands, Battlebond lands (614.1d)
         cond = _unless_condition(m["cond"])
@@ -1825,3 +1857,132 @@ def _prevent_all_this_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str 
 _RECORDING.update({"exile_top": "exiled", "look_top": None, "to_library": None})
 _MOVERS.update({"exile_top", "to_library"})
 _CHOSEN.update({"exile_top": "n", "look_top": "n"})
+
+
+# -- delayed triggers & durations (app/rules/delayed.py, agent J) ----------------------------------
+# "At the beginning of the next end step, exile it." / "Sacrifice it at the beginning of the next
+# end step." / "When that creature dies this turn, return it to the battlefield." become a
+# ``delayed`` effect over the deferred effects (flat, so resolve_it binds their pronouns to the
+# earlier instructions of the same ability: 603.7c). "… until your next turn" / "for as long as ~
+# remains on the battlefield" become an ``until`` effect over a pump / grant / restriction (611.2).
+from app.rules import delayed as _delayed  # noqa: E402  (a leaf module over rules_state)
+
+# A deferred move of "it" after "When ~ dies" / "Whenever a creature dies" still means the new
+# object where it went (400.7e); deferred effects are never introducers (not in _RECORDING): a
+# later sentence's "that creature" can't name what a move that hasn't happened yet would record.
+_MOVES.update({_delayed.DEFERRED + x for x in _MOVES})
+
+
+def _deferred(clause: str, when: dict[str, Any]) -> tuple[list[dict[str, Any]], Any]:
+    inner = _clause(clause)
+    if inner is None or any(e.get("do") in ("delayed", "until", "optional_payment") for e in inner[0]):
+        raise _NoMatch
+    return _delayed.wrap_when(inner[0], when), inner[1]
+
+
+@effect(rf"at the beginning of (?P<when>{_delayed.WHEN_RE}), (?P<clause>.+)")
+def _delayed_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _deferred(m["clause"], _delayed.WHEN[m["when"]])
+
+
+@effect(rf"(?P<clause>.+?) at the beginning of (?P<when>{_delayed.WHEN_RE})")
+def _delayed_trailing(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _deferred(m["clause"], _delayed.WHEN[m["when"]])
+
+
+@effect(_delayed.EVENT.pattern.lstrip("^").rstrip("$"))
+def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    inner = _clause(m["clause"])
+    if inner is None or inner[1] is not None:  # (the deferred effect's own target: not modeled)
+        raise _NoMatch
+    effects = _delayed.inner_for_event(inner[0])
+    if effects is None or any(e.get("do") in ("delayed", "until", "optional_payment") for e in effects):
+        raise _NoMatch
+    when, who = _delayed.event_when(m)
+    sel = None
+    if who == "target":  # "When target creature dies this turn, …": the creature is this ability's target
+        from app.rules import language
+
+        group = language.target_group(m["subject"])
+        if group is None:
+            raise _NoMatch
+        sel = group["what"]
+    return _delayed.wrap_when(effects, when, who=who, this_turn=True), sel
+
+
+def _with_duration(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    clause, duration = _delayed.duration_clause(m)
+    inner = _clause(clause)
+    if inner is None:
+        raise _NoMatch
+    wrapped = _delayed.wrap_duration(inner[0], duration)
+    if wrapped is None:
+        raise _NoMatch
+    return wrapped, inner[1]
+
+
+@effect(rf"(?P<duration>{_delayed.DURATION_RE}), (?P<clause>.+)")
+def _until_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _with_duration(m)
+
+
+@effect(rf"(?P<clause>.+?) (?P<duration>{_delayed.DURATION_RE})")
+def _until_trailing(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _with_duration(m)
+
+
+def _from_language(found: tuple[list[dict[str, Any]], Any] | None) -> tuple[list[dict[str, Any]], Any]:
+    if found is None:
+        raise _NoMatch
+    return found
+
+
+@effect(r"sacrifice (?P<o>them|those tokens|those creatures|the tokens|those permanents|that creature|that token|"
+        r"the token|that permanent|that card)")
+def _sacrifice_pronoun(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    return _from_language(language.parse_sacrifice_pronoun(m["o"]))
+
+
+@effect(r"return (?P<o>.+?) to the battlefield(?P<t> tapped)? under (?:their|its) owner's control")
+def _return_owner(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    return _from_language(language.parse_return_owner(m.group(0)))
+
+
+@effect(r"exile (?P<o>.+?) until ~ leaves the battlefield")
+def _exile_until_any(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    return _from_language(language.parse_exile_until(m["o"]))
+
+
+# -- player choices (app/rules/language.py "player choices", app/rules/effects.py) -------------------
+# Edicts ("each opponent sacrifices a creature of their choice"), "target opponent chooses a
+# creature they control", a revealed hand ("target player reveals their hand. You choose a nonland
+# card from it. That player discards that card."), "choose a color". The choosing primitives
+# introduce objects a pronoun can name ("that card", "that creature", "it"): they record them.
+def _choice_template(pattern: str, build: Any) -> None:
+    def template(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+        from app.rules import language
+
+        try:
+            return build(m)
+        except language._Fail:
+            raise _NoMatch from None
+    effect(pattern)(template)
+
+
+from app.rules import language as _language  # noqa: E402  (a leaf module)
+
+for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OTHERS, _language.edict),
+                         (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.REVEAL_HAND, _language.reveal_hand),
+                         (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
+                         (_language.CHOOSE_VALUE, _language.choose_value)):
+    _choice_template(_pattern, _build)
+_RECORDING.update({"edict": "sacrificed", "player_chooses": None, "choose_from_hand": None, "discard_named": "discarded",
+                   "reveal_hand": None, "choose_value": None})
+_MOVERS.update({"edict", "player_chooses", "choose_from_hand", "discard_named"})
+_CHOSEN.update({"edict": "n", "player_chooses": "n", "choose_from_hand": "n"})

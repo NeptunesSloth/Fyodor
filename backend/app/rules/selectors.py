@@ -86,6 +86,12 @@ class Selector:
     # "enchanted", "equipped", "counter:+1/+1", "all_types", "attacking_you", "single_graveyard"
     # (a group constraint: every target from one graveyard — read by language.target_group)
     extras: tuple[str, ...] = field(default_factory=tuple)
+    # -- target forms (agent T) --
+    # "creature or Vehicle": the types and the subtypes are alternatives (either matches), not both
+    union: bool = False
+    # an activated or triggered ability on the stack (115.1c-d, 115.2b: "target activated or
+    # triggered ability"): "any" | "activated" | "triggered". Mana abilities never use the stack.
+    ability: str | None = None
 
     def key(self) -> str:
         """Canonical and compact: only fields that differ from the defaults."""
@@ -356,6 +362,9 @@ def _prefix(s: Selector, word: str) -> Selector | None:
     return None
 
 
+_ABILITY = re.compile(r"(?P<kind>activated or triggered|activated|triggered) abilit(?:y|ies)")
+
+
 def parse(phrase: str) -> Selector | None:
     """A noun phrase without its determiner ("nonland permanent an opponent controls") → Selector."""
     return _parse(phrase.strip())
@@ -387,6 +396,12 @@ def _parse(phrase: str) -> Selector | None:
     words = text.replace(",", " ,").split()
     if not words:
         return None
+    ability = _ABILITY.fullmatch(text.strip())
+    if ability is not None:  # -- target forms (agent T) --
+        if s.zones != _DEFAULT.zones or s.owner is not None or s.controller not in (None, "you", "opponent"):
+            return None  # ("ability from an artifact source": its source's qualities aren't read)
+        kind = {"activated or triggered": "any", "activated": "activated", "triggered": "triggered"}[ability["kind"]]
+        return replace(s, zones=("stack",), ability=kind)
     # The core: the trailing nouns. Joined by "or" / "," they're alternatives ("artifact or
     # enchantment"); side by side they narrow each other ("artifact creature", "Goblin creature").
     nouns: list[tuple[str, str]] = []
@@ -421,8 +436,9 @@ def _parse(phrase: str) -> Selector | None:
     subtypes = tuple(dict.fromkeys(v for k, v in kinds if k == "sub"))
     if "or" in joins and "and" in joins:
         return None  # "artifact creature or enchantment": not yet
+    union = False
     if "or" in joins and types and subtypes:
-        return None  # "artifact or Goblin": not yet
+        union = True  # "creature or Vehicle": either kind matches (-- target forms (agent T) --)
     if "spell" in markers:
         if "card" in markers or s.zones != _DEFAULT.zones:
             return None  # "spell from your graveyard" (cast from a graveyard): not a selector
@@ -448,7 +464,7 @@ def _parse(phrase: str) -> Selector | None:
         s = replace(s, types=types, extras=(*s.extras, "all_types"))  # "artifact creature"
     else:
         s = replace(s, types=types)
-    s = replace(s, subtypes=subtypes)
+    s = replace(s, subtypes=subtypes, union=union)
     prefix_words = _join_statuses(words[: i + 1])
     for k, w in enumerate(reversed(prefix_words)):
         if w in (",",):
@@ -483,31 +499,49 @@ def _join_statuses(words: list[str]) -> list[str]:
 
 # -- evaluation ---------------------------------------------------------------------------
 def _defender(plan: Plan, target: Any) -> str | None:
-    """The player a creature is attacking, or the controller of the planeswalker / battle."""
+    """The player a creature is attacking, or the controller of the planeswalker it's attacking
+    (508.5, 506.2: a planeswalker is attacked on its controller's behalf). Battles aren't
+    modelled as attack targets: the defending player relative to a battle would be its
+    *protector*, not its controller (310.9d) — not invented here."""
     if target is None:
         return None
     if target.kind == "player":
         return str(target.id)
     attacked = plan.state.cards.get(target.id)
-    return attacked.controller if attacked is not None else None
+    if attacked is None or not attacked.zone.endswith(":battlefield"):
+        return None
+    return attacked.controller
 
 
-def defending_players(plan: Plan, source: str | None) -> set[str]:
-    """Who "defending player" means (508.5): for an attacking source, the player it's attacking
-    (or whose planeswalker / battle it's attacking); otherwise the players being attacked in
-    this combat (508.5a: one of them — the chooser picks by picking a target of theirs).
-    Empty outside combat."""
-    src = plan.state.cards.get(source or "")
-    if src is not None and src.attacking is not None:
-        d = _defender(plan, src.attacking)
-        return {d} if d else set()
-    out = set()
-    for c in plan.state.cards.values():
-        if c.attacking is not None and c.zone.endswith(":battlefield"):
-            d = _defender(plan, c.attacking)
-            if d:
-                out.add(d)
-    return out
+def attacker_of(event: Any) -> str | None:
+    """The attacking creature an "attacks" trigger event is about (its card id), from the
+    TriggerEvent (a model, or its JSON in a resolution context); None for any other event."""
+    if event is None:
+        return None
+    kind = event.get("kind") if isinstance(event, dict) else getattr(event, "kind", None)
+    if kind != "attack":
+        return None
+    objects = event.get("objects") if isinstance(event, dict) else getattr(event, "objects", None)
+    if not objects:
+        return None
+    first = objects[0]
+    card = first.get("card") if isinstance(first, dict) else getattr(first, "card", None)
+    return str(card) if card else None
+
+
+def defending_players(plan: Plan, source: str | None, attacker: str | None = None) -> set[str]:
+    """Who "defending player" means (508.5): the player the creature in question is attacking
+    (or whose planeswalker it's attacking) — ``attacker`` for an "attacks" trigger (the event's
+    creature, which may not be the ability's source: "Whenever a creature you control attacks",
+    508.5a determines it for each attacking creature), else the source itself when it is
+    attacking. With neither — a source that isn't attacking and no attack event — the rule would
+    let the ability's controller pick one defending player (508.5a); that choice isn't modelled:
+    nothing matches. Empty outside combat."""
+    creature = plan.state.cards.get(attacker or source or "")
+    if creature is None or creature.attacking is None:
+        return set()
+    d = _defender(plan, creature.attacking)
+    return {d} if d else set()
 
 
 def matches_player(plan: Plan, sel: Selector, pid: str, you: str) -> bool:
@@ -521,8 +555,10 @@ def matches_player(plan: Plan, sel: Selector, pid: str, you: str) -> bool:
 
 
 def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, you: str,
-            source: str | None = None) -> bool:
-    """Does this object match the selector (``you``: the player it's evaluated for)?"""
+            source: str | None = None, attacker: str | None = None) -> bool:
+    """Does this object match the selector (``you``: the player it's evaluated for; ``source``:
+    the ability's source, for "another …" and "defending player"; ``attacker``: the creature an
+    "attacks" trigger is about, whose defending player "defending player" then means, 508.5)?"""
     zone = card.zone.split(":")[-1] if ":" in card.zone else card.zone
     if sel.player is not None:
         return False
@@ -534,9 +570,14 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.zone_owner == "opponent" and card.owner == you:
         return False
-    if zone == "stack" and card.ability is not None:
+    if zone == "stack" and (card.ability is not None) != (sel.ability is not None):
+        return False  # a spell isn't an ability, and an ability isn't a spell (115.2b)
+    if sel.ability is not None and not _ability_kind(plan, card, sel.ability):
         return False
-    if sel.types:
+    if sel.union:  # "creature or Vehicle": either the type or the subtype (-- target forms (agent T) --)
+        if not (set(sel.types) & ch.types or set(sel.subtypes) & ch.subtypes):
+            return False
+    elif sel.types:
         if "all_types" in sel.extras:
             if not set(sel.types) <= ch.types:
                 return False
@@ -546,7 +587,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if set(sel.not_types) & ch.types:
         return False
-    if sel.subtypes and not set(sel.subtypes) & ch.subtypes:
+    if sel.subtypes and not sel.union and not set(sel.subtypes) & ch.subtypes:
         return False
     if set(sel.not_subtypes) & ch.subtypes:
         return False
@@ -558,7 +599,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.controller == "opponent" and card.controller == you:
         return False
-    if sel.controller == "defending" and card.controller not in defending_players(plan, source):
+    if sel.controller == "defending" and card.controller not in defending_players(plan, source, attacker):
         return False
     if sel.owner == "you" and card.owner != you:
         return False
@@ -592,6 +633,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     for what, op, n in sel.compare:
         value = _stat(ch, what)
+        if what == "mv" and value is not None and zone == "stack" and card.stack_info is not None and card.stack_info.x:
+            value += card.stack_info.x * ch.mana_cost.count("{X}")  # 202.3e: X on the stack is the value chosen
         if value is None or not {"<=": value <= n, ">=": value >= n, "==": value == n}[op]:
             return False
     for extra in sel.extras:
@@ -604,6 +647,18 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
     return True
+
+
+def _ability_kind(plan: Plan, card: CardInstance, kind: str) -> bool:
+    """Is this stack object an ability of the wanted kind ("any" / "activated" / "triggered")?
+    Read from the stack entry (its rules metadata), never guessed from the text."""
+    entry = plan.rules.stack.get(card.id) if plan.rules is not None else None
+    actual = entry.kind if entry is not None else (card.ability.kind if card.ability is not None else None)
+    if actual == "trigger":
+        actual = "triggered"
+    if actual not in ("activated", "triggered"):
+        return False
+    return kind == "any" or kind == actual
 
 
 def _stat(ch: Characteristics, what: str) -> int | None:
@@ -619,7 +674,7 @@ def _has_attached(plan: Plan, card: CardInstance, subtype: str) -> bool:
     return any(c.attached_to == card.id and subtype in plan.ch(c).subtypes for c in plan.state.cards.values())
 
 
-def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None) -> list[str]:
+def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None, attacker: str | None = None) -> list[str]:
     """Card ids (not players) matching the selector, in a deterministic order."""
     zones = sel.zones or ("graveyard", "hand", "exile")
     out = []
@@ -633,6 +688,6 @@ def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None) -
             card = plan.state.cards.get(cid)
             if card is None or (zone == "battlefield" and not plan.in_game(card)):
                 continue
-            if matches(plan, sel, card, plan.ch(card), you, source):
+            if matches(plan, sel, card, plan.ch(card), you, source, attacker):
                 out.append(cid)
     return out

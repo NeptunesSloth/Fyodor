@@ -76,13 +76,26 @@ def unless_holds(plan: Plan, controller: str, card: CardInstance, cond: dict[str
 
 
 def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bool | None = None,
-               tapped: bool = False) -> dict[str, Any]:
+               tapped: bool = False, answers: dict[str, str] | None = None) -> dict[str, Any]:
     """How the permanent's own replacement effects modify its entering: {"tapped": bool, "life": N
-    (a shock land whose controller pays), "choice": {"life": N} (a shock land still to be decided:
-    614.12a, the choice is made before it enters)}. ``tapped`` is what the effect putting it onto the
-    battlefield says ("put it onto the battlefield tapped")."""
+    (a shock land whose controller pays), "choices": {"color": "Blue", …} (its "As ~ enters, choose
+    …" answers, ``answers``), "choice": {"life": N} | {"what": "color"} (the next thing still to be
+    decided: 614.12a, choices are made before it enters)}. ``tapped`` is what the effect putting it
+    onto the battlefield says ("put it onto the battlefield tapped")."""
     out: dict[str, Any] = {"tapped": bool(tapped)}
     defs = [d for d in _definitions(plan, card).values() if d["kind"] == "replacement"]
+    answers = dict(answers or {})
+    for d in defs:  # "As ~ enters, choose a color." (614.1c): the answer is recorded on the permanent
+        if d["replacement"] != "enters_choice":
+            continue
+        for e in d.get("effects") or []:
+            what = e.get("what")
+            if e.get("do") != "choose_value" or not what:
+                continue
+            if what in answers:
+                out.setdefault("choices", {})[what] = answers[what]
+            elif "choice" not in out:
+                out["choice"] = {"what": what}
     for d in defs:
         kind = d["replacement"]
         if kind == "enters_tapped":
@@ -95,8 +108,8 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
         if d["replacement"] != "pay_life_or_tapped":
             continue
         life = int(d["life"])
-        if out["tapped"]:
-            continue  # it enters tapped anyway ("put it onto the battlefield tapped"): nothing to decide
+        if out["tapped"] or "choice" in out:
+            continue  # it enters tapped anyway ("put it onto the battlefield tapped"), or another choice comes first
         player = plan.state.players.get(controller)
         if player is None or player.life < life:
             out["tapped"] = True  # 119.4: life can be paid only from a life total of at least that much
@@ -114,7 +127,28 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
     """The choice a permanent's own "As ~ enters, you may …" asks for before it enters (614.12a)."""
     if not plan.state.players.get(entry["player"]):
         return None
-    return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped"))).get("choice")
+    return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
+                      answers=entry.get("choices")).get("choice")
+
+
+def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]]:
+    """The prompt and options for one entering choice (a shock land's life, or a named choice)."""
+    if "life" in choice:
+        n = choice["life"]
+        return (f"{card.name}: pay {n} life, or it enters tapped?",
+                [DecisionOption(id="pay", label=f"Pay {n} life (untapped)"), DecisionOption(id="tapped", label="Enters tapped")])
+    from app.rules.effects import _choice_options
+
+    what = choice["what"]
+    article = "an" if what[:1] in "aeiou" else "a"
+    return f"{card.name}: as it enters, choose {article} {what}", _choice_options(plan, {"controller": controller}, what)
+
+
+def _answer(entry_or_answers: dict[str, Any], choice: dict[str, Any], chosen: str) -> dict[str, Any]:
+    """Record an answer: a shock land's ``pay_life``, or a named choice under ``choices``."""
+    if "life" in choice:
+        return {**entry_or_answers, "pay_life": chosen == "pay"}
+    return {**entry_or_answers, "choices": {**(entry_or_answers.get("choices") or {}), choice["what"]: chosen}}
 
 
 def ask_entry_choice(plan: Plan, entry: Entry, rest: list[Entry], ctx: dict[str, Any] | None, shuffle: str | None) -> None:
@@ -124,24 +158,72 @@ def ask_entry_choice(plan: Plan, entry: Entry, rest: list[Entry], ctx: dict[str,
 
     card = plan.state.cards[entry["card"]]
     choice = choice_needed(plan, card, entry) or {"life": 0}
-    n = choice["life"]
-    decide(plan, player=entry["player"], kind="choose_one", prompt=f"{card.name}: pay {n} life, or it enters tapped?",
-           options=[DecisionOption(id="pay", label=f"Pay {n} life (untapped)"), DecisionOption(id="tapped", label="Enters tapped")],
-           resume={"step": "enter_choice", "entry": entry, "rest": rest, "ctx": ctx, "shuffle": shuffle}, source=card)
+    prompt, options = choice_prompt(plan, card, entry["player"], choice)
+    if not options:  # (no opponent left to choose, 800.4: the choice is skipped)
+        entry = _answer(entry, choice, "")
+        from app.rules import attachments
+
+        if attachments.enter(plan, [entry, *rest], ctx, shuffle=shuffle):
+            _finish_entries(plan, ctx, shuffle)
+        return
+    decide(plan, player=entry["player"], kind="choose_one", prompt=prompt, options=options,
+           resume={"step": "enter_choice", "entry": entry, "rest": rest, "ctx": ctx, "shuffle": shuffle, "choice": choice},
+           source=card)
 
 
-def resume_entry_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
-    from app.rules import attachments
+def _finish_entries(plan: Plan, ctx: dict[str, Any] | None, shuffle: str | None) -> None:
     from app.rules.effects import continue_effects
 
-    entry = {**d.resume["entry"], "pay_life": chosen[0] == "pay"}
-    rest, ctx, shuffle = d.resume.get("rest") or [], d.resume.get("ctx"), d.resume.get("shuffle")
-    if not attachments.enter(plan, [entry, *rest], ctx, shuffle=shuffle):
-        return  # another choice (a second shock land, an Aura choosing what it enchants)
     if shuffle:
         plan.do({"type": "shuffle", "player": shuffle, "zone": "library"}, actor=shuffle)
     if ctx is not None:
         continue_effects(plan, ctx)
+
+
+def resume_entry_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import attachments
+
+    entry = _answer(d.resume["entry"], d.resume.get("choice") or {"life": 0}, chosen[0])
+    rest, ctx, shuffle = d.resume.get("rest") or [], d.resume.get("ctx"), d.resume.get("shuffle")
+    if not attachments.enter(plan, [entry, *rest], ctx, shuffle=shuffle):
+        return  # another choice (a second shock land, an Aura choosing what it enchants)
+    _finish_entries(plan, ctx, shuffle)
+
+
+def stack_entry_choice(plan: Plan, card: CardInstance, controller: str) -> bool:
+    """A permanent spell about to resolve with an "As ~ enters, choose …" ability: ask its
+    controller before it enters (614.12a). True while a question is open; the answers wait in
+    ``RulesState.entry_choices`` and the spell resolves again with them."""
+    from app.rules.plan import decide
+
+    r = plan.rules
+    ep = entry_plan(plan, card, controller, answers=r.entry_choices.get(card.id))
+    choice = ep.get("choice")
+    if choice is None or "what" not in choice:
+        return False  # (a shock land's question is never asked on the stack: the wording is printed on lands)
+    prompt, options = choice_prompt(plan, card, controller, choice)
+    if not options:
+        r.entry_choices.setdefault(card.id, {})[choice["what"]] = ""
+        return stack_entry_choice(plan, card, controller)
+    decide(plan, player=controller, kind="choose_one", prompt=prompt, options=options,
+           resume={"step": "stack_enter_choice", "card": card.id, "what": choice["what"]}, source=card)
+    return True
+
+
+def resume_stack_enter_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.engine import resolve_top_of_stack
+
+    plan.rules.entry_choices.setdefault(d.resume["card"], {})[d.resume["what"]] = chosen[0]
+    resolve_top_of_stack(plan)
+
+
+def resume_land_enter_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game import actions as A
+    from app.rules.engine import play_land
+
+    plan.rules.entry_choices.setdefault(d.resume["card"], {})[d.resume["what"]] = chosen[0]
+    plan.rules.priority = d.player
+    play_land(plan, A.parse_action(d.resume["intent"]))  # type: ignore[arg-type]
 
 
 def move_onto_battlefield(plan: Plan, entry: Entry) -> None:
@@ -154,14 +236,16 @@ def move_onto_battlefield(plan: Plan, entry: Entry) -> None:
     if card is None:
         return
     controller, actor = entry["player"], entry["actor"]
-    ep = entry_plan(plan, card, controller, pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")))
+    ep = entry_plan(plan, card, controller, pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
+                    answers=entry.get("choices"))
     if ep.get("life"):
         plan.do({"type": "life", "player": controller, "delta": -int(ep["life"])}, actor=actor)
     payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"player": controller, "zone": "battlefield"}}
     if ep["tapped"]:
         payload["tapped"] = True
     plan.do(payload, actor=actor)
-    after_entry(plan, card.id, controller, x=entry.get("x"), extra_counters={entry["counter"]: 1} if entry.get("counter") else None)
+    after_entry(plan, card.id, controller, x=entry.get("x"), extra_counters={entry["counter"]: 1} if entry.get("counter") else None,
+                choices=ep.get("choices"))
     entered = plan.state.cards.get(card.id)
     if entered is None or not entered.zone.endswith(":battlefield"):
         return
@@ -173,8 +257,10 @@ def move_onto_battlefield(plan: Plan, entry: Entry) -> None:
                           duration="permanent", label=f"Haste ({entry['gain_haste']})")
     if entry.get("exile_if_leaves"):  # 702.84a: "If it would leave the battlefield, exile it instead of putting it anywhere else."
         plan.rules.exile_if_leaves.append(oid)
-    if entry.get("delayed"):  # "Exile it at the beginning of the next end step" (702.84a) — a delayed trigger
-        plan.rules.delayed.append({"card": entered.id, "object": oid, "to": entry["delayed"], "name": entered.name})
+    if entry.get("delayed"):  # "Exile it at the beginning of the next end step" (702.84a) — a delayed trigger (603.7)
+        from app.rules import delayed
+
+        delayed.create_move(plan, controller, entered.id, oid, entry["delayed"], entered.name)
 
 
 def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any], x: int | None) -> int:
@@ -193,12 +279,21 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
 
 
 def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None,
-                extra_counters: dict[str, int] | None = None) -> None:
+                extra_counters: dict[str, int] | None = None, choices: dict[str, str] | None = None) -> None:
     """The "enters with" part of entering (122.6: counters put on it as it enters, by its controller;
-    306.5b: a planeswalker's loyalty), right after the move that put it onto the battlefield."""
+    306.5b: a planeswalker's loyalty), right after the move that put it onto the battlefield, and the
+    record of what was chosen as it entered ("Chosen color: Blue" on the permanent, 614.12a)."""
     card = plan.state.cards.get(card_id)
     if card is None or not card.zone.endswith(":battlefield"):
         return
+    if choices:
+        from app.rules.effects import CHOICE_LABELS
+
+        for what, value in choices.items():
+            if not value or what not in CHOICE_LABELS:
+                continue
+            shown = plan.name(value) if what in ("opponent", "player") and value in plan.state.players else value
+            plan.do({"type": "set_choice", "card_id": card_id, "key": CHOICE_LABELS[what], "value": shown}, actor=controller)
     counters: dict[str, int] = dict(extra_counters or {})
     ch = plan.ch(card)
     if "Planeswalker" in ch.types:  # 306.5b: intrinsic, however it enters (even a card taken out of automation)

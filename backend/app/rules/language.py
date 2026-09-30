@@ -31,6 +31,8 @@ KEYWORDS = "|".join(k for k in selectors.KEYWORDS if k not in ("protection",))
 # Legacy selector keys the rest of the engine already uses (targets.SELECTORS).
 _LEGACY_TARGETS = {
     "any target": "any", "target player": "player", "target opponent": "opponent",
+    # -- target forms (agent T) --  a player, or any planeswalker (whoever controls it)
+    "target player or planeswalker": "player_or_planeswalker", "target opponent or planeswalker": "opponent_or_planeswalker",
 }
 # Player phrases. The pronouns are placeholders resolved by scripts.resolve_it against what the
 # ability named earlier: "that player" → the target player (or the trigger event's player),
@@ -50,8 +52,10 @@ class _Fail(Exception):
 
 MAX_TARGETS = 20  # "any number of target …": at most this many (the intents' limit)
 _QTY = r"one|two|three|four|five|six|seven|eight|nine|ten|\d+"
+# -- target forms (agent T) --  "up to one other target creature", "each of up to two other targets",
+# "any number of other target nonland permanents you control": "other" inside a counted group
 _GROUP = re.compile(rf"^(?:each of )?(?:up to (?P<upto>{_QTY})|(?P<range>one or two|one, two, or three)|"
-                    rf"(?P<any>any number of)|(?P<n>{_QTY})) (?P<rest>targets|target .+)$")
+                    rf"(?P<any>any number of)|(?P<n>{_QTY})) (?P<other>(?:an)?other )?(?P<rest>targets|target .+)$")
 
 
 def _qty(word: str) -> int:
@@ -72,7 +76,7 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     p = phrase.strip()
     if p in _LEGACY_TARGETS:
         return {"what": _LEGACY_TARGETS[p], "min": 1, "max": 1}
-    if p == "another target":  # 115.4 (Arc Trail): any target other than the earlier one
+    if p in ("another target", "any other target"):  # 115.4 (Arc Trail): any target other than the earlier one
         return {"what": "", "min": 1, "max": 1, "another": "any"}
     if p.startswith(("target ", "another target ")):
         what, _ = _group_constraints(_target_key(p))  # (one target: "a single graveyard" is vacuous)
@@ -84,6 +88,12 @@ def target_group(phrase: str) -> dict[str, Any] | None:
     if not m:
         return None
     what, constraints = ("any", {}) if m["rest"] == "targets" else _group_constraints(_target_key(m["rest"]))
+    if m["other"]:  # "up to two other target creatures": other than the source, or than an earlier target
+        if m["rest"] == "targets":
+            what, constraints = "", {"another": "any"}  # ("each of up to two other targets": than the earlier one)
+        else:
+            constraints = {**constraints, "another": what}
+            what = _group_constraints(_target_key("another " + m["rest"]))[0]
     if m["upto"]:
         lo, hi = 0, _qty(m["upto"])
     elif m["range"]:
@@ -211,23 +221,77 @@ def _who(kind: str, key: str) -> str:
     return {"target": "target", "self": "self", "host": "host", "players": key, "each": key}[kind]
 
 
+# -- dynamic values (agent F) -------------------------------------------------------------------
 _STATS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
 
 
-def _stat(phrase: str, its: str = "it") -> dict[str, Any]:
+def _stat(phrase: str, its: str = "it") -> Any:
     """"its power" / "that creature's toughness" / "its mana value": a value read from the object
     the previous instruction was about — as it is, or as it last existed (608.2h). A placeholder
     ("it") until scripts.resolve_it binds it; ``its`` is what "its" means when the sentence has
-    its own subject ("~ deals damage equal to its power": ~'s)."""
-    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's) (?P<stat>power|toughness|mana value)",
-                     phrase)
-    if not m:
+    its own subject ("~ deals damage equal to its power": ~'s). Also any quantity the value
+    grammar reads ("the number of lands you control", "your devotion to red", "twice its power":
+    app/rules/values.py), and "~'s power" (the source's, 608.2h)."""
+    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's|(?P<self>~'s)) "
+                     r"(?P<stat>power|toughness|mana value)", phrase)
+    if m:
+        return {_STATS[m["stat"]]: "self" if m["self"] else (its if m["its"] else "it")}
+    m = re.fullmatch(r"twice (?P<v>.+)", phrase)
+    if m:
+        return {"times": [2, _stat(m["v"], its)]}
+    v = values.parse_count(phrase)
+    if v is None:
         raise _Fail
-    return {_STATS[m["stat"]]: its if m["its"] else "it"}
+    return v
+
+
+# The instruction joiners scripts._clause splits a sentence on (mirrored here, so a sentence with
+# one "where X is …" for two instructions is read whole before it would be split)
+_JOINER = (r", then | and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|destroy|tap|untap|"
+           r"create|sacrifice|discard|mill|scry|surveil)\b)")
+
+
+def _has_x(v: Any) -> bool:
+    """Does an effect (or value) use the placeholder X?"""
+    if isinstance(v, list):
+        return any(_has_x(x) for x in v)
+    return isinstance(v, dict) and (v == {"x": 1} or any(_has_x(x) for x in v.values()))
+
+
+def _bind_x(v: Any, value: Any) -> Any:
+    """The effect with every X replaced by what "where X is …" defines."""
+    if isinstance(v, list):
+        return [_bind_x(x, value) for x in v]
+    if isinstance(v, dict):
+        return value if v == {"x": 1} else {k: _bind_x(x, value) for k, x in v.items()}
+    return v
+
+
+def _wants_target_player(v: Any) -> bool:
+    """Does a value read a target player ("cards in target player's hand", "target player's life total")?"""
+    if isinstance(v, list):
+        return any(_wants_target_player(x) for x in v)
+    if not isinstance(v, dict):
+        return False
+    return v.get("hand") == "target" or v.get("life") == "target" or any(_wants_target_player(x) for x in v.values())
+
+
+def _value_target(n: Any, target: str | None) -> str | None:
+    """The sentence's target once its amount is known: a value reading "target player" is that
+    sentence's one target (115.1) — declared here so it's chosen on casting and checked on
+    resolution — unless the sentence already targets something else (then it's not read)."""
+    if not _wants_target_player(n):
+        return target
+    if target is None:
+        return "player"
+    if target in ("player", "opponent"):
+        return target
+    raise _Fail
 
 
 # "… and target artifact", "… and up to one target creature", "… and another target creature"
-_AND_TARGET = r" and (?=(?:each of )?(?:another |up to \w+ |any number of |one or two |two |three )?targets?\b|any target)"
+_AND_TARGET = (r" and (?=(?:each of )?(?:another |up to \w+ |any number of |one or two |two |three )?(?:(?:an)?other )?targets?\b"
+               r"|any (?:other )?target)")
 
 
 def _objects(o: str) -> tuple[list[str], list[dict[str, Any]]]:
@@ -259,7 +323,7 @@ def _amount(word: str) -> Any:
 def _with_rider(text: str) -> tuple[str, Any]:
     """Split "…, where X is the number of …" / "… for each …" off the sentence: the multiplier or
     the value of X (None if there's none)."""
-    m = re.search(r",? where x is (.+)$", text)
+    m = re.search(r",? where [xX] is (.+)$", text)  # (Oracle writes X; the lowercase form is the older tests')
     if m:
         v = values.parse_count(m[1])
         if v is None:
@@ -489,6 +553,18 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if found is not None:
         return found
     text, rider = _with_rider(text)
+    if rider is not None and rider[0] == "x":
+        # "Each opponent loses X life and you gain X life, where X is …": one X for both halves
+        # (107.3c: X is defined by the text of the ability for the whole ability), so the halves
+        # are read here, each with the rider, rather than split upstream with X unbound in one
+        halves = re.split(_JOINER, text, maxsplit=1)
+        if len(halves) == 2:
+            left, right = _parse(halves[0]), _parse(halves[1])
+            if left[1] is not None and right[1] is not None:
+                raise _Fail  # (two targets: not read here)
+            if not all(_has_x(e) for e in (*left[0], *right[0])):
+                raise _Fail  # ("… and draw a card, where X is …": which half X belongs to isn't read)
+            return [_bind_x(e, rider[1]) for e in (*left[0], *right[0])], left[1] if left[1] is not None else right[1]
     # -- players ------------------------------------------------------------------------------
     m = re.fullmatch(_SUBJ + rf"draws? (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
@@ -496,7 +572,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["stat"]:  # "draw cards equal to its power" (a trigger's object, or an earlier instruction's)
             if rider is not None:
                 raise _Fail
-            return [{"do": "draw", "who": who, "n": _stat(m["stat"])}], target
+            n = _stat(m["stat"])
+            return [{"do": "draw", "who": who, "n": n}], _value_target(n, target)
         return [{"do": "draw", "who": who, "n": _apply(_amount(m["n"]), rider)}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>gains?|loses?) (?:(?P<n>{AMT}) life|life equal to (?P<stat>.+))", text)
     if m:
@@ -505,7 +582,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["stat"]:  # "… gains life equal to its toughness"
             if rider is not None:
                 raise _Fail
-            return [{"do": verb, "who": who, "n": _stat(m["stat"])}], target
+            n = _stat(m["stat"])
+            return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
@@ -514,7 +592,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["stat"]:
             if rider is not None:
                 raise _Fail
-            return [{"do": verb, "who": who, "n": _stat(m["stat"])}], target
+            n = _stat(m["stat"])
+            return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
     m = re.fullmatch(_SUBJ + rf"sacrifices? (?P<n>{AMT}) (?P<sel>.+)", text)
     if m and rider is None:
@@ -543,11 +622,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
             groups += parts
         return effects, _out(groups)
     m = re.fullmatch(rf"(?P<src>~|it) deals (?:(?P<n>{AMT}) damage|damage equal to (?P<stat>.+?)) to (?P<o>.+)", text)
+    if m is None:  # "~ deals damage to target creature equal to the number of lands you control" (the same, worded after)
+        m = re.fullmatch(r"(?P<src>~|it) deals (?P<n>)damage to (?P<o>.+?) equal to (?P<stat>.+)", text)
     if m:
         if m["stat"] and rider is not None:
             raise _Fail
         # "~ deals damage equal to its power": its own (the subject's); "it deals … its power": it's
         n = _stat(m["stat"], "self" if m["src"] == "~" else "it") if m["stat"] else _apply(_amount(m["n"]), rider)
+        if _wants_target_player(n):
+            raise _Fail  # (a second target the damage sentence would have to declare: not read)
         effects = []
         groups = []
         for part in re.split(r" and (?=each |you$)|" + _AND_TARGET, m["o"]):
@@ -561,6 +644,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if rider is not None and not text.startswith(("put ", "remove ")):
         raise _Fail
     # -- objects --------------------------------------------------------------------------------
+    found = _target_forms(text)  # -- target forms (agent T) --
+    if found is not None:
+        return found
     m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap) (?P<o>.+)", text)
     if m:
         whos, groups = _objects(m["o"])
@@ -612,8 +698,16 @@ def _parse(text: str) -> tuple[Effects, Any]:
             _divided(m["o"], "counters", _amount(m["n"]))
     m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o>.+)", text)
     if m:
+        if m["k"] in values.UNMODELED_COUNTERS:
+            raise _Fail
+        whos, groups = _objects(m["o"])  # -- target forms (agent T) --  "on up to one target land and up to one target creature"
+        if len(whos) > 1:
+            if len(groups) != len(whos):
+                raise _Fail  # (each part of "… and …" is a target of its own: 115.3)
+            return [{"do": "add_counters", "who": w, "kind": m["k"], "n": _apply(_amount(m["n"]), rider)} for w in whos], \
+                _out(groups)
         kind, key, group = ref(m["o"])
-        if kind == "players" or m["k"] in values.UNMODELED_COUNTERS:
+        if kind == "players":
             raise _Fail
         return [{"do": "add_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             _one(group)
@@ -646,3 +740,203 @@ def _parse(text: str) -> tuple[Effects, Any]:
 
 def _signed(p: str) -> int:
     return -int(p[1:]) if p[0] in "-−" else int(p.lstrip("+"))
+
+
+# -- target forms (agent T) ---------------------------------------------------------------------------
+# Sentences whose whole point is their targets (CR 115, 601.2c): "Choose up to one target creature."
+# (a later sentence acts on it: "That creature can't block this turn"), "[~ / it / target creature
+# you control] fights [another] target creature" (701.14: two words "target", so two groups, and
+# "another" means an object distinct from the first, 115.3), and "counter [target spell /
+# activated or triggered ability]" (115.1c-d; a mana ability never uses the stack, 605.3a). A
+# sentence is only read when the engine has the primitive that carries it out: the ones whose
+# primitive another module hasn't added yet are refused (app/rules/coverage.py REFUSED).
+_CHOOSE = re.compile(r"choose (?P<o>(?:each of )?(?:up to \w+ |any number of |one or two |\w+ )?(?:(?:an)?other )?targets?\b.*)")
+_FIGHTS = re.compile(r"(?P<a>.+?) fights (?P<b>.+)")
+_COUNTER = re.compile(r"counter (?P<o>.+)")
+
+
+def has_primitive(name: str) -> bool:
+    """Does the effects module carry out this primitive? (Never claim a wording the engine can't run.)"""
+    from app.rules import effects  # (effects imports this module's users; a lazy import)
+
+    return name in effects.PRIMITIVES
+
+
+def _target_forms(text: str) -> tuple[Effects, Any] | None:
+    m = _CHOOSE.fullmatch(text)
+    if m:
+        if not has_primitive("choose_targets"):
+            raise _Fail  # (refused until the primitive exists: coverage.REFUSED "choose_targets")
+        whos, groups = _objects(m["o"])
+        if len(whos) != len(groups):
+            raise _Fail  # ("choose a creature": a choice, not a target — the player-choices grammar)
+        return [{"do": "choose_targets", "who": w} for w in whos], _out(groups)
+    m = _FIGHTS.fullmatch(text)
+    if m:
+        if not has_primitive("fight"):
+            raise _Fail  # (refused until the fight primitive exists: coverage.REFUSED "fight")
+        a_kind, a_key, a_group = ref(m["a"])
+        b_kind, b_key, b_group = ref(m["b"])
+        if a_kind not in ("self", "it", "host", "target") or b_kind != "target":
+            raise _Fail  # (a creature fights "each creature …": one at a time, in what order? not read)
+        groups = [g for g in (a_group, b_group) if g is not None]
+        for g in groups:
+            if not g["what"].startswith(selectors.PREFIX) or selectors.from_key(g["what"]).player is not None:
+                raise _Fail  # (only creatures fight, 701.14a: "any target" can't be one)
+        who = "target" if a_group is not None else _who(a_kind, a_key)
+        partner = "target" if a_group is None else "target:1"
+        return [{"do": "fight", "who": who, "with": partner}], _out(groups)
+    m = _COUNTER.fullmatch(text)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind != "target" or not key.startswith(selectors.PREFIX) or selectors.from_key(key).zones != ("stack",):
+            raise _Fail  # (only an object on the stack can be countered, 701.6a)
+        return [{"do": "counter", "who": "target"}], _one(group)
+    return None
+
+
+# -- delayed triggers & durations (agent J) --------------------------------------------------------
+# Sentence forms app/rules/delayed.py needs that the grammar above doesn't read on its own. Each is
+# registered as a template by the appended block of app/rules/scripts.py, so the pronoun resolver
+# and the target-group bookkeeping treat the deferred effects like any others.
+_PRONOUN_SACRIFICE = {"them": "them", "those tokens": "them", "those creatures": "them", "the tokens": "them",
+                      "those permanents": "them", "that creature": "it", "that token": "it", "the token": "it",
+                      "that permanent": "it", "that card": "it"}
+_OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)? under (?:their|its) owner's control$")
+
+
+def parse_sacrifice_pronoun(phrase: str) -> tuple[Effects, Any] | None:
+    """"Sacrifice that creature / those tokens / the token": the objects an earlier instruction
+    named (a pronoun for scripts.resolve_it)."""
+    who = _PRONOUN_SACRIFICE.get(phrase.strip())
+    return ([{"do": "sacrifice", "who": who}], None) if who else None
+
+
+def parse_return_owner(text: str) -> tuple[Effects, Any] | None:
+    """"Return those cards to the battlefield under their owner's control" (the singular "owner's"
+    of current Oracle wording): the cards an earlier instruction moved (400.7j), each to its
+    owner's side."""
+    m = _OWNER_RETURN.fullmatch(text.strip())
+    if not m:
+        return None
+    try:
+        kind, key, group = ref(m["o"])
+    except _Fail:
+        return None
+    if kind not in ("it", "them"):
+        return parse_sentence(text)  # ("return all creature cards from your graveyard …": the grammar above)
+    return [{"do": "return_card", "who": _who(kind, key), "to": "battlefield", "tapped": bool(m["t"]),
+             "under": "owner"}], _one(group)
+
+
+def parse_exile_until(phrase: str) -> tuple[Effects, Any] | None:
+    """"Exile <objects> until ~ leaves the battlefield" (610.3) for any target phrase the selector
+    grammar reads ("target artifact or creature an opponent controls", "up to one target nonland
+    permanent …"). Not a pronoun: "exile that card until …" may name a card in a hand, and 610.3
+    returns it to its previous zone, while the engine's linked return puts it onto the
+    battlefield (610.3c) — that wording stays manual."""
+    try:
+        kind, key, group = ref(phrase.strip())
+    except _Fail:
+        return None
+    if kind in ("players", "self", "host", "it", "them"):
+        return None
+    return [{"do": "exile_until", "who": _who(kind, key)}], _one(group)
+
+
+# -- player choices (agent I) ---------------------------------------------------------------------
+# Sentences whose choice belongs to a named player, read by the templates registered at the end of
+# app/rules/scripts.py (they run before the generic grammar): edicts — "[each opponent / target
+# player / that player] sacrifices N [selector] of their choice" (701.21a: the sacrificing player
+# chooses; several players in APNAP order, 101.4, each knowing the earlier choices, 101.4b, then
+# all at once); "[target opponent] chooses N [selector] they control"; a revealed hand — "target
+# player reveals their hand" (701.20a), "you [may] choose [up to] N [card selector] from it", "that
+# player discards that card"; and a named choice — "choose a color / creature type / basic land
+# type / opponent / player" (105.1, 205.3m, 205.3i). "As ~ enters, choose …" (614.1c, 614.12a) is
+# read by ``enters_choice`` for the engine's entering code; it is not a resolution effect.
+_CHOOSERS = ("target player", "target opponent", "each opponent", "each of your opponents", "each player", "each other player",
+             "that player", "its controller", "that creature's controller", "that permanent's controller", "defending player")
+CHOOSER = "|".join(re.escape(c) for c in sorted(_CHOOSERS, key=len, reverse=True))
+# (patterns are format()-ed by scripts.effect: no literal braces)
+EDICT = rf"(?P<s>{CHOOSER}) sacrifices (?P<n>{AMT}) (?P<sel>.+?) of their choice"
+EDICT_OTHERS = rf"each other player sacrifices (?P<n>{AMT}) (?P<sel>.+?)(?: of their choice)?"
+PLAYER_CHOOSES = rf"(?P<s>{CHOOSER}) chooses (?P<n>{AMT}) (?P<sel>.+?) they control"
+REVEAL_HAND = rf"(?P<s>{CHOOSER}) reveals their hand"
+CHOOSE_FROM_HAND = (rf"you (?P<may>may )?choose (?:(?P<upto>up to )?(?P<n>{AMT})|(?P<any>any number of)) (?P<sel>.+?) "
+                    r"from (?:it|among them|that hand)")
+DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
+CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
+CHOOSE_VALUE = r"choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player)"
+ENTERS_CHOICE = re.compile(r"^As ~ enters, choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player)\.$")
+
+
+def _chooser(s: str) -> tuple[str, Any]:
+    """A choosing player's phrase → ("who", the target group it adds)."""
+    if s in ("target player", "target opponent"):
+        return "target", {"what": _LEGACY_TARGETS[s], "min": 1, "max": 1}
+    if s == "each other player":
+        return "each_opponent", None  # every other player is an opponent in a free-for-all (102.2, 806.2)
+    if s == "defending player":
+        raise _Fail  # which defending player (508.5)? the trigger event doesn't carry it: manual
+    return PLAYER_GROUPS[s], None
+
+
+def _permanent_sel(phrase: str) -> str:
+    """"creature", "creature or planeswalker", "nontoken artifact", "permanent" — a permanent
+    selector (no player, not a card in another zone, no controller: the chooser's own)."""
+    sel = selectors.parse(phrase)
+    if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.controller is not None:
+        raise _Fail
+    return sel.key()
+
+
+def edict(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"] if "s" in m.groupdict() else "each other player")
+    key = _permanent_sel(m["sel"])
+    return [{"do": "edict", "who": who, "sel": key, "n": _amount(m["n"]), "label": m["sel"]}], _one(group)
+
+
+def player_chooses(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"])
+    return [{"do": "player_chooses", "who": who, "sel": _permanent_sel(m["sel"]), "n": _amount(m["n"]), "label": m["sel"]}], \
+        _one(group)
+
+
+def reveal_hand(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"])
+    if who in ("each_player", "each_opponent"):
+        raise _Fail  # ("each opponent reveals their hand. You choose a card from it": from whose? not read)
+    return [{"do": "reveal_hand", "who": who}], _one(group)
+
+
+def choose_from_hand(m: re.Match[str]) -> tuple[Effects, Any]:
+    sel = selectors.parse(m["sel"])
+    if sel is None or sel.player is not None or not sel.card or sel.zones:
+        raise _Fail  # (a card in the hand: "a nonland card", "an instant or sorcery card" — nothing else)
+    n = 99 if m["any"] else _amount(m["n"])
+    if not isinstance(n, int):
+        raise _Fail
+    return [{"do": "choose_from_hand", "who": "you", "sel": sel.key(), "n": n, "label": m["sel"],
+             "optional": bool(m["may"] or m["upto"] or m["any"])}], None
+
+
+def discard_named(m: re.Match[str]) -> tuple[Effects, Any]:
+    return [{"do": "discard_named", "who": "it" if m["o"] in ("that card", "it") else "them"}], None
+
+
+def choose_value(m: re.Match[str]) -> tuple[Effects, Any]:
+    return [{"do": "choose_value", "who": "you", "what": m["what"]}], None
+
+
+def enters_choice(text: str) -> dict[str, Any] | None:
+    """"As ~ enters, choose a color / a creature type / an opponent …" (614.1c: a replacement effect
+    of the permanent; 614.12a: the choice is made before it enters; 603.6d: not a trigger). The
+    definition for the engine's entering code (app/rules/engine.py, attachments.enter): the
+    ``choose_value`` effect with ``remember`` writes the answer on the object as its public
+    ``choices`` entry. Not registered as a template until the engine asks for it as the permanent
+    enters — the choice must not be modeled as an enters trigger."""
+    m = ENTERS_CHOICE.match(text)
+    if m is None:
+        return None
+    return {"kind": "replacement", "replacement": "enters_choice",
+            "effects": [{"do": "choose_value", "who": "you", "what": m["what"], "remember": True}]}

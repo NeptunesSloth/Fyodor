@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 531 · PARTIAL: 2970 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 608 · PARTIAL: 2893 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -144,7 +144,7 @@ Color identity W
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Vigilance
-- ✗ Adeline's power is equal to the number of creatures you control.
+- ✓ Adeline's power is equal to the number of creatures you control.
 - ✗ Whenever you attack, for each opponent, create a 1/1 white Human creature token that's tapped and attacking that player or a planeswalker they control.
 
 ### Vito, Thorn of the Dusk Rose — FULL
@@ -302,7 +302,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ When Urza enters, create a 0/0 colorless Construct artifact creature token with "This token gets +1/+1 for each artifact you control."
+- ✓ When Urza enters, create a 0/0 colorless Construct artifact creature token with "This token gets +1/+1 for each artifact you control."
 - ✗ Tap an untapped artifact you control: Add {U}.
 - ✗ {5}: Shuffle your library, then exile the top card. Until end of turn, you may play that card without paying its mana cost.
 
@@ -347,7 +347,7 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Ashaya's power and toughness are each equal to the number of lands you control.
+- ✓ Ashaya's power and toughness are each equal to the number of lands you control.
 - ✗ Nontoken creatures you control are Forest lands in addition to their other types.
 
 ### Yawgmoth, Thran Physician — FULL
@@ -706,13 +706,13 @@ Color identity R
 - ✓ Attack and block
 - ✓ {T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.
 
-### Anim Pakal, Thousandth Moon — PARTIAL
+### Anim Pakal, Thousandth Moon — FULL
 
 Color identity WR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever you attack with one or more non-Gnome creatures, put a +1/+1 counter on Anim Pakal, then create X 1/1 colorless Gnome artifact creature tokens that are tapped and attacking, where X is the number of +1/+1 counters on Anim Pakal.
+- ✓ Whenever you attack with one or more non-Gnome creatures, put a +1/+1 counter on Anim Pakal, then create X 1/1 colorless Gnome artifact creature tokens that are tapped and attacking, where X is the number of +1/+1 counters on Anim Pakal.
 
 ### Muldrotha, the Gravetide — PARTIAL
 
@@ -730,8 +730,8 @@ Color identity U
 - ✓ Attack and block
 - ✓ This spell can't be countered.
 - ✓ Whenever an opponent casts a noncreature spell, draw a card.
+- ✓ Discard three cards: Exile Nezahal. Return it to the battlefield tapped under its owner's control at the beginning of the next end step.
 - ✗ You have no maximum hand size.
-- ✗ Discard three cards: Exile Nezahal. Return it to the battlefield tapped under its owner's control at the beginning of the next end step.
 
 ### Vivi Ornitier — PARTIAL
 
@@ -789,7 +789,7 @@ Color identity G
 - ✓ Attack and block
 - ✓ Reach
 - ✓ Vigilance
-- ✗ Lumra's power and toughness are each equal to the number of lands you control.
+- ✓ Lumra's power and toughness are each equal to the number of lands you control.
 - ✗ When Lumra enters, mill four cards. Then return all land cards from your graveyard to the battlefield tapped.
 
 ### Gisela, Blade of Goldnight — PARTIAL
@@ -1492,8 +1492,8 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever one or more artifact creatures you control enter, draw a card. This ability triggers only once each turn.
 - ✗ Prevent all combat damage that would be dealt to attacking artifact creatures you control.
-- ✗ Whenever one or more artifact creatures you control enter, draw a card. This ability triggers only once each turn.
 
 ### Maelstrom Wanderer — FULL
 
@@ -1629,7 +1629,7 @@ Color identity B
 - ✓ Menace
 - ✗ When Massacre Girl enters, each other creature gets -1/-1 until end of turn. Whenever a creature dies this turn, each creature other than Massacre Girl gets -1/-1 until end of turn.
 
-### The Locust God — PARTIAL
+### The Locust God — FULL
 
 Color identity UR
 
@@ -1638,7 +1638,7 @@ Color identity UR
 - ✓ Flying
 - ✓ Whenever you draw a card, create a 1/1 blue and red Insect creature token with flying and haste.
 - ✓ {2}{U}{R}: Draw a card, then discard a card.
-- ✗ When The Locust God dies, return it to its owner's hand at the beginning of the next end step.
+- ✓ When The Locust God dies, return it to its owner's hand at the beginning of the next end step.
 
 ### Alesha, Who Laughs at Fate — PARTIAL
 
@@ -1684,9 +1684,9 @@ Color identity UB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ When The Scarab God dies, return it to its owner's hand at the beginning of the next end step.
 - ✗ At the beginning of your upkeep, each opponent loses X life and you scry X, where X is the number of Zombies you control.
 - ✗ {2}{U}{B}: Exile target creature card from a graveyard. Create a token that's a copy of it, except it's a 4/4 black Zombie.
-- ✗ When The Scarab God dies, return it to its owner's hand at the beginning of the next end step.
 
 ### Vorinclex, Voice of Hunger — PARTIAL
 
@@ -1704,7 +1704,7 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Daxos's toughness is equal to your devotion to white.
+- ✓ Daxos's toughness is equal to your devotion to white.
 - ✗ Whenever another creature you control enters or dies, you gain 1 life.
 
 ### Ghalta and Mavren — PARTIAL
@@ -1813,7 +1813,7 @@ Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Jarad gets +1/+1 for each creature card in your graveyard.
+- ✓ Jarad gets +1/+1 for each creature card in your graveyard.
 - ✗ {1}{B}{G}, Sacrifice another creature: Each opponent loses life equal to the sacrificed creature's power.
 - ✗ Sacrifice a Swamp and a Forest: Return this card from your graveyard to your hand.
 
@@ -2066,8 +2066,8 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Menace
+- ✓ When Sheoldred enters, each opponent sacrifices a nontoken creature or planeswalker of their choice.
 - ✓ Cast it (timing, costs, the stack)
-- ✗ When Sheoldred enters, each opponent sacrifices a nontoken creature or planeswalker of their choice.
 - ✗ {4}{B}: Exile Sheoldred, then return it to the battlefield transformed under its owner's control. Activate only as a sorcery and only if an opponent has eight or more cards in their graveyard.
 - ✗ I — For each opponent, destroy up to one target creature or planeswalker that player controls.
 - ✗ II — Each opponent discards three cards, then mills three cards.
@@ -2099,8 +2099,8 @@ Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Sacrifice three Treasures: Create a 4/4 red Scorpion Dragon creature token with flying and haste. Activate only as a sorcery.
 - ✗ Whenever you commit a crime, create a tapped Treasure token. This ability triggers only once each turn.
-- ✗ Sacrifice three Treasures: Create a 4/4 red Scorpion Dragon creature token with flying and haste. Activate only as a sorcery.
 
 ### Lathril, Blade of the Elves — PARTIAL
 
@@ -2254,7 +2254,7 @@ Color identity WB
 - ✓ Attack and block
 - ✓ Flying
 - ✓ Lifelink
-- ✗ Whenever another nontoken creature you control dies, return that card to its owner's hand at the beginning of the next end step.
+- ✓ Whenever another nontoken creature you control dies, return that card to its owner's hand at the beginning of the next end step.
 - ✗ If a creature an opponent controls would die, exile it instead.
 
 ### Balmor, Battlemage Captain — FULL
@@ -2294,7 +2294,7 @@ Color identity UG
 - ✗ Ward
 - ✗ Whenever Koma deals combat damage to a player, create four 3/3 blue Serpent creature tokens named Koma's Coil.
 
-### Aerith Gainsborough — PARTIAL
+### Aerith Gainsborough — FULL
 
 Color identity W
 
@@ -2302,7 +2302,7 @@ Color identity W
 - ✓ Attack and block
 - ✓ Lifelink
 - ✓ Whenever you gain life, put a +1/+1 counter on Aerith Gainsborough.
-- ✗ When Aerith Gainsborough dies, put X +1/+1 counters on each legendary creature you control, where X is the number of +1/+1 counters on Aerith Gainsborough.
+- ✓ When Aerith Gainsborough dies, put X +1/+1 counters on each legendary creature you control, where X is the number of +1/+1 counters on Aerith Gainsborough.
 
 ### Kwain, Itinerant Meddler — PARTIAL
 
@@ -2390,13 +2390,13 @@ Color identity U
 - ✗ Spells can't be countered.
 - ✗ Each instant and sorcery card in your graveyard has flashback. The flashback cost is equal to that card's mana cost.
 
-### Arabella, Abandoned Doll — PARTIAL
+### Arabella, Abandoned Doll — FULL
 
 Color identity WR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever Arabella attacks, it deals X damage to each opponent and you gain X life, where X is the number of creatures you control with power 2 or less.
+- ✓ Whenever Arabella attacks, it deals X damage to each opponent and you gain X life, where X is the number of creatures you control with power 2 or less.
 
 ### Jetmir, Nexus of Revels — PARTIAL
 
@@ -2478,14 +2478,14 @@ Color identity R
 - ✓ Attack and block
 - ✗ At the beginning of your upkeep, each player exiles cards from the top of their library until they exile a nonland card. An opponent chooses a nonland card exiled this way. You may cast up to two spells from among the other cards exiled this way without paying their mana costs.
 
-### Brago, King Eternal — PARTIAL
+### Brago, King Eternal — FULL
 
 Color identity WU
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
-- ✗ Whenever Brago deals combat damage to a player, exile any number of target nonland permanents you control, then return those cards to the battlefield under their owner's control.
+- ✓ Whenever Brago deals combat damage to a player, exile any number of target nonland permanents you control, then return those cards to the battlefield under their owner's control.
 
 ### Shorikai, Genesis Engine — PARTIAL
 
@@ -2905,5 +2905,5 @@ Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Karn's power and toughness are each equal to the greatest mana value among artifacts you control.
+- ✓ Karn's power and toughness are each equal to the greatest mana value among artifacts you control.
 - ✗ At the beginning of your upkeep, add {C} for each artifact you control. This mana can't be spent to cast nonartifact spells. Until end of turn, you don't lose this mana as steps and phases end.
