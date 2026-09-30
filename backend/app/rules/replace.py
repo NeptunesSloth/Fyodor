@@ -96,7 +96,7 @@ class Candidate:
 _LEVEL_MARKER = re.compile(r"^LEVEL \d|: Level \d+\.?$")
 
 
-def _conditional_lines(ch: Characteristics) -> set[int]:
+def conditional_lines(ch: Characteristics) -> set[int]:
     """Ability lines under a leveler's "LEVEL N" or a Class's "{cost}: Level N" header: they apply
     only at that level, which the engine doesn't track — never applied here (not a guess)."""
     out: set[int] = set()
@@ -127,7 +127,7 @@ def static_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
                   and d.get("event") in events]
         if not wanted or "Room" in ch.subtypes:  # (a Room's door is unlocked or not: not modelled)
             continue
-        skip = _conditional_lines(ch)
+        skip = conditional_lines(ch)
         oid = plan.oid(c)
         for i, d in sorted(wanted):
             if i in skip:
@@ -394,6 +394,12 @@ def _describe_outcomes(plan: Plan, ev: Event, found: list[Candidate], sim: Sim, 
     return out
 
 
+def option_label(c: Candidate, outcomes: dict[str, str]) -> str:
+    """"Hardened Scales first → 4 +1/+1 counters" (the outcome when it is certain)."""
+    label = f"{c.label} first" + (f" → {outcomes[c.id]}" if c.id in outcomes else "")
+    return label if len(label) <= 200 else label[:199] + "…"
+
+
 def ask(plan: Plan, q: Ask, answers: dict[str, str], resume: dict[str, Any]) -> None:
     """Open the affected player's choice (616.1e) with the answers so far and how to go on."""
     from app.rules.plan import decide
@@ -407,16 +413,13 @@ def ask(plan: Plan, q: Ask, answers: dict[str, str], resume: dict[str, Any]) -> 
     if len(q.applicable) == 2:
         a, b = pair_order(q.applicable)
         key, context = memory([a, b], q.ev)
-        first = q.outcomes.get(a.id)
-        second = q.outcomes.get(b.id)
         prompt = f"{names} both apply ({what}): apply {a.label} first? (616.1)"
         decide(plan, player=q.chooser, kind="confirm", prompt=prompt,
-               options=[DecisionOption(id="yes", label=f"{a.label} first" + (f" → {first}" if first else "")),
-                        DecisionOption(id="no", label=f"{b.label} first" + (f" → {second}" if second else ""))],
+               options=[DecisionOption(id="yes", label=option_label(a, q.outcomes)),
+                        DecisionOption(id="no", label=option_label(b, q.outcomes))],
                resume={**base, "map": {"yes": a.id, "no": b.id}}, memory_key=key, memory_context=context)
         return
-    options = [DecisionOption(id=f"o{i}", label=c.label + (f" → {q.outcomes[c.id]}" if c.id in q.outcomes else ""))
-               for i, c in enumerate(q.applicable)]
+    options = [DecisionOption(id=f"o{i}", label=option_label(c, q.outcomes)) for i, c in enumerate(q.applicable)]
     decide(plan, player=q.chooser, kind="choose_one", prompt=f"{names} apply ({what}): which applies first? (616.1)",
            options=options, resume={**base, "map": {f"o{i}": c.id for i, c in enumerate(q.applicable)}})
 

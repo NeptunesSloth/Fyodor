@@ -1865,11 +1865,35 @@ _DIES_THAT = {"creature": ["Creature"], "permanent": [], "creature or planeswalk
 _DIES_DEALT = re.compile(r"(?P<what>creature|permanent|creature or planeswalker) dealt damage this way")
 
 
+_UNTIL_EOT_IF = re.compile(r"^until end of turn, (?P<rest>if .+)$")
+_IF_THIS_TURN = re.compile(r"^(?P<head>if [^,]+?) this turn(?P<tail>, .+)$")
+
+
+def _turn_record(text: str) -> list[dict[str, Any]] | None:
+    """"Until end of turn, if one or more tokens would be created under your control, twice that
+    many … instead." / "If a source you control would deal damage to an opponent this turn, it
+    deals double that damage …": a static replacement wording (app/rules/replace_grammar.py) as a
+    record of this resolution, lasting this turn (611.2a)."""
+    from app.rules import replace_grammar  # (a leaf module)
+
+    m = _UNTIL_EOT_IF.match(text)
+    body = m["rest"] if m else None
+    if body is None:
+        m2 = _IF_THIS_TURN.match(text)
+        body = m2["head"] + m2["tail"] if m2 else None
+    if body is None or " this turn" in body:
+        return None
+    d = replace_grammar.parse("I" + body[1:] + ".")
+    if d is None or d.get("static") != "replace":
+        return None
+    return [{"do": "replace_record", "event": d["event"], "match": d["match"], "op": d["op"]}]
+
+
 def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
     """A sentence that sets up a replacement effect for the rest of the turn, or None."""
     m = _DIES_THIS_TURN.match(text)
     if m is None:
-        return None
+        return _turn_record(text)
     what = m["what"]
     if m["det"] == "that":  # the object the ability's target names (its only object target group)
         if what not in _DIES_THAT:

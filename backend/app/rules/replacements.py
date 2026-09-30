@@ -147,15 +147,20 @@ def others_enter_tapped(plan: Plan, card: CardInstance, controller: str) -> bool
     battlefield, checked against the permanent as it would exist on the battlefield under the
     player it enters under (614.12; it doesn't see itself: "Permanents enter tapped" doesn't make
     its own permanent enter tapped, 614.12 example)."""
+    from app.rules.replace import conditional_lines
+
     probe = card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})
     ch = None
     for src in plan.state.cards.values():
         if src.id == card.id or not src.zone.endswith(":battlefield") or src.face_down or not plan.in_game(src) \
                 or plan.manual(src):
             continue
-        for d in scripts.definitions(plan.ch(src)).values():
+        src_ch = plan.ch(src)
+        for i, d in scripts.definitions(src_ch).items():
             if d["kind"] != "static" or d.get("static") != "enters_tapped_others":
                 continue
+            if i in conditional_lines(src_ch) or "Room" in src_ch.subtypes:
+                continue  # (a level's or an unlocked door's ability: not tracked, never applied)
             ch = ch if ch is not None else plan.ch(probe)
             if any(selectors.matches(plan, selectors.from_key(key), probe, ch, src.controller, src.id) for key in d["who"]):
                 return True
@@ -209,8 +214,7 @@ def _entering_order_choice(plan: Plan, card: CardInstance, controller: str, *, x
     if not isinstance(planned, replace.Ask):
         return None
     names = " and ".join(c.label for c in planned.applicable)
-    options = [(c.id, c.label + (f" first → {planned.outcomes[c.id]}" if c.id in planned.outcomes else " first"))
-               for c in planned.applicable]
+    options = [(c.id, replace.option_label(c, planned.outcomes)) for c in planned.applicable]
     return {"what": ORDER + planned.fp, "order": {
         "prompt": f"{card.name}: {names} both modify the counters it enters with — which applies first? (616.1)",
         "options": options}}

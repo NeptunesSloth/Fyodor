@@ -2356,5 +2356,16 @@ def exile_if_dies(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES["exile_if_dies"] = exile_if_dies
+def replace_record(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Until end of turn, if one or more tokens would be created under your control, …" / "If a
+    source you control would deal damage to an opponent this turn, …": the replacement effect of
+    this resolution, for the rest of the turn (611.2a; its timestamp now, 613.7b), with "you" its
+    controller — applied by app/rules/replace.py with the statics."""
+    replace.add_record(plan, event=e["event"], match=e["match"], op=e["op"], controller=ctx["controller"],
+                       source=ctx.get("source_object"), source_card=ctx.get("source_card"),
+                       label=ctx.get("name") or "an effect")
+    return True
+
+
+PRIMITIVES.update({"exile_if_dies": exile_if_dies, "replace_record": replace_record})
 # -- end replacement effects stage 2 (wave 2E) --

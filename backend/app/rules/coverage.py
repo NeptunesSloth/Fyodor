@@ -91,8 +91,12 @@ def stage2_supported(d: dict[str, Any]) -> bool | None:
         return (d.get("op") or {}).get("do") in SUPPORTED_REPLACE_OPS.get(str(d.get("event")), frozenset())
     if d.get("kind") == "static" and d.get("static") == "enters_tapped_others":
         return "enters_tapped_others" in SUPPORTED_REPLACEMENTS
-    if any(e.get("do") == "exile_if_dies" for e in d.get("effects") or []) and "exile_if_dies" not in SUPPORTED_REPLACEMENTS:
+    effects = d.get("effects") or []
+    if any(e.get("do") == "exile_if_dies" for e in effects) and "exile_if_dies" not in SUPPORTED_REPLACEMENTS:
         return False
+    for e in effects:  # "Until end of turn, if …" / "If … this turn, …": a record of a statics' wording
+        if e.get("do") == "replace_record" and (e.get("op") or {}).get("do") not in SUPPORTED_REPLACE_OPS.get(str(e.get("event")), ()):
+            return False
     return None
 # -- end replacement effects stage 2 (wave 2E) --
 

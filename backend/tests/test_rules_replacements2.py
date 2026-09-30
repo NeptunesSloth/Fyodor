@@ -585,6 +585,41 @@ def test_if_a_creature_would_die_this_turn_applies_to_every_creature(cards):
     replay_matches(s)
 
 
+# "All creatures lose trample until end of turn. If a creature would deal combat damage to a creature this turn, it
+# deals double that damage to that creature instead." (Blind Fury) — as an activated ability (the same effect text)
+BLIND_FURY = ("{1}: All creatures lose trample until end of turn. If a creature would deal combat damage to a creature this "
+              "turn, it deals double that damage to that creature instead.")
+
+
+def test_a_this_turn_replacement_record(cards):
+    """611.2a: a replacement effect of a resolved ability lasts the turn: double combat damage to
+    creatures (not to players), and not next turn."""
+    s = table(cards)
+    fury = creature(s, "p1", "Fury", "0/1", BLIND_FURY)
+    brute = creature(s, "p1", "Brute", "2/2")
+    runner = creature(s, "p1", "Runner", "1/1")
+    wall = creature(s, "p2", "Wall", "0/5")
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # → Alice's main 1
+    activate(s, fury)
+    assert [rec["event"] for rec in rules(s).replacements if rec.get("kind") == "replace"] == ["damage"]
+    until(s, lambda s: s.state.turn.phase == "declare_attackers")
+    attack(s, (brute, "p2"), (runner, "p2"))
+    until(s, lambda s: decision(s) is not None and decision(s).kind == "declare_blockers")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": brute.id}])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert s.state.cards[wall.id].damage == 4 and s.state.players["p2"].life == 39  # 2 × 2 to the Wall; 1 to Bob
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "declare_attackers")
+    act(s, "p1", type="set_damage", card_ids=[wall.id], value=0)
+    attack(s, (brute, "p2"))
+    until(s, lambda s: decision(s) is not None and decision(s).kind == "declare_blockers")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": brute.id}])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert s.state.cards[wall.id].damage == 2  # the record ended with its turn
+    assert fury.id in s.state.cards
+    replay_matches(s)
+
+
 # -- others enter tapped (614.1d, 614.12) -----------------------------------------------------------
 def test_authority_of_the_consuls_opponents_creatures_enter_tapped(cards):
     s = build(cards)
@@ -598,5 +633,200 @@ def test_authority_of_the_consuls_opponents_creatures_enter_tapped(cards):
     replay_matches(s)
 
 
-def test_turn_on_helper_is_available():  # (keeps the shared helper import used by later tests)
-    assert callable(turn_on)
+# -- several players' choices at once (616.1: APNAP) ------------------------------------------------
+def test_each_players_choice_in_apnap_order(cards):
+    s = table(cards, players=3)
+    for pid in ("p1", "p2", "p3"):
+        act(s, pid, type="create_token", player=pid, token={"name": f"Boon Reflection {pid}", "type_line": "Token Enchantment — Test",
+                                                            "text": BOON_REFLECTION})
+        creature(s, pid, f"Angel of Vitality {pid}", "2/2", ANGEL_OF_VITALITY)
+    healer = creature(s, "p2", "Healer", "1/1", "{1}: Each player gains 2 life.")
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # → Alice's main phase (turn 1: Alice is the active player)
+    act(s, "p2", type="add_mana", player="p2", mana={"C": 1})
+    for prefs in rules(s).prefs.values():
+        prefs.response = "on"
+    act(s, "p1", type="pass_priority")  # (Alice passes; Bob acts at instant speed)
+    act(s, "p2", type="activate_ability", card_id=healer.id, ability=0)
+    until(s, lambda s: decision(s) is not None and decision(s).resume.get("step") == "replace_order")
+    order = []
+    while decision(s) is not None and decision(s).resume.get("step") == "replace_order":
+        d = decision(s)
+        order.append(d.player)
+        answer(s, "yes")  # (Angel of Vitality first: (2 + 1) × 2)
+    assert order == ["p1", "p2", "p3"]  # the active player first, then in turn order (101.4)
+    assert [s.state.players[p].life for p in ("p1", "p2", "p3")] == [46, 46, 46]
+    replay_matches(s)
+
+
+def test_the_same_counters_on_several_creatures_stay_one_event_batch(cards):
+    s = build(cards)
+    permanent(s, "p1", "Hardened Scales", "Enchantment", HARDENED_SCALES)
+    bears = [token(s, "p1", f"Bear {i}") for i in range(3)]
+    feeder = token(s, "p1", "Feeder", text="{1}: Put a +1/+1 counter on each creature you control.")
+    activate(s, feeder)
+    batches = {e.batch for e in rules(s).events if e.kind == "counters" and e.card in {b.id for b in bears}}
+    assert all(s.state.cards[b.id].counters == {"+1/+1": 2} for b in bears) and len(batches) == 1
+    replay_matches(s)
+
+
+def test_wither_counters_go_through_counter_replacements_but_not_effect_only_ones(cards):
+    """120.3d: wither damage puts -1/-1 counters as a result of damage, not as an effect (614.16):
+    Winding Constrictor adds one to its controller's creature; Doubling Season doesn't double."""
+    s = build(cards)
+    token(s, "p2", "Winding Constrictor", "2/3", WINDING_CONSTRICTOR)
+    permanent(s, "p2", "Doubling Season", "Enchantment", DOUBLING_SEASON)
+    ogre = token(s, "p2", "Ogre", "5/5")
+    wither = token(s, "p1", "Blighter", "1/1", "Wither\n{1}: Blighter deals 1 damage to target creature.")
+    activate(s, wither, index=1, targets=[ogre.id])
+    assert s.state.cards[ogre.id].counters == {"-1/-1": 2} and s.state.cards[ogre.id].damage == 0
+    replay_matches(s)
+
+
+def test_a_choice_in_the_draw_step_then_the_step_goes_on(cards):
+    """Laboratory Maniac and Living Conundrum ("If you would draw a card while your library has no
+    cards in it, skip that draw instead.") both replace the turn-based draw (504.1): its player
+    chooses; the step then goes on (its "at the beginning of your draw step" triggers)."""
+    s = build(cards)
+    token(s, "p2", "Laboratory Maniac", "2/2", LABORATORY_MANIAC)
+    token(s, "p2", "Living Conundrum", "10/10", "Hexproof\nIf you would draw a card while your library has no cards in "
+                                                 "it, skip that draw instead.")  # Living Conundrum (Oracle)
+    permanent(s, "p2", "Reminder", "Enchantment", "At the beginning of your draw step, you gain 1 life.")
+    empty_library(s, "p2")
+    until(s, lambda s: decision(s) is not None and decision(s).resume.get("step") == "replace_order")
+    d = decision(s)
+    assert d.player == "p2" and s.state.turn.phase == "draw" and s.state.turn.active_player == "p2"
+    skip_first = "yes" if "Living Conundrum first" in {o.id: o.label for o in d.options}["yes"] else "no"
+    s2 = reload(s, cards)
+    answer(s, skip_first)
+    until(s, lambda s: s.state.turn.phase == "main1")
+    assert rules(s).winner is None and "p2" not in rules(s).drew_from_empty and s.state.players["p2"].life == 41
+    replay_matches(s)
+    act(s2, "p2", type="choose", decision_id=d.id, option_ids=["no" if skip_first == "yes" else "yes"])
+    assert rules(s2).winner == "p2"
+
+
+# -- no event bypasses the choke points --------------------------------------------------------------
+# Table actions that make a replaceable event happen, and the places allowed to emit them directly.
+# Everything else must go through app/rules/replace.py. A removal (negative delta) isn't replaceable.
+_REPLACEABLE = {"counter", "resource", "create_token", "draw", "life", "rules_damage"}
+_ALLOWED = {
+    # outside wave 2E's ownership, to be rerouted at integration (UNVERIFIED how the lead reroutes them):
+    ("casting.py", "after_mana_ability"): "mana ability riders: 'deals 1 damage to you', 'draw a card'",
+    ("casting.py", "turn_face_up"): "megamorph's +1/+1 counter (702.37b)",
+    ("casting.py", "activate_to_stack"): "a loyalty ability's cost (606.4: a cost, not an effect; agent A's region)",
+    ("casting.py", "suspend"): "time counters on a card in exile (not a permanent: no counter replacement applies)",
+}
+
+
+def _direct_table_actions():
+    import ast
+    from pathlib import Path
+
+    import app.rules as rules_pkg
+
+    root = Path(rules_pkg.__file__).parent
+    found = []
+    for path in sorted(root.glob("*.py")):
+        if path.name == "replace.py":
+            continue
+        tree = ast.parse(path.read_text())
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for node in ast.walk(fn):
+                if not isinstance(node, ast.Dict):
+                    continue
+                fields = {k.value: v for k, v in zip(node.keys, node.values, strict=True) if isinstance(k, ast.Constant)}
+                kind = fields.get("type")
+                if not isinstance(kind, ast.Constant) or kind.value not in _REPLACEABLE:
+                    continue
+                delta = fields.get("delta")
+                removal = isinstance(delta, ast.UnaryOp) and isinstance(delta.op, ast.USub)
+                if kind.value in ("counter", "resource", "life") and removal:
+                    continue
+                found.append((path.name, fn.name, kind.value, node.lineno))
+    return found
+
+
+def test_no_replaceable_event_bypasses_the_choke_points():
+    stray = [(f, fn, kind, line) for f, fn, kind, line in _direct_table_actions() if (f, fn) not in _ALLOWED]
+    assert not stray, f"table actions that bypass app/rules/replace.py: {stray}"
+    # (and the list of exceptions is honest: each still exists)
+    present = {(f, fn) for f, fn, _, _ in _direct_table_actions()}
+    assert set(_ALLOWED) <= present, set(_ALLOWED) - present
+
+
+# -- coverage and what stays manual ---------------------------------------------------------------------
+def _card(name, type_line, text, **extra):
+    from tests.fixtures.cards import card
+
+    return card(name, type_line=type_line, oracle_text=text, **extra)
+
+
+def test_the_real_cards_are_full():
+    from app.rules import coverage
+
+    for name, type_line, text in [
+        ("Doubling Season", "Enchantment", DOUBLING_SEASON), ("Hardened Scales", "Enchantment", HARDENED_SCALES),
+        ("Parallel Lives", "Enchantment", PARALLEL_LIVES), ("Anointed Procession", "Enchantment", ANOINTED_PROCESSION),
+        ("Winding Constrictor", "Creature — Snake", WINDING_CONSTRICTOR), ("Xorn", "Creature — Elemental", XORN),
+        ("Vizier of Remedies", "Creature — Human Cleric", VIZIER_OF_REMEDIES),
+        ("Laboratory Maniac", "Creature — Human Wizard", LABORATORY_MANIAC),
+        ("Notion Thief", "Creature — Human Rogue", NOTION_THIEF), ("Thought Reflection", "Enchantment", THOUGHT_REFLECTION),
+        ("Boon Reflection", "Enchantment", BOON_REFLECTION), ("Rhox Faithmender", "Creature — Rhino Monk", RHOX_FAITHMENDER),
+        ("Tainted Remedy", "Enchantment", TAINTED_REMEDY), ("Gratuitous Violence", "Enchantment", GRATUITOUS_VIOLENCE),
+        ("Torbran, Thane of Red Fell", "Legendary Creature — Dwarf Noble", TORBRAN),
+        ("Furnace of Rath", "Enchantment", FURNACE_OF_RATH), ("Urza's Armor", "Artifact", URZAS_ARMOR),
+        ("Fire Servant", "Creature — Elemental", FIRE_SERVANT),
+        ("Anger of the Gods", "Sorcery", "Anger of the Gods deals 3 damage to each creature. If a creature dealt damage "
+                                         "this way would die this turn, exile it instead."),
+        ("Lava Coil", "Sorcery", "Lava Coil deals 4 damage to target creature. If that creature would die this turn, "
+                                 "exile it instead."),
+        ("Flaying Tendrils", "Instant", "Devoid (This card has no color.)\nAll creatures get -2/-2 until end of turn. If a "
+                                        "creature would die this turn, exile it instead."),
+    ]:
+        cov = coverage.of_card_data(_card(name, type_line, text, power="2", toughness="2"))
+        assert cov.level == "FULL", (name, cov.manual_parts)
+
+
+def test_wordings_that_stay_manual():
+    from app.rules import scripts
+    from tests.test_rules_scripts import ch
+
+    for text in [
+        # "you would put": who puts the counters (Vorinclex, Monstrous Raider)
+        "If you would put one or more counters on a permanent or player, put twice that many of each of those kinds of "
+        "counters on that permanent or player instead.",
+        # a different token added (Chatterfang, Squirrel General) / "may instead" (Jinnie Fay)
+        "If one or more tokens would be created under your control, those tokens plus that many 1/1 green Squirrel "
+        "creature tokens are created instead.",
+        "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste "
+        "or that many 3/1 green Dog creature tokens with vigilance.",
+        # redirection (614.9: Pariah) / a rider after prevention (615.5)
+        "All damage that would be dealt to you is dealt to enchanted creature instead.",
+        "If a source would deal damage to you, prevent that damage and put an incarnation counter on this enchantment.",
+        # "can't" and life-loss replacements (614.17, 119.8) / a draw replaced by looking (Abundance-like)
+        "If an opponent would lose life during your turn, they lose twice that much life instead.",
+        "If you would draw a card, you may instead choose land or nonland and reveal cards from the top of your library "
+        "until you reveal a card of the chosen kind. Put that card into your hand and put all other cards revealed this "
+        "way on the bottom of your library in any order.",
+        # Kalitas: exile and a token (a zone replacement with an extra event)
+        "If a nontoken creature an opponent controls would die, instead exile that card and create a 2/2 black Zombie "
+        "creature token.",
+        # damage: "a red or artifact source" (a union of a color and a type)
+        "If a red or artifact source you control would deal damage to an opponent or a permanent an opponent controls, "
+        "it deals that much damage plus 1 instead.",
+    ]:
+        assert not scripts.definitions(ch("X", "Enchantment", text)), text
+
+
+def test_a_levelers_conditional_line_is_never_applied(cards):
+    """Hedron-Field Purists' "LEVEL 1-4 … prevent 1 of that damage" applies only at that level,
+    which the engine doesn't track: the line is not applied (never a guess)."""
+    s = build(cards)
+    token(s, "p2", "Purists", "0/3", "Level up {2}{W}\nLEVEL 1-4\n1/4\n" + "If a source would deal damage to you or a "
+                                     "creature you control, prevent 1 of that damage.")
+    pinger = token(s, "p1", "Pinger", "1/1", "{1}: Pinger deals 2 damage to any target.")
+    activate(s, pinger, targets=["p2"])
+    assert s.state.players["p2"].life == 38
