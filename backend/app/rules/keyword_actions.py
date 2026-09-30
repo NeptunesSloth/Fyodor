@@ -65,13 +65,21 @@ def amass(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def _amass_on(plan: Plan, ctx: Context, cid: str, sub: str, n: int) -> None:
     if n > 0:
         plan.do({"type": "counter", "card_ids": [cid], "kind": "+1/+1", "delta": n}, actor=ctx["controller"])
-    ch = plan.ch(plan.state.cards[cid])
+    card = plan.state.cards.get(cid)
+    if card is None or not card.zone.endswith(":battlefield"):
+        return
+    ch = plan.ch(card)
     if sub not in ch.subtypes:
-        # 701.47a, last sentence: a type-changing effect (layer 4) adding a creature subtype for
-        # as long as it's on the battlefield. The layer system only adds card types today, so
-        # this part is left to the table: the log says so.
-        plan.note(f"{ch.name} is also a {sub} from now on (the engine doesn't track the added subtype yet)", [cid],
-                  actor=ctx["controller"])
+        # 701.47a, last sentence: "it becomes a [subtype] in addition to its other types" — a
+        # type-changing effect (layer 4, 613.1d) on that object; no duration is stated, so it
+        # lasts until the end of the game (611.2a) — for the object, which ends when it leaves
+        # the battlefield (611.2c, 400.7)
+        from app.rules import layers
+
+        layers.add_effect(plan, affected=[plan.oid(cid)], layer="4", source=ctx.get("source_object"),
+                          controller=ctx["controller"], add_subtypes=(sub,), duration="permanent",
+                          label=f"{ch.name} is also a {sub}")
+        plan.note(f"{ch.name} becomes a {sub} in addition to its other types", [cid], actor=ctx["controller"])
 
 
 def resume_amass(plan: Plan, d: Any, chosen: list[str]) -> None:
