@@ -2016,11 +2016,13 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                                   "duration": duration, "label": f"{label} ({name})" if name else label}
         made: list[str] = []
         types = list(e.get("types") or [])
-        if types or e.get("creature_types") is not None or e.get("all_creature_types") or e.get("legendary"):
+        if types or e.get("creature_types") is not None or e.get("add_creature_types") or e.get("all_creature_types") \
+                or e.get("legendary"):
             made.append(layers.add_effect(plan, layer="4", **common,
                                           add_types=tuple(types) if e.get("retain") else (),
                                           set_types=None if e.get("retain") or not types else types,
                                           set_creature_types=e.get("creature_types"),
+                                          add_subtypes=tuple(e.get("add_creature_types") or ()),
                                           all_creature_types=bool(e.get("all_creature_types")),
                                           add_supertypes=["Legendary"] if e.get("legendary") else []).id)
         if e.get("colors") is not None or e.get("add_colors"):
@@ -2063,7 +2065,7 @@ def _become_label(e: dict[str, Any], p: int | None, t: int | None) -> str:
         words.append(" and ".join(_COLOR_WORDS.get(c, c) for c in e["colors"]))
     elif e.get("colors") == []:
         words.append("colorless")
-    words += list(e.get("creature_types") or [])
+    words += list(e.get("creature_types") or e.get("add_creature_types") or [])
     words += [w.lower() for w in e.get("types") or []]
     extras = list(e.get("keywords") or [])
     if e.get("all_creature_types"):
@@ -2076,13 +2078,19 @@ def _become_label(e: dict[str, Any], p: int | None, t: int | None) -> str:
 
 
 def still_a(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """"It's still a land." (205.1b): the types the sentence before set are added instead — the
-    object keeps its card types (and so their subtypes, which layer 4 recomputes)."""
+    """"It's still a land." (205.1b): the sentence before retains all the object's prior card
+    types, supertypes and subtypes — the types it set are added instead, and so are the creature
+    types it named (a land creature keeps its creature types too)."""
     ids = set(ctx.get("animated") or [])
     for effect in plan.rules.effects:
-        if effect.id in ids and effect.layer == "4" and effect.set_types is not None:
+        if effect.id not in ids or effect.layer != "4":
+            continue
+        if effect.set_types is not None:
             effect.add_types = list(dict.fromkeys([*effect.add_types, *effect.set_types]))
             effect.set_types = None
+        if effect.set_creature_types is not None:
+            effect.add_subtypes = list(dict.fromkeys([*effect.add_subtypes, *effect.set_creature_types]))
+            effect.set_creature_types = None
     return True
 
 

@@ -275,6 +275,24 @@ def test_until_your_next_turn_lasts_through_the_opponents_turn(cards):
     replay_matches(s)
 
 
+def test_creature_types_added_in_addition_but_replaced_otherwise(cards):
+    s = build(cards)
+    elf = token(s, "p1", "Elf", "1/1")  # (Token Creature — Test)
+    goblin = token(s, "p1", "Goblin", "1/1")
+    crab = token(s, "p1", "Crabber", "1/1",
+                 "{T}: Until end of turn, target creature becomes a blue Crab in addition to its other types.")
+    coward = token(s, "p1", "Cower", "1/1", "{T}: Target creature becomes a Coward until end of turn.")
+    run_until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    act(s, "p1", type="activate_ability", card_id=crab.id, ability=0, targets=[elf.id])
+    pass_until_stack_empty(s)
+    act(s, "p1", type="activate_ability", card_id=coward.id, ability=0, targets=[goblin.id])
+    pass_until_stack_empty(s)
+    assert ch(s, cards, elf.id).subtypes == frozenset({"Test", "Crab"})  # 205.1b: every prior subtype retained
+    assert ch(s, cards, elf.id).colors == frozenset({"U"})  # 105.3: "in addition to its other types" isn't colors
+    assert ch(s, cards, goblin.id).subtypes == frozenset({"Coward"})  # 205.1a: the new creature type replaces
+    replay_matches(s)
+
+
 def test_has_base_power_and_toughness_is_layer_7b_only(cards):
     s = build(cards)
     bear = token(s, "p1", "Bear", "2/2", "Flying")

@@ -1047,7 +1047,10 @@ def _become(text: str) -> tuple[Effects, Any]:
     if m["addition"] or m["still"] or types == ["Artifact", "Creature"]:
         e["retain"] = True  # 205.1b
     if subs:
-        e["creature_types"] = subs
+        # 205.1b: "in addition to its other types" / "that's still a …" retain every prior subtype
+        # (the creature types named are added); "[creature type] artifact creature" or a plain
+        # "becomes a … creature" replaces its creature types (205.1a/205.1b last sentence)
+        e["add_creature_types" if (m["addition"] or m["still"]) else "creature_types"] = subs
     if d["leg"]:
         e["legendary"] = True
     if d["colors"]:
