@@ -163,7 +163,7 @@ def test_for_each_of_a_group_it_might_belong_to_stays_manual():
 def test_tokens_enter_tapped_only_when_their_creator_says_so(cards):
     s = build(cards)
     plain = token(s, "p1", "Recruiter", text="{1}: Create a 1/1 white Soldier creature token.")
-    tapped = token(s, "p1", "Drill", text="{1}: Create two 1/1 white Soldier creature tokens tapped.")
+    tapped = token(s, "p1", "Drill", text="{1}: Create two tapped 1/1 white Soldier creature tokens.")
     activate(s, plain)
     soldiers = [c for c in s.state.cards.values() if c.name == "Soldier"]
     assert len(soldiers) == 1 and not soldiers[0].tapped

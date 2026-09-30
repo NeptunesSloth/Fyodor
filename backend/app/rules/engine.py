@@ -34,6 +34,7 @@ from app.rules import (
     effects,
     layers,
     optional_payment,
+    permissions,
     reconcile,
     replacements,
     sba,
@@ -94,6 +95,7 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
     settle(plan)
     if intent.type != "repeat_sequence":
         remember_intent(plan, intent)
+    permissions.refresh_reveals(plan.state, plan.info)  # 401.5: which top library cards the table reveals now
     plan.rules.engine_version = RULES_ENGINE_VERSION
     plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
     return plan.steps
@@ -113,6 +115,7 @@ def begin(plan: Plan) -> None:
     r = plan.rules
     r.loyalty_used = {k: t for k, t in r.loyalty_used.items() if t == turn}
     r.once_per_turn = {k: t for k, t in r.once_per_turn.items() if t == turn}
+    permissions.refresh_reveals(plan.state, plan.info)  # (a permanent put onto the table by hand since)
 
 
 def absorb_manual_events(plan: Plan) -> None:
@@ -420,8 +423,11 @@ def next_step(plan: Plan) -> None:
 
 
 def _keep_tapped(plan: Plan) -> list[str]:
-    """Tapped permanents that don't untap during the untap step ("doesn't untap during its
-    controller's untap step", 502.3)."""
+    """Tapped permanents that don't untap during the untap step (502.3): the permanent's own
+    "~ doesn't untap during your untap step.", an Aura's "Enchanted creature doesn't untap during
+    its controller's untap step.", and a static over a selector ("Islands don't untap during their
+    controllers' untap steps.", "Creatures with power 3 or greater don't untap …"), all of which
+    app/rules/layers.py puts in ``Characteristics.imposed`` for whatever matches right now."""
     return [c.id for c in plan.state.cards.values() if c.tapped and c.zone.endswith(":battlefield")
             and not plan.manual(c) and "doesnt_untap" in scripts.statics(plan.ch(c))][:250]
 
@@ -524,6 +530,7 @@ def finish_cleanup(plan: Plan) -> None:
         layers.end_of_turn(plan)
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
     plan.rules.prevention = {}  # and so do prevention shields
+    permissions.expire(plan)  # "you may play that card this turn" and friends
     for card in list(plan.state.cards.values()):
         for marker in [m for m in card.effects if m.text == "until end of turn"]:
             plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
@@ -663,16 +670,26 @@ def _after_resolution(plan: Plan) -> None:
 
 
 # -- intents -----------------------------------------------------------------------------
+def land_play_grant(state: GameState, player: str, card: CardInstance, ch: Characteristics,
+                    info: CardInfo | None) -> permissions.Grant | None:
+    """How ``player`` may play this land from where it is: from their hand (305.1), or a
+    permission ("you may play lands from your graveyard", "you may play that card this turn")."""
+    if card.zone == zone_key(player, "hand"):
+        return permissions.Grant("hand")
+    found = [g for g in permissions.grants(state, player, card, ch, info, verb="play") if g.zone_ok] if info else []
+    return found[0] if found else None
+
+
 def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, *,
-                      check_priority: bool = True) -> str | None:
+                      check_priority: bool = True, info: CardInfo | None = None) -> str | None:
     """Why ``player`` can't play ``card`` as a land right now (None if they can)."""
     r = state.rules
     if r is None:
         return "Rules automation is off"
-    if card.zone != zone_key(player, "hand"):
-        return "You can only play lands from your hand"
     if not ch.is_land:
         return f"{ch.name or 'That card'} isn't a land"
+    if land_play_grant(state, player, card, ch, info) is None:
+        return "You can only play lands from your hand"
     if state.turn.active_player != player:
         return "You can only play a land during your own turn"
     if state.turn.phase not in MAIN_PHASES:
@@ -692,9 +709,10 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     if card is None:
         raise ActionError("That card isn't here any more")
     probe = card.model_copy(update={"face": a.face}) if a.face is not None else card
-    problem = land_play_problem(plan.state, plan.actor, card, plan.ch(probe))
+    problem = land_play_problem(plan.state, plan.actor, card, plan.ch(probe), info=plan.info)
     if problem:
         raise ActionError(problem)
+    grant = land_play_grant(plan.state, plan.actor, card, plan.ch(probe), plan.info)
     # The land's own "enters" replacement effects (614.1c-d, app/rules/replacements.py): "enters
     # tapped [unless …]", a shock land's pay-life-or-tapped choice (made before it enters: 614.12a),
     # "enters [tapped] with … counters" as it enters (122.6).
@@ -712,7 +730,11 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"}, "tapped": bool(ep["tapped"])}
     if a.x is not None and a.y is not None:
         payload.update(x=a.x, y=a.y)
+    from_where = card.zone.rsplit(":", 1)[-1]
     plan.do(payload)
+    if grant is not None and grant.how == "permission":
+        permissions.consume(plan, grant)  # ("once during each of your turns")
+        plan.note(f"{plan.name(plan.actor)} plays {card.name} from their {from_where} ({grant.label})", [card.id])
     replacements.after_entry(plan, card.id, plan.actor)
     r = plan.rules
     turn = plan.state.turn.number
@@ -916,6 +938,8 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "aura_enters": attachments.resume_aura_enters,
     "sacrifice_choice": effects.resume_sacrifice_choice,
     "pick_looked": effects.resume_pick_looked,
+    "library_place": effects.resume_library_place,
+    "shuffle_library": effects.resume_shuffle_library,
     "cast_modes": casting.resume_cast_modes,
     "cast_slot_target": casting.resume_cast_slot_target,
     "cast_group": casting.resume_cast_group,
@@ -937,6 +961,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "ability_cost": cost_payment.resume_choice,
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
+    **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)
     # replacement / prevention effects (app/rules/replacements.py): a shock land put onto the
     # battlefield by an effect, 903.9b before a commander is returned to a hand, 615.7 shields
     "enter_choice": replacements.resume_entry_choice,

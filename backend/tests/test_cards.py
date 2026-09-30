@@ -70,7 +70,7 @@ def test_import_file(tmp_path: Path):
     src = tmp_path / "bulk.jsonl.gz"
     write_jsonl_gz(fixture_cards(), src)
     result = import_file(src, tmp_path / "out.sqlite", meta={"bulk_type": "x"})
-    assert result.oracle_cards == 133
+    assert result.oracle_cards == 157
 
 
 def test_default_printing_prefers_regular_sets(cards: CardRepository):
@@ -101,7 +101,7 @@ def test_suggestions(cards: CardRepository):
 def test_search(cards: CardRepository):
     names = lambda q, **kw: [c["name"] for c in cards.search(q, **kw)]  # noqa: E731
     assert "Sol Ring" in names("sol")[:2]  # (and Sol Grail)
-    assert set(names("t:instant c:r -t:creature")) == {"Fire // Ice", "Lightning Bolt", "Seething Song", "Pyroblast", "Stoke the Flames", "Fiery Temper", "Staggershock", "Test Duo", "Test Shatter Charm", "Test Kicked Bolt"}
+    assert set(names("t:instant c:r -t:creature")) == {"Fire // Ice", "Lightning Bolt", "Seething Song", "Pyroblast", "Stoke the Flames", "Fiery Temper", "Staggershock", "Test Duo", "Test Shatter Charm", "Test Kicked Bolt", "Wizard's Lightning", "Blazing Crescendo"}
     assert "Counterspell" in names("o:counter")
     assert set(names("t:land -t:basic")) == {"Command Tower", "Thornwood Falls", "Shivan Reef", "Sungrass Prairie",
                                               "Ancient Ziggurat", "Vivid Marsh", "Tainted Isle", "Reflecting Pool", "Barren Moor",
@@ -109,7 +109,7 @@ def test_search(cards: CardRepository):
                                               "Test Guildgate", "Test Check Land", "Test Fast Land"}
     assert set(names("is:commander")) >= {"Krenko, Mob Boss", "Atraxa, Praetors' Voice"}
     assert "Atraxa, Praetors' Voice" not in names("is:commander id:r")
-    assert set(names("mv=4 c=r")) == {"Krenko, Mob Boss", "Stoke the Flames"}
+    assert set(names("mv=4 c=r")) == {"Krenko, Mob Boss", "Stoke the Flames", "Equilibrium Adept"}
     assert names("goblin", tokens=True) == ["Goblin"]
     assert "Goblin" not in names("goblin")
     assert names("is:token treasure", tokens=False) == ["Treasure"]

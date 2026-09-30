@@ -25,6 +25,7 @@ from app.rules import (
     context,
     layers,
     optional_payment,
+    permissions,
     protection,
     regeneration,
     replacements,
@@ -110,6 +111,9 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "event":  # "it" / "that creature": the object(s) the trigger event happened to — only while
         # each is still that object where it was (400.7: after a zone change it's a new object)
         return context.objects(plan, ctx, context.EVENT)
+    if who == context.EVENT_NEW:  # after "dies" / "leaves": the new object where it went — only while
+        # it's still there (400.7e, 603.6c)
+        return context.objects(plan, ctx, context.EVENT_NEW)
     if who.startswith(context.PREFIX):  # an earlier effect's objects ("it", "cards exiled this way")
         return context.objects(plan, ctx, who[len(context.PREFIX):])
     if who.startswith("object:"):  # one specific rules object (e.g. the creature that attacked alone)
@@ -392,7 +396,7 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for pid in _players(plan, ctx, e["who"]):
         spec = {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
                 "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
-        # a token enters tapped when its creator says so ("create … tapped") or its own text does
+        # a token enters tapped when its creator says so ("create a tapped …") or its own text does
         # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
         tapped = bool(e.get("tapped")) or replacements.token_enters_tapped(plan, pid, spec)
         created = plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False, "tapped": tapped,
@@ -1016,7 +1020,8 @@ def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
         if e.get("reveal"):
             plan.do({"type": "reveal", "card_ids": [cid]}, actor=pid)  # to everyone
         if e["to"] in ("hand", "graveyard", "exile"):
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": e["to"]}}, actor=pid)
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": e["to"]},
+                     **({"face_down": True} if e.get("face_down") else {})}, actor=pid)
         elif e["to"] in ("battlefield", "battlefield_tapped"):
             entering.append({"card": cid, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped"})
     if entering and not attachments.enter(plan, entering, ctx, shuffle=pid):  # an Aura chooses what it enchants (303.4f)
@@ -1120,6 +1125,9 @@ def _sacrifice_cards(plan: Plan, cards: list[str], actor: str, ctx: Context | No
     e = {"as": binding}
     before = _remember(plan, ctx, e, cards) if ctx is not None else []
     if cards:
+        from app.rules.triggers import sacrificing  # (triggers imports this module)
+
+        sacrificing(plan, cards)
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=actor)
     if ctx is not None:
         _moved(plan, ctx, e, before)
@@ -1199,7 +1207,10 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
         cost = mana.parse_cost(d.resume["cost"])
         casting.pay_from_pool(plan, d.player, cost, f"paid {cost.text()} for {ctx.get('name', '')}")
     elif src:
+        from app.rules.triggers import sacrificing  # (triggers imports this module)
+
         card = plan.state.cards[src[0]]
+        sacrificing(plan, src)
         plan.do({"type": "move", "card_ids": src, "to": {"player": card.owner, "zone": "graveyard"}}, actor=d.player)
     continue_effects(plan, ctx)
 
@@ -1269,15 +1280,18 @@ def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def resume_order_library(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """The chooser's order for cards going to the top / bottom of a library (401.4: a private
+    choice; ``owner``: whose library, the chooser's unless given)."""
     r = d.resume
     pid = d.player
+    owner = r.get("owner") or pid
     if r["place"] == "top":
         # The first chosen card goes on top: put them on top in reverse.
         for cid in reversed(chosen):
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "library"}, "position": "top"}, actor=pid)
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": "top"}, actor=pid)
     else:
         for cid in reversed(chosen):  # the first chosen ends at the very bottom
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": "bottom"}, actor=pid)
     if r.get("then_bottom"):
         bottom = r["then_bottom"]
         decide(plan, player=pid, kind="order", prompt="Order the cards for the bottom of your library (first chosen ends up at the very bottom)",
@@ -1285,32 +1299,107 @@ def resume_order_library(plan: Plan, d: Any, chosen: list[str]) -> None:
                min_choices=len(bottom), max_choices=len(bottom),
                resume={"step": "order_library", "place": "bottom", "then_bottom": [], "ctx": r["ctx"]})
         return
-    continue_effects(plan, r["ctx"])
+    ctx = r["ctx"]
+    queue = ctx.get("library_queue") or []
+    if queue:  # to_library: the next owner orders their cards (401.4)
+        nxt = queue.pop(0)
+        _ask_order(plan, ctx, nxt["owner"], nxt["owner"], nxt["cards"], nxt["place"])
+        return
+    if ctx.get("library_e") is not None:
+        _moved(plan, ctx, ctx.pop("library_e"), [ObjectRef.model_validate(x) for x in ctx.pop("library_before", [])])
+        ctx.pop("library_queue", None)
+    continue_effects(plan, ctx)
 
 
-# -- looking at the top of a library ------------------------------------------------------
+# -- looking at, revealing and moving the top of a library ----------------------------------
+# The cards an instruction set aside from the top of a library live in the resolution context:
+# ctx["looked"] (their ids, still in that library), ctx["looked_owner"] (whose library) and
+# ctx["found"] (the card a "… until you reveal a …" instruction stopped at). "Look at" is private:
+# only the looking player's decisions carry the cards (701.20e); "reveal" shows them to everyone
+# (701.20a) until they move or the library is reordered (701.20d, ops.move_card clears reveals).
+def _library_owner(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
+    """Whose library an instruction reads: "your library" (default), "target player's",
+    "each player's" …"""
+    return _players(plan, ctx, e.get("player") or "you")
+
+
+def _library(plan: Plan, pid: str) -> list[str]:
+    return plan.state.zones.get(zone_key(pid, "library"), [])
+
+
+def _first_match(plan: Plan, ctx: Context, cards: list[str], key: str, pid: str) -> int | None:
+    """The index of the first card matching a selector, or None."""
+    from app.rules import characteristics as chars
+
+    sel = selectors.from_key(key)
+    for i, cid in enumerate(cards):
+        card = plan.state.cards[cid]
+        if selectors.matches(plan, sel, card, chars.of(card, plan.info), pid):
+            return i
+    return None
+
+
 def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Look at the top N cards of your library": only you see them (the choices that follow are
-    your private decisions); they stay where they are until an instruction moves them."""
-    pid = ctx["controller"]
-    ctx["looked"] = list(plan.state.zones.get(zone_key(pid, "library"), [])[: _amount(plan, ctx, e["n"])])
+    your private decisions); they stay where they are until an instruction moves them. With
+    ``reveal``: "reveal the top N cards" — shown to everyone (701.20a). With ``until`` (a selector
+    key): "reveal cards from the top of your library until you reveal a creature card" — the
+    cards down to and including the first match are revealed; that match is "that card"
+    (ctx["found"]), the others "the rest". With ``player``: another player's library."""
+    owners = _library_owner(plan, ctx, e)
+    ctx["looked"], ctx["found"] = [], None
+    ctx["looked_owner"] = owners[0] if len(owners) == 1 else None
+    cards: list[str] = []
+    for pid in owners:
+        library = _library(plan, pid)
+        if e.get("until"):
+            at = _first_match(plan, ctx, library, e["until"], ctx["controller"])
+            top = library if at is None else library[: at + 1]
+            if at is not None and len(owners) == 1:
+                ctx["found"] = library[at]
+        else:
+            top = library[: _amount(plan, ctx, e["n"])]
+        if top and e.get("reveal"):
+            plan.do({"type": "reveal_top", "player": pid, "count": len(top)}, actor=ctx["controller"])
+        elif top and len(owners) == 1:  # shown to the looking player alone (a private view of those cards)
+            plan.do({"type": "look_top", "player": pid, "count": len(top)}, actor=ctx["controller"])
+        cards += top
+    if len(owners) == 1:
+        ctx["looked"] = cards
+    # (the objects looked at, for "that card's mana value" and the like: still in the library)
+    _remember(plan, ctx, e, [ctx["found"]] if ctx.get("found") else cards)
     return True
+
+
+def _looked(plan: Plan, ctx: Context) -> tuple[str, list[str]]:
+    """(the library's owner, the set-aside cards still in that library)."""
+    pid = ctx.get("looked_owner") or ctx["controller"]
+    library = _library(plan, pid)
+    return pid, [c for c in ctx.get("looked") or [] if c in library]
 
 
 def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Put N of them into your hand", "you may reveal a creature card from among them and put it
-    into your hand", "put a land card from among them onto the battlefield tapped"."""
+    into your hand", "put a land card from among them onto the battlefield tapped", "put that
+    card into your hand" (``which``: "that" — the card a reveal-until found, or the one card
+    looked at), "put those cards into your hand" (``which``: "all"), "put all land cards revealed
+    this way into your hand" (a selector with no choice: every match)."""
     from app.rules import characteristics as chars
 
     pid = ctx["controller"]
-    library = plan.state.zones.get(zone_key(pid, "library"), [])
-    looked = [c for c in ctx.get("looked") or [] if c in library]
+    owner, looked = _looked(plan, ctx)
+    ctx["looked"] = looked
     sel = selectors.from_key(e["sel"]) if e.get("sel") else None
     options = [c for c in looked if sel is None
                or selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
-    most = min(_amount(plan, ctx, e["n"]), len(options))
+    which = e.get("which")
+    if which == "that":
+        found = ctx.get("found")
+        options = [found] if found and found in looked else looked if len(looked) == 1 else []
+    most = len(options) if which in ("that", "all") else min(_amount(plan, ctx, e["n"]), len(options))
     least = 0 if e.get("optional") else most
-    ctx["looked"] = looked
+    if not e.get("optional") and (which in ("that", "all") or (sel is not None and most == len(options))):
+        return _picked(plan, ctx, e, list(options))  # nothing to choose: every card it names
     if most == 0 and (sel is None or not looked):
         return True
     # (with a filter, ask even when nothing matched, as search does: whether a decision appears
@@ -1322,53 +1411,186 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def resume_pick_looked(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if _picked(plan, ctx, e, list(chosen)):
+        continue_effects(plan, ctx)
+
+
+def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> bool:
+    """Move the picked cards where the instruction says; False while an Aura entering chooses."""
     from app.rules import attachments  # attachments → effects (resume)
 
-    ctx, e = d.resume["ctx"], d.resume["e"]
-    pid = d.player
+    pid = ctx["controller"]
     if chosen and e.get("reveal"):
         plan.do({"type": "reveal", "card_ids": chosen}, actor=pid)  # to everyone
     ctx["looked"] = [c for c in ctx.get("looked") or [] if c not in chosen]
-    before = _remember(plan, ctx, e, list(chosen))
-    if e["to"] == "hand":
-        if chosen:
-            plan.do({"type": "move", "card_ids": chosen, "to": {"player": pid, "zone": "hand"}}, actor=pid)
+    if ctx.get("found") in chosen:
+        ctx["found"] = None
+    before = _remember(plan, ctx, e, chosen)
+    if e["to"] in ("hand", "graveyard", "exile"):
+        for cid in chosen:  # (a graveyard or exile is the owner's; "your hand" yours)
+            to = pid if e["to"] == "hand" else plan.state.cards[cid].owner
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": to, "zone": e["to"]}}, actor=pid)
     else:
         entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped"} for c in chosen]
         if not attachments.enter(plan, entries, ctx):
-            return
+            return False
     _moved(plan, ctx, e, before)
-    continue_effects(plan, ctx)
+    return True
 
 
 def rest_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"… and the rest into your graveyard / on the bottom of your library in any order / in a
-    random order"."""
+    random order", "put them back in any order" (``to``: "top_any"), "exile the rest". "In any
+    order" is the player's private choice (401.4: the order isn't revealed); "in a random order"
+    is the table's randomness, recorded as moves (replay is deterministic)."""
     import secrets
 
     pid = ctx["controller"]
-    library = plan.state.zones.get(zone_key(pid, "library"), [])
-    rest = [c for c in ctx.get("looked") or [] if c in library]
+    owner, rest = _looked(plan, ctx)
     ctx["looked"] = []
     if not rest:
         return True
-    if e["to"] == "graveyard":
-        plan.do({"type": "move", "card_ids": rest, "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
+    if e["to"] in ("graveyard", "exile"):
+        plan.do({"type": "move", "card_ids": rest, "to": {"player": owner, "zone": e["to"]}}, actor=pid)
         return True
-    if e["to"] == "bottom_random" or len(rest) == 1:
-        order = list(rest)
-        secrets.SystemRandom().shuffle(order)  # (recorded as moves: replay is deterministic)
-        for cid in order:
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+    if e["to"] == "hand":
+        plan.do({"type": "move", "card_ids": rest, "to": {"player": pid, "zone": "hand"}}, actor=pid)
         return True
-    decide(plan, player=pid, kind="order", prompt="Order the cards for the bottom of your library (first chosen ends up at the very bottom)",
-           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in rest],
-           min_choices=len(rest), max_choices=len(rest),
-           resume={"step": "order_library", "place": "bottom", "then_bottom": [], "ctx": ctx})
+    if e["to"] == "top_any":
+        if len(rest) == 1:
+            return True  # (already there)
+        place = "top"
+    else:
+        place = "bottom"
+        if e["to"] == "bottom_random" or len(rest) == 1:
+            order = list(rest)
+            (plan.rng or secrets.SystemRandom()).shuffle(order)  # (recorded as moves: replay is deterministic)
+            for cid in order:
+                plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "library"}, "position": "bottom"},
+                        actor=pid)
+            return True
+    _ask_order(plan, ctx, pid, owner, rest, place)
     return False
 
 
-PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looked": rest_looked})
+def _ask_order(plan: Plan, ctx: Context, chooser: str, owner: str, cards: list[str], place: str) -> None:
+    whose = "your library" if owner == chooser else f"{plan.name(owner)}'s library"
+    end = "on top" if place == "top" else "at the very bottom"
+    decide(plan, player=chooser, kind="order", prompt=f"Order the cards for the {place} of {whose} (first chosen ends up {end})",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in cards],
+           min_choices=len(cards), max_choices=len(cards),
+           resume={"step": "order_library", "place": place, "then_bottom": [], "owner": owner, "ctx": ctx})
+
+
+def exile_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Exile the top N cards of your library" (face up unless it says "face down"; then hidden
+    from everyone but its controller); "exile cards from the top of your library until you exile
+    a nonland card" (``until``: the match is "that card", ctx["found"]). Records the exiled cards
+    ("cards exiled this way", 400.7j)."""
+    owners = _library_owner(plan, ctx, e)
+    before: list[ObjectRef] = []
+    ctx["found"] = None
+    for pid in owners:
+        library = _library(plan, pid)
+        if e.get("until"):
+            at = _first_match(plan, ctx, library, e["until"], ctx["controller"])
+            n = len(library) if at is None else at + 1
+            if at is not None and len(owners) == 1:
+                ctx["found"] = library[at]
+        else:
+            n = min(_amount(plan, ctx, e["n"]), len(library))
+        if not n:
+            continue
+        before += [r for r in (context.ref_of(plan, c) for c in library[:n]) if r is not None]
+        plan.do({"type": "mill", "player": pid, "count": n, "to": "exile", "face_down": bool(e.get("face_down"))}, actor=pid)
+    _moved(plan, ctx, e, before)  # the new objects in exile (400.7j)
+    if e.get("bind") and not e.get("as"):  # (a permission's "You may play that card": app/rules/permissions.py)
+        context.bind_moved(plan, ctx, e["bind"], before)
+    return True
+
+
+def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Put target creature on top of its owner's library" / "on the bottom of its owner's
+    library", "shuffle ~ into its owner's library" (701.24c: the library is shuffled even when
+    the object is gone), "its owner puts it on their choice of the top or bottom of their library"
+    (``place``: "choice"). Several cards to one position: their owner orders them privately
+    (401.4)."""
+    cards = _cards(plan, ctx, e["who"])
+    before = _remember(plan, ctx, e, cards)
+    owners = {plan.state.cards[c].owner for c in cards}
+    if e["place"] == "shuffle":
+        for cid in cards:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"}},
+                    actor=ctx["controller"])
+        for pid in sorted(owners):
+            plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
+        _moved(plan, ctx, e, before)  # (new objects: a shuffled library is re-keyed, 701.20d)
+        return True
+    if e["place"] == "choice" and len(cards) == 1:
+        card = plan.state.cards[cards[0]]
+        decide(plan, player=card.owner, kind="choose_one", prompt=f"Put {card.name} on the top or the bottom of your library?",
+               options=[DecisionOption(id="top", label="On top"), DecisionOption(id="bottom", label="On the bottom")],
+               resume={"step": "library_place", "card": card.id, "ctx": ctx, "e": e, "before": [r.model_dump(mode="json") for r in before]},
+               source=card)
+        return False
+    place = "bottom" if e["place"] == "bottom" else "top"
+    pending = [(pid, [c for c in cards if plan.state.cards[c].owner == pid]) for pid in sorted(owners)]
+    multiple = [(pid, mine) for pid, mine in pending if len(mine) > 1]
+    for pid, mine in pending:
+        if len(mine) == 1:
+            plan.do({"type": "move", "card_ids": mine, "to": {"player": pid, "zone": "library"}, "position": place}, actor=ctx["controller"])
+    if not multiple:
+        _moved(plan, ctx, e, before)
+        return True
+    ctx["library_queue"] = [{"owner": pid, "cards": mine, "place": place} for pid, mine in multiple[1:]]
+    ctx["library_before"] = [r.model_dump(mode="json") for r in before]
+    ctx["library_e"] = e
+    pid, mine = multiple[0]
+    _ask_order(plan, ctx, pid, pid, mine, place)
+    return False
+
+
+def resume_library_place(plan: Plan, d: Any, chosen: list[str]) -> None:
+    r = d.resume
+    ctx, e = r["ctx"], r["e"]
+    card = plan.state.cards.get(r["card"])
+    if card is not None:
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "library"}, "position": chosen[0]},
+                actor=d.player)
+    _moved(plan, ctx, e, [ObjectRef.model_validate(x) for x in r["before"]])
+    continue_effects(plan, ctx)
+
+
+def shuffle_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Shuffle" / "shuffle your library" (701.24a), "shuffle your graveyard into your library",
+    "each player shuffles their hand and graveyard into their library" (``zones``: what goes in
+    first). Every card in the library becomes a new object (the shuffle re-keys them). "You may
+    shuffle": asked."""
+    if e.get("optional"):
+        pid = ctx["controller"]
+        decide(plan, player=pid, kind="confirm", prompt="Shuffle your library?",
+               options=[DecisionOption(id="yes", label="Shuffle"), DecisionOption(id="no", label="Don't shuffle")],
+               resume={"step": "shuffle_library", "ctx": ctx, "e": {**e, "optional": False}})
+        return False
+    for pid in _players(plan, ctx, e["who"]):
+        for zone in e.get("zones") or []:
+            cards = list(plan.state.zones.get(zone_key(pid, zone), []))
+            if cards:
+                plan.do({"type": "move", "card_ids": cards, "to": {"player": pid, "zone": "library"}}, actor=pid)
+        plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
+    return True
+
+
+def resume_shuffle_library(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx = d.resume["ctx"]
+    if chosen[0] == "yes":
+        shuffle_library(plan, ctx, d.resume["e"])
+    continue_effects(plan, ctx)
+
+
+PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looked": rest_looked, "exile_top": exile_top,
+                   "to_library": to_library, "shuffle_library": shuffle_library, "grant_play": permissions.grant_play})
 
 
 def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1495,6 +1717,11 @@ def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
 
         leave_stack(plan, stack_id, ctx["controller"], countered=countered)
     _after_resolution(plan)
+
+
+from app.rules import keyword_actions  # noqa: E402, I001  (keyword actions, CR 701, and token wording: leaf modules over this one)
+
+PRIMITIVES.update(keyword_actions.PRIMITIVES)
 
 
 def describe(effects: list[dict[str, Any]]) -> str:

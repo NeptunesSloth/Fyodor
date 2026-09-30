@@ -83,6 +83,20 @@ SUPPORTED_KEYWORDS: set[str] = {
     "changeling", "devoid", "cascade", "persist", "undying", "flanking", "delve", "improvise", "rebound", "storm",
     # costs (casting._convoke_sources)
     "convoke",
+    # 702.125 undaunted: costs {1} less for each opponent (permissions.self_reduction)
+    "undaunted",
+}
+
+
+# Keyword actions (CR 701) the engine carries out when an ability's text calls for them (a template
+# in app/rules/scripts.py over a primitive in app/rules/effects.py or app/rules/keyword_actions.py).
+# Coverage of a card is decided by its templates parsing; this set is the honest list for the
+# mechanics report (tools/commander_coverage.py). Each entry has scenario tests.
+SUPPORTED_KEYWORD_ACTIONS: set[str] = {
+    "counter", "create", "destroy", "discard", "exile", "mill", "regenerate", "sacrifice", "scry", "search", "surveil",
+    "tap and untap", "proliferate", "investigate", "explore",
+    # test_rules_keyword_actions.py
+    "amass", "connive", "monstrosity", "bolster", "support",
 }
 
 

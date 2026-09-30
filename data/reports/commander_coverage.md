@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 405 · PARTIAL: 3096 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 531 · PARTIAL: 2970 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -21,14 +21,14 @@ Color identity R
 - ✓ Attack and block
 - ✗ Whenever Etali attacks, exile the top card of each player's library, then you may cast any number of spells from among those cards without paying their mana costs.
 
-### Ragavan, Nimble Pilferer — PARTIAL
+### Ragavan, Nimble Pilferer — FULL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.
 - ✓ Dash
-- ✗ Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.
 
 ### Braids, Arisen Nightmare — PARTIAL
 
@@ -76,13 +76,13 @@ Color identity WG
 - ✗ Your opponents can't cast spells during your turn.
 - ✗ Whenever one or more creatures you control each with power greater than its base power deals combat damage to a player, draw a card.
 
-### Lotho, Corrupt Shirriff — PARTIAL
+### Lotho, Corrupt Shirriff — FULL
 
 Color identity WB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token.
+- ✓ Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token.
 
 ### Selvala, Heart of the Wilds — PARTIAL
 
@@ -163,9 +163,9 @@ Color identity R
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Cast it (timing, costs, the stack)
+- ✓ Discard a card: Exile the top two cards of your library. You may play those cards this turn.
 - ✗ Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.
 - ✗ Creatures you control can boast twice during each of your turns rather than once.
-- ✗ Discard a card: Exile the top two cards of your library. You may play those cards this turn.
 
 ### Six — PARTIAL
 
@@ -194,8 +194,8 @@ Color identity W
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Lifelink
+- ✓ Whenever an opponent casts their second spell each turn, draw a card.
 - ✗ Whenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card.
-- ✗ Whenever an opponent casts their second spell each turn, draw a card.
 
 ### Elas il-Kor, Sadistic Pilgrim — FULL
 
@@ -375,7 +375,7 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Creatures you control with power 2 or less can't be blocked by creatures with power 3 or greater.
+- ✓ Creatures you control with power 2 or less can't be blocked by creatures with power 3 or greater.
 - ✗ If a triggered ability of a creature you control with power 2 or less triggers, that ability triggers an additional time.
 
 ### Kodama of the West Tree — PARTIAL
@@ -494,14 +494,14 @@ Color identity G
 - ✓ Landfall — Whenever a land you control enters, put a +1/+1 counter on target creature.
 - ✗ {3}{G}{G}: Double the number of +1/+1 counters on each creature you control.
 
-### Jaheira, Friend of the Forest — PARTIAL
+### Jaheira, Friend of the Forest — FULL
 
 Color identity G · pairs via choose_background
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Tokens you control have "{T}: Add {G}."
 - ✓ Choose a background
-- ✗ Tokens you control have "{T}: Add {G}."
 
 ### Old Gnawbone — PARTIAL
 
@@ -630,7 +630,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ You may look at the top card of your library any time.
+- ✓ You may look at the top card of your library any time.
 - ✗ As long as The Reality Chip is attached to a creature, you may play lands and cast spells from the top of your library.
 - ✗ Reconfigure
 
@@ -698,13 +698,13 @@ Color identity C
 - ✓ Attack and block
 - ✗ Marvin has all activated abilities of creatures you control that don't have the same name as this creature.
 
-### Krenko, Mob Boss — PARTIAL
+### Krenko, Mob Boss — FULL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ {T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.
+- ✓ {T}: Create X 1/1 red Goblin creature tokens, where X is the number of Goblins you control.
 
 ### Anim Pakal, Thousandth Moon — PARTIAL
 
@@ -837,10 +837,10 @@ Color identity WB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever one or more tokens you control enter, each opponent loses 1 life and you gain 1 life.
 - ✗ Whenever one or more tokens your opponents control enter, for each of them, create a tapped token that's a copy of it. This ability triggers only once each turn.
-- ✗ Whenever one or more tokens you control enter, each opponent loses 1 life and you gain 1 life.
 
-### Captain Lannery Storm — PARTIAL
+### Captain Lannery Storm — FULL
 
 Color identity R
 
@@ -848,7 +848,7 @@ Color identity R
 - ✓ Attack and block
 - ✓ Haste
 - ✓ Whenever Captain Lannery Storm attacks, create a Treasure token.
-- ✗ Whenever you sacrifice a Treasure, Captain Lannery Storm gets +1/+0 until end of turn.
+- ✓ Whenever you sacrifice a Treasure, Captain Lannery Storm gets +1/+0 until end of turn.
 
 ### Zopandrel, Hunger Dominus — PARTIAL
 
@@ -904,9 +904,9 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever Kogla attacks, destroy target artifact or enchantment defending player controls.
 - ✓ {1}{G}: Return target Human you control to its owner's hand. Kogla gains indestructible until end of turn.
 - ✗ When Kogla enters, it fights up to one target creature you don't control.
-- ✗ Whenever Kogla attacks, destroy target artifact or enchantment defending player controls.
 
 ### Magda, Brazen Outlaw — PARTIAL
 
@@ -1083,7 +1083,7 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Intimidate
-- ✗ Whenever a Human deals damage to you, destroy it.
+- ✓ Whenever a Human deals damage to you, destroy it.
 - ✗ Other non-Human creatures you control get +1/+1 and have undying.
 
 ### Teysa Karlov — PARTIAL
@@ -1102,7 +1102,7 @@ Color identity R
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Haste
-- ✗ Whenever Laelia attacks, exile the top card of your library. You may play that card this turn.
+- ✓ Whenever Laelia attacks, exile the top card of your library. You may play that card this turn.
 - ✗ Whenever one or more cards are put into exile from your library and/or your graveyard, put a +1/+1 counter on Laelia.
 
 ### Jadar, Ghoulcaller of Nephalia — PARTIAL
@@ -1119,7 +1119,7 @@ Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Instant and sorcery spells you cast cost {1} less to cast.
+- ✓ Instant and sorcery spells you cast cost {1} less to cast.
 - ✗ Whenever a spell or ability you control counters a spell, you may draw a card. If you do, discard a card.
 
 ### Ulamog, the Ceaseless Hunger — PARTIAL
@@ -1138,8 +1138,8 @@ Color identity UG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ {5}{G}{U}: Look at the top five cards of your library. You may put a non-Human creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
 - ✗ Whenever you tap a nonland permanent for mana, add one mana of any type that permanent produced.
-- ✗ {5}{G}{U}: Look at the top five cards of your library. You may put a non-Human creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
 
 ### Atarka, World Render — FULL
 
@@ -1232,15 +1232,15 @@ Color identity UG
 - ✗ • Tap target permanent. Its activated abilities can't be activated this turn.
 - ✗ • Koma gains indestructible until end of turn.
 
-### Beledros Witherbloom — PARTIAL
+### Beledros Witherbloom — FULL
 
 Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
+- ✓ At the beginning of each upkeep, create a 1/1 black and green Pest creature token with "When this token dies, you gain 1 life."
 - ✓ Pay 10 life: Untap all lands you control. Activate only once each turn.
-- ✗ At the beginning of each upkeep, create a 1/1 black and green Pest creature token with "When this token dies, you gain 1 life."
 
 ### Miirym, Sentinel Wyrm — PARTIAL
 
@@ -1322,8 +1322,8 @@ Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever Myrel attacks, create X 1/1 colorless Soldier artifact creature tokens, where X is the number of Soldiers you control.
 - ✗ During your turn, your opponents can't cast spells or activate abilities of artifacts, creatures, or enchantments.
-- ✗ Whenever Myrel attacks, create X 1/1 colorless Soldier artifact creature tokens, where X is the number of Soldiers you control.
 
 ### Drana, Liberator of Malakir — FULL
 
@@ -1426,14 +1426,14 @@ Color identity C
 - ✗ Ulamog enters with a number of +1/+1 counters on it equal to the greatest mana value among cards in exile.
 - ✗ Ulamog has annihilator X, where X is the number of +1/+1 counters on it.
 
-### Mazirek, Kraul Death Priest — PARTIAL
+### Mazirek, Kraul Death Priest — FULL
 
 Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
-- ✗ Whenever a player sacrifices another permanent, put a +1/+1 counter on each creature you control.
+- ✓ Whenever a player sacrifices another permanent, put a +1/+1 counter on each creature you control.
 
 ### Tergrid, God of Fright // Tergrid's Lantern — PARTIAL
 
@@ -1607,7 +1607,7 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ {1}{G}, {T}, Return Shigeki to its owner's hand: Reveal the top four cards of your library. You may put a land card from among them onto the battlefield tapped. Put the rest into your graveyard.
+- ✓ {1}{G}, {T}, Return Shigeki to its owner's hand: Reveal the top four cards of your library. You may put a land card from among them onto the battlefield tapped. Put the rest into your graveyard.
 - ✗ Channel — {X}{X}{G}{G}, Discard this card: Return X target nonlegendary cards from your graveyard to your hand.
 
 ### Jin-Gitaxias, Core Augur — PARTIAL
@@ -1764,15 +1764,15 @@ Color identity U
 - ✗ You may have Chameleon enter as a copy of a creature you control, except his name is Chameleon, Master of Disguise.
 - ✗ Mayhem {2}{U}
 
-### Grand Arbiter Augustin IV — PARTIAL
+### Grand Arbiter Augustin IV — FULL
 
 Color identity WU
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ White spells you cast cost {1} less to cast.
-- ✗ Blue spells you cast cost {1} less to cast.
-- ✗ Spells your opponents cast cost {1} more to cast.
+- ✓ White spells you cast cost {1} less to cast.
+- ✓ Blue spells you cast cost {1} less to cast.
+- ✓ Spells your opponents cast cost {1} more to cast.
 
 ### Lyra Dawnbringer — FULL
 
@@ -1817,23 +1817,23 @@ Color identity BG
 - ✗ {1}{B}{G}, Sacrifice another creature: Each opponent loses life equal to the sacrificed creature's power.
 - ✗ Sacrifice a Swamp and a Forest: Return this card from your graveyard to your hand.
 
-### Honest Rutstein — PARTIAL
+### Honest Rutstein — FULL
 
 Color identity BG
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ When Honest Rutstein enters, return target creature card from your graveyard to your hand.
-- ✗ Creature spells you cast cost {1} less to cast.
+- ✓ Creature spells you cast cost {1} less to cast.
 
-### Juri, Master of the Revue — PARTIAL
+### Juri, Master of the Revue — FULL
 
 Color identity BR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever you sacrifice a permanent, put a +1/+1 counter on Juri.
 - ✓ When Juri dies, it deals damage equal to its power to any target.
-- ✗ Whenever you sacrifice a permanent, put a +1/+1 counter on Juri.
 
 ### Korvold, Fae-Cursed King — PARTIAL
 
@@ -1842,8 +1842,8 @@ Color identity BRG
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
+- ✓ Whenever you sacrifice a permanent, put a +1/+1 counter on Korvold and draw a card.
 - ✗ Whenever Korvold enters or attacks, sacrifice another permanent.
-- ✗ Whenever you sacrifice a permanent, put a +1/+1 counter on Korvold and draw a card.
 
 ### Bennie Bracks, Zoologist — PARTIAL
 
@@ -2163,8 +2163,8 @@ Color identity G
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ You may look at the top card of your library any time.
-- ✗ You may cast creature spells from the top of your library.
+- ✓ You may look at the top card of your library any time.
+- ✓ You may cast creature spells from the top of your library.
 - ✗ {G}, {T}, Tap two untapped creatures you control: Reveal a card from your hand or the top card of your library. If you reveal a creature card this way, put it onto the battlefield. Activate only during your turn.
 
 ### Sakashima the Impostor — PARTIAL
@@ -2208,7 +2208,7 @@ Color identity UR
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✗ Dragon spells you cast cost {1} less to cast.
+- ✓ Dragon spells you cast cost {1} less to cast.
 - ✗ Whenever a Dragon you control enters, you may have Sarkhan become a copy of it until end of turn, except its name is Sarkhan, Soul Aflame and it's legendary in addition to its other types.
 
 ### Gonti, Lord of Luxury — PARTIAL
@@ -2427,14 +2427,14 @@ Color identity R
 - ✓ Flying
 - ✗ Whenever Dragonhawk enters or attacks, exile the top X cards of your library, where X is the number of creatures you control with power 4 or greater. You may play those cards until your next end step. At the beginning of your next end step, Dragonhawk deals 2 damage to each opponent for each of those cards that are still exiled.
 
-### General Kreat, the Boltbringer — PARTIAL
+### General Kreat, the Boltbringer — FULL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever one or more Goblins you control attack, create a 1/1 red Goblin creature token that's tapped and attacking.
 - ✓ Whenever another creature you control enters, General Kreat deals 1 damage to each opponent.
-- ✗ Whenever one or more Goblins you control attack, create a 1/1 red Goblin creature token that's tapped and attacking.
 
 ### Squee, the Immortal — PARTIAL
 
@@ -2451,7 +2451,7 @@ Color identity G
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Whenever an opponent casts a noncreature spell, create a Food token.
-- ✗ Whenever a creature deals combat damage to you, sacrifice a Food token.
+- ✓ Whenever a creature deals combat damage to you, sacrifice a Food token.
 - ✗ Tap two untapped Foods you control: Add one mana of any color.
 
 ### Kokusho, the Evening Star — PARTIAL
@@ -2513,14 +2513,14 @@ Color identity G
 - ✓ {2}{G}{G}{G}: Elf creatures you control get +3/+3 and gain trample until end of turn.
 - ✗ {G}: Regenerate another target Elf.
 
-### Thalia, Guardian of Thraben — PARTIAL
+### Thalia, Guardian of Thraben — FULL
 
 Color identity W
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ First strike
-- ✗ Noncreature spells cost {1} more to cast.
+- ✓ Noncreature spells cost {1} more to cast.
 
 ### Rograkh, Son of Rohgahh — FULL
 
@@ -2591,14 +2591,14 @@ Color identity URG
 - ✓ Whenever you cast a creature spell, put a +1/+1 counter on Animar.
 - ✗ Creature spells you cast cost {1} less to cast for each +1/+1 counter on Animar.
 
-### Lord Skitter, Sewer King — PARTIAL
+### Lord Skitter, Sewer King — FULL
 
 Color identity B
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Whenever another Rat you control enters, exile up to one target card from an opponent's graveyard.
-- ✗ At the beginning of combat on your turn, create a 1/1 black Rat creature token with "This token can't block."
+- ✓ At the beginning of combat on your turn, create a 1/1 black Rat creature token with "This token can't block."
 
 ### The Indomitable — PARTIAL
 
@@ -2713,7 +2713,7 @@ Color identity UBG
 - ✓ Lifelink
 - ✗ If a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.
 
-### Ureni of the Unwritten — PARTIAL
+### Ureni of the Unwritten — FULL
 
 Color identity URG
 
@@ -2721,7 +2721,7 @@ Color identity URG
 - ✓ Attack and block
 - ✓ Flying
 - ✓ Trample
-- ✗ Whenever Ureni enters or attacks, look at the top eight cards of your library. You may put a Dragon creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
+- ✓ Whenever Ureni enters or attacks, look at the top eight cards of your library. You may put a Dragon creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.
 
 ### Emrakul, the World Anew — PARTIAL
 
@@ -2807,14 +2807,14 @@ Color identity R
 - ✗ Whenever Ilharg attacks, you may put a creature card from your hand onto the battlefield tapped and attacking. Return that creature to your hand at the beginning of the next end step.
 - ✗ When Ilharg dies or is put into exile from the battlefield, you may put it into its owner's library third from the top.
 
-### The Regalia — PARTIAL
+### The Regalia — FULL
 
 Color identity C
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Haste
+- ✓ Whenever The Regalia attacks, reveal cards from the top of your library until you reveal a land card. Put that card onto the battlefield tapped and the rest on the bottom of your library in a random order.
 - ✓ Crew
-- ✗ Whenever The Regalia attacks, reveal cards from the top of your library until you reveal a land card. Put that card onto the battlefield tapped and the rest on the bottom of your library in a random order.
 
 ### Inga and Esika — PARTIAL
 
@@ -2887,7 +2887,7 @@ Color identity UG · pairs via partner
 - ✓ Partner
 - ✗ {4}: Scry 1, then reveal the top card of your library. If it's a land card, put it onto the battlefield tapped. Otherwise, draw a card.
 
-### Esika, God of the Tree // The Prismatic Bridge — PARTIAL
+### Esika, God of the Tree // The Prismatic Bridge — FULL
 
 Color identity WUBRG
 
@@ -2897,7 +2897,7 @@ Color identity WUBRG
 - ✓ {T}: Add one mana of any color.
 - ✓ Other legendary creatures you control have vigilance and "{T}: Add one mana of any color."
 - ✓ Cast it (timing, costs, the stack)
-- ✗ At the beginning of your upkeep, reveal cards from the top of your library until you reveal a creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of your library in a random order.
+- ✓ At the beginning of your upkeep, reveal cards from the top of your library until you reveal a creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of your library in a random order.
 
 ### Karn, Legacy Reforged — PARTIAL
 
