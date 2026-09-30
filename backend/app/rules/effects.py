@@ -29,6 +29,7 @@ from app.rules import (
     permissions,
     protection,
     regeneration,
+    replacements,
     selectors,
     values,
 )
@@ -199,13 +200,23 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     creatures, walkers, withered, dealt = {}, {}, {}, []
     deathtouched = []
     per: dict[str, int] = {}
+    # prevention effects (615: "prevent all …" in force, then "prevent the next N" shields) on this
+    # one simultaneous damage event — app/rules/replacements.py
+    source_oid = ctx.get("source_object") or ""
+    events = [{"source_card": source.id if source is not None else None, "source_oid": source_oid, "target": cid,
+               "amount": amount(cid), "combat": False}
+              for cid in cards if not protection.protected_from(plan.ch(plan.state.cards[cid]), src_ch)]
+    events += [{"source_card": source.id if source is not None else None, "source_oid": source_oid, "target": pid,
+                "amount": amount(pid), "combat": False} for pid in players]
+    after = replacements.apply_prevention(plan, events) or []
+    left = {ev["target"]: ev["amount"] - ev["prevented"] for ev in after}
     for cid in cards:
         card = plan.state.cards[cid]
         ch = plan.ch(card)
         if protection.protected_from(ch, src_ch):  # 702.16e: the damage is prevented
             plan.note(f"Protection prevents the damage to {ch.name}", [cid], actor=ctx["controller"])
             continue
-        per[cid] = shield(plan, plan.oid(cid), amount(cid))
+        per[cid] = left.get(cid, 0)
         if per[cid] <= 0:
             continue
         if "Planeswalker" in ch.types and not ch.is_creature:
@@ -217,7 +228,7 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if cid not in walkers and "deathtouch" in keywords:
             deathtouched.append(cid)
         dealt.append({"source": ctx.get("source_object") or "", "target": cid, "target_object": plan.oid(cid), "amount": per[cid]})
-    to_players = {pid: shield(plan, pid, amount(pid)) for pid in players}
+    to_players = {pid: left.get(pid, 0) for pid in players}
     players = [pid for pid, m in to_players.items() if m > 0]
     for pid in players:
         dealt.append({"source": ctx.get("source_object") or "", "target": pid, "amount": to_players[pid]})
@@ -382,13 +393,19 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True
     made: list[str] = []
     for pid in _players(plan, ctx, e["who"]):
-        created = plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False, "tapped": bool(e.get("tapped")),
+        spec = {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
+                "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
+        # a token enters tapped when its creator says so ("create a tapped …") or its own text does
+        # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
+        tapped = bool(e.get("tapped")) or replacements.token_enters_tapped(plan, pid, spec)
+        created = plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False, "tapped": tapped,
                            "source_id": ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None,
-                           "token": {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
-                                     "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}},
-                          actor=pid)
+                           "token": spec}, actor=pid)
         new_ids = getattr(created, "r", None)
-        made += list(new_ids.ids) if new_ids is not None else []
+        fresh = list(new_ids.ids) if new_ids is not None else []
+        for tid in fresh:
+            replacements.after_entry(plan, tid, pid)
+        made += fresh
     _remember(plan, ctx, e, made)  # the tokens, as the new objects they are ("they gain haste")
     return True
 
@@ -602,13 +619,12 @@ def unearth(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     card = plan.state.cards.get(cid)
     if card is None or not card.zone.endswith(":graveyard") or plan.oid(cid) != e["object"]:
         return True  # it left the graveyard: the ability does nothing
-    plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "battlefield"}}, actor=ctx["controller"])
-    oid = plan.oid(cid)
-    layers.add_effect(plan, affected=[oid], layer="6", source=None, controller=ctx["controller"], add_keywords=("haste",),
-                      duration="permanent", label="Haste (unearth)")
-    plan.rules.exile_if_leaves.append(oid)
-    delayed.create_move(plan, ctx["controller"], cid, oid, "exile", card.name)  # (a delayed trigger, 603.7)
-    return True
+    from app.rules import attachments  # attachments → effects (resume)
+
+    # It enters through the one entry path (its "enters" replacements apply: 614.1c-d); haste,
+    # "exile it at the next end step" and "if it would leave, exile it instead" (702.84a) follow.
+    return attachments.enter(plan, [{"card": cid, "player": card.owner, "actor": ctx["controller"], "gain_haste": "unearth",
+                                     "exile_if_leaves": True, "delayed": "exile"}], ctx)
 
 
 def delayed_move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -749,21 +765,6 @@ def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-def shield(plan: Plan, key: str, n: int) -> int:
-    """Use prevention shields on ``key`` (a player or object id): how much of ``n`` is still dealt."""
-    r = plan.rules
-    left = r.prevention.get(key, 0)
-    if not left or n <= 0:
-        return n
-    used = min(left, n)
-    if left - used:
-        r.prevention[key] = left - used
-    else:
-        r.prevention.pop(key, None)
-    plan.note(f"{used} damage prevented")
-    return n - used
-
-
 def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     want = _amount(plan, ctx, e["n"])
     before: list[ObjectRef] = []
@@ -783,9 +784,10 @@ def return_with_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     card = plan.state.cards.get(cid)
     if card is None or not card.zone.endswith(":graveyard"):
         return True  # it's gone (a token ceased to exist, or it left the graveyard)
-    plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "battlefield"}}, actor=card.owner)
-    plan.do({"type": "counter", "card_ids": [cid], "kind": e["counter"], "delta": 1}, actor=card.owner)
-    return True
+    from app.rules import attachments  # attachments → effects (resume)
+
+    # the one entry path: it enters with the counter (122.6) and its own "enters" replacements
+    return attachments.enter(plan, [{"card": cid, "player": card.owner, "actor": card.owner, "counter": e["counter"]}], ctx)
 
 
 def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1241,7 +1243,7 @@ PRIMITIVES = {
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
-    "sacrifice": sacrifice, "explore": explore, "prevent": prevent, "mill": mill,
+    "sacrifice": sacrifice, "explore": explore, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
     "fabricate": fabricate, "storm": storm,
 }

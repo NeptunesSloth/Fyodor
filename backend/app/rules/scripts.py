@@ -1266,30 +1266,16 @@ def parse_anthem(text: str) -> Definition | None:
     return statics.parse(text)
 
 
-SHOCK = re.compile(r"^As ~ enters, you may pay (?P<n>\d+) life\. If you don't, it enters tapped\.$")
-ENTERS_WITH = re.compile(r"^(?:(?P<kicked>If ~ was kicked, it)|~) enters with "
-                         r"(?P<n>X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "
-                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it(?P<each> for each time it was kicked)?\.$")
-
-
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     text = self_text(ability.text, ch.name)
-    if ability.kind == "static" and text == "~ enters tapped.":
-        return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
-    m = SHOCK.match(text) if ability.kind == "static" else None
-    if m:  # shock lands: "As ~ enters, you may pay 2 life. If you don't, it enters tapped."
-        return {"kind": "replacement", "replacement": "pay_life_or_tapped", "life": int(m["n"]), "effects": []}
-    m = ENTERS_WITH.match(text) if ability.kind == "static" else None
-    if m and m["kind"] not in UNMODELED_COUNTERS:  # 614.1c: "~ enters with N … counters on it"
-        n: int | str = "X" if m["n"] == "X" else num(m["n"])
-        out: Definition = {"kind": "replacement", "replacement": "enters_with_counters", "counter": m["kind"], "n": n,
-                           "effects": []}
-        if m["kicked"]:  # 702.33e: "If ~ was kicked, it enters with …"
-            out["if_kicked"] = True
-        if m["each"]:  # "… for each time it was kicked" (multikicker, 702.33c)
-            out["per_kick"] = True
-        return out
+    if ability.kind == "static":
+        # replacement / prevention effects of the permanent itself (the block at the end of this
+        # module): "~ enters tapped [unless …]", shock lands, "~ enters with … counters", "If ~ would
+        # die, exile it instead", "Prevent all …"
+        replacement = define_replacement(ability, text)
+        if replacement is not None:
+            return replacement
     if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
         return anthem
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
@@ -1626,6 +1612,242 @@ def spell_definition(ch: Characteristics) -> Definition | None:
         return None  # ("Exile ~." on an instant or sorcery: the spell itself, which effects don't move)
     effects, target = _finish_targets(effects, groups)
     return {"kind": "spell", "effects": effects, **target_fields(target)}
+
+
+# =====================================================================================================
+# Replacement and prevention effects (CR 614, 615) — applied by app/rules/replacements.py.
+# A wording either matches one of these exactly or the line stays manual (never a guess).
+# =====================================================================================================
+SHOCK = re.compile(r"^As ~ enters, you may pay (?P<n>\d+) life\. If you don't, it enters tapped\.$")
+# "~ enters [tapped] with N … counters on it [for each …]" (614.1c); "If ~ was kicked, it enters with …" (702.33e)
+ENTERS_WITH = re.compile(r"^(?:(?P<kicked>If ~ was kicked, it)|~) enters (?P<tapped>tapped )?with "
+                         r"(?P<n>X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "
+                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it(?: for each (?P<each>.+?))?\.$")
+ENTERS_TAPPED_UNLESS = re.compile(r"^~ enters tapped unless (?P<cond>.+)\.$")
+_A_THING = r"(?:a|an) (?P<{name}>[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*|legendary(?: [a-z]+)? creature|basic land|planeswalker)"
+_UNLESS_ONE_OR_TWO = re.compile(r"^you control " + _A_THING.format(name="a") + r"(?: or " + _A_THING.format(name="b") + r")?$")
+_UNLESS_COUNT = re.compile(r"^you control (?P<n>\w+) or (?P<cmp>more|fewer) (?P<what>.+)$")
+_UNLESS_OPPONENTS = re.compile(r"^you have (?P<n>\w+) or more opponents$")
+# The object's own "instead": "If ~ would die, exile it instead." / "… be put into a graveyard from anywhere …"
+EXILE_INSTEAD_SELF = re.compile(r"^If ~ would (?P<what>die|be put into a graveyard from anywhere), exile it instead\.$")
+# Statics: "If a creature an opponent controls would die, exile it instead." / Rest in Peace / Leyline of the Void
+EXILE_INSTEAD_STATIC = re.compile(r"^If (?P<subject>a card or token|a card|(?:a|an) (?P<sel>[a-z][a-z' ]+?)) would "
+                                  r"(?P<what>die|be put into (?P<whose>a|your|an opponent's) graveyard from anywhere), "
+                                  r"exile (?:it|that card) instead\.$")
+# Prevention: "Prevent all [combat] damage that would be dealt [this turn] [to …] [by …] [this turn]."
+PREVENT_ALL = re.compile(r"^prevent all (?P<kind>combat |noncombat )?damage that would be dealt(?P<t1> this turn)?"
+                         r"(?: to (?P<to>.+?))?(?P<t2> this turn)?(?: by (?P<by>.+?))?(?P<t3> this turn)?$")
+PREVENT_TO_AND_BY = re.compile(r"^prevent all (?P<kind>combat |noncombat )?damage that would be dealt to and dealt by "
+                               r"(?P<x>~|enchanted creature|equipped creature)$")
+_PREVENT_TARGETS = {  # what the damage would be dealt to → (players, objects)
+    "you": ("you", None), "players": ("all", None), "each player": ("all", None), "~": (None, "self"),
+    "enchanted creature": (None, "attached"), "equipped creature": (None, "attached"),
+    "you and creatures you control": ("you", "creatures you control"),
+}
+_PREVENT_SOURCES = {"~": "self", "enchanted creature": "attached", "equipped creature": "attached"}
+
+
+def _selector_key(phrase: str) -> str | None:
+    """A group of permanents on the battlefield as a selector key, or None."""
+    from app.rules import selectors  # (a leaf module)
+
+    sel = selectors.parse(phrase)
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card:
+        return None
+    return sel.key()
+
+
+def _word_num(word: str) -> int | None:
+    return num(word) if word.isdigit() or word.lower() in NUMBERS else None
+
+
+def _unless_condition(text: str) -> Definition | None:
+    """"~ enters tapped unless <condition>" → a condition (app/rules/conditions.py shape; ``{"any":
+    [...]}`` for "a Plains or an Island"). Reveal-or-tapped wordings and "unless a player has 13 or less
+    life" stay manual."""
+    from app.rules import selectors  # (a leaf module)
+
+    t = text.strip()
+    m = _UNLESS_OPPONENTS.fullmatch(t)
+    if m:
+        n = _word_num(m["n"])
+        return {"value": {"opponents": 1}, "op": ">=", "n": n} if n is not None else None
+    m = _UNLESS_COUNT.fullmatch(t)
+    if m:
+        n = _word_num(m["n"])
+        key = _selector_key(m["what"] + " you control")
+        if n is None or key is None:
+            return None
+        return {"value": {"count": key}, "op": ">=" if m["cmp"] == "more" else "<=", "n": n}
+    m = _UNLESS_ONE_OR_TWO.fullmatch(t)
+    if m:
+        conds = []
+        for word in (m["a"], m["b"]):
+            if not word:
+                continue
+            key = _selector_key(word + " you control")
+            if key is None and word[:1].isupper() and " " not in word:  # "a Plains": the selector grammar reads Plains as plural
+                key = selectors.Selector(controller="you", subtypes=(word,)).key()
+            if key is None:
+                return None
+            conds.append({"value": {"count": key}, "op": ">=", "n": 1})
+        return conds[0] if len(conds) == 1 else {"any": conds}
+    return None
+
+
+def _for_each(phrase: str) -> Any:
+    """"for each <group>" on an "enters with" ability: a count the values grammar evaluates as it enters
+    — of cards elsewhere ("creature card in your graveyard") or of *other* permanents. A group the
+    entering permanent might itself belong to is not read (whether it counts itself is not settled
+    here); "for each color of mana spent" and "creatures that died this turn" aren't modeled."""
+    from app.rules import selectors  # (a leaf module)
+
+    if phrase in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
+        return {"kicked": 1}
+    sel = selectors.parse(phrase)
+    if sel is None or sel.player is not None or (not sel.card and sel.zones == ("battlefield",) and not sel.other):
+        return None
+    return {"count": sel.key()}
+
+
+def _prevent_scope(kind: str | None, to: str | None, by: str | None) -> tuple[Definition, str | None, str | None] | None:
+    """The scope of a "prevent all" wording → (scope, target selector for a targeted one, its role)."""
+    scope: Definition = {"combat": {"combat ": True, "noncombat ": False}.get(kind or "")}
+    target: str | None = None
+    role: str | None = None
+    if to is None:
+        scope["any_target"] = True
+    elif to in _PREVENT_TARGETS:
+        players, objects = _PREVENT_TARGETS[to]
+        if players:
+            scope["to_players"] = players
+        if objects:
+            scope["to_objects"] = objects if objects in ("self", "attached") else _selector_key(objects)
+            if scope["to_objects"] is None:
+                return None
+    elif to in SELECTORS and SELECTORS[to] in ("creature", "creature_you_control", "creature_opponent_controls"):
+        target, role = SELECTORS[to], "to"
+    else:
+        key = _selector_key(to)
+        if key is None:
+            return None
+        scope["to_objects"] = key
+    if by is None:
+        pass
+    elif by in _PREVENT_SOURCES:
+        scope["by_objects"] = _PREVENT_SOURCES[by]
+    elif by in SELECTORS and SELECTORS[by] in ("creature", "attacking_creature", "attacking_or_blocking_creature"):
+        if target is not None:
+            return None  # (two targets: not this template)
+        target, role = SELECTORS[by], "by"
+    else:
+        key = _selector_key(by)
+        if key is None:
+            return None
+        scope["by_objects"] = key
+    return scope, target, role
+
+
+def parse_prevent_all(text: str) -> tuple[Definition, bool, str | None, str | None] | None:
+    """"Prevent all …" (one sentence, no trailing period, first letter lower-cased) → (scope, this
+    turn?, target selector, role)."""
+    m = PREVENT_TO_AND_BY.fullmatch(text)
+    if m:
+        what = _PREVENT_SOURCES[m["x"]]
+        return ({"combat": {"combat ": True, "noncombat ": False}.get(m["kind"] or ""), "to_objects": what, "by_objects": what,
+                 "to_or_by": True}, False, None, None)
+    m = PREVENT_ALL.fullmatch(text)
+    if not m:
+        return None
+    turns = sum(1 for t in (m["t1"], m["t2"], m["t3"]) if t)
+    if turns > 1:
+        return None
+    got = _prevent_scope(m["kind"], m["to"], m["by"])
+    if got is None:
+        return None
+    scope, target, role = got
+    return scope, turns == 1, target, role
+
+
+def define_replacement(ability: AbilityText, text: str) -> Definition | None:
+    """A static line that is a replacement or prevention effect of the permanent itself."""
+    if ability.kind != "static":
+        return None
+    if text == "~ enters tapped.":
+        return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
+    from app.rules import language  # (a leaf module)
+
+    chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
+    if chosen is not None:
+        return chosen
+    m = ENTERS_TAPPED_UNLESS.match(text)
+    if m:  # check lands, fast lands, battle lands, Battlebond lands (614.1d)
+        cond = _unless_condition(m["cond"])
+        return {"kind": "replacement", "replacement": "enters_tapped", "unless": cond, "effects": []} if cond else None
+    m = SHOCK.match(text)
+    if m:  # shock lands: "As ~ enters, you may pay 2 life. If you don't, it enters tapped."
+        return {"kind": "replacement", "replacement": "pay_life_or_tapped", "life": int(m["n"]), "effects": []}
+    m = ENTERS_WITH.match(text)
+    if m and m["kind"] not in UNMODELED_COUNTERS:  # 614.1c: "~ enters with N … counters on it"
+        n: Any = "X" if m["n"] == "X" else num(m["n"])
+        out: Definition = {"kind": "replacement", "replacement": "enters_with_counters", "counter": m["kind"], "n": n,
+                           "effects": []}
+        if m["tapped"]:  # "~ enters tapped with two charge counters on it." (Vivid lands)
+            out["tapped"] = True
+        if m["kicked"]:  # 702.33e: "If ~ was kicked, it enters with …"
+            out["if_kicked"] = True
+        if m["each"]:
+            each = _for_each(m["each"])
+            if each is None or n == "X" or m["kicked"]:
+                return None
+            if each == {"kicked": 1}:  # "… for each time it was kicked" (multikicker, 702.33c)
+                out["per_kick"] = True
+            else:
+                out["n"] = {"times": [n, each]} if n != 1 else each
+        return out
+    m = EXILE_INSTEAD_SELF.match(text)
+    if m:
+        return {"kind": "replacement", "replacement": "exile_instead",
+                "from": "battlefield" if m["what"] == "die" else "anywhere", "effects": []}
+    m = EXILE_INSTEAD_STATIC.match(text)
+    if m:
+        out = {"kind": "static", "static": "exile_instead", "effects": [],
+               "from": "battlefield" if m["what"] == "die" else "anywhere",
+               "graveyard_of": {"a": "any", "your": "you", "an opponent's": "opponent"}.get(m["whose"] or "a", "any")}
+        if m["subject"] == "a card or token":
+            out["who"] = "any"
+        elif m["subject"] == "a card":
+            out["who"] = "card"
+        else:
+            if m["what"] != "die":
+                return None  # ("a creature card … from anywhere": a card in a hidden zone, not modeled)
+            key = _selector_key(m["sel"])
+            if key is None:
+                return None
+            out["who"] = key
+        return out
+    low = _lower_first(text.rstrip("."))
+    if low.startswith("prevent all ") and text.endswith(".") and text.count(". ") == 0:
+        got = parse_prevent_all(low)
+        if got is None:
+            return None
+        scope, this_turn, target, _role = got
+        if this_turn or target is not None:
+            return None  # a static ability doesn't last "this turn" and doesn't target
+        return {"kind": "static", "static": "prevent", "scope": scope, "effects": []}
+    return None
+
+
+@effect(r"(?P<text>prevent all (?:combat |noncombat )?damage that would be dealt.*)")
+def _prevent_all_this_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    got = parse_prevent_all(m["text"])
+    if got is None or not got[1]:
+        raise _NoMatch
+    scope, _this_turn, target, role = got
+    e: dict[str, Any] = {"do": "prevent_all", "scope": scope}
+    if target is not None:
+        e.update(who="target", role=role)
+    return [e], target
 
 
 # -- library primitives (app/rules/effects.py: look_top, exile_top, to_library) as introducers ----
