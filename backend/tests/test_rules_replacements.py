@@ -335,17 +335,31 @@ def test_shield_choice_the_other_way_round(cards):
     replay_matches(s)
 
 
-def test_interchangeable_sources_need_no_choice(cards):
+def test_identical_sources_need_no_choice(cards):
     s = table(cards)
-    a = creature(s, "p1", "Bear A", "2/2")
-    b = creature(s, "p1", "Bear B", "2/2")
+    a = creature(s, "p1", "Bear", "2/2")
+    act(s, "p1", type="create_token", player="p1", token={"name": "Bear", "type_line": "Token Creature — Test", "power": "2", "toughness": "2"})
+    b = next(c for c in s.state.cards.values() if c.name == "Bear" and c.id != a.id)
     automate(s)
     rules(s).prevention["p2"] = 2
     attack(s, (a, "p2"), (b, "p2"))
-    until(s, lambda s: s.state.turn.phase == "main2")
+    until(s, lambda s: s.state.turn.phase == "main2")  # (a shield decision would have stopped this: none was opened)
     assert s.state.players["p2"].life == 38 and not rules(s).prevention
-    assert not any(e.get("type") == "choose" for e in [])  # (no shield decision was ever opened: the turn went on)
     replay_matches(s)
+
+
+def test_sources_that_differ_only_in_text_are_asked_about(cards):
+    """615.7: a plain 2/2 and a 2/2 with a combat-damage trigger are not interchangeable."""
+    s = table(cards)
+    snake = creature(s, "p1", "Snake", "2/2", "Whenever this creature deals combat damage to a player, draw a card.")
+    brute = creature(s, "p1", "Brute", "2/2")
+    automate(s)
+    rules(s).prevention["p2"] = 2
+    attack(s, (snake, "p2"), (brute, "p2"))
+    until(s, lambda s: (rules(s).decision is not None and rules(s).decision.resume.get("step") == "shield_order")
+          or s.state.turn.phase == "main2")
+    d = rules(s).decision
+    assert d is not None and d.resume.get("step") == "shield_order"
 
 
 # -- 903.9b: a commander that would go to its owner's hand ----------------------------------------
@@ -357,7 +371,7 @@ def test_commander_bounced_may_go_to_the_command_zone_instead(cards):
     activate(s, bouncer, targets=[krenko.id])
     d = rules(s).decision
     assert d is not None and d.player == "p1" and d.resume["step"] == "commander_instead" and "903.9b" in d.prompt
-    assert s.state.cards[krenko.id].zone == "p1:battlefield"  # nothing moved yet: the replacement applies to the move
+    assert s.state.cards[krenko.id].zone == "p1:hand"  # (a step can't pause: it went to hand, the owner is asked at once)
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["no"])
     assert s.state.cards[krenko.id].zone == "p1:hand" and rules(s).decision is None
     replay_matches(s)
@@ -367,11 +381,48 @@ def test_commander_bounced_may_go_to_the_command_zone_instead(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"], remember="yes_this_turn")
     assert s.state.cards[krenko.id].zone == "p1:command" and krenko.id not in zone(s.state, "p1", "hand")
     replay_matches(s)
-    # the remembered answer applies to the next one this turn without asking
+    # the remembered answer replaces the next such move outright this turn (never in the hand)
     act(s, "p1", type="move", card_ids=[krenko.id], to={"zone": "battlefield"})
     activate(s, bouncer, targets=[krenko.id])
     assert rules(s).decision is None and s.state.cards[krenko.id].zone == "p1:command"
+    assert not [e for e in rules(s).events if e.card == krenko.id and (e.to_zone or "").endswith(":hand")]
     replay_matches(s)
+
+
+def test_commander_tucked_by_any_effect_is_asked_903_9b(cards):
+    """A Condemn-like tuck (Plan.do, no primitive hook): the same question, the same path."""
+    s = build(cards)
+    krenko = find(s.state, "Krenko, Mob Boss", "p1")
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"zone": "battlefield"})
+    tuck = token(s, "p1", "Tucker", text="{1}: Put target creature on the bottom of its owner's library.")
+    activate(s, tuck, targets=[krenko.id])
+    d = rules(s).decision
+    assert d is not None and d.player == "p1" and "command zone" in d.prompt, s.state.cards[krenko.id].zone
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"])
+    assert s.state.cards[krenko.id].zone == "p1:command"
+    replay_matches(s)
+
+
+def test_views_and_reload_during_903_9b(cards):
+    from app.game.session import GameSession
+    from app.game.state import GameState
+
+    s = build(cards)
+    atraxa = find(s.state, "Atraxa, Praetors' Voice", "p2")
+    act(s, "p2", type="move", card_ids=[atraxa.id], to={"zone": "battlefield"})
+    bouncer = token(s, "p1", "Bouncer", text="{1}: Return target creature to its owner's hand.")
+    activate(s, bouncer, targets=[atraxa.id])
+    d = rules(s).decision
+    assert d.player == "p2"
+    other = s.view("p1")["rules"]["decision"]
+    assert "903" not in other["prompt"] and not other.get("options"), other
+    for pid in ("p1", "p2"):
+        v = s.view(pid)["rules"]
+        assert "pending_903_9b" not in v and "replacements" not in v
+    s2 = GameSession(GameState.model_validate_json(s.state.model_dump_json()), cards=cards)
+    act(s2, "p2", type="choose", decision_id=d.id, option_ids=["yes"], remember="yes_this_turn")
+    assert s2.state.cards[atraxa.id].zone == "p2:command"
+    assert "commander_zone" not in str(s2.view("p1")["rules"].get("prefs"))  # the owner's private preference
 
 
 def test_only_the_owner_is_asked_and_not_for_ordinary_creatures(cards):
@@ -390,6 +441,207 @@ def test_only_the_owner_is_asked_and_not_for_ordinary_creatures(cards):
     act(s, "p2", type="choose", decision_id=d.id, option_ids=["yes"])
     assert s.state.cards[atraxa.id].zone == "p2:command"
     replay_matches(s)
+
+
+def test_rest_in_peace_no_dies_trigger_but_leaves_trigger_fires(cards):
+    """603.6c / 603.10a: exiled instead of dying: no "dies", but "leaves the battlefield" triggers."""
+    s = build(cards, "Test Rest")
+    act(s, "p1", type="move", card_ids=[named(s, "Test Rest").id], to={"zone": "battlefield"})
+    permanent(s, "p1", "Artist", "Enchantment", "Whenever a creature dies, you gain 1 life.")
+    permanent(s, "p1", "Watcher", "Enchantment", "Whenever a creature you control leaves the battlefield, you gain 3 life.")
+    bear = token(s, "p1", "Bear", "1/1")
+    act(s, "p1", type="set_damage", card_ids=[bear.id], value=2)
+    act(s, "p1", type="pass_priority")
+    pass_until_stack_empty(s)
+    assert bear.id not in s.state.cards and s.state.players["p1"].life == 43
+    replay_matches(s)
+
+
+def test_rest_in_peace_vs_madness_applies_madness(cards):
+    """616.1: both would replace the discard; only madness leads anywhere different, so the card's
+    owner gets the madness offer (the card is exiled either way, 702.35a)."""
+    s = build(cards, "Test Rest", "Fiery Temper")
+    act(s, "p1", type="move", card_ids=[named(s, "Test Rest").id], to={"zone": "battlefield"})
+    temper = to_hand(s, "Fiery Temper")
+    rest = [c for c in zone(s.state, "p1", "hand") if c != temper.id]
+    if rest:
+        act(s, "p1", type="move", card_ids=rest, to={"zone": "library"})
+    disc = token(s, "p1", "Discarder", text="{1}: Discard a card.")
+    activate(s, disc)
+    d = rules(s).decision
+    assert s.state.cards[temper.id].zone == "p1:exile"
+    assert d is not None and d.player == "p1" and "Madness" in d.prompt
+
+
+def test_mass_destroy_with_some_exiled_keeps_one_dies_batch(cards):
+    s = build(cards, "Test Reaper")
+    act(s, "p1", type="move", card_ids=[named(s, "Test Reaper").id], to={"zone": "battlefield"})
+    permanent(s, "p1", "Mourner", "Enchantment", "Whenever one or more creatures you control die, you gain 1 life.")
+    a, b, c = token(s, "p1", "A", "1/1"), token(s, "p1", "B", "1/1"), token(s, "p2", "C", "1/1")
+    wrath = token(s, "p1", "Wrather", text="{1}: Destroy all creatures.")
+    activate(s, wrath)
+    pass_until_stack_empty(s)
+    assert all(x not in s.state.cards for x in (a.id, b.id, c.id)) and s.state.players["p1"].life == 41
+    replay_matches(s)
+
+
+def test_wrath_over_20_replaced_creatures_works(cards):
+    s = build(cards, "Test Rest")
+    act(s, "p1", type="move", card_ids=[named(s, "Test Rest").id], to={"zone": "battlefield"})
+    for i in range(21):
+        token(s, "p1", f"A{i}", "1/1")
+    wrath = token(s, "p1", "Wrather", text="{1}: Destroy all creatures.")
+    activate(s, wrath)
+    assert not [c for c in s.state.cards.values() if c.zone.endswith(":battlefield") and c.name[:1] == "A"]
+    replay_matches(s)
+
+
+def test_shock_land_cannot_pay_life_it_does_not_have(cards):
+    """119.4: life may be paid only from a life total of at least that much."""
+    s = build(cards, "Breeding Pool")
+    act(s, "p1", type="set_life", player="p1", value=1)
+    pool = to_hand(s, "Breeding Pool")
+    act(s, "p1", type="play_land", card_id=pool.id)
+    assert rules(s).decision is None and s.state.cards[pool.id].tapped and s.state.players["p1"].life == 1
+    replay_matches(s)
+
+
+def test_shock_land_put_onto_the_battlefield_tapped_is_not_asked(cards):
+    s = build(cards, "Breeding Pool")
+    ramp = token(s, "p1", "Farseek", text="{1}: Search your library for a land card, put it onto the battlefield tapped, then shuffle.")
+    activate(s, ramp)
+    d = rules(s).decision
+    pool = named(s, "Breeding Pool")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[pool.id])
+    assert rules(s).decision is None and s.state.cards[pool.id].tapped and s.state.players["p1"].life == 40
+    replay_matches(s)
+
+
+def test_enter_choice_survives_reload_and_replay(cards):
+    from app.game.history import History
+    from app.game.session import GameSession
+    from app.game.state import GameState
+
+    s = build(cards, "Breeding Pool")
+    ramp = token(s, "p1", "Ramp", text=RAMP)
+    activate(s, ramp)
+    d = rules(s).decision
+    pool = named(s, "Breeding Pool")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[pool.id])
+    d = rules(s).decision
+    assert d.resume["step"] == "enter_choice"
+    other = s.view("p2")["rules"]["decision"]
+    assert "Breeding Pool" not in other["prompt"] and not other.get("options")
+    s2 = GameSession(GameState.model_validate_json(s.state.model_dump_json()), cards=cards)
+    act(s2, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+    assert s2.state.cards[pool.id].zone == "p1:battlefield" and not s2.state.cards[pool.id].tapped and s2.state.players["p1"].life == 38
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+    replay_matches(s)
+    assert History.from_dict(s.history.to_dict()).rebuild().model_dump(mode="json") == s.state.model_dump(mode="json")
+
+
+def test_kicked_counters_do_not_return_after_reanimation(cards):
+    s = build(cards, "Test Kicker Knight")
+    knight = to_hand(s, "Test Kicker Knight")
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=knight.id, kicker=1)
+    pass_until_stack_empty(s)
+    pass_until_stack_empty(s)
+    assert s.state.cards[knight.id].counters == {"+1/+1": 2}
+    act(s, "p1", type="move", card_ids=[knight.id], to={"zone": "graveyard"})
+    src = token(s, "p1", "Necro", text="{1}: Return target creature card from your graveyard to the battlefield.")
+    activate(s, src, targets=[knight.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[knight.id].zone == "p1:battlefield" and not s.state.cards[knight.id].counters
+
+
+def test_prevented_plain_damage_does_not_erase_a_deathtouch_blockers_damage(cards):
+    """702.2b: a 2-shield on the attacker prevents the 2/2 blocker's damage; the 1/1 deathtouch still kills."""
+    s = table(cards)
+    big = creature(s, "p1", "Big", "4/4")
+    fang = creature(s, "p2", "Fang", "1/1", "Deathtouch")
+    bear = creature(s, "p2", "Bear", "2/2")
+    automate(s)
+    attack(s, (big, "p2"))
+    rules(s).prevention[rules(s).object_id(big.id)] = 2
+    block(s, "p2", (fang, big), (bear, big))
+    until(s, lambda s: (rules(s).decision is not None and rules(s).decision.resume.get("step") == "shield_order")
+          or s.state.turn.phase == "main2")
+    d = rules(s).decision
+    assert d is not None and d.player == "p1"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[f"{big.id}:{rules(s).object_id(bear.id)}"])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert big.id not in s.state.cards
+    replay_matches(s)
+
+
+def test_prevented_infect_damage_is_taken_from_poison_not_life(cards):
+    s = table(cards)
+    elf = creature(s, "p1", "Elf", "2/2", "Infect")
+    bear = creature(s, "p1", "Bear", "2/2")
+    automate(s)
+    rules(s).prevention["p2"] = 2
+    attack(s, (elf, "p2"), (bear, "p2"))
+    until(s, lambda s: rules(s).decision is not None and rules(s).decision.resume.get("step") == "shield_order")
+    d = rules(s).decision
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[f"p2:{rules(s).object_id(elf.id)}"])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    p2 = s.state.players["p2"]
+    assert p2.life == 38 and p2.resources.get("poison", 0) == 0
+    replay_matches(s)
+
+
+def test_first_strike_round_shield_choice_replays_and_reloads(cards):
+    from app.game.history import History
+    from app.game.session import GameSession
+    from app.game.state import GameState
+
+    s = table(cards)
+    leech = creature(s, "p1", "Leech", "2/2", "First strike\nLifelink")
+    brute = creature(s, "p1", "Brute", "2/2", "First strike")
+    slow = creature(s, "p1", "Slow", "3/3")
+    automate(s)
+    rules(s).prevention["p2"] = 2
+    attack(s, (leech, "p2"), (brute, "p2"), (slow, "p2"))
+    until(s, lambda s: rules(s).decision is not None and rules(s).decision.resume.get("step") == "shield_order")
+    d = rules(s).decision
+    assert d.player == "p2" and {o.card_id for o in d.options} == {leech.id, brute.id}  # the first-strike round only
+    s2 = GameSession(GameState.model_validate_json(s.state.model_dump_json()), cards=cards)
+    act(s2, "p2", type="choose", decision_id=d.id, option_ids=[f"p2:{rules(s2).object_id(leech.id)}"])
+    until(s2, lambda s: s.state.turn.phase == "main2")
+    assert s2.state.players["p2"].life == 35 and s2.state.players["p1"].life == 40
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[f"p2:{rules(s).object_id(leech.id)}"])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert s.state.players["p2"].life == 35 and s.state.players["p1"].life == 40
+    replay_matches(s)
+    assert History.from_dict(s.history.to_dict()).rebuild().model_dump(mode="json") == s.state.model_dump(mode="json")
+
+
+def test_three_shield_two_sources_prevents_across_both(cards):
+    s = table(cards)
+    leech = creature(s, "p1", "Leech", "2/2", "Lifelink")
+    brute = creature(s, "p1", "Brute", "2/2")
+    automate(s)
+    rules(s).prevention["p2"] = 3
+    attack(s, (leech, "p2"), (brute, "p2"))
+    until(s, lambda s: rules(s).decision is not None and rules(s).decision.resume.get("step") == "shield_order")
+    d = rules(s).decision
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[f"p2:{rules(s).object_id(leech.id)}"])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert s.state.players["p2"].life == 39 and s.state.players["p1"].life == 40 and not rules(s).prevention
+    replay_matches(s)
+
+
+def test_commander_damage_counts_only_dealt_damage(cards):
+    """903.10a: prevented damage isn't dealt."""
+    s = table(cards)
+    krenko = find(s.state, "Krenko, Mob Boss", "p1")
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"zone": "battlefield"})
+    automate(s)
+    rules(s).prevention["p2"] = 1
+    attack(s, (krenko, "p2"))
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert s.state.players["p2"].life == 38 and list(s.state.players["p2"].commander_damage.values()) == [2]
 
 
 # -- "If ~ would die, exile it instead" (614.1a) ------------------------------------------------------

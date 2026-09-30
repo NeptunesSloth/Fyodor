@@ -565,32 +565,51 @@ def _apply_prevention(plan: Plan, dmg: CombatDamage, rnd: Round, shield_order: l
     done = replacements.apply_prevention(plan, events, order=shield_order, resume={"round": rnd})
     if done is None:
         return False
-    kept = []
-    for ev in done:
-        src, tgt, n = ev["source_card"], ev["target"], ev["amount"]
-        cut = int(ev["prevented"])
-        left = n - cut
-        if cut:
-            for pool in (dmg.players, dmg.poison, dmg.creatures, dmg.wither, dmg.walkers):
-                if tgt in pool:
-                    pool[tgt] -= min(cut, pool[tgt])
-                    if pool[tgt] <= 0:
-                        del pool[tgt]
-                    break
-            card = plan.state.cards.get(src)
-            if card is not None:
-                if dmg.lifelink.get(src):
-                    dmg.lifelink[src] = max(0, dmg.lifelink[src] - cut)
-                if card.commander_key and (tgt, card.commander_key) in dmg.commander:
-                    dmg.commander[(tgt, card.commander_key)] = max(0, dmg.commander[(tgt, card.commander_key)] - cut)
-                if not left and tgt in dmg.deathtouched:
-                    dmg.deathtouched.remove(tgt)
-        if left:
-            kept.append((src, tgt, left))
-    dmg.dealt = kept
-    dmg.lifelink = {k: v for k, v in dmg.lifelink.items() if v}
-    dmg.commander = {k: v for k, v in dmg.commander.items() if v}
+    dmg.dealt = [(ev["source_card"], ev["target"], ev["amount"] - int(ev["prevented"])) for ev in done
+                 if ev["amount"] - int(ev["prevented"]) > 0]
+    _fill_pools(plan, dmg)  # per source: what is still dealt decides every pool (702.2b, 702.90, 702.15b, 903.10a)
     return True
+
+
+def _fill_pools(plan: Plan, dmg: CombatDamage) -> None:
+    """Rebuild the damage pools from ``dmg.dealt`` (source, target, amount), the one record of what
+    each source deals to each target: marked damage or -1/-1 counters (wither / infect), life or
+    poison (infect; toxic N adds poison only when damage is actually dealt, 702.164c), loyalty,
+    lifelink per source (702.15e), commander damage (903.10a), deathtouch per source (702.2b)."""
+    state = plan.state
+    dmg.creatures, dmg.players, dmg.walkers, dmg.wither, dmg.poison = {}, {}, {}, {}, {}
+    dmg.lifelink, dmg.commander, dmg.deathtouched = {}, {}, []
+    for src, tgt, n in dmg.dealt:
+        if n <= 0:
+            continue
+        source = state.cards.get(src)
+        if source is None:
+            continue
+        sch = plan.ch(source)
+        if "lifelink" in sch.keywords:
+            dmg.lifelink[src] = dmg.lifelink.get(src, 0) + n
+        if tgt in state.players:
+            into = dmg.poison if "infect" in sch.keywords else dmg.players
+            into[tgt] = into.get(tgt, 0) + n
+            toxic = sum(int(x) for ab in sch.abilities if ab.kind == "keywords" and "toxic" in ab.keywords
+                        for x in re.findall(r"toxic (\d+)", ab.text.lower()))
+            if toxic:  # 702.164c: combat damage to a player also gives N poison counters
+                dmg.poison[tgt] = dmg.poison.get(tgt, 0) + toxic
+            if source.commander_key:
+                key = (tgt, source.commander_key)
+                dmg.commander[key] = dmg.commander.get(key, 0) + n
+            continue
+        target = state.cards.get(tgt)
+        if target is None:
+            continue
+        tch = plan.ch(target)
+        if "Planeswalker" in tch.types and not tch.is_creature:
+            dmg.walkers[tgt] = dmg.walkers.get(tgt, 0) + n
+            continue
+        into = dmg.wither if {"wither", "infect"} & sch.keywords else dmg.creatures
+        into[tgt] = into.get(tgt, 0) + n
+        if "deathtouch" in sch.keywords and tgt not in dmg.deathtouched:
+            dmg.deathtouched.append(tgt)
 
 
 def deal_combat_damage(plan: Plan, rnd: Round, shield_order: list[str] | None = None) -> bool:

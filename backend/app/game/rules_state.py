@@ -498,9 +498,9 @@ class RulesState(BaseModel):
     # combat damage that would be dealt this turn" and friends. Each: {"id", "kind", "turn",
     # "controller", "source", "scope"}; a record for another turn has expired (614.3, 615.3).
     replacements: list[dict[str, Any]] = Field(default_factory=list)
-    # 903.9b answers for a move about to happen: card id -> put the commander into the command
-    # zone instead of its owner's hand / library? Consumed by the move that asked.
-    zone_answers: dict[str, bool] = Field(default_factory=dict)
+    # 903.9b: commanders just put into their owner's hand / library (card id -> "hand" | "library")
+    # whose owner hasn't yet said whether it goes to the command zone instead (asked before priority)
+    pending_903_9b: dict[str, str] = Field(default_factory=dict)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
     dashed: list[str] = Field(default_factory=list)
     evoked: list[str] = Field(default_factory=list)  # evoked spells: sacrificed as they enter (702.74)

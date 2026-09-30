@@ -32,6 +32,11 @@ tapped / with counters" imposed by *other* permanents (614.1d, "Permanents your 
 enter tapped"), damage doubling / redirection (614.9), draw and life-gain replacements, and "can't be
 prevented" (615.12: the engine doesn't model it yet, so no prevention is skipped on its account).
 
+Permanents an effect puts onto the battlefield together enter one after another here (each entry
+is its own move step), so the second of two shock lands found by one search sees the first on the
+battlefield already; the rules would have them enter simultaneously (614.12b). The difference only
+shows for "enters tapped unless you control …" conditions met by the other card entering with it.
+
 Records live in ``RulesState.replacements`` as JSON (saved and replayed with the rest of the rules
 state); every choice is a ``Decision`` with resume data, and prompts about a hidden card only go to
 the player who may see it.
@@ -77,9 +82,8 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
     614.12a, the choice is made before it enters)}. ``tapped`` is what the effect putting it onto the
     battlefield says ("put it onto the battlefield tapped")."""
     out: dict[str, Any] = {"tapped": bool(tapped)}
-    for d in _definitions(plan, card).values():
-        if d["kind"] != "replacement":
-            continue
+    defs = [d for d in _definitions(plan, card).values() if d["kind"] == "replacement"]
+    for d in defs:
         kind = d["replacement"]
         if kind == "enters_tapped":
             unless = d.get("unless")
@@ -87,13 +91,22 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
                 out["tapped"] = True
         elif kind == "enters_with_counters" and d.get("tapped"):  # "~ enters tapped with two charge counters on it."
             out["tapped"] = True
-        elif kind == "pay_life_or_tapped":
-            if pay_life is None:
-                out["choice"] = {"life": int(d["life"])}
-            elif pay_life:
-                out["life"] = out.get("life", 0) + int(d["life"])
-            else:
-                out["tapped"] = True
+    for d in defs:
+        if d["replacement"] != "pay_life_or_tapped":
+            continue
+        life = int(d["life"])
+        if out["tapped"]:
+            continue  # it enters tapped anyway ("put it onto the battlefield tapped"): nothing to decide
+        player = plan.state.players.get(controller)
+        if player is None or player.life < life:
+            out["tapped"] = True  # 119.4: life can be paid only from a life total of at least that much
+            continue
+        if pay_life is None:
+            out["choice"] = {"life": life}
+        elif pay_life:
+            out["life"] = out.get("life", 0) + life
+        else:
+            out["tapped"] = True
     return out
 
 
@@ -101,7 +114,7 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
     """The choice a permanent's own "As ~ enters, you may …" asks for before it enters (614.12a)."""
     if not plan.state.players.get(entry["player"]):
         return None
-    return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life")).get("choice")
+    return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped"))).get("choice")
 
 
 def ask_entry_choice(plan: Plan, entry: Entry, rest: list[Entry], ctx: dict[str, Any] | None, shuffle: str | None) -> None:
@@ -189,7 +202,8 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     counters: dict[str, int] = dict(extra_counters or {})
     ch = plan.ch(card)
     if "Planeswalker" in ch.types:  # 306.5b: intrinsic, however it enters (even a card taken out of automation)
-        loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else 0
+        # (a printed loyalty of X is the X its spell was cast with, 107.3; 0 when it wasn't cast)
+        loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else int(x or 0) if ch.loyalty == "X" else 0
         if loyalty:
             counters["loyalty"] = counters.get("loyalty", 0) + loyalty
     if not plan.manual(card):
@@ -270,20 +284,19 @@ def _static_exile_instead(plan: Plan, card: CardInstance) -> CardInstance | None
     return None
 
 
-def _commander_instead(plan: Plan, card: CardInstance, dest: str) -> bool:
+def _commander_instead(plan: Plan, card: CardInstance, dest: str) -> bool | None:
     """903.9b: a commander that would be put into its owner's hand or library may go to the command
-    zone instead. The owner's answer was asked for by the effect about to move it
-    (:func:`commander_zone_check`), or is remembered ("always"/"this turn", the same memory key as
-    903.9a with the destination as its context). Without either the move happens as asked."""
+    zone instead. True: a remembered answer ("always" / "this turn", the same memory key as 903.9a
+    with the destination as its context) says so and the move is replaced. None: no answer is known
+    — a ``Plan.do`` step can't pause for a decision, so the move happens as asked and its owner is
+    asked right after (``pending_903_9b``, offered by app/rules/sba.py before anyone gets priority)
+    whether it goes to the command zone instead; the answer is remembered for the next time."""
     from app.rules.engine import remembered
 
-    r = plan.rules
     if not card.commander_key or card.owner not in plan.live():
         return False
-    answer = r.zone_answers.pop(card.id, None)
-    if answer is not None:
-        return answer
-    return remembered(plan, card.owner, f"commander_zone:{card.commander_key}", dest) == "yes"
+    answer = remembered(plan, card.owner, f"commander_zone:{card.commander_key}", dest)
+    return True if answer == "yes" else False if answer == "no" else None
 
 
 def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict[str, Any]:
@@ -311,6 +324,14 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             replaced.append((cid, "exile", "unearth"))
             continue
         if dest == "graveyard":
+            if frm == "hand":
+                # 616.1: madness and an "exile instead" static (Rest in Peace) would both replace a
+                # discard; the card's owner chooses. Only madness leads anywhere different (the
+                # card is exiled either way, and may then be cast), so it is applied first.
+                cost = _madness_cost(plan, card)
+                if cost is not None:
+                    madness.append((cid, cost))
+                    continue
             if _self_exile_instead(plan, card):
                 replaced.append((cid, "exile", card.name or "its own ability"))
                 continue
@@ -318,13 +339,12 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             if src is not None:
                 replaced.append((cid, "exile", src.name or "a static ability"))
                 continue
-            if frm == "hand":
-                cost = _madness_cost(plan, card)
-                if cost is not None:
-                    madness.append((cid, cost))
-                    continue
-        if dest in ("hand", "library") and _commander_instead(plan, card, dest):
-            replaced.append((cid, "command", "903.9b"))
+        if dest in ("hand", "library"):
+            answer = _commander_instead(plan, card, dest)
+            if answer:
+                replaced.append((cid, "command", "903.9b"))
+            elif answer is None:
+                r.pending_903_9b[cid] = dest  # asked right after the move (sba → offer_903_9b)
     if not replaced and not madness:
         return payload
     for cid, zone, _why in replaced:
@@ -340,7 +360,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
     text = ("Exiled instead" + (f" ({', '.join(whys)})" if whys and whys != ["903.9b"] else "")) if replaced else "Discarded into exile (madness)"
     if replaced and all(zone == "command" for _, zone, _ in replaced):
         text = "Put into the command zone instead (903.9b)"
-    return {"type": "rules_log", "text": text, "card_ids": [cid for cid, _, _ in replaced] + [cid for cid, _ in madness]}
+    ids = [cid for cid, _, _ in replaced] + [cid for cid, _ in madness]
+    return {"type": "rules_log", "text": text, "card_ids": ids[:20]}  # (a log line names at most 20 cards)
 
 
 def _replace_mill(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict[str, Any]:
@@ -357,7 +378,7 @@ def _replace_mill(plan: Plan, payload: dict[str, Any], actor: str | None) -> dic
     for cid in top:
         zone = "exile" if cid in exiled else "graveyard"
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": zone}}, actor=actor)
-    return {"type": "rules_log", "text": f"{plan.name(pid)} milled {len(top)}: exiled instead", "card_ids": exiled}
+    return {"type": "rules_log", "text": f"{plan.name(pid)} milled {len(top)}: exiled instead", "card_ids": exiled[:20]}
 
 
 def _madness_cost(plan: Plan, card: CardInstance) -> str | None:
@@ -384,39 +405,35 @@ def _discard_into_exile(plan: Plan, cid: str, cost: str, actor: str | None) -> N
                      "effects": [{"do": "madness_offer", "card": cid, "cost": cost}]})
 
 
-def commander_zone_check(plan: Plan, ctx: dict[str, Any], cards: list[str], dest: str = "hand") -> bool:
-    """Before an effect returns cards to hands (or libraries): 903.9b asks each commander's owner
-    whether it goes to the command zone instead — unless they answered already (this resolution, or a
-    remembered answer). Returns False while a question is open: the effect's primitive is run again
-    with the answer once it is given (its resume steps ``ctx["next"]`` back)."""
-    from app.rules.engine import remembered
+def offer_903_9b(plan: Plan) -> bool:
+    """A commander that was just put into its owner's hand or library without a known answer to
+    903.9b: ask its owner now (the one place, whatever moved it). Returns True while a question is
+    open. The answer is remembered (the 903.9a memory key with the destination as its context), so
+    the next such move is replaced outright."""
     from app.rules.plan import decide
 
     r = plan.rules
-    for cid in cards:
+    for cid, dest in list(r.pending_903_9b.items()):
         card = plan.state.cards.get(cid)
-        if card is None or not card.commander_key or card.owner not in plan.live() or cid in r.zone_answers:
-            continue
-        key, context = f"commander_zone:{card.commander_key}", dest
-        if remembered(plan, card.owner, key, context) in ("yes", "no"):
+        if card is None or _from_zone(card) != dest or not card.commander_key or card.owner not in plan.live():
+            r.pending_903_9b.pop(cid, None)  # it went on elsewhere: the moment has passed
             continue
         where = "your library" if dest == "library" else "your hand"
         decide(plan, player=card.owner, kind="confirm",
-               prompt=f"{card.name} would be put into {where}: put it into the command zone instead? (903.9b)",
-               options=[DecisionOption(id="yes", label="Command zone"), DecisionOption(id="no", label=f"Into {where}")],
-               resume={"step": "commander_instead", "ctx": ctx, "card": cid}, source=card,
-               memory_key=key, memory_context=context)
-        return False
-    return True
+               prompt=f"{card.name} was put into {where}: put it into the command zone instead? (903.9b)",
+               options=[DecisionOption(id="yes", label="Command zone"), DecisionOption(id="no", label=f"Keep it in {where}")],
+               resume={"step": "commander_instead", "card": cid, "dest": dest}, source=card,
+               memory_key=f"commander_zone:{card.commander_key}", memory_context=dest)
+        return True
+    return False
 
 
 def resume_commander_instead(plan: Plan, d: Any, chosen: list[str]) -> None:
-    from app.rules.effects import continue_effects
-
-    plan.rules.zone_answers[d.resume["card"]] = chosen[0] == "yes"
-    ctx = d.resume["ctx"]
-    ctx["next"] = max(0, ctx["next"] - 1)  # run the instruction that asked again, now with the answer
-    continue_effects(plan, ctx)
+    cid = d.resume["card"]
+    plan.rules.pending_903_9b.pop(cid, None)
+    card = plan.state.cards.get(cid)
+    if chosen[0] == "yes" and card is not None and _from_zone(card) == d.resume["dest"]:
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "command"}}, actor=card.owner)
 
 
 # -- damage prevention (615) ------------------------------------------------------------------------
@@ -505,16 +522,21 @@ def _label(plan: Plan, key: str) -> str:
 
 
 def _shield_signature(plan: Plan, ev: DamageEvent) -> tuple[Any, ...]:
-    """What makes two sources' damage to a shielded target interchangeable: same amount, and
-    nothing about the source that the outcome could depend on (lifelink, deathtouch, infect / wither,
-    who controls it, commander damage)."""
+    """What makes two sources' damage to a shielded target interchangeable: the same amount from
+    literally identical objects (same card or token definition, controller, counters, attachments,
+    continuous effects on them) — anything else (a damage trigger, a keyword) could make the outcome
+    differ, so the choice is asked (615.7)."""
     src = _source_card(plan, ev)
     if src is None:
         return (ev["amount"] - ev["prevented"], None)
-    ch = plan.ch(src)
-    kws = ch.keywords
-    return (ev["amount"] - ev["prevented"], src.controller, "lifelink" in kws, "deathtouch" in kws,
-            bool({"wither", "infect"} & kws), src.commander_key)
+    token = src.token
+    identity = (src.card_id, src.face, src.face_down, token.name if token else None, token.text if token else None,
+                token.power if token else None, token.toughness if token else None, tuple(token.colors) if token else ())
+    return (ev["amount"] - ev["prevented"], src.controller, src.commander_key, identity,
+            tuple(sorted(src.counters.items())), src.attached_to,
+            tuple(sorted(o.id for o in plan.state.cards.values() if o.attached_to == src.id)),
+            tuple(sorted(e.id for e in plan.rules.effects if plan.oid(src) in e.affected)),
+            tuple(sorted(m.value or m.name for m in src.effects)))
 
 
 def apply_prevention(plan: Plan, events: list[DamageEvent], *, order: list[str] | None = None,
@@ -555,7 +577,7 @@ def apply_prevention(plan: Plan, events: list[DamageEvent], *, order: list[str] 
         pending = list(evs)
         while shield > 0 and pending:
             if len(pending) == 1 or len({_shield_signature(plan, e) for e in pending}) == 1:
-                ev = pending[0]  # one source, or interchangeable ones: the outcome is the same either way
+                ev = pending[0]  # one source, or literally identical ones: the outcome is the same either way
             else:
                 mine = [p for p in picks if p.startswith(f"{target}:")]
                 if mine:

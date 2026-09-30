@@ -329,8 +329,6 @@ def bounce(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """Return to the owner's hand: all of them at once, one move and one event batch (a "one or
     more" trigger fires once, 603.2c). The zone "hand" goes to each card's owner."""
     cards = _cards(plan, ctx, e["who"])
-    if not replacements.commander_zone_check(plan, ctx, cards):  # 903.9b: its owner decides first
-        return False
     before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "hand"}}, actor=ctx["controller"])
@@ -633,8 +631,6 @@ def delayed_move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     card = plan.state.cards.get(e["card"])
     if card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != e["object"]:
         return True  # it's a different object now
-    if e["to"] in ("hand", "library") and not replacements.commander_zone_check(plan, ctx, [card.id], e["to"]):
-        return False  # 903.9b: a dashed commander may go to the command zone instead
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": e["to"]}}, actor=ctx["controller"])
     return True
 
@@ -1150,8 +1146,6 @@ def return_card(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # (400.7j); one that isn't there any more — or a token, which ceased to exist (111.7, 111.8)
     # — is nothing to return (603.7c's principle: not in the zone it's expected in).
     cards = [c for c in _cards(plan, ctx, e["who"]) if not plan.state.cards[c].zone.endswith(":battlefield")]
-    if e["to"] == "hand" and not replacements.commander_zone_check(plan, ctx, cards):  # 903.9b
-        return False
     before = _remember(plan, ctx, e, cards)
     if e["to"] == "hand":
         for cid in cards:
