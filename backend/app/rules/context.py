@@ -118,10 +118,19 @@ def _object_refs(ctx: Context, name: str, *, was: bool = False) -> list[ObjectRe
     return [ObjectRef.model_validate(r) for r in raw]
 
 
+def _zone_kind(zone: str) -> str:
+    return zone.rsplit(":", 1)[-1]
+
+
 def _same(plan: Plan, ref: ObjectRef) -> CardInstance | None:
-    """The card, if it is still that object where it was (400.7)."""
+    """The card, if it is still that object where it was (400.7). Only a zone change makes a new
+    object: a change of controller moves a permanent between players' battlefield keys but it is
+    still the same object (603.7c, 400.7) — so battlefield refs compare the zone's kind only."""
     card = plan.state.cards.get(ref.card)
-    if card is None or plan.oid(card) != ref.object_id or (ref.zone is not None and card.zone != ref.zone):
+    if card is None or plan.oid(card) != ref.object_id:
+        return None
+    moved = ref.zone is not None and card.zone != ref.zone
+    if moved and not (_zone_kind(ref.zone or "") == "battlefield" and _zone_kind(card.zone) == "battlefield"):
         return None
     return card
 
