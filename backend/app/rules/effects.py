@@ -258,6 +258,7 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]]) -> Non
     lifelink: dict[str, int] = {}
     dealt: list[dict[str, Any]] = []
     deathtouched: list[str] = []
+    battles: dict[str, int] = {}
     for src, key, want in hits:
         if want <= 0:
             continue
@@ -281,11 +282,13 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]]) -> Non
                 continue
             if "Planeswalker" in ch.types and not ch.is_creature:
                 walkers[key] = walkers.get(key, 0) + n
+            elif "Battle" in ch.types and not ch.is_creature:  # 120.3h: defense counters are removed
+                battles[key] = battles.get(key, 0) + n
             elif {"wither", "infect"} & src.keywords:
                 withered[key] = withered.get(key, 0) + n
             else:
                 creatures[key] = creatures.get(key, 0) + n
-            if key not in walkers and "deathtouch" in src.keywords:
+            if key not in walkers and key not in battles and "deathtouch" in src.keywords:
                 deathtouched.append(key)
             dealt.append({"source": src.oid, "target": key, "target_object": plan.oid(key), "amount": n})
         if "lifelink" in src.keywords:
@@ -296,6 +299,10 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]]) -> Non
         plan.rules.damaged[pid] = plan.state.turn.number
     plan.do({"type": "rules_damage", "creatures": creatures, "players": to_players, "poison": poison, "wither": withered,
              "planeswalkers": walkers, "lifelink": lifelink, "combat": False, "dealt": dealt}, actor=ctx["controller"])
+    for key, n in battles.items():
+        have = plan.state.cards[key].counters.get("defense", 0)
+        if have:
+            plan.do({"type": "counter", "card_ids": [key], "kind": "defense", "delta": -min(have, n)}, actor=ctx["controller"])
     plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *deathtouched]))
 
 
@@ -372,8 +379,9 @@ def pump(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     _remember(plan, ctx, e, cards)
     affected = [plan.oid(c) for c in cards]  # locked in now (611.2c)
     if affected:
-        p = values.evaluate_signed(plan, ctx, e["p"])
-        t = values.evaluate_signed(plan, ctx, e["t"])
+        # (a literal keeps its sign: values.evaluate reads a *count*, never negative, 107.1b)
+        p = e["p"] if isinstance(e["p"], int) else values.evaluate_signed(plan, ctx, e["p"])
+        t = e["t"] if isinstance(e["t"], int) else values.evaluate_signed(plan, ctx, e["t"])
         layers.add_effect(plan, affected=affected, layer="7c", source=ctx.get("source_object"), controller=ctx["controller"],
                           power=p, toughness=t, label=f"{_stat_label(p)}/{_stat_label(t)} until end of turn ({ctx.get('name', '')})")
         _mark(plan, _cards(plan, ctx, e["who"]), f"{_stat_label(p)}/{_stat_label(t)}")

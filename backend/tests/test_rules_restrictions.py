@@ -63,9 +63,9 @@ def test_definitions_carry_the_restriction_and_the_limit():
     assert scripts.definitions(greta)[0]["restriction"] == [{"kind": "sorcery"}]
     bloom = ch("Bloombrute", "Creature", "Whenever you gain life, draw a card. This ability triggers only once each turn.")
     assert scripts.definitions(bloom)[0]["limit"] == "once_each_turn"
-    # 603.2h "Do this only once each turn." needs the action recorded as it's taken: manual for now
+    # 603.2h "Do this only once each turn.": the action is recorded as it's taken (effects.record_action)
     ondu = ch("Ondu", "Creature", "Whenever an enchantment you control enters, you may draw a card. Do this only once each turn.")
-    assert scripts.definitions(ondu) == {}
+    assert scripts.definitions(ondu)[0]["limit"] == "do_once"
 
 
 # -- scenarios -----------------------------------------------------------------------------------
