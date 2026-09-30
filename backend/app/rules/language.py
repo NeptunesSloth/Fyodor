@@ -686,7 +686,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if text in ("return ~ to its owner's hand", "return it to its owner's hand"):
         return [{"do": "bounce", "who": "self" if text.startswith("return ~") else "it"}], None
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|your hand|"
-                     r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?)", text)
+                     r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?"
+                     r"(?: with (?:an?|one) (?P<ck>\+1/\+1|-1/-1|[a-z]+) counter on it)?)", text)
     if m:
         kind, key, group = ref(m["o"])
         if kind in ("players", "self"):
@@ -700,8 +701,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["d"].startswith("the battlefield"):
             if not from_zone:
                 raise _Fail  # (blink wordings are templated elsewhere)
+            if m["ck"] and m["ck"] in values.UNMODELED_COUNTERS:
+                raise _Fail
+            # (-- quoted grants, wave 2D -- "… with a +1/+1 counter on it": it enters with it, 122.6)
             return [{"do": "return_card", "who": who, "to": "battlefield", "tapped": bool(m["t"]),
-                     "under": "you" if m["u"] == "your" else "owner"}], target
+                     "under": "you" if m["u"] == "your" else "owner", **({"counter": m["ck"]} if m["ck"] else {})}], target
         if from_zone and kind not in ("it", "them"):
             return [{"do": "return_card", "who": who, "to": "hand", "under": "you" if m["d"] == "your hand" else "owner"}], target
         if m["d"] == "your hand":
@@ -740,6 +744,16 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = _PUMP.fullmatch(text)
     if m:
         return _pump(m, rider)
+    m = _LOSE_GAIN.fullmatch(text)  # -- quoted grants (wave 2D) -- "This creature loses defender and gains ⟦0⟧"
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        e = _grant_effect(_who(kind, key), m["kw"])
+        if "quotes" not in e:
+            raise _Fail  # (keywords only: not read here)
+        e = {**e, "remove": _keyword_list(m["rm"])}
+        return [e if m["eot"] else {**e, "duration": "permanent"}], _one(group)
     m = _GRANT.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"])
@@ -839,8 +853,10 @@ _KW_LIST = rf"{_GRANT_ITEM}(?:(?:, and |, | and ){_GRANT_ITEM})*"
 _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX]))"
                    rf"(?: and gains? (?P<kw>{_KW_LIST}))? until end of turn"
                    r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn)?")
-_GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|loses?) (?P<kw>{_KW_LIST}) until end of turn")
-_GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? gains? (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
+_GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
+_GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? (?:gains?|has|have) (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
+_KW_ONLY = rf"(?:{KEYWORDS})(?:(?:, and |, | and )(?:{KEYWORDS}))*"
+_LOSE_GAIN = re.compile(rf"(?P<o>.+?) loses? (?P<rm>{_KW_ONLY}) and gains? (?P<kw>{_KW_LIST})(?P<eot> until end of turn)?")
 _BITE = re.compile(r"(?P<s>.+?) deals damage equal to (?P<stat>its power|its toughness|that creature's power) to (?P<o>.+)")
 _ITS = {"target": "target", "self": "self", "host": "host"}  # what "its" names for a pump's subject
 
@@ -892,8 +908,9 @@ def _quoted(text: str) -> tuple[Effects, Any]:
     if parts is None or not parts[1]:
         raise _Fail
     safe, quotes = parts
-    checked = [granted.quote(q) for q in quotes]
-    if any(c is None for c in checked):
+    checked = [granted.quote(q) for q in quotes]  # (an ability the engine carries out as granted …)
+    ruled = [granted.rules_of(q) if c is None else None for q, c in zip(quotes, checked, strict=True)]  # (… or a rule)
+    if any(c is None and r is None for c, r in zip(checked, ruled, strict=True)):
         raise _Fail
     effects, target = _parse(safe)
     used: list[int] = []
@@ -901,13 +918,36 @@ def _quoted(text: str) -> tuple[Effects, Any]:
     for e in effects:
         e = dict(e)
         numbers = e.pop("quotes", None)
-        if numbers:
-            e["abilities"] = [checked[i] for i in numbers]
-            used += numbers
-        out.append(e)
-    if sorted(used) != list(range(len(quotes))):
+        if not numbers:
+            out.append(e)
+            continue
+        used += numbers
+        rules = [rule for i in numbers for rule in (ruled[i] or ())]
+        abilities = [c for i in numbers if (c := checked[i]) is not None]
+        if abilities:
+            e["abilities"] = abilities
+        if abilities or e["keywords"] or e.get("remove"):
+            out.append(e)
+        if rules:  # "gains "This creature can't be blocked."": a restriction on the same objects (granted.rules_of)
+            out.append({"do": "restrict", "who": e["who"], "rules": list(dict.fromkeys(rules)), "locked": True,
+                        **({"duration": e["duration"]} if "duration" in e else {})})
+    if sorted(used) != list(range(len(quotes))) or not _permanents(out, target):
         raise _Fail
     return out, target
+
+
+def _permanents(effects: Effects, target: Any) -> bool:
+    """Does every grant of quoted abilities name permanents? A card in a graveyard or exile, or a
+    spell, doesn't gain an ability an effect grants (611.2e: only a permanent on the battlefield
+    does): those stay manual. A pronoun is read when it resolves (effects.grant skips what isn't there)."""
+    keys = [e["who"] for e in effects if e["do"] in ("grant", "restrict") and isinstance(e.get("who"), str)]
+    groups = [g["what"] if isinstance(g, dict) else g for g in (target if isinstance(target, list) else [target]) if g]
+    for key in (*keys, *groups):
+        if isinstance(key, str) and key.startswith(selectors.PREFIX) and selectors.from_key(key).zones != ("battlefield",):
+            return False
+        if isinstance(key, str) and (key.startswith(("graveyard:", "stack")) or key in ("spell", "creature_spell")):
+            return False
+    return True
 
 
 def _bind_its(v: Any, its: str | None) -> Any:
@@ -1187,7 +1227,7 @@ _BECOME = re.compile(
     r"(?:a|an) (?P<desc>.+?)"
     r"(?P<addition> in addition to its other (?P<addcolors>colors and )?types)?"
     r"(?P<still> that's still an? (?:land|artifact|enchantment|planeswalker|creature))?"
-    r"(?: and gains? (?P<gain>[a-z ]+))?"
+    r"(?: and gains? (?:(?P<gain>[a-z ]+)|(?P<gainq>\"[^\"]*\"(?:,? and \"[^\"]*\")*)))?"
     r"(?:(?P<trail> until end of turn)|(?P<ntrail> until your next turn))?$")
 _DESC = re.compile(  # (each part optional, space-separated: "legendary 8/12 green Spirit artifact creature with …")
     r"^(?P<leg>legendary)?(?: ?(?P<p>X|\d+)/(?P<t>X|\d+))?(?: ?(?P<colors>colorless|" + _COLOR_LIST + r"))?"
@@ -1300,6 +1340,8 @@ def _become(text: str) -> tuple[Effects, Any]:
         if e["duration"] != "end_of_turn":
             raise _Fail
         out.append({"do": "grant", "who": who, "keywords": _animation_keywords(m["gain"])})
+    if m["gainq"]:  # -- quoted grants (wave 2D) -- "… becomes a Bear creature in addition to its other types and gains "…""
+        e["abilities"] = [*e.get("abilities", []), *_QUOTED.findall(m["gainq"])]  # (the same layer-6 effect, 613.6)
     return out, _one(group)
 
 

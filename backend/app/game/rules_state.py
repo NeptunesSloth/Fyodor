@@ -292,8 +292,12 @@ class ContinuousEffect(BaseModel):
     # 500.4), "source_on_battlefield" / "source_controlled" / "source_tapped" ("for as long as ~
     # remains on the battlefield / you control ~ / ~ remains tapped", 611.2b: ends as soon as
     # that stops being true; app/rules/delayed.py expires them).
+    # -- quoted grants (wave 2D) -- "while_counter": "for as long as that creature has a bounty counter on
+    # it" (``counter`` names the kind; an affected object that has none left drops out, and the effect
+    # ends with the last one: 611.2b, app/rules/delayed.expire).
     duration: Literal["end_of_turn", "permanent", "next_turn", "source_on_battlefield", "source_controlled",
-                      "source_tapped"] = "end_of_turn"
+                      "source_tapped", "while_counter"] = "end_of_turn"
+    counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
     turn: int = 0  # the turn the effect began (next_turn: it ends on a later turn of until_player)
     timestamp: int = 0

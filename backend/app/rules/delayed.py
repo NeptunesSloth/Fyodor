@@ -25,9 +25,11 @@ already left when the trigger would be created never triggers it (603.7a).
 your next turn" ends as that player's next turn begins (500.4; ``turn_began``). "For as long as ~
 remains on the battlefield / you control ~ / ~ remains tapped" (611.2b) ends the moment that stops
 being true (``expire``, checked after every table change); if it isn't true as the effect would
-begin, the effect does nothing at all. A duration doesn't change what an effect applies to: a
-characteristic-changing effect stays locked to the objects it began on (611.2c), so a "this turn"
-pump keeps going when the creature changes controllers.
+begin, the effect does nothing at all. "For as long as that creature has a bounty counter on it"
+(``while_counter``, quoted grants: app/rules/granted.py) is the same for each object it affects:
+one that has no such counter any more drops out, and the effect ends with the last. A duration
+doesn't change what an effect applies to: a characteristic-changing effect stays locked to the
+objects it began on (611.2c), so a "this turn" pump keeps going when the creature changes controllers.
 
 Not modelled here (the wording stays manual, never guessed): "whenever … this turn" (an "each"
 duration), "when you next cast … this turn, copy that spell", conditions on the deferred effect
@@ -73,9 +75,14 @@ DURATIONS: dict[str, str] = {
     "for as long as you control ~": "source_controlled",
     "for as long as ~ remains tapped": "source_tapped",
 }
-DURATION_RE = "|".join(re.escape(k) for k in sorted(DURATIONS, key=len, reverse=True))
+# -- quoted grants (wave 2D) -- "for as long as that creature has a bounty counter on it" (Mathas): the
+# duration names a kind of counter ("while_counter:<kind>"): the effect lasts while the object it affects
+# has one (611.2b), and does nothing if it has none as the effect would begin
+COUNTER_DURATION = r"for as long as (?:that \w+|it|~) has an? (?P<kind>[\w+/-]+) counters? on it"
+DURATION_RE = "|".join([*(re.escape(k) for k in sorted(DURATIONS, key=len, reverse=True)), COUNTER_DURATION])
 LABELS = {"next_turn": "until your next turn", "source_on_battlefield": "for as long as ~ remains on the battlefield",
-          "source_controlled": "for as long as you control ~", "source_tapped": "for as long as ~ remains tapped"}
+          "source_controlled": "for as long as you control ~", "source_tapped": "for as long as ~ remains tapped",
+          "while_counter": "for as long as it has a counter on it"}
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
 
 
@@ -285,6 +292,9 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     inner = list(ctx["effects"][start:start + n])
     ctx["next"] = start + n
     duration = e["duration"]
+    counter = None
+    if duration.startswith("while_counter:"):  # (quoted grants, wave 2D)
+        duration, counter = "while_counter", duration.split(":", 1)[1]
     if duration.startswith("source_") and not _source_ok(plan, duration, ctx.get("source_card"), ctx.get("source_object"),
                                                           ctx["controller"]):
         plan.note(f"{ctx.get('name') or 'The effect'} does nothing: its duration has already ended")
@@ -296,18 +306,24 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not PRIMITIVES[x["do"]](plan, ctx, x):
             raise AssertionError("a duration wraps only effects that never pause")  # (the grammar only wraps pumps and grants)
     label = LABELS[duration].replace("~", ctx.get("name") or "it")
+    if counter:
+        label = f"for as long as it has a {counter} counter on it"
     written = _relabel(plan, before, label)
     for effect in r.effects:
         if effect.timestamp > mark:
             effect.duration = duration
             effect.until_player = ctx["controller"]
             effect.turn = plan.state.turn.number
+            if counter:
+                effect.counter = counter
             if duration.startswith("source_"):
                 effect.source = ctx.get("source_object")
                 effect.source_card = ctx.get("source_card")
             # each effect of the clause ("gets +2/+2 and gains flying") owns the markers on the
             # objects it affects; ``_end`` keeps a marker another effect still owns
             effect.markers = [m for cid, ids in written.items() if plan.oid(cid) in effect.affected for m in ids]
+    if counter:
+        expire(plan)  # 611.2b: a counter the objects don't have as the effect begins — it does nothing
     return True
 
 
@@ -383,8 +399,30 @@ def expire(plan: Plan) -> None:
     r = plan.rules
     ended = [e for e in r.effects if e.duration.startswith("source_")
              and not _source_ok(plan, e.duration, e.source_card, e.source, e.until_player)]
+    for e in r.effects:  # -- quoted grants (wave 2D) -- "for as long as it has a … counter on it": per object
+        if e.duration == "while_counter":
+            kept = [oid for oid in e.affected if _has_counter(plan, oid, e.counter or "")]
+            if not kept:
+                ended.append(e)
+            elif len(kept) < len(e.affected):
+                _drop(plan, e, kept)
     if ended:
         _end(plan, ended)
+
+
+def _has_counter(plan: Plan, oid: str, kind: str) -> bool:
+    card = next((c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid), None)
+    return card is not None and card.counters.get(kind, 0) > 0
+
+
+def _drop(plan: Plan, effect: ContinuousEffect, kept: list[str]) -> None:
+    """Objects that no longer have the counter leave the effect (and its table markers)."""
+    gone = set(effect.affected) - set(kept)
+    effect.affected = kept
+    for card in plan.state.cards.values():
+        if plan.oid(card) in gone:
+            for m in [m for m in card.effects if m.id in (effect.markers or ())]:
+                plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": m.id})
 
 
 def bind_refs(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -407,7 +445,8 @@ _RESTRICT = re.compile(r"^(?P<o>.+?) can't (?P<r>attack or block|block|attack|be
 def duration_clause(m: re.Match[str]) -> tuple[str, str]:
     """(the clause as the ordinary grammar reads it — with "until end of turn" / "this turn"
     — the duration): "it gains haste until your next turn" → "it gains haste until end of turn"."""
-    clause, duration = m["clause"].strip(), DURATIONS[m["duration"]]
+    kind = m.groupdict().get("kind")
+    clause, duration = m["clause"].strip(), (f"while_counter:{kind}" if kind else DURATIONS[m["duration"]])
     if _RESTRICT.fullmatch(clause):
         return clause + " this turn", duration
     return clause + " until end of turn", duration

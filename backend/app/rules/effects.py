@@ -408,7 +408,10 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     removed = list(e.get("remove") or [])
     abilities = list(e.get("abilities") or [])
     if abilities:
-        cards = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
+        permanents = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
+        if len(permanents) < len(cards):
+            plan.note(f"{ctx.get('name') or 'The effect'}: only a permanent on the battlefield gains an ability", actor=ctx["controller"])
+        cards = permanents
     if cards and (keywords or removed or abilities):
         words = [*keywords, *(f"loses {k}" for k in removed), *(f'"{a}"' for a in abilities)]
         duration = e.get("duration", "end_of_turn")
@@ -436,17 +439,25 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"… can't block this turn", "… can't be blocked this turn": a rule-modifying effect, ending
     at cleanup (514.2). It doesn't change characteristics or control, so its set of objects isn't
     locked in (611.2c): "Creatures can't block this turn" also stops a creature that enters later.
-    A named object (target, "it", self, host) stays that one object (a new object isn't it, 400.7)."""
+    A named object (target, "it", self, host) stays that one object (a new object isn't it, 400.7).
+
+    -- quoted grants (wave 2D) -- ``locked``: the restriction a granted ability states ("gains "This
+    creature can't be blocked."", app/rules/granted.py ``rules_of``) is an ability: the objects it
+    affects are the ones there as it begins, even for a group (611.2c). ``duration``: the game when
+    the text states none (611.2a)."""
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
     _remember(plan, ctx, e, cards)
-    group = who.startswith(selectors.PREFIX)
+    group = who.startswith(selectors.PREFIX) and not e.get("locked")
+    duration = e.get("duration", "end_of_turn")
     if cards or group:
         layers.add_effect(plan, affected=[] if group else [plan.oid(c) for c in cards], layer="6",
                           source=ctx.get("source_object"), controller=ctx["controller"], imposes=tuple(e["rules"]),
-                          label=", ".join(e["rules"]), who=who if group else None, source_card=ctx.get("source_card"))
+                          label=", ".join(e["rules"]), who=who if group else None, source_card=ctx.get("source_card"),
+                          duration=duration)
     if cards:
-        _mark(plan, cards, ", ".join(RESTRICTION_LABELS.get(r, r) for r in e["rules"]))
+        _mark(plan, cards, ", ".join(RESTRICTION_LABELS.get(r, r) for r in e["rules"]),
+              text="until end of turn" if duration == "end_of_turn" else "as long as it's on the battlefield")
     return True
 
 
@@ -1340,7 +1351,8 @@ def return_card(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         _moved(plan, ctx, e, before)
         return True
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
-                "actor": ctx["controller"], "tapped": bool(e.get("tapped"))} for cid in cards]
+                "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
+                **({"counter": e["counter"]} if e.get("counter") else {})} for cid in cards]  # (a counter it enters with, 122.6)
     done = attachments.enter(plan, entries, ctx)
     if done:  # (an Aura choosing what it enchants pauses: the binding then keeps what they were)
         _moved(plan, ctx, e, before)  # the permanents they became: new objects (400.7)

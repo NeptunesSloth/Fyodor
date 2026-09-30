@@ -33,6 +33,7 @@ from tests.game_helpers import act, deck, turn_on, zone
 from tests.test_rules_attachments import build, ch, mana, named, to_hand, token
 from tests.test_rules_delayed import next_end_step, on_battlefield, reloaded
 from tests.test_rules_effects import pass_until_stack_empty, replay_matches
+from tests.test_rules_suspend import until
 
 
 def real(name: str, type_line: str, text: str, cost: str = "", pt: tuple[str, str] | None = None,
@@ -87,6 +88,31 @@ EXTRA = [
     real("Shackles of Treachery", "Sorcery",
          'Gain control of target creature until end of turn. Untap that creature. Until end of turn, it gains haste and "Whenever this creature deals damage, destroy target Equipment attached to it."',
          "{2}{R}", colors=("R",), number="Q15"),
+    real("Full Steam Ahead", "Sorcery",
+         'Until end of turn, each creature you control gets +2/+2 and gains trample and "This creature can\'t be blocked by more than one creature."',
+         "{3}{G}{G}", colors=("G",), number="Q17"),
+    real("Surge Engine", "Artifact Creature — Construct",
+         'Defender\n{U}: This creature loses defender and gains "This creature can\'t be blocked."\n'
+         "{2}{U}: This creature becomes blue and has base power and toughness 5/4. Activate only if this creature doesn't have defender.\n"
+         "{4}{U}{U}: Draw three cards. Activate only if this creature is blue and only once.", "{2}", pt=("3", "2"), number="Q18"),
+    real("Shade's Breath", "Instant",
+         'Until end of turn, each creature you control becomes a black Shade and gains "{B}: This creature gets +1/+1 until end of turn."',
+         "{1}{B}", colors=("B",), number="Q19"),
+    real("Beorn's Hospitality", "Enchantment",
+         "Landfall — Whenever a land you control enters, put a +1/+1 counter on target creature you control.\n"
+         '{5}{G}{G}: This enchantment becomes a Bear creature in addition to its other types and gains "This creature\'s power and toughness are '
+         'each equal to the number of lands you control." (This effect doesn\'t end.)', "{1}{G}", colors=("G",), number="Q20"),
+    real("Rain of Filth", "Instant", 'Until end of turn, lands you control gain "Sacrifice this land: Add {B}."', "{B}", colors=("B",), number="Q21"),
+    real("Warriors' Lesson", "Instant",
+         'Until end of turn, up to two target creatures you control each gain "Whenever this creature deals combat damage to a player, draw a card."',
+         "{G}", colors=("G",), number="Q22"),
+    real("Undying Malice", "Instant",
+         'Until end of turn, target creature gains "When this creature dies, return it to the battlefield tapped under its owner\'s control with a +1/+1 counter on it."',
+         "{B}", colors=("B",), number="Q24"),
+    real("Mathas, Fiend Seeker", "Legendary Creature — Vampire",
+         "Menace\nAt the beginning of your end step, put a bounty counter on target creature an opponent controls. For as long as that creature has "
+         'a bounty counter on it, it has "When this creature dies, each opponent draws a card and gains 2 life."',
+         "{R}{W}{B}", pt=("3", "3"), colors=("B", "R", "W"), number="Q23"),
     real("Spawning Pool", "Land",
          'This land enters tapped.\n{T}: Add {B}.\n{1}{B}: This land becomes a 1/1 black Skeleton creature with "{B}: Regenerate this creature" until end of turn. It\'s still a land.',
          colors=("B",), number="Q16"),
@@ -118,13 +144,13 @@ def definition(name: str, type_line: str, text: str) -> dict | None:
     return next(iter(defs.values()), None) if len(defs) == 1 else defs or None
 
 
-def cast(s, name, targets=(), pid="p1", **m):
-    """Cast a card from the hand of ``pid`` (mana added first)."""
+def cast(s, name, targets=(), pid="p1", counts=None, **m):
+    """Cast a card from the hand of ``pid`` (mana added first); ``counts``: how many targets each group has."""
     card_ = named(s, name)
     if card_.zone != f"{pid}:hand":
         act(s, pid, type="move", card_ids=[card_.id], to={"zone": "hand"})
     act(s, pid, type="add_mana", player=pid, mana=m)
-    act(s, pid, type="cast_spell", card_id=card_.id, targets=list(targets))
+    act(s, pid, type="cast_spell", card_id=card_.id, targets=list(targets), **({"target_counts": counts} if counts else {}))
     return card_
 
 
@@ -364,6 +390,21 @@ def test_cant_stay_away_reanimates_with_an_exile_instead_replacement(cards):
     replay_matches(s)
 
 
+def test_undying_malice_returns_the_creature_with_a_counter(cards):
+    """"… return it to the battlefield tapped under its owner's control with a +1/+1 counter on it": it
+    enters with the counter (122.6), as a new object (400.7)."""
+    s = build(cards, "Undying Malice", "Murder", "Grizzly Bears")
+    bears = on_battlefield(s, "Grizzly Bears")
+    cast(s, "Undying Malice", [bears.id], B=1)
+    pass_until_stack_empty(s)
+    cast(s, "Murder", [bears.id], B=3)
+    pass_until_stack_empty(s)
+    now = s.state.cards[bears.id]
+    assert now.zone == "p1:battlefield" and now.tapped and now.counters == {"+1/+1": 1} and ch(s, bears).pt == (3, 3)
+    assert grants(s, bears) == []
+    replay_matches(s)
+
+
 @pytest.mark.parametrize("frog_first", [False, True])
 def test_timestamps_decide_between_a_grant_and_loses_all_abilities(cards, frog_first):
     """613.7: layer-6 effects apply in timestamp order — Turn to Frog (loses all abilities) after
@@ -501,6 +542,154 @@ def test_blinked_creature_is_a_new_object_without_the_grant(cards):
     act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "battlefield"})  # blinked (by hand)
     assert grants(s, bears) == [] and ch(s, bears).pt == (2, 2)  # 400.7
     replay_matches(s)
+
+
+def lands(s, n, pid="p1"):
+    """``n`` basic lands of ``pid`` put onto the battlefield by hand."""
+    out = []
+    for c in list(s.state.cards.values()):
+        if c.name == "Forest" and c.owner == pid and c.zone.endswith(":library") and len(out) < n:
+            act(s, pid, type="move", card_ids=[c.id], to={"zone": "battlefield"})
+            out.append(c)
+    return out
+
+
+# -- grants that say "can't be blocked …": a rule, locked to the objects as the effect begins (611.2c) ---------
+def test_a_quoted_restriction_is_locked_to_the_creatures_there_now(cards):
+    """Full Steam Ahead: "… gains trample and "This creature can't be blocked by more than one creature."" —
+    a static the layers read from printed text only, so it lands as a restriction on the same creatures."""
+    s = old_table(cards, "Full Steam Ahead")
+    mine = creature(s, "p1", "Old Bear")
+    theirs = creature(s, "p2", "Their Wolf")
+    start(s)
+    cast(s, "Full Steam Ahead", G=5)
+    pass_until_stack_empty(s)
+    assert ch(s, mine).pt == (4, 4) and "trample" in ch(s, mine).keywords
+    assert "max_one_blocker" in ch(s, mine).imposed and "max_one_blocker" not in ch(s, theirs).imposed
+    late = creature(s, "p1", "Late Pup")
+    assert "max_one_blocker" not in ch(s, late).imposed  # 611.2c: "each creature you control" as it resolved
+    next_end_step(s)
+    assert "max_one_blocker" not in ch(s, mine).imposed and rules(s).effects == []  # 514.2
+    replay_matches(s)
+
+
+def test_surge_engine_loses_defender_and_can_never_be_blocked_again(cards):
+    """No duration stated (611.2a): both changes last the game. Surge Engine's other lines stay manual."""
+    s = old_table(cards, "Surge Engine")
+    engine = named(s, "Surge Engine")
+    act(s, "p1", type="move", card_ids=[engine.id], to={"zone": "battlefield"})
+    start(s)
+    assert "defender" in ch(s, engine).keywords
+    ability = next(a.index for a in ch(s, engine).abilities if a.kind == "activated" and a.cost == "{U}")
+    mana(s, U=1)
+    act(s, "p1", type="activate_ability", card_id=engine.id, ability=ability)
+    pass_until_stack_empty(s)
+    assert "defender" not in ch(s, engine).keywords and "cant_be_blocked" in ch(s, engine).imposed
+    next_end_step(s)
+    assert "defender" not in ch(s, engine).keywords and "cant_be_blocked" in ch(s, engine).imposed
+    assert {e.duration for e in rules(s).effects} == {"permanent"}
+    replay_matches(s)
+
+
+# -- "becomes … and gains "…"" ------------------------------------------------------------------------------------
+def test_beorns_hospitality_becomes_a_bear_creature_for_good(cards):
+    s = old_table(cards, "Beorn's Hospitality")
+    hospitality = named(s, "Beorn's Hospitality")
+    act(s, "p1", type="move", card_ids=[hospitality.id], to={"zone": "battlefield"})
+    forests = lands(s, 3)
+    start(s)
+    animate = next(a.index for a in ch(s, hospitality).abilities if a.kind == "activated")
+    mana(s, G=7)
+    act(s, "p1", type="activate_ability", card_id=hospitality.id, ability=animate)
+    pass_until_stack_empty(s)
+    now = ch(s, hospitality)
+    assert now.is_creature and "Enchantment" in now.types and "Bear" in now.subtypes and now.pt == (3, 3)  # one per land
+    act(s, "p1", type="move", card_ids=[forests[0].id], to={"zone": "graveyard"})
+    assert ch(s, hospitality).pt == (2, 2)  # the granted characteristic-defining P/T counts lands as they are (613.4a)
+    next_end_step(s)
+    assert ch(s, hospitality).is_creature  # "This effect doesn't end."
+    replay_matches(s)
+
+
+def test_shades_breath_changes_every_creature_and_grants_the_pump(cards):
+    s = build(cards, "Shade's Breath", "Grizzly Bears", "Llanowar Elves")
+    bears = on_battlefield(s, "Grizzly Bears")
+    elves = on_battlefield(s, "Llanowar Elves")
+    cast(s, "Shade's Breath", B=2)
+    pass_until_stack_empty(s)
+    for c in (bears, elves):
+        assert ch(s, c).subtypes == {"Shade"} and ch(s, c).colors == {"B"}
+        (pump,) = grants(s, c)
+        assert pump.text == "{B}: This permanent gets +1/+1 until end of turn."
+    act(s, "p1", type="add_mana", player="p1", mana={"B": 1})
+    pump = grants(s, bears)[0]
+    act(s, "p1", type="activate_ability", card_id=bears.id, ability=pump.index)
+    pass_until_stack_empty(s)
+    assert ch(s, bears).pt == (3, 3) and ch(s, elves).pt == (1, 1)
+    replay_matches(s)
+
+
+# -- a granted mana ability with a sacrifice cost, and "each gain" for a group of targets --------------------------
+def test_rain_of_filth_lets_a_land_be_sacrificed_for_mana(cards):
+    s = build(cards, "Rain of Filth")
+    forest = on_battlefield(s, "Forest")
+    cast(s, "Rain of Filth", B=1)
+    pass_until_stack_empty(s)
+    (g,) = grants(s, forest)
+    assert g.kind == "mana" and g.text == "Sacrifice this permanent: Add {B}."
+    act(s, "p1", type="activate_ability", card_id=forest.id, ability=g.index)
+    assert s.state.players["p1"].mana.get("B") == 1 and s.state.cards[forest.id].zone == "p1:graveyard"
+    replay_matches(s)
+
+
+def test_warriors_lesson_grants_the_trigger_to_each_chosen_creature(cards):
+    s = old_table(cards, "Warriors' Lesson")
+    a, b, c = (creature(s, "p1", n) for n in ("Alpha", "Beta", "Gamma"))
+    start(s)
+    cast(s, "Warriors' Lesson", [a.id, b.id], counts=[2], G=1)
+    pass_until_stack_empty(s)
+    assert [len(grants(s, x)) for x in (a, b, c)] == [1, 1, 0]
+    replay_matches(s)
+
+
+# -- "for as long as that creature has a bounty counter on it" (611.2b) ----------------------------------------------
+def mathas_table(cards):
+    s = old_table(cards, "Mathas, Fiend Seeker")
+    mathas = named(s, "Mathas, Fiend Seeker")
+    act(s, "p1", type="move", card_ids=[mathas.id], to={"zone": "battlefield"})
+    wolf = creature(s, "p2", "Their Wolf")
+    start(s)
+    until(s, lambda s: s.state.turn.phase == "end")  # Mathas's trigger: choose its target
+    d = rules(s).decision
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[wolf.id])
+    pass_until_stack_empty(s)
+    return s, mathas, wolf
+
+
+def test_mathas_bounty_counter_gives_a_dies_trigger_while_the_counter_stays(cards):
+    s, mathas, wolf = mathas_table(cards)
+    assert s.state.cards[wolf.id].counters == {"bounty": 1}
+    (g,) = grants(s, wolf)
+    assert g.kind == "triggered" and [(e.duration, e.counter) for e in rules(s).effects] == [("while_counter", "bounty")]
+    # the creature dies with the counter on it: "each opponent" is each opponent of ITS controller (Bob) — Alice
+    alice = s.state.players["p1"].life
+    hand = len(zone(s.state, "p1", "hand"))
+    act(s, "p2", type="set_damage", card_ids=[wolf.id], delta=2)
+    act(s, rules(s).priority, type="pass_priority")
+    pass_until_stack_empty(s)
+    assert s.state.players["p1"].life == alice + 2 and len(zone(s.state, "p1", "hand")) == hand + 1
+    replay_matches(s)
+
+
+def test_mathas_grant_ends_when_the_counter_is_gone(cards):
+    s, mathas, wolf = mathas_table(cards)
+    assert len(grants(s, wolf)) == 1
+    act(s, "p1", type="counter", card_ids=[wolf.id], kind="bounty", delta=-1)
+    act(s, rules(s).priority, type="pass_priority")  # the engine looks at the table again
+    assert grants(s, wolf) == [] and rules(s).effects == []  # 611.2b: ended as soon as it stopped being true
+    assert not any("counter" in m.text for m in s.state.cards[wolf.id].effects)
+    replay_matches(s)
+    assert reloaded(s).state.model_dump(mode="json") == s.state.model_dump(mode="json")
 
 
 # -- what stays manual (never guessed) ---------------------------------------------------------------------

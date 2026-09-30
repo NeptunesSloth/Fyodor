@@ -96,7 +96,8 @@ def quote(text: str) -> str | None:
     read from printed text by app/rules/layers.py, so a granted one would silently do nothing."""
     # ("~" is what the sentence's own "this creature" / "this land" became: here it names the object
     # that has the ability — scripts.self_text leaves the granter's name alone inside a quote)
-    t = re.sub(r"(^|: |\. )~", r"\1This permanent", text.strip()).replace("~", "this permanent")
+    # (a comma just before the closing quotation mark belongs to the sentence around it: "…, each creature,")
+    t = re.sub(r"(^|: |\. )~", r"\1This permanent", text.strip().rstrip(",;")).replace("~", "this permanent")
     if not t:
         return None
     if not t.endswith((".", "!", "?")):
@@ -120,6 +121,32 @@ def quote(text: str) -> str | None:
     if d["kind"] == "static" and d.get("static") == "cda":
         return t
     return None
+
+
+@lru_cache(maxsize=1024)
+def rules_of(text: str) -> tuple[str, ...] | None:
+    """The rules a quoted rules-only static puts on its object — "This creature can't be blocked.",
+    "… can't block.", "… attacks each combat if able.", "… can't be blocked by more than one creature."
+    (app/rules/statics.py vocabulary: cant_be_blocked, cant_block, must_attack, max_one_blocker …) —
+    or None. The layers read statics that restrict combat from printed text, so a grant of one
+    becomes a rule-modifying effect on the objects it's given to (``restrict``, their set fixed as it
+    begins: 611.2c; 113.12: stating a quality isn't quite granting an ability, but it lasts as long
+    and affects the same objects)."""
+    t = re.sub(r"(^|: |\. )~", r"\1This permanent", text.strip().rstrip(",;")).replace("~", "this permanent")
+    if not t:
+        return None
+    from app.rules import scripts
+    from app.rules.characteristics import Characteristics
+
+    ab = scripts.granted_ability(t if t.endswith((".", "!", "?")) else t + ".")
+    if ab is None or ab.kind != "static":
+        return None
+    d = scripts.define(ab, Characteristics(name="\u0000", abilities=(ab,)))
+    if d is None or d.get("kind") != "static" or d.get("static") != "grant" or d.get("who") != "self" or d.get("conditions"):
+        return None
+    if d["p"] or d["t"] or d.get("base") or d["keywords"] or d["grants"] or d.get("each") or not d.get("rules"):
+        return None
+    return tuple(d["rules"])
 
 
 def items(text: str) -> tuple[list[str], list[int]]:
