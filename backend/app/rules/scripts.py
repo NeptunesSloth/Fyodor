@@ -412,6 +412,12 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if isinstance(who, str) and (who in ("it", "them") or who.startswith(("it:", "them:"))):
                 pronoun, _, verb = who.partition(":")
                 intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
+                if e.get("do") == "grant_play" and (intro is None or intro.do not in _MOVERS):
+                    # "You may play that card this turn": only what an earlier instruction of this
+                    # ability moved (exiled, found), where it went (400.7h/j) — never the source,
+                    # a trigger's object, or a card an instruction put in a hidden zone ("draw a
+                    # card. You may play it": the hand is hidden, 400.7 — manual)
+                    return None
                 if intro is not None:
                     if intro.do in _MOVERS or _group_of(out[intro.index]) is None:
                         e["who"] = "ref:" + bound(intro)
@@ -1291,7 +1297,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if ability.kind in ("static", "spell"):
         from app.rules import permissions  # permissions, cost modifiers, "play with the top card revealed"
 
-        granted = permissions.define_static(text, ability.kind)
+        granted = permissions.define_static(text, ability.kind, tuple(self_text(ab.text, ch.name) for ab in ch.abilities))
         if granted is not None:
             return granted
     if ability.kind == "triggered":
