@@ -115,6 +115,17 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         if restrictions.uses(plan.rules, source_object, index, plan.state.turn.number):
             return None  # it triggered this turn already (even if that ability was countered or removed)
         restrictions.record_use(plan.rules, source_object, index, plan.state.turn.number)
+    if definition.get("limit") == "do_once":  # "Do this only once each turn." (603.2h, app/rules/restrictions.py)
+        from app.rules import restrictions
+
+        if restrictions.uses(plan.rules, source_object, index, plan.state.turn.number):
+            return None  # its controller already took the indicated action this turn
+        # the action counts as taken when the resolution gets to the end of the effects
+        # (effects.record_action): not if countered, declined, or a payment it hinges on wasn't made
+        # (and several instances that triggered together: only the first to resolve does it)
+        mark = {"object": source_object, "index": index}
+        definition = {**definition, "effects": [{"do": "action_gate", **mark}, *definition["effects"],
+                                                {"do": "record_action", **mark}]}
     pending = PendingTrigger(id=secrets.token_hex(4), controller=controller, source_card=source_card,
                              source_object=source_object, name=name, ability=definition, key=f"{name}:{index}",
                              event=event)

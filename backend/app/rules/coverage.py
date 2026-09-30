@@ -39,6 +39,29 @@ SUPPORTED: set[str] = {
     "templates",
 }
 
+# Replacement and prevention effects the engine applies (app/rules/replacements.py; CR 614 / 615),
+# each with scenario tests in tests/test_rules_replacements.py. A parsed definition of another
+# kind counts as manual until it is listed here.
+SUPPORTED_REPLACEMENTS: set[str] = {
+    "enters_tapped",  # "~ enters tapped [unless …]" (614.1d), on every path onto the battlefield
+    "pay_life_or_tapped",  # shock lands (614.1c, 614.12a): a private decision on every path
+    "enters_choice",  # "As ~ enters, choose a color / creature type / …" (614.12a): chosen before it enters, recorded on it
+    "enters_with_counters",  # "~ enters [tapped] with N … counters on it [for each …]" (614.1c, 122.6)
+    "exile_instead",  # "If ~ would die / be put into a graveyard from anywhere, exile it instead" (own and statics)
+    "prevent",  # "Prevent all [combat] damage that would be dealt [to …] [by …] [this turn]" (615)
+}
+
+
+def definition_supported(d: dict[str, Any]) -> bool:
+    """A replacement / prevention definition is automated only when its kind is listed above."""
+    if d.get("kind") == "replacement":
+        return d.get("replacement") in SUPPORTED_REPLACEMENTS
+    if d.get("kind") == "static" and d.get("static") in ("prevent", "exile_instead"):
+        return d["static"] in SUPPORTED_REPLACEMENTS
+    if d.get("kind") == "spell" and any(e.get("do") == "prevent_all" for e in d.get("effects") or []):
+        return "prevent" in SUPPORTED_REPLACEMENTS
+    return True
+
 # Activation restrictions and trigger limits (app/rules/restrictions.py, test_rules_restrictions.py)
 # are part of "templates": an activated ability whose trailing "Activate only …" sentence the engine
 # reads (as a sorcery / instant, once or N times each turn, once, during your turn / upkeep /
@@ -205,10 +228,10 @@ class Coverage:
 
 def features_of(ch: Characteristics) -> list[Feature]:
     script = scripts.trusted(ch.oracle_id, ch.oracle_text)
-    templated = set(templates.definitions(ch))
+    templated = {i for i, d in templates.definitions(ch).items() if definition_supported(d)}
     if ch.is_instant_or_sorcery:
         whole = templates.spell_definition(ch)
-        if whole is None:
+        if whole is None or not definition_supported(whole):
             templated = set()  # a spell is automated as a whole or resolved by hand
         elif whole.get("modes"):
             templated = {ab.index for ab in ch.abilities if ab.kind != "keywords"}  # a modal spell (700.2)
@@ -284,5 +307,7 @@ def ability_supported(ch: Characteristics, index: int) -> bool:
     if ab.kind == "mana":
         return "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None
     if ch.is_instant_or_sorcery:
-        return templates.spell_definition(ch) is not None
-    return index in templates.definitions(ch)
+        whole = templates.spell_definition(ch)
+        return whole is not None and definition_supported(whole)
+    d = templates.definitions(ch).get(index)
+    return d is not None and definition_supported(d)

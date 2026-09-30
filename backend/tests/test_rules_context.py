@@ -76,3 +76,19 @@ def test_players_amounts_and_payments(cards):
     context.bind_payment(ctx, "pay0", True)
     assert context.succeeded(ctx, "pay0")
     json.dumps(ctx)
+
+
+def test_a_control_change_keeps_a_bound_object(cards):
+    """A change of controller moves a permanent between players' battlefield keys but is not a zone
+    change: it is still the object the binding names (400.7, 603.7c) — a stolen token is still
+    exiled by "exile it at the beginning of the next end step"."""
+    s = build(cards)
+    ogre = token(s, "p2", "Ogre", "2/2")
+    plan = plan_of(s, cards)
+    ctx: dict = {"controller": "p1"}
+    context.bind_objects(plan, ctx, "e0", [ogre.id])
+    plan.do({"type": "set_controller", "card_ids": [ogre.id], "player": "p1"})
+    assert plan.state.cards[ogre.id].zone == "p1:battlefield"
+    assert context.objects(plan, ctx, "e0") == [ogre.id]
+    plan.do({"type": "move", "card_ids": [ogre.id], "to": {"zone": "exile"}})
+    assert context.objects(plan, ctx, "e0") == []  # (a zone change is a new object, 400.7)

@@ -322,20 +322,27 @@ def _amount(word: str) -> Any:
 
 def _with_rider(text: str) -> tuple[str, Any]:
     """Split "…, where X is the number of …" / "… for each …" off the sentence: the multiplier or
-    the value of X (None if there's none)."""
+    the value of X (None if there's none). A rider may read the object the sentence is about
+    ("where X is its power", "for each +1/+1 counter on it"): a placeholder "it", bound by
+    scripts.resolve_it for an amount, or by the pump grammar to its own subject."""
     m = re.search(r",? where [xX] is (.+)$", text)  # (Oracle writes X; the lowercase form is the older tests')
     if m:
-        v = values.parse_count(m[1])
-        if v is None:
-            raise _Fail
-        return text[: m.start()], ("x", v)
+        return text[: m.start()], ("x", _rider_value(m[1]))
     m = re.search(r" for each (.+)$", text)
     if m:
-        v = values.parse_count(m[1])
-        if v is None:
-            raise _Fail
-        return text[: m.start()], ("each", v)
+        return text[: m.start()], ("each", _rider_value(m[1]))
     return text, None
+
+
+def _rider_value(phrase: str) -> Any:
+    """A rider's quantity: "its power" / "that creature's toughness" / "~'s power" (app: _stat),
+    else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
+    if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|~'s) (?:power|toughness|mana value)", phrase):
+        return _stat(phrase)
+    v = values.parse_count(phrase, it="it")
+    if v is None:
+        raise _Fail
+    return v
 
 
 def _apply(n: Any, rider: Any) -> Any:
@@ -641,7 +648,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
                 groups.append(group)
             effects.append({"do": "damage", "who": who, "n": n, **src})
         return effects, _out(groups)
-    if rider is not None and not text.startswith(("put ", "remove ")):
+    found = _bite(text)  # -- temporary grants & riders (agent G) --  "target creature you control deals damage equal to its power to …"
+    if found is not None:
+        if rider is not None:
+            raise _Fail
+        return found
+    if rider is not None and not text.startswith(("put ", "remove ")) and not re.search(r"\bgets? [+\-−]", text):
         raise _Fail
     # -- objects --------------------------------------------------------------------------------
     found = _target_forms(text)  # -- target forms (agent T) --
@@ -661,7 +673,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
             return [{"do": "destroy", "who": key}], None
         return [{"do": m["v"], "who": _who(kind, key)}], _one(group)
     m = re.fullmatch(r"(?P<o>.+?) can't (?P<r>attack or block|block|attack|be blocked) this turn", text)
-    if m:
+    if m and not _PUMP.fullmatch(text):  # (agent G: "… gets +2/+2 until end of turn and can't be blocked …" is a pump's rider)
         kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
@@ -718,23 +730,20 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             _one(group)
-    m = re.fullmatch(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−]\d+)/(?P<t>[+\-−]\d+)(?: and gains? (?P<kw>{KEYWORDS}))? "
-                     r"until end of turn", text)
+    # -- temporary grants & riders (agent G) --  "+X/+0", "+1/+1 … for each …", "-X/-X … where X is …",
+    # "gets +2/+2 and gains flying and first strike", "… and can't be blocked this turn", "loses flying"
+    m = _PUMP.fullmatch(text)
+    if m:
+        return _pump(m, rider)
+    m = _GRANT.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
-        who = _who(kind, key)
-        out: Effects = [{"do": "pump", "who": who, "p": _signed(m["p"]), "t": _signed(m["t"])}]
-        if m["kw"]:
-            out.append({"do": "grant", "who": who, "keywords": [m["kw"]]})
-        return out, _one(group)
-    m = re.fullmatch(rf"(?P<o>.+?) gains? (?P<kw>{KEYWORDS}) until end of turn", text)
-    if m:
-        kind, key, group = ref(m["o"])
-        if kind == "players":
-            raise _Fail
-        return [{"do": "grant", "who": _who(kind, key), "keywords": [m["kw"]]}], _one(group)
+        e: dict[str, Any] = {"do": "grant", "who": _who(kind, key), "keywords": _keyword_list(m["kw"])}
+        if m["v"].startswith("lose"):
+            e = {**e, "keywords": [], "remove": e["keywords"]}
+        return [e], _one(group)
     raise _Fail
 
 
@@ -793,6 +802,127 @@ def _target_forms(text: str) -> tuple[Effects, Any] | None:
             raise _Fail  # (only an object on the stack can be countered, 701.6a)
         return [{"do": "counter", "who": "target"}], _one(group)
     return None
+
+
+# -- temporary grants & riders (agent G) ---------------------------------------------------------------
+# Pumps and keyword grants "until end of turn" with what rides on them, researched against CR
+# 2026-09-25: the amount may be X (107.3: chosen on activation, or defined by "where X is …",
+# 107.3c) or "for each …" — a value read ONCE, as the effect begins (611.2d, 608.2h: "Creatures
+# you control get +1/+1 until end of turn for each creature you control" is locked when it
+# resolves, unlike a static's "for each", 611.3a); several keywords ("gains flying and first
+# strike"); a rules rider in the same sentence ("… until end of turn and can't be blocked this
+# turn", two effects: 611.2c's parts); "loses flying until end of turn" (layer 6 removal,
+# 613.1f); a bite ("target creature you control deals damage equal to its power to target creature
+# you don't control": the first creature is the damage source, so ITS lifelink and deathtouch
+# count, 120.3f, 702.2b; "src" names it). Refused, never guessed: a granted quoted ability with a
+# duration (the resolved-effect layer model carries keywords only), "gains flashback until end of
+# turn" (a casting permission from the graveyard), "where X is" a quantity the value grammar
+# doesn't read, "its power" for a pronoun subject the pump can't bind itself.
+_KW_LIST = rf"(?:{KEYWORDS})(?:(?:, and |, | and )(?:{KEYWORDS}))*"
+_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX]))"
+                   rf"(?: and gains? (?P<kw>{_KW_LIST}))? until end of turn"
+                   r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn)?")
+_GRANT = re.compile(rf"(?P<o>.+?) (?P<v>gains?|loses?) (?P<kw>{_KW_LIST}) until end of turn")
+_BITE = re.compile(r"(?P<s>.+?) deals damage equal to (?P<stat>its power|its toughness|that creature's power) to (?P<o>.+)")
+_ITS = {"target": "target", "self": "self", "host": "host"}  # what "its" names for a pump's subject
+
+
+def _keyword_list(text: str) -> list[str]:
+    return re.split(r", and | and |, ", text)
+
+
+def _bind_its(v: Any, its: str | None) -> Any:
+    """A rider's placeholder "it" ("where X is its power", "for each counter on it") as the pump's
+    own subject; refused when the subject is a pronoun the grammar can't bind here."""
+    if isinstance(v, list):
+        return [_bind_its(x, its) for x in v]
+    if not isinstance(v, dict):
+        return v
+    out = {}
+    for k, x in v.items():
+        if k in ("power", "toughness", "mana_value", "on") and x == "it":
+            if its is None:
+                raise _Fail
+            x = its
+        else:
+            x = _bind_its(x, its)
+        out[k] = x
+    return out
+
+
+def _mod(word: str, rider: Any, its: str | None) -> Any:
+    """One half of "+N/+N": an int, or a value expression ("+X", "-X", "+2 for each …": ``{"neg":
+    …}`` for a negative one, evaluated by values.evaluate_signed as the pump begins)."""
+    neg = word[0] in "-−"
+    body = word[1:]
+    base: Any = {"x": 1} if body.lower() == "x" else int(body)
+    if rider is not None:
+        kind, v = rider
+        v = _bind_its(v, its)
+        if kind == "x":
+            if base == {"x": 1}:
+                base = v
+        elif base == {"x": 1}:
+            raise _Fail  # ("+X/+X for each …": no such wording is read)
+        elif base:
+            base = v if base == 1 else {"times": [base, v]}
+    if isinstance(base, int):
+        return -base if neg else base
+    return {"neg": base} if neg else base
+
+
+def _pump(m: re.Match[str], rider: Any) -> tuple[Effects, Any]:
+    kind, key, group = ref(m["o"])
+    if kind == "players":
+        raise _Fail
+    who = _who(kind, key)
+    its = _ITS.get(kind)
+    p, t = _mod(m["p"], rider, its), _mod(m["t"], rider, its)
+    if rider is not None and rider[0] == "x" and "x" not in (m["p"] + m["t"]).lower():
+        raise _Fail  # "where X is …" with no X in the sentence
+    out: Effects = [{"do": "pump", "who": who, "p": p, "t": t}]
+    if m["kw"]:
+        out.append({"do": "grant", "who": who, "keywords": _keyword_list(m["kw"])})
+    if m["r"]:
+        out.append({"do": "restrict", "who": who, "rules": RESTRICTIONS[m["r"]]})
+    return out, _one(group)
+
+
+def _shift(who: str, by: int) -> str:
+    """A target reference of a later part of the sentence, after ``by`` earlier groups."""
+    if who == "target":
+        return f"target:{by}"
+    if who.startswith("target:"):
+        return f"target:{int(who[7:]) + by}"
+    return who
+
+
+def _bite(text: str) -> tuple[Effects, Any] | None:
+    """"[Target creature you control / enchanted creature] deals damage equal to its power to
+    [target creature you don't control / each creature …]": damage whose source is the named
+    creature (120.3, 608.2h: as it is, or as it last existed). "~" and "it" as the subject are the
+    older damage grammar's."""
+    m = _BITE.fullmatch(text)
+    if m is None or m["s"] in ("~", "it"):
+        return None
+    kind, key, group = ref(m["s"])
+    if kind not in ("target", "host"):
+        raise _Fail  # (a pronoun subject: which creature deals it isn't read here)
+    stat = "toughness" if "toughness" in m["stat"] else "power"
+    src = "target" if group is not None else "host"
+    groups = [group] if group is not None else []
+    whos, parts = _objects(m["o"])
+    effects: Effects = [{"do": "damage", "who": _shift(w, len(groups)), "n": {stat: src}, "src": src} for w in whos]
+    return effects, _out(groups + parts)
+
+
+# Compound sentences whose subject is one player, read as two instructions ("Target player draws
+# two cards and loses 2 life": one word "target", the same player for both, 115.3): the halves for
+# scripts._clause, which reads each with the subject repeated.
+_V3 = (r"draws|loses|gains|discards|mills|sacrifices|creates|puts|exiles|returns|reveals|shuffles|scries|surveils|"
+       r"gets|searches")
+COMPOUND = (rf"(?P<s>target player|target opponent|each player|each opponent|each of your opponents|that player) "
+            rf"(?P<l>(?:{_V3}) .+?) and (?P<r>(?:{_V3}) .+)")
 
 
 # -- delayed triggers & durations (agent J) --------------------------------------------------------
