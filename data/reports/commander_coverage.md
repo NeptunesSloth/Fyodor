@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 531 · PARTIAL: 2970 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 534 · PARTIAL: 2967 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -21,14 +21,14 @@ Color identity R
 - ✓ Attack and block
 - ✗ Whenever Etali attacks, exile the top card of each player's library, then you may cast any number of spells from among those cards without paying their mana costs.
 
-### Ragavan, Nimble Pilferer — FULL
+### Ragavan, Nimble Pilferer — PARTIAL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
-- ✓ Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.
 - ✓ Dash
+- ✗ Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.
 
 ### Braids, Arisen Nightmare — PARTIAL
 
@@ -2066,8 +2066,8 @@ Color identity B
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Menace
+- ✓ When Sheoldred enters, each opponent sacrifices a nontoken creature or planeswalker of their choice.
 - ✓ Cast it (timing, costs, the stack)
-- ✗ When Sheoldred enters, each opponent sacrifices a nontoken creature or planeswalker of their choice.
 - ✗ {4}{B}: Exile Sheoldred, then return it to the battlefield transformed under its owner's control. Activate only as a sorcery and only if an opponent has eight or more cards in their graveyard.
 - ✗ I — For each opponent, destroy up to one target creature or planeswalker that player controls.
 - ✗ II — Each opponent discards three cards, then mills three cards.
