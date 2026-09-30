@@ -15,6 +15,7 @@ reproduces the table.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 
 import pytest
@@ -28,8 +29,8 @@ from app.game.session import GameSession
 from app.rules import oracle, scripts
 from app.rules.characteristics import Characteristics, parse_type_line
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, turn_on
-from tests.test_rules_attachments import build, ch, named, token
+from tests.game_helpers import act, deck, turn_on, zone
+from tests.test_rules_attachments import build, ch, mana, named, to_hand, token
 from tests.test_rules_delayed import next_end_step, on_battlefield, reloaded
 from tests.test_rules_effects import pass_until_stack_empty, replay_matches
 
@@ -37,7 +38,7 @@ from tests.test_rules_effects import pass_until_stack_empty, replay_matches
 def real(name: str, type_line: str, text: str, cost: str = "", pt: tuple[str, str] | None = None,
          colors: tuple[str, ...] = (), number: str = "Q1") -> dict:
     """A card of this module's fixture set: the real Oracle text of the Commander-legal card."""
-    cmc = float(sum(int(s) if s.isdigit() else 1 for s in __import__("re").findall(r"\{([^}]+)\}", cost) if s != "X"))
+    cmc = float(sum(int(s) if s.isdigit() else 1 for s in re.findall(r"\{([^}]+)\}", cost) if s != "X"))
     return card(name, set_code="tst", number=number, mana_cost=cost, cmc=cmc, type_line=type_line, oracle_text=text,
                 colors=list(colors), color_identity=list(colors), **({"power": pt[0], "toughness": pt[1]} if pt else {}))
 
@@ -262,3 +263,300 @@ def test_a_granted_ability_stays_through_a_change_of_control_and_not_a_zone_chan
     act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "battlefield"})
     assert grants(s, bears) == []  # 400.7: a new object has none of it
     replay_matches(s)
+
+
+# -- granted activated and mana abilities work like printed ones ------------------------------------------
+def test_run_wild_grants_keywords_and_a_regeneration_ability(cards):
+    s = build(cards, "Run Wild", "Murder", "Grizzly Bears")
+    bears = on_battlefield(s, "Grizzly Bears")
+    cast(s, "Run Wild", [bears.id], G=1)
+    pass_until_stack_empty(s)
+    now = ch(s, bears)
+    assert "trample" in now.keywords  # the keyword and the quote are one effect: one timestamp (613.7b)
+    (regen,) = grants(s, bears)
+    assert len({e.timestamp for e in rules(s).effects}) == 1
+    mana(s, G=1)
+    act(s, "p1", type="activate_ability", card_id=bears.id, ability=regen.index)
+    pass_until_stack_empty(s)
+    assert rules(s).regen_shields == {rules(s).object_id(bears.id): 1}
+    cast(s, "Murder", [bears.id], B=3)
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[bears.id].tapped  # it regenerated
+    replay_matches(s)
+
+
+def test_divergent_growth_lets_a_forest_pay_for_a_red_spell(cards):
+    s = build(cards, "Divergent Growth", "Lightning Bolt")
+    forest = on_battlefield(s, "Forest")
+    bolt = to_hand(s, "Lightning Bolt")
+    with pytest.raises(ActionError):  # nothing on the table makes {R}
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    cast(s, "Divergent Growth", G=1)
+    pass_until_stack_empty(s)
+    (mana_ability,) = grants(s, forest)
+    assert mana_ability.kind == "mana"
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])  # paid with the granted mana
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].life == 37 and s.state.cards[forest.id].tapped
+    next_end_step(s)
+    assert grants(s, forest) == []
+    replay_matches(s)
+
+
+def test_a_granted_mana_ability_is_used_by_hand_too(cards):
+    s = build(cards, "Divergent Growth")
+    forest = on_battlefield(s, "Forest")
+    cast(s, "Divergent Growth", G=1)
+    pass_until_stack_empty(s)
+    (mana_ability,) = grants(s, forest)
+    act(s, "p1", type="activate_ability", card_id=forest.id, ability=mana_ability.index, mana_choice="R")
+    assert s.state.players["p1"].mana.get("R") == 1 and s.state.cards[forest.id].tapped
+    replay_matches(s)
+
+
+# -- "for as long as you control this creature" (611.2b) ---------------------------------------------------
+def test_quicksmith_spy_grant_lasts_while_you_control_it(cards):
+    s = build(cards, "Quicksmith Spy", "Sol Ring")
+    ring = on_battlefield(s, "Sol Ring")
+    spy = cast(s, "Quicksmith Spy", U=4)
+    pass_until_stack_empty(s)
+    d = rules(s).decision
+    if d is not None:  # (one legal target: Sol Ring — asked anyway)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[ring.id])
+        pass_until_stack_empty(s)
+    (g,) = grants(s, ring)
+    assert g.text == "{T}: Draw a card." and any(e.duration == "source_controlled" for e in rules(s).effects)
+    hand = len(zone(s.state, "p1", "hand"))
+    act(s, "p1", type="activate_ability", card_id=ring.id, ability=g.index)
+    pass_until_stack_empty(s)
+    assert len(zone(s.state, "p1", "hand")) == hand + 1
+    act(s, "p1", type="set_controller", card_ids=[spy.id], player="p2")  # Alice stops controlling Spy
+    act(s, rules(s).priority, type="pass_priority")
+    assert grants(s, ring) == [] and not rules(s).effects  # 611.2b: it ended as soon as that stopped being true
+    replay_matches(s)
+
+
+def test_the_grant_stays_when_its_source_dies_unless_the_text_says_otherwise(cards):
+    """Run Wild is long gone when its grant is used; a creature that dies after granting changes nothing
+    either: only "for as long as …" ties a grant to its source."""
+    s = build(cards, "Lightning Volley", "Murder")
+    bear = creature(s, "p1", "Old Bear")
+    cast(s, "Lightning Volley", R=4)
+    pass_until_stack_empty(s)
+    assert s.state.cards[named(s, "Lightning Volley").id].zone == "p1:graveyard"  # the source left the stack
+    assert len(grants(s, bear)) == 1
+    replay_matches(s)
+
+
+# -- a permanent grant to a reanimated creature (611.2a: no duration stated — the game) -------------------
+def test_cant_stay_away_reanimates_with_an_exile_instead_replacement(cards):
+    s = build(cards, "Can't Stay Away", "Murder", "Grizzly Bears")
+    bears = named(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "graveyard"})
+    cast(s, "Can't Stay Away", [bears.id], W=1, B=1)
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
+    (g,) = grants(s, bears)
+    assert g.text == "If this permanent would die, exile it instead." and rules(s).effects[0].duration == "permanent"
+    cast(s, "Murder", [bears.id], B=3)
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:exile"  # 614.1a: exiled instead of dying
+    replay_matches(s)
+
+
+@pytest.mark.parametrize("frog_first", [False, True])
+def test_timestamps_decide_between_a_grant_and_loses_all_abilities(cards, frog_first):
+    """613.7: layer-6 effects apply in timestamp order — Turn to Frog (loses all abilities) after
+    Supernatural Stamina takes the granted trigger away; before it, the later grant applies."""
+    s = build(cards, "Supernatural Stamina", "Turn to Frog", "Grizzly Bears")
+    bears = on_battlefield(s, "Grizzly Bears")
+    order = [("Turn to Frog", {"U": 2}), ("Supernatural Stamina", {"B": 1})]
+    for name, paid in order if frog_first else order[::-1]:
+        cast(s, name, [bears.id], **paid)
+        pass_until_stack_empty(s)
+    if frog_first:
+        (g,) = grants(s, bears)
+        assert g.kind == "triggered" and ch(s, bears).pt == (3, 0 + 1)  # frog 1/1, +2/+0
+    else:
+        assert grants(s, bears) == [] and ch(s, bears).abilities == ()  # the frog lost what it had, granted too
+    replay_matches(s)
+
+
+def test_hunters_prowess_draws_as_many_cards_as_the_damage_dealt(cards):
+    """A granted triggered ability fires from the creature's current abilities (603.2) and reads what
+    the event was about ("that many": the combat damage dealt)."""
+    s = old_table(cards, "Hunter's Prowess")
+    bear = creature(s, "p1", "Old Bear")
+    start(s)
+    cast(s, "Hunter's Prowess", [bear.id], G=5)
+    pass_until_stack_empty(s)
+    assert ch(s, bear).pt == (5, 5) and "trample" in ch(s, bear).keywords
+    hand = len(zone(s.state, "p1", "hand"))
+    act(s, "p1", type="pass_priority")  # → combat
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].life == 35 and len(zone(s.state, "p1", "hand")) == hand + 5
+    replay_matches(s)
+
+
+# -- "becomes … with "…". It's still a land." (the sentence splitter reads `."` as the end of a sentence) ---
+def test_raging_ravine_becomes_a_creature_that_grows_when_it_attacks(cards):
+    s = old_table(cards, "Raging Ravine")
+    ravine = named(s, "Raging Ravine")
+    act(s, "p1", type="move", card_ids=[ravine.id], to={"zone": "battlefield"})  # (by hand, before the turn: not sick)
+    start(s)
+    index = next(a.index for a in ch(s, ravine).abilities if a.kind == "activated")
+    mana(s, R=1, G=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=ravine.id, ability=index)
+    pass_until_stack_empty(s)
+    now = ch(s, ravine)
+    assert now.is_creature and now.is_land and now.pt == (3, 3) and now.colors == {"R", "G"}  # "It's still a land."
+    (attacks,) = grants(s, ravine)
+    assert attacks.kind == "triggered" and "attacks" in attacks.text
+    act(s, "p1", type="pass_priority")  # → combat
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": ravine.id, "target": "p2"}])
+    pass_until_stack_empty(s)
+    assert s.state.cards[ravine.id].counters.get("+1/+1") == 1 and s.state.players["p2"].life == 36  # 4 damage
+    replay_matches(s)
+    next_end_step(s)
+    assert not ch(s, ravine).is_creature and grants(s, ravine) == []  # (the counter stays, but it's a land again)
+    assert s.state.cards[ravine.id].counters.get("+1/+1") == 1
+
+
+def test_lavaclaw_reaches_grants_an_ability_that_pays_x(cards):
+    s = old_table(cards, "Lavaclaw Reaches")
+    reaches = named(s, "Lavaclaw Reaches")
+    act(s, "p1", type="move", card_ids=[reaches.id], to={"zone": "battlefield"})
+    start(s)
+    animate = next(a.index for a in ch(s, reaches).abilities if a.kind == "activated")
+    mana(s, B=1, R=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=reaches.id, ability=animate)
+    pass_until_stack_empty(s)
+    (pump,) = grants(s, reaches)
+    assert pump.kind == "activated" and pump.cost == "{X}" and ch(s, reaches).pt == (2, 2)
+    mana(s, R=3)
+    act(s, "p1", type="activate_ability", card_id=reaches.id, ability=pump.index, x_value=3)
+    pass_until_stack_empty(s)
+    assert ch(s, reaches).pt == (5, 2)  # {X}: This creature gets +X/+0 until end of turn
+    replay_matches(s)
+
+
+def test_a_duration_after_the_quote_reads_too(cards):
+    """Spawning Pool: `… with "{B}: Regenerate this creature" until end of turn. It's still a land.` — the
+    quote has no full stop of its own (the grant carries it) and the duration follows it."""
+    s = old_table(cards, "Spawning Pool")
+    pool = named(s, "Spawning Pool")
+    act(s, "p1", type="move", card_ids=[pool.id], to={"zone": "battlefield"})
+    start(s)
+    animate = next(a.index for a in ch(s, pool).abilities if a.kind == "activated")
+    mana(s, B=2)
+    act(s, "p1", type="activate_ability", card_id=pool.id, ability=animate)
+    pass_until_stack_empty(s)
+    (regen,) = grants(s, pool)
+    assert regen.text == "{B}: Regenerate this permanent." and ch(s, pool).pt == (1, 1)
+    replay_matches(s)
+
+
+def test_the_view_lists_granted_abilities_and_the_hints_offer_them(cards):
+    s = old_table(cards, "Lightning Volley")
+    bear = creature(s, "p1", "Old Bear")
+    fresh = None
+    start(s)
+    fresh = creature(s, "p1", "Fresh Cub")  # arrived this turn
+    cast(s, "Lightning Volley", R=4)
+    pass_until_stack_empty(s)
+    view = s.view("p1")["rules"]
+    (entry,) = view["stats"][bear.id]["abilities"]
+    assert entry["kind"] == "activated" and entry["text"] == "{T}: This permanent deals 1 damage to any target."
+    assert {"card_id": bear.id, "ability": entry["index"]} in view["hints"]["activatable"]
+    # (the summoning-sick one has the ability too, but it isn't offered: 302.6)
+    (sick,) = view["stats"][fresh.id]["abilities"]
+    assert {"card_id": fresh.id, "ability": sick["index"]} not in view["hints"]["activatable"]
+    assert s.view("p2")["rules"]["stats"][bear.id]["abilities"] == [entry]  # the battlefield is public
+
+
+def test_undo_redo_and_reload_keep_the_grants(cards):
+    s = old_table(cards, "Lightning Volley")
+    bear = creature(s, "p1", "Old Bear")
+    start(s)
+    cast(s, "Lightning Volley", R=4)
+    pass_until_stack_empty(s)
+    here = s.state.model_dump(mode="json")
+    assert len(grants(s, bear)) == 1
+    s.undo("p1")  # the cast is undone (it resolved as it was cast: nobody had a response)
+    assert grants(s, bear) == [] and named(s, "Lightning Volley").zone == "p1:hand"
+    s.redo("p1")
+    assert s.state.model_dump(mode="json") == here and len(grants(s, bear)) == 1
+    assert reloaded(s).state.model_dump(mode="json") == here
+    replay_matches(s)
+
+
+def test_blinked_creature_is_a_new_object_without_the_grant(cards):
+    s = build(cards, "Supernatural Stamina", "Grizzly Bears")
+    bears = on_battlefield(s, "Grizzly Bears")
+    cast(s, "Supernatural Stamina", [bears.id], B=1)
+    pass_until_stack_empty(s)
+    assert len(grants(s, bears)) == 1
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "exile"})
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "battlefield"})  # blinked (by hand)
+    assert grants(s, bears) == [] and ch(s, bears).pt == (2, 2)  # 400.7
+    replay_matches(s)
+
+
+# -- what stays manual (never guessed) ---------------------------------------------------------------------
+@pytest.mark.parametrize("name", ["Hellish Rebuke", "Shackles of Treachery", "Restless Spire"])
+def test_unreadable_grants_stay_manual(name):
+    """Hellish Rebuke: the quote names the spell that grants it (a name inside a quote is the granter, not
+    the object that gets the ability). Shackles of Treachery: its quote needs a clause the engine doesn't
+    read. Restless Spire: "During your turn, this creature has first strike." is a static ability, which the
+    layer system reads from printed text only — granted by an effect it would silently do nothing."""
+    text = next(c["oracle_text"] for c in EXTRA if c["name"] == name)
+    type_line = next(c["type_line"] for c in EXTRA if c["name"] == name)
+    sup, types, sub = parse_type_line(type_line)
+    c = Characteristics(name=name, supertypes=sup, types=types, subtypes=sub, oracle_text=text,
+                        abilities=tuple(oracle.parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"}))))
+    if c.is_instant_or_sorcery:
+        assert scripts.spell_definition(c) is None
+    else:
+        defs = scripts.definitions(c)
+        animate = next(a.index for a in c.abilities if a.kind == "activated")
+        assert animate not in defs
+
+
+@pytest.mark.parametrize("quote", [
+    "This creature can't be blocked.",  # a static other objects' characteristics don't depend on, but the layers read printed text
+    "Other creatures you control have indestructible.",  # an anthem
+    "During your turn, this creature has first strike.",
+    "This creature gets +1/+1 for each artifact you control.",
+    "You may play this card from your graveyard.",  # a permission
+    "{T}: Gain control of target creature.",  # (not read by the grammar)
+])
+def test_quotes_the_engine_cannot_run_as_granted_are_refused(quote):
+    from app.rules import granted
+
+    assert granted.quote(quote) is None
+
+
+@pytest.mark.parametrize("quote", [
+    "When this creature dies, return it to the battlefield tapped under its owner's control.",
+    "{T}: This creature deals 1 damage to any target.",
+    "{T}: Add one mana of any color",  # (Oracle leaves the last full stop off a quote that ends the clause)
+    "If this creature would die, exile it instead.",
+    "This creature's power and toughness are each equal to the number of charge counters on it.",
+    "Whenever this creature attacks, put a +1/+1 counter on it.",
+])
+def test_quotes_the_engine_can_run_as_granted_are_read(quote):
+    from app.rules import granted
+
+    assert granted.quote(quote) is not None
+
+
+def test_a_grant_with_no_duration_lasts_the_game(cards):
+    s = build(cards, "Can't Stay Away", "Grizzly Bears")
+    bears = named(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "graveyard"})
+    cast(s, "Can't Stay Away", [bears.id], W=1, B=1)
+    pass_until_stack_empty(s)
+    next_end_step(s)  # 611.2a: no duration stated, so it doesn't end at cleanup
+    assert len(grants(s, bears)) == 1 and [e.duration for e in rules(s).effects] == ["permanent"]
+    assert reloaded(s).state.model_dump(mode="json") == s.state.model_dump(mode="json")

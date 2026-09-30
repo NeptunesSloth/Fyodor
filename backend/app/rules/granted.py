@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import replace
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
 from app.rules.oracle import AbilityText
@@ -82,6 +83,7 @@ def protect(text: str) -> tuple[str, list[str]] | None:
     return _QUOTED.sub(hide, text), quotes
 
 
+@lru_cache(maxsize=4096)
 def quote(text: str) -> str | None:
     """A quoted ability the engine carries out when an effect grants it, as the text the grant
     carries (its last sentence's full stop restored: Oracle leaves it off a quote that ends the
