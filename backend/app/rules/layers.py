@@ -240,16 +240,133 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
     ordered.sort(key=lambda x: x[0])
     granted: set[str] = set()
     lost: set[str] = set()
+    # (animation, agent A2) "loses all abilities": everything printed and everything granted so
+    # far is gone; a static or effect with a later timestamp grants again (613.7). Idempotent:
+    # only printed abilities (index < 100) are dropped here; grants are appended after this.
+    printed = tuple(a for a in ch.abilities if a.index < 100)
+    abilities = printed
     for _, item in ordered:
         if isinstance(item, Static):
             granted |= set(item.definition["keywords"])
             lost -= set(item.definition["keywords"])
         else:
+            if item.remove_abilities:
+                abilities = ()
+                lost |= {k for a in printed if a.kind == "keywords" for k in a.keywords} | granted
+                granted = set()
             granted |= set(item.add_keywords)
             granted -= set(item.remove_keywords)
             lost |= set(item.remove_keywords)
             lost -= set(item.add_keywords)
-    return replace(ch, granted=frozenset(granted), lost=frozenset(lost))
+    return replace(ch, granted=frozenset(granted), lost=frozenset(lost), abilities=abilities)
+
+
+# -- animation (agent A2): layer 4 type changes, layer 5 colors, layer 6 "loses all abilities" ----
+# Subtypes belong to a card type (205.3g-k); when an effect sets the card types (205.1a) the
+# subtypes of a type the object no longer has drop with it. Creature types are
+# app/rules/creature_types.py's; a subtype in none of the lists below is read as a creature or
+# planeswalker type (205.3j) and follows those two types.
+LAND_TYPES = frozenset({"Cave", "Desert", "Forest", "Gate", "Island", "Lair", "Locus", "Mine", "Mountain", "Plains",
+                        "Planet", "Power-Plant", "Sphere", "Swamp", "Tower", "Town", "Urza\u2019s", "Urza's"})
+ARTIFACT_TYPES = frozenset({"Attraction", "Blood", "Bobblehead", "Book", "Clue", "Contraption", "Equipment", "Food",
+                            "Fortification", "Gold", "Heartwood", "Incubator", "Infinity", "Junk", "Lander", "Map",
+                            "Mutagen", "Powerstone", "Spacecraft", "Stone", "Treasure", "Vehicle", "Vibranium"})
+ENCHANTMENT_TYPES = frozenset({"Aura", "Background", "Cartouche", "Case", "Class", "Curse", "Plan", "Role", "Room",
+                               "Rune", "Saga", "Shard", "Shrine"})
+SPELL_TYPES = frozenset({"Adventure", "Arcane", "Lesson", "Omen", "Trap"})
+BATTLE_TYPES = frozenset({"Siege"})
+
+
+def _subtype_fits(sub: str, types: frozenset[str]) -> bool:
+    """Does the object still have a card type this subtype belongs to (205.1a, 205.3d)?"""
+    from app.rules.creature_types import CREATURE_TYPES
+
+    if sub in LAND_TYPES:
+        return "Land" in types
+    if sub in ARTIFACT_TYPES:
+        return "Artifact" in types
+    if sub in ENCHANTMENT_TYPES:
+        return "Enchantment" in types
+    if sub in SPELL_TYPES:
+        return bool(types & {"Instant", "Sorcery"})
+    if sub in BATTLE_TYPES:
+        return "Battle" in types
+    if sub in CREATURE_TYPES:
+        return bool(types & {"Creature", "Kindred", "Tribal"})
+    return bool(types & {"Creature", "Kindred", "Tribal", "Planeswalker"})  # (a creature or planeswalker type)
+
+
+def _layer4(ch: Characteristics, effects: list[ContinuousEffect]) -> Characteristics:
+    """613.1d in timestamp order: types set (205.1a: replacing) or added (205.1b: "in addition to
+    its other types", "it's still a land", "artifact creature"; a crewed Vehicle, 702.122),
+    supertypes gained (205.4b), creature types set (205.1b: the other subtypes stay) or added
+    ("becomes a Goblin in addition …", 701.47a), "all creature types"."""
+    from app.rules.creature_types import CREATURE_TYPES
+
+    types, subtypes, supers = ch.types, ch.subtypes, ch.supertypes
+    for e in effects:  # (``affecting`` sorts by timestamp)
+        if e.layer != "4":
+            continue
+        if e.set_types is not None:
+            # (an instant or sorcery keeps that type, 205.1a: never on the battlefield, so moot)
+            types = frozenset(e.set_types) | (types & frozenset({"Instant", "Sorcery"}))
+        if e.add_types:
+            types = types | frozenset(e.add_types)
+        if e.add_supertypes:
+            supers = supers | frozenset(e.add_supertypes)
+        if e.set_creature_types is not None:
+            # (a subtype in no list is a creature type — or, on a planeswalker, a planeswalker type, which stays)
+            known = LAND_TYPES | ARTIFACT_TYPES | ENCHANTMENT_TYPES | SPELL_TYPES | BATTLE_TYPES
+            kept = frozenset(s for s in subtypes if s in known or (s not in CREATURE_TYPES and "Planeswalker" in types))
+            subtypes = kept | frozenset(e.set_creature_types)
+        if e.all_creature_types:
+            subtypes = subtypes | CREATURE_TYPES
+        if e.add_subtypes:
+            subtypes = subtypes | frozenset(e.add_subtypes)
+        subtypes = frozenset(s for s in subtypes if _subtype_fits(s, types))
+    if (types, subtypes, supers) == (ch.types, ch.subtypes, ch.supertypes):
+        return ch
+    return replace(ch, types=types, subtypes=subtypes, supertypes=supers)
+
+
+def _layer5(ch: Characteristics, effects: list[ContinuousEffect]) -> Characteristics:
+    """613.1e in timestamp order: "becomes a green creature" replaces its colors, "colorless"
+    removes them, "in addition to its other colors" adds (105.3)."""
+    colors = ch.colors
+    for e in effects:
+        if e.layer != "5":
+            continue
+        if e.set_colors is not None:
+            colors = frozenset(e.set_colors)
+        if e.add_colors:
+            colors = colors | frozenset(e.add_colors)
+    return ch if colors == ch.colors else replace(ch, colors=colors)
+
+
+def _wipe_key(effects: list[ContinuousEffect]) -> tuple[int, int, int] | None:
+    """The ordering key of the latest resolved "loses all abilities" effect on the object (None:
+    none): grants ordered before it are gone, later ones apply (613.7)."""
+    keys = [(e.object_seq, 1, e.timestamp) for e in effects if e.layer == "6" and e.remove_abilities]
+    return max(keys) if keys else None
+
+
+def _granted_by_effects(ch: Characteristics, effects: list[ContinuousEffect],
+                        wipe: tuple[int, int, int] | None) -> Characteristics:
+    """Layer 6: quoted abilities resolved effects granted ("becomes a … creature with "{T}: …""),
+    numbered from 200 so they never collide with statics' grants (100…); one that a later "loses
+    all abilities" precedes is gone."""
+    texts = [text for e in effects if e.layer == "6" and e.add_abilities
+             and (wipe is None or (e.object_seq, 1, e.timestamp) > wipe) for text in e.add_abilities]
+    if not texts:
+        return ch
+    from app.rules.scripts import granted_ability
+
+    extra = []
+    for k, text in enumerate(texts):
+        ab = granted_ability(text)
+        if ab is not None:
+            extra.append(replace(ab, index=200 + k))
+    return replace(ch, abilities=ch.abilities + tuple(extra)) if extra else ch
 
 
 def derive(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> Characteristics:
@@ -259,12 +376,8 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     global _depth
     effects = affecting(state, card)
     each_amounts: dict[int, int] = {}
-    added = {t for e in effects if e.layer == "4" for t in e.add_types}  # layer 4: type-changing
-    if added - ch.types:
-        ch = replace(ch, types=ch.types | frozenset(added))
-    added_sub = {t for e in effects if e.layer == "4" for t in e.add_subtypes}  # ("becomes a Goblin in addition …", 701.47a)
-    if added_sub - ch.subtypes:
-        ch = replace(ch, subtypes=ch.subtypes | frozenset(added_sub))
+    ch = _layer4(ch, effects)  # layer 4: type-changing (animation, agent A2: also layer 5 below)
+    ch = _layer5(ch, effects)
     imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …
     imposed |= _group_imposed(state, card, ch, info)
     hits: list[Static] = []
@@ -298,7 +411,8 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
             _depth -= 1
     elif effects:
         ch = _layer6(ch, [], effects)
-    grants = [text for st in hits for text in st.definition["grants"]]
+    wipe = _wipe_key(effects)  # (animation, agent A2: "loses all abilities" beats earlier grants, 613.7)
+    grants = [text for st in hits if wipe is None or (st.seq, 0, 0) > wipe for text in st.definition["grants"]]
     if grants:  # layer 6: granted abilities, numbered after the printed ones (100, 101, …)
         from app.rules.scripts import granted_ability
 
@@ -308,6 +422,7 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
             if ab is not None:
                 extra.append(replace(ab, index=100 + k))
         ch = replace(ch, abilities=ch.abilities + tuple(extra))
+    ch = _granted_by_effects(ch, effects, wipe)
     # layer 7
     setters: list[tuple[tuple[int, int, int], int | None, int | None]] = []
     for st in hits:  # 7b: static "has base power and toughness N/N" (613.4b), by its source's timestamp
@@ -503,7 +618,11 @@ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | N
                power: int | None = None, toughness: int | None = None, add_keywords: tuple[str, ...] = (),
                remove_keywords: tuple[str, ...] = (), add_types: tuple[str, ...] = (), duration: Duration = "end_of_turn",
                label: str = "", imposes: tuple[str, ...] = (), who: str | None = None,
-               source_card: str | None = None, add_subtypes: tuple[str, ...] = ()) -> ContinuousEffect:
+               source_card: str | None = None, add_subtypes: tuple[str, ...] = (),
+               **animation: Any) -> ContinuousEffect:
+    """``animation`` (agent A2): the extra ``ContinuousEffect`` fields of a "becomes a …" effect
+    (set_types, add_supertypes, set_creature_types, all_creature_types, set_colors, add_colors,
+    remove_abilities, add_abilities)."""
     r = plan.rules
     r.timestamp += 1
     effect = ContinuousEffect(id=f"e{r.timestamp}", affected=affected, layer=layer, source=source, controller=controller,
@@ -512,7 +631,7 @@ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | N
                               add_subtypes=list(add_subtypes), duration=duration,
                               imposes=list(imposes), who=who, source_card=source_card if who else None,
                               timestamp=r.timestamp, object_seq=r.next_object,
-                              label=label[:120])
+                              label=label[:120], **animation)
     r.effects.append(effect)
     return effect
 

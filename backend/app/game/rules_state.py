@@ -294,6 +294,26 @@ class ContinuousEffect(BaseModel):
     # the effect can be ordered against static abilities (their timestamp is their source's, 613.7a/d).
     object_seq: int = 0
     label: str = ""
+    # -- animation (agent A2): the type-, color- and ability-changing parts of "becomes a …" -------
+    # Layer 4 (613.1d). ``set_types``: the card types replace the object's (205.1a; the subtypes
+    # of a card type it no longer has drop with it) — None when the effect only adds types
+    # ("in addition to its other types", "it's still a land", "becomes an artifact creature":
+    # 205.1b, ``add_types``). ``add_supertypes``: "becomes a legendary …" (205.4b: the others
+    # stay). ``set_creature_types``: replaces its creature types, other subtypes stay (205.1a /
+    # 205.1b "[creature type] creature") — None: unchanged; ``all_creature_types``: "with all
+    # creature types" (every creature type, as changeling has, 702.73a).
+    set_types: list[str] | None = None
+    add_supertypes: list[str] = Field(default_factory=list)
+    set_creature_types: list[str] | None = None
+    all_creature_types: bool = False
+    # Layer 5 (613.1e, 105.3): ``set_colors`` replaces its colors ([]: colorless) — None: unchanged;
+    # ``add_colors``: "in addition to its other colors".
+    set_colors: list[str] | None = None
+    add_colors: list[str] = Field(default_factory=list)
+    # Layer 6 (613.1f): "loses all abilities" (its printed abilities and everything granted before
+    # this effect's timestamp; later grants apply again) and quoted abilities it gains (their text).
+    remove_abilities: bool = False
+    add_abilities: list[str] = Field(default_factory=list)
 
 
 class TargetRef(BaseModel):

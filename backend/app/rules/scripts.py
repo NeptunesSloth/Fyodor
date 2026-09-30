@@ -2008,3 +2008,55 @@ def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if lgroups or rgroups:
         raise _NoMatch  # (a target inside a half: not read here)
     return left[0] + right[0], None
+
+
+# -- animation (app/rules/language.py "animation", app/rules/effects.py ``become``, agent A2) --------
+# "~ becomes a 2/2 creature with all creature types until end of turn. It's still a land."
+# (Mutavault): the first sentence is a ``become`` effect (types, colors, abilities and base P/T in
+# their layers, 613.6); "It's still a land." is ``still_a``, which turns the types it set into
+# types added (205.1b). A quoted ability it grants must be one the engine carries out
+# (``granted_ability``), else the ability stays manual.
+@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:a|an) .+)")
+def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    found = language.parse_become(m["text"])
+    if found is None:
+        raise _NoMatch
+    for e in found[0]:
+        if e["do"] == "become" and any(granted_ability(text) is None for text in e.get("abilities", ())):
+            raise _NoMatch
+    return found
+
+
+@_first  # (before agent J's "until your next turn" wrapper, which only wraps pumps, grants and restrictions)
+@effect(r"(?P<text>(?:until your next turn, (?:have )?.+? becomes? (?:a|an) .+|(?:have )?.+? becomes? (?:a|an) .+ until your next turn))")
+def _become_next_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _become(m)
+
+
+@_first  # ("… until your next turn": before agent J's wrapper, as above)
+@effect(_language.BASE_PT)
+def _base_pt(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    try:
+        return _language.parse_base_pt(m)
+    except _language._Fail:
+        raise _NoMatch from None
+
+
+@effect(_language.STILL_A)
+def _still_a(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _language.parse_still(m)
+
+
+@_first  # (the general prevention template rejects the pronoun)
+@effect(r"prevent all damage that would be dealt to (?:him|her) this turn")
+def _prevent_to_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """Gideon: "Until end of turn, Gideon becomes a 6/6 … creature that's still a planeswalker.
+    Prevent all damage that would be dealt to him this turn." — Oracle's "him" / "her" is the
+    named planeswalker itself, the ability's source (``prevent_self``: agent K's ``prevent_all``
+    locked to the source object, 615, 400.7)."""
+    return [{"do": "prevent_self"}], None
+
+
+_RECORDING.update({"become": None})

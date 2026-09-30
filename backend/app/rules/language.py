@@ -1070,3 +1070,167 @@ def enters_choice(text: str) -> dict[str, Any] | None:
         return None
     return {"kind": "replacement", "replacement": "enters_choice",
             "effects": [{"do": "choose_value", "who": "you", "what": m["what"], "remember": True}]}
+
+
+# -- animation (agent A2) --------------------------------------------------------------------------
+# "~ becomes a 2/2 creature with all creature types until end of turn" (Mutavault), "until end of
+# turn, this land becomes a 4/4 white and blue Elemental creature with flying and vigilance"
+# (Celestial Colonnade), "target land becomes a 3/3 creature that's still a land" (Lifespark
+# Spellbomb), "target permanent becomes an artifact in addition to its other types until end of
+# turn" (Liquimetal Coating), "each noncreature artifact you control becomes a 4/4 artifact
+# creature until end of turn" (Cyberdrive Awakener), "target noncreature artifact becomes an
+# artifact creature with power and toughness each equal to its mana value until end of turn"
+# (Karn's Touch), "target creature loses all abilities and becomes a blue Frog with base power and
+# toughness 1/1" (Turn to Frog), "it becomes an artifact creature and gains haste" (Chandra, Spark
+# Hunter), "target land you control becomes an X/X Elemental creature until end of turn, where X
+# is the number of Allies you control" (Vastwood Animist). The separate sentence "It's still a
+# land." is ``parse_still``. Read against CR 205.1a/205.1b (types set or retained), 105.3
+# (colors), 613.1d-f / 613.4b (the layers each part applies in), 611.2a (no duration: the game).
+# Not read (manual): "becomes a copy …" (a copy effect, layer 1), "becomes an Aura … Attach it"
+# (Licids), "if ~ is an enchantment, it becomes …" (conditions), "with ward {2}" / protection
+# (keywords the engine doesn't grant), a creature type not in the CR list.
+_COLOR_LETTERS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
+_COLOR_LIST = r"(?:white|blue|black|red|green)(?:(?:,? and |, )(?:white|blue|black|red|green))*"
+_BECOME = re.compile(
+    r"^(?:(?P<lead>until end of turn, )|(?P<nlead>until your next turn, ))?(?:have )?(?P<o>.+?) "
+    r"(?P<lose>loses all abilities and )?becomes? "
+    r"(?:a|an) (?P<desc>.+?)"
+    r"(?P<addition> in addition to its other (?P<addcolors>colors and )?types)?"
+    r"(?P<still> that's still an? (?:land|artifact|enchantment|planeswalker|creature))?"
+    r"(?: and gains? (?P<gain>[a-z ]+))?"
+    r"(?:(?P<trail> until end of turn)|(?P<ntrail> until your next turn))?$")
+_DESC = re.compile(  # (each part optional, space-separated: "legendary 8/12 green Spirit artifact creature with …")
+    r"^(?P<leg>legendary)?(?: ?(?P<p>X|\d+)/(?P<t>X|\d+))?(?: ?(?P<colors>colorless|" + _COLOR_LIST + r"))?"
+    r"(?: ?(?P<subs>[A-Z][\w’'-]+(?: [A-Z][\w’'-]+)*))?(?: ?(?P<kinds>(?:artifact |enchantment )?(?:creature|artifact|enchantment)))?"
+    r"(?: with (?P<with>.+))?$")
+_QUOTED = re.compile(r'"([^"]+)"')
+STILL_A = r"it's still an? (?P<t>land|artifact|enchantment|planeswalker|creature)"
+_STAT_WORDS = {"power": "power", "toughness": "toughness", "mana value": "mana_value"}
+
+
+def _animation_keywords(text: str) -> list[str]:
+    """"flying", "trample and haste", "vigilance, indestructible, and haste" → the keywords."""
+    parts = [p.strip() for p in re.split(r",? and |, ", text) if p.strip()]
+    for p in parts:
+        if p not in selectors.KEYWORDS or p == "protection":
+            raise _Fail
+    return parts
+
+
+def _with_list(text: str, out: dict[str, Any]) -> None:
+    """The "with …" part: keywords, "all creature types", quoted abilities, "base power and
+    toughness N/N", "power and toughness each equal to <value>"."""
+    abilities = _QUOTED.findall(text)
+    rest = _QUOTED.sub("", text)
+    rest = re.sub(r"(?:,? and |, )\s*$", "", rest.strip())
+    m = re.search(r"(?:^|,? and |, )(?:base power and toughness (?P<p>\d+)/(?P<t>\d+)|"
+                  r"power and toughness each equal to (?P<eq>.+))$", rest)
+    if m:
+        if out.get("p") is not None:
+            raise _Fail
+        if m["eq"]:
+            out["p"] = out["t"] = _stat(m["eq"])
+        else:
+            out["p"], out["t"] = int(m["p"]), int(m["t"])
+        rest = rest[: m.start()]
+    if re.search(r"(?:^|,? and |, )all creature types$", rest):
+        out["all_creature_types"] = True
+        rest = re.sub(r"(?:,? and |, )?all creature types$", "", rest)
+    rest = re.sub(r"(?:,? and |, )\s*$", "", rest.strip())
+    if rest:
+        out["keywords"] = _animation_keywords(rest)
+    if abilities:
+        out["abilities"] = abilities
+
+
+def parse_become(text: str) -> tuple[Effects, Any] | None:
+    """One "… becomes a …" sentence → ([become effect, (grant)], target) or None."""
+    try:
+        return _become(text.strip())
+    except _Fail:
+        return None
+
+
+def _become(text: str) -> tuple[Effects, Any]:
+    from app.rules.creature_types import CREATURE_TYPES
+
+    text, rider = _with_rider(text)
+    m = _BECOME.fullmatch(text)
+    if m is None:
+        raise _Fail
+    d = _DESC.fullmatch(m["desc"])
+    if d is None:
+        raise _Fail
+    kind, key, group = ref(m["o"])
+    if kind == "players":
+        raise _Fail
+    who = _who(kind, key)
+    kinds = (d["kinds"] or "").split()
+    types = [k.capitalize() for k in kinds]
+    subs = (d["subs"] or "").split()
+    if any(s not in CREATURE_TYPES for s in subs) or ("Creature" not in types and (subs or d["p"])
+                                                       and types):
+        raise _Fail  # (not a creature type; a P/T or creature type for something that isn't a creature)
+    if not types and not subs:
+        raise _Fail
+    e: dict[str, Any] = {"do": "become", "who": who, "types": types}
+    if m["addition"] or m["still"] or types == ["Artifact", "Creature"]:
+        e["retain"] = True  # 205.1b
+    if subs:
+        # 205.1b: "in addition to its other types" / "that's still a …" retain every prior subtype
+        # (the creature types named are added); "[creature type] artifact creature" or a plain
+        # "becomes a … creature" replaces its creature types (205.1a/205.1b last sentence)
+        e["add_creature_types" if (m["addition"] or m["still"]) else "creature_types"] = subs
+    if d["leg"]:
+        e["legendary"] = True
+    if d["colors"]:
+        colors = [] if d["colors"].strip() == "colorless" else \
+            [_COLOR_LETTERS[c] for c in re.split(r",? and |, ", d["colors"].strip())]
+        if m["addcolors"]:
+            e["add_colors"] = colors
+        else:
+            e["colors"] = colors
+    if d["p"]:
+        e["p"] = _apply(_amount(d["p"]), rider) if d["p"] == "X" else int(d["p"])
+        e["t"] = _apply(_amount(d["t"]), rider) if d["t"] == "X" else int(d["t"])
+    elif rider is not None:
+        raise _Fail
+    if d["with"]:
+        _with_list(d["with"], e)
+    if m["lose"]:
+        e["lose_abilities"] = True
+    if m["lead"] or m["trail"]:
+        e["duration"] = "end_of_turn"
+    elif m["nlead"] or m["ntrail"]:
+        e["duration"] = "next_turn"  # 611.2a; ends as its controller's next turn begins (500.4, app/rules/delayed.py)
+    else:
+        e["duration"] = "permanent"  # 611.2a
+    out: Effects = [e]
+    if m["gain"]:
+        if e["duration"] != "end_of_turn":
+            raise _Fail
+        out.append({"do": "grant", "who": who, "keywords": _animation_keywords(m["gain"])})
+    return out, _one(group)
+
+
+BASE_PT = (r"(?:(?P<lead>until end of turn|until your next turn), )?(?P<o>.+?) (?:has|have) base power and toughness "
+           r"(?P<p>\d+)/(?P<t>\d+)(?: (?P<trail>until end of turn|until your next turn))?")
+
+
+def parse_base_pt(m: re.Match[str]) -> tuple[Effects, Any]:
+    """"Target creature has base power and toughness 3/3 until end of turn" (Restless Vinestalk):
+    layer 7b only (613.4b); nothing else about it changes. With no duration it lasts the game (611.2a)."""
+    if m["lead"] and m["trail"]:
+        raise _Fail
+    kind, key, group = ref(m["o"])
+    if kind == "players":
+        raise _Fail
+    when = m["lead"] or m["trail"] or ""
+    duration = {"until end of turn": "end_of_turn", "until your next turn": "next_turn"}.get(when, "permanent")
+    return [{"do": "become", "who": _who(kind, key), "types": [], "p": int(m["p"]), "t": int(m["t"]),
+             "duration": duration}], _one(group)
+
+
+def parse_still(m: re.Match[str]) -> tuple[Effects, Any]:
+    """"It's still a land.": the sentence before it retains the object's types (205.1b)."""
+    return [{"do": "still_a", "type": m["t"].capitalize()}], None
