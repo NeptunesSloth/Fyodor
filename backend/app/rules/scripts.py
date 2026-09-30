@@ -1435,9 +1435,20 @@ def _event_refs_ok(d: Definition) -> bool:
 
 @lru_cache(maxsize=20000)
 def _cached(ch: Characteristics) -> dict[int, Definition]:
-    out = {}
+    out: dict[int, Definition] = {}
     for ab in ch.abilities:
+        if out.get(ab.index, {}).get("kind") == "mode":
+            continue  # (a mode line of the modal ability above it)
         d = define(ab, ch)
+        if d is None and ab.kind in ("triggered", "activated", "loyalty"):
+            # -- modal triggered/activated abilities (wave 1A): "…, choose one —" and its bulleted modes,
+            # read by app/rules/modal_abilities.py (the header's definition and one stub per mode line)
+            from app.rules import modal_abilities
+
+            found = modal_abilities.definitions(ab, ch)
+            if found and all(_event_refs_ok(x) for x in found.values()):  # (all of it or nothing)
+                out.update(found)
+            continue
         if d is not None and _event_refs_ok(d):
             out[ab.index] = d
     return out

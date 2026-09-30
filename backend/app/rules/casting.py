@@ -431,21 +431,25 @@ def _controls_commander(plan: Plan, player: str) -> bool:
                for c in plan.state.cards.values())
 
 
-def choose_modes(plan: Plan, a: A.CastSpell, definition: dict[str, Any], what: str) -> list[int] | None:
-    """700.2a / 601.2b: the modes of a modal spell, validated if given, else asked. A mode whose
-    target can't be chosen can't be chosen (700.2a). Returns None while waiting."""
+def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any], what: str,
+                 *, exclude: tuple[int, ...] = ()) -> list[int] | None:
+    """700.2a / 601.2b: the modes of a modal spell (or activated ability: 602.2b), validated if given,
+    else asked. A mode whose target can't be chosen can't be chosen (700.2a). ``exclude``: modes that
+    can't be chosen either ("choose one that hasn't been chosen"). Returns None while waiting."""
     modal, modes = definition["modal"], definition["modes"]
     lo, hi, repeat = modal["min"], modal["max"], modal["repeat"]
     if modal.get("condition") == "commander" and _controls_commander(plan, plan.actor):
         hi = 2  # "If you control a commander as you cast this spell, you may choose both instead."
     src = source_of(plan, a.card_id)
-    allowed = [i for i, m in enumerate(modes)
-               if not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, a.card_id)]
+    allowed = [i for i, m in enumerate(modes) if i not in exclude
+               and (not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, a.card_id))]
     if a.modes:
         if not lo <= len(a.modes) <= hi:
             raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}")
         if not repeat and len(set(a.modes)) != len(a.modes):
             raise ActionError("You can't choose the same mode more than once")
+        if any(i in exclude for i in a.modes):
+            raise ActionError("That mode has already been chosen")
         if any(i not in allowed for i in a.modes):
             raise ActionError("That mode can't be chosen (it has no legal target)")
         return list(a.modes)
@@ -470,7 +474,7 @@ def resume_cast_modes(plan: Plan, d: Any, chosen: list[str]) -> None:
     INTENTS[intent.type](plan, intent)
 
 
-def choose_slot_targets(plan: Plan, a: A.CastSpell, specs: list[dict[str, Any] | None],
+def choose_slot_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, specs: list[dict[str, Any] | None],
                         what: str) -> list[list[TargetRef]] | None:
     """One target per chosen mode that has one, in order (``a.targets``); the next one missing is
     asked. The same object may be chosen for different modes (601.2c: another "target" word)."""
@@ -1255,6 +1259,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     slot_specs: list[dict[str, Any] | None] = []
     picked: list[int] = []
     if definition is not None and definition.get("modes"):
+        from app.rules.modal_abilities import printed_order
+
+        a.modes, a.targets = printed_order(definition, a.modes, a.targets)  # (wave 1A) 608.2c: carried out as printed
         modes = choose_modes(plan, a, definition, ch.name or "it")  # 601.2b: modes first …
         if modes is None:
             return
@@ -1856,6 +1863,7 @@ def equip_ability(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Acti
 def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, ability: AbilityText,
                       a: A.ActivateAbility, *, definition: dict[str, Any] | None = None,
                       exclude_targets: tuple[str, ...] = ()) -> None:
+    from app.rules import modal_abilities  # (a leaf module over this one)
     from app.rules.engine import advance  # the engine imports this module
 
     cost = ability_cost(ch, ability)
@@ -1874,7 +1882,12 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         definition = None
     if exclude_targets and set(a.targets) & set(exclude_targets):
         raise ActionError(f"{ch.name} can't target itself")
-    picked_targets = choose_targets(plan, a, definition, f"{ch.name}’s ability", exclude=exclude_targets)
+    modal: modal_abilities.Announced | None = None
+    if definition is not None and definition.get("modes"):  # -- modal abilities (wave 1A): 602.2b → 601.2b-c --
+        modal = modal_abilities.announce(plan, a, card, definition, ability.index, oid, f"{ch.name}’s ability")
+        picked_targets = None if modal is None else modal.targets  # (modes first, then each mode's target)
+    else:
+        picked_targets = choose_targets(plan, a, definition, f"{ch.name}’s ability", exclude=exclude_targets)
     if picked_targets is None:
         return
     chosen = picked_targets.flat
@@ -1915,7 +1928,11 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if a.targets and ability_id:
         plan.do({"type": "create_arrow", "source": ability_id, "targets": list(a.targets), "kind": "target"})
     r = plan.rules
-    if definition is not None and ability_id:
+    if modal is not None and ability_id:  # (wave 1A) each chosen mode's effects, with its own target slot
+        r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
+                                         name=ch.name, x=a.x_value, **modal.entry)
+        modal_abilities.announced(plan, ability_id, card, modal, oid)  # the modes chosen are public; remembered
+    elif definition is not None and ability_id:
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
                                          name=ch.name, effects=list(definition["effects"]), x=a.x_value,
                                          **picked_targets.entry(definition))

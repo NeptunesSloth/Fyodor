@@ -34,6 +34,7 @@ from app.rules import (
     delayed,
     effects,
     layers,
+    modal_abilities,
     optional_payment,
     permissions,
     reconcile,
@@ -975,6 +976,9 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "cast_divide": casting.resume_cast_divide,
     "trigger_group": triggers.resume_group,
     "trigger_divide": triggers.resume_divide,
+    # -- modal triggered abilities (wave 1A): the modes, then each chosen mode's target (603.3c) --
+    "trigger_modes": modal_abilities.resume_trigger_modes,
+    "trigger_slot_target": modal_abilities.resume_trigger_slot,
     "fabricate": effects.resume_fabricate,
     "storm": effects.resume_storm,
     "shock": lambda plan, d, chosen: _resume_shock(plan, d, chosen),

@@ -52,8 +52,35 @@ SUPPORTED_REPLACEMENTS: set[str] = {
 }
 
 
+# -- modal triggered/activated abilities (wave 1A) ---------------------------------------------------
+# The forms of modal ability the engine carries out (app/rules/modal_abilities.py; CR 700.2, 603.3c,
+# 602.2b), each with scenario tests in tests/test_rules_modal_abilities.py. A modal ability's definition
+# names its form; a form not listed here stays manual. Refused on purpose (the grammar never reads them):
+# "choose one at random", "each mode must target a different player", "you may choose both instead",
+# "You may choose the same mode more than once", "choose X / up to X", reflexive "When you do, choose …"
+# (603.12), a mode with "you may", several targets or a division, and "up to"/"any number" modes on an
+# activated ability (choosing none isn't modelled).
+SUPPORTED_MODAL_ABILITIES: set[str] = {
+    "triggered",  # "When/Whenever/At …, choose one —": announced as it's put on the stack (603.3c, 700.2b)
+    "activated",  # "{cost}: Choose one —": announced before targets and costs (602.2b, 601.2b)
+    "loyalty",  # "+1: Choose one —" (606.2 → 602.2b)
+    "memory:game",  # "choose one that hasn't been chosen —": per object, for as long as it is that object
+    "memory:turn",  # "choose one that hasn't been chosen this turn —": per object, per turn
+}
+
+
+def modal_supported(d: dict[str, Any]) -> bool:
+    """A modal triggered / activated ability (or one of its mode lines, ``kind`` "mode") is automated
+    only when its form is listed above."""
+    modal = d if d.get("kind") == "mode" else d.get("modal") or {}
+    return modal.get("form") in SUPPORTED_MODAL_ABILITIES and (
+        modal.get("memory") is None or f"memory:{modal['memory']}" in SUPPORTED_MODAL_ABILITIES)
+
+
 def definition_supported(d: dict[str, Any]) -> bool:
     """A replacement / prevention definition is automated only when its kind is listed above."""
+    if d.get("kind") == "mode" or (d.get("modes") and d.get("kind") in ("triggered", "activated")):
+        return modal_supported(d)  # (wave 1A) a modal triggered / activated ability
     if d.get("kind") == "replacement":
         return d.get("replacement") in SUPPORTED_REPLACEMENTS
     if d.get("kind") == "static" and d.get("static") in ("prevent", "exile_instead"):
