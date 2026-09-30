@@ -50,6 +50,10 @@ SUPPORTED_REPLACEMENTS: set[str] = {
     "exile_instead",  # "If ~ would die / be put into a graveyard from anywhere, exile it instead" (own and statics)
     "prevent",  # "Prevent all [combat] damage that would be dealt [to …] [by …] [this turn]" (615)
 }
+# -- copy system (wave 2F): "You may have ~ enter as a copy of …[, except …]" (707.5, 614.1c, 614.12a;
+# app/rules/copying.py, tests/test_rules_copy.py). Copies of spells and abilities, token copies and
+# "becomes a copy" are templates (their definitions parse only in the wording the engine carries out).
+SUPPORTED_REPLACEMENTS.add("enter_as_copy")
 
 
 def definition_supported(d: dict[str, Any]) -> bool:

@@ -83,6 +83,12 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
     decided: 614.12a, choices are made before it enters)}. ``tapped`` is what the effect putting it
     onto the battlefield says ("put it onto the battlefield tapped")."""
     out: dict[str, Any] = {"tapped": bool(tapped)}
+    # -- copy system (wave 2F): "You may have ~ enter as a copy of …" (707.5, 614.12a): chosen first;
+    # then the rest of this plan reads the copied text (app/rules/copying.py) --
+    from app.rules import copying
+
+    if copying.entering(plan, card, controller, answers, out):
+        return out
     defs = [d for d in _definitions(plan, card).values() if d["kind"] == "replacement"]
     answers = dict(answers or {})
     for d in defs:  # "As ~ enters, choose a color." (614.1c): the answer is recorded on the permanent

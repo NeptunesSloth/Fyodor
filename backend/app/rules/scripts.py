@@ -1283,6 +1283,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         replacement = define_replacement(ability, text)
         if replacement is not None:
             return replacement
+    if ability.kind == "static" and (copied := _copy_static(text)) is not None:  # -- copy system (wave 2F) --
+        return copied
     if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
         return anthem
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
@@ -2064,3 +2066,66 @@ def _prevent_to_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 _RECORDING.update({"become": None})
+
+
+# =====================================================================================================
+# -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py) --
+# "Copy target instant or sorcery spell[, except that the copy is red]." / "Copy target triggered
+# ability you control." then "You may choose new targets for the copy." (707.10, 707.10c); "Create
+# a token that's a copy of target creature[, except it has haste]." (707.9); "~ becomes a copy of
+# target creature until end of turn." (707.4); "You may have ~ enter as a copy of any creature on the
+# battlefield[, except …]." (707.5, a replacement effect). Each is tried before the older templates
+# (a "becomes a …" or "create … token" template would otherwise claim and reject the sentence).
+# =====================================================================================================
+def _copy_static(text: str) -> Definition | None:
+    from app.rules import copying
+
+    return copying.define_static(text)
+
+
+@_first
+@effect(r"copy target (?P<what>.+?)(?:, except (?P<exc>.+))?")
+def _copy_target(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import copying
+
+    found = copying.parse_copy_target(m["what"], m["exc"])
+    if found is None:
+        raise _NoMatch
+    return found
+
+
+@_first
+@effect(r"you may choose new targets for the cop(?:y|ies)")
+def _copy_new_targets(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "copy_new_targets", "optional": True}], None  # (read by the copy before it: 707.10c)
+
+
+@_first
+@effect(r"create (?P<n>a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|\d+) (?P<tapped>tapped )?tokens? "
+        r"that(?:'s| are) (?:a )?cop(?:y|ies) of (?P<src>.+?)(?:, except (?P<exc>.+))?")
+def _token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import copying
+
+    found = copying.parse_token_copy(m["n"], bool(m["tapped"]), m["src"], m["exc"])
+    if found is None:
+        raise _NoMatch
+    return found
+
+
+@_first
+@effect(r"~ becomes a copy of target (?P<what>.+?)(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")
+def _become_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import copying
+
+    found = copying.parse_become(m["what"], bool(m["until"]), m["exc"])
+    if found is None:
+        raise _NoMatch
+    return found
+
+
+# The tokens a copy creates are what a following "it" / "that token" names ("Sacrifice it at the
+# beginning of the next end step."): the resolution records them (effects._remember).
+_RECORDING.update({"token_copy": None})
+_MOVERS.add("token_copy")
+_TOKEN_MAKERS.add("token_copy")
+_CHOSEN["token_copy"] = "n"

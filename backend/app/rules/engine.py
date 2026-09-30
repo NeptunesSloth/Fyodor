@@ -29,6 +29,7 @@ from app.rules import (
     attachments,
     casting,
     combat,
+    copying,
     cost_payment,
     coverage,
     delayed,
@@ -600,6 +601,7 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
+        copying.resolved(plan, card_id, oid)  # -- copy system (wave 2F): a permanent spell's copy became a token (608.3f)
     else:  # (defensive: resolution never adds to the stack today)
         plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "graveyard"}}, actor=controller)
 
@@ -999,4 +1001,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "land_enter_choice": replacements.resume_land_enter_choice,
     "commander_instead": replacements.resume_commander_instead,
     "shield_order": replacements.resume_shield_order,
+    # -- copy system (wave 2F): copies of spells and abilities — same or new targets for several
+    # copies, one copy's targets (707.10c), a copy made by hand (app/rules/copying.py) --
+    **copying.RESUME,
 }
