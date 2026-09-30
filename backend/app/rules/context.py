@@ -211,6 +211,21 @@ def succeeded(ctx: Context, name: str) -> bool:
     return b.get("kind") == "payment" and bool(b.get("ok"))
 
 
+def probe_ok(plan: Any, ctx: Context, name: str) -> bool:
+    """Did the probed instruction ("did": name, app/rules/effects.py) do something? A draw: a card
+    reached a hand; a move: an object (a new one, 400.7) is in the zone asked for."""
+    b = (ctx.get("refs") or {}).get(name) or {}
+    if b.get("kind") != "probe":
+        return False
+    if "hands" in b:
+        return any(len(plan.state.zones.get(f"{p}:hand", [])) > n for p, n in b["hands"].items())
+    for cid, oid in b["cards"].items():
+        card = plan.state.cards.get(cid)
+        if card is not None and card.zone.split(":")[-1] == b["to"] and plan.oid(card) != oid:
+            return True
+    return False
+
+
 def flag(ctx: Context, name: str) -> bool:
     """A condition's recorded verdict (an "instead" / "Otherwise" clause); False if none was recorded."""
     b = (ctx.get("refs") or {}).get(name) or {}
