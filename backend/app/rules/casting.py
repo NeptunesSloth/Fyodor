@@ -1259,6 +1259,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     slot_specs: list[dict[str, Any] | None] = []
     picked: list[int] = []
     if definition is not None and definition.get("modes"):
+        from app.rules.modal_abilities import printed_order
+
+        a.modes, a.targets = printed_order(definition, a.modes, a.targets)  # (wave 1A) 608.2c: carried out as printed
         modes = choose_modes(plan, a, definition, ch.name or "it")  # 601.2b: modes first …
         if modes is None:
             return

@@ -585,6 +585,47 @@ def test_the_two_faces_of_one_object_keep_separate_memory(cards):
     replay_matches(s)
 
 
+def test_modes_given_out_of_order_keep_their_targets_and_run_as_printed(cards):
+    """608.2c: modes are carried out in the order printed. Given out of order (modes=[1, 0]) with their targets
+    (in that order), each target stays with its mode; a modal spell does the same as an ability."""
+    s = build(cards, "Test Duo")
+    respond_on(s)
+    ogre = token(s, "p2", "Ogre", "5/5")
+    duo = to_hand(s, "Test Duo")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=duo.id, modes=[1, 0], targets=[ogre.id, "p2"])  # 3 to the Ogre, 2 to Bob
+    entry = rules(s).stack[duo.id]
+    assert entry.modes == [0, 1] and [[t.id for t in slot] for slot in entry.slots] == [["p2"], [ogre.id]]
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].life == 38 and s.state.cards[ogre.id].damage == 3
+    replay_matches(s)
+    # chosen from the decision in the wrong order: the next choices follow the printed order
+    s = build(cards, "Test Duo")
+    respond_on(s)
+    duo = to_hand(s, "Test Duo")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=duo.id)
+    choose(s, "1:0", "0:0")
+    assert step(s) == "cast_slot_target" and rules(s).decision.resume["intent"]["modes"] == [0, 1]
+    # an ability with two chosen modes (not a real card)
+    s = build(cards)
+    respond_on(s)
+    two = token(s, "p1", "Twin", "1/1", text="{1}: Choose two —\n• Target creature gets +1/+1 until end of turn.\n"
+                                            "• Tap target creature.\n• You gain 1 life.")
+    bear = token(s, "p1", "Bear", "2/2")
+    goat = token(s, "p2", "Goat", "1/1")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=two.id, ability=0, modes=[1, 0], targets=[goat.id, bear.id])
+    entry = next(iter(rules(s).stack.values()))
+    assert entry.modes == [0, 1] and [[t.id for t in slot] for slot in entry.slots] == [[bear.id], [goat.id]]
+    pass_until_stack_empty(s)
+    assert s.state.cards[goat.id].tapped and not s.state.cards[bear.id].tapped
+    with pytest.raises(ActionError, match="printed order"):
+        mana(s, C=1)
+        act(s, "p1", type="activate_ability", card_id=two.id, ability=0, modes=[1, 0], targets=[goat.id])
+    replay_matches(s)
+
+
 def test_a_mode_already_chosen_is_refused_when_given_up_front(cards):
     s = build(cards, "Three Bowls of Porridge")
     bowls = battlefield(s, "Three Bowls of Porridge")

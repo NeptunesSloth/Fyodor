@@ -214,6 +214,25 @@ def remember(rules: RulesState, oid: str, index: int, memory: str | None, turn: 
 
 
 # -- what is announced -----------------------------------------------------------------------------------
+def printed_order(definition: Definition, modes: list[int], targets: list[str]) -> tuple[list[int], list[str]]:
+    """``modes`` in printed order (608.2c: the instructions are followed in the order written, whatever the
+    order the modes were chosen in), with the targets given for them kept with their modes: ``targets`` has one
+    per chosen mode that has a target, in the order the modes were given. Raises ActionError when only some
+    targets were given for modes out of order (which modes they belong to would be a guess)."""
+    if modes == sorted(modes):
+        return list(modes), list(targets)
+    specs = definition["modes"]
+    need = [i for i in modes if specs[i]["target"]]
+    if len(targets) > len(need):
+        return sorted(modes), list(targets)  # (too many: the target choice refuses them)
+    given = iter(targets)
+    pairs = [(i, next(given, None) if specs[i]["target"] else None) for i in modes]
+    if targets and len(targets) < len(need):
+        raise ActionError("List the modes in printed order when you give only some of their targets")
+    ordered = sorted(pairs, key=lambda pair: pair[0])
+    return [i for i, _ in ordered], [t for _, t in ordered if t is not None]
+
+
 def mode_effects(definition: Definition, chosen: list[int]) -> list[dict[str, Any]]:
     """The effects of the chosen modes in printed order (608.2c), each with its own target slot
     ("use_targets"); a trigger's intervening "if" is checked again as it resolves (603.4)."""
@@ -413,7 +432,7 @@ def announce(plan: Plan, a: A.ActivateAbility, card: CardInstance, definition: D
 
     modal = definition["modal"]
     done = chosen_before(plan.rules, oid, index, modal["memory"], plan.state.turn.number, card.face)
-    a.modes = sorted(a.modes)  # (printed order, 608.2c: ``a.targets`` then follows the modes in that order)
+    a.modes, a.targets = printed_order(definition, a.modes, a.targets)  # (608.2c: the targets go with their modes)
     modes = casting.choose_modes(plan, a, definition, what, exclude=done)
     if modes is None:
         return None
