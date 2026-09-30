@@ -1,7 +1,9 @@
 """This turn's history, for the conditions that look back in time (CR 608.2i): "if you attacked this
 turn" (Raid), "if a creature died this turn" (Morbid), "if a permanent left the battlefield under
 your control this turn" (Revolt), "if an opponent lost life this turn", "if you gained 3 or more
-life this turn", "if you've drawn two or more cards this turn", "if you lost life last turn".
+life this turn", "if you've drawn two or more cards this turn", "if you lost life last turn", "if you
+descended this turn" (700.11: a permanent card — never a token — was put into your graveyard from
+anywhere, and needn't still be there).
 
 The facts are recorded deterministically as the game happens (app/game/rules_state.py ``TurnLog``:
 ``track`` / ``emit`` for what the table shows — departures, life, draws — and the declaration of
@@ -23,6 +25,8 @@ from __future__ import annotations
 from typing import Any
 
 from app.game.rules_state import Departure, TurnLog
+from app.rules import characteristics as chars
+from app.rules.characteristics import PERMANENT_TYPES
 from app.rules.plan import Plan
 
 
@@ -58,6 +62,17 @@ def creatures_died(plan: Plan, *, controller: str | None = None, last: bool = Fa
                and "Creature" in departed_types(plan, d))
 
 
+def permanent_cards_entered(plan: Plan, player: str, *, last: bool = False) -> int:
+    """700.11: how many permanent cards were put into ``player``'s graveyard from anywhere this turn
+    ("descended") — counted whether or not they're still there. A token is no card (111.1)."""
+    n = 0
+    for arrival in log_for(plan, last).entered_graveyard:
+        card = plan.state.cards.get(arrival.card)
+        if arrival.owner == player and card is not None and chars.of(card, plan.info).types & PERMANENT_TYPES:
+            n += 1
+    return n
+
+
 def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     """Is this ``{"history": …}`` condition true for the ability's controller right now?"""
     kind = cond["history"]
@@ -78,6 +93,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         return any(log.lost.get(p, 0) >= n for p in players)
     if kind == "left_graveyard":
         return me in log.left_graveyard
+    if kind == "descended":
+        return permanent_cards_entered(plan, me, last=bool(cond.get("last"))) >= n
     if kind == "died":
         return creatures_died(plan, controller=me if cond.get("who") == "you" else None, last=bool(cond.get("last"))) >= n
     if kind == "left":

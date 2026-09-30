@@ -1902,7 +1902,8 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "surveil": "surveil {n}", "damage": "deal {n} damage", "player_counter": "get {n} {counter}",
              "create_token": "create {n} token(s)", "add_counters": "put {n} {kind} counter(s)", "proliferate": "proliferate",
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library"}
-    parts = [words.get(e["do"], e["do"]).format(**{k: v for k, v in e.items()}) for e in effects
+    # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
+    parts = [words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
              if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if")]
     return (", ".join(parts) or "do it").capitalize()
 
