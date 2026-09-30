@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 536 · PARTIAL: 2965 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 551 · PARTIAL: 2950 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -21,14 +21,14 @@ Color identity R
 - ✓ Attack and block
 - ✗ Whenever Etali attacks, exile the top card of each player's library, then you may cast any number of spells from among those cards without paying their mana costs.
 
-### Ragavan, Nimble Pilferer — PARTIAL
+### Ragavan, Nimble Pilferer — FULL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.
 - ✓ Dash
-- ✗ Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.
 
 ### Braids, Arisen Nightmare — PARTIAL
 
@@ -730,8 +730,8 @@ Color identity U
 - ✓ Attack and block
 - ✓ This spell can't be countered.
 - ✓ Whenever an opponent casts a noncreature spell, draw a card.
+- ✓ Discard three cards: Exile Nezahal. Return it to the battlefield tapped under its owner's control at the beginning of the next end step.
 - ✗ You have no maximum hand size.
-- ✗ Discard three cards: Exile Nezahal. Return it to the battlefield tapped under its owner's control at the beginning of the next end step.
 
 ### Vivi Ornitier — PARTIAL
 
@@ -1629,7 +1629,7 @@ Color identity B
 - ✓ Menace
 - ✗ When Massacre Girl enters, each other creature gets -1/-1 until end of turn. Whenever a creature dies this turn, each creature other than Massacre Girl gets -1/-1 until end of turn.
 
-### The Locust God — PARTIAL
+### The Locust God — FULL
 
 Color identity UR
 
@@ -1638,7 +1638,7 @@ Color identity UR
 - ✓ Flying
 - ✓ Whenever you draw a card, create a 1/1 blue and red Insect creature token with flying and haste.
 - ✓ {2}{U}{R}: Draw a card, then discard a card.
-- ✗ When The Locust God dies, return it to its owner's hand at the beginning of the next end step.
+- ✓ When The Locust God dies, return it to its owner's hand at the beginning of the next end step.
 
 ### Alesha, Who Laughs at Fate — PARTIAL
 
@@ -1684,9 +1684,9 @@ Color identity UB
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
+- ✓ When The Scarab God dies, return it to its owner's hand at the beginning of the next end step.
 - ✗ At the beginning of your upkeep, each opponent loses X life and you scry X, where X is the number of Zombies you control.
 - ✗ {2}{U}{B}: Exile target creature card from a graveyard. Create a token that's a copy of it, except it's a 4/4 black Zombie.
-- ✗ When The Scarab God dies, return it to its owner's hand at the beginning of the next end step.
 
 ### Vorinclex, Voice of Hunger — PARTIAL
 
@@ -2254,7 +2254,7 @@ Color identity WB
 - ✓ Attack and block
 - ✓ Flying
 - ✓ Lifelink
-- ✗ Whenever another nontoken creature you control dies, return that card to its owner's hand at the beginning of the next end step.
+- ✓ Whenever another nontoken creature you control dies, return that card to its owner's hand at the beginning of the next end step.
 - ✗ If a creature an opponent controls would die, exile it instead.
 
 ### Balmor, Battlemage Captain — FULL
@@ -2478,14 +2478,14 @@ Color identity R
 - ✓ Attack and block
 - ✗ At the beginning of your upkeep, each player exiles cards from the top of their library until they exile a nonland card. An opponent chooses a nonland card exiled this way. You may cast up to two spells from among the other cards exiled this way without paying their mana costs.
 
-### Brago, King Eternal — PARTIAL
+### Brago, King Eternal — FULL
 
 Color identity WU
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
-- ✗ Whenever Brago deals combat damage to a player, exile any number of target nonland permanents you control, then return those cards to the battlefield under their owner's control.
+- ✓ Whenever Brago deals combat damage to a player, exile any number of target nonland permanents you control, then return those cards to the battlefield under their owner's control.
 
 ### Shorikai, Genesis Engine — PARTIAL
 
