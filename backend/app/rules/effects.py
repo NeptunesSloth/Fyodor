@@ -1724,3 +1724,224 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library"}
     parts = [words.get(e["do"], e["do"]).format(**{k: v for k, v in e.items()}) for e in effects if e["do"] != "kicked_gate"]
     return (", ".join(parts) or "do it").capitalize()
+
+
+# -- player choices (agent I) ----------------------------------------------------------------------
+# Choices that belong to a player other than (or as well as) the ability's controller: edicts
+# ("each opponent sacrifices a creature of their choice", 701.21a: the sacrificing player chooses),
+# "target opponent chooses a creature they control", a revealed hand the controller chooses from
+# ("target player reveals their hand. You choose a nonland card from it. That player discards that
+# card", 701.20a), and a named choice ("choose a color / a creature type / an opponent", recorded
+# as a public ``choices`` entry on the object when it is made as a permanent enters, 614.12a).
+# Several players choosing: APNAP order (101.4), each later chooser knowing the earlier choices
+# (101.4b: they are announced in the log and in the prompt), then the action happens to all of
+# them at once (101.4).
+def _labels(plan: Plan, cards: list[str]) -> str:
+    return ", ".join(plan.state.cards[c].name or "a card" for c in cards if c in plan.state.cards)
+
+
+def _controlled(plan: Plan, key: str, pid: str, source: str | None) -> list[str]:
+    """The permanents ``pid`` controls that match a selector, evaluated for that player."""
+    sel = selectors.from_key(key)
+    return [c for c in selectors.candidates(plan, sel, pid, source)
+            if plan.state.cards[c].controller == pid and plan.state.cards[c].zone.endswith(":battlefield")]
+
+
+def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str], picked: list[str], step: str) -> bool:
+    """Each player in ``players`` (APNAP order) chooses ``n`` of the matching permanents they
+    control. A player with at most that many has no choice to make (they're all chosen); one
+    with none is skipped. Choices already made are announced, so the next chooser knows them
+    (101.4b). False while waiting for a choice."""
+    want = _amount(plan, ctx, e["n"])
+    verb = "sacrifices" if step == "edict" else "chooses"
+    for i, pid in enumerate(players):
+        mine = _controlled(plan, e["sel"], pid, ctx.get("source_card"))
+        n = min(want, len(mine))
+        if n == 0:
+            continue
+        if n == len(mine):
+            picked = [*picked, *mine]
+            plan.note(f"{plan.name(pid)} {verb} {_labels(plan, mine)} (no choice: all of them)", mine, actor=pid)
+            continue
+        prompt = f"{ctx.get('name', '') or 'Choose'}: {'sacrifice' if step == 'edict' else 'choose'} {n} ({e.get('label', 'permanent')})"
+        if picked:
+            prompt += f" — already chosen: {_labels(plan, picked)}"  # 101.4b: the earlier choices are known
+        decide(plan, player=pid, kind="choose_cards", prompt=prompt,
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
+               min_choices=n, max_choices=n,
+               resume={"step": step, "ctx": ctx, "e": e, "rest": players[i + 1:], "picked": picked})
+        return False
+    if step == "edict":  # 101.4: after every choice, all sacrificed at once (one move, one event batch)
+        _sacrifice_cards(plan, picked, ctx["controller"], ctx, e.get("as"))
+    else:
+        _remember(plan, ctx, e, picked)  # "that creature", "it": the chosen objects (they stay where they are)
+    return True
+
+
+def edict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"[Each opponent / target player / that player] sacrifices N [selector] (of their choice)":
+    701.21a — each affected player chooses among the permanents *they* control; the ability's
+    controller never chooses for them. Several players: APNAP (101.4), then simultaneously."""
+    who = _players(plan, ctx, e["who"])
+    return _choose_next(plan, ctx, e, [p for p in plan.apnap() if p in who], [], "edict")
+
+
+def resume_edict(plan: Plan, d: Any, chosen: list[str]) -> None:
+    r = d.resume
+    plan.note(f"{plan.name(d.player)} chooses {_labels(plan, chosen)}", chosen, actor=d.player)  # 101.4b
+    if _choose_next(plan, r["ctx"], r["e"], r.get("rest") or [], [*(r.get("picked") or []), *chosen], "edict"):
+        continue_effects(plan, r["ctx"])
+
+
+def player_chooses(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"[Target opponent / each player] chooses N [selector] they control": that player's choice,
+    bound as the sentence's objects for what follows ("that creature", "it")."""
+    who = _players(plan, ctx, e["who"])
+    return _choose_next(plan, ctx, e, [p for p in plan.apnap() if p in who], [], "player_chooses")
+
+
+def resume_player_chooses(plan: Plan, d: Any, chosen: list[str]) -> None:
+    r = d.resume
+    plan.note(f"{plan.name(d.player)} chooses {_labels(plan, chosen)}", chosen, actor=d.player)
+    if _choose_next(plan, r["ctx"], r["e"], r.get("rest") or [], [*(r.get("picked") or []), *chosen], "player_chooses"):
+        continue_effects(plan, r["ctx"])
+
+
+def reveal_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Target player reveals their hand" (701.20a: shown to everyone, and it stays revealed as long
+    as the effect needs it: a following choice hides what it didn't pick; the end of this
+    resolution hides the rest — a ``hide_revealed`` step is queued after the last instruction)."""
+    revealed: list[str] = []
+    for pid in _players(plan, ctx, e["who"]):
+        hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
+        if hand:
+            plan.do({"type": "reveal", "card_ids": hand}, actor=pid)
+        else:
+            plan.note(f"{plan.name(pid)} reveals an empty hand", actor=pid)
+        revealed += hand
+    ctx["revealed"] = revealed
+    if not ctx.get("hide_queued"):  # (appended in place: the resolver walks the same list)
+        ctx["hide_queued"] = True
+        ctx["effects"].append({"do": "hide_revealed"})
+    return True
+
+
+def hide_revealed(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """End the reveal of the cards still in a hand that the effect revealed (701.20a: no longer
+    needed). A card that changed zones is a new object and was never revealed there (400.7)."""
+    left = [c for c in ctx.get("revealed") or [] if c in plan.state.cards and plan.state.cards[c].zone.endswith(":hand")
+            and plan.state.cards[c].revealed_to]
+    if left:
+        plan.do({"type": "hide", "card_ids": left}, actor=ctx["controller"])
+    ctx["revealed"] = []
+    return True
+
+
+def choose_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"You choose a [nonland] card from it" after a hand was revealed: the controller chooses
+    among the revealed cards matching the selector, then the unchosen ones stop being revealed.
+    "You may choose" / "up to N" may choose fewer (or none)."""
+    from app.rules import characteristics as chars
+
+    pid = ctx["controller"]
+    sel = selectors.from_key(e["sel"])
+    pool = [c for c in ctx.get("revealed") or [] if c in plan.state.cards and plan.state.cards[c].zone.endswith(":hand")]
+    options = [c for c in pool if selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+    most = min(_amount(plan, ctx, e["n"]), len(options))
+    least = 0 if e.get("optional") else most
+    if most == 0:
+        plan.note(f"Nothing to choose ({e.get('label', 'card')})", actor=pid)
+        _remember(plan, ctx, e, [])
+        return _after_hand_choice(plan, ctx, [])
+    owners = sorted({plan.state.cards[c].owner for c in pool})
+    whose = ", ".join(f"{plan.name(o)}'s hand" for o in owners) or "the revealed hand"
+    decide(plan, player=pid, kind="choose_cards", prompt=f"Choose {most} ({e.get('label', 'card')}) from {whose}",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
+           min_choices=least, max_choices=most, resume={"step": "choose_from_hand", "ctx": ctx, "e": e})
+    return False
+
+
+def _after_hand_choice(plan: Plan, ctx: Context, chosen: list[str]) -> bool:
+    rest = [c for c in ctx.get("revealed") or [] if c not in chosen and c in plan.state.cards
+            and plan.state.cards[c].zone.endswith(":hand") and plan.state.cards[c].revealed_to]
+    if rest:  # 701.20a: the cards the effect is done with stop being revealed
+        plan.do({"type": "hide", "card_ids": rest}, actor=ctx["controller"])
+    ctx["revealed"] = list(chosen)
+    return True
+
+
+def resume_choose_from_hand(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    chosen = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone.endswith(":hand")]
+    if chosen:
+        plan.note(f"{plan.name(d.player)} chooses {_labels(plan, chosen)}", chosen, actor=d.player)
+    _remember(plan, ctx, e, chosen)  # "that card" / "those cards": the chosen cards, in that hand
+    _after_hand_choice(plan, ctx, chosen)
+    continue_effects(plan, ctx)
+
+
+def discard_named(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"That player discards that card / those cards": 701.9a — the named cards, each from its
+    owner's hand to that player's graveyard, all at once (only while each is still that object
+    in that hand, 400.7)."""
+    cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":hand")]
+    before = _remember(plan, ctx, e, cards)
+    if cards:
+        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+    _moved(plan, ctx, e, before)
+    return True
+
+
+# Named choices (105.1 colors, 205.3m creature types, 205.3i basic land types, players).
+CHOICE_OPTIONS: dict[str, list[str]] = {
+    "color": ["White", "Blue", "Black", "Red", "Green"],
+    "basic land type": ["Plains", "Island", "Swamp", "Mountain", "Forest"],
+}
+CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
+                 "opponent": "Chosen opponent", "player": "Chosen player"}
+
+
+def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]:
+    from app.rules.creature_types import CREATURE_TYPES
+
+    if what == "creature type":
+        return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
+    if what in ("opponent", "player"):
+        pids = [p for p in plan.live() if what == "player" or p != ctx["controller"]]
+        return [DecisionOption(id=p, label=plan.name(p)) for p in pids]
+    return [DecisionOption(id=v, label=v) for v in CHOICE_OPTIONS[what]]
+
+
+def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Choose a color / a creature type / a basic land type / an opponent / a player": the
+    controller's public choice, bound under ``as`` as {"kind": "choice"}; with ``remember`` it is
+    also written on the source object as its public ``choices`` entry ("Chosen color: Blue"):
+    the record a permanent keeps of what was chosen as it entered (614.12a), gone with the object
+    when it changes zones (400.7)."""
+    options = _choice_options(plan, ctx, e["what"])
+    if not options:
+        return True  # (no opponent left to choose: 800.4)
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    article = "an" if e["what"][0] in "aeiou" else "a"
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name', '') or 'Choose'}: choose {article} {e['what']}",
+           options=options, resume={"step": "choose_value", "ctx": ctx, "e": e}, source=src)
+    return False
+
+
+def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    value = chosen[0]
+    shown = plan.name(value) if e["what"] in ("opponent", "player") else value
+    plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
+    if e.get("as"):
+        context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if e.get("remember") and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
+        plan.do({"type": "set_choice", "card_id": src.id, "key": CHOICE_LABELS[e["what"]], "value": shown}, actor=d.player)
+    continue_effects(plan, ctx)
+
+
+PRIMITIVES.update({"edict": edict, "player_chooses": player_chooses, "reveal_hand": reveal_hand, "hide_revealed": hide_revealed,
+                   "choose_from_hand": choose_from_hand, "discard_named": discard_named, "choose_value": choose_value})
+RESUME = {"edict": resume_edict, "player_chooses": resume_player_chooses, "choose_from_hand": resume_choose_from_hand,
+          "choose_value": resume_choose_value}

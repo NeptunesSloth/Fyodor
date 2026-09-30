@@ -646,3 +646,101 @@ def _parse(text: str) -> tuple[Effects, Any]:
 
 def _signed(p: str) -> int:
     return -int(p[1:]) if p[0] in "-−" else int(p.lstrip("+"))
+
+
+# -- player choices (agent I) ---------------------------------------------------------------------
+# Sentences whose choice belongs to a named player, read by the templates registered at the end of
+# app/rules/scripts.py (they run before the generic grammar): edicts — "[each opponent / target
+# player / that player] sacrifices N [selector] of their choice" (701.21a: the sacrificing player
+# chooses; several players in APNAP order, 101.4, each knowing the earlier choices, 101.4b, then
+# all at once); "[target opponent] chooses N [selector] they control"; a revealed hand — "target
+# player reveals their hand" (701.20a), "you [may] choose [up to] N [card selector] from it", "that
+# player discards that card"; and a named choice — "choose a color / creature type / basic land
+# type / opponent / player" (105.1, 205.3m, 205.3i). "As ~ enters, choose …" (614.1c, 614.12a) is
+# read by ``enters_choice`` for the engine's entering code; it is not a resolution effect.
+_CHOOSERS = ("target player", "target opponent", "each opponent", "each of your opponents", "each player", "each other player",
+             "that player", "its controller", "that creature's controller", "that permanent's controller", "defending player")
+CHOOSER = "|".join(re.escape(c) for c in sorted(_CHOOSERS, key=len, reverse=True))
+# (patterns are format()-ed by scripts.effect: no literal braces)
+EDICT = rf"(?P<s>{CHOOSER}) sacrifices (?P<n>{AMT}) (?P<sel>.+?) of their choice"
+EDICT_OTHERS = rf"each other player sacrifices (?P<n>{AMT}) (?P<sel>.+?)(?: of their choice)?"
+PLAYER_CHOOSES = rf"(?P<s>{CHOOSER}) chooses (?P<n>{AMT}) (?P<sel>.+?) they control"
+REVEAL_HAND = rf"(?P<s>{CHOOSER}) reveals their hand"
+CHOOSE_FROM_HAND = (rf"you (?P<may>may )?choose (?:(?P<upto>up to )?(?P<n>{AMT})|(?P<any>any number of)) (?P<sel>.+?) "
+                    r"from (?:it|among them|that hand)")
+DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
+CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
+CHOOSE_VALUE = r"choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player)"
+ENTERS_CHOICE = re.compile(r"^As ~ enters, choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player)\.$")
+
+
+def _chooser(s: str) -> tuple[str, Any]:
+    """A choosing player's phrase → ("who", the target group it adds)."""
+    if s in ("target player", "target opponent"):
+        return "target", {"what": _LEGACY_TARGETS[s], "min": 1, "max": 1}
+    if s == "each other player":
+        return "each_opponent", None  # every other player is an opponent in a free-for-all (102.2, 806.2)
+    if s == "defending player":
+        raise _Fail  # which defending player (508.5)? the trigger event doesn't carry it: manual
+    return PLAYER_GROUPS[s], None
+
+
+def _permanent_sel(phrase: str) -> str:
+    """"creature", "creature or planeswalker", "nontoken artifact", "permanent" — a permanent
+    selector (no player, not a card in another zone, no controller: the chooser's own)."""
+    sel = selectors.parse(phrase)
+    if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.controller is not None:
+        raise _Fail
+    return sel.key()
+
+
+def edict(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"] if "s" in m.groupdict() else "each other player")
+    key = _permanent_sel(m["sel"])
+    return [{"do": "edict", "who": who, "sel": key, "n": _amount(m["n"]), "label": m["sel"]}], _one(group)
+
+
+def player_chooses(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"])
+    return [{"do": "player_chooses", "who": who, "sel": _permanent_sel(m["sel"]), "n": _amount(m["n"]), "label": m["sel"]}], \
+        _one(group)
+
+
+def reveal_hand(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"])
+    if who in ("each_player", "each_opponent"):
+        raise _Fail  # ("each opponent reveals their hand. You choose a card from it": from whose? not read)
+    return [{"do": "reveal_hand", "who": who}], _one(group)
+
+
+def choose_from_hand(m: re.Match[str]) -> tuple[Effects, Any]:
+    sel = selectors.parse(m["sel"])
+    if sel is None or sel.player is not None or not sel.card or sel.zones:
+        raise _Fail  # (a card in the hand: "a nonland card", "an instant or sorcery card" — nothing else)
+    n = 99 if m["any"] else _amount(m["n"])
+    if not isinstance(n, int):
+        raise _Fail
+    return [{"do": "choose_from_hand", "who": "you", "sel": sel.key(), "n": n, "label": m["sel"],
+             "optional": bool(m["may"] or m["upto"] or m["any"])}], None
+
+
+def discard_named(m: re.Match[str]) -> tuple[Effects, Any]:
+    return [{"do": "discard_named", "who": "it" if m["o"] in ("that card", "it") else "them"}], None
+
+
+def choose_value(m: re.Match[str]) -> tuple[Effects, Any]:
+    return [{"do": "choose_value", "who": "you", "what": m["what"]}], None
+
+
+def enters_choice(text: str) -> dict[str, Any] | None:
+    """"As ~ enters, choose a color / a creature type / an opponent …" (614.1c: a replacement effect
+    of the permanent; 614.12a: the choice is made before it enters; 603.6d: not a trigger). The
+    definition for the engine's entering code (app/rules/engine.py, attachments.enter): the
+    ``choose_value`` effect with ``remember`` writes the answer on the object as its public
+    ``choices`` entry. Not registered as a template until the engine asks for it as the permanent
+    enters — the choice must not be modeled as an enters trigger."""
+    m = ENTERS_CHOICE.match(text)
+    if m is None:
+        return None
+    return {"kind": "replacement", "replacement": "enters_choice",
+            "effects": [{"do": "choose_value", "who": "you", "what": m["what"], "remember": True}]}
