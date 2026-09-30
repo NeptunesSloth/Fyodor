@@ -360,7 +360,8 @@ def _on_the_stack(plan: Plan, t: PendingTrigger, chosen: list[int], picked: list
     flat = [x for slot in slots for x in slot]
     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
     source = t.source_card if t.source_card in plan.state.cards else None
-    text = t.name + "’s ability" if t.name else "Triggered ability"
+    who = _name(plan, t)
+    text = f"{who}’s ability" if who != "A triggered ability" else "Triggered ability"  # (a hidden source isn't named)
     created = plan.do({"type": "create_ability", "text": text, "source_id": source, "kind": "triggered"}, actor=t.controller)
     new_ids = getattr(created, "r", None)
     ability_id = new_ids.ids[0] if new_ids is not None else None
