@@ -12,7 +12,8 @@ Two kinds of continuous effect meet here:
   the source ("you" is its controller).
 
 Printed characteristics are never overwritten: ``derive`` computes the current ones each time from
-the printed card. Layers implemented (each with tests): 4 (types added, e.g. a crewed Vehicle),
+the printed card. Layers implemented (each with tests): 4 (types added, e.g. a crewed Vehicle;
+subtypes added, an amassed Army's, 701.47a),
 6 (abilities: keywords gained / lost, quoted abilities granted, 613.1f), 7a (characteristic-defining
 values are left to the printed card: ``*`` stays unknown), 7b (setting effects, incl. "base power
 and toughness", 613.4b), 7c (modifying effects **and counters**, 613.4c), 7d (switching). Within a
@@ -20,8 +21,10 @@ layer, effects apply in timestamp order (613.7): a resolved effect's is handed o
 (613.7b), a static ability's is its source's — the object number it got when it entered (613.7a,
 613.7d; ``RulesState.objects``), or the granting object's if later for a granted ability — and the
 two are interleaved through ``ContinuousEffect.object_seq`` (the last object to enter before the
-effect began). Not tracked: a new timestamp for an Aura or Equipment as it becomes attached
-(613.7e) and APNAP order among simultaneous entries (613.7m: creation order is used).
+effect began). An Aura, Equipment or Fortification gets a new timestamp as it becomes attached
+(613.7e), a permanent as it turns face up or down (613.7f) and a double-faced permanent as it
+transforms (613.7g): ``RulesState.restamped``, read by ``timestamp``. Not tracked: APNAP order
+among simultaneous entries (613.7m: creation order is used).
 Dependencies (613.8): a static's subject is read from the object after layer 4 and the resolved
 layer-6 effects; a subject that asks about keywords ("creatures with flying …") is read again once
 layer 6 is applied, until nothing changes — other dependencies (types, power) aren't modelled.
@@ -73,6 +76,17 @@ class Static:
 _STATIC_CACHE: dict[tuple, list[Static]] = {}
 
 
+def timestamp(state: GameState, card_id: str) -> int:
+    """A permanent's timestamp: the object number it got as it entered (613.7d), or the later one
+    it received since — as an Aura, Equipment or Fortification that became attached (613.7e), as
+    it turned face up or down (613.7f) or as a double-faced permanent that transformed (613.7g;
+    ``RulesState.restamped``)."""
+    r = state.rules
+    if r is None:
+        return 0
+    return max(r.objects.get(card_id, 0), r.restamped.get(card_id, 0))
+
+
 def statics(state: GameState, info: CardInfo) -> list[Static]:
     """Static grants and attached rules of permanents on the battlefield, read from printed
     abilities and from abilities other statics grant; cached by what is on the battlefield, in
@@ -80,8 +94,10 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     by ``derive``."""
     r = state.rules
     live = {p for p in state.seat_order if not state.players[p].left} - (set(r.conceded) | set(r.lost) if r else set())
-    key = tuple(sorted((cid, c.controller, c.face_down, c.card_id or c.name, c.token.text if c.token else "",
-                        r.card_mode(cid) if r else "", r.objects.get(cid, 0) if r else 0)
+    # (the face and flip state are part of the key: a transformed permanent has only its back
+    # face's characteristics, 712.8e — its front face's statics are gone, 611.3a)
+    key = tuple(sorted((cid, c.controller, c.face_down, c.face, c.flipped, c.card_id or c.name, c.token.text if c.token else "",
+                        r.card_mode(cid) if r else "", timestamp(state, cid))
                        for cid, c in state.cards.items() if c.zone.endswith(":battlefield")))
     hit = _STATIC_CACHE.get(key)
     if hit is not None:
@@ -97,7 +113,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     for cid, c in field:
         for d in scripts.definitions(chars.of(c, info)).values():
             if d["kind"] == "static" and d.get("static") in ("grant", "attached_rule"):
-                out.append(Static(cid, c.controller, d, r.objects.get(cid, 0) if r else 0))
+                out.append(Static(cid, c.controller, d, timestamp(state, cid)))
     # An ability a static grants may itself be a static ("Commander creatures you own have
     # "Creature tokens you control get +2/+2.""): it works on whatever it's granted to, with the
     # later of the two timestamps (613.7a), while the granting static applies to that object.
@@ -109,7 +125,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
             if inner is None:
                 continue
             for cid, c in field:
-                out.append(Static(cid, c.controller, inner, max(st.seq, r.objects.get(cid, 0) if r else 0),
+                out.append(Static(cid, c.controller, inner, max(st.seq, timestamp(state, cid)),
                                   gate=(st.source, st.definition)))
     out.sort(key=lambda st: st.seq)
     if len(_STATIC_CACHE) > 256:
@@ -240,6 +256,9 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     added = {t for e in effects if e.layer == "4" for t in e.add_types}  # layer 4: type-changing
     if added - ch.types:
         ch = replace(ch, types=ch.types | frozenset(added))
+    added_sub = {t for e in effects if e.layer == "4" for t in e.add_subtypes}  # ("becomes a Goblin in addition …", 701.47a)
+    if added_sub - ch.subtypes:
+        ch = replace(ch, subtypes=ch.subtypes | frozenset(added_sub))
     imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …
     imposed |= _group_imposed(state, card, ch, info)
     hits: list[Static] = []
@@ -394,12 +413,13 @@ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | N
                power: int | None = None, toughness: int | None = None, add_keywords: tuple[str, ...] = (),
                remove_keywords: tuple[str, ...] = (), add_types: tuple[str, ...] = (), duration: Duration = "end_of_turn",
                label: str = "", imposes: tuple[str, ...] = (), who: str | None = None,
-               source_card: str | None = None) -> ContinuousEffect:
+               source_card: str | None = None, add_subtypes: tuple[str, ...] = ()) -> ContinuousEffect:
     r = plan.rules
     r.timestamp += 1
     effect = ContinuousEffect(id=f"e{r.timestamp}", affected=affected, layer=layer, source=source, controller=controller,
                               power=power, toughness=toughness, add_keywords=list(add_keywords),
-                              remove_keywords=list(remove_keywords), add_types=list(add_types), duration=duration,
+                              remove_keywords=list(remove_keywords), add_types=list(add_types),
+                              add_subtypes=list(add_subtypes), duration=duration,
                               imposes=list(imposes), who=who, source_card=source_card if who else None,
                               timestamp=r.timestamp, object_seq=r.next_object,
                               label=label[:120])

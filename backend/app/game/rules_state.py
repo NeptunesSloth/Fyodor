@@ -271,6 +271,7 @@ class ContinuousEffect(BaseModel):
     add_keywords: list[str] = Field(default_factory=list)
     remove_keywords: list[str] = Field(default_factory=list)
     add_types: list[str] = Field(default_factory=list)  # layer 4: "becomes an artifact creature"
+    add_subtypes: list[str] = Field(default_factory=list)  # layer 4: "becomes a Goblin in addition to its other types" (701.47a)
     # Rule-modifying effects on the objects (not a layer; 611.2c duration): "can't block this turn"
     # — the names scripts.statics uses (cant_block, cant_be_blocked, …).
     imposes: list[str] = Field(default_factory=list)
@@ -525,6 +526,12 @@ class RulesState(BaseModel):
     # physical card keeps its id; its rules object is "<card id>.<n>".
     objects: dict[str, int] = Field(default_factory=dict)
     next_object: int = 0
+    # A permanent's later timestamp, when it got one after entering (613.7e: an Aura, Equipment or
+    # Fortification each time it becomes attached; 613.7g: a double-faced permanent each time it
+    # transforms): card id -> a number from the ``next_object`` counter, so it orders against the
+    # objects' entry timestamps and resolved effects' ``object_seq``. The object's identity
+    # (``objects``) is untouched. Read by ``app.rules.layers.timestamp``.
+    restamped: dict[str, int] = Field(default_factory=dict)
     lki: dict[str, ObjectSnapshot] = Field(default_factory=dict)  # object id -> last known information
     batch: int = 0  # last event batch number
     events: list[Event] = Field(default_factory=list)  # events since the engine last acted (this intent's, or manual ones)
@@ -696,6 +703,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
         if snap is not None:
             rules.lki[old_oid] = snap.model_copy(update={"turn": state.turn.number})
         new_oid = None
+        rules.restamped.pop(card_id, None)  # a new object gets its own timestamp as it enters (613.7d)
         if card is not None:
             rules.next_object += 1
             rules.objects[card_id] = rules.next_object
@@ -725,6 +733,14 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
                 emit(state, "counters", object_id=oid, card=card_id, counter=kind, amount=delta)
         if card.tapped != snap.tapped:
             emit(state, "tapped" if card.tapped else "untapped", object_id=oid, card=card_id)
+        # 613.7e: an attachment gets a new timestamp each time it becomes attached; 613.7f: a
+        # permanent each time it turns face up or down; 613.7g: a double-faced permanent each
+        # time it transforms (a face change on the battlefield)
+        if _zone_name(card.zone) == "battlefield" and (
+                (card.attached_to is not None and card.attached_to != snap.attached_to)
+                or card.face != snap.face or card.face_down != snap.face_down):
+            rules.next_object += 1
+            rules.restamped[card_id] = rules.next_object
     for pid, old in before.resources.items():
         p = state.players.get(pid)
         if p is None:
