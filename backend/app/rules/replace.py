@@ -886,10 +886,15 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]]) -> None:
 
 
 def _win(plan: Plan, pid: str) -> None:
-    """104.2b: an effect says a player wins the game — the game ends (104.1)."""
+    """104.2b: an effect says a player wins the game — the game ends at once (104.1): every other
+    player is recorded as having lost it (so the engine stops handing priority on; nothing is
+    removed from the table)."""
     r = plan.rules
     if r.winner is not None or pid not in plan.live():
         return
+    for other in plan.live():
+        if other != pid:
+            r.lost[other] = f"{plan.name(pid)} won the game"
     r.winner = pid
     r.priority = pid
     plan.note(f"{plan.name(pid)} wins the game")

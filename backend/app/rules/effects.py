@@ -492,9 +492,12 @@ def untap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def player_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    for pid in _players(plan, ctx, e["who"]):
-        plan.do({"type": "resource", "player": pid, "key": e["counter"], "delta": e["n"]}, actor=ctx["controller"])
-    return True
+    # -- replacement effects stage 2 (wave 2E): a player getting counters, through the counter
+    # choke point ("If you would get one or more counters": Winding Constrictor) --
+    puts = [(pid, e["counter"], int(e["n"])) for pid in _players(plan, ctx, e["who"]) if e["n"]]
+    if not puts:
+        return True
+    return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
 
 
 def scry(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -2324,3 +2327,34 @@ def prevent_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES.update({"become": become, "still_a": still_a, "prevent_self": prevent_self})
+
+
+# -- replacement effects stage 2 (wave 2E) -----------------------------------------------------------
+def exile_if_dies(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"If that creature would die this turn, exile it instead." / "If a creature dealt damage this
+    way would die this turn, …" / "If a creature would die this turn, …": a replacement effect of
+    this resolution lasting the turn (614.1a, 611.2a), applied by replacements.replace_move with the
+    other "exile instead" effects. It is locked to the objects it names as they are now (400.7: a
+    creature that leaves and comes back is a new object); "dealt damage this way" names only the
+    objects that damage was actually dealt to (after prevention). A group ("a creature") is checked
+    whenever something would die this turn (a rule-modifying effect isn't locked, 611.2c)."""
+    import secrets
+
+    rec: dict[str, Any] = {"id": secrets.token_hex(4), "kind": "exile_if_dies", "turn": plan.state.turn.number,
+                           "controller": ctx["controller"], "source": ctx.get("source_object"), "label": ctx.get("name") or ""}
+    if e.get("each"):
+        rec["each"] = e["each"]
+    else:
+        if e.get("dealt"):
+            oids = list((ctx.get(DEALT_KEY) or {}).get(e["dealt"]) or [])
+        else:
+            oids = [plan.oid(c) for c in _cards(plan, ctx, e.get("who") or "")]
+        if not oids:
+            return True  # (nothing to watch: gone, or dealt no damage)
+        rec.update(oids=oids, types=list(e.get("types") or []))
+    plan.rules.replacements.append(rec)
+    return True
+
+
+PRIMITIVES["exile_if_dies"] = exile_if_dies
+# -- end replacement effects stage 2 (wave 2E) --

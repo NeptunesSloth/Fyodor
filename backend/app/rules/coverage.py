@@ -78,15 +78,21 @@ SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
     "life": frozenset({"mul", "add", "set", "lose"}),  # 119.10: Boon Reflection, Sulfuric Vortex, Tainted Remedy
     "damage": frozenset({"mul", "add", "sub", "half", "prevent", "prevent_all_but", "prevent_all"}),  # 614, 615.10
 }
-SUPPORTED_REPLACEMENTS |= {"enters_tapped_others"}  # 614.1d, 614.12: "Creatures your opponents control enter tapped."
+SUPPORTED_REPLACEMENTS |= {
+    "enters_tapped_others",  # 614.1d, 614.12: "Creatures your opponents control enter tapped."
+    "exile_if_dies",  # "If that creature / a creature dealt damage this way would die this turn, exile it instead." (611.2a)
+}
 
 
 def stage2_supported(d: dict[str, Any]) -> bool | None:
-    """Stage 2 definitions: automated when their event and op are listed above (None: not one)."""
+    """Stage 2 definitions: automated when their event and op are listed above (None: not one, or
+    nothing here to object to)."""
     if d.get("kind") == "static" and d.get("static") == "replace":
         return (d.get("op") or {}).get("do") in SUPPORTED_REPLACE_OPS.get(str(d.get("event")), frozenset())
     if d.get("kind") == "static" and d.get("static") == "enters_tapped_others":
         return "enters_tapped_others" in SUPPORTED_REPLACEMENTS
+    if any(e.get("do") == "exile_if_dies" for e in d.get("effects") or []) and "exile_if_dies" not in SUPPORTED_REPLACEMENTS:
+        return False
     return None
 # -- end replacement effects stage 2 (wave 2E) --
 

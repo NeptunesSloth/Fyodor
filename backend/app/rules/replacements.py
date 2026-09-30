@@ -463,6 +463,27 @@ def _static_exile_instead(plan: Plan, card: CardInstance) -> CardInstance | None
     return None
 
 
+def _record_exile_instead(plan: Plan, card: CardInstance) -> str | None:
+    """-- replacement effects stage 2 (wave 2E) -- This turn's "If that creature / a creature dealt
+    damage this way / a creature would die this turn, exile it instead" (effects.exile_if_dies):
+    the name of the spell or ability whose effect applies, or None. Like every other "exile
+    instead" here they agree on what happens, so there is no 616.1 choice between them."""
+    turn = plan.state.turn.number
+    oid = plan.oid(card)
+    for rec in plan.rules.replacements:
+        if rec.get("kind") != "exile_if_dies" or rec.get("turn") != turn:
+            continue
+        ch = plan.ch(card)
+        if "oids" in rec:
+            if oid not in rec["oids"] or (rec.get("types") and not set(rec["types"]) & ch.types):
+                continue
+        elif not rec.get("each") or not selectors.matches(plan, selectors.from_key(rec["each"]), card, ch,
+                                                          rec["controller"], None):
+            continue
+        return rec.get("label") or "a replacement effect"
+    return None
+
+
 def _commander_instead(plan: Plan, card: CardInstance, dest: str) -> bool | None:
     """903.9b: a commander that would be put into its owner's hand or library may go to the command
     zone instead. True: a remembered answer ("always" / "this turn", the same memory key as 903.9a
@@ -517,6 +538,10 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             src = _static_exile_instead(plan, card)
             if src is not None:
                 replaced.append((cid, "exile", src.name or "a static ability"))
+                continue
+            why = _record_exile_instead(plan, card) if frm == "battlefield" else None  # -- replacement effects stage 2 (wave 2E) --
+            if why is not None:
+                replaced.append((cid, "exile", why))
                 continue
         if dest in ("hand", "library"):
             answer = _commander_instead(plan, card, dest)
