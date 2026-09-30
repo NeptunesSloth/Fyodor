@@ -18,7 +18,6 @@ automate, decisions, and conceding. Casting, abilities and combat arrive with mi
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from typing import Any
 
@@ -38,6 +37,7 @@ from app.rules import (
     optional_payment,
     permissions,
     reconcile,
+    replacements,
     sba,
     scripts,
     triggers,
@@ -497,8 +497,8 @@ def combat_damage(plan: Plan, rnd: str, then: str) -> None:
 def _resume_combat_damage(plan: Plan, d: Decision, chosen: list[str]) -> None:
     assert d.resume is not None
     if chosen[0] == "yes":
-        combat.deal_combat_damage(plan, d.resume["round"])
-        _after_resolution(plan)
+        if combat.deal_combat_damage(plan, d.resume["round"]):  # (False: a 615.7 shield choice is open)
+            _after_resolution(plan)
         return
     decide(plan, player=d.player, kind="manual_resolution", prompt="Deal combat damage by hand, then press Done",
            options=[DecisionOption(id="done", label="Done")], resume={"step": "manual_done"})
@@ -557,10 +557,6 @@ def needs_manual_resolution(ch: Characteristics) -> bool:
     )
 
 
-def enters_tapped(ch: Characteristics) -> bool:
-    return any(d["kind"] == "replacement" and d.get("replacement") == "enters_tapped" for d in scripts.definitions(ch).values())
-
-
 def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = False, countered: bool = False) -> None:
     """A resolved spell leaves the stack: to the battlefield or its owner's graveyard, or into exile
     if it was cast with flashback (702.34a), or back to its owner's hand with buyback (702.27a)."""
@@ -593,39 +589,6 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "graveyard"}}, actor=controller)
 
 
-def enter_with_loyalty(plan: Plan, card_id: str, ch: Characteristics, controller: str) -> None:
-    """306.5b: a planeswalker enters with its printed loyalty in loyalty counters, however it
-    enters (cast, put onto the battlefield, returned)."""
-    card = plan.state.cards.get(card_id)
-    if card is None or not card.zone.endswith(":battlefield") or "Planeswalker" not in ch.types:
-        return
-    loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else 0
-    if loyalty:
-        plan.do({"type": "counter", "card_ids": [card_id], "kind": "loyalty", "delta": loyalty}, actor=controller)
-
-
-def enter_with_counters(plan: Plan, card_id: str, ch: Characteristics, x: int | None, controller: str) -> None:
-    """614.1c: "~ enters with N counters on it" (N may be X, the value it was cast with)."""
-    card = plan.state.cards.get(card_id)
-    if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):
-        return
-    r = plan.rules
-    bled = any(t == plan.state.turn.number for p, t in r.damaged.items() if p != card.controller)
-    for ab in ch.abilities:  # 702.54 bloodthirst N: if an opponent was dealt damage this turn
-        m = re.fullmatch(r"bloodthirst (\d+)", ab.text.strip().rstrip(".").lower()) if ab.kind == "keywords" else None
-        if m and bled:
-            plan.do({"type": "counter", "card_ids": [card_id], "kind": "+1/+1", "delta": int(m.group(1))}, actor=controller)
-    for d in scripts.definitions(ch).values():
-        if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
-            n = (x or 0) if d["n"] == "X" else int(d["n"])
-            if d.get("if_kicked") or d.get("per_kick"):  # 702.33e: how its spell was cast (the payment record)
-                record = r.payments.get(plan.oid(card_id))
-                kicked = record.kicked if record is not None else 0
-                n = 0 if d.get("if_kicked") and not kicked else n * kicked if d.get("per_kick") else n
-            if n > 0:
-                plan.do({"type": "counter", "card_ids": [card_id], "kind": d["counter"], "delta": n}, actor=controller)
-
-
 def resolve_top_of_stack(plan: Plan) -> None:
     top_id = plan.state.zones[STACK][-1]
     top = plan.state.cards[top_id]
@@ -635,6 +598,9 @@ def resolve_top_of_stack(plan: Plan) -> None:
         return
     ch = plan.ch(top)
     controller = top.controller if top.controller in plan.live() else plan.active
+    if ch.is_permanent_card and not plan.manual(top) and not needs_manual_resolution(ch) \
+            and replacements.stack_entry_choice(plan, top, controller):
+        return  # "As ~ enters, choose a color": chosen before it enters (614.12a); resolved again with the answer
     aura_target = plan.rules.aura_targets.pop(top_id, None)
     # An instant, sorcery or ability the engine didn't put on the stack (moved there by hand) has
     # no recorded targets or choices: its controller resolves it by hand. So has an Aura without one.
@@ -648,13 +614,21 @@ def resolve_top_of_stack(plan: Plan) -> None:
             plan.do({"type": "move", "card_ids": [top_id], "to": {"player": top.owner, "zone": "graveyard"}}, actor=controller)
             _after_resolution(plan)
             return
-    tapped = ch.is_permanent_card and not manual and enters_tapped(ch)
+    # A permanent spell becomes a permanent as it resolves (608.3a): its own "enters" replacement
+    # effects — tapped, a shock land's life, counters, loyalty — apply as it enters (614.1c-d,
+    # app/rules/replacements.py; the tapped status is part of the move itself). No permanent
+    # spell asks a question as it enters today (the pay-life wording is printed on lands only).
+    entering = ch.is_permanent_card and not manual
+    answers = plan.rules.entry_choices.pop(top_id, None)
+    ep: dict[str, Any] = replacements.entry_plan(plan, top, controller, answers=answers) if entering else {"tapped": False}
     x = top.stack_info.x if top.stack_info else None
-    leave_stack(plan, top_id, controller, tapped=tapped)
+    if ep.get("life"):
+        plan.do({"type": "life", "player": controller, "delta": -int(ep["life"])}, actor=controller)
+    leave_stack(plan, top_id, controller, tapped=bool(ep["tapped"]))
     if aura_target is not None and not manual and plan.state.cards[top_id].zone.endswith(":battlefield"):
         attachments.attach(plan, top_id, aura_target.id, controller)  # 303.4f: it enters attached to its target
-    if ch.is_permanent_card and not manual:
-        enter_with_counters(plan, top_id, ch, x, controller)
+    if entering:
+        replacements.after_entry(plan, top_id, controller, x=x, choices=ep.get("choices"))
     if top_id in plan.rules.evoked:  # 702.74a: "When this permanent enters, if its evoke cost was paid, its controller sacrifices it."
         plan.rules.evoked = [c for c in plan.rules.evoked if c != top_id]
         entered_now = plan.state.cards.get(top_id)
@@ -677,7 +651,8 @@ def resolve_top_of_stack(plan: Plan) -> None:
         if entered_now is not None and entered_now.zone.endswith(":battlefield"):
             layers.add_effect(plan, affected=[plan.oid(top_id)], layer="6", source=None, controller=controller,
                               add_keywords=("haste",), duration="permanent", label="Haste (suspend)")
-    enter_with_loyalty(plan, top_id, ch, controller)
+    if manual and ch.is_permanent_card:
+        replacements.after_entry(plan, top_id, controller, x=x)  # (306.5b loyalty still applies to a manual planeswalker)
     if manual:
         resolved = plan.state.cards.get(top_id)
         if ch.is_ability:
@@ -745,30 +720,36 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
     if problem:
         raise ActionError(problem)
     grant = land_play_grant(plan.state, plan.actor, card, plan.ch(probe), plan.info)
-    shock = None if plan.manual(card) else next(
-        (d for d in scripts.definitions(plan.ch(probe)).values() if d.get("replacement") == "pay_life_or_tapped"), None)
-    if shock is not None and a.pay_life is None:
-        n = shock["life"]
+    # The land's own "enters" replacement effects (614.1c-d, app/rules/replacements.py): "enters
+    # tapped [unless …]", a shock land's pay-life-or-tapped choice (made before it enters: 614.12a),
+    # "enters [tapped] with … counters" as it enters (122.6).
+    ep = replacements.entry_plan(plan, probe, plan.actor, pay_life=a.pay_life, answers=plan.rules.entry_choices.get(card.id))
+    if ep.get("choice") is not None and "what" in ep["choice"]:  # "As ~ enters, choose …": before it enters
+        prompt, options = replacements.choice_prompt(plan, card, plan.actor, ep["choice"])
+        decide(plan, player=plan.actor, kind="choose_one", prompt=prompt, options=options, source=card,
+               resume={"step": "land_enter_choice", "card": card.id, "what": ep["choice"]["what"],
+                       "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
+        return
+    if ep.get("choice") is not None:
+        n = ep["choice"]["life"]
         decide(plan, player=plan.actor, kind="choose_one", prompt=f"{plan.ch(probe).name}: pay {n} life, or it enters tapped?",
                options=[DecisionOption(id="pay", label=f"Pay {n} life (untapped)"), DecisionOption(id="tapped", label="Enters tapped")],
                resume={"step": "shock", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
         return
     if a.face is not None and a.face != card.face:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
-    tapped = not plan.manual(card) and enters_tapped(plan.ch(probe))
-    if shock is not None:
-        tapped = not a.pay_life
-        if a.pay_life:
-            plan.do({"type": "life", "player": plan.actor, "delta": -shock["life"]})
-    payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"}, "tapped": tapped}
+    if ep.get("life"):
+        plan.do({"type": "life", "player": plan.actor, "delta": -int(ep["life"])})
+    payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"}, "tapped": bool(ep["tapped"])}
     if a.x is not None and a.y is not None:
         payload.update(x=a.x, y=a.y)
     from_where = card.zone.rsplit(":", 1)[-1]
     plan.do(payload)
+    plan.rules.entry_choices.pop(card.id, None)
     if grant is not None and grant.how == "permission":
         permissions.consume(plan, grant)  # ("once during each of your turns")
         plan.note(f"{plan.name(plan.actor)} plays {card.name} from their {from_where} ({grant.label})", [card.id])
-    enter_with_counters(plan, card.id, plan.ch(probe), None, plan.actor)
+    replacements.after_entry(plan, card.id, plan.actor, choices=ep.get("choices"))
     r = plan.rules
     turn = plan.state.turn.number
     r.lands_played[plan.actor] = TurnCount(turn=turn, count=r.lands_this_turn(plan.actor, turn) + 1)
@@ -996,4 +977,11 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "commander_zone": sba.resume_commander_zone,
     **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)
     **effects.RESUME,  # player choices: edicts, "chooses a", a revealed hand, "choose a color" (app/rules/effects.py)
+    # replacement / prevention effects (app/rules/replacements.py): a shock land put onto the
+    # battlefield by an effect, 903.9b before a commander is returned to a hand, 615.7 shields
+    "enter_choice": replacements.resume_entry_choice,
+    "stack_enter_choice": replacements.resume_stack_enter_choice,
+    "land_enter_choice": replacements.resume_land_enter_choice,
+    "commander_instead": replacements.resume_commander_instead,
+    "shield_order": replacements.resume_shield_order,
 }

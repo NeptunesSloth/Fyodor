@@ -29,6 +29,7 @@ from app.rules import (
     permissions,
     protection,
     regeneration,
+    replacements,
     selectors,
     values,
 )
@@ -190,10 +191,10 @@ class _Source:
     recorded under (the card while it's there — each source is its own gain event, 702.15e — else
     its controller as it last existed, 702.15b)."""
 
-    __slots__ = ("oid", "keywords", "ch", "key")
+    __slots__ = ("oid", "keywords", "ch", "key", "card")
 
-    def __init__(self, oid: str, keywords: frozenset[str], ch: Any, key: str) -> None:
-        self.oid, self.keywords, self.ch, self.key = oid, keywords, ch, key
+    def __init__(self, oid: str, keywords: frozenset[str], ch: Any, key: str, card: str | None) -> None:
+        self.oid, self.keywords, self.ch, self.key, self.card = oid, keywords, ch, key, card
 
 
 def _ability_source(plan: Plan, ctx: Context) -> _Source:
@@ -206,7 +207,7 @@ def _ability_source(plan: Plan, ctx: Context) -> _Source:
         keywords = plan.ch(source).keywords
     elif lki is not None and source is not None:
         keywords = plan.ch(source).keywords  # (printed keywords of the card; LKI of granted ones is M16 later)
-    return _Source(ctx.get("source_object") or "", keywords, src_ch, ctx["controller"])
+    return _Source(ctx.get("source_object") or "", keywords, src_ch, ctx["controller"], source.id if source is not None else None)
 
 
 def _named_source(plan: Plan, ctx: Context, who: str) -> _Source | None:
@@ -233,14 +234,15 @@ def _named_source(plan: Plan, ctx: Context, who: str) -> _Source | None:
             from app.rules.triggers import _snapshot_card  # (triggers imports this module)
 
             _, ch = _snapshot_card(plan, snap)
-            return _Source(snap.object_id, ch.keywords, ch, snap.controller)
+            return _Source(snap.object_id, ch.keywords, ch, snap.controller,
+                           snap.card if snap.card in plan.state.cards else None)
     return None
 
 
 def _card_source(plan: Plan, cid: str) -> _Source:
     """A creature on the battlefield as a damage source (a fight, a bite)."""
     ch = plan.ch(plan.state.cards[cid])
-    return _Source(plan.oid(cid), ch.keywords, ch, cid)
+    return _Source(plan.oid(cid), ch.keywords, ch, cid, cid)
 
 
 def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]]) -> None:
@@ -259,27 +261,29 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]]) -> Non
     dealt: list[dict[str, Any]] = []
     deathtouched: list[str] = []
     battles: dict[str, int] = {}
+    # prevention (615): protection from the source first (702.16e), then the prevention effects on
+    # this one simultaneous damage event batch (app/rules/replacements.py: "prevent all …", shields)
+    kept: list[tuple[_Source, str, dict[str, Any]]] = []
     for src, key, want in hits:
         if want <= 0:
             continue
+        if key not in plan.state.players and protection.protected_from(plan.ch(plan.state.cards[key]), src.ch):
+            plan.note(f"Protection prevents the damage to {plan.ch(plan.state.cards[key]).name}", [key], actor=ctx["controller"])
+            continue
+        kept.append((src, key, {"source_card": src.card, "source_oid": src.oid, "target": key, "amount": want, "combat": False}))
+    replacements.apply_prevention(plan, [ev for _, _, ev in kept])
+    for src, key, ev in kept:
+        n = ev["amount"] - ev.get("prevented", 0)
+        if n <= 0:
+            continue
         if key in plan.state.players:
-            n = shield(plan, key, want)
-            if n <= 0:
-                continue
             if "infect" in src.keywords:
                 poison[key] = poison.get(key, 0) + n
             else:
                 to_players[key] = to_players.get(key, 0) + n
             dealt.append({"source": src.oid, "target": key, "amount": n})
         else:
-            card = plan.state.cards[key]
-            ch = plan.ch(card)
-            if protection.protected_from(ch, src.ch):  # 702.16e: the damage is prevented
-                plan.note(f"Protection prevents the damage to {ch.name}", [key], actor=ctx["controller"])
-                continue
-            n = shield(plan, plan.oid(key), want)
-            if n <= 0:
-                continue
+            ch = plan.ch(plan.state.cards[key])
             if "Planeswalker" in ch.types and not ch.is_creature:
                 walkers[key] = walkers.get(key, 0) + n
             elif "Battle" in ch.types and not ch.is_creature:  # 120.3h: defense counters are removed
@@ -533,13 +537,19 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True
     made: list[str] = []
     for pid in _players(plan, ctx, e["who"]):
-        created = plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False, "tapped": bool(e.get("tapped")),
+        spec = {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
+                "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
+        # a token enters tapped when its creator says so ("create a tapped …") or its own text does
+        # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
+        tapped = bool(e.get("tapped")) or replacements.token_enters_tapped(plan, pid, spec)
+        created = plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False, "tapped": tapped,
                            "source_id": ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None,
-                           "token": {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
-                                     "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}},
-                          actor=pid)
+                           "token": spec}, actor=pid)
         new_ids = getattr(created, "r", None)
-        made += list(new_ids.ids) if new_ids is not None else []
+        fresh = list(new_ids.ids) if new_ids is not None else []
+        for tid in fresh:
+            replacements.after_entry(plan, tid, pid)
+        made += fresh
     _remember(plan, ctx, e, made)  # the tokens, as the new objects they are ("they gain haste")
     return True
 
@@ -753,13 +763,12 @@ def unearth(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     card = plan.state.cards.get(cid)
     if card is None or not card.zone.endswith(":graveyard") or plan.oid(cid) != e["object"]:
         return True  # it left the graveyard: the ability does nothing
-    plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "battlefield"}}, actor=ctx["controller"])
-    oid = plan.oid(cid)
-    layers.add_effect(plan, affected=[oid], layer="6", source=None, controller=ctx["controller"], add_keywords=("haste",),
-                      duration="permanent", label="Haste (unearth)")
-    plan.rules.exile_if_leaves.append(oid)
-    delayed.create_move(plan, ctx["controller"], cid, oid, "exile", card.name)  # (a delayed trigger, 603.7)
-    return True
+    from app.rules import attachments  # attachments → effects (resume)
+
+    # It enters through the one entry path (its "enters" replacements apply: 614.1c-d); haste,
+    # "exile it at the next end step" and "if it would leave, exile it instead" (702.84a) follow.
+    return attachments.enter(plan, [{"card": cid, "player": card.owner, "actor": ctx["controller"], "gain_haste": "unearth",
+                                     "exile_if_leaves": True, "delayed": "exile"}], ctx)
 
 
 def delayed_move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -900,21 +909,6 @@ def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-def shield(plan: Plan, key: str, n: int) -> int:
-    """Use prevention shields on ``key`` (a player or object id): how much of ``n`` is still dealt."""
-    r = plan.rules
-    left = r.prevention.get(key, 0)
-    if not left or n <= 0:
-        return n
-    used = min(left, n)
-    if left - used:
-        r.prevention[key] = left - used
-    else:
-        r.prevention.pop(key, None)
-    plan.note(f"{used} damage prevented")
-    return n - used
-
-
 def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     want = _amount(plan, ctx, e["n"])
     before: list[ObjectRef] = []
@@ -934,9 +928,10 @@ def return_with_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     card = plan.state.cards.get(cid)
     if card is None or not card.zone.endswith(":graveyard"):
         return True  # it's gone (a token ceased to exist, or it left the graveyard)
-    plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "battlefield"}}, actor=card.owner)
-    plan.do({"type": "counter", "card_ids": [cid], "kind": e["counter"], "delta": 1}, actor=card.owner)
-    return True
+    from app.rules import attachments  # attachments → effects (resume)
+
+    # the one entry path: it enters with the counter (122.6) and its own "enters" replacements
+    return attachments.enter(plan, [{"card": cid, "player": card.owner, "actor": card.owner, "counter": e["counter"]}], ctx)
 
 
 def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1392,7 +1387,7 @@ PRIMITIVES = {
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
-    "sacrifice": sacrifice, "explore": explore, "prevent": prevent, "mill": mill,
+    "sacrifice": sacrifice, "explore": explore, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
     "fabricate": fabricate, "storm": storm,
     "fight": fight, "choose_targets": choose_targets,

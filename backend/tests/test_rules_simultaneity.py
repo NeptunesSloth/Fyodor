@@ -73,6 +73,9 @@ def test_mass_bounce_is_one_event(cards):
     act(s, "p2", type="set_controller", card_ids=[atraxa.id], player="p1")
     activate(s, src)
     pass_until_stack_empty(s)
+    d = s.state.rules.decision  # 903.9b: Atraxa's owner may put it into the command zone instead
+    assert d is not None and d.player == "p2" and "command zone" in d.prompt
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["no"])
     st = s.state
     assert st.cards[atraxa.id].zone == "p2:hand"  # its owner's hand
     assert not [c for c in st.cards.values() if c.zone == "p1:battlefield" and c.name in ("A", "B")]
