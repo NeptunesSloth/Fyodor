@@ -421,3 +421,53 @@ def test_counters_on_two_target_phrases(cards):
     pass_until_stack_empty(s)
     assert s.state.cards[forest.id].counters == {"+1/+1": 1} and s.state.cards[bear.id].counters == {"+1/+1": 1}
     replay_matches(s)
+
+
+# -- "counter [target … spell] unless its controller pays" through the generic grammar -----------------
+def test_counter_a_selector_spell_unless_its_controller_pays(cards):
+    """"Counter target red spell unless its controller pays {2}." (a spell, so its bindings are
+    renamed per line): the Bolt's controller is offered the payment; paid, the Bolt resolves."""
+    from tests.test_rules_counter import bolt_then_answer
+    from tests.test_rules_counter import build as build_counter
+
+    s, bolt, denial = build_counter(cards, "Test Red Denial")
+    assert coverage.of_characteristics(ch(s, denial)).level == "FULL"
+    mana(s, C=2)  # (the payment is only offered to a payer who can pay it now)
+    bolt_then_answer(s, bolt, denial, U=1)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.player == "p1")
+    d = s.state.rules.decision
+    assert d.kind == "choose_one" and "pay {2}" in d.prompt
+    assert s.view("p2")["rules"]["decision"].get("options") is None  # Alice's choice, privately
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+    until(s, lambda s: not s.state.zones.get("stack"))
+    assert s.state.players["p2"].life == 37 and s.state.cards[bolt.id].zone == "p1:graveyard"
+
+
+def test_mana_value_of_a_spell_on_the_stack_counts_x(cards):
+    """202.3e: while a spell with {X} in its cost is on the stack, X is the value chosen for it —
+    "target spell with mana value 1" sees Endless One cast for X=1, not for X=2."""
+    from tests.test_rules_attachments import to_hand
+
+    mv1 = 'sel:{"compare":[["mv","==",1]],"zones":["stack"]}'
+    for x, seen in ((1, True), (2, False)):
+        s = build(cards, "Endless One")
+        respond_on(s)
+        one = to_hand(s, "Endless One")
+        mana(s, C=x)
+        act(s, "p1", type="cast_spell", card_id=one.id, x_value=x)
+        assert s.state.cards[one.id].zone == "stack"
+        plan = Plan(s.state, "p2", cards, None)
+        assert (targets.legal_targets(plan, mv1, "p2") == [one.id]) is seen, x
+
+
+def test_counter_a_selector_spell_unless_declined(cards):
+    from tests.test_rules_counter import bolt_then_answer
+    from tests.test_rules_counter import build as build_counter
+
+    s, bolt, denial = build_counter(cards, "Test Red Denial")
+    mana(s, C=2)
+    bolt_then_answer(s, bolt, denial, U=1)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.player == "p1")
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["decline"])
+    until(s, lambda s: not s.state.zones.get("stack"))
+    assert s.state.players["p2"].life == 40 and s.state.cards[bolt.id].zone == "p1:graveyard"

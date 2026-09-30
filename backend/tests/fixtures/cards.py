@@ -314,6 +314,8 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Test Double Tap", set_code="tst", number="R7", mana_cost="{U}", cmc=1.0, type_line="Sorcery",
              oracle_text="Tap target creature. Untap another target creature.\nDraw a card.",
              colors=["U"], color_identity=["U"]),
+        card("Test Red Denial", set_code="tst", number="R9", mana_cost="{U}", cmc=1.0, type_line="Instant",
+             oracle_text="Counter target red spell unless its controller pays {2}.", colors=["U"], color_identity=["U"]),
         card("Test Herald", set_code="tst", number="R1", mana_cost="{1}", cmc=1.0, type_line="Creature — Test",
              oracle_text="Whenever this creature enters or attacks, you gain 1 life.", power="1", toughness="1"),
         card("Test Frozen Aura", set_code="tst", number="P5", mana_cost="{U}", cmc=1.0, type_line="Enchantment — Aura",

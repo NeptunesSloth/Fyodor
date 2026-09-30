@@ -481,8 +481,8 @@ def rename_bindings(value: Any, prefix: str) -> Any:
         return value
     out = {}
     for k, v in value.items():
-        if k in ("as", "bind") and isinstance(v, str):  # ("bind": the library primitives' recorder)
-            v = prefix + v
+        if k in ("as", "bind", "succeeded") and isinstance(v, str):  # ("bind": the library primitives' recorder;
+            v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
             v = "ref:" + prefix + v[4:]
         else:

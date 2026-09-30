@@ -633,6 +633,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     for what, op, n in sel.compare:
         value = _stat(ch, what)
+        if what == "mv" and value is not None and zone == "stack" and card.stack_info is not None and card.stack_info.x:
+            value += card.stack_info.x * ch.mana_cost.count("{X}")  # 202.3e: X on the stack is the value chosen
         if value is None or not {"<=": value <= n, ">=": value >= n, "==": value == n}[op]:
             return False
     for extra in sel.extras:
