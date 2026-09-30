@@ -191,7 +191,7 @@ def _it_source(word: str) -> dict[str, str]:
 
 # Events after which the object is still where it was, so "it" can name it (not dies / leaves:
 # that's a new object in another zone, 400.7)
-_STAYING = {"enter", "attack", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
+_STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
             "deal_combat_damage_player", "deal_damage", "counters_put", "targeted", "create_token"}
 # Zone-change events after which "it" is the new object the card became where it went — found
 # only there (400.7e, 603.6, 603.6c): "When ~ dies, return it to its owner's hand"
