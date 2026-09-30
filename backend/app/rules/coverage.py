@@ -92,11 +92,12 @@ def definition_supported(d: dict[str, Any]) -> bool:
 # Activation restrictions and trigger limits (app/rules/restrictions.py, test_rules_restrictions.py)
 # are part of "templates": an activated ability whose trailing "Activate only …" sentence the engine
 # reads (as a sorcery / instant, once or N times each turn, once, during your turn / upkeep /
-# combat / a step, before attackers are declared, if a condition app/rules/conditions.py reads) is
-# automated with it enforced; any other restriction wording leaves the ability manual. Refused on
-# purpose (never guessed): "Do this only once each turn." (603.2h: the action itself has to be
-# recorded as it's taken), "Activate only if …" conditions the engine can't evaluate (card types
-# among graveyard cards, total power, "a creature died this turn", "this creature is attacking").
+# combat / a step, before attackers are declared, if a condition app/rules/conditions.py reads — the
+# turn's history, card types among graveyard cards, total power, your commander, the monarch … since
+# conditional clauses, wave 1B) is automated with it enforced; any other restriction wording leaves the
+# ability manual. Refused on purpose (never guessed): "Do this only once each turn." (603.2h: the
+# action itself has to be recorded as it's taken), "Activate only if …" conditions the engine can't
+# evaluate ("this creature is attacking", "you control the most creatures", what was cast and how).
 # Keyword abilities the engine implements (each needs tests before it is listed here).
 SUPPORTED_KEYWORDS: set[str] = {
     # combat (M15c): legality and damage, each covered by test_rules_combat.py
@@ -160,6 +161,27 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
      "cards from a target player's graveyard (a zone bound to an earlier target): not modelled"),
     (re.compile(r"\btarget creature with the greatest\b", re.I), "\"the greatest … among\" (a computed extreme): not modelled"),
     (re.compile(r"\btarget creature's power and toughness\b", re.I), "switching or reading a target's P/T pair: not modelled"),
+    # -- conditional / instead clauses (wave 1B) --------------------------------------------------------
+    # Conditions app/rules/conditions.py deliberately doesn't read: the clause (or the whole ability) stays manual.
+    (re.compile(r"\bwould (?:die|be put into (?:a|your|an opponent's|its owner's|their owner's) graveyard)\b[^.]*"
+                r"\bthis turn, exile (?:it|that card|that permanent|them|those cards) instead\b", re.I),
+     "a replacement effect a spell or ability creates for the rest of the turn (614.1a, 614.6): only a permanent's own "
+     "\"If ~ would die\" replacement (exile_instead) is modelled, not one a resolving spell sets up"),
+    (re.compile(r"\bif you cast (?:this spell|it) during your main phase\b", re.I),
+     "the phase a spell was cast in isn't recorded (the \"cast during your main phase\" instead clauses): not modelled"),
+    (re.compile(r"\b(?:(?:this spell|it) was cast from|you cast (?:this spell|it) from) (?:a|your|an opponent's|their) "
+                r"(?:graveyard|library|exile|hand)\b|\bentered from your library or was cast from your library\b", re.I),
+     "the zone a spell was cast from or a permanent entered from isn't recorded with the object: not modelled"),
+    (re.compile(r"\b(?:\{[WUBRGC]\}|\w+ or more mana|mana from [^.,]+|mana) (?:of [^.,]+ )?was spent to (?:cast|activate)\b", re.I),
+     "what mana was spent on a spell or ability isn't recorded (601.2h): not modelled"),
+    (re.compile(r"\bif (?:that (?:creature|permanent)|it|this creature) has (?:a |an )?(?:toxic|flying|reach|haste|trample|deathtouch|"
+                r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible)\b", re.I),
+     "a condition about the abilities an object has (\"if that creature has toxic\"): only its characteristics (types, "
+     "colors, power, toughness, mana value) are read"),
+    (re.compile(r"\bif you have a full party\b|\bcompleted a dungeon\b|\bif it's (?:day|night)\b|"
+                r"\bthis is the \w+ time this ability has resolved this turn\b", re.I),
+     "party size, dungeon progress, the day/night designation and how often an ability resolved this turn: not tracked "
+     "as state a condition can read"),
 )
 
 

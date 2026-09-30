@@ -278,8 +278,10 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         for target, ids in by_target.items():
             kind = "player" if target in plan.state.players else "card"
             plan.do({"type": "attack", "card_ids": ids, "target": {"kind": kind, "id": target}})
+        from app.game.rules_state import note_attack
         from app.rules import triggers  # triggers → plan; imported late
 
+        note_attack(plan.state, plan.actor)  # 508.1: "if you attacked this turn" (conditional clauses, wave 1B)
         triggers.attacked(plan, [plan.state.cards[x.card_id] for x in a.attackers])
     r.priority = plan.active
     r.passed = []

@@ -257,6 +257,48 @@ MAX_EVENTS = 500  # unconsumed events kept (a trigger collector consumes them; M
 LKI_TURNS = 2  # how long last known information is kept
 
 
+# -- this turn's history (conditional / instead clauses, wave 1B) --------------------------------------
+class Departure(BaseModel):
+    """A permanent that left the battlefield this turn, for "if a creature died this turn" / "if a
+    permanent left the battlefield under your control this turn" (CR 700.4: dies = put into a
+    graveyard from the battlefield). What it was is read from its last known information
+    (608.2i: such an effect looks back in time at the object as it last existed there)."""
+
+    card: str = Field(max_length=64)
+    object_id: str = Field(max_length=80)  # the object as it last existed on the battlefield (its ``lki`` key)
+    controller: str = Field(max_length=64)  # who controlled it as it left
+    to: str = Field(default="", max_length=20)  # the zone it went to: "graveyard", "exile", "hand", "library" …
+    # its card types as it last existed (layers applied: an animated land, a crewed Vehicle), when
+    # the rules engine moved it; None (moved by hand): its printed types from the last known information
+    types: list[str] | None = None
+
+
+class Arrival(BaseModel):
+    """A card (never a token: 111.1) put into a graveyard this turn from anywhere, for "if you descended this
+    turn" (700.11: a permanent card put into your graveyard — it needn't still be there). Whether it is a
+    permanent card is read from the card when the condition is asked."""
+
+    card: str = Field(max_length=64)
+    owner: str = Field(max_length=64)  # whose graveyard it went to
+
+
+class TurnLog(BaseModel):
+    """What happened during one turn that later text can ask about (608.2i): who attacked (508.1),
+    life gained and lost (damage included, 120.3a), cards drawn, permanents that left the
+    battlefield, cards that left a graveyard or went into one. Recorded deterministically from the
+    steps applied to the table (``track`` / ``emit``) and the declaration of attackers, so replays,
+    saves and undo reproduce it exactly. Only this turn's and the previous turn's logs are kept."""
+
+    turn: int = 0
+    attacked: list[str] = Field(default_factory=list)  # players who declared one or more attackers
+    gained: dict[str, int] = Field(default_factory=dict)  # player -> life gained
+    lost: dict[str, int] = Field(default_factory=dict)  # player -> life lost
+    drew: dict[str, int] = Field(default_factory=dict)  # player -> cards drawn
+    left: list[Departure] = Field(default_factory=list)
+    left_graveyard: list[str] = Field(default_factory=list)  # the owner of each card that left a graveyard
+    entered_graveyard: list[Arrival] = Field(default_factory=list)
+
+
 class ContinuousEffect(BaseModel):
     """A continuous effect from a resolved spell or ability (CR 611.2c): the objects it affects are
     fixed when it begins. See ``app.rules.layers``."""
@@ -652,6 +694,9 @@ class RulesState(BaseModel):
     permissions: list[Permission] = Field(default_factory=list)
     cost_modifiers: list[CostModifier] = Field(default_factory=list)
     top_reveals: list[TopReveal] = Field(default_factory=list)
+    # -- conditional / instead clauses (wave 1B) --  this turn's and last turn's history (TurnLog)
+    turn_log: TurnLog = Field(default_factory=TurnLog)
+    last_turn_log: TurnLog | None = None
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)
@@ -719,7 +764,7 @@ class Capture:
     compares against to find zone changes, counters and taps, and the objects' last known
     information for anything that leaves the battlefield or the stack."""
 
-    __slots__ = ("zones", "snaps", "resources")
+    __slots__ = ("zones", "snaps", "resources", "types")
 
     def __init__(self, state: GameState) -> None:
         self.zones = {cid: c.zone for cid, c in state.cards.items()}
@@ -727,6 +772,9 @@ class Capture:
             cid: snapshot(state, cid) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES
         }
         self.resources = {pid: dict(p.resources) for pid, p in state.players.items()}
+        # card id -> card types as they are now (layers applied) for the permanents the rules engine
+        # is about to move off the battlefield (set by Plan.do; empty for a step made by hand)
+        self.types: dict[str, list[str]] = {}
 
 
 def capture(state: GameState) -> Capture | None:
@@ -740,6 +788,39 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
     if rules is None:
         return
     rules.events.append(Event(batch=rules.batch + 1, kind=kind, turn=state.turn.number, **fields))
+    if kind in ("life_gain", "life_loss", "drew"):  # -- conditional / instead clauses (wave 1B) --
+        _note_player_fact(state, kind, fields.get("player"), int(fields.get("amount") or 1))
+
+
+# -- this turn's history (conditional / instead clauses, wave 1B) --------------------------------------
+def turn_log_now(state: GameState) -> TurnLog | None:
+    """This turn's log, for writing: a new turn starts a fresh one, and the one just ended is kept
+    as ``last_turn_log`` — only if it really was the turn before, so "last turn" never reads an
+    older one."""
+    rules = state.rules
+    if rules is None:
+        return None
+    n = state.turn.number
+    log = rules.turn_log
+    if log.turn != n:
+        rules.last_turn_log = log if log.turn == n - 1 else None
+        log = rules.turn_log = TurnLog(turn=n)
+    return log
+
+
+def _note_player_fact(state: GameState, kind: str, player: str | None, amount: int) -> None:
+    log = turn_log_now(state)
+    if log is None or not player:
+        return
+    book = {"life_gain": log.gained, "life_loss": log.lost, "drew": log.drew}[kind]
+    book[player] = book.get(player, 0) + amount
+
+
+def note_attack(state: GameState, player: str) -> None:
+    """508.1: ``player`` declared one or more attackers this turn ("if you attacked this turn")."""
+    log = turn_log_now(state)
+    if log is not None and player not in log.attacked:
+        log.attacked.append(player)
 
 
 def track(state: GameState, before: Capture | None = None, *, manual: bool = False) -> None:
@@ -806,6 +887,16 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
             rules.objects.pop(card_id, None)
         if old_name in ("library", "hand") and new_name in ("library", "hand", None) and snap is None:
             continue  # private shuffling around: new objects, but nothing public happened
+        if old_name == "battlefield" and snap is not None:  # -- conditional / instead clauses (wave 1B) --
+            log = turn_log_now(state)
+            if log is not None:
+                log.left.append(Departure(card=card_id, object_id=old_oid, controller=snap.controller, to=new_name or "",
+                                          types=before.types.get(card_id)))
+        elif old_name == "graveyard" and (log := turn_log_now(state)) is not None:
+            log.left_graveyard.append(old_zone.split(":")[0])  # (a zone key is "<owner>:graveyard")
+        if new_name == "graveyard" and new_zone and card is not None and card.card_id is not None \
+                and (log := turn_log_now(state)) is not None:  # (a token is no card: it never "descends")
+            log.entered_graveyard.append(Arrival(card=card_id, owner=new_zone.split(":")[0]))
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
              from_zone=old_zone, to_zone=new_zone)
