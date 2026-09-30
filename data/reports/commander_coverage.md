@@ -1,6 +1,6 @@
 # Commander coverage (possible commanders)
 
-TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 608 · PARTIAL: 2893 · REVIEW: 0 · MANUAL: 0
+TOTAL POSSIBLE COMMANDERS: **3501** — FULL: 614 · PARTIAL: 2887 · REVIEW: 0 · MANUAL: 0
 
 The most-played commanders first (EDHREC rank from the card data).
 
@@ -752,14 +752,14 @@ Color identity C
 - ✗ Annihilator
 - ✗ When Kozilek is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.
 
-### Drakuseth, Maw of Flames — PARTIAL
+### Drakuseth, Maw of Flames — FULL
 
 Color identity R
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Flying
-- ✗ Whenever Drakuseth attacks, Drakuseth deals 4 damage to any target and 3 damage to each of up to two other targets.
+- ✓ Whenever Drakuseth attacks, Drakuseth deals 4 damage to any target and 3 damage to each of up to two other targets.
 
 ### Vilis, Broker of Blood — FULL
 
@@ -908,7 +908,7 @@ Color identity G
 - ✓ {1}{G}: Return target Human you control to its owner's hand. Kogla gains indestructible until end of turn.
 - ✗ When Kogla enters, it fights up to one target creature you don't control.
 
-### Magda, Brazen Outlaw — PARTIAL
+### Magda, Brazen Outlaw — FULL
 
 Color identity R
 
@@ -916,7 +916,7 @@ Color identity R
 - ✓ Attack and block
 - ✓ Other Dwarves you control get +1/+0.
 - ✓ Whenever a Dwarf you control becomes tapped, create a Treasure token.
-- ✗ Sacrifice five Treasures: Search your library for an artifact or Dragon card, put that card onto the battlefield, then shuffle.
+- ✓ Sacrifice five Treasures: Search your library for an artifact or Dragon card, put that card onto the battlefield, then shuffle.
 
 ### Junji, the Midnight Sky — PARTIAL
 
@@ -1041,9 +1041,9 @@ Color identity U
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ Indestructible
+- ✓ At the beginning of your end step, exile up to one other target creature you control, then return that card to the battlefield under your control.
 - ✓ {3}{U}: Tap another target creature.
 - ✗ As long as your devotion to blue is less than five, Thassa isn't a creature.
-- ✗ At the beginning of your end step, exile up to one other target creature you control, then return that card to the battlefield under your control.
 
 ### Electro, Assaulting Battery — PARTIAL
 
@@ -2642,14 +2642,14 @@ Color identity WR
 - ✓ Lifelink
 - ✗ Stagger — Whenever Lightning deals combat damage to a player, until your next turn, if a source would deal damage to that player or a permanent that player controls, it deals double that damage instead.
 
-### Ioreth of the Healing House — PARTIAL
+### Ioreth of the Healing House — FULL
 
 Color identity U
 
 - ✓ Cast it (timing, costs, the stack)
 - ✓ Attack and block
 - ✓ {T}: Untap another target permanent.
-- ✗ {T}: Untap two other target legendary creatures.
+- ✓ {T}: Untap two other target legendary creatures.
 
 ### God-Eternal Oketra — PARTIAL
 
