@@ -940,12 +940,22 @@ def _permanents(effects: Effects, target: Any) -> bool:
     """Does every grant of quoted abilities name permanents? A card in a graveyard or exile, or a
     spell, doesn't gain an ability an effect grants (611.2e: only a permanent on the battlefield
     does): those stay manual. A pronoun is read when it resolves (effects.grant skips what isn't there)."""
+    from app.rules.scripts import SELECTORS  # (scripts imports this module)
+
     keys = [e["who"] for e in effects if e["do"] in ("grant", "restrict") and isinstance(e.get("who"), str)]
     groups = [g["what"] if isinstance(g, dict) else g for g in (target if isinstance(target, list) else [target]) if g]
+    not_permanents = {"any", "player", "opponent", "spell", "creature_spell", "noncreature_spell", "instant_or_sorcery_spell"}
+    legacy = {v for v in SELECTORS.values() if v not in not_permanents}  # ("target creature", "target land", …)
     for key in (*keys, *groups):
-        if isinstance(key, str) and key.startswith(selectors.PREFIX) and selectors.from_key(key).zones != ("battlefield",):
+        if not isinstance(key, str):
             return False
-        if isinstance(key, str) and (key.startswith(("graveyard:", "stack")) or key in ("spell", "creature_spell")):
+        if key.startswith(selectors.PREFIX):
+            sel = selectors.from_key(key)
+            if sel.zones != ("battlefield",) or sel.player is not None:
+                return False
+        elif key in not_permanents or key.startswith(("graveyard:", "stack", "player")) or (
+                key not in legacy and not key.startswith(("target", "it", "them", "self", "host", "ref:", "event", "object:"))
+                and key not in ("creatures_you_control", "each_creature")):
             return False
     return True
 

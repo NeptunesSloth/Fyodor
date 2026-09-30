@@ -180,21 +180,27 @@ def layer6(ch: Characteristics, effects: list[ContinuousEffect], wipe: tuple[int
 
 
 # -- last known information (603.10a, 608.2h) ----------------------------------------------------------
-def last_existed(printed: Characteristics, now: Characteristics) -> tuple[list[dict[str, Any]] | None, list[str] | None]:
-    """The abilities and keywords of an object that is about to leave, in the form an
-    ``ObjectSnapshot`` keeps them — each None while they are the printed ones (the snapshot then
-    stores nothing: most objects have no grants)."""
+def last_existed(printed: Characteristics, now: Characteristics) -> tuple[Any, Any, Any]:
+    """What an object that is about to leave looks like now, in the form an ``ObjectSnapshot`` keeps
+    it: (abilities, keywords, traits) — each None while it is the printed one (the snapshot then
+    stores nothing: most objects have no grants and no type changes). ``traits``: its types,
+    subtypes, supertypes and colors, when layers 4 and 5 changed them (an animated land dies as a
+    creature, 700.4; the last known information of a Vehicle that was crewed says so too)."""
     abilities = None
     if now.abilities != printed.abilities:
         abilities = [{"index": a.index, "text": a.text, "kind": a.kind, "keywords": list(a.keywords), "cost": a.cost,
                       "intrinsic": a.intrinsic} for a in now.abilities]
     keywords = sorted(now.keywords) if now.keywords != printed.keywords else None
-    return abilities, keywords
+    traits = None
+    if (now.types, now.subtypes, now.supertypes, now.colors) != (printed.types, printed.subtypes, printed.supertypes, printed.colors):
+        traits = {"types": sorted(now.types), "subtypes": sorted(now.subtypes), "supertypes": sorted(now.supertypes),
+                  "colors": sorted(now.colors)}
+    return abilities, keywords, traits
 
 
 def as_last_existed(ch: Characteristics, snap: ObjectSnapshot) -> Characteristics:
-    """``ch`` (the object's printed characteristics) with the abilities and keywords it had when it
-    last existed on the battlefield, if they were recorded and differed."""
+    """``ch`` (the object's printed characteristics) with the abilities, keywords and types it had when
+    it last existed on the battlefield, if they were recorded and differed."""
     if snap.abilities is not None:
         ch = replace(ch, abilities=tuple(AbilityText(index=int(a["index"]), text=str(a["text"]), kind=a["kind"],
                                                      keywords=tuple(a.get("keywords") or ()), cost=a.get("cost"),
@@ -203,4 +209,8 @@ def as_last_existed(ch: Characteristics, snap: ObjectSnapshot) -> Characteristic
         printed = frozenset(k for a in ch.abilities if a.kind == "keywords" for k in a.keywords)
         now = frozenset(snap.keywords)
         ch = replace(ch, granted=now - printed, lost=printed - now)
+    if snap.traits is not None:
+        t = snap.traits
+        ch = replace(ch, types=frozenset(t["types"]), subtypes=frozenset(t["subtypes"]),
+                     supertypes=frozenset(t["supertypes"]), colors=frozenset(t["colors"]))
     return ch

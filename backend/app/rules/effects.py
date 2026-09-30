@@ -205,8 +205,13 @@ def _ability_source(plan: Plan, ctx: Context) -> _Source:
     src_ch = plan.ch(source) if source is not None else None
     if source is not None and source.zone.endswith(":battlefield") and plan.oid(source) == ctx.get("source_object"):
         keywords = plan.ch(source).keywords
-    elif lki is not None and source is not None:
-        keywords = plan.ch(source).keywords  # (printed keywords of the card; LKI of granted ones is M16 later)
+    elif lki is not None:
+        # as it last existed (603.10a, 702.15c, 702.2e): keywords granted by an effect or a static count, and a
+        # token that ceased to exist still has them (quoted grants, wave 2D: ObjectSnapshot.abilities/keywords)
+        from app.rules.triggers import _snapshot_card  # (triggers imports this module)
+
+        _, src_ch = _snapshot_card(plan, lki)
+        keywords = src_ch.keywords
     return _Source(ctx.get("source_object") or "", keywords, src_ch, ctx["controller"], source.id if source is not None else None)
 
 

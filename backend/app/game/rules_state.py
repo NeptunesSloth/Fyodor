@@ -217,6 +217,10 @@ class ObjectSnapshot(BaseModel):
     # ability line as {index, text, kind, keywords, cost, intrinsic}. None: the printed ones.
     abilities: list[dict[str, Any]] | None = None
     keywords: list[str] | None = None
+    # Its types, subtypes, supertypes and colors as they last existed, when layer 4 / 5 had changed them
+    # (an animated land or a crewed Vehicle died as a creature, 700.4): {"types": […], "subtypes": […],
+    # "supertypes": […], "colors": […]}. None: the printed ones.
+    traits: dict[str, list[str]] | None = None
 
 
 EventKind = Literal[

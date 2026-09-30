@@ -106,6 +106,28 @@ EXTRA = [
     real("Warriors' Lesson", "Instant",
          'Until end of turn, up to two target creatures you control each gain "Whenever this creature deals combat damage to a player, draw a card."',
          "{G}", colors=("G",), number="Q22"),
+    real("Showstopper", "Instant",
+         'Until end of turn, creatures you control gain "When this creature dies, it deals 2 damage to target creature an opponent controls."',
+         "{1}{B}{R}", colors=("B", "R"), number="Q31"),
+    real("Swift Justice", "Instant", "Until end of turn, target creature gets +1/+0 and gains first strike and lifelink.", "{W}",
+         colors=("W",), number="Q32"),
+    real("Persist", "Sorcery", "Return target nonlegendary creature card from your graveyard to the battlefield with a -1/-1 counter on it.",
+         "{1}{B}", colors=("B",), number="Q25"),
+    real("Planar Incision", "Instant",
+         "Exile target artifact or creature, then return it to the battlefield under its owner's control with a +1/+1 counter on it.",
+         "{1}{U}", colors=("U",), number="Q26"),
+    real("Otherworldly Journey", "Instant — Arcane",
+         "Exile target creature. At the beginning of the next end step, return that card to the battlefield under its owner's control with a +1/+1 counter on it.",
+         "{1}{W}", colors=("W",), number="Q27"),
+    real("Form a Posse", "Sorcery",
+         'Create X 1/1 red Mercenary creature tokens with "{T}: Target creature you control gets +1/+0 until end of turn. Activate only as a sorcery."',
+         "{X}{R}{W}", colors=("R", "W"), number="Q28"),
+    real("Song of Totentanz", "Sorcery",
+         'Create X 1/1 black Rat creature tokens with "This token can\'t block." Creatures you control gain haste until end of turn.',
+         "{X}{R}", colors=("R",), number="Q29"),
+    real("Heroic Reinforcements", "Sorcery",
+         "Create two 1/1 white Soldier creature tokens. Until end of turn, creatures you control get +1/+1 and gain haste. (They can attack and {T} this turn.)",
+         "{2}{R}{W}", colors=("R", "W"), number="Q30"),
     real("Undying Malice", "Instant",
          'Until end of turn, target creature gains "When this creature dies, return it to the battlefield tapped under its owner\'s control with a +1/+1 counter on it."',
          "{B}", colors=("B",), number="Q24"),
@@ -144,13 +166,14 @@ def definition(name: str, type_line: str, text: str) -> dict | None:
     return next(iter(defs.values()), None) if len(defs) == 1 else defs or None
 
 
-def cast(s, name, targets=(), pid="p1", counts=None, **m):
+def cast(s, name, targets=(), pid="p1", counts=None, x=None, **m):
     """Cast a card from the hand of ``pid`` (mana added first); ``counts``: how many targets each group has."""
     card_ = named(s, name)
     if card_.zone != f"{pid}:hand":
         act(s, pid, type="move", card_ids=[card_.id], to={"zone": "hand"})
     act(s, pid, type="add_mana", player=pid, mana=m)
-    act(s, pid, type="cast_spell", card_id=card_.id, targets=list(targets), **({"target_counts": counts} if counts else {}))
+    act(s, pid, type="cast_spell", card_id=card_.id, targets=list(targets), **({"target_counts": counts} if counts else {}),
+        **({"x_value": x} if x is not None else {}))
     return card_
 
 
@@ -402,6 +425,103 @@ def test_undying_malice_returns_the_creature_with_a_counter(cards):
     now = s.state.cards[bears.id]
     assert now.zone == "p1:battlefield" and now.tapped and now.counters == {"+1/+1": 1} and ch(s, bears).pt == (3, 3)
     assert grants(s, bears) == []
+    replay_matches(s)
+
+
+# -- what the quote-aware sentence splitter and the "with a counter on it" return unlocked (token quotes, blinks) ---
+def test_a_dying_creature_deals_damage_with_the_lifelink_it_had(cards):
+    """702.15b/c, 603.10a: Showstopper's granted "When this creature dies, it deals 2 damage to …" is dealt by the
+    creature as it last existed — with the lifelink Swift Justice granted it until end of turn (its last
+    known information: the keywords were recorded as it left)."""
+    s = build(cards, "Swift Justice", "Showstopper", "Murder", "Grizzly Bears")
+    bears = on_battlefield(s, "Grizzly Bears")
+    ox = creature(s, "p2", "Their Ox", "3/3")
+    cast(s, "Swift Justice", [bears.id], W=1)
+    pass_until_stack_empty(s)
+    cast(s, "Showstopper", B=1, R=1, C=1)
+    pass_until_stack_empty(s)
+    cast(s, "Murder", [bears.id], B=3)
+    pass_until_stack_empty(s)
+    d = rules(s).decision
+    if d is not None:  # (one legal target for the granted trigger: asked anyway)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[ox.id])
+        pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard" and s.state.cards[ox.id].damage == 2
+    assert s.state.players["p1"].life == 42  # lifelink: its controller gains 2
+    replay_matches(s)
+
+
+def test_persist_returns_the_creature_with_a_minus_one_counter(cards):
+    s = build(cards, "Persist", "Grizzly Bears")
+    bears = named(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "graveyard"})
+    cast(s, "Persist", [bears.id], B=2)
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[bears.id].counters == {"-1/-1": 1}
+    assert ch(s, bears).pt == (1, 1)
+    replay_matches(s)
+
+
+def test_planar_incision_blinks_with_a_counter(cards):
+    s = build(cards, "Planar Incision", "Grizzly Bears")
+    bears = on_battlefield(s, "Grizzly Bears")
+    old = rules(s).object_id(bears.id)
+    cast(s, "Planar Incision", [bears.id], U=2)
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and rules(s).object_id(bears.id) != old  # 400.7
+    assert s.state.cards[bears.id].counters == {"+1/+1": 1} and ch(s, bears).pt == (3, 3)
+    replay_matches(s)
+
+
+def test_otherworldly_journey_returns_it_at_the_next_end_step_with_a_counter(cards):
+    s = build(cards, "Otherworldly Journey", "Grizzly Bears")
+    bears = on_battlefield(s, "Grizzly Bears")
+    cast(s, "Otherworldly Journey", [bears.id], W=1, C=1)
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:exile"
+    (t,) = rules(s).delayed
+    assert t.effects[0]["counter"] == "+1/+1"
+    next_end_step(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[bears.id].counters == {"+1/+1": 1}
+    replay_matches(s)
+
+
+def test_song_of_totentanz_tokens_cant_block_and_everything_gains_haste(cards):
+    """`…tokens with "This token can't block." Creatures you control gain haste until end of turn.` is two
+    sentences (the stop inside the quote doesn't end one; `."` does): the tokens exist for the second."""
+    s = build(cards, "Song of Totentanz")
+    mine = creature(s, "p1", "Old Bear")
+    cast(s, "Song of Totentanz", x=2, R=3)
+    pass_until_stack_empty(s)
+    rats = [c for c in s.state.cards.values() if c.is_token and c.name == "Rat"]
+    assert len(rats) == 2
+    for rat in rats:
+        assert "cant_block" in ch(s, rat).imposed and "haste" in ch(s, rat).keywords  # (locked after they exist, 611.2c)
+    assert "haste" in ch(s, mine).keywords
+    replay_matches(s)
+
+
+def test_heroic_reinforcements_pumps_the_tokens_too(cards):
+    s = build(cards, "Heroic Reinforcements")
+    cast(s, "Heroic Reinforcements", R=1, W=1, C=2)
+    pass_until_stack_empty(s)
+    soldiers = [c for c in s.state.cards.values() if c.is_token and c.name == "Soldier"]
+    assert len(soldiers) == 2 and all(ch(s, c).pt == (2, 2) and "haste" in ch(s, c).keywords for c in soldiers)
+    next_end_step(s)
+    assert all(ch(s, c).pt == (1, 1) for c in soldiers if c.id in s.state.cards)
+    replay_matches(s)
+
+
+def test_form_a_posse_tokens_have_the_quoted_activated_ability(cards):
+    s = build(cards, "Form a Posse")
+    cast(s, "Form a Posse", x=2, R=1, W=1, C=2)
+    pass_until_stack_empty(s)
+    posse = [c for c in s.state.cards.values() if c.is_token and c.name == "Mercenary"]
+    assert len(posse) == 2
+    (ab,) = [a for a in ch(s, posse[0]).abilities if a.kind == "activated"]
+    assert ab.cost == "{T}" and "Activate only as a sorcery" in ab.text
+    with pytest.raises(ActionError, match="summoning sickness"):  # (new tokens: 302.6)
+        act(s, "p1", type="activate_ability", card_id=posse[0].id, ability=ab.index, targets=[posse[1].id])
     replay_matches(s)
 
 
