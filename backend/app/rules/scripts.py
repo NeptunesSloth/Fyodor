@@ -1140,6 +1140,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             gate: dict[str, Any] = {"succeeded": bind, **({"negate": True} if if_do["neg"] else {})}
             effects += [{"do": "only_if", "cond": gate, "skip": len(added)}, *added]
             continue
+        if (instead := replacement_sentence(text, effects, groups)) is not None:  # -- replacement effects stage 2 (wave 2E) --
+            effects += instead
+            continue
         cond_m = re.match(r"^if (?P<c>[^,]+), (?P<rest>.+)$", text)
         if cond_m:  # "If you control a Forest, draw a card." (608.2c): a condition on this sentence
             from app.rules import conditions
@@ -1914,7 +1917,82 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         if this_turn or target is not None:
             return None  # a static ability doesn't last "this turn" and doesn't target
         return {"kind": "static", "static": "prevent", "scope": scope, "effects": []}
-    return None
+    # -- replacement effects stage 2 (wave 2E): token / counter / draw / life / damage statics and
+    # "[Objects] enter tapped" (app/rules/replace_grammar.py, applied by app/rules/replace.py) --
+    from app.rules import replace_grammar  # (a leaf module)
+
+    return replace_grammar.parse(text)
+
+
+# -- replacement effects stage 2 (wave 2E): "If that creature would die this turn, exile it instead." --
+# A replacement effect of the resolving spell or ability lasting this turn (611.2a), locked to the
+# objects it names (the target as the object it is, 400.7; "a creature dealt damage this way": the
+# objects that preceding damage was actually dealt to, 615 prevention included) or a group checked
+# whenever something would die ("If a creature would die this turn"). Applied by
+# replacements.replace_move with the other "exile instead" effects (700.4: dies = put into a
+# graveyard from the battlefield). Read by the hook in _parse_effects (before its "If …," condition).
+_DIES_THIS_TURN = re.compile(r"^if (?P<det>that|a|an) (?P<what>.+?) would die this turn, exile it instead$")
+_DIES_THAT = {"creature": ["Creature"], "permanent": [], "creature or planeswalker": ["Creature", "Planeswalker"],
+              "planeswalker": ["Planeswalker"]}
+_DIES_DEALT = re.compile(r"(?P<what>creature|permanent|creature or planeswalker) dealt damage this way")
+
+
+_UNTIL_EOT_IF = re.compile(r"^until end of turn, (?P<rest>if .+)$")
+_IF_THIS_TURN = re.compile(r"^(?P<head>if [^,]+?) this turn(?P<tail>, .+)$")
+
+
+def _turn_record(text: str) -> list[dict[str, Any]] | None:
+    """"Until end of turn, if one or more tokens would be created under your control, twice that
+    many … instead." / "If a source you control would deal damage to an opponent this turn, it
+    deals double that damage …": a static replacement wording (app/rules/replace_grammar.py) as a
+    record of this resolution, lasting this turn (611.2a)."""
+    from app.rules import replace_grammar  # (a leaf module)
+
+    m = _UNTIL_EOT_IF.match(text)
+    body = m["rest"] if m else None
+    if body is None:
+        m2 = _IF_THIS_TURN.match(text)
+        body = m2["head"] + m2["tail"] if m2 else None
+    if body is None or " this turn" in body:
+        return None
+    d = replace_grammar.parse("I" + body[1:] + ".")
+    if d is None or d.get("static") != "replace":
+        return None
+    return [{"do": "replace_record", "event": d["event"], "match": d["match"], "op": d["op"]}]
+
+
+def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+    """A sentence that sets up a replacement effect for the rest of the turn, or None."""
+    m = _DIES_THIS_TURN.match(text)
+    if m is None:
+        return _turn_record(text)
+    what = m["what"]
+    if m["det"] == "that":  # the object the ability's target names (its only object target group)
+        if what not in _DIES_THAT:
+            return None
+        refs = {e["who"] for e in effects if isinstance(e.get("who"), str) and _group_of(e) is not None}
+        objects = [w for w in refs if (g := _group_of({"who": w})) is not None and g < len(groups)
+                   and _player_target(groups[g].get("what") or "") is False]
+        if len(objects) != 1 or len(refs) != 1:
+            return None  # (two targets, or a player among them: which one is "that creature"? manual)
+        return [{"do": "exile_if_dies", "who": objects[0], "types": _DIES_THAT[what]}]
+    dealt = _DIES_DEALT.fullmatch(what)
+    if dealt:  # "a creature dealt damage this way": each preceding damage instruction's recipients
+        dmg = [(i, e) for i, e in enumerate(effects) if e.get("do") in ("damage", "fight")]
+        if not dmg:
+            return None
+        out = []
+        for i, e in dmg:
+            e["dealt_as"] = e.get("dealt_as") or f"ref:d{i}"
+            out.append({"do": "exile_if_dies", "dealt": e["dealt_as"], "types": _DIES_THAT[dealt["what"]]})
+        return out
+    from app.rules import selectors  # (a leaf module)
+
+    sel = selectors.parse(what)  # "If a creature [an opponent controls] would die this turn"
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.other:
+        return None
+    return [{"do": "exile_if_dies", "each": sel.key()}]
+# -- end replacement effects stage 2 (wave 2E) --
 
 
 @effect(r"(?P<text>prevent all (?:combat |noncombat )?damage that would be dealt.*)")

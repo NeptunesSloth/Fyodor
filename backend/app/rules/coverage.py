@@ -81,6 +81,9 @@ def definition_supported(d: dict[str, Any]) -> bool:
     """A replacement / prevention definition is automated only when its kind is listed above."""
     if d.get("kind") == "mode" or (d.get("modes") and d.get("kind") in ("triggered", "activated")):
         return modal_supported(d)  # (wave 1A) a modal triggered / activated ability
+    verdict = stage2_supported(d)  # -- replacement effects stage 2 (wave 2E) --
+    if verdict is not None:
+        return verdict
     if d.get("kind") == "replacement":
         return d.get("replacement") in SUPPORTED_REPLACEMENTS
     if d.get("kind") == "static" and d.get("static") in ("prevent", "exile_instead"):
@@ -88,6 +91,41 @@ def definition_supported(d: dict[str, Any]) -> bool:
     if d.get("kind") == "spell" and any(e.get("do") == "prevent_all" for e in d.get("effects") or []):
         return "prevent" in SUPPORTED_REPLACEMENTS
     return True
+
+
+# -- replacement effects stage 2 (wave 2E) -----------------------------------------------------------
+# The events app/rules/replace.py applies statics to (app/rules/replace_grammar.py) and the ops it
+# carries out for each, every one with scenario tests in tests/test_rules_replacements2.py. A parsed
+# static with another op stays manual.
+SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
+    "tokens": frozenset({"mul", "add"}),  # 614.16: Parallel Lives, Doubling Season, Xorn
+    "counters": frozenset({"mul", "add"}),  # 122.6, 614.16: Hardened Scales, Winding Constrictor, Doubling Season
+    "player_counters": frozenset({"add"}),  # Winding Constrictor ("If you would get one or more counters")
+    "draw": frozenset({"win", "skip", "steal", "draw"}),  # 121.6, 614.11: Laboratory Maniac, Notion Thief
+    "life": frozenset({"mul", "add", "set", "lose"}),  # 119.10: Boon Reflection, Sulfuric Vortex, Tainted Remedy
+    "damage": frozenset({"mul", "add", "sub", "half", "prevent", "prevent_all_but", "prevent_all"}),  # 614, 615.10
+}
+SUPPORTED_REPLACEMENTS |= {
+    "enters_tapped_others",  # 614.1d, 614.12: "Creatures your opponents control enter tapped."
+    "exile_if_dies",  # "If that creature / a creature dealt damage this way would die this turn, exile it instead." (611.2a)
+}
+
+
+def stage2_supported(d: dict[str, Any]) -> bool | None:
+    """Stage 2 definitions: automated when their event and op are listed above (None: not one, or
+    nothing here to object to)."""
+    if d.get("kind") == "static" and d.get("static") == "replace":
+        return (d.get("op") or {}).get("do") in SUPPORTED_REPLACE_OPS.get(str(d.get("event")), frozenset())
+    if d.get("kind") == "static" and d.get("static") == "enters_tapped_others":
+        return "enters_tapped_others" in SUPPORTED_REPLACEMENTS
+    effects = d.get("effects") or []
+    if any(e.get("do") == "exile_if_dies" for e in effects) and "exile_if_dies" not in SUPPORTED_REPLACEMENTS:
+        return False
+    for e in effects:  # "Until end of turn, if …" / "If … this turn, …": a record of a statics' wording
+        if e.get("do") == "replace_record" and (e.get("op") or {}).get("do") not in SUPPORTED_REPLACE_OPS.get(str(e.get("event")), ()):
+            return False
+    return None
+# -- end replacement effects stage 2 (wave 2E) --
 
 # Activation restrictions and trigger limits (app/rules/restrictions.py, test_rules_restrictions.py)
 # are part of "templates": an activated ability whose trailing "Activate only …" sentence the engine
