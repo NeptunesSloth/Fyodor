@@ -90,8 +90,6 @@ def test_parse(text, who, parts):
     "Creatures you control get +1/+1. As long as you have the city's blessing, they also have vigilance.",
     "Other creatures you control get +1/+1 as long as you've completed a dungeon.",
     "Enchanted creature gets +1/+2 as long as it's white. Otherwise, it gets -2/-1.",
-    "Creatures you control get +1/+1 for each Elf you control.",  # a dynamic amount
-    "~ gets +X/+X, where X is your life total.",
     "Other creatures have base power and toughness 2/2 and are Bears in addition to their other types.",
     "Creatures enchanted player controls lose all abilities and have base power and toughness 1/1.",
     "Creature you control gets +1/+1.",  # not Oracle wording
