@@ -71,10 +71,12 @@ def _end_linked(plan: Plan, leaving: set[str]) -> None:
     automation (per-card MANUAL) is left to the players, as when it leaves the battlefield
     (app/rules/triggers.py). "For as long as …" durations whose source left this way end with
     the next check (app/rules/delayed.expire)."""
-    from app.rules.effects import return_linked  # (effects imports this module's callers)
+    from app.rules import attachments
+    from app.rules.effects import linked_entries  # (effects imports this module's callers)
 
-    live = plan.live()
+    entries = []
     for key in [k for k in plan.rules.linked_exile if k in leaving]:
-        if plan.rules.card_mode(key.rsplit(".", 1)[0]) == "manual" or not live:
-            continue
-        return_linked(plan, {"controller": plan.active if plan.active in live else live[0]}, {"source": key})
+        if plan.rules.card_mode(key.rsplit(".", 1)[0]) != "manual":
+            entries += linked_entries(plan, key)
+    if entries:
+        attachments.enter(plan, entries, None)  # all at once (610.3d); an Aura may ask what it enchants

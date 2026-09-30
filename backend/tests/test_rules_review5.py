@@ -185,3 +185,133 @@ def test_ending_one_effect_keeps_another_effects_marker(cards):
     until(s, lambda s: s.state.turn.active_player == "p2", limit=120)
     assert ch(s, elves).pt == (1, 1) and not markers(s, elves)
     replay_matches(s)
+
+
+# -- independent review of the fixes above --------------------------------------------------------
+def test_an_evoked_creature_stolen_in_response_is_still_sacrificed(cards):
+    # 702.74a: "its controller sacrifices it" — whoever controls it as the trigger resolves (Alice
+    # evokes Mulldrifter; Bob takes it in response, Act of Aggression-style: Bob sacrifices it)
+    from tests.test_rules_cost_helpers import build as build_costs
+    from tests.test_rules_delayed import responsive
+
+    s, drifter = build_costs(cards, "Mulldrifter", self_tap=False)
+    responsive(s)
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=drifter.id, evoke=True)
+    until(s, lambda s: rules(s).decision is not None and rules(s).decision.kind == "order")
+    d = rules(s).decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+    assert len(s.state.zones.get("stack") or []) == 2  # the draw trigger and the evoke trigger
+    act(s, "p1", type="set_controller", card_ids=[drifter.id], player="p2")
+    until(s, lambda s: not s.state.zones.get("stack"))
+    assert s.state.cards[drifter.id].zone == "p1:graveyard"  # (its owner's graveyard, 701.21a)
+    replay_matches(s)
+
+
+TWO_PART = "{1}: Target creature gets +2/+2 and gains flying until your next turn."
+
+
+def test_each_effect_of_a_two_part_clause_owns_its_marker(cards):
+    s = build(cards, "Llanowar Elves")
+    elves = on_battlefield(s, "Llanowar Elves")
+    mine = token(s, "p1", "Two Part", "2/2", text=TWO_PART)
+    activate(s, mine, targets=[elves.id])
+    effects = [e for e in rules(s).effects if e.duration == "next_turn"]
+    assert len(effects) == 2 and ch(s, elves).pt == (3, 3) and "flying" in ch(s, elves).keywords
+    assert all(e.markers for e in effects)
+    main_phase_of(s, "p2")
+    theirs = token(s, "p2", "Other Blesser", "2/2", text="{1}: Target creature gets +1/+1 until your next turn.")
+    activate(s, theirs, pid="p2", targets=[elves.id])
+    assert ch(s, elves).pt == (4, 4) and len(markers(s, elves)) == 3
+    until(s, lambda s: s.state.turn.active_player == "p1", limit=120)  # Alice's two effects end (500.4)
+    assert ch(s, elves).pt == (2, 2) and "flying" not in ch(s, elves).keywords
+    assert len(markers(s, elves)) == 1  # Bob's effect keeps its marker
+    replay_matches(s)
+
+
+def test_an_unrelated_player_leaving_leaves_a_manual_link_alone(cards):
+    # The Jailer left by hand (a manual move: the engine leaves the return to the table); Carol
+    # conceding later has nothing to do with it.
+    s = build3(cards)
+    bears = named(s, "Grizzly Bears")
+    act(s, "p2", type="move", card_ids=[bears.id], to={"player": "p2", "zone": "battlefield"})
+    jailer = token(s, "p1", "Jailer", "2/2", text=JAILER)
+    activate(s, jailer, targets=[bears.id])
+    act(s, "p1", type="move", card_ids=[jailer.id], to={"player": "p1", "zone": "exile"})  # by hand
+    act(s, rules(s).priority, type="pass_priority")
+    assert s.state.cards[bears.id].zone == "p2:exile" and rules(s).linked_exile
+    act(s, "p3", type="concede")
+    assert s.state.cards[bears.id].zone == "p2:exile"
+    replay_matches(s)
+
+
+ENCH_JAILER = "{1}: Exile target enchantment an opponent controls until ~ leaves the battlefield."
+
+
+def aura_table(cards, players=3):
+    """Alice's Pacifism on one of her two Bears, exiled by Bob's Jailer (Banishing Light-style)."""
+    alice = deck(cards, "Krenko, Mob Boss", [(1, "Pacifism"), (9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    carol = deck(cards, "Krenko, Mob Boss", [(10, "Mountain")])
+    seats = [PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob), PlayerSetup("Carol", cards=carol)][:players]
+    s = GameSession(enable(new_game(seats, shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    first = token(s, "p1", "Bear One")
+    token(s, "p1", "Bear Two")
+    aura = named(s, "Pacifism")
+    act(s, "p1", type="move", card_ids=[aura.id], to={"zone": "hand"})
+    mana(s, W=2)
+    act(s, "p1", type="cast_spell", card_id=aura.id, targets=[first.id])
+    until(s, lambda s: not s.state.zones.get("stack"))
+    main_phase_of(s, "p2")
+    jailer = token(s, "p2", "Jailer", "2/2", text=ENCH_JAILER)
+    activate(s, jailer, pid="p2", targets=[aura.id])
+    assert s.state.cards[aura.id].zone == "p1:exile"
+    return s, aura, jailer
+
+
+def answer_aura_choice(s, aura):
+    d = rules(s).decision
+    assert d is not None and d.prompt == "Choose what the Aura enchants"  # 303.4f
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert s.state.cards[aura.id].zone == "p1:battlefield" and s.state.cards[aura.id].attached_to
+
+
+def test_a_returning_aura_chooses_what_it_enchants_when_its_jailer_dies(cards):
+    s, aura, jailer = aura_table(cards, players=2)
+    act(s, "p2", type="set_damage", card_ids=[jailer.id], value=2)
+    act(s, rules(s).priority, type="pass_priority")  # the Jailer dies: Pacifism returns
+    answer_aura_choice(s, aura)
+    replay_matches(s)
+
+
+def test_a_returning_aura_chooses_what_it_enchants_when_its_jailers_owner_concedes(cards):
+    s, aura, _ = aura_table(cards)
+    act(s, "p2", type="concede")
+    answer_aura_choice(s, aura)
+    replay_matches(s)
+
+
+def test_until_end_of_turn_ends_when_the_active_player_concedes(cards):
+    # 514.2 / 800.4j: the turn's cleanup still happens (the engine ends the turn at once)
+    s = build3(cards)
+    bear = token(s, "p3", "Carol's Bear")
+    src = token(s, "p1", "Pumper", "2/2", text="{1}: Target creature gets +2/+2 until end of turn.")
+    activate(s, src, targets=[bear.id])
+    act(s, "p1", type="set_damage", card_ids=[bear.id], value=1)
+    assert ch(s, bear).pt == (4, 4)
+    act(s, "p1", type="concede")  # during Alice's own turn
+    assert s.state.turn.active_player == "p2"
+    assert ch(s, bear).pt == (2, 2) and s.state.cards[bear.id].damage == 0
+    replay_matches(s)
+
+
+def test_exile_until_from_a_graveyard_stays_manual():
+    # 610.3: the card would go back to the graveyard, not onto the battlefield (610.3c is for
+    # permanents): the linked return can't do that, so the wording isn't automated
+    from app.rules import scripts
+
+    assert scripts.parse_effects("Exile target creature card from a graveyard until ~ leaves the battlefield.") is None
+    assert scripts.parse_effects("Exile target card from an opponent's graveyard until ~ leaves the battlefield.") is None
+    got = scripts.parse_effects("Exile target creature an opponent controls until ~ leaves the battlefield.")
+    assert got is not None and got[0] == [{"do": "exile_until", "who": "target"}]

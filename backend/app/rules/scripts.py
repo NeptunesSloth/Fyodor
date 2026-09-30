@@ -836,6 +836,10 @@ def _mill(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 
 @effect(r"exile (?P<sel>{SEL}) until ~ leaves the battlefield")
 def _exile_until(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules.language import on_battlefield_only
+
+    if not on_battlefield_only(SELECTORS[m["sel"]]):
+        raise _NoMatch  # 610.3: a card from another zone goes back there, not onto the battlefield
     return [{"do": "exile_until", "who": "target"}], SELECTORS[m["sel"]]
 
 

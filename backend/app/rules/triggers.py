@@ -208,7 +208,7 @@ def collect(plan: Plan) -> None:
             if snap.object_id in plan.rules.linked_exile:  # 610.3c: "… until ~ leaves" ends: they return at once
                 from app.rules.effects import return_linked
 
-                return_linked(plan, {"controller": snap.controller}, {"source": snap.object_id})
+                return_linked(plan, None, {"source": snap.object_id})
             died = to == "graveyard" or (e.to_zone is None and snap.is_token)  # 700.4
             kinds = ["ltb_self"] + (["dies_self"] if died else [])
             for kind in kinds:

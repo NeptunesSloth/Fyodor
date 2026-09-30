@@ -353,7 +353,7 @@ def advance(plan: Plan) -> None:
             r.priority = players[0] if players else None  # game over: the table stays a sandbox
             return
         if plan.active not in players:
-            start_next_turn(plan)  # the active player has left the game: on to the next turn
+            end_turn_early(plan)  # the active player has left the game: on to the next turn
             continue
         if all(p in r.passed for p in players):
             if plan.state.zones.get(STACK):
@@ -526,7 +526,22 @@ def cleanup_step(plan: Plan) -> None:
     finish_cleanup(plan)
 
 
+def end_turn_early(plan: Plan) -> None:
+    """The active player left the game (800.4a). 800.4j has the turn go on to its end without an
+    active player; the engine ends it at once instead (the rest of its steps, and their "at the
+    beginning of the end step" triggers, are skipped), but with that turn's cleanup (514.2), so
+    damage and "until end of turn" effects don't last into the next player's turn."""
+    turn_cleanup(plan)
+    start_next_turn(plan)
+
+
 def finish_cleanup(plan: Plan) -> None:
+    turn_cleanup(plan)
+    # Cleanup normally grants no priority: the turn ends (triggers during cleanup arrive in M16).
+    start_next_turn(plan)
+
+
+def turn_cleanup(plan: Plan) -> None:
     """514.2: damage is removed and "until end of turn" effects end, simultaneously."""
     if any(c.damage for c in plan.state.cards.values()):
         plan.do({"type": "cleanup", "what": ["damage"]}, actor=plan.active)
@@ -539,8 +554,6 @@ def finish_cleanup(plan: Plan) -> None:
     for card in list(plan.state.cards.values()):
         for marker in [m for m in card.effects if m.text == "until end of turn"]:
             plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=plan.active)
-    # Cleanup normally grants no priority: the turn ends (triggers during cleanup arrive in M16).
-    start_next_turn(plan)
 
 
 # -- the stack ---------------------------------------------------------------------------
@@ -638,7 +651,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
             triggers._add(plan, controller=controller, source_card=top_id, source_object=plan.oid(top_id),
                           name=entered_now.name, index=7100,
                           definition={"kind": "triggered", "trigger": "evoke", "optional": False, "target": None,
-                                      "effects": [{"do": "sacrifice", "who": "self"}]})
+                                      "effects": [{"do": "sacrifice", "who": "self", "by": "controller"}]})
     if top_id in plan.rules.dashed:  # 702.109a: haste, and back to its owner's hand at the next end step
         plan.rules.dashed = [c for c in plan.rules.dashed if c != top_id]
         entered_now = plan.state.cards.get(top_id)
@@ -834,7 +847,7 @@ def concede(plan: Plan, _: A.Action) -> None:
     if r.priority is None and r.decision is None:
         r.priority = plan.after(plan.actor)
     if plan.active == plan.actor and r.decision is None:
-        start_next_turn(plan)  # the conceding player's turn ends
+        end_turn_early(plan)  # the conceding player's turn ends
         return
     advance(plan)
 

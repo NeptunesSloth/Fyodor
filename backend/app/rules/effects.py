@@ -864,10 +864,14 @@ def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.21a: a player can't sacrifice a permanent they don't control ("sacrifice it" after the
-    creature changed control does nothing to it)."""
+    creature changed control does nothing to it). ``by`` "controller": "its controller sacrifices
+    it" (evoke, 702.74a) — whoever controls it as the effect happens."""
     you = ctx["controller"]
-    cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].controller == you]
-    _sacrifice_cards(plan, cards, you, ctx, e.get("as"))
+    cards = _cards(plan, ctx, e["who"])
+    if e.get("by") != "controller":
+        cards = [c for c in cards if plan.state.cards[c].controller == you]
+    actor = plan.state.cards[cards[0]].controller if cards else you
+    _sacrifice_cards(plan, cards, actor, ctx, e.get("as"))
     return True
 
 
@@ -955,15 +959,23 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-def return_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """The exiled cards return to the battlefield under their owners' control (610.3c) — each only
-    while it's still the object that was exiled (a card that left exile and came back is a new
-    object, 400.7). A card whose owner left the game stays where it is (800.4a-b)."""
+def return_linked(plan: Plan, ctx: Context | None, e: dict[str, Any]) -> bool:
+    """The exiled cards return to the battlefield under their owners' control (610.3c). ``ctx``:
+    the resolving effects to go on with after an Aura's choice of what to enchant (303.4f); None
+    when the return isn't part of a resolution (the source just left the battlefield)."""
     from app.rules import attachments  # attachments → effects (resume)
 
+    return attachments.enter(plan, linked_entries(plan, e["source"]), ctx)
+
+
+def linked_entries(plan: Plan, source: str) -> list[dict[str, Any]]:
+    """The link ends: the entries for the cards "exiled until ``source`` leaves the battlefield"
+    that return — each only while it's still the object that was exiled (a card that left exile
+    and came back is a new object, 400.7). A card whose owner left the game stays where it is
+    (800.4a-b)."""
     entries = []
     live = plan.live()
-    for ref in plan.rules.linked_exile.pop(e["source"], []):
+    for ref in plan.rules.linked_exile.pop(source, []):
         if ref in plan.state.cards:  # (a game saved before this kept card ids)
             cid = ref
         else:
@@ -973,7 +985,7 @@ def return_linked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         card = plan.state.cards[cid]
         if card.zone.endswith(":exile") and card.owner in live:
             entries.append({"card": cid, "player": card.owner, "actor": card.owner})
-    return attachments.enter(plan, entries, ctx)
+    return entries
 
 
 SERVO = {"name": "Servo", "power": "1", "toughness": "1", "colors": [], "type_line": "Token Artifact Creature — Servo", "text": ""}
@@ -2242,7 +2254,7 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                                                    "text": _MARKER_TEXT.get(duration, "as long as it's on the battlefield")}))
         for effect in plan.rules.effects:  # ending the effects removes these markers (app/rules/delayed.py)
             if effect.id in made:
-                effect.markers = [*effect.markers, *markers]
+                effect.markers = [*(effect.markers or []), *markers]
         for cid in group:
             plan.note(f"{plan.state.cards[cid].name or 'It'} becomes {label}"
                       + (f" {_MARKER_TEXT[duration]}" if duration in _MARKER_TEXT else ""), [cid], actor=ctx["controller"])
