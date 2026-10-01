@@ -132,3 +132,60 @@ def distinct_kinds(plan: Plan, pid: str, chosen: list[str], sels: list[str]) -> 
         return i == len(options) or any(k not in used and assign(i + 1, used | {k}) for k in options[i])
 
     return assign(0, frozenset())
+
+
+# -- "If X is greater than or equal to the number of cards in your library, you win the game." ---------------
+def win_if_library(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Thassa's Oracle: X (the value the ability defined, read now: 107.3c, 608.2h) against the cards in its
+    controller's library; the win (104.2b) is left to the players when a permanent says someone "can't win
+    the game" (not modelled: an effect that stops a win would make an automatic win wrong)."""
+    from app.rules import characteristics as chars
+    from app.rules import values
+    from app.rules.replace import _win
+
+    pid = ctx["controller"]
+    x = values.evaluate(plan, ctx, e["x"])
+    if x < len(plan.state.zones.get(zone_key(pid, "library"), [])):
+        return True
+    blockers = [c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and not c.face_down
+                and "can't win the game" in " ".join(ab.text for ab in chars.of(c, plan.info).abilities)]
+    if blockers:
+        plan.note(f"{plan.name(pid)} would win the game, but {blockers[0].name} says a player can't: resolve it by hand")
+        return True
+    _win(plan, pid)
+    return True
+
+
+# -- "put it onto the battlefield tapped and attacking" (508.4) ------------------------------------------------
+def attack_with_entered(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> bool:
+    """The creatures a look-and-distribute just put onto the battlefield tapped are attacking (508.4): during
+    the declare attackers step or later of their controller's combat, the controller chooses which defending
+    player, planeswalker a defending player controls, or battle a defending player protects each one attacks
+    (in Commander every opponent is a defending player: 802.2). They never "attacked" (no attack triggers);
+    outside combat, or for a player who isn't the attacking player, they're simply not attacking (506.3b).
+    False while that choice waits (token_grammar's "token_attack" resume carries on)."""
+    from app.rules import battles
+    from app.rules.token_grammar import _ATTACKING_PHASES, _attack_with
+
+    pid = ctx["controller"]
+    new = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")
+           and plan.state.cards[c].controller == pid]
+    if not new or plan.state.turn.phase not in _ATTACKING_PHASES or pid != plan.active:
+        return True
+    defenders = [p for p in plan.live() if p != pid]
+    options = [DecisionOption(id=p, label=plan.name(p)) for p in defenders]
+    options += [DecisionOption(id=c.id, label=f"{c.name} ({plan.name(c.controller)})", card_id=c.id)
+                for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in defenders
+                and plan.in_game(c) and "Planeswalker" in plan.ch(c).types]
+    options += [DecisionOption(id=b, label=plan.state.cards[b].name or "Battle", card_id=b)
+                for b in battles.attackable(plan.state, pid, defenders, plan.ch)]
+    if not options:
+        return True
+    if len(options) == 1:
+        _attack_with(plan, new, options[0].id, pid)
+        return True
+    from app.rules.effects import decide
+
+    decide(plan, player=pid, kind="choose_one", prompt=f"{plan.state.cards[new[0]].name} enters attacking: attacking whom?",
+           options=options, resume={"step": "token_attack", "ctx": ctx, "cards": new})
+    return False

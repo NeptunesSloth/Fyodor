@@ -123,6 +123,11 @@ FREE_AMONG = re.compile(
     r"|cards exiled this way|the cards exiled this way)"
     rf"(?: {_FREE_MV.replace('?P<n>', '?P<n2>').replace('?P<v>', '?P<v2>')})?"
     r" without paying (?:its|their) mana costs?$")
+# "Once during each of your turns, you may cast an instant or sorcery spell from your hand without paying its
+# mana cost." (Zaffai and the Tempests): a static permission used up by the cast (``consume``), on its
+# controller's own turns only, with the cast's normal timing (601.3: a permission, not a cast as something resolves)
+ONCE_FREE = re.compile(r"^once during each of your turns, you may cast (?:a|an) (?:(?P<sel>[a-z][a-z' ,-]*?) )?spell from your hand "
+                       r"without paying its mana cost$")
 FREE_TARGET = re.compile(r"^(?:you may )?cast (?P<what>target .+?) without paying its mana cost$")
 _FREE_COUNT = {"a": 1, "an": 1, "up to one": 1, "up to two": 2, "up to three": 3, "any number of": 99}
 
@@ -328,6 +333,13 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         if m["sel"] and key is None:
             return None
         return {"kind": "static", "static": "permission", "zone": "hand" if m["hand"] else "any", "once": False, "flash": False,
+                "self": False, "free": True, "play": False, "cast": True, "filter": key, "effects": []}
+    m = ONCE_FREE.fullmatch(t)  # -- refused look/cast-free (wave 3R5) -- a once-each-turn free cast from the hand
+    if m:
+        key = spell_filter(m["sel"]) if m["sel"] else None
+        if m["sel"] and key is None:
+            return None
+        return {"kind": "static", "static": "permission", "zone": "hand", "once": True, "flash": False,
                 "self": False, "free": True, "play": False, "cast": True, "filter": key, "effects": []}
     # -- end cast without paying (wave 3C) --
     t = re.sub(r"^(\w+) spells and (\w+) spells ", r"\1 or \2 spells ", t)  # "kithkin spells and soldier spells you cast"

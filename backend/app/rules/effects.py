@@ -1725,7 +1725,8 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
     # -- look and distribute (wave 3L) -- "If you don't [put the card …]" reads what this pick did
     # (a probe like draw's: the picked objects, as they were, and the zone they should reach)
     if e.get("did"):
-        zone = {"battlefield_tapped": "battlefield", "top": "library", "bottom": "library"}.get(e["to"], e["to"])
+        zone = {"battlefield_tapped": "battlefield", "battlefield_attacking": "battlefield", "top": "library",
+                "bottom": "library"}.get(e["to"], e["to"])
         context.refs(ctx)[e["did"]] = {"kind": "probe", "to": zone, "cards": {c: plan.oid(plan.state.cards[c]) for c in chosen}}
     if e["to"] in ("top", "bottom"):  # "put it on top of / on the bottom of your library": the owner's (private order)
         for cid in chosen:
@@ -1737,12 +1738,16 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": to, "zone": e["to"]},
                      **({"face_down": True} if e.get("face_down") else {})}, actor=pid)
     else:
-        entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped",
+        entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] in ("battlefield_tapped", "battlefield_attacking"),
                     **({"counter": e["counter"], "counter_n": e.get("counter_n", 1)} if e.get("counter") else {})}  # (wave 3E)
                    for c in chosen]
         if not attachments.enter(plan, entries, ctx):
             return False
     _moved(plan, ctx, e, before)
+    if e["to"] == "battlefield_attacking":  # -- refused look/cast-free (wave 3R5) -- 508.4
+        from app.rules import looking
+
+        return looking.attack_with_entered(plan, ctx, chosen)
     return True
 
 
@@ -1902,7 +1907,8 @@ PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looke
                    "rest_exiled": permissions.rest_exiled, "found_to": permissions.found_to})
 from app.rules import looking as _looking  # noqa: E402, I001  -- refused look/cast-free (wave 3R5) -- (a leaf module)
 
-PRIMITIVES["piles"] = _looking.piles  # -- refused look/cast-free (wave 3R5) --
+PRIMITIVES["piles"] = _looking.piles
+PRIMITIVES["win_if_library"] = _looking.win_if_library  # -- refused look/cast-free (wave 3R5) --
 
 
 def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

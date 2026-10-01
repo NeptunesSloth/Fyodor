@@ -503,10 +503,11 @@ _REST = (r"(?:the rest|the rest of (?:those|the) cards|the rest of them|the othe
          r"all cards exiled this way that weren't cast) "
          rf"(?P<rest>into (?:your|their) graveyard|into your hand|on the bottom(?: of {_LIBREF})? in (?:any|a random) order|"
          rf"on the bottom of {_LIBREF}|(?:back )?on top of {_LIBREF} in any order)")
-_PICK_TO = ("into your hand|onto the battlefield tapped|onto the battlefield|into your graveyard|"
+_PICK_TO = ("into your hand|onto the battlefield tapped and attacking|onto the battlefield tapped|onto the battlefield|into your graveyard|"
             "on top of your library|on the bottom of your library|on the bottom of that player's library|"
             "on top of that player's library|on the bottom of that library|on top of that library")
-_PICK_DESTS = {**_DESTS, "on top of your library": "top", "on the bottom of your library": "bottom",
+_PICK_DESTS = {**_DESTS, "onto the battlefield tapped and attacking": "battlefield_attacking",  # (wave 3R5: 508.4)
+               "on top of your library": "top", "on the bottom of your library": "bottom",
                "on the bottom of that player's library": "bottom", "on top of that player's library": "top",
                "on the bottom of that library": "bottom", "on top of that library": "top"}
 _PICK = re.compile(

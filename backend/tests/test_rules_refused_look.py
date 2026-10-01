@@ -125,6 +125,34 @@ REAL = [
          "into your hand. Put the rest on the bottom of your library in a random order."),
     card("Ornithopter", set_code="tst", number="R75", mana_cost="{0}", cmc=0.0, type_line="Artifact Creature — Thopter",
          power="0", toughness="2", keywords=["Flying"], oracle_text="Flying"),
+    card("Thassa's Oracle", set_code="tst", number="R80", mana_cost="{U}{U}", cmc=2.0, type_line="Creature — Merfolk Wizard",
+         colors=["U"], color_identity=["U"], power="1", toughness="3",
+         oracle_text="When this creature enters, look at the top X cards of your library, where X is your devotion to blue. Put up "
+         "to one of them on top of your library and the rest on the bottom of your library in a random order. If X is greater than "
+         "or equal to the number of cards in your library, you win the game. (Each {U} in the mana costs of permanents you control "
+         "counts toward your devotion to blue.)"),
+    card("Abyssal Persecutor", set_code="tst", number="R81", mana_cost="{2}{B}{B}", cmc=4.0, type_line="Creature — Demon",
+         colors=["B"], color_identity=["B"], power="6", toughness="6", keywords=["Flying", "Trample"],
+         oracle_text="Flying, trample\nYou can't win the game and your opponents can't lose the game."),
+    card("Zaffai and the Tempests", set_code="tst", number="R82", mana_cost="{5}{U}{R}", cmc=7.0,
+         type_line="Legendary Creature — Human Bard Sorcerer", colors=["R", "U"], color_identity=["R", "U"], power="5",
+         toughness="7", oracle_text="Once during each of your turns, you may cast an instant or sorcery spell from your hand "
+         "without paying its mana cost."),
+    card("Jet, Rebel Leader", set_code="tst", number="R90", mana_cost="{3}{W}", cmc=4.0,
+         type_line="Legendary Creature — Human Rebel Ally", colors=["W"], color_identity=["W"], power="3", toughness="4",
+         oracle_text="Whenever Jet attacks, look at the top five cards of your library. You may put a creature card with mana value "
+         "3 or less from among them onto the battlefield tapped and attacking. Put the rest on the bottom of your library in a "
+         "random order."),
+    card("Winota, Joiner of Forces", set_code="tst", number="R91", mana_cost="{2}{R}{W}", cmc=4.0,
+         type_line="Legendary Creature — Human Warrior", colors=["R", "W"], color_identity=["R", "W"], power="4", toughness="4",
+         oracle_text="Whenever a non-Human creature you control attacks, look at the top six cards of your library. You may put a "
+         "Human creature card from among them onto the battlefield tapped and attacking. It gains indestructible until end of "
+         "turn. Put the rest of the cards on the bottom of your library in a random order."),
+    card("Raph & Mikey, Troublemakers", set_code="tst", number="R92", mana_cost="{5}{R/G}{R/G}", cmc=7.0,
+         type_line="Legendary Creature — Mutant Ninja Turtle", colors=["G", "R"], color_identity=["G", "R"], power="7",
+         toughness="7", keywords=["Haste", "Trample"], oracle_text="Trample, haste\nWhenever Raph & Mikey attack, reveal cards from "
+         "the top of your library until you reveal a creature card. Put that card onto the battlefield tapped and attacking and "
+         "the rest on the bottom of your library in a random order."),
     card("Divination", set_code="tst", number="R512", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"],
          color_identity=["U"], oracle_text="Draw two cards."),
     card("Sign in Blood", set_code="tst", number="R513", mana_cost="{B}{B}", cmc=2.0, type_line="Sorcery", colors=["B"],
@@ -147,7 +175,7 @@ OURS = [c["name"] for c in REAL]
 def build(cards):
     alice = deck(cards, "Krenko, Mob Boss", [(1, n) for n in OURS] + [(4, "Grizzly Bears"), (2, "Lightning Bolt"), (20, "Forest")])
     bob = deck(cards, "Atraxa, Praetors' Voice", [(1, "Divination"), (1, "Lightning Bolt"), (1, "Sign in Blood"),
-                                                   (1, "Counterspell"), (2, "Grizzly Bears"), (20, "Island")])
+                                                   (1, "Counterspell"), (2, "Grizzly Bears"), (20, "Island"), (1, "Gideon Jura")])
     s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
     act(s, "p1", type="pass_priority")  # → Alice's first main phase
     return s
@@ -159,7 +187,7 @@ def find(s, name, pid="p1", nth=0):
 
 def put(s, name, where, pid="p1", nth=0):
     c = find(s, name, pid, nth)
-    act(s, "p1", type="move", card_ids=[c.id], to={"zone": where, "player": pid} if where != "battlefield" else {"zone": where})
+    act(s, "p1", type="move", card_ids=[c.id], to={"zone": where, "player": pid})
     return s.state.cards[c.id]
 
 
@@ -187,13 +215,14 @@ def choose(s, ids, *, resolve=False):
         pass_until_stack_empty(s)
 
 
-def hidden_from_bob(s, ids):
-    """Nothing identifying these cards is in Bob's view (a reload too)."""
+def hidden_from_bob(s, ids, *, names=True):
+    """Nothing identifying these cards is in Bob's view (a reload too). ``names``: also their names (only
+    when no card of that name is public)."""
     for session in (s, GameSession(s.history.rebuild(), cards=s.cards)):
         bob = json.dumps(session.view("p2"))
         for cid in ids:
             c = session.state.cards[cid]
-            for secret in (cid, c.name, c.card_id):
+            for secret in (cid, c.name if names else None, c.card_id if names else None):
                 assert not secret or secret not in bob, secret
 
 
@@ -235,7 +264,7 @@ def test_wordings_read_and_refused():
                                  "its mana cost.") is None
 
 
-@pytest.mark.parametrize("name", [n for n in OURS if n not in ("Fling", "Divination", "Sign in Blood", "Ornithopter")])
+@pytest.mark.parametrize("name", [n for n in OURS if n not in ("Fling", "Divination", "Sign in Blood", "Ornithopter", "Abyssal Persecutor")])
 def test_cards_are_full(cards, name):
     ok, missing = full(cards, name)
     assert ok, missing
@@ -744,4 +773,129 @@ def test_kaalia_looks_privately_and_reveals_what_she_takes(cards):
     hidden_from_bob(s, top)
     choose(s, [top[0]], resolve=True)
     assert s.state.cards[top[0]].zone == "p1:hand"
+    replay_matches(s)
+
+
+
+# -- Thassa's Oracle: X against the library (104.2b) ---------------------------------------------------------
+def thin_library(s, keep):
+    """Leave only these cards (by name) in Alice's library: the rest go to exile."""
+    lib = zone(s.state, "p1", "library")
+    names = list(keep)
+    kept = []
+    for cid in lib:
+        name = s.state.cards[cid].name
+        if name in names:
+            names.remove(name)
+            kept.append(cid)
+    act(s, "p1", type="move", card_ids=[c for c in lib if c not in kept], to={"zone": "exile", "player": "p1"})
+    return kept
+
+
+def test_thassas_oracle_wins_when_devotion_covers_the_library(cards):
+    s = build(cards)
+    oracle = put(s, "Thassa's Oracle", "hand")
+    kept = thin_library(s, ["Forest", "Divination"])
+    mana(s, U=2)
+    act(s, "p1", type="cast_spell", card_id=oracle.id)
+    pass_until_stack_empty(s)
+    pass_until_stack_empty(s)
+    d = decision(s, "pick_looked")  # devotion to blue 2: both cards looked at, privately
+    assert {o.id for o in d.options} == set(kept)
+    hidden_from_bob(s, kept, names=False)
+    choose(s, [kept[1]], resolve=True)
+    assert zone(s.state, "p1", "library")[0] == kept[1]
+    assert s.state.rules.winner == "p1" and "p2" in s.state.rules.lost
+    replay_matches(s)
+
+
+def test_thassas_oracle_no_win_with_a_bigger_library_or_a_persecutor(cards):
+    s = build(cards)
+    oracle = put(s, "Thassa's Oracle", "hand")
+    thin_library(s, ["Forest", "Forest", "Forest"])  # devotion 2 < 3
+    mana(s, U=2)
+    act(s, "p1", type="cast_spell", card_id=oracle.id)
+    pass_until_stack_empty(s)
+    pass_until_stack_empty(s)
+    choose(s, [], resolve=True)
+    assert s.state.rules.winner is None
+    s2 = build(cards)
+    put(s2, "Abyssal Persecutor", "battlefield")
+    oracle = put(s2, "Thassa's Oracle", "hand")
+    thin_library(s2, ["Forest"])
+    mana(s2, U=2)
+    act(s2, "p1", type="cast_spell", card_id=oracle.id)
+    pass_until_stack_empty(s2)
+    pass_until_stack_empty(s2)
+    choose(s2, [], resolve=True)
+    assert s2.state.rules.winner is None  # "You can't win the game": left to the players
+    replay_matches(s2)
+
+
+# -- a once-each-turn free cast (a static permission) ----------------------------------------------------------
+def test_zaffai_one_free_instant_or_sorcery_each_of_your_turns(cards):
+    s = build(cards)
+    put(s, "Zaffai and the Tempests", "battlefield")
+    div, bolt, bears = put(s, "Divination", "hand"), put(s, "Lightning Bolt", "hand"), put(s, "Grizzly Bears", "hand")
+    hints = s.view("p1")["rules"]["hints"]
+    assert div.id in hints["free_castable"] and bolt.id in hints["free_castable"] and bears.id not in hints["free_castable"]
+    act(s, "p1", type="cast_spell", card_id=div.id, free=True)
+    pass_until_stack_empty(s)
+    assert s.state.cards[div.id].zone == "p1:graveyard" and s.state.players["p1"].mana == {}
+    with pytest.raises(ActionError):  # once each turn: used up
+        act(s, "p1", type="cast_spell", card_id=bolt.id, free=True, targets=["p2"])
+    replay_matches(s)
+
+
+
+# -- 508.4: onto the battlefield tapped and attacking ------------------------------------------------------------
+def test_jet_puts_a_small_creature_in_attacking_and_it_never_attacked(cards):
+    s = build(cards)
+    jet = put(s, "Jet, Rebel Leader", "battlefield")
+    run_until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    top = stack_library(s, ["Divination", "Grizzly Bears", "Goblin Dark-Dwellers", "Forest", "Forest"])
+    hold(s)
+    to_attack(s, jet)
+    d = decision(s, "pick_looked")
+    assert [o.id for o in d.options] == [top[1]]  # creature cards with mana value 3 or less
+    hidden_from_bob(s, [top[0], top[2]], names=False)
+    choose(s, [top[1]])
+    bears = s.state.cards[top[1]]
+    assert bears.zone == "p1:battlefield" and bears.tapped and bears.attacking is not None and bears.attacking.id == "p2"
+    assert not any("attack" in json.dumps(e.model_dump(mode="json")) for e in s.state.rules.pending_triggers)
+    run_until(s, lambda s: s.state.turn.phase == "main2")
+    assert s.state.players["p2"].life == 40 - 3 - 2
+    replay_matches(s)
+
+
+def test_winota_human_enters_attacking_a_chosen_planeswalker_and_is_indestructible(cards):
+    s = build(cards)
+    put(s, "Winota, Joiner of Forces", "battlefield")
+    bears = put(s, "Grizzly Bears", "battlefield")
+    gideon = put(s, "Gideon Jura", "battlefield", pid="p2")
+    act(s, "p2", type="counter", card_ids=[gideon.id], kind="loyalty", delta=6)
+    run_until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    top = stack_library(s, ["Forest", "Jet, Rebel Leader", "Forest", "Forest", "Forest", "Forest"])
+    hold(s)
+    to_attack(s, bears)
+    d = decision(s, "pick_looked")
+    choose(s, [top[1]])
+    d = decision(s, "token_attack")  # 508.4: Bob, or Bob's planeswalker
+    assert {o.id for o in d.options} == {"p2", gideon.id}
+    choose(s, [gideon.id])
+    jet = s.state.cards[top[1]]
+    assert jet.attacking is not None and jet.attacking.id == gideon.id
+    assert "indestructible" in s.state.rules.effects[-1].model_dump_json()
+    replay_matches(s)
+
+
+def test_raph_and_mikey_reveal_until_a_creature_and_put_it_in_attacking(cards):
+    s = build(cards)
+    rm = put(s, "Raph & Mikey, Troublemakers", "battlefield")
+    top = stack_library(s, ["Forest", "Divination", "Grizzly Bears", "Forest"])
+    to_attack(s, rm)
+    assert s.state.cards[top[2]].zone == "p1:battlefield"
+    assert s.state.players["p2"].life == 40 - 7 - 2  # Raph & Mikey and the Bears, unblocked
+    library = zone(s.state, "p1", "library")
+    assert set(library[-2:]) == {top[0], top[1]} and library[0] == top[3]
     replay_matches(s)

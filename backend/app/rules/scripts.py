@@ -1221,6 +1221,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += piles[0]
             skip_to = i + piles[1]
             continue
+        if _WIN_IF_X.fullmatch(text):  # -- refused look/cast-free (wave 3R5) -- Thassa's Oracle (104.2b)
+            bound_x = [x["n"] for x in effects if isinstance(x.get("n"), dict) and x["n"] != {"x": 1}]
+            if len(bound_x) != 1 or not re.search(r"\bwhere x is\b", body, re.IGNORECASE):
+                return None  # (X is the one an earlier sentence of this ability defined: 107.3c)
+            effects.append({"do": "win_if_library", "x": bound_x[0]})
+            continue
         if (kicked := _KICKED.match(text)) is not None:
             with_kicker = _kicked_sentence(kicked, effects, prev_start)
             if with_kicker is None:
@@ -1435,6 +1441,7 @@ def _piles(texts: list[str], i: int, effects: list[dict[str, Any]]) -> tuple[lis
     return None
 
 
+_WIN_IF_X = re.compile(r"^if [xX] is greater than or equal to the number of cards in your library, you win the game$")
 _FREE_DONT = re.compile(r"^if you don't(?: cast (?:it|that card|the exiled card|the revealed card)(?: this way)?)?, (?P<rest>.+)$")
 
 
