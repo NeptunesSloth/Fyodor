@@ -119,6 +119,9 @@ def begin(plan: Plan) -> None:
     layers.control_sync(plan)  # -- control (wave 3K) -- an Aura or effect source moved by hand: control follows (613.1b)
     # (keep what hasn't been looked at for triggers yet: a resolution that stopped for a
     # decision may have left events its triggers still have to see, 603.2)
+    from app.rules import history  # -- this-turn history (wave 4D) -- what was done by hand still happened (608.2i)
+
+    history.note_events(plan, [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch and e.manual])
     plan.rules.events = [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch and not e.manual]
     turn = plan.state.turn.number
     for prefs in plan.rules.prefs.values():
