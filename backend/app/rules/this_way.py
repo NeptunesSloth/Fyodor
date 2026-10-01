@@ -31,6 +31,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
+from app.game.rules_state import DecisionOption
 from app.rules import selectors
 
 if TYPE_CHECKING:
@@ -40,12 +41,13 @@ if TYPE_CHECKING:
 _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled",), "sacrificed": ("sacrificed",),
           "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned",), "your_hand": ("returned",),
           "graveyard": ("destroyed", "sacrificed", "milled", "discarded"), "your_graveyard": ("milled", "discarded"),
-          "died": ("destroyed", "sacrificed")}
+          "died": ("destroyed", "sacrificed"), "tapped": ("tapped",)}
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
-    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|returned to (?:your|its owner's|their owner's|their owners') hands?"
+    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|returned to (?:your|its owner's|their owner's|their owners') hands?"
     r"|put into (?P<gy>a|your|their|its owner's|that player's|their owners') graveyards?|died|that died) this way$")
 _NOUN_ONLY = re.compile(r"^(?:cards?)$")
+_GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discarded|milled) this way$")
 
 
 def parse(phrase: str) -> dict[str, Any] | None:
@@ -53,6 +55,9 @@ def parse(phrase: str) -> dict[str, Any] | None:
     graveyard this way" / "creatures you controlled that were destroyed this way" → the placeholder,
     or None (not this grammar, or a form that isn't read: a player-relative "they controlled")."""
     p = phrase.strip()
+    most = _GREATEST.match(p)
+    if most is not None:  # Windfall: "the greatest number of cards a player discarded this way" (each player's own)
+        return {"this_way": most["verb"], "of": None, "max_by": "owner"}
     p = re.sub(r"^the number of ", "", p)
     m = _PHRASE.match(p)
     if m is None:
@@ -123,7 +128,7 @@ def bind(v: Any, find: Any) -> Any:
         name = find(_VERBS[v["this_way"]])
         if name is None:
             raise LookupError(v["this_way"])
-        return {"ref_count": name, "this_way": v["this_way"], "of": v.get("of")}
+        return {**v, "ref_count": name}
     return {k: bind(x, find) for k, x in v.items()}
 
 
@@ -139,6 +144,8 @@ def unbound(v: Any) -> bool:
 
 
 def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], you: str) -> bool:
+    if kind == "tapped":  # (tap_choice binds exactly the permanents it tapped)
+        return True
     old_card = plan.state.cards.get(was["card"])
     moved = old_card is None or plan.oid(old_card) != was["object_id"] or new["object_id"] != was["object_id"]
     if not moved:
@@ -158,8 +165,17 @@ def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], y
 
 def count(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     """How many of the objects the bound instruction acted on it actually did this to (and that
-    match the qualifier): see the module docstring."""
-    return len(_matched(plan, ctx, v))
+    match the qualifier): see the module docstring. ``max_by: "owner"``: the most any one player had (a
+    discarded or milled card is its owner's: 701.9a, 701.17a)."""
+    found = _matched(plan, ctx, v)
+    if v.get("max_by") == "owner":
+        owners: dict[str, int] = {}
+        for new, _ in found:
+            card = plan.state.cards.get(new["card"])
+            if card is not None:
+                owners[card.owner] = owners.get(card.owner, 0) + 1
+        return max(owners.values(), default=0)
+    return len(found)
 
 
 def by_controller(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> dict[str, int]:
@@ -171,12 +187,22 @@ def by_controller(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> dict[st
 
     out: dict[str, int] = {}
     for new, was in _matched(plan, ctx, v):
+        here = _still_there(plan, was)
         snap = context.snapshot(plan, ObjectRef.model_validate(was))
         card = plan.state.cards.get(new["card"])
-        pid = snap.controller if snap is not None else (card.owner if card is not None else None)
+        pid = here[0].controller if here is not None else snap.controller if snap is not None else \
+            (card.owner if card is not None else None)
         if pid is not None:
             out[pid] = out.get(pid, 0) + 1
     return out
+
+
+def _still_there(plan: Plan, was: dict[str, Any]) -> tuple[Any, Any] | None:
+    """The object, if it is still that object on the battlefield (a permanent this effect tapped)."""
+    card = plan.state.cards.get(was["card"])
+    if card is None or plan.oid(card) != was["object_id"] or not card.zone.endswith(":battlefield"):
+        return None
+    return card, plan.ch(card)
 
 
 def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[dict[str, Any], dict[str, Any]]]:
@@ -206,12 +232,52 @@ def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[d
                 ch = characteristics.of(then, plan.info) if then is not card else plan.ch(card)
                 if not selectors.matches(plan, sel, then, ch, you):
                     continue
-            else:  # a permanent: as it last existed on the battlefield (608.2h)
-                snap = context.snapshot(plan, ObjectRef.model_validate(was))
-                if snap is None:
+            else:  # a permanent: as it is while it's still there, else as it last existed on the battlefield (608.2h)
+                here = _still_there(plan, was)
+                snap = context.snapshot(plan, ObjectRef.model_validate(was)) if here is None else None
+                if here is None and snap is None:
                     continue
-                card, ch = _snapshot_card(plan, snap)
+                card, ch = here if here is not None else _snapshot_card(plan, snap)  # type: ignore[arg-type]
                 if not selectors.matches(plan, sel, card, ch, you):
                     continue
         out.append((new, was))
     return out
+
+
+# -- "Tap any number of untapped creatures you control. … for each creature tapped this way" ----------------------
+def tap_choice(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The controller chooses any number (0 or more) of the untapped permanents they control that match, and taps
+    them (701.26a); the binding (``as``) is what it tapped. False while the choice is open."""
+    from app.rules.plan import decide
+
+    you = ctx["controller"]
+    sel = selectors.from_key(e["sel"])
+    mine = [c for c in selectors.candidates(plan, sel, you, ctx.get("source_card"))
+            if plan.state.cards[c].controller == you and plan.state.cards[c].zone.endswith(":battlefield")
+            and not plan.state.cards[c].tapped]
+    if not mine:
+        _tap_chosen(plan, ctx, e, [])
+        return True
+    decide(plan, player=you, kind="choose_cards", prompt=f"{ctx.get('name', '') or 'Tap'}: tap any number of them",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
+           min_choices=0, max_choices=len(mine), resume={"step": "tap_choice", "ctx": ctx, "e": e})
+    return False
+
+
+def _tap_chosen(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], chosen: list[str]) -> None:
+    from app.rules import context
+
+    cards = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")
+             and plan.state.cards[c].controller == ctx["controller"] and not plan.state.cards[c].tapped]
+    if e.get("as"):
+        context.bind_objects(plan, ctx, e["as"], cards)
+    if cards:
+        plan.do({"type": "tap", "card_ids": cards, "tapped": True}, actor=ctx["controller"])
+
+
+def resume_tap_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx = d.resume["ctx"]
+    _tap_chosen(plan, ctx, d.resume["e"], chosen)
+    continue_effects(plan, ctx)

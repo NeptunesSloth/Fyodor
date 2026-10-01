@@ -44,6 +44,12 @@ REAL = [
     card('Coerced Confession', set_code="tst", number="W15", mana_cost='{4}{U/B}', cmc=5.0, type_line='Sorcery', oracle_text='Target player mills four cards. You draw a card for each creature card put into their graveyard this way.', colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Mill']),
     card('Come Back Wrong', set_code="tst", number="W16", mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text='Destroy target creature. If a creature card is put into a graveyard this way, return it to the battlefield under your control. Sacrifice it at the beginning of your next end step.', colors=['B'], color_identity=['B']),
     card('Swamp', set_code="tst", number="W17", type_line='Basic Land — Swamp', oracle_text='({T}: Add {B}.)', color_identity=['B']),
+    card('Windfall', set_code="tst", number="V1", mana_cost='{2}{U}', cmc=3.0, type_line='Sorcery', oracle_text='Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.', colors=['U'], color_identity=['U']),
+    card('Greenwarden of Murasa', set_code="tst", number="V2", mana_cost='{4}{G}{G}', cmc=6.0, type_line='Creature — Elemental', oracle_text='When this creature enters, you may return target card from your graveyard to your hand.\nWhen this creature dies, you may exile it. If you do, return target card from your graveyard to your hand.', power='5', toughness='4', colors=['G'], color_identity=['G']),
+    card('Victimize', set_code="tst", number="V3", mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text='Choose two target creature cards in your graveyard. Sacrifice a creature. If you do, return the chosen cards to the battlefield tapped.', colors=['B'], color_identity=['B']),
+    card('Siege Striker', set_code="tst", number="V4", mana_cost='{2}{W}', cmc=3.0, type_line='Creature — Human Soldier', oracle_text='Double strike (This creature deals both first-strike and regular combat damage.)\nWhenever this creature attacks, you may tap any number of untapped creatures you control. This creature gets +1/+1 until end of turn for each creature tapped this way.', power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=['Double strike']),
+    card('Harmony of Nature', set_code="tst", number="V5", mana_cost='{2}{G}', cmc=3.0, type_line='Sorcery', oracle_text='Tap any number of untapped creatures you control. You gain 4 life for each creature tapped this way.', colors=['G'], color_identity=['G']),
+    card("Wit's End", set_code="tst", number="V6", mana_cost='{5}{B}{B}', cmc=7.0, type_line='Sorcery', oracle_text='Target player discards their hand.', colors=['B'], color_identity=['B']),
 ]
 
 NAMES = [c["name"] for c in REAL if c["name"] != "Swamp"]
@@ -72,7 +78,9 @@ def build(cards, players=2):
 
 
 def put(s, name, zone_name, pid="p1", nth=0):
-    c = [c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone.endswith(("library", "hand"))][nth]
+    found = [c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone.endswith(("library", "hand"))
+             and c.zone != f"{pid}:{zone_name}"]
+    c = sorted(found, key=lambda c: not c.zone.endswith("library"))[nth]  # (from the library first)
     act(s, "p1", type="move", card_ids=[c.id], to={"zone": zone_name, "player": pid})
     return s.state.cards[c.id]
 
@@ -407,4 +415,79 @@ def test_snarl_enters_tapped_when_declined_or_with_nothing_to_reveal(cards):
     d = s.state.rules.decision
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["none"])
     assert s.state.cards[land.id].zone == "p1:battlefield" and s.state.cards[land.id].tapped
+    roundtrip(s)
+
+
+# -- 701.9a: discarding a hand ---------------------------------------------------------------------
+def test_windfall_draws_the_greatest_number_any_player_discarded(cards):
+    s = build(cards)
+    for name in ("Island", "Swamp", "Forest"):
+        put(s, name, "hand")
+    put(s, "Island", "hand", pid="p2")
+    cast(s, "Windfall", U=1, C=2)
+    resolve(s)
+    assert len(zone(s.state, "p1", "hand")) == 3 and len(zone(s.state, "p2", "hand")) == 3
+    assert len(zone(s.state, "p1", "graveyard")) == 4 and len(zone(s.state, "p2", "graveyard")) == 1  # (and Windfall)
+    roundtrip(s)
+
+
+def test_wits_end_discards_the_whole_hand_without_a_choice(cards):
+    s = build(cards)
+    for _ in range(3):
+        put(s, "Island", "hand", pid="p2")
+    cast(s, "Wit's End", targets=["p2"], B=2, C=5)
+    resolve(s)
+    assert zone(s.state, "p2", "hand") == [] and len(zone(s.state, "p2", "graveyard")) == 3
+    roundtrip(s)
+
+
+# -- "If you do" after an optional action, with a target of its own (603.3d, 608.2b) -------------------
+def test_greenwarden_exiles_itself_to_return_a_card(cards):
+    s = build(cards)
+    bears = put(s, "Grizzly Bears", "graveyard")
+    warden = put(s, "Greenwarden of Murasa", "battlefield")
+    cast(s, "Fumigate", W=2, C=3)  # it dies
+    resolve(s, [bears.id])
+    assert s.state.cards[warden.id].zone == "p1:exile" and s.state.cards[bears.id].zone == "p1:hand"
+    roundtrip(s)
+
+
+def test_victimize_returns_both_cards_only_if_a_creature_was_sacrificed(cards):
+    s = build(cards)
+    a = put(s, "Grizzly Bears", "graveyard")
+    b = put(s, "Grizzly Bears", "graveyard", nth=1)
+    troll = put(s, "Albino Troll", "battlefield")
+    cast(s, "Victimize", targets=[a.id, b.id], target_counts=[2], B=1, C=2)
+    resolve(s)
+    assert s.state.cards[troll.id].zone == "p1:graveyard"
+    for c in (a, b):
+        assert s.state.cards[c.id].zone == "p1:battlefield" and s.state.cards[c.id].tapped
+    roundtrip(s)
+    s = build(cards)  # nothing to sacrifice: nothing returns (608.2c)
+    a = put(s, "Grizzly Bears", "graveyard")
+    b = put(s, "Grizzly Bears", "graveyard", nth=1)
+    cast(s, "Victimize", targets=[a.id, b.id], target_counts=[2], B=1, C=2)
+    resolve(s)
+    assert s.state.cards[a.id].zone == "p1:graveyard" and s.state.cards[b.id].zone == "p1:graveyard"
+    roundtrip(s)
+
+
+# -- "tap any number of untapped creatures you control" ------------------------------------------------
+def test_harmony_of_nature_counts_the_creatures_tapped(cards):
+    s = build(cards)
+    a = put(s, "Grizzly Bears", "battlefield")
+    b = put(s, "Grizzly Bears", "battlefield", nth=1)
+    c = put(s, "Albino Troll", "battlefield")
+    cast(s, "Harmony of Nature", G=1, C=2)
+    d = s.state.rules.decision
+    for _ in range(5):
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+    assert d.min_choices == 0 and {o.id for o in d.options} == {a.id, b.id, c.id}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[a.id, b.id])
+    resolve(s)
+    assert s.state.cards[a.id].tapped and s.state.cards[b.id].tapped and not s.state.cards[c.id].tapped
+    assert life(s) == 48
     roundtrip(s)

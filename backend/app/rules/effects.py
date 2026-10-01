@@ -34,6 +34,7 @@ from app.rules import (
     selectors,
     values,
 )
+from app.rules import this_way as _this_way  # -- "this way" outcomes (wave 4A) --
 from app.rules.plan import Plan, decide
 from app.rules.targets import source_of, still_legal
 
@@ -1435,6 +1436,9 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         picked = [c for pid in order for c in rng.sample(sorted(plan.state.zones.get(zone_key(pid, "hand"), [])),
                                                            min(want, len(plan.state.zones.get(zone_key(pid, "hand"), []))))]
         return _discard_next(plan, ctx, want, [], picked, e.get("as"))
+    if e.get("all"):  # -- "this way" outcomes (wave 4A) -- "discard your hand": every card, no choice (701.9a)
+        picked = [c for pid in order for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
+        return _discard_next(plan, ctx, 0, [], picked, e.get("as"))
     return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"))
 
 
@@ -2143,6 +2147,8 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES["reflexive"] = reflexive
+# -- "this way" outcomes (wave 4A) -- "Tap any number of untapped creatures you control." (app/rules/this_way.py)
+PRIMITIVES["tap_choice"] = _this_way.tap_choice
 # -- end refused modal/conditional (wave 3R1) --
 
 

@@ -315,6 +315,7 @@ _RECORDING: dict[str, str | None] = {
     "create_token": None, "tap": None, "untap": None, "pump": None, "grant": None, "restrict": None,
     "add_counters": None, "remove_counters": None, "regenerate": None, "damage": None,
     "edict": "sacrificed",  # -- "this way" outcomes (wave 4A) -- "each opponent sacrifices a creature …" (effects._choose_next)
+    "tap_choice": "tapped",  # (wave 4A) "tap any number of untapped creatures you control" (this_way.tap_choice)
 }
 # Effects that introduce objects by themselves — by moving, choosing or creating them — rather than
 # by naming a target: a pronoun after them binds to their recorded objects (the object may be in
@@ -498,7 +499,13 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 pronoun, _, verb = who.partition(":")
                 if e.get("do") == "free_cast" and _free_cast_source(e, pronoun, objects(index, None, verb or None), out, bound):
                     continue  # -- refused look/cast-free (wave 3R5) -- the cards looked at, or the card found
-                intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
+                if verb == "chosen":  # -- "this way" outcomes (wave 4A) -- "the chosen cards": a "Choose target …" sentence's
+                    want = 1 if pronoun == "it" else 2
+                    intro = find(lambda i, want=want: i.do == "choose_targets" and i.number == want, index)
+                    if intro is None:
+                        return None
+                else:
+                    intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
                 if e.get("do") in ("grant_play", "free_cast") and (intro is None or intro.do not in _MOVERS):
                     # "You may play that card this turn": only what an earlier instruction of this
                     # ability moved (exiled, found), where it went (400.7h/j) — never the source,
@@ -1073,6 +1080,18 @@ def _tutor(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
              "reveal": "reveal it" in m.group(0)}], None
 
 
+@effect(r"tap any number of untapped (?P<sel>.+?) you control")
+def _tap_choice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    """-- "this way" outcomes (wave 4A) -- "Tap any number of untapped creatures you control." (a choice of 0 or more,
+    not a target: this_way.tap_choice), read for what "… tapped this way" counts."""
+    from app.rules import selectors
+
+    sel = selectors.parse(f"untapped {m['sel']} you control")
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",):
+        raise _NoMatch
+    return [{"do": "tap_choice", "sel": sel.key()}], None
+
+
 @effect(r"you become the monarch")
 def _monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "monarch", "who": "you"}], None
@@ -1484,7 +1503,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 after_may = _if_you_do_after_may(if_do, effects, optional, i, len(texts))
                 if after_may is None:
                     return None
-                added = _add_groups(groups, after_may, None)
+                added = _add_groups(groups, *after_may)  # (B's own target, if any: wave 4A)
                 # (A may be replaced or impossible: "If you do" reads what A actually did)
                 tracked = [e for e in effects if e["do"] in _PROBED]
                 probes = [f"did{k}" for k in range(len(tracked))]
@@ -1549,6 +1568,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         return None
     if not _cast_conditions_ok(resolved) or not _did_refs_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
         return None
+    # -- "this way" outcomes (wave 4A) -- "discard your hand, then draw that many cards": "that many" is the
+    # cards discarded, not a trigger event's amount (not read)
+    for k, e in enumerate(resolved):
+        if e["do"] == "discard" and e.get("all") and '"event_amount"' in json.dumps(resolved[k + 1:]):
+            return None
     resolved, target = _finish_targets(resolved, groups)
     looked = False
     exiled_at, cast_from_exile = None, False  # -- refused look/cast-free (wave 3R5) --
@@ -3030,20 +3054,25 @@ def _certain_when_chosen(e: dict[str, Any]) -> bool:
 
 
 def _if_you_do_after_may(if_do: re.Match[str], effects: list[dict[str, Any]], optional: bool, index: int,
-                         sentences: int) -> list[dict[str, Any]] | None:
+                         sentences: int) -> tuple[list[dict[str, Any]], Any] | None:
     """"You may [do A]. If you do, [B]." as a whole-ability "you may" (608.2d): the player chooses once,
     and either does A and then B, or neither — exactly what "If you do" says while A can't fail once
     chosen (``_certain_when_chosen``; A itself decides nothing else: no cost). Only the two-sentence form:
-    anything after B would then be optional too. B has no target of its own (115.3: it would be chosen
-    whether or not A is done) and is no "you may" itself. Returns B's effects, or None (not read)."""
+    anything after B would then be optional too. B is no "you may" itself. Returns B's effects and its
+    target spec, or None (not read).
+    -- "this way" outcomes (wave 4A) -- B may have a target of its own ("When this creature dies, you may exile
+    it. If you do, return target card from your graveyard to your hand."): like every target of a triggered
+    ability it is chosen as the ability is put on the stack (603.3d), whatever the player answers later; the
+    "you may" is asked on resolution (603.5), and with no legal target left the ability doesn't resolve at all
+    (608.2b), A included — which is what the rules say for the printed ability too."""
     if not optional or index != 1 or sentences != 2 or if_do["neg"] or if_do["rest"].startswith("you may "):
         return None
     if not effects or not all(_certain_when_chosen(e) or _probed_move(e) for e in effects):  # (wave 3R1: a probed move)
         return None
     found = _clause(if_do["rest"])
-    if found is None or found[1] is not None or not found[0]:
+    if found is None or not found[0]:
         return None
-    return found[0]
+    return found[0], found[1]
 
 
 def _refs_in(value: Any) -> Iterator[str]:
@@ -3160,6 +3189,8 @@ def _probe_previous(effects: list[dict[str, Any]], prev_start: int) -> str | Non
         base = base[1:]  # (a trigger's intervening "if" in that sentence: it gates A, and so B)
     if len(base) != 1 or base[0]["do"] not in _DID_MANDATORY or base[0].get("did") or base[0].get("optional"):
         return None
+    if base[0].get("all"):  # -- "this way" outcomes (wave 4A) -- "Discard your hand. If you do, …" with an empty hand:
+        return None  # whether that was "done" isn't settled here (UNCERTAIN): not read
     if base[0]["do"] in ("exile", "bounce") and not isinstance(base[0].get("who"), str):
         return None
     name = f"mdid{sum(1 for e in effects if str(e.get('did') or '').startswith('mdid'))}"

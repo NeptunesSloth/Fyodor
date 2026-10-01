@@ -198,6 +198,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
     if p in _THEM:
         return "them", "", None  # the objects just named (scripts.resolve_it)
+    if p in ("the chosen cards", "the chosen card"):  # -- "this way" outcomes (wave 4A) -- a "Choose target …" sentence's
+        return ("them" if p.endswith("s") else "it"), "chosen", None
     m = _THIS_WAY.match(p) or _THE_VERBED.match(p)
     if m:
         plural = "what" not in m.groupdict() or m["what"].endswith("s")
@@ -883,6 +885,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m:  # 701.9b: the cards are chosen at random (effects.discard: the table picks; the move records which)
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": _apply(_amount(m["n"]), rider), "random": True}], target
+    # -- "this way" outcomes (wave 4A) -- "discard your hand" / "each player discards their hand" (701.9a: every card in
+    # it; one choice-free discard, all at once, 101.4)
+    m = re.fullmatch(_SUBJ + r"discards? (?:(?P<your>your)|their) hand", text)
+    if m and rider is None and (m["your"] is not None) == (m["s"] in (None, "you")):
+        who, target = _subject(m)
+        return [{"do": "discard", "who": who, "n": 0, "all": True}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)
