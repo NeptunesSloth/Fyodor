@@ -1182,6 +1182,21 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 return None
             effects = with_kicker
             continue
+        # -- refused grants/replacements (wave 3R2) -- "… deals 4 damage to target creature. The damage can't be
+        # prevented." (615.12): the damage the sentence before deals
+        if text == "the damage can't be prevented":
+            dealt = [e for e in effects[prev_start:] if e.get("do") == "damage"]
+            if not dealt or len(dealt) != len(effects[prev_start:]):
+                return None
+            for e in dealt:
+                e["unpreventable"] = True
+            continue
+        # "The flashback cost is equal to its mana cost." (the grant before it)
+        from app.rules import graveyard_grants
+
+        if graveyard_grants.cost_sentence(text, effects[prev_start:]):
+            continue
+        # -- end refused grants/replacements (wave 3R2) --
         if (instead := replacement_sentence(text, effects, groups)) is not None:  # -- replacement effects stage 2 (wave 2E) --  (before 1B: a replacement, not a condition)
             effects += instead
             continue
@@ -2007,6 +2022,20 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     """A static line that is a replacement or prevention effect of the permanent itself."""
     if ability.kind != "static":
         return None
+    # -- refused grants/replacements (wave 3R2) -- "Damage can't be prevented." and friends (615.12)
+    from app.rules import skips, source_shields
+
+    if (unpreventable := source_shields.static_definition(text)) is not None:
+        return unpreventable
+    if (skip := skips.static_definition(text)) is not None:  # "Skip your draw step." (614.10)
+        return skip
+    from app.rules import cant_gain, extra_tokens
+
+    if (extra := extra_tokens.static_definition(text)) is not None:  # "those tokens plus a Food token" (614.16)
+        return extra
+    if (cant := cant_gain.static_definition(text)) is not None:  # "Players can't gain life." (614.17)
+        return cant
+    # -- end refused grants/replacements (wave 3R2) --
     if text == "~ enters tapped.":
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
     from app.rules import language  # (a leaf module)
@@ -2814,3 +2843,21 @@ def _exile_until_monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     back = {"do": "return_card", "who": "ref:m0", "to": "battlefield", "tapped": False, "under": "owner"}
     return [{**found[0][0], "as": "m0"}, *_delayed.wrap_when([back], {"kind": "designation", "what": "monarch", "by": "opponent"})], found[1]
 # -- end counters & designations (wave 3E) --
+
+
+# -- refused grants/replacements (wave 3R2) -- source-of-your-choice shields (609.7, 615.8) and "Damage can't be
+# prevented this turn." (615.12): app/rules/source_shields.py. Tried first: the generic "prevent all damage that would
+# be dealt …" template refuses (rather than declines) the "source of your choice" wording.
+from app.rules import cant_gain as _cant_gain  # noqa: E402
+from app.rules import graveyard_grants as _graveyard_grants  # noqa: E402
+from app.rules import skips as _skips  # noqa: E402
+from app.rules import source_shields as _source_shields  # noqa: E402
+
+# (and 614.10 skips: app/rules/skips.py; 614.17 "can't gain life": app/rules/cant_gain.py; flashback and "you may play
+# this card" granted to graveyard cards: app/rules/graveyard_grants.py)
+EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLATES, *_graveyard_grants.TEMPLATES]
+# "Choose one of them." chooses among what the instruction before moved; "that card" is then the chosen one
+_RECORDING["choose_one_of"] = None
+_MOVERS.add("choose_one_of")
+_CHOSEN["choose_one_of"] = "n"
+# -- end refused grants/replacements (wave 3R2) --

@@ -44,6 +44,29 @@ Refused (kept manual) in v1: 616.1b-d (control, copy, back face), redirection (6
 (614.10) of steps, "can't" effects (614.17), "can't be prevented" (615.12), paying life (119.4:
 UNVERIFIED whether a payment is replaceable), life-loss replacements, "you would put" counter
 wordings, token replacements that add a different token.
+
+-- refused grants/replacements (wave 3R2) -- Now automated: redirection statics (614.9, op
+"redirect"), skips (614.10: app/rules/skips.py), "can't gain life" (614.17: app/rules/cant_gain.py),
+"can't be prevented" (615.12) and source-of-your-choice shields (609.7, 615.8:
+app/rules/source_shields.py), a different token added (op "extra": app/rules/extra_tokens.py).
+Still refused, and why:
+* 616.1b-d: no replacement the engine applies changes who controls an entering object, makes it a
+  copy as it enters through this loop, or has it enter transformed — nothing to order yet.
+* Paying life (119.4): UNVERIFIED whether a payment is a replaceable life-loss event; a cost is
+  paid as written.
+* Life-loss replacements ("If an opponent would lose life during your turn, they lose twice that
+  much life instead."): life loss has no choke point yet (seven direct sites).
+* "If you would put one or more counters" (Vorinclex, Lae'zel): who "puts" a counter is not
+  recorded for every site, and whether a player "getting" counters or a source's controller
+  "giving" poison counters (120.3b) is "putting" them is UNVERIFIED.
+* Count-level draw replacements ("If an opponent would draw two or more cards, instead …": Alms
+  Collector, 121.2a): draws are proposed one card at a time.
+* Kalitas-style "instead exile that card and create a token" (a zone replacement with an extra
+  event): the move replacement runs inside a table step and can't ask the affected player to
+  order it against another "exile instead" (616.1), which then matters.
+* A leveler's / Class's level lines and a Room's door lines are never applied (``conditional_lines``):
+  the level and the door aren't tracked. An entering permanent's own counter statics: no Commander
+  card is blocked by it (614.12 allows only self-only ones, which none has).
 """
 
 from __future__ import annotations
@@ -531,6 +554,11 @@ def _tokens_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     m = c.match
     if m.get("who") == "you" and ev["player"] != c.controller:
         return False
+    if c.op["do"] == "extra":  # -- refused grants/replacements (wave 3R2) -- app/rules/extra_tokens.py
+        from app.rules import extra_tokens
+
+        if not extra_tokens.applies(c, ev):
+            return False
     types, subtypes = _token_types(ev["token"])
     if m.get("types") and not set(m["types"]) & types:
         return False
@@ -539,6 +567,10 @@ def _tokens_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
 
 def _tokens_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     op = c.op
+    if op["do"] == "extra":  # -- refused grants/replacements (wave 3R2) -- "those tokens plus a Food token" (614.16)
+        from app.rules import extra_tokens
+
+        return extra_tokens.apply(c, ev)
     n = ev["count"] * int(op["n"]) if op["do"] == "mul" else ev["count"] + int(op["n"]) if op["do"] == "add" else ev["count"]
     return [{**ev, "count": max(0, n)}]
 
@@ -940,12 +972,18 @@ def plan_life(plan: Plan, gains: list[tuple[str, int, str]], *, answers: dict[st
     """Life gain events ([(player, n, key)], each its own event: 702.15e) through 616.1."""
     planner = Planner(plan, cands if cands is not None else candidates(plan, "life"), answers, ask=ask)
     order = plan.apnap()
-    evs = [{"kind": "life", "player": p, "n": int(n), "key": key, "applied": []} for p, n, key in gains]
+    evs: list[Event] = [{"kind": "life", "player": p, "n": int(n), "key": key, "applied": []} for p, n, key in gains]
     evs.sort(key=lambda e: order.index(e["player"]) if e["player"] in order else len(order))
     finals: list[tuple[Event, list[Event]]] = []
+    from app.rules import cant_gain  # -- refused grants/replacements (wave 3R2) --
+
     try:
         for ev in evs:
             out: list[Event] = []
+            # 614.17c: a gain that can't happen isn't replaced by anything but a self-replacement effect (none here)
+            if ev["n"] > 0 and (why := cant_gain.why_not(plan, ev["player"])) is not None:
+                finals.append((ev, [{"kind": "nothing", "why": [f"{why}: {plan.name(ev['player'])} can't gain life"]}]))
+                continue
             planner.settle(ev, {}, out.append)
             finals.append((ev, out))
     except Ask as q:
@@ -998,6 +1036,11 @@ def source_info(plan: Plan, card_id: str | None, oid: str | None, ch: Any, contr
 
 def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -> bool:
     src = ev.get("src") or {}
+    # -- refused grants/replacements (wave 3R2) -- a source of a player's choice (609.7a: the object chosen; its
+    # property, if any, is checked again below: 609.7b)
+    if spec.get("oids") is not None and ev.get("source_oid") not in spec["oids"]:
+        return False
+    # -- end refused grants/replacements (wave 3R2) --
     if spec.get("self"):
         return ev.get("source_oid") is not None and ev.get("source_oid") == c.source_oid
     if spec.get("attached"):
@@ -1042,6 +1085,14 @@ def _recipient_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event
 def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if ev["amount"] <= 0:
         return False  # 614.7a: a source dealing 0 damage deals no damage: nothing to replace or prevent
+    # -- refused grants/replacements (wave 3R2) -- 615.12: a prevention effect applied to damage that can't be
+    # prevented prevents none of it and a shield isn't reduced; none the engine applies has an additional effect
+    # (app/rules/source_shields.py), so it isn't applied at all. 615.8: a "next time" shield is used up once.
+    if (c.prevention or c.legacy is not None) and ev.get("unpreventable"):
+        return False
+    if c.op.get("once") and f"once:{c.id}" in sim.get("shields", {}):
+        return False
+    # -- end refused grants/replacements (wave 3R2) --
     if c.legacy is not None:  # a stage-1 "prevent all …" static or this turn's record
         from app.rules import replacements
 
@@ -1052,11 +1103,20 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     m = c.match
     if m.get("combat") is not None and bool(m["combat"]) != bool(ev.get("combat")):
         return False
+    if c.op["do"] == "redirect":  # -- refused grants/replacements (wave 3R2) -- 614.9: nowhere to redirect to: nothing
+        from app.rules import source_shields
+
+        if source_shields.redirect_target(plan, c, ev) is None:
+            return False
     return _source_matches(plan, m.get("source") or {}, c, ev) and _recipient_matches(plan, m.get("to") or {}, c, ev)
 
 
 def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     op = c.op
+    if op["do"] == "redirect":  # -- refused grants/replacements (wave 3R2) -- 614.9 (app/rules/source_shields.py)
+        from app.rules import source_shields
+
+        return [source_shields.redirect(plan, c, ev)]
     n = int(ev["amount"])
     kind = op["do"]
     if kind == "mul":
@@ -1079,6 +1139,8 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         used = min(left, n)
         shields[op["key"]] = left - used
         n -= used
+    if op.get("once"):  # -- refused grants/replacements (wave 3R2) -- 615.8: used up by this instance of damage
+        sim.setdefault("shields", {})[f"once:{c.id}"] = 0
     out = {**ev, "amount": n}
     if op.get("prevention"):
         out["prevented"] = int(ev.get("prevented") or 0) + (int(ev["amount"]) - n)
@@ -1142,6 +1204,12 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
         ev.setdefault("applied", [])
         ev["prevented"] = int(ev.get("prevented") or 0)
         ev["target_oid"] = plan.oid(ev["target"]) if ev["target"] in plan.state.cards else None
+        # -- refused grants/replacements (wave 3R2) -- 615.12: damage that can't be prevented
+        from app.rules import source_shields
+
+        if source_shields.unpreventable(plan, ev):
+            ev["unpreventable"] = True
+        # -- end refused grants/replacements (wave 3R2) --
     apnap = plan.apnap()
     by_target: dict[str, list[Event]] = {}
     for ev in events:
@@ -1164,7 +1232,7 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
             while pending:
                 ev = pending[0]
                 # (damage a "prevent all" effect prevents anyway isn't what the shield would prevent)
-                contenders = [e for e in pending if e["amount"] > 0
+                contenders = [e for e in pending if e["amount"] > 0 and not e.get("unpreventable")  # (615.12, wave 3R2)
                               and not any(c.legacy is not None and replacements._applies(plan, c.legacy, e) for c in cands)]
                 if len(contenders) > 1 and sim["shields"].get(key, 0) > 0 \
                         and len({replacements._shield_signature(plan, e) for e in contenders}) > 1:
@@ -1335,6 +1403,11 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
 def commit_shields(plan: Plan, shields: dict[str, int]) -> None:
     """The shields as the damage left them (615.7: used up by what they prevented)."""
     r = plan.rules
+    # -- refused grants/replacements (wave 3R2) -- 615.8: a "next time" shield that prevented damage is used up
+    used = {key[len("once:r:"):] for key in shields if key.startswith("once:r:")}
+    if used:
+        r.replacements = [rec for rec in r.replacements if rec.get("id") not in used]
+    # -- end refused grants/replacements (wave 3R2) --
     for key, left in shields.items():
         if key not in r.prevention:
             continue

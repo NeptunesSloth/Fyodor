@@ -93,6 +93,10 @@ TOP_LOOK = "you may look at the top card of your library any time"
 # this resolves, ignoring timing" — not a permission that lasts: refused.
 GRANT_THAT = re.compile(r"^(?:(?P<until>until end of turn|until the end of your next turn), )?you may (?P<verb>play|cast) "
                         r"(?P<what>that card|those cards|it)(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?$")
+# -- refused grants/replacements (wave 3R2) -- "You may play that card until the end of your next turn."
+_TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|those cards|it|them)(?: without paying (?:its|their) mana costs?)?) "
+                             r"(?P<until>until end of turn|until the end of your next turn)$")
+# -- end refused grants/replacements (wave 3R2) --
 # "Until end of turn, you may play lands and cast spells from your graveyard." (Yawgmoth's Will)
 GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>play lands and cast spells|play lands|cast spells)"
                         r" from your graveyard(?P<this_turn> this turn)?$")
@@ -270,6 +274,14 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             return None
         return [{"do": "free_cast", "zone": "hand", "filter": key, "optional": True, "mv": "x" if (m["n"] or m["x2"]) == "X" else
                  int(m["n"]) if m["n"] else None}], None
+    # -- refused grants/replacements (wave 3R2) -- the same permission with its duration at the end ("You may play it
+    # until the end of your next turn.": 611.2a, the duration is the one stated, wherever the sentence states it) and
+    # "them" for "those cards" ("You may play them until the end of your next turn.")
+    trailing = _TRAILING_UNTIL.fullmatch(text)
+    if trailing:
+        text = f"{trailing['until']}, {trailing['rest']}"
+    text = re.sub(r"^((?:until [a-z ]+, )?you may (?:play|cast)) them\b", r"\1 those cards", text)
+    # -- end refused grants/replacements (wave 3R2) --
     m = GRANT_THAT.fullmatch(text)
     if m and m["free"] and not (m["until"] or m["this_turn"]):
         if m["verb"] != "cast" or m["what"] == "those cards":

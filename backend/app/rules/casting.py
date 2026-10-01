@@ -1026,9 +1026,19 @@ def flashback_cost(ch: Characteristics) -> str | None:
     return None
 
 
-def from_graveyard(card: CardInstance, player: str, ch: Characteristics) -> bool:
-    """Casting with flashback: from your own graveyard, when it has a (mana) flashback cost."""
-    return card.zone == zone_key(player, "graveyard") and card.owner == player and flashback_cost(ch) is not None
+def from_graveyard(card: CardInstance, player: str, ch: Characteristics, state: GameState | None = None) -> bool:
+    """Casting with flashback: from your own graveyard, when it has a (mana) flashback cost — its
+    own, or (wave 3R2, ``state``) one an effect gave it this turn (app/rules/graveyard_grants.py)."""
+    if card.zone != zone_key(player, "graveyard") or card.owner != player:
+        return False
+    return flashback_cost(ch) is not None or (state is not None and _granted_flashback(state, card, ch) is not None)
+
+
+def _granted_flashback(state: GameState, card: CardInstance, ch: Characteristics) -> str | None:
+    """-- refused grants/replacements (wave 3R2) -- "… gains flashback until end of turn" (Snapcaster Mage)."""
+    from app.rules import graveyard_grants
+
+    return graveyard_grants.flashback_cost(state, card, ch)
 
 
 MORPH = re.compile(r"^(?P<kind>morph|megamorph) (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
@@ -1086,7 +1096,7 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
     it is never applied to a plain cast: without the opt-in only paid ways count, and a card that
     only a free permission lets them cast isn't castable that way."""
     how = "hand" if card.zone == zone_key(player, "hand") else "command" if from_command_zone(card, player) else \
-        "flashback" if from_graveyard(card, player, ch) else None
+        "flashback" if from_graveyard(card, player, ch, state) else None
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
     flash = any(g.flash for g in found)
     if free:
@@ -1206,7 +1216,8 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
     elif alternative is not None:
         base = alternative
     else:
-        flashback = flashback_cost(ch) if card.zone == zone_key(card.owner, "graveyard") else None
+        in_graveyard = card.zone == zone_key(card.owner, "graveyard")
+        flashback = (flashback_cost(ch) or _granted_flashback(state, card, ch)) if in_graveyard else None  # (wave 3R2)
         base = M.parse_cost(flashback or ch.mana_cost).with_x(x)
     extras = list(additional)
     if kicker:
@@ -1349,7 +1360,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=Purpose(spell=ch)):
         return
     commander_cast = from_command_zone(card, plan.actor)
-    flashback = from_graveyard(card, plan.actor, ch)
+    flashback = from_graveyard(card, plan.actor, ch, plan.state)
     card_was_in_hand = card.zone == zone_key(plan.actor, "hand")
     from_where = {"graveyard": "the graveyard", "exile": "exile", "library": "the library", "hand": "the hand"}.get(
         card.zone.rsplit(":", 1)[-1], card.zone)

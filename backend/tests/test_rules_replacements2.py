@@ -798,13 +798,11 @@ def test_wordings_that_stay_manual():
         # "you would put": who puts the counters (Vorinclex, Monstrous Raider)
         "If you would put one or more counters on a permanent or player, put twice that many of each of those kinds of "
         "counters on that permanent or player instead.",
-        # a different token added (Chatterfang, Squirrel General) / "may instead" (Jinnie Fay)
-        "If one or more tokens would be created under your control, those tokens plus that many 1/1 green Squirrel "
-        "creature tokens are created instead.",
+        # "may instead" (Jinnie Fay) — (wave 3R2: a different token added, Chatterfang, and redirection, Pariah, are
+        # automated: tests/test_rules_refused_grants.py)
         "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste "
         "or that many 3/1 green Dog creature tokens with vigilance.",
-        # redirection (614.9: Pariah) / a rider after prevention (615.5)
-        "All damage that would be dealt to you is dealt to enchanted creature instead.",
+        # a rider after prevention (615.5)
         "If a source would deal damage to you, prevent that damage and put an incarnation counter on this enchantment.",
         # "can't" and life-loss replacements (614.17, 119.8) / a draw replaced by looking (Abundance-like)
         "If an opponent would lose life during your turn, they lose twice that much life instead.",

@@ -491,9 +491,17 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
     r = plan.rules
     out = CombatDamage()
 
+    def _protection_prevents(source_card: CardInstance, source: Characteristics, target: str) -> bool:
+        """-- refused grants/replacements (wave 3R2) -- 615.12: not combat damage that can't be prevented."""
+        from app.rules import source_shields
+
+        ev = {"source_card": source_card.id, "source_oid": plan.oid(source_card), "target": target, "combat": True,
+              "src": replace.source_info(plan, source_card.id, plan.oid(source_card), source, source_card.controller)}
+        return source_shields.protection_applies(plan, ev)
+
     def hit_creature(source_card: CardInstance, source: Characteristics, target: CardInstance, n: int) -> int:
         """Assign ``n`` damage to a creature; returns how much is dealt (protection prevents it, 702.16e)."""
-        if protection.protected_from(plan.ch(target), source):
+        if protection.protected_from(plan.ch(target), source) and _protection_prevents(source_card, source, target.id):
             return 0
         into = out.wither if {"wither", "infect"} & source.keywords else out.creatures
         into[target.id] = into.get(target.id, 0) + n
@@ -524,7 +532,7 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
                 key = (tgt.id, att.commander_key)
                 out.commander[key] = out.commander.get(key, 0) + n
         elif tgt.id in state.cards and state.cards[tgt.id].zone.endswith(":battlefield"):
-            if protection.protected_from(plan.ch(state.cards[tgt.id]), ach):
+            if protection.protected_from(plan.ch(state.cards[tgt.id]), ach) and _protection_prevents(att, ach, tgt.id):
                 return 0
             out.walkers[tgt.id] = out.walkers.get(tgt.id, 0) + n
             out.dealt.append((att.id, tgt.id, n))
