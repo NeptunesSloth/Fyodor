@@ -51,7 +51,7 @@ OTHER_SUBTYPES = {"Equipment", "Aura", "Vehicle", "Food", "Clue", "Treasure", "B
 _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves": "Werewolf", "thieves": "Thief",
               "mice": "Mouse", "fungi": "Fungus", "sphinxes": "Sphinx", "foxes": "Fox", "djinn": "Djinn",
               "allies": "Ally", "fairies": "Faerie", "zombies": "Zombie", "sorceries": "Sorcery", "mercenaries": "Mercenary",
-              "pegasi": "Pegasus", "octopi": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
+              "plains": "Plains", "pegasi": "Pegasus", "octopi": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
 _MARKERS = {"card", "spell", "perm", "token", "commander"}  # nouns that mark what kind of object, not its type
 ZONES = ("battlefield", "graveyard", "hand", "exile", "library", "stack", "command")
 
@@ -128,6 +128,9 @@ def _from_key(key: str) -> Selector:
 # -- parsing ------------------------------------------------------------------------------
 _NUM = r"(\d+|one|two|three|four|five|six|seven|eight|nine|ten|x)"
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+
+
+X_VALUE = -1  # a comparison with X: the X of the spell (or ability) the selector is read for (107.3f, 202.3e)
 
 
 def _n(word: str) -> int | None:
@@ -228,6 +231,11 @@ def _graveyards(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", None)  # any graveyards (400.1: each player has their own)
 
 
+@_suffix(r"from all graveyards")  # -- reanimation (wave 3R) --
+def _all_graveyards(s: Selector, m: re.Match[str]) -> Selector:
+    return _in_zone(s, "graveyard", None)
+
+
 @_suffix(r"from a single graveyard")
 def _single_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     """"Exile up to two target cards from a single graveyard": any graveyard, but all the targets
@@ -241,9 +249,11 @@ def _exile(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "exile", None)
 
 
-@_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM + r" or (?P<dir>less|greater|more)")
+@_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM.replace("|x)", "|[xX])") + r" or (?P<dir>less|greater|more)")
 def _compare(s: Selector, m: re.Match[str]) -> Selector:
     n = _n(m.group(2))
+    if n is None and m["what"] == "mana value" and m.group(2).lower() == "x" and m["dir"] == "less":
+        n = X_VALUE  # -- control (wave 3K) -- "target creature with mana value X or less" (Dominate): the X of the spell
     if n is None:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
@@ -348,6 +358,8 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, commander=True)
     if low in ("enchanted", "equipped"):
         return replace(s, extras=(*s.extras, low))
+    if low in ("face-down", "face-up"):  # -- keyword actions & face-down (wave 3F) -- 708: "face-down creatures you control"
+        return replace(s, extras=(*s.extras, low.replace("-", "_")))
     if low.startswith("non"):
         rest = word[4:] if word[3:4] == "-" else word[3:]
         if rest.lower() in COLORS:
@@ -633,6 +645,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if set(sel.without_keywords) & ch.keywords:
         return False
     for what, op, n in sel.compare:
+        if n == X_VALUE:  # (107.3f: X is the one chosen for the spell; none known: nothing matches)
+            src = plan.state.cards.get(source or "")
+            x = src.stack_info.x if src is not None and src.stack_info is not None and src.stack_info.x is not None \
+                else getattr(plan, "x_choice", None)  # (not on the stack yet: the X announced for it)
+            if x is None:
+                return False
+            n = x
         value = _stat(ch, what)
         if what == "mv" and value is not None and zone == "stack" and card.stack_info is not None and card.stack_info.x:
             value += card.stack_info.x * ch.mana_cost.count("{X}")  # 202.3e: X on the stack is the value chosen
@@ -643,9 +662,14 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "equipped" and not _has_attached(plan, card, "Equipment"):
             return False
+        # (700.6; set only by the look-and-distribute grammar: "a historic card from among them")
+        if extra == "historic" and not ("Artifact" in ch.types or "Legendary" in ch.supertypes or "Saga" in ch.subtypes):
+            return False
         if extra.startswith("counter:") and not card.counters.get(extra[8:], 0):
             return False
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
+            return False
+        if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
             return False
     return True
 

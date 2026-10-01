@@ -91,6 +91,8 @@ def _quoted_text(quoted: str) -> str | None:
     know the token means itself (app.rules.scripts.self_text)."""
     from app.rules import scripts  # (scripts calls this module from its templates)
 
+    if re.search(r"\btransform\b", quoted, re.I):
+        return None  # -- wave 3F -- only the Incubator is a double-faced token (111.10i); others stay manual
     if scripts.granted_ability(quoted) is not None:  # (a mana ability: "Sacrifice this token: Add {C}.")
         return quoted
     text = re.sub(r"\bthis token\b", "this creature", quoted)
@@ -117,7 +119,8 @@ def _with(part: str | None) -> tuple[list[str], str | None] | None:
         if '"' in quoted:
             return None
     kws = [k.strip() for k in re.split(r", and |, | and ", part) if k.strip()]
-    if any(k not in SUPPORTED_KEYWORDS for k in kws):
+    # (wave 3E: "toxic N", read by combat.py from the token's keyword line, 702.164)
+    if any(k not in SUPPORTED_KEYWORDS and not re.fullmatch(r"toxic \d+", k) for k in kws):
         return None
     if quoted is not None:
         quoted = _quoted_text(quoted)

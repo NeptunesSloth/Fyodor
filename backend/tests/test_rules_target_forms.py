@@ -68,7 +68,7 @@ def test_refused_selectors(phrase):
     # a player, or any planeswalker (whoever controls it)
     ("~ deals 4 damage to target player or planeswalker.", [{"do": "damage", "who": "target", "n": 4}], "player_or_planeswalker"),
     ("~ deals 3 damage to target player or planeswalker and 3 damage to target creature.",
-     [{"do": "damage", "who": "target:0", "n": 3}, {"do": "damage", "who": "target:1", "n": 3}],
+     [{"do": "damage", "who": "target:0", "n": 3, "with_next": True}, {"do": "damage", "who": "target:1", "n": 3}],
      [{"what": "player_or_planeswalker", "min": 1, "max": 1}, {"what": CREATURE, "min": 1, "max": 1}]),
     # "other" inside a counted group: other than the source when nothing was targeted before …
     ("Up to one other target creature gets -3/-0 until end of turn.", [{"do": "pump", "who": "target:0", "p": -3, "t": 0}],
@@ -79,10 +79,10 @@ def test_refused_selectors(phrase):
      [{"what": 'sel:{"not_types":["Land"],"other":true}', "min": 0, "max": 2}]),
     # … and distinct from the earlier target (115.3) when there is one
     ("~ deals 4 damage to any target and 3 damage to each of up to two other targets.",
-     [{"do": "damage", "who": "target:0", "n": 4}, {"do": "damage", "who": "target:1", "n": 3}],
+     [{"do": "damage", "who": "target:0", "n": 4, "with_next": True}, {"do": "damage", "who": "target:1", "n": 3}],
      [{"what": "any", "min": 1, "max": 1}, {"what": "any", "min": 0, "max": 2, "distinct_from": [0]}]),
     ("~ deals 2 damage to any target and 1 damage to any other target.",
-     [{"do": "damage", "who": "target:0", "n": 2}, {"do": "damage", "who": "target:1", "n": 1}],
+     [{"do": "damage", "who": "target:0", "n": 2, "with_next": True}, {"do": "damage", "who": "target:1", "n": 1}],
      [{"what": "any", "min": 1, "max": 1}, {"what": "any", "min": 1, "max": 1, "distinct_from": [0]}]),
     ("Tap target creature. Tap up to one other target creature.", [{"do": "tap", "who": "target:0"}, {"do": "tap", "who": "target:1"}],
      [{"what": "creature", "min": 1, "max": 1}, {"what": CREATURE, "min": 0, "max": 1, "distinct_from": [0]}]),
@@ -116,7 +116,6 @@ def test_target_forms_are_parsed(text, effects_, target):
     "Counter target activated or triggered ability from an artifact or enchantment source.",
     "Exile target player's graveyard.",  # (a target player's zone as the objects: not modelled)
     "Exile it until ~ leaves the battlefield.",
-    "Tap up to two target creatures and put a stun counter on each of them.",  # (stun: values.UNMODELED_COUNTERS)
     "Target player shuffles up to four target cards from their graveyard into their library.",
     "Tap up to X target creatures.",
 ])
@@ -127,16 +126,10 @@ def test_refused_forms(text):
 def test_refusals_are_registered():
     """Every refused wording names why (the missing piece), so the gap report can rank it."""
     for text, piece in [
-        ("Target creature you control fights another target creature.", "fight"),
-        ("Choose up to one target creature. That creature can't block this turn.", "choose_targets"),
-        ("Tap up to two target creatures and put a stun counter on each of them.", "stun"),
         ("This spell costs {1}{U} more to cast for each target beyond the first.", "extra target"),
         ("Exile target player's graveyard.", "zone"),
         ("Destroy target creature that player controls.", "named earlier"),
         ("Destroy up to X target artifacts.", "variable number"),
-        # (copy system, wave 2F: "Copy target activated or triggered ability you control." is read now —
-        # tests/test_rules_copy.py; copying the spell a trigger was about is still refused)
-        ("Whenever you cast an instant or sorcery spell, copy it.", "copying"),
         ("Target player shuffles up to four target cards from their graveyard into their library.", "earlier target"),
         ("Switch target creature's power and toughness until end of turn.", "P/T"),
     ]:
@@ -144,6 +137,11 @@ def test_refusals_are_registered():
         assert reason is not None and piece in reason, text
         assert parse_effects(text) is None or language.has_primitive(piece), text
     assert coverage.refusal("Destroy target creature.") is None
+    # (read since: fight, "choose … target", "copy that spell", target groups with a total mana value)
+    for text in ("Target creature you control fights another target creature.", "You may copy that spell.",
+                 "Return up to three target creature cards with total mana value 3 or less from your graveyard to the battlefield."):
+        assert coverage.refusal(text) is None and parse_effects(text) is not None, text
+    assert coverage.refusal("Put up to two creature cards with total mana value 6 or less from among them onto the battlefield.")
 
 
 # -- the primitives another module must add: the grammar is ready, the wording is refused until then

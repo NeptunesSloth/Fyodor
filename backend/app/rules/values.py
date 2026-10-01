@@ -28,6 +28,7 @@ A value is an int (a literal) or a dict:
 * ``{"neg": v}`` — a negative amount (only through :func:`evaluate_signed`: "-1/-1 for each …");
 * ``{"event_amount": 1}`` — "that much" / "that many": the trigger event's amount, read from the
   context the ability carries from when it triggered (app.game.rules_state.TriggerEvent).
+* ``{"spells_cast": "you"}`` — the spells you've cast this turn (wave 3D);
 * ``{"kicked": 1}`` — the number of times the spell (or the permanent it became) was kicked
   (702.33d; "for each time it was kicked").
 
@@ -56,7 +57,7 @@ AMOUNT = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|t
 UNMODELED_COUNTERS = frozenset({
     "flying", "first strike", "double strike", "deathtouch", "decayed", "exalted", "haste", "hexproof",
     "indestructible", "lifelink", "menace", "reach", "shadow", "trample", "vigilance",
-    "shield", "stun", "finality", "rad", "hone", "lore"})
+    "shield", "rad", "hone", "lore"})  # (stun: 122.1d, wave 3F — keyword_actions.untap_stunned; finality: 122.1h, wave 3R4 — replacements.replace_move)
 
 BASIC_LAND_TYPES = ("Plains", "Island", "Swamp", "Mountain", "Forest")  # 205.3i
 # 205.2a: the card types (as the type line writes them; "Tribal" is the old name of kindred)
@@ -96,6 +97,10 @@ _DEVOTION = re.compile(r"^your devotion to (?P<c1>white|blue|black|red|green)(?:
 _AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power|toughness|mana value) "
                         r"(?:among|of) (?P<sel>.+)$")
 _PLAYER_COUNTERS = re.compile(r"^(?P<kind>[a-z]+) counters? you have$")
+# -- counters & designations (wave 3E) -- "poison counters your opponents have" (all of them together),
+# "{E} you have" / "the amount of {E} you have" (107.14: each {E} is an energy counter)
+_PLAYER_COUNTERS_3E = re.compile(r"^(?:the amount of )?(?:(?P<kind>poison|experience|rad|energy) counters?|(?P<e>\{E\})) "
+                                 r"(?P<who>you have|your opponents have)$")
 _HALF = re.compile(r"^half (?P<v>.+?), rounded (?P<round>up|down)$")
 _PLUS = re.compile(r"^(?P<v>.+?) plus (?P<n>\d+|one|two|three|four|five)$")
 _TYPE_WORDS = "|".join(selectors.CARD_TYPES)
@@ -113,6 +118,16 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     what = m["what"] if m else p
     if what.lower() == "x":
         return {"x": 1}
+    # -- refused zones/sized (wave 3R4) -- "the number of cards in their hand minus 4", "3 minus the number of …",
+    # "… minus the number of cards in your hand": never below 0 (107.1b)
+    minus = re.match(r"^(?P<a>.+?) minus (?P<b>\d+|one|two|three|four|five|the number of .+)$", what)
+    if minus:
+        a_text = minus["a"] if m is None else f"the number of {minus['a']}"
+        a = int(a_text) if a_text.isdigit() else NUMBERS.get(a_text) or parse_count(a_text, it=it)
+        b = int(minus["b"]) if minus["b"].isdigit() else NUMBERS.get(minus["b"]) or parse_count(minus["b"], it=it)
+        return {"minus": [a, b]} if a is not None and b is not None else None
+    if what in ("cards in their hand", "cards in that player's hand", "card in their hand", "card in that player's hand"):
+        return {"hand": "that_player"}  # (scripts._that_players_hand binds it: the target player, or the trigger's)
     m = re.match(r"^twice (?P<v>.+)$", what)
     if m:
         inner = parse_count(m["v"], it=it)
@@ -125,8 +140,13 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if m:
         inner = parse_count(m["v"], it=it)
         return {"plus": [inner, int(m["n"]) if m["n"].isdigit() else NUMBERS[m["n"]]]} if inner is not None else None
+    sized = _sized(what, it)  # -- sized amounts (wave 3D) --
+    if sized is not None:
+        return sized
     if what in ("cards in your hand", "card in your hand"):
         return {"hand": "you"}
+    if what in ("creatures in your party", "creature in your party"):  # -- refused modal/conditional (wave 3R1) --
+        return {"party": "you"}  # 700.8
     if what in ("cards in target player's hand", "cards in target opponent's hand"):
         return {"hand": "target"}
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
@@ -145,6 +165,14 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     m = _PLAYER_COUNTERS.match(what)
     if m:
         return {"player_counters": m["kind"]}
+    if what == "the life lost this way":  # -- refused zones/sized (wave 3R4) -- what the lose_life just before lost
+        return {"ref_amount": "life_lost"}  # (scripts._life_lost binds it to that instruction, else the line is manual)
+    if what in ("{E} paid this way", "the amount of {E} paid this way", "{E} you paid this way"):  # (wave 3E)
+        return {"ref_amount": "energy_paid"}  # (language.ENERGY_PAID: bound by the pay_energy_any effect)
+    m = _PLAYER_COUNTERS_3E.match(what)  # -- counters & designations (wave 3E) --
+    if m:
+        kind = "energy" if m["e"] else m["kind"]
+        return {"player_counters": kind, "of": "opponents"} if m["who"] == "your opponents have" else {"player_counters": kind}
     m = _COUNTERS_ON.match(what)
     if m:
         on = _ON.get(m["on"].lower())
@@ -171,11 +199,33 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     return {"count": sel.key()}
 
 
+# -- sized amounts (wave 3D) -- ------------------------------------------------------------------
+_N_PLUS = re.compile(r"^(?P<n>\d+|one|two|three|four|five) plus (?P<v>.+)$")
+_SPELLS_CAST = re.compile(r"^(?:the number of )?spells you(?:'ve| have) cast this turn$")
+
+
+def _sized(what: str, it: str | None) -> Value | None:
+    """"2 plus the number of Lessons in your graveyard" (a sum), "the number of spells you've cast
+    this turn" (the turn's spell count, 601.2i). ``{"spells_cast": "you"}`` reads it as the effect
+    is carried out (608.2h)."""
+    m = _N_PLUS.match(what)
+    if m:
+        inner = parse_count(m["v"], it=it)
+        return {"plus": [inner, int(m["n"]) if m["n"].isdigit() else NUMBERS[m["n"]]]} if inner is not None else None
+    m = re.match(r"^(?P<a>.+?) plus (?P<b>the number of .+)$", what)
+    if m:  # "the number of creatures you control plus the number of Foods you control" (a sum of two counts)
+        a, b = parse_count(m["a"], it=it), parse_count(m["b"], it=it)
+        return {"plus": [a, b]} if a is not None and b is not None else None
+    if _SPELLS_CAST.match(what):
+        return {"spells_cast": "you"}
+    return None
+
+
 def _normalise(what: str) -> str:
     """Noun phrases the selector grammar spells differently: "cards in all graveyards" (400.1:
     every player's), "instant and sorcery cards" (cards of either type: a list, not "artifact
     creature"'s both-types reading)."""
-    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", what)
+    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", re.sub(r" on the battlefield$", "", what))  # (sized amounts, wave 3D)
     return re.sub(rf"\b(?P<a>{_TYPE_WORDS}) and (?P<b>{_TYPE_WORDS}) (?P<n>cards?|spells?)\b", r"\g<a> or \g<b> \g<n>", out)
 
 
@@ -208,6 +258,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if sel.player is not None:
             return sum(1 for p in plan.live() if selectors.matches_player(plan, sel, p, you))
         return len(selectors.candidates(plan, sel, you, _other_than(ctx)))
+    if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
+        return plan.rules.spells_this_turn(you, plan.state.turn.number)
     if "event_amount" in v:  # "that much" / "that many": the trigger event's amount (608.2k)
         from app.rules import context  # (context → triggers → … → values)
 
@@ -218,6 +270,13 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return context.amount(ctx, v["ref_amount"])
     if "event_count" in v:  # how many objects the "one or more" batch had
         return max(0, int((ctx.get("event") or {}).get("count") or 0))
+    if "minus" in v:  # -- refused zones/sized (wave 3R4) -- 107.1b: a negative result is 0
+        return max(0, evaluate(plan, ctx, v["minus"][0]) - evaluate(plan, ctx, v["minus"][1]))
+    if "hand" in v and v["hand"] == "event":  # -- refused zones/sized (wave 3R4) -- the trigger's player ("that player")
+        from app.rules import context
+
+        return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in context.players(plan, ctx, context.EVENT)
+                   if p in plan.live())
     if "hand" in v:
         players = [you] if v["hand"] == "you" else _target_players(plan, ctx)
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in players)
@@ -230,7 +289,11 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             return max([plan.state.players[p].life for p in plan.live() if p != you] or [0])
         return max([plan.state.players[p].life for p in _target_players(plan, ctx)] or [0])
     if "player_counters" in v:
+        if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together
+            return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you)
         return max(0, int(plan.state.players[you].resources.get(v["player_counters"], 0)))
+    if "party" in v:  # -- refused modal/conditional (wave 3R1) --
+        return party_size(plan, you)
     if "distinct" in v:
         return _distinct(plan, ctx, v["distinct"], v["among"])
     if "devotion" in v:
@@ -345,6 +408,17 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         from app.rules.effects import target_refs  # (effects imports this module)
 
         refs = [(t["id"], t.get("object_id")) for t in target_refs(ctx, who)]
+    if who == "each":  # -- sized amounts (wave 3D) -- "each creature you control deals damage equal to its power": the one being read
+        card = plan.state.cards.get(ctx.get("each_source") or "")
+        return (card, plan.ch(card)) if card is not None else None
+    if who == "cost:sacrificed":  # -- sized amounts (wave 3D) -- "the sacrificed creature's power": what a cost sacrificed, as it last existed
+        from app.rules.triggers import _snapshot_card
+
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        oids = record.sacrificed_objects if record is not None else []
+        snap = plan.rules.lki.get(oids[0]) if len(oids) == 1 else None
+        return _snapshot_card(plan, snap) if snap is not None else None
     if who == "event" or who.startswith("ref:"):  # the trigger event's object, or an earlier effect's
         from app.rules import context  # (as it is, or as it last existed: 603.10a, 608.2h)
 
@@ -359,3 +433,33 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
 
             return _snapshot_card(plan, snap)
     return None
+
+
+# -- refused modal/conditional (wave 3R1) --
+PARTY_TYPES = ("Cleric", "Rogue", "Warrior", "Wizard")
+
+
+def party_size(plan: Plan, you: str) -> int:
+    """700.8: up to one each of a Cleric, a Rogue, a Warrior and a Wizard creature ``you`` control; 700.8a: counted
+    by the game, 0 to 4; 700.8b: a creature of several of those types fills only one place, counted the way that
+    gives the highest number (a maximum matching of creatures to the four places)."""
+    roles: list[set[str]] = []
+    for card in plan.state.cards.values():
+        if card.zone == f"{you}:battlefield" and card.controller == you and plan.in_game(card):
+            ch = plan.ch(card)
+            if "Creature" in ch.types and (fits := set(PARTY_TYPES) & set(ch.subtypes)):
+                roles.append(fits)
+    taken: dict[str, int] = {}
+
+    def place(i: int, seen: set[str]) -> bool:  # an augmenting path (Kuhn's algorithm)
+        for role in sorted(roles[i]):
+            if role in seen:
+                continue
+            seen.add(role)
+            if role not in taken or place(taken[role], seen):
+                taken[role] = i
+                return True
+        return False
+
+    return sum(1 for i in range(len(roles)) if place(i, set()))
+# -- end refused modal/conditional (wave 3R1) --

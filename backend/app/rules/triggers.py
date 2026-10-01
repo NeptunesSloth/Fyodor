@@ -32,8 +32,13 @@
   step's start, or from the event log: ``delayed.at_step`` / ``delayed.on_events``) and take the
   same APNAP road onto the stack.
 
-Not yet: reflexive triggers (603.12); "dies" of what
-an Aura or Equipment was attached to (needs the attachment as it was, 603.10a); copies of spells
+* **What was attached (603.10a, 400.7f):** "When enchanted creature dies" / "Whenever equipped
+  creature leaves the battlefield" look back in time: the object's last known information lists the
+  permanents attached to it (ObjectSnapshot.attached); "return this card" finds the Aura's new object
+  in its owner's graveyard (400.7f). Chapter abilities of Sagas: app/rules/sagas.py.
+
+Reflexive triggers (603.12, wave 3R1) are added during a resolution by effects.reflexive and put on the
+stack like any other pending trigger. Not yet: copies of spells
 (707.10) as "cast or copy"; state triggers (603.8).
 """
 
@@ -57,7 +62,7 @@ from app.game.rules_state import (
 )
 from app.game.state import CardInstance, TokenDef
 from app.rules import characteristics as chars
-from app.rules import delayed, scripts, selectors
+from app.rules import delayed, layers, scripts, selectors
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan, decide
 from app.rules.targets import choose_groups, label, legal_targets, ref, source_of
@@ -87,8 +92,7 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, is_token=snap.is_token,
                         token=TokenDef(name=snap.name, text=snap.text, power=snap.token_power, toughness=snap.token_toughness,
-                                      colors=snap.token_colors,
-                                      **({"type_line": snap.token_type_line} if snap.token_type_line else {}))
+                                      colors=snap.token_colors, type_line=snap.token_type_line or "Token Creature")
                         if snap.is_token and not snap.printing else None)
     ch = chars.of(card, plan.info)
     # -- copy system (wave 2F): its copiable values as they were (a dying Clone's abilities) --
@@ -180,6 +184,11 @@ def collect(plan: Plan) -> None:
     """Look at the events since the last look (603.2)."""
     r = plan.rules
     delayed.expire(plan)  # "for as long as …" effects whose duration ended (611.2b; app/rules/delayed.py)
+    layers.control_sync(plan)  # -- control (wave 3K) -- layer 2 (613.1b), and what its changes end (611.2b)
+    # -- counters & designations (wave 3E): daybound / nightbound permanents (702.145c-g), before any trigger is looked at
+    from app.rules import designations
+
+    designations.day_night_sync(plan)
     if any(e.batch > r.batch for e in r.events):
         # An event recorded after the step's last table change (a spell becoming cast, 601.2i)
         # is its own batch: close it now, before anyone would receive priority (603.3), rather
@@ -189,11 +198,25 @@ def collect(plan: Plan) -> None:
     if not new:
         return
     r.trigger_batch = max(e.batch for e in new)
+    returning: dict[int, list[dict[str, Any]]] = {}  # batch -> the cards returning "until ~ leaves" (610.3c)
     _generic_events(plan, new)
     delayed.on_events(plan, new)  # "when that creature dies this turn" (603.7; app/rules/delayed.py)
+    # -- sagas & attached-object triggers (wave 3S): chapter abilities (714.2b) --
+    from app.rules import sagas
+
+    sagas.lore_triggers(plan, new)
+    # -- counters & designations (wave 3E): 726.2 "whenever a player takes the initiative" --
+    from app.rules import designations
+
+    designations.on_events(plan, new)
     for e in new:
         if e.kind == "spell_cast" and not e.manual:
             _cast_triggers(plan, e.card or "", e.player or "")
+            continue
+        if e.kind == "counters" and e.counter == "defense" and e.amount < 0 and not e.manual:
+            from app.rules import battles  # 310.12b: "When the last defense counter is removed …"
+
+            battles.defeated_triggers(plan, e)
             continue
         if e.kind != "zone_change" or e.manual:
             continue
@@ -216,9 +239,9 @@ def collect(plan: Plan) -> None:
                 continue
             ch = _lki_characteristics(plan, snap)  # looks back in time (603.10a)
             if snap.object_id in plan.rules.linked_exile:  # 610.3c: "… until ~ leaves" ends: they return at once
-                from app.rules.effects import return_linked
+                from app.rules.effects import linked_entries
 
-                return_linked(plan, None, {"source": snap.object_id})
+                returning.setdefault(e.batch, []).extend(linked_entries(plan, snap.object_id))
             died = to == "graveyard" or (e.to_zone is None and snap.is_token)  # 700.4
             kinds = ["ltb_self"] + (["dies_self"] if died else [])
             for kind in kinds:
@@ -227,6 +250,15 @@ def collect(plan: Plan) -> None:
                         continue  # persist / undying: "if it had no … counters on it"
                     _add(plan, controller=snap.controller, source_card=snap.card, source_object=snap.object_id,
                          name=ch.name, index=i, definition=d, event=_left("die" if kind == "dies_self" else "leave", snap, e))
+
+    entries = [entry for batch in sorted(returning) for entry in returning[batch]]
+    if entries:
+        # 610.3d: the one-shot effects created right after simultaneous events (a board wipe that
+        # took several "until ~ leaves" sources) are simultaneous too — one entry, not one per
+        # source. (Departures of separate batches seen in one look are rare; they return together.)
+        from app.rules import attachments  # (attachments → effects → this module)
+
+        attachments.enter(plan, entries, None)
 
 
 # -- generic conditions (app/rules/events.py) --------------------------------------------------
@@ -249,7 +281,8 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
     ch = _lki_characteristics(plan, snap)
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, is_token=snap.is_token,
-                        attached_to=snap.attached_to)
+                        attached_to=snap.attached_to,
+                        counters=dict(snap.counters))  # (wave 3S: "each page counter on this Aura", 608.2h)
     return card, ch
 
 
@@ -298,6 +331,14 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
                 "opponent_turn": plan.active != e.player, "kicked": bool(entry is not None and entry.kicked),
                 "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]}
         return [("cast", spell, plan.ch(spell), e.player, info)]
+    if e.kind == "spell_copied":  # -- refused copy/mana (wave 3R3) -- 707.10: a copy put on the stack, not cast
+        spell = plan.state.cards.get(e.card or "")
+        if spell is None or spell.zone != "stack" or plan.oid(spell) != e.object_id:
+            return []
+        entry = r.stack.get(spell.id)
+        return [("copy", spell, plan.ch(spell), e.player, {
+            "oid": e.object_id, "actor": e.player,
+            "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]})]
     if e.kind == "drew":
         return [("draw", None, None, e.player, {"amount": 1})]
     if e.kind == "cycled":  # 702.29: the card is in its owner's graveyard now (702.29c)
@@ -321,6 +362,12 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
                   "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or "")})]
     if e.kind == "damage":
         return _damage_facts(plan, e)
+    if e.kind == "player_counters" and e.amount > 0 and e.player:  # -- counters & designations (wave 3E): 122.6 a player got counters --
+        return [("player_counters", None, None, e.player, {"counter": e.counter, "amount": e.amount})]
+    if e.kind == "designation":  # -- counters & designations (wave 3E) --
+        from app.rules import designations
+
+        return designations.facts(plan, e)
     return []
 
 
@@ -388,9 +435,10 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     recipient_is_creature = got is not None and got[1].is_creature
     # (120.1: a planeswalker is dealt damage too — "to a player or planeswalker", 510.2)
     recipient_is_walker = got is not None and "Planeswalker" in got[1].types
+    recipient_is_battle = got is not None and "Battle" in got[1].types  # (120.3h)
     out.append(("deal_damage", src[0], src[1], src[0].controller,
                 {**base, "combat": e.combat, "recipient": e.player, "recipient_creature": recipient_is_creature,
-                 "recipient_planeswalker": recipient_is_walker}))
+                 "recipient_planeswalker": recipient_is_walker, "recipient_battle": recipient_is_battle}))
     if e.player is not None and e.player != src[0].controller:
         info = {**base, "recipient": e.player}
         out.append(("deal_damage_opponent", src[0], src[1], src[0].controller, info))
@@ -413,6 +461,11 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         return event in wanted and obj is not None and obj.id == watcher.id and _other_ok(plan, cond, watcher, info)
     if want in _PAIRED and cond.get("other"):
         want = _PAIRED[want]  # 509.3b / 509.3d: once per creature on the other side
+    if want == "cast" and cond.get("copy"):  # -- refused copy/mana (wave 3R3) -- magecraft (707.10)
+        if event == "copy":
+            event = "cast"
+        elif cond["copy"] == "only":
+            return False
     if want != event:
         return False
     if not _details_ok(plan, cond, watcher, fact):
@@ -434,6 +487,10 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     if obj is None or och is None:
         return False
     if subject == "host":  # "enchanted creature" / "equipped creature": what the source is attached to
+        if event in ("die", "leave"):  # -- sagas & attached-object triggers (wave 3S) --
+            # 603.10a: looks back in time — what was attached to it as it last existed on the battlefield
+            snap = info.get("snap")
+            return snap is not None and watcher.id in snap.attached
         return watcher.attached_to is not None and obj.id == watcher.attached_to
     if subject == "self_or_host":  # "~ or equipped creature"
         return obj.id == watcher.id or (watcher.attached_to is not None and obj.id == watcher.attached_to)
@@ -514,6 +571,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
         return False
+    if event == "player_counters" and info.get("counter") != cond.get("counter"):  # (wave 3E: "you get one or more {E}")
+        return False
     if event == "deal_damage":
         combat = cond.get("combat")
         if combat is not None and bool(info.get("combat")) != combat:
@@ -525,6 +584,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "creature" and not info.get("recipient_creature")) or \
                 (to == "planeswalker" and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_pw" and recipient is None and not info.get("recipient_planeswalker")) or \
+                (to == "player_or_battle" and recipient is None and not info.get("recipient_battle")) or \
                 (to == "enchanted_player" and (recipient is None or recipient != watcher.attached_player)):
             return False
     return True
@@ -613,7 +673,7 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
 
 
 def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
-                  watchers: list[tuple[Watcher, int, int]] | None = None) -> None:
+                  watchers: list[tuple[Watcher, int, int]] | None = None, left: dict[int, str] | None = None) -> None:
     """Each watcher (with the batches it was on the battlefield for: it sees events from when it
     entered, 603.6a, until it left, 603.10a) against each fact of one event. What the ability
     triggered on is captured now, as a TriggerEvent it carries to resolution (603.2, 608.2k)."""
@@ -646,7 +706,11 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                     pending.event.amount += event.amount
                     pending.event.count += 1
                     continue
-            added = _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher),
+            # -- sagas & attached-object triggers (wave 3S): a watcher that has left since is the object it
+            # was (603.10a: "this Aura" reads its last known information, 608.2h), not the card's new object
+            source_object = (left or {}).get(id(watcher)) or plan.oid(watcher)
+            d = _aura_card_bound(plan, d, (left or {}).get(id(watcher)))
+            added = _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=source_object,
                          name=ch.name, index=i, definition=d, event=event)
             if (cond.get("aggregate") or one_event) and added is not None:
                 fired[(watcher.id, i, batch, per)] = added
@@ -665,6 +729,7 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
     big = 1 << 60
     entered: dict[str, int] = {}
     watchers: list[tuple[Watcher, int, int]] = []
+    left: dict[int, str] = {}  # (a watcher that left: the object it was, wave 3S)
     window: dict[str, Any] = {"cast_from": {}}
     for e in events:
         if e.kind == "cycled" and not e.manual and e.card in plan.state.cards:
@@ -680,11 +745,14 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             window["cast_from"][e.card] = e.from_zone  # (where a spell was cast from, 601.2a)
         if _zone(e.to_zone) == "battlefield" and _zone(e.from_zone) != "battlefield" and e.new_object_id:
             entered[e.new_object_id] = e.batch
+        if _zone(e.to_zone) == "graveyard" and e.new_object_id:  # -- refused zones/sized (wave 3R4) -- (603.10)
+            entered[e.new_object_id] = e.batch
         if _zone(e.from_zone) == "battlefield" and _zone(e.to_zone) != "battlefield":
             snap = r.lki.get(e.object_id or "")
             if snap is None or snap.controller not in plan.live() or plan.rules.card_mode(snap.card) == "manual":
                 continue
             card, ch = _snapshot_card(plan, snap)
+            left[id(card)] = snap.object_id
             watchers += [((card, ch, i, d), entered.get(snap.object_id, -big), e.batch)
                          for i, d in abilities(plan, ch, "event") if d.get("cond")]
     watchers += [(w, entered.get(plan.oid(w[0]), -big), big) for w in _event_watchers(plan)]
@@ -695,7 +763,7 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             r.draws_this_turn[e.player] = r.draws_this_turn.get(e.player, 0) + 1
         facts = _facts(plan, e, window)
         if facts:
-            _fire_generic(plan, facts, e.batch, fired, watchers)
+            _fire_generic(plan, facts, e.batch, fired, watchers, left)
 
 
 def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
@@ -763,11 +831,54 @@ def unblocked(plan: Plan, attackers: list[CardInstance]) -> None:
 def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
     out = []
     for card in plan.state.cards.values():
+        if card.zone.endswith(":graveyard"):  # -- refused zones/sized (wave 3R4) --
+            out += graveyard_abilities(plan, card, trigger)
+            continue
         if not card.zone.endswith(":battlefield") or not plan.in_game(card) or plan.manual(card):
             continue
         ch = plan.ch(card)
-        out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger)]
+        out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if not graveyard_ability(d)]
     return out
+
+
+# -- refused zones/sized (wave 3R4) ------------------------------------------------------------------
+# 113.6m: a triggered ability whose effect returns its own card "from your graveyard" (``self_gy``)
+# functions only in the graveyard: it triggers from there (the card's owner controls it, 603.3a with
+# 400.3/108.4a: a card in a graveyard is controlled by no one, so its owner), and never from the
+# battlefield. Objects that exist immediately after an event are the ones checked (603.10): a card
+# put into the graveyard by an event sees events from that batch on (_generic_events' window).
+# Coverage (app/rules/coverage.py) keeps the look-back events (603.10a) and the enchanted-creature
+# triggers out, so those stay manual.
+def graveyard_ability(d: dict[str, Any]) -> bool:
+    import json
+
+    return '"self_gy"' in json.dumps(d, default=str)
+
+
+def graveyard_abilities(plan: Plan, card: CardInstance, trigger: str,
+                        ) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
+    if card.owner not in plan.live() or plan.manual(card) or not card.zone.endswith(":graveyard"):
+        return []
+    ch = plan.ch(card)
+    if "graveyard" not in (ch.oracle_text or ""):
+        return []
+    return [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if graveyard_ability(d) and graveyard_trigger_ok(d)]
+
+
+_GY_TRIGGERS = ("event", "landfall", "enters_other", "cast_you", "upkeep_you", "end_step_you")
+_GY_LOOK_BACK = ("die", "leave", "sacrifice", "leave_graveyard", "multi")  # (603.10a; "multi": not judged here)
+
+
+def graveyard_trigger_ok(d: dict[str, Any]) -> bool:
+    """Is this graveyard ability's trigger one the graveyard watchers above read? Not a look-back
+    event (603.10a: a card arriving in the graveyard with the event would have to be told apart),
+    nor one about this object or the permanent it was attached to (they left the battlefield)."""
+    trigger = str(d.get("trigger"))
+    if d.get("kind") != "triggered" or not (trigger in _GY_TRIGGERS or trigger.startswith("step:")):
+        return False
+    cond = d.get("cond") or {}
+    return trigger != "event" or (cond.get("event") not in _GY_LOOK_BACK
+                                  and cond.get("subject") not in ("self", "self_or", "host", "self_or_host"))
 
 
 def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics, oid: str) -> None:
@@ -847,10 +958,17 @@ def at_step(plan: Plan, trigger: str) -> None:
         _cumulative_upkeep(plan)
         _rebound(plan)
     for card in list(plan.state.cards.values()):
+        if card.zone.endswith(":graveyard") and card.owner == plan.active:  # -- refused zones/sized (wave 3R4) --
+            for _, ch, i, d in graveyard_abilities(plan, card, trigger):
+                _add(plan, controller=card.owner, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
+                     definition=d)
+            continue
         if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
             continue
         ch = plan.ch(card)
         for i, d in abilities(plan, ch, trigger):
+            if graveyard_ability(d):
+                continue  # (113.6m: it functions only in the graveyard)
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
                  definition=d)
 
@@ -862,15 +980,50 @@ def at_step_generic(plan: Plan) -> None:
     prefix = f"step:{phase}:"
     ap = plan.active
     for card in list(plan.state.cards.values()):
-        if not card.zone.endswith(":battlefield") or plan.manual(card) or card.controller not in plan.live():
+        gy = card.zone.endswith(":graveyard")  # -- refused zones/sized (wave 3R4) -- (113.6m)
+        if gy and card.owner in plan.live() and not plan.manual(card) and "graveyard" in (plan.ch(card).oracle_text or ""):
+            pass
+        elif not card.zone.endswith(":battlefield") or plan.manual(card) or card.controller not in plan.live():
             continue
         ch = plan.ch(card)
         for i, d in scripts.definitions(ch).items():
             if d["kind"] != "triggered" or not str(d["trigger"]).startswith(prefix):
                 continue
+            if graveyard_ability(d) != gy:
+                continue
             if _whose_step(plan, card, d["trigger"][len(prefix):], ap):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
-                     index=i, definition=d)
+                     index=i, definition=d, event=_step_event(plan, card, d))
+
+
+# -- sagas & attached-object triggers (wave 3S) --
+def _aura_card_bound(plan: Plan, d: dict[str, Any], gone: str | None) -> dict[str, Any]:
+    """400.7f: "return this card" in a trigger on the enchanted permanent leaving names the new object
+    the Aura became in its owner's graveyard — bound now, as it triggers (the Aura is put there with
+    the enchanted permanent, or by the state-based action just before, 704.5m), never found later."""
+    if scripts.AURA_CARD not in str(d.get("effects")):
+        return d
+    new = None
+    if gone is not None:  # (an Aura still on the battlefield: there is no such object)
+        new = next((e.new_object_id for e in plan.rules.events if e.kind == "zone_change" and e.object_id == gone
+                    and _zone(e.from_zone) == "battlefield" and _zone(e.to_zone) == "graveyard"), None)
+    who = f"{scripts.AURA_CARD}:{new or '-'}"
+    return {**d, "effects": [{**e, "who": who} if e.get("who") == scripts.AURA_CARD else e for e in d["effects"]]}
+
+
+def _step_event(plan: Plan, card: CardInstance, d: dict[str, Any]) -> TriggerEvent | None:
+    """"At the beginning of enchanted player's upkeep / the upkeep of enchanted creature's
+    controller, that player … that creature": the player whose step it is, and the enchanted
+    creature as the step began (it, while it's still that object: 400.7)."""
+    if not scripts.step_names_player(d):
+        return None
+    objects = []
+    if str(d["trigger"]).endswith(":host_controller"):
+        host = plan.state.cards.get(card.attached_to or "")
+        if host is not None:
+            objects = [ObjectRef(card=host.id, object_id=plan.oid(host), zone=host.zone)]
+    return TriggerEvent(kind="step", players=[plan.active], objects=objects, count=1)
+# -- end sagas & attached-object triggers (wave 3S) --
 
 
 def _whose_step(plan: Plan, card: CardInstance, whose: str, ap: str) -> bool:
@@ -1079,6 +1232,10 @@ def blocked(plan: Plan, blockers: list[CardInstance], attackers: list[CardInstan
              if b.blocking in plan.state.cards]
     generic_combat(plan, "block", list({c.id: c for c in blockers}.values()), pairs)
     generic_combat(plan, "blocked", list({c.id: c for c in attackers}.values()), [(a, b) for b, a in pairs])
+    # -- counters & designations (wave 3E): the Ring's third ability (701.54c) --
+    from app.rules import designations
+
+    designations.ring_blocked(plan, [(a, b) for b, a in pairs])
     for card in {c.id: c for c in [*blockers, *attackers]}.values():
         if plan.manual(card):
             continue
@@ -1092,6 +1249,10 @@ def blocked(plan: Plan, blockers: list[CardInstance], attackers: list[CardInstan
 def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> None:
     """702.112 renown N: "When this creature deals combat damage to a player, if it isn't renowned,
     put N +1/+1 counters on it and it becomes renowned." (Checked again on resolution.)"""
+    # -- counters & designations (wave 3E): the Ring's fourth ability (701.54c) --
+    from app.rules import designations
+
+    designations.ring_damage(plan, sources)
     for card in sources:
         if plan.manual(card):
             continue
@@ -1109,6 +1270,10 @@ def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> No
 
 def attacked(plan: Plan, attackers: list[CardInstance]) -> None:
     generic_combat(plan, "attack", attackers)
+    # -- counters & designations (wave 3E): the Ring's second ability (701.54c) --
+    from app.rules import designations
+
+    designations.ring_attacks(plan, attackers)
     if len(attackers) == 1:
         _exalted(plan, attackers[0])
     for card in attackers:
@@ -1154,7 +1319,7 @@ def flush(plan: Plan) -> bool:
         return False
     if not plan.options.auto_trigger_stacking and not getattr(plan, "triggers_confirmed", False):
         names = ", ".join(t.name for t in r.pending_triggers)
-        decide(plan, player=plan.active, kind="confirm", prompt=f"Triggered: {names}",
+        decide(plan, player=plan.turn_player, kind="confirm", prompt=f"Triggered: {names}",
                options=[DecisionOption(id="yes", label="Put on the stack"), DecisionOption(id="no", label="By hand")],
                resume={"step": "trigger_confirm"})
         return True

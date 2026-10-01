@@ -145,7 +145,7 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
     elif isinstance(a, A.Move):
         a.r = _resolve_move(state, a, actor, info)
     elif isinstance(a, A.ResolveTop):
-        a.r = _resolve_top(state, info)
+        a.r = _resolve_top(state, info, a.card_id)
     elif isinstance(a, A.PutTopFaceDown):
         top_ids = state.zones.get(zone_key(a.player or actor, "library"), [])[: a.count]
         spots: list[tuple[float, float]] = []
@@ -196,6 +196,7 @@ def _token_def(spec: A.TokenSpec, info: CardInfo) -> TokenDef:
         colors=list(spec.colors),
         type_line=spec.type_line,
         text=spec.text,
+        back=_token_def(spec.back, info) if spec.back is not None else None,  # -- wave 3F -- a double-faced token (111.10i)
     )
 
 
@@ -208,7 +209,7 @@ def _resolve_move(state: GameState, a: A.Move, actor: str, info: CardInfo) -> A.
         card = state.cards.get(cid)
         if card is None:
             continue
-        pid = a.to.player or actor
+        pid = (a.controllers or {}).get(cid) or a.to.player or actor
         key = zone_key(pid, "battlefield")
         if card.zone == key:
             continue
@@ -219,12 +220,12 @@ def _resolve_move(state: GameState, a: A.Move, actor: str, info: CardInfo) -> A.
     return data
 
 
-def _resolve_top(state: GameState, info: CardInfo) -> A.MoveData:
+def _resolve_top(state: GameState, info: CardInfo, card_id: str | None = None) -> A.MoveData:
     stack = state.zones.get(STACK, [])
     data = A.MoveData()
     if not stack:
         return data
-    top = state.cards[stack[-1]]
+    top = state.cards[card_id if card_id in stack else stack[-1]]  # (card_id: wave 3R5, 608.2g)
     if top.ability is not None:
         data.destinations[top.id] = "delete"
         return data

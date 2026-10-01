@@ -178,76 +178,73 @@ def attach(plan: Plan, source: str, host: str, actor: str) -> bool:
 
 # -- putting permanents onto the battlefield (an Aura chooses its host, 303.4f-g) ------------
 def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None, *, shuffle: str | None = None) -> bool:
-    """Put cards onto the battlefield (each entry: card, player, actor, tapped). An Aura that
-    isn't being cast is attached as it enters to something its controller chooses that it could
-    enchant (303.4f); with nothing to enchant it stays in its zone (303.4g). Returns False while
-    waiting for a choice (the rest continue on resume, then ``shuffle``'s library is shuffled —
-    "put it onto the battlefield, then shuffle" — and ``ctx``'s effects go on)."""
+    """Put cards onto the battlefield together (each entry: card, player, actor, tapped): one event
+    (603.6a), every choice made before any of them enters (614.12a) — "As ~ enters" choices, and
+    what an Aura that isn't being cast enchants (303.4f: something its controller chooses that it
+    could enchant; with nothing to enchant it stays in its zone, 303.4g) — then they enter at once
+    (``replacements.move_together``: 614.12, 613.7m). Returns False while waiting for a choice (the
+    rest continue on resume, then ``shuffle``'s library is shuffled — "put it onto the battlefield,
+    then shuffle" — and ``ctx``'s effects go on)."""
     from app.rules import characteristics as chars
     from app.rules import replacements
 
+    entries = [dict(e) for e in entries]
     for i, entry in enumerate(entries):
         card = plan.state.cards.get(entry["card"])
-        if card is None:
+        if card is None or entry.get("stays"):
             continue
         if replacements.choice_needed(plan, card, entry) is not None:
             # a shock land: "As ~ enters, you may pay 2 life" is decided before it enters (614.12a)
-            replacements.ask_entry_choice(plan, entry, entries[i + 1:], ctx, shuffle)
+            replacements.ask_entry_choice(plan, entries, i, ctx, shuffle)
             return False
-        printed = chars.of(card, plan.info)
-        if attach_kind(printed) != "aura":
-            _move(plan, entry)
+        if attach_kind(chars.of(card, plan.info)) != "aura" or entry.get("host"):
             continue
         hosts = _hosts_on_entering(plan, card, entry["player"])
         if not hosts:
             # (no name in the text: the card may still be in a hidden zone; card_ids lets the log
             # name it only to players who can see it)
             plan.note("The Aura has nothing it could enchant: it stays where it is", [card.id])
-            continue
-        if len(hosts) == 1:
-            _move(plan, entry)
-            attach(plan, card.id, hosts[0], entry["actor"])
-            continue
-        from app.rules.plan import decide
-        from app.rules.targets import label
+            entry["stays"] = True
+        elif len(hosts) == 1:
+            entry["host"] = hosts[0]
+        else:
+            from app.rules.plan import decide
+            from app.rules.targets import label
 
-        decide(plan, player=entry["player"], kind="choose_one", prompt="Choose what the Aura enchants",  # (not named: it may come from a hidden zone)
-               options=[DecisionOption(id=h, label=label(plan, h), card_id=h if h in plan.state.cards else None)
-                        for h in hosts],
-               resume={"step": "aura_enters", "entry": entry, "rest": entries[i + 1:], "ctx": ctx, "shuffle": shuffle},
-               source=card)
-        return False
+            decide(plan, player=entry["player"], kind="choose_one", prompt="Choose what the Aura enchants",  # (not named: it may come from a hidden zone)
+                   options=[DecisionOption(id=h, label=label(plan, h), card_id=h if h in plan.state.cards else None)
+                            for h in hosts],
+                   resume={"step": "aura_enters", "entries": entries, "index": i, "ctx": ctx, "shuffle": shuffle},
+                   source=card)
+            return False
+    entering = [e for e in entries if not e.get("stays")]
+    replacements.move_together(plan, entering)
+    for entry in entering:
+        if entry.get("host"):  # it enters attached to what was chosen (303.4f)
+            attach(plan, entry["card"], entry["host"], entry["actor"])
     return True
 
 
-def _move(plan: Plan, entry: dict[str, Any]) -> None:
-    """The one way an effect puts a card onto the battlefield: its "enters" replacement effects
-    (tapped, counters, loyalty, a shock land's life: 614.1c-d) apply however it enters, not only
-    when it resolves from the stack — app/rules/replacements.py."""
-    from app.rules import replacements
-
-    replacements.move_onto_battlefield(plan, entry)
-
-
 def _hosts_on_entering(plan: Plan, card: CardInstance, controller: str) -> list[str]:
-    """What an Aura entering under ``controller`` could enchant."""
+    """What an Aura entering under ``controller`` could enchant (the permanents already on the
+    battlefield: not one entering with it)."""
     return legal_hosts(plan, card, controller)
 
 
 def resume_aura_enters(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules.effects import continue_effects
+    from app.rules.replacements import resume_entries
 
-    entry, rest, ctx, shuffle = d.resume["entry"], d.resume["rest"], d.resume.get("ctx"), d.resume.get("shuffle")
-    card = plan.state.cards.get(entry["card"])
+    entries, i = resume_entries(d.resume)
+    ctx, shuffle = d.resume.get("ctx"), d.resume.get("shuffle")
+    card = plan.state.cards.get(entries[i]["card"])
     if card is not None:
-        probe_hosts = _hosts_on_entering(plan, card, entry["player"])
-        if chosen[0] not in probe_hosts:
+        if chosen[0] not in _hosts_on_entering(plan, card, entries[i]["player"]):
             from app.game.errors import ActionError
 
             raise ActionError("It can't enchant that")
-        _move(plan, entry)
-        attach(plan, card.id, chosen[0], entry["actor"])
-    if not enter(plan, rest, ctx, shuffle=shuffle):
+        entries[i] = {**entries[i], "host": chosen[0]}
+    if not enter(plan, entries, ctx, shuffle=shuffle):
         return  # another Aura is choosing
     if shuffle:
         plan.do({"type": "shuffle", "player": shuffle, "zone": "library"}, actor=shuffle)

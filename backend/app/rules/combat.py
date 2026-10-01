@@ -91,6 +91,12 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
         return f"{ach.name} has intimidate: only artifact creatures and creatures that share a color with it can block it"
     if "skulk" in ach.keywords and _power(bch) > _power(ach):
         return f"{ach.name} has skulk: creatures with greater power can't block it"
+    # -- counters & designations (wave 3E): the Ring-bearer's evasion (701.54c) --
+    from app.rules import designations
+
+    ring = designations.ring_block_problem(state, attacker, _power(ach), _power(bch))
+    if ring:
+        return ring
     if protection.protected_from(ach, bch):
         return f"{ach.name} has protection: {bch.name} can't block it"
     return None
@@ -184,13 +190,19 @@ def _controls_land(state: GameState, player: str, subtype: str, info: CardInfo |
 
 
 def attack_targets(state: GameState, attacker: str, info: CardInfo) -> list[str]:
-    """Opponents, and planeswalkers they control (battles arrive later)."""
+    """Opponents, planeswalkers they control, and battles they protect (506.2, 508.1b; 310.9b: a
+    Siege can be attacked by its own controller, never by its protector)."""
+    from app.rules import battles
+    from app.rules.layers import derive
+
     out = [p for p in live_players(state) if p != attacker]
-    for pid in list(out):
+    defenders = list(out)
+    for pid in defenders:
         for cid in state.zones.get(zone_key(pid, "battlefield"), []):
             card = state.cards[cid]
             if card.controller == pid and "Planeswalker" in chars.of(card, info).types:
                 out.append(cid)
+    out += battles.attackable(state, attacker, defenders, lambda c: derive(state, c, chars.of(c, info), info))
     return out
 
 
@@ -204,7 +216,11 @@ def defender_of(state: GameState, target: A.AttackTarget | Any) -> str | None:
     if target.kind == "player":
         return str(target.id)
     card = state.cards.get(target.id)
-    return card.controller if card else None
+    if card is None:
+        return None
+    from app.rules import battles
+
+    return battles.protector(state, card) or card.controller  # 310.9d: a battle's protector defends it
 
 
 # -- declare attackers ------------------------------------------------------------------
@@ -250,8 +266,9 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         if decl.target not in targets:
             raise ActionError(f"{card.name} can't attack that")
         if "attack_needs_island" in scripts.statics(plan.ch(card)):
-            defender = decl.target if decl.target in plan.state.players else plan.state.cards[decl.target].controller
-            if not _controls_land(plan.state, defender, "Island", plan.info):
+            defender = decl.target if decl.target in plan.state.players else \
+                defender_of(plan.state, A.AttackTarget(kind="card", id=decl.target))
+            if not _controls_land(plan.state, defender or "", "Island", plan.info):
                 raise ActionError(f"{card.name} can't attack unless defending player controls an Island")
         if decl.card_id in seen:
             raise ActionError(f"{card.name} can only attack once")
@@ -264,6 +281,9 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
                 attack_problem(plan.state, card, plan.ch(card)) is None and targets:
             raise ActionError(f"{card.name} attacks each combat if able")
+    goad_problem = goad_requirements(plan, eligible, targets, {x.card_id: x.target for x in a.attackers})
+    if goad_problem:  # -- keyword actions & face-down (wave 3F) --
+        raise ActionError(goad_problem)
     r.decision = None
     if not a.attackers:
         r.no_attackers = True
@@ -286,6 +306,48 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     r.priority = plan.active
     r.passed = []
     advance(plan)
+
+
+# -- keyword actions & face-down (wave 3F) ------------------------------------------------------
+def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declared: dict[str, str]) -> str | None:
+    """701.15b / 508.1d for goaded creatures: a goaded creature attacks each combat if able, and
+    attacks a player other than each player who goaded it if able (701.15c: one requirement per
+    goading player; attacking a planeswalker obeys none of those). The declaration must obey as many
+    of each creature's requirements as it could without breaking a restriction (508.1d); each
+    goaded creature's requirements are judged on its own, against the places it may attack.
+    Costs to attack are never required (508.1d), and none are modelled here."""
+    from app.rules.keyword_actions import goaded_by
+
+    live = set(plan.live())
+    for cid in sorted(eligible):
+        card = plan.state.cards.get(cid)
+        if card is None:
+            continue
+        ch = plan.ch(card)
+        goaders = goaded_by(ch)
+        if not goaders or attack_problem(plan.state, card, ch) is not None:
+            continue
+        st = scripts.statics(ch)
+        if "cant_attack_alone" in st and len(eligible) == 1:
+            continue  # (it can't attack at all: alone is the only way it could)
+        places = [t for t in targets if "attack_needs_island" not in st
+                  or _controls_land(plan.state, t if t in plan.state.players else plan.state.cards[t].controller,
+                                    "Island", plan.info)]
+        if not places:
+            continue
+
+        def obeyed(place: str | None, others: set[str] = goaders & live) -> int:
+            if place is None:
+                return 0
+            return 1 + sum(1 for g in others if place in plan.state.players and place != g)
+
+        best = max(obeyed(t) for t in places)
+        if obeyed(declared.get(cid)) < best:
+            who = " or ".join(sorted(plan.name(g) for g in goaders & live)) or "anyone"
+            if cid not in declared:
+                return f"{card.name} is goaded: it attacks each combat if able"
+            return f"{card.name} is goaded: it attacks a player other than {who} if able"
+    return None
 
 
 # -- declare blockers -------------------------------------------------------------------
@@ -474,9 +536,17 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
     r = plan.rules
     out = CombatDamage()
 
+    def _protection_prevents(source_card: CardInstance, source: Characteristics, target: str) -> bool:
+        """-- refused grants/replacements (wave 3R2) -- 615.12: not combat damage that can't be prevented."""
+        from app.rules import source_shields
+
+        ev = {"source_card": source_card.id, "source_oid": plan.oid(source_card), "target": target, "combat": True,
+              "src": replace.source_info(plan, source_card.id, plan.oid(source_card), source, source_card.controller)}
+        return source_shields.protection_applies(plan, ev)
+
     def hit_creature(source_card: CardInstance, source: Characteristics, target: CardInstance, n: int) -> int:
         """Assign ``n`` damage to a creature; returns how much is dealt (protection prevents it, 702.16e)."""
-        if protection.protected_from(plan.ch(target), source):
+        if protection.protected_from(plan.ch(target), source) and _protection_prevents(source_card, source, target.id):
             return 0
         into = out.wither if {"wither", "infect"} & source.keywords else out.creatures
         into[target.id] = into.get(target.id, 0) + n
@@ -507,7 +577,7 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
                 key = (tgt.id, att.commander_key)
                 out.commander[key] = out.commander.get(key, 0) + n
         elif tgt.id in state.cards and state.cards[tgt.id].zone.endswith(":battlefield"):
-            if protection.protected_from(plan.ch(state.cards[tgt.id]), ach):
+            if protection.protected_from(plan.ch(state.cards[tgt.id]), ach) and _protection_prevents(att, ach, tgt.id):
                 return 0
             out.walkers[tgt.id] = out.walkers.get(tgt.id, 0) + n
             out.dealt.append((att.id, tgt.id, n))
@@ -629,6 +699,10 @@ def deal_combat_damage(plan: Plan, rnd: Round, shield_order: list[str] | None = 
 
         hitters = [plan.state.cards[src] for src, tgt, n in dealt if tgt == monarch and n > 0 and src in plan.state.cards]
         triggers.monarch_damaged(plan, hitters[:1])  # one trigger per combat damage event
+    # -- counters & designations (wave 3E): 726.2 the initiative changes hands --
+    from app.rules import designations
+
+    designations.initiative_damaged(plan, dealt)
     return True
 
 

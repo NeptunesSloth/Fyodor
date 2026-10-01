@@ -45,6 +45,7 @@ _TAP_OTHER = re.compile(rf"^Tap {_N} (?P<another>another )?untapped (?P<what>.+ 
 _REMOVE_CHOSEN = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|\d+) (?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? from (?:a|an|another) (?P<what>.+)$")
 _WORDS = {"a": 1, "an": 1, "another": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+_ENERGY_WORDS = {**_WORDS, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "fifty": 50}  # (wave 3E: "Pay eight {E}")
 
 # Component kinds (the parts of a cost, 118.1)
 MANA, TAP, UNTAP, SACRIFICE, DISCARD, PAY_LIFE, PAY_ENERGY = "MANA", "TAP", "UNTAP", "SACRIFICE", "DISCARD", "PAY_LIFE", "PAY_ENERGY"
@@ -64,6 +65,7 @@ class CostComponent:
     counter: str | None = None  # REMOVE_COUNTER: the kind of counter
     random: bool = False  # "Discard a card at random"
     text: str = ""
+    x: bool = False  # -- counters & designations (wave 3E) -- "Pay X {E}": the X chosen as it's activated (107.3k)
 
     @property
     def chosen(self) -> bool:
@@ -83,14 +85,20 @@ class AbilityCost:
     loyalty_x: bool = False  # −X: remove X loyalty counters, X chosen as it's activated (107.3k)
     unsupported: tuple[str, ...] = field(default_factory=tuple)
     components: tuple[CostComponent, ...] = ()
+    graveyard_only: bool = False  # -- reanimation (wave 3R) -- its effect moves this card out of your graveyard (113.6m)
 
     @property
     def basic(self) -> bool:
         """Only mana, {T}, sacrificing the source, life and the source's counters (what mana
         abilities pay by themselves, casting.produce)."""
         return not self.unsupported and all(
-            c.kind in (MANA, TAP, PAY_LIFE, LOYALTY) or (c.kind in (SACRIFICE, REMOVE_COUNTER) and c.selector is None)
+            c.kind in (MANA, TAP, PAY_LIFE, LOYALTY, PAY_ENERGY) or (c.kind in (SACRIFICE, REMOVE_COUNTER) and c.selector is None)
             for c in self.components)
+
+    @property
+    def energy(self) -> int:
+        """-- counters & designations (wave 3E) -- the fixed energy it pays (107.14; "Pay X {E}" not counted)."""
+        return sum(c.amount for c in self.components if c.kind == PAY_ENERGY and not c.x)
 
     @property
     def choices(self) -> list[tuple[int, CostComponent]]:
@@ -100,7 +108,12 @@ class AbilityCost:
     @property
     def from_graveyard(self) -> bool:
         """113.6m: "Exile this card from your graveyard" — the ability works only from there."""
-        return any(c.kind == EXILE_FROM_GRAVEYARD and c.selector is None for c in self.components)
+        return self.graveyard_only or any(c.kind == EXILE_FROM_GRAVEYARD and c.selector is None for c in self.components)
+
+    @property
+    def energy_x(self) -> bool:
+        """-- counters & designations (wave 3E) -- "Pay X {E}": X is chosen as it's activated."""
+        return any(c.kind == PAY_ENERGY and c.x for c in self.components)
 
     def of_kind(self, kind: str) -> list[CostComponent]:
         return [c for c in self.components if c.kind == kind]
@@ -151,7 +164,9 @@ def _component(part: str, card_name: str) -> CostComponent | None:
     if m := _LIFE.match(part):
         return CostComponent(PAY_LIFE, amount=int(m["n"]), text=part)
     if m := _ENERGY.match(part):
-        n = m["symbols"].count("{E}") if m["symbols"] else _WORDS.get(m["n"].lower()) or (int(m["n"]) if m["n"].isdigit() else 0)
+        if m["n"] == "X":  # -- counters & designations (wave 3E) -- "Pay X {E}" (X chosen as it's activated)
+            return CostComponent(PAY_ENERGY, amount=0, x=True, text=part)
+        n = m["symbols"].count("{E}") if m["symbols"] else _ENERGY_WORDS.get(m["n"].lower()) or (int(m["n"]) if m["n"].isdigit() else 0)
         return CostComponent(PAY_ENERGY, amount=n, text=part) if n else None
     if (m := _REMOVE.match(part)) and (not m.group("name") or m.group("name") == card_name):
         return CostComponent(REMOVE_COUNTER, amount=_n(m["n"]), counter=m["kind"], text=part)
@@ -254,3 +269,49 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
             return None
         found.append(Kicker(m["cost"], multi=bool(m["multi"])))
     return found[0] if len(found) == 1 else None
+
+
+# -- costs (wave 3$) -- additional costs to cast a spell (118.8, 601.2b) ----------------------------------
+_ADDITIONAL = re.compile(r"^as an additional cost to cast (?:this spell|~), (?P<cost>[^.]+)\.?$", re.IGNORECASE)
+# What a spell's additional cost may be made of: parts with chosen objects (or life / energy). Never the
+# source itself (a spell isn't on the battlefield to be sacrificed), tapping it, mana or counters on it.
+_ADDITIONAL_KINDS = frozenset({SACRIFICE, DISCARD, PAY_LIFE, PAY_ENERGY, EXILE_FROM_GRAVEYARD, RETURN_PERMANENT, TAP_OTHER})
+
+
+def additional_cost_text(line: str) -> str | None:
+    """"As an additional cost to cast this spell, sacrifice a creature." → "sacrifice a creature"."""
+    m = _ADDITIONAL.match(line.strip())
+    return m["cost"] if m else None
+
+
+def spell_additional_cost(abilities: Iterable[AbilityText]) -> AbilityCost | None:
+    """The additional cost a spell's "As an additional cost to cast this spell, …" line asks (every
+    such line, combined), or None. A line the grammar can't pay makes the spell manual (permissions
+    .define_static returns no definition), so it is never read here."""
+    parts: list[CostComponent] = []
+    for ab in abilities:
+        text = additional_cost_text(ab.text) if ab.kind != "keywords" else None
+        found = parse_additional_cost(text) if text is not None else None
+        if found is not None:
+            parts += found.components
+    return AbilityCost(components=tuple(parts), life=sum(c.amount for c in parts if c.kind == PAY_LIFE)) if parts else None
+
+
+def parse_additional_cost(text: str) -> AbilityCost | None:
+    """The parts of a spell's additional cost ("sacrifice a creature", "discard a card and pay 2 life",
+    "exile a creature card from your graveyard") as an :class:`AbilityCost` (components only), or None
+    when the engine can't pay it by itself ("you may …", "… or …" alternatives, X, a cost with no
+    chosen object): the spell then stays manual rather than being cast without its cost (601.2b)."""
+    text = text.strip()
+    if text.lower().startswith("you may") or re.search(r"\bx\b", text, re.IGNORECASE) or "," in text:
+        return None
+    parts = [p.strip() for p in re.split(r" and (?=(?:sacrifice|discard|pay|exile|return|tap) )", text)]
+    components: list[CostComponent] = []
+    for part in parts:
+        found = _component(part[:1].upper() + part[1:], "")
+        if found is None or found.kind not in _ADDITIONAL_KINDS:
+            return None
+        if found.selector is None and found.kind not in (PAY_LIFE, PAY_ENERGY):
+            return None
+        components.append(found)
+    return AbilityCost(components=tuple(components), life=sum(c.amount for c in components if c.kind == PAY_LIFE))

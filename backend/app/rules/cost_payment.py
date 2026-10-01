@@ -59,6 +59,8 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
         card = plan.state.cards.get(cid)
         if card is None or (zone.endswith(":battlefield") and (card.controller != player or not plan.in_game(card))):
             continue
+        if cid == source.id and not zone.endswith(":battlefield"):
+            continue  # -- costs (wave 3$) -- a spell's additional cost can't discard / exile the spell being cast (601.2a)
         if not selectors.matches(plan, sel, card, plan.ch(card), player, source.id):
             continue
         if comp.kind == C.REMOVE_COUNTER and card.counters.get(comp.counter or "", 0) < comp.amount:
@@ -67,8 +69,14 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
     return out
 
 
-def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str) -> str | None:
-    """Why the non-mana parts of ``cost`` can't be paid now (118.3), or None."""
+def energy_amount(comp: C.CostComponent, x: int | None) -> int:
+    """-- counters & designations (wave 3E) -- the energy a PAY_ENERGY part removes ("Pay X {E}": X)."""
+    return max(0, x or 0) if comp.x else comp.amount
+
+
+def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: int | None = None) -> str | None:
+    """Why the non-mana parts of ``cost`` can't be paid now (118.3), or None. ``x``: the X chosen
+    for "Pay X {E}" (unknown yet: 0)."""
     from app.rules.casting import summoning_sick  # casting imports this module
 
     name = card.name or "It"
@@ -79,8 +87,8 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str) -> s
             ch = plan.ch(card)
             if ch.is_creature and "haste" not in ch.keywords and summoning_sick(plan.state, card):
                 return f"{name} has summoning sickness"
-        elif comp.kind == C.PAY_ENERGY and plan.state.players[player].resources.get("energy", 0) < comp.amount:
-            return f"You don't have {comp.amount} energy to pay"
+        elif comp.kind == C.PAY_ENERGY and plan.state.players[player].resources.get("energy", 0) < energy_amount(comp, x):
+            return f"You don't have {energy_amount(comp, x)} energy to pay"
         elif comp.selector is not None:
             usable = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
             if len(usable) < comp.amount:
@@ -88,7 +96,7 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str) -> s
     return None
 
 
-def choose(plan: Plan, a: A.ActivateAbility, cost: AbilityCost, card: CardInstance, what: str) -> dict[int, list[str]] | None:
+def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell, cost: AbilityCost, card: CardInstance, what: str) -> dict[int, list[str]] | None:
     """The validated objects for every part of ``cost`` that needs a choice, by component index;
     None while waiting for the payer's (private) choice. Each object pays for one part only."""
     given: dict[int, list[str]] = {}
@@ -140,7 +148,7 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     if len(chosen) != d.resume["amount"]:
         raise ActionError(f"Choose {d.resume['amount']}")
     intent = A.parse_action(d.resume["intent"])
-    assert isinstance(intent, A.ActivateAbility)
+    assert isinstance(intent, A.ActivateAbility | A.CastSpell)
     intent.cost_choices = [*intent.cost_choices, A.CostChoice(component=d.resume["component"], cards=chosen)]
     plan.rules.passed = []
     INTENTS[intent.type](plan, intent)
@@ -164,8 +172,8 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
         ids = chosen.get(i, [])
         if comp.kind == C.UNTAP:
             plan.do({"type": "tap", "card_ids": [card.id], "tapped": False})
-        elif comp.kind == C.PAY_ENERGY:
-            plan.do({"type": "resource", "player": player, "key": "energy", "delta": -comp.amount})
+        elif comp.kind == C.PAY_ENERGY and energy_amount(comp, record.x):  # (107.14: remove that many energy counters)
+            plan.do({"type": "resource", "player": player, "key": "energy", "delta": -energy_amount(comp, record.x)})
         elif comp.kind == C.TAP_OTHER:
             plan.do({"type": "tap", "card_ids": ids, "tapped": True})
             record.tapped_for_cost += ids
@@ -193,5 +201,6 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
         from app.rules.triggers import sacrificing  # (the event "whenever you sacrifice …" triggers on)
 
         sacrificing(plan, sacrifice)
+        record.sacrificed_objects += [plan.oid(c) for c in sacrifice]  # (wave 3D: "the sacrificed creature's power", 608.2h)
         plan.do({"type": "move", "card_ids": sacrifice, "to": {"zone": "graveyard"}})
         record.sacrificed += sacrifice

@@ -49,7 +49,6 @@ def test_cast_conditions_select_spells_on_the_stack():
     "you commit a crime",  # (an event we don't model)
     "a foo enters",
     "you cast a historic spell",  # (700.6: artifacts, legendaries and Sagas — not a selector yet)
-    "equipped creature dies",  # (what was attached is found only looking back in time: not yet)
 ])
 def test_unknown_conditions_stay_manual(cond):
     assert events.parse_condition(cond) is None
@@ -306,7 +305,9 @@ def test_that_much_damage(cards):
 
 
 @pytest.mark.parametrize("text", [
-    "At the beginning of each opponent's upkeep, that player loses 1 life.",  # (no event player bound)
+    # (no event player bound: your own upkeep names no other player. "each opponent's upkeep, that player" is
+    # the player whose step it is since wave 3S, tests/test_rules_sagas.py)
+    "At the beginning of your upkeep, that player loses 1 life.",
     "Whenever you draw a card, you gain that much life.",  # (a draw has no amount)
 ])
 def test_unbound_event_references_stay_manual(text):

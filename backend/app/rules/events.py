@@ -37,7 +37,7 @@ A condition is a dict:
   (a spell, not an ability), ``first_each_turn`` ("for the first time each turn");
 * counters_put only: ``counter`` (the kind, or None for any);
 * deal_damage only: ``to`` ("any" | "player" | "opponent" | "creature" | "you" | "planeswalker" |
-  "player_or_pw" | "enchanted_player"), ``combat`` (True: only combat damage, False: only noncombat
+  "player_or_pw" | "player_or_battle" | "enchanted_player"), ``combat`` (True: only combat damage, False: only noncombat
   damage, None: any); dealt_damage: ``combat`` likewise ("~ is dealt combat damage"), with a player
   subject for damage dealt to a player ("you're dealt combat damage");
 * multi: ``events`` (each a trigger event of this object: "When ~ enters or dies", 603.2).
@@ -76,13 +76,12 @@ _EVENT_VERBS = [
     (r"deals? damage to an opponent", "deal_damage_opponent"),
 ]
 # "~ deals [combat / noncombat] damage [to a creature / player / you]" (120.1, 510.2)
-# ("to a player or battle": combat damage only — attack_targets in
-# app/rules/combat.py offers players and planeswalkers, never a battle, so of the
-# two only damage to a player can happen)
+# ("to a player or battle": a battle is dealt damage like a planeswalker, 120.3h — it can be
+# attacked, 310.5, and targeted by "any target" spells)
 _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature", " to an opponent": "opponent",
               " to you": "you", " to a player or planeswalker": "player_or_pw", " to a planeswalker": "planeswalker",
               " to one of your opponents": "opponent", " to enchanted player": "enchanted_player",
-              " to a player or battle": "player"}
+              " to a player or battle": "player_or_battle"}
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
 _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
@@ -102,6 +101,21 @@ _MULTI = {"enters": "enter", "dies": "die", "attacks": "attack", "leaves the bat
           "is dealt damage": "dealt_damage"}
 _MULTI_RE = "|".join(sorted((re.escape(k) for k in _MULTI), key=len, reverse=True))
 _P = r"(?P<p>you|an opponent|a player)"
+# -- counters & designations (wave 3E) -- a player getting counters (122.6; one event per player per instruction)
+_GETS_COUNTERS = re.compile(r"(?P<p>you|an opponent|a player) gets? (?:one or more (?P<e>\{E\})|(?:one or more|an?) "
+                            r"(?P<k>poison|experience|rad) counters?)")
+# designations (app/rules/designations.py): "you become the monarch" (725; only a player who wasn't the monarch
+# becomes it), "a player takes the initiative" (726.5: also one who had it), "the Ring tempts you" (701.54d),
+# "you choose a creature as your Ring-bearer" (701.54a), "you complete a dungeon" (309.7), "day becomes night or
+# night becomes day" (731.1a)
+_DESIGNATION_EVENTS = [
+    (re.compile(r"(?P<p>you|an opponent|a player) becomes? the monarch"), "become_monarch"),
+    (re.compile(r"(?P<p>you|an opponent|a player) takes? the initiative"), "take_initiative"),
+    (re.compile(r"the ring tempts (?P<p>you)", re.IGNORECASE), "ring_tempts"),
+    (re.compile(r"(?P<p>you) choose a creature as your ring-bearer", re.IGNORECASE), "ring_bearer"),
+    (re.compile(r"(?P<p>you) complete a dungeon"), "complete_dungeon"),
+    (re.compile(r"day becomes night or night becomes day"), "day_night"),
+]
 # "enchanted creature", "equipped creature" …: the permanent the source is attached to (303.4, 301.5)
 _HOSTS = ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact")
 _SELF_OR_HOST = ("~ or equipped creature", "~ or enchanted creature")
@@ -166,6 +180,14 @@ def _parse(c: str) -> Condition | None:
     found = _player_action(c)
     if found is not None:
         return found
+    m = _GETS_COUNTERS.fullmatch(c)  # -- counters & designations (wave 3E): "whenever you get one or more {E}" (122.6) --
+    if m:
+        return {"event": "player_counters", "subject": "player", "player": _PLAYERS[m["p"]],
+                "counter": "energy" if m["e"] else m["k"]}
+    for rx, event in _DESIGNATION_EVENTS:  # -- counters & designations (wave 3E) --
+        m = rx.fullmatch(c)
+        if m:
+            return {"event": event, "subject": "player", "player": _PLAYERS[m["p"]] if m.groupdict().get("p") else "any"}
     found = _object_event(c)
     if found is not None:
         return found
@@ -179,8 +201,9 @@ def _parse(c: str) -> Condition | None:
             continue
         subject = m["s"]
         if subject in _HOSTS:
-            # (after "dies" / "leaves", what was attached is found only looking back in time: not yet)
-            return {"event": event, "subject": "host"} if event not in ("die", "leave") else None
+            # -- sagas & attached-object triggers (wave 3S) -- after "dies" / "leaves", what was
+            # attached to it is read looking back in time (603.10a: ObjectSnapshot.attached)
+            return {"event": event, "subject": "host"}
         if subject == "~":
             return {"event": event, "subject": "self"}
         if subject in _SELF_OR_HOST:  # "~ or equipped creature deals combat damage to a player"
@@ -327,6 +350,19 @@ def _cast(c: str) -> Condition | None:
     """601.2i: "you cast a creature spell", "an opponent casts a spell", "you cast your second spell
     each turn", "you cast a spell that targets ~" (heroic), "you cast a spell from exile", "you
     cast a kicked spell", "you cast a spell during an opponent's turn"."""
+    # -- refused copy/mana (wave 3R3) -- magecraft: "Whenever you cast or copy an instant or sorcery
+    # spell" / "Whenever you copy a spell". 707.10: copying a spell puts a copy onto the stack under the
+    # control of the player who copies it; it isn't cast. "copy": "or" also triggers on a copy, "only"
+    # only on one (app/rules/triggers.py, the "spell_copied" event). Only the plain spell kinds: an
+    # ordinal, a zone or a target condition is about casting (refused with a copy).
+    cm = re.fullmatch(rf"{_P} (?:(?P<both>casts? or cop(?:y|ies))|cop(?:y|ies)) (?P<spell>.+)", c)
+    if cm is not None:
+        verb = "casts" if cm["p"] in ("an opponent", "a player") else "cast"
+        base = _cast(f"{cm['p']} {verb} {cm['spell']}")
+        if base is None or set(base) != {"event", "subject", "player", "spell"}:
+            return None
+        return {**base, "copy": "or" if cm["both"] else "only"}
+    # -- end refused copy/mana (wave 3R3) --
     m = re.fullmatch(rf"{_P} casts? (?P<spell>.+)", c)
     if not m:
         return None
@@ -437,9 +473,7 @@ def _object_event(c: str) -> Condition | None:
     if m and not (m["to"] == " to an opponent" and m["c"] != "noncombat ") and \
             not (m["to"] == " to a player" and m["c"] == "combat "):
         to = _DAMAGE_TO[m["to"]]
-        if m["to"] == " to a player or battle" and m["c"] != "combat ":
-            raise _Refuse  # (a spell or ability can deal damage to a battle: 120.3h — not only a player)
-        who = _subject(m["s"], host=True, many=to in ("opponent", "player", "player_or_pw"))
+        who = _subject(m["s"], host=True, many=to in ("opponent", "player", "player_or_pw", "player_or_battle"))
         if who is None:
             return None
         return {**who, "event": "deal_damage", "to": to,

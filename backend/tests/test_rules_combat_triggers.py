@@ -58,7 +58,8 @@ def walker(s, pid, name="Walker", loyalty=5):
     ("a player attacks with three or more creatures", {"event": "you_attack", "player": "any", "min_attackers": 3}),
     ("enchanted player is attacked", {"event": "you_attack", "defender": "enchanted_player"}),
     ("~ deals combat damage to a player or planeswalker", {"event": "deal_damage", "to": "player_or_pw", "combat": True}),
-    ("~ deals combat damage to a player or battle", {"event": "deal_damage", "to": "player", "combat": True}),
+    ("~ deals combat damage to a player or battle", {"event": "deal_damage", "to": "player_or_battle", "combat": True}),
+    ("~ deals damage to a player or battle", {"event": "deal_damage", "to": "player_or_battle"}),  # (120.3h)
     ("a creature deals combat damage to one of your opponents", {"event": "deal_damage", "to": "opponent"}),
     ("~ is dealt combat damage", {"event": "dealt_damage", "subject": "self", "combat": True}),
     ("you're dealt combat damage", {"event": "dealt_damage", "subject": "player", "player": "you", "combat": True}),
@@ -75,7 +76,6 @@ def test_parse(cond, expected):
 @pytest.mark.parametrize("cond", [
     "~ attacks a battle",  # (310: battles aren't modelled)
     "~ deals combat damage to a battle",
-    "~ deals damage to a player or battle",  # (noncombat damage can reach a battle: 120.3h)
     "~ attacks while saddled",  # (702.171: saddle isn't modelled)
     "~ attacks while you control a foo",
 ])

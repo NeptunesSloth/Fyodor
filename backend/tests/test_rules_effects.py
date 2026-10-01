@@ -189,7 +189,10 @@ def test_may_trigger_asks_and_can_be_remembered(cards):
     act(s, "p1", type="set_damage", card_ids=[b.id], delta=1)
     act(s, rules(s).priority, type="pass_priority")
     pass_until_stack_empty(s)
-    assert len(zone(s.state, "p1", "hand")) == before + 2  # remembered: no prompt this turn
+    d = rules(s).decision  # another card (of the same name): its own ability, its own answer
+    assert d is not None and d.kind == "confirm"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"])
+    assert len(zone(s.state, "p1", "hand")) == before + 2
 
 
 def test_apnap_order_and_ordering_your_own_triggers(cards):

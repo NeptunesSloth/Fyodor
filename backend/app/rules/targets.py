@@ -221,6 +221,11 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
             raise ActionError("That isn't a legal target")
         if spec.get("same_graveyard") and len({plan.state.cards[t].owner for t in chosen if t in plan.state.cards}) > 1:
             raise ActionError("Those targets must all be from a single graveyard")  # (400.1: one player's graveyard)
+        if spec.get("total") and _total(plan, chosen, spec["total"][0]) > spec["total"][1]:  # -- refused zones/sized (wave 3R4)
+            stat = spec["total"][0].replace("_", " ")  # -- "with total mana value 3 or less": checked as they're chosen (601.2c)
+            raise ActionError(f"Those targets have a total {stat} over {spec['total'][1]}")
+        if spec.get("different") and not _different(plan, chosen, spec["different"]):  # -- refused zones/sized (wave 3R4)
+            raise ActionError(f"Those targets must have different {'names' if spec['different'] == 'name' else 'mana values'}")
         out.groups.append(chosen)
     given = list(division)
     for g, spec in enumerate(specs):
@@ -242,6 +247,30 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
     if given:
         raise ActionError("That division doesn't match the targets")
     return out
+
+
+def _total(plan: Plan, chosen: list[str], stat: str) -> int:
+    """-- refused zones/sized (wave 3R4) -- the chosen cards' total mana value / power (as they are now)."""
+    out = 0
+    for t in chosen:
+        card = plan.state.cards.get(t)
+        if card is None:
+            continue
+        ch = plan.ch(card)
+        out += int(ch.mana_value) if stat == "mana_value" else max(0, ch.pt[0]) if ch.pt is not None else 0
+    return out
+
+
+def _different(plan: Plan, chosen: list[str], what: str) -> bool:
+    """-- refused zones/sized (wave 3R4) -- no two chosen cards share a name / a mana value."""
+    seen = []
+    for t in chosen:
+        card = plan.state.cards.get(t)
+        if card is None:
+            continue
+        ch = plan.ch(card)
+        seen.append((ch.name or "").lower() if what == "name" else int(ch.mana_value))
+    return len(set(seen)) == len(seen)
 
 
 def source_of(plan: Plan, card_id: str | None) -> Characteristics | None:

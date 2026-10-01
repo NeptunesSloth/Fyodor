@@ -82,13 +82,11 @@ def test_parse(text, who, parts):
 @pytest.mark.parametrize("text", [
     "Creatures you control get +1/+1 until end of turn.",  # a duration: an effect, not a static
     "Creatures you control of the chosen type get +1/+1.",  # a choice the table doesn't model
-    "Enchanted creature gets +2/+2 and is goaded.",  # goad
     "Enchanted creature gets +1/+1 and has protection from red.",  # a keyword with a quality
     "Other creatures you control have exalted.",  # a triggered keyword
     "You have hexproof.",  # a player's characteristic (613.10): not modelled
     "Instant and sorcery spells you control have lifelink.",  # spells, not permanents
     "Creatures you control get +1/+1. As long as you have the city's blessing, they also have vigilance.",
-    "Other creatures you control get +1/+1 as long as you've completed a dungeon.",
     "Enchanted creature gets +1/+2 as long as it's white. Otherwise, it gets -2/-1.",
     "Other creatures have base power and toughness 2/2 and are Bears in addition to their other types.",
     "Creatures enchanted player controls lose all abilities and have base power and toughness 1/1.",

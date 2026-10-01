@@ -264,6 +264,9 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     """"Other Elves you control get +1/+1 and have haste" → ("Other Elves you control", "get +1/+1 and
     have haste"): the subject ends before the first verb (get / have, or a restriction's can't /
     can / attack(s) / block(s) / must / don't / doesn't)."""
+    goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
+    if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
+        return goaded["s"], goaded["p"]
     m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", body)
     if m is None or m.start() == 0:
         return None, None
@@ -411,6 +414,10 @@ RULES: dict[str, tuple[str, ...]] = {
     "its activated abilities can't be activated": ("cant_activate",),
     "their activated abilities can't be activated": ("cant_activate",),
 }
+# -- keyword actions & face-down (wave 3F) -- "Enchanted creature gets +2/+2 and is goaded.", "Creatures your
+# opponents control with power less than ~'s power are goaded." (701.15b: goaded by the controller of the
+# permanent that caused it — "@you" becomes the static's controller where app/rules/layers.py applies it)
+RULES.update({"is goaded": ("goaded:@you",), "are goaded": ("goaded:@you",)})
 
 
 def _rule(piece: str) -> list[str] | None:
@@ -494,6 +501,8 @@ def _condition(text: str) -> dict[str, Any] | None:
     m = re.fullmatch(r"(?:it|~)(?:'s| is) (?P<test>attacking alone|attacking|blocking|tapped|untapped|enchanted|equipped)", c)
     if m:
         return {"static": "self", "test": m["test"].replace(" ", "_")}
+    if c in ("it entered this turn", "~ entered this turn"):  # -- refused modal/conditional (wave 3R1) -- (Crew Captain)
+        return {"history": "entered_self"}
     m = re.fullmatch(r"(?:it|~) has (?:(?P<one>a|an)|(?P<n>\w+) or more) "
                      r"(?P<kind>\+1/\+1|-1/-1|[a-z]+ )?counters? on it", c)
     if m:

@@ -27,6 +27,8 @@ MAX_STEPS = 400  # a safety valve: no single intent may expand into more table a
 class Plan:
     """A scratch copy of the table plus the table actions carried out on it so far."""
 
+    x_choice: int | None = None  # the X announced for the spell being cast, while its targets are chosen (selectors read it)
+
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)
         self.actor = actor
@@ -35,6 +37,7 @@ class Plan:
         self.steps: list[dict[str, Any]] = []
         self.max_steps = MAX_STEPS
         self.hold: str | None = None  # a player keeping priority right now (HOLD PRIORITY, a cancelled cast)
+        self.probe_903: list[tuple[str, str]] | None = None  # a look ahead for 903.9b (replacements.ask_903_9b_first)
 
     @classmethod
     def view(cls, state: GameState, actor: str, info: CardInfo) -> Plan:
@@ -43,6 +46,7 @@ class Plan:
         plan = cls.__new__(cls)
         plan.state, plan.actor, plan.info, plan.rng = state, actor, info, None
         plan.steps, plan.max_steps, plan.hold = [], 0, None
+        plan.probe_903 = None
         return plan
 
     @property
@@ -69,8 +73,16 @@ class Plan:
         before = capture(self.state)
         if before is not None:  # (the turn log: what a permanent was as it left, layers applied)
             before.types = self._battlefield_types(payload)
+        entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
         HANDLERS[resolved.type](self.state, resolved)
         track(self.state, before)
+        if entered_before is not None:  # -- refused modal/conditional (wave 3R1) -- what entered was, as it entered (608.2i)
+            log = self.rules.turn_log
+            for entry in log.entered[entered_before[1] if log.turn == entered_before[0] else 0:]:
+                card = self.state.cards.get(entry.card)
+                if entry.types is None and card is not None and self.oid(card) == entry.object_id:
+                    now = self.ch(card)
+                    entry.types, entry.subtypes = sorted(now.types), sorted(now.subtypes)
         for oid, (pt, abilities, keywords, traits) in leaving.items():  # last known information (608.2h)
             snap = self.rules.lki.get(oid)
             if snap is not None:
@@ -79,6 +91,10 @@ class Plan:
                 # -- quoted grants (wave 2D) -- its abilities, keywords and types as they last existed (603.10a)
                 snap.abilities, snap.keywords, snap.traits = abilities, keywords, traits
         self.steps.append(resolved.model_dump(mode="json"))
+        if payload.get("type") == "rules_mana" and self.rules.kept_mana:  # -- refused copy/mana (wave 3R3) --
+            from app.rules.kept_mana import clamp  # (never more kept than the pool holds)
+
+            clamp(self.state)
         return resolved
 
     def _battlefield_types(self, payload: dict[str, Any]) -> dict[str, list[str]]:
@@ -150,6 +166,16 @@ class Plan:
     @property
     def active(self) -> str:
         return self.state.turn.active_player
+
+    @property
+    def turn_player(self) -> str:
+        """Who makes the active player's choices: the active player, or — when they have left the
+        game and their turn goes on without them (800.4j) — the next player in turn order (800.4h)."""
+        return self.active if self.active in self.live() else self.after(self.active)
+
+    def has_active_player(self) -> bool:
+        """False while a turn goes on without its active player, who left the game (800.4j)."""
+        return self.active in self.live()
 
     def live(self) -> list[str]:
         return live_players(self.state)

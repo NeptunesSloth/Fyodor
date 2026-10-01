@@ -23,10 +23,11 @@ from typing import Any
 
 from app.game import actions as A
 from app.game.errors import ActionError
-from app.game.rules_state import Decision, DecisionOption, PlayerPrefs, TurnCount, Yield
+from app.game.rules_state import Decision, DecisionOption, PaymentRecord, PlayerPrefs, TurnCount, Yield
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import (
     attachments,
+    battles,
     casting,
     combat,
     copying,
@@ -35,6 +36,7 @@ from app.rules import (
     delayed,
     effects,
     layers,
+    looking,
     modal_abilities,
     optional_payment,
     permissions,
@@ -77,12 +79,17 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         PREFS[intent.type](plan, intent)
         plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
         return plan.steps
-    if state.rules.paused:
+    if state.rules.paused and intent.type != "concede":  # (104.3a: conceding is possible at any time)
         raise ActionError("Automation is paused by the host. Use the table tools meanwhile.")
     if state.pregame is not None and not state.pregame.finished:
         raise ActionError("Finish opening hands first")
     if actor in state.rules.conceded or actor in state.rules.lost:
         raise ActionError("You have left this game")
+    if state.rules.paused:  # a concede while the host has automation paused: they leave, nothing else runs
+        plan = Plan(state, actor, info, rng)
+        concede(plan, intent)
+        plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
+        return plan.steps
     plan = Plan(state, actor, info, rng)
     begin(plan)
     sync_step(plan)
@@ -109,6 +116,7 @@ def begin(plan: Plan) -> None:
     onto the battlefield by hand still counts as the land for the turn), then start a fresh
     event list (keeping events not yet collected for triggers). Expired remembered answers are dropped."""
     absorb_manual_events(plan)
+    layers.control_sync(plan)  # -- control (wave 3K) -- an Aura or effect source moved by hand: control follows (613.1b)
     # (keep what hasn't been looked at for triggers yet: a resolution that stopped for a
     # decision may have left events its triggers still have to see, 603.2)
     plan.rules.events = [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch and not e.manual]
@@ -136,10 +144,19 @@ def absorb_manual_events(plan: Plan) -> None:
             r.lands_played[owner] = TurnCount(turn=turn, count=r.lands_this_turn(owner, turn) + 1)
         elif from_zone in ("hand", "command") and to_zone == STACK:
             r.spells_cast[card.controller] = TurnCount(turn=turn, count=r.spells_this_turn(card.controller, turn) + 1)
+            # -- refused modal/conditional (wave 3R1) -- cast by hand: where from is known, what paid for it isn't
+            oid = plan.oid(card)
+            if oid not in r.payments:
+                r.payments[oid] = PaymentRecord(card=card.id, controller=card.controller, cast_from=from_zone,
+                                                mana_known=False, alternative="manual",
+                                                cast_main=plan.state.turn.active_player == card.controller
+                                                and plan.state.turn.phase in MAIN_PHASES)
 
 
 def settle(plan: Plan) -> None:
     """After every intent: state-based actions, triggered abilities, and make sure someone can act."""
+    permissions.free_cast_abandoned(plan)  # -- refused look/cast-free (wave 3R5) -- a cancelled mid-resolution cast (608.2g)
+    layers.control_sync(plan)  # -- control (wave 3K) -- continuous effects first (613.1b), then state-based actions
     sba.check(plan)
     r = plan.rules
     if r.decision is None and len(plan.live()) > 1 and (r.priority is None or r.priority not in plan.live()):
@@ -354,9 +371,6 @@ def advance(plan: Plan) -> None:
         if len(players) <= 1:
             r.priority = players[0] if players else None  # game over: the table stays a sandbox
             return
-        if plan.active not in players:
-            end_turn_early(plan)  # the active player has left the game: on to the next turn
-            continue
         if all(p in r.passed for p in players):
             if plan.state.zones.get(STACK):
                 resolve_top_of_stack(plan)
@@ -399,8 +413,21 @@ def _mark_step(plan: Plan) -> None:
 
 def empty_pools(plan: Plan) -> None:
     """Mana empties from every pool at the end of each step and phase (rule 500.4)."""
+    kept = effects.keyword_actions.combat_mana_kept(plan)  # -- wave 3F -- firebending: kept until end of combat
+    from app.rules import kept_mana  # -- refused copy/mana (wave 3R3): 106.4 "you don't lose this mana" --
+
+    before = {pid: p.mana.get("R", 0) for pid, p in plan.state.players.items()}
+    if plan.rules.kept_mana and kept_mana.empty(plan):
+        # (both kinds of kept mana: the firebending {R} on top of what the other effects kept, never more than was there)
+        for pid, n in kept.items():
+            add = min(n, before.get(pid, 0) - plan.state.players[pid].mana.get("R", 0))
+            if add > 0:
+                plan.do({"type": "rules_mana", "player": pid, "delta": {"R": add}}, actor=pid)
+        return
     if any(p.mana for p in plan.state.players.values()):
         plan.do({"type": "rules_mana", "player": plan.active, "empty_all": True}, actor=plan.active)
+        for pid, n in kept.items():
+            plan.do({"type": "rules_mana", "player": pid, "delta": {"R": n}}, actor=pid)
 
 
 def next_step(plan: Plan) -> None:
@@ -421,6 +448,7 @@ def next_step(plan: Plan) -> None:
         plan.do({"type": "phase", "to": "end_combat", "force": True}, actor=plan.active)
     else:
         plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
+    effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped step or combat phase
     _mark_step(plan)
     on_step_start(plan)
 
@@ -437,17 +465,37 @@ def _keep_tapped(plan: Plan) -> list[str]:
 
 def start_next_turn(plan: Plan) -> None:
     keep = _keep_tapped(plan)
+    # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
+    stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
+    keep = [*keep, *stunned]
     skipped: list[tuple[str, int]] = []  # 800.4k: a departed player's turn doesn't begin
+    previous = (plan.active, plan.state.turn.number)
+    # -- refused grants/replacements (wave 3R2) -- 614.10: skipped turns (they never begin: nothing ends with
+    # them, 500.4) and a skipped untap step (nothing untaps, 502.2's day / night check doesn't happen)
+    skip_to = effects.skips.next_active(plan)
+    stay = effects.skips.untap_skipped(plan, skip_to or plan.after(plan.active))
+    if stay is not None:
+        keep = list(dict.fromkeys([*keep, *stay]))[:250]
+    if skip_to is not None:
+        plan.do({"type": "next_turn", "force": True, "keep_tapped": keep, "player": skip_to}, actor=plan.active)
+    # -- end refused grants/replacements (wave 3R2) --
     for _ in range(len(plan.state.seat_order) + 1):
+        if skip_to is not None:
+            break
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep}, actor=plan.active)
         if plan.active in plan.live():
             break
         skipped.append((plan.active, plan.state.turn.number))
+    effects.keyword_actions.lose_stun(plan, [c for c in stunned if c in plan.state.cards and plan.state.cards[c].controller == plan.active],
+                                      plan.active)
     delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
-    if not plan.state.settings.auto_untap:
+    if stay is None:  # (wave 3R2: not in a skipped untap step)
+        effects.designations.untap_day_night(plan, *previous)  # -- (wave 3E) 502.2: day / night --
+    if not plan.state.settings.auto_untap and stay is None:
         plan.do({"type": "untap_all", "player": plan.active, "keep_tapped": keep}, actor=plan.active)
     # The untap step has no priority: straight on to upkeep.
     plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
+    effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step
     _mark_step(plan)
     on_step_start(plan)
 
@@ -457,6 +505,18 @@ def on_step_start(plan: Plan) -> None:
     state = plan.state
     phase = state.turn.phase
     ap = plan.active
+    if not plan.has_active_player() and phase in ("draw", "declare_attackers", "cleanup"):
+        # 800.4j: the turn goes on without its active player — their turn-based actions (the draw,
+        # 504.1; declaring attackers, 508.1; discarding to hand size, 514.1) don't happen; the
+        # cleanup's 514.2 still does. "At the beginning of" triggers of the step still trigger.
+        if phase == "declare_attackers":
+            plan.rules.no_attackers = True
+        elif phase == "cleanup":
+            finish_cleanup(plan)
+            return
+        else:
+            triggers.at_step_generic(plan)
+        return
     if phase == "draw":
         first_turn_skip = state.turn.number == 1 and len(plan.live()) == 2
         if first_turn_skip:
@@ -473,6 +533,17 @@ def on_step_start(plan: Plan) -> None:
         triggers.at_step(plan, "upkeep_you" if phase == "upkeep" else "end_step_you")
         if phase == "end":
             triggers.monarch_end_step(plan)
+        else:  # -- counters & designations (wave 3E): 726.2 the initiative's holder ventures into Undercity --
+            effects.designations.initiative_upkeep(plan)
+    elif phase == "main1":
+        # -- sagas & attached-object triggers (wave 3S): 505.4 / 714.3c lore counters (a turn-based action) --
+        from app.rules import sagas
+
+        sagas.precombat_main(plan)
+        # -- counters & designations (wave 3E): 728.1 rad counters (precombat main phase) --
+        effects.designations.rad_trigger(plan)
+    elif phase == "end_combat":  # -- (wave 3E) delayed triggers "at end of combat" (511.2, 603.7: the Ring's sacrifice) --
+        delayed.at_step(plan, "end_combat")
     elif phase == "declare_attackers":
         combat.start_declare_attackers(plan)
     elif phase == "declare_blockers":
@@ -491,7 +562,7 @@ def on_step_start(plan: Plan) -> None:
 def combat_damage(plan: Plan, rnd: str, then: str) -> None:
     """Deal a round of combat damage, or with AUTO COMBAT DAMAGE off (ASSISTED), ask first."""
     plan.rules.combat_round = then  # type: ignore[assignment]
-    if plan.options.auto_combat_damage or not combat.attackers_on(plan.state):
+    if plan.options.auto_combat_damage or not combat.attackers_on(plan.state) or not plan.has_active_player():
         combat.deal_combat_damage(plan, rnd)  # type: ignore[arg-type]
         return
     preview = combat.damage_preview(plan, rnd)  # type: ignore[arg-type]
@@ -528,15 +599,6 @@ def cleanup_step(plan: Plan) -> None:
         )
         return
     finish_cleanup(plan)
-
-
-def end_turn_early(plan: Plan) -> None:
-    """The active player left the game (800.4a). 800.4j has the turn go on to its end without an
-    active player; the engine ends it at once instead (the rest of its steps, and their "at the
-    beginning of the end step" triggers, are skipped), but with that turn's cleanup (514.2), so
-    damage and "until end of turn" effects don't last into the next player's turn."""
-    turn_cleanup(plan)
-    start_next_turn(plan)
 
 
 def finish_cleanup(plan: Plan) -> None:
@@ -598,9 +660,18 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         card = plan.state.cards[card_id]
         plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
         return
+    if oid in plan.rules.exile_if_graveyard:  # -- refused look/cast-free (wave 3R5) -- "If that spell would be put
+        plan.rules.exile_if_graveyard = [o for o in plan.rules.exile_if_graveyard if o != oid]  # into your graveyard, exile it instead"
+        card = plan.state.cards[card_id]
+        if plan.ch(card).is_instant_or_sorcery:  # (a permanent spell enters instead: not replaced, 614.1a)
+            plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
+            return
     stack = plan.state.zones.get(STACK, [])
-    if stack and stack[-1] == card_id:
-        plan.do({"type": "resolve_top", "force": True, "tapped": tapped}, actor=controller)
+    if card_id in stack:
+        step: dict[str, Any] = {"type": "resolve_top", "force": True, "tapped": tapped}
+        if stack[-1] != card_id:  # -- refused look/cast-free (wave 3R5) -- 608.2g: spells cast while it resolved are
+            step["card_id"] = card_id  # above it now; it leaves the stack all the same (608.2n)
+        plan.do(step, actor=controller)
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
@@ -837,25 +908,86 @@ def _resume_cleanup_discard(plan: Plan, d: Decision, chosen: list[str]) -> None:
 
 
 def concede(plan: Plan, _: A.Action) -> None:
+    """104.3a: a player can concede at any time — with or without priority, during anyone's
+    decision, mid-combat — and leaves the game at once (800.4a, app/rules/leave.py). A decision
+    left pending is settled so the others go on: their own is dropped (800.4f-h: a player who left
+    makes no choices; the resolution it was part of goes on without it), and one that was part of
+    a spell or ability that left the game with them ends with it. Their turn goes on without an
+    active player (800.4j)."""
     r = plan.rules
+    if r.winner is not None:
+        raise ActionError(f"The game is over: {plan.name(r.winner)} won")
+    _require_seated(plan)
     r.conceded.append(plan.actor)
     plan.note(f"{plan.name(plan.actor)} conceded")
-    was_deciding = r.decision is not None and r.decision.player == plan.actor
+    pending = r.decision
     leave_game(plan, plan.actor)
     left = plan.live()
     if len(left) == 1:
         plan.note(f"{plan.name(left[0])} is the last player standing")
+        r.decision = None
         r.winner = left[0]
         r.priority = left[0]
         return
-    if was_deciding:
-        _after_resolution(plan)
-    if r.priority is None and r.decision is None:
-        r.priority = plan.after(plan.actor)
-    if plan.active == plan.actor and r.decision is None:
-        end_turn_early(plan)  # the conceding player's turn ends
+    if r.paused:  # (automation paused by the host: the table goes on by hand; nothing is resolved now)
+        if r.priority is None or r.priority not in left:
+            r.priority = plan.after(plan.actor)
         return
+    if pending is not None:
+        _settle_decision(plan, pending, plan.actor)
+    if r.decision is None and (r.priority is None or r.priority not in left):
+        # 800.4a: priority passes to the next player in turn order who's still in the game
+        r.priority = plan.after(plan.actor)
     advance(plan)
+
+
+def _settle_decision(plan: Plan, d: Decision, leaver: str) -> None:
+    """The decision pending as ``leaver`` left the game: keep it, re-ask it as things now are, or
+    end it (and with it the resolution it belonged to) — never leave the others stuck."""
+    r = plan.rules
+    resume = d.resume or {}
+    found = resume.get("ctx")
+    ctx: dict[str, Any] = found if isinstance(found, dict) else {}
+    resolving = "stack_id" in ctx and "effects" in ctx
+    if resolving and ctx["stack_id"] not in plan.state.zones.get(STACK, []):
+        # the spell or ability being resolved left the game with its controller (800.4a): the rest
+        # of it doesn't happen
+        r.decision = None
+        plan.rules.stack.pop(ctx["stack_id"], None)
+        _after_resolution(plan)
+        return
+    if d.player != leaver:
+        if d.kind == "declare_attackers" and r.decision is not None:
+            r.decision = None
+            combat.start_declare_attackers(plan)  # (the attack targets changed)
+        elif d.kind == "declare_blockers" and r.decision is not None:
+            r.decision = None
+            combat.ask_next_blocker(plan)  # (the attackers changed: maybe none attack them now)
+            if r.decision is None:
+                combat.blocks_declared(plan)
+        return
+    r.decision = None  # (leave_game dropped it already)
+    if resolving:
+        # 800.4f-g: the choice isn't made; the resolution goes on — with the other players still to
+        # choose in APNAP order ("each opponent discards a card"), then its next instruction
+        plan.note(f"{plan.name(leaver)} left the game: their choice isn't made")
+        if "rest" in resume and "picked" in resume and str(resume.get("step")) in RESUME:
+            RESUME[str(resume["step"])](plan, d, [])
+        else:
+            effects.continue_effects(plan, ctx)
+        return
+    step = resume.get("step")
+    if d.kind == "declare_blockers":
+        combat.ask_next_blocker(plan)  # (leave_game took them off the defenders still to declare)
+        if r.decision is None:
+            combat.blocks_declared(plan)
+        return
+    if d.kind == "declare_attackers":
+        r.no_attackers = True  # (they declared none: 800.4j, the turn goes on)
+    if step in ("cleanup_discard", "cleanup_manual"):
+        finish_cleanup(plan)  # 514.2 still happens; then the next player's turn
+        return
+    _after_resolution(plan)
 
 
 def set_stops(plan: Plan, a: A.SetStops) -> None:
@@ -964,6 +1096,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "may": effects.resume_may,
     "proliferate": effects.resume_proliferate,
     "search": effects.resume_search,
+    "search_split": effects.resume_search_split,
     "discard": effects.resume_discard,
     # optional payments as an effect (PAY / DECLINE, the objects for a part of the cost); the same
     # step name also continues the older pay-or-sacrifice / counter-unless prompts
@@ -971,6 +1104,8 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "return_yours": effects.resume_return_yours,
     "explore": effects.resume_explore,
     "aura_enters": attachments.resume_aura_enters,
+    "battle_protector": battles.resume_protector,  # 310.11
+    "siege_cast": battles.resume_siege_cast,  # 310.12b
     "sacrifice_choice": effects.resume_sacrifice_choice,
     "pick_looked": effects.resume_pick_looked,
     "library_place": effects.resume_library_place,
@@ -986,8 +1121,14 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "trigger_slot_target": modal_abilities.resume_trigger_slot,
     "fabricate": effects.resume_fabricate,
     "storm": effects.resume_storm,
+    "add_mana": effects.resume_add_mana,  # (mana effects, wave 3M)
     "shock": lambda plan, d, chosen: _resume_shock(plan, d, chosen),
     "suspend_cast": effects.resume_suspend_cast,
+    "free_cast_pick": permissions.resume_free_cast,  # (wave 3C)
+    # -- refused look/cast-free (wave 3R5) -- piles (700.3)
+    "piles_opponent": looking.resume_opponent,
+    "piles_split": looking.resume_split,
+    "piles_pick": looking.resume_pick,
     "order_triggers": triggers.resume_order,
     "trigger_target": triggers.resume_target,
     "trigger_confirm": triggers.resume_confirm,
@@ -1007,6 +1148,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "stack_enter_choice": replacements.resume_stack_enter_choice,
     "land_enter_choice": replacements.resume_land_enter_choice,
     "commander_instead": replacements.resume_commander_instead,
+    "commander_first": replacements.resume_commander_first,  # 903.9b asked before the move
     "shield_order": replacements.resume_shield_order,
     # -- replacement effects stage 2 (wave 2E): which of several replacement / prevention effects
     # applies first (616.1), then the paused site runs again (app/rules/replace.py) --

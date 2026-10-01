@@ -99,6 +99,7 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
         colors=list(a.token.colors),
         type_line=a.token.type_line,
         text=a.token.text,
+        back=_token_back(a.token.back),  # -- keyword actions & face-down (wave 3F) -- 111.10i
     )
     key = zone_key(pid, "battlefield")
     source = None
@@ -181,10 +182,21 @@ def delete_card(state: GameState, a: A.DeleteCard) -> None:
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" removed "), names])
 
 
+def _token_back(spec: A.TokenSpec | None) -> TokenDef | None:
+    """-- keyword actions & face-down (wave 3F) -- a double-faced token's back face (111.10i)."""
+    if spec is None:
+        return None
+    return TokenDef(name=spec.name, card_id=spec.card_id, power=spec.power, toughness=spec.toughness, colors=list(spec.colors),
+                    type_line=spec.type_line, text=spec.text)
+
+
 def set_face(state: GameState, a: A.SetFace) -> None:
     c = ops.card(state, a.card_id)
     before = ops.card_part(state, c)
     c.face = a.face if a.face is not None else (c.face + 1) % max(1, a.faces)
+    if c.token is not None and c.token.back is not None:  # -- wave 3F -- a double-faced token shows the face that's up
+        c.face = min(c.face, 1)
+        c.name = c.token.back.name if c.face == 1 else c.token.name
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" turned over "), before])
 
 

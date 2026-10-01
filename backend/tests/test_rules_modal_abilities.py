@@ -1170,15 +1170,13 @@ def test_the_lines_of_the_modes_belong_to_the_ability():
 
 @pytest.mark.parametrize("text", [
     # (each real: what the grammar refuses, and why — nothing here is guessed)
-    "Whenever this creature attacks, choose one at random —\n• Draw a card.\n• You gain 1 life.",  # Cult of Skaro, Umaro: random
+    # (wave 3R1 reads "choose one at random", "Each mode must target a different player", reflexive "When you do,
+    # choose …" and "If [condition], you may choose both instead": tests/test_rules_refused_r1.py)
+    "Whenever this creature attacks, choose two at random —\n• Draw a card.\n• You gain 1 life.",  # (only "one at random" is read)
     "When this creature dies, choose one or more. Each mode must target a different player.\n• Target player loses 1 life.\n"
-    "• Target player gains 1 life.",  # Vindictive Lich: a different player per mode
-    "Whenever you attack, you may sacrifice another creature. When you do, choose two —\n• Draw a card.\n• You gain 1 life.",  # Caesar (603.12)
-    "At the beginning of combat on your turn, you may pay {E}{E}. When you do, choose one —\n• Draw a card.\n• You gain 1 life.",  # Voltstorm Angel
+    "• You gain 1 life.",  # (a different player per mode: every mode must target a player)
     "When this creature enters, choose one. If you have exactly 13 life, you may choose both instead.\n• Draw a card.\n"
     "• You gain 1 life.",  # Disciple of Perdition: "choose both instead"
-    "At the beginning of combat on your turn, choose one. If you control a commander, you may choose both instead.\n"
-    "• Draw a card.\n• You gain 1 life.",  # SOLDIER Military Program
     "{T}: Choose one. X is the number of spells you've cast this turn.\n• Draw a card.\n• You gain 1 life.",  # Gnostro
     "When this creature enters, choose up to X, where X is the number of Lesson cards in your graveyard —\n• Draw a card.\n"
     "• You gain 1 life.",  # Bumi, King of Three Trials
@@ -1210,7 +1208,7 @@ def test_a_triggers_intervening_if_belongs_to_the_whole_ability():
     assert d["if"] == {"value": {"count": 'sel:{"controller":"you","subtypes":["Forest"]}'}, "op": ">=", "n": 1}
     assert d["trigger"] == "attacks_self" and [m["effects"][0]["do"] for m in d["modes"]] == ["draw", "gain_life"]
     # the same text when the "if" is unreadable: manual, not guessed
-    assert header("Whenever this creature attacks, if it's night, choose one —\n• Draw a card.\n• You gain 1 life.") is None
+    assert header("Whenever this creature attacks, if a wizard sneezed this turn, choose one —\n• Draw a card.\n• You gain 1 life.") is None
 
 
 def test_modes_that_name_the_event_keep_their_references():
@@ -1327,3 +1325,13 @@ def test_one_players_different_modal_triggers_are_ordered_then_announced_one_by_
 
 
 # -- end of tests --
+
+
+def test_a_paid_energy_cost_then_a_reflexive_modal_trigger():
+    """Voltstorm Angel: "you may pay {E}{E}. When you do, choose one —" — the optional payment (107.14), then a
+    reflexive modal trigger created only if it was paid (603.12)."""
+    d = header("At the beginning of combat on your turn, you may pay {E}{E}. When you do, choose one —\n• Draw a card.\n• You gain 1 life.")
+    pay, reflexive = d["effects"]
+    assert pay["do"] == "optional_payment" and pay["cost"] == "Pay {E}{E}"
+    assert reflexive["do"] == "reflexive" and reflexive["cond"] == {"succeeded": pay["bind"]}
+    assert [m["effects"][0]["do"] for m in reflexive["ability"]["modes"]] == ["draw", "gain_life"]

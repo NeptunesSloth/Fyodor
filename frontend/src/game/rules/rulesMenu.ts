@@ -32,6 +32,9 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     const flashback = zone === "graveyard" && abilityLines(oracle).some((l) => /^flashback \{/i.test(l));
     items.push({ label: flashback ? "Cast with flashback" : `Cast from ${zone}`, onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
   }
+  if (mine && hints.free_castable?.includes(card.id) && !isLand(card.id, view)) {
+    items.push({ label: "Cast without paying its mana cost", onClick: () => void send({ type: "cast_spell", card_id: card.id, free: true }) });
+  }
   const morph = abilityLines(oracle).find((l) => /^(mega)?morph \{/i.test(l));
   const evoke = abilityLines(oracle).find((l) => /^evoke \{/i.test(l));
   if (mine && zone === "hand" && evoke) {

@@ -35,6 +35,7 @@ Layers 1–5 (copy, control, text, color) are next; the model already carries th
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -183,7 +184,7 @@ def _table_key(state: GameState) -> tuple:
     log = r.turn_log if r else None  # (conditions read this turn's history: "a creature died this turn")
     history = (log.turn, tuple(log.attacked), tuple(sorted(log.gained.items())), tuple(sorted(log.lost.items())),
                tuple(sorted(log.drew.items())), len(log.left), len(log.left_graveyard),
-               len(log.entered_graveyard)) if log is not None else ()
+               len(log.entered_graveyard), len(log.entered)) if log is not None else ()  # (wave 3R1: entered)
     return (state.seq, state.turn.number, state.turn.active_player, players, field,
             r.timestamp if r else 0, len(r.effects) if r else 0, history)
 
@@ -233,7 +234,7 @@ def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristi
         source = view.state.cards[st.source]
         if d["static"] == "attached_rule":
             if not only_keyword_subjects and _attached_rule_applies(source, d, card, ch):
-                imposed.update(d["imposes"])
+                imposed.update(_own(d["imposes"], st.controller))
             continue
         if not _grants(d) or (only_keyword_subjects and not _keyword_subject(d)):
             continue  # (a rules-only static is applied by _with_rules, after layer 7)
@@ -282,6 +283,8 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
 
 
 # -- animation (agent A2): layer 4 type changes, layer 5 colors, layer 6 "loses all abilities" ----
+_PT_COUNTER = re.compile(r"(?P<p>[+-]\d+)/(?P<t>[+-]\d+)")  # (wave 3R3: a power/toughness counter, 122.1a)
+
 # Subtypes belong to a card type (205.3g-k); when an effect sets the card types (205.1a) the
 # subtypes of a type the object no longer has drop with it. Creature types are
 # app/rules/creature_types.py's; a subtype in none of the lists below is read as a creature or
@@ -471,6 +474,11 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
             t += each["t"] * n
     p += card.counters.get("+1/+1", 0) - card.counters.get("-1/-1", 0)  # … counters …
     t += card.counters.get("+1/+1", 0) - card.counters.get("-1/-1", 0)
+    for kind, n in card.counters.items():  # -- refused copy/mana (wave 3R3) -- other P/T counters ("-0/-1": Wall of Roots)
+        m = _PT_COUNTER.fullmatch(kind) if n and kind not in ("+1/+1", "-1/-1") else None
+        if m is not None:  # 122.1a / 613.4c: "+X/+Y" counters modify power and toughness
+            p += int(m["p"]) * n
+            t += int(m["t"]) * n
     for e in effects:  # … and resolved ones
         if e.layer == "7c":
             p += e.power or 0
@@ -577,17 +585,24 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
         try:
             for st in table:
                 d = st.definition
-                if set(d["rules"]) <= imposed or not _gate_open(view, st, tkey):
+                rules = _own(d["rules"], st.controller)
+                if set(rules) <= imposed or not _gate_open(view, st, tkey):
                     continue
                 source = state.cards[st.source]
                 if grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True) \
                         and _conditions(view, st, tkey):
-                    imposed.update(d["rules"])
+                    imposed.update(rules)
         finally:
             _depth -= 1
     if imposed:
         ch = replace(ch, imposed=ch.imposed | frozenset(imposed))
     return ch
+
+
+def _own(rules: list[str], controller: str) -> list[str]:
+    """-- keyword actions & face-down (wave 3F) -- a rule naming "@you" ("goaded:@you": 701.15b) names the
+    static's controller."""
+    return [r.replace("@you", controller) for r in rules]
 
 
 def _keyword_subject(d: dict[str, Any]) -> bool:
@@ -658,6 +673,69 @@ def end_of_turn(plan: Plan) -> None:
     """514.2: "until end of turn" effects end in the cleanup step."""
     r = plan.rules
     r.effects = [e for e in r.effects if e.duration != "end_of_turn"]
+    control_sync(plan)  # -- control (wave 3K) -- a Threaten effect ends: the creature goes back (613.1b)
+
+
+# -- control (wave 3K): layer 2 (613.1b) -----------------------------------------------------------------
+# The table keeps a permanent on its controller's side with ``controller`` set; this keeps that in line
+# with the control-changing effects: resolved effects ("gain control of target creature until end of
+# turn": ``ContinuousEffect.new_controller``, locked to the objects it began with, 611.2c) and the static
+# abilities of Auras ("You control enchanted creature."). The latest timestamp wins (613.7); a permanent
+# no effect controls any more goes back to its owner, unless a player moved it by hand (only the cards
+# an effect moved are in ``RulesState.control_changed``). The object is the same one throughout (no zone
+# change: 400.7 doesn't apply), but a new controller restarts "summoning sickness" (302.6: tracked by
+# ``controlled_since``), and the permanent leaves combat (506.4: the table action does that).
+def control_sync(plan: Plan) -> None:
+    """Apply layer 2 to the table, and end "for as long as …" effects it makes untrue (611.2b),
+    until nothing changes."""
+    r = plan.rules
+    if r is None or not (r.effects or r.control_changed or any(c.attached_to for c in plan.state.cards.values())):
+        return
+    from app.rules import delayed
+
+    for _ in range(8):
+        delayed.expire(plan)
+        if not _control_pass(plan):
+            return
+
+
+def _control_pass(plan: Plan) -> bool:
+    from app.rules import scripts
+
+    state, r = plan.state, plan.rules
+    battle = {cid: c for cid, c in state.cards.items() if c.zone.endswith(":battlefield")}
+    live = set(plan.live())
+    entries: dict[str, list[tuple[tuple[int, int, int], str]]] = {}
+    by_object = {plan.oid(c): cid for cid, c in battle.items()} if any(e.layer == "2" for e in r.effects) else {}
+    for e in r.effects:
+        if e.layer == "2" and e.new_controller:
+            for oid in e.affected:
+                if oid in by_object:
+                    entries.setdefault(by_object[oid], []).append(((e.object_seq, 1, e.timestamp), e.new_controller))
+    for cid, c in battle.items():  # "You control enchanted creature." (a static: whatever it is attached to now, 611.3a)
+        if c.attached_to in battle and not c.face_down and c.controller in live and any(
+                d.get("static") == "control" for d in scripts.definitions(copiable(state, c, plan.info)).values()):
+            entries.setdefault(c.attached_to, []).append(((timestamp(state, cid), 0, 0), c.controller))
+    changed = False
+    for cid in sorted(set(entries) | set(r.control_changed)):
+        card = battle.get(cid)
+        if card is None:
+            r.control_changed = [x for x in r.control_changed if x != cid]
+            continue
+        valid = [p for _, p in sorted(entries.get(cid, ())) if p in live]  # (800.4a: a departed player's effects ended)
+        if valid:
+            want: str | None = valid[-1]
+            if cid not in r.control_changed and want != card.controller:
+                r.control_changed.append(cid)
+        elif cid in r.control_changed:
+            want = card.owner if card.owner in live else None
+            r.control_changed.remove(cid)
+        else:
+            continue
+        if want is not None and want != card.controller:
+            plan.do({"type": "set_controller", "card_ids": [cid], "player": want}, actor=want)
+            changed = True
+    return changed
 
 
 def prune(state: GameState) -> None:

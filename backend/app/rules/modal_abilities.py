@@ -30,11 +30,17 @@ Reading the text is reuse, not a second grammar: each mode is read by the ordina
 (``scripts.define``) as a one-line ability with the same header — "When ~ enters, <mode>" — so the
 trigger condition, the pronouns ("it", "that player"), intervening "if", activation restrictions and
 costs are exactly those of a non-modal ability. A wording it can't read makes the whole ability manual
-(the coverage module's SUPPORTED_MODAL_ABILITIES lists the forms, each tested). Refused (never
-guessed): "choose one at random", "each mode must target a different player", "you may choose both
-instead", "choose X", reflexive "When you do, choose …" (603.12), a mode with "you may", several
-targets or a division, a header with anything else after it, and "up to" / "any number" on an
-activated ability (choosing no mode isn't modelled there).
+(the coverage module's SUPPORTED_MODAL_ABILITIES lists the forms, each tested). Read since wave 3R1
+(tests/test_rules_refused_r1.py): "choose one at random" (a triggered ability: picked among the modes that
+can be chosen as it goes on the stack, public — the Umaro ruling), "Each mode must target a different
+player." (every mode targets a player of one kind), "Choose one. If [condition], [you may] choose both
+instead." (checked as it goes on the stack — the Prophetic Titan ruling), reflexive "When you do, choose …"
+(603.12: the modes belong to the reflexive ability, announced as IT goes on the stack). Refused (never
+guessed): "choose X" / "up to X", "choose two at random", a mode with "you may", several targets or a
+division (a mode has one target slot), a triggered ability's mode starting with "If" (Venser, Corpse Puppet
+and Rankle and Torbran, the only such cards, need other grammar too), a header with anything else after it,
+a limit or restriction line after the modes, and "up to" / "any number" on an activated ability (choosing
+no mode isn't modelled there).
 
 Definition shape (JSON-able, what ``scripts.definitions`` gives for the header line): the ability's
 ordinary fields (``trigger`` / ``cond`` / ``if`` / ``limit``, or ``cost`` / ``restriction`` / ``loyalty``),
@@ -79,7 +85,7 @@ _COUNTS: dict[str, tuple[int, int | None]] = {
 }
 _HEADER = re.compile(
     r"^(?P<prefix>.*?)[Cc]hoose (?P<count>one or both|one or more|any number|up to (?:one|two|three|four)|one|two|three|four)"
-    r"(?P<memory> that hasn['’]t been chosen(?: this turn)?)?(?P<end> —|\.)(?P<rest>.*)$")
+    r"(?P<random> at random)?(?P<memory> that hasn['’]t been chosen(?: this turn)?)?(?P<end> —|\.)(?P<rest>.*)$")
 # "…, if <condition>, " before the mode: a trigger's intervening "if" (603.4)
 _INTERVENING = re.compile(r"^(?P<head>.+?), if (?P<cond>[^,]+), $")
 # A line after the modes that belongs to the ability ("This ability triggers only once each turn.", "Activate
@@ -97,7 +103,14 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     from app.rules import scripts  # (scripts reads an ability here: a leaf module over it)
 
     m = _HEADER.match(ab.text)
-    if m is None or not _header_ok(ab, m["prefix"], m["end"], m["rest"].strip()):
+    if m is not None and ab.kind == "triggered" and (rm := _REFLEXIVE.match(m["prefix"])) is not None:
+        return _reflexive_definitions(ab, ch, rm["outer"], m)  # -- refused modal/conditional (wave 3R1) --
+    # -- refused modal/conditional (wave 3R1) -- "choose one at random —"; "Choose one. If …, [you may] choose both
+    # instead."; "Each mode must target a different player." after the header
+    extra = _header_extra(ab, m) if m is not None else None
+    if m is None or (extra is None and not _header_ok(ab, m["prefix"], m["end"], m["rest"].strip())):
+        return {}
+    if m["random"] and (ab.kind != "triggered" or m["count"] != "one" or m["memory"]):
         return {}
     bullets = _bullets(ch, ab.index)
     n = len(bullets)
@@ -111,7 +124,7 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     if ab.kind != "triggered" and lo == 0:
         return {}  # (an activation with no mode chosen: not modelled)
     memory = None if not m["memory"] else ("turn" if m["memory"].endswith("this turn") else "game")
-    rest = m["rest"].strip()
+    rest = "" if extra is not None else m["rest"].strip()
     prefix, intervening = m["prefix"], None
     if ab.kind == "triggered" and (im := _INTERVENING.match(prefix)) is not None:
         from app.rules import conditions
@@ -126,7 +139,10 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         text = bullet.text[2:].strip()
         body = _MODE_LABEL.sub("", text, count=1)
         if ab.kind == "triggered" and body.lower().startswith("if "):
-            return {}  # (it would read as an intervening "if" of the trigger, 603.4, not of the mode)
+            # (it would read as an intervening "if" of the trigger, 603.4, not of the mode. Wave 3R1: kept refused —
+            # the only two cards with such a mode, Venser, Corpse Puppet and Rankle and Torbran, need other grammar
+            # too, so a reading of it couldn't be tested with a real card)
+            return {}
         one = AbilityText(index=ab.index, kind=ab.kind, cost=ab.cost, text=f"{prefix}{body}" + (f" {rest}" if rest else ""))
         d = scripts.define(one, ch)  # the mode as a non-modal ability with this header
         if d is None or d["kind"] not in ("triggered", "activated") or d.get("optional") or d.get("targets") \
@@ -146,11 +162,59 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         shape = {**shape, "if": intervening}
     modal = {"min": lo, "max": hi, "repeat": False, "condition": None, "memory": memory, "index": ab.index,
              "form": ab.kind}
+    if m["random"]:
+        modal["random"] = True  # -- refused modal/conditional (wave 3R1) --
+    if extra is not None:  # -- refused modal/conditional (wave 3R1) --
+        if "different_players" in extra:
+            whats = {str((x["target"] or {}).get("what")) for x in modes}
+            if len(whats) != 1 or any(x["target"] is None for x in modes) or not _player_selector(next(iter(whats))):
+                return {}  # (only modes that all target a player of the same kind)
+            modal["different_players"] = True
+        if "instead" in extra:
+            if n != 2 or m["count"] != "one" or ab.kind != "triggered":
+                return {}
+            modal["instead"] = extra["instead"]
     out: dict[int, Definition] = {ab.index: {**shape, "effects": [], "target": None, "optional": False,
                                               "modes": modes, "modal": modal}}
     for bullet in bullets:
         out[bullet.index] = {"kind": "mode", "of": ab.index, "form": ab.kind, "memory": memory, "effects": []}
     return out
+
+
+# -- refused modal/conditional (wave 3R1) --
+_BOTH_INSTEAD = re.compile(r"^If (?P<c>.+), (?P<may>you may )?choose both instead\.$")
+_KICKED_CONDITION = re.compile(r"^(?:it|this spell|~) was kicked$")
+
+
+def _header_extra(ab: AbilityText, m: re.Match[str]) -> dict[str, Any] | None:
+    """What a triggered ability's header says after "Choose one." that the engine reads: "If [condition], [you may]
+    choose both instead." (the condition checked as the ability is put on the stack, the Prophetic Titan ruling;
+    "it was kicked": the spell a "When you cast this spell" ability is about, 702.33d) or "Each mode must target a
+    different player." — or None (anything else: see _header_ok)."""
+    from app.rules import conditions
+
+    if ab.kind != "triggered" or m["end"] != "." or not _header_ok(ab, m["prefix"], " —", ""):
+        return None
+    rest = m["rest"].strip()
+    if rest == "Each mode must target a different player.":
+        return {"different_players": True}
+    both = _BOTH_INSTEAD.match(rest)
+    if both is None:
+        return None
+    cond = ({"object": "self", "cast": {"kicked": True}} if _KICKED_CONDITION.match(both["c"])
+            else conditions.parse(both["c"], objects=True))
+    if cond is None or set(conditions.objects_in(cond)) - {"self"}:
+        return None  # (a condition about another object: which one isn't read here)
+    return {"instead": {"cond": cond, "min": 1 if both["may"] else 2, "max": 2}}
+
+
+_PLAYER_WHATS = frozenset({"player", "opponent"})
+
+
+def _player_selector(what: str) -> bool:
+    """"target player" / "target opponent" (the plain player selectors)."""
+    return what in _PLAYER_WHATS
+# -- end refused modal/conditional (wave 3R1) --
 
 
 def _header_ok(ab: AbilityText, prefix: str, end: str, rest: str) -> bool:
@@ -166,6 +230,53 @@ def _header_ok(ab: AbilityText, prefix: str, end: str, rest: str) -> bool:
             return False
         return rest == "" if end == " —" else rest == "" or restrictions.split(rest)[0] == ""
     return False
+
+
+# -- refused modal/conditional (wave 3R1) -- "Whenever you attack, you may sacrifice another creature. When you do,
+# choose two —" (Caesar, Legion's Emperor): the modes belong to a reflexive triggered ability (603.12), announced as
+# IT is put on the stack (603.3c) — after the payment, never with the ability that created it.
+_REFLEXIVE = re.compile(r"^(?P<outer>.+?\.) When you do, $")
+_NEUTRAL_HEADER = "At the beginning of your upkeep, "  # (a trigger with no object: "it" in a mode isn't read)
+
+
+def _reflexive_definitions(ab: AbilityText, ch: Characteristics, outer: str, m: re.Match[str]) -> dict[int, Definition]:
+    from app.rules import scripts
+
+    if m["end"] != " —" or m["rest"].strip() or m["memory"]:
+        return {}
+    bullets = _bullets(ch, ab.index)
+    lo, top = _COUNTS[m["count"]]
+    n = len(bullets)
+    hi = n if top is None else min(top, n)
+    if n < 2 or lo > n or lo == 0 or (m["count"] == "one or both" and n != 2):
+        return {}
+    after = next((x for x in ch.abilities if x.index == bullets[-1].index + 1), None)
+    if after is not None and _TRAILER.match(after.text):
+        return {}
+    probe = AbilityText(index=ab.index, kind=ab.kind, cost=ab.cost, text=f"{outer} When you do, draw a card.")
+    d = scripts.define(probe, ch)
+    if d is None or d.get("kind") != "triggered" or not d["effects"] or d["effects"][-1]["do"] != "reflexive" \
+            or d["effects"][-1]["ability"]["effects"] != [{"do": "draw", "who": "you", "n": 1}] or d.get("modes"):
+        return {}
+    modes: list[Definition] = []
+    for k, bullet in enumerate(bullets):
+        text = bullet.text[2:].strip()
+        body = _MODE_LABEL.sub("", text, count=1)
+        if body.lower().startswith("if "):
+            return {}
+        one = scripts.define(AbilityText(index=ab.index, kind="triggered", cost=None, text=_NEUTRAL_HEADER + body), ch)
+        if one is None or one["kind"] != "triggered" or one.get("optional") or one.get("targets") or one.get("if") is not None \
+                or one.get("limit") or not one["effects"]:
+            return {}
+        modes.append({"text": text, "effects": scripts.rename_bindings(one["effects"], f"m{k}_"), "target": one["target"]})
+    modal = {"min": lo, "max": hi, "repeat": False, "condition": None, "memory": None, "index": ab.index, "form": "triggered"}
+    ability = {"kind": "triggered", "trigger": "reflexive", "effects": [], "target": None, "optional": False,
+               "modes": modes, "modal": modal}
+    out: dict[int, Definition] = {ab.index: {**d, "effects": [*d["effects"][:-1], {**d["effects"][-1], "ability": ability}]}}
+    for bullet in bullets:
+        out[bullet.index] = {"kind": "mode", "of": ab.index, "form": "triggered", "memory": None, "effects": []}
+    return out
+# -- end refused modal/conditional (wave 3R1) --
 
 
 def _bullets(ch: Characteristics, index: int) -> list[AbilityText]:
@@ -321,9 +432,21 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
         done = chosen_before(r, t.source_object, modal["index"], modal["memory"], plan.state.turn.number, _face(plan, t))
         allowed = [i for i, m in enumerate(modes) if i not in done and (not m["target"] or legal(i))]
         lo, hi = modal["min"], min(modal["max"], len(allowed))
-        if not allowed or len(allowed) < lo:  # 700.2b: no mode can be chosen: removed from the stack
+        # -- refused modal/conditional (wave 3R1) --
+        if modal.get("instead") is not None and _instead_holds(plan, t, modal["instead"]["cond"]):
+            lo, hi = modal["instead"]["min"], min(modal["instead"]["max"], len(allowed))
+        if modal.get("different_players") and allowed:  # each chosen mode needs a player no other one targets
+            hi = min(hi, len(legal(allowed[0])))
+        if not allowed or len(allowed) < lo or hi < lo:  # 700.2b: no mode can be chosen: removed from the stack
             _remove(plan, t, "has no mode that can be chosen")
             return True
+        if modal.get("random"):  # "choose one at random": among the modes that can be chosen (Umaro ruling), public
+            import secrets
+
+            pick = (plan.rng or secrets.SystemRandom()).choice(allowed)
+            plan.note(f"{_name(plan, t)}: mode chosen at random — {_public_texts(plan, t.source_card, d, [pick])[0]}")
+            return put_trigger(plan, t, {"modes": [pick], "targets": []})
+        # -- end refused modal/conditional (wave 3R1) --
         decide(plan, player=t.controller, kind="choose_cards",
                prompt=f"{_name(plan, t)}: choose {_phrase(lo, hi, modal['memory'])}",
                options=[DecisionOption(id=f"{i}:0", label=modes[i]["text"][:120]) for i in allowed],
@@ -339,6 +462,8 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
     if len(targets) < len(need):  # 601.2c: the next chosen mode's target
         i = need[len(targets)]
         options = legal(i)
+        if modal.get("different_players"):  # -- refused modal/conditional (wave 3R1) -- not a player already chosen
+            options = [x for x in options if x not in targets]
         if not options:  # (it was offered only with a legal target, and nothing has changed since)
             _remove(plan, t, "has no legal target")
             return True
@@ -379,6 +504,18 @@ def _on_the_stack(plan: Plan, t: PendingTrigger, chosen: list[int], picked: list
                 actor=t.controller)
         targeted(plan, ability_id, t.controller, flat)
     return True
+
+
+# -- refused modal/conditional (wave 3R1) --
+def _instead_holds(plan: Plan, t: PendingTrigger, cond: dict[str, Any]) -> bool:
+    """"If [condition], choose both instead.": checked as the ability is put on the stack (the Prophetic Titan
+    ruling: a later change doesn't take the second mode away)."""
+    from app.rules import conditions
+
+    ctx = {"controller": t.controller, "source_card": t.source_card, "source_object": t.source_object,
+           "event": t.event.model_dump(mode="json") if t.event is not None else None}
+    return conditions.holds(plan, ctx, cond)
+# -- end refused modal/conditional (wave 3R1) --
 
 
 def resume_trigger_modes(plan: Plan, d: Any, chosen: list[str]) -> None:

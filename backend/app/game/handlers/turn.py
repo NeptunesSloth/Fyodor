@@ -150,7 +150,7 @@ def resolve_top(state: GameState, a: A.ResolveTop) -> None:
     stack = state.zone(STACK)
     if not stack:
         raise ActionError("The stack is empty")
-    top = state.cards[stack[-1]]
+    top = state.cards[a.card_id if a.card_id in stack else stack[-1]]  # (card_id: wave 3R5, 608.2g)
     dest = (a.r.destinations.get(top.id) if a.r else None) or "delete"
     part = ops.card_part(state, top)
     if dest == "delete" or ops.is_ephemeral(top) and not dest.endswith(":battlefield"):
@@ -161,7 +161,7 @@ def resolve_top(state: GameState, a: A.ResolveTop) -> None:
     if a.r and top.id in a.r.positions:
         x, y = a.r.positions[top.id]
     # A face-down spell (morph) becomes a face-down permanent (702.37c); anything else turns up.
-    keep_down = True if top.face_down and top.face_down_kind == "morph" and dest.endswith(":battlefield") else None
+    keep_down = True if top.face_down and top.face_down_kind in ("morph", "disguise") and dest.endswith(":battlefield") else None
     ops.move_card(state, top, dest, x=x, y=y, face_down=keep_down)
     if a.tapped and dest.endswith(":battlefield"):
         top.tapped = True

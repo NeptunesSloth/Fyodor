@@ -111,6 +111,11 @@ _OBJECT_WORDS = {"it": "it", "~": "self", "that creature": "it", "that permanent
 _OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact)) "
                      r"(?P<verb>is|was|isn't|wasn't|is not|was not) (?P<what>.+)")
 _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking", "blocking": "blocking"}
+# -- refused modal/conditional (wave 3R1) -- an ability the object has (a characteristic, 109.3: as it is, or as it
+# last existed, 608.2h — granted ones included). Keyword abilities only; "protection" (which quality?) isn't read.
+_HAS_KEYWORD = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card)) has (?P<kw>flying|reach|haste|trample|deathtouch|"
+                          r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible|defender|infect|"
+                          r"toxic|wither|flash|madness|flashback|shroud|cycling)")
 
 
 def _cmp(word: str | None) -> str:
@@ -179,6 +184,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         return {"not": mine} if (m["neg"] or t.startswith("it isn't") or "opponent's" in t) else mine
     if t in _STATUS:
         return {"status": _STATUS[t]}
+    if t == "you have a full party":  # -- refused modal/conditional (wave 3R1) -- 700.8c: four creatures in your party
+        return {"value": {"party": "you"}, "op": ">=", "n": 4}
     found = _history(t)
     if found is not None:
         return found
@@ -224,9 +231,44 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         else:
             quantity = {"life": "you"} if what == "life" else {"hand": "you"} if what == "cards in hand" else None
         return {"versus": {"value": quantity, "op": ">"}} if quantity is not None else None
+    found = designation_condition(t)  # -- counters & designations (wave 3E) --
+    if found is not None:
+        return found
     if objects:
+        found = _cast_how(t)  # -- refused modal/conditional (wave 3R1) --
+        if found is not None:
+            return found
         return _object(t)
     return None
+
+
+# -- counters & designations (wave 3E) --------------------------------------------------------------
+# "an opponent has three or more poison counters" (corrupted; one opponent, 122.1f), "you have N or more
+# experience counters", "you have no rad counters"; "there is no monarch" / "an opponent is the
+# monarch" (725), "you've completed a dungeon" (309.7), "it's day / night" (731).
+_HAS_COUNTERS = re.compile(r"(?P<who>you|an opponent) (?:has|have) (?:(?P<no>no)|(?P<a>a|an|one or more)|(?P<n>\w+) or more) "
+                           r"(?P<kind>poison|experience|rad|energy) counters?")
+_DESIGNATIONS = {"there is no monarch": "no_monarch", "an opponent is the monarch": "opponent_monarch",
+                 "you're not the monarch": "not_monarch", "you aren't the monarch": "not_monarch",
+                 "you don't have the initiative": "not_initiative", "you've completed a dungeon": "completed_dungeon",
+                 "you have completed a dungeon": "completed_dungeon",
+                 "it's day": "day", "it's night": "night", "it's neither day nor night": "neither_day_nor_night"}
+
+
+def designation_condition(t: str) -> Condition | None:
+    m = _HAS_COUNTERS.fullmatch(t)
+    if m:
+        n = 0 if m["no"] else 1 if m["a"] else _num(m["n"] or "")
+        if n is None:
+            return None
+        out: Condition = {"value": {"player_counters": m["kind"]}, "op": "==" if m["no"] else ">=", "n": n}
+        if m["who"] == "an opponent":
+            out["per_opponent"] = True  # one opponent must have that many (not all of them together)
+        return out
+    if t in _DESIGNATIONS:
+        return {"status": _DESIGNATIONS[t]}
+    return None
+# -- end counters & designations (wave 3E) --
 
 
 _HISTORY_PATTERNS: list[tuple[re.Pattern[str], Any]] = []
@@ -309,6 +351,24 @@ def _descended(m: re.Match[str]) -> Condition:
     return {"history": "descended", "n": 1}  # 700.11: a permanent card was put into your graveyard from anywhere
 
 
+# -- refused modal/conditional (wave 3R1) -- celebration and friends (608.2i: as they were when they entered)
+@_history_pattern(r"(?P<q>a|an|another|\w+ or more) (?P<sel>.+?) entered the battlefield under your control this turn")
+def _entered(m: re.Match[str]) -> Condition | None:
+    q = m["q"]
+    n = 1 if q in ("a", "an", "another") else _num(q.split()[0])
+    sel = selectors.parse(m["sel"])
+    if n is None or sel is None or sel.player is not None or sel.controller is not None or sel.owner is not None \
+            or sel.zones != ("battlefield",) or sel.other or sel.tapped is not None or sel.attacking or sel.blocking:
+        return None
+    return {"history": "entered", "sel": sel.key(), "n": n, **({"other": True} if q == "another" else {})}
+
+
+@_history_pattern(r"~ entered this turn")
+def _entered_self(m: re.Match[str]) -> Condition:
+    return {"history": "entered_self"}  # this object entered the battlefield this turn (a new object if it left, 400.7)
+# -- end refused modal/conditional (wave 3R1) --
+
+
 def _history(t: str) -> Condition | None:
     for pattern, build in _HISTORY_PATTERNS:
         m = pattern.fullmatch(t)
@@ -329,6 +389,9 @@ def _object(t: str) -> Condition | None:
             return None
         return {"object": "self" if m["who"] == "~'s" else "it", "stat": m["stat"].replace(" ", "_"),
                 "op": "<=" if m["cmp"] in ("less", "fewer") else ">=", "n": n}
+    m = _HAS_KEYWORD.fullmatch(t)  # -- refused modal/conditional (wave 3R1) -- "if that creature has toxic"
+    if m:
+        return {"object": _OBJECT_WORDS[m["who"]], "has": m["kw"]}
     t = re.sub(r"^(it|that (?:creature|permanent|card|land|token|artifact))'s ", r"\1 is ", t)
     m = _OBJECT.fullmatch(t)
     if m is None:
@@ -411,12 +474,17 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import history
 
         return history.holds(plan, ctx, cond)
+    if "cast" in cond:  # -- refused modal/conditional (wave 3R1) --
+        return _cast_holds(plan, ctx, cond)
     if "object" in cond:
         return _object_holds(plan, ctx, cond)
     if "versus" in cond:
         return _versus(plan, ctx, cond["versus"])
     v = cond["value"]
     n = cond["n"]
+    if cond.get("per_opponent") and "player_counters" in v:  # (wave 3E) "an opponent has three or more poison counters"
+        per = [values.evaluate(plan, {**ctx, "controller": p}, v) for p in plan.live() if p != ctx["controller"]]
+        return any(_OPS[cond["op"]](x, n) for x in per)
     if cond.get("per_opponent"):
         found = selectors.candidates(plan, selectors.from_key(v["count"]), ctx["controller"], ctx.get("source_card"))
         per = [sum(1 for c in found if plan.state.cards[c].controller == p) for p in plan.live() if p != ctx["controller"]]
@@ -429,8 +497,12 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
 def _status(plan: Plan, you: str, kind: str) -> bool:
     if kind == "monarch":  # 724: the monarch designation
         return plan.state.table.monarch == you
-    if kind == "initiative":  # 725
+    if kind == "initiative":  # 726
         return plan.state.table.initiative == you
+    if kind != "city_blessing":  # -- counters & designations (wave 3E) --
+        from app.rules import designations
+
+        return designations.status(plan, you, kind)
     return bool(plan.state.players[you].city_blessing)  # 702.131c ascend: the city's blessing
 
 
@@ -450,9 +522,19 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if "test" in cond:
         return _self_state(plan, ctx, cond["test"])
     got = values._object(plan, ctx, who)
+    if who == "event" and "is" in cond and selectors.from_key(cond["is"]).card:
+        # "exile it if it's an instant or sorcery card" after "dies": the card it is now (a face-down 2/2 that died
+        # is its face-up card in the graveyard, 708.9), while it is still there; else as it last existed
+        from app.rules import context
+
+        new = context.objects(plan, ctx, context.EVENT_NEW)
+        if new:
+            got = (plan.state.cards[new[0]], plan.ch(plan.state.cards[new[0]]))
     if got is None:
         return False
     card, ch = got
+    if "has" in cond:  # -- refused modal/conditional (wave 3R1) --
+        return cond["has"] in ch.keywords
     if "stat" in cond:  # "its mana value was 3 or less": a characteristic, as it is or as it last existed (608.2h)
         value = values._stat_of(ch, cond["stat"])
         return value is not None and _OPS[cond["op"]](value, cond["n"])
@@ -475,3 +557,103 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
             return False
         tapped, attacking, blocking = snap.tapped, snap.attacking, snap.blocking
     return {"tapped": tapped, "untapped": not tapped, "attacking": attacking, "blocking": blocking}[test]
+
+
+# -- refused modal/conditional (wave 3R1): how a spell was cast -----------------------------------------
+# "if you cast it [from your hand]", "if it was cast", "if this spell was cast from a graveyard", "if {R} was spent
+# to cast it", "{U}{B} was spent", adamant ("at least three red mana" / "of the same color"), "five or more mana",
+# addendum ("if you cast this spell during your main phase"). Read from the spell's payment record (601.2h: what
+# paid the total cost; casting.record_payment), which the permanent it becomes keeps (engine.leave_stack). A copy
+# was never cast (707.10): its record says so. ``{"object": "it" | "self", "cast": {...}}``: "it" is bound to its
+# antecedent by scripts.resolve_it, and scripts only keeps an ability whose "it" is the source itself.
+# Refused (None): snow mana ({S}: what produced the mana isn't recorded), "mana from a Treasure" (the source of the
+# mana), "that spell" (the trigger's spell, whose record is gone once it resolved), "entered from your graveyard".
+_CAST_SUBJECT = r"(?:it|this spell|~)"
+_CAST = re.compile(rf"(?:(?P<you>you) cast (?P<who>{_CAST_SUBJECT})|(?P<who2>{_CAST_SUBJECT}) was cast)"
+                   r"(?: from (?P<from>your hand|a graveyard|your graveyard|exile|your library|anywhere other than your hand))?"
+                   r"(?P<main> during your main phase)?")
+_SPENT_SYMBOLS = re.compile(rf"(?P<syms>(?:\{{[WUBRGC]\}})+) was spent to cast (?P<who>{_CAST_SUBJECT})")
+_SPENT_COLOR = re.compile(rf"at least (?P<n>\w+) (?P<color>white|blue|black|red|green) mana was spent to cast (?P<who>{_CAST_SUBJECT})")
+_SPENT_SAME = re.compile(rf"at least (?P<n>\w+) mana of the same color was spent to cast (?P<who>{_CAST_SUBJECT})")
+_SPENT_TOTAL = re.compile(rf"(?P<n>\w+) or more mana was spent to cast (?P<who>{_CAST_SUBJECT})")
+_COLOR_LETTER = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
+_FROM = {"your hand": "hand", "a graveyard": "graveyard", "your graveyard": "graveyard", "exile": "exile",
+         "your library": "library", "anywhere other than your hand": "!hand"}
+
+
+def _cast_who(word: str) -> str:
+    return "it" if word == "it" else "self"
+
+
+def _cast_how(t: str) -> Condition | None:
+    """A condition about how the source was cast, or None."""
+    m = _CAST.fullmatch(t)
+    if m:
+        how: dict[str, Any] = {"by_you": bool(m["you"])}
+        if m["from"]:
+            if m["from"] == "your graveyard" and not m["you"]:
+                return None
+            how["from"] = _FROM[m["from"]]
+        if m["main"]:
+            if not m["you"]:
+                return None
+            how["main"] = True
+        return {"object": _cast_who(m["who"] or m["who2"]), "cast": how}
+    m = _SPENT_SYMBOLS.fullmatch(t)
+    if m:
+        need: dict[str, int] = {}
+        for sym in re.findall(r"\{(\w)\}", m["syms"]):
+            need[sym] = need.get(sym, 0) + 1
+        return {"object": _cast_who(m["who"]), "cast": {"spent": need}}
+    for rx, key in ((_SPENT_COLOR, "spent"), (_SPENT_SAME, "same_color"), (_SPENT_TOTAL, "total")):
+        m = rx.fullmatch(t)
+        n = _num(m["n"]) if m else None
+        if m and n:
+            value: Any = {_COLOR_LETTER[m["color"]]: n} if key == "spent" else n
+            return {"object": _cast_who(m["who"]), "cast": {key: value}}
+    return None
+
+
+def cast_conditions_on_source(cond: Condition) -> bool:
+    """Is every condition about how a spell was cast in ``cond`` about the source itself (the spell, or the
+    permanent it became)? (Not another object's: its record isn't kept once it resolved.)"""
+    if "cast" in cond:
+        return cond.get("object") == "self"
+    return all(cast_conditions_on_source(c) for k in ("all", "any") for c in cond.get(k, ())) and (
+        "not" not in cond or cast_conditions_on_source(cond["not"]))
+
+
+def is_cast_condition(cond: Condition) -> bool:
+    """Is (a part of) ``cond`` about how a spell was cast?"""
+    return "cast" in cond or any(is_cast_condition(c) for k in ("all", "any") for c in cond.get(k, ())) or (
+        "not" in cond and is_cast_condition(cond["not"]))
+
+
+def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    """How the source was cast, from its payment record: a fact that never changes, so it is read the same while
+    the spell is on the stack, once it became a permanent and after that left (608.2h). No record — it wasn't cast
+    (put onto the battlefield, a copy) — fails every such test."""
+    if cond.get("object") != "self":
+        return False
+    record = plan.rules.payments.get(ctx.get("source_object") or "")
+    how = cond["cast"]
+    if record is None or record.cast_from is None:
+        return False
+    if how.get("by_you") and record.controller != ctx["controller"]:
+        return False
+    if how.get("kicked") and not record.kicked:  # 702.33d (a modal header's "If it was kicked, choose both instead")
+        return False
+    zone = how.get("from")
+    if zone is not None and (record.cast_from == zone[1:] if zone.startswith("!") else record.cast_from != zone):
+        return False
+    if how.get("main") and not record.cast_main:
+        return False
+    if any(k in how for k in ("spent", "same_color", "total")) and not record.mana_known:
+        return False  # (cast by hand: what paid for it isn't known — such a condition never holds)
+    spent = record.mana_spent
+    if any(spent.get(sym, 0) < n for sym, n in (how.get("spent") or {}).items()):
+        return False
+    if "same_color" in how and not any(spent.get(c, 0) >= how["same_color"] for c in "WUBRG"):
+        return False
+    return "total" not in how or sum(spent.values()) >= how["total"]
+# -- end refused modal/conditional (wave 3R1) --

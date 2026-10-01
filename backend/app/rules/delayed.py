@@ -122,8 +122,8 @@ def inner_for_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | Non
         elif who == "that_player" or (isinstance(who, str) and who.startswith(("it:", "them:"))):
             return None
         n = e.get("n")
-        if isinstance(n, dict) and any(n.get(k) == "it" for k in ("power", "toughness", "mana_value")):
-            e["n"] = {k: ("event" if v == "it" else v) for k, v in n.items()}
+        if isinstance(n, dict) and any(n.get(k) in ("it", "that_spell") for k in ("power", "toughness", "mana_value")):
+            e["n"] = {k: ("event" if v in ("it", "that_spell") else v) for k, v in n.items()}  # ("that_spell": wave 3R3)
         if e.get("src") == "it":
             return None
         out.append(e)
@@ -194,7 +194,11 @@ def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, na
 
 
 def describe_when(when: dict[str, Any]) -> str:
+    if when["kind"] == "designation":  # (wave 3E: app/rules/designations.py fires these)
+        return "when an opponent becomes the monarch"
     if when["kind"] == "event":
+        if when["event"] == "die_or_exile":  # -- wave 3F -- (earthbend: no "this turn")
+            return "when it dies or is put into exile"
         return "when it " + ("dies" if when["event"] == "die" else "leaves the battlefield") + " this turn"
     whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's"}[when["whose"]]
     return f"at the beginning of {whose} {'end step' if when['step'] == 'end' else 'upkeep'}"
@@ -264,7 +268,9 @@ def on_events(plan: Plan, events: list[Event]) -> None:
             oids = {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []}
             if e.object_id not in oids or (t.when["event"] == "die" and not died):
                 continue
-            kind = "die" if t.when["event"] == "die" else "leave"
+            if t.when["event"] == "die_or_exile" and not (died or _zone(e.to_zone) == "exile"):
+                continue  # -- keyword actions & face-down (wave 3F) -- earthbend's "dies or is put into exile" (701.66a)
+            kind = "die" if t.when["event"] in ("die", "die_or_exile") and died else "leave"
             event = TriggerEvent(kind=kind, batch=e.batch, count=1,
                                  objects=[ObjectRef(card=snap.card, object_id=snap.object_id, zone=snap.zone, snapshot=snap)],
                                  new_objects=_new_ref(snap.card, e.new_object_id, e.to_zone))
@@ -391,6 +397,9 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
         or any(e.until_player == p and n > e.turn for p, n in skipped or ()))]
     if ended:
         _end(plan, ended)
+        from app.rules import layers
+
+        layers.control_sync(plan)  # -- control (wave 3K) -- "until your next turn" ended: control reverts (613.1b)
 
 
 def expire(plan: Plan) -> None:
@@ -455,7 +464,7 @@ def duration_clause(m: re.Match[str]) -> tuple[str, str]:
 def wrap_duration(effects: list[dict[str, Any]], duration: str) -> list[dict[str, Any]] | None:
     """The ``until`` effect over the continuous effects of a clause; only pumps, grants and
     restrictions (they never pause, and their effects carry a duration)."""
-    if not effects or any(e.get("do") not in ("pump", "grant", "restrict") for e in effects):
+    if not effects or any(e.get("do") not in ("pump", "grant", "restrict", "gain_control") for e in effects):
         return None
     return [{"do": "until", "duration": duration, "n": len(effects)}, *effects]
 

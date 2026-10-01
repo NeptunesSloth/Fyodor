@@ -168,7 +168,7 @@ def test_mana_costs_abilities_and_payment_solver():
     assert parse_mana_ability("{T}: Add {R} or {G}.").options == (("R",), ("G",))
     assert parse_mana_ability("{T}, Sacrifice this token: Add one mana of any color.").sacrifice_self
     assert parse_mana_ability("{1}, {T}: Add {W}{U}.").extra_cost == "{1}"  # filters: paid with other mana
-    assert parse_mana_ability("{T}, Tap an untapped creature you control: Add one mana of any color.") is None
+    assert parse_mana_ability("{T}, Tap an untapped creature you control: Add one mana of any color.").chooses  # (wave 3R3: by hand)
     assert parse_mana_ability("{T}: Add {G} for each Elf you control.").count == "control:Elf"  # counted at use
     forest, mountain = Source("f", (("G",),)), Source("m", (("R",),))
     sol = Source("s", (("C", "C"),))

@@ -15,6 +15,9 @@ anonymous to opponents from then on. Historical log lines are separate (``LogPar
 
 from __future__ import annotations
 
+import re
+from collections.abc import Iterable
+
 from app.game.state import (
     ALL,
     OWNER_VISIBLE_ZONES,
@@ -84,3 +87,27 @@ def seers(state: GameState, card: CardInstance) -> set[str]:
     if publicly_visible(state, card):
         return {ALL}
     return {p for p in state.seat_order if can_see(state, card, p)}
+
+
+# -- keyword actions & face-down (wave 3F) ------------------------------------------------------
+def mask_face_down(state: GameState, text: str, viewer: str | None = None, refs: Iterable[str | None] = ()) -> str:
+    """708.5: text shown to players (a rules log line, a decision's prompt or option label) never
+    names a face-down spell, permanent or exiled card to a player who may not look at it. The
+    engine's messages use cached card names; each such name is replaced here (``viewer`` None: a
+    line everyone reads). ``refs``: the card ids the text is about. A name stays when the text is
+    about as many public cards of that name as it names, and not about the face-down card itself
+    (a face-down Mountain doesn't hide the public Mountain a line is about); otherwise it is masked."""
+    ref_ids = {r for r in refs if r}
+    for card in state.cards.values():
+        if not card.face_down or not card.name or card.name not in text:
+            continue
+        if viewer is not None and can_see(state, card, viewer):
+            continue
+        pattern = rf"(?<![\w']){re.escape(card.name)}(?![\w'])"
+        if card.id not in ref_ids:
+            public = sum(1 for r in ref_ids if (o := state.cards.get(r)) is not None and o.name == card.name
+                         and not o.face_down)
+            if public and len(re.findall(pattern, text)) <= public:
+                continue
+        text = re.sub(pattern, "a face-down card", text)
+    return text

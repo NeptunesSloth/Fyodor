@@ -402,8 +402,8 @@ def test_commander_bounced_may_go_to_the_command_zone_instead(cards):
     bouncer = token(s, "p1", "Bouncer", text="{1}: Return target creature to its owner's hand.")
     activate(s, bouncer, targets=[krenko.id])
     d = rules(s).decision
-    assert d is not None and d.player == "p1" and d.resume["step"] == "commander_instead" and "903.9b" in d.prompt
-    assert s.state.cards[krenko.id].zone == "p1:hand"  # (a step can't pause: it went to hand, the owner is asked at once)
+    assert d is not None and d.player == "p1" and d.resume["step"] == "commander_first" and "903.9b" in d.prompt
+    assert s.state.cards[krenko.id].zone == "p1:battlefield"  # 903.9b "instead": asked before it moves
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["no"])
     assert s.state.cards[krenko.id].zone == "p1:hand" and rules(s).decision is None
     replay_matches(s)

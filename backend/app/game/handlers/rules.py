@@ -147,7 +147,9 @@ def rules_log(state: GameState, a: A.RulesLog) -> None:
     if a.fold:
         for entry in state.log[-a.fold:]:
             entry.folded = True
-    parts = [text(a.text)]
+    from app.game.visibility import mask_face_down  # -- keyword actions & face-down (wave 3F) -- 708.5
+
+    parts = [text(mask_face_down(state, a.text, refs=a.card_ids))]
     for cid in a.card_ids:
         if cid in state.cards:
             parts += [text(" "), ops.card_part(state, state.cards[cid])]

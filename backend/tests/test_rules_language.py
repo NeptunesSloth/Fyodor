@@ -255,7 +255,7 @@ def test_look_at_top_may_reveal_matching_rest_random_bottom(cards):
     replay_matches(s)
 
 
-@pytest.mark.parametrize("kind", ["stun", "shield", "flying", "finality", "lore"])
+@pytest.mark.parametrize("kind", ["shield", "flying", "lore"])  # (stun: 122.1d, wave 3F; finality: 122.1h, wave 3R4)
 def test_counters_with_unmodeled_rules_stay_manual(kind):
     # 122.1b-j: these counters carry rules the engine doesn't apply yet; placing an inert marker
     # would be wrong automation

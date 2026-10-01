@@ -23,7 +23,8 @@ paid and the dependent effects don't happen. Non-mana parts go through the gener
 tapping other permanents, removing counters, exiling (this card or cards from your graveyard),
 returning permanents to hand. Mana goes through the mana payment (app/rules/casting.py).
 
-Reflexive triggers ("When you do", 603.12) aren't modeled: the grammar refuses them.
+Reflexive triggers ("When you do", 603.12): a "you may [cost]" followed by "When you do, …" is the same
+payment; the reflexive ability triggers if it was made (wave 3R1: scripts._reflexive, effects.reflexive).
 """
 
 from __future__ import annotations
@@ -60,7 +61,7 @@ def cost_text(phrase: str) -> str | None:
     parts = []
     for raw in re.split(r", | and ", phrase.strip()):
         part = raw.strip()
-        if part.startswith("pay ") and _MANA_ONLY.match(part[4:]):
+        if part.startswith("pay ") and _MANA_ONLY.match(part[4:]) and not re.fullmatch(r"(?:\{E\})+", part[4:]):  # ({E}: wave 3E)
             part = part[4:]
         elif re.fullmatch(r"\d+ life", part):  # "… unless that player pays 3 life"
             part = "pay " + part
@@ -74,7 +75,7 @@ def cost_text(phrase: str) -> str | None:
 def parse(text: str) -> AbilityCost | None:
     """The cost text as components, or None if any part isn't one the engine pays here."""
     cost = C.parse_ability_cost(text)
-    if cost.unsupported or not cost.components or "{X}" in cost.mana.upper():
+    if cost.unsupported or not cost.components or "{X}" in cost.mana.upper() or cost.energy_x:
         return None
     if any(c.kind not in SUPPORTED for c in cost.components):
         return None

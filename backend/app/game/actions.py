@@ -81,6 +81,10 @@ class Move(Base):
     face_down: bool | None = None
     face_down_kind: FaceDownKind | None = None  # morph / disguise / manifest / cloak …
     tapped: bool = False  # enters the battlefield tapped (a replacement effect, not a tap afterwards)
+    # Permanents entering the battlefield at once (one event, 603.6a / 614.12) whose replacements
+    # differ: the ones among them that enter tapped, and whose battlefield each enters (default: ``to``)
+    tapped_ids: list[Id] | None = Field(default=None, max_length=250)
+    controllers: dict[Id, Id] | None = None
     r: MoveData | None = None
 
 
@@ -242,6 +246,7 @@ class TokenSpec(BaseModel):
     colors: list[Literal["W", "U", "B", "R", "G"]] = Field(default_factory=list)
     type_line: str = Field(default="Token Creature", max_length=120)
     text: str = Field(default="", max_length=1000)
+    back: TokenSpec | None = None  # -- wave 3F -- a double-faced token's back face (111.10i)
 
     @field_validator("name", "type_line")
     @classmethod
@@ -689,6 +694,9 @@ class ResolveTop(Base):
     r: MoveData | None = None
     force: bool = False
     tapped: bool = False  # a permanent spell that enters tapped
+    # -- refused look/cast-free (wave 3R5) -- the resolving object when spells cast during its
+    # resolution (608.2g) are above it on the stack; None: the topmost object
+    card_id: Id | None = None
 
 
 # --- response helper -----------------------------------------------------------------
@@ -902,6 +910,9 @@ class CastSpell(_Intent):
     contributions: list[Contribution] = Field(default_factory=list, max_length=60)
     # 702.33: pay the kicker cost this many times (1 for kicker; any number for multikicker)
     kicker: int = Field(default=0, ge=0, le=20)
+    # (wave 3$) the objects chosen for the parts of an additional cost ("As an additional cost to cast this spell,
+    # sacrifice a creature"); anything missing is asked for as a decision
+    cost_choices: list[CostChoice] = Field(default_factory=list, max_length=10)
 
 
 class TurnFaceUp(_Intent):
@@ -910,6 +921,9 @@ class TurnFaceUp(_Intent):
     type: Literal["turn_face_up"] = "turn_face_up"
     card_id: Id
     sources: list[Id] | None = Field(default=None, max_length=60)
+    # -- keyword actions & face-down (wave 3F) -- which way, when there are several: its morph cost
+    # (702.37e), its disguise cost (702.168d), or a manifested / cloaked creature card's mana cost (701.40b)
+    method: Literal["morph", "disguise", "mana_cost"] | None = None
 
 
 class ActivateAbility(_Intent):

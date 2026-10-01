@@ -9,6 +9,7 @@ report is honest: a card is FULL only when every part of it is automated.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -60,16 +61,21 @@ SUPPORTED_REPLACEMENTS.add("enter_as_copy")
 # The forms of modal ability the engine carries out (app/rules/modal_abilities.py; CR 700.2, 603.3c,
 # 602.2b), each with scenario tests in tests/test_rules_modal_abilities.py. A modal ability's definition
 # names its form; a form not listed here stays manual. Refused on purpose (the grammar never reads them):
-# "choose one at random", "each mode must target a different player", "you may choose both instead",
-# "You may choose the same mode more than once", "choose X / up to X", reflexive "When you do, choose …"
-# (603.12), a mode with "you may", several targets or a division, and "up to"/"any number" modes on an
-# activated ability (choosing none isn't modelled).
+# "You may choose the same mode more than once", "choose X / up to X", a mode with "you may", several targets
+# or a division, and "up to"/"any number" modes on an activated ability (choosing none isn't modelled).
+# (Read since wave 3R1: "choose one at random", "each mode must target a different player", "choose both
+# instead", reflexive "When you do, choose …" — the entries at the end of the set.)
 SUPPORTED_MODAL_ABILITIES: set[str] = {
     "triggered",  # "When/Whenever/At …, choose one —": announced as it's put on the stack (603.3c, 700.2b)
     "activated",  # "{cost}: Choose one —": announced before targets and costs (602.2b, 601.2b)
     "loyalty",  # "+1: Choose one —" (606.2 → 602.2b)
     "memory:game",  # "choose one that hasn't been chosen —": per object, for as long as it is that object
     "memory:turn",  # "choose one that hasn't been chosen this turn —": per object, per turn
+    # -- refused modal/conditional (wave 3R1): tests/test_rules_refused_r1.py --
+    "random",  # "choose one at random —" (triggered): among the modes that can be chosen, as it goes on the stack
+    "different_players",  # "Each mode must target a different player." (every mode targets a player of one kind)
+    "instead",  # "Choose one. If [condition], [you may] choose both instead." (checked as it goes on the stack)
+    # (reflexive "When you do, choose …" (603.12) is the "triggered" form inside a reflexive trigger: effects.reflexive)
 }
 
 
@@ -77,6 +83,8 @@ def modal_supported(d: dict[str, Any]) -> bool:
     """A modal triggered / activated ability (or one of its mode lines, ``kind`` "mode") is automated
     only when its form is listed above."""
     modal = d if d.get("kind") == "mode" else d.get("modal") or {}
+    if any(modal.get(k) and k not in SUPPORTED_MODAL_ABILITIES for k in ("random", "different_players", "instead")):
+        return False  # -- refused modal/conditional (wave 3R1) --
     return modal.get("form") in SUPPORTED_MODAL_ABILITIES and (
         modal.get("memory") is None or f"memory:{modal['memory']}" in SUPPORTED_MODAL_ABILITIES)
 
@@ -85,6 +93,18 @@ def definition_supported(d: dict[str, Any]) -> bool:
     """A replacement / prevention definition is automated only when its kind is listed above."""
     if d.get("kind") == "mode" or (d.get("modes") and d.get("kind") in ("triggered", "activated")):
         return modal_supported(d)  # (wave 1A) a modal triggered / activated ability
+    # -- reanimation (wave 3R) -- "return this card from your graveyard": only an activated ability works from
+    # there (113.6m); a trigger or static line would need the graveyard scanned for triggers
+    if d.get("kind") != "activated" and '"self_gy"' in json.dumps(d, default=str):
+        from app.rules.triggers import graveyard_trigger_ok  # -- refused zones/sized (wave 3R4) -- (113.6m)
+
+        if not graveyard_trigger_ok(d):
+            return False
+    # -- refused grants/replacements (wave 3R2) -- a flashback cost never stated
+    from app.rules import graveyard_grants
+
+    if graveyard_grants.unsupported(d):
+        return False
     verdict = stage2_supported(d)  # -- replacement effects stage 2 (wave 2E) --
     if verdict is not None:
         return verdict
@@ -95,6 +115,20 @@ def definition_supported(d: dict[str, Any]) -> bool:
     if d.get("kind") == "spell" and any(e.get("do") == "prevent_all" for e in d.get("effects") or []):
         return "prevent" in SUPPORTED_REPLACEMENTS
     return True
+
+
+# -- counters & designations (wave 3E) -----------------------------------------------------------------
+# Player counters with rules (energy 107.14, experience, poison 704.5c, rad 728), the monarch (725), the
+# initiative (726), venture into the dungeon (701.49, 309) and the Ring tempts you (701.54) are carried out
+# by app/rules/designations.py. A card that ventures (or takes the initiative: 726.2 ventures into Undercity)
+# is carried out, but it is FULL only while every room it may lead into is automated too
+# (designations.room_definition; an "engine:dungeon" feature otherwise): goad (Undercity's Arena), Oubliette,
+# Mad Wizard's Lair and Throne of the Dead Three are resolved by hand.
+def counters_designations_gap(d: dict[str, Any]) -> str | None:
+    from app.rules import designations
+
+    return designations.unautomated(d)
+# -- end counters & designations (wave 3E) --
 
 
 # -- replacement effects stage 2 (wave 2E) -----------------------------------------------------------
@@ -109,6 +143,11 @@ SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
     "life": frozenset({"mul", "add", "set", "lose"}),  # 119.10: Boon Reflection, Sulfuric Vortex, Tainted Remedy
     "damage": frozenset({"mul", "add", "sub", "half", "prevent", "prevent_all_but", "prevent_all"}),  # 614, 615.10
 }
+# -- refused grants/replacements (wave 3R2) -- 614.9 redirection statics (Pariah, Palisade Giant: app/rules/source_shields.py,
+# tests/test_rules_refused_grants.py)
+SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"redirect"}
+# … and token creation adding a different token (Peregrin Took, Chatterfang: app/rules/extra_tokens.py)
+SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra"}
 SUPPORTED_REPLACEMENTS |= {
     "enters_tapped_others",  # 614.1d, 614.12: "Creatures your opponents control enter tapped."
     "exile_if_dies",  # "If that creature / a creature dealt damage this way would die this turn, exile it instead." (611.2a)
@@ -164,7 +203,15 @@ SUPPORTED_KEYWORDS: set[str] = {
     "convoke",
     # 702.125 undaunted: costs {1} less for each opponent (permissions.self_reduction)
     "undaunted",
+    # -- counters & designations (wave 3E) -- 702.145 day and night (app/rules/designations.py day_night_sync)
+    "daybound", "nightbound",
 }
+# -- sagas & attached-object triggers (wave 3S) --------------------------------------------------------
+# Sagas (714, app/rules/sagas.py; tests/test_rules_sagas.py): lore counters as it enters and at the
+# precombat main phase, chapter abilities (a chapter line is automated when its effect parses: it is a
+# template), the 714.4 sacrifice; read ahead (702.155): the number chosen as it enters, skipped chapters.
+SUPPORTED_KEYWORDS.add("read ahead")
+# -- end sagas & attached-object triggers (wave 3S) --
 
 
 # Keyword actions (CR 701) the engine carries out when an ability's text calls for them (a template
@@ -176,6 +223,11 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
     "tap and untap", "proliferate", "investigate", "explore",
     # test_rules_keyword_actions.py
     "amass", "connive", "monstrosity", "bolster", "support",
+    # -- counters & designations (wave 3E): app/rules/designations.py, tests/test_rules_designations.py
+    # (venture into Undercity's Arena room — goad — is still resolved by hand)
+    "venture into the dungeon", "the ring tempts you",
+    # -- keyword actions & face-down (wave 3F) -- test_rules_keywords3f.py
+    "goad", "manifest", "manifest dread", "cloak", "earthbend", "incubate",
 }
 
 
@@ -184,12 +236,7 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
 # one of these stays PARTIAL/MANUAL on purpose; the reason names the missing piece so the gap
 # report can rank it (never a guess at what the card does). ``refusal(text)`` gives the reason.
 REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\bfights?\b", re.I),
-     "fight (701.14): needs the fight primitive in app/rules/effects.py (the target grammar is ready: language._FIGHTS)"),
-    (re.compile(r"\bchoose (?:each of )?(?:up to \w+ |any number of |one or two |\w+ )?(?:(?:an)?other )?targets?\b", re.I),
-     "choose_targets: needs a no-op primitive that only names the chosen targets for later sentences "
-     "(the target grammar is ready: language._CHOOSE)"),
-    (re.compile(r"\bstun counters?\b", re.I), "stun counters (122.1d) aren't modelled (values.UNMODELED_COUNTERS)"),
+    # (fight (701.14) and "choose … target" are read now: effects.fight, effects.choose_targets)
     (re.compile(r"\bfor each target beyond the first\b", re.I),
      "a cost per extra target (601.2b/601.2c): the cost grammar doesn't read it"),
     (re.compile(r"\btarget (?:player|opponent)'s (?:graveyard|hand|library)\b", re.I),
@@ -198,31 +245,60 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\btarget \w+(?: \w+)* that player controls\b", re.I),
      "a selector relative to a player named earlier (\"target creature that player controls\"): not modelled"),
     (re.compile(r"\bup to x target\b", re.I), "a variable number of targets announced as X (601.2c): not modelled"),
-    # -- copy system (wave 2F): copying a target spell or ability is read (app/rules/copying.py); copying
-    # the spell a cast trigger was about is not yet
-    (re.compile(r"\bcopy (?:it|that spell|that ability|that spell or ability)\b", re.I),
-     "copying the spell or ability a trigger was about (\"copy it\", 707.10): the cast trigger doesn't bind that spell yet"),
+    # (copy system, wave 2F / 3R3: "copy target spell", and "copy it / that spell" for the spell a cast trigger
+    # was about, are read now: app/rules/copying.py)
     (re.compile(r"\bshuffles? up to \w+ target cards? from their graveyard\b", re.I),
      "cards from a target player's graveyard (a zone bound to an earlier target): not modelled"),
     (re.compile(r"\btarget creature with the greatest\b", re.I), "\"the greatest … among\" (a computed extreme): not modelled"),
     (re.compile(r"\btarget creature's power and toughness\b", re.I), "switching or reading a target's P/T pair: not modelled"),
     # -- conditional / instead clauses (wave 1B) --------------------------------------------------------
     # Conditions app/rules/conditions.py deliberately doesn't read: the clause (or the whole ability) stays manual.
-    (re.compile(r"\bif you cast (?:this spell|it) during your main phase\b", re.I),
-     "the phase a spell was cast in isn't recorded (the \"cast during your main phase\" instead clauses): not modelled"),
-    (re.compile(r"\b(?:(?:this spell|it) was cast from|you cast (?:this spell|it) from) (?:a|your|an opponent's|their) "
-                r"(?:graveyard|library|exile|hand)\b|\bentered from your library or was cast from your library\b", re.I),
-     "the zone a spell was cast from or a permanent entered from isn't recorded with the object: not modelled"),
-    (re.compile(r"\b(?:\{[WUBRGC]\}|\w+ or more mana|mana from [^.,]+|mana) (?:of [^.,]+ )?was spent to (?:cast|activate)\b", re.I),
-     "what mana was spent on a spell or ability isn't recorded (601.2h): not modelled"),
-    (re.compile(r"\bif (?:that (?:creature|permanent)|it|this creature) has (?:a |an )?(?:toxic|flying|reach|haste|trample|deathtouch|"
-                r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible)\b", re.I),
-     "a condition about the abilities an object has (\"if that creature has toxic\"): only its characteristics (types, "
-     "colors, power, toughness, mana value) are read"),
-    (re.compile(r"\bif you have a full party\b|\bcompleted a dungeon\b|\bif it's (?:day|night)\b|"
-                r"\bthis is the \w+ time this ability has resolved this turn\b", re.I),
-     "party size, dungeon progress, the day/night designation and how often an ability resolved this turn: not tracked "
-     "as state a condition can read"),
+    # -- refused modal/conditional (wave 3R1) -- how a spell was cast (the zone, the caster's main phase, the mana of
+    # each type spent) is now on its payment record (conditions._cast_how); what stays refused:
+    (re.compile(r"\b(?:entered|was put onto the battlefield) from (?:your|a) (?:library|graveyard)\b", re.I),
+     "the zone a permanent entered from isn't recorded with the object: not modelled"),
+    (re.compile(r"\b(?:\{S\}|mana from [^.,]+) (?:of [^.,]+ )?was spent to (?:cast|activate)\b|\bwas spent to activate\b", re.I),
+     "snow mana, the source of the mana spent, and mana spent on an ability aren't recorded (601.2h): not modelled"),
+    # (wave 3E: "you've completed a dungeon" and "it's day / night" are read now: app/rules/designations.py)
+    (re.compile(r"\bthis is the \w+ time this ability has resolved this turn\b", re.I),
+     "how often an ability resolved this turn: not tracked as state a condition can read"),
+)
+
+
+# -- keyword actions & face-down (wave 3F) -- refused on purpose, with the missing piece named
+REFUSED += (
+    (re.compile(r"\bairbend", re.I),
+     "airbend (701.65): needs a cast-from-exile permission whose alternative cost is {2}, for the card's owner"),
+    (re.compile(r"\bwaterbend", re.I),
+     "waterbend (701.67): a cost whose generic part may be paid by tapping artifacts/creatures isn't modelled"),
+    (re.compile(r"\bmanifests? the top card of (?:that player's|target player's|an opponent's)", re.I),
+     "manifesting another player's card under your control: not modelled"),
+)
+
+
+# -- refused look/cast-free (wave 3R5) -- look-at-the-top and cast-without-paying forms still left to the players
+# (the ones read now: app/rules/permissions.py free_cast, app/rules/looking.py; tests/test_rules_refused_look.py)
+REFUSED += (
+    (re.compile(r"\b(?:of the chosen (?:creature |card )?type|with (?:the|that) chosen name|choose a (?:nonland )?card name)\b", re.I),
+     "a value chosen as the ability resolves used as a filter (\"cards of the chosen type\", \"a card with the chosen name\"): "
+     "no selector reads the resolution's choice, and naming a card would need a prompt over the whole card pool"),
+    (re.compile(r"\bchoose two cards in your hand drawn this turn\b", re.I),
+     "Sylvan Library: which hidden cards in a hand were drawn this turn isn't tracked per card"),
+    (re.compile(r"\bas many times as you choose, you may pay 1 life, put those cards on the bottom\b", re.I),
+     "Lim-Dûl's Vault: a repeated look-and-pay loop, then a shuffle that keeps the last cards on top, isn't modelled"),
+    (re.compile(r"\byou may play (?:that card|it|one of those cards) without paying\b", re.I),
+     "\"you may play that card\" as the ability resolves: playing a land during a resolution (305.2a: it uses a land play) "
+     "isn't modelled; free casts never play lands"),
+    (re.compile(r"\b(?:any number of|up to \w+) (?!target\b)[^.]*?with total mana value \w+ or less\b", re.I),  # (targets: wave 3R4)
+     "choosing a set of cards or spells under a total mana value limit: not modelled"),
+    (re.compile(r"\bcast (?:the copy|the copies|any number of the copies|those copies)\b", re.I),
+     "casting a copy of a card (707.12): belongs to the copy system"),
+    (re.compile(r"\bcast target [^.]*with mana value less than or equal to [^.]*from [^.]*graveyard\b", re.I),
+     "a target card whose mana value limit is read as it resolves: the target's legality would change with it"),
+    (re.compile(r"\b(?:each opponent|each player) (?:exiles|reveals) cards from the top of their library until\b", re.I),
+     "\"until\" in several libraries at once: the resolution keeps one found card"),
+    (re.compile(r"\btapped and attacking (?:that player|defending player)\b", re.I),
+     "put onto the battlefield attacking a player the effect names (508.4: its choice isn't the controller's)"),
 )
 
 
@@ -264,8 +340,12 @@ def _keyword_supported(kw: str, line: str) -> bool:
     if kw == "echo":  # triggers.echo_cost: a mana echo cost
         return re.fullmatch(r"echo (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
-        return re.fullmatch(r"(?:mega)?morph (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
-    if kw in ("bushido", "renown", "bloodthirst", "soulshift", "toxic", "fabricate"):  # numbered keywords (triggers.py, engine.enter_with_counters)
+        return re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None  # (no X: wave 3F)
+    if kw == "disguise":  # -- keyword actions & face-down (wave 3F) -- casting.disguise_cost: a mana disguise cost
+        return re.fullmatch(r"disguise (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
+    if kw == "toxic":  # -- counters & designations (wave 3E) -- combat.py reads "toxic N" anywhere in a keyword line ("Menace, toxic 1")
+        return re.search(r"(?:^|, )toxic \d+(?:,|$)", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()) is not None
+    if kw in ("bushido", "renown", "bloodthirst", "soulshift", "toxic", "fabricate", "firebending"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
         return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
@@ -277,6 +357,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules.costs import kicker_line
 
         return kicker_line(line)
+    if kw == "transmute":  # -- refused zones/sized (wave 3R4) -- casting.transmute: a mana transmute cost (702.53a)
+        from app.rules.casting import TRANSMUTE
+
+        return TRANSMUTE.fullmatch(line.strip().rstrip(".")) is not None
     if kw == "crew":  # casting.crew: "Crew N"
         return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "flashback":  # casting.flashback_cost: a mana flashback cost
@@ -338,6 +422,9 @@ def features_of(ch: Characteristics) -> list[Feature]:
         add("combat", "Attack and block")
     if "Planeswalker" in ch.types:
         add("planeswalker", "Loyalty and damage to planeswalkers")
+    if "Battle" in ch.types:  # 310 (app/rules/battles.py): a Siege's defeat is cast transformed by hand (310.12b)
+        add("battle", "Defense, protector, attacks (310)" + ("; casting it transformed when defeated is by hand"
+                                                            if "Siege" in ch.subtypes else ""), "Siege" not in ch.subtypes)
     for ab in ch.abilities:
         if script is not None and ab.index in script.covers:
             add(f"script:{ab.index}", ab.text, True)
@@ -348,6 +435,13 @@ def features_of(ch: Characteristics) -> list[Feature]:
             add("mana:ability", ab.text, "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None)
         else:
             add(f"text:{ab.index}", ab.text, ab.index in templated)
+    # -- counters & designations (wave 3E) -- the dungeon rooms a venture may lead into (automated or not)
+    defs = templates.definitions(ch)
+    gaps = {g for i in templated if i in defs and (g := counters_designations_gap(defs[i])) is not None}
+    if ch.is_instant_or_sorcery and templated and (whole := templates.spell_definition(ch)) is not None:
+        gaps |= {g for g in [counters_designations_gap(whole)] if g is not None}
+    for gap in sorted(gaps):
+        add("engine:dungeon", gap[0].upper() + gap[1:], False)
     return out
 
 

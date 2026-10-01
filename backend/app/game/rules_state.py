@@ -74,6 +74,11 @@ class ControlMark(BaseModel):
 
     controller: str
     turn: int
+    # 800.4a: True when it came under this controller's control while on the battlefield (a
+    # control-changing effect, done by hand: ``set_controller``), False when it entered the
+    # battlefield under this control (reanimated "under your control"), None when unknown (an
+    # older save, or automation turned on mid-game).
+    changed: bool | None = None
 
 
 # -- automation levels and options ---------------------------------------------------------
@@ -244,6 +249,9 @@ class ObjectSnapshot(BaseModel):
     attacking: bool = False
     blocking: bool = False
     attached_to: str | None = None
+    # -- sagas & attached-object triggers (wave 3S) -- the permanents (card ids) attached to it as it
+    # last existed: "When enchanted creature dies" looks back in time (603.10a)
+    attached: list[str] = Field(default_factory=list)
     text: str = ""  # a custom token's rules text (it has no printing to look up)
     # -- quoted grants (wave 2D) --
     # Its abilities and keywords as they last existed (603.10a: leaves-the-battlefield abilities look
@@ -282,6 +290,9 @@ EventKind = Literal[
     # -- copy system (wave 2F): a copy of a spell was put onto the stack (707.10: not cast); the
     # object is the copy, ``source`` the spell it copies, ``player`` its controller
     "spell_copied",
+    # -- counters & designations (wave 3E): ``counter`` = "monarch" | "initiative" | "day" | "night" |
+    # "ring" (701.54d: the Ring tempted ``player``) | "dungeon" (309.7: ``player`` completed a dungeon)
+    "designation",
 ]
 
 
@@ -334,6 +345,22 @@ class Arrival(BaseModel):
     owner: str = Field(max_length=64)  # whose graveyard it went to
 
 
+# -- refused modal/conditional (wave 3R1) --
+class Entry(BaseModel):
+    """A permanent that entered the battlefield this turn (a token created there included, 111.1), for "if two or
+    more nonland permanents entered the battlefield under your control this turn" (celebration), "if another
+    creature entered …", "as long as ~ entered this turn". 608.2i: what it was is what it was as it entered — its
+    card types and subtypes then (layers applied), when the rules engine put it there (``types`` None: put there
+    by hand, read from the object as it is or last existed)."""
+
+    card: str = Field(max_length=64)
+    object_id: str = Field(max_length=80)  # the object it became on the battlefield
+    controller: str = Field(max_length=64)  # who controlled it as it entered
+    types: list[str] | None = None
+    subtypes: list[str] | None = None
+# -- end refused modal/conditional (wave 3R1) --
+
+
 class TurnLog(BaseModel):
     """What happened during one turn that later text can ask about (608.2i): who attacked (508.1),
     life gained and lost (damage included, 120.3a), cards drawn, permanents that left the
@@ -349,6 +376,7 @@ class TurnLog(BaseModel):
     left: list[Departure] = Field(default_factory=list)
     left_graveyard: list[str] = Field(default_factory=list)  # the owner of each card that left a graveyard
     entered_graveyard: list[Arrival] = Field(default_factory=list)
+    entered: list[Entry] = Field(default_factory=list)  # -- refused modal/conditional (wave 3R1) -- onto the battlefield
 
 
 class ContinuousEffect(BaseModel):
@@ -419,6 +447,10 @@ class ContinuousEffect(BaseModel):
     # -- copy system (wave 2F): layer 1a (613.2a) — a copy effect: the affected objects' copiable
     # values become this recipe's (707.2-707.5); the latest (by timestamp) applies (613.7)
     copy_recipe: CopyRecipe | None = None
+    # -- control (wave 3K) -- layer 2 (613.1b): the player who controls the affected objects while this
+    # effect applies ("gain control of target creature until end of turn", "exchange control of …");
+    # the latest by timestamp wins (613.7); app/rules/layers.control_sync applies it to the table.
+    new_controller: str | None = None
 
 
 class TargetRef(BaseModel):
@@ -573,6 +605,7 @@ class PaymentRecord(BaseModel):
     life: int = 0  # life paid (Phyrexian mana, …)
     tapped: list[str] = Field(default_factory=list)  # permanents tapped for mana while paying (engine-paid)
     sacrificed: list[str] = Field(default_factory=list)
+    sacrificed_objects: list[str] = Field(default_factory=list)  # (wave 3D) the object ids they were: last known information
     discarded: list[str] = Field(default_factory=list)
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
     returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
@@ -581,6 +614,14 @@ class PaymentRecord(BaseModel):
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
     additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
     x: int | None = None
+    # -- refused modal/conditional (wave 3R1) -- how the spell was cast, for "if you cast it [from your hand]",
+    # "if this spell was cast from a graveyard" and addendum ("if you cast this spell during your main phase"):
+    # the zone it was cast from (None: not cast — a copy, 707.10 — or an ability's record, or an older save);
+    # whether it was cast during its caster's own main phase; ``mana_known`` False for a card moved onto the
+    # stack by hand (cast by hand: what paid for it is unknown, so no "mana was spent" condition can hold)
+    cast_from: str | None = Field(default=None, max_length=20)
+    cast_main: bool = False
+    mana_known: bool = True
 
 
 class Permission(BaseModel):
@@ -620,7 +661,10 @@ class CostModifier(BaseModel):
     delta: int  # +N: costs {N} more; −N: costs {N} less
     caster: Literal["you", "opponent", "any"] = "you"
     filter: str | None = None  # a selector key the spell must match, or None for every spell
-    until: Literal["end_of_turn", "permanent"] = "end_of_turn"
+    # "permanent" (a static, read from the table), "end_of_turn" ("… you cast this turn cost …": ends in
+    # cleanup, 514.2) or "next_turn" ("Until your next turn, …": ends as its controller's next turn begins)
+    until: Literal["end_of_turn", "permanent", "next_turn"] = "end_of_turn"
+    turn: int = 0  # the turn it was created
     source: str | None = None
     label: str = Field(default="", max_length=120)
 
@@ -643,6 +687,14 @@ class ReconcileItem(BaseModel):
     card: str | None = None
     player: str | None = None
     question: str = Field(max_length=300)
+
+
+class DungeonMark(BaseModel):
+    """-- counters & designations (wave 3E) -- A dungeon card a player owns in the command zone
+    (309.2b) and the room their venture marker is on (309.4)."""
+
+    dungeon: str = Field(max_length=60)  # its name ("Lost Mine of Phandelver")
+    room: str = Field(max_length=60)  # the room's name
 
 
 class RulesState(BaseModel):
@@ -673,6 +725,9 @@ class RulesState(BaseModel):
     turn_seen: int = 0  # last turn number the bookkeeping saw
     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
     controlled_since: dict[str, ControlMark] = Field(default_factory=dict)
+    # -- control (wave 3K) -- the cards whose controller a layer-2 effect set (so that when the effect ends
+    # they revert to their owner, 613.1b), not one a player moved by hand
+    control_changed: list[str] = Field(default_factory=list)
     conceded: list[str] = Field(default_factory=list)
     lost: dict[str, str] = Field(default_factory=dict)  # player -> why (0 life, poison, …)
     winner: str | None = None
@@ -687,9 +742,22 @@ class RulesState(BaseModel):
     # combat damage that would be dealt this turn" and friends. Each: {"id", "kind", "turn",
     # "controller", "source", "scope"}; a record for another turn has expired (614.3, 615.3).
     replacements: list[dict[str, Any]] = Field(default_factory=list)
+    # -- refused grants/replacements (wave 3R2) -- 614.10 "skips their next …" effects waiting for that
+    # occurrence (app/rules/skips.py): {"id", "player", "what": "untap"|"upkeep"|"draw"|"combat"|"turn", "label"}
+    skips: list[dict[str, Any]] = Field(default_factory=list)
+    # … and "can't gain life this turn / for the rest of the game" (614.17; app/rules/cant_gain.py):
+    # {"id", "player", "controller", "turn" (None: the rest of the game), "label"}
+    cant_gain: list[dict[str, Any]] = Field(default_factory=list)
+    # … and abilities granted to graveyard cards this turn (app/rules/graveyard_grants.py): "gains flashback until
+    # end of turn" — {"id", "oid" (the card as the object it was then, 400.7), "card", "turn", "flashback", "controller"}
+    graveyard_grants: list[dict[str, Any]] = Field(default_factory=list)
     # 903.9b: commanders just put into their owner's hand / library (card id -> "hand" | "library")
     # whose owner hasn't yet said whether it goes to the command zone instead (asked before priority)
     pending_903_9b: dict[str, str] = Field(default_factory=dict)
+    # 903.9b asked *before* the move, as a resolving effect is about to put a commander into its
+    # owner's hand or library: "<object id>><hand|library>" -> "yes" (command zone) / "no",
+    # consumed by that move (app/rules/replacements.ask_903_9b_first)
+    answers_903_9b: dict[str, str] = Field(default_factory=dict)
     # "As ~ enters, choose …" answers given while a permanent spell / land is about to enter (card
     # id -> {"color": "Blue"}), consumed by the entry (614.12a)
     entry_choices: dict[str, dict[str, str]] = Field(default_factory=dict)
@@ -746,6 +814,8 @@ class RulesState(BaseModel):
     draws_turn: int = 0
     # Aura spells on the stack -> what they target (303.4a); they enter attached to it (303.4f).
     aura_targets: dict[str, TargetRef] = Field(default_factory=dict)
+    # Battles on the battlefield (object id) -> their protector (310.9; app/rules/battles.py).
+    protectors: dict[str, str] = Field(default_factory=dict)
     # How each spell was paid for (stack object id -> record); follows the spell onto the battlefield.
     payments: dict[str, PaymentRecord] = Field(default_factory=dict)
     # Each player's intents this turn, for REPEAT LAST VALIDATED SEQUENCE (payloads, newest last).
@@ -764,6 +834,25 @@ class RulesState(BaseModel):
     # they're drawn (for "except the first one they draw in each of their draw steps", 504.1).
     replace_step_key: str = ""
     replace_step_draws: dict[str, int] = Field(default_factory=dict)
+    # -- counters & designations (wave 3E; app/rules/designations.py) --
+    # 309.2a / 309.4: each player's dungeon card in the command zone and the room their venture marker is on
+    dungeons: dict[str, DungeonMark] = Field(default_factory=dict)
+    completed_dungeons: dict[str, list[str]] = Field(default_factory=dict)  # 309.7: player -> dungeons completed, in order
+    ring_tempted: dict[str, int] = Field(default_factory=dict)  # 701.54c: player -> times the Ring tempted them (their emblem)
+    ring_bearers: dict[str, str] = Field(default_factory=dict)  # 701.54a: player -> their Ring-bearer (rules object id)
+    # -- keyword actions & face-down (wave 3F) -- firebending (702.189a): the {R} each player added that
+    # they don't lose as steps end until end of combat (player -> how much of the red in their pool)
+    combat_mana: dict[str, int] = Field(default_factory=dict)
+    # -- refused copy/mana (wave 3R3; app/rules/kept_mana.py) -- "Until end of turn, you don't lose this mana as
+    # steps and phases end" (500.4, 106.4): {"player", "mana": {sym: n}, "until": "end_of_turn" | "end_of_combat",
+    # "turn"}; never more than that player's pool holds (spending uses the other mana first)
+    kept_mana: list[dict[str, Any]] = Field(default_factory=list)
+    # -- refused look/cast-free (wave 3R5) -- a free cast made while a spell or ability resolves (608.2g):
+    # {"card", "ctx", "e"} — the resolution to continue once that cast is done or abandoned
+    # (app/rules/permissions.free_cast_done); and the stack objects cast "without paying" whose
+    # "If that spell would be put into your graveyard, exile it instead" applies (614.1a)
+    free_cast_then: dict[str, Any] | None = None
+    exile_if_graveyard: list[str] = Field(default_factory=list)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)
@@ -804,6 +893,10 @@ def start_rules(state: GameState) -> RulesState:
 
 # -- bookkeeping after every applied step ---------------------------------------------------------
 TRACKED_ZONES = ("battlefield", "stack")  # zones whose objects get last known information
+# ContinuousEffect.source of the copy effect of a card entering as a copy (app/rules/copying.py,
+# 707.5): set up on the card's object before it moves, it follows the card to the object it becomes
+# on the battlefield (:func:`_diff`) — whatever number that object gets.
+ENTERING_COPY = "entering:"
 
 
 def _zone_name(key: str) -> str:
@@ -814,6 +907,8 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
     c = state.cards[card_id]
     rules = state.rules
     token = c.token
+    if token is not None and token.back is not None and c.face == 1:  # -- wave 3F -- a transformed double-faced token
+        token = token.back
     return ObjectSnapshot(
         object_id=rules.object_id(card_id) if rules else card_id, card=card_id, printing=c.card_id, name=c.name,
         owner=c.owner, controller=c.controller, zone=c.zone, turn=state.turn.number, tapped=c.tapped,
@@ -831,7 +926,7 @@ class Capture:
     compares against to find zone changes, counters and taps, and the objects' last known
     information for anything that leaves the battlefield or the stack."""
 
-    __slots__ = ("zones", "snaps", "resources", "types")
+    __slots__ = ("zones", "snaps", "resources", "types", "designations")
 
     def __init__(self, state: GameState) -> None:
         self.zones = {cid: c.zone for cid, c in state.cards.items()}
@@ -839,6 +934,8 @@ class Capture:
             cid: snapshot(state, cid) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES
         }
         self.resources = {pid: dict(p.resources) for pid, p in state.players.items()}
+        # -- counters & designations (wave 3E) -- the monarch (725), the initiative (726), day / night (731)
+        self.designations = (state.table.monarch, state.table.initiative, state.table.day_night)
         # card id -> card types as they are now (layers applied) for the permanents the rules engine
         # is about to move off the battlefield (set by Plan.do; empty for a step made by hand)
         self.types: dict[str, list[str]] = {}
@@ -908,7 +1005,8 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
         on_battlefield.add(card_id)
         mark = rules.controlled_since.get(card_id)
         if mark is None or mark.controller != card.controller:
-            rules.controlled_since[card_id] = ControlMark(controller=card.controller, turn=state.turn.number)
+            rules.controlled_since[card_id] = ControlMark(controller=card.controller, turn=state.turn.number,
+                                                          changed=mark is not None)
     for card_id in [c for c in rules.controlled_since if c not in on_battlefield]:
         del rules.controlled_since[card_id]
     if before is not None:
@@ -927,9 +1025,31 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
         del rules.lki[oid]
 
 
+def _entry_order(state: GameState, before: Capture) -> list[tuple[str, str]]:
+    """The step's cards in the order they get their new object numbers (613.7d: a timestamp as
+    they enter a zone). 613.7m: objects entering the battlefield simultaneously are timestamped in
+    APNAP order — the active player's first (among them, in the order the step lists them), then
+    each other player's in turn order; everything else keeps the table's order."""
+    seats = state.seat_order
+    start = seats.index(state.turn.active_player) if state.turn.active_player in seats else 0
+    apnap = {p: (i - start) % len(seats) for i, p in enumerate(seats)} if seats else {}
+
+    def key(item: tuple[int, tuple[str, str]]) -> tuple[int, int, int]:
+        i, (card_id, old_zone) = item
+        card = state.cards.get(card_id)
+        if card is None or _zone_name(card.zone) != "battlefield" or _zone_name(old_zone) == "battlefield":
+            return (0, 0, i)
+        listed = state.zones.get(card.zone, [])
+        return (1, apnap.get(card.controller, len(seats)), listed.index(card_id) if card_id in listed else i)
+
+    changed = [(cid, zone) for cid, zone in before.zones.items()
+               if (card := state.cards.get(cid)) is None or card.zone != zone]  # (the rest: no new object)
+    return [item for _, item in sorted(enumerate(changed), key=key)]
+
+
 def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) -> None:
     departures = state.departures()
-    for card_id, old_zone in before.zones.items():
+    for card_id, old_zone in _entry_order(state, before):
         card = state.cards.get(card_id)
         new_zone = card.zone if card is not None else departures.get(card_id)
         if card is not None and new_zone == old_zone:
@@ -945,12 +1065,23 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
         if snap is not None:
             rules.lki[old_oid] = snap.model_copy(update={"turn": state.turn.number})
             rules.lki[old_oid].copy_recipe = copy_recipe_of(rules, old_oid)  # -- copy system (wave 2F) --
+            # -- sagas & attached-object triggers (wave 3S): what was attached to it (603.10a) --
+            rules.lki[old_oid].attached = [c for c, s in before.snaps.items() if s.attached_to == card_id]
         new_oid = None
         rules.restamped.pop(card_id, None)  # a new object gets its own timestamp as it enters (613.7d)
         if card is not None:
             rules.next_object += 1
             rules.objects[card_id] = rules.next_object
             new_oid = rules.object_id(card_id)
+            if new_name == "battlefield" and old_name == "stack":  # -- refused grants/replacements (wave 3R2) --
+                for rec in rules.replacements:  # 609.7a: a shield on a permanent spell covers the permanent it became
+                    oids = ((rec.get("match") or {}).get("source") or {}).get("oids")
+                    if isinstance(oids, list) and "becomes:" + old_oid in oids:
+                        oids.append(new_oid)
+            if new_name == "battlefield":  # 707.5: the copy effect it is entering with is the new object's
+                for eff in rules.effects:
+                    if eff.layer == "1" and eff.source == ENTERING_COPY + card_id and old_oid in eff.affected:
+                        eff.affected.append(new_oid)
         else:
             rules.objects.pop(card_id, None)
         if old_name in ("library", "hand") and new_name in ("library", "hand", None) and snap is None:
@@ -965,6 +1096,9 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
         if new_name == "graveyard" and new_zone and card is not None and card.card_id is not None \
                 and (log := turn_log_now(state)) is not None:  # (a token is no card: it never "descends")
             log.entered_graveyard.append(Arrival(card=card_id, owner=new_zone.split(":")[0]))
+        if new_name == "battlefield" and card is not None and new_oid is not None \
+                and (log := turn_log_now(state)) is not None:  # -- refused modal/conditional (wave 3R1) --
+            log.entered.append(Entry(card=card_id, object_id=new_oid, controller=card.controller))
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
              from_zone=old_zone, to_zone=new_zone)
@@ -975,6 +1109,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
                 rules.objects[card_id] = rules.next_object
             emit(state, "zone_change", new_object_id=rules.object_id(card_id), card=card_id, player=card.controller,
                  to_zone=card.zone)  # created: a token, a copy, an ability on the stack
+            if _zone_name(card.zone) == "battlefield" and (log := turn_log_now(state)) is not None:  # (wave 3R1)
+                log.entered.append(Entry(card=card_id, object_id=rules.object_id(card_id), controller=card.controller))
     for card_id, snap in before.snaps.items():
         card = state.cards.get(card_id)
         if card is None or card.zone != snap.zone:
@@ -1002,6 +1138,16 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
             delta = p.resources.get(kind, 0) - old.get(kind, 0)
             if delta:
                 emit(state, "player_counters", player=pid, counter=kind, amount=delta)
+    # -- counters & designations (wave 3E) -- a player became the monarch (725.3) / took the initiative
+    # (726.3), day became night or night day (731.1a): ``counter`` names the designation, ``from_zone``
+    # what it was ("" for none)
+    monarch, initiative, day_night = before.designations
+    if state.table.monarch != monarch and state.table.monarch:
+        emit(state, "designation", player=state.table.monarch, counter="monarch", from_zone=monarch or "")
+    if state.table.initiative != initiative and state.table.initiative:
+        emit(state, "designation", player=state.table.initiative, counter="initiative", from_zone=initiative or "")
+    if state.table.day_night != day_night and state.table.day_night:
+        emit(state, "designation", counter=state.table.day_night, from_zone=day_night or "")
     departures.clear()
 
 

@@ -44,10 +44,19 @@ def move(state: GameState, a: A.Move) -> None:
     for c in moving:
         if c.locked:
             raise ActionError(f"{c.name or 'That card'} is locked — unlock it first")
-    dests = [destination(state, a.to, c, a.actor) for c in moving]
+    dests = [destination(state, a.to.model_copy(update={"player": a.controllers[c.id]})
+                         if a.controllers and c.id in a.controllers and a.to.zone == "battlefield" else a.to, c, a.actor)
+             for c in moving]
+    tapped = set(a.tapped_ids or ())
     positions = a.r.positions if a.r else {}
     who_saw = {c.id: seers(state, c) for c in moving}
     sources = {c.id: c.zone for c in moving}
+    for c, dest in zip(moving, dests, strict=True):  # -- keyword actions & face-down (wave 3F) --
+        # 708.9: a face-down permanent leaving the battlefield, or a face-down spell leaving the stack
+        # other than for the battlefield, is revealed to all players as it moves (the log names it to all)
+        if c.face_down and not a.face_down and (c.zone.endswith(":battlefield") and not dest.endswith(":battlefield")
+                                                or c.zone == STACK and not dest.endswith(":battlefield")):
+            who_saw[c.id] = {ALL}
     commander_casts: list[CardInstance] = []
 
     for i, (c, dest) in enumerate(zip(moving, dests, strict=True)):
@@ -62,7 +71,9 @@ def move(state: GameState, a: A.Move) -> None:
         if c.zone.endswith(":command") and dest == STACK and c.commander_key:
             commander_casts.append(c)
         ops.move_card(state, c, dest, index=index, position=a.position, x=x, y=y, face_down=a.face_down)
-        if a.tapped and ops.zone_name(dest) == "battlefield" and c.id in state.cards:
+        if dest == STACK and sources[c.id] != STACK and a.actor in state.players:
+            c.controller = a.actor  # -- refused look/cast-free (wave 3R5) -- 601.2a: the player who casts a spell controls it
+        if (a.tapped or c.id in tapped) and ops.zone_name(dest) == "battlefield" and c.id in state.cards:
             c.tapped = True
         if c.face_down and a.face_down:
             c.face_down_kind = a.face_down_kind or ("exile" if ops.zone_name(dest) == "exile" else "generic")

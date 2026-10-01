@@ -99,4 +99,51 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         return creatures_died(plan, controller=me if cond.get("who") == "you" else None, last=bool(cond.get("last"))) >= n
     if kind == "left":
         return sum(1 for d in log.left if cond.get("who") != "you" or d.controller == me) >= n
+    if kind == "entered":  # -- refused modal/conditional (wave 3R1) --
+        return entered(plan, ctx, cond, log) >= n
+    if kind == "entered_self":
+        return any(e.object_id == _source_object(plan, ctx) for e in log.entered)
     raise ValueError(f"unknown history condition {cond!r}")
+
+
+# -- refused modal/conditional (wave 3R1) --
+def entered(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> int:
+    """How many permanents matching ``cond["sel"]`` entered the battlefield under the ability controller's control
+    this turn ("another": not the source object itself). 608.2i: read as each was when it entered — its card types
+    and subtypes then — and otherwise as it is, or as it last existed if it has left since."""
+    from dataclasses import replace
+
+    from app.rules import selectors
+    from app.rules.triggers import _snapshot_card  # (triggers imports the modules that import this one)
+
+    sel = selectors.from_key(cond["sel"])
+    me = ctx["controller"]
+    n = 0
+    for e in log.entered:
+        if e.controller != me or (cond.get("other") and e.object_id == _source_object(plan, ctx)):
+            continue
+        card = plan.state.cards.get(e.card)
+        if card is not None and plan.oid(card) == e.object_id:
+            ch = plan.ch(card)
+        else:
+            snap = plan.rules.lki.get(e.object_id)
+            if snap is None:
+                continue  # (gone with no last known information: a token that left, long ago)
+            card, ch = _snapshot_card(plan, snap)
+        if e.types is not None:
+            ch = replace(ch, types=frozenset(e.types), subtypes=frozenset(e.subtypes or ()))
+        probe = card.model_copy(update={"zone": f"{me}:battlefield", "controller": me}) \
+            if not card.zone.endswith(":battlefield") else card
+        if selectors.matches(plan, replace(sel, zones=("battlefield",), controller=None, other=False), probe, ch, me, None):
+            n += 1
+    return n
+
+
+def _source_object(plan: Plan, ctx: dict[str, Any]) -> str | None:
+    """The source object: given, or — for a static or an activation restriction, which name only the source
+    card — the object that card is now."""
+    if ctx.get("source_object"):
+        return str(ctx["source_object"])
+    card = ctx.get("source_card")
+    return plan.oid(card) if card and card in plan.state.cards else None
+# -- end refused modal/conditional (wave 3R1) --

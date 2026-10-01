@@ -62,7 +62,6 @@ def test_parse_count(phrase, value):
 @pytest.mark.parametrize("phrase", [
     "+1/+1 counters on it",  # a pronoun the caller can't bind
     "counters on target creature",  # (a target the value would have to declare)
-    "cards in that player's hand",
     "cards named ~ in all graveyards",
     "Auras attached to it",
     "creatures that died this turn",
@@ -108,7 +107,6 @@ def test_other_amounts():
 
 
 @pytest.mark.parametrize("text", [
-    "~ deals damage to target creature equal to the number of cards in that player's hand",
     "draw a card for each Aura attached to it",
     "each opponent loses X life and you draw a card, where X is the number of Shrines you control",  # X in one half only
 ])
@@ -438,3 +436,14 @@ def test_counters_on_it_binds_through_the_pronoun_resolver():
     assert parse_effects("Draw a card for each +1/+1 counter on it.") is None  # (nothing to bind "it" to)
     assert parse_effects("Draw a card for each +1/+1 counter on it.", it="self")[0] == \
         [{"do": "draw", "who": "you", "n": {"counters": "+1/+1", "on": "self"}}]
+
+
+def test_that_players_hand_binds_only_to_a_target_player_or_the_triggers_player():
+    """(wave 3R4) "cards in that player's hand" is a placeholder the ability-level parse binds (scripts._that_players_hand):
+    the target player, or the trigger's player named by "that player"; anything else stays manual."""
+    from app.rules.scripts import parse_effects
+
+    assert values.parse_count("cards in that player's hand") == {"hand": "that_player"}
+    assert parse_effects("~ deals damage to target creature equal to the number of cards in that player's hand.") is None
+    found = parse_effects("~ deals damage to target player equal to the number of cards in that player's hand.")
+    assert found is not None and found[0][0]["n"] == {"hand": "target"}

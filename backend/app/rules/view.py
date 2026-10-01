@@ -13,9 +13,9 @@ from typing import Any
 
 from app.game.rules_state import preset_name
 from app.game.state import GameState, zone_key
-from app.game.visibility import OMNISCIENT, can_see
+from app.game.visibility import OMNISCIENT, can_see, mask_face_down
 from app.rules import characteristics as chars
-from app.rules.casting import activatable, castable
+from app.rules.casting import activatable, castable, free_castable
 from app.rules.characteristics import CardInfo
 from app.rules.engine import land_play_problem
 from app.rules.plan import live_players
@@ -49,12 +49,33 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
                        if cid in state.cards and (viewer == OMNISCIENT or can_see(state, state.cards[cid], viewer))},
         "hints": {},
         "stats": stats(state, viewer, info),
+        # -- counters & designations (wave 3E): dungeons, venture markers and the Ring (public, 309.2b / 701.54) --
+        "designations": designations_view(state),
     }
     d = r.decision
     if d is not None:
         out["decision"] = decision_view(state, d, viewer)
     if viewer in state.players and viewer in live_players(state) and not r.paused:
         out["hints"] = hints(state, viewer, info)
+    return out
+
+
+def designations_view(state: GameState) -> dict[str, Any]:
+    """-- counters & designations (wave 3E) -- Each player's dungeon in the command zone and the room their
+    venture marker is on, the dungeons they completed, how many times the Ring tempted them and their
+    Ring-bearer (a permanent on the battlefield): all public."""
+    r = state.rules
+    assert r is not None
+    out: dict[str, Any] = {}
+    for pid in state.players:
+        mark = r.dungeons.get(pid)
+        bearer = r.ring_bearers.get(pid)
+        card = bearer.rsplit(".", 1)[0] if bearer else None
+        entry = {"dungeon": mark.model_dump() if mark else None, "completed": list(r.completed_dungeons.get(pid, [])),
+                 "ring": r.ring_tempted.get(pid, 0),
+                 "ring_bearer": card if card in state.cards and state.cards[card].zone.endswith(":battlefield") else None}
+        if entry["dungeon"] or entry["completed"] or entry["ring"]:
+            out[pid] = entry
     return out
 
 
@@ -71,8 +92,13 @@ def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
     still in its caster's hand (601.2a: its targets, modes, division, costs) or about hidden cards
     (a search, a look, a private cost) must not reveal them (hidden information, 400.2)."""
     if viewer in (d.player, OMNISCIENT):
-        full: dict[str, Any] = {"id": d.id, "player": d.player, "kind": d.kind, "prompt": d.prompt,
-                                "source_id": d.source_id, "options": [o.model_dump() for o in d.options],
+        # -- keyword actions & face-down (wave 3F) -- 708.5: a face-down card the chooser may not look
+        # at is never named in the prompt or an option's label
+        options = [o.model_dump() for o in d.options]
+        for o in options:
+            o["label"] = mask_face_down(state, o["label"], viewer, refs=[o.get("card_id")])
+        full: dict[str, Any] = {"id": d.id, "player": d.player, "kind": d.kind, "prompt": mask_face_down(state, d.prompt, viewer, refs=[d.source_id, *(o.card_id for o in d.options)]),
+                                "source_id": d.source_id, "options": options,
                                 "min_choices": d.min_choices, "max_choices": d.max_choices,
                                 "rememberable": d.memory_key is not None}
         if d.display is not None:
@@ -142,4 +168,6 @@ def hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     out["playable_lands"] = playable
     out["activatable"] = activatable(state, viewer, info)
     out["castable"] = [cid for cid in candidates if castable(state, viewer, state.cards[cid], info)]
+    # (wave 3C) cards a permission lets you cast without paying their mana costs
+    out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info)]
     return out
