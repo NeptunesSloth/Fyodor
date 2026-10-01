@@ -24,7 +24,7 @@ from app.game.rules_state import (
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import attachments, cost_payment, permissions, restrictions, scripts
+from app.rules import attachments, cost_payment, costs, permissions, restrictions, scripts
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
@@ -706,7 +706,7 @@ def _auto_helpers(plan: Plan, cost: M.ManaCost, spell: Characteristics, spell_ca
 
 
 def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics, cost: M.ManaCost,
-              label: str) -> PaymentRecord:
+              label: str, *, not_mana: tuple[str, ...] = ()) -> PaymentRecord:
     """601.2h: pay a spell's locked-in total cost — the convoke / improvise / delve contributions
     (each paying one symbol, 702.51a / 702.126a / 702.66a) and mana for everything else — all at
     once. Returns how it was paid; contributions are not mana spent."""
@@ -718,7 +718,9 @@ def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristic
         helpers = _auto_helpers(plan, cost, ch, card.id)
     else:
         helpers = []
-    exclude = tuple(h.card for h in helpers)
+    if any(h.card in not_mana for h in helpers):  # (wave 3$) an object an additional cost uses can't also help pay
+        raise ActionError("A permanent that pays the additional cost can't also convoke / improvise")
+    exclude = tuple(h.card for h in helpers) + not_mana
 
     def covers(rest: M.ManaCost) -> bool:
         if rest.is_free:
@@ -1206,15 +1208,27 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
     return permissions.total_cost(state, player, card, ch, info, base=base, additional=tuple(extras), tax=tax, affinity=affinity)
 
 
+def additional_problem(plan: Plan, extra: AbilityCost, card: CardInstance, player: str) -> str | None:
+    """(wave 3$) Why a spell's additional cost can't be paid now (118.3: no partial payments; 119.4: life), or None."""
+    if extra.life and plan.state.players[player].life < extra.life:
+        return f"You can't pay {extra.life} life"
+    return cost_payment.problem(plan, extra, card, player)
+
+
 def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True) -> bool:
     faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
     for face in faces:
         ch = chars.as_cast(card, info, face)
-        if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is None:
-            grant = cast_grant(state, player, card, ch, info)
-            cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free)
-            if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
-                return True
+        if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None:
+            continue
+        manual = state.rules is not None and state.rules.card_mode(card.id) == "manual"
+        extra = None if manual else costs.spell_additional_cost(ch.abilities)
+        if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
+            continue  # (wave 3$) the additional cost can't be paid: not offered
+        grant = cast_grant(state, player, card, ch, info)
+        cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free)
+        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
+            return True
     return False
 
 
@@ -1301,7 +1315,20 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if picked_targets is None:
         return  # waiting for the target choice (601.2c comes before paying costs)
     chosen = picked_targets.flat
-    if payment_step(plan, a, cost, ch.name or "it", purpose=Purpose(spell=ch)):
+    # -- costs (wave 3$) -- 601.2b: an additional cost ("sacrifice a creature", "discard a card", "pay 2 life") is
+    # announced with the rest; 601.2h pays it all at once, so nothing moves until every part is chosen and payable
+    add_cost = None if plan.manual(card) or a.face_down else costs.spell_additional_cost(ch.abilities)
+    add_objects: dict[int, list[str]] = {}
+    if add_cost is not None:
+        problem = additional_problem(plan, add_cost, card, plan.actor)
+        if problem:
+            raise ActionError(problem)
+        found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it")
+        if found_objects is None:
+            return  # waiting for the payer's choice; nothing has been paid
+        add_objects = found_objects
+    not_mana = cost_payment.excluded(add_cost, card, add_objects) if add_cost is not None else ()
+    if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=Purpose(spell=ch)):
         return
     commander_cast = from_command_zone(card, plan.actor)
     flashback = from_graveyard(card, plan.actor, ch)
@@ -1316,7 +1343,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
-    record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name or 'a face-down spell'}")
+    record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name or 'a face-down spell'}", not_mana=not_mana)
+    if add_cost is not None:
+        if add_cost.life:
+            plan.do({"type": "life", "player": plan.actor, "delta": -add_cost.life})  # 119.4: paying life is losing it
+            record.life += add_cost.life
+        cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else \
         "flashback" if flashback else "free" if free else None
     record.additional = (["buyback"] if a.buyback else []) + (["kicker"] if a.kicker else [])
@@ -1853,8 +1885,14 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
 
 
 # -- other activated abilities (they use the stack) -----------------------------------------
-def ability_cost(ch: Characteristics, ability: AbilityText) -> AbilityCost:
+def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState | None = None,
+                 card: CardInstance | None = None, info: CardInfo | None = None) -> AbilityCost:
     cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
+    if state is not None and card is not None and info is not None and ability.kind == "activated" and cost.mana:
+        # -- costs (wave 3$) -- "Activated abilities of creatures you control cost {2} less to activate" (601.2f)
+        reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info)
+        if reduced != cost.mana:
+            cost = replace(cost, mana=reduced)
     # -- reanimation (wave 3R) -- 113.6m: "{1}{B}: Return this card from your graveyard to the battlefield" moves the
     # card out of the graveyard, so the ability works only there
     if ability.kind == "activated" and ":" in ability.text and _GRAVEYARD_SELF.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~")):
@@ -1937,7 +1975,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     from app.rules import modal_abilities  # (a leaf module over this one)
     from app.rules.engine import advance  # the engine imports this module
 
-    cost = ability_cost(ch, ability)
+    cost = ability_cost(ch, ability, state=plan.state, card=card, info=plan.info)
     problem = ability_problem(plan.state, plan.actor, card, ch, ability, cost, plan=plan)
     if problem:
         raise ActionError(problem)
@@ -2037,7 +2075,7 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
         ch = derive(state, card, chars.of(card, info), info)
         for ab in ch.abilities:
             if ab.kind in ("activated", "loyalty"):
-                problem = ability_problem(state, player, card, ch, ab, ability_cost(ch, ab),
+                problem = ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),
                                           check_priority=check_priority, info=info)
                 if problem is None:
                     out.append({"card_id": cid, "ability": ab.index})

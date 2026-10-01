@@ -32,14 +32,14 @@ from __future__ import annotations
 
 import re
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import CostModifier, Permission, TopReveal
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
+from app.rules import costs, selectors
 from app.rules import mana as M
-from app.rules import selectors
 from app.rules.characteristics import CardInfo, Characteristics
 
 if TYPE_CHECKING:
@@ -52,7 +52,19 @@ _SEL = r"(?P<sel>[a-z][a-z' ,-]*?)"
 _N = r"\{(?P<n>\d+)\}"
 # "Creature spells you cast cost {1} less to cast." / "Spells your opponents cast cost {2} more to
 # cast." / "Noncreature spells cost {1} more to cast." (any caster)
-STATIC_COST = re.compile(rf"^(?:{_SEL} )?spells (?P<who>you cast |your opponents cast )?cost {_N} (?P<dir>less|more) to cast$")
+# -- costs (wave 3$) -- also "Aura and Equipment spells you cast cost {1} less" (subtypes are capitalized), "Kithkin spells and
+# Soldier spells you cast …", "Each spell you cast that's red or green costs {1} less", "Creature spells you cast with power 4
+# or greater cost {2} less", "Historic spells you cast cost {1} less"
+_WITH = r"with (?:mana value|power|toughness) \d+ or (?:less|greater|more)"
+STATIC_COST = re.compile(
+    rf"^(?:each )?(?:{_SEL} )?spells? (?P<who>you cast |your opponents cast )?(?:that's (?:an? )?(?P<thats>[a-z][a-z' ,-]*?) )?"
+    rf"(?:(?P<with>{_WITH}) )?costs? {_N} (?P<dir>less|more) to cast$", re.IGNORECASE)
+# -- costs (wave 3$) -- "Activated abilities of creatures you control cost {2} less to activate. This effect can't reduce the
+# mana in that cost to less than one mana." / "Abilities you activate that aren't mana abilities cost {2} less to activate."
+ABILITY_COST = re.compile(
+    rf"^(?:activated abilities(?: of (?P<sel>[a-z][a-z' ,-]*?))?|(?P<yours>abilities you activate that aren't mana abilities)) "
+    rf"costs? {_N} (?P<dir>less|more) to activate(?:\. (?P<floor>this effect can't reduce the mana in that cost to less than one mana))?$",
+    re.IGNORECASE)
 # "This spell costs {1} less to cast for each creature card in your graveyard."
 SELF_PER = re.compile(rf"^(?:this spell|~) costs {_N} less to cast for each (?P<what>.+)$")
 # "This spell costs {1} less to cast if you control a Wizard."
@@ -97,15 +109,22 @@ def _lower_first(s: str) -> str:
     return s[:1].lower() + s[1:] if s[:1].isupper() else s
 
 
-def spell_filter(phrase: str | None) -> str | None:
-    """A selector key for "<phrase> spells" ("creature", "instant and sorcery", "Aura or Equipment"),
-    or None when the grammar doesn't read it (the ability then stays manual)."""
-    if phrase is None:
+def spell_filter(phrase: str | None, tail: str | None = None) -> str | None:
+    """A selector key for "<phrase> spells [<tail>]" ("creature", "instant and sorcery", "Aura or Equipment";
+    tail: "with power 4 or greater"), or None when the grammar doesn't read it (the ability then stays manual)."""
+    if phrase is None and tail is None:
         return None
-    text = re.sub(r"\band\b", "or", phrase.strip())
-    sel = selectors.parse(f"{text} spell")
+    text = re.sub(r"\band\b", "or", (phrase or "").strip()).strip()
+    if text.lower() == "historic":  # 700.6: an artifact, a legendary or a Saga
+        sel = selectors.parse("spell")
+        sel = replace(sel, extras=("historic",)) if sel is not None else None
+    else:
+        sel = selectors.parse(f"{text} spell {tail or ''}".replace("  ", " ").strip())
     if sel is None or sel.player is not None or sel.zones != ("stack",):
         return None
+    kinds = sum(bool(x) for x in (sel.types, sel.subtypes, sel.colors, sel.supertypes, sel.not_types, sel.colorless))
+    if re.search(r"\bor\b|,", text) and not sel.union and kinds > 1:
+        return None  # "red or creature" can't be one selector: a list of one kind only
     return sel.key()
 
 
@@ -133,6 +152,12 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     t = _lower_first(text.strip().rstrip("."))
     if kind not in ("static", "spell"):
         return None
+    # -- costs (wave 3$) -- "As an additional cost to cast this spell, sacrifice a creature." (601.2b): paid with the
+    # rest of the cost as the spell is cast (casting.cast_spell); a wording the cost grammar can't pay stays manual
+    extra = costs.additional_cost_text(t)
+    if extra is not None:
+        ok = costs.parse_additional_cost(extra) is not None
+        return {"kind": "static", "static": "additional_cost", "cost": extra, "effects": []} if ok else None
     m = SELF_PER.fullmatch(t)
     if m:
         what = m["what"]
@@ -164,14 +189,32 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return {"kind": "static", "static": "permission", "zone": "hand" if m["hand"] else "any", "once": False, "flash": False,
                 "self": False, "free": True, "play": False, "cast": True, "filter": key, "effects": []}
     # -- end cast without paying (wave 3C) --
+    t = re.sub(r"^(\w+) spells and (\w+) spells ", r"\1 or \2 spells ", t)  # "kithkin spells and soldier spells you cast"
     m = STATIC_COST.fullmatch(t)
     if m:
-        key = spell_filter(m["sel"]) if m["sel"] else None
-        if m["sel"] and key is None:
+        if m["sel"] and m["thats"]:
+            return None
+        phrase = m["sel"] or m["thats"]
+        key = spell_filter(phrase, m["with"]) if phrase or m["with"] else None
+        if (phrase or m["with"]) and key is None:
             return None
         caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
         delta = int(m["n"]) * (-1 if m["dir"] == "less" else 1)
         return {"kind": "static", "static": "cost_modifier", "delta": delta, "caster": caster, "filter": key, "effects": []}
+    m = ABILITY_COST.fullmatch(t)
+    if m:  # -- costs (wave 3$) -- the source permanent is matched at the cost, relative to the ability's controller
+        key = None
+        if m["sel"]:
+            sel = selectors.parse(m["sel"])
+            if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.controller == "opponent" \
+                    or sel.extras or sel.attacking or sel.blocking:
+                return None
+            key = sel.key()
+        if m["dir"] == "less" and not m["floor"]:
+            return None  # (only the printed wording with its floor is known; never guess a bare reduction)
+        return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
+                "filter": key, "who": "you" if m["yours"] or (m["sel"] and "you control" in m["sel"]) else "any",
+                "floor": bool(m["floor"]), "effects": []}
     m = PERMISSION.fullmatch(t)
     if m:
         what = _permission_what(m["what"], m["sel"], m["qual"])
@@ -460,6 +503,42 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
         reduction += self_reduction(state, player, card, ch, info)
     cost = cost.plus_generic(increase)
     return cost.plus_generic(-min(cost.generic, reduction))
+
+
+# -- costs (wave 3$) -- cost modifiers for activated abilities (602.2b -> 601.2f, 118.7) ---------------------
+def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characteristics, mana: str, info: CardInfo) -> str:
+    """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
+    activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
+    "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
+    mods = [(src, d) for src, _, d in _table_statics(state, info, {"ability_cost_modifier"})]
+    if not mods or not mana:
+        return mana
+    cost = M.parse_cost(mana)
+    if cost.x or cost.unsupported:
+        return mana
+    view = None
+    increase = reduction = 0
+    floor = False
+    for src, d in mods:
+        if d["who"] == "you" and src.controller != player:
+            continue
+        if d["filter"]:
+            view = view or _view(state, player, info)
+            if not selectors.matches(view, selectors.from_key(d["filter"]), card, ch, src.controller, src.id):
+                continue
+        if d["delta"] > 0:
+            increase += d["delta"]
+        else:
+            reduction -= d["delta"]
+            floor = floor or d["floor"]
+    if not increase and not reduction:
+        return mana
+    cost = cost.plus_generic(increase)
+    cut = min(cost.generic, reduction)
+    if floor:
+        symbols = cost.generic + len(cost.colored) + len(cost.hybrid) + len(cost.phyrexian)
+        cut = min(cut, max(0, symbols - 1))
+    return cost.plus_generic(-cut).text()
 
 
 # -- effects ---------------------------------------------------------------------------------------
