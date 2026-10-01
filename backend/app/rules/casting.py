@@ -24,7 +24,7 @@ from app.game.rules_state import (
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import attachments, cost_changes, cost_payment, costs, history, permissions, restrictions, scripts
+from app.rules import alt_costs, attachments, cost_changes, cost_payment, costs, history, permissions, restrictions, scripts
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
@@ -1439,6 +1439,32 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
     return False
 
 
+# -- cost changers (wave 4I) --
+def alt_castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *,
+                 check_priority: bool = True) -> list[dict[str, str]]:
+    """The alternative costs (118.9) ``player`` could cast this card for right now, each with what the intent's
+    ``alt_cost`` names: its condition holds, and the whole total cost (601.2f) can be paid (118.3)."""
+    out: list[dict[str, str]] = []
+    if chars.is_two_spell_card(card, info) or state.rules is None or state.rules.card_mode(card.id) == "manual":
+        return out  # (a split card / adventure: which half isn't part of the hint)
+    ch = chars.as_cast(card, info, None)
+    if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None:
+        return out
+    grant = cast_grant(state, player, card, ch, info)
+    if grant is not None and grant.how == "flashback":
+        return out  # (flashback is an alternative cost already: 118.9a)
+    view = permissions._view(state, player, info)
+    for offer in alt_costs.offers(state, player, card, ch, info):
+        extra = alt_costs.merged(costs.spell_additional_cost(ch.abilities), offer.alt.cost)
+        if extra is not None and additional_problem(view, extra, card, player):
+            continue
+        cost = spell_cost(state, card, ch, info=info, player=player, alternative=offer.alt.mana_cost)
+        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
+            out.append({"id": offer.key, "label": offer.label})
+    return out
+# -- end cost changers (wave 4I) --
+
+
 # -- cast without paying (wave 3C) --
 def free_castable(state: GameState, player: str, card: CardInstance, info: CardInfo) -> bool:
     """Does a permission let ``player`` cast this card without paying its mana cost right now (118.9)?"""
@@ -1479,9 +1505,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
     base = M.parse_cost(ch.mana_cost)
     if base.x and a.x_value is None:
-        if not free:
+        if not free and a.alt_cost is None:
             raise ActionError(f"Choose a value for X to cast {ch.name}")
-        a.x_value = 0  # 107.3b: X is 0 when a spell is cast without paying its mana cost
+        a.x_value = 0  # 107.3b: X is 0 when a spell is cast without paying its mana cost (or for an alternative cost, wave 4I)
     alternative: M.ManaCost | None = M.parse_cost("{3}") if a.face_down else None
     additional: list[M.ManaCost] = []
     if a.buyback:
@@ -1501,6 +1527,16 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         alternative = M.parse_cost(dash)
     if free and (alternative is not None or a.face_down):
         raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+    # -- cost changers (wave 4I) -- an alternative cost written on a card (Force of Will, Jodah: app/rules/alt_costs.py)
+    alt_offer: alt_costs.Offer | None = None
+    if a.alt_cost is not None:
+        if free or alternative is not None or a.face_down or (grant is not None and grant.how == "flashback"):
+            raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
+        alt_offer = alt_costs.chosen(plan, a.alt_cost, card, ch)
+        alternative = alt_offer.alt.mana_cost
+        if base.x and a.x_value:
+            raise ActionError("X is 0 when the spell is cast for an alternative cost without X (107.3b)")
+    # -- end cost changers (wave 4I) --
     # 601.2f: the total cost in the rules' order — kicker is an additional cost (118.8) added
     # before increases and reductions apply, so a reduction sees the kicked total
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=alternative,
@@ -1536,6 +1572,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     # -- costs (wave 3$) -- 601.2b: an additional cost ("sacrifice a creature", "discard a card", "pay 2 life") is
     # announced with the rest; 601.2h pays it all at once, so nothing moves until every part is chosen and payable
     add_cost = None if plan.manual(card) or a.face_down else costs.spell_additional_cost(ch.abilities)
+    if alt_offer is not None:  # -- cost changers (wave 4I) -- its other parts are paid with the rest (601.2h)
+        add_cost = alt_costs.merged(add_cost, alt_offer.alt.cost)
     add_objects: dict[int, list[str]] = {}
     if add_cost is not None:
         problem = additional_problem(plan, add_cost, card, plan.actor)
@@ -1569,7 +1607,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             record.life += add_cost.life
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else \
-        "flashback" if flashback else "free" if free else None
+        "flashback" if flashback else "free" if free else "alternative" if alt_offer is not None else None
+    if alt_offer is not None:  # -- cost changers (wave 4I) --
+        if alt_offer.once_key:
+            plan.rules.once_per_turn[alt_offer.once_key] = plan.state.turn.number  # ("once each turn")
+        plan.note(f"{plan.name(plan.actor)} cast {ch.name} for an alternative cost ({alt_offer.label})", [card.id])
     record.additional = (["buyback"] if a.buyback else []) + (["kicker"] if a.kicker else [])
     record.kicked = a.kicker  # 702.33d
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
@@ -2542,6 +2584,10 @@ def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
             ch = chars.of(card, info)
             if ("Instant" in ch.types or ch.has_flash or _flash_granted(state, player, card, ch, info)) \
                     and castable(state, player, card, info, check_priority=False):
+                return True
+            # -- cost changers (wave 4I) -- an instant castable only for an alternative cost (Force of Will with no mana
+            # open) is a response too: never auto-passed over
+            if ("Instant" in ch.types or ch.has_flash) and alt_castable(state, player, card, info, check_priority=False):
                 return True
     return bool(activatable(state, player, info, check_priority=False))
 

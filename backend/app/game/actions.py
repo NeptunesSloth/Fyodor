@@ -913,6 +913,9 @@ class CastSpell(_Intent):
     # (wave 3$) the objects chosen for the parts of an additional cost ("As an additional cost to cast this spell,
     # sacrifice a creature"); anything missing is asked for as a decision
     cost_choices: list[CostChoice] = Field(default_factory=list, max_length=10)
+    # -- cost changers (wave 4I) -- 118.9: pay this alternative cost rather than the mana cost: "<card id>:<ability index>"
+    # of the spell's own line (Force of Will) or of a permanent's static (Jodah); the hints list them (``alt_castable``)
+    alt_cost: Id | None = None
 
 
 class TurnFaceUp(_Intent):

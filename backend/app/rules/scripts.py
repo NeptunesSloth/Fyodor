@@ -2000,6 +2000,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import permissions  # permissions, cost modifiers, "play with the top card revealed"
 
         granted = permissions.define_static(text, ability.kind, tuple(self_text(ab.text, ch.name) for ab in ch.abilities))
+        if granted is not None and granted.get("static") in ("alt_cost", "cost_modifier") and "Room" in ch.subtypes:
+            return None  # -- cost changers (wave 4I) -- a Room door's ability works only while it's unlocked: not modelled
         if granted is not None:
             return granted
     if ability.kind == "triggered":
@@ -2395,7 +2397,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
     lines = [ab for ab in ch.abilities if ab.kind != "keywords"
-             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost")
+             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost")  # (alt_cost: wave 4I)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self") and defs[ab.index].get("free"))]
     if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):
         return None

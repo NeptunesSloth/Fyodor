@@ -314,6 +314,12 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     if cost_changes.SELF_SENTENCE.fullmatch(t):
         change = cost_changes.self_change(t)
         return {"kind": "static", "static": "self_cost", "change": change, "effects": []} if change else None
+    if " rather than pay " in t:  # alternative costs (118.9): app/rules/alt_costs.py
+        from app.rules import alt_costs
+
+        found_alt = alt_costs.define(t)
+        if found_alt is not None and (kind == "static" or not found_alt.get("table")):
+            return found_alt
     # -- end cost changers (wave 4I) --
     m = SELF_PER.fullmatch(t)
     if m:
