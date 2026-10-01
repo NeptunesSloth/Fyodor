@@ -67,6 +67,7 @@ EXTRA = [
     card('Cactuar', set_code='tst', number='D427', mana_cost='{G}', cmc=1.0, type_line='Creature — Plant', oracle_text="Trample\nAt the beginning of your end step, if this creature didn't enter the battlefield this turn, return it to its owner's hand.", power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Trample']),
     card('Kami of Transience', set_code='tst', number='D428', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Spirit', oracle_text='Trample\nWhenever you cast an enchantment spell, put a +1/+1 counter on this creature.\nAt the beginning of each end step, if an enchantment was put into your graveyard from the battlefield this turn, you may return this card from your graveyard to your hand.', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Trample']),
     card("Smuggler's Share", set_code='tst', number='D429', mana_cost='{2}{W}', cmc=3.0, type_line='Enchantment', oracle_text='At the beginning of each end step, draw a card for each opponent who drew two or more cards this turn, then create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn.', colors=['W'], color_identity=['W'], keywords=['Treasure']),
+    card('Land Tax', set_code='tst', number='D430', mana_cost='{W}', cmc=1.0, type_line='Enchantment', oracle_text='At the beginning of your upkeep, if an opponent controls more lands than you, you may search your library for up to three basic land cards, reveal them, put them into your hand, then shuffle.', colors=['W'], color_identity=['W']),
 ]
 
 
@@ -706,3 +707,28 @@ def test_values_of_this_turn():
         {"turn_history": "died", "sel": 'sel:{"types":["Creature"]}'}
     assert values.parse_count("opponent who lost life this turn") == {"turn_history": "opponents_who", "what": "lost", "n": 1}
     assert values.parse_count("cards you've drawn this turn") == {"turn_history": "drew"}
+
+
+# -- an intervening "if" over an optional ability (603.4 + 603.5), any condition -------------------------------------------
+@pytest.mark.parametrize("behind", [True, False])
+def test_land_tax_asks_only_when_an_opponent_has_more_lands(cards, behind):
+    s = build(cards, "Land Tax")
+    put(s, "Land Tax")
+    for _ in range(2 if behind else 0):
+        island = next(c for c in s.state.cards.values() if c.name == "Island" and c.zone == "p2:library")
+        act(s, "p2", type="move", card_ids=[island.id], to={"player": "p2", "zone": "battlefield"})
+    if not behind:
+        put(s, "Forest")
+    prompts = []
+
+    def done(s):
+        d = s.state.rules.decision
+        if d is not None and d.player == "p1" and "Land Tax" in (d.prompt or ""):
+            prompts.append(d.prompt)
+        return s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None
+
+    before = hand_size(s)
+    until(s, done)
+    assert bool(prompts) == behind
+    assert hand_size(s) == before + 1 + (1 if behind else 0)  # (the draw step; a Forest found)
+    replay_matches(s)
