@@ -696,6 +696,10 @@ class RulesState(BaseModel):
     # 903.9b: commanders just put into their owner's hand / library (card id -> "hand" | "library")
     # whose owner hasn't yet said whether it goes to the command zone instead (asked before priority)
     pending_903_9b: dict[str, str] = Field(default_factory=dict)
+    # 903.9b asked *before* the move, as a resolving effect is about to put a commander into its
+    # owner's hand or library: "<object id>><hand|library>" -> "yes" (command zone) / "no",
+    # consumed by that move (app/rules/replacements.ask_903_9b_first)
+    answers_903_9b: dict[str, str] = Field(default_factory=dict)
     # "As ~ enters, choose …" answers given while a permanent spell / land is about to enter (card
     # id -> {"color": "Blue"}), consumed by the entry (614.12a)
     entry_choices: dict[str, dict[str, str]] = Field(default_factory=dict)

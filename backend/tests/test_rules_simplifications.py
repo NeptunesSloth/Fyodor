@@ -356,3 +356,125 @@ def test_searching_and_finding_nothing_still_shuffles(cards):
     settle(s)
     assert s.state.zones["p2:library"] != library  # shuffled (new hidden ids)
     replay_matches(s)
+
+
+# -- "may" memory: one card's ability, not a name ---------------------------------------------------------
+WARDEN = "Whenever another creature enters, you may gain 1 life."
+
+
+def test_a_remembered_may_answer_belongs_to_one_card_not_its_name(cards):
+    s = two_player(cards)
+    act(s, "p1", type="set_prefs", auto_order_identical_triggers=True)
+    first, second = token(s, "p1", "Warden", "1/1", text=WARDEN), None
+    act(s, "p1", type="create_token", player="p1", token={"name": "Warden", "type_line": "Token Creature — Test",
+                                                         "power": "1", "toughness": "1", "text": WARDEN})
+    second = next(c for c in s.state.cards.values() if c.name == "Warden" and c.id != first.id)
+    settle(s)
+    # a third creature enters: both Wardens trigger; "yes this turn" for one doesn't answer the other
+    asked = []
+    maker = token(s, "p1", "Maker", "0/1", text="{1}: Create a 1/1 white Soldier creature token.")
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    act(s, "p1", type="activate_ability", card_id=maker.id, ability=0)
+    for _ in range(30):
+        d = rules(s).decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, rules(s).priority, type="pass_priority")
+        elif d.kind == "confirm" and d.memory_key and d.memory_key.startswith("may:"):
+            asked.append(d.memory_key)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"], remember="yes_this_turn")
+        else:
+            act(s, d.player, type="choose", decision_id=d.id,
+                option_ids=[o.id for o in d.options][:max(d.min_choices, 1)] if d.kind != "order" else [o.id for o in d.options])
+    assert len(asked) == 2 and len(set(asked)) == 2
+    assert {first.id, second.id} == {k.split(":")[1] for k in asked}
+    replay_matches(s)
+
+
+def test_a_remembered_may_answer_still_answers_the_same_cards_ability(cards):
+    s = two_player(cards)
+    token(s, "p1", "Warden", "1/1", text=WARDEN)
+    maker = token(s, "p1", "Maker", "0/1", text="{1}: Create a 1/1 white Soldier creature token.")
+    before = life(s, "p1")
+    asked = 0
+    for _ in range(2):
+        act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+        act(s, "p1", type="activate_ability", card_id=maker.id, ability=0)
+        for _ in range(10):
+            d = rules(s).decision
+            if d is None and not s.state.zones.get("stack"):
+                break
+            if d is None:
+                act(s, rules(s).priority, type="pass_priority")
+            else:
+                asked += 1
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"], remember="yes_this_turn")
+    assert asked == 1 and life(s, "p1") == before + 2  # the second time: remembered, no prompt
+    replay_matches(s)
+
+
+# -- 120 / 608.2: "each creature and each player" is one damage event ----------------------------------------
+PESTILENCE = "{1}: Pestilence deals 1 damage to each creature and each player."
+
+
+def test_damage_to_each_creature_and_each_player_is_one_simultaneous_event(cards, monkeypatch):
+    from app.rules import effects
+
+    s = two_player(cards)
+    bear = token(s, "p2", "Bob's Bear", "2/2")
+    pest = token(s, "p1", "Pestilence", "0/3", text=PESTILENCE)
+    batches = []
+    real = effects._deal
+
+    def spy(plan, ctx, hits, e=None, **kw):
+        batches.append(sorted(key for _, key, _ in hits))
+        return real(plan, ctx, hits, e, **kw)
+
+    monkeypatch.setattr(effects, "_deal", spy)
+    life1, life2 = life(s, "p1"), life(s, "p2")
+    activate(s, pest)
+    settle(s)
+    assert batches == [sorted([bear.id, pest.id, "p1", "p2"])]  # one batch: creatures and players together
+    assert life(s, "p1") == life1 - 1 and life(s, "p2") == life2 - 1
+    assert s.state.cards[bear.id].damage == 1 and s.state.cards[pest.id].damage == 1
+    replay_matches(s)
+
+
+def test_commander_owner_is_asked_before_it_would_go_to_a_hand(cards):
+    # 903.9b: "… its owner may put it into the command zone instead" — a replacement effect: the
+    # commander never touches the hand (no "put into a hand" event, nothing revealed by a hand).
+    s = two_player(cards)
+    krenko = next(c for c in s.state.cards.values() if c.name == "Krenko, Mob Boss" and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"zone": "battlefield"})
+    bear = token(s, "p1", "Alice's Bear", "2/2")
+    src = token(s, "p1", "Evacuator", "0/1", text="{1}: Return all creatures to their owners' hands.")
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    act(s, "p1", type="activate_ability", card_id=src.id, ability=0)
+    until(s, lambda s: rules(s).decision is not None, limit=10)
+    d = rules(s).decision
+    assert d.player == "p1" and d.resume["step"] == "commander_first"
+    assert s.state.cards[krenko.id].zone == "p1:battlefield"  # still there while its owner decides
+    assert "options" not in s.view("p2")["rules"]["decision"]  # (Alice's decision)
+    s2 = reloaded(s)  # the question survives a reload
+    act(s2, "p1", type="choose", decision_id=d.id, option_ids=["yes"])
+    settle(s2)
+    assert s2.state.cards[krenko.id].zone == "p1:command"
+    assert bear.id not in s2.state.cards  # (the token went to a hand and ceased to exist)
+    assert not [e for e in rules(s2).events if e.card == krenko.id and (e.to_zone or "").endswith(":hand")]
+    replay_matches(s2)
+
+
+def test_two_damage_sentences_stay_two_events(cards, monkeypatch):
+    from app.rules import effects
+
+    s = two_player(cards)
+    token(s, "p2", "Bob's Bear", "2/2")
+    pest = token(s, "p1", "Pinger", "0/3", text="{1}: Pinger deals 1 damage to each creature. Pinger deals 1 damage to each player.")
+    batches = []
+    real = effects._deal
+    monkeypatch.setattr(effects, "_deal", lambda plan, ctx, hits, e=None, **kw: (batches.append(len(hits)),
+                                                                                 real(plan, ctx, hits, e, **kw))[1])
+    activate(s, pest)
+    settle(s)
+    assert batches == [2, 2]

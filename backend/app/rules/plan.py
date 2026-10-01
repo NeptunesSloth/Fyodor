@@ -35,6 +35,7 @@ class Plan:
         self.steps: list[dict[str, Any]] = []
         self.max_steps = MAX_STEPS
         self.hold: str | None = None  # a player keeping priority right now (HOLD PRIORITY, a cancelled cast)
+        self.probe_903: list[tuple[str, str]] | None = None  # a look ahead for 903.9b (replacements.ask_903_9b_first)
 
     @classmethod
     def view(cls, state: GameState, actor: str, info: CardInfo) -> Plan:
@@ -43,6 +44,7 @@ class Plan:
         plan = cls.__new__(cls)
         plan.state, plan.actor, plan.info, plan.rng = state, actor, info, None
         plan.steps, plan.max_steps, plan.hold = [], 0, None
+        plan.probe_903 = None
         return plan
 
     @property

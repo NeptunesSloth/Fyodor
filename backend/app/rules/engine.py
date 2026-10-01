@@ -1067,6 +1067,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "stack_enter_choice": replacements.resume_stack_enter_choice,
     "land_enter_choice": replacements.resume_land_enter_choice,
     "commander_instead": replacements.resume_commander_instead,
+    "commander_first": replacements.resume_commander_first,  # 903.9b asked before the move
     "shield_order": replacements.resume_shield_order,
     # -- replacement effects stage 2 (wave 2E): which of several replacement / prevention effects
     # applies first (616.1), then the paused site runs again (app/rules/replace.py) --
