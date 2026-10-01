@@ -3,7 +3,7 @@ import { useCardCache } from "../../state/cardCache";
 import { useGame } from "../../state/gameStore";
 import type { CardData } from "../../types/cards";
 import type { GameView } from "../../types/game";
-import { abilityLines, automationOn, choose, divide, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, tapForMana } from "./intents";
+import { abilityLines, automationOn, canConcede, choose, concede, divide, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, tapForMana } from "./intents";
 import { canSubmitChoice, doneLabel, legalClass, paidSymbol } from "./RulesHud";
 import { rulesMenu } from "./rulesMenu";
 
@@ -47,6 +47,20 @@ beforeEach(() => {
 });
 
 describe("automation intents", () => {
+  it("lets a seated player still in the game concede at any time (104.3a)", async () => {
+    const base = { ...RULES, conceded: [], lost: {}, winner: null, priority: "p2" };
+    expect(canConcede(view(base), "p1")).toBe(true); // without priority
+    expect(canConcede(view({ ...base, decision: { id: "d", player: "p2" } }), "p1")).toBe(true); // during another's decision
+    expect(canConcede(view({ ...base, paused: true }), "p1")).toBe(true); // even while paused
+    expect(canConcede(view({ ...base, conceded: ["p1"] }), "p1")).toBe(false);
+    expect(canConcede(view({ ...base, lost: { p1: "life" } }), "p1")).toBe(false);
+    expect(canConcede(view({ ...base, winner: "p2" }), "p1")).toBe(false);
+    expect(canConcede(view(undefined), "p1")).toBe(false); // no rules engine at this table
+    expect(canConcede({ ...view(base), viewer: "__spectator__" } as GameView, "p1")).toBe(false);
+    await concede();
+    expect(sent).toEqual([{ type: "concede" }]);
+  });
+
   it("is on only with an unpaused rules view", () => {
     expect(automationOn(view(undefined))).toBe(false);
     expect(automationOn(view({ ...RULES, paused: true }))).toBe(false);
