@@ -306,6 +306,11 @@ def test_reality_shift_its_controller_manifests_and_only_they_see_it(cards):
     c = s.state.cards[brute.id]
     assert c.zone == "p2:battlefield" and c.controller == "p2" and c.face_down and c.face_down_kind == "manifest"
     assert hidden_from(s, "p1", brute) and hidden_from(s, "p3", brute)
+    from app.game.visibility import SPECTATOR
+
+    assert hidden_from(s, SPECTATOR, brute)  # (what a spectator's WebSocket frames carry)
+    blob = json.dumps(s.view("p1"))
+    assert brute.id in blob or "face_down" in blob  # (the permanent is there, anonymous)
     assert "Hunted Bonebrute" in json.dumps(s.view("p2"))  # 708.5: its controller may look at it
     # goading it names no face-down card in the log (708.5)
     cast(s, "Disrupt Decorum", R=4)
