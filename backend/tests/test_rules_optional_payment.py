@@ -79,7 +79,7 @@ def test_two_payments_bind_separately():
 
 
 @pytest.mark.parametrize("text", [
-    "You may pay {2}. When you do, draw a card.",  # a reflexive trigger (603.12): not modeled
+    "You may pay {2}. When you do, it deals 1 damage to any target.",  # (603.12, wave 3R1: "it" names nothing there)
     "You may pay {X}. If you do, draw a card.",
     "You may sacrifice it. If you do, draw a card.",  # "it" isn't this object (the antecedent is unknown)
     "You may tap two untapped creatures you control that share a color. If you do, draw a card.",

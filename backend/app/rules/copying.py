@@ -423,7 +423,7 @@ def _payment_alias(plan: Plan, orig_oid: str, oid: str, copy_id: str, controller
     if record is not None:
         plan.rules.payments[oid] = record.model_copy(
             deep=True, update={"card": copy_id, "controller": controller, "mana_spent": {}, "life": 0, "tapped": [],
-                               "total_cost": ""})
+                               "total_cost": "", "cast_from": None, "cast_main": False})  # (wave 3R1: a copy wasn't cast)
 
 
 # -- choosing new targets (707.10c, 115.7d-f) ------------------------------------------------------

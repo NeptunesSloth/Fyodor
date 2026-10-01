@@ -219,6 +219,15 @@ def probe_ok(plan: Any, ctx: Context, name: str) -> bool:
         return False
     if "hands" in b:
         return any(len(plan.state.zones.get(f"{p}:hand", [])) > n for p, n in b["hands"].items())
+    # -- refused modal/conditional (wave 3R1) -- sacrificed / a counter removed / a card discarded (effects._did_r1)
+    if "left" in b:
+        return any((card := plan.state.cards.get(cid)) is None or plan.oid(card) != oid or not card.zone.endswith(":battlefield")
+                   for cid, oid in b["left"].items())
+    if "counters" in b:
+        return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid
+                   and card.counters.get(b["counter"], 0) < n for cid, (oid, n) in b["counters"].items())
+    if "hands_down" in b:
+        return any(len(plan.state.zones.get(f"{p}:hand", [])) < n for p, n in b["hands_down"].items())
     for cid, oid in b["cards"].items():
         card = plan.state.cards.get(cid)
         if card is not None and card.zone.split(":")[-1] == b["to"] and plan.oid(card) != oid:

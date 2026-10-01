@@ -763,10 +763,24 @@ def pay_spell(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristic
                          sacrificed=list(payment.sacrificed) if payment else [], x=a.x_value)
 
 
+# -- refused modal/conditional (wave 3R1) --
+def _note_cast(plan: Plan, record: PaymentRecord, zone: str) -> None:
+    """How a spell was cast, on its payment record: the zone it was cast from ("if you cast it from your hand",
+    "if this spell was cast from a graveyard") and whether it was cast during its caster's own main phase
+    (addendum: "if you cast this spell during your main phase" — 505.1: a main phase of the caster's turn)."""
+    record.cast_from = zone
+    turn = plan.state.turn
+    record.cast_main = turn.active_player == record.controller and turn.phase in ("main1", "main2")
+# -- end refused modal/conditional (wave 3R1) --
+
+
 def record_payment(plan: Plan, card_id: str, record: PaymentRecord) -> None:
-    """Keep how the spell was paid, on its stack object (and later the permanent it becomes)."""
+    """Keep how the spell was paid, on its stack object (and later the permanent it becomes). A record of an
+    object that has just left is kept while its last known information is (wave 3R1: "if you cast it" as an
+    intervening "if" is checked again as the ability resolves, 603.4, after the permanent may have left)."""
     r = plan.rules
-    r.payments = {k: v for k, v in r.payments.items() if v.card in plan.state.cards and r.object_id(v.card) == k}
+    r.payments = {k: v for k, v in r.payments.items()
+                  if (v.card in plan.state.cards and r.object_id(v.card) == k) or k in r.lki}
     r.payments[plan.oid(card_id)] = record
 
 
@@ -1403,6 +1417,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     commander_cast = from_command_zone(card, plan.actor)
     flashback = from_graveyard(card, plan.actor, ch)
     card_was_in_hand = card.zone == zone_key(plan.actor, "hand")
+    cast_zone = card.zone.rsplit(":", 1)[-1]  # -- refused modal/conditional (wave 3R1) -- where it was cast from
     from_where = {"graveyard": "the graveyard", "exile": "exile", "library": "the library", "hand": "the hand"}.get(
         card.zone.rsplit(":", 1)[-1], card.zone)
     if a.face is not None and a.face != card.face:
@@ -1423,6 +1438,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         "flashback" if flashback else "free" if free else None
     record.additional = (["buyback"] if a.buyback else []) + (["kicker"] if a.kicker else [])
     record.kicked = a.kicker  # 702.33d
+    _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else ["Dashed"] if a.dash else []
     if grant is not None and grant.how == "permission":
@@ -1789,6 +1805,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         record = PaymentRecord(card=card.id, controller=plan.actor, alternative="free")
     was_suspended = card.id in r.suspended
     from_hand = card.zone == zone_key(plan.actor, "hand")
+    _note_cast(plan, record, card.zone.rsplit(":", 1)[-1])  # -- refused modal/conditional (wave 3R1) --
     r.free_casts = [c for c in r.free_casts if c != card.id]
     r.suspended = [c for c in r.suspended if c != card.id]
     if card.counters.get("time"):

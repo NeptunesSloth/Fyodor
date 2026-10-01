@@ -797,12 +797,14 @@ def test_x_is_six_or_more(cards, x, destroyed):
     replay_matches(s)
 
 
-def test_destroy_all_other_creatures_after_making_tokens_stays_manual(cards):
+def test_destroy_all_other_creatures_after_making_tokens(cards):
     """Martial Coup: "Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures." — "other"
-    means other than those tokens (its rulings), which the engine's "other than the source" isn't: never guessed."""
+    means other than those tokens (its rulings): since wave 3R1 every creature except what the instruction made
+    (played in tests/test_rules_refused_r1.py)."""
     text = "Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures."
-    assert scripts.parse_effects(text) is None
-    assert coverage.of_card_data(cards.resolve("Martial Coup")).level == "PARTIAL"
+    found = scripts.parse_effects(text)
+    assert found is not None and found[0][-1]["who"].startswith("except:")
+    assert coverage.of_card_data(cards.resolve("Martial Coup")).level == "FULL"
     assert scripts.parse_effects("Create a 1/1 white Soldier creature token. If you control four or more creatures, destroy all creatures.")
 
 
@@ -2021,13 +2023,8 @@ def test_bontu_cant_block_unless_a_creature_died_under_your_control(cards, died)
 # -- what is never guessed (the ability stays manual: "wrong automation is worse than manual") --------------------
 REFUSED = [
     # (why, the wording, the same wording with only a condition the engine reads: it is automated)
-    ("how the spell was cast isn't modelled — Might of Old Krosa",
-     "Target creature gets +2/+2 until end of turn. If you cast this spell during your main phase, that creature gets +4/+4 until end of "
-     "turn instead.",
-     "Target creature gets +2/+2 until end of turn. If you control a Forest, that creature gets +4/+4 until end of turn instead."),
-    ("what abilities the creature has isn't read — Hexgold Slash",
-     "~ deals 2 damage to target creature. If that creature has toxic, ~ deals 4 damage to that creature instead.",
-     "~ deals 2 damage to target creature. If that creature is a Zombie, ~ deals 4 damage to that creature instead."),
+    # (how the spell was cast: read since wave 3R1, tests/test_rules_refused_r1.py)
+    # (what keyword abilities the creature has: read since wave 3R1, tests/test_rules_refused_r1.py)
     ("an 'instead' that might replace only part of the sentence before it",
      "You draw two cards and you lose 2 life. If you control a Forest, you draw three cards instead.",
      "You draw two cards and you lose 2 life. If you control a Forest, you draw three cards and you lose 3 life instead."),
@@ -2043,12 +2040,11 @@ REFUSED = [
     ("a lead of several instructions: which of them is the condition about?",
      "Draw a card and you gain 1 life if you control a Forest.",
      "Draw a card if you control a Forest."),
-    ("an 'instead' pronoun naming what the instruction it replaces would have moved — Consign to Dream",
-     "Destroy target creature. If you control a Forest, exile it instead.",
-     "Destroy target creature. If you control a Forest, destroy all creatures instead."),
-    ("'other' than what? (the tokens the spell made, not the source) — Martial Coup",
-     "Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures.",
-     "Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all creatures."),
+    # (wave 3R1 reads an "instead" pronoun naming the replaced instruction's target — Consign to Dream — and "other"
+    # than the tokens the spell made — Martial Coup: tests/test_rules_refused_r1.py)
+    ("an 'instead' pronoun naming what an instruction that isn't a target moved",
+     "Exile the top card of your library. If you control a Forest, put it into your hand instead.",
+     "Exile the top card of your library. If you control a Forest, draw a card instead."),
 ]
 
 
@@ -2059,15 +2055,8 @@ def test_forms_that_are_not_guessed(why, text, control):
 
 
 @pytest.mark.parametrize(("text", "piece"), [
-    ("Target creature gets +2/+2 until end of turn. If you cast this spell during your main phase, that creature gets +4/+4 until end "
-     "of turn instead.", "phase"),  # Might of Old Krosa
-    ("Put five +1/+1 counters on target creature. If this spell was cast from a graveyard, put ten +1/+1 counters on that creature "
-     "instead.", "zone"),  # Increasing Savagery
     ("This creature gets +1/+1 until end of turn. If mana from a Treasure was spent to activate this ability, put a +1/+1 counter on "
      "this creature instead.", "mana"),  # Jetmir's Fixer
-    ("~ deals 2 damage to target creature. If that creature has toxic, ~ deals 4 damage to that creature instead.", "abilities"),  # Hexgold Slash
-    ("Put a +1/+1 counter on target creature you control. If you have a full party, put three +1/+1 counters on that creature instead.",
-     "party"),  # The Destined White Mage
 ])
 def test_refused_wordings_are_registered_with_their_reason(text, piece):
     reason = coverage.refusal(text)
@@ -2076,8 +2065,8 @@ def test_refused_wordings_are_registered_with_their_reason(text, piece):
 
 
 @pytest.mark.parametrize("name", ["Martial Coup"])
-def test_the_cards_with_those_forms_stay_partial(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL"
+def test_the_cards_with_those_forms_are_read_since_wave_3r1(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
 def test_a_static_with_a_history_condition_is_still_read_by_its_own_grammar():
@@ -2218,14 +2207,14 @@ def test_you_may_exile_a_creature_and_if_you_do_it_returns_at_the_next_end_step(
     ("You gain 1 life. You may draw a card. If you do, discard a card.", None),  # (a "you may" that isn't the whole ability)
     ("You may draw X cards. If you do, discard a card.", None),  # (a count that could be zero)
     ("You may draw a card. If you do, target creature gets +1/+1 until end of turn.", None),  # (B's target)
-    ("You may exile it. If you do, draw a card.", "self_gone"),  # Academy Rector: "it" may have left the graveyard
 ])
 def test_optional_then_if_you_do_forms_that_are_not_read(text, it):
     assert scripts.parse_effects(text, it=it) is None
 
 
-def test_academy_rector_stays_manual(cards):
-    assert coverage.of_card_data(cards.resolve("Academy Rector")).level == "PARTIAL"
+def test_academy_rector_is_read_since_wave_3r1(cards):
+    """(the exile is probed: tests/test_rules_refused_r1.py plays it, both when the card is still there and not)"""
+    assert coverage.of_card_data(cards.resolve("Academy Rector")).level == "FULL"
 
 
 # -- saved games, undo and redo ---------------------------------------------------------------------------

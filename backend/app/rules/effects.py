@@ -98,6 +98,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
+    if who.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- "all other creatures" after "Create X
+        name, _, key = who[len("except:"):].partition("|")  # … tokens" (Martial Coup): other than what it made
+        made = set(context.objects(plan, ctx, name))
+        return [c for c in _cards(plan, ctx, key) if c not in made]
     if who.startswith(selectors.PREFIX):  # "each creature you control", "all other Goblins" …
         sel = selectors.from_key(who)
         return [] if sel.player else selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
@@ -1927,6 +1931,57 @@ def _did(fn: Any, kind: str) -> Any:
 
 for _name in ("draw", "exile", "bounce"):
     PRIMITIVES[_name] = _did(PRIMITIVES[_name], {"draw": "draw", "exile": "exile", "bounce": "hand"}[_name])
+
+
+# -- refused modal/conditional (wave 3R1) -- "Sacrifice this enchantment. If you do, …", "Remove a +1/+1 counter
+# from it. If you do, …", "Discard a card. If you do, …": "If you do" after an instruction that isn't optional asks
+# whether it was actually done (608.2c; a permanent that is already gone can't be sacrificed, 701.21a; a counter
+# that isn't there can't be removed, 122.8; an empty hand discards nothing, 701.9b). Probed like draw's above.
+def _did_r1(fn: Any, kind: str) -> Any:
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        if name and name not in context.refs(ctx):
+            refs = context.refs(ctx)
+            if kind == "leave":  # sacrificed: moved off the battlefield (to wherever a replacement sent it)
+                if e["do"] == "sacrifice_choice":
+                    who = set(_players(plan, ctx, e["who"]))
+                    cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in who]
+                else:
+                    cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+                refs[name] = {"kind": "probe", "left": {c: plan.oid(plan.state.cards[c]) for c in cards}}
+            elif kind == "counters":
+                refs[name] = {"kind": "probe", "counter": e["kind"], "counters": {
+                    c: [plan.oid(plan.state.cards[c]), plan.state.cards[c].counters.get(e["kind"], 0)]
+                    for c in _cards(plan, ctx, e["who"])}}
+            else:  # discarded: a card left the hand
+                players = _players(plan, ctx, e.get("who", "you")) if e.get("who") else [ctx["controller"]]
+                refs[name] = {"kind": "probe", "hands_down": {p: len(plan.state.zones.get(f"{p}:hand", [])) for p in players}}
+        return bool(fn(plan, ctx, e))
+    return run
+
+
+for _name, _kind in (("sacrifice", "leave"), ("sacrifice_choice", "leave"), ("remove_counters", "counters"),
+                     ("discard", "discard")):
+    PRIMITIVES[_name] = _did_r1(PRIMITIVES[_name], _kind)
+
+
+def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """603.12: "When you do, …" — a reflexive triggered ability: it triggers now, during the resolution, if the
+    action it waits for was taken (a payment made, 118.12; an instruction carried out); like a delayed trigger
+    (603.7) it is put on the stack the next time a player would receive priority (603.3), its controller choosing
+    its modes and targets then (603.3c-d) — not while the ability that created it was announced. Its source is that
+    ability's source; it has no trigger event of its own."""
+    from app.rules import conditions
+    from app.rules.triggers import _add  # (triggers imports this module)
+
+    if conditions.holds(plan, ctx, e["cond"]):
+        _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
+             name=str(ctx.get("name") or ""), index=7300, definition=e["ability"])
+    return True
+
+
+PRIMITIVES["reflexive"] = reflexive
+# -- end refused modal/conditional (wave 3R1) --
 
 
 def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

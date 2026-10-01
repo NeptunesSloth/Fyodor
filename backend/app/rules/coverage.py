@@ -61,16 +61,21 @@ SUPPORTED_REPLACEMENTS.add("enter_as_copy")
 # The forms of modal ability the engine carries out (app/rules/modal_abilities.py; CR 700.2, 603.3c,
 # 602.2b), each with scenario tests in tests/test_rules_modal_abilities.py. A modal ability's definition
 # names its form; a form not listed here stays manual. Refused on purpose (the grammar never reads them):
-# "choose one at random", "each mode must target a different player", "you may choose both instead",
-# "You may choose the same mode more than once", "choose X / up to X", reflexive "When you do, choose …"
-# (603.12), a mode with "you may", several targets or a division, and "up to"/"any number" modes on an
-# activated ability (choosing none isn't modelled).
+# "You may choose the same mode more than once", "choose X / up to X", a mode with "you may", several targets
+# or a division, and "up to"/"any number" modes on an activated ability (choosing none isn't modelled).
+# (Read since wave 3R1: "choose one at random", "each mode must target a different player", "choose both
+# instead", reflexive "When you do, choose …" — the entries at the end of the set.)
 SUPPORTED_MODAL_ABILITIES: set[str] = {
     "triggered",  # "When/Whenever/At …, choose one —": announced as it's put on the stack (603.3c, 700.2b)
     "activated",  # "{cost}: Choose one —": announced before targets and costs (602.2b, 601.2b)
     "loyalty",  # "+1: Choose one —" (606.2 → 602.2b)
     "memory:game",  # "choose one that hasn't been chosen —": per object, for as long as it is that object
     "memory:turn",  # "choose one that hasn't been chosen this turn —": per object, per turn
+    # -- refused modal/conditional (wave 3R1): tests/test_rules_refused_r1.py --
+    "random",  # "choose one at random —" (triggered): among the modes that can be chosen, as it goes on the stack
+    "different_players",  # "Each mode must target a different player." (every mode targets a player of one kind)
+    "instead",  # "Choose one. If [condition], [you may] choose both instead." (checked as it goes on the stack)
+    # (reflexive "When you do, choose …" (603.12) is the "triggered" form inside a reflexive trigger: effects.reflexive)
 }
 
 
@@ -78,6 +83,8 @@ def modal_supported(d: dict[str, Any]) -> bool:
     """A modal triggered / activated ability (or one of its mode lines, ``kind`` "mode") is automated
     only when its form is listed above."""
     modal = d if d.get("kind") == "mode" else d.get("modal") or {}
+    if any(modal.get(k) and k not in SUPPORTED_MODAL_ABILITIES for k in ("random", "different_players", "instead")):
+        return False  # -- refused modal/conditional (wave 3R1) --
     return modal.get("form") in SUPPORTED_MODAL_ABILITIES and (
         modal.get("memory") is None or f"memory:{modal['memory']}" in SUPPORTED_MODAL_ABILITIES)
 
@@ -239,20 +246,15 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\btarget creature's power and toughness\b", re.I), "switching or reading a target's P/T pair: not modelled"),
     # -- conditional / instead clauses (wave 1B) --------------------------------------------------------
     # Conditions app/rules/conditions.py deliberately doesn't read: the clause (or the whole ability) stays manual.
-    (re.compile(r"\bif you cast (?:this spell|it) during your main phase\b", re.I),
-     "the phase a spell was cast in isn't recorded (the \"cast during your main phase\" instead clauses): not modelled"),
-    (re.compile(r"\b(?:(?:this spell|it) was cast from|you cast (?:this spell|it) from) (?:a|your|an opponent's|their) "
-                r"(?:graveyard|library|exile|hand)\b|\bentered from your library or was cast from your library\b", re.I),
-     "the zone a spell was cast from or a permanent entered from isn't recorded with the object: not modelled"),
-    (re.compile(r"\b(?:\{[WUBRGC]\}|\w+ or more mana|mana from [^.,]+|mana) (?:of [^.,]+ )?was spent to (?:cast|activate)\b", re.I),
-     "what mana was spent on a spell or ability isn't recorded (601.2h): not modelled"),
-    (re.compile(r"\bif (?:that (?:creature|permanent)|it|this creature) has (?:a |an )?(?:toxic|flying|reach|haste|trample|deathtouch|"
-                r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible)\b", re.I),
-     "a condition about the abilities an object has (\"if that creature has toxic\"): only its characteristics (types, "
-     "colors, power, toughness, mana value) are read"),
+    # -- refused modal/conditional (wave 3R1) -- how a spell was cast (the zone, the caster's main phase, the mana of
+    # each type spent) is now on its payment record (conditions._cast_how); what stays refused:
+    (re.compile(r"\b(?:entered|was put onto the battlefield) from (?:your|a) (?:library|graveyard)\b", re.I),
+     "the zone a permanent entered from isn't recorded with the object: not modelled"),
+    (re.compile(r"\b(?:\{S\}|mana from [^.,]+) (?:of [^.,]+ )?was spent to (?:cast|activate)\b|\bwas spent to activate\b", re.I),
+     "snow mana, the source of the mana spent, and mana spent on an ability aren't recorded (601.2h): not modelled"),
     # (wave 3E: "you've completed a dungeon" and "it's day / night" are read now: app/rules/designations.py)
-    (re.compile(r"\bif you have a full party\b|\bthis is the \w+ time this ability has resolved this turn\b", re.I),
-     "party size and how often an ability resolved this turn: not tracked as state a condition can read"),
+    (re.compile(r"\bthis is the \w+ time this ability has resolved this turn\b", re.I),
+     "how often an ability resolved this turn: not tracked as state a condition can read"),
 )
 
 

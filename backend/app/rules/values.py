@@ -135,6 +135,8 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return sized
     if what in ("cards in your hand", "card in your hand"):
         return {"hand": "you"}
+    if what in ("creatures in your party", "creature in your party"):  # -- refused modal/conditional (wave 3R1) --
+        return {"party": "you"}  # 700.8
     if what in ("cards in target player's hand", "cards in target opponent's hand"):
         return {"hand": "target"}
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
@@ -271,6 +273,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together
             return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you)
         return max(0, int(plan.state.players[you].resources.get(v["player_counters"], 0)))
+    if "party" in v:  # -- refused modal/conditional (wave 3R1) --
+        return party_size(plan, you)
     if "distinct" in v:
         return _distinct(plan, ctx, v["distinct"], v["among"])
     if "devotion" in v:
@@ -410,3 +414,33 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
 
             return _snapshot_card(plan, snap)
     return None
+
+
+# -- refused modal/conditional (wave 3R1) --
+PARTY_TYPES = ("Cleric", "Rogue", "Warrior", "Wizard")
+
+
+def party_size(plan: Plan, you: str) -> int:
+    """700.8: up to one each of a Cleric, a Rogue, a Warrior and a Wizard creature ``you`` control; 700.8a: counted
+    by the game, 0 to 4; 700.8b: a creature of several of those types fills only one place, counted the way that
+    gives the highest number (a maximum matching of creatures to the four places)."""
+    roles: list[set[str]] = []
+    for card in plan.state.cards.values():
+        if card.zone == f"{you}:battlefield" and card.controller == you and plan.in_game(card):
+            ch = plan.ch(card)
+            if "Creature" in ch.types and (fits := set(PARTY_TYPES) & set(ch.subtypes)):
+                roles.append(fits)
+    taken: dict[str, int] = {}
+
+    def place(i: int, seen: set[str]) -> bool:  # an augmenting path (Kuhn's algorithm)
+        for role in sorted(roles[i]):
+            if role in seen:
+                continue
+            seen.add(role)
+            if role not in taken or place(taken[role], seen):
+                taken[role] = i
+                return True
+        return False
+
+    return sum(1 for i in range(len(roles)) if place(i, set()))
+# -- end refused modal/conditional (wave 3R1) --
