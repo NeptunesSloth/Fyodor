@@ -82,6 +82,8 @@ EXTRA = [
                      "Fblthp enters, search your library for up to X basic land cards with different names, reveal them, "
                      "put them into your hand, then shuffle.", power="*", toughness="2", colors=["G"],
          color_identity=["G"], keywords=["Domain"]),
+    card("Reliquary Tower", set_code="tst", number="J416", type_line="Land",
+         oracle_text="You have no maximum hand size.\n{T}: Add {C}."),
 ]
 
 
@@ -549,11 +551,56 @@ def test_fblthp_searches_for_x_lands(cards):
     roundtrip(s)
 
 
-def test_enters_trigger_x_without_a_cast_is_zero(cards):
-    """Put onto the battlefield without being cast, Gadwick's X is 0 (107.3m applies only to the spell it was)."""
+def test_cast_x_only_for_the_objects_own_enters_trigger(cards):
+    """107.3m: only the permanent's own enters trigger gets the spell's X; another trigger of it (or a permanent with
+    no record of being cast) has none."""
+    from app.game.rules_state import ObjectRef, PendingTrigger, TriggerEvent
+    from app.rules.plan import Plan
+    from app.rules.triggers import cast_x
+
     s = build(cards, "Gadwick, the Wizened")
-    gadwick = named(s, "Gadwick, the Wizened")
-    hand = len(s.state.zones["p1:hand"])
-    act(s, "p1", type="move", card_ids=[gadwick.id], to={"player": "p1", "zone": "battlefield"})
+    gadwick = to_hand(s, "Gadwick, the Wizened")
+    mana(s, U=5)
+    act(s, "p1", type="cast_spell", card_id=gadwick.id, x_value=2)
     drive(s, lambda d: [o.id for o in d.options][: max(1, d.min_choices)])
-    assert len(s.state.zones["p1:hand"]) == hand
+    plan = Plan(s.state, "p1", s.cards, None)
+    oid = plan.oid(gadwick.id)
+
+    def pending(kind, objects):
+        return PendingTrigger(id="t", controller="p1", source_card=gadwick.id, source_object=oid, ability={},
+                              event=TriggerEvent(kind=kind, objects=objects))
+
+    me = [ObjectRef(card=gadwick.id, object_id=oid, zone="p1:battlefield")]
+    assert cast_x(plan, pending("enter", me)) == 2
+    assert cast_x(plan, pending("cast", me)) is None
+    assert cast_x(plan, pending("enter", [ObjectRef(card="other", object_id="other.1")])) is None
+    plan.rules.payments.pop(oid)
+    assert cast_x(plan, pending("enter", me)) is None
+
+
+def test_no_maximum_hand_size(cards):
+    """Reliquary Tower: Alice ends her turn with nine cards and discards none (402.2); without it she discards two."""
+    for with_tower in (True, False):
+        s = build(cards, "Reliquary Tower")
+        tower = named(s, "Reliquary Tower")
+        if with_tower:
+            act(s, "p1", type="move", card_ids=[tower.id], to={"player": "p1", "zone": "battlefield"})
+        need = 9 - len(s.state.zones["p1:hand"])
+        act(s, "p1", type="move", card_ids=[c for c in s.state.zones["p1:library"] if c != tower.id][:need],
+            to={"zone": "hand"})
+        assert len(s.state.zones["p1:hand"]) == 9
+        prompts = []
+        for _ in range(60):
+            if s.state.turn.number == 2:
+                break
+            d = s.state.rules.decision
+            if d is not None and d.kind == "declare_attackers":
+                act(s, d.player, type="declare_attackers", attackers=[])
+            elif d is not None:
+                prompts.append(d.prompt)
+                answer(s, [o.id for o in d.options][: max(1, d.min_choices)])
+            else:
+                act(s, s.state.rules.priority, type="pass_priority")
+        assert len(s.state.zones["p1:hand"]) == (9 if with_tower else 7)
+        assert any("maximum hand size" in (p or "") for p in prompts) is not with_tower
+        replay_matches(s)

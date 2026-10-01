@@ -597,6 +597,10 @@ def cleanup_step(plan: Plan) -> None:
         return
     hand = plan.state.zones.get(zone_key(ap, "hand"), [])
     excess = len(hand) - MAX_HAND_SIZE
+    from app.rules import hand_size  # -- hand size (wave 4J) -- "You have no maximum hand size." (402.2)
+
+    if excess > 0 and hand_size.no_maximum(plan, ap):
+        excess = 0
     if excess > 0:
         decide(
             plan, player=ap, kind="choose_cards",

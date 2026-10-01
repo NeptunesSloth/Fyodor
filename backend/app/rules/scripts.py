@@ -2600,6 +2600,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return extra
     if (cant := cant_gain.static_definition(text)) is not None:  # "Players can't gain life." (614.17)
         return cant
+    from app.rules import hand_size  # -- hand size (wave 4J) -- "You have no maximum hand size." (402.2)
+
+    if (no_max := hand_size.static_definition(text)) is not None:
+        return no_max
     # -- end refused grants/replacements (wave 3R2) --
     if text == "~ enters tapped.":
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
