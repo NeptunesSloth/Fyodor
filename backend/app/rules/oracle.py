@@ -48,6 +48,7 @@ KEYWORDS = frozenset({
     "myriad", "melee", "friends forever", "choose a background", "doctor's companion", "space sculptor", "gift",
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",
+    "transmute",  # (wave 3R4: casting.transmute)
 })
 
 _PARAM = re.compile(r"(\{[^}]*\}|\d+|—.*$|\bfrom\b.*$| with .*$|walk$)")
@@ -105,6 +106,39 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
 _ADD_MANA = re.compile(r"^(?P<cost>[^:]+): (?:Choose a color\. )?Add ")
 
 
+# -- refused zones/sized (wave 3R4) -- 207.2c ability words and 207.2d flavor words have no rules
+# meaning: "Formidable — {G}: …" is an activated ability, "No Mercy — Whenever …" a triggered one.
+# A prefix that IS a rule is never one of them: keywords written "Name — " (702.142 boast, 702.177
+# exhaust, 702.178 max speed, 702.193 power-up, 702.57 forecast, 702.159 visit, 702.139 companion,
+# 702.160 prototype), Case conditions (719.3 "To solve —", "Solved —"), Saga chapters (714.2b),
+# "Corrupted —" (not a 207.2c word: kept out to be safe). Anything else is a flavor word only when
+# what follows is a trigger or a cost-led activated ability; other lines are left as they were.
+_WORD_PREFIX = re.compile(r"^(?P<w>[A-Z][A-Za-z0-9'’!?,\- ]{0,48}?) — (?P<rest>\S.*)$")
+_NOT_FLAVOR = frozenset({"max speed", "power-up", "exhaust", "boast", "forecast", "visit", "companion", "prototype",
+                         "solved", "to solve", "corrupted", "jump", "station", "level up"})
+_ROMAN = re.compile(r"^[IVX]+(?:, [IVX]+)*$")
+
+
+def word_prefix(line: str) -> tuple[str, str] | None:
+    """(the ability or flavor word, the rest of the line) — or None when the line has no such word."""
+    m = _WORD_PREFIX.match(line)
+    if m is None or _ROMAN.match(m["w"]):
+        return None
+    word = m["w"].lower().replace("’", "'")
+    from app.rules.scripts import ABILITY_WORDS  # (scripts imports this module at load time)
+
+    if word in ABILITY_WORDS:
+        return m["w"], m["rest"]
+    if word in _NOT_FLAVOR or keyword_name(m["w"]) is not None or "{" in word:
+        return None
+    rest = m["rest"]
+    if re.match(r"(?:When|Whenever|At) ", rest):
+        return m["w"], rest
+    if ":" in rest and _COST_START.match(rest.split(":", 1)[0]) and len(rest.split(":", 1)[0]) < 120:
+        return m["w"], rest
+    return None
+
+
 def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], str | None]:
     if _MANA_ABILITY.match(line):
         return "mana", (), "{T}"
@@ -119,6 +153,11 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
         return "loyalty", (), line.split(":", 1)[0]
     if _TRIGGER.match(line):
         return "triggered", (), None
+    worded = word_prefix(line) if ":" in line else None  # -- refused zones/sized (wave 3R4) -- 207.2c/207.2d
+    if worded is not None and not line.startswith(("Channel — ", "Boast — ", "Exhaust — ")):
+        cost = worded[1].split(":", 1)[0]
+        if _COST_START.match(cost) and len(cost) < 120:
+            return "activated", (), cost
     if ":" in line:
         cost = line.split(":", 1)[0]
         if _COST_START.match(cost) and len(cost) < 120:

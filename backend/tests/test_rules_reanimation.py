@@ -314,8 +314,13 @@ def test_the_new_wordings_are_covered_and_the_triggered_self_return_is_not(cards
                         ("Rise of the Dark Realms", "FULL")):
         data = cards.resolve(name)
         assert coverage.of_characteristics(printed_from_data(data, 0)).level == level, name
-    # a trigger that returns its own card from the graveyard would need the graveyard scanned for triggers (603.2)
+    # (wave 3R4) a trigger that returns its own card from the graveyard triggers from there (113.6m) …
     fake = card("Test Genesis", set_code="tst", number="R9", mana_cost="{4}{G}", cmc=5.0, type_line="Creature — Incarnation",
                 oracle_text="At the beginning of your upkeep, return this card from your graveyard to your hand.", power="4",
                 toughness="4", colors=["G"], color_identity=["G"])
-    assert coverage.of_characteristics(printed_from_data(fake, 0)).level != "FULL"
+    assert coverage.of_characteristics(printed_from_data(fake, 0)).level == "FULL"
+    # … but not on a look-back event (603.10a: a card dying with the others would have to be told apart)
+    dies = card("Test Mourner", set_code="tst", number="R11", mana_cost="{1}{B}", cmc=2.0, type_line="Creature — Zombie",
+                oracle_text="Whenever another creature dies, return this card from your graveyard to your hand.", power="1",
+                toughness="1", colors=["B"], color_identity=["B"])
+    assert coverage.of_characteristics(printed_from_data(dies, 0)).level != "FULL"

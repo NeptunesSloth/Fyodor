@@ -1632,9 +1632,43 @@ def hand_ability(ch: Characteristics, index: int) -> tuple[str, str] | None:
     return None
 
 
+# -- refused zones/sized (wave 3R4) -- 702.53a transmute: "[Cost], Discard this card: Search your library for a card
+# with the same mana value as the discarded card, reveal that card, and put it into your hand. Then shuffle your
+# library. Activate only as a sorcery." (only from the hand; a mana cost only)
+TRANSMUTE = re.compile(r"^transmute (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def transmute_cost(ch: Characteristics, index: int) -> str | None:
+    ab = next((x for x in ch.abilities if x.index == index and x.kind == "keywords"), None)
+    m = TRANSMUTE.fullmatch(ab.text.strip().rstrip(".")) if ab is not None else None
+    return m["cost"] if m else None
+
+
+def transmute(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, cost_text: str) -> None:
+    turn = plan.state.turn
+    if turn.active_player != plan.actor or turn.phase not in ("main1", "main2") or plan.state.zones.get("stack"):
+        raise ActionError("Transmute only as a sorcery: in your main phase while the stack is empty")  # 702.53a, 307.5
+    mana = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, cost_text, plan.info))
+    if payment_step(plan, a, mana, f"transmuting {ch.name}", purpose=Purpose(ability_of=ch)):
+        return
+    mv = int(ch.mana_value)  # the discarded card's (608.2h: as it last existed in the hand; a mana value doesn't change there)
+    effects = [{"do": "search", "who": "you", "sel": 'sel:{"card":true,"zone_owner":"you","zones":["library"]}',
+                "label": f"card with mana value {mv}", "max": 1, "to": "hand", "reveal": True, "upto": False, "mv": ["==", mv]}]
+    oid = plan.oid(card)
+    ability_id = _new_ability(plan, card, f"Search your library for a card with mana value {mv}, reveal it, put it into "
+                                          f"your hand, then shuffle.")
+    pay(plan, plan.actor, mana, f"paid {mana.text()} to transmute {ch.name}", sources=a.sources, purpose=Purpose(ability_of=ch))
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "graveyard"}})  # discarded (701.9a)
+    _stacked(plan, card, oid, ch, ability_id, effects)
+# -- end refused zones/sized (wave 3R4) --
+
+
 def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility) -> None:
     """Cycling (702.29): pay the cost and discard this card from your hand, then the ability on
     the stack draws a card; typecycling searches your library for a card of that type instead."""
+    if (transmuting := transmute_cost(ch, a.ability)) is not None:  # -- refused zones/sized (wave 3R4) --
+        transmute(plan, card, ch, a, transmuting)
+        return
     found = hand_ability(ch, a.ability)
     if found is None:
         raise ActionError("That card has no ability to use from your hand")

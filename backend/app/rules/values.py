@@ -57,7 +57,7 @@ AMOUNT = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|t
 UNMODELED_COUNTERS = frozenset({
     "flying", "first strike", "double strike", "deathtouch", "decayed", "exalted", "haste", "hexproof",
     "indestructible", "lifelink", "menace", "reach", "shadow", "trample", "vigilance",
-    "shield", "finality", "rad", "hone", "lore"})  # (stun: 122.1d, wave 3F — keyword_actions.untap_stunned)
+    "shield", "rad", "hone", "lore"})  # (stun: 122.1d, wave 3F — keyword_actions.untap_stunned; finality: 122.1h, wave 3R4 — replacements.replace_move)
 
 BASIC_LAND_TYPES = ("Plains", "Island", "Swamp", "Mountain", "Forest")  # 205.3i
 # 205.2a: the card types (as the type line writes them; "Tribal" is the old name of kindred)
@@ -118,6 +118,16 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     what = m["what"] if m else p
     if what.lower() == "x":
         return {"x": 1}
+    # -- refused zones/sized (wave 3R4) -- "the number of cards in their hand minus 4", "3 minus the number of …",
+    # "… minus the number of cards in your hand": never below 0 (107.1b)
+    minus = re.match(r"^(?P<a>.+?) minus (?P<b>\d+|one|two|three|four|five|the number of .+)$", what)
+    if minus:
+        a_text = minus["a"] if m is None else f"the number of {minus['a']}"
+        a = int(a_text) if a_text.isdigit() else NUMBERS.get(a_text) or parse_count(a_text, it=it)
+        b = int(minus["b"]) if minus["b"].isdigit() else NUMBERS.get(minus["b"]) or parse_count(minus["b"], it=it)
+        return {"minus": [a, b]} if a is not None and b is not None else None
+    if what in ("cards in their hand", "cards in that player's hand", "card in their hand", "card in that player's hand"):
+        return {"hand": "that_player"}  # (scripts._that_players_hand binds it: the target player, or the trigger's)
     m = re.match(r"^twice (?P<v>.+)$", what)
     if m:
         inner = parse_count(m["v"], it=it)
@@ -155,6 +165,8 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     m = _PLAYER_COUNTERS.match(what)
     if m:
         return {"player_counters": m["kind"]}
+    if what == "the life lost this way":  # -- refused zones/sized (wave 3R4) -- what the lose_life just before lost
+        return {"ref_amount": "life_lost"}  # (scripts._life_lost binds it to that instruction, else the line is manual)
     if what in ("{E} paid this way", "the amount of {E} paid this way", "{E} you paid this way"):  # (wave 3E)
         return {"ref_amount": "energy_paid"}  # (language.ENERGY_PAID: bound by the pay_energy_any effect)
     m = _PLAYER_COUNTERS_3E.match(what)  # -- counters & designations (wave 3E) --
@@ -258,6 +270,13 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return context.amount(ctx, v["ref_amount"])
     if "event_count" in v:  # how many objects the "one or more" batch had
         return max(0, int((ctx.get("event") or {}).get("count") or 0))
+    if "minus" in v:  # -- refused zones/sized (wave 3R4) -- 107.1b: a negative result is 0
+        return max(0, evaluate(plan, ctx, v["minus"][0]) - evaluate(plan, ctx, v["minus"][1]))
+    if "hand" in v and v["hand"] == "event":  # -- refused zones/sized (wave 3R4) -- the trigger's player ("that player")
+        from app.rules import context
+
+        return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in context.players(plan, ctx, context.EVENT)
+                   if p in plan.live())
     if "hand" in v:
         players = [you] if v["hand"] == "you" else _target_players(plan, ctx)
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in players)
