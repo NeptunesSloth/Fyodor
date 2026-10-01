@@ -162,7 +162,7 @@ _COUNT_TYPES = {"creature": "Creature", "artifact": "Artifact", "enchantment": "
 _POWER_OF = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?:this creature|[A-Z][^.]{0,60}?)'s power$")
 _X_POWER = re.compile(r"^Add X mana of any one color, where X is (?:this creature|[A-Z][^.]{0,60}?)'s power$")
 _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it)$")
-_EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Remove (a|an|one|two|three) [a-z]+ counters? from (this \w+|it)$")
+_EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one|two|three|four|five|six|seven|eight) \{E\}$|^Remove (a|an|one|two|three) [a-z]+ counters? from (this \w+|it)$")
 
 
 def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbility | None:

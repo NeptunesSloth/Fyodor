@@ -1083,7 +1083,7 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if found is not None:
         return found
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
-                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil)\b)"):
+                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get)\b)"):
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
@@ -1093,7 +1093,7 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                         r"that player) ", parts[0])
         same_target = False
         if subj and re.match(r"^(?:draws|discards|mills|loses|gains|sacrifices|shuffles|puts|reveals|exiles|"
-                             r"returns|creates|searches|scry|surveil)\b", parts[1]):
+                             r"returns|creates|searches|scry|surveil|gets)\b", parts[1]):
             parts[1] = f"{subj[1]} {parts[1]}"
             same_target = subj[1].startswith("target")  # (one word "target": the same target)
         left, right = _clause(parts[0]), _clause(parts[1])

@@ -321,6 +321,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
                   "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or "")})]
     if e.kind == "damage":
         return _damage_facts(plan, e)
+    if e.kind == "player_counters" and e.amount > 0 and e.player:  # -- counters & designations (wave 3E): 122.6 a player got counters --
+        return [("player_counters", None, None, e.player, {"counter": e.counter, "amount": e.amount})]
     return []
 
 
@@ -513,6 +515,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         if cond.get("first_each_turn") and not info.get("first"):
             return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
+        return False
+    if event == "player_counters" and info.get("counter") != cond.get("counter"):  # (wave 3E: "you get one or more {E}")
         return False
     if event == "deal_damage":
         combat = cond.get("combat")

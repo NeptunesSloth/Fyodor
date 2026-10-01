@@ -646,6 +646,14 @@ class ReconcileItem(BaseModel):
     question: str = Field(max_length=300)
 
 
+class DungeonMark(BaseModel):
+    """-- counters & designations (wave 3E) -- A dungeon card a player owns in the command zone
+    (309.2b) and the room their venture marker is on (309.4)."""
+
+    dungeon: str = Field(max_length=60)  # its name ("Lost Mine of Phandelver")
+    room: str = Field(max_length=60)  # the room's name
+
+
 class RulesState(BaseModel):
     paused: bool = False  # the host paused automation: intents are refused, the sandbox works
     step: str = ""  # "<turn>:<phase>" the engine last acted in; a mismatch means a manual step change
@@ -765,6 +773,12 @@ class RulesState(BaseModel):
     # they're drawn (for "except the first one they draw in each of their draw steps", 504.1).
     replace_step_key: str = ""
     replace_step_draws: dict[str, int] = Field(default_factory=dict)
+    # -- counters & designations (wave 3E; app/rules/designations.py) --
+    # 309.2a / 309.4: each player's dungeon card in the command zone and the room their venture marker is on
+    dungeons: dict[str, DungeonMark] = Field(default_factory=dict)
+    completed_dungeons: dict[str, list[str]] = Field(default_factory=dict)  # 309.7: player -> dungeons completed, in order
+    ring_tempted: dict[str, int] = Field(default_factory=dict)  # 701.54c: player -> times the Ring tempted them (their emblem)
+    ring_bearers: dict[str, str] = Field(default_factory=dict)  # 701.54a: player -> their Ring-bearer (rules object id)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)

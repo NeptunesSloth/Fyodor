@@ -102,6 +102,9 @@ _MULTI = {"enters": "enter", "dies": "die", "attacks": "attack", "leaves the bat
           "is dealt damage": "dealt_damage"}
 _MULTI_RE = "|".join(sorted((re.escape(k) for k in _MULTI), key=len, reverse=True))
 _P = r"(?P<p>you|an opponent|a player)"
+# -- counters & designations (wave 3E) -- a player getting counters (122.6; one event per player per instruction)
+_GETS_COUNTERS = re.compile(r"(?P<p>you|an opponent|a player) gets? (?:one or more (?P<e>\{E\})|(?:one or more|an?) "
+                            r"(?P<k>poison|experience|rad) counters?)")
 # "enchanted creature", "equipped creature" …: the permanent the source is attached to (303.4, 301.5)
 _HOSTS = ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact")
 _SELF_OR_HOST = ("~ or equipped creature", "~ or enchanted creature")
@@ -166,6 +169,10 @@ def _parse(c: str) -> Condition | None:
     found = _player_action(c)
     if found is not None:
         return found
+    m = _GETS_COUNTERS.fullmatch(c)  # -- counters & designations (wave 3E): "whenever you get one or more {E}" (122.6) --
+    if m:
+        return {"event": "player_counters", "subject": "player", "player": _PLAYERS[m["p"]],
+                "counter": "energy" if m["e"] else m["k"]}
     found = _object_event(c)
     if found is not None:
         return found

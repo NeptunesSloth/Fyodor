@@ -542,7 +542,8 @@ def untap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def player_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- replacement effects stage 2 (wave 2E): a player getting counters, through the counter
     # choke point ("If you would get one or more counters": Winding Constrictor) --
-    puts = [(pid, e["counter"], int(e["n"])) for pid in _players(plan, ctx, e["who"]) if e["n"]]
+    n = max(0, _amount(plan, ctx, e["n"]))  # -- counters & designations (wave 3E): "that many {E}", "X rad counters" --
+    puts = [(pid, e["counter"], n) for pid in _players(plan, ctx, e["who"]) if n]
     if not puts:
         return True
     return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
@@ -2561,3 +2562,13 @@ def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES["return_choice"] = return_choice
 RESUME["return_choice"] = resume_return_choice
+
+
+# -- counters & designations (wave 3E) --------------------------------------------------------------
+# Rad counters (728), the monarch (725), the initiative (726), venture into the dungeon (701.49, 309),
+# the Ring tempts you (701.54): app/rules/designations.py (a leaf module over this one).
+from app.rules import designations  # noqa: E402, I001
+
+PRIMITIVES.update(designations.PRIMITIVES)
+RESUME.update(designations.RESUME)
+# -- end counters & designations (wave 3E) --

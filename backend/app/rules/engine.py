@@ -473,6 +473,8 @@ def on_step_start(plan: Plan) -> None:
         triggers.at_step(plan, "upkeep_you" if phase == "upkeep" else "end_step_you")
         if phase == "end":
             triggers.monarch_end_step(plan)
+    elif phase == "main1":  # -- counters & designations (wave 3E): 728.1 rad counters (precombat main phase) --
+        effects.designations.rad_trigger(plan)
     elif phase == "declare_attackers":
         combat.start_declare_attackers(plan)
     elif phase == "declare_blockers":
