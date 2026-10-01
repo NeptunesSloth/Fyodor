@@ -2207,14 +2207,14 @@ def test_you_may_exile_a_creature_and_if_you_do_it_returns_at_the_next_end_step(
     ("You gain 1 life. You may draw a card. If you do, discard a card.", None),  # (a "you may" that isn't the whole ability)
     ("You may draw X cards. If you do, discard a card.", None),  # (a count that could be zero)
     ("You may draw a card. If you do, target creature gets +1/+1 until end of turn.", None),  # (B's target)
-    ("You may exile it. If you do, draw a card.", "self_gone"),  # Academy Rector: "it" may have left the graveyard
 ])
 def test_optional_then_if_you_do_forms_that_are_not_read(text, it):
     assert scripts.parse_effects(text, it=it) is None
 
 
-def test_academy_rector_stays_manual(cards):
-    assert coverage.of_card_data(cards.resolve("Academy Rector")).level == "PARTIAL"
+def test_academy_rector_is_read_since_wave_3r1(cards):
+    """(the exile is probed: tests/test_rules_refused_r1.py plays it, both when the card is still there and not)"""
+    assert coverage.of_card_data(cards.resolve("Academy Rector")).level == "FULL"
 
 
 # -- saved games, undo and redo ---------------------------------------------------------------------------

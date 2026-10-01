@@ -2575,6 +2575,13 @@ _CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce"})
 _PROBED = frozenset({"draw", "exile", "bounce"})  # (their "If you do" reads the result: effects._did)
 
 
+def _probed_move(e: dict[str, Any]) -> bool:
+    """-- refused modal/conditional (wave 3R1) -- Academy Rector: "When this creature dies, you may exile it. If you
+    do, …": the exile is probed (effects._did: the card it became in the graveyard reached exile), so "If you do" is
+    false when the card had already left (400.7: there's nothing to exile) — no certainty is needed."""
+    return e["do"] in ("exile", "bounce") and isinstance(e.get("who"), str) and not e.get("optional")
+
+
 def _certain_when_chosen(e: dict[str, Any]) -> bool:
     if not isinstance(e.get("n", 1), int):
         return False  # (a count that could be zero)
@@ -2590,7 +2597,7 @@ def _if_you_do_after_may(if_do: re.Match[str], effects: list[dict[str, Any]], op
     whether or not A is done) and is no "you may" itself. Returns B's effects, or None (not read)."""
     if not optional or index != 1 or sentences != 2 or if_do["neg"] or if_do["rest"].startswith("you may "):
         return None
-    if not effects or not all(_certain_when_chosen(e) for e in effects):
+    if not effects or not all(_certain_when_chosen(e) or _probed_move(e) for e in effects):  # (wave 3R1: a probed move)
         return None
     found = _clause(if_do["rest"])
     if found is None or found[1] is not None or not found[0]:

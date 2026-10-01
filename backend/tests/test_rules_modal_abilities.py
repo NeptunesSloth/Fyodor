@@ -1170,15 +1170,14 @@ def test_the_lines_of_the_modes_belong_to_the_ability():
 
 @pytest.mark.parametrize("text", [
     # (each real: what the grammar refuses, and why — nothing here is guessed)
-    "Whenever this creature attacks, choose one at random —\n• Draw a card.\n• You gain 1 life.",  # Cult of Skaro, Umaro: random
+    # (wave 3R1 reads "choose one at random", "Each mode must target a different player", reflexive "When you do,
+    # choose …" and "If [condition], you may choose both instead": tests/test_rules_refused_r1.py)
+    "Whenever this creature attacks, choose two at random —\n• Draw a card.\n• You gain 1 life.",  # (only "one at random" is read)
     "When this creature dies, choose one or more. Each mode must target a different player.\n• Target player loses 1 life.\n"
-    "• Target player gains 1 life.",  # Vindictive Lich: a different player per mode
-    "Whenever you attack, you may sacrifice another creature. When you do, choose two —\n• Draw a card.\n• You gain 1 life.",  # Caesar (603.12)
+    "• You gain 1 life.",  # (a different player per mode: every mode must target a player)
     "At the beginning of combat on your turn, you may pay {E}{E}. When you do, choose one —\n• Draw a card.\n• You gain 1 life.",  # Voltstorm Angel
     "When this creature enters, choose one. If you have exactly 13 life, you may choose both instead.\n• Draw a card.\n"
     "• You gain 1 life.",  # Disciple of Perdition: "choose both instead"
-    "At the beginning of combat on your turn, choose one. If you control a commander, you may choose both instead.\n"
-    "• Draw a card.\n• You gain 1 life.",  # SOLDIER Military Program
     "{T}: Choose one. X is the number of spells you've cast this turn.\n• Draw a card.\n• You gain 1 life.",  # Gnostro
     "When this creature enters, choose up to X, where X is the number of Lesson cards in your graveyard —\n• Draw a card.\n"
     "• You gain 1 life.",  # Bumi, King of Three Trials

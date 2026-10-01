@@ -71,6 +71,11 @@ SUPPORTED_MODAL_ABILITIES: set[str] = {
     "loyalty",  # "+1: Choose one —" (606.2 → 602.2b)
     "memory:game",  # "choose one that hasn't been chosen —": per object, for as long as it is that object
     "memory:turn",  # "choose one that hasn't been chosen this turn —": per object, per turn
+    # -- refused modal/conditional (wave 3R1): tests/test_rules_refused_r1.py --
+    "random",  # "choose one at random —" (triggered): among the modes that can be chosen, as it goes on the stack
+    "different_players",  # "Each mode must target a different player." (every mode targets a player of one kind)
+    "instead",  # "Choose one. If [condition], [you may] choose both instead." (checked as it goes on the stack)
+    # (reflexive "When you do, choose …" (603.12) is the "triggered" form inside a reflexive trigger: effects.reflexive)
 }
 
 
@@ -78,6 +83,8 @@ def modal_supported(d: dict[str, Any]) -> bool:
     """A modal triggered / activated ability (or one of its mode lines, ``kind`` "mode") is automated
     only when its form is listed above."""
     modal = d if d.get("kind") == "mode" else d.get("modal") or {}
+    if any(modal.get(k) and k not in SUPPORTED_MODAL_ABILITIES for k in ("random", "different_players", "instead")):
+        return False  # -- refused modal/conditional (wave 3R1) --
     return modal.get("form") in SUPPORTED_MODAL_ABILITIES and (
         modal.get("memory") is None or f"memory:{modal['memory']}" in SUPPORTED_MODAL_ABILITIES)
 

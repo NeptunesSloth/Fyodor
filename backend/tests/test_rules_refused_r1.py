@@ -39,6 +39,10 @@ EXTRA = [
     card('Cavalier of Night', set_code="tst", number="R121", mana_cost='{2}{B}{B}{B}', cmc=5.0, type_line='Creature — Elemental Knight', oracle_text='Lifelink\nWhen this creature enters, you may sacrifice another creature. When you do, destroy target creature an opponent controls.\nWhen this creature dies, return target creature card with mana value 3 or less from your graveyard to the battlefield.', power='4', toughness='5', colors=['B'], color_identity=['B'], keywords=['Lifelink']),
     card('Brokers Hideout', set_code="tst", number="R122", cmc=0.0, type_line='Land', oracle_text='When this land enters, sacrifice it. When you do, search your library for a basic Forest, Plains, or Island card, put it onto the battlefield tapped, then shuffle and you gain 1 life.'),
     card("Caesar, Legion's Emperor", set_code="tst", number="R124", mana_cost='{1}{R}{W}{B}', cmc=4.0, type_line='Legendary Creature — Human Soldier', oracle_text='Whenever you attack, you may sacrifice another creature. When you do, choose two —\n• Create two 1/1 red and white Soldier creature tokens with haste that are tapped and attacking.\n• You draw a card and you lose 1 life.\n• Caesar deals damage equal to the number of creature tokens you control to target opponent.', power='4', toughness='4', colors=['B', 'R', 'W'], color_identity=['B', 'R', 'W']),
+    card('Cult of Skaro', set_code="tst", number="R125", mana_cost='{1}{U}{B}{R}', cmc=4.0, type_line='Legendary Artifact Creature — Dalek', oracle_text='Whenever Cult of Skaro attacks, choose one at random —\n• Thay — Put a +1/+1 counter on each artifact creature you control.\n• Caan — Draw two cards.\n• Sec — Create a 3/3 black Dalek artifact creature token with menace.\n• Jast — Each opponent loses 4 life.', power='4', toughness='4', colors=['B', 'R', 'U'], color_identity=['B', 'R', 'U'], keywords=['Sec', 'Caan', 'Jast', 'Thay']),
+    card('Prophetic Titan', set_code="tst", number="R126", mana_cost='{4}{U}{R}', cmc=6.0, type_line='Creature — Giant Wizard', oracle_text='Delirium — When this creature enters, choose one. If there are four or more card types among cards in your graveyard, choose both instead.\n• This creature deals 4 damage to any target.\n• Look at the top four cards of your library. Put one of them into your hand and the rest on the bottom of your library in a random order.', power='4', toughness='4', colors=['R', 'U'], color_identity=['R', 'U'], keywords=['Delirium']),
+    card('Vindictive Lich', set_code="tst", number="R127", mana_cost='{3}{B}', cmc=4.0, type_line='Creature — Zombie Wizard', oracle_text='When this creature dies, choose one or more. Each mode must target a different player.\n• Target opponent sacrifices a creature of their choice.\n• Target opponent discards two cards.\n• Target opponent loses 5 life.', power='4', toughness='1', colors=['B'], color_identity=['B']),
+    card('Academy Rector', set_code="tst", number="R128", mana_cost='{3}{W}', cmc=4.0, type_line='Creature — Human Cleric', oracle_text='When this creature dies, you may exile it. If you do, search your library for an enchantment card, put that card onto the battlefield, then shuffle.', power='1', toughness='2', colors=['W'], color_identity=['W']),
     card('Increasing Savagery', set_code="tst", number="R107", mana_cost='{2}{G}{G}', cmc=4.0, type_line='Sorcery', oracle_text='Put five +1/+1 counters on target creature. If this spell was cast from a graveyard, put ten +1/+1 counters on that creature instead.\nFlashback {5}{G}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)', colors=['G'], color_identity=['G'], keywords=['Flashback']),
 ]
 
@@ -530,4 +534,127 @@ def test_reflexive_modal_modes_are_chosen_after_the_payment(cards):
     assert "Fodder" not in on_field_names(s)
     assert len(s.state.zones["p1:hand"]) == hand + 1 and life(s) == 39
     assert life(s, "p2") == 40 - 1 - 2  # (Caesar's 1 damage, then Raider's combat damage)
+    replay_matches(s)
+
+
+# -- modal headers that were refused (700.2) ---------------------------------------------------------------
+def test_choose_one_at_random(cards):
+    """Cult of Skaro: as its attack trigger goes on the stack one mode is picked at random among those that can be
+    chosen — no one is asked — and announced (public); exactly one of the four happens."""
+    s = build(cards, "Cult of Skaro")
+    cult = next(c for c in s.state.cards.values() if c.name == "Cult of Skaro")
+    act(s, "p1", type="move", card_ids=[cult.id], to={"player": "p1", "zone": "battlefield"})
+    until_turn(s, 3)
+    hand, bob = len(s.state.zones["p1:hand"]), life(s, "p2")
+    act(s, "p2", type="set_prefs", response="on")  # (so the stack can be looked at)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, "p1", type="declare_attackers", attackers=[{"card_id": cult.id, "target": "p2"}])
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.rules.decision is None or s.state.rules.decision.kind != "choose_cards"  # (nobody chooses)
+    entry = next(e for e in s.state.rules.stack.values() if e.name == "Cult of Skaro")
+    assert len(entry.modes) == 1
+    settle(s)
+    happened = [s.state.cards[cult.id].counters.get("+1/+1", 0) == 1, len(s.state.zones["p1:hand"]) == hand + 2,
+                "Dalek" in on_field_names(s), life(s, "p2") == bob - 4]
+    assert happened.count(True) == 1 and happened.index(True) == entry.modes[0]
+    replay_matches(s)
+
+
+@pytest.mark.parametrize("delirium", [True, False])
+def test_choose_both_instead(cards, delirium):
+    """Prophetic Titan: with four card types in the graveyard as the trigger goes on the stack, both modes (exactly
+    two); otherwise one."""
+    s = build(cards, "Prophetic Titan", "Clockwork Servant", "Seed Spark")
+    if delirium:  # artifact + creature (Clockwork Servant), instant (Seed Spark), land (Forest)
+        for name in ("Clockwork Servant", "Seed Spark", "Forest"):
+            c = next(c for c in s.state.cards.values() if c.name == name and c.zone == "p1:library")
+            act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    titan = to_hand(s, "Prophetic Titan")
+    mana(s, U=1, R=1, G=4)
+    act(s, "p1", type="cast_spell", card_id=titan.id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_cards" and any("deals 4 damage" in o.label for o in d.options):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert (d.min_choices, d.max_choices) == ((2, 2) if delirium else (1, 1))
+    replay_matches(s)
+
+
+def three_players(cards, *names):
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    setups = [PlayerSetup("Alice", cards=deck(cards, "Krenko, Mob Boss", [*((1, n) for n in names), (9, "Forest")])),
+              PlayerSetup("Bob", cards=deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])),
+              PlayerSetup("Carol", cards=deck(cards, "Krenko, Mob Boss", [(10, "Forest")]))]
+    s = GameSession(enable(new_game(setups, shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    return s
+
+
+def test_each_mode_must_target_a_different_player(cards):
+    """Vindictive Lich with two opponents: at most two modes (one opponent each); the second mode's target can't be
+    the player the first one targets."""
+    s = three_players(cards, "Vindictive Lich")
+    lich = next(c for c in s.state.cards.values() if c.name == "Vindictive Lich")
+    act(s, "p1", type="move", card_ids=[lich.id], to={"player": "p1", "zone": "battlefield"})
+    for pid in ("p2", "p3"):
+        for c in [c for c in s.state.cards.values() if c.owner == pid and c.zone == f"{pid}:library"][:3]:
+            act(s, pid, type="move", card_ids=[c.id], to={"zone": "hand"})
+    act(s, "p1", type="set_damage", card_ids=[lich.id], delta=1)
+    act(s, "p1", type="pass_priority")
+    d = s.state.rules.decision
+    assert d.kind == "choose_cards" and d.max_choices == 2
+    answer(s, lambda d: [o.id for o in d.options if "discards" in o.label or "loses 5" in o.label])
+    d = s.state.rules.decision
+    assert sorted(o.id for o in d.options) == ["p2", "p3"]
+    answer(s, lambda d: ["p2"])
+    d = s.state.rules.decision
+    assert d is None or [o.id for o in d.options] == ["p3"]
+    if d is not None:
+        answer(s, lambda d: ["p3"])
+    settle(s)
+    assert len(s.state.zones["p2:hand"]) == 1 and life(s, "p3") == 35
+    replay_matches(s)
+
+
+@pytest.mark.parametrize("still_there", [True, False])
+def test_academy_rector_exile_it_if_you_do(cards, still_there):
+    """Academy Rector: "you may exile it. If you do, search …" — the exile is probed: with the card still in the
+    graveyard it's exiled and an enchantment comes; if it left the graveyard first (a new object elsewhere, 400.7),
+    nothing is exiled and there is no search."""
+    s = build(cards, "Academy Rector", "Promise of Bunrei")
+    rector = next(c for c in s.state.cards.values() if c.name == "Academy Rector")
+    act(s, "p1", type="move", card_ids=[rector.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p2", type="set_prefs", response="on")
+    act(s, "p1", type="set_damage", card_ids=[rector.id], delta=2)
+    act(s, "p1", type="pass_priority")
+    for _ in range(5):
+        if s.state.rules.stack:
+            break
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1]) if d else None
+    assert s.state.cards[rector.id].zone == "p1:graveyard"
+    if not still_there:
+        act(s, "p1", type="move", card_ids=[rector.id], to={"zone": "hand"})
+    prompts = []
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        prompts.append(d.kind)
+        pick = ["yes"] if d.kind == "confirm" else [o.id for o in d.options if "Promise" in (o.label or "")] or \
+            [o.id for o in d.options][: max(1, d.min_choices)]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+    assert ("Promise of Bunrei" in on_field_names(s)) is still_there
+    assert s.state.cards[rector.id].zone == ("p1:exile" if still_there else "p1:hand")
     replay_matches(s)
