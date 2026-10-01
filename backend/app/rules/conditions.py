@@ -111,6 +111,11 @@ _OBJECT_WORDS = {"it": "it", "~": "self", "that creature": "it", "that permanent
 _OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact)) "
                      r"(?P<verb>is|was|isn't|wasn't|is not|was not) (?P<what>.+)")
 _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking", "blocking": "blocking"}
+# -- refused modal/conditional (wave 3R1) -- an ability the object has (a characteristic, 109.3: as it is, or as it
+# last existed, 608.2h — granted ones included). Keyword abilities only; "protection" (which quality?) isn't read.
+_HAS_KEYWORD = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card)) has (?P<kw>flying|reach|haste|trample|deathtouch|"
+                          r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible|defender|infect|"
+                          r"toxic|wither|flash|madness|flashback|shroud|cycling)")
 
 
 def _cmp(word: str | None) -> str:
@@ -179,6 +184,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         return {"not": mine} if (m["neg"] or t.startswith("it isn't") or "opponent's" in t) else mine
     if t in _STATUS:
         return {"status": _STATUS[t]}
+    if t == "you have a full party":  # -- refused modal/conditional (wave 3R1) -- 700.8c: four creatures in your party
+        return {"value": {"party": "you"}, "op": ">=", "n": 4}
     found = _history(t)
     if found is not None:
         return found
@@ -350,6 +357,9 @@ def _object(t: str) -> Condition | None:
             return None
         return {"object": "self" if m["who"] == "~'s" else "it", "stat": m["stat"].replace(" ", "_"),
                 "op": "<=" if m["cmp"] in ("less", "fewer") else ">=", "n": n}
+    m = _HAS_KEYWORD.fullmatch(t)  # -- refused modal/conditional (wave 3R1) -- "if that creature has toxic"
+    if m:
+        return {"object": _OBJECT_WORDS[m["who"]], "has": m["kw"]}
     t = re.sub(r"^(it|that (?:creature|permanent|card|land|token|artifact))'s ", r"\1 is ", t)
     m = _OBJECT.fullmatch(t)
     if m is None:
@@ -476,6 +486,8 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if got is None:
         return False
     card, ch = got
+    if "has" in cond:  # -- refused modal/conditional (wave 3R1) --
+        return cond["has"] in ch.keywords
     if "stat" in cond:  # "its mana value was 3 or less": a characteristic, as it is or as it last existed (608.2h)
         value = values._stat_of(ch, cond["stat"])
         return value is not None and _OPS[cond["op"]](value, cond["n"])

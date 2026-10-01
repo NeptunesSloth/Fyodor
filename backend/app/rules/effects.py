@@ -1925,6 +1925,39 @@ for _name in ("draw", "exile", "bounce"):
     PRIMITIVES[_name] = _did(PRIMITIVES[_name], {"draw": "draw", "exile": "exile", "bounce": "hand"}[_name])
 
 
+# -- refused modal/conditional (wave 3R1) -- "Sacrifice this enchantment. If you do, …", "Remove a +1/+1 counter
+# from it. If you do, …", "Discard a card. If you do, …": "If you do" after an instruction that isn't optional asks
+# whether it was actually done (608.2c; a permanent that is already gone can't be sacrificed, 701.21a; a counter
+# that isn't there can't be removed, 122.8; an empty hand discards nothing, 701.9b). Probed like draw's above.
+def _did_r1(fn: Any, kind: str) -> Any:
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        if name and name not in context.refs(ctx):
+            refs = context.refs(ctx)
+            if kind == "leave":  # sacrificed: moved off the battlefield (to wherever a replacement sent it)
+                if e["do"] == "sacrifice_choice":
+                    who = set(_players(plan, ctx, e["who"]))
+                    cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in who]
+                else:
+                    cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+                refs[name] = {"kind": "probe", "left": {c: plan.oid(plan.state.cards[c]) for c in cards}}
+            elif kind == "counters":
+                refs[name] = {"kind": "probe", "counter": e["kind"], "counters": {
+                    c: [plan.oid(plan.state.cards[c]), plan.state.cards[c].counters.get(e["kind"], 0)]
+                    for c in _cards(plan, ctx, e["who"])}}
+            else:  # discarded: a card left the hand
+                who = _players(plan, ctx, e.get("who", "you")) if e.get("who") else [ctx["controller"]]
+                refs[name] = {"kind": "probe", "hands_down": {p: len(plan.state.zones.get(f"{p}:hand", [])) for p in who}}
+        return bool(fn(plan, ctx, e))
+    return run
+
+
+for _name, _kind in (("sacrifice", "leave"), ("sacrifice_choice", "leave"), ("remove_counters", "counters"),
+                     ("discard", "discard")):
+    PRIMITIVES[_name] = _did_r1(PRIMITIVES[_name], _kind)
+# -- end refused modal/conditional (wave 3R1) --
+
+
 def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """702.33e: "If this spell was kicked, …" (``kicked`` True) — and, for "… instead", the
     unkicked text (``kicked`` False): the next ``n`` effects happen only if the spell was (or

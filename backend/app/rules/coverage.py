@@ -225,14 +225,11 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
      "the zone a permanent entered from isn't recorded with the object: not modelled"),
     (re.compile(r"\b(?:\{S\}|mana from [^.,]+) (?:of [^.,]+ )?was spent to (?:cast|activate)\b|\bwas spent to activate\b", re.I),
      "snow mana, the source of the mana spent, and mana spent on an ability aren't recorded (601.2h): not modelled"),
-    (re.compile(r"\bif (?:that (?:creature|permanent)|it|this creature) has (?:a |an )?(?:toxic|flying|reach|haste|trample|deathtouch|"
-                r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible)\b", re.I),
-     "a condition about the abilities an object has (\"if that creature has toxic\"): only its characteristics (types, "
-     "colors, power, toughness, mana value) are read"),
-    (re.compile(r"\bif you have a full party\b|\bcompleted a dungeon\b|\bif it's (?:day|night)\b|"
+    (re.compile(r"\bcompleted a dungeon\b|\bif it's (?:day|night)\b|"
                 r"\bthis is the \w+ time this ability has resolved this turn\b", re.I),
-     "party size, dungeon progress, the day/night designation and how often an ability resolved this turn: not tracked "
-     "as state a condition can read"),
+     "dungeon progress, the day/night designation and how often an ability resolved this turn: not tracked "
+     "as state a condition can read (wave 3R1: day/night is only a marker set by hand — the engine doesn't carry out "
+     "the 502.2 / 731 day-night changes, so reading it could be stale)"),
 )
 
 

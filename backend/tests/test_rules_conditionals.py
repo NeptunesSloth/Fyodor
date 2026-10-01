@@ -2022,9 +2022,7 @@ def test_bontu_cant_block_unless_a_creature_died_under_your_control(cards, died)
 REFUSED = [
     # (why, the wording, the same wording with only a condition the engine reads: it is automated)
     # (how the spell was cast: read since wave 3R1, tests/test_rules_refused_r1.py)
-    ("what abilities the creature has isn't read — Hexgold Slash",
-     "~ deals 2 damage to target creature. If that creature has toxic, ~ deals 4 damage to that creature instead.",
-     "~ deals 2 damage to target creature. If that creature is a Zombie, ~ deals 4 damage to that creature instead."),
+    # (what keyword abilities the creature has: read since wave 3R1, tests/test_rules_refused_r1.py)
     ("an 'instead' that might replace only part of the sentence before it",
      "You draw two cards and you lose 2 life. If you control a Forest, you draw three cards instead.",
      "You draw two cards and you lose 2 life. If you control a Forest, you draw three cards and you lose 3 life instead."),
@@ -2058,9 +2056,6 @@ def test_forms_that_are_not_guessed(why, text, control):
 @pytest.mark.parametrize(("text", "piece"), [
     ("This creature gets +1/+1 until end of turn. If mana from a Treasure was spent to activate this ability, put a +1/+1 counter on "
      "this creature instead.", "mana"),  # Jetmir's Fixer
-    ("~ deals 2 damage to target creature. If that creature has toxic, ~ deals 4 damage to that creature instead.", "abilities"),  # Hexgold Slash
-    ("Put a +1/+1 counter on target creature you control. If you have a full party, put three +1/+1 counters on that creature instead.",
-     "party"),  # The Destined White Mage
     ("Target creature gets -2/-2 until end of turn. If it's night, that creature gets -13/-13 until end of turn instead.", "day/night"),  # Olivia's Midnight Ambush
 ])
 def test_refused_wordings_are_registered_with_their_reason(text, piece):

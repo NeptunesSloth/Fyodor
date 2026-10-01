@@ -30,6 +30,12 @@ EXTRA = [
     card('Wary Farmer', set_code="tst", number="R109", mana_cost='{1}{G/W}{G/W}', cmc=3.0, type_line='Creature — Kithkin Citizen', oracle_text='At the beginning of your end step, if another creature entered the battlefield under your control this turn, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)', power='3', toughness='3', colors=['G', 'W'], color_identity=['G', 'W'], keywords=['Surveil']),
     card('Crew Captain', set_code="tst", number="R110", mana_cost='{B}{R}{G}', cmc=3.0, type_line='Creature — Human Warrior', oracle_text='Haste\nThis creature has indestructible as long as it entered this turn.', power='4', toughness='2', colors=['B', 'G', 'R'], color_identity=['B', 'G', 'R'], keywords=['Haste']),
     card('Ardenvale Paladin', set_code="tst", number="R111", mana_cost='{3}{W}', cmc=4.0, type_line='Creature — Human Knight', oracle_text='Adamant — If at least three white mana was spent to cast this spell, this creature enters with a +1/+1 counter on it.', power='2', toughness='5', colors=['W'], color_identity=['W'], keywords=['Adamant']),
+    card('Promise of Bunrei', set_code="tst", number="R113", mana_cost='{2}{W}', cmc=3.0, type_line='Enchantment', oracle_text='When a creature you control dies, sacrifice this enchantment. If you do, create four 1/1 colorless Spirit creature tokens.', colors=['W'], color_identity=['W']),
+    card('Woeleecher', set_code="tst", number="R114", mana_cost='{5}{W}', cmc=6.0, type_line='Creature — Elemental', oracle_text='{W}, {T}: Remove a -1/-1 counter from target creature. If you do, you gain 2 life.', power='3', toughness='5', colors=['W'], color_identity=['W']),
+    card('Noosegraf Mob', set_code="tst", number="R115", mana_cost='{4}{B}{B}', cmc=6.0, type_line='Creature — Zombie', oracle_text='This creature enters with five +1/+1 counters on it.\nWhenever a player casts a spell, remove a +1/+1 counter from this creature. If you do, create a 2/2 black Zombie creature token.', power='0', toughness='0', colors=['B'], color_identity=['B']),
+    card('Malakir Blood-Priest', set_code="tst", number="R117", mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Vampire Cleric', oracle_text='When this creature enters, each opponent loses X life and you gain X life, where X is the number of creatures in your party. (Your party consists of up to one each of Cleric, Rogue, Warrior, and Wizard.)', power='2', toughness='1', colors=['B'], color_identity=['B']),
+    card('Hexgold Slash', set_code="tst", number="R119", mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Hexgold Slash deals 2 damage to target creature. If that creature has toxic, Hexgold Slash deals 4 damage to that creature instead.', colors=['R'], color_identity=['R']),
+    card('Burn the Impure', set_code="tst", number="R120", mana_cost='{1}{R}', cmc=2.0, type_line='Instant', oracle_text="Burn the Impure deals 3 damage to target creature. If that creature has infect, Burn the Impure deals 3 damage to that creature's controller.", colors=['R'], color_identity=['R']),
     card('Increasing Savagery', set_code="tst", number="R107", mana_cost='{2}{G}{G}', cmc=4.0, type_line='Sorcery', oracle_text='Put five +1/+1 counters on target creature. If this spell was cast from a graveyard, put ten +1/+1 counters on that creature instead.\nFlashback {5}{G}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)', colors=['G'], color_identity=['G'], keywords=['Flashback']),
 ]
 
@@ -317,4 +323,108 @@ def test_another_creature_entered_and_entered_this_turn(cards):
     assert "indestructible" in _keywords(s, captain)
     assert any("urveil" in p for p in until_turn(s, 5))
     assert "indestructible" not in _keywords(s, captain)
+    replay_matches(s)
+
+
+# -- "If you do" after an instruction that isn't optional (608.2c) ------------------------------------------
+def _creature(s, pid, name, text=""):
+    act(s, pid, type="create_token", player=pid, token={"name": name, "type_line": "Token Creature — Bear", "power": "2",
+                                                         "toughness": "2", "text": text})
+    return named(s, name, pid)
+
+
+def test_sacrifice_this_if_you_do(cards):
+    """Promise of Bunrei: two creatures die at once — two triggers; the first sacrifices it and makes four Spirits,
+    the second can't sacrifice it (701.21a: it's gone), so it makes none."""
+    s = build(cards, "Promise of Bunrei")
+    promise = next(c for c in s.state.cards.values() if c.name == "Promise of Bunrei")
+    act(s, "p1", type="move", card_ids=[promise.id], to={"player": "p1", "zone": "battlefield"})
+    a, b = _creature(s, "p1", "Alpha"), _creature(s, "p1", "Beta")
+    act(s, "p1", type="set_damage", card_ids=[a.id, b.id], delta=2)
+    act(s, "p1", type="pass_priority")  # (both die at once: 704.5g)
+    settle(s)
+    assert s.state.cards[promise.id].zone == "p1:graveyard"
+    assert on_field_names(s).count("Spirit") == 4
+    replay_matches(s)
+
+
+@pytest.mark.parametrize(("counters", "gained"), [(1, 2), (0, 0)])
+def test_remove_a_counter_if_you_do(cards, counters, gained):
+    """Woeleecher: no -1/-1 counter to remove, no life (122.8: nothing was removed)."""
+    s = build(cards, "Woeleecher")
+    leecher = next(c for c in s.state.cards.values() if c.name == "Woeleecher")
+    act(s, "p1", type="move", card_ids=[leecher.id], to={"player": "p1", "zone": "battlefield"})
+    until_turn(s, 3)  # (no longer summoning sick, 302.6)
+    bear = _creature(s, "p2", "Bear")
+    if counters:
+        act(s, "p1", type="counter", card_ids=[bear.id], kind="-1/-1", delta=counters)
+    mana(s, W=1)
+    act(s, "p1", type="activate_ability", card_id=leecher.id, ability=0, targets=[bear.id])
+    settle(s)
+    assert life(s) == 40 + gained
+    assert s.state.cards[bear.id].counters.get("-1/-1", 0) == 0
+    replay_matches(s)
+
+
+def test_remove_a_counter_from_this_creature_each_spell(cards):
+    """Noosegraf Mob (five +1/+1 counters): each spell removes one and makes a Zombie; with none left, no Zombie."""
+    s = build(cards, "Noosegraf Mob", "Gruul Scrapper")
+    mob = next(c for c in s.state.cards.values() if c.name == "Noosegraf Mob")
+    act(s, "p1", type="move", card_ids=[mob.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="counter", card_ids=[mob.id], kind="+1/+1", delta=1)
+    act(s, "p2", type="create_token", player="p2", token={"name": "Pump", "type_line": "Token Creature — Bear",
+                                                           "power": "5", "toughness": "5", "text": ""})
+    scrapper = to_hand(s, "Gruul Scrapper")
+    mana(s, G=4)
+    cast(s, scrapper)
+    assert on_field_names(s).count("Zombie") == 1
+    assert s.state.cards[mob.id].zone == "p1:graveyard"  # (0/0 with no counters: it dies, 704.5f)
+    replay_matches(s)
+
+
+# -- party (700.8) ------------------------------------------------------------------------------------------
+def test_party_size_counts_each_creature_once_the_best_way(cards):
+    """A Cleric Wizard and a Rogue Warrior are a party of two (each fills one place, 700.8b); an opponent's Warrior
+    and a noncreature Rogue don't count. Malakir Blood-Priest (a Cleric) enters: the Cleric Wizard becomes the Wizard
+    (the highest count, 700.8b), so X is 3."""
+    from app.rules import values
+    from app.rules.plan import Plan
+
+    s = build(cards, "Malakir Blood-Priest")
+    for pid, name, line in (("p1", "Sage", "Token Creature — Human Cleric Wizard"), ("p1", "Scout", "Token Creature — Elf Rogue Warrior"),
+                            ("p2", "Theirs", "Token Creature — Human Warrior"), ("p1", "Cloak", "Token Artifact — Rogue")):
+        act(s, pid, type="create_token", player=pid,
+            token={"name": name, "type_line": line, "power": "1" if "Creature" in line else None,
+                   "toughness": "1" if "Creature" in line else None, "text": ""})
+    assert values.party_size(Plan.view(s.state, "p1", s.cards), "p1") == 2
+    priest = to_hand(s, "Malakir Blood-Priest")
+    mana(s, B=2)
+    cast(s, priest)
+    assert (life(s, "p1"), life(s, "p2")) == (43, 37)
+    assert conditions.parse("you have a full party") == {"value": {"party": "you"}, "op": ">=", "n": 4}
+    replay_matches(s)
+
+
+# -- an ability the object has (109.3, 608.2h) -----------------------------------------------------------
+def test_if_that_creature_has_a_keyword(cards):
+    """Hexgold Slash: 4 damage to a creature with toxic (instead of 2); Burn the Impure: 3 more to the controller of a
+    creature with infect; a creature without the keyword takes the plain damage."""
+    s = build(cards, "Hexgold Slash", "Hexgold Slash", "Burn the Impure")
+    one, two = [c for c in s.state.cards.values() if c.name == "Hexgold Slash"]
+    burn = to_hand(s, "Burn the Impure")
+    for c in (one, two):
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+    for name, text in (("Toxic", "Toxic 1"), ("Plain", ""), ("Infected", "Infect")):
+        act(s, "p2", type="create_token", player="p2", token={"name": name, "type_line": "Token Creature — Phyrexian",
+                                                               "power": "1", "toughness": "3", "text": text})
+    toxic, plain, infected = named(s, "Toxic", "p2"), named(s, "Plain", "p2"), named(s, "Infected", "p2")
+    mana(s, R=1)
+    cast(s, one, targets=[toxic.id])
+    assert "Toxic" not in on_field_names(s, "p2")  # (4 damage: it died)
+    mana(s, R=1)
+    cast(s, two, targets=[plain.id])
+    assert s.state.cards[plain.id].damage == 2
+    mana(s, R=2)
+    cast(s, burn, targets=[infected.id])
+    assert life(s, "p2") == 37
     replay_matches(s)

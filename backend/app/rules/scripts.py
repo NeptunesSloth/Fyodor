@@ -1204,6 +1204,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 pick_gate: dict[str, Any] = {"succeeded": name, **({"negate": True} if if_do["neg"] else {})}
                 effects += [{"do": "only_if", "cond": pick_gate, "skip": len(added)}, *added]
                 continue
+            if bind is None and not optional and (did_r1 := _if_you_do_after_mandatory(if_do, effects, prev_start)) is not None:
+                name, inner = did_r1  # -- refused modal/conditional (wave 3R1) -- "Sacrifice ~. If you do, …"
+                added = _add_groups(groups, *inner)
+                gate_r1: dict[str, Any] = {"succeeded": name, **({"negate": True} if if_do["neg"] else {})}
+                effects += [{"do": "only_if", "cond": gate_r1, "skip": len(added)}, *added]
+                continue
             if bind is None:  # -- conditional / instead clauses (wave 1B) --  "You may draw a card. If you do, discard a card."
                 after_may = _if_you_do_after_may(if_do, effects, optional, i, len(texts))
                 if after_may is None:
@@ -1266,7 +1272,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
     if resolved is None or not _branch_refs_ok(resolved) or not _gated_other_ok(resolved):  # (conditional clauses, wave 1B)
         return None
-    if not _cast_conditions_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
+    if not _cast_conditions_ok(resolved) or not _did_refs_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
         return None
     resolved, target = _finish_targets(resolved, groups)
     looked = False
@@ -2625,6 +2631,43 @@ def _gated_other_ok(effects: list[dict[str, Any]]) -> bool:
 
 
 # -- refused modal/conditional (wave 3R1) --
+# "If you do" after an instruction that isn't optional ("Sacrifice this enchantment. If you do, create …", "Remove a
+# +1/+1 counter from it. If you do, …", "Discard a card. If you do, draw a card.", "Return it to its owner's hand. If
+# you do, …"): whether that one instruction was actually carried out (608.2c), probed as it runs (effects._did_r1,
+# effects._did). The sentence before must be that one instruction (an intervening "if" of a trigger may gate it).
+_DID_MANDATORY = frozenset({"sacrifice", "sacrifice_choice", "remove_counters", "discard", "exile", "bounce"})
+
+
+def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any]],
+                               prev_start: int) -> tuple[str, tuple[list[dict[str, Any]], Any]] | None:
+    """The probe name and B's effects for "[A]. If you do[n't], [B].", or None (not read)."""
+    if if_do["rest"].startswith("you may "):
+        return None
+    base = effects[prev_start:]
+    if len(base) == 2 and base[0]["do"] == "only_if" and not base[0].get("bind") and base[0].get("skip") == 1:
+        base = base[1:]  # (a trigger's intervening "if" in that sentence: it gates A, and so B)
+    if len(base) != 1 or base[0]["do"] not in _DID_MANDATORY or base[0].get("did") or base[0].get("optional"):
+        return None
+    if base[0]["do"] in ("exile", "bounce") and not isinstance(base[0].get("who"), str):
+        return None
+    found = _clause(if_do["rest"])
+    if found is None or not found[0]:
+        return None
+    name = f"mdid{sum(1 for e in effects if str(e.get('did') or '').startswith('mdid'))}"
+    base[0]["did"] = name
+    return name, found
+
+
+def _did_refs_ok(effects: list[dict[str, Any]]) -> bool:
+    """After "Sacrifice this enchantment. If you do, destroy that creature." the pronoun is the trigger's creature,
+    never what A sacrificed — but the pronoun grammar names the latest object: an instruction of the ability that
+    acts on ("who") what a probed A moved is refused. Reading its characteristics (its toughness, "it deals") is
+    fine: that is the object as it last existed (608.2h)."""
+    probed = {str(e["as"]) for e in effects if str(e.get("did") or "").startswith("mdid") and e.get("as")}
+    return not probed or not any(isinstance(e.get("who"), str) and (m := _REF_NAME.match(e["who"])) is not None
+                                 and m["name"] in probed for e in effects)
+
+
 def _cast_conditions_ok(effects: list[dict[str, Any]]) -> bool:
     """A condition about how a spell was cast ("if you cast it", "if {R} was spent to cast it") is read only of
     the source itself — the spell, or the permanent it became, whose payment record it keeps — never of another
