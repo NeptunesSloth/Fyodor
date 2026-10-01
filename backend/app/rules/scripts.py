@@ -35,7 +35,7 @@ from typing import Any, Literal
 from app.rules import restrictions
 from app.rules.characteristics import Characteristics
 from app.rules.costs import SACRIFICE, parse_ability_cost, spell_additional_cost
-from app.rules.oracle import AbilityText, parse_abilities, split_sentences
+from app.rules.oracle import AbilityText, parse_abilities, split_sentences, word_prefix
 from app.rules.values import UNMODELED_COUNTERS
 
 Definition = dict[str, Any]
@@ -174,6 +174,8 @@ def self_text(text: str, name: str) -> str:
     """The ability with the card's own name (and "this creature" etc.) written as ~, without an
     ability word (207.2c)."""
     out = _ABILITY_WORD.sub("", text, count=1)
+    if out == text and (worded := word_prefix(text)) is not None:  # -- refused zones/sized (wave 3R4) -- 207.2d
+        out = worded[1]
     short = _short_name(name)
     names = [n for n in sorted({name, name.split(",")[0].strip(), *([short] if short else [])}, key=len, reverse=True)
              if len(n) >= 3]
@@ -1147,10 +1149,110 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     None, a selector key (one "target [something]"), or a list of target groups (see
     target_fields). ``it``: what the pronoun "it" means when no target precedes it (resolve_it);
     ``event_player``: the trigger event names a player ("that player" may mean them)."""
+    from app.rules import refused_zones  # -- refused zones/sized (wave 3R4) -- Gifts piles (a leaf module)
+
+    if (gifts := refused_zones.gifts_ability(body)) is not None:
+        return gifts
     try:
-        return _energy_paid(_parse_effects(body, it, event_player))
+        return _excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(_energy_paid(
+            _parse_effects(body, it, event_player)))), it)))
     except _NoMatch:
         return None
+
+
+_EXCESS = re.compile(r"(?P<trample>if the creature you control has trample, )?excess damage is dealt to that "
+                     r"creature's controller instead")
+
+
+def _excess_redirect(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- refused zones/sized (wave 3R4) -- "[If the creature you control has trample,] excess damage is dealt to that
+    creature's controller instead" (Flame Spill, Ram Through): the damage instruction right before it, to one target
+    creature, is split as it is dealt (120.4a: before prevention and replacement, lethal damage counting what is
+    already marked and the source's deathtouch). The trample condition reads the creature dealing the damage."""
+    if found is None or not any(e.get("do") == "excess_redirect" for e in found[0]):
+        return found
+    effects: list[dict[str, Any]] = []
+    for e in found[0]:
+        if e.get("do") != "excess_redirect":
+            effects.append(e)
+            continue
+        prev = effects[-1] if effects else None
+        if prev is None or prev.get("do") != "damage" or prev.get("with_next") or prev.get("excess") or \
+                not (prev.get("who") == "target" or str(prev.get("who")).startswith("target:")) or str(prev.get("src", "")).startswith("each:"):
+            return None
+        if e["if_trample"] and not str(prev.get("src") or "").startswith("target"):
+            return None  # ("the creature you control": the creature dealing the damage, a target)
+        effects[-1] = {**prev, "excess": "trample" if e["if_trample"] else "always"}
+    return effects, found[1], found[2]
+
+
+def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- refused zones/sized (wave 3R4) -- "the number of cards in that player's / their hand": the target player's
+    when the ability targets one player (and names no other), else the player the trigger was about — only when the
+    ability also says "that player" for its recipient (``event_player``: _event_refs_ok checks the trigger has one)."""
+    text = json.dumps(found[0]) if found is not None else ""
+    if found is None or '{"hand": "that_player"}' not in text:
+        return found
+    if found[1] in ("player", "opponent") and '"event_player"' not in text:
+        bound = "target"
+    elif found[1] is None and any(e.get("who") == "event_player" for e in found[0]):
+        bound = "event"
+    else:
+        return None
+    return json.loads(text.replace('{"hand": "that_player"}', '{"hand": "' + bound + '"}')), found[1], found[2]
+
+
+def _attached_host(found: tuple[list[dict[str, Any]], Any, bool] | None, it: str | None,
+                   ) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- refused zones/sized (wave 3R4) -- "… return this card from your graveyard to the battlefield attached to
+    that creature": the creature the trigger was about (a creature entering), when nothing earlier in the ability
+    introduced another object; any other reading stays manual."""
+    if found is None or not any(e.get("host") == "that_creature" for e in found[0]):
+        return found
+    if it != "event":
+        return None
+    out: list[dict[str, Any]] = []
+    for e in found[0]:
+        if e.get("host") == "that_creature":
+            if any(x.get("do") not in ("only_if", "optional_payment") for x in out):
+                return None
+            e = {**e, "host": "event"}
+        out.append(e)
+    return out, found[1], found[2]
+
+
+def _gy_shuffle(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- refused zones/sized (wave 3R4) -- "If you search your library this way, shuffle." belongs to the
+    "search your library and/or graveyard" right before it (language._search_gy); anywhere else: manual."""
+    if found is None or not any(e.get("do") == "gy_search_shuffle" for e in found[0]):
+        return found
+    effects: list[dict[str, Any]] = []
+    for e in found[0]:
+        if e.get("do") != "gy_search_shuffle":
+            effects.append(e)
+            continue
+        prev = effects[-1] if effects else None
+        if prev is None or prev.get("do") != "search" or not prev.get("graveyard") or prev.get("shuffle", True):
+            return None
+        effects[-1] = {**prev, "shuffle": True}
+    return effects, found[1], found[2]
+
+
+def _life_lost(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- refused zones/sized (wave 3R4) -- "Each opponent loses 3 life. You gain life equal to the life
+    lost this way": the total the instruction just before actually took (119.3, 608.2c). Anything
+    else in between, or no such instruction, leaves the ability manual."""
+    if found is None or '"life_lost"' not in json.dumps(found[0]):
+        return found
+    effects = found[0]
+    for i, e in enumerate(effects):
+        if '"life_lost"' not in json.dumps(e):
+            continue
+        prev = effects[i - 1] if i else None
+        if prev is None or prev.get("do") != "lose_life" or e.get("do") != "gain_life" or prev.get("bind"):
+            return None
+        effects = [*effects[:i - 1], {**prev, "bind": "life_lost"}, *effects[i:]]
+    return effects, found[1], found[2]
 
 
 def _energy_paid(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -1179,6 +1281,18 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             text = text[5:]  # -- waves 3D/3L/3C -- "Then that creature deals …" / "Then draw a card.": "then" only orders (608.2c)
         prev_start, start = start, len(effects)
         sentences.append(start)
+        if text == "if you search your library this way, shuffle":  # -- refused zones/sized (wave 3R4) -- (_gy_shuffle)
+            effects.append({"do": "gy_search_shuffle"})
+            continue
+        may_mill = re.fullmatch(r"you may mill (?P<n>two|three|four|five|\d+) cards", text) if i == 0 and len(texts) > 1 else None
+        if may_mill is not None:  # -- refused zones/sized (wave 3R4) -- "You may mill three cards. Then return …": only the
+            # mill is optional (the rest happens either way): refused_zones.may_mill asks as it resolves
+            effects.append({"do": "may_mill", "n": num(may_mill["n"])})
+            continue
+        excess = _EXCESS.fullmatch(text)  # -- refused zones/sized (wave 3R4) -- 120.4a (_excess_redirect)
+        if excess is not None:
+            effects.append({"do": "excess_redirect", "if_trample": bool(excess["trample"])})
+            continue
         if (kicked := _KICKED.match(text)) is not None:
             with_kicker = _kicked_sentence(kicked, effects, prev_start)
             if with_kicker is None:
@@ -1454,6 +1568,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             cost = spell_additional_cost(ch.abilities)
         if cost is None or not any(c.kind == SACRIFICE and c.selector is not None for c in cost.components):
             return None
+    # -- refused zones/sized (wave 3R4) -- a triggered ability's X is not the X its source was cast with
+    # (107.3m isn't carried to triggers: X reads 0 there), so a search sized by X in one stays manual (Fblthp)
+    if d is not None and d.get("kind") == "triggered" and \
+            '{"x": 1}' in json.dumps([e for e in d.get("effects") or [] if e.get("do") == "search"]):
+        return None
     return d
 
 

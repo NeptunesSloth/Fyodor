@@ -155,6 +155,10 @@ def hidden_from_bob(s, ids, prompt="Search your library"):
     "search your library for a creature card, reveal it, and put it into your hand",
     "search your library for a card named ~, reveal it, put it into your hand, then shuffle",
     "search your library for an artifact card and exile it",
+    # (wave 3R4: the searcher picks library and graveyard, or the graveyard only; Gamble's random discard —
+    # test_rules_refused_zones)
+    "search your library for a card, put that card into your hand, discard a card at random, then shuffle",
+    "search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield",
 ])
 def test_the_wordings_parse(text):
     found = parse_sentence(text)
@@ -162,8 +166,6 @@ def test_the_wordings_parse(text):
 
 
 @pytest.mark.parametrize("text", [
-    "search your library for a card, put that card into your hand, discard a card at random, then shuffle",  # (Gamble: not read)
-    "search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield",
     "search your library for a creature card with mana value X or greater, put it into your hand, then shuffle",
     "search your library for up to three creature cards, put one onto the battlefield and the other into your hand, then shuffle",
 ])

@@ -607,6 +607,11 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
                 if cost is not None:
                     madness.append((cid, cost))
                     continue
+            if frm == "battlefield" and card.counters.get("finality", 0) > 0:  # -- refused zones/sized (wave 3R4) --
+                # 122.1h: "If this permanent would be put into a graveyard from the battlefield, exile it
+                # instead" (it agrees with every other "exile instead" here: no 616.1 choice)
+                replaced.append((cid, "exile", "finality counter"))
+                continue
             if _self_exile_instead(plan, card):
                 replaced.append((cid, "exile", card.name or "its own ability"))
                 continue

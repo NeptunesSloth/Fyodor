@@ -210,9 +210,14 @@ def _then(ctx: Context, e: dict[str, Any]) -> dict[str, Any] | None:
 
 def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     n = _amount(plan, ctx, e["n"])
+    lost = 0
     for pid in _players(plan, ctx, e["who"]):
         if n:
+            before = plan.state.players[pid].life
             plan.do({"type": "life", "player": pid, "delta": -n}, actor=ctx["controller"])
+            lost += max(0, before - plan.state.players[pid].life)
+    if e.get("bind"):  # -- refused zones/sized (wave 3R4) -- "the life lost this way": the total actually lost (119.3)
+        context.bind_amount(ctx, e["bind"], lost)
     return True
 
 
@@ -388,7 +393,40 @@ def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Sou
         return []
     if e.get("dealt_as"):  # -- replacement effects stage 2 (wave 2E): "dealt damage this way" --
         ctx.setdefault(DEALT_KEY, {})[e["dealt_as"]] = []
+    if e.get("excess"):  # -- refused zones/sized (wave 3R4) -- "excess damage is dealt to that creature's controller instead"
+        return _excess_hits(plan, src, [(src, key, amount(key)) for key in [*cards, *players]], e["excess"])
     return [(src, key, amount(key)) for key in [*cards, *players]]
+
+
+def _excess_hits(plan: Plan, src: _Source, hits: list[tuple[_Source, str, int]], when: str) -> list[tuple[_Source, str, int]]:
+    """-- refused zones/sized (wave 3R4) -- 120.4a: the damage event is modified first: what is in excess of lethal
+    damage to the creature (its toughness less the damage already marked on it; with a deathtouch source any
+    damage beyond 1 is excess, 702.2c) goes to its controller instead. ``when`` "trample": only if the creature
+    dealing it has trample (as it is, or as it last existed: 608.2h). A planeswalker's is what exceeds its loyalty, a
+    battle's its defense; a permanent of several of those types: the greatest (120.4a)."""
+    if when == "trample" and "trample" not in src.keywords:
+        return hits
+    out: list[tuple[_Source, str, int]] = []
+    for s_, key, n in hits:
+        card = plan.state.cards.get(key)
+        ch = plan.ch(card) if card is not None else None
+        if card is None or ch is None or not card.zone.endswith(":battlefield"):
+            out.append((s_, key, n))
+            continue
+        amounts = []
+        if ch.is_creature and ch.pt is not None:
+            left = max(0, ch.pt[1] - card.damage)
+            amounts.append(n - (min(left, 1) if "deathtouch" in s_.keywords else left))
+        if "Planeswalker" in ch.types:
+            amounts.append(n - card.counters.get("loyalty", 0))
+        if "Battle" in ch.types:
+            amounts.append(n - card.counters.get("defense", 0))
+        excess = max(0, max(amounts, default=0))
+        if excess and card.controller in plan.live():
+            out += [(s_, key, n - excess), (s_, card.controller, excess)]
+        else:
+            out.append((s_, key, n))
+    return [h for h in out if h[2] > 0]
 
 
 def fight(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1164,6 +1202,8 @@ def blink(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     done = attachments.enter(plan, entries, ctx)
     if done:  # (an Aura choosing what it enchants pauses: the binding then keeps what they were)
         _moved(plan, ctx, e, before)  # the permanents they became: new objects (400.7)
+    if done and e.get("attacking"):  # -- refused zones/sized (wave 3R4) -- "tapped and attacking" (508.4)
+        return refused_zones.enter_attacking(plan, ctx, cards)
     return done
 
 
@@ -1210,6 +1250,14 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not who:
             return True
         pid = who[0]
+    if e.get("graveyard") and "zones" not in e:  # -- refused zones/sized (wave 3R4) -- "your library and/or graveyard"
+        options = [DecisionOption(id="both", label="Search your library and graveyard"),
+                   DecisionOption(id="graveyard", label="Search your graveyard only")]
+        if e.get("may"):
+            options.append(DecisionOption(id="none", label="Don't search"))
+        decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: search for a {e.get('label') or 'card'}",
+               options=options, resume={"step": "search_zones", "ctx": ctx, "e": e})
+        return False
     if e.get("may"):
         # "Its controller may search …, then shuffle" (Path to Exile): searching is their choice,
         # asked first — a player who doesn't search doesn't shuffle either (the card's ruling;
@@ -1230,11 +1278,26 @@ def resume_search_may(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
+def resume_search_zones(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """-- refused zones/sized (wave 3R4) -- which zones the searcher looks through (701.23a: all of each)."""
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen[0] == "none":
+        plan.note(f"{plan.name(d.player)} chose not to search (no shuffle)", actor=d.player)
+        continue_effects(plan, ctx)
+        return
+    _ask_search(plan, ctx, {**e, "zones": ["library", "graveyard"] if chosen[0] == "both" else ["graveyard"]}, d.player, 0, [])
+
+
 def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int, picked: list[str]) -> bool:
-    library = [c for c in plan.state.zones.get(zone_key(pid, "library"), []) if c not in picked]
+    zones = e.get("zones") or ["library"]  # (-- refused zones/sized (wave 3R4) -- "and/or graveyard": the chosen zones)
+    library = [c for c in plan.state.zones.get(zone_key(pid, "library"), []) if c not in picked] if "library" in zones else []
     if e.get("sel"):  # a structured card selector (app/rules/selectors.py)
         parts = e.get("parts")  # "a Forest card and a Plains card": one card of each kind, asked in turn
         matching = _search_matches(plan, ctx, e, pid, parts[part] if parts else e["sel"], library)
+        if "graveyard" in zones:  # (wave 3R4) the graveyard's cards are public (404.2): the same test, read there
+            graveyard = [c for c in plan.state.zones.get(zone_key(pid, "graveyard"), []) if c not in picked]
+            keys = [selectors.replace(selectors.from_key(k), zones=("graveyard",)).key() for k in (e.get("alts") or [e["sel"]])]
+            matching += _search_matches(plan, ctx, {**e, "alts": keys}, pid, None, graveyard)
         what = e.get("label") or "cards"
     else:
         matching = [c for c in library if _matches(plan, c, e["filter"])]
@@ -1246,7 +1309,7 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
     # ("Up to N cards" may find fewer: only a single "a card" or an explicit ``upto: False`` forces.)
     quantity_only = e.get("filter") == "any" or (e.get("sel") is not None and e.get("label") in ("card", "cards"))
     forced = quantity_only and not e.get("upto", e.get("label") == "cards")
-    decide(plan, player=pid, kind="choose_cards", prompt=f"Search your library ({what})",
+    decide(plan, player=pid, kind="choose_cards", prompt=f"Search your {' and '.join(zones)} ({what})",
            options=options, min_choices=min(most, len(options)) if forced else 0, max_choices=min(most, len(options)),
            resume={"step": "search", "ctx": ctx, "e": e, "part": part, "picked": picked})
     return False
@@ -1258,6 +1321,12 @@ _PLACES = {"hand": "into your hand", "battlefield": "onto the battlefield", "bat
 
 def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
+    if e.get("distinct_names"):  # -- refused zones/sized (wave 3R4) -- "… cards with different names" (201.2)
+        names = [(plan.state.cards[c].name or "").lower() for c in chosen if c in plan.state.cards]
+        if len(set(names)) != len(names):
+            from app.game.errors import ActionError
+
+            raise ActionError("The cards you find must have different names")
     if e.get("parts"):  # the next kind of card, or all the cards found
         chosen = [*d.resume.get("picked", []), *chosen]
         if d.resume.get("part", 0) + 1 < len(e["parts"]):
@@ -1293,6 +1362,8 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
         elif to in ("battlefield", "battlefield_tapped"):
             entering.append({"card": cid, "player": pid, "actor": pid, "tapped": to == "battlefield_tapped"})
     shuffle = pid if e.get("shuffle", True) else None  # 701.24: a library is shuffled only when the text says so
+    if "library" not in (e.get("zones") or ["library"]):
+        shuffle = None  # -- refused zones/sized (wave 3R4) -- "If you search your library this way, shuffle"
     if entering and not attachments.enter(plan, entering, ctx, shuffle=shuffle):  # an Aura chooses what it enchants (303.4f)
         return
     _moved(plan, ctx, e, found)  # the cards found, where they went (400.7j; a hand is hidden: nothing)
@@ -1301,11 +1372,19 @@ def _finish_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, chosen
         shuffled = plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
         if e["to"] == "top":  # "then shuffle and put that card on top": follow it through the shuffle's new ids
             r = getattr(shuffled, "r", None)
+            tops = []
             for cid in chosen:
                 if r is None or cid not in before:
                     continue
                 new_id = r.new_ids[r.perm.index(before.index(cid))]
-                plan.do({"type": "move", "card_ids": [new_id], "to": {"player": pid, "zone": "library"}, "index": 0}, actor=pid)
+                tops.append(new_id)
+                if not e.get("top_order"):
+                    plan.do({"type": "move", "card_ids": [new_id], "to": {"player": pid, "zone": "library"}, "index": 0}, actor=pid)
+            if e.get("top_order") and len(tops) > 1:  # -- refused zones/sized (wave 3R4) -- 401.4: in the order the
+                _ask_order(plan, ctx, pid, pid, tops, "top")  # searcher chooses (private); the resolution goes on after
+                return
+            if e.get("top_order") and tops:
+                plan.do({"type": "move", "card_ids": tops, "to": {"player": pid, "zone": "library"}, "index": 0}, actor=pid)
     continue_effects(plan, ctx)
 
 
@@ -1322,6 +1401,15 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     one event batch."""
     who = _players(plan, ctx, e.get("who", "you")) if e.get("who") else [ctx["controller"]]
     order = [p for p in plan.apnap() if p in who]
+    if e.get("random"):  # -- refused zones/sized (wave 3R4) -- 701.9b "discards N cards at random": nobody chooses; the
+        # table picks (the recorded move says which, so replay is the same) and they are discarded at once (101.4)
+        import secrets
+
+        rng = plan.rng or secrets.SystemRandom()
+        want = _amount(plan, ctx, e["n"])
+        picked = [c for pid in order for c in rng.sample(sorted(plan.state.zones.get(zone_key(pid, "hand"), [])),
+                                                           min(want, len(plan.state.zones.get(zone_key(pid, "hand"), []))))]
+        return _discard_next(plan, ctx, want, [], picked, e.get("as"))
     return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"))
 
 
@@ -1425,6 +1513,12 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
     from app.rules import attachments  # attachments → effects (resume)
 
     before = _remember(plan, ctx, e, cards)
+    if e["to"] == "library_top":  # -- refused zones/sized (wave 3R4) -- "put a land card from your graveyard on top of
+        for cid in cards[:1]:  # your library": one card, to its owner's library (400.3)
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
+                     "position": "top"}, actor=ctx["controller"])
+        _moved(plan, ctx, e, before)
+        return True
     if e["to"] == "hand":
         for cid in cards:  # (400.3: a card goes to its OWNER's hand, whoever's graveyard it was in)
             card = plan.state.cards[cid]
@@ -1434,10 +1528,36 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
                 "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
                 **({"counter": e["counter"]} if e.get("counter") else {})} for cid in cards]  # (a counter it enters with, 122.6)
+    if e.get("host"):  # -- refused zones/sized (wave 3R4) -- "attached to this creature / that creature"
+        entries = _attached_entries(plan, ctx, e["host"], entries)
+        cards = [x["card"] for x in entries]
     done = attachments.enter(plan, entries, ctx)
     if done:  # (an Aura choosing what it enchants pauses: the binding then keeps what they were)
         _moved(plan, ctx, e, before)  # the permanents they became: new objects (400.7)
+    if done and e.get("attacking"):  # -- refused zones/sized (wave 3R4) -- "tapped and attacking" (508.4)
+        return refused_zones.enter_attacking(plan, ctx, cards)
     return done
+
+
+def _attached_entries(plan: Plan, ctx: Context, host_ref: str, entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """-- refused zones/sized (wave 3R4) -- An effect that puts a card onto the battlefield attached to an object
+    (``self``: the source, ``event``: the trigger's object — each only while it is still that permanent). An Aura
+    that can't legally enchant it (or with nothing there) stays where it is (303.4i); an Equipment enters
+    unattached (301.5e); anything else enters unattached (303.4h)."""
+    from app.rules import attachments
+
+    hosts = [c for c in _cards(plan, ctx, host_ref) if plan.state.cards[c].zone.endswith(":battlefield")]
+    host = hosts[0] if len(hosts) == 1 else None
+    out = []
+    for entry in entries:
+        card = plan.state.cards[entry["card"]]
+        kind = attachments.attach_kind(plan.ch(card))
+        legal = host is not None and attachments.host_problem(plan, card, host, entry["player"]) is None
+        if kind == "aura" and not legal:
+            plan.note("The Aura can't be attached to that: it stays where it is (303.4i)", [card.id])
+            continue
+        out.append({**entry, "host": host} if legal and kind is not None else entry)
+    return out
 
 
 def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -2641,6 +2761,13 @@ def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     sel = selectors.from_key(e["sel"])
     pool = set(selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card")))
     cards = [c for c in chosen if c in pool]  # (still there and still matching)
+    if e.get("different"):  # -- refused zones/sized (wave 3R4) -- "… cards with different names / mana values"
+        from app.rules.targets import _different
+
+        if not _different(plan, cards, e["different"]):
+            from app.game.errors import ActionError
+
+            raise ActionError(f"Choose cards with different {'names' if e['different'] == 'name' else 'mana values'}")
     if _return_cards(plan, ctx, e, cards):
         continue_effects(plan, ctx)
 
@@ -2714,6 +2841,7 @@ PRIMITIVES.update({"gain_control": gain_control, "exchange_control": exchange_co
 # -- end control (wave 3K) --
 
 RESUME["search_may"] = resume_search_may
+RESUME["search_zones"] = resume_search_zones  # -- refused zones/sized (wave 3R4) --
 # -- counters & designations (wave 3E) --------------------------------------------------------------
 # Rad counters (728), the monarch (725), the initiative (726), venture into the dungeon (701.49, 309),
 # the Ring tempts you (701.54): app/rules/designations.py (a leaf module over this one).
@@ -2721,4 +2849,9 @@ from app.rules import designations  # noqa: E402, I001
 
 PRIMITIVES.update(designations.PRIMITIVES)
 RESUME.update(designations.RESUME)
+# -- refused zones/sized (wave 3R4): app/rules/refused_zones.py (a leaf module over this one) --
+from app.rules import refused_zones  # noqa: E402, I001
+
+PRIMITIVES.update(refused_zones.PRIMITIVES)
+RESUME.update(refused_zones.RESUME)
 # -- end counters & designations (wave 3E) --

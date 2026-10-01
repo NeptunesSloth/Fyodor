@@ -89,7 +89,10 @@ def definition_supported(d: dict[str, Any]) -> bool:
     # -- reanimation (wave 3R) -- "return this card from your graveyard": only an activated ability works from
     # there (113.6m); a trigger or static line would need the graveyard scanned for triggers
     if d.get("kind") != "activated" and '"self_gy"' in json.dumps(d, default=str):
-        return False
+        from app.rules.triggers import graveyard_trigger_ok  # -- refused zones/sized (wave 3R4) -- (113.6m)
+
+        if not graveyard_trigger_ok(d):
+            return False
     verdict = stage2_supported(d)  # -- replacement effects stage 2 (wave 2E) --
     if verdict is not None:
         return verdict
@@ -322,6 +325,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules.costs import kicker_line
 
         return kicker_line(line)
+    if kw == "transmute":  # -- refused zones/sized (wave 3R4) -- casting.transmute: a mana transmute cost (702.53a)
+        from app.rules.casting import TRANSMUTE
+
+        return TRANSMUTE.fullmatch(line.strip().rstrip(".")) is not None
     if kw == "crew":  # casting.crew: "Crew N"
         return re.fullmatch(r"crew \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "flashback":  # casting.flashback_cost: a mana flashback cost

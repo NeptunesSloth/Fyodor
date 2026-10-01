@@ -731,6 +731,8 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             window["cast_from"][e.card] = e.from_zone  # (where a spell was cast from, 601.2a)
         if _zone(e.to_zone) == "battlefield" and _zone(e.from_zone) != "battlefield" and e.new_object_id:
             entered[e.new_object_id] = e.batch
+        if _zone(e.to_zone) == "graveyard" and e.new_object_id:  # -- refused zones/sized (wave 3R4) -- (603.10)
+            entered[e.new_object_id] = e.batch
         if _zone(e.from_zone) == "battlefield" and _zone(e.to_zone) != "battlefield":
             snap = r.lki.get(e.object_id or "")
             if snap is None or snap.controller not in plan.live() or plan.rules.card_mode(snap.card) == "manual":
@@ -815,11 +817,54 @@ def unblocked(plan: Plan, attackers: list[CardInstance]) -> None:
 def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
     out = []
     for card in plan.state.cards.values():
+        if card.zone.endswith(":graveyard"):  # -- refused zones/sized (wave 3R4) --
+            out += graveyard_abilities(plan, card, trigger)
+            continue
         if not card.zone.endswith(":battlefield") or not plan.in_game(card) or plan.manual(card):
             continue
         ch = plan.ch(card)
-        out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger)]
+        out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if not graveyard_ability(d)]
     return out
+
+
+# -- refused zones/sized (wave 3R4) ------------------------------------------------------------------
+# 113.6m: a triggered ability whose effect returns its own card "from your graveyard" (``self_gy``)
+# functions only in the graveyard: it triggers from there (the card's owner controls it, 603.3a with
+# 400.3/108.4a: a card in a graveyard is controlled by no one, so its owner), and never from the
+# battlefield. Objects that exist immediately after an event are the ones checked (603.10): a card
+# put into the graveyard by an event sees events from that batch on (_generic_events' window).
+# Coverage (app/rules/coverage.py) keeps the look-back events (603.10a) and the enchanted-creature
+# triggers out, so those stay manual.
+def graveyard_ability(d: dict[str, Any]) -> bool:
+    import json
+
+    return '"self_gy"' in json.dumps(d, default=str)
+
+
+def graveyard_abilities(plan: Plan, card: CardInstance, trigger: str,
+                        ) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
+    if card.owner not in plan.live() or plan.manual(card) or not card.zone.endswith(":graveyard"):
+        return []
+    ch = plan.ch(card)
+    if "graveyard" not in (ch.oracle_text or ""):
+        return []
+    return [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if graveyard_ability(d) and graveyard_trigger_ok(d)]
+
+
+_GY_TRIGGERS = ("event", "landfall", "enters_other", "cast_you", "upkeep_you", "end_step_you")
+_GY_LOOK_BACK = ("die", "leave", "sacrifice", "leave_graveyard", "multi")  # (603.10a; "multi": not judged here)
+
+
+def graveyard_trigger_ok(d: dict[str, Any]) -> bool:
+    """Is this graveyard ability's trigger one the graveyard watchers above read? Not a look-back
+    event (603.10a: a card arriving in the graveyard with the event would have to be told apart),
+    nor one about this object or the permanent it was attached to (they left the battlefield)."""
+    trigger = str(d.get("trigger"))
+    if d.get("kind") != "triggered" or not (trigger in _GY_TRIGGERS or trigger.startswith("step:")):
+        return False
+    cond = d.get("cond") or {}
+    return trigger != "event" or (cond.get("event") not in _GY_LOOK_BACK
+                                  and cond.get("subject") not in ("self", "self_or", "host", "self_or_host"))
 
 
 def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics, oid: str) -> None:
@@ -899,10 +944,17 @@ def at_step(plan: Plan, trigger: str) -> None:
         _cumulative_upkeep(plan)
         _rebound(plan)
     for card in list(plan.state.cards.values()):
+        if card.zone.endswith(":graveyard") and card.owner == plan.active:  # -- refused zones/sized (wave 3R4) --
+            for _, ch, i, d in graveyard_abilities(plan, card, trigger):
+                _add(plan, controller=card.owner, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
+                     definition=d)
+            continue
         if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
             continue
         ch = plan.ch(card)
         for i, d in abilities(plan, ch, trigger):
+            if graveyard_ability(d):
+                continue  # (113.6m: it functions only in the graveyard)
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
                  definition=d)
 
@@ -914,11 +966,16 @@ def at_step_generic(plan: Plan) -> None:
     prefix = f"step:{phase}:"
     ap = plan.active
     for card in list(plan.state.cards.values()):
-        if not card.zone.endswith(":battlefield") or plan.manual(card) or card.controller not in plan.live():
+        gy = card.zone.endswith(":graveyard")  # -- refused zones/sized (wave 3R4) -- (113.6m)
+        if gy and card.owner in plan.live() and not plan.manual(card) and "graveyard" in (plan.ch(card).oracle_text or ""):
+            pass
+        elif not card.zone.endswith(":battlefield") or plan.manual(card) or card.controller not in plan.live():
             continue
         ch = plan.ch(card)
         for i, d in scripts.definitions(ch).items():
             if d["kind"] != "triggered" or not str(d["trigger"]).startswith(prefix):
+                continue
+            if graveyard_ability(d) != gy:
                 continue
             if _whose_step(plan, card, d["trigger"][len(prefix):], ap):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
