@@ -273,7 +273,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None  # (no X: wave 3F)
     if kw == "disguise":  # -- keyword actions & face-down (wave 3F) -- casting.disguise_cost: a mana disguise cost
         return re.fullmatch(r"disguise (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
-    if kw in ("bushido", "renown", "bloodthirst", "soulshift", "toxic", "fabricate"):  # numbered keywords (triggers.py, engine.enter_with_counters)
+    if kw in ("bushido", "renown", "bloodthirst", "soulshift", "toxic", "fabricate", "firebending"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
         return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None

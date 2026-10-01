@@ -351,6 +351,36 @@ def earthbend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return replace.put_counters(plan, [(c, "+1/+1", n) for c in lands], by=pid, then={"do": "continue", "ctx": ctx})
 
 
+# firebending (702.189a): "Whenever this creature attacks, add N {R}. Until end of combat, you don't lose this
+# mana as steps and phases end." The red mana added is remembered (RulesState.combat_mana); at each step's
+# end during combat (500.4) as much of it as is still in the pool stays — the player is free to have spent
+# their other red mana first (any red mana pays the same) — and at the end of the combat phase it empties.
+COMBAT_STEPS = ("begin_combat", "declare_attackers", "declare_blockers", "combat_damage")
+
+
+def firebend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    pid = ctx["controller"]
+    n = effects._amount(plan, ctx, e.get("n", 0))
+    if n <= 0 or plan.state.turn.phase not in (*COMBAT_STEPS, "end_combat"):
+        return True  # (an attack trigger resolves during combat; outside it there is nothing to keep)
+    plan.do({"type": "rules_mana", "player": pid, "delta": {"R": n}, "label": f"added {'{R}' * n} (firebending {n})"}, actor=pid)
+    plan.rules.combat_mana[pid] = plan.rules.combat_mana.get(pid, 0) + n
+    return True
+
+
+def combat_mana_kept(plan: Plan) -> dict[str, int]:
+    """As a step ends: the firebending mana each player keeps (none once the combat phase ends)."""
+    r = plan.rules
+    if not r.combat_mana:
+        return {}
+    if plan.state.turn.phase not in COMBAT_STEPS:
+        r.combat_mana = {}
+        return {}
+    kept = {pid: min(n, plan.state.players[pid].mana.get("R", 0)) for pid, n in r.combat_mana.items() if pid in plan.state.players}
+    r.combat_mana = {pid: n for pid, n in kept.items() if n > 0}
+    return dict(r.combat_mana)
+
+
 # stun counters (122.1d): "If a permanent with a stun counter on it would become untapped, instead remove a
 # stun counter from it." — a replacement effect of the counters themselves, applied wherever the engine untaps
 # a permanent (the untap step, "untap target creature", "untap … and gain control of it").
@@ -374,7 +404,7 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
 
 
 PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
-              "goad": goad, "earthbend": earthbend, **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
+              "goad": goad, "earthbend": earthbend, "firebend": firebend, **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
 RESUME = {"amass_choose": resume_amass, "bolster_choose": resume_bolster, "connive_discard": resume_connive,
           **facedown.RESUME,  # -- keyword actions & face-down (wave 3F) --

@@ -401,8 +401,11 @@ def _mark_step(plan: Plan) -> None:
 
 def empty_pools(plan: Plan) -> None:
     """Mana empties from every pool at the end of each step and phase (rule 500.4)."""
+    kept = effects.keyword_actions.combat_mana_kept(plan)  # -- wave 3F -- firebending: kept until end of combat
     if any(p.mana for p in plan.state.players.values()):
         plan.do({"type": "rules_mana", "player": plan.active, "empty_all": True}, actor=plan.active)
+        for pid, n in kept.items():
+            plan.do({"type": "rules_mana", "player": pid, "delta": {"R": n}}, actor=pid)
 
 
 def next_step(plan: Plan) -> None:

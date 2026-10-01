@@ -66,6 +66,8 @@ REAL = [
          f"an opponent controls. {GOAD_REMINDER}", ["R"], ("0", "1")),
 ]
 REAL += [
+    real("Fire Sages", "F15", "{1}{R}", 2, "Creature — Human Cleric", "Firebending 1 (Whenever this creature attacks, add {R}. "
+         "This mana lasts until end of combat.)\n{1}{R}{R}: Put a +1/+1 counter on this creature.", ["R"], ("2", "2")),
     real("Earthbending Lesson", "F14", "{3}{G}", 4, "Sorcery — Lesson", "Earthbend 4. (Target land you control becomes a 0/0 "
          "creature with haste that's still a land. Put four +1/+1 counters on it. When it dies or is exiled, return it to the "
          "battlefield tapped.)", ["G"]),
@@ -527,4 +529,21 @@ def test_earthbent_land_exiled_returns_too(cards):
     act(s, "p1", type="activate_ability", card_id=exiler.id, ability=0, targets=[land.id])
     pass_until_stack_empty(s)
     assert s.state.cards[land.id].zone == "p1:battlefield" and s.state.cards[land.id].tapped
+    replay_matches(s)
+
+
+# -- firebending (702.189) -------------------------------------------------------------------------------
+def test_fire_sages_firebending_mana_lasts_until_end_of_combat(cards):
+    s = build(cards, "Fire Sages", players=2)
+    sages = cast(s, "Fire Sages", R=1, C=1)
+    token(s, "p2", "Ogre", "3/3")  # (Bob may block: combat waits for his declaration)
+    until_attackers(s, "p1")  # (Alice's next turn: it isn't summoning sick any more)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": sages.id, "target": "p2"}])
+    d = rules(s).decision
+    assert d is not None and d.kind == "declare_blockers" and s.state.turn.phase == "declare_blockers"
+    # the attack trigger added {R}; the declare attackers step ended, and the {R} stayed (702.189a)
+    assert s.state.players["p1"].mana.get("R") == 1 and rules(s).combat_mana == {"p1": 1}
+    act(s, "p2", type="declare_blockers", blocks=[])
+    assert s.state.turn.phase == "main2"  # (on through damage and end of combat)
+    assert not s.state.players["p1"].mana and not rules(s).combat_mana  # gone as the combat phase ended
     replay_matches(s)

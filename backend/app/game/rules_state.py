@@ -772,6 +772,9 @@ class RulesState(BaseModel):
     # they're drawn (for "except the first one they draw in each of their draw steps", 504.1).
     replace_step_key: str = ""
     replace_step_draws: dict[str, int] = Field(default_factory=dict)
+    # -- keyword actions & face-down (wave 3F) -- firebending (702.189a): the {R} each player added that
+    # they don't lose as steps end until end of combat (player -> how much of the red in their pool)
+    combat_mana: dict[str, int] = Field(default_factory=dict)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)

@@ -1707,6 +1707,11 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                     "kind": "triggered", "trigger": "dies_self", "optional": True,
                     "target": {"what": f"graveyard:Spirit:{m.group(1)}"},
                     "effects": [{"do": "bounce", "who": "target"}]}))
+            fb = re.fullmatch(r"firebending (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "firebending" else None
+            if fb:  # -- keyword actions & face-down (wave 3F) -- 702.189a: "Whenever this creature attacks, add N {R}. …"
+                out.append((1000 + ab.index * 10 + k, {
+                    "kind": "triggered", "trigger": "attacks_self", "optional": False, "target": None,
+                    "effects": [{"do": "firebend", "n": int(fb.group(1))}]}))
     return out
 
 
