@@ -212,7 +212,6 @@ def test_wordings(text, expected):
     "As long as ~ has a slumber counter on it, it's a land.",  # Arixmethes: a type-setting effect (not read)
     "As long as you control five or more enchantments, each other non-Aura enchantment you control is a creature in addition to "
     "its other types and has base power and base toughness each equal to its mana value.",  # Starfield of Nyx (613.8)
-    "As long as enchanted creature is legendary, it gets +1/+1 and has ward {1}.",  # Combat Research: ward isn't granted
     "As long as ~ has eight or more +1/+1 counters on it, it's a 0/0 creature in addition to its other types and it has annihilator 2.",
     "As long as it's monstrous, creatures you control get +1/+1.",  # "it": not certainly the source
     "As long as you control six or more lands, ~ isn't a creature.",  # a layer-4 condition that reads types (613.8)

@@ -1232,7 +1232,18 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     granted = permissions.parse_clause(text)
     if granted is not None:
         return granted
-    return language.parse_sentence(text)
+    found_sentence = language.parse_sentence(text)
+    # -- attached events (wave 4L) -- "you untap all lands you control" / "you create a Treasure token": an
+    # instruction with "you" spelled out is the imperative one (the controller does it either way), read as such
+    # when it isn't read with the subject ("… that player discards a card and you untap all lands you control")
+    if found_sentence is None and (m := _YOU_IMPERATIVE.match(text)) is not None:
+        return _one_clause(text[m.end():])
+    return found_sentence
+
+
+# -- attached events (wave 4L) --
+_YOU_IMPERATIVE = re.compile(r"you (?=(?:create|untap|tap|put|return|exile|destroy|scry|surveil|proliferate|"
+                             r"investigate|sacrifice|discard|mill|shuffle)\b)")
 
 
 def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
@@ -1952,7 +1963,12 @@ def granted_ability(text: str) -> AbilityText | None:
     if ab.kind == "keywords":
         from app.rules.coverage import SUPPORTED_KEYWORDS
 
-        return ab if set(ab.keywords) <= SUPPORTED_KEYWORDS else None
+        if set(ab.keywords) <= SUPPORTED_KEYWORDS:
+            return ab
+        # -- attached events (wave 4L) -- "Protection from red", "Ward {2}", "Toxic 1"
+        from app.rules import statics
+
+        return ab if statics.keyword_line(ab.text[0].lower() + ab.text[1:]) == ab.text else None
     probe = Characteristics(name="\u0000", abilities=(ab,))
     return ab if define(ab, probe) is not None else None
 
@@ -2010,6 +2026,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return sagas.chapter_definition(ability, ch)
         if ability.kind == "keywords":
             return sagas.read_ahead_definition(ability, ch)
+    if ability.kind == "triggered" and text.startswith("Whenever enchanted land is tapped for mana"):
+        # -- attached events (wave 4L) -- a triggered mana ability (605.1b)
+        from app.rules import attached_mana
+
+        return attached_mana.definition(text)
     if ability.kind == "static":
         # replacement / prevention effects of the permanent itself (the block at the end of this
         # module): "~ enters tapped [unless …]", shock lands, "~ enters with … counters", "If ~ would

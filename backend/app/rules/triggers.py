@@ -1156,11 +1156,20 @@ WARD = re.compile(r"^ward (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
 def ward_cost(ch: Any) -> str | None:
+    costs = ward_costs(ch)
+    return costs[0] if costs else None
+
+
+def ward_costs(ch: Any) -> list[str]:
+    """-- attached events (wave 4L) -- the cost of each ward ability the object has, printed or granted ("Equipped
+    creature has ward {1}"): each instance is its own triggered ability (702.21a) and triggers on its own."""
+    out = []
     for ab in ch.abilities:
         if ab.kind == "keywords" and "ward" in ab.keywords:
             m = WARD.fullmatch(ab.text.strip().rstrip("."))
-            return m["cost"] if m else None
-    return None
+            if m:
+                out.append(m["cost"])
+    return out
 
 
 def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[Any]) -> None:
@@ -1193,12 +1202,10 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
         if card is None or not card.zone.endswith(":battlefield") or card.controller == controller or plan.manual(card):
             continue
         ch = plan.ch(card)
-        cost = ward_cost(ch)
-        if cost is None:
-            continue
-        _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
-             index=9000, definition={"kind": "triggered", "trigger": "ward", "optional": False, "target": None,
-                                     "effects": [{"do": "counter_unless", "cost": cost, "object": stack_id}]})
+        for k, cost in enumerate(ward_costs(ch)):  # -- attached events (wave 4L) -- each instance (702.21a)
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+                 index=9000 + k, definition={"kind": "triggered", "trigger": "ward", "optional": False, "target": None,
+                                         "effects": [{"do": "counter_unless", "cost": cost, "object": stack_id}]})
 
 
 def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -> None:
