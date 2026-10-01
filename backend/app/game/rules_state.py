@@ -821,6 +821,10 @@ def start_rules(state: GameState) -> RulesState:
 
 # -- bookkeeping after every applied step ---------------------------------------------------------
 TRACKED_ZONES = ("battlefield", "stack")  # zones whose objects get last known information
+# ContinuousEffect.source of the copy effect of a card entering as a copy (app/rules/copying.py,
+# 707.5): set up on the card's object before it moves, it follows the card to the object it becomes
+# on the battlefield (:func:`_diff`) — whatever number that object gets.
+ENTERING_COPY = "entering:"
 
 
 def _zone_name(key: str) -> str:
@@ -945,9 +949,31 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
         del rules.lki[oid]
 
 
+def _entry_order(state: GameState, before: Capture) -> list[tuple[str, str]]:
+    """The step's cards in the order they get their new object numbers (613.7d: a timestamp as
+    they enter a zone). 613.7m: objects entering the battlefield simultaneously are timestamped in
+    APNAP order — the active player's first (among them, in the order the step lists them), then
+    each other player's in turn order; everything else keeps the table's order."""
+    seats = state.seat_order
+    start = seats.index(state.turn.active_player) if state.turn.active_player in seats else 0
+    apnap = {p: (i - start) % len(seats) for i, p in enumerate(seats)} if seats else {}
+
+    def key(item: tuple[int, tuple[str, str]]) -> tuple[int, int, int]:
+        i, (card_id, old_zone) = item
+        card = state.cards.get(card_id)
+        if card is None or _zone_name(card.zone) != "battlefield" or _zone_name(old_zone) == "battlefield":
+            return (0, 0, i)
+        listed = state.zones.get(card.zone, [])
+        return (1, apnap.get(card.controller, len(seats)), listed.index(card_id) if card_id in listed else i)
+
+    changed = [(cid, zone) for cid, zone in before.zones.items()
+               if (card := state.cards.get(cid)) is None or card.zone != zone]  # (the rest: no new object)
+    return [item for _, item in sorted(enumerate(changed), key=key)]
+
+
 def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) -> None:
     departures = state.departures()
-    for card_id, old_zone in before.zones.items():
+    for card_id, old_zone in _entry_order(state, before):
         card = state.cards.get(card_id)
         new_zone = card.zone if card is not None else departures.get(card_id)
         if card is not None and new_zone == old_zone:
@@ -969,6 +995,10 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
             rules.next_object += 1
             rules.objects[card_id] = rules.next_object
             new_oid = rules.object_id(card_id)
+            if new_name == "battlefield":  # 707.5: the copy effect it is entering with is the new object's
+                for eff in rules.effects:
+                    if eff.layer == "1" and eff.source == ENTERING_COPY + card_id and old_oid in eff.affected:
+                        eff.affected.append(new_oid)
         else:
             rules.objects.pop(card_id, None)
         if old_name in ("library", "hand") and new_name in ("library", "hand", None) and snap is None:

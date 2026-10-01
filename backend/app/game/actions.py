@@ -81,6 +81,10 @@ class Move(Base):
     face_down: bool | None = None
     face_down_kind: FaceDownKind | None = None  # morph / disguise / manifest / cloak …
     tapped: bool = False  # enters the battlefield tapped (a replacement effect, not a tap afterwards)
+    # Permanents entering the battlefield at once (one event, 603.6a / 614.12) whose replacements
+    # differ: the ones among them that enter tapped, and whose battlefield each enters (default: ``to``)
+    tapped_ids: list[Id] | None = Field(default=None, max_length=250)
+    controllers: dict[Id, Id] | None = None
     r: MoveData | None = None
 
 

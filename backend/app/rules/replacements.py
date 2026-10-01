@@ -32,10 +32,10 @@ tapped / with counters" imposed by *other* permanents (614.1d, "Permanents your 
 enter tapped"), damage doubling / redirection (614.9), draw and life-gain replacements, and "can't be
 prevented" (615.12: the engine doesn't model it yet, so no prevention is skipped on its account).
 
-Permanents an effect puts onto the battlefield together enter one after another here (each entry
-is its own move step), so the second of two shock lands found by one search sees the first on the
-battlefield already; the rules would have them enter simultaneously (614.12b). The difference only
-shows for "enters tapped unless you control …" conditions met by the other card entering with it.
+Permanents an effect puts onto the battlefield together enter simultaneously (:func:`move_together`:
+one move step, 603.6a): their choices are all made first (614.12a), their replacements are judged
+against the table before any of them enters (614.12: a land that "enters tapped unless you control
+a Plains" doesn't see a Plains entering with it), and they are timestamped in APNAP order (613.7m).
 
 Records live in ``RulesState.replacements`` as JSON (saved and replayed with the rest of the rules
 state); every choice is a ``Decision`` with resume data, and prompts about a hidden card only go to
@@ -262,24 +262,39 @@ def _answer(entry_or_answers: dict[str, Any], choice: dict[str, Any], chosen: st
     return {**entry_or_answers, "choices": {**(entry_or_answers.get("choices") or {}), choice["what"]: chosen}}
 
 
-def ask_entry_choice(plan: Plan, entry: Entry, rest: list[Entry], ctx: dict[str, Any] | None, shuffle: str | None) -> None:
-    """A shock land put onto the battlefield by an effect: its controller decides in private (the
-    card may come from a hidden zone: the prompt names it only to them)."""
+def ask_entry_choice(plan: Plan, entries: list[Entry], index: int, ctx: dict[str, Any] | None, shuffle: str | None) -> None:
+    """A permanent put onto the battlefield by an effect asks its controller before it enters
+    (614.12a) — before any of the permanents entering with it does (they enter together): in
+    private (the card may come from a hidden zone: the prompt names it only to them)."""
     from app.rules.plan import decide
 
+    entry = entries[index]
     card = plan.state.cards[entry["card"]]
     choice = choice_needed(plan, card, entry) or {"life": 0}
     prompt, options = choice_prompt(plan, card, entry["player"], choice)
     if not options:  # (no opponent left to choose, 800.4: the choice is skipped)
-        entry = _answer(entry, choice, "")
-        from app.rules import attachments
-
-        if attachments.enter(plan, [entry, *rest], ctx, shuffle=shuffle):
-            _finish_entries(plan, ctx, shuffle)
+        _enter_again(plan, entries, index, _answer(entry, choice, ""), ctx, shuffle)
         return
     decide(plan, player=entry["player"], kind="choose_one", prompt=prompt, options=options,
-           resume={"step": "enter_choice", "entry": entry, "rest": rest, "ctx": ctx, "shuffle": shuffle, "choice": choice},
+           resume={"step": "enter_choice", "entries": entries, "index": index, "ctx": ctx, "shuffle": shuffle,
+                   "choice": choice},
            source=card)
+
+
+def _enter_again(plan: Plan, entries: list[Entry], index: int, entry: Entry, ctx: dict[str, Any] | None,
+                 shuffle: str | None) -> None:
+    from app.rules import attachments
+
+    if attachments.enter(plan, [*entries[:index], entry, *entries[index + 1:]], ctx, shuffle=shuffle):
+        _finish_entries(plan, ctx, shuffle)
+
+
+def resume_entries(resume: dict[str, Any]) -> tuple[list[Entry], int]:
+    """The entries of a paused simultaneous entry and the one that was asking (a decision saved
+    before entries were batched holds that one and the rest after it)."""
+    if "entries" in resume:
+        return list(resume["entries"]), int(resume.get("index") or 0)
+    return [resume["entry"], *(resume.get("rest") or [])], 0
 
 
 def _finish_entries(plan: Plan, ctx: dict[str, Any] | None, shuffle: str | None) -> None:
@@ -292,13 +307,9 @@ def _finish_entries(plan: Plan, ctx: dict[str, Any] | None, shuffle: str | None)
 
 
 def resume_entry_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
-    from app.rules import attachments
-
-    entry = _answer(d.resume["entry"], d.resume.get("choice") or {"life": 0}, chosen[0])
-    rest, ctx, shuffle = d.resume.get("rest") or [], d.resume.get("ctx"), d.resume.get("shuffle")
-    if not attachments.enter(plan, [entry, *rest], ctx, shuffle=shuffle):
-        return  # another choice (a second shock land, an Aura choosing what it enchants)
-    _finish_entries(plan, ctx, shuffle)
+    entries, index = resume_entries(d.resume)
+    entry = _answer(entries[index], d.resume.get("choice") or {"life": 0}, chosen[0])
+    _enter_again(plan, entries, index, entry, d.resume.get("ctx"), d.resume.get("shuffle"))
 
 
 def stack_entry_choice(plan: Plan, card: CardInstance, controller: str) -> bool:
@@ -338,25 +349,49 @@ def resume_land_enter_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def move_onto_battlefield(plan: Plan, entry: Entry) -> None:
-    """Put one card onto the battlefield under ``entry["player"]``'s control with its "enters"
-    replacements applied: tapped status is part of the move itself (it never enters untapped and
-    then taps), a shock land's life is paid as it enters, its "enters with" counters and loyalty
-    follow as the same event (122.6, 306.5b). Extras recorded on the entry by the effect that puts it
-    there — a persist / undying counter, unearth's haste and "exile it instead" — are applied after."""
-    card = plan.state.cards.get(entry["card"])
-    if card is None:
+    """Put one card onto the battlefield (:func:`move_together` with one entry)."""
+    move_together(plan, [entry])
+
+
+def move_together(plan: Plan, entries: list[Entry]) -> None:
+    """Put cards onto the battlefield at once, each under ``entry["player"]``'s control with its
+    "enters" replacements applied: one event (603.6a), every replacement judged against the table
+    as it is before any of them enters (614.12: "enters tapped unless you control …" doesn't see a
+    card entering with it), the objects timestamped in APNAP order (613.7m: rules_state._diff).
+    Tapped status is part of the move itself (it never enters untapped and then taps), a shock
+    land's life is paid as it enters, its "enters with" counters and loyalty follow as the same
+    event (122.6, 306.5b). Extras recorded on the entry by the effect that puts it there — a
+    persist / undying counter, unearth's haste and "exile it instead" — are applied after."""
+    planned: list[tuple[Entry, CardInstance, dict[str, Any]]] = []
+    for entry in entries:
+        card = plan.state.cards.get(entry["card"])
+        if card is None or any(card.id == c.id for _, c, _ in planned):
+            continue
+        planned.append((entry, card, entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"),
+                                                 tapped=bool(entry.get("tapped")), answers=entry.get("choices"),
+                                                 x=entry.get("x"), extra=_extra(entry))))
+    if not planned:
         return
-    controller, actor = entry["player"], entry["actor"]
-    ep = entry_plan(plan, card, controller, pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
-                    answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry))
-    if ep.get("life"):
-        plan.do({"type": "life", "player": controller, "delta": -int(ep["life"])}, actor=actor)
-    payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"player": controller, "zone": "battlefield"}}
-    if ep["tapped"]:
-        payload["tapped"] = True
-    plan.do(payload, actor=actor)
-    after_entry(plan, card.id, controller, x=entry.get("x"), extra_counters=_extra(entry), choices=ep.get("choices"))
-    entered = plan.state.cards.get(card.id)
+    for entry, _card, ep in planned:
+        if ep.get("life"):
+            plan.do({"type": "life", "player": entry["player"], "delta": -int(ep["life"])}, actor=entry["actor"])
+    first = planned[0][0]
+    payload: dict[str, Any] = {"type": "move", "card_ids": [c.id for _, c, _ in planned],
+                               "to": {"player": first["player"], "zone": "battlefield"}}
+    tapped = [c.id for _, c, ep in planned if ep["tapped"]]
+    if tapped:
+        payload["tapped_ids"] = tapped
+    if any(e["player"] != first["player"] for e, _, _ in planned):
+        payload["controllers"] = {c.id: e["player"] for e, c, _ in planned}
+    plan.do(payload, actor=first["actor"])
+    for entry, card, ep in planned:
+        _after_move(plan, entry, card.id, ep)
+
+
+def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any]) -> None:
+    controller = entry["player"]
+    after_entry(plan, card_id, controller, x=entry.get("x"), extra_counters=_extra(entry), choices=ep.get("choices"))
+    entered = plan.state.cards.get(card_id)
     if entered is None or not entered.zone.endswith(":battlefield"):
         return
     oid = plan.oid(entered)

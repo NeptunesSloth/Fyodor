@@ -50,6 +50,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.rules_state import (
+    ENTERING_COPY,
     CopyExcept,
     CopyRecipe,
     DecisionOption,
@@ -72,7 +73,7 @@ Context = dict[str, Any]
 Job = dict[str, Any]
 Position = tuple[str, int, int]  # ("plain" | "slot" | "group", slot or group, index)
 
-ENTERING = "entering:"  # ContinuousEffect.source of the copy effect of a permanent entering as a copy
+ENTERING = ENTERING_COPY  # ContinuousEffect.source of the copy effect of a permanent entering as a copy
 TO_COPY = " to copy"  # the end of an "enter as a copy" choice's name ("creature to copy")
 NONE = "none"  # the answer "copy nothing" (the permanent enters as itself)
 DOUBLE_FACED = ("transform", "modal_dfc", "meld", "reversible_card")
@@ -802,9 +803,9 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     answer yet, ``out["choice"]`` asks for it and True stops the rest of the plan (asked through
     the usual entry-choice prompts). With an answer, the copy effect is set up — on the object as it
     is now, so the rest of the plan reads the permanent's other entry replacements from the copied
-    text as it would exist on the battlefield (707.5, 614.12), and on the object it becomes as it
-    enters (the next object number: the rules paths move it right after planning its entry) — and
-    False lets the plan go on. Nothing to copy: no choice, it enters as itself."""
+    text as it would exist on the battlefield (707.5, 614.12); it follows the card onto the
+    battlefield, to the object it becomes there (``rules_state._diff``) — and False lets the plan
+    go on. Nothing to copy: no choice, it enters as itself."""
     d = enter_definition(plan, card)
     if d is None:
         return False
@@ -824,8 +825,9 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
         return False
     excepts = [CopyExcept.model_validate(x) for x in d.get("excepts") or []]
     recipe = with_excepts(recipe_of(plan, source), excepts)
-    predicted = f"{card.id}.{plan.rules.next_object + 1}"
-    add_copy_effect(plan, [plan.oid(card), predicted], recipe, controller, source=ENTERING + card.id)
+    # (on the object as it is now; it follows the card to the object it becomes as it enters,
+    # whatever its number: rules_state._diff — never a predicted id, 400.7)
+    add_copy_effect(plan, [plan.oid(card)], recipe, controller, source=ENTERING + card.id)
     return False
 
 

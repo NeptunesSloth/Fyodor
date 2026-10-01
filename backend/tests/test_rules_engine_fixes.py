@@ -5,12 +5,22 @@ is transcribed below and named in the comment above it. CR 2026-09-25.
 
 - 616.1 / 614.16: token copies go through the pausable token choke point (the creator orders
   non-commuting replacements; the instruction's binding and later steps follow the answer).
+- 707.5: a card entering as a copy keeps its copy effect whatever object number it gets.
+- 603.6a / 614.12 / 613.7m: permanents put onto the battlefield together enter as one event, judged
+  against the table before any of them enters, timestamped in APNAP order.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
+from app.cards.importer import build_database
+from app.config import Settings
+from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_attachments import build, ch, token
+from tests.test_rules_attachments import build, ch, named, token
 from tests.test_rules_effects import pass_until_stack_empty, replay_matches
 from tests.test_rules_replacements2 import (
     DOUBLING_SEASON,
@@ -23,6 +33,29 @@ from tests.test_rules_replacements2 import (
 )
 from tests.test_rules_suspend import until
 
+EXTRA = [
+    # Glacial Fortress
+    card("Glacial Fortress", set_code="tef", number="E1", type_line="Land",
+         oracle_text="This land enters tapped unless you control a Plains or an Island.\n{T}: Add {W} or {U}.",
+         color_identity=["W", "U"]),
+    # Clone
+    card("Clone", set_code="tef", number="E2", mana_cost="{3}{U}", cmc=4.0, type_line="Creature — Shapeshifter",
+         oracle_text="You may have this creature enter as a copy of any creature on the battlefield.", colors=["U"],
+         color_identity=["U"], power="0", toughness="0"),
+]
+
+
+@pytest.fixture()
+def card_db(settings: Settings) -> Path:
+    settings.ensure_dirs()
+    build_database(fixture_cards() + EXTRA, settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
+# The Mending of Dominaria, chapter III (its first sentence, as an activated ability)
+RETURN_LANDS = "{1}: Return all land cards from your graveyard to the battlefield."
+# the same instruction for creature cards
+RETURN_CREATURES = "{1}: Return all creature cards from your graveyard to the battlefield."
 # Molten Duplication (sorcery), as the activated ability of a custom permanent (the same effect text)
 MOLTEN_DUPLICATION = ("{1}: Create a token that's a copy of target artifact or creature you control, except it's an "
                       "artifact in addition to its other types. It gains haste until end of turn. Sacrifice it at the "
@@ -36,6 +69,12 @@ def treasure(s, pid="p1"):
     return named_all(s, "Treasure", pid)[-1]
 
 
+def activate(s, card_, pid="p1", **kw):
+    act(s, pid, type="add_mana", player=pid, mana={"C": 1})
+    act(s, pid, type="activate_ability", card_id=card_.id, ability=0, **kw)
+    pass_until_stack_empty(s)
+
+
 # -- token copies: 616.1 order through the token choke point ------------------------------------------
 def test_a_token_copy_asks_the_creator_to_order_xorn_and_doubling_season(cards):
     s = build(cards)
@@ -43,9 +82,7 @@ def test_a_token_copy_asks_the_creator_to_order_xorn_and_doubling_season(cards):
     token(s, "p1", "Xorn", "3/2", XORN)
     gold = treasure(s)
     dup = permanent(s, "p1", "Molten Duplication", "Enchantment", MOLTEN_DUPLICATION)
-    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
-    act(s, "p1", type="activate_ability", card_id=dup.id, ability=0, targets=[gold.id])
-    pass_until_stack_empty(s)
+    activate(s, dup, targets=[gold.id])
     d = decision(s)
     assert d is not None and d.player == "p1" and d.resume["step"] == "replace_order"  # 616.1: the creator's choice
     assert len(named_all(s, "Treasure")) == 1  # nothing is created before the choice (614.6)
@@ -68,3 +105,63 @@ def test_a_token_copy_asks_the_creator_to_order_xorn_and_doubling_season(cards):
     until(s, lambda s: not s.state.rules.delayed, limit=60)
     pass_until_stack_empty(s)
     assert [c.id for c in named_all(s, "Treasure")] == [gold.id]  # sacrificed (and gone: 704.5d)
+
+
+# -- simultaneous entries (603.6a, 614.12, 613.7m) ----------------------------------------------------
+def to_graveyard(s, *cards_, pid="p1"):
+    for c in cards_:
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "graveyard"})
+
+
+def test_a_check_land_does_not_see_an_island_entering_with_it(cards):
+    """614.12: "enters tapped unless you control a Plains or an Island" is judged before either
+    enters — the Island returned with it isn't there yet."""
+    s = build(cards, "Glacial Fortress", "Island")
+    fortress, island = named(s, "Glacial Fortress"), named(s, "Island")
+    to_graveyard(s, island, fortress)
+    activate(s, permanent(s, "p1", "The Mending of Dominaria", "Enchantment", RETURN_LANDS))
+    assert s.state.cards[fortress.id].zone == s.state.cards[island.id].zone == "p1:battlefield"
+    assert s.state.cards[fortress.id].tapped and not s.state.cards[island.id].tapped
+    # one event (603.6a): both zone changes are one batch
+    batches = {e.batch for e in s.state.rules.events if e.kind == "zone_change" and e.to_zone == "p1:battlefield"
+               and e.card in (fortress.id, island.id)}
+    assert len(batches) == 1
+    replay_matches(s)
+
+
+@pytest.mark.parametrize("clone_first", [True, False])
+def test_clone_entering_with_another_creature_keeps_its_copy(cards, clone_first):
+    """707.5: the copy effect follows Clone onto the battlefield whatever object number it gets
+    (two creatures entering together: never a predicted id)."""
+    s = build(cards, "Clone", "Grizzly Bears")
+    clone, bears = named(s, "Clone"), named(s, "Grizzly Bears")
+    to_graveyard(s, *((clone, bears) if clone_first else (bears, clone)))
+    chieftain = token(s, "p1", "Goblin Chieftain", "3/3")
+    activate(s, permanent(s, "p1", "Raiser", "Enchantment", RETURN_CREATURES))
+    d = decision(s)
+    assert d is not None and chieftain.id in {o.id for o in d.options}
+    assert s.state.cards[bears.id].zone == "p1:graveyard"  # nothing entered before the choice (614.12a)
+    answer(s, chieftain.id)
+    pass_until_stack_empty(s)
+    copy = ch(s, s.state.cards[clone.id])
+    assert copy.name == "Goblin Chieftain" and copy.pt == (3, 3)
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
+    replay_matches(s)
+
+
+def test_simultaneous_entries_are_timestamped_in_apnap_order(cards):
+    """613.7m: the active player's permanent gets the earlier timestamp, whatever order the effect
+    lists them in; both enter in one step under their own controllers."""
+    from app.rules import attachments
+    from app.rules.plan import Plan
+
+    s = build(cards)
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1")
+    island = next(c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2")
+    plan = Plan(s.state, "p1", cards, None)
+    assert attachments.enter(plan, [{"card": island.id, "player": "p2", "actor": "p2"},
+                                    {"card": forest.id, "player": "p1", "actor": "p1"}], None)
+    assert plan.state.cards[forest.id].zone == "p1:battlefield" and plan.state.cards[island.id].zone == "p2:battlefield"
+    assert [st["type"] for st in plan.steps] == ["move"]  # one event (603.6a)
+    objects = plan.state.rules.objects
+    assert objects[forest.id] < objects[island.id]
