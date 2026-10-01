@@ -87,6 +87,14 @@ EXTRA = [
     card("Bojuka Bog", set_code="tst", number="J417", type_line="Land",
          oracle_text="This land enters tapped.\nWhen this land enters, exile target player's graveyard.\n{T}: Add {B}.",
          color_identity=["B"]),
+    card("Mana Vault", set_code="tst", number="J419", mana_cost="{1}", cmc=1.0, type_line="Artifact",
+         oracle_text="This artifact doesn't untap during your untap step.\nAt the beginning of your upkeep, you may pay {4}. If "
+                     "you do, untap this artifact.\nAt the beginning of your draw step, if this artifact is tapped, it deals 1 "
+                     "damage to you.\n{T}: Add {C}{C}{C}."),
+    card("Smothering Tithe", set_code="tst", number="J420", mana_cost="{3}{W}", cmc=4.0, type_line="Enchantment",
+         oracle_text="Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a "
+                     "Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+         colors=["W"], color_identity=["W"]),
     card("Farewell", set_code="tst", number="J418", mana_cost="{4}{W}{W}", cmc=6.0, type_line="Sorcery",
          oracle_text="Choose one or more —\n• Exile all artifacts.\n• Exile all creatures.\n• Exile all enchantments.\n"
                      "• Exile all graveyards.", colors=["W"], color_identity=["W"]),
@@ -650,3 +658,66 @@ def test_farewell_exiles_all_graveyards(cards):
     assert named(s, "Grizzly Bears").zone == "p1:exile" and named(s, "Llanowar Elves", "p2").zone == "p2:exile"
     assert s.state.cards[bear.id].zone == "p1:battlefield"
     replay_matches(s)
+
+
+# -- step triggers about the source's state (603.4) ----------------------------------------------------------------
+@pytest.mark.parametrize("tapped", [True, False])
+def test_mana_vault_draw_step_damage(cards, tapped):
+    """Mana Vault: tapped at Alice's draw step (it doesn't untap; she declines to pay {4}), it deals her 1 damage;
+    untapped, its intervening "if" is false and nothing triggers."""
+    s = build(cards, "Mana Vault")
+    vault = named(s, "Mana Vault")
+    act(s, "p1", type="move", card_ids=[vault.id], to={"player": "p1", "zone": "battlefield"})
+    if tapped:
+        act(s, "p1", type="tap", card_ids=[vault.id], tapped=True)
+    for _ in range(200):
+        if s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None:
+            break
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            ids = [o.id for o in d.options]
+            answer(s, ["decline"] if "decline" in ids else ids[: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[vault.id].tapped is tapped
+    assert life(s, "p1") == (39 if tapped else 40)
+    replay_matches(s)
+
+
+# -- "That player may pay {2}. If the player doesn't, …" (118.12a) -------------------------------------------------
+@pytest.mark.parametrize("pays", [True, False])
+def test_smothering_tithe(cards, pays):
+    """Smothering Tithe: Bob draws for his turn and is asked (privately) whether to pay {2}; if he doesn't, Alice
+    creates a Treasure."""
+    s = build(cards, "Smothering Tithe")
+    tithe = named(s, "Smothering Tithe")
+    act(s, "p1", type="move", card_ids=[tithe.id], to={"player": "p1", "zone": "battlefield"})
+    islands = [c for c in s.state.zones["p2:library"] if s.state.cards[c].name == "Island"][:2]
+    act(s, "p2", type="move", card_ids=islands, to={"player": "p2", "zone": "battlefield"})
+    asked = []
+    for _ in range(200):
+        if s.state.turn.number == 2 and s.state.turn.phase == "main1" and s.state.rules.decision is None:
+            break
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None:
+            ids = [o.id for o in d.options]
+            if "pay" in ids:
+                asked.append(d.player)
+                if pays:
+                    mana(s, "p2", C=2)
+                answer(s, ["pay" if pays else "decline"])
+            else:
+                answer(s, ids[: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    treasures = [c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Treasure"]
+    assert asked == ["p2"]
+    assert len(treasures) == (0 if pays else 1)
+    replay_matches(s)
+    roundtrip(s)

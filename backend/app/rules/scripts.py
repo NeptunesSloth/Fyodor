@@ -1391,6 +1391,11 @@ def _energy_paid(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     return [*found[0][:at + 1], *paid], found[1], found[2]
 
 
+# -- may pay or else (wave 4J) -- the whole ability: one payment, one consequence (no "you may" in it)
+_MAY_PAY_ELSE = re.compile(r"^(?:[Tt]hat player|[Tt]hey) may pay (?P<cost>(?:\{[^}]+\})+)\. If (?:the player|that player|they) "
+                           r"(?:doesn't|don't), (?:you (?=create ))?(?P<rest>(?![^.]*\bmay\b)[^.]+)\.$")
+
+
 def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
@@ -1399,6 +1404,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     effects: list[dict[str, Any]] = []
     groups: list[dict[str, Any]] = []
     start = 0
+    # -- may pay or else (wave 4J) -- "That player may pay {2}. If the player doesn't, you create a Treasure token."
+    # (Smothering Tithe) is 118.12a's own reading of "[Effect] unless that player pays {2}": read as that
+    body = _MAY_PAY_ELSE.sub(lambda m: f"{m['rest'][:1].upper()}{m['rest'][1:]} unless that player pays {m['cost']}.", body)
     texts = [s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     skip_to = 0  # -- refused look/cast-free (wave 3R5) -- sentences read together with an earlier one (piles)
@@ -2045,6 +2053,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     and re.search(r"\bthis card\b", body) is not None
                 if aura_card:
                     body = re.sub(r"\bthis card\b", "~", body)
+                if _trigger_antecedent(name, cond) is None:  # -- step triggers (wave 4J) -- "At the beginning of your draw
+                    # step, if this artifact is tapped, it deals 1 damage to you." (Mana Vault): the only object named is ~
+                    body = re.sub(r"^(if ~ is (?:tapped|untapped)), it deals ", r"\1, ~ deals ", body)
                 parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
                 if parsed is None:  # -- this-turn history (wave 4D) -- "…, if [condition], you may …" (603.4 + 603.5)
                     parsed = _intervening_may(body, _trigger_antecedent(name, cond), has_player)
