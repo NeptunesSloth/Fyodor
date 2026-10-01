@@ -1582,10 +1582,20 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
     if ctx.get("found") in chosen:
         ctx["found"] = None
     before = _remember(plan, ctx, e, chosen)
-    if e["to"] in ("hand", "graveyard", "exile"):
+    # -- look and distribute (wave 3L) -- "If you don't [put the card …]" reads what this pick did
+    # (a probe like draw's: the picked objects, as they were, and the zone they should reach)
+    if e.get("did"):
+        zone = {"battlefield_tapped": "battlefield", "top": "library", "bottom": "library"}.get(e["to"], e["to"])
+        context.refs(ctx)[e["did"]] = {"kind": "probe", "to": zone, "cards": {c: plan.oid(plan.state.cards[c]) for c in chosen}}
+    if e["to"] in ("top", "bottom"):  # "put it on top of / on the bottom of your library": the owner's (private order)
+        for cid in chosen:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
+                     "position": e["to"]}, actor=pid)
+    elif e["to"] in ("hand", "graveyard", "exile"):
         for cid in chosen:  # (a graveyard or exile is the owner's; "your hand" yours)
             to = pid if e["to"] == "hand" else plan.state.cards[cid].owner
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": to, "zone": e["to"]}}, actor=pid)
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": to, "zone": e["to"]},
+                     **({"face_down": True} if e.get("face_down") else {})}, actor=pid)
     else:
         entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped"} for c in chosen]
         if not attachments.enter(plan, entries, ctx):

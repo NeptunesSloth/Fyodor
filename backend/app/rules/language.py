@@ -407,16 +407,27 @@ _TOP = re.compile(rf"(?P<verb>look at|reveal) the top {_N_CARDS} of {_LIB}(?P<ba
 _SUBJ_TOP = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) the top {_N_CARDS} of their library")
 _EXILE_TOP = re.compile(rf"exile the top {_N_CARDS} of {_LIB}(?P<fd> face down)?")
 _UNTIL = re.compile(rf"(?P<verb>reveal|exile) cards from the top of {_LIB} until you (?P=verb) (?:a|an) (?P<sel>.+)")
-_REST = (r"(?:the rest|the other|the others|the other cards|all other cards revealed this way) "
-         r"(?P<rest>into your graveyard|into your hand|on the bottom(?: of your library)? in (?:any|a random) order|"
-         r"on the bottom of your library|on top of your library in any order)")
+# -- look and distribute (wave 3L) -- where the picked / remaining cards go; a library may be "that library"
+# / "that player's library" (the one looked at), a graveyard "their graveyard"
+_LIBREF = r"(?:your|that|their|that player's) library"
+_REST = (r"(?:the rest|the rest of (?:those|the) cards|the rest of them|the other|the others|the other cards|"
+         r"all other cards revealed this way) "
+         rf"(?P<rest>into (?:your|their) graveyard|into your hand|on the bottom(?: of {_LIBREF})? in (?:any|a random) order|"
+         rf"on the bottom of {_LIBREF}|(?:back )?on top of {_LIBREF} in any order)")
+_PICK_TO = ("into your hand|onto the battlefield tapped|onto the battlefield|into your graveyard|"
+            "on top of your library|on the bottom of your library|on the bottom of that player's library|"
+            "on top of that player's library|on the bottom of that library|on top of that library")
+_PICK_DESTS = {**_DESTS, "on top of your library": "top", "on the bottom of your library": "bottom",
+               "on the bottom of that player's library": "bottom", "on top of that player's library": "top",
+               "on the bottom of that library": "bottom", "on top of that library": "top"}
 _PICK = re.compile(
-    rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |put )"
-    rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all) (?:of them|of those cards|(?P<sel>.+?) (?:from among them|revealed this way))"
+    rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |(?P<exile>(?:you may )?exile) |put )"
+    rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among them|revealed this way))"
+    r"|(?= (?:into|on|onto) )| them(?= (?:into|on|onto) ))"
     r"|(?P<that>that card|it|the revealed card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
     r"(?: and put (?:it|them|the revealed cards|that card|those cards))?"
-    r" (?P<to>into your hand|onto the battlefield tapped|onto the battlefield|into your graveyard)"
-    rf"(?: and {_REST})?")
+    rf"(?:(?P<fd> face down)| (?P<to>{_PICK_TO}))?"
+    rf"(?:,? (?:and |then )?(?:put )?{_REST})?")
 _REST_ALONE = re.compile(rf"(?:put {_REST}|exile (?P<exile>the rest|all other cards revealed this way))")
 _OWNERS = r"(?:its owner's|their owner's|their owners'|your)"
 _TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_OWNERS} library")
@@ -428,9 +439,9 @@ _SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)
 
 
 def _rest(where: str) -> dict[str, Any]:
-    if where in ("into your graveyard", "into your hand"):
-        to = where[len("into your "):]
-    elif where.startswith("on top"):
+    if where.startswith("into "):
+        to = where.split()[-1]
+    elif "on top" in where:
         to = "top_any"
     else:
         to = "bottom_random" if "random" in where else "bottom_any"
@@ -450,6 +461,39 @@ def _card_sel(phrase: str) -> str:
     return sel.key()
 
 
+# -- look and distribute (wave 3L) --
+_CHAIN_SPLIT = re.compile(r", (?:then |and )?")
+
+
+def _chain(text: str) -> tuple[Effects, Any] | None:
+    """Comma-joined steps of one look-and-distribute sentence: "look at the top four cards of target
+    opponent's library, exile one of them face down, then put the rest on the bottom of that library
+    in a random order" / "put one of them into your hand, put one of them on the bottom of your
+    library, and exile one of them". Each piece is read on its own; every piece after the first must
+    be a pick or a "the rest" step (no targets of its own: 115.3)."""
+    if "," not in text or " where " in text or not re.match(r"^(?:(?:look at|reveal) the top|put|exile) ", text):
+        return None
+    parts = _CHAIN_SPLIT.split(text)
+    if len(parts) < 2 or any(len(p) < 4 for p in parts):
+        return None
+    out: Effects = []
+    group: Any = None
+    for i, part in enumerate(parts):
+        try:
+            got = _looking(part)
+        except _Fail:
+            return None
+        if got is None:
+            return None
+        effects, grp = got
+        if i == 0 and re.match(r"^(?:put|exile) ", part) is None:
+            group = grp
+        elif grp is not None or any(x["do"] not in ("pick_looked", "rest_looked") for x in effects):
+            return None
+        out += effects
+    return out, group
+
+
 def _looking(text: str) -> tuple[Effects, Any] | None:
     """The top of a library: "look at the top N cards of your library" (private, 701.20e) and
     "reveal the top N cards" (public, 701.20a), "… then put them back in any order" (401.4: the
@@ -461,6 +505,9 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     order / into your graveyard", "exile the rest". Also "put target creature on top / on the
     bottom of its owner's library", "shuffle ~ into its owner's library", "shuffle [your graveyard
     into your library]"."""
+    chained = _chain(text)  # -- look and distribute (wave 3L) --
+    if chained is not None:
+        return chained
     text, rider = _with_rider(text) if re.match(r"^(?:look at|reveal|exile) the top", text) else (text, None)
 
     def count(m: re.Match[str]) -> Any:
@@ -494,9 +541,14 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
             _one(group)
     m = _PICK.fullmatch(text)
     if m:
-        optional = bool(m["may"] or m["mayput"])
-        e: dict[str, Any] = {"do": "pick_looked", "n": 1, "sel": None, "to": _DESTS[m["to"]], "optional": optional,
-                             "reveal": bool(m["may"])}
+        optional = bool(m["may"] or m["mayput"] or (m["exile"] or "").startswith("you may"))
+        if m["exile"]:
+            if m["to"]:
+                raise _Fail
+        elif m["to"] is None or m["fd"]:
+            raise _Fail
+        e: dict[str, Any] = {"do": "pick_looked", "n": 1, "sel": None, "to": _PICK_DESTS[m["to"]] if m["to"] else "exile",
+                             "optional": optional, "reveal": bool(m["may"]), **({"face_down": True} if m["fd"] else {})}
         if m["q"]:
             q = m["q"]
             e["optional"] = optional or q.startswith(("up to", "any number"))
@@ -510,6 +562,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
                 raise _Fail
         else:
             e["which"] = "that" if m["that"] else "all"
+        if e["to"] in ("top", "bottom") and (e.get("which") == "all" or e["n"] != 1):
+            raise _Fail  # (several cards put into a library: their order is a choice not read here)
         out = [e]
         if m["rest"]:
             out.append(_rest(m["rest"]))
