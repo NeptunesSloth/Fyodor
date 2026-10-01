@@ -683,9 +683,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], _one(group)
+    found = reanimation_forms(text)  # -- reanimation (wave 3R) --
+    if found is not None:
+        return found
     if text in ("return ~ to its owner's hand", "return it to its owner's hand"):
         return [{"do": "bounce", "who": "self" if text.startswith("return ~") else "it"}], None
-    m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|your hand|"
+    m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|their hand|your hand|"
                      r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?"
                      r"(?: with (?:an?|one) (?P<ck>\+1/\+1|-1/-1|[a-z]+) counter on it)?)", text)
     if m:
@@ -705,7 +708,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
                 raise _Fail
             # (-- quoted grants, wave 2D -- "… with a +1/+1 counter on it": it enters with it, 122.6)
             return [{"do": "return_card", "who": who, "to": "battlefield", "tapped": bool(m["t"]),
-                     "under": "you" if m["u"] == "your" else "owner", **({"counter": m["ck"]} if m["ck"] else {})}], target
+                     "under": "owner" if m["u"] and m["u"] != "your" else "you",  # (110.2a: unless it says otherwise)
+                     **({"counter": m["ck"]} if m["ck"] else {})}], target
         if from_zone and kind not in ("it", "them"):
             return [{"do": "return_card", "who": who, "to": "hand", "under": "you" if m["d"] == "your hand" else "owner"}], target
         if m["d"] == "your hand":
@@ -1376,3 +1380,65 @@ def parse_base_pt(m: re.Match[str]) -> tuple[Effects, Any]:
 def parse_still(m: re.Match[str]) -> tuple[Effects, Any]:
     """"It's still a land.": the sentence before it retains the object's types (205.1b)."""
     return [{"do": "still_a", "type": m["t"].capitalize()}], None
+
+
+# -- reanimation (wave 3R) -----------------------------------------------------------------------------
+# "Put target creature card from a graveyard onto the battlefield under your control", "return this card
+# from your graveyard to your hand", "return a creature card from your graveyard to the battlefield"
+# (chosen on resolution, 608.2d), "return up to two creature cards …", "… at random …". A card enters
+# under the control of the player the effect names, by default the one instructed (110.2a); a card
+# returns to its OWNER's hand (400.3).
+_RA_UNDER = r"(?: under (?P<u>your|its owner's|their owner's|their owners') control)?"
+_RA_RETURN = re.compile(rf"return (?P<o>.+?) to (?:(?P<h>your hand|its owner's hand|their owner's hand|their owners' hands|their hand)|"
+                        rf"the battlefield(?P<t> tapped)?{_RA_UNDER})")
+_RA_PUT = re.compile(rf"put (?P<o>.+?) onto the battlefield(?P<t> tapped)?{_RA_UNDER}")
+_RA_ZONE = r"(?:your graveyard|a graveyard|an opponent's graveyard)"
+_RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<n>{AMT}) )(?P<what>[^,]+?)(?P<rand> at random)?"
+                        rf" from (?P<z>{_RA_ZONE})")
+_RA_SELF = re.compile(r"(?:this card|~) from your graveyard")
+
+
+def _graveyard_cards(key: str) -> bool:
+    sel = selectors.from_key(key) if key.startswith(selectors.PREFIX) else None
+    return sel is not None and sel.card and sel.zones == ("graveyard",) and not sel.player
+
+
+def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
+    """The graveyard-return wordings above; None when the sentence is not one of them (the older
+    grammar then reads it, or it stays manual)."""
+    may = text.startswith("you may ")  # (mid-ability: "Mill three cards, then you may return a creature card …")
+    if may:
+        text = text[len("you may "):]
+    put = _RA_PUT.fullmatch(text)
+    m = put or _RA_RETURN.fullmatch(text)
+    if m is None:
+        return None
+    hand = not put and bool(m["h"])
+    effect: dict[str, Any] = {"do": "return_card", "to": "hand" if hand else "battlefield"}
+    if not hand:  # (110.2a: the one instructed controls it unless the text says "its owner's")
+        effect.update(tapped=bool(m["t"]), under="owner" if m["u"] and m["u"] != "your" else "you")
+    obj = m["o"]
+    if may and not _RA_CHOICE.fullmatch(obj):
+        return None  # (only a choice models its own "may": choosing none)
+    if _RA_SELF.fullmatch(obj):  # works from the graveyard (113.6m): coverage keeps it to activated abilities
+        return [{**effect, "who": "self_gy"}], None
+    c = _RA_CHOICE.fullmatch(obj)
+    if c is not None:
+        words = re.sub(r"\bcards\b", "card", c["what"])
+        sel = selectors.parse(f"{words} from {c['z']}")
+        if sel is None or not _graveyard_cards(sel.key()):
+            return None
+        n = _amount(c["upto"] or c["n"]) if (c["upto"] or c["n"]) else 1
+        if not isinstance(n, int) or (c["rand"] and (c["upto"] or sel.zone_owner != "you")):
+            return None
+        return [{**effect, "do": "return_choice", "sel": sel.key(), "n": n, "upto": bool(c["upto"] or may),
+                 "random": bool(c["rand"]), "label": words, **({"optional": True} if may else {})}], None
+    if not put:
+        return None  # ("return target …" / "return all …": the grammar below)
+    try:
+        kind, key, group = ref(obj)
+    except _Fail:
+        return None
+    if kind not in ("target", "each") or not _graveyard_cards(key):
+        return None
+    return [{**effect, "who": _who(kind, key)}], _one(group)

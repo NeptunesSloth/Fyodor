@@ -83,6 +83,7 @@ class AbilityCost:
     loyalty_x: bool = False  # −X: remove X loyalty counters, X chosen as it's activated (107.3k)
     unsupported: tuple[str, ...] = field(default_factory=tuple)
     components: tuple[CostComponent, ...] = ()
+    graveyard_only: bool = False  # -- reanimation (wave 3R) -- its effect moves this card out of your graveyard (113.6m)
 
     @property
     def basic(self) -> bool:
@@ -100,7 +101,7 @@ class AbilityCost:
     @property
     def from_graveyard(self) -> bool:
         """113.6m: "Exile this card from your graveyard" — the ability works only from there."""
-        return any(c.kind == EXILE_FROM_GRAVEYARD and c.selector is None for c in self.components)
+        return self.graveyard_only or any(c.kind == EXILE_FROM_GRAVEYARD and c.selector is None for c in self.components)
 
     def of_kind(self, kind: str) -> list[CostComponent]:
         return [c for c in self.components if c.kind == kind]

@@ -2633,3 +2633,10 @@ def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if isinstance(count, dict) and count.get("hand") == "target":
         raise _NoMatch  # ("cards in target opponent's hand": a player amount the pronoun binder can't carry yet: manual)
     return [{"do": "add_mana", "sym": (m["sym"] or m["sym2"])[1], "n": count}], None
+
+
+# -- reanimation (wave 3R) --  "return a creature card from your graveyard …": chosen on resolution; what it
+# returned is what "that card" / "it" names afterwards (400.7j).
+_RECORDING["return_choice"] = "returned"
+_MOVERS.add("return_choice")
+_CHOSEN["return_choice"] = "n"

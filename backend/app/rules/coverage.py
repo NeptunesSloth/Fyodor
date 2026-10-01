@@ -9,6 +9,7 @@ report is honest: a card is FULL only when every part of it is automated.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -85,6 +86,10 @@ def definition_supported(d: dict[str, Any]) -> bool:
     """A replacement / prevention definition is automated only when its kind is listed above."""
     if d.get("kind") == "mode" or (d.get("modes") and d.get("kind") in ("triggered", "activated")):
         return modal_supported(d)  # (wave 1A) a modal triggered / activated ability
+    # -- reanimation (wave 3R) -- "return this card from your graveyard": only an activated ability works from
+    # there (113.6m); a trigger or static line would need the graveyard scanned for triggers
+    if d.get("kind") != "activated" and '"self_gy"' in json.dumps(d, default=str):
+        return False
     verdict = stage2_supported(d)  # -- replacement effects stage 2 (wave 2E) --
     if verdict is not None:
         return verdict
