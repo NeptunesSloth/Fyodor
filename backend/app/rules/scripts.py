@@ -232,6 +232,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     "those creatures"); else None (a pronoun then leaves the ability manual)."""
     if name in ("dies_self", "ltb_self") or name.startswith("multi:"):
         return "self_gone"
+    if name.endswith(":host_controller"):  # -- sagas & attached-object triggers (wave 3S) -- "that creature"
+        return "event"  # (the enchanted creature as the step began: triggers.at_step_generic)
     cond = cond or {}
     event = cond.get("event")
     if cond.get("other") or (event == "deal_damage" and cond.get("to") == "creature"):
@@ -255,6 +257,33 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         if event in _GONE and not cond.get("aggregate"):
             return "event_gone"
     return None
+
+
+# -- sagas & attached-object triggers (wave 3S) --
+AURA_CARD = "self_aura_gy"  # the Aura's new object in its owner's graveyard (400.7f; effects._cards)
+
+
+def _aura_card_effects(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+    """"Return this card to its owner's hand" in a trigger on the enchanted permanent leaving: the
+    only instruction "this card" may name is returning it to its owner's hand (anything else: manual)."""
+    out = []
+    for e in effects:
+        if e.get("do") == "bounce" and e.get("who") == "self":
+            e = {**e, "who": AURA_CARD}
+        out.append(e)
+    return None if '"self"' in json.dumps(out, default=str) else out
+
+
+# "At the beginning of enchanted player's upkeep / the upkeep of enchanted creature's controller /
+# each opponent's upkeep, that player …": the player whose step it is (triggers.at_step_generic
+# gives the event that player and, for the enchanted creature's controller, that creature)
+STEP_PLAYER_WHOSE = ("enchanted_player", "host_controller", "opponent", "each")
+
+
+def step_names_player(d: dict[str, Any]) -> bool:
+    trigger = str(d.get("trigger") or "")
+    return d.get("kind") == "triggered" and trigger.startswith("step:") and trigger.rsplit(":", 1)[-1] in STEP_PLAYER_WHOSE
+# -- end sagas & attached-object triggers (wave 3S) --
 
 
 def _group_of(e: dict[str, Any]) -> int | None:
@@ -1418,6 +1447,13 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     text = self_text(ability.text, ch.name)
+    if "Saga" in ch.subtypes:  # -- sagas & attached-object triggers (wave 3S): chapter abilities, read ahead (714, 702.155) --
+        from app.rules import sagas
+
+        if sagas.chapters_of(ability.text):
+            return sagas.chapter_definition(ability, ch)
+        if ability.kind == "keywords":
+            return sagas.read_ahead_definition(ability, ch)
     if ability.kind == "static":
         # replacement / prevention effects of the permanent itself (the block at the end of this
         # module): "~ enters tapped [unless …]", shock lands, "~ enters with … counters", "If ~ would
@@ -1469,10 +1505,21 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     name = _legacy_trigger(cond) or "event"
                 # (a trigger about a player, or damage to one, names them: "that player")
                 has_player = cond is not None and _has_player(cond)
+                # -- sagas & attached-object triggers (wave 3S) -- "When enchanted creature dies, return
+                # this card to its owner's hand": the Aura's new object in its owner's graveyard (400.7f)
+                aura_card = cond is not None and cond.get("subject") == "host" and cond["event"] in _GONE \
+                    and re.search(r"\bthis card\b", body) is not None
+                if aura_card:
+                    body = re.sub(r"\bthis card\b", "~", body)
                 parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
+                if aura_card:
+                    aura_effects = _aura_card_effects(effects)
+                    if aura_effects is None:
+                        return None
+                    effects = aura_effects
                 # 603.4: "When/Whenever/At …, if [condition], …" — an intervening "if": checked as it
                 # triggers (triggers._add) and again as it resolves (the only_if effect)
                 intervening = None
@@ -1575,6 +1622,8 @@ def _event_refs_ok(d: Definition) -> bool:
     wants_player = any(e.get("who") in ("event_player", "each_other_opponent") for e in effects)
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t"))
     if not wants_player and not wants_amount:
+        return True
+    if not wants_amount and step_names_player(d):  # -- sagas & attached-object triggers (wave 3S) --
         return True
     cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
     if cond is None or cond["event"] == "multi":

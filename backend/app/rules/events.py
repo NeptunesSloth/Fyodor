@@ -179,8 +179,9 @@ def _parse(c: str) -> Condition | None:
             continue
         subject = m["s"]
         if subject in _HOSTS:
-            # (after "dies" / "leaves", what was attached is found only looking back in time: not yet)
-            return {"event": event, "subject": "host"} if event not in ("die", "leave") else None
+            # -- sagas & attached-object triggers (wave 3S) -- after "dies" / "leaves", what was
+            # attached to it is read looking back in time (603.10a: ObjectSnapshot.attached)
+            return {"event": event, "subject": "host"}
         if subject == "~":
             return {"event": event, "subject": "self"}
         if subject in _SELF_OR_HOST:  # "~ or equipped creature deals combat damage to a player"

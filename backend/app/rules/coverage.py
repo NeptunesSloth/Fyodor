@@ -170,6 +170,12 @@ SUPPORTED_KEYWORDS: set[str] = {
     # 702.125 undaunted: costs {1} less for each opponent (permissions.self_reduction)
     "undaunted",
 }
+# -- sagas & attached-object triggers (wave 3S) --------------------------------------------------------
+# Sagas (714, app/rules/sagas.py; tests/test_rules_sagas.py): lore counters as it enters and at the
+# precombat main phase, chapter abilities (a chapter line is automated when its effect parses: it is a
+# template), the 714.4 sacrifice; read ahead (702.155): the number chosen as it enters, skipped chapters.
+SUPPORTED_KEYWORDS.add("read ahead")
+# -- end sagas & attached-object triggers (wave 3S) --
 
 
 # Keyword actions (CR 701) the engine carries out when an ability's text calls for them (a template

@@ -500,6 +500,10 @@ def on_step_start(plan: Plan) -> None:
             combat_damage(plan, "only", "done")
     elif phase == "cleanup":
         cleanup_step(plan)
+    elif phase == "main1":  # -- sagas & attached-object triggers (wave 3S): 505.4 / 714.3c lore counters --
+        from app.rules import sagas
+
+        sagas.precombat_main(plan)
     if phase in ("upkeep", "draw", "main1", "begin_combat", "main2", "end"):
         triggers.at_step_generic(plan)  # "At the beginning of [whose] [step]" (503, 504, 505, 507, 513)
 
