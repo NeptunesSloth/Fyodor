@@ -2281,6 +2281,8 @@ def _for_each(phrase: str) -> Any:
 
     if phrase in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
         return {"kicked": 1}
+    if phrase in ("color of mana spent to cast it", "color of mana spent to cast ~"):  # -- ability words (wave 4F) --
+        return {"colors_spent": 1}  # converge (its spell's payment record, read as it enters: replacements._counter_amount)
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or (not sel.card and sel.zones == ("battlefield",) and not sel.other):
         return None

@@ -37,6 +37,9 @@ EXTRA = [
     card('Sinew Dancer', set_code="tst", number="4F10", mana_cost='{W}', cmc=1.0, type_line='Creature — Phyrexian Soldier', oracle_text='{3}{W}, {T}: Tap target creature.\nCorrupted — {W}, {T}: Tap target creature. Activate only if an opponent has three or more poison counters.', power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=['Corrupted']),
     card('Greenbelt Guardian', set_code="tst", number="4F12", mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Elf Ranger', oracle_text='{G}: Target creature gains trample until end of turn.\nExhaust — {3}{G}: Put three +1/+1 counters on this creature. (Activate each exhaust ability only once.)', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Exhaust']),
     card('Elvish Refueler', set_code="tst", number="4F13", mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Elf Druid', oracle_text="During your turn, as long as you haven't activated an exhaust ability this turn, you may activate exhaust abilities as though they haven't been activated.\nExhaust — {1}{G}: Put a +1/+1 counter on this creature. (Activate each exhaust ability only once.)", power='2', toughness='3', colors=['G'], color_identity=['G'], keywords=['Exhaust']),
+    card('Painful Truths', set_code="tst", number="4F14", mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', oracle_text='Converge — You draw X cards and lose X life, where X is the number of colors of mana spent to cast this spell.', colors=['B'], color_identity=['B'], keywords=['Converge']),
+    card('Woodland Wanderer', set_code="tst", number="4F15", mana_cost='{3}{G}', cmc=4.0, type_line='Creature — Elemental', oracle_text='Vigilance, trample\nConverge — This creature enters with a +1/+1 counter on it for each color of mana spent to cast it.', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Vigilance', 'Converge', 'Trample']),
+    card('Radiant Epicure', set_code="tst", number="4F16", mana_cost='{4}{B}', cmc=5.0, type_line='Creature — Vampire Wizard', oracle_text='Converge — When this creature enters, each opponent loses X life and you gain X life, where X is the number of colors of mana spent to cast this spell.', power='5', toughness='5', colors=['B'], color_identity=['B'], keywords=['Converge']),
 ]
 
 
@@ -321,4 +324,47 @@ def test_exhaust_with_elvish_refueler_is_left_to_the_player(cards):
     act(s, "p1", type="activate_ability", card_id=guardian.id, ability=1)  # 702.177b: not refused by the engine
     pass_until_stack_empty(s)
     assert s.state.cards[guardian.id].counters.get("+1/+1") == 6
+    roundtrip(s)
+
+
+# -- converge: the colors of mana spent to cast it (601.2h, 105.1) -------------------------------------------------
+def test_painful_truths_counts_colors_spent(cards):
+    s = build(cards, [(1, "Painful Truths"), (5, "Swamp"), (10, "Island")])
+    truths = put(s, "Painful Truths", "hand")
+    mana(s, B=1, U=1, C=1)  # two colors (colorless mana is no color)
+    hand, life = len(s.state.zones["p1:hand"]), s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=truths.id)
+    pass_until_stack_empty(s)
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + 2
+    assert s.state.players["p1"].life == life - 2
+    roundtrip(s)
+
+
+def test_woodland_wanderer_enters_with_a_counter_per_color(cards):
+    s = build(cards, [(1, "Woodland Wanderer"), (5, "Forest")])
+    wanderer = put(s, "Woodland Wanderer", "hand")
+    mana(s, G=1, R=1, W=1, B=1)
+    act(s, "p1", type="cast_spell", card_id=wanderer.id)
+    pass_until_stack_empty(s)
+    assert s.state.cards[wanderer.id].zone == "p1:battlefield"
+    assert s.state.cards[wanderer.id].counters.get("+1/+1") == 4
+    roundtrip(s)
+
+
+def test_woodland_wanderer_put_onto_the_battlefield_wasnt_cast(cards):
+    s = build(cards, [(1, "Woodland Wanderer"), (5, "Forest")])
+    wanderer = put(s, "Woodland Wanderer", "battlefield")
+    assert not s.state.cards[wanderer.id].counters.get("+1/+1")  # no mana was spent to cast it
+    roundtrip(s)
+
+
+def test_radiant_epicure_trigger_reads_its_spell(cards):
+    s = build(cards, [(1, "Radiant Epicure"), (5, "Swamp")])
+    epicure = put(s, "Radiant Epicure", "hand")
+    mana(s, B=2, G=1, C=2)
+    life = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=epicure.id)
+    pass_until_stack_empty(s)
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].life == 38 and s.state.players["p1"].life == life + 2
     roundtrip(s)

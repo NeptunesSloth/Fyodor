@@ -29,6 +29,7 @@ A value is an int (a literal) or a dict:
 * ``{"event_amount": 1}`` — "that much" / "that many": the trigger event's amount, read from the
   context the ability carries from when it triggered (app.game.rules_state.TriggerEvent).
 * ``{"spells_cast": "you"}`` — the spells you've cast this turn (wave 3D);
+* ``{"colors_spent": 1}`` — converge: the colors of mana spent to cast the spell (wave 4F);
 * ``{"kicked": 1}`` — the number of times the spell (or the permanent it became) was kicked
   (702.33d; "for each time it was kicked").
 
@@ -106,6 +107,12 @@ _PLUS = re.compile(r"^(?P<v>.+?) plus (?P<n>\d+|one|two|three|four|five)$")
 _TYPE_WORDS = "|".join(selectors.CARD_TYPES)
 
 
+# -- ability words (wave 4F) -- converge: "the number of colors of mana spent to cast this spell", "for each color of
+# mana spent to cast it": the colors (105.1) among the mana actually spent on its total cost (601.2h), from the
+# spell's payment record (the same record for the permanent it became; a copy wasn't cast: none, 707.10)
+_COLORS_SPENT = re.compile(r"colors? of mana spent to cast (?:this spell|it|~|this creature|this permanent)")
+
+
 def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     """A quantity phrase → value: "the number of creatures you control" / "cards in your hand" /
     "opponents you have" / "+1/+1 counters on ~" / "card types among cards in all graveyards" /
@@ -153,6 +160,8 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"opponents": 1}
     if what in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
         return {"kicked": 1}
+    if _COLORS_SPENT.fullmatch(what):  # -- ability words (wave 4F) -- converge
+        return {"colors_spent": 1}
     if what == "your life total":
         return {"life": "you"}
     if what in ("target player's life total", "target opponent's life total"):
@@ -253,6 +262,11 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return 0  # a negative result of an effect is zero (107.1b); the sign is evaluate_signed's
     if "kicked" in v:
         return kicked_count(plan, ctx)
+    if "colors_spent" in v:  # -- ability words (wave 4F) -- converge (a spell cast by hand: no mana known, 0)
+        record = plan.rules.payments.get(ctx.get("source_object") or "")
+        if record is None or not record.mana_known:
+            return 0
+        return sum(1 for c in "WUBRG" if record.mana_spent.get(c, 0) > 0)
     if "count" in v:
         sel = selectors.from_key(v["count"])
         if sel.player is not None:
