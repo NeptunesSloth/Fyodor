@@ -834,6 +834,12 @@ class RulesState(BaseModel):
     # -- keyword actions & face-down (wave 3F) -- firebending (702.189a): the {R} each player added that
     # they don't lose as steps end until end of combat (player -> how much of the red in their pool)
     combat_mana: dict[str, int] = Field(default_factory=dict)
+    # -- refused look/cast-free (wave 3R5) -- a free cast made while a spell or ability resolves (608.2g):
+    # {"card", "ctx", "e"} — the resolution to continue once that cast is done or abandoned
+    # (app/rules/permissions.free_cast_done); and the stack objects cast "without paying" whose
+    # "If that spell would be put into your graveyard, exile it instead" applies (614.1a)
+    free_cast_then: dict[str, Any] | None = None
+    exile_if_graveyard: list[str] = Field(default_factory=list)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)

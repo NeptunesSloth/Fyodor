@@ -694,6 +694,9 @@ class ResolveTop(Base):
     r: MoveData | None = None
     force: bool = False
     tapped: bool = False  # a permanent spell that enters tapped
+    # -- refused look/cast-free (wave 3R5) -- the resolving object when spells cast during its
+    # resolution (608.2g) are above it on the stack; None: the topmost object
+    card_id: Id | None = None
 
 
 # --- response helper -----------------------------------------------------------------

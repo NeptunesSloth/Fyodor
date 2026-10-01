@@ -1676,6 +1676,10 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     sel = selectors.from_key(e["sel"]) if e.get("sel") else None
     options = [c for c in looked if sel is None
                or selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+    if e.get("sels"):  # -- refused look/cast-free (wave 3R5) -- "a creature card and/or a land card": any listed kind
+        from app.rules import looking
+
+        options = [c for c in options if looking.kinds_of(plan, pid, c, e["sels"])]
     which = e.get("which")
     if which == "that":
         found = ctx.get("found")
@@ -1696,6 +1700,13 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def resume_pick_looked(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
+    if e.get("sels"):  # -- refused look/cast-free (wave 3R5) -- one card of each kind, each a different card
+        from app.rules import looking
+
+        if not looking.distinct_kinds(plan, ctx["controller"], list(chosen), e["sels"]):
+            from app.game.errors import ActionError
+
+            raise ActionError("Choose at most one card of each kind")
     if _picked(plan, ctx, e, list(chosen)):
         continue_effects(plan, ctx)
 
@@ -1887,7 +1898,11 @@ def resume_shuffle_library(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looked": rest_looked, "exile_top": exile_top,
                    "to_library": to_library, "shuffle_library": shuffle_library, "grant_play": permissions.grant_play,
-                   "free_cast": permissions.free_cast})  # (free_cast: wave 3C)
+                   "free_cast": permissions.free_cast,  # (free_cast: wave 3C)
+                   "rest_exiled": permissions.rest_exiled, "found_to": permissions.found_to})
+from app.rules import looking as _looking  # noqa: E402, I001  -- refused look/cast-free (wave 3R5) -- (a leaf module)
+
+PRIMITIVES["piles"] = _looking.piles  # -- refused look/cast-free (wave 3R5) --
 
 
 def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

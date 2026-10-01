@@ -489,6 +489,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             who = e.get("who")
             if isinstance(who, str) and (who in ("it", "them") or who.startswith(("it:", "them:"))):
                 pronoun, _, verb = who.partition(":")
+                if e.get("do") == "free_cast" and _free_cast_source(e, pronoun, objects(index, None, verb or None), out, bound):
+                    continue  # -- refused look/cast-free (wave 3R5) -- the cards looked at, or the card found
                 intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
                 if e.get("do") in ("grant_play", "free_cast") and (intro is None or intro.do not in _MOVERS):
                     # "You may play that card this turn": only what an earlier instruction of this
@@ -566,6 +568,35 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
     except _NoMatch:
         return None
     return out
+
+
+def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None, out: list[dict[str, Any]],
+                      bound: Any) -> bool:
+    """-- refused look/cast-free (wave 3R5) -- What a free cast's "them" / "that card" names when the
+    instruction before it set cards aside from the top of a library: the cards looked at (still in
+    the library, private to the looker: "looked"), or the card a "… until you exile / reveal a …"
+    stopped at ("found"). True when bound here; "from among them" after a move ("exile the top X
+    cards") is bound by the caller as the moved cards ("that")."""
+    if intro is None or intro.do not in ("look_top", "exile_top"):
+        if e.get("zone") == "among":
+            e["zone"] = "that"
+        return False
+    src = out[intro.index]
+    if str(src.get("player") or "you").startswith("each") and (intro.do == "look_top" or src.get("until")):
+        raise _NoMatch  # (several libraries looked at / searched until: ctx keeps one library's; exiled cards are bound)
+    if src.get("until"):
+        if pronoun != "it":
+            raise _NoMatch
+        e["zone"] = "found"
+    elif intro.do == "look_top" and (e.get("zone") == "among" or src.get("n") == 1):
+        e["zone"] = "looked"
+    elif intro.do == "exile_top" and e.get("zone") == "among":
+        e["zone"], e["who"] = "that", "ref:" + bound(intro)  # (every card exiled, from one library or several)
+        return True
+    else:
+        return False
+    e.pop("who", None)
+    return True
 
 
 _TARGET_REFS = ("who", "to", "power", "toughness", "mana_value", "on", "with", "src", "object")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
@@ -1175,17 +1206,29 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     start = 0
     texts = [s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
+    skip_to = 0  # -- refused look/cast-free (wave 3R5) -- sentences read together with an earlier one (piles)
     for i, sentence in enumerate(texts):
+        if i < skip_to:
+            continue
         text = _lower_first(sentence.rstrip(".").strip())
         if (i > 0 or effects) and text.startswith("then ") and not text.startswith(("then shuffle", "then you may ")):
             text = text[5:]  # -- waves 3D/3L/3C -- "Then that creature deals …" / "Then draw a card.": "then" only orders (608.2c)
         prev_start, start = start, len(effects)
         sentences.append(start)
+        if (piles := _piles(texts, i, effects)) is not None:  # -- refused look/cast-free (wave 3R5) -- 700.3
+            if not piles[0]:
+                return None
+            effects += piles[0]
+            skip_to = i + piles[1]
+            continue
         if (kicked := _KICKED.match(text)) is not None:
             with_kicker = _kicked_sentence(kicked, effects, prev_start)
             if with_kicker is None:
                 return None
             effects = with_kicker
+            continue
+        if _FREE_EXILE_GY.fullmatch(text) and effects and effects[-1]["do"] == "free_cast":
+            effects[-1] = {**effects[-1], "exile_gy": True}  # -- refused look/cast-free (wave 3R5) -- 614.1a, on the spell cast
             continue
         if (instead := replacement_sentence(text, effects, groups)) is not None:  # -- replacement effects stage 2 (wave 2E) --  (before 1B: a replacement, not a condition)
             effects += instead
@@ -1209,6 +1252,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 return None
             effects.append(reflex)
             break  # (the rest of the ability is the reflexive trigger's)
+        if (dont := _FREE_DONT.match(text)) is not None and effects and effects[-1]["do"] == "free_cast":
+            gated = _free_dont(dont["rest"], effects)  # -- refused look/cast-free (wave 3R5) -- "If you don't cast it, …"
+            if gated is None:
+                return None
+            effects += gated
+            continue
         text = _PICK_NEG.sub(r"if you \1, ", text)  # -- look and distribute (wave 3L) -- "If you don't put the card into your hand, …"
         if (if_do := _IF_YOU_DO.match(text)) is not None:
             bind = _last_payment(effects)
@@ -1299,18 +1348,111 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         return None
     resolved, target = _finish_targets(resolved, groups)
     looked = False
-    for e in resolved:  # "… from among them" needs the cards a look put aside (not milled ones)
+    exiled_at, cast_from_exile = None, False  # -- refused look/cast-free (wave 3R5) --
+    for k, e in enumerate(resolved):  # "… from among them" needs the cards a look put aside (not milled ones)
         looked = looked or e["do"] == "look_top"
+        if e["do"] == "exile_top":
+            exiled_at, cast_from_exile = (None if e.get("face_down") else k), False
+        elif e["do"] == "free_cast" and exiled_at is not None and (
+                e.get("zone") == "found" or e.get("who") == f"ref:{resolved[exiled_at].get('as')}"):
+            cast_from_exile = True
+        if e["do"] == "rest_looked" and not looked and exiled_at is not None and cast_from_exile \
+                and e["to"] in ("bottom_random", "graveyard", "hand"):
+            # "Put the rest / the exiled cards not cast this way on the bottom of your library in a random order"
+            # (after "Exile the top six cards. You may cast … from among them …"): the exiled cards still in exile
+            src = resolved[exiled_at]
+            src.setdefault("as", f"x{exiled_at}")
+            resolved[k] = {"do": "rest_exiled", "who": f"ref:{src['as']}", "to": e["to"]}
+            continue
         if e["do"] in ("pick_looked", "rest_looked") and not looked:
             return None
-    # -- cast without paying (wave 3C) -- the cast is the ability's last act: the engine casts the card once the
-    # ability has finished resolving, so anything after it would be lost
-    if any(e["do"] == "free_cast" for e in resolved[:-1]):
+    # -- cast without paying (wave 3C) -- (wave 3R5: the cast is made during the resolution, 608.2g, and the
+    # instructions after it follow it — permissions.free_cast; "from among them" was bound by resolve_it)
+    if any(e["do"] == "free_cast" and e.get("zone") == "among" for e in resolved):
         return None
+    for k, e in enumerate(resolved):  # -- refused look/cast-free (wave 3R5) --
+        if e["do"] == "found_to" and not any(x["do"] == "free_cast" and x.get("zone") in ("found", "looked") for x in resolved[:k]):
+            return None  # ("put it into your hand": the card found / the one revealed, nothing else)
+        if e["do"] == "free_cast" and e.get("mv") == "x" and re.search(r"\bwhere x is\b", body, re.IGNORECASE):
+            # "reveal the top X cards …, where X is that spell's mana value. You may cast a spell with mana value
+            # X or less from among …": the one X the ability defines (107.3c), not a cost's X
+            bound = [x["n"] for x in resolved[:k] if isinstance(x.get("n"), dict) and x["n"] != {"x": 1}]
+            if len(bound) != 1:
+                return None
+            resolved[k] = {**e, "mv": bound[0]}
+    if optional and len(resolved) > 1 and resolved[0]["do"] == "free_cast" and resolved[0].get("optional"):
+        optional = False  # -- refused look/cast-free (wave 3R5) -- "You may cast … . Draw a card.": only the cast is optional
     return resolved, target, optional
 
 
+def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- refused look/cast-free (wave 3R5) -- A spell or activated ability that is all "You may cast …
+    without paying its mana cost": the "may" is the cast's own choice (choosing no card), not a
+    question about the whole ability (which spells and activated abilities don't have)."""
+    if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0]["do"] == "free_cast" \
+            and parsed[0][0].get("optional"):
+        return parsed[0], parsed[1], False
+    return parsed
+
+
 _KICKED = re.compile(r"^if (?:this spell|it|~) was kicked, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$")
+# -- refused look/cast-free (wave 3R5) -- after a free cast: a replacement effect on the spell cast (614.1a)
+_FREE_EXILE_GY = re.compile(r"^if (?:that spell|that card|a spell cast this way) would be put into (?:your|a) graveyard, "
+                            r"exile it instead$")
+# -- refused look/cast-free (wave 3R5) -- 700.3: piles of the cards just revealed (public: 701.20a)
+_PILES_THEY = re.compile(r"^an opponent separates (?:those|the revealed|these) cards into two piles$")
+_PILES_YOU = re.compile(r"^(?P<reveal>reveal the top .+? of your library) and separate them into two piles$")
+_PILES_CHOOSE = re.compile(r"^an opponent chooses one of (?:those|the) piles$")
+_PILES_PUT = re.compile(r"^put (?:one|that) pile into your hand and the other into your graveyard$")
+
+
+def _piles(texts: list[str], i: int, effects: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int] | None:
+    """"Reveal the top five cards of your library. An opponent separates those cards into two piles. Put one
+    pile into your hand and the other into your graveyard." (Fact or Fiction: the opponent separates, you
+    choose) / "Reveal the top five cards of your library and separate them into two piles. An opponent
+    chooses one of those piles. Put that pile into your hand and the other into your graveyard." (Steam
+    Augury: you separate, the opponent chooses). Which opponent: the spell's controller chooses (608.2d).
+    Returns (effects, sentences used); ([], …) refuses; None: not a piles sentence."""
+    from app.rules.language import parse_sentence
+
+    def text(k: int) -> str:
+        return _lower_first(texts[k].rstrip(".").strip()) if k < len(texts) else ""
+
+    if _PILES_THEY.match(text(i)):
+        if not _PILES_PUT.match(text(i + 1)) or "one pile" not in text(i + 1):
+            return [], 1
+        if not effects or effects[-1]["do"] != "look_top" or not effects[-1].get("reveal") or effects[-1].get("until") \
+                or effects[-1].get("player") != "you":
+            return [], 1  # (only cards just revealed from your library: public, 700.3c)
+        return [{"do": "piles", "separator": "opponent", "chooser": "you"}], 2
+    m = _PILES_YOU.match(text(i))
+    if m:
+        found = parse_sentence(m["reveal"])
+        if not _PILES_CHOOSE.match(text(i + 1)) or not _PILES_PUT.match(text(i + 2)) or "that pile" not in text(i + 2) \
+                or found is None or len(found[0]) != 1 or found[0][0]["do"] != "look_top" or not found[0][0].get("reveal"):
+            return [], 1
+        return [found[0][0], {"do": "piles", "separator": "you", "chooser": "opponent"}], 3
+    return None
+
+
+_FREE_DONT = re.compile(r"^if you don't(?: cast (?:it|that card|the exiled card|the revealed card)(?: this way)?)?, (?P<rest>.+)$")
+
+
+def _free_dont(rest: str, effects: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+    """-- refused look/cast-free (wave 3R5) -- "If you don't cast it, put it into your hand / draw a card"
+    after a free cast (608.2c: it reads what the cast did; the cast records it as ``did``)."""
+    if rest in ("put it into your hand", "put that card into your hand"):
+        inner: list[dict[str, Any]] = [{"do": "found_to", "to": "hand"}]  # (checked against the cast's source below)
+    else:
+        parsed = _clause(rest)
+        if parsed is None or parsed[1] is not None:
+            return None
+        inner = parsed[0]
+        if any(isinstance(x.get("who"), str) and x["who"].startswith(("it", "them")) for x in inner):
+            return None
+    name = effects[-1].get("did") or f"fdid{len(effects)}"
+    effects[-1] = {**effects[-1], "did": name}
+    return [{"do": "only_if", "cond": {"succeeded": name, "negate": True}, "skip": len(inner)}, *inner]
 
 
 # -- optional payments (118.12 / 118.12a): app/rules/optional_payment.py ------------------------------
@@ -1581,7 +1723,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 return out
         return None
     if ability.kind == "spell":
-        parsed = parse_effects(text)
+        parsed = _own_choice(parse_effects(text))  # (_own_choice: wave 3R5)
         if parsed is None or parsed[2]:
             return None
         effects, target, _ = parsed
@@ -1612,7 +1754,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # -- sized amounts (wave 3D) -- "Sacrifice this creature: It deals damage equal to its power": "it" is the source
         # the cost put into a graveyard (its last known information: 608.2h)
         gone = cost.sacrifice_self or re.search(r"\b(?:[Dd]iscard|[Ee]xile) (?:this card|~)", ability.cost or "") is not None
-        parsed = parse_effects(body, "self_gone" if gone else None)
+        parsed = _own_choice(parse_effects(body, "self_gone" if gone else None))  # (_own_choice: wave 3R5)
         if parsed is None or parsed[2]:
             return None
         effects, target, _ = parsed
@@ -1654,7 +1796,7 @@ def _event_refs_ok(d: Definition) -> bool:
     acting player for a player's actions — so it can too."""
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
     wants_player = any(e.get("who") in ("event_player", "each_other_opponent") for e in effects)
-    wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t"))
+    wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv"))  # ("mv": a free cast's limit, wave 3R5)
     if not wants_player and not wants_amount:
         return True
     if not wants_amount and step_names_player(d):  # -- sagas & attached-object triggers (wave 3S) --
