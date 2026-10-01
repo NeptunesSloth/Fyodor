@@ -109,6 +109,7 @@ def begin(plan: Plan) -> None:
     onto the battlefield by hand still counts as the land for the turn), then start a fresh
     event list (keeping events not yet collected for triggers). Expired remembered answers are dropped."""
     absorb_manual_events(plan)
+    layers.control_sync(plan)  # -- control (wave 3K) -- an Aura or effect source moved by hand: control follows (613.1b)
     # (keep what hasn't been looked at for triggers yet: a resolution that stopped for a
     # decision may have left events its triggers still have to see, 603.2)
     plan.rules.events = [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch and not e.manual]
@@ -140,6 +141,7 @@ def absorb_manual_events(plan: Plan) -> None:
 
 def settle(plan: Plan) -> None:
     """After every intent: state-based actions, triggered abilities, and make sure someone can act."""
+    layers.control_sync(plan)  # -- control (wave 3K) -- continuous effects first (613.1b), then state-based actions
     sba.check(plan)
     r = plan.rules
     if r.decision is None and len(plan.live()) > 1 and (r.priority is None or r.priority not in plan.live()):

@@ -1553,3 +1553,84 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     if kind not in ("target", "each") or not _graveyard_cards(key):
         return None
     return [{**effect, "who": _who(kind, key)}], _one(group)
+
+
+# -- control (wave 3K) ---------------------------------------------------------------------------------
+# "Gain control of target creature [until end of turn]", "Untap target creature and gain control of it
+# until end of turn" (Threaten), "Untap all creatures and gain control of them until end of turn",
+# "Target opponent gains control of target permanent you control", "Exchange control of two target
+# creatures / of ~ and target creature an opponent controls". Effects: ``gain_control`` (who, to, duration)
+# and ``exchange_control`` (701.12; who, with). Other durations ("for as long as …") wrap these (delayed.py);
+# "until the end of your next turn" and the rest are not read (the sentence stays manual).
+_CT_END = r"(?P<d> until end of turn)?"
+_CT_PRONOUN = r"(?:it|them|that creature|those creatures|that permanent|those permanents)"
+_CT_GAIN = re.compile(rf"gain control of (?P<o>.+?){_CT_END}")
+_CT_UNTAP = re.compile(rf"untap (?P<o>.+?) and gain control of {_CT_PRONOUN}{_CT_END}")
+_CT_GIVE = re.compile(rf"(?P<p>target opponent|target player) gains control of (?P<o>.+?){_CT_END}")
+_CT_EXCHANGE = re.compile(r"exchange control of (?P<o>.+)")
+
+
+def _control_object(phrase: str) -> tuple[str, str, dict[str, Any] | None] | None:
+    """The permanents a control effect names: a target, "each" (all of them) or a pronoun for earlier ones."""
+    try:
+        kind, key, group = ref(phrase)
+    except _Fail:
+        return None
+    if kind in ("it", "them"):
+        return kind, key, group
+    if kind not in ("target", "each") or not on_battlefield_only(key):
+        return None
+    return kind, key, group
+
+
+def control_forms(text: str) -> tuple[Effects, Any] | None:
+    """The control-changing wordings above; None when the sentence is not one of them."""
+    m = _CT_UNTAP.fullmatch(text)
+    if m:
+        found = _control_object(m["o"])
+        if found is None or found[0] in ("it", "them"):
+            return None
+        kind, key, group = found
+        who = _who(kind, key)
+        return [{"do": "gain_control", "who": who, "untap": True, **({"duration": "end_of_turn"} if m["d"] else {})}], _one(group)
+    m = _CT_GAIN.fullmatch(text)
+    if m:
+        found = _control_object(m["o"])
+        if found is None:
+            return None
+        kind, key, group = found
+        return [{"do": "gain_control", "who": _who(kind, key), **({"duration": "end_of_turn"} if m["d"] else {})}], _one(group)
+    m = _CT_GIVE.fullmatch(text)
+    if m:
+        found = _control_object(m["o"])
+        if found is None or found[0] != "target":
+            return None
+        pgroup, group = target_group(m["p"]), found[2]
+        if pgroup is None or group is None or not simple(group):
+            return None
+        return [{"do": "gain_control", "who": "target:1", "to": "target:0",
+                 **({"duration": "end_of_turn"} if m["d"] else {})}], [pgroup, group]
+    m = _CT_EXCHANGE.fullmatch(text)
+    if m:
+        return _exchange(m["o"])
+    return None
+
+
+def _exchange(phrase: str) -> tuple[Effects, Any] | None:
+    both = _control_object(phrase)
+    if both is not None:  # "two target creatures": one group of exactly two (701.12a: both or nothing)
+        group = both[2]
+        if both[0] != "target" or group is None or (group["min"], group["max"]) != (2, 2) or "another" in group:
+            return None
+        return [{"do": "exchange_control", "who": "target"}], group
+    left, sep, right = phrase.partition(" and target ")
+    if not sep:
+        return None
+    a, b = _control_object(left), _control_object("target " + right)
+    if b is None or b[0] != "target" or b[2] is None or not simple(b[2]):
+        return None
+    if left in ("~", "this creature", "this permanent"):
+        return [{"do": "exchange_control", "who": "self", "with": "target"}], b[2]
+    if a is None or a[0] != "target" or a[2] is None or not simple(a[2]):
+        return None
+    return [{"do": "exchange_control", "who": "target", "with": "target:1"}], [a[2], b[2]]

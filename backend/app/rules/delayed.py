@@ -391,6 +391,9 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
         or any(e.until_player == p and n > e.turn for p, n in skipped or ()))]
     if ended:
         _end(plan, ended)
+        from app.rules import layers
+
+        layers.control_sync(plan)  # -- control (wave 3K) -- "until your next turn" ended: control reverts (613.1b)
 
 
 def expire(plan: Plan) -> None:
@@ -455,7 +458,7 @@ def duration_clause(m: re.Match[str]) -> tuple[str, str]:
 def wrap_duration(effects: list[dict[str, Any]], duration: str) -> list[dict[str, Any]] | None:
     """The ``until`` effect over the continuous effects of a clause; only pumps, grants and
     restrictions (they never pause, and their effects carry a duration)."""
-    if not effects or any(e.get("do") not in ("pump", "grant", "restrict") for e in effects):
+    if not effects or any(e.get("do") not in ("pump", "grant", "restrict", "gain_control") for e in effects):
         return None
     return [{"do": "until", "duration": duration, "n": len(effects)}, *effects]
 

@@ -382,6 +382,7 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
                    *, exclude: tuple[str, ...] = ()) -> ChosenTargets | None:
     """All targets of an automated spell or ability (601.2c-d): one plain "target", or target
     groups. None while waiting for a choice."""
+    plan.x_choice = getattr(a, "x_value", None)  # -- control (wave 3K) -- "creature with mana value X or less": the X announced
     if not definition or not definition.get("targets"):
         chosen = choose_target(plan, a, definition, what, exclude=exclude)
         return None if chosen is None else ChosenTargets(flat=chosen)

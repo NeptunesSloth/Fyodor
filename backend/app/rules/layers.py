@@ -658,6 +658,69 @@ def end_of_turn(plan: Plan) -> None:
     """514.2: "until end of turn" effects end in the cleanup step."""
     r = plan.rules
     r.effects = [e for e in r.effects if e.duration != "end_of_turn"]
+    control_sync(plan)  # -- control (wave 3K) -- a Threaten effect ends: the creature goes back (613.1b)
+
+
+# -- control (wave 3K): layer 2 (613.1b) -----------------------------------------------------------------
+# The table keeps a permanent on its controller's side with ``controller`` set; this keeps that in line
+# with the control-changing effects: resolved effects ("gain control of target creature until end of
+# turn": ``ContinuousEffect.new_controller``, locked to the objects it began with, 611.2c) and the static
+# abilities of Auras ("You control enchanted creature."). The latest timestamp wins (613.7); a permanent
+# no effect controls any more goes back to its owner, unless a player moved it by hand (only the cards
+# an effect moved are in ``RulesState.control_changed``). The object is the same one throughout (no zone
+# change: 400.7 doesn't apply), but a new controller restarts "summoning sickness" (302.6: tracked by
+# ``controlled_since``), and the permanent leaves combat (506.4: the table action does that).
+def control_sync(plan: Plan) -> None:
+    """Apply layer 2 to the table, and end "for as long as …" effects it makes untrue (611.2b),
+    until nothing changes."""
+    r = plan.rules
+    if r is None or not (r.effects or r.control_changed or any(c.attached_to for c in plan.state.cards.values())):
+        return
+    from app.rules import delayed
+
+    for _ in range(8):
+        delayed.expire(plan)
+        if not _control_pass(plan):
+            return
+
+
+def _control_pass(plan: Plan) -> bool:
+    from app.rules import scripts
+
+    state, r = plan.state, plan.rules
+    battle = {cid: c for cid, c in state.cards.items() if c.zone.endswith(":battlefield")}
+    live = set(plan.live())
+    entries: dict[str, list[tuple[tuple[int, int, int], str]]] = {}
+    by_object = {plan.oid(c): cid for cid, c in battle.items()} if any(e.layer == "2" for e in r.effects) else {}
+    for e in r.effects:
+        if e.layer == "2" and e.new_controller:
+            for oid in e.affected:
+                if oid in by_object:
+                    entries.setdefault(by_object[oid], []).append(((e.object_seq, 1, e.timestamp), e.new_controller))
+    for cid, c in battle.items():  # "You control enchanted creature." (a static: whatever it is attached to now, 611.3a)
+        if c.attached_to in battle and not c.face_down and c.controller in live and any(
+                d.get("static") == "control" for d in scripts.definitions(copiable(state, c, plan.info)).values()):
+            entries.setdefault(c.attached_to, []).append(((timestamp(state, cid), 0, 0), c.controller))
+    changed = False
+    for cid in sorted(set(entries) | set(r.control_changed)):
+        card = battle.get(cid)
+        if card is None:
+            r.control_changed = [x for x in r.control_changed if x != cid]
+            continue
+        valid = [p for _, p in sorted(entries.get(cid, ())) if p in live]  # (800.4a: a departed player's effects ended)
+        if valid:
+            want: str | None = valid[-1]
+            if cid not in r.control_changed and want != card.controller:
+                r.control_changed.append(cid)
+        elif cid in r.control_changed:
+            want = card.owner if card.owner in live else None
+            r.control_changed.remove(cid)
+        else:
+            continue
+        if want is not None and want != card.controller:
+            plan.do({"type": "set_controller", "card_ids": [cid], "player": want}, actor=want)
+            changed = True
+    return changed
 
 
 def prune(state: GameState) -> None:

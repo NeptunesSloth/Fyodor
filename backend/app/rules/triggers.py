@@ -57,7 +57,7 @@ from app.game.rules_state import (
 )
 from app.game.state import CardInstance, TokenDef
 from app.rules import characteristics as chars
-from app.rules import delayed, scripts, selectors
+from app.rules import delayed, layers, scripts, selectors
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan, decide
 from app.rules.targets import choose_groups, label, legal_targets, ref, source_of
@@ -180,6 +180,7 @@ def collect(plan: Plan) -> None:
     """Look at the events since the last look (603.2)."""
     r = plan.rules
     delayed.expire(plan)  # "for as long as …" effects whose duration ended (611.2b; app/rules/delayed.py)
+    layers.control_sync(plan)  # -- control (wave 3K) -- layer 2 (613.1b), and what its changes end (611.2b)
     if any(e.batch > r.batch for e in r.events):
         # An event recorded after the step's last table change (a spell becoming cast, 601.2i)
         # is its own batch: close it now, before anyone would receive priority (603.3), rather
