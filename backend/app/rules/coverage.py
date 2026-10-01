@@ -97,6 +97,11 @@ def definition_supported(d: dict[str, Any]) -> bool:
     # there (113.6m); a trigger or static line would need the graveyard scanned for triggers
     if d.get("kind") != "activated" and '"self_gy"' in json.dumps(d, default=str):
         return False
+    # -- refused grants/replacements (wave 3R2) -- a flashback cost never stated
+    from app.rules import graveyard_grants
+
+    if graveyard_grants.unsupported(d):
+        return False
     verdict = stage2_supported(d)  # -- replacement effects stage 2 (wave 2E) --
     if verdict is not None:
         return verdict
@@ -135,6 +140,11 @@ SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
     "life": frozenset({"mul", "add", "set", "lose"}),  # 119.10: Boon Reflection, Sulfuric Vortex, Tainted Remedy
     "damage": frozenset({"mul", "add", "sub", "half", "prevent", "prevent_all_but", "prevent_all"}),  # 614, 615.10
 }
+# -- refused grants/replacements (wave 3R2) -- 614.9 redirection statics (Pariah, Palisade Giant: app/rules/source_shields.py,
+# tests/test_rules_refused_grants.py)
+SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"redirect"}
+# … and token creation adding a different token (Peregrin Took, Chatterfang: app/rules/extra_tokens.py)
+SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra"}
 SUPPORTED_REPLACEMENTS |= {
     "enters_tapped_others",  # 614.1d, 614.12: "Creatures your opponents control enter tapped."
     "exile_if_dies",  # "If that creature / a creature dealt damage this way would die this turn, exile it instead." (611.2a)

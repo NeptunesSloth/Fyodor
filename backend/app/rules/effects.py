@@ -308,12 +308,16 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
     for src, key, want in hits:
         if want <= 0:
             continue
-        if key not in plan.state.players and protection.protected_from(plan.ch(plan.state.cards[key]), src.ch):
+        ev = {"source_card": src.card, "source_oid": src.oid, "target": key, "amount": want, "combat": False,
+              "src": replace.source_info(plan, src.card, src.oid, src.ch, ctx["controller"]),
+              "kw": sorted(src.keywords & _DAMAGE_KEYWORDS), "lkey": src.key,
+              # -- refused grants/replacements (wave 3R2) -- "The damage can't be prevented." (615.12)
+              **({"unpreventable": True} if e is not None and e.get("unpreventable") else {})}
+        if key not in plan.state.players and protection.protected_from(plan.ch(plan.state.cards[key]), src.ch) \
+                and source_shields.protection_applies(plan, ev):  # (615.12: protection's prevention, 702.16e, too)
             notes.append((f"Protection prevents the damage to {plan.ch(plan.state.cards[key]).name}", [key]))
             continue
-        kept.append({"source_card": src.card, "source_oid": src.oid, "target": key, "amount": want, "combat": False,
-                     "src": replace.source_info(plan, src.card, src.oid, src.ch, ctx["controller"]),
-                     "kw": sorted(src.keywords & _DAMAGE_KEYWORDS), "lkey": src.key})
+        kept.append(ev)
     rerun = replace.rerun_then(ctx, e)
     answers = dict(ctx.get(replace.ANSWERS) or {})
     order = list(ctx.get(replace.SHIELDS) or [])
@@ -2777,3 +2781,15 @@ from app.rules import designations  # noqa: E402, I001
 PRIMITIVES.update(designations.PRIMITIVES)
 RESUME.update(designations.RESUME)
 # -- end counters & designations (wave 3E) --
+
+# -- refused grants/replacements (wave 3R2) -- source-of-your-choice shields (609.7a, 615.8) and "Damage can't be
+# prevented this turn." (615.12): app/rules/source_shields.py (a leaf module over this one)
+from app.rules import cant_gain, graveyard_grants, skips, source_shields  # noqa: E402, I001
+
+PRIMITIVES.update(source_shields.PRIMITIVES)
+PRIMITIVES.update(skips.PRIMITIVES)  # 614.10 "skips their next …" (app/rules/skips.py)
+PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
+PRIMITIVES.update(graveyard_grants.PRIMITIVES)  # "gains flashback until end of turn" (app/rules/graveyard_grants.py)
+RESUME.update(graveyard_grants.RESUME)  # ("Choose one of them.")
+RESUME.update(source_shields.RESUME)
+# -- end refused grants/replacements (wave 3R2) --

@@ -436,6 +436,7 @@ def next_step(plan: Plan) -> None:
         plan.do({"type": "phase", "to": "end_combat", "force": True}, actor=plan.active)
     else:
         plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
+    effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped step or combat phase
     _mark_step(plan)
     on_step_start(plan)
 
@@ -457,7 +458,18 @@ def start_next_turn(plan: Plan) -> None:
     keep = [*keep, *stunned]
     skipped: list[tuple[str, int]] = []  # 800.4k: a departed player's turn doesn't begin
     previous = (plan.active, plan.state.turn.number)
+    # -- refused grants/replacements (wave 3R2) -- 614.10: skipped turns (they never begin: nothing ends with
+    # them, 500.4) and a skipped untap step (nothing untaps, 502.2's day / night check doesn't happen)
+    skip_to = effects.skips.next_active(plan)
+    stay = effects.skips.untap_skipped(plan, skip_to or plan.after(plan.active))
+    if stay is not None:
+        keep = list(dict.fromkeys([*keep, *stay]))[:250]
+    if skip_to is not None:
+        plan.do({"type": "next_turn", "force": True, "keep_tapped": keep, "player": skip_to}, actor=plan.active)
+    # -- end refused grants/replacements (wave 3R2) --
     for _ in range(len(plan.state.seat_order) + 1):
+        if skip_to is not None:
+            break
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep}, actor=plan.active)
         if plan.active in plan.live():
             break
@@ -465,11 +477,13 @@ def start_next_turn(plan: Plan) -> None:
     effects.keyword_actions.lose_stun(plan, [c for c in stunned if c in plan.state.cards and plan.state.cards[c].controller == plan.active],
                                       plan.active)
     delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
-    effects.designations.untap_day_night(plan, *previous)  # -- (wave 3E) 502.2: day / night --
-    if not plan.state.settings.auto_untap:
+    if stay is None:  # (wave 3R2: not in a skipped untap step)
+        effects.designations.untap_day_night(plan, *previous)  # -- (wave 3E) 502.2: day / night --
+    if not plan.state.settings.auto_untap and stay is None:
         plan.do({"type": "untap_all", "player": plan.active, "keep_tapped": keep}, actor=plan.active)
     # The untap step has no priority: straight on to upkeep.
     plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
+    effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step
     _mark_step(plan)
     on_step_start(plan)
 

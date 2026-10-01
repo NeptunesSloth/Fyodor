@@ -742,6 +742,15 @@ class RulesState(BaseModel):
     # combat damage that would be dealt this turn" and friends. Each: {"id", "kind", "turn",
     # "controller", "source", "scope"}; a record for another turn has expired (614.3, 615.3).
     replacements: list[dict[str, Any]] = Field(default_factory=list)
+    # -- refused grants/replacements (wave 3R2) -- 614.10 "skips their next …" effects waiting for that
+    # occurrence (app/rules/skips.py): {"id", "player", "what": "untap"|"upkeep"|"draw"|"combat"|"turn", "label"}
+    skips: list[dict[str, Any]] = Field(default_factory=list)
+    # … and "can't gain life this turn / for the rest of the game" (614.17; app/rules/cant_gain.py):
+    # {"id", "player", "controller", "turn" (None: the rest of the game), "label"}
+    cant_gain: list[dict[str, Any]] = Field(default_factory=list)
+    # … and abilities granted to graveyard cards this turn (app/rules/graveyard_grants.py): "gains flashback until
+    # end of turn" — {"id", "oid" (the card as the object it was then, 400.7), "card", "turn", "flashback", "controller"}
+    graveyard_grants: list[dict[str, Any]] = Field(default_factory=list)
     # 903.9b: commanders just put into their owner's hand / library (card id -> "hand" | "library")
     # whose owner hasn't yet said whether it goes to the command zone instead (asked before priority)
     pending_903_9b: dict[str, str] = Field(default_factory=dict)
