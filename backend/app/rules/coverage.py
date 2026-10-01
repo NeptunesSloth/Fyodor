@@ -206,6 +206,8 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
     # -- counters & designations (wave 3E): app/rules/designations.py, tests/test_rules_designations.py
     # (venture into Undercity's Arena room — goad — is still resolved by hand)
     "venture into the dungeon", "the ring tempts you",
+    # -- keyword actions & face-down (wave 3F) -- test_rules_keywords3f.py
+    "goad", "manifest", "manifest dread", "cloak", "earthbend", "incubate",
 }
 
 
@@ -219,7 +221,6 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bchoose (?:each of )?(?:up to \w+ |any number of |one or two |\w+ )?(?:(?:an)?other )?targets?\b", re.I),
      "choose_targets: needs a no-op primitive that only names the chosen targets for later sentences "
      "(the target grammar is ready: language._CHOOSE)"),
-    (re.compile(r"\bstun counters?\b", re.I), "stun counters (122.1d) aren't modelled (values.UNMODELED_COUNTERS)"),
     (re.compile(r"\bfor each target beyond the first\b", re.I),
      "a cost per extra target (601.2b/601.2c): the cost grammar doesn't read it"),
     (re.compile(r"\btarget (?:player|opponent)'s (?:graveyard|hand|library)\b", re.I),
@@ -252,6 +253,17 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     # (wave 3E: "you've completed a dungeon" and "it's day / night" are read now: app/rules/designations.py)
     (re.compile(r"\bif you have a full party\b|\bthis is the \w+ time this ability has resolved this turn\b", re.I),
      "party size and how often an ability resolved this turn: not tracked as state a condition can read"),
+)
+
+
+# -- keyword actions & face-down (wave 3F) -- refused on purpose, with the missing piece named
+REFUSED += (
+    (re.compile(r"\bairbend", re.I),
+     "airbend (701.65): needs a cast-from-exile permission whose alternative cost is {2}, for the card's owner"),
+    (re.compile(r"\bwaterbend", re.I),
+     "waterbend (701.67): a cost whose generic part may be paid by tapping artifacts/creatures isn't modelled"),
+    (re.compile(r"\bmanifests? the top card of (?:that player's|target player's|an opponent's)", re.I),
+     "manifesting another player's card under your control: not modelled"),
 )
 
 
@@ -293,10 +305,12 @@ def _keyword_supported(kw: str, line: str) -> bool:
     if kw == "echo":  # triggers.echo_cost: a mana echo cost
         return re.fullmatch(r"echo (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
-        return re.fullmatch(r"(?:mega)?morph (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+        return re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None  # (no X: wave 3F)
+    if kw == "disguise":  # -- keyword actions & face-down (wave 3F) -- casting.disguise_cost: a mana disguise cost
+        return re.fullmatch(r"disguise (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "toxic":  # -- counters & designations (wave 3E) -- combat.py reads "toxic N" anywhere in a keyword line ("Menace, toxic 1")
         return re.search(r"(?:^|, )toxic \d+(?:,|$)", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()) is not None
-    if kw in ("bushido", "renown", "bloodthirst", "soulshift", "toxic", "fabricate"):  # numbered keywords (triggers.py, engine.enter_with_counters)
+    if kw in ("bushido", "renown", "bloodthirst", "soulshift", "toxic", "fabricate", "firebending"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
         return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None

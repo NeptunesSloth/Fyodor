@@ -74,6 +74,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
         }
         if c.token:
             view["token"] = c.token.model_dump()
+            if c.token.back is not None and c.face == 1:  # -- wave 3F -- a transformed double-faced token (701.27)
+                view["token"] = {**c.token.back.model_dump(), "front": c.token.model_dump(exclude={"back"})}
         if c.copy_of:
             view["copy_of"] = c.copy_of.model_dump()
         if c.ability:

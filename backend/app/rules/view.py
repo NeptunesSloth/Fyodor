@@ -13,7 +13,7 @@ from typing import Any
 
 from app.game.rules_state import preset_name
 from app.game.state import GameState, zone_key
-from app.game.visibility import OMNISCIENT, can_see
+from app.game.visibility import OMNISCIENT, can_see, mask_face_down
 from app.rules import characteristics as chars
 from app.rules.casting import activatable, castable, free_castable
 from app.rules.characteristics import CardInfo
@@ -92,8 +92,13 @@ def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
     still in its caster's hand (601.2a: its targets, modes, division, costs) or about hidden cards
     (a search, a look, a private cost) must not reveal them (hidden information, 400.2)."""
     if viewer in (d.player, OMNISCIENT):
-        full: dict[str, Any] = {"id": d.id, "player": d.player, "kind": d.kind, "prompt": d.prompt,
-                                "source_id": d.source_id, "options": [o.model_dump() for o in d.options],
+        # -- keyword actions & face-down (wave 3F) -- 708.5: a face-down card the chooser may not look
+        # at is never named in the prompt or an option's label
+        options = [o.model_dump() for o in d.options]
+        for o in options:
+            o["label"] = mask_face_down(state, o["label"], viewer)
+        full: dict[str, Any] = {"id": d.id, "player": d.player, "kind": d.kind, "prompt": mask_face_down(state, d.prompt, viewer),
+                                "source_id": d.source_id, "options": options,
                                 "min_choices": d.min_choices, "max_choices": d.max_choices,
                                 "rememberable": d.memory_key is not None}
         if d.display is not None:

@@ -120,6 +120,18 @@ _CACHE_MAX = 5000
 HALVES = ("split", "adventure", "aftermath")  # one card, two spells: you cast one half
 
 
+# -- keyword actions & face-down (wave 3F) ------------------------------------------------------
+# 708.2a: a face-down spell or permanent is a 2/2 creature with no text, no name, no subtypes and no
+# mana cost — unless what made it face down lists other characteristics: disguise (702.168a) and
+# cloak (701.58a) give it ward {2}. These are its copiable values (708.2).
+_WARD_2 = (AbilityText(index=0, text="Ward {2}", kind="keywords", keywords=("ward",)),)
+
+
+def face_down_characteristics(kind: str | None) -> Characteristics:
+    return Characteristics(name="", types=frozenset({"Creature"}), power="2", toughness="2", face_down=True,
+                           abilities=_WARD_2 if kind in ("disguise", "cloak") else ())
+
+
 def _from_card_data(data: dict[str, Any], face: int, *, half: bool = False) -> Characteristics:
     faces = data.get("faces") or []
     layout = data.get("layout")
@@ -232,9 +244,11 @@ def of(card: CardInstance, info: CardInfo) -> Characteristics:
         return Characteristics(name=card.ability.source_name or "Ability", oracle_text=card.ability.text,
                                abilities=tuple(parse_abilities(card.ability.text, spell=True)), is_ability=True)
     if card.face_down and (card.zone.endswith(":battlefield") or card.zone == "stack"):
-        return Characteristics(name="", types=frozenset({"Creature"}), power="2", toughness="2", face_down=True)
+        return face_down_characteristics(card.face_down_kind)  # -- keyword actions & face-down (wave 3F) --
     if card.token is not None and not card.card_id:
         t = card.token
+        if t.back is not None and card.face == 1:  # -- keyword actions & face-down (wave 3F) -- transformed (701.27, 111.10i)
+            t = t.back
         supertypes, types, subtypes = parse_type_line(t.type_line)
         abilities = with_intrinsic_mana(parse_abilities(t.text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
         return Characteristics(

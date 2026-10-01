@@ -358,6 +358,8 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, commander=True)
     if low in ("enchanted", "equipped"):
         return replace(s, extras=(*s.extras, low))
+    if low in ("face-down", "face-up"):  # -- keyword actions & face-down (wave 3F) -- 708: "face-down creatures you control"
+        return replace(s, extras=(*s.extras, low.replace("-", "_")))
     if low.startswith("non"):
         rest = word[4:] if word[3:4] == "-" else word[3:]
         if rest.lower() in COLORS:
@@ -666,6 +668,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra.startswith("counter:") and not card.counters.get(extra[8:], 0):
             return False
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
+            return False
+        if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
             return False
     return True
 

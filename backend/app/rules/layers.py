@@ -233,7 +233,7 @@ def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristi
         source = view.state.cards[st.source]
         if d["static"] == "attached_rule":
             if not only_keyword_subjects and _attached_rule_applies(source, d, card, ch):
-                imposed.update(d["imposes"])
+                imposed.update(_own(d["imposes"], st.controller))
             continue
         if not _grants(d) or (only_keyword_subjects and not _keyword_subject(d)):
             continue  # (a rules-only static is applied by _with_rules, after layer 7)
@@ -577,17 +577,24 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
         try:
             for st in table:
                 d = st.definition
-                if set(d["rules"]) <= imposed or not _gate_open(view, st, tkey):
+                rules = _own(d["rules"], st.controller)
+                if set(rules) <= imposed or not _gate_open(view, st, tkey):
                     continue
                 source = state.cards[st.source]
                 if grammar.applies(view, d, source=source, controller=st.controller, card=card, ch=ch, conditions=True) \
                         and _conditions(view, st, tkey):
-                    imposed.update(d["rules"])
+                    imposed.update(rules)
         finally:
             _depth -= 1
     if imposed:
         ch = replace(ch, imposed=ch.imposed | frozenset(imposed))
     return ch
+
+
+def _own(rules: list[str], controller: str) -> list[str]:
+    """-- keyword actions & face-down (wave 3F) -- a rule naming "@you" ("goaded:@you": 701.15b) names the
+    static's controller."""
+    return [r.replace("@you", controller) for r in rules]
 
 
 def _keyword_subject(d: dict[str, Any]) -> bool:

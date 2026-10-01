@@ -404,8 +404,11 @@ def _mark_step(plan: Plan) -> None:
 
 def empty_pools(plan: Plan) -> None:
     """Mana empties from every pool at the end of each step and phase (rule 500.4)."""
+    kept = effects.keyword_actions.combat_mana_kept(plan)  # -- wave 3F -- firebending: kept until end of combat
     if any(p.mana for p in plan.state.players.values()):
         plan.do({"type": "rules_mana", "player": plan.active, "empty_all": True}, actor=plan.active)
+        for pid, n in kept.items():
+            plan.do({"type": "rules_mana", "player": pid, "delta": {"R": n}}, actor=pid)
 
 
 def next_step(plan: Plan) -> None:
@@ -442,6 +445,9 @@ def _keep_tapped(plan: Plan) -> list[str]:
 
 def start_next_turn(plan: Plan) -> None:
     keep = _keep_tapped(plan)
+    # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
+    stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
+    keep = [*keep, *stunned]
     skipped: list[tuple[str, int]] = []  # 800.4k: a departed player's turn doesn't begin
     previous = (plan.active, plan.state.turn.number)
     for _ in range(len(plan.state.seat_order) + 1):
@@ -449,6 +455,8 @@ def start_next_turn(plan: Plan) -> None:
         if plan.active in plan.live():
             break
         skipped.append((plan.active, plan.state.turn.number))
+    effects.keyword_actions.lose_stun(plan, [c for c in stunned if c in plan.state.cards and plan.state.cards[c].controller == plan.active],
+                                      plan.active)
     delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
     effects.designations.untap_day_night(plan, *previous)  # -- (wave 3E) 502.2: day / night --
     if not plan.state.settings.auto_untap:

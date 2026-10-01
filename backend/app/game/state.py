@@ -75,6 +75,9 @@ class TokenDef(BaseModel):
     colors: list[str] = Field(default_factory=list)
     type_line: str = "Token Creature"
     text: str = ""
+    # -- keyword actions & face-down (wave 3F) -- a double-faced token's back face (111.10i: the Incubator's
+    # "Phyrexian Token"); ``CardInstance.face`` 1 means it's transformed (701.27)
+    back: TokenDef | None = None
 
 
 class Effect(BaseModel):

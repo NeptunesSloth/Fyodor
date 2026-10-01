@@ -246,6 +246,7 @@ class TokenSpec(BaseModel):
     colors: list[Literal["W", "U", "B", "R", "G"]] = Field(default_factory=list)
     type_line: str = Field(default="Token Creature", max_length=120)
     text: str = Field(default="", max_length=1000)
+    back: TokenSpec | None = None  # -- wave 3F -- a double-faced token's back face (111.10i)
 
     @field_validator("name", "type_line")
     @classmethod
@@ -917,6 +918,9 @@ class TurnFaceUp(_Intent):
     type: Literal["turn_face_up"] = "turn_face_up"
     card_id: Id
     sources: list[Id] | None = Field(default=None, max_length=60)
+    # -- keyword actions & face-down (wave 3F) -- which way, when there are several: its morph cost
+    # (702.37e), its disguise cost (702.168d), or a manifested / cloaked creature card's mana cost (701.40b)
+    method: Literal["morph", "disguise", "mana_cost"] | None = None
 
 
 class ActivateAbility(_Intent):

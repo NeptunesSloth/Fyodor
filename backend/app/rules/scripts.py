@@ -86,6 +86,9 @@ TRIGGERS = [
     (re.compile(r"^Whenever ~ enters or attacks, (?P<body>.+)$"), "enters_or_attacks_self"),
     (re.compile(r"^(?:Landfall — )?Whenever a land you control enters, (?P<body>.+)$"), "landfall"),
     (re.compile(r"^When ~ becomes the target of a spell or ability, (?P<body>.+)$"), "targeted_self"),
+    # -- keyword actions & face-down (wave 3F) -- 702.37e / 702.168d / 701.40b: fired by casting.turn_face_up
+    (re.compile(r"^When ~ is turned face up, (?P<body>.+)$"), "turned_face_up_self"),
+    (re.compile(r"^Whenever a permanent you control is turned face up, (?P<body>.+)$"), "turned_face_up_you"),
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
@@ -1112,7 +1115,7 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if found is not None:
         return found
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
-                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get)\b)"):
+                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad)\b)"):
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
@@ -1702,6 +1705,7 @@ ATTACHED_RULES: dict[str, tuple[str, ...]] = {
     "doesn't untap during its controller's untap step.": ("doesnt_untap",),
     "can't attack or block, and its activated abilities can't be activated.": ("cant_attack_or_block", "cant_activate"),
     "can't attack or block and its activated abilities can't be activated.": ("cant_attack_or_block", "cant_activate"),
+    "is goaded.": ("goaded:@you",),  # -- wave 3F -- 701.15b: by the Aura's controller (app/rules/layers.py ``_own``)
 }
 # "Enchanted creature's activated abilities can't be activated." (possessive subjects)
 _POSSESSIVE_RULES: dict[str, tuple[str, ...]] = {
@@ -1766,6 +1770,11 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                     "kind": "triggered", "trigger": "dies_self", "optional": True,
                     "target": {"what": f"graveyard:Spirit:{m.group(1)}"},
                     "effects": [{"do": "bounce", "who": "target"}]}))
+            fb = re.fullmatch(r"firebending (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "firebending" else None
+            if fb:  # -- keyword actions & face-down (wave 3F) -- 702.189a: "Whenever this creature attacks, add N {R}. …"
+                out.append((1000 + ab.index * 10 + k, {
+                    "kind": "triggered", "trigger": "attacks_self", "optional": False, "target": None,
+                    "effects": [{"do": "firebend", "n": int(fb.group(1))}]}))
     return out
 
 
@@ -2814,3 +2823,11 @@ def _exile_until_monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     back = {"do": "return_card", "who": "ref:m0", "to": "battlefield", "tapped": False, "under": "owner"}
     return [{**found[0][0], "as": "m0"}, *_delayed.wrap_when([back], {"kind": "designation", "what": "monarch", "by": "opponent"})], found[1]
 # -- end counters & designations (wave 3E) --
+
+
+# -- keyword actions & face-down (wave 3F) -- goad names its objects ("goad it" after a target, "tap it and goad
+# it"); manifest / cloak put cards onto the battlefield ("then put X +1/+1 counters on it": the face-down
+# permanent it made, app/rules/facedown.py binds it)
+_RECORDING.update({"goad": None, "manifest": None})
+_MOVERS.add("manifest")
+_CHOSEN["manifest"] = "n"

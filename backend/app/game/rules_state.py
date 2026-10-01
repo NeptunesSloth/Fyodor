@@ -806,6 +806,9 @@ class RulesState(BaseModel):
     completed_dungeons: dict[str, list[str]] = Field(default_factory=dict)  # 309.7: player -> dungeons completed, in order
     ring_tempted: dict[str, int] = Field(default_factory=dict)  # 701.54c: player -> times the Ring tempted them (their emblem)
     ring_bearers: dict[str, str] = Field(default_factory=dict)  # 701.54a: player -> their Ring-bearer (rules object id)
+    # -- keyword actions & face-down (wave 3F) -- firebending (702.189a): the {R} each player added that
+    # they don't lose as steps end until end of combat (player -> how much of the red in their pool)
+    combat_mana: dict[str, int] = Field(default_factory=dict)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)
@@ -860,6 +863,8 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
     c = state.cards[card_id]
     rules = state.rules
     token = c.token
+    if token is not None and token.back is not None and c.face == 1:  # -- wave 3F -- a transformed double-faced token
+        token = token.back
     return ObjectSnapshot(
         object_id=rules.object_id(card_id) if rules else card_id, card=card_id, printing=c.card_id, name=c.name,
         owner=c.owner, controller=c.controller, zone=c.zone, turn=state.turn.number, tapped=c.tapped,

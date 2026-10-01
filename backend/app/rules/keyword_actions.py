@@ -22,7 +22,7 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption
 from app.game.state import zone_key
-from app.rules import effects, replace, selectors, token_grammar
+from app.rules import effects, facedown, replace, selectors, token_grammar
 from app.rules.plan import Plan, decide
 
 Context = dict[str, Any]
@@ -265,10 +265,189 @@ def resume_bolster(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, r["ctx"])
 
 
+# -- keyword actions & face-down (wave 3F) ------------------------------------------------------
+# goad (701.15). Goaded is a designation (701.15b), not an ability and not copiable: a rule-modifying
+# effect on those objects ("goaded:<player>" in ``Characteristics.imposed``, read by
+# app/rules/combat.py's attack requirements), locked to the objects goaded (a new object isn't, 400.7),
+# lasting until the goading player's next turn (701.15a; ends as it begins, 500.4 / 800.4m:
+# app/rules/delayed.turn_began).
+GOADED = "goaded:"
+
+
+def goaded_by(ch: Any) -> set[str]:
+    """The players who goaded this object (701.15c: possibly several)."""
+    return {r[len(GOADED):] for r in ch.imposed if r.startswith(GOADED)}
+
+
+def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.15a: "Until the next turn of the controller of that spell or ability, that creature is
+    goaded." 701.15d: the same player goading it again has no effect (no second requirement).
+    ``controlled``: "goad each creature target player / that player controls" (``who`` names the
+    player(s))."""
+    from app.rules import delayed, layers
+
+    pid = ctx["controller"]
+    if e.get("controlled"):
+        players = set(effects._players(plan, ctx, e["who"]))
+        cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in players
+                 and plan.in_game(c) and plan.ch(c).is_creature]
+    else:
+        cards = effects._cards(plan, ctx, e["who"])
+    effects._remember(plan, ctx, e, cards)
+    fresh = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")
+             and pid not in goaded_by(plan.ch(plan.state.cards[c]))]
+    if not fresh:
+        return True
+    effect = layers.add_effect(plan, affected=[plan.oid(c) for c in fresh], layer="6", source=ctx.get("source_object"),
+                               controller=pid, imposes=(GOADED + pid,), label=f"goaded by {plan.name(pid)}")
+    effect.duration, effect.until_player, effect.turn = "next_turn", pid, plan.state.turn.number
+    markers: list[str] = []
+    for cid in fresh:
+        markers += delayed.marker_ids(plan.do({"type": "add_effect", "card_ids": [cid], "name": f"Goaded by {plan.name(pid)}"[:60],
+                                               "value": "Goaded", "text": delayed.LABELS["next_turn"]}))
+    effect.markers = markers
+    plan.note(f"{plan.name(pid)} goads {effects._labels(plan, fresh)}", fresh, actor=pid)
+    return True
+
+
+# earthbend (701.66a): "Target land you control becomes a 0/0 land creature with haste in addition to its
+# other types. Put N +1/+1 counters on it. When that land dies or is put into exile, return it to the
+# battlefield tapped under your control." No duration is stated: the effects last for that object (611.2a;
+# a new object isn't it, 400.7). The return is a delayed trigger (603.7) watching that object.
+def earthbend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    import secrets
+
+    from app.game.rules_state import DelayedTrigger
+    from app.rules import context, layers
+
+    pid = ctx["controller"]
+    n = effects._amount(plan, ctx, e.get("n", 0))
+    lands = [c for c in effects._cards(plan, ctx, e.get("who", "target")) if plan.state.cards[c].zone.endswith(":battlefield")]
+    effects._remember(plan, ctx, e, lands)
+    if not lands:
+        return True
+    oids = [plan.oid(c) for c in lands]
+    name = ctx.get("name") or "Earthbend"
+    layers.add_effect(plan, affected=oids, layer="4", source=ctx.get("source_object"), controller=pid, add_types=("Creature",),
+                      duration="permanent", label=f"0/0 land creature with haste (earthbend, {name})")
+    layers.add_effect(plan, affected=oids, layer="6", source=ctx.get("source_object"), controller=pid, add_keywords=("haste",),
+                      duration="permanent", label=f"haste (earthbend, {name})")
+    layers.add_effect(plan, affected=oids, layer="7b", source=ctx.get("source_object"), controller=pid, power=0, toughness=0,
+                      duration="permanent", label=f"base 0/0 (earthbend, {name})")
+    for cid in lands:
+        plan.do({"type": "add_effect", "card_ids": [cid], "name": "Earthbent: 0/0 creature, haste", "value": "Earthbent",
+                 "text": "as long as it's on the battlefield"})
+    refs: dict[str, Any] = {}
+    context.bind_objects(plan, {"refs": refs}, "watch", lands)
+    plan.rules.delayed.append(DelayedTrigger(
+        id=secrets.token_hex(4), controller=pid, source_card=ctx.get("source_card"), source_object=ctx.get("source_object"),
+        name=name, when={"kind": "event", "event": "die_or_exile"}, refs=refs, turn=plan.state.turn.number,
+        step=plan.state.turn.phase,
+        effects=[{"do": "return_card", "who": "event.new", "to": "battlefield", "tapped": True, "under": "you"}]))
+    plan.note(f"{plan.name(pid)} earthbends {n}: {effects._labels(plan, lands)} becomes a 0/0 creature with haste", lands,
+              actor=pid)
+    if n <= 0:
+        return True
+    return replace.put_counters(plan, [(c, "+1/+1", n) for c in lands], by=pid, then={"do": "continue", "ctx": ctx})
+
+
+# firebending (702.189a): "Whenever this creature attacks, add N {R}. Until end of combat, you don't lose this
+# mana as steps and phases end." The red mana added is remembered (RulesState.combat_mana); at each step's
+# end during combat (500.4) as much of it as is still in the pool stays — the player is free to have spent
+# their other red mana first (any red mana pays the same) — and at the end of the combat phase it empties.
+COMBAT_STEPS = ("begin_combat", "declare_attackers", "declare_blockers", "combat_damage")
+
+
+def firebend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    pid = ctx["controller"]
+    n = effects._amount(plan, ctx, e.get("n", 0))
+    if n <= 0 or plan.state.turn.phase not in (*COMBAT_STEPS, "end_combat"):
+        return True  # (an attack trigger resolves during combat; outside it there is nothing to keep)
+    plan.do({"type": "rules_mana", "player": pid, "delta": {"R": n}, "label": f"added {'{R}' * n} (firebending {n})"}, actor=pid)
+    plan.rules.combat_mana[pid] = plan.rules.combat_mana.get(pid, 0) + n
+    return True
+
+
+def combat_mana_kept(plan: Plan) -> dict[str, int]:
+    """As a step ends: the firebending mana each player keeps (none once the combat phase ends)."""
+    r = plan.rules
+    if not r.combat_mana:
+        return {}
+    if plan.state.turn.phase not in COMBAT_STEPS:
+        r.combat_mana = {}
+        return {}
+    kept = {pid: min(n, plan.state.players[pid].mana.get("R", 0)) for pid, n in r.combat_mana.items() if pid in plan.state.players}
+    r.combat_mana = {pid: n for pid, n in kept.items() if n > 0}
+    return dict(r.combat_mana)
+
+
+# incubate (701.53): "create an Incubator token that enters the battlefield with N +1/+1 counters on it";
+# 111.10i: a double-faced token — front "Incubator", a colorless artifact with "{2}: Transform this token.",
+# back a 0/0 colorless Phyrexian artifact creature named "Phyrexian Token". Transforming (701.27) turns the
+# token over (``set_face``; its new timestamp, 613.7g, is app/game/rules_state.py's): it's the same object.
+INCUBATOR: dict[str, Any] = {
+    "name": "Incubator", "power": None, "toughness": None, "colors": [], "type_line": "Token Artifact — Incubator",
+    "text": "{2}: Transform this token.",
+    "back": {"name": "Phyrexian Token", "power": "0", "toughness": "0", "colors": [],
+             "type_line": "Token Artifact Creature — Phyrexian", "text": ""}}
+
+
+def incubate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    pid = ctx["controller"]
+    n = effects._amount(plan, ctx, e.get("n", 0))
+    source = ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None
+    made = replace.create_tokens(plan, pid, dict(INCUBATOR), 1, source=source, ctx=ctx, bind=e.get("as"),
+                                 then=replace.rerun_then(ctx, e))
+    if made is None:
+        return False  # (616.1: the creating player orders replacement effects first; incubate runs again)
+    puts = [(t, "+1/+1", n) for t in made if t in plan.state.cards and n > 0]
+    if not puts:
+        return True
+    # 122.6: the counters it enters with, through the counter choke point
+    return replace.put_counters(plan, puts, by=pid, entering={t: pid for t, _, _ in puts}, then={"do": "continue", "ctx": ctx})
+
+
+def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.27a, "Transform this token.": a double-faced token turns over; 701.27c: anything else that isn't a
+    double-faced permanent doesn't (nothing happens)."""
+    for cid in effects._cards(plan, ctx, e.get("who", "self")):
+        card = plan.state.cards[cid]
+        if card.token is None or card.token.back is None or not card.zone.endswith(":battlefield"):
+            continue
+        plan.do({"type": "set_face", "card_id": cid, "face": 1 - min(card.face, 1)}, actor=ctx["controller"])
+    return True
+
+
+# stun counters (122.1d): "If a permanent with a stun counter on it would become untapped, instead remove a
+# stun counter from it." — a replacement effect of the counters themselves, applied wherever the engine untaps
+# a permanent (the untap step, "untap target creature", "untap … and gain control of it").
+def stunned(plan: Plan, card_ids: list[str]) -> list[str]:
+    """The permanents among these that would become untapped but have a stun counter."""
+    return [c for c in card_ids if (card := plan.state.cards.get(c)) is not None and card.tapped
+            and card.zone.endswith(":battlefield") and card.counters.get("stun", 0) > 0 and not plan.manual(card)]
+
+
+def lose_stun(plan: Plan, card_ids: list[str], actor: str | None) -> None:
+    """Instead of untapping: one stun counter comes off each (removing counters isn't replaceable)."""
+    for cid in card_ids:
+        plan.do({"type": "counter", "card_ids": [cid], "kind": "stun", "delta": -1}, actor=actor)
+
+
+def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[str]:
+    """The cards to untap after 122.1d replaced the untapping of the stunned ones."""
+    stuck = stunned(plan, card_ids)
+    lose_stun(plan, stuck, actor)
+    return [c for c in card_ids if c not in stuck]
+
+
 PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
+              "goad": goad, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform,
+              **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
 RESUME = {"amass_choose": resume_amass, "bolster_choose": resume_bolster, "connive_discard": resume_connive,
+          **facedown.RESUME,  # -- keyword actions & face-down (wave 3F) --
           **token_grammar.RESUME}
 # -- replacement effects stage 2 (wave 2E): where a keyword action goes on after a 616.1 choice --
 replace.THEN.update({"amass_rest": _amass_rest, "connive_after_draw": _connive_after_draw_then,
                      "connive_next": _connive_next_then})
+replace.THEN["face_up_done"] = lambda plan, then: None  # -- wave 3F -- (megamorph's counter: the special action is done)
