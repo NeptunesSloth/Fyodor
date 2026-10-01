@@ -91,9 +91,16 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
                                       **({"type_line": snap.token_type_line} if snap.token_type_line else {}))
                         if snap.is_token and not snap.printing else None)
     ch = chars.of(card, plan.info)
+    # -- copy system (wave 2F): its copiable values as they were (a dying Clone's abilities) --
+    from app.rules import copying
+
+    ch = copying.lki(plan, snap, ch)
     if snap.power is not None and snap.toughness is not None:
         ch = replace(ch, pt=(snap.power, snap.toughness))  # as it last existed (608.2h)
-    return ch
+    # -- quoted grants (wave 2D) -- the abilities and keywords it had (603.10a): granted ones too
+    from app.rules import granted
+
+    return granted.as_last_existed(ch, snap)
 
 
 def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, name: str, index: int,

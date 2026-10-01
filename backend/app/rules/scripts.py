@@ -34,7 +34,7 @@ from typing import Any, Literal
 from app.rules import restrictions
 from app.rules.characteristics import Characteristics
 from app.rules.costs import parse_ability_cost
-from app.rules.oracle import AbilityText, parse_abilities
+from app.rules.oracle import AbilityText, parse_abilities, split_sentences
 from app.rules.values import UNMODELED_COUNTERS
 
 Definition = dict[str, Any]
@@ -171,9 +171,18 @@ def self_text(text: str, name: str) -> str:
     ability word (207.2c)."""
     out = _ABILITY_WORD.sub("", text, count=1)
     short = _short_name(name)
-    for n in sorted({name, name.split(",")[0].strip(), *([short] if short else [])}, key=len, reverse=True):
-        if len(n) >= 3:
-            out = re.sub(rf"\b{re.escape(n)}\b", "~", out)
+    names = [n for n in sorted({name, name.split(",")[0].strip(), *([short] if short else [])}, key=len, reverse=True)
+             if len(n) >= 3]
+
+    def own(part: str) -> str:
+        for n in names:
+            part = re.sub(rf"\b{re.escape(n)}\b", "~", part)
+        return part
+
+    # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the
+    # object that gets it ("this creature" is): it stays as written, so no ~ there means the granter
+    parts = out.split('"')
+    out = '"'.join(own(p) if i % 2 == 0 else p for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
     return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Equipment|Vehicle|Aura)\b", "~", out)
 
 
@@ -394,9 +403,15 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         out[intro.index]["as"] = name
         return name
 
-    def objects(index: int, number: int | None, verb: str | None) -> _Introducer | None:
+    def closed_gate(k: int, index: int) -> bool:
+        """Is effect k inside a gated (only_if) block that ended before ``index``? (what a gated
+        instruction moved may never have happened: a later condition's "it" isn't that)"""
+        return any(g.get("do") == "only_if" and g_i < k <= g_i + int(g.get("skip", 0)) < index
+                   for g_i, g in enumerate(out[:index]))
+
+    def objects(index: int, number: int | None, verb: str | None, skip_gated: bool = False) -> _Introducer | None:
         def ok(i: _Introducer) -> bool:
-            if not i.objects:
+            if not i.objects or (skip_gated and closed_gate(i.index, index)):
                 return False
             if verb == "card":  # "that card": a card, so not a token an instruction created (111.1)
                 return i.do not in _TOKEN_MAKERS and (i.number is None or number is None or i.number == number)
@@ -419,7 +434,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         """The object "it" names in a condition (conditional / instead clauses, wave 1B): what an earlier
         instruction moved, chose or created (its recorded object, 400.7j), a plain target of one
         (the target itself), the source, or the trigger event's object."""
-        intro = objects(index, 1, None)
+        intro = objects(index, 1, None, skip_gated=True)
         if intro is None:
             return stat_ref(index)
         if intro.do in _MOVERS or _group_of(out[intro.index]) is None:
@@ -511,7 +526,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
         return value
     out = {}
     for k, v in value.items():
-        if k in ("as", "bind", "succeeded", "flag") and isinstance(v, str):  # ("bind": the library primitives' recorder;
+        if k in ("as", "bind", "succeeded", "flag", "did") and isinstance(v, str):  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -1091,7 +1106,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     effects: list[dict[str, Any]] = []
     groups: list[dict[str, Any]] = []
     start = 0
-    texts = [s for s in re.split(r"(?<=\.)\s+", body) if s]  # ("You may pay …" looks ahead at "If you do")
+    texts = [s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     for i, sentence in enumerate(texts):
         text = _lower_first(sentence.rstrip(".").strip())
@@ -1102,6 +1117,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             if with_kicker is None:
                 return None
             effects = with_kicker
+            continue
+        if (instead := replacement_sentence(text, effects, groups)) is not None:  # -- replacement effects stage 2 (wave 2E) --  (before 1B: a replacement, not a condition)
+            effects += instead
             continue
         # -- conditional / instead clauses (wave 1B) --  "If C, Y instead." / "Y instead if C." / "Otherwise, Z."
         if (branch := _instead_or_otherwise(text, effects, prev_start, groups)) is not None:
@@ -1122,7 +1140,16 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 after_may = _if_you_do_after_may(if_do, effects, optional, i, len(texts))
                 if after_may is None:
                     return None
-                effects += _add_groups(groups, after_may, None)
+                added = _add_groups(groups, after_may, None)
+                # (A may be replaced or impossible: "If you do" reads what A actually did)
+                tracked = [e for e in effects if e["do"] in _PROBED]
+                probes = [f"did{k}" for k in range(len(tracked))]
+                for e, name in zip(tracked, probes, strict=True):
+                    e["did"] = name
+                if probes:
+                    did_gate: dict[str, Any] = {"succeeded": probes[0]} if len(probes) == 1 else {"all": [{"succeeded": n} for n in probes]}
+                    added = [{"do": "only_if", "cond": did_gate, "skip": len(added)}, *added]
+                effects += added
                 continue
             inner = _clause(if_do["rest"]) if not if_do["rest"].startswith("you may ") else None
             if inner is None:
@@ -1335,6 +1362,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         replacement = define_replacement(ability, text)
         if replacement is not None:
             return replacement
+    if ability.kind == "static" and (copied := _copy_static(text)) is not None:  # -- copy system (wave 2F) --
+        return copied
     if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
         return anthem
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
@@ -1905,7 +1934,82 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         if this_turn or target is not None:
             return None  # a static ability doesn't last "this turn" and doesn't target
         return {"kind": "static", "static": "prevent", "scope": scope, "effects": []}
-    return None
+    # -- replacement effects stage 2 (wave 2E): token / counter / draw / life / damage statics and
+    # "[Objects] enter tapped" (app/rules/replace_grammar.py, applied by app/rules/replace.py) --
+    from app.rules import replace_grammar  # (a leaf module)
+
+    return replace_grammar.parse(text)
+
+
+# -- replacement effects stage 2 (wave 2E): "If that creature would die this turn, exile it instead." --
+# A replacement effect of the resolving spell or ability lasting this turn (611.2a), locked to the
+# objects it names (the target as the object it is, 400.7; "a creature dealt damage this way": the
+# objects that preceding damage was actually dealt to, 615 prevention included) or a group checked
+# whenever something would die ("If a creature would die this turn"). Applied by
+# replacements.replace_move with the other "exile instead" effects (700.4: dies = put into a
+# graveyard from the battlefield). Read by the hook in _parse_effects (before its "If …," condition).
+_DIES_THIS_TURN = re.compile(r"^if (?P<det>that|a|an) (?P<what>.+?) would die this turn, exile it instead$")
+_DIES_THAT = {"creature": ["Creature"], "permanent": [], "creature or planeswalker": ["Creature", "Planeswalker"],
+              "planeswalker": ["Planeswalker"]}
+_DIES_DEALT = re.compile(r"(?P<what>creature|permanent|creature or planeswalker) dealt damage this way")
+
+
+_UNTIL_EOT_IF = re.compile(r"^until end of turn, (?P<rest>if .+)$")
+_IF_THIS_TURN = re.compile(r"^(?P<head>if [^,]+?) this turn(?P<tail>, .+)$")
+
+
+def _turn_record(text: str) -> list[dict[str, Any]] | None:
+    """"Until end of turn, if one or more tokens would be created under your control, twice that
+    many … instead." / "If a source you control would deal damage to an opponent this turn, it
+    deals double that damage …": a static replacement wording (app/rules/replace_grammar.py) as a
+    record of this resolution, lasting this turn (611.2a)."""
+    from app.rules import replace_grammar  # (a leaf module)
+
+    m = _UNTIL_EOT_IF.match(text)
+    body = m["rest"] if m else None
+    if body is None:
+        m2 = _IF_THIS_TURN.match(text)
+        body = m2["head"] + m2["tail"] if m2 else None
+    if body is None or " this turn" in body:
+        return None
+    d = replace_grammar.parse("I" + body[1:] + ".")
+    if d is None or d.get("static") != "replace":
+        return None
+    return [{"do": "replace_record", "event": d["event"], "match": d["match"], "op": d["op"]}]
+
+
+def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+    """A sentence that sets up a replacement effect for the rest of the turn, or None."""
+    m = _DIES_THIS_TURN.match(text)
+    if m is None:
+        return _turn_record(text)
+    what = m["what"]
+    if m["det"] == "that":  # the object the ability's target names (its only object target group)
+        if what not in _DIES_THAT:
+            return None
+        refs = {e["who"] for e in effects if isinstance(e.get("who"), str) and _group_of(e) is not None}
+        objects = [w for w in refs if (g := _group_of({"who": w})) is not None and g < len(groups)
+                   and _player_target(groups[g].get("what") or "") is False]
+        if len(objects) != 1 or len(refs) != 1:
+            return None  # (two targets, or a player among them: which one is "that creature"? manual)
+        return [{"do": "exile_if_dies", "who": objects[0], "types": _DIES_THAT[what]}]
+    dealt = _DIES_DEALT.fullmatch(what)
+    if dealt:  # "a creature dealt damage this way": each preceding damage instruction's recipients
+        dmg = [(i, e) for i, e in enumerate(effects) if e.get("do") in ("damage", "fight")]
+        if not dmg:
+            return None
+        out = []
+        for i, e in dmg:
+            e["dealt_as"] = e.get("dealt_as") or f"ref:d{i}"
+            out.append({"do": "exile_if_dies", "dealt": e["dealt_as"], "types": _DIES_THAT[dealt["what"]]})
+        return out
+    from app.rules import selectors  # (a leaf module)
+
+    sel = selectors.parse(what)  # "If a creature [an opponent controls] would die this turn"
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.other:
+        return None
+    return [{"do": "exile_if_dies", "each": sel.key()}]
+# -- end replacement effects stage 2 (wave 2E) --
 
 
 @effect(r"(?P<text>prevent all (?:combat |noncombat )?damage that would be dealt.*)")
@@ -2090,9 +2194,15 @@ def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     found = language.parse_become(m["text"])
     if found is None:
         raise _NoMatch
+    # (quoted grants, wave 2D: each quote is one the engine carries out as granted)
+    from app.rules import granted
+
     for e in found[0]:
-        if e["do"] == "become" and any(granted_ability(text) is None for text in e.get("abilities", ())):
-            raise _NoMatch
+        if e["do"] == "become" and e.get("abilities"):
+            checked = [granted.quote(text) for text in e["abilities"]]
+            if any(c is None for c in checked):
+                raise _NoMatch
+            e["abilities"] = checked
     return found
 
 
@@ -2151,7 +2261,8 @@ _RECORDING.update({"become": None})
 # effects a resolving spell creates, "If that creature would die this turn, exile it instead": 614.1a
 # continuous replacement effects are a different mechanism), a pronoun in one branch that names what
 # the other branch's instruction would have moved, a chain of "instead" clauses.
-# =====================================================================================================
+# ==============================================================================================
+
 _BRANCHING = frozenset({"only_if", "kicked_gate", "optional_payment", "delayed", "until", "record_action", "action_gate",
                         "bind_refs"})
 _INSTEAD_FORMS = (re.compile(r"^if (?P<c>[^,]+), (?P<rest>.+) instead$"),
@@ -2308,6 +2419,7 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 # was) might not be there: "If you do" would then be false, which this reading can't tell.
 _CERTAIN_WHEN_CHOSEN = frozenset({"draw", "create_token"})
 _CERTAIN_ON_A_TARGET = frozenset({"exile", "bounce"})
+_PROBED = frozenset({"draw", "exile", "bounce"})  # (their "If you do" reads the result: effects._did)
 
 
 def _certain_when_chosen(e: dict[str, Any]) -> bool:
@@ -2389,3 +2501,64 @@ def _branch_refs_ok(effects: list[dict[str, Any]]) -> bool:
                 if lo <= k < hi and not lo <= i < hi:
                     return False
     return True
+
+# -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py) --
+# "Copy target instant or sorcery spell[, except that the copy is red]." / "Copy target triggered
+# ability you control." then "You may choose new targets for the copy." (707.10, 707.10c); "Create
+# a token that's a copy of target creature[, except it has haste]." (707.9); "~ becomes a copy of
+# target creature until end of turn." (707.4); "You may have ~ enter as a copy of any creature on the
+# battlefield[, except …]." (707.5, a replacement effect). Each is tried before the older templates
+# (a "becomes a …" or "create … token" template would otherwise claim and reject the sentence).
+# =====================================================================================================
+def _copy_static(text: str) -> Definition | None:
+    from app.rules import copying
+
+    return copying.define_static(text)
+
+
+@_first
+@effect(r"copy target (?P<what>.+?)(?:, except (?P<exc>.+))?")
+def _copy_target(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import copying
+
+    found = copying.parse_copy_target(m["what"], m["exc"])
+    if found is None:
+        raise _NoMatch
+    return found
+
+
+@_first
+@effect(r"you may choose new targets for the cop(?:y|ies)")
+def _copy_new_targets(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "copy_new_targets", "optional": True}], None  # (read by the copy before it: 707.10c)
+
+
+@_first
+@effect(r"create (?P<n>a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|\d+) (?P<tapped>tapped )?tokens? "
+        r"that(?:'s| are) (?:a )?cop(?:y|ies) of (?P<src>.+?)(?:, except (?P<exc>.+))?")
+def _token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import copying
+
+    found = copying.parse_token_copy(m["n"], bool(m["tapped"]), m["src"], m["exc"])
+    if found is None:
+        raise _NoMatch
+    return found
+
+
+@_first
+@effect(r"~ becomes a copy of target (?P<what>.+?)(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")
+def _become_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import copying
+
+    found = copying.parse_become(m["what"], bool(m["until"]), m["exc"])
+    if found is None:
+        raise _NoMatch
+    return found
+
+
+# The tokens a copy creates are what a following "it" / "that token" names ("Sacrifice it at the
+# beginning of the next end step."): the resolution records them (effects._remember).
+_RECORDING.update({"token_copy": None})
+_MOVERS.add("token_copy")
+_TOKEN_MAKERS.add("token_copy")
+_CHOSEN["token_copy"] = "n"

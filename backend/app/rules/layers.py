@@ -96,15 +96,20 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     by ``derive``."""
     r = state.rules
     live = {p for p in state.seat_order if not state.players[p].left} - (set(r.conceded) | set(r.lost) if r else set())
+    # -- copy system (wave 2F): statics are read from copiable values (613.2c: a Clone of an anthem
+    # has the anthem's ability), so which copy effect applies to each permanent is part of the key
+    from app.rules.copying import copy_index
+
+    copies = copy_index(r)
     # (the face and flip state are part of the key: a transformed permanent has only its back
     # face's characteristics, 712.8e — its front face's statics are gone, 611.3a)
     key = tuple(sorted((cid, c.controller, c.face_down, c.face, c.flipped, c.card_id or c.name, c.token.text if c.token else "",
-                        r.card_mode(cid) if r else "", timestamp(state, cid))
+                        r.card_mode(cid) if r else "", timestamp(state, cid),
+                        copies.get(r.object_id(cid), (0, "")) if r else (0, ""))
                        for cid, c in state.cards.items() if c.zone.endswith(":battlefield")))
     hit = _STATIC_CACHE.get(key)
     if hit is not None:
         return hit
-    from app.rules import characteristics as chars
     from app.rules import scripts
     from app.rules import statics as grammar
 
@@ -113,7 +118,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
              and not (r is not None and r.card_mode(cid) == "manual")]
     out = []
     for cid, c in field:
-        for d in scripts.definitions(chars.of(c, info)).values():
+        for d in scripts.definitions(copiable(state, c, info)).values():
             if d["kind"] == "static" and d.get("static") in ("grant", "attached_rule"):
                 out.append(Static(cid, c.controller, d, timestamp(state, cid)))
     # An ability a static grants may itself be a static ("Commander creatures you own have
@@ -137,6 +142,17 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
 
 
 anthems = statics  # (the old name)
+
+
+# -- copy system (wave 2F): layer 1 (613.2) -----------------------------------------------------------
+def copiable(state: GameState, card: CardInstance, info: CardInfo) -> Characteristics:
+    """613.2c: the object's copiable values — its printed values (for a token or a copy, what the
+    effect that created it defined, 613.1), then layer 1: copy effects (613.2a), face-down status
+    (613.2b). What a copy copies (707.2) and what static abilities are read from."""
+    from app.rules import characteristics as chars
+    from app.rules.copying import layer1
+
+    return layer1(state, card, chars.of(card, info), info)
 
 
 def _view(state: GameState, info: CardInfo) -> Plan:
@@ -164,8 +180,12 @@ def _table_key(state: GameState) -> tuple:
     field = tuple((cid, c.controller, c.tapped, c.attacking is not None, bool(c.blocking), c.attached_to, c.face_down,
                    tuple(sorted(c.counters.items())))
                   for cid, c in state.cards.items() if c.zone.endswith(":battlefield"))
+    log = r.turn_log if r else None  # (conditions read this turn's history: "a creature died this turn")
+    history = (log.turn, tuple(log.attacked), tuple(sorted(log.gained.items())), tuple(sorted(log.lost.items())),
+               tuple(sorted(log.drew.items())), len(log.left), len(log.left_graveyard),
+               len(log.entered_graveyard)) if log is not None else ()
     return (state.seq, state.turn.number, state.turn.active_player, players, field,
-            r.timestamp if r else 0, len(r.effects) if r else 0)
+            r.timestamp if r else 0, len(r.effects) if r else 0, history)
 
 
 def _conditions(view: Plan, st: Static, tkey: tuple) -> bool:
@@ -188,7 +208,6 @@ def _gate_open(view: Plan, st: Static, tkey: tuple) -> bool:
     """A granted static works while the static granting it applies to the object it's on."""
     if st.gate is None:
         return True
-    from app.rules import characteristics as chars
     from app.rules import statics as grammar
 
     granter, definition = st.gate
@@ -198,7 +217,8 @@ def _gate_open(view: Plan, st: Static, tkey: tuple) -> bool:
         return False
     gate = Static(granter, source.controller, definition, 0)
     return (grammar.applies(view, definition, source=source, controller=source.controller, card=holder,
-                            ch=chars.of(holder, view.info), conditions=True) and _conditions(view, gate, tkey))
+                            ch=copiable(view.state, holder, view.info),  # -- copy system (wave 2F): 613.2c --
+                            conditions=True) and _conditions(view, gate, tkey))
 
 
 def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristics, tkey: tuple,
@@ -352,21 +372,15 @@ def _wipe_key(effects: list[ContinuousEffect]) -> tuple[int, int, int] | None:
 
 def _granted_by_effects(ch: Characteristics, effects: list[ContinuousEffect],
                         wipe: tuple[int, int, int] | None) -> Characteristics:
-    """Layer 6: quoted abilities resolved effects granted ("becomes a … creature with "{T}: …""),
-    numbered from 200 so they never collide with statics' grants (100…); one that a later "loses
-    all abilities" precedes is gone."""
-    texts = [text for e in effects if e.layer == "6" and e.add_abilities
-             and (wipe is None or (e.object_seq, 1, e.timestamp) > wipe) for text in e.add_abilities]
-    if not texts:
+    """Layer 6: quoted abilities resolved effects granted ("gains "{T}: …"", "becomes a … creature
+    with "{T}: …""), after the printed (0…99) and static-granted (100…) ones; one that a later
+    "loses all abilities" precedes is gone. Each is numbered from its effect's timestamp
+    (app/rules/granted.py ``index_of``), so its number doesn't change while other grants end."""
+    if not any(e.layer == "6" and e.add_abilities for e in effects):
         return ch
-    from app.rules.scripts import granted_ability
+    from app.rules import granted
 
-    extra = []
-    for k, text in enumerate(texts):
-        ab = granted_ability(text)
-        if ab is not None:
-            extra.append(replace(ab, index=200 + k))
-    return replace(ch, abilities=ch.abilities + tuple(extra)) if extra else ch
+    return granted.layer6(ch, effects, wipe)
 
 
 def derive(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> Characteristics:
@@ -374,6 +388,10 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     ``info``, static abilities of permanents apply too (layers 6, 7b, 7c and rules imposed on the
     object it's attached to), and the object's own characteristic-defining P/T (7a, every zone)."""
     global _depth
+    # -- copy system (wave 2F): layer 1 — copy effects (613.2a), face-down status (613.2b) --
+    from app.rules.copying import layer1
+
+    ch = layer1(state, card, ch, info)
     effects = affecting(state, card)
     each_amounts: dict[int, int] = {}
     ch = _layer4(ch, effects)  # layer 4: type-changing (animation, agent A2: also layer 5 below)

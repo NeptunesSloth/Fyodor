@@ -472,3 +472,22 @@ def test_privacy_survives_a_reload_for_every_private_library_decision(cards):
     choose(s, rest)
     assert zone(s.state, "p1", "library")[-3:] == list(reversed(rest))
     replay_matches(s)
+
+
+BISON_WHISTLE = ("{1}: Look at the top card of your library. If it's a Bison card, you may put it onto the battlefield. "
+                 "If it's a creature card, you may reveal it and put it into your hand. "
+                 "Otherwise, you may put it into your graveyard.")
+
+
+def test_a_second_condition_reads_the_looked_at_card_not_what_the_first_gate_moved(cards):
+    """Bison Whistle (608.2c): "it" in the second condition is the looked-at card, so a non-Bison creature can go to the hand."""
+    s = build(cards)
+    src = token(s, "p1", "Whistle", text=BISON_WHISTLE)
+    top = zone(s.state, "p1", "library")[0]
+    assert s.state.cards[top].name == "Elvish Visionary"
+    activate(s, src)
+    d = s.state.rules.decision
+    assert d is not None and [o.id for o in d.options] == [top]
+    choose(s, [top])
+    assert s.state.cards[top].zone == "p1:hand" and s.state.rules.decision is None
+    replay_matches(s)

@@ -22,7 +22,7 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption
 from app.game.state import zone_key
-from app.rules import effects, selectors, token_grammar
+from app.rules import effects, replace, selectors, token_grammar
 from app.rules.plan import Plan, decide
 
 Context = dict[str, Any]
@@ -49,22 +49,37 @@ def amass(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     sub, n = e["sub"], effects._amount(plan, ctx, e["n"])
     armies = _armies(plan, ctx)
     if not armies:
-        effects.create_token(plan, ctx, {"who": "you", "n": 1, "token": army_token(sub)})
+        # -- replacement effects stage 2 (wave 2E): the token choke point; after a 616.1 choice
+        # amass runs again from here (nothing was done yet) --
+        if not effects.create_token(plan, ctx, {"who": "you", "n": 1, "token": army_token(sub)}, then=replace.rerun_then(ctx, e)):
+            return False
         armies = _armies(plan, ctx)
         if not armies:
             return True  # 701.47b: amassed, even though the token couldn't be created
     if len(armies) == 1:
-        _amass_on(plan, ctx, armies[0], sub, n)
-        return True
+        return _amass_on(plan, ctx, armies[0], sub, n)
     decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"Amass {sub}s {n}: choose an Army you control",
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Army", card_id=c) for c in armies],
            resume={"step": "amass_choose", "ctx": ctx, "sub": sub, "n": n})
     return False
 
 
-def _amass_on(plan: Plan, ctx: Context, cid: str, sub: str, n: int) -> None:
-    if n > 0:
-        plan.do({"type": "counter", "card_ids": [cid], "kind": "+1/+1", "delta": n}, actor=ctx["controller"])
+def _amass_on(plan: Plan, ctx: Context, cid: str, sub: str, n: int) -> bool:
+    """The counters (through the counter choke point) and the subtype; False while the Army's
+    controller chooses an order (616.1): the rest follows the answer ("amass_rest")."""
+    if n > 0 and not replace.put_counters(plan, [(cid, "+1/+1", n)], by=ctx["controller"],
+                                          then={"do": "amass_rest", "ctx": ctx, "card": cid, "sub": sub}):
+        return False
+    _amass_subtype(plan, ctx, cid, sub)
+    return True
+
+
+def _amass_rest(plan: Plan, then: dict[str, Any]) -> None:
+    _amass_subtype(plan, then["ctx"], then["card"], then["sub"])
+    effects.continue_effects(plan, then["ctx"])
+
+
+def _amass_subtype(plan: Plan, ctx: Context, cid: str, sub: str) -> None:
     card = plan.state.cards.get(cid)
     if card is None or not card.zone.endswith(":battlefield"):
         return
@@ -84,8 +99,9 @@ def _amass_on(plan: Plan, ctx: Context, cid: str, sub: str, n: int) -> None:
 
 def resume_amass(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
-    if chosen and chosen[0] in plan.state.cards and plan.state.cards[chosen[0]].zone.endswith(":battlefield"):
-        _amass_on(plan, r["ctx"], chosen[0], r["sub"], r["n"])
+    if chosen and chosen[0] in plan.state.cards and plan.state.cards[chosen[0]].zone.endswith(":battlefield") \
+            and not _amass_on(plan, r["ctx"], chosen[0], r["sub"], r["n"]):
+        return  # (a 616.1 choice first)
     effects.continue_effects(plan, r["ctx"])
 
 
@@ -122,38 +138,71 @@ def _connive_next(plan: Plan, ctx: Context, queue: list[Conniver], n: int) -> bo
         cid, oid, pid = queue.pop(0)
         if pid not in plan.live():
             continue
-        effects.draw(plan, ctx, {"who": f"player:{pid}", "n": n})
-        hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
-        if n >= len(hand):  # no choice: the whole hand (or nothing) is discarded
-            _connive_discard(plan, cid, oid, pid, hand)
-            continue
-        decide(plan, player=pid, kind="choose_cards", prompt=f"Connive: discard {n} card{'s' if n != 1 else ''}",
-               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
-               min_choices=n, max_choices=n,
-               resume={"step": "connive_discard", "ctx": ctx, "card": cid, "object": oid, "player": pid, "n": n,
-                       "queue": [list(q) for q in queue]})
-        return False
+        # -- replacement effects stage 2 (wave 2E): the draw through the draw choke point; after a
+        # 616.1 choice the conniving goes on from the discard ("connive_after_draw") --
+        rest = {"do": "connive_after_draw", "ctx": ctx, "card": cid, "object": oid, "player": pid, "n": n,
+                "queue": [list(q) for q in queue]}
+        if not replace.draw_cards(plan, [pid], n, then=rest):
+            return False
+        if not _connive_after_draw(plan, ctx, cid, oid, pid, n, queue):
+            return False
     return True
 
 
-def _connive_discard(plan: Plan, cid: str | None, oid: str | None, pid: str, chosen: list[str]) -> None:
+def _connive_after_draw(plan: Plan, ctx: Context, cid: str | None, oid: str | None, pid: str, n: int,
+                        queue: list[Conniver]) -> bool:
+    """The discard of one conniver (True when done without a decision)."""
+    hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
+    if n >= len(hand):  # no choice: the whole hand (or nothing) is discarded
+        return _connive_discard(plan, ctx, cid, oid, pid, hand, n, queue)
+    decide(plan, player=pid, kind="choose_cards", prompt=f"Connive: discard {n} card{'s' if n != 1 else ''}",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
+           min_choices=n, max_choices=n,
+           resume={"step": "connive_discard", "ctx": ctx, "card": cid, "object": oid, "player": pid, "n": n,
+                   "queue": [list(q) for q in queue]})
+    return False
+
+
+def _connive_discard(plan: Plan, ctx: Context, cid: str | None, oid: str | None, pid: str, chosen: list[str], n: int,
+                     queue: list[Conniver]) -> bool:
     """701.9a: the chosen cards go to the graveyard, all at once; then one +1/+1 counter per nonland
-    card among them — on the conniving permanent, if it is still that object on the battlefield."""
+    card among them — on the conniving permanent, if it is still that object on the battlefield
+    (through the counter choke point: False while its controller chooses an order, 616.1)."""
     cards = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone == zone_key(pid, "hand")]
     if not cards:
-        return
+        return True
     nonland = sum(1 for c in cards if not plan.ch(plan.state.cards[c]).is_land)
     plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=pid)
     card = plan.state.cards.get(cid or "")
     if nonland and card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == oid:
-        plan.do({"type": "counter", "card_ids": [card.id], "kind": "+1/+1", "delta": nonland}, actor=pid)
+        rest = {"do": "connive_next", "ctx": ctx, "n": n, "queue": [list(q) for q in queue]}
+        return replace.put_counters(plan, [(card.id, "+1/+1", nonland)], by=pid, then=rest)
+    return True
+
+
+def _queue(raw: list[list[Any]]) -> list[Conniver]:
+    return [(q[0], q[1], q[2]) for q in raw]
 
 
 def resume_connive(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
-    _connive_discard(plan, r["card"], r["object"], r["player"], chosen)
-    if _connive_next(plan, r["ctx"], [(q[0], q[1], q[2]) for q in r["queue"]], r["n"]):
+    queue = _queue(r["queue"])
+    if not _connive_discard(plan, r["ctx"], r["card"], r["object"], r["player"], chosen, r["n"], queue):
+        return
+    if _connive_next(plan, r["ctx"], queue, r["n"]):
         effects.continue_effects(plan, r["ctx"])
+
+
+def _connive_after_draw_then(plan: Plan, t: dict[str, Any]) -> None:
+    queue = _queue(t["queue"])
+    if _connive_after_draw(plan, t["ctx"], t["card"], t["object"], t["player"], t["n"], queue) \
+            and _connive_next(plan, t["ctx"], queue, t["n"]):
+        effects.continue_effects(plan, t["ctx"])
+
+
+def _connive_next_then(plan: Plan, t: dict[str, Any]) -> None:
+    if _connive_next(plan, t["ctx"], _queue(t["queue"]), t["n"]):
+        effects.continue_effects(plan, t["ctx"])
 
 
 # -- monstrosity (701.37) ---------------------------------------------------------------------
@@ -168,8 +217,11 @@ def monstrosity(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if oid in plan.rules.monstrous:
             plan.note(f"{name} is already monstrous", [cid], actor=ctx["controller"])
             continue
-        if n > 0:
-            plan.do({"type": "counter", "card_ids": [cid], "kind": "+1/+1", "delta": n}, actor=ctx["controller"])
+        # -- replacement effects stage 2 (wave 2E): the counter choke point; after a 616.1 choice the
+        # primitive runs again (nothing was done yet) --
+        if n > 0 and not replace.put_counters(plan, [(cid, "+1/+1", n)], by=ctx["controller"],
+                                              then=replace.rerun_then(ctx, e), ctx=ctx):
+            return False
         plan.rules.monstrous.append(oid)
         plan.do({"type": "add_effect", "card_ids": [cid], "name": "Monstrous", "value": "Monstrous",
                  "text": "until it leaves the battlefield"})
@@ -196,9 +248,8 @@ def bolster(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return True
     least = min(_toughness(plan.ch(c)) for c in mine)
     tied = [c for c in mine if _toughness(plan.ch(c)) == least]
-    if len(tied) == 1:
-        plan.do({"type": "counter", "card_ids": [tied[0].id], "kind": "+1/+1", "delta": n}, actor=pid)
-        return True
+    if len(tied) == 1:  # -- replacement effects stage 2 (wave 2E): the counter choke point --
+        return replace.put_counters(plan, [(tied[0].id, "+1/+1", n)], by=pid, then={"do": "continue", "ctx": ctx})
     decide(plan, player=pid, kind="choose_cards", prompt=f"Bolster {n}: choose a creature with the least toughness ({least})",
            options=[DecisionOption(id=c.id, label=c.name or "Creature", card_id=c.id) for c in tied],
            resume={"step": "bolster_choose", "ctx": ctx, "n": n})
@@ -207,8 +258,10 @@ def bolster(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def resume_bolster(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
-    if chosen and chosen[0] in plan.state.cards and plan.state.cards[chosen[0]].zone.endswith(":battlefield"):
-        plan.do({"type": "counter", "card_ids": [chosen[0]], "kind": "+1/+1", "delta": r["n"]}, actor=d.player)
+    if chosen and chosen[0] in plan.state.cards and plan.state.cards[chosen[0]].zone.endswith(":battlefield") \
+            and not replace.put_counters(plan, [(chosen[0], "+1/+1", int(r["n"]))], by=d.player,
+                                         then={"do": "continue", "ctx": r["ctx"]}):
+        return  # (a 616.1 choice first; then the resolution continues)
     effects.continue_effects(plan, r["ctx"])
 
 
@@ -216,3 +269,6 @@ PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "b
               **token_grammar.PRIMITIVES}
 RESUME = {"amass_choose": resume_amass, "bolster_choose": resume_bolster, "connive_discard": resume_connive,
           **token_grammar.RESUME}
+# -- replacement effects stage 2 (wave 2E): where a keyword action goes on after a 616.1 choice --
+replace.THEN.update({"amass_rest": _amass_rest, "connive_after_draw": _connive_after_draw_then,
+                     "connive_next": _connive_next_then})

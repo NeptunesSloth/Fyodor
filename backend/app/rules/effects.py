@@ -29,6 +29,7 @@ from app.rules import (
     permissions,
     protection,
     regeneration,
+    replace,  # -- replacement effects stage 2 (wave 2E): the choke points --
     replacements,
     selectors,
     values,
@@ -156,23 +157,30 @@ def _moved(plan: Plan, ctx: Context, e: dict[str, Any], before: list[ObjectRef])
 
 
 def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    # -- replacement effects stage 2 (wave 2E): the draw choke point (app/rules/replace.py: 121.2,
+    # 121.2c APNAP, 121.6a / 614.11 with an empty library, 704.5b) --
     want = _amount(plan, ctx, e["n"])
-    for pid in _players(plan, ctx, e["who"]):
-        library = plan.state.zones.get(zone_key(pid, "library"), [])
-        n = min(want, len(library))
-        if n:
-            plan.do({"type": "draw", "player": pid, "count": n}, actor=pid)
-        if n < want and pid not in plan.rules.drew_from_empty:
-            plan.rules.drew_from_empty.append(pid)  # 704.5b at the next check
-    return True
+    players = _players(plan, ctx, e["who"])
+    if want <= 0 or not players:
+        return True
+    return replace.draw_cards(plan, players, want, then=_then(ctx, e), ctx=ctx)
 
 
 def gain_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    # -- replacement effects stage 2 (wave 2E): the life-gain choke point (119.10; each player's
+    # gain its own event) --
     n = _amount(plan, ctx, e["n"])
-    for pid in _players(plan, ctx, e["who"]):
-        if n:
-            plan.do({"type": "life", "player": pid, "delta": n}, actor=ctx["controller"])
-    return True
+    gains = [(pid, n) for pid in _players(plan, ctx, e["who"]) if n > 0]
+    if not gains:
+        return True
+    return replace.gain_life(plan, gains, actor=ctx["controller"], then=_then(ctx, e), ctx=ctx)
+
+
+def _then(ctx: Context, e: dict[str, Any]) -> dict[str, Any] | None:
+    """-- replacement effects stage 2 (wave 2E) -- How a primitive's choke point goes on after the
+    affected player chose an order (616.1): the resolution continues — only when this primitive
+    is the effect being resolved (called from another primitive, it can't pause: None)."""
+    return {"do": "continue", "ctx": ctx} if replace.rerun_then(ctx, e) is not None else None
 
 
 def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -205,8 +213,13 @@ def _ability_source(plan: Plan, ctx: Context) -> _Source:
     src_ch = plan.ch(source) if source is not None else None
     if source is not None and source.zone.endswith(":battlefield") and plan.oid(source) == ctx.get("source_object"):
         keywords = plan.ch(source).keywords
-    elif lki is not None and source is not None:
-        keywords = plan.ch(source).keywords  # (printed keywords of the card; LKI of granted ones is M16 later)
+    elif lki is not None:
+        # as it last existed (603.10a, 702.15c, 702.2e): keywords granted by an effect or a static count, and a
+        # token that ceased to exist still has them (quoted grants, wave 2D: ObjectSnapshot.abilities/keywords)
+        from app.rules.triggers import _snapshot_card  # (triggers imports this module)
+
+        _, src_ch = _snapshot_card(plan, lki)
+        keywords = src_ch.keywords
     return _Source(ctx.get("source_object") or "", keywords, src_ch, ctx["controller"], source.id if source is not None else None)
 
 
@@ -245,69 +258,53 @@ def _card_source(plan: Plan, cid: str) -> _Source:
     return _Source(plan.oid(cid), ch.keywords, ch, cid, cid)
 
 
-def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]]) -> None:
+_DAMAGE_KEYWORDS = frozenset({"lifelink", "deathtouch", "wither", "infect"})
+
+
+def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dict[str, Any] | None = None,
+          *, before: tuple[tuple[str, list[str]], ...] = ()) -> bool:
     """Deal the damage of ``hits`` (source, a player or permanent, amount) all at once: one damage
     event batch (a fight's two creatures deal their damage simultaneously, 701.14a). Protection
-    from the source prevents it (702.16e), prevention shields absorb it (615.7); wither / infect
-    give -1/-1 counters (120.3d), infect poison to players (120.3b), deathtouch marks the
-    creature for the next state-based check (702.2b), lifelink gains the source's controller that
-    much (120.3f / 702.15b)."""
-    creatures: dict[str, int] = {}
-    walkers: dict[str, int] = {}
-    withered: dict[str, int] = {}
-    to_players: dict[str, int] = {}
-    poison: dict[str, int] = {}
-    lifelink: dict[str, int] = {}
-    dealt: list[dict[str, Any]] = []
-    deathtouched: list[str] = []
-    battles: dict[str, int] = {}
-    # prevention (615): protection from the source first (702.16e), then the prevention effects on
-    # this one simultaneous damage event batch (app/rules/replacements.py: "prevent all …", shields)
-    kept: list[tuple[_Source, str, dict[str, Any]]] = []
+    from the source prevents it (702.16e); then — replacement effects stage 2 (wave 2E),
+    app/rules/replace.py — the replacement and prevention effects on each event (614, 615: "deals
+    double that damage", "prevent 1 of that damage", "prevent all …", 615.7 shields), in the order
+    the affected player chooses when it matters (616.1); wither / infect give -1/-1 counters
+    (120.3d), infect poison to players (120.3b), deathtouch marks the creature for the next
+    state-based check (702.2b), lifelink gains the source's controller that much (120.3f / 702.15b)
+    — each result through its own replacement effects (120.4c). False while the affected player
+    chooses: the primitive ``e`` runs again with the answers (nothing was done yet); ``before``:
+    log lines for once the damage is dealt."""
+    notes: list[tuple[str, list[str]]] = list(before)
+    kept: list[dict[str, Any]] = []
     for src, key, want in hits:
         if want <= 0:
             continue
         if key not in plan.state.players and protection.protected_from(plan.ch(plan.state.cards[key]), src.ch):
-            plan.note(f"Protection prevents the damage to {plan.ch(plan.state.cards[key]).name}", [key], actor=ctx["controller"])
+            notes.append((f"Protection prevents the damage to {plan.ch(plan.state.cards[key]).name}", [key]))
             continue
-        kept.append((src, key, {"source_card": src.card, "source_oid": src.oid, "target": key, "amount": want, "combat": False}))
-    replacements.apply_prevention(plan, [ev for _, _, ev in kept])
-    for src, key, ev in kept:
-        n = ev["amount"] - ev.get("prevented", 0)
-        if n <= 0:
-            continue
-        if key in plan.state.players:
-            if "infect" in src.keywords:
-                poison[key] = poison.get(key, 0) + n
-            else:
-                to_players[key] = to_players.get(key, 0) + n
-            dealt.append({"source": src.oid, "target": key, "amount": n})
-        else:
-            ch = plan.ch(plan.state.cards[key])
-            if "Planeswalker" in ch.types and not ch.is_creature:
-                walkers[key] = walkers.get(key, 0) + n
-            elif "Battle" in ch.types and not ch.is_creature:  # 120.3h: defense counters are removed
-                battles[key] = battles.get(key, 0) + n
-            elif {"wither", "infect"} & src.keywords:
-                withered[key] = withered.get(key, 0) + n
-            else:
-                creatures[key] = creatures.get(key, 0) + n
-            if key not in walkers and key not in battles and "deathtouch" in src.keywords:
-                deathtouched.append(key)
-            dealt.append({"source": src.oid, "target": key, "target_object": plan.oid(key), "amount": n})
-        if "lifelink" in src.keywords:
-            lifelink[src.key] = lifelink.get(src.key, 0) + n
-    if not dealt:
-        return
-    for pid in [*to_players, *poison]:
-        plan.rules.damaged[pid] = plan.state.turn.number
-    plan.do({"type": "rules_damage", "creatures": creatures, "players": to_players, "poison": poison, "wither": withered,
-             "planeswalkers": walkers, "lifelink": lifelink, "combat": False, "dealt": dealt}, actor=ctx["controller"])
-    for key, n in battles.items():
-        have = plan.state.cards[key].counters.get("defense", 0)
-        if have:
-            plan.do({"type": "counter", "card_ids": [key], "kind": "defense", "delta": -min(have, n)}, actor=ctx["controller"])
-    plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *deathtouched]))
+        kept.append({"source_card": src.card, "source_oid": src.oid, "target": key, "amount": want, "combat": False,
+                     "src": replace.source_info(plan, src.card, src.oid, src.ch, ctx["controller"]),
+                     "kw": sorted(src.keywords & _DAMAGE_KEYWORDS), "lkey": src.key})
+    rerun = replace.rerun_then(ctx, e)
+    answers = dict(ctx.get(replace.ANSWERS) or {})
+    order = list(ctx.get(replace.SHIELDS) or [])
+    out = replace.damage_outcome(plan, kept, answers=answers, order=order, ask=rerun is not None)
+    if isinstance(out, replace.ShieldAsk):
+        replace.ask_shield(plan, out, {**(rerun or {}), "answers": answers}, order)
+        return False
+    if not isinstance(out, replace.DamageOutcome):
+        replace.ask(plan, out, answers, {**(rerun or {}), "order": order})
+        return False
+    for text, ids in notes:
+        plan.note(text, ids, actor=ctx["controller"])
+    if kept and ctx.get(DEALT_KEY) is not None and e is not None and e.get("dealt_as"):
+        # "a creature dealt damage this way" (the objects actually dealt damage: after prevention)
+        ctx[DEALT_KEY][e["dealt_as"]] = [ev["target_oid"] for ev in out.events if ev.get("target_oid")]
+    replace.do_damage(plan, out, actor=ctx["controller"], combat=False)
+    return True
+
+
+DEALT_KEY = "dealt"  # -- replacement effects stage 2 (wave 2E) -- ctx: binding -> objects a damage effect dealt damage to
 
 
 def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -334,8 +331,9 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         src = _ability_source(plan, ctx)
     if shares is None and n <= 0:
         return True
-    _deal(plan, ctx, [(src, key, amount(key)) for key in [*cards, *players]])
-    return True
+    if e.get("dealt_as"):  # -- replacement effects stage 2 (wave 2E): "dealt damage this way" --
+        ctx.setdefault(DEALT_KEY, {})[e["dealt_as"]] = []
+    return _deal(plan, ctx, [(src, key, amount(key)) for key in [*cards, *players]], e)
 
 
 def fight(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -360,9 +358,10 @@ def fight(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             return True
         pair.append((cid, max(0, ch.pt[0]) if ch.pt is not None else 0))
     (ca, pa), (cb, pb) = pair
-    plan.note(f"{plan.ch(plan.state.cards[ca]).name} fights {plan.ch(plan.state.cards[cb]).name}", [ca, cb], actor=ctx["controller"])
-    _deal(plan, ctx, [(_card_source(plan, ca), cb, pa), (_card_source(plan, cb), ca, pb)])
-    return True
+    fights = (f"{plan.ch(plan.state.cards[ca]).name} fights {plan.ch(plan.state.cards[cb]).name}", [ca, cb])
+    if e.get("dealt_as"):  # -- replacement effects stage 2 (wave 2E): "dealt damage this way" --
+        ctx.setdefault(DEALT_KEY, {})[e["dealt_as"]] = []
+    return _deal(plan, ctx, [(_card_source(plan, ca), cb, pa), (_card_source(plan, cb), ca, pb)], e, before=(fights,))
 
 
 def choose_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -395,17 +394,34 @@ def pump(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"… gains flying [and lifelink] until end of turn" (layer 6, 613.1f), and "… loses flying
     until end of turn" (``remove``: keywords taken away, later than any static that grants
-    them — 613.7: this effect's timestamp is now)."""
+    them — 613.7: this effect's timestamp is now).
+
+    -- quoted grants (wave 2D, app/rules/granted.py) -- ``abilities``: quoted abilities the objects
+    gain too ("gains trample and "{G}: Regenerate this creature."", "It gains "If this creature would
+    die, exile it instead.""), in the same layer-6 effect: one timestamp (613.7b), the set of objects
+    fixed now (611.2c), and only permanents on the battlefield gain one (611.2e). ``duration``: the
+    game when the text states none (611.2a); an ``until`` wrapper (app/rules/delayed.py) sets any other."""
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
     keywords = list(e.get("keywords") or [])
     removed = list(e.get("remove") or [])
-    if cards and (keywords or removed):
-        words = [*keywords, *(f"loses {k}" for k in removed)]
+    abilities = list(e.get("abilities") or [])
+    if abilities:
+        permanents = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
+        if len(permanents) < len(cards):
+            plan.note(f"{ctx.get('name') or 'The effect'}: only a permanent on the battlefield gains an ability", actor=ctx["controller"])
+        cards = permanents
+    if cards and (keywords or removed or abilities):
+        words = [*keywords, *(f"loses {k}" for k in removed), *(f'"{a}"' for a in abilities)]
+        duration = e.get("duration", "end_of_turn")
+        when = "until end of turn" if duration == "end_of_turn" else "for the rest of the game"
         layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="6", source=ctx.get("source_object"),
                           controller=ctx["controller"], add_keywords=tuple(keywords), remove_keywords=tuple(removed),
-                          label=f"{', '.join(words)} until end of turn")
-        _mark(plan, cards, ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed)]))
+                          duration=duration, label=f"{', '.join(words)} {when}", add_abilities=abilities)
+        marker = ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed),
+                            *(f'Gains "{a}"' for a in abilities)])
+        _mark(plan, cards, marker, value="Ability" if abilities and not (keywords or removed) else None,
+              text="until end of turn" if duration == "end_of_turn" else "as long as it's on the battlefield")
     return True
 
 
@@ -422,26 +438,34 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"… can't block this turn", "… can't be blocked this turn": a rule-modifying effect, ending
     at cleanup (514.2). It doesn't change characteristics or control, so its set of objects isn't
     locked in (611.2c): "Creatures can't block this turn" also stops a creature that enters later.
-    A named object (target, "it", self, host) stays that one object (a new object isn't it, 400.7)."""
+    A named object (target, "it", self, host) stays that one object (a new object isn't it, 400.7).
+
+    -- quoted grants (wave 2D) -- ``locked``: the restriction a granted ability states ("gains "This
+    creature can't be blocked."", app/rules/granted.py ``rules_of``) is an ability: the objects it
+    affects are the ones there as it begins, even for a group (611.2c). ``duration``: the game when
+    the text states none (611.2a)."""
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
     _remember(plan, ctx, e, cards)
-    group = who.startswith(selectors.PREFIX)
+    group = who.startswith(selectors.PREFIX) and not e.get("locked")
+    duration = e.get("duration", "end_of_turn")
     if cards or group:
         layers.add_effect(plan, affected=[] if group else [plan.oid(c) for c in cards], layer="6",
                           source=ctx.get("source_object"), controller=ctx["controller"], imposes=tuple(e["rules"]),
-                          label=", ".join(e["rules"]), who=who if group else None, source_card=ctx.get("source_card"))
+                          label=", ".join(e["rules"]), who=who if group else None, source_card=ctx.get("source_card"),
+                          duration=duration)
     if cards:
-        _mark(plan, cards, ", ".join(RESTRICTION_LABELS.get(r, r) for r in e["rules"]))
+        _mark(plan, cards, ", ".join(RESTRICTION_LABELS.get(r, r) for r in e["rules"]),
+              text="until end of turn" if duration == "end_of_turn" else "as long as it's on the battlefield")
     return True
 
 
-def _mark(plan: Plan, cards: list[str], label: str) -> None:
+def _mark(plan: Plan, cards: list[str], label: str, *, value: str | None = None, text: str = "until end of turn") -> None:
     """The visible table marker for an engine effect (it goes away at cleanup with the effect)."""
     # (AddEffect: the name is at most 60 characters, the short value 20 — "Deathtouch, Indestructible")
-    value = label if len(label) <= 20 else label[:19] + "…"
+    value = value if value is not None else label if len(label) <= 20 else label[:19] + "…"
     for cid in cards:
-        plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60], "value": value, "text": "until end of turn"})
+        plan.do({"type": "add_effect", "card_ids": [cid], "name": label[:60], "value": value, "text": text})
 
 
 def _can_regenerate(ctx: Context) -> bool:
@@ -498,9 +522,12 @@ def untap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def player_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    for pid in _players(plan, ctx, e["who"]):
-        plan.do({"type": "resource", "player": pid, "key": e["counter"], "delta": e["n"]}, actor=ctx["controller"])
-    return True
+    # -- replacement effects stage 2 (wave 2E): a player getting counters, through the counter
+    # choke point ("If you would get one or more counters": Winding Constrictor) --
+    puts = [(pid, e["counter"], int(e["n"])) for pid in _players(plan, ctx, e["who"]) if e["n"]]
+    if not puts:
+        return True
+    return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
 
 
 def scry(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -528,45 +555,43 @@ def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     return False
 
 
-def create_token(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """111: tokens are individual objects for the rules; identical ones may be *shown* as a pile."""
+def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str, Any] | None = None) -> bool:
+    """111: tokens are individual objects for the rules; identical ones may be *shown* as a pile.
+    -- replacement effects stage 2 (wave 2E) -- Through the token choke point (app/rules/replace.py:
+    614.16, 616.1 per creating player in APNAP order). ``then``: how a caller other than the
+    resolver goes on after a paused choice (the resolver itself: its effects continue)."""
     t = e["token"]
     count = _amount(plan, ctx, e["n"])
     if count <= 0:
         _remember(plan, ctx, e, [])
         return True
-    made: list[str] = []
+    requests: list[tuple[str, dict[str, Any], int, str | None, bool]] = []
+    source = ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None
     for pid in _players(plan, ctx, e["who"]):
         spec = {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
                 "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
         # a token enters tapped when its creator says so ("create a tapped …") or its own text does
         # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
         tapped = bool(e.get("tapped")) or replacements.token_enters_tapped(plan, pid, spec)
-        created = plan.do({"type": "create_token", "player": pid, "count": count, "stacked": False, "tapped": tapped,
-                           "source_id": ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None,
-                           "token": spec}, actor=pid)
-        new_ids = getattr(created, "r", None)
-        fresh = list(new_ids.ids) if new_ids is not None else []
-        for tid in fresh:
-            replacements.after_entry(plan, tid, pid)
-        made += fresh
-    _remember(plan, ctx, e, made)  # the tokens, as the new objects they are ("they gain haste")
-    return True
+        requests.append((pid, spec, count, source, tapped))
+    # (the tokens are recorded as binding "as", the new objects they are: "they gain haste")
+    made = replace.create_token_batch(plan, requests, ctx=ctx, bind=e.get("as"), then=then or _then(ctx, e))
+    return made is not None  # (None: the creating player chooses an order first, 616.1)
 
 
 def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    # -- replacement effects stage 2 (wave 2E): through the counter choke point (122.6, 614.16) --
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
     shares = divided(ctx, e)
     if shares is not None:  # "distribute N counters among …" (601.2d): each target its share
-        for cid in cards:
-            if shares.get(cid):
-                plan.do({"type": "counter", "card_ids": [cid], "kind": e["kind"], "delta": shares[cid]}, actor=ctx["controller"])
+        puts = [(cid, e["kind"], shares[cid]) for cid in cards if shares.get(cid)]
+    else:
+        n = _amount(plan, ctx, e["n"])
+        puts = [(cid, e["kind"], n) for cid in cards] if n else []
+    if not puts:
         return True
-    n = _amount(plan, ctx, e["n"])
-    if cards and n:
-        plan.do({"type": "counter", "card_ids": cards, "kind": e["kind"], "delta": n}, actor=ctx["controller"])
-    return True
+    return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
 
 
 def remove_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -597,17 +622,17 @@ def proliferate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def resume_proliferate(plan: Plan, d: Any, chosen: list[str]) -> None:
+    # -- replacement effects stage 2 (wave 2E): all at once, through the counter choke point
+    # (701.34a: "give each one additional counter of each kind"; 614.16) --
     ctx = d.resume["ctx"]
+    puts: list[tuple[str, str, int]] = []
     for x in chosen:
         if x in plan.state.cards:
-            card = plan.state.cards[x]
-            for kind, v in list(card.counters.items()):
-                if v > 0:
-                    plan.do({"type": "counter", "card_ids": [x], "kind": kind, "delta": 1}, actor=d.player)
+            puts += [(x, kind, 1) for kind, v in plan.state.cards[x].counters.items() if v > 0]
         elif x in plan.state.players:
-            for kind, v in list(plan.state.players[x].resources.items()):
-                if v > 0:
-                    plan.do({"type": "resource", "player": x, "key": kind, "delta": 1}, actor=d.player)
+            puts += [(x, kind, 1) for kind, v in plan.state.players[x].resources.items() if v > 0]
+    if puts and not replace.put_counters(plan, puts, by=d.player, then={"do": "continue", "ctx": ctx}):
+        return  # an order to choose first (616.1)
     continue_effects(plan, ctx)
 
 
@@ -638,7 +663,11 @@ def renown(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         oid = plan.oid(cid)
         if oid in plan.rules.renowned:
             continue
-        plan.do({"type": "counter", "card_ids": [cid], "kind": "+1/+1", "delta": e["n"]}, actor=ctx["controller"])
+        # -- replacement effects stage 2 (wave 2E): the counter choke point; after a choice the
+        # primitive runs again (nothing was done yet) --
+        if not replace.put_counters(plan, [(cid, "+1/+1", int(e["n"]))], by=ctx["controller"],
+                                    then=replace.rerun_then(ctx, e), ctx=ctx):
+            return False
         plan.rules.renowned.append(oid)
         _mark(plan, [cid], "Renowned")
     return True
@@ -883,22 +912,30 @@ def explore(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
     library = plan.state.zones.get(zone_key(pid, "library"), [])
     me = _cards(plan, ctx, "self")
-    if not library:
-        if me:
-            plan.do({"type": "counter", "card_ids": me, "kind": "+1/+1", "delta": 1}, actor=pid)
-        return True
+    # -- replacement effects stage 2 (wave 2E): the +1/+1 counter through the counter choke point --
+    if not library:  # (False: an order to choose first; then the resolution continues)
+        return not me or replace.put_counters(plan, [(c, "+1/+1", 1) for c in me], by=pid, then={"do": "continue", "ctx": ctx})
     top = library[0]
     plan.do({"type": "reveal_top", "player": pid, "count": 1}, actor=pid)
     card = plan.state.cards[top]
     if chars.of(card, plan.info).is_land:
         plan.do({"type": "move", "card_ids": [top], "to": {"player": pid, "zone": "hand"}}, actor=pid)
         return True
-    if me:
-        plan.do({"type": "counter", "card_ids": me, "kind": "+1/+1", "delta": 1}, actor=pid)
+    if me and not replace.put_counters(plan, [(c, "+1/+1", 1) for c in me], by=pid,
+                                       then={"do": "explore_ask", "ctx": ctx, "card": top, "player": pid}):
+        return False
+    _explore_ask(plan, ctx, top, pid)
+    return False
+
+
+def _explore_ask(plan: Plan, ctx: Context, top: str, pid: str) -> None:
+    card = plan.state.cards[top]
     decide(plan, player=pid, kind="choose_one", prompt=f"Explore revealed {card.name}: put it into your graveyard?",
            options=[DecisionOption(id="keep", label="Keep it on top"), DecisionOption(id="graveyard", label="Put it into your graveyard")],
            resume={"step": "explore", "ctx": ctx, "card": top}, source=card)
-    return False
+
+
+replace.THEN["explore_ask"] = lambda plan, t: _explore_ask(plan, t["ctx"], t["card"], t["player"])
 
 
 def resume_explore(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -995,7 +1032,7 @@ def fabricate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     n = e["n"]
     me = _cards(plan, ctx, "self")
     if not me:  # it left: only the Servos are possible (702.123b)
-        return create_token(plan, ctx, {"who": "you", "n": n, "token": SERVO})
+        return create_token(plan, ctx, {"who": "you", "n": n, "token": SERVO}, then={"do": "continue", "ctx": ctx})
     decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Fabricate {n}",
            options=[DecisionOption(id="counters", label=f"{n} +1/+1 counter{'s' if n != 1 else ''} on it"),
                     DecisionOption(id="servos", label=f"{n} 1/1 Servo{'s' if n != 1 else ''}")],
@@ -1004,94 +1041,31 @@ def fabricate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def resume_fabricate(plan: Plan, d: Any, chosen: list[str]) -> None:
+    # -- replacement effects stage 2 (wave 2E): the counters / Servos through the choke points --
     ctx, n = d.resume["ctx"], d.resume["n"]
     me = _cards(plan, ctx, "self")
+    then = {"do": "continue", "ctx": ctx}
     if chosen[0] == "counters" and me:
-        plan.do({"type": "counter", "card_ids": me, "kind": "+1/+1", "delta": n}, actor=d.player)
+        done = replace.put_counters(plan, [(c, "+1/+1", int(n)) for c in me], by=d.player, then=then)
     else:
-        create_token(plan, ctx, {"who": "you", "n": n, "token": SERVO})
-    continue_effects(plan, ctx)
+        done = create_token(plan, ctx, {"who": "you", "n": n, "token": SERVO}, then=then)
+    if done:
+        continue_effects(plan, ctx)
 
 
 def storm(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """Put N copies of the spell on the stack; for a targeted spell its controller may choose
-    new targets (asked once: keep the target for all, or choose for each copy)."""
-    sid = e["spell"]
-    entry = plan.rules.stack.get(sid)
-    card = plan.state.cards.get(sid)
-    if entry is None or card is None or card.zone != "stack" or plan.oid(sid) != e["object"]:
-        plan.note("Storm: the spell is gone (or handled by hand), so there is nothing to copy")
-        return True
-    if entry.target_spec and entry.targets:
-        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Storm: {e['n']} cop{'y' if e['n'] == 1 else 'ies'} of {entry.name}",
-               options=[DecisionOption(id="same", label="Same target for every copy"),
-                        DecisionOption(id="choose", label="Choose a target for each copy")],
-               resume={"step": "storm", "ctx": ctx, "spell": sid, "left": e["n"], "mode": None})
-        return False
-    for _ in range(e["n"]):
-        _copy_spell(plan, sid, entry, entry.targets, ctx["controller"])
-    return True
+    """702.40a: put N copies of the spell on the stack (real spell copies, 707.10); its controller
+    may choose new targets for any of them (707.10c) — app/rules/copying.py (copy system, wave 2F)."""
+    from app.rules import copying
 
-
-def _copy_spell(plan: Plan, sid: str, entry: StackEntry, targets: list[Any], controller: str) -> None:
-    created = plan.do({"type": "create_ability", "text": f"Copy of {entry.name}"[:500], "source_id": sid, "kind": "other"},
-                      actor=controller)
-    new_ids = getattr(created, "r", None)
-    copy_id = new_ids.ids[0] if new_ids is not None else None
-    if copy_id:
-        slots = [list(s) for s in entry.slots]
-        if entry.slot_specs and list(targets) != list(entry.targets):  # a new target for a modal copy's only targeted mode
-            targeted = [k for k, spec in enumerate(entry.slot_specs) if spec]
-            if len(targeted) == 1:
-                slots[targeted[0]] = list(targets)
-        plan.rules.stack[copy_id] = StackEntry(kind="spell", controller=controller, source_card=entry.source_card,
-                                               source_object=entry.source_object, name=f"Copy of {entry.name}",
-                                               effects=list(entry.effects), targets=list(targets),
-                                               target_spec=entry.target_spec, x=entry.x,
-                                               modes=list(entry.modes), slots=slots,  # 700.2g: the copy keeps its modes
-                                               slot_specs=list(entry.slot_specs),
-                                               # a copy has the original's targets and division (707.10)
-                                               groups=[list(g) for g in entry.groups], group_specs=list(entry.group_specs),
-                                               division=[list(d) for d in entry.division],
-                                               kicked=entry.kicked)  # 707.10: and whether it was kicked
+    return copying.storm(plan, ctx, e)
 
 
 def resume_storm(plan: Plan, d: Any, chosen: list[str]) -> None:
-    from app.rules.targets import legal_targets, ref, source_of
+    """(A storm decision saved by an older version: answered through the copy system.)"""
+    from app.rules import copying
 
-    r = d.resume
-    entry = plan.rules.stack.get(r["spell"])
-    ctx = r["ctx"]
-    if entry is None:
-        continue_effects(plan, ctx)
-        return
-    left = r["left"]
-    if r["mode"] is None and chosen[0] == "same":
-        for _ in range(left):
-            _copy_spell(plan, r["spell"], entry, entry.targets, d.player)
-        continue_effects(plan, ctx)
-        return
-    if r["mode"] == "choose":  # a target for this copy was chosen
-        _copy_spell(plan, r["spell"], entry, [ref(plan, chosen[0])], d.player)
-        left -= 1
-    if left <= 0:
-        continue_effects(plan, ctx)
-        return
-    spec = entry.target_spec or next((sp for sp in entry.slot_specs if sp), None) or {}
-    if len([sp for sp in entry.slot_specs if sp]) > 1:  # several targeted modes: the copies keep their targets
-        for _ in range(left):
-            _copy_spell(plan, r["spell"], entry, entry.targets, d.player)
-        continue_effects(plan, ctx)
-        return
-    legal = legal_targets(plan, spec.get("what", "any"), d.player, source_of(plan, entry.source_card))
-    if not legal:
-        continue_effects(plan, ctx)
-        return
-    from app.rules.targets import label as target_label
-
-    decide(plan, player=d.player, kind="choose_one", prompt=f"Target for a copy of {entry.name} ({left} left)",
-           options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
-           resume={**r, "left": left, "mode": "choose"})
+    copying.resume_storm(plan, d, chosen)
 
 
 def no_regen(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1326,7 +1300,8 @@ def return_card(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         _moved(plan, ctx, e, before)
         return True
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
-                "actor": ctx["controller"], "tapped": bool(e.get("tapped"))} for cid in cards]
+                "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
+                **({"counter": e["counter"]} if e.get("counter") else {})} for cid in cards]  # (a counter it enters with, 122.6)
     done = attachments.enter(plan, entries, ctx)
     if done:  # (an Aura choosing what it enchants pauses: the binding then keeps what they were)
         _moved(plan, ctx, e, before)  # the permanents they became: new objects (400.7)
@@ -1418,6 +1393,11 @@ PRIMITIVES = {
     "fabricate": fabricate, "storm": storm,
     "fight": fight, "choose_targets": choose_targets,
 }
+# -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py,
+# which imports this module lazily) --
+from app.rules import copying  # noqa: E402
+
+PRIMITIVES.update(copying.PRIMITIVES)
 
 
 def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -1780,6 +1760,28 @@ PRIMITIVES.update({"only_if": only_if})
 PRIMITIVES["optional_payment"] = optional_payment.optional_payment
 
 
+def _did(fn: Any, kind: str) -> Any:
+    """An instruction whose "If you do" is judged by what it actually did ("did": a binding name,
+    ``{"succeeded": name}`` in the gate after it): a card drawn (121.2: not from an empty library,
+    not a replaced draw), an object that ended in the zone asked for (903.9b: a commander may go to the
+    command zone instead). Probed before the first run only: a paused primitive runs again (616.1)."""
+    def run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+        name = e.get("did")
+        if name and name not in context.refs(ctx):
+            if kind == "draw":
+                context.refs(ctx)[name] = {"kind": "probe", "hands": {
+                    p: len(plan.state.zones.get(f"{p}:hand", [])) for p in _players(plan, ctx, e["who"])}}
+            else:
+                context.refs(ctx)[name] = {"kind": "probe", "to": kind, "cards": {
+                    c: plan.oid(plan.state.cards[c]) for c in _cards(plan, ctx, e["who"])}}
+        return bool(fn(plan, ctx, e))
+    return run
+
+
+for _name in ("draw", "exile", "bounce"):
+    PRIMITIVES[_name] = _did(PRIMITIVES[_name], {"draw": "draw", "exile": "exile", "bounce": "hand"}[_name])
+
+
 def kicked_gate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """702.33e: "If this spell was kicked, …" (``kicked`` True) — and, for "… instead", the
     unkicked text (``kicked`` False): the next ``n`` effects happen only if the spell was (or
@@ -2093,6 +2095,8 @@ CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type
 def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]:
     from app.rules.creature_types import CREATURE_TYPES
 
+    if what.endswith(copying.TO_COPY):  # -- copy system (wave 2F): "enter as a copy of …" (707.5, 614.12a) --
+        return copying.entry_options(plan, ctx["controller"], what)
     if what == "creature type":
         return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
     if what in ("opponent", "player"):
@@ -2324,3 +2328,45 @@ def prevent_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES.update({"become": become, "still_a": still_a, "prevent_self": prevent_self})
+
+
+# -- replacement effects stage 2 (wave 2E) -----------------------------------------------------------
+def exile_if_dies(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"If that creature would die this turn, exile it instead." / "If a creature dealt damage this
+    way would die this turn, …" / "If a creature would die this turn, …": a replacement effect of
+    this resolution lasting the turn (614.1a, 611.2a), applied by replacements.replace_move with the
+    other "exile instead" effects. It is locked to the objects it names as they are now (400.7: a
+    creature that leaves and comes back is a new object); "dealt damage this way" names only the
+    objects that damage was actually dealt to (after prevention). A group ("a creature") is checked
+    whenever something would die this turn (a rule-modifying effect isn't locked, 611.2c)."""
+    import secrets
+
+    rec: dict[str, Any] = {"id": secrets.token_hex(4), "kind": "exile_if_dies", "turn": plan.state.turn.number,
+                           "controller": ctx["controller"], "source": ctx.get("source_object"), "label": ctx.get("name") or ""}
+    if e.get("each"):
+        rec["each"] = e["each"]
+    else:
+        if e.get("dealt"):
+            oids = list((ctx.get(DEALT_KEY) or {}).get(e["dealt"]) or [])
+        else:
+            oids = [plan.oid(c) for c in _cards(plan, ctx, e.get("who") or "")]
+        if not oids:
+            return True  # (nothing to watch: gone, or dealt no damage)
+        rec.update(oids=oids, types=list(e.get("types") or []))
+    plan.rules.replacements.append(rec)
+    return True
+
+
+def replace_record(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Until end of turn, if one or more tokens would be created under your control, …" / "If a
+    source you control would deal damage to an opponent this turn, …": the replacement effect of
+    this resolution, for the rest of the turn (611.2a; its timestamp now, 613.7b), with "you" its
+    controller — applied by app/rules/replace.py with the statics."""
+    replace.add_record(plan, event=e["event"], match=e["match"], op=e["op"], controller=ctx["controller"],
+                       source=ctx.get("source_object"), source_card=ctx.get("source_card"),
+                       label=ctx.get("name") or "an effect")
+    return True
+
+
+PRIMITIVES.update({"exile_if_dies": exile_if_dies, "replace_record": replace_record})
+# -- end replacement effects stage 2 (wave 2E) --

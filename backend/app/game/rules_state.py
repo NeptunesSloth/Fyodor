@@ -177,6 +177,41 @@ class PlayerPrefs(BaseModel):
         return self.stops_my_turn if mine else self.stops_their_turn
 
 
+# -- copy system (wave 2F): copy recipes (CR 707, 613.2) ----------------------------------------
+class CopyExcept(BaseModel):
+    """The exceptions of one copy effect (707.9): values it sets or adds as part of the copying
+    process, which then belong to the copy's copiable values (707.9a-b). Applied in this order:
+    name, power/toughness (707.9d: a characteristic-defining ability for P/T isn't copied), types
+    added or supertypes removed ("it isn't legendary"), colors set (707.9d), abilities gained
+    (707.9a: keyword lines like "Haste", or a quoted ability's text)."""
+
+    name: str | None = Field(default=None, max_length=200)
+    power: str | None = Field(default=None, max_length=8)
+    toughness: str | None = Field(default=None, max_length=8)
+    add_types: list[str] = Field(default_factory=list)
+    add_subtypes: list[str] = Field(default_factory=list)
+    add_supertypes: list[str] = Field(default_factory=list)
+    remove_supertypes: list[str] = Field(default_factory=list)
+    set_colors: list[str] | None = None
+    add_text: list[str] = Field(default_factory=list)
+    add_colors: list[str] = Field(default_factory=list)  # "in addition to its other colors"
+
+
+class CopyRecipe(BaseModel):
+    """What a copy's copiable values are built from (707.2, 707.3): the printed values of a card
+    (``printing`` and the ``face`` that was up, 707.8) or the values a token's creating effect
+    defined (``token``: the TokenDef fields, 111.3), then every copy effect's exceptions in order
+    (``excepts``, 707.9). A recipe, not a snapshot of a live object: counters, status and
+    non-copy effects are never in it (707.2), and a copy of a copy starts from the first copy's
+    recipe and adds its own exceptions (707.3). Built by app/rules/copying.py."""
+
+    printing: str | None = Field(default=None, max_length=64)
+    face: int = 0
+    token: dict[str, Any] | None = None  # {"name", "power", "toughness", "colors", "type_line", "text"}
+    excepts: list[CopyExcept] = Field(default_factory=list)
+    source: str = Field(default="", max_length=200)  # the name of what was copied (for labels)
+
+
 # -- game objects, last known information, events -------------------------------------------
 class ObjectSnapshot(BaseModel):
     """An object as it last existed in a public zone (Last Known Information, rule 608.2h).
@@ -210,6 +245,20 @@ class ObjectSnapshot(BaseModel):
     blocking: bool = False
     attached_to: str | None = None
     text: str = ""  # a custom token's rules text (it has no printing to look up)
+    # -- quoted grants (wave 2D) --
+    # Its abilities and keywords as they last existed (603.10a: leaves-the-battlefield abilities look
+    # back in time; 608.2h), recorded by the rules engine as it moves the object — only when they
+    # differ from the printed ones (granted by a resolved effect or a static ability, or lost): each
+    # ability line as {index, text, kind, keywords, cost, intrinsic}. None: the printed ones.
+    abilities: list[dict[str, Any]] | None = None
+    keywords: list[str] | None = None
+    # Its types, subtypes, supertypes and colors as they last existed, when layer 4 / 5 had changed them
+    # (an animated land or a crewed Vehicle died as a creature, 700.4): {"types": […], "subtypes": […],
+    # "supertypes": […], "colors": […]}. None: the printed ones.
+    traits: dict[str, list[str]] | None = None
+    # -- copy system (wave 2F): its copiable values if a copy effect applied to it (613.2), so its
+    # last known information has the copied abilities (a dying Clone's "dies" trigger, 603.10a)
+    copy_recipe: CopyRecipe | None = None
 
 
 EventKind = Literal[
@@ -230,6 +279,9 @@ EventKind = Literal[
     # 701.21a: a permanent was sacrificed (emitted just before it moves, in the same batch; the
     # object is the permanent as it was — "whenever you sacrifice …" looks back in time, 603.10a)
     "sacrificed",
+    # -- copy system (wave 2F): a copy of a spell was put onto the stack (707.10: not cast); the
+    # object is the copy, ``source`` the spell it copies, ``player`` its controller
+    "spell_copied",
 ]
 
 
@@ -327,8 +379,12 @@ class ContinuousEffect(BaseModel):
     # 500.4), "source_on_battlefield" / "source_controlled" / "source_tapped" ("for as long as ~
     # remains on the battlefield / you control ~ / ~ remains tapped", 611.2b: ends as soon as
     # that stops being true; app/rules/delayed.py expires them).
+    # -- quoted grants (wave 2D) -- "while_counter": "for as long as that creature has a bounty counter on
+    # it" (``counter`` names the kind; an affected object that has none left drops out, and the effect
+    # ends with the last one: 611.2b, app/rules/delayed.expire).
     duration: Literal["end_of_turn", "permanent", "next_turn", "source_on_battlefield", "source_controlled",
-                      "source_tapped"] = "end_of_turn"
+                      "source_tapped", "while_counter"] = "end_of_turn"
+    counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
     turn: int = 0  # the turn the effect began (next_turn: it ends on a later turn of until_player)
     timestamp: int = 0
@@ -360,6 +416,9 @@ class ContinuousEffect(BaseModel):
     # this effect's timestamp; later grants apply again) and quoted abilities it gains (their text).
     remove_abilities: bool = False
     add_abilities: list[str] = Field(default_factory=list)
+    # -- copy system (wave 2F): layer 1a (613.2a) — a copy effect: the affected objects' copiable
+    # values become this recipe's (707.2-707.5); the latest (by timestamp) applies (613.7)
+    copy_recipe: CopyRecipe | None = None
 
 
 class TargetRef(BaseModel):
@@ -485,6 +544,9 @@ class StackEntry(BaseModel):
     kicked: int = 0
     # A triggered ability: what it triggered on (603.2), for "it", "that player", "that much"
     event: TriggerEvent | None = None
+    # -- copy system (wave 2F): a copy of a spell or ability (707.10): the object id of what it
+    # copies. A copy isn't cast (or activated); its cost-paying objects are the original's.
+    copy_of: str | None = None
 
 
 class CostContribution(BaseModel):
@@ -697,6 +759,11 @@ class RulesState(BaseModel):
     # -- conditional / instead clauses (wave 1B) --  this turn's and last turn's history (TurnLog)
     turn_log: TurnLog = Field(default_factory=TurnLog)
     last_turn_log: TurnLog | None = None
+    # -- replacement effects stage 2 (wave 2E; app/rules/replace.py) --
+    # Cards each player actually drew in the step ``replace_step_key`` ("<turn>:<phase>"), counted as
+    # they're drawn (for "except the first one they draw in each of their draw steps", 504.1).
+    replace_step_key: str = ""
+    replace_step_draws: dict[str, int] = Field(default_factory=dict)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)
@@ -877,6 +944,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
         snap = before.snaps.get(card_id)
         if snap is not None:
             rules.lki[old_oid] = snap.model_copy(update={"turn": state.turn.number})
+            rules.lki[old_oid].copy_recipe = copy_recipe_of(rules, old_oid)  # -- copy system (wave 2F) --
         new_oid = None
         rules.restamped.pop(card_id, None)  # a new object gets its own timestamp as it enters (613.7d)
         if card is not None:
@@ -935,3 +1003,14 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
             if delta:
                 emit(state, "player_counters", player=pid, counter=kind, amount=delta)
     departures.clear()
+
+
+# -- copy system (wave 2F) ---------------------------------------------------------------------
+def copy_recipe_of(rules: RulesState, object_id: str) -> CopyRecipe | None:
+    """The copy recipe applying to a rules object (613.2a, layer 1a): the latest copy effect by
+    timestamp (613.7), or None. Pure data (app/rules/copying.py builds characteristics from it)."""
+    best: ContinuousEffect | None = None
+    for e in rules.effects:
+        if e.layer == "1" and e.copy_recipe is not None and object_id in e.affected and (best is None or e.timestamp > best.timestamp):
+            best = e
+    return best.copy_recipe if best is not None else None

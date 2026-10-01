@@ -204,9 +204,8 @@ def test_the_animated_land_is_destroyed_and_the_effect_no_longer_applies(cards):
     replay_matches(s)
 
 
-@pytest.mark.xfail(strict=True, reason="last known information (ObjectSnapshot) records P/T but not types: an "
-                   "animated land or crewed Vehicle that dies isn't seen as a creature by 'dies' triggers (lead: plan/triggers)")
 def test_the_animated_land_dies_as_a_creature_for_dies_triggers(cards):
+    # (quoted grants, wave 2D: last known information records the types as they last existed, not only P/T)
     s, _ = _murder_animated_vault(cards)
     assert s.state.players["p1"].life == 41  # 700.4 / 603.10a: it died as a creature
 

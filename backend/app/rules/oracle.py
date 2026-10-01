@@ -127,6 +127,33 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
     return ("spell" if spell else "static"), (), None
 
 
+def split_sentences(body: str) -> list[str]:
+    """Split an ability's text into its sentences: after a full stop and a space — but never inside
+    a quoted ability, and a stop that ends a quote is followed by the closing quotation mark
+    (``… it." It's still a land.`` is two sentences; ``gains "Whenever …. Draw a card."`` is one).
+    Text after the last boundary is the last sentence; empty pieces are dropped."""
+    out: list[str] = []
+    inside = False
+    start = 0
+    i = 0
+    n = len(body)
+    while i < n:
+        ch = body[i]
+        if ch == '"':
+            inside = not inside
+        elif ch.isspace() and not inside and i > start:
+            prev = body[i - 1]
+            if prev == "." or (prev == '"' and i >= 2 and body[i - 2] == "."):
+                out.append(body[start:i])
+                while i < n and body[i].isspace():
+                    i += 1
+                start = i
+                continue
+        i += 1
+    out.append(body[start:])
+    return [s for s in out if s]
+
+
 def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[AbilityText]:
     """Split Oracle text into classified ability lines (reminder text removed).
 

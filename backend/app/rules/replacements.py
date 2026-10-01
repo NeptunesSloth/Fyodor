@@ -18,12 +18,12 @@ them at the three points where such events are produced, whichever rules code pr
   creature would die, exile it instead" statics of permanents on the battlefield, madness (702.35a)
   and 903.9b (a commander that would go to its owner's hand or library may go to the command
   zone instead).
-* **damage** — :func:`apply_prevention` (called by combat damage and the ``damage`` primitive):
-  "Prevent all [combat] damage that would be dealt [to …] [by …]" statics of permanents on the
-  battlefield and "… this turn" effects of resolved spells (records in ``RulesState.replacements``),
-  then the "prevent the next N damage" shields (615.7), where the shielded player or the
-  permanent's controller chooses which source's damage a shield prevents when several sources
-  would deal it at once.
+* **damage** — "Prevent all [combat] damage that would be dealt [to …] [by …]" statics of
+  permanents on the battlefield and "… this turn" effects of resolved spells (records in
+  ``RulesState.replacements``: :func:`_records`, :func:`_applies`), and the "prevent the next N
+  damage" shields (615.7), where the shielded player or the permanent's controller chooses which
+  source's damage a shield prevents when several sources would deal it at once. Since stage 2 they
+  apply with the damage replacement effects in app/rules/replace.py (``plan_damage``, 616.1).
 
 What stage 1 does NOT do (kept honest rather than guessed): the 616.1 ordering choice when several
 replacement effects would modify the same event differently (the ones here never conflict: every
@@ -76,13 +76,24 @@ def unless_holds(plan: Plan, controller: str, card: CardInstance, cond: dict[str
 
 
 def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bool | None = None,
-               tapped: bool = False, answers: dict[str, str] | None = None) -> dict[str, Any]:
+               tapped: bool = False, answers: dict[str, str] | None = None, x: int | None = None,
+               extra: dict[str, int] | None = None) -> dict[str, Any]:
     """How the permanent's own replacement effects modify its entering: {"tapped": bool, "life": N
     (a shock land whose controller pays), "choices": {"color": "Blue", …} (its "As ~ enters, choose
     …" answers, ``answers``), "choice": {"life": N} | {"what": "color"} (the next thing still to be
     decided: 614.12a, choices are made before it enters)}. ``tapped`` is what the effect putting it
-    onto the battlefield says ("put it onto the battlefield tapped")."""
+    onto the battlefield says ("put it onto the battlefield tapped").
+    -- replacement effects stage 2 (wave 2E) -- Also other permanents' "[Objects] enter tapped"
+    (614.1d), and the order of the replacement effects on the counters it enters with (616.1,
+    asked before it enters, 614.12a: {"what": "order:<question>", "order": …}; ``x`` / ``extra``:
+    the X it was cast with, counters the effect putting it there adds)."""
     out: dict[str, Any] = {"tapped": bool(tapped)}
+    # -- copy system (wave 2F): "You may have ~ enter as a copy of …" (707.5, 614.12a): chosen first;
+    # then the rest of this plan reads the copied text (app/rules/copying.py) --
+    from app.rules import copying
+
+    if copying.entering(plan, card, controller, answers, out):
+        return out
     defs = [d for d in _definitions(plan, card).values() if d["kind"] == "replacement"]
     answers = dict(answers or {})
     for d in defs:  # "As ~ enters, choose a color." (614.1c): the answer is recorded on the permanent
@@ -104,6 +115,8 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
                 out["tapped"] = True
         elif kind == "enters_with_counters" and d.get("tapped"):  # "~ enters tapped with two charge counters on it."
             out["tapped"] = True
+    if not out["tapped"] and others_enter_tapped(plan, card, controller):  # -- replacement effects stage 2 (wave 2E) --
+        out["tapped"] = True
     for d in defs:
         if d["replacement"] != "pay_life_or_tapped":
             continue
@@ -120,7 +133,98 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
             out["life"] = out.get("life", 0) + life
         else:
             out["tapped"] = True
+    # -- replacement effects stage 2 (wave 2E): the counters it enters with (122.6) --
+    orders = {k: v for k, v in answers.items() if k.startswith(ORDER)}
+    if orders:
+        out.setdefault("choices", {}).update(orders)
+    if "choice" not in out:
+        order = _entering_order_choice(plan, card, controller, x=x, extra=extra, answers=orders)
+        if order is not None:
+            out["choice"] = order
     return out
+
+
+# -- replacement effects stage 2 (wave 2E) -----------------------------------------------------------
+ORDER = "order:"  # an entering answer that is a 616.1 order: "order:<question>" -> the effect applied first
+
+
+def others_enter_tapped(plan: Plan, card: CardInstance, controller: str) -> bool:
+    """614.1d: "Creatures your opponents control enter tapped." — statics of permanents on the
+    battlefield, checked against the permanent as it would exist on the battlefield under the
+    player it enters under (614.12; it doesn't see itself: "Permanents enter tapped" doesn't make
+    its own permanent enter tapped, 614.12 example)."""
+    from app.rules.replace import conditional_lines
+
+    probe = card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})
+    ch = None
+    for src in plan.state.cards.values():
+        if src.id == card.id or not src.zone.endswith(":battlefield") or src.face_down or not plan.in_game(src) \
+                or plan.manual(src):
+            continue
+        src_ch = plan.ch(src)
+        for i, d in scripts.definitions(src_ch).items():
+            if d["kind"] != "static" or d.get("static") != "enters_tapped_others":
+                continue
+            if i in conditional_lines(src_ch) or "Room" in src_ch.subtypes:
+                continue  # (a level's or an unlocked door's ability: not tracked, never applied)
+            ch = ch if ch is not None else plan.ch(probe)
+            if any(selectors.matches(plan, selectors.from_key(key), probe, ch, src.controller, src.id) for key in d["who"]):
+                return True
+    return False
+
+
+def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, *, x: int | None = None,
+                      extra: dict[str, int] | None = None) -> dict[str, int]:
+    """The counters a permanent enters with (122.6): its "enters with" counters (614.1c; the X its
+    spell was cast with, 107.3), a planeswalker's loyalty (306.5b), bloodthirst (702.54) and what
+    the effect putting it there adds (persist / undying)."""
+    counters: dict[str, int] = {k: n for k, n in (extra or {}).items() if n > 0}
+    if "Planeswalker" in ch.types:  # 306.5b: intrinsic, however it enters (even a card taken out of automation)
+        # (a printed loyalty of X is the X its spell was cast with, 107.3; 0 when it wasn't cast)
+        loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else int(x or 0) if ch.loyalty == "X" else 0
+        if loyalty:
+            counters["loyalty"] = counters.get("loyalty", 0) + loyalty
+    if not plan.manual(card):
+        r = plan.rules
+        bled = any(t == plan.state.turn.number for p, t in r.damaged.items() if p != controller)
+        for ab in ch.abilities:  # 702.54 bloodthirst N: if an opponent was dealt damage this turn
+            if ab.kind == "keywords" and bled:
+                for kw in ab.keywords:
+                    if kw == "bloodthirst":
+                        m = re.fullmatch(r"bloodthirst (\d+)", ab.text.strip().rstrip(".").lower())
+                        if m:
+                            counters["+1/+1"] = counters.get("+1/+1", 0) + int(m.group(1))
+        for d in scripts.definitions(ch).values():
+            if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
+                n = _counter_amount(plan, card.id, controller, d, x)
+                if n > 0:
+                    counters[d["counter"]] = counters.get(d["counter"], 0) + n
+    return counters
+
+
+def _entering_order_choice(plan: Plan, card: CardInstance, controller: str, *, x: int | None,
+                           extra: dict[str, int] | None, answers: dict[str, str]) -> dict[str, Any] | None:
+    """616.1 / 614.12a: when replacement effects would modify the counters a permanent enters with
+    and their order matters, its controller chooses before it enters."""
+    from app.rules import replace
+
+    if x is None and card.zone == "stack" and card.stack_info is not None:
+        x = card.stack_info.x
+    probe = card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})
+    counters = entering_counters(plan, card, controller, plan.ch(probe), x=x, extra=extra)
+    if not counters:
+        return None
+    puts = [(card.id, kind, n) for kind, n in counters.items()]
+    planned = replace.plan_counters(plan, puts, by=controller, effect=True, entering={card.id: controller},
+                                    answers={k[len(ORDER):]: v for k, v in answers.items()}, ask=True)
+    if not isinstance(planned, replace.Ask):
+        return None
+    names = " and ".join(c.label for c in planned.applicable)
+    options = [(c.id, replace.option_label(c, planned.outcomes)) for c in planned.applicable]
+    return {"what": ORDER + planned.fp, "order": {
+        "prompt": f"{card.name}: {names} both modify the counters it enters with — which applies first? (616.1)",
+        "options": options}}
+# -- end replacement effects stage 2 (wave 2E) --
 
 
 def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any] | None:
@@ -128,11 +232,18 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
     if not plan.state.players.get(entry["player"]):
         return None
     return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
-                      answers=entry.get("choices")).get("choice")
+                      answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry)).get("choice")
+
+
+def _extra(entry: Entry) -> dict[str, int] | None:
+    """The counters the effect putting it onto the battlefield adds (persist / undying: 702.79a, 702.93a)."""
+    return {entry["counter"]: 1} if entry.get("counter") else None
 
 
 def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]]:
     """The prompt and options for one entering choice (a shock land's life, or a named choice)."""
+    if "order" in choice:  # -- replacement effects stage 2 (wave 2E): 616.1 before it enters (614.12a) --
+        return choice["order"]["prompt"], [DecisionOption(id=cid, label=label) for cid, label in choice["order"]["options"]]
     if "life" in choice:
         n = choice["life"]
         return (f"{card.name}: pay {n} life, or it enters tapped?",
@@ -237,15 +348,14 @@ def move_onto_battlefield(plan: Plan, entry: Entry) -> None:
         return
     controller, actor = entry["player"], entry["actor"]
     ep = entry_plan(plan, card, controller, pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
-                    answers=entry.get("choices"))
+                    answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry))
     if ep.get("life"):
         plan.do({"type": "life", "player": controller, "delta": -int(ep["life"])}, actor=actor)
     payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"player": controller, "zone": "battlefield"}}
     if ep["tapped"]:
         payload["tapped"] = True
     plan.do(payload, actor=actor)
-    after_entry(plan, card.id, controller, x=entry.get("x"), extra_counters={entry["counter"]: 1} if entry.get("counter") else None,
-                choices=ep.get("choices"))
+    after_entry(plan, card.id, controller, x=entry.get("x"), extra_counters=_extra(entry), choices=ep.get("choices"))
     entered = plan.state.cards.get(card.id)
     if entered is None or not entered.zone.endswith(":battlefield"):
         return
@@ -294,31 +404,15 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
                 continue
             shown = plan.name(value) if what in ("opponent", "player") and value in plan.state.players else value
             plan.do({"type": "set_choice", "card_id": card_id, "key": CHOICE_LABELS[what], "value": shown}, actor=controller)
-    counters: dict[str, int] = dict(extra_counters or {})
-    ch = plan.ch(card)
-    if "Planeswalker" in ch.types:  # 306.5b: intrinsic, however it enters (even a card taken out of automation)
-        # (a printed loyalty of X is the X its spell was cast with, 107.3; 0 when it wasn't cast)
-        loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else int(x or 0) if ch.loyalty == "X" else 0
-        if loyalty:
-            counters["loyalty"] = counters.get("loyalty", 0) + loyalty
-    if not plan.manual(card):
-        r = plan.rules
-        bled = any(t == plan.state.turn.number for p, t in r.damaged.items() if p != card.controller)
-        for ab in ch.abilities:  # 702.54 bloodthirst N: if an opponent was dealt damage this turn
-            if ab.kind == "keywords" and bled:
-                for kw in ab.keywords:
-                    if kw == "bloodthirst":
-                        m = re.fullmatch(r"bloodthirst (\d+)", ab.text.strip().rstrip(".").lower())
-                        if m:
-                            counters["+1/+1"] = counters.get("+1/+1", 0) + int(m.group(1))
-        for d in scripts.definitions(ch).values():
-            if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
-                n = _counter_amount(plan, card_id, controller, d, x)
-                if n > 0:
-                    counters[d["counter"]] = counters.get(d["counter"], 0) + n
-    for kind, n in counters.items():
-        if n > 0:
-            plan.do({"type": "counter", "card_ids": [card_id], "kind": kind, "delta": n}, actor=controller)
+    # -- replacement effects stage 2 (wave 2E): the counters it enters with, through the counter
+    # choke point (122.6, 614.16), in the order its controller chose before it entered (614.12a) --
+    counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters)
+    puts = [(card_id, kind, n) for kind, n in counters.items() if n > 0]
+    if puts:
+        from app.rules import replace
+
+        orders = {k[len(ORDER):]: v for k, v in (choices or {}).items() if k.startswith(ORDER)}
+        replace.put_counters(plan, puts, by=controller, effect=True, entering={card_id: controller}, answers=orders)
 
 
 def token_enters_tapped(plan: Plan, controller: str, spec: dict[str, Any]) -> bool:
@@ -335,7 +429,7 @@ def token_enters_tapped(plan: Plan, controller: str, spec: dict[str, Any]) -> bo
             return True
         if d["replacement"] == "enters_with_counters" and d.get("tapped"):
             return True
-    return False
+    return others_enter_tapped(plan, probe, controller)  # -- replacement effects stage 2 (wave 2E): 614.1d --
 
 
 # -- zone changes (614.1a "instead", 702.84a, 702.35a, 903.9b) ------------------------------------------
@@ -376,6 +470,27 @@ def _static_exile_instead(plan: Plan, card: CardInstance) -> CardInstance | None
                 if not selectors.matches(plan, selectors.from_key(who), card, plan.ch(card), src.controller, src.id):
                     continue
             return src
+    return None
+
+
+def _record_exile_instead(plan: Plan, card: CardInstance) -> str | None:
+    """-- replacement effects stage 2 (wave 2E) -- This turn's "If that creature / a creature dealt
+    damage this way / a creature would die this turn, exile it instead" (effects.exile_if_dies):
+    the name of the spell or ability whose effect applies, or None. Like every other "exile
+    instead" here they agree on what happens, so there is no 616.1 choice between them."""
+    turn = plan.state.turn.number
+    oid = plan.oid(card)
+    for rec in plan.rules.replacements:
+        if rec.get("kind") != "exile_if_dies" or rec.get("turn") != turn:
+            continue
+        ch = plan.ch(card)
+        if "oids" in rec:
+            if oid not in rec["oids"] or (rec.get("types") and not set(rec["types"]) & ch.types):
+                continue
+        elif not rec.get("each") or not selectors.matches(plan, selectors.from_key(rec["each"]), card, ch,
+                                                          rec["controller"], None):
+            continue
+        return rec.get("label") or "a replacement effect"
     return None
 
 
@@ -433,6 +548,10 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             src = _static_exile_instead(plan, card)
             if src is not None:
                 replaced.append((cid, "exile", src.name or "a static ability"))
+                continue
+            why = _record_exile_instead(plan, card) if frm == "battlefield" else None  # -- replacement effects stage 2 (wave 2E) --
+            if why is not None:
+                replaced.append((cid, "exile", why))
                 continue
         if dest in ("hand", "library"):
             answer = _commander_instead(plan, card, dest)
@@ -634,86 +753,16 @@ def _shield_signature(plan: Plan, ev: DamageEvent) -> tuple[Any, ...]:
             tuple(sorted(m.value or m.name for m in src.effects)))
 
 
-def apply_prevention(plan: Plan, events: list[DamageEvent], *, order: list[str] | None = None,
-                     resume: dict[str, Any] | None = None) -> list[DamageEvent] | None:
-    """Prevention effects on one simultaneous damage event batch (615.1): each event's ``prevented``
-    is set. First the "prevent all …" effects in force (statics and this turn's records), then the
-    "prevent the next N" shields (615.7): when two or more sources would deal damage to a shielded
-    player or permanent at the same time and it matters which is prevented, the player or the
-    permanent's controller chooses (a private decision; ``order`` holds the answers so far, as
-    "<target>:<source object>"). Returns None while such a choice is open (only when ``resume``
-    gives the step to continue: combat damage), else the events."""
-    from app.rules.plan import decide
-
-    r = plan.rules
-    for ev in events:
-        ev["prevented"] = 0
-    recs = _records(plan)
-    for ev in events:
-        if ev["amount"] <= 0:
-            continue
-        for rec in recs:
-            if _applies(plan, rec, ev):
-                ev["prevented"] = ev["amount"]
-                who = _label(plan, ev["target"])
-                plan.note(f"{ev['amount']} damage to {who} prevented")
-                break
-    if not r.prevention:
-        return events
-    picks = list(order or [])
-    by_target: dict[str, list[DamageEvent]] = {}
-    for ev in events:
-        if ev["amount"] - ev["prevented"] > 0 and r.prevention.get(ev["target"] if ev["target"] in plan.state.players
-                                                                  else plan.oid(ev["target"]), 0) > 0:
-            by_target.setdefault(ev["target"], []).append(ev)
-    for target, evs in by_target.items():
-        key = target if target in plan.state.players else plan.oid(target)
-        shield = r.prevention.get(key, 0)
-        pending = list(evs)
-        while shield > 0 and pending:
-            if len(pending) == 1 or len({_shield_signature(plan, e) for e in pending}) == 1:
-                ev = pending[0]  # one source, or literally identical ones: the outcome is the same either way
-            else:
-                mine = [p for p in picks if p.startswith(f"{target}:")]
-                if mine:
-                    pick = mine[0]
-                    picks.remove(pick)
-                    ev = next((e for e in pending if f"{target}:{e['source_oid']}" == pick), pending[0])
-                elif resume is None:
-                    ev = pending[0]  # (noncombat damage has one source: never reached)
-                else:
-                    chooser = target if target in plan.state.players else plan.state.cards[target].controller
-                    options = []
-                    for e in pending:
-                        src = _source_card(plan, e)
-                        options.append(DecisionOption(id=f"{target}:{e['source_oid']}",
-                                                      label=f"{(src.name if src else None) or 'a source'} ({e['amount'] - e['prevented']})",
-                                                      card_id=src.id if src is not None else None))
-                    decide(plan, player=chooser, kind="choose_one",
-                           prompt=f"{_label(plan, target)}: a shield prevents the next {shield} damage — which source's damage does it prevent first? (615.7)",
-                           options=options, resume={**resume, "step": "shield_order", "order": list(order or [])})
-                    return None
-            left = ev["amount"] - ev["prevented"]
-            used = min(shield, left)
-            ev["prevented"] += used
-            shield -= used
-            plan.note(f"{used} damage to {_label(plan, target)} prevented (shield)")
-            if ev["amount"] - ev["prevented"] <= 0:
-                pending.remove(ev)
-        if shield > 0:
-            r.prevention[key] = shield
-        else:
-            r.prevention.pop(key, None)
-    return events
-
-
+# -- replacement effects stage 2 (wave 2E) -- The prevention of one damage batch (the "prevent all
+# …" statics and records above, the 615.7 shields) now happens together with the damage replacement
+# effects, event by event in the order the affected player chooses (616.1): app/rules/replace.py
+# ``plan_damage`` (combat damage and the damage / fight primitives call it). The 615.7 choice of
+# which source's damage a shield prevents first keeps its decision ("shield_order").
 def resume_shield_order(plan: Plan, d: Any, chosen: list[str]) -> None:
-    from app.rules import combat
-    from app.rules.engine import _after_resolution
+    from app.rules import replace
 
     order = [*(d.resume.get("order") or []), chosen[0]]
-    if combat.deal_combat_damage(plan, d.resume["round"], shield_order=order):
-        _after_resolution(plan)
+    replace.resume_site(plan, d.resume, dict(d.resume.get("answers") or {}), order)
 
 
 def prevent_all(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

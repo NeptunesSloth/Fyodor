@@ -2021,9 +2021,6 @@ def test_bontu_cant_block_unless_a_creature_died_under_your_control(cards, died)
 # -- what is never guessed (the ability stays manual: "wrong automation is worse than manual") --------------------
 REFUSED = [
     # (why, the wording, the same wording with only a condition the engine reads: it is automated)
-    ("a replacement effect the spell creates for the rest of the turn (614.1a) — Lava Coil, Anger of the Gods",
-     "~ deals 4 damage to target creature. If that creature would die this turn, exile it instead.",
-     "~ deals 4 damage to target creature. If you control a Forest, ~ deals 6 damage to that creature instead."),
     ("how the spell was cast isn't modelled — Might of Old Krosa",
      "Target creature gets +2/+2 until end of turn. If you cast this spell during your main phase, that creature gets +4/+4 until end of "
      "turn instead.",
@@ -2062,9 +2059,6 @@ def test_forms_that_are_not_guessed(why, text, control):
 
 
 @pytest.mark.parametrize(("text", "piece"), [
-    ("~ deals 4 damage to target creature. If that creature would die this turn, exile it instead.", "614.1a"),  # Lava Coil
-    ("~ deals 3 damage to each creature. If a creature dealt damage this way would die this turn, exile it instead.", "614.1a"),  # Anger of the Gods
-    ("All creatures get -2/-2 until end of turn. If a creature an opponent controls would die this turn, exile it instead.", "614.1a"),  # Malicious Eclipse
     ("Target creature gets +2/+2 until end of turn. If you cast this spell during your main phase, that creature gets +4/+4 until end "
      "of turn instead.", "phase"),  # Might of Old Krosa
     ("Put five +1/+1 counters on target creature. If this spell was cast from a graveyard, put ten +1/+1 counters on that creature "
@@ -2082,7 +2076,7 @@ def test_refused_wordings_are_registered_with_their_reason(text, piece):
     assert scripts.parse_effects(text) is None
 
 
-@pytest.mark.parametrize("name", ["Lava Coil", "Martial Coup"])
+@pytest.mark.parametrize("name", ["Martial Coup"])
 def test_the_cards_with_those_forms_stay_partial(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL"
 
@@ -2277,3 +2271,40 @@ def test_the_turn_log_survives_a_reload_in_the_middle_of_the_turn(cards):
     cast(t, spell)
     assert life(t) == 46  # 40 - 2 + 8 (a creature died this turn, as the reloaded game remembers)
     replay_matches(t)
+
+# -- "If you do" reads what the optional action actually did (608.2c; 903.9b; 121.2) ---------------------------
+def test_if_you_do_after_a_bounced_commander_goes_to_the_command_zone_does_nothing(cards):
+    """Niambi: the commander went to the command zone instead of the hand (903.9b): nothing was returned, so no life."""
+    s = build(cards, "Niambi, Esteemed Speaker")
+    krenko = find(s.state, "Krenko, Mob Boss", "p1")
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"player": "p1", "zone": "battlefield"})
+    bouncer = token_of(s, "p1", "Bouncer", "Token Artifact — Test", pt="0/0", text="{1}: Return target creature to its owner's hand.")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=bouncer.id, ability=0, targets=[krenko.id])
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"], remember="yes_this_turn")  # (903.9b, from now on this turn)
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"player": "p1", "zone": "battlefield"})
+    niambi = to_hand(s, "Niambi, Esteemed Speaker")
+    mana(s, W=1, U=1)
+    act(s, "p1", type="cast_spell", card_id=niambi.id)
+    answer_may(s, "yes")
+    assert s.state.cards[krenko.id].zone == "p1:command" and life(s) == 40
+    replay_matches(s)
+
+
+def test_if_you_do_after_a_draw_from_an_empty_library_discards_nothing(cards):
+    """Riddlesmith with an empty library: no card was drawn, so nothing is discarded."""
+    s = build(cards, "Sol Ring")
+    creature(s, "p1", "Riddlesmith", "2/1", "Token Creature — Human Artificer", text=RIDDLESMITH)
+    ring = to_hand(s, "Sol Ring")
+    to_hand(s, "Forest")  # (a card to discard, were one drawn)
+    for c in list(zone(s.state, "p1", "library")):
+        act(s, "p1", type="move", card_ids=[c], to={"zone": "exile"})
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=ring.id)
+    answer_may(s, "yes")
+    text = " ".join((part.t or "") for entry in s.state.log for part in entry.parts).lower()
+    assert "loses the game (drew from an empty library)" in text and "discard" not in text  # (no card drawn, none discarded)
+    replay_matches(s)

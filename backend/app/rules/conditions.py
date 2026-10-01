@@ -396,7 +396,7 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if "succeeded" in cond:  # "If you do": that payment (by its binding) was made in full (118.12)
         from app.rules import context
 
-        ok = context.succeeded(ctx, cond["succeeded"])
+        ok = context.succeeded(ctx, cond["succeeded"]) or context.probe_ok(plan, ctx, cond["succeeded"])
         return not ok if cond.get("negate") else ok  # "If you don't" / "… unless … pays" (118.12a)
     if "flag" in cond:  # an earlier condition of this resolution, as it was judged once (608.2c)
         from app.rules import context

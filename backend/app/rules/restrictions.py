@@ -78,7 +78,10 @@ _STEPS = {
 
 
 def _sentences(body: str) -> list[str]:
-    return [s for s in re.split(r"(?<=\.)\s+", body.strip()) if s]
+    # (quote-aware: a granted `…." Activate only once.` splits right)
+    from app.rules.oracle import split_sentences
+
+    return split_sentences(body.strip())
 
 
 def split(body: str) -> tuple[str, str | None]:
