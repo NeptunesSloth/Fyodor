@@ -42,7 +42,21 @@ EXTRA = [
     card("Clone", set_code="tef", number="E2", mana_cost="{3}{U}", cmc=4.0, type_line="Creature — Shapeshifter",
          oracle_text="You may have this creature enter as a copy of any creature on the battlefield.", colors=["U"],
          color_identity=["U"], power="0", toughness="0"),
+    # Invasion of Dominaria // Serra Faithkeeper (a Siege, defense 5)
+    card("Invasion of Dominaria // Serra Faithkeeper", set_code="tef", number="E3", layout="transform", mana_cost=None,
+         cmc=3.0, type_line="Battle — Siege // Creature — Angel", colors=["W"], color_identity=["W"], image_uris=None,
+         card_faces=[
+             {"object": "card_face", "name": "Invasion of Dominaria", "mana_cost": "{2}{W}", "type_line": "Battle — Siege",
+              "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's "
+                             "defeated, exile it, then cast it transformed.)\nWhen this Siege enters, you gain 4 life and "
+                             "draw a card.", "defense": "5", "colors": ["W"],
+              "image_uris": {"normal": "https://img.example/invasion-front.jpg"}},
+             {"object": "card_face", "name": "Serra Faithkeeper", "mana_cost": "", "type_line": "Creature — Angel",
+              "oracle_text": "Flying, vigilance", "power": "4", "toughness": "4", "colors": ["W"],
+              "image_uris": {"normal": "https://img.example/invasion-back.jpg"}},
+         ]),
 ]
+INVASION = "Invasion of Dominaria // Serra Faithkeeper"
 
 
 @pytest.fixture()
@@ -223,6 +237,89 @@ def test_gideon_jura_prevention_names_its_source(cards):
         "Until end of turn, ~ becomes a 6/6 Human Soldier creature that's still a planeswalker. Prevent all damage "
         "that would be dealt to him this turn.")
     assert effects[-1] == {"do": "prevent_all", "scope": {"combat": None, "to_objects": "self"}}
+
+
+# -- battles (310) --------------------------------------------------------------------------------------
+def test_a_siege_enters_with_defense_counters_and_a_protector_chosen_among_opponents(cards):
+    """310.4b: it enters with its printed defense in counters; 310.9a / 310.12a: its controller
+    chooses an opponent to protect it as it enters (before it enters, 614.12a)."""
+    from app.rules.combat import attack_targets
+    from tests.test_rules_simplifications import build3
+
+    s = build3(cards, INVASION)
+    siege = next(c for c in s.state.cards.values() if c.name and c.name.startswith("Invasion of Dominaria"))
+    act(s, "p1", type="move", card_ids=[siege.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"W": 1, "C": 2})
+    act(s, "p1", type="cast_spell", card_id=siege.id)
+    pass_until_stack_empty(s)
+    d = decision(s)
+    assert d is not None and d.player == "p1" and {o.id for o in d.options} == {"p2", "p3"}  # opponents only
+    answer(s, "p3")
+    pass_until_stack_empty(s)
+    siege = s.state.cards[siege.id]
+    assert siege.zone == "p1:battlefield" and siege.counters.get("defense") == 5
+    assert s.state.rules.protectors[s.state.rules.object_id(siege.id)] == "p3"
+    assert s.state.players["p1"].life == 44  # its enters ability
+    # 310.9b: its controller and the other opponent may attack it, its protector may not
+    assert siege.id in attack_targets(s.state, "p1", cards) and siege.id in attack_targets(s.state, "p2", cards)
+    assert siege.id not in attack_targets(s.state, "p3", cards)
+    replay_matches(s)
+    assert reload(s, cards).state.rules.protectors == s.state.rules.protectors
+
+
+def test_attacking_a_siege_its_protector_blocks_and_defeat_exiles_it(cards):
+    """310.9c-d: the protector is the defending player for the battle; 120.3h: combat damage
+    removes defense counters; 310.12b: the last one removed, it's exiled and may be cast
+    transformed (by hand); 704.5v waited for that trigger."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, turn_on
+    from tests.test_rules_combat import attack, creature
+
+    decks = [deck(cards, "Krenko, Mob Boss", [(1, INVASION), (9, "Forest")]),
+             deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")]), deck(cards, "Krenko, Mob Boss", [(10, "Mountain")])]
+    s = GameSession(new_game([PlayerSetup(n, cards=d) for n, d in zip(("Alice", "Bob", "Carol"), decks, strict=True)],
+                             shuffle=False), cards=cards)  # (a sandbox table, then automation is switched on)
+    siege =next(c for c in s.state.cards.values() if c.name and c.name.startswith("Invasion of Dominaria"))
+    act(s, "p1", type="move", card_ids=[siege.id], to={"player": "p1", "zone": "battlefield"})  # (by hand: no protector)
+    act(s, "p1", type="counter", card_ids=[siege.id], kind="defense", delta=3)
+    # Rooftop Saboteurs' trigger (Invasion of Kamigawa's back face) on a 3/3
+    giant = creature(s, "p1", "Saboteur", "3/3", "Whenever this creature deals combat damage to a player or battle, draw a card.")
+    creature(s, "p2", "Bob's Wall", "0/4")
+    creature(s, "p3", "Carol's Bear", "2/2")
+    turn_on(s)
+    # 310.11: no protector — its controller chooses one among their opponents
+    d = decision(s)
+    assert d is not None and d.resume["step"] == "battle_protector" and {o.id for o in d.options} == {"p2", "p3"}
+    answer(s, "p3")
+    assert s.state.rules.protectors[s.state.rules.object_id(siege.id)] == "p3"
+    for _ in range(4):  # → combat: Alice declares attackers
+        if decision(s) is not None:
+            break
+        act(s, "p1", type="pass_priority")
+    d = decision(s)
+    assert d is not None and d.kind == "declare_attackers" and f"t:{siege.id}" in {o.id for o in d.options}
+    attack(s, (giant, siege.id))
+    until(s, lambda s: decision(s) is not None and decision(s).kind == "declare_blockers")
+    assert decision(s).player == "p3"  # 310.9c: the protector blocks, not the controller's other opponent
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p3", type="declare_blockers", blocks=[])
+    for _ in range(12):  # (the two triggers: their controller orders them)
+        d = decision(s)
+        if d is not None and d.kind == "manual_resolution":
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:max(d.min_choices, 1)]
+                if d.kind != "order" else [o.id for o in d.options])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert decision(s).resume["step"] == "siege_cast"
+    assert s.state.cards[siege.id].zone == "p1:exile"  # exiled; its controller casts it transformed by hand
+    answer(s, "done")
+    assert s.state.cards[siege.id].zone == "p1:exile" and not s.state.rules.decision
+    pass_until_stack_empty(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1  # "deals combat damage to a player or battle" (120.3h)
+    replay_matches(s)
 
 
 def test_simultaneous_entries_are_timestamped_in_apnap_order(cards):

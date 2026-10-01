@@ -184,13 +184,19 @@ def _controls_land(state: GameState, player: str, subtype: str, info: CardInfo |
 
 
 def attack_targets(state: GameState, attacker: str, info: CardInfo) -> list[str]:
-    """Opponents, and planeswalkers they control (battles arrive later)."""
+    """Opponents, planeswalkers they control, and battles they protect (506.2, 508.1b; 310.9b: a
+    Siege can be attacked by its own controller, never by its protector)."""
+    from app.rules import battles
+    from app.rules.layers import derive
+
     out = [p for p in live_players(state) if p != attacker]
-    for pid in list(out):
+    defenders = list(out)
+    for pid in defenders:
         for cid in state.zones.get(zone_key(pid, "battlefield"), []):
             card = state.cards[cid]
             if card.controller == pid and "Planeswalker" in chars.of(card, info).types:
                 out.append(cid)
+    out += battles.attackable(state, attacker, defenders, lambda c: derive(state, c, chars.of(c, info), info))
     return out
 
 
@@ -204,7 +210,11 @@ def defender_of(state: GameState, target: A.AttackTarget | Any) -> str | None:
     if target.kind == "player":
         return str(target.id)
     card = state.cards.get(target.id)
-    return card.controller if card else None
+    if card is None:
+        return None
+    from app.rules import battles
+
+    return battles.protector(state, card) or card.controller  # 310.9d: a battle's protector defends it
 
 
 # -- declare attackers ------------------------------------------------------------------
@@ -250,8 +260,9 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         if decl.target not in targets:
             raise ActionError(f"{card.name} can't attack that")
         if "attack_needs_island" in scripts.statics(plan.ch(card)):
-            defender = decl.target if decl.target in plan.state.players else plan.state.cards[decl.target].controller
-            if not _controls_land(plan.state, defender, "Island", plan.info):
+            defender = decl.target if decl.target in plan.state.players else \
+                defender_of(plan.state, A.AttackTarget(kind="card", id=decl.target))
+            if not _controls_land(plan.state, defender or "", "Island", plan.info):
                 raise ActionError(f"{card.name} can't attack unless defending player controls an Island")
         if decl.card_id in seen:
             raise ActionError(f"{card.name} can only attack once")

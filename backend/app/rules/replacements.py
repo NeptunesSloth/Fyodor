@@ -107,6 +107,10 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
                 out["choice"] = {"what": what}
+    from app.rules import battles  # 310.9a: a battle's protector is chosen as it enters
+
+    battles.entry_choice(plan, plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"),
+                                                                "controller": controller})), controller, answers, out)
     for d in defs:
         kind = d["replacement"]
         if kind == "enters_tapped":
@@ -184,6 +188,11 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
         loyalty = int(ch.loyalty) if ch.loyalty and ch.loyalty.isdigit() else int(x or 0) if ch.loyalty == "X" else 0
         if loyalty:
             counters["loyalty"] = counters.get("loyalty", 0) + loyalty
+    if "Battle" in ch.types:  # 310.4b: intrinsic, however it enters
+        from app.rules import battles
+
+        if battles.defense(ch):
+            counters["defense"] = counters.get("defense", 0) + battles.defense(ch)
     if not plan.manual(card):
         r = plan.rules
         bled = any(t == plan.state.turn.number for p, t in r.damaged.items() if p != controller)
@@ -251,6 +260,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     from app.rules.effects import _choice_options
 
     what = choice["what"]
+    from app.rules import battles
+
+    if what == battles.PROTECTOR:  # 310.9a / 310.12a
+        return f"{card.name}: as it enters, choose its protector", battles.choice_options(plan, controller, card)
     article = "an" if what[:1] in "aeiou" else "a"
     return f"{card.name}: as it enters, choose {article} {what}", _choice_options(plan, {"controller": controller}, what)
 
@@ -431,6 +444,9 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     card = plan.state.cards.get(card_id)
     if card is None or not card.zone.endswith(":battlefield"):
         return
+    from app.rules import battles
+
+    battles.entered(plan, card_id, choices)  # 310.9a: the protector chosen as it entered
     if choices:
         from app.rules.effects import CHOICE_LABELS
 

@@ -343,6 +343,9 @@ def features_of(ch: Characteristics) -> list[Feature]:
         add("combat", "Attack and block")
     if "Planeswalker" in ch.types:
         add("planeswalker", "Loyalty and damage to planeswalkers")
+    if "Battle" in ch.types:  # 310 (app/rules/battles.py): a Siege's defeat is cast transformed by hand (310.12b)
+        add("battle", "Defense, protector, attacks (310)" + ("; casting it transformed when defeated is by hand"
+                                                            if "Siege" in ch.subtypes else ""), "Siege" not in ch.subtypes)
     for ab in ch.abilities:
         if script is not None and ab.index in script.covers:
             add(f"script:{ab.index}", ab.text, True)

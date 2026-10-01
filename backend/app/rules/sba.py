@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from app.game.rules_state import Decision, DecisionOption
 from app.game.state import CardInstance
-from app.rules import attachments
+from app.rules import attachments, battles
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan, decide, live_players
 
@@ -59,6 +59,7 @@ class Found:
         self.annihilate: list[tuple[CardInstance, int]] = []
         self.dying: list[tuple[CardInstance, str]] = []
         self.unattach: list[tuple[CardInstance, str]] = []
+        self.protect: list[tuple[CardInstance, list[str]]] = []  # 310.11: battles needing a new protector
 
     def visible(self) -> bool:
         return bool(self.losers or self.annihilate or self.dying or self.unattach)
@@ -119,8 +120,14 @@ def find(plan: Plan) -> Found:
                 out.dying.append((card, "damage from a deathtouch source"))  # 704.5h
         if "Planeswalker" in ch.types and card.counters.get("loyalty", 0) <= 0:
             out.dying.append((card, "no loyalty"))  # 704.5i
-        if "Battle" in ch.types and "Siege" not in ch.subtypes and card.counters.get("defense", 0) <= 0:
-            out.dying.append((card, "no defense"))  # 704.5w (Siege battles, 704.5v, wait for triggers: M16)
+        if battles.no_defense(plan, card, ch):
+            out.dying.append((card, "no defense"))  # 704.5v (a Siege once its defeat trigger left the stack), 704.5w
+        else:
+            options = battles.protector_problem(plan, card, ch)
+            if options == []:
+                out.dying.append((card, "no player can protect it"))  # 310.11
+            elif options:
+                out.protect.append((card, options))
         _attachment(plan, card, ch, out)
     return out
 
@@ -208,6 +215,17 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         if len(left) == 1 and r.winner is None:
             r.winner = left[0]
             plan.note(f"{state.players[left[0]].name} wins the game")
+
+    # 310.11: a battle with no protector (or one who can't be) gets one its controller chooses
+    for card, options in found.protect:
+        if card.id not in state.cards or not state.cards[card.id].zone.endswith(":battlefield"):
+            continue
+        if len(options) == 1:
+            battles.set_protector(plan, card, options[0])
+            happened = True
+        else:
+            battles.ask_protector(plan, card, options)
+            return True
 
     # 704.5j legend rule: the controller chooses one to keep (one decision at a time)
     legends: dict[tuple[str, str], list[CardInstance]] = {}

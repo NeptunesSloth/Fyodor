@@ -2467,6 +2467,15 @@ def prevent_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 PRIMITIVES.update({"become": become, "still_a": still_a, "prevent_self": prevent_self})
 
 
+def _siege_defeated(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import battles  # (battles → plan; a leaf here)
+
+    return battles.siege_defeated(plan, ctx, e)
+
+
+PRIMITIVES["siege_defeated"] = _siege_defeated  # 310.12b (app/rules/battles.py)
+
+
 # -- replacement effects stage 2 (wave 2E) -----------------------------------------------------------
 def exile_if_dies(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"If that creature would die this turn, exile it instead." / "If a creature dealt damage this
