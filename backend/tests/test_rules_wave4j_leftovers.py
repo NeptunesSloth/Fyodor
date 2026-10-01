@@ -95,6 +95,11 @@ EXTRA = [
          oracle_text="Whenever an opponent draws a card, that player may pay {2}. If the player doesn't, you create a "
                      "Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
          colors=["W"], color_identity=["W"]),
+    card("Azusa, Lost but Seeking", set_code="tst", number="J421", mana_cost="{2}{G}", cmc=3.0,
+         type_line="Legendary Creature — Human Monk", oracle_text="You may play two additional lands on each of your turns.",
+         power="1", toughness="2", colors=["G"], color_identity=["G"]),
+    card("Exploration", set_code="tst", number="J422", mana_cost="{G}", cmc=1.0, type_line="Enchantment",
+         oracle_text="You may play an additional land on each of your turns.", colors=["G"], color_identity=["G"]),
     card("Farewell", set_code="tst", number="J418", mana_cost="{4}{W}{W}", cmc=6.0, type_line="Sorcery",
          oracle_text="Choose one or more —\n• Exile all artifacts.\n• Exile all creatures.\n• Exile all enchantments.\n"
                      "• Exile all graveyards.", colors=["W"], color_identity=["W"]),
@@ -721,3 +726,23 @@ def test_smothering_tithe(cards, pays):
     assert len(treasures) == (0 if pays else 1)
     replay_matches(s)
     roundtrip(s)
+
+
+# -- additional land plays (305.2) ---------------------------------------------------------------------------------
+@pytest.mark.parametrize(("names", "lands"), [((), 1), (("Exploration",), 2), (("Exploration", "Azusa, Lost but Seeking"), 4)])
+def test_additional_land_plays(cards, names, lands):
+    """One land a turn; Exploration: two; Exploration and Azusa together: four (305.2: the effects add up). The next
+    one is refused."""
+    from app.game.errors import ActionError
+
+    s = build(cards, *names)
+    for name in names:
+        act(s, "p1", type="move", card_ids=[named(s, name).id], to={"player": "p1", "zone": "battlefield"})
+    forests = [c for c in s.state.zones["p1:library"] if s.state.cards[c].name == "Forest"][: lands + 1]
+    act(s, "p1", type="move", card_ids=forests, to={"zone": "hand"})
+    for cid in forests[:lands]:
+        act(s, "p1", type="play_land", card_id=cid)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="play_land", card_id=forests[lands])
+    assert sum(1 for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Forest") == lands
+    replay_matches(s)

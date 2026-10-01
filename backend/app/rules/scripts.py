@@ -2615,6 +2615,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (no_max := hand_size.static_definition(text)) is not None:
         return no_max
+    from app.rules import land_plays  # -- additional land plays (wave 4J) -- (305.2)
+
+    if (extra_lands := land_plays.static_definition(text)) is not None:
+        return extra_lands
     # -- end refused grants/replacements (wave 3R2) --
     if text == "~ enters tapped.":
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}

@@ -812,8 +812,11 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
         return "You can only play a land while the stack is empty"
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
-    if r.lands_this_turn(player, state.turn.number) >= 1:
-        return "You've already played a land this turn"
+    from app.rules import land_plays  # -- additional land plays (wave 4J) -- 305.2a
+
+    played = r.lands_this_turn(player, state.turn.number)
+    if played >= 1 and played >= (allowed := land_plays.allowed(state, player, info)):  # (counted only when it matters)
+        return "You've already played a land this turn" if allowed == 1 else "You've already played all the lands you can this turn"
     return None
 
 
