@@ -45,6 +45,17 @@ REAL = [
            "Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.", ["G"]),
     _spell("Diabolic Intent", "{1}{B}", 2.0, "Sorcery",
            "As an additional cost to cast this spell, sacrifice a creature.\nSearch your library for a card, put that card into your hand, then shuffle.", ["B"]),
+    _spell("Path to Exile", "{W}", 1.0, "Instant",
+           "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+           ["W"]),
+    card("Krosan Verge", type_line="Land", oracle_text="This land enters tapped.\n{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Search your library for "
+         "a Forest card and a Plains card, put them onto the battlefield tapped, then shuffle."),
+    _spell("Wide Search Test", "{1}", 1.0, "Sorcery",
+           "Search your library for any number of basic land cards, put them onto the battlefield, then shuffle.", []),
+    _spell("Either Search Test", "{1}", 1.0, "Sorcery",
+           "Search your library for a basic land card or an Equipment card, put it onto the battlefield, then shuffle.", []),
+    card("Test Blade", mana_cost="{1}", cmc=1.0, type_line="Artifact — Equipment", oracle_text=""),
+    card("Plains", set_code="cmm", number="1000", type_line="Basic Land — Plains", oracle_text="({T}: Add {W}.)", color_identity=["W"]),
     _spell("Named Search Test", "{1}", 1.0, "Sorcery",
            "Search your library for a card named Sol Ring, reveal it, put it into your hand, then shuffle.", []),
     _spell("Exile Search Test", "{1}", 1.0, "Sorcery", "Search your library for an artifact card and exile it.", []),
@@ -74,7 +85,8 @@ def table(cards, spells, library=LIBRARY):
     bob = deck(cards, "Atraxa, Praetors' Voice", [(12, "Island")])
     s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
     act(s, "p1", type="pass_priority")  # → Alice's first main phase
-    act(s, "p1", type="draw", count=len(spells))
+    if spells:
+        act(s, "p1", type="draw", count=len(spells))
     return s
 
 
@@ -342,3 +354,66 @@ def test_without_shuffle_in_the_text_the_library_keeps_its_order(tcards):
     assert s.state.cards[ring].zone == "p1:exile"
     assert zone(s.state, "p1", "library") == [c for c in before if c != ring]  # 701.24: only shuffled when told to
     replay_matches(s)
+
+
+# -- other players, several kinds of card, any number -------------------------------------------
+def test_path_to_exile_gives_its_controller_a_private_optional_search(tcards):
+    s = table(tcards, ["Path to Exile"])
+    act(s, "p2", type="create_token", player="p2", token={"name": "Brute", "type_line": "Token Creature — Test", "power": "3",
+                                                            "toughness": "3", "text": ""})
+    brute = named(s, "Brute", "p2")
+    give(s, W=1)
+    bob_library = set(zone(s.state, "p2", "library"))
+    cast(s, "Path to Exile", targets=[brute.id])
+    d = rules(s).decision
+    assert d.kind == "choose_cards" and d.player == "p2"  # Bob searches Bob's library: 701.23a
+    assert {o.id for o in d.options} == bob_library  # (basic Islands: all of it)
+    alice = json.dumps(s.view("p1"))
+    assert not any(o.id in alice for o in d.options) and s.view("p1")["rules"]["decision"]["kind"] == "waiting"
+    assert d.min_choices == 0  # "may": he can decline
+    island = d.options[0].id
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[island])
+    pass_until_stack_empty(s)
+    assert s.state.cards[island].zone == "p2:battlefield" and s.state.cards[island].tapped
+    assert not (set(zone(s.state, "p2", "library")) & bob_library)  # Bob's library was shuffled
+    replay_matches(s)
+
+
+def test_krosan_verge_finds_one_card_of_each_kind(tcards):
+    s = table(tcards, [], library=((1, "Krosan Verge"), (2, "Forest"), (2, "Plains"), (1, "Island")))
+    act(s, "p1", type="draw", count=1)
+    verge = named(s, "Krosan Verge")
+    act(s, "p1", type="play_land", card_id=verge.id)
+    give(s, C=2)
+    act(s, "p1", type="untap_all", player="p1")  # (it entered tapped)
+    act(s, "p1", type="activate_ability", card_id=verge.id, ability=2)
+    pass_until_stack_empty(s)
+    assert option_names(s) == ["Forest", "Forest"]
+    [forest] = pick(s, "Forest")
+    assert option_names(s) == ["Plains", "Plains"]  # next kind: never the card already found
+    [plains] = pick(s, "Plains")
+    assert {s.state.cards[forest].zone, s.state.cards[plains].zone} == {"p1:battlefield"}
+    assert s.state.cards[forest].tapped and s.state.cards[plains].tapped
+    replay_matches(s)
+
+
+def test_any_number_of_basic_lands(tcards):
+    s = table(tcards, ["Wide Search Test"], library=((4, "Forest"), (2, "Island"), (1, "Sol Ring")))
+    give(s, C=1)
+    cast(s, "Wide Search Test")
+    d = decision(s)
+    assert d.min_choices == 0 and d.max_choices == 6 and len(d.options) == 6  # (Sol Ring isn't a basic land)
+    ids = [o.id for o in d.options][:4]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=ids)
+    pass_until_stack_empty(s)
+    assert all(s.state.cards[i].zone == "p1:battlefield" and not s.state.cards[i].tapped for i in ids)
+    replay_matches(s)
+
+
+def test_alternatives_a_basic_land_or_an_equipment(tcards):
+    s = table(tcards, ["Either Search Test"], library=((2, "Forest"), (1, "Test Blade"), (1, "Sol Ring")))
+    give(s, C=1)
+    cast(s, "Either Search Test")
+    assert option_names(s) == ["Forest", "Forest", "Test Blade"]
+    pick(s, "Test Blade")
+    assert named(s, "Test Blade").zone == "p1:battlefield"
