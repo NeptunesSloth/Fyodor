@@ -200,6 +200,8 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         options = [t for t in legal_targets(plan, spec["what"], chooser, source, source_card, attacker)
                    if t not in exclude and t not in banned]
         lo, hi = group_limits(spec, x)
+        if g >= len(out.counts) and hi == 0:  # -- kicked / instead (wave 4G) -- a group the spell doesn't require (601.2c)
+            out.counts.append(0)
         if g >= len(out.counts):
             if len(options) < lo or hi < lo:
                 raise ActionError(f"{what} has no legal target" if not options else f"{what} doesn't have enough legal targets")
