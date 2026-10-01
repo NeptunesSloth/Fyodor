@@ -55,6 +55,9 @@ SUPPORTED_REPLACEMENTS: set[str] = {
 # app/rules/copying.py, tests/test_rules_copy.py). Copies of spells and abilities, token copies and
 # "becomes a copy" are templates (their definitions parse only in the wording the engine carries out).
 SUPPORTED_REPLACEMENTS.add("enter_as_copy")
+# -- "this way" outcomes (wave 4A) -- "As ~ enters, you may reveal an X or Y card from your hand. If you don't, ~
+# enters tapped." (614.1c, 614.12a, 701.20a; app/rules/reveal_lands.py, tests/test_rules_wave4a_this_way.py)
+SUPPORTED_REPLACEMENTS.add("reveal_or_tapped")
 
 
 # -- modal triggered/activated abilities (wave 1A) ---------------------------------------------------

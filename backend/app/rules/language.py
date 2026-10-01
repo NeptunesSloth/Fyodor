@@ -23,7 +23,7 @@ import re
 from dataclasses import replace
 from typing import Any
 
-from app.rules import selectors, values
+from app.rules import selectors, this_way, values  # (this_way: wave 4A)
 
 Effects = list[dict[str, Any]]
 AMT = values.AMOUNT
@@ -262,6 +262,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"twice (?P<v>.+)", phrase)
     if m:
         return {"times": [2, _stat(m["v"], its)]}
+    if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
+        return tw
     v = values.parse_count(phrase)
     if v is None:
         raise _Fail
@@ -363,6 +365,8 @@ def _rider_value(phrase: str) -> Any:
     if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|that spell's|~'s|the sacrificed (?:creature|artifact|permanent|land)'s) "
                     r"(?:power|toughness|mana value)", phrase):
         return _stat(phrase)
+    if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
+        return tw
     v = values.parse_count(phrase, it="it")
     if v is None:
         raise _Fail

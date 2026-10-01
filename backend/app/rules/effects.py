@@ -670,13 +670,22 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
         return True
     requests: list[tuple[str, dict[str, Any], int, str | None, bool]] = []
     source = ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None
-    for pid in _players(plan, ctx, e["who"]):
+    # -- "this way" outcomes (wave 4A) -- "For each permanent destroyed this way, its controller creates …": each
+    # player creates as many as they controlled, all in one batch (one simultaneous instruction, 101.4 / 616.1 APNAP)
+    each: dict[str, int] | None = None
+    if e.get("per_controller"):
+        from app.rules import this_way
+
+        each = this_way.by_controller(plan, ctx, e["per_controller"])
+    for pid in (list(each) if each is not None else _players(plan, ctx, e["who"])):
+        if each is not None and pid not in plan.live():
+            continue
         spec = {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
                 "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
         # a token enters tapped when its creator says so ("create a tapped …") or its own text does
         # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
         tapped = bool(e.get("tapped")) or replacements.token_enters_tapped(plan, pid, spec)
-        requests.append((pid, spec, count, source, tapped))
+        requests.append((pid, spec, count * each[pid] if each is not None else count, source, tapped))
     # (the tokens are recorded as binding "as", the new objects they are: "they gain haste")
     made = replace.create_token_batch(plan, requests, ctx=ctx, bind=e.get("as"), then=then or _then(ctx, e))
     return made is not None  # (None: the creating player chooses an order first, 616.1)
@@ -938,9 +947,12 @@ def madness_offer(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
-def counter_object(plan: Plan, stack_id: str, actor: str) -> None:
+def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None) -> None:
     """701.6: a countered spell goes to its owner's graveyard (a flashback spell into exile); a
-    countered ability simply stops existing."""
+    countered ability simply stops existing. -- "this way" outcomes (wave 4A) -- ``to``: "If that spell is
+    countered this way, exile it / put it on top of / on the bottom of its owner's library instead of into
+    that player's graveyard" (608.2c: the counter's own destination; a flashback spell is still exiled,
+    702.34a: that replacement applies to the spell leaving the stack whatever its destination)."""
     card = plan.state.cards.get(stack_id)
     if card is None or card.zone != "stack":
         return
@@ -957,6 +969,11 @@ def counter_object(plan: Plan, stack_id: str, actor: str) -> None:
     if oid in r.flashback:
         r.flashback = [o for o in r.flashback if o != oid]
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
+    elif to == "exile":  # (wave 4A)
+        plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
+    elif to in ("top", "bottom"):  # (wave 4A)
+        plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "library"}, "position": to},
+                actor=actor)
     else:
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "graveyard"}}, actor=actor)
 
@@ -970,7 +987,7 @@ def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
 
 def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for sid in _stack_targets(plan, ctx, e):
-        counter_object(plan, sid, ctx["controller"])
+        counter_object(plan, sid, ctx["controller"], e.get("to"))
     return True
 
 
