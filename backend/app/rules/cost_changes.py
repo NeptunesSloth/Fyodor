@@ -310,7 +310,18 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     out: dict[str, Any] = {"kind": "static", "static": "cost_modifier", "delta": change["dir"] * int(change.get("n", 0)),
                            "caster": caster, "filter": key, "change": change, "effects": []}
     if m["chosen"]:
-        out["chosen_type"] = True
+        # "of the chosen type": wave 4J's selector extra, read from the source permanent's own enters choice (614.12a;
+        # scripts checks the card has exactly that one choice: chosen.chosen_value_ok). Kept as "spell", not "filter",
+        # since only static_delta knows the source
+        from dataclasses import replace
+
+        from app.rules import selectors
+
+        base = selectors.from_key(key) if key is not None else selectors.parse("spell")
+        if base is None:
+            return None
+        out["spell"] = replace(base, extras=(*base.extras, "chosen_type")).key()
+        out["filter"] = None
     if turn:
         out["turn"] = turn
     if m["from"]:
@@ -409,12 +420,13 @@ def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[st
     if turn == "yours" and active != src.controller or turn == "not_yours" and active == src.controller \
             or turn == "not_caster" and active == player:
         return None
-    if d.get("chosen_type"):
-        from app.rules.casting import _chosen_creature_type
+    if d.get("spell"):  # "<spells> of the chosen type": the source's choice (selectors._chosen_ok; none recorded: no match)
+        from app.game.state import STACK
+        from app.rules import selectors
 
-        chosen = _chosen_creature_type(src)
-        if chosen is None or not ch.is_creature and "Kindred" not in ch.types or chosen not in ch.subtypes:
-            return None  # (205.3m: a creature type; a spell with no chosen type answered isn't of it)
+        probe = card.model_copy(update={"zone": STACK, "controller": player})
+        if not selectors.matches(view_of(state, player, info), selectors.from_key(d["spell"]), probe, ch, player, src.id):
+            return None
     zones = d.get("from")
     if zones:
         where = card.zone.rsplit(":", 1)[-1]  # (the zone it's cast from: 601.2a)

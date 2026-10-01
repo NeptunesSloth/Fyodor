@@ -94,6 +94,11 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return context.players(plan, ctx, context.EVENT)
     if who.startswith(context.PREFIX):  # a binding: "that player", "its controller", "its owner" (app/rules/context.py)
         return context.players(plan, ctx, who[len(context.PREFIX):])
+    if who == "chosen_player":  # -- chosen player (wave 4J) -- the player the source chose as it entered (614.12a)
+        from app.rules import chosen
+
+        pid = chosen.player_of(plan, ctx.get("source_card") or "", ctx.get("source_object"))
+        return [pid] if pid is not None and pid in plan.live() else []
     if who.startswith("player:"):  # (older saves: a player bound into the effect when it triggered)
         return [who[7:]] if who[7:] in plan.live() else []
     return []
@@ -102,6 +107,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
         return _controlled_by(plan, ctx, who)
+    if who.startswith("graveyard_of:"):  # -- graveyard exile (wave 4J) -- "target player's graveyard": every card in it
+        return [c for p in _players(plan, ctx, who[len("graveyard_of:"):]) for c in plan.state.zones.get(f"{p}:graveyard", [])]
     if who.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- "all other creatures" after "Create X
         name, _, key = who[len("except:"):].partition("|")  # … tokens" (Martial Coup): other than what it made
         made = set(context.objects(plan, ctx, name))
@@ -2185,9 +2192,24 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.triggers import _add  # (triggers imports this module)
 
     if conditions.holds(plan, ctx, e["cond"]):
+        event = _reflexive_event(plan, ctx, e["lki"]) if e.get("lki") else None  # -- reflexive LKI (wave 4J) --
         _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
-             name=str(ctx.get("name") or ""), index=7300, definition=e["ability"])
+             name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=event)
     return True
+
+
+# -- reflexive LKI (wave 4J) --
+def _reflexive_event(plan: Plan, ctx: Context, name: str) -> Any:
+    """The object the payment a reflexive trigger waited for sacrificed (its binding), with its last known
+    information (608.2h, 113.7a): the trigger's event object, which "that creature's power" in its body reads
+    (scripts._reflexive_lki)."""
+    from app.game.rules_state import TriggerEvent
+
+    b = context.refs(ctx).get(name) or {}
+    before = [ObjectRef.model_validate(r) for r in b.get("objects") or []] if b.get("kind") == "payment" else []
+    objects = [r.model_copy(update={"snapshot": context.snapshot(plan, r)}) for r in before]
+    return TriggerEvent(kind="reflexive", objects=objects, count=len(objects))
+# -- end reflexive LKI (wave 4J) --
 
 
 PRIMITIVES["reflexive"] = reflexive
@@ -2572,9 +2594,17 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
     if e.get("as"):
         context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}
+    if not e.get("remember") and e["what"] in ("creature type", "color"):  # -- chosen type (wave 4J) --
+        from app.rules import chosen as picked
+
+        ctx["effects"] = ctx["effects"][: ctx["next"]] + picked.bind_effects(ctx["effects"][ctx["next"]:], e["what"], value)
     src = plan.state.cards.get(ctx.get("source_card") or "")
     if e.get("remember") and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
         plan.do({"type": "set_choice", "card_id": src.id, "key": CHOICE_LABELS[e["what"]], "value": shown}, actor=d.player)
+        if e["what"] in ("opponent", "player"):  # -- chosen player (wave 4J) --
+            from app.rules import chosen as picked
+
+            picked.record(plan, src.id, value)
     continue_effects(plan, ctx)
 
 

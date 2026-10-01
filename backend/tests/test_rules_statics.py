@@ -81,7 +81,6 @@ def test_parse(text, who, parts):
 
 @pytest.mark.parametrize("text", [
     "Creatures you control get +1/+1 until end of turn.",  # a duration: an effect, not a static
-    "Creatures you control of the chosen type get +1/+1.",  # a choice the table doesn't model
     "Enchanted creature gets +1/+1 and has protection from red.",  # a keyword with a quality
     "Other creatures you control have exalted.",  # a triggered keyword
     "You have hexproof.",  # a player's characteristic (613.10): not modelled

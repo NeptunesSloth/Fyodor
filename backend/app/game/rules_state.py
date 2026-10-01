@@ -757,6 +757,9 @@ class RulesState(BaseModel):
     lands_played: dict[str, TurnCount] = Field(default_factory=dict)
     spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
     loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
+    # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't
+    # untap during that player's next untap step (app/rules/engine.start_next_turn)
+    exerted: dict[str, str] = Field(default_factory=dict)
     once_per_turn: dict[str, int] = Field(default_factory=dict)  # "<card>:<ability>" -> turn it was activated
     # Activation restrictions and trigger limits (app/rules/restrictions.py): how many times an
     # object's ability was activated / triggered — "<object id>:<ability index>:t<turn>" -> count this
@@ -863,6 +866,10 @@ class RulesState(BaseModel):
     aura_targets: dict[str, TargetRef] = Field(default_factory=dict)
     # Battles on the battlefield (object id) -> their protector (310.9; app/rules/battles.py).
     protectors: dict[str, str] = Field(default_factory=dict)
+    # -- chosen player (wave 4J) -- "As ~ enters, choose an opponent / a player": object id -> the chosen player's id
+    # (the permanent's "Chosen opponent: <name>" entry is only the display; app/rules/chosen.py). Older saves have
+    # only the display name: chosen.player_of resolves it when exactly one player has that name.
+    chosen_players: dict[str, str] = Field(default_factory=dict)
     # How each spell was paid for (stack object id -> record); follows the spell onto the battlefield.
     payments: dict[str, PaymentRecord] = Field(default_factory=dict)
     # Each player's intents this turn, for REPEAT LAST VALIDATED SEQUENCE (payloads, newest last).

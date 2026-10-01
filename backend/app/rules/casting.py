@@ -91,7 +91,7 @@ def _choice_cost_ok(extra: Any) -> bool:
     counters …) or objects the payer chooses (Ashnod's Altar's "Sacrifice a creature")."""
     from app.rules import costs as C
 
-    return not extra.unsupported and all(
+    return not extra.unsupported and not extra.activation_only and all(  # (activation_only: wave 4H, 605)
         c.kind in (C.MANA, C.TAP, C.PAY_LIFE) or (c.kind in (C.SACRIFICE, C.REMOVE_COUNTER) and c.selector is None)
         or (c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random)
         for c in extra.components)
@@ -167,6 +167,8 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
     if ab.instead_if == (M.PLAYED_LAND,):  # -- this-turn history (wave 4D) -- River of Tears
         played = state.rules is not None and state.rules.lands_this_turn(card.controller, state.turn.number) > 0
         return ab.instead if played else ab.options
+    if ab.instead_if and ab.instead_if[0][:1] in (("@count",), ("@power",)):  # -- kicked / instead (wave 4G) --
+        return ab.instead if _controls_for_instead(state, card.controller, ab.instead_if[0], info) else ab.options
     if ab.instead_if and all(_controls_subtypes(state, card.controller, need, info) for need in ab.instead_if):
         return ab.instead  # -- refused copy/mana (wave 3R3): Urza's Tower with the Mine and the Power-Plant --
     if ab.count == "devotion":  # -- refused copy/mana (wave 3R3): Nykthos, per chosen color (700.5) --
@@ -190,6 +192,24 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         else:
             out.append(opt)
     return tuple(dict.fromkeys(out))
+
+
+def _controls_for_instead(state: GameState, player: str, marker: tuple[str, ...], info: CardInfo) -> bool:
+    """-- kicked / instead (wave 4G) -- a mana ability's "If you control …, add … instead" (mana._CONTROL_INSTEAD), as
+    the permanents are now (613: their characteristics after continuous effects)."""
+    from app.rules.layers import derive
+
+    found = [derive(state, state.cards[cid], chars.of(state.cards[cid], info), info)
+             for cid in state.zones.get(zone_key(player, "battlefield"), []) if state.cards[cid].controller == player]
+    if marker[0] == "@count":
+        return sum(1 for ch in found if marker[1] in ch.types) >= int(marker[2])
+    return any(ch.is_creature and _power(ch) >= int(marker[1]) for ch in found)
+
+
+def _power(ch: Characteristics) -> int:
+    if ch.pt:
+        return ch.pt[0]
+    return int(ch.power) if ch.power and ch.power.lstrip("-").isdigit() else 0
 
 
 def _devotion(state: GameState, player: str, color: str, info: CardInfo) -> int:
@@ -502,6 +522,10 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
         chosen = choose_target(plan, a, definition, what, exclude=exclude)
         return None if chosen is None else ChosenTargets(flat=chosen)
     specs = scripts.target_groups(definition)
+    if isinstance(a, A.CastSpell):  # -- kicked / instead (wave 4G) -- 601.2c / 702.33g: targets tied to the kicker
+        from app.rules import kicked_instead
+
+        specs = kicked_instead.applicable(specs, a.kicker)
     found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id), a.card_id, list(a.targets),
                           list(a.target_counts), list(a.division), a.x_value, what, exclude)
     if found.ask is not None:
@@ -2363,7 +2387,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     mana = M.parse_cost(cost.mana)
     if plan.locked_cost is not None and not mana.x:  # -- cost changers (wave 4I) -- 602.2b → 601.2f: locked in
         mana = _locked(plan, mana)
-    if (mana.x or cost.loyalty_x or cost.energy_x) and a.x_value is None:  # (wave 3E: "Pay X {E}")
+    if (mana.x or cost.loyalty_x or cost.energy_x or cost.x_chosen) and a.x_value is None:  # (wave 3E: "Pay X {E}"; x_chosen: wave 4H)
         raise ActionError("Choose a value for X")
     if cost.loyalty_x and card.counters.get("loyalty", 0) < (a.x_value or 0):
         raise ActionError(f"{ch.name} doesn't have {a.x_value} loyalty")  # 606.6
@@ -2655,6 +2679,7 @@ def can_act(state: GameState, player: str, info: CardInfo) -> bool:
             card = state.cards[cid]
             if castable(state, player, card, info, check_priority=False):
                 return True
-            if key.endswith(":hand") and land_play_problem(state, player, card, chars.of(card, info), check_priority=False) is None:
+            if key.endswith(":hand") and land_play_problem(state, player, card, chars.of(card, info), check_priority=False,
+                                                                 info=info) is None:  # (info: wave 4J, additional land plays)
                 return True
     return bool(activatable(state, player, info, check_priority=False))

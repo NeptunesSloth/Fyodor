@@ -43,7 +43,8 @@ PLAYER_GROUPS = {"you": "you", "each player": "each_player", "each opponent": "e
                   "each of your opponents": "each_opponent", "that player": "that_player",
                   "its controller": "it.controller", "its owner": "it.owner",
                   "that creature's controller": "it.controller", "that permanent's controller": "it.controller",
-                  "that card's owner": "it.owner", "that creature's owner": "it.owner"}
+                  "that card's owner": "it.owner", "that creature's owner": "it.owner",
+                  "the chosen player": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
 PLAYER_PHRASES = "|".join(sorted(PLAYER_GROUPS, key=len, reverse=True))
 
 
@@ -65,7 +66,8 @@ def _qty(word: str) -> int:
 
 def simple(group: dict[str, Any]) -> bool:
     """One "target [something]" with exactly one target: what definitions write as "target"."""
-    return (group["min"], group["max"]) == (1, 1) and not ({"divide", "another", "distinct_from", "same_graveyard", "total", "different"} & set(group))
+    return (group["min"], group["max"]) == (1, 1) and not ({"divide", "another", "distinct_from", "same_graveyard", "total", "different",
+                                                            "kicked"} & set(group))  # -- kicked / instead (wave 4G) -- ("kicked")
 
 
 def target_group(phrase: str) -> dict[str, Any] | None:
@@ -981,6 +983,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         # -- sized amounts (wave 3D) -- "each opponent and each creature and planeswalker they control": the opponents'
         # (selectors read "or" for a list of types), and "each other player" is every opponent (102.2)
         recipients = m["o"].replace("each other player", "each opponent")
+        if recipients == "itself" and m["src"] == "~":  # -- chosen player (wave 4J) -- "~ deals 1 damage to itself" (Stuffy Doll)
+            recipients = "~"
         recipients = re.sub(r"^(each opponent and each .+?) they control$", r"\1 your opponents control", recipients)
         recipients = re.sub(r"(creatures?) and (planeswalkers?|battles?) (?=you control|your opponents control|an opponent controls)",
                             r"\1 or \2 ", recipients)

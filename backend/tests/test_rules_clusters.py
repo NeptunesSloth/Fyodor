@@ -22,7 +22,7 @@ def test_categories():
     assert cat == K.EFFECT
     cat, key = K.classify("text:0", "Foo enters tapped unless you control two or fewer other lands.", "replacement", "Foo")
     assert cat == K.REPLACEMENT and key.startswith("~ enters tapped unless")
-    assert K.classify("text:0", "{2}, Exert Foo: Draw a card.", "activated", "Foo")[0] == K.COST
+    assert K.classify("text:0", "{2}{S}: Draw a card.", "activated", "Foo")[0] == K.COST  # (snow; exert: wave 4H)
     assert K.classify("mana:ability", "{T}, Pay 1 life: Add {B}.", "mana_ability", "Foo")[0] == K.MANA
 
 

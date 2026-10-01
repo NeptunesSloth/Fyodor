@@ -114,7 +114,7 @@ def test_target_forms_are_parsed(text, effects_, target):
     "~ deals 1 damage to any target, 2 damage to another target, and 3 damage to a third target.",  # (three-way: not read)
     "Counter target creature.",  # (a permanent can't be countered, 701.6a)
     "Counter target activated or triggered ability from an artifact or enchantment source.",
-    "Exile target player's graveyard.",  # (a target player's zone as the objects: not modelled)
+    "Exile all creature cards from target player's graveyard.",  # (a target player's zone as the objects: not modelled)
     "Exile it until ~ leaves the battlefield.",
     "Target player shuffles up to four target cards from their graveyard into their library.",
     "Tap up to X target creatures.",
@@ -127,7 +127,7 @@ def test_refusals_are_registered():
     """Every refused wording names why (the missing piece), so the gap report can rank it."""
     for text, piece in [
         ("This spell costs {1}{U} more to cast for each target beyond the first.", "extra target"),
-        ("Exile target player's graveyard.", "zone"),
+        ("Exile all creature cards from target player's graveyard.", "zone"),  # (the whole graveyard: wave 4J)
         ("Destroy target creature that player controls.", "named earlier"),
         ("Destroy up to X target artifacts.", "variable number"),
         ("Target player shuffles up to four target cards from their graveyard into their library.", "earlier target"),

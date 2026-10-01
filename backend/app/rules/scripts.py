@@ -32,6 +32,7 @@ from dataclasses import replace
 from functools import lru_cache
 from typing import Any, Literal
 
+from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
 from app.rules import restrictions, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
 from app.rules.costs import SACRIFICE, parse_ability_cost, spell_additional_cost
@@ -92,7 +93,7 @@ TRIGGERS = [
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
-    (re.compile(r"^At the beginning of (?:(?P<whose>your|each|each player's|each opponent's|the|enchanted player's) "
+    (re.compile(r"^At the beginning of (?:(?P<whose>your|each|each player's|each opponent's|the|enchanted player's|the chosen player's) "
                 r"(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
                 r"postcombat main phase)|the (?P<hstep>upkeep|end step) of enchanted (?:creature|permanent|land|artifact|"
                 r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's) turn|(?P<each_combat>each combat)), "
@@ -107,7 +108,8 @@ TRIGGERS = [
 STEPS = {"upkeep": "upkeep", "draw step": "draw", "end step": "end", "first main phase": "main1",
          "precombat main phase": "main1", "second main phase": "main2", "postcombat main phase": "main2"}
 WHOSE = {"your": "you", "each": "each", "each player's": "each", "the": "each", "each opponent's": "opponent",
-         "enchanted player's": "enchanted_player"}
+         "enchanted player's": "enchanted_player",
+         "the chosen player's": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
 
 
 def step_trigger(m: re.Match[str]) -> str:
@@ -179,6 +181,8 @@ def self_text(text: str, name: str) -> str:
     out = _ABILITY_WORD.sub("", text, count=1)
     if out.startswith("Exhaust — "):  # -- ability words (wave 4F) -- 702.177a (the restriction: restrictions.parse)
         out = out[len("Exhaust — "):]
+    if out.startswith("Boast — "):  # -- activation costs (wave 4H) -- 702.142a (the restriction: restrictions.parse)
+        out = out[len("Boast — "):]
     if out == text and (worded := word_prefix(text)) is not None:  # -- refused zones/sized (wave 3R4) -- 207.2d
         out = worded[1]
     short = _short_name(name)
@@ -287,7 +291,7 @@ def _aura_card_effects(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | 
 # "At the beginning of enchanted player's upkeep / the upkeep of enchanted creature's controller /
 # each opponent's upkeep, that player …": the player whose step it is (triggers.at_step_generic
 # gives the event that player and, for the enchanted creature's controller, that creature)
-STEP_PLAYER_WHOSE = ("enchanted_player", "host_controller", "opponent", "each")
+STEP_PLAYER_WHOSE = ("enchanted_player", "host_controller", "opponent", "each", "chosen_player")  # (chosen_player: wave 4J)
 
 
 def step_names_player(d: dict[str, Any]) -> bool:
@@ -1389,6 +1393,11 @@ def _energy_paid(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     return [*found[0][:at + 1], *paid], found[1], found[2]
 
 
+# -- may pay or else (wave 4J) -- the whole ability: one payment, one consequence (no "you may" in it)
+_MAY_PAY_ELSE = re.compile(r"^(?:[Tt]hat player|[Tt]hey) may pay (?P<cost>(?:\{[^}]+\})+)\. If (?:the player|that player|they) "
+                           r"(?:doesn't|don't), (?:you (?=create ))?(?P<rest>(?![^.]*\bmay\b)[^.]+)\.$")
+
+
 def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
@@ -1397,9 +1406,13 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     effects: list[dict[str, Any]] = []
     groups: list[dict[str, Any]] = []
     start = 0
+    # -- may pay or else (wave 4J) -- "That player may pay {2}. If the player doesn't, you create a Treasure token."
+    # (Smothering Tithe) is 118.12a's own reading of "[Effect] unless that player pays {2}": read as that
+    body = _MAY_PAY_ELSE.sub(lambda m: f"{m['rest'][:1].upper()}{m['rest'][1:]} unless that player pays {m['cost']}.", body)
     texts = [s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     skip_to = 0  # -- refused look/cast-free (wave 3R5) -- sentences read together with an earlier one (piles)
+    groups_at = 0  # -- kicked / instead (wave 4G) --
     for i, sentence in enumerate(texts):
         if i < skip_to:
             continue
@@ -1407,6 +1420,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (i > 0 or effects) and text.startswith("then ") and not text.startswith(("then shuffle", "then you may ")):
             text = text[5:]  # -- waves 3D/3L/3C -- "Then that creature deals …" / "Then draw a card.": "then" only orders (608.2c)
         prev_start, start = start, len(effects)
+        prev_groups, groups_at = groups_at, len(groups)  # -- kicked / instead (wave 4G) -- each sentence's own target groups
         sentences.append(start)
         if (per := _each_controller_creates(text)) is not None:  # -- "this way" outcomes (wave 4A) --
             effects += per
@@ -1442,7 +1456,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects.append({"do": "excess_redirect", "if_trample": bool(excess["trample"])})
             continue
         if (kicked := _KICKED.match(text)) is not None:
-            with_kicker = _kicked_sentence(kicked, effects, prev_start)
+            with_kicker = _kicked_sentence(kicked, effects, prev_start, groups, prev_groups)
             if with_kicker is None:
                 return None
             effects = with_kicker
@@ -1478,7 +1492,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += instead
             continue
         # -- conditional / instead clauses (wave 1B) --  "If C, Y instead." / "Y instead if C." / "Otherwise, Z."
-        if (branch := _instead_or_otherwise(text, effects, prev_start, groups)) is not None:
+        if (branch := _instead_or_otherwise(text, effects, prev_start, groups, it)) is not None:
             if branch is False:
                 return None
             effects, shift = branch
@@ -1604,6 +1618,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     for k, e in enumerate(resolved):
         if e["do"] == "discard" and e.get("all") and '"event_amount"' in json.dumps(resolved[k + 1:]):
             return None
+    # -- kicked / instead (wave 4G) -- targets tied to the kicker (702.33g)
+    from app.rules import kicked_instead
+
+    if not kicked_instead.refs_ok(resolved, groups):
+        return None
     resolved, target = _finish_targets(resolved, groups)
     looked = False
     exiled_at, cast_from_exile = None, False  # -- refused look/cast-free (wave 3R5) --
@@ -1882,22 +1901,44 @@ def _player_target(what: str) -> bool | None:
     return selectors.from_key(what).player is not None if what.startswith(selectors.PREFIX) else False
 
 
-def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start: int) -> list[dict[str, Any]] | None:
+def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start: int,
+                     groups: list[dict[str, Any]], prev_groups: int) -> list[dict[str, Any]] | None:
     """702.33e: "If this spell was kicked, [effect]." — the effect happens only if it was kicked;
-    "… instead" replaces the sentence before it when it was kicked. Kicked-only text may not add
-    a target (702.33g: those targets are chosen only if it's kicked — not modeled yet)."""
+    "… instead" replaces the sentence before it when it was kicked. -- kicked / instead (wave 4G) --
+    Kicked-only text may add targets: they're chosen only if it's kicked (702.33g), and the targets of
+    the sentence an "instead" replaces only if it isn't (601.2c; kicked_instead.applicable). "… instead"
+    may restate the replaced instruction with another amount (kicked_instead.restate)."""
+    from app.rules import kicked_instead
+
     rest = m["rest"]
     if rest.startswith("you may ") or rest.startswith("instead "):
         return None
-    if rest.startswith("it deals "):
-        rest = "~ deals " + rest[len("it deals "):]  # "If this spell was kicked, it deals …": the spell (wave 1B)
-    found = _clause(rest)
-    if found is None or found[1] is not None or not found[0]:
+    instead = bool(m["instead1"] or m["instead2"])
+    if not instead:
+        rest = kicked_instead.plain_addition(rest)
+    base = effects[prev_start:]
+    restated = kicked_instead.restate(rest, base) if instead else None
+    if restated is not None:
+        found: tuple[list[dict[str, Any]], Any] | None = (restated, None)
+    else:
+        if rest.startswith("it deals "):
+            rest = "~ deals " + rest[len("it deals "):]  # "If this spell was kicked, it deals …": the spell (wave 1B)
+        found = _clause(rest)
+    if found is None or not found[0]:
         return None
-    alt = found[0]
-    if m["instead1"] or m["instead2"]:
-        base = effects[prev_start:]
+    own = len(groups)
+    try:  # (its own targets: its own groups, 115.3; a restatement's are the replaced instruction's, numbered already)
+        alt = restated if restated is not None else _add_groups(groups, *found)
+    except _NoMatch:
+        return None
+    if not kicked_instead.mark(groups, own, len(groups), True):
+        return None
+    if instead:
         if not base or any(e["do"] == "kicked_gate" for e in base):
+            return None
+        # (an alternative with targets of its own replaces the replaced sentence's targets too; one without
+        # any — "it deals 4 damage instead", "put that card onto the battlefield instead" — keeps them)
+        if len(groups) > own and not kicked_instead.mark(groups, prev_groups, own, False):
             return None
         return [*effects[:prev_start], {"do": "kicked_gate", "kicked": False, "n": len(base)}, *base,
                 {"do": "kicked_gate", "kicked": True, "n": len(alt)}, *alt]
@@ -1938,6 +1979,10 @@ def parse_anthem(text: str) -> Definition | None:
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     d = _define(ability, ch)
+    from app.rules import kicked_instead  # -- kicked / instead (wave 4G) -- 702.33g: a spell's targets only
+
+    if d is not None and d.get("kind") != "spell" and kicked_instead.has_kicked_groups(d):
+        return None
     cond = d.get("cond") if d is not None and d.get("kind") == "triggered" else None
     if cond is not None and cond.get("event") == "enter" and cond.get("aggregate"):
         # "Whenever one or more artifacts you control enter, ~ deals that much damage": the number of them (603.2c)
@@ -1952,7 +1997,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return None
     # -- refused zones/sized (wave 3R4) -- a triggered ability's X is not the X its source was cast with
     # (107.3m isn't carried to triggers: X reads 0 there), so a search sized by X in one stays manual (Fblthp)
-    if d is not None and d.get("kind") == "triggered" and \
+    # -- cast X (wave 4J) -- except an enters trigger of the object itself: 107.3m gives it the X of the spell it was
+    # (triggers.cast_x)
+    if d is not None and d.get("kind") == "triggered" and d.get("trigger") != "enters_self" and \
             '{"x": 1}' in json.dumps([e for e in d.get("effects") or [] if e.get("do") == "search"]):
         return None
     # -- unless pays (wave 4C) -- likewise "unless that player pays {X}" with no X defined: only a spell's or an
@@ -1961,6 +2008,13 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             '{"x": 1}' in json.dumps([e.get("n") for e in d.get("effects") or [] if e.get("do") == "optional_payment"]):
         return None
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
+        return None
+    # -- chosen player (wave 4J) -- "the chosen player" is the one this permanent chose as it entered (app/rules/chosen.py):
+    # only on a card with exactly one "As ~ enters, choose an opponent / a player." ("Choose target opponent. … the chosen
+    # player" in one resolution — Haunt the Network — is another choice: not read as this)
+    if d is not None and _chosen.WHO in json.dumps(d, default=str) and not _chosen.chooses_player(ch):
+        return None
+    if d is not None and not _chosen.chosen_value_ok(d, ch):  # -- chosen type (wave 4J) -- "of the chosen type / color"
         return None
     return d
 
@@ -2036,6 +2090,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     and re.search(r"\bthis card\b", body) is not None
                 if aura_card:
                     body = re.sub(r"\bthis card\b", "~", body)
+                if _trigger_antecedent(name, cond) is None:  # -- step triggers (wave 4J) -- "At the beginning of your draw
+                    # step, if this artifact is tapped, it deals 1 damage to you." (Mana Vault): the only object named is ~
+                    body = re.sub(r"^(if ~ is (?:tapped|untapped)), it deals ", r"\1, ~ deals ", body)
                 parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
                 if parsed is None:  # -- this-turn history (wave 4D) -- "…, if [condition], you may …" (603.4 + 603.5)
                     parsed = _intervening_may(body, _trigger_antecedent(name, cond), has_player)
@@ -2599,6 +2656,14 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return extra
     if (cant := cant_gain.static_definition(text)) is not None:  # "Players can't gain life." (614.17)
         return cant
+    from app.rules import hand_size  # -- hand size (wave 4J) -- "You have no maximum hand size." (402.2)
+
+    if (no_max := hand_size.static_definition(text)) is not None:
+        return no_max
+    from app.rules import land_plays  # -- additional land plays (wave 4J) -- (305.2)
+
+    if (extra_lands := land_plays.static_definition(text)) is not None:
+        return extra_lands
     # -- end refused grants/replacements (wave 3R2) --
     if text == "~ enters tapped.":
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
@@ -3118,7 +3183,7 @@ def _next_flag(effects: list[dict[str, Any]]) -> str:
 
 
 def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: int,
-                          groups: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int] | Literal[False] | None:
+                          groups: list[dict[str, Any]], it: str | None = None) -> tuple[list[dict[str, Any]], int] | Literal[False] | None:
     """One sentence as an "instead" / "Otherwise" clause of the sentence before it: None (it isn't one),
     False (it is, but not one the engine reads: the whole ability stays manual), or the effects so far
     with it added and how many effects it put before its own first (the gate goes before the sentence
@@ -3132,9 +3197,21 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
         base = effects[prev_start:]
         if cond is None or rest.startswith("you may ") or not base:
             return False
+        # -- kicked / instead (wave 4G) -- "it deals 7 damage instead" (608.2c)
+        from app.rules import kicked_instead
+
+        outer = None  # "If C1, X. If C2, Y instead." with C2 holding only when C1 does: Y replaces X inside C1's gate
+        if (len(base) > 1 and base[0]["do"] == "only_if" and not base[0].get("bind") and base[0].get("skip") == len(base) - 1
+                and kicked_instead.implies(cond, base[0]["cond"])):
+            outer, base = base[0], base[1:]
+            prev_start += 1
+        rest = kicked_instead.plain_pronoun(rest)
+        restated = kicked_instead.restate(rest, base)
+        if restated is not None and it is not None and _cond_has_it(cond):
+            return False  # ("If that land is a Mountain, ~ deals 2 damage instead": the trigger's land, not the target)
         if rest.startswith("it deals ") and base[0]["do"] == "damage" and not base[0].get("src"):
             rest = "~ deals " + rest[len("it deals "):]  # (the source of the damage the sentence before it dealt)
-        alt = _bind_subject(cond, _clause(rest))
+        alt = (restated, None) if restated is not None else _bind_subject(cond, _clause(rest))
         if alt is None or alt[1] is not None or not _replaceable(base, alt[0]):
             return False
         if _cond_has_it(cond):  # "it": what the replaced sentence is about — its one target (else an earlier object)
@@ -3144,6 +3221,8 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
             if whos:
                 cond = _bind_cond(cond, next(iter(whos)))
         flag = _next_flag(effects)
+        if outer is not None:  # -- kicked / instead (wave 4G) -- (the outer gate now covers both branches)
+            effects = [*effects[:prev_start - 1], {**outer, "skip": len(base) + len(alt[0]) + 2}, *effects[prev_start:]]
         return [*effects[:prev_start], {"do": "only_if", "cond": {"not": cond}, "skip": len(base), "bind": flag}, *base,
                 {"do": "only_if", "cond": {"flag": flag, "negate": True}, "skip": len(alt[0])}, *alt[0]], 1
     m = _OTHERWISE.match(text)
@@ -3328,12 +3407,48 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     else:
         return None
     body = rest[len("When you do, "):] if rest.startswith("When you do, ") else rest[len("when you do, "):]
-    parsed = parse_effects(body[:1].upper() + body[1:])
+    # -- reflexive LKI (wave 4J) -- "… sacrifice another creature. When you do, ~ deals damage equal to that creature's
+    # power …": the sacrificed object, as it last existed (608.2h, 113.7a), is the reflexive trigger's event object
+    lki = _reflexive_lki(base, cond["succeeded"], body)
+    if lki is not None:
+        body = lki
+    # -- end reflexive LKI (wave 4J) --
+    parsed = parse_effects(body[:1].upper() + body[1:], "event" if lki is not None else None)
     if parsed is None or not parsed[0]:
         return None
     b_effects, b_target, b_optional = parsed
-    return {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
-                                                         "optional": b_optional, **target_fields(b_target)}}
+    out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
+                                                        "optional": b_optional, **target_fields(b_target)}}
+    if lki is not None:
+        out["lki"] = cond["succeeded"]  # -- reflexive LKI (wave 4J) --
+    return out
+
+
+# -- reflexive LKI (wave 4J) -------------------------------------------------------------------------------------------
+# "You may sacrifice a/another creature. When you do, …": the reflexive ability (603.12) reads the sacrificed object
+# ("that creature's power", "the sacrificed creature's toughness") as it last existed on the battlefield (608.2h,
+# 113.7a: an ability's effect can read an object that left through its last known information). The sacrificed object
+# is carried to the reflexive trigger as its event object (effects.reflexive); the body is then read with "that
+# creature" meaning it. Only one object sacrificed, and only stat phrases: any other mention of it ("If the sacrificed
+# creature was a Giant", "return it") stays manual.
+_SAC_ONE = re.compile(r"^sacrifice (?:a|an|another) [a-z ,]+$", re.I)
+_LKI_STAT = re.compile(r"\b(?:that|the sacrificed) (?:creature|artifact|permanent)'s (power|toughness|mana value)\b")
+_LKI_OTHER = re.compile(r"\b(?:it|its|itself|they|them|that creature|that artifact|that permanent|the sacrificed)\b")
+
+
+def _reflexive_lki(base: list[dict[str, Any]], name: str, body: str) -> str | None:
+    """The body with each stat phrase about the sacrificed object worded for the event object ("that permanent's
+    power"), or None: no such phrase, more than one object, or another mention of it."""
+    if not _LKI_STAT.search(body):
+        return None
+    if not (len(base) == 1 and base[0]["do"] == "optional_payment" and base[0].get("bind") == name
+            and _SAC_ONE.fullmatch(str(base[0].get("cost") or ""))):
+        return None  # (a mandatory "Sacrifice a creature. When you do, …" — Tip the Scales — isn't read yet)
+    out = _LKI_STAT.sub(lambda m: f"that permanent's {m[1]}", body)
+    if _LKI_OTHER.search(_LKI_STAT.sub("", out)):
+        return None
+    return out
+# -- end reflexive LKI (wave 4J) ---------------------------------------------------------------------------------------
 
 
 def _probe_previous(effects: list[dict[str, Any]], prev_start: int) -> str | None:
@@ -3610,6 +3725,9 @@ from app.rules import source_shields as _source_shields  # noqa: E402
 # (and 614.10 skips: app/rules/skips.py; 614.17 "can't gain life": app/rules/cant_gain.py; flashback and "you may play
 # this card" granted to graveyard cards: app/rules/graveyard_grants.py)
 EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLATES, *_graveyard_grants.TEMPLATES]
+from app.rules import graveyard_exile as _graveyard_exile  # noqa: E402, I001  -- graveyard exile (wave 4J) --
+
+EFFECTS[:0] = _graveyard_exile.TEMPLATES  # "Exile target player's graveyard." (app/rules/graveyard_exile.py)
 # "Choose one of them." chooses among what the instruction before moved; "that card" is then the chosen one
 _RECORDING["choose_one_of"] = None
 _MOVERS.add("choose_one_of")
