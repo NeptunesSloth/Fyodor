@@ -1643,6 +1643,7 @@ ATTACHED_RULES: dict[str, tuple[str, ...]] = {
     "doesn't untap during its controller's untap step.": ("doesnt_untap",),
     "can't attack or block, and its activated abilities can't be activated.": ("cant_attack_or_block", "cant_activate"),
     "can't attack or block and its activated abilities can't be activated.": ("cant_attack_or_block", "cant_activate"),
+    "is goaded.": ("goaded:@you",),  # -- wave 3F -- 701.15b: by the Aura's controller (app/rules/layers.py ``_own``)
 }
 # "Enchanted creature's activated abilities can't be activated." (possessive subjects)
 _POSSESSIVE_RULES: dict[str, tuple[str, ...]] = {

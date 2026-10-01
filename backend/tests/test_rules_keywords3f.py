@@ -66,6 +66,9 @@ REAL = [
          f"an opponent controls. {GOAD_REMINDER}", ["R"], ("0", "1")),
 ]
 REAL += [
+    real("Coercive Impetus", "F17", "{2}{B}", 3, "Enchantment — Aura", "Enchant creature\nEnchanted creature gets +1/+1 and is "
+         "goaded. (It attacks each combat if able and attacks a player other than you if able.)\nWhenever enchanted creature "
+         "attacks, you draw a card and lose 1 life.", ["B"]),
     real("Eyes of Gitaxias", "F16", "{2}{U}", 3, "Sorcery", "Incubate 3. (Create an Incubator token with three +1/+1 counters "
          "on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)\nDraw a card.", ["U"]),
     real("Fire Sages", "F15", "{1}{R}", 2, "Creature — Human Cleric", "Firebending 1 (Whenever this creature attacks, add {R}. "
@@ -585,3 +588,18 @@ def test_eyes_of_gitaxias_incubates_a_double_faced_token_that_transforms(cards):
     replay_matches(s)
     state, _ = load_payload({"state": s.state.model_dump(mode="json"), "history": s.history.to_dict()})
     assert Plan(state, "p1", cards, None).ch(state.cards[t.id]).pt == (3, 3)
+
+
+def test_coercive_impetus_goads_while_attached_by_the_auras_controller(cards):
+    """"Enchanted creature gets +1/+1 and is goaded." — a static: goaded by the Aura's controller (701.15b)
+    for as long as it's attached, whoever's turn it is."""
+    s = build(cards, "Coercive Impetus", players=3)
+    ogre = token(s, "p2", "Ogre", "3/3")
+    impetus = cast(s, "Coercive Impetus", targets=[ogre.id], B=1, C=2)
+    assert s.state.cards[impetus.id].attached_to == ogre.id
+    assert "goaded:p1" in ch(s, ogre).imposed and ch(s, ogre).pt == (4, 4)
+    until_attackers(s, "p2")
+    with pytest.raises(ActionError, match="other than Alice"):
+        act(s, "p2", type="declare_attackers", attackers=[{"card_id": ogre.id, "target": "p1"}])
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": ogre.id, "target": "p3"}])
+    replay_matches(s)

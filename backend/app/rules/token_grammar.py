@@ -91,6 +91,8 @@ def _quoted_text(quoted: str) -> str | None:
     know the token means itself (app.rules.scripts.self_text)."""
     from app.rules import scripts  # (scripts calls this module from its templates)
 
+    if re.search(r"\btransform\b", quoted, re.I):
+        return None  # -- wave 3F -- only the Incubator is a double-faced token (111.10i); others stay manual
     if scripts.granted_ability(quoted) is not None:  # (a mana ability: "Sacrifice this token: Add {C}.")
         return quoted
     text = re.sub(r"\bthis token\b", "this creature", quoted)
