@@ -964,6 +964,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "may": effects.resume_may,
     "proliferate": effects.resume_proliferate,
     "search": effects.resume_search,
+    "search_split": effects.resume_search_split,
     "discard": effects.resume_discard,
     # optional payments as an effect (PAY / DECLINE, the objects for a part of the cost); the same
     # step name also continues the older pay-or-sacrifice / counter-unless prompts

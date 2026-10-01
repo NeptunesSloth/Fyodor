@@ -369,31 +369,110 @@ def _subject(m: re.Match[str]) -> tuple[str, str | None]:
     return PLAYER_GROUPS[s], None
 
 
+# -- tutors (wave 3T) -- one grammar for a library search: what is searched for (a selector, a name,
+# a mana value that may be X), whether it is revealed, where it goes (one place, or "one … and the
+# other …"), and whether the library is shuffled (701.23, 701.24).
+_PRON = r"(?:it|them|that card|those cards|the card|the cards)"
+_PLACE = r"(?:into your hand|onto the battlefield tapped|onto the battlefield|into your graveyard)"
+# Who searches: the player themself ("you may" is read before this), or a named player who may search
+# their own library ("Its controller may search their library for a basic land card …": Path to Exile).
+_SEARCHERS = {**{k: v for k, v in PLAYER_GROUPS.items() if k in ("its controller", "that player", "that creature's controller",
+                                                                   "that permanent's controller")},
+              "that land's controller": "it.controller", "that artifact's controller": "it.controller",
+              "that enchantment's controller": "it.controller"}
 _SEARCH = re.compile(
-    rf"search your library for (?:(?P<upto>up to) )?(?P<n>{AMT}) (?P<sel>.+?), "
-    r"(?:(?P<reveal>reveal (?:it|them|that card|those cards)), )?"
-    r"(?:(?:put (?:it|them|that card|those cards) (?P<dest>into your hand|onto the battlefield tapped|onto the battlefield|"
-    r"into your graveyard)|(?P<exile>exile (?:it|them|that card)(?P<fd> face down)?)), then shuffle"
-    r"|then shuffle and put (?:that card|it) on top)")
+    rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) may )?"
+    rf"search (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"
+    rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, ))?"
+    rf"(?:put (?:(?P<one>one) (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE}))(?P<shuf>, then shuffle)?"
+    rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
+    rf"|then shuffle and put {_PRON} on top)")
 _DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
           "into your graveyard": "graveyard"}
+_MV_X = re.compile(r"(?P<rest>.+?),? with mana value [xX](?P<less> or less)?")
+_NAMED = re.compile(r"(?P<rest>card|cards) named (?P<name>.+)")
+
+
+def _card_selector(text: str) -> str | None:
+    """One phrase for cards in the library ("creature card", "Island card") as a selector key."""
+    sel = selectors.parse(text)
+    if sel is None or sel.player is not None or not sel.card:
+        return None
+    return selectors.replace(sel, zones=("library",), zone_owner="you", card=True).key()
+
+
+def _search_selectors(text: str, one: bool) -> dict[str, Any]:
+    """What a search is for: one selector ("creature card"), or - when the whole phrase isn't one -
+    alternatives ("a basic land card or a Desert card": any matches) or, for several, a card for
+    each part ("a Forest card and a Plains card": a card of each kind, a stated quality so each may be
+    missing). Anything with a qualifier shared across the parts is refused."""
+    whole = _card_selector(text)
+    if whole is not None:
+        return {"sel": whole}
+    if " with " in text or "and/or" in text:
+        raise _Fail
+    parts = re.split(r"(?:, and |, | and )(?=an? )", text)
+    if len(parts) > 1 and one:
+        keys = [_card_selector(re.sub(r"^an? ", "", x)) for x in parts]
+        if None in keys:
+            raise _Fail
+        return {"sel": keys[0], "parts": keys}
+    alts = re.split(r", or | or |, ", text)
+    if len(alts) > 1 and " or " in text:
+        keys = [_card_selector(re.sub(r"^an? ", "", x) if re.search(r"\b(?:card|cards)$", x) else re.sub(r"^an? ", "", x) + " card")
+                for x in alts]
+        if None in keys:
+            raise _Fail
+        return {"sel": keys[0], "alts": keys}
+    raise _Fail
 
 
 def _search(text: str) -> tuple[Effects, str | None] | None:
     """701.23: "Search your library for [up to N] [card selector], [reveal it,] put it [where], then
-    shuffle" (or "…, reveal it, then shuffle and put that card on top"; "exile it [face down]")."""
+    shuffle" (or "…, reveal it, then shuffle and put that card on top"; "exile it [face down]";
+    "put one onto the battlefield and the other into your hand"). A card "named …", or with "mana
+    value X or less" (the X the spell or ability has), is searched for too. Without "then shuffle"
+    the library is not shuffled (701.24 shuffles only when told to)."""
     m = _SEARCH.fullmatch(text)
     if not m:
         return None
-    sel = selectors.parse(m["sel"])
-    if sel is None or sel.player is not None or (not sel.card and m["sel"] not in ("a plains", "an island")):
+    if (m["who"] is None) != (m["lib"] == "your"):
+        raise _Fail  # ("their library" is a named player's; "your library" is the one who controls the effect's)
+    extra: dict[str, Any] = {}
+    sel_text = m["sel"]
+    named = _NAMED.fullmatch(sel_text)
+    if named:
+        extra["name"] = named["name"]
+        sel_text = named["rest"]
+    mv = _MV_X.fullmatch(sel_text)
+    if mv:
+        extra["mv"] = ["<=" if mv["less"] else "==", _amount("x")]
+        sel_text = mv["rest"]
+    anything = m["n"] == "any number of"
+    n = 999 if anything else _amount(m["n"])
+    single = m["n"] in ("a", "an", "one")
+    extra.update(_search_selectors(sel_text, single))
+    if "parts" in extra and (m["one"] or named or mv):
         raise _Fail
-    sel = selectors.replace(sel, zones=("library",), zone_owner="you", card=True)
-    n = _amount(m["n"])
-    to = "top" if m["dest"] is None and m["exile"] is None else ("exile" if m["exile"] else _DESTS[m["dest"]])
-    return [{"do": "search", "who": "you", "sel": sel.key(), "label": m["sel"], "max": n,
-             "to": to, "reveal": bool(m["reveal"]), "upto": bool(m["upto"]),
-             **({"face_down": True} if m["fd"] else {})}], None  # (only when the text says so: 701.23e)
+    if "parts" in extra:
+        n = len(extra["parts"])
+    if m["one"]:
+        if n != 2 or anything:
+            raise _Fail
+        to, extra["to2"] = _DESTS[m["d1"]], _DESTS[m["d2"]]
+    elif m["exile"]:
+        to = "exile"
+    elif m["dest"]:
+        to = _DESTS[m["dest"]]
+    else:
+        to = "top"
+        if n != 1:
+            raise _Fail  # (several cards on top: put in the order the searcher chooses, 401.4 - not read)
+    if to != "top" and not (m["shuf"] or m["shuf2"]):
+        extra["shuffle"] = False  # (only when the text says so: 701.23e)
+    return [{"do": "search", "who": _SEARCHERS[m["who"]] if m["who"] else "you", "label": m["sel"], "max": n,
+             "to": to, "reveal": bool(m["reveal"]), "upto": bool(m["upto"]) or anything,
+             **({"face_down": True} if m["fd"] else {}), **extra}], None
 
 
 # -- the top of a library (401, 701.20 reveal, 701.20e look, 701.24 shuffle) ----------------------
