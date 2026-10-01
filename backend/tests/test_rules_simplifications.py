@@ -225,9 +225,12 @@ def test_a_defender_concedes_while_declaring_blockers(cards):
 
 def test_concede_while_paused(cards):
     s = build3(cards)
-    rules(s).paused = True
+    act(s, "p1", type="configure", automation_paused=True)
+    step = (s.state.turn.number, s.state.turn.phase)
     act(s, "p2", type="concede")
-    assert "p2" in rules(s).conceded
+    assert "p2" in rules(s).conceded and rules(s).paused
+    assert (s.state.turn.number, s.state.turn.phase) == step  # nothing else ran while paused
+    replay_matches(s)
 
 
 def test_cannot_concede_twice(cards):

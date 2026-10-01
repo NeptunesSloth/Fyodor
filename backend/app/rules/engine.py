@@ -83,6 +83,11 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         raise ActionError("Finish opening hands first")
     if actor in state.rules.conceded or actor in state.rules.lost:
         raise ActionError("You have left this game")
+    if state.rules.paused:  # a concede while the host has automation paused: they leave, nothing else runs
+        plan = Plan(state, actor, info, rng)
+        concede(plan, intent)
+        plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
+        return plan.steps
     plan = Plan(state, actor, info, rng)
     begin(plan)
     sync_step(plan)
@@ -857,6 +862,10 @@ def concede(plan: Plan, _: A.Action) -> None:
         r.decision = None
         r.winner = left[0]
         r.priority = left[0]
+        return
+    if r.paused:  # (automation paused by the host: the table goes on by hand; nothing is resolved now)
+        if r.priority is None or r.priority not in left:
+            r.priority = plan.after(plan.actor)
         return
     if pending is not None:
         _settle_decision(plan, pending, plan.actor)
