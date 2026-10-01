@@ -415,12 +415,16 @@ def _devotion(plan: Plan, you: str, colors: list[str]) -> int:
     """700.5: the number of mana symbols of those colors among the mana costs of permanents you
     control (a hybrid symbol of two of them counts once; a Phyrexian or twobrid symbol is a symbol
     of its color, 107.4e-f)."""
+    # -- conditional statics (wave 4B) -- 700.5a: after copy (and control) effects only — mana costs as layer 1
+    # leaves them, so a god's own "isn't a creature" never recurses here
+    from app.rules.layers import copiable
+
     wanted = set(colors)
     total = 0
     for card in plan.state.cards.values():
         if not card.zone.endswith(":battlefield") or card.controller != you or not plan.in_game(card):
             continue
-        for sym in _MANA_SYMBOL.findall(plan.ch(card).mana_cost):
+        for sym in _MANA_SYMBOL.findall(copiable(plan.state, card, plan.info).mana_cost):
             if set(sym.split("/")) & wanted:
                 total += 1
     return total

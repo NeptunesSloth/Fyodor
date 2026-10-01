@@ -338,6 +338,10 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),
                 "opponent_turn": plan.active != e.player, "kicked": bool(entry is not None and entry.kicked),
                 "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]}
+        # -- unless pays (wave 4C) -- "their first noncreature spell each turn"
+        from app.rules import unless_pays
+
+        info["kinds_before"] = unless_pays.mark_cast(plan, e.player or "", plan.ch(spell).types)
         return [("cast", spell, plan.ch(spell), e.player, info)]
     if e.kind == "spell_copied":  # -- refused copy/mana (wave 3R3) -- 707.10: a copy put on the stack, not cast
         spell = plan.state.cards.get(e.card or "")
@@ -560,6 +564,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if event == "cast":
         if cond.get("nth") and info.get("nth") != cond["nth"]:
             return False
+        if cond.get("first_kind"):  # -- unless pays (wave 4C) --
+            from app.rules import unless_pays
+
+            if not unless_pays.first_of_kind(cond["spell"], info.get("kinds_before") or []):
+                return False
         if cond.get("turn") == "opponent" and not info.get("opponent_turn"):
             return False
         if cond.get("kicked") and not info.get("kicked"):

@@ -82,6 +82,7 @@ PERMISSION = re.compile(
     r"(?P<what>play lands and cast spells|play lands|cast spells|play a land|"
     r"cast (?:a |an )?(?P<sel>[a-z][a-z' ,-]*?) spells?(?P<qual> with mana value \d+ or less)?|cast (?:this card|~))"
     r" from (?P<zone>your graveyard|the top of your library)$")
+SELF_GY_WHILE = re.compile(r"^you may cast (?:this card|~) from your graveyard as long as (?P<cond>.+)$")  # (wave 4B)
 # "You may cast creature spells as though they had flash." (601.3b)
 FLASH = re.compile(rf"^you may cast (?:{_SEL} )?spells as though they had flash$")
 TOP_REVEAL = "play with the top card of your library revealed"
@@ -372,6 +373,17 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
                 "filter": key, "who": "you" if m["yours"] or (m["sel"] and "you control" in m["sel"]) else "any",
                 "floor": bool(m["floor"]), "effects": []}
+    # -- conditional statics (wave 4B) -- "You may cast this card from your graveyard as long as you control a Zombie."
+    # (Gravecrawler; 113.6f: functions from the graveyard; 611.3a: checked whenever the cast is offered or begun)
+    m = SELF_GY_WHILE.fullmatch(t)
+    if m:
+        from app.rules import conditions
+
+        cond = conditions.parse(m["cond"])
+        if cond is None or "succeeded" in cond or "flag" in cond or "history" in cond:
+            return None
+        return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True,
+                "play": False, "cast": True, "filter": None, "while": cond, "effects": []}
     m = PERMISSION.fullmatch(t)
     if m:
         what = _permission_what(m["what"], m["sel"], m["qual"])
@@ -564,6 +576,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 key = f"{card.id}:permission:{index}"
                 if d["once"] and r.once_per_turn.get(key) == turn:
                     continue
+                if d.get("while") is not None and not _while_holds(state, info, player, card, d["while"]):
+                    continue  # -- conditional statics (wave 4B) -- "as long as you control a Zombie"
                 out.append(Grant("permission", f"{ch.name}: cast it from your graveyard", once_key=key if d["once"] else None))
     if verb == "cast" and where == "hand":  # -- cast without paying (wave 3C) -- the card's own "cast this spell without paying"
         for d in _definitions(ch).values():
@@ -583,6 +597,15 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         out.append(Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")),
                          once_key=key if d["once"] else None))
     return out
+
+
+def _while_holds(state: GameState, info: CardInfo, player: str, card: CardInstance, cond: dict[str, Any]) -> bool:
+    """-- conditional statics (wave 4B) -- the condition of a card's own "as long as …" permission, read now
+    (611.3a); "you" is the card's owner, who is casting it (108.4a)."""
+    from app.rules import conditions
+    from app.rules.layers import _view
+
+    return conditions.holds(_view(state, info), {"controller": player, "source_card": card.id}, cond)
 
 
 def _controls_commander(state: GameState, player: str) -> bool:

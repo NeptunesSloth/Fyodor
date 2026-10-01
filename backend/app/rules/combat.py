@@ -35,9 +35,11 @@ def attack_problem(state: GameState, card: CardInstance, ch: Characteristics) ->
         return "Only the active player's creatures can attack"
     if card.tapped:
         return f"{ch.name} is tapped"
-    if "defender" in ch.keywords:
+    rules = scripts.statics(ch)
+    # -- conditional statics (wave 4B) -- "can attack as though it didn't have defender" (702.3b)
+    if "defender" in ch.keywords and "attack_despite_defender" not in rules:
         return f"{ch.name} has defender"
-    if {"cant_attack", "cant_attack_or_block"} & scripts.statics(ch):
+    if {"cant_attack", "cant_attack_or_block"} & rules:
         return f"{ch.name} can't attack"
     if "haste" not in ch.keywords and summoning_sick(state, card):
         return f"{ch.name} has summoning sickness"

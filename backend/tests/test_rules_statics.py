@@ -94,7 +94,7 @@ def test_parse(text, who, parts):
     "~ has flying.",  # unconditional self grant: that's a keyword line
     "Each creature you control has trample as long as it's attacking.",  # "it" would be each creature, not the source
     'Enchanted creature has "Whenever ~ attacks, you may tap or untap target permanent."',  # an ability the engine can't run
-    "As long as an opponent has 10 or less life, ~ gets +2/+1 and has intimidate.",
+    "As long as an opponent has 10 or less life, ~ gets +2/+1 and has ward {1}.",  # (wave 4B reads the condition)
     "Creature spells you cast have convoke.",
 ])
 def test_unknown_wordings_stay_manual(text):
