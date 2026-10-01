@@ -366,20 +366,21 @@ class _Introducer:
             self.number = 2
 
 
-def _bind_stats(v: Any, bind: Any) -> Any:
-    """Rewrite {"power" | "toughness" | "mana_value": "it"} placeholders in a value expression."""
+def _bind_stats(v: Any, bind: Any, spell: Any = None) -> Any:
+    """Rewrite {"power" | "toughness" | "mana_value": "it"} placeholders in a value expression
+    ("that_spell": ``spell`` binds it when given, else as "it")."""
     if isinstance(v, list):
-        return [_bind_stats(x, bind) for x in v]
+        return [_bind_stats(x, bind, spell) for x in v]
     if not isinstance(v, dict):
         return v
     out = {}
     for k, x in v.items():
-        if k in _STAT_KEYS and x == "it":
-            x = bind()
+        if k in _STAT_KEYS and x in ("it", "that_spell"):
+            x = (spell or bind)() if x == "that_spell" else bind()
             if x is None:
                 raise _NoMatch
         else:
-            x = _bind_stats(x, bind)
+            x = _bind_stats(x, bind, spell)
         out[k] = x
     return out
 
@@ -534,7 +535,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     return None
                 e["cond"] = _bind_cond(e["cond"], ref)
             if "n" in e:
-                e["n"] = _bind_stats(e["n"], lambda at=index: stat_ref(at))
+                e["n"] = _bind_stats(e["n"], lambda at=index: stat_ref(at),
+                                     (lambda: "event") if antecedent == "event_spell" else None)  # (wave 3R3)
             if e.get("src") == "it":
                 if any(i.index < index and out[i.index].get("who") == "host" for i in intros):
                     return None  # ("tap enchanted creature. It deals …": the host, not the source)
@@ -1494,7 +1496,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if ability.kind == "triggered":
         for pattern, trigger in TRIGGERS:
             m = pattern.match(text)
-            if m and trigger == "cast_you" and re.search(r"\bthat spell\b", m["body"]):
+            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b", m["body"]):  # (3R3: copy it)
                 continue  # -- sized amounts (wave 3D) -- it reads the spell cast: the generic condition's event carries it
             if m:
                 name = step_trigger(m) if trigger == "step" else trigger
@@ -1632,6 +1634,8 @@ def _event_refs_ok(d: Definition) -> bool:
     trigger has one event per batch (603.2c) — per damaged player for damage to players, per
     acting player for a player's actions — so it can too."""
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
+    if not _event_spell_ok(d):  # -- refused copy/mana (wave 3R3) --
+        return False
     wants_player = any(e.get("who") in ("event_player", "each_other_opponent") for e in effects)
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t"))
     if not wants_player and not wants_amount:
@@ -1664,7 +1668,31 @@ def _cached(ch: Characteristics) -> dict[int, Definition]:
             continue
         if d is not None and _event_refs_ok(d):
             out[ab.index] = d
+    _merge_instead_lines(ch, out)  # -- refused copy/mana (wave 3R3) --
     return out
+
+
+# -- refused copy/mana (wave 3R3) -- an instant or sorcery whose second line replaces what the first did: Cabal
+# Ritual "Add {B}{B}{B}." / "Threshold — Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your
+# graveyard." The ability word has no rules meaning (207.2c): the two lines are one spell ability's text in order
+# (608.2c), so the "instead" (614.1a) reads the line above. The pair is parsed as one text; the first line's
+# definition is the pair, the second's an empty spell line (spell_definition joins the lines in order).
+def _merge_instead_lines(ch: Characteristics, out: dict[int, Definition]) -> None:
+    if not ch.is_instant_or_sorcery:
+        return
+    lines = [ab for ab in ch.abilities if ab.kind == "spell"]
+    for prev, ab in zip(lines, lines[1:], strict=False):
+        if ab.index in out or out.get(prev.index, {}).get("kind") != "spell" or ab.index != prev.index + 1:
+            continue
+        own = _ABILITY_WORD.sub("", ab.text, count=1)
+        if own == ab.text or not re.search(r"\binstead\b", own) or " would " in own:
+            continue  # (only an ability-word line, as printed: "<ability word> — … instead if …")
+        merged = define(replace(prev, text=f"{prev.text} {own}"), ch)
+        if merged is None or merged.get("kind") != "spell" or not _event_refs_ok(merged):
+            continue
+        out[prev.index] = merged
+        out[ab.index] = {"kind": "spell", "effects": [], "target": None, "merged_into": prev.index}
+# -- end refused copy/mana (wave 3R3) --
 
 
 def definitions(ch: Characteristics) -> dict[int, Definition]:
@@ -2775,6 +2803,12 @@ def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     what = m["what"]
     if what.startswith(("card named", "color ", "different ", "creature that", "permanent ")) or " this way" in what:
         raise _NoMatch
+    # -- refused copy/mana (wave 3R3) -- Jeska's Will: "Add {R} for each card in target opponent's hand." The player
+    # is the instruction's one target (115.1: chosen as it's cast, checked as it resolves, 608.2b); the amount is
+    # that player's hand size as it resolves (values: {"hand": "target"})
+    hand = re.fullmatch(r"cards? in target (?P<who>player|opponent)'s hand", what)
+    if hand is not None:
+        return [{"do": "add_mana", "sym": (m["sym"] or m["sym2"])[1], "n": {"hand": "target"}}], hand["who"]
     count = values.parse_count(what)
     if count is None:
         raise _NoMatch
@@ -2814,3 +2848,51 @@ def _exile_until_monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     back = {"do": "return_card", "who": "ref:m0", "to": "battlefield", "tapped": False, "under": "owner"}
     return [{**found[0][0], "as": "m0"}, *_delayed.wrap_when([back], {"kind": "designation", "what": "monarch", "by": "opponent"})], found[1]
 # -- end counters & designations (wave 3E) --
+
+
+
+# -- refused copy/mana (wave 3R3) -- 106.4 / 500.4: "Until end of turn, you don't lose this mana as steps and phases
+# end." (after an "add" instruction of the same ability: the mana it added, app/rules/kept_mana.py); "Until end of
+# combat, you don't lose this mana as steps end." (511.3: kept to the end of the end of combat step)
+@_first
+@effect(r"until end of (?P<u>turn|combat), you don't lose this mana as steps(?: and phases)? end")
+def _keep_mana(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "keep_mana", "until": "end_of_turn" if m["u"] == "turn" else "end_of_combat"}], None
+
+
+# "Add six {R}" / "add eight {C}" / "add that much {G}" (the trigger event's amount, 608.2k): n of one type
+@_mana_effect(r"add (?P<n>two|three|four|five|six|seven|eight|nine|ten|that much) (?P<sym>\{[WUBRGC]\})")
+def _add_n_of(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "add_mana", "sym": m["sym"][1], "n": _mana_n(m["n"])}], None
+
+
+# "Whenever you cast …, copy that spell [, except …]. You may choose new targets for the copy." / "…, copy it." (707.10):
+# the trigger event's spell (603.2, 601.2i), while it is still that object on the stack (400.7). Only in a cast
+# trigger (``_event_spell_ok``); "copy it" only as the ability's first instruction (an "it" after another instruction
+# names that instruction's object, never guessed).
+@_first
+@effect(r"copy (?P<w>that spell|it)(?:, except (?P<exc>.+))?")
+def _copy_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import copying
+
+    ex = copying.parse_excepts(m["exc"])
+    if ex is None:
+        raise _NoMatch
+    out: dict[str, Any] = {"do": "copy_spell", "who": "event_spell", **copying._dump(ex)}
+    if m["w"] == "it":
+        out["first"] = True
+    return [out], None
+
+
+def _event_spell_ok(d: Definition) -> bool:
+    """A copy of "that spell" belongs to a trigger on casting a spell (603.2: the event names it)."""
+    effects = list(d.get("effects") or [])
+    uses = [k for k, e in enumerate(effects) if e.get("who") == "event_spell"]
+    if not uses:
+        return True
+    cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
+    if cond is None or cond.get("event") != "cast" or cond.get("subject") != "player" or cond.get("copy"):
+        return False
+    lead = [e for e in effects if e.get("do") != "only_if"]
+    return all(not effects[k].get("first") or (lead and lead[0] is effects[k]) for k in uses)
+# -- end refused copy/mana (wave 3R3) --

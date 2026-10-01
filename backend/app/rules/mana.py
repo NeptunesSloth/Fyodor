@@ -14,11 +14,12 @@ import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from itertools import combinations_with_replacement
+from typing import Any
 
 COLORS = ("W", "U", "B", "R", "G")
 ALL_MANA = (*COLORS, "C")
 _SYMBOL = re.compile(r"\{([^}]+)\}")
-_COST_AND_EFFECT = re.compile(r"^(?P<cost>[^:]+): (?P<effect>Add .+)$")
+_COST_AND_EFFECT = re.compile(r"^(?P<cost>[^:]+): (?P<effect>(?:Choose a color\. )?Add .+)$")
 
 
 class ManaError(ValueError):
@@ -93,6 +94,17 @@ class ManaAbility:
     once_per_turn: bool = False
     condition: str | None = None  # "control:<subtype or type>"
     count: str | None = None  # each option is repeated N times: "control:<type>" (for each … you control), "power"
+    # -- refused copy/mana (wave 3R3) -- a cost part that chooses objects ("Sacrifice a creature", Ashnod's Altar):
+    # activated by hand only (the payer chooses, app/rules/cost_payment.py), never by the auto-payer
+    chooses: bool = False
+    # -- refused copy/mana (wave 3R3) -- "If you control an Urza's Mine and an Urza's Power-Plant, add {C}{C}{C}
+    # instead." (Urza's Tower): the permanents (each a set of subtypes) that must all be controlled, and the options
+    # that replace ``options`` then (614.1a: an "instead" of the ability's own effect, checked as it resolves)
+    instead_if: tuple[tuple[str, ...], ...] = ()
+    instead: tuple[tuple[str, ...], ...] = ()
+    # -- refused copy/mana (wave 3R3) -- "Put a -0/-1 counter on this creature: Add {G}." (Wall of Roots): the
+    # counter put on the source as the cost (by hand only: the auto-payer never weakens a creature)
+    self_counter: str | None = None
 
     @property
     def penalty(self) -> int:
@@ -121,6 +133,8 @@ def _effect_options(effect: str, identity: tuple[str, ...]) -> tuple[tuple[str, 
         return (("CHOSEN",) * _NUM[m.group(1)],)
     if m := re.fullmatch(r"Add \{([WUBRGC])\} or one mana of the chosen color", effect):
         return ((m.group(1),), ("CHOSEN",))
+    if m := re.fullmatch(rf"Add {_N} \{{([WUBRGC])\}}", effect):  # -- wave 3R3: "Add six {G}" (Castle Garenbrig) --
+        return ((m.group(2),) * _NUM[m.group(1)],)
     if effect == "Add one mana of any type that a land you control could produce":
         return (("LANDS",),)
     if effect == "Add one mana of any color that a land an opponent controls could produce":
@@ -161,8 +175,28 @@ _FOR_EACH = re.compile(r"^Add \{(?P<sym>[WUBRGC])\} for each (?P<what>creature|a
 _COUNT_TYPES = {"creature": "Creature", "artifact": "Artifact", "enchantment": "Enchantment", "land": "Land"}
 _POWER_OF = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?:this creature|[A-Z][^.]{0,60}?)'s power$")
 _X_POWER = re.compile(r"^Add X mana of any one color, where X is (?:this creature|[A-Z][^.]{0,60}?)'s power$")
+_URZA = re.compile(r"^If you control an? (?P<what>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*(?: and an? [A-Z][\w'-]*(?: [A-Z][\w'-]*)*)*), "
+                   r"add (?P<add>(?:\{[WUBRGC]\})+) instead$")  # (wave 3R3: the Urza lands)
+_CHOSEN_COLOR: dict[str, str | None] = {  # (wave 3R3) "Choose a color. <this>": how many of that color
+    "Add one mana of that color": None,
+    "Add an amount of mana of that color equal to your devotion to that color": "devotion",  # 700.5 (Nykthos)
+    "Add one mana of that color for each charge counter on this artifact": "counters:charge",  # (Astral Cornucopia)
+    "Add an amount of mana of that color equal to the number of creatures you control of the chosen type": "chosen_type",
+}
+_PUT_SELF = re.compile(r"^Put an? (?P<k>[+-]\d+/[+-]\d+) counter on (?:this \w+|~)$")  # (wave 3R3: Wall of Roots)
 _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it)$")
 _EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one|two|three|four|five|six|seven|eight) \{E\}$|^Remove (a|an|one|two|three) [a-z]+ counters? from (this \w+|it)$")
+
+
+def _choice_part(part: str) -> bool:
+    """-- refused copy/mana (wave 3R3) -- a cost part the payer pays with objects they choose (601.2h via
+    602.2b): sacrificing, discarding, tapping an untapped permanent, exiling from the graveyard."""
+    from app.rules import costs as C
+
+    found = C.parse_ability_cost(part, card_name="~")
+    return not found.unsupported and bool(found.components) and all(
+        c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random
+        for c in found.components)
 
 
 def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbility | None:
@@ -174,6 +208,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     cost = [c.strip() for c in m.group("cost").split(",")]
     tap = "{T}" in cost
     sacrifice = False
+    chooses = False
+    self_counter: str | None = None
     extra: list[str] = []
     for part in cost:
         if part in ("{T}", "{0}"):
@@ -182,15 +218,32 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             sacrifice = True
         elif _EXTRA.fullmatch(part) and part not in ("{Q}", "{E}", "{S}"):
             extra.append(part)
+        elif _choice_part(part):  # -- refused copy/mana (wave 3R3) --
+            extra.append(part)
+            chooses = True
+        elif (pc := _PUT_SELF.fullmatch(part)) and self_counter is None:  # -- refused copy/mana (wave 3R3) --
+            self_counter = pc.group("k")
         else:
-            return None  # e.g. tapping other creatures, energy, exiling cards: by hand for now
+            return None  # e.g. energy, exiling the source: by hand for now
     sentences = [x.strip() for x in re.split(r"(?<=\.)\s+", m.group("effect").strip()) if x.strip()]
     count: str | None = None
+    # -- refused copy/mana (wave 3R3) -- "Choose a color. Add …" (106.1: the color is chosen as the ability
+    # resolves; 605.3a: at once): one option per color, its amount counted for that color
+    chosen_color = sentences[0] == "Choose a color."
+    if chosen_color:
+        sentences = sentences[1:]
+        if not sentences:
+            return None
     first = sentences[0].rstrip(".")
-    if c := _FOR_EACH.fullmatch(first):
+    options: tuple[tuple[str, ...], ...] | None
+    if chosen_color:
+        if first not in _CHOSEN_COLOR:
+            return None
+        count, options = _CHOSEN_COLOR[first], tuple((col,) for col in COLORS)
+    elif c := _FOR_EACH.fullmatch(first):
         what = c.group("what")
         count = f"control:{_COUNT_TYPES.get(what, what)}"
-        options: tuple[tuple[str, ...], ...] | None = ((c.group("sym"),),)
+        options = ((c.group("sym"),),)
     elif c := _COUNTERS_FOR_EACH.fullmatch(first):
         count, options = f"counters:{c.group('kind')}", ((c.group("sym"),),)
     elif c := _POWER_OF.fullmatch(first):
@@ -203,6 +256,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         return None
     riders: list[tuple[str, int]] = []
     spend_only: str | None = None
+    instead_if: tuple[tuple[str, ...], ...] = ()
+    instead: tuple[tuple[str, ...], ...] = ()
     once = False
     condition: str | None = None
     for sentence in sentences[1:]:
@@ -217,16 +272,25 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             condition = f"control:{c.group('what')}" + (f"|{c.group('or')}" if c.group("or") else "")
         elif c := _CONTROL_COUNT.fullmatch(s):
             condition = f"count:{_COUNT_TYPES[c.group('what').rstrip('s')]}:{_NUM[c.group(1)]}"
+        elif (u := _URZA.fullmatch(s)) and not instead and len(options) == 1:  # -- refused copy/mana (wave 3R3) --
+            needs = tuple(tuple(x.split()) for x in re.split(r" and an? ", u.group("what")))
+            more = _effect_options("Add " + u.group("add"), identity)
+            if more is None or len(more) != 1 or not all(needs):
+                return None
+            instead_if, instead = needs, more
         else:
             for pattern, kind in _SPEND:
                 if sm := pattern.fullmatch(s):
                     spend_only = f"type:{sm.group('t')}" if kind == "type" else kind
                     break
             else:
-                return None  # a rider the engine doesn't know: leave the ability manual
+                q = parse_spend(s)  # -- refused copy/mana (wave 3R3): the general restriction grammar --
+                if q is None or spend_only is not None:
+                    return None  # a rider the engine doesn't know: leave the ability manual
+                spend_only = q
     return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
                        riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition,
-                       count=count)
+                       count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter)
 
 
 @dataclass(frozen=True)
@@ -368,3 +432,162 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
 def symbols(mana: dict[str, int]) -> str:
     """{"G": 2, "C": 1} → "{C}{G}{G}"."""
     return "".join(f"{{{c}}}" * mana.get(c, 0) for c in ALL_MANA) or "{0}"
+
+
+# -- refused copy/mana (wave 3R3) -----------------------------------------------------------------------
+# 106.6: "Spend this mana only to cast <spells> [or activate abilities of <sources>]" in general: the
+# restriction as a closed description ("q:" + JSON, read by ``casting.spend_allowed``). Each side is
+# None (not allowed), "any" or alternatives; one alternative is {types, subtypes, supertypes, color,
+# non} that must all hold ("a Chandra planeswalker spell": the subtype Chandra and the type
+# Planeswalker). "of the chosen type" is the creature type chosen as the source entered ("chosen":
+# resolved by ``casting.mana_abilities`` from the permanent's choice; no choice: it can't be used).
+# Refused (the ability stays manual): riders ("and that spell can't be countered", 106.6a), costs
+# rather than spells ("pay cumulative upkeep costs", "costs that contain {X}", "turn … face up",
+# "unlock a door", "foretell"), spells described by where they're cast from, by keywords, by mana
+# value or by "you don't own" — the payer can't check those here. A restriction on mana a spell or a
+# triggered ability adds (Geosurge, Sarkhan, Fireblood; Klauth and Karn, Legacy Reforged with kept mana) stays
+# manual: the pool is one count per type and carries no restriction. Mana Drain stays manual: its delayed
+# "at the beginning of your next main phase" reads the countered spell's mana value as it last existed on
+# the stack (X included), which the countered card in the graveyard no longer shows.
+_CARD_TYPES = {"artifact": "Artifact", "creature": "Creature", "enchantment": "Enchantment", "instant": "Instant",
+               "sorcery": "Sorcery", "planeswalker": "Planeswalker", "land": "Land", "battle": "Battle", "kindred": "Kindred"}
+_SUPERTYPES = {"legendary": "Legendary", "snow": "Snow"}
+
+
+def _known_subtype(word: str) -> bool:
+    from app.rules.creature_types import CREATURE_TYPES
+    from app.rules.layers import ARTIFACT_TYPES, BATTLE_TYPES, ENCHANTMENT_TYPES, LAND_TYPES, SPELL_TYPES
+
+    return word in CREATURE_TYPES or word in ARTIFACT_TYPES or word in ENCHANTMENT_TYPES or word in LAND_TYPES \
+        or word in SPELL_TYPES or word in BATTLE_TYPES
+
+
+def _plural(word: str) -> str:
+    return word[:-1] if word.endswith("s") and not word.endswith("ss") else word
+
+
+def _alt(words: str, *, source: bool) -> dict[str, object] | None:
+    """One alternative ("instant", "Vampire", "legendary creature", "colorless", "Chandra planeswalker",
+    "creature … of the chosen type"); ``source``: the words name a permanent ("creatures", "Elementals")."""
+    out: dict[str, object] = {}
+    text = words.strip()
+    if text.endswith(" of the chosen type"):
+        out["chosen"] = True
+        text = text[: -len(" of the chosen type")]
+    tokens = text.split()
+    types: list[str] = []
+    subs: list[str] = []
+    supers: list[str] = []
+    i = 0
+    while i < len(tokens):
+        w = tokens[i]
+        bare = _plural(w) if source else w
+        two = " ".join(tokens[i:i + 2])
+        if i + 1 < len(tokens) and (_known_subtype(two) or (source and _known_subtype(_plural(two)))):  # ("Time Lord")
+            subs.append(two if _known_subtype(two) else _plural(two))
+            i += 2
+            continue
+        if w.lower() in _CARD_TYPES or bare.lower() in _CARD_TYPES:
+            types.append(_CARD_TYPES[w.lower() if w.lower() in _CARD_TYPES else bare.lower()])
+        elif w in _SUPERTYPES:
+            supers.append(_SUPERTYPES[w])
+        elif w in ("colorless", "multicolored", "monocolored"):
+            out["color"] = w
+        elif w in ("noncreature", "nonartifact"):
+            out["non"] = [_CARD_TYPES[w[3:]]]
+        elif w[:1].isupper() and (_known_subtype(w) or _known_subtype(bare)):
+            subs.append(w if _known_subtype(w) else bare)
+        elif w[:1].isupper() and i + 1 < len(tokens) and tokens[i + 1] == "planeswalker":
+            subs.append(w)  # (a planeswalker type: "a Chandra planeswalker spell", 205.3j)
+        elif w in ("source", "sources", "permanent", "permanents") and source:
+            pass
+        else:
+            return None
+        i += 1
+    if not (types or subs or supers or "color" in out or "non" in out):
+        return None
+    if out.get("chosen") and types != ["Creature"]:
+        return None
+    if types:
+        out["types"] = types
+    if subs:
+        out["subtypes"] = subs
+    if supers:
+        out["supertypes"] = supers
+    return out
+
+
+def _alts(phrase: str, *, source: bool) -> list[dict[str, object]] | None:
+    p = re.sub(r"^(?:an?|one or more) ", "", phrase.strip())
+    parts = [x for x in re.split(r",? and/or |,? or |, and |, | and ", p) if x]
+    out = []
+    for part in parts:
+        part = re.sub(r"^(?:an?) ", "", part)
+        if not source:  # ("instant and sorcery spells": the noun may come once, at the end)
+            part = re.sub(r" spells?(?= of the chosen type$)| spells?$", "", part)
+        alt = _alt(part, source=source)
+        if alt is None:
+            return None
+        out.append(alt)
+    if any(a.get("chosen") for a in out) and len(out) > 1:
+        return None
+    return out or None
+
+
+_GENERIC_SPEND = re.compile(
+    r"^Spend this mana only to (?:(?P<cast>cast (?P<spells>.+?))(?: (?:or|and) (?:to )?(?P<act>activate (?:an ability|abilities)"
+    r"(?: of (?P<src>.+))?))?|(?P<act2>activate (?:an ability|abilities)(?: of (?P<src2>.+?))?)(?: or (?:to )?cast (?P<spells2>.+))?)$")
+
+
+def parse_spend(sentence: str) -> str | None:
+    """A general "Spend this mana only to …" restriction as "q:<json>" (None: not one the payer checks)."""
+    import json
+
+    s = sentence.strip().rstrip(".")
+    if s == "This mana can't be spent to cast spells":
+        return "q:" + json.dumps({"cast": None, "ability": "any"}, sort_keys=True)
+    m = _GENERIC_SPEND.fullmatch(s)
+    if m is None:
+        return None
+    spells = m["spells"] if m["cast"] else m["spells2"]
+    acts = bool(m["act"] or m["act2"])
+    src = m["src"] if m["cast"] else m["src2"]
+    spec: dict[str, object] = {"cast": None, "ability": None}
+    if spells is not None:
+        if spells in ("spells", "a spell"):
+            spec["cast"] = "any"
+        else:
+            alts = _alts(spells, source=False)
+            if alts is None:
+                return None
+            spec["cast"] = alts
+    if acts:
+        if src is None:
+            spec["ability"] = "any"
+        else:
+            alts = _alts(src, source=True)
+            if alts is None:
+                return None
+            spec["ability"] = alts
+    return "q:" + json.dumps(spec, sort_keys=True)
+
+
+def spend_alt_matches(alt: dict[str, Any], ch: Any) -> bool:
+    """Does one alternative of a "q:" restriction hold for these characteristics?"""
+    types: frozenset[str] = ch.types
+    colors: frozenset[str] = ch.colors
+    if any(t not in types for t in alt.get("types") or []):
+        return False
+    if any(t not in ch.subtypes for t in alt.get("subtypes") or []):
+        return False
+    if any(t not in ch.supertypes for t in alt.get("supertypes") or []):
+        return False
+    if any(t in types for t in alt.get("non") or []):
+        return False
+    color = alt.get("color")
+    if color == "colorless" and colors:
+        return False
+    if color == "multicolored" and len(colors) < 2:
+        return False
+    return not (color == "monocolored" and len(colors) != 1)
+# -- end refused copy/mana (wave 3R3) --

@@ -35,6 +35,7 @@ Layers 1–5 (copy, control, text, color) are next; the model already carries th
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -282,6 +283,8 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
 
 
 # -- animation (agent A2): layer 4 type changes, layer 5 colors, layer 6 "loses all abilities" ----
+_PT_COUNTER = re.compile(r"(?P<p>[+-]\d+)/(?P<t>[+-]\d+)")  # (wave 3R3: a power/toughness counter, 122.1a)
+
 # Subtypes belong to a card type (205.3g-k); when an effect sets the card types (205.1a) the
 # subtypes of a type the object no longer has drop with it. Creature types are
 # app/rules/creature_types.py's; a subtype in none of the lists below is read as a creature or
@@ -471,6 +474,11 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
             t += each["t"] * n
     p += card.counters.get("+1/+1", 0) - card.counters.get("-1/-1", 0)  # … counters …
     t += card.counters.get("+1/+1", 0) - card.counters.get("-1/-1", 0)
+    for kind, n in card.counters.items():  # -- refused copy/mana (wave 3R3) -- other P/T counters ("-0/-1": Wall of Roots)
+        m = _PT_COUNTER.fullmatch(kind) if n and kind not in ("+1/+1", "-1/-1") else None
+        if m is not None:  # 122.1a / 613.4c: "+X/+Y" counters modify power and toughness
+            p += int(m["p"]) * n
+            t += int(m["t"]) * n
     for e in effects:  # … and resolved ones
         if e.layer == "7c":
             p += e.power or 0

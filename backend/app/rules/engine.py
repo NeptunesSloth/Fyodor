@@ -404,6 +404,10 @@ def _mark_step(plan: Plan) -> None:
 
 def empty_pools(plan: Plan) -> None:
     """Mana empties from every pool at the end of each step and phase (rule 500.4)."""
+    from app.rules import kept_mana  # -- refused copy/mana (wave 3R3): 106.4 "you don't lose this mana" --
+
+    if plan.rules.kept_mana and kept_mana.empty(plan):
+        return
     if any(p.mana for p in plan.state.players.values()):
         plan.do({"type": "rules_mana", "player": plan.active, "empty_all": True}, actor=plan.active)
 

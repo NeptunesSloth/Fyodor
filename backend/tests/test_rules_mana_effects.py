@@ -110,17 +110,21 @@ def test_seething_song_five_red(mcards):
     assert pool(s) == {"R": 5}
 
 
-def test_cabal_ritual_threshold_clause_parses_but_the_split_line_stays_manual(mcards):
-    from app.rules.scripts import parse_effects
-
-    # one sentence pair parses (the "instead" gate reads the graveyard) …
-    found = parse_effects("Add {B}{B}{B}. Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard.")
-    assert found is not None and [e["do"] for e in found[0]].count("add_mana") == 2
-    # … but Cabal Ritual prints it as a second line: that stays manual rather than being half-automated
+def test_cabal_ritual_threshold_line_replaces_the_first_line(mcards):
+    """(wave 3R3) Cabal Ritual's threshold line is an "instead" of the line above it (207.2c: the
+    ability word has no rules meaning; 614.1a): three {B} with fewer than seven cards in the
+    graveyard, five with seven or more (the resolving spell itself is on the stack, not counted)."""
     s = table(mcards, ["Cabal Ritual"], library=((10, "Swamp"),))
     give(s, B=1, C=1)
     cast_and_resolve(s, "Cabal Ritual")
-    assert pool(s) == {}
+    assert pool(s) == {"B": 3}
+    replay_matches(s)
+    s = table(mcards, ["Cabal Ritual"], library=((10, "Swamp"),))
+    act(s, "p1", type="move", card_ids=list(zone(s.state, "p1", "library"))[:7], to={"zone": "graveyard"})
+    give(s, B=1, C=1)
+    cast_and_resolve(s, "Cabal Ritual")
+    assert pool(s) == {"B": 5}
+    replay_matches(s)
 
 
 def test_mana_geyser_counts_tapped_opponent_lands(mcards):
@@ -212,7 +216,8 @@ def test_for_each_cards_in_hand_amount():
 
     found = parse_effects("Add {R} for each card in your hand.")
     assert found is not None and found[0] == [{"do": "add_mana", "sym": "R", "n": {"hand": "you"}}]
-    assert parse_effects("Add {R} for each card in target opponent's hand.") is None  # Jeska's Will's mode: manual
+    # (wave 3R3) Jeska's Will's mode: the opponent is the instruction's target
+    assert parse_effects("Add {R} for each card in target opponent's hand.")[1] == "opponent"
 
 
 @pytest.mark.parametrize("text", [

@@ -2555,6 +2555,7 @@ def add_mana(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import mana as M
 
     pid = ctx["controller"]
+    ctx.pop("_mana_added", None)  # (wave 3R3)
     if "mana" in e:
         return _put_mana(plan, ctx, pid, list(e["mana"]))
     if "sym" in e:
@@ -2596,6 +2597,7 @@ def resume_add_mana(plan: Plan, d: Any, chosen: list[str]) -> None:
 def _put_mana(plan: Plan, ctx: Context, pid: str, mana: list[str]) -> bool:
     from app.rules import mana as M
 
+    ctx["_mana_added"] = {c: mana.count(c) for c in dict.fromkeys(mana)}  # (wave 3R3: "this mana", app/rules/kept_mana.py)
     if mana:
         delta: dict[str, int] = {}
         for c in mana:
@@ -2720,3 +2722,9 @@ from app.rules import designations  # noqa: E402, I001
 PRIMITIVES.update(designations.PRIMITIVES)
 RESUME.update(designations.RESUME)
 # -- end counters & designations (wave 3E) --
+
+# -- refused copy/mana (wave 3R3) -- "you don't lose this mana" (106.4, 500.4): app/rules/kept_mana.py
+from app.rules import kept_mana as _kept_mana  # noqa: E402, I001
+
+PRIMITIVES["keep_mana"] = _kept_mana.keep
+# -- end refused copy/mana (wave 3R3) --

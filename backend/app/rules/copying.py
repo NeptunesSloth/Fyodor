@@ -36,11 +36,23 @@ and adds its own exceptions (707.3).
   abilities trigger, and its other effects keep applying.
 
 Refused — the engine asks for the copy to be made by hand, never guesses: face-down sources
-(707.2, 708.2), double-faced or melded sources of token copies and of permanent-spell copies
-(707.8a, 707.10g), Aura spells, "for each player or object it could target" (707.10d), a copy
+(707.2, 708.2), melded or reversible sources of token copies and of permanent-spell copies
+(707.8a, 712.8g), Aura spells, "for each player or object it could target" (707.10d), a copy
 that specifies its new target (707.10e), casting a copy (707.12), Garth One-Eye and Magar of the
 Magic Strings (707.13-707.14), exceptions that are additional effects (707.9e) and copies of
 linked abilities (707.7) — the grammar doesn't read those wordings, so the cards stay manual.
+
+-- refused copy/mana (wave 3R3) -- now automated: a token copy or a permanent spell's copy of a
+transforming or modal double-faced object is a double-faced token (707.8a, 707.10g:
+``TWO_FACED_TOKENS``); "copy that spell" / "copy it" in a cast trigger (the event's spell); the
+"spell_copied" event feeds magecraft ("Whenever you cast or copy …", app/rules/events.py). Still
+refused, with the reason: 707.10d/e need a target-legality check per player or object across
+every word "target" and a per-copy target assignment (Zada, Ink-Treader Nephilim, Frontline
+Heroism); 707.12 casts the copy mid-resolution from the card's zone (601.2a-h inside a resolving
+ability: the casting path can't pause there yet; Mizzix's Mastery, Kaervek); 707.13-14 copy a
+card by name from outside the game or a noted name (Garth One-Eye, Magar: no object to read);
+707.7 linked abilities of a copy (the "exiled with" link would have to move to the copy); a cast
+trigger's "first <type> spell each turn" (Double Vision) needs a per-type spell count this turn.
 """
 
 from __future__ import annotations
@@ -77,6 +89,12 @@ ENTERING = ENTERING_COPY  # ContinuousEffect.source of the copy effect of a perm
 TO_COPY = " to copy"  # the end of an "enter as a copy" choice's name ("creature to copy")
 NONE = "none"  # the answer "copy nothing" (the permanent enters as itself)
 DOUBLE_FACED = ("transform", "modal_dfc", "meld", "reversible_card")
+# -- refused copy/mana (wave 3R3) -- 707.8a / 707.10g: a token copy (or a permanent spell's copy) of a transforming
+# or modal double-faced object is a double-faced token: each face's values are the same face's of the original, and
+# it is created with the face up that the original has up. The token is the original's printing with that face
+# (``token_copy`` turns it over as needed); its copy effect follows the face that is up (``layer1``). Melded
+# permanents (712.8g, a meld pair's combined face) and reversible cards stay refused.
+TWO_FACED_TOKENS = ("transform", "modal_dfc")
 _CH_CACHE: dict[str, Characteristics] = {}
 _CH_MAX = 4000
 
@@ -181,6 +199,9 @@ def layer1(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     if r is None or not r.effects or info is None or card.face_down:
         return ch
     recipe = copy_recipe_of(r, r.object_id(card.id))
+    if recipe is not None and card.is_token and recipe.printing and recipe.printing == card.card_id \
+            and card.face != recipe.face and (info.get(card.card_id) or {}).get("layout") in TWO_FACED_TOKENS:
+        recipe = recipe.model_copy(update={"face": card.face})  # (wave 3R3: 707.8a, the face that is up)
     return ch if recipe is None else characteristics(recipe, info)
 
 
@@ -227,7 +248,7 @@ def supported_source(plan: Plan, card: CardInstance, *, token: bool = False) -> 
     layout = (data or {}).get("layout")
     if layout == "meld" and card.face:
         return "a melded permanent (707.8)"
-    if token and layout in DOUBLE_FACED:
+    if token and layout in DOUBLE_FACED and layout not in TWO_FACED_TOKENS:
         return "a double-faced object (707.8a)"
     return None
 
@@ -339,7 +360,7 @@ def uncopyable(plan: Plan, card: CardInstance) -> str | None:
         return ""
     if "Aura" in ch.subtypes:
         return f"Copying an Aura spell ({ch.name}) isn't automated: make the copy by hand, then press Done"
-    if ch.is_permanent_card and supported_source(plan, card, token=True) is not None:
+    if ch.is_permanent_card and supported_source(plan, card, token=True) is not None:  # (707.10g: meld / reversible only)
         return f"Copying {ch.name}, a double-faced permanent spell, isn't automated (707.10g): make the copy by hand, then press Done"
     return None
 
@@ -573,6 +594,11 @@ def _retarget_follows(ctx: Context) -> bool:
 def _stack_objects(plan: Plan, ctx: Context, who: str) -> list[str]:
     from app.rules.effects import target_refs
 
+    if who == "event_spell":  # -- refused copy/mana (wave 3R3): the spell a cast trigger is about (603.2) --
+        from app.rules import context
+
+        return [c for c in context.objects(plan, ctx, context.EVENT) if plan.state.cards[c].zone == "stack"]
+
     return [t["id"] for t in target_refs(ctx, who) if t and t["id"] in plan.state.cards
             and plan.state.cards[t["id"]].zone == "stack" and plan.oid(t["id"]) == t.get("object_id")]
 
@@ -726,6 +752,12 @@ def token_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         made = out
     for n in notes:
         plan.note(n, actor=ctx["controller"])
+    for tid in made:  # -- refused copy/mana (wave 3R3) -- 707.8a: a double-faced token has the original's face up
+        tok = plan.state.cards.get(tid)
+        made_from = copy_recipe_of(plan.rules, plan.oid(tid)) if tok is not None else None
+        if tok is not None and tok.card_id and made_from is not None and made_from.printing == tok.card_id \
+                and made_from.face != tok.face and (plan.info.get(tok.card_id) or {}).get("layout") in TWO_FACED_TOKENS:
+            plan.do({"type": "set_face", "card_id": tid, "face": made_from.face}, actor=ctx["controller"])
     effects._remember(plan, ctx, e, made)
     for tid in made:
         what = _entry_choice(plan, tid)

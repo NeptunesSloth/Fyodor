@@ -122,8 +122,8 @@ def inner_for_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | Non
         elif who == "that_player" or (isinstance(who, str) and who.startswith(("it:", "them:"))):
             return None
         n = e.get("n")
-        if isinstance(n, dict) and any(n.get(k) == "it" for k in ("power", "toughness", "mana_value")):
-            e["n"] = {k: ("event" if v == "it" else v) for k, v in n.items()}
+        if isinstance(n, dict) and any(n.get(k) in ("it", "that_spell") for k in ("power", "toughness", "mana_value")):
+            e["n"] = {k: ("event" if v in ("it", "that_spell") else v) for k, v in n.items()}  # ("that_spell": wave 3R3)
         if e.get("src") == "it":
             return None
         out.append(e)
