@@ -130,6 +130,9 @@ _NUM = r"(\d+|one|two|three|four|five|six|seven|eight|nine|ten|x)"
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
 
+X_VALUE = -1  # a comparison with X: the X of the spell (or ability) the selector is read for (107.3f, 202.3e)
+
+
 def _n(word: str) -> int | None:
     if word.isdigit():
         return int(word)
@@ -246,9 +249,11 @@ def _exile(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "exile", None)
 
 
-@_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM + r" or (?P<dir>less|greater|more)")
+@_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM.replace("|x)", "|[xX])") + r" or (?P<dir>less|greater|more)")
 def _compare(s: Selector, m: re.Match[str]) -> Selector:
     n = _n(m.group(2))
+    if n is None and m["what"] == "mana value" and m.group(2).lower() == "x" and m["dir"] == "less":
+        n = X_VALUE  # -- control (wave 3K) -- "target creature with mana value X or less" (Dominate): the X of the spell
     if n is None:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
@@ -638,6 +643,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if set(sel.without_keywords) & ch.keywords:
         return False
     for what, op, n in sel.compare:
+        if n == X_VALUE:  # (107.3f: X is the one chosen for the spell; none known: nothing matches)
+            src = plan.state.cards.get(source or "")
+            x = src.stack_info.x if src is not None and src.stack_info is not None and src.stack_info.x is not None \
+                else getattr(plan, "x_choice", None)  # (not on the stack yet: the X announced for it)
+            if x is None:
+                return False
+            n = x
         value = _stat(ch, what)
         if what == "mv" and value is not None and zone == "stack" and card.stack_info is not None and card.stack_info.x:
             value += card.stack_info.x * ch.mana_cost.count("{X}")  # 202.3e: X on the stack is the value chosen

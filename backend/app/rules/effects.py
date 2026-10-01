@@ -2561,3 +2561,67 @@ def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES["return_choice"] = return_choice
 RESUME["return_choice"] = resume_return_choice
+
+
+# -- control (wave 3K) -----------------------------------------------------------------------------------
+# "Gain control of target creature [until end of turn | for as long as …]", "target opponent gains
+# control of target permanent", "exchange control of two target creatures". A control-changing effect is a
+# layer-2 continuous effect (613.1b) on the objects there as it begins (611.2c) with the duration it
+# states (none: the game, 611.2a; "until end of turn" ends in cleanup, 514.2; "for as long as …" is the
+# ``until`` wrapper's, app/rules/delayed.py). The table follows it (layers.control_sync): the same object
+# changes sides (no zone change), a new controller restarts summoning sickness (302.6), and when it ends
+# the permanent goes back to the owner (or to the player of the next-latest effect). Only permanents
+# still on the battlefield as the same object are affected.
+def _control_effect(plan: Plan, ctx: Context, cards: list[str], player: str, duration: str) -> None:
+    if not cards:
+        return
+    name = ctx.get("name") or ""
+    layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="2", source=ctx.get("source_object"),
+                      controller=ctx["controller"], duration=duration,  # type: ignore[arg-type]
+                      label=f"Control: {plan.name(player)} ({name})" if name else f"Control: {plan.name(player)}",
+                      new_controller=player)
+    plan.note(f"{plan.name(player)} gains control of " + ", ".join(plan.state.cards[c].name or "a permanent" for c in cards)
+              + (" until end of turn" if duration == "end_of_turn" else ""), cards, actor=ctx["controller"])
+
+
+def gain_control(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """See above. ``e``: who (the permanents); to ("you", or a target player "target:N"); duration; untap."""
+    cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")
+             and plan.in_game(plan.state.cards[c])]
+    _remember(plan, ctx, e, cards)
+    if e.get("untap"):  # "Untap target creature and gain control of it": the same objects, untapped first
+        tapped = [c for c in cards if plan.state.cards[c].tapped]
+        if tapped:
+            plan.do({"type": "tap", "card_ids": tapped, "tapped": False}, actor=ctx["controller"])
+    who = _players(plan, ctx, e.get("to", "you"))
+    if cards and len(who) == 1:
+        _control_effect(plan, ctx, cards, who[0], e.get("duration", "permanent"))
+        layers.control_sync(plan)
+    return True
+
+
+def exchange_control(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.12: exchange control of two permanents. If the whole exchange can't be completed (one of them
+    is no longer there, or no longer the object it was) nothing happens (701.12a); if one player controls
+    both, nothing happens (701.12b); otherwise each player gains control of the other's permanent."""
+    if "with" not in e:  # "exchange control of two target creatures": one group of two
+        cards = _cards(plan, ctx, e["who"])
+    else:
+        a, b = _cards(plan, ctx, e["who"]), _cards(plan, ctx, e["with"])
+        cards = [*a, *b] if len(a) == len(b) == 1 else []
+    cards = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
+    if len(cards) != 2 or cards[0] == cards[1]:
+        return True
+    first, second = (plan.state.cards[c] for c in cards)
+    if first.controller == second.controller or not (plan.in_game(first) and plan.in_game(second)):
+        return True
+    _remember(plan, ctx, e, cards)
+    duration = e.get("duration", "permanent")
+    _control_effect(plan, ctx, [first.id], second.controller, duration)
+    _control_effect(plan, ctx, [second.id], first.controller, duration)
+    layers.control_sync(plan)
+    return True
+
+
+PRIMITIVES.update({"gain_control": gain_control, "exchange_control": exchange_control})
+# -- end control (wave 3K) --

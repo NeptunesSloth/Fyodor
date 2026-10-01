@@ -419,6 +419,10 @@ class ContinuousEffect(BaseModel):
     # -- copy system (wave 2F): layer 1a (613.2a) — a copy effect: the affected objects' copiable
     # values become this recipe's (707.2-707.5); the latest (by timestamp) applies (613.7)
     copy_recipe: CopyRecipe | None = None
+    # -- control (wave 3K) -- layer 2 (613.1b): the player who controls the affected objects while this
+    # effect applies ("gain control of target creature until end of turn", "exchange control of …");
+    # the latest by timestamp wins (613.7); app/rules/layers.control_sync applies it to the table.
+    new_controller: str | None = None
 
 
 class TargetRef(BaseModel):
@@ -674,6 +678,9 @@ class RulesState(BaseModel):
     turn_seen: int = 0  # last turn number the bookkeeping saw
     turn_started: dict[str, int] = Field(default_factory=dict)  # player -> number of their latest turn
     controlled_since: dict[str, ControlMark] = Field(default_factory=dict)
+    # -- control (wave 3K) -- the cards whose controller a layer-2 effect set (so that when the effect ends
+    # they revert to their owner, 613.1b), not one a player moved by hand
+    control_changed: list[str] = Field(default_factory=list)
     conceded: list[str] = Field(default_factory=list)
     lost: dict[str, str] = Field(default_factory=dict)  # player -> why (0 life, poison, …)
     winner: str | None = None

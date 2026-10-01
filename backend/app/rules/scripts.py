@@ -536,7 +536,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
     return out
 
 
-_TARGET_REFS = ("who", "power", "toughness", "mana_value", "on", "with", "src", "object")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
+_TARGET_REFS = ("who", "to", "power", "toughness", "mana_value", "on", "with", "src", "object")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -1431,6 +1431,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return anthem
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
         return rule
+    if ability.kind == "static" and re.fullmatch(r"You control enchanted (?:creature|permanent|land|artifact)\.", text):
+        return {"kind": "static", "static": "control", "who": "host", "effects": []}  # -- control (wave 3K) -- layer 2 (613.1b)
     if ability.kind == "static" and text == "~ can be your commander.":
         return {"kind": "static", "static": "deckbuilding", "effects": []}  # 903.3a: deck construction only
     if ability.kind == "static" and text in COMBAT_STATICS:
@@ -2711,3 +2713,17 @@ def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 _RECORDING["return_choice"] = "returned"
 _MOVERS.add("return_choice")
 _CHOSEN["return_choice"] = "n"
+
+
+# -- control (wave 3K) -- "Gain control of target creature until end of turn. Untap that creature. It gains haste
+# until end of turn." The control-changing effect (layer 2, 613.1b) names its objects: a following "it" / "that
+# creature" is the target, as after any plain target (app/rules/language.py "control", app/rules/effects.py).
+_RECORDING.update({"gain_control": None, "exchange_control": None})
+
+
+@_first
+@effect(r"(?P<t>(?!.* (?:for as long as|until your next turn)\b)(?:(?:untap .+? and )?gain control of .+|.+? gains control of .+|exchange control of .+))")
+def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import language
+
+    return _from_language(language.control_forms(m["t"]))

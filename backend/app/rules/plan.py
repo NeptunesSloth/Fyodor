@@ -27,6 +27,8 @@ MAX_STEPS = 400  # a safety valve: no single intent may expand into more table a
 class Plan:
     """A scratch copy of the table plus the table actions carried out on it so far."""
 
+    x_choice: int | None = None  # the X announced for the spell being cast, while its targets are chosen (selectors read it)
+
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)
         self.actor = actor
