@@ -177,6 +177,8 @@ def self_text(text: str, name: str) -> str:
     """The ability with the card's own name (and "this creature" etc.) written as ~, without an
     ability word (207.2c)."""
     out = _ABILITY_WORD.sub("", text, count=1)
+    if out.startswith("Exhaust — "):  # -- ability words (wave 4F) -- 702.177a (the restriction: restrictions.parse)
+        out = out[len("Exhaust — "):]
     if out == text and (worded := word_prefix(text)) is not None:  # -- refused zones/sized (wave 3R4) -- 207.2d
         out = worded[1]
     short = _short_name(name)

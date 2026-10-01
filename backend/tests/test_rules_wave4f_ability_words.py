@@ -35,6 +35,8 @@ EXTRA = [
     card('Stinging Cave Crawler', set_code="tst", number="4F08", mana_cost='{2}{B}', cmc=3.0, type_line='Creature — Insect Horror', oracle_text='Deathtouch\nDescend 4 — Whenever this creature attacks, if there are four or more permanent cards in your graveyard, you draw a card and you lose 1 life.', power='1', toughness='3', colors=['B'], color_identity=['B'], keywords=['Descend', 'Deathtouch']),
     card('Bonepicker Skirge', set_code="tst", number="4F09", mana_cost='{2}{B}', cmc=3.0, type_line='Creature — Phyrexian Imp', oracle_text='Flying\nCorrupted — As long as an opponent has three or more poison counters, this creature has deathtouch and lifelink.', power='2', toughness='2', colors=['B'], color_identity=['B'], keywords=['Flying', 'Corrupted']),
     card('Sinew Dancer', set_code="tst", number="4F10", mana_cost='{W}', cmc=1.0, type_line='Creature — Phyrexian Soldier', oracle_text='{3}{W}, {T}: Tap target creature.\nCorrupted — {W}, {T}: Tap target creature. Activate only if an opponent has three or more poison counters.', power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=['Corrupted']),
+    card('Greenbelt Guardian', set_code="tst", number="4F12", mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Elf Ranger', oracle_text='{G}: Target creature gains trample until end of turn.\nExhaust — {3}{G}: Put three +1/+1 counters on this creature. (Activate each exhaust ability only once.)', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Exhaust']),
+    card('Elvish Refueler', set_code="tst", number="4F13", mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Elf Druid', oracle_text="During your turn, as long as you haven't activated an exhaust ability this turn, you may activate exhaust abilities as though they haven't been activated.\nExhaust — {1}{G}: Put a +1/+1 counter on this creature. (Activate each exhaust ability only once.)", power='2', toughness='3', colors=['G'], color_identity=['G'], keywords=['Exhaust']),
 ]
 
 
@@ -100,7 +102,7 @@ def test_coverage_of_the_lines():
               "a card and you lose 1 life.", "Stinging Cave Crawler")
     assert ok("Corrupted — As long as an opponent has three or more poison counters, this creature has deathtouch and lifelink.",
               "Bonepicker Skirge")
-    assert not ok("Exhaust — {3}{G}: Put three +1/+1 counters on this creature.")  # 702.177: a keyword, not read here
+    assert ok("Exhaust — {3}{G}: Put three +1/+1 counters on this creature.")  # 702.177a: "… Activate only once."
     assert not ok("Max speed — Whenever you draw a card, each opponent mills two cards.")
 
 
@@ -288,4 +290,35 @@ def test_descend_4_attack_trigger(cards, in_graveyard):
         assert (s.state.players["p1"].life, len(s.state.zones["p1:hand"])) == (life - 1, hand + 1)
     else:
         assert (s.state.players["p1"].life, len(s.state.zones["p1:hand"])) == (life, hand)
+    roundtrip(s)
+
+
+# -- exhaust: 702.177a -------------------------------------------------------------------------------------------
+def test_exhaust_only_once(cards):
+    s = build(cards, [(1, "Greenbelt Guardian"), (5, "Forest")])
+    guardian = put(s, "Greenbelt Guardian", "battlefield")
+    mana(s, G=8)
+    act(s, "p1", type="activate_ability", card_id=guardian.id, ability=1)
+    pass_until_stack_empty(s)
+    assert s.state.cards[guardian.id].counters.get("+1/+1") == 3
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=guardian.id, ability=1)
+    put(s, "Greenbelt Guardian", "hand")  # 400.7: a new object, whose ability hasn't been activated
+    put(s, "Greenbelt Guardian", "battlefield")
+    act(s, "p1", type="activate_ability", card_id=guardian.id, ability=1)
+    pass_until_stack_empty(s)
+    assert s.state.cards[guardian.id].counters.get("+1/+1") == 3
+    roundtrip(s)
+
+
+def test_exhaust_with_elvish_refueler_is_left_to_the_player(cards):
+    s = build(cards, [(1, "Greenbelt Guardian"), (1, "Elvish Refueler"), (5, "Forest")])
+    guardian = put(s, "Greenbelt Guardian", "battlefield")
+    put(s, "Elvish Refueler", "battlefield")
+    mana(s, G=8)
+    act(s, "p1", type="activate_ability", card_id=guardian.id, ability=1)
+    pass_until_stack_empty(s)
+    act(s, "p1", type="activate_ability", card_id=guardian.id, ability=1)  # 702.177b: not refused by the engine
+    pass_until_stack_empty(s)
+    assert s.state.cards[guardian.id].counters.get("+1/+1") == 6
     roundtrip(s)

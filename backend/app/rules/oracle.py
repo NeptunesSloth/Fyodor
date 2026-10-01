@@ -155,7 +155,9 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
     if _TRIGGER.match(line):
         return "triggered", (), None
     worded = word_prefix(line) if ":" in line else None  # -- refused zones/sized (wave 3R4) -- 207.2c/207.2d
-    if worded is not None and not line.startswith(("Boast — ", "Exhaust — ")):  # (wave 4F: channel is read, 113.6m)
+    if line.startswith("Exhaust — ") and ":" in line:  # -- ability words (wave 4F) -- 702.177a: an activated ability
+        worded = ("Exhaust", line[len("Exhaust — "):])  # (its "Activate only once": restrictions.parse)
+    if worded is not None and not line.startswith("Boast — "):  # (wave 4F: channel is read, 113.6m)
         cost = worded[1].split(":", 1)[0]
         if _COST_START.match(cost) and len(cost) < 120:
             return "activated", (), cost
