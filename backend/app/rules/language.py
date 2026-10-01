@@ -23,7 +23,7 @@ import re
 from dataclasses import replace
 from typing import Any
 
-from app.rules import selectors, values
+from app.rules import selectors, sized_damage, values  # (sized_damage: wave 4E)
 
 Effects = list[dict[str, Any]]
 AMT = values.AMOUNT
@@ -262,7 +262,9 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"twice (?P<v>.+)", phrase)
     if m:
         return {"times": [2, _stat(m["v"], its)]}
-    v = values.parse_count(phrase)
+    # -- damage sized by a count (wave 4E) -- "the number of charge counters on it": "it" is the sentence's subject when it
+    # has one (``its``: "~ deals damage equal to the number of … counters on it"), else a placeholder bound by resolve_it
+    v = values.parse_count(phrase, it=its)
     if v is None:
         raise _Fail
     return v
@@ -271,7 +273,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
 # The instruction joiners scripts._clause splits a sentence on (mirrored here, so a sentence with
 # one "where X is …" for two instructions is read whole before it would be split)
 _JOINER = (r", then | and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|destroy|tap|untap|"
-           r"create|sacrifice|discard|mill|scry|surveil|get)\b)")
+           r"create|sacrifice|discard|mill|scry|surveil|get)\b)"
+           r"| and (?=~ deals )")  # -- damage sized by a count (wave 4E) -- ("\b" never follows "~")
 
 
 def _has_x(v: Any) -> bool:
@@ -364,6 +367,8 @@ def _rider_value(phrase: str) -> Any:
                     r"(?:power|toughness|mana value)", phrase):
         return _stat(phrase)
     v = values.parse_count(phrase, it="it")
+    if v is None:
+        v = sized_damage.per_player(phrase)  # -- damage sized by a count (wave 4E) -- (damage only: parse_sentence checks)
     if v is None:
         raise _Fail
     return v
@@ -818,9 +823,14 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
 
 def parse_sentence(text: str) -> tuple[Effects, Any] | None:
     try:
-        return _parse(text.strip())
+        found = _parse(text.strip())
     except _Fail:
         return None
+    # -- damage sized by a count (wave 4E) -- an amount read per recipient player is a damage instruction's only
+    # ("each player creates X tokens, where X is the number of lands they control": not read)
+    if any(e.get("do") != "damage" and sized_damage.has_per_player(e) for e in found[0]):
+        return None
+    return found
 
 
 def _one(group: dict[str, Any] | None) -> Any:
@@ -849,7 +859,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         # are read here, each with the rider, rather than split upstream with X unbound in one
         halves = re.split(_JOINER, text, maxsplit=1)
         if len(halves) == 2:
-            left, right = _parse(halves[0]), _parse(halves[1])
+            left, right = _rider_half(halves[0]), _rider_half(halves[1])  # (wave 4E: _rider_half)
             if left[1] is not None and right[1] is not None:
                 raise _Fail  # (two targets: not read here)
             if not all(_has_x(e) for e in (*left[0], *right[0])):
@@ -902,6 +912,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # -- damage ---------------------------------------------------------------------------------
     # -- sized amounts (wave 3D) -- "that creature deals damage equal to its power": the pronoun's creature (as "it")
     text = re.sub(r"^that creature deals ", "it deals ", text)
+    # -- damage sized by a count (wave 4E) -- "Whenever Smaug attacks, he deals …": a named character's pronoun is the
+    # card itself (its power: "his power"); "this enchantment deals … equal to the number of verse counters on it"
+    text = re.sub(r"^(?:he|she) deals ", "~ deals ", text)
+    if text.startswith("~ deals "):
+        text = re.sub(r"\b(?:his|her) (power|toughness)\b", r"~'s \1", text)
+    found = _sized_damage_forms(text, rider)
+    if found is not None:
+        return found
+    # -- end damage sized by a count (wave 4E) --
     src: dict[str, Any] = {"src": "it"} if text.startswith("it ") else {}
     m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage divided as you choose among (?P<o>.+)", text)
     if m:  # 601.2d: the division is announced as the spell is cast (each target gets at least 1)
@@ -909,17 +928,20 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "damage", "who": "target", "n": {"divided": 0}, **src}], _divided(m["o"], "damage", _amount(m["n"]))
     m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage to (?P<o1>.+?) and (?P<m>{AMT}) damage to (?P<o2>.+)", text)
-    if m and rider is None:  # "… 2 damage to any target and 1 damage to another target" (two groups)
+    # -- damage sized by a count (wave 4E) -- "~ deals X damage to target creature and X damage to you, where X is …" (one X for
+    # both: 107.3c), "… and X damage to itself" (~ itself: the source)
+    if m and (rider is None or (rider[0] == "x" and m["n"].lower() == "x" == m["m"].lower())):
         effects: Effects = []
         groups: list[dict[str, Any]] = []
         for o, n in ((m["o1"], m["n"]), (m["o2"], m["m"])):
-            whos, parts = _objects(o)
+            whos, parts = _objects("~" if o == "itself" and m["src"] == "~" else o)
             if len(whos) != 1:
                 raise _Fail
             effects.append({"do": "damage", "who": whos[0] if not parts else ("target" if not groups else f"target:{len(groups)}"),
-                            "n": _amount(n), **src})
+                            "n": _apply(_amount(n), rider), **src})
             groups += parts
         effects[0]["with_next"] = True  # (dealt at once: one damage event)
+        _check_per_player(effects, groups)  # -- damage sized by a count (wave 4E) --
         return effects, _out(groups)
     m = re.fullmatch(rf"(?P<src>~|it) deals (?:(?P<n>{AMT}) damage|damage equal to (?P<stat>.+?)) to (?P<o>.+)", text)
     if m is None:  # "~ deals damage to target creature equal to the number of lands you control" (the same, worded after)
@@ -928,7 +950,18 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["stat"] and rider is not None:
             raise _Fail
         # "~ deals damage equal to its power": its own (the subject's); "it deals … its power": it's
-        n = _stat(m["stat"], "self" if m["src"] == "~" else "it") if m["stat"] else _apply(_amount(m["n"]), rider)
+        # -- damage sized by a count (wave 4E) -- or an amount read for each player dealt damage ("… to each player equal to
+        # the number of lands that player controls"): app/rules/sized_damage.py
+        per_player = sized_damage.per_player(m["stat"]) if m["stat"] else None
+        try:
+            n = _stat(m["stat"], "self" if m["src"] == "~" else "it") if m["stat"] else _apply(_amount(m["n"]), rider)
+        except _Fail:
+            if per_player is None:
+                raise
+            n = per_player
+        if per_player is not None and re.search(r"\beach (?:player|opponent)\b|\beach of your opponents\b", m["o"]):
+            n = per_player  # (each recipient's own count, not one player's)
+        # -- end damage sized by a count (wave 4E) --
         if _wants_target_player(n):
             raise _Fail  # (a second target the damage sentence would have to declare: not read)
         effects = []
@@ -939,9 +972,16 @@ def _parse(text: str) -> tuple[Effects, Any]:
         recipients = re.sub(r"^(each opponent and each .+?) they control$", r"\1 your opponents control", recipients)
         recipients = re.sub(r"(creatures?) and (planeswalkers?|battles?) (?=you control|your opponents control|an opponent controls)",
                             r"\1 or \2 ", recipients)
+        # -- damage sized by a count (wave 4E) -- "each creature and planeswalker you don't control / that player controls"
+        recipients = re.sub(r"(creatures?) and (planeswalkers?|battles?) (?=you don't control|that player controls)",
+                            r"\1 or \2 ", recipients)
         for part in re.split(r" and (?=each |you$)|" + _AND_TARGET, recipients):
             if part == "each other opponent":  # -- sized amounts (wave 3D) -- the opponents besides the one the event named
                 effects.append({"do": "damage", "who": "each_other_opponent", "n": n, **src})
+                continue
+            controlled = _that_player_controls(part)  # -- damage sized by a count (wave 4E) --
+            if controlled is not None:
+                effects.append({"do": "damage", "who": controlled, "n": n, **src})
                 continue
             kind, key, group = ref(part)
             who = _who(kind, key)
@@ -951,6 +991,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
             effects.append({"do": "damage", "who": who, "n": n, **src})
         for joined in effects[:-1]:  # one sentence: one simultaneous damage event (app/rules/effects.damage)
             joined["with_next"] = True
+        _check_per_player(effects, groups)  # -- damage sized by a count (wave 4E) --
         return effects, _out(groups)
     found = _bite(text)  # -- temporary grants & riders (agent G) --  "target creature you control deals damage equal to its power to …"
     if found is not None:
@@ -1365,10 +1406,100 @@ def _bite(text: str) -> tuple[Effects, Any] | None:
         raise _Fail  # (a pronoun subject: which creature deals it isn't read here)
     src = "target" if group is not None else "host"
     groups = [group] if group is not None else []
-    whos, parts = _objects(m["o"])
+    whos, parts = _bite_recipients(m["o"])  # (wave 4E: "… to each other creature and each opponent")
     n: Any = {stat: src} if not m["stat"].startswith("twice ") else {"times": [2, {stat: src}]}  # (sized amounts, wave 3D)
     effects: Effects = [{"do": "damage", "who": _shift(w, len(groups)), "n": n, "src": src} for w in whos]
+    for joined in effects[:-1]:  # -- damage sized by a count (wave 4E) -- one sentence: one damage event (120.3, 608.2)
+        joined["with_next"] = True
     return effects, _out(groups + parts)
+
+
+# -- damage sized by a count (wave 4E): app/rules/sized_damage.py ------------------------------------
+def _rider_half(text: str) -> tuple[Effects, Any]:
+    """One half of "…X… and …X…, where X is …": this grammar's, else a literal template's (scripts: "each player
+    creates X Treasure tokens and ~ deals X damage to each player, where X is …", Descent into Avernus)."""
+    try:
+        return _parse(text)
+    except _Fail:
+        from app.rules import scripts  # (scripts imports this module)
+
+        found = scripts._one_clause(text)
+        if found is None:
+            raise
+        return found[0], found[1]
+
+
+
+def _bite_recipients(o: str) -> tuple[list[str], list[dict[str, Any]]]:
+    """A bite's recipients: "target creature you don't control", "each other creature and each opponent"
+    (several "each" parts; at most one of them a target group)."""
+    parts = re.split(r" and (?=each )", o)
+    if len(parts) == 1:
+        return _objects(o)
+    whos: list[str] = []
+    groups: list[dict[str, Any]] = []
+    for part in parts:
+        w, g = _objects(part)
+        if g:
+            raise _Fail  # (a target among "each" recipients: not read)
+        whos += w
+    return whos, groups
+
+
+_THAT_PLAYER_CONTROLS = re.compile(r"^each (?P<sel>.+?) that player controls$")
+
+
+def _that_player_controls(part: str) -> str | None:
+    """"each creature that player controls" (Balefire Dragon): the permanents of the player "that player"
+    names (resolved by scripts.resolve_it like any "that player": the trigger event's player, or a target
+    player) → "controlled:that_player|<selector>" (app/rules/effects._cards)."""
+    m = _THAT_PLAYER_CONTROLS.fullmatch(part)
+    if m is None:
+        return None
+    sel = selectors.parse(m["sel"])
+    if sel is None or sel.player is not None or sel.controller is not None:
+        raise _Fail
+    return f"controlled:that_player|{sel.key()}"
+
+
+_PLAYER_RECIPIENTS = ("each_player", "each_opponent", "that_player", "event_player", "you")
+
+
+def _check_per_player(effects: Effects, groups: list[dict[str, Any]]) -> None:
+    """An amount read per recipient player is dealt to players only ("… to each player equal to the
+    number of lands that player controls"); any other recipient leaves the sentence unread."""
+    if not any(sized_damage.has_per_player(e.get("n")) for e in effects):
+        return
+    for e in effects:
+        who = str(e.get("who"))
+        if who in _PLAYER_RECIPIENTS:
+            continue
+        if who == "target" or who.startswith("target:"):
+            g = 0 if who == "target" else int(who[7:])
+            if g < len(groups) and groups[g].get("what") in ("player", "opponent"):
+                continue
+        raise _Fail
+
+
+def _sized_damage_forms(text: str, rider: Any) -> tuple[Effects, Any] | None:
+    """"Target creature deals damage to itself equal to its power" / "Each creature deals damage to
+    itself equal to its power" (the creature is the source: 120.3; its power as it is or as it last
+    existed: 608.2h)."""
+    m = sized_damage.SELF_DAMAGE.fullmatch(text)
+    if m is None:
+        return None
+    if rider is not None:
+        raise _Fail
+    stat = "toughness" if "toughness" in (m["a"] or m["b"]) else "power"
+    kind, key, group = ref(m["s"])
+    if kind == "each":
+        if selectors.from_key(key).player is not None:
+            raise _Fail
+        return [{"do": "damage", "who": "itself", "n": {stat: "each"}, "src": "each:" + key}], None
+    if kind != "target" or group is None or group.get("max", 1) != 1:
+        raise _Fail
+    return [{"do": "damage", "who": "target", "n": {stat: "target"}, "src": "target"}], _one(group)
+# -- end damage sized by a count (wave 4E) --
 
 
 # Compound sentences whose subject is one player, read as two instructions ("Target player draws

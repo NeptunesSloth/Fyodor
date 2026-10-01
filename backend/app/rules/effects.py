@@ -32,6 +32,7 @@ from app.rules import (
     replace,  # -- replacement effects stage 2 (wave 2E): the choke points --
     replacements,
     selectors,
+    sized_damage,  # -- damage sized by a count (wave 4E) --
     values,
 )
 from app.rules.plan import Plan, decide
@@ -98,6 +99,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
+    if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
+        return _controlled(plan, ctx, who)
     if who.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- "all other creatures" after "Create X
         name, _, key = who[len("except:"):].partition("|")  # … tokens" (Martial Coup): other than what it made
         made = set(context.objects(plan, ctx, name))
@@ -374,11 +377,17 @@ def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Sou
     control": the biting creature's lifelink and deathtouch count, 120.3f, 702.2b; nothing is
     dealt if it's gone and has no last known information)."""
     shares = divided(ctx, e)  # 601.2d: each target's share, as divided when it was put on the stack
-    n = 0 if shares is not None else _amount(plan, ctx, e["n"])
+    # -- damage sized by a count (wave 4E) -- an amount read for each player dealt damage (app/rules/sized_damage.py):
+    # every player's number determined at once, as the effect is applied (608.2h)
+    per_player = shares is None and sized_damage.has_per_player(e["n"])
+    n = 0 if shares is not None or per_player else _amount(plan, ctx, e["n"])
+    players = _players(plan, ctx, e["who"])
+    each_player = {p: _amount(plan, {**ctx, "recipient": p}, e["n"]) for p in players} if per_player else {}
 
     def amount(key: str) -> int:
+        if per_player:
+            return each_player.get(key, 0)
         return shares.get(key, 0) if shares is not None else n
-    players = _players(plan, ctx, e["who"])
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
     if str(e.get("src") or "").startswith("each:"):
@@ -388,22 +397,47 @@ def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Sou
         for sid in selectors.candidates(plan, selectors.from_key(e["src"][5:]), ctx["controller"], ctx.get("source_card")):
             each = _amount(plan, {**ctx, "each_source": sid}, e["n"])
             if each > 0:
-                hits += [(_card_source(plan, sid), key, each) for key in [*cards, *players]]
+                # (wave 4E: "Each creature deals damage to itself equal to its power": its own damage, to itself;
+                # "… to each other creature": other than the creature dealing it)
+                keys = [sid] if e["who"] == "itself" else [*_other_than(plan, ctx, e, cards, sid), *players]
+                hits += [(_card_source(plan, sid), key, each) for key in keys]
         return hits
     if e.get("src"):
         src = _named_source(plan, ctx, e["src"])
         if src is None:
             plan.note(f"{ctx.get('name') or 'It'}: the creature that would deal the damage is gone", actor=ctx["controller"])
             return []
+        if src.card is not None:  # (wave 4E: "target creature deals damage … to each other creature": other than it)
+            cards = _other_than(plan, ctx, e, cards, src.card)
     else:
         src = _ability_source(plan, ctx)
-    if shares is None and n <= 0:
+    if shares is None and not per_player and n <= 0:
         return []
     if e.get("dealt_as"):  # -- replacement effects stage 2 (wave 2E): "dealt damage this way" --
         ctx.setdefault(DEALT_KEY, {})[e["dealt_as"]] = []
     if e.get("excess"):  # -- refused zones/sized (wave 3R4) -- "excess damage is dealt to that creature's controller instead"
         return _excess_hits(plan, src, [(src, key, amount(key)) for key in [*cards, *players]], e["excess"])
     return [(src, key, amount(key)) for key in [*cards, *players]]
+
+
+# -- damage sized by a count (wave 4E) --
+def _other_than(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str], source_card: str) -> list[str]:
+    """"Each other creature" when a named object deals the damage (a bite, "each creature … deals damage equal
+    to its power to each other creature"): the creatures other than the one dealing it, not other than the
+    spell or ability's own source."""
+    who = str(e.get("who") or "")
+    if not who.startswith(selectors.PREFIX) or not selectors.from_key(who).other:
+        return cards
+    return selectors.candidates(plan, selectors.from_key(who), ctx["controller"], source_card)
+
+
+def _controlled(plan: Plan, ctx: Context, who: str) -> list[str]:
+    """"each creature that player controls": "controlled:<player reference>|<selector key>"."""
+    players, _, key = who[len("controlled:"):].partition("|")
+    owners = set(_players(plan, ctx, players))
+    return [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
+            if plan.state.cards[c].controller in owners]
+# -- end damage sized by a count (wave 4E) --
 
 
 def _excess_hits(plan: Plan, src: _Source, hits: list[tuple[_Source, str, int]], when: str) -> list[tuple[_Source, str, int]]:

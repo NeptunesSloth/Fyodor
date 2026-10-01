@@ -239,6 +239,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if isinstance(v, int):
         return max(0, v)
     you = ctx["controller"]
+    if "per_player" in v:  # -- damage sized by a count (wave 4E) -- read for the recipient player (app/rules/sized_damage.py)
+        from app.rules import sized_damage
+
+        return sized_damage.evaluate(plan, ctx, v)
     if "x" in v:
         return max(0, int(ctx.get("x") or 0))
     if "times" in v:
