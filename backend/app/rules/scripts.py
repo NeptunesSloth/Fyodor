@@ -948,7 +948,7 @@ def _counter(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 
 
 @effect(r"counter (?P<sel>target spell|target creature spell|target noncreature spell|target instant or sorcery spell)"
-        r" unless its controller pays (?P<cost>(?:\{{[^}}]+\}})+)")
+        r" unless its controller pays (?P<cost>(?:\{{[^}}X]+\}})+)")  # ({X}: sized as it resolves, _unless_sentence — wave 4C)
 def _counter_unless(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "counter_unless", "who": "target", "cost": m["cost"]}], SELECTORS[m["sel"]]
 
@@ -1378,6 +1378,15 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if _FREE_EXILE_GY.fullmatch(text) and effects and effects[-1]["do"] == "free_cast":
             effects[-1] = {**effects[-1], "exile_gy": True}  # -- refused look/cast-free (wave 3R5) -- 614.1a, on the spell cast
             continue
+        # -- unless pays (wave 4C) -- the riders of "Counter target spell unless its controller pays …" (608.2c, 118.12)
+        if (rider := _unless_rider(text, effects, prev_start)) is not None:
+            if rider is False:
+                return None
+            if rider is not True:
+                text = rider  # ("If they do, …": the payer's choice, read below as the payment's "If you do")
+            else:
+                continue
+        # -- end unless pays (wave 4C) --
         if (instead := replacement_sentence(text, effects, groups)) is not None:  # -- replacement effects stage 2 (wave 2E) --  (before 1B: a replacement, not a condition)
             effects += instead
             continue
@@ -1461,6 +1470,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             added = _add_groups(groups, *inner)  # (its target, if any: its own group, 115.3)
             effects += [{"do": "only_if", "cond": cond, "skip": len(added)}, *added]
             continue
+        # -- unless pays (wave 4C) -- "You may draw a card unless that player pays {1}." (118.12a): that player decides
+        # first; the "you may" is asked after (unless_pays.may_rest), not as the resolution begins
+        if text.startswith("you may ") and not effects and len(texts) == 1 and " unless that player pays " in text \
+                and (paid_may := _unless_sentence(text[len("you may "):], effects, may=True, it=it)) is not None:
+            effects += _add_groups(groups, *paid_may)
+            continue
         if text.startswith("you may "):
             if effects:
                 # "…. You may reveal … from among them …": a clause that models its own choice
@@ -1482,7 +1497,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 effects += _add_groups(groups, found, sel)  # each word "target": its own group (115.3)
                 break
         else:
-            parsed_clause = _unless_sentence(text, effects) or _trailing_conditional(text) or _clause(text)
+            parsed_clause = _unless_sentence(text, effects, it=it) or _trailing_conditional(text) or _clause(text)
             if parsed_clause is None:
                 return None
             found, sel = parsed_clause
@@ -1636,7 +1651,8 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     return {"do": "optional_payment", "who": "you", "cost": cost, "bind": bind}
 
 
-def _unless_sentence(text: str, effects: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], Any] | None:
+def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False,
+                     it: str | None = None) -> tuple[list[dict[str, Any]], Any] | None:
     """"[Effect] unless [you / that player / they / its controller] pay(s) [cost]." (118.12a): the
     payer may pay; if they don't, the effect happens. "That player" / "they" is the effect's
     target player or the trigger event's player; "its controller" the controller of the effect's
@@ -1655,7 +1671,21 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]]) -> tuple[list[dic
     if re.search(r"\bit\b", phrase):
         return None
     cost = optional_payment.cost_text(phrase)
-    lead = _clause(m["lead"])
+    # -- unless pays (wave 4C) -- a cost sized as it resolves ("{X}", "{X}, where X is …", "{1} for each …")
+    sized: dict[str, Any] | None = None
+    if cost is None and verb.startswith("pay"):
+        from app.rules import unless_pays
+
+        its = "target" if m["who"] in ("its controller", "that player", "they") else None  # (checked below: a target object)
+        if re.fullmatch(r"(?:\{E\})+", rest):  # "unless you pay {E}{E}" (107.14: energy counters, not mana)
+            cost = optional_payment.cost_text(f"pay {rest}")
+        else:
+            sized = unless_pays.sized_cost(rest, its)
+            cost = "" if sized is not None else None
+    # "Whenever a player casts a spell, counter it unless that player pays {3}.": the spell cast (the trigger event's)
+    lead = ([{"do": "counter", "who": "event_spell"}], None) if it == "event_spell" and m["lead"] in ("counter it", "counter that spell") \
+        else _clause(m["lead"])
+    # -- end unless pays (wave 4C) --
     if cost is None or lead is None or not lead[0]:
         return None
     found, sel = lead
@@ -1663,6 +1693,8 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]]) -> tuple[list[dic
     who = m["who"]
     whos = {e.get("who") for e in found}
     group_player = bool(groups) and _player_target(groups[0]["what"])
+    if sized is not None and '"target"' in json.dumps(sized) and not ("target" in whos and groups and group_player is False):
+        return None  # -- unless pays (wave 4C) -- "its mana value": the target object's, only when there is one
     if who == "you":
         payer = "you"
     elif who in ("its controller", "that creature's controller"):
@@ -1677,11 +1709,71 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]]) -> tuple[list[dic
         payer = "that_player"  # the player the lead is about (the trigger event's, or a target: resolve_it binds it)
     elif who in ("that player", "they") and whos == {"target"} and groups and group_player is False:
         payer = "target"  # "Counter target spell unless they pay {1}": they = the spell's controller
+    # -- unless pays (wave 4C) -- "[You] draw a card unless that player pays {1}." / "Counter it unless that player
+    # pays {3}." (a cast trigger's spell): no target, no other player in the lead — "that player" is the trigger
+    # event's player (resolve_it binds it; _event_refs_ok refuses an ability whose event names no player)
+    elif who == "that player" and not groups and whos <= {"you", "it", "event_spell"}:
+        payer = "that_player"
+    # -- end unless pays (wave 4C) --
     else:
         return None
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
-    return [{"do": "optional_payment", "who": payer, "cost": cost, "bind": bind},
-            {"do": "only_if", "cond": {"succeeded": bind, "negate": True}, "skip": len(found)}, *found], sel
+    pay: dict[str, Any] = {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind}
+    if sized is not None:  # -- unless pays (wave 4C) --
+        pay.update(sized)
+    gated = [{"do": "may_rest"}, *found] if may else found  # (wave 4C: the "you may" after the payment, 118.12a)
+    return [pay, {"do": "only_if", "cond": {"succeeded": bind, "negate": True}, "skip": len(gated)}, *gated], sel
+
+
+# -- unless pays (wave 4C) --
+_THEY_DO = re.compile(r"^if (?:they|that player) (?P<v>do|does|don't|doesn't), (?P<rest>.+)$")
+_ALT_COST = re.compile(r"^if (?P<c>[^,]+), counter (?:that spell|it) unless its controller pays (?P<cost>(?:\{[^}X]+\})+) instead$")
+
+
+def _unless_rider(text: str, effects: list[dict[str, Any]], prev_start: int) -> bool | str | None:
+    """A sentence about the "… unless [a player] pays …" just before it: "If that spell is countered
+    this way, exile it instead of putting it into its owner's graveyard." (608.2c: it modifies the
+    counter — True, handled) or "If they do, …" / "If they don't, …" (118.12: whether that player
+    chose to pay — the text to read as the payment's "If you do, …"). None: not such a sentence;
+    False: such a sentence after something else (manual)."""
+    from app.rules import unless_pays
+
+    exile = unless_pays.countered_this_way(text)
+    they = _THEY_DO.match(text)
+    alt = _ALT_COST.match(text)
+    if not exile and they is None and alt is None:
+        return None
+    prev = effects[prev_start:]
+    if len(prev) == 1 and prev[0]["do"] == "counter_unless" and str(prev[0].get("who")).startswith("target"):
+        # "Counter target spell unless its controller pays {3}." read as the payment it is (118.12a), so the
+        # rider has a payment to read and a counter to modify
+        bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
+        who = prev[0]["who"]
+        effects[prev_start:] = prev = [{"do": "optional_payment", "who": who, "cost": prev[0]["cost"], "bind": bind},
+                                       {"do": "only_if", "cond": {"succeeded": bind, "negate": True}, "skip": 1},
+                                       {"do": "counter", "who": who}]
+    if len(prev) < 3 or prev[0]["do"] != "optional_payment" or prev[0].get("who") == "you" or prev[1]["do"] != "only_if" \
+            or prev[1]["cond"] != {"succeeded": prev[0]["bind"], "negate": True} or prev[1]["skip"] != len(prev) - 2:
+        return False
+    if exile or alt is not None:
+        if len(prev) != 3 or prev[2]["do"] != "counter" or prev[2].get("who") != prev[0].get("who"):
+            return False
+        if alt is not None:
+            # "If you control a Bird, counter that spell unless its controller pays {4} instead." (608.2c: the
+            # condition is checked as the spell resolves, before the payment is asked for)
+            from app.rules import conditions
+
+            cond = conditions.parse(alt["c"], objects=True)
+            if cond is None or "per" in prev[0] or prev[0].get("alt"):
+                return False
+            prev[0]["alt"] = {"cond": cond, "cost": alt["cost"]}
+            return True
+        prev[2]["exile"] = True
+        return True
+    assert they is not None
+    verb = "do" if they["v"] in ("do", "does") else "don't"
+    return f"if you {verb}, {they['rest']}"
+# -- end unless pays (wave 4C) --
 
 
 def _player_target(what: str) -> bool | None:
@@ -1767,6 +1859,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # (107.3m isn't carried to triggers: X reads 0 there), so a search sized by X in one stays manual (Fblthp)
     if d is not None and d.get("kind") == "triggered" and \
             '{"x": 1}' in json.dumps([e for e in d.get("effects") or [] if e.get("do") == "search"]):
+        return None
+    # -- unless pays (wave 4C) -- likewise "unless that player pays {X}" with no X defined: only a spell's or an
+    # activated ability's X (107.3a/107.3k) sizes the payment
+    if d is not None and d.get("kind") == "triggered" and \
+            '{"x": 1}' in json.dumps([e.get("n") for e in d.get("effects") or [] if e.get("do") == "optional_payment"]):
         return None
     return d
 
@@ -2382,6 +2479,12 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if m:  # check lands, fast lands, battle lands, Battlebond lands (614.1d)
         cond = _unless_condition(m["cond"])
         return {"kind": "replacement", "replacement": "enters_tapped", "unless": cond, "effects": []} if cond else None
+    # -- conditional statics (wave 4B) -- "If you control two or more other lands, this land enters tapped." (Den of
+    # the Bugbear; 614.1d, checked as it enters, 614.12): "enters tapped unless" the condition is false
+    m = re.fullmatch(r"If (?P<cond>you control .+), ~ enters tapped\.", text)
+    if m:
+        cond = _unless_condition(m["cond"])
+        return {"kind": "replacement", "replacement": "enters_tapped", "unless": {"not": cond}, "effects": []} if cond else None
     m = SHOCK.match(text)
     if m:  # shock lands: "As ~ enters, you may pay 2 life. If you don't, it enters tapped."
         return {"kind": "replacement", "replacement": "pay_life_or_tapped", "life": int(m["n"]), "effects": []}
