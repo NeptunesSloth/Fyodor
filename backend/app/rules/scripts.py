@@ -1188,6 +1188,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:
             effects.append(paid)
             continue
+        if text.startswith("when you do, "):  # -- refused modal/conditional (wave 3R1) -- a reflexive trigger (603.12)
+            reflex = _reflexive(" ".join(texts[i:]), effects, prev_start, optional)
+            if reflex is None:
+                return None
+            effects.append(reflex)
+            break  # (the rest of the ability is the reflexive trigger's)
         text = _PICK_NEG.sub(r"if you \1, ", text)  # -- look and distribute (wave 3L) -- "If you don't put the card into your hand, …"
         if (if_do := _IF_YOU_DO.match(text)) is not None:
             bind = _last_payment(effects)
@@ -1310,7 +1316,7 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     object (the trigger's own source); "When you do" (a reflexive trigger, 603.12) isn't read."""
     from app.rules import optional_payment
 
-    if not text.startswith("you may ") or not following or not re.match(r"^If you (?:do|don't), ", following[0]):
+    if not text.startswith("you may ") or not following or not re.match(r"^(?:If you (?:do|don't)|When you do), ", following[0]):
         return None
     phrase = text[len("you may "):]
     if re.search(r"\bit\b", phrase) and it != "self":
@@ -2643,6 +2649,37 @@ def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any
     """The probe name and B's effects for "[A]. If you do[n't], [B].", or None (not read)."""
     if if_do["rest"].startswith("you may "):
         return None
+    found = _clause(if_do["rest"])
+    if found is None or not found[0]:
+        return None
+    name = _probe_previous(effects, prev_start)
+    return (name, found) if name is not None else None
+
+
+def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, optional: bool) -> dict[str, Any] | None:
+    """"[A]. When you do, [B]." (603.12): a reflexive triggered ability that triggers if A was done — a "you may
+    [cost]" payment made (118.12), or an instruction that isn't optional actually carried out (probed as it runs) —
+    and whose B (everything to the end of the ability) is put on the stack afterwards with its own targets and
+    "you may" (603.3c-d). B is read alone: a pronoun in it naming what A did ("that creature's power") isn't read."""
+    base = effects[prev_start:]
+    if len(base) == 1 and base[0]["do"] == "optional_payment" and base[0].get("bind"):
+        cond: dict[str, Any] = {"succeeded": base[0]["bind"]}
+    elif not optional and (name := _probe_previous(effects, prev_start)) is not None:
+        cond = {"succeeded": name}
+    else:
+        return None
+    body = rest[len("When you do, "):] if rest.startswith("When you do, ") else rest[len("when you do, "):]
+    parsed = parse_effects(body[:1].upper() + body[1:])
+    if parsed is None or not parsed[0]:
+        return None
+    b_effects, b_target, b_optional = parsed
+    return {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
+                                                         "optional": b_optional, **target_fields(b_target)}}
+
+
+def _probe_previous(effects: list[dict[str, Any]], prev_start: int) -> str | None:
+    """A probe on the one instruction of the sentence before ("Sacrifice ~."), named for its "If you do" / "When
+    you do" (effects._did_r1 / effects._did); None if that sentence isn't one such instruction."""
     base = effects[prev_start:]
     if len(base) == 2 and base[0]["do"] == "only_if" and not base[0].get("bind") and base[0].get("skip") == 1:
         base = base[1:]  # (a trigger's intervening "if" in that sentence: it gates A, and so B)
@@ -2650,12 +2687,9 @@ def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any
         return None
     if base[0]["do"] in ("exile", "bounce") and not isinstance(base[0].get("who"), str):
         return None
-    found = _clause(if_do["rest"])
-    if found is None or not found[0]:
-        return None
     name = f"mdid{sum(1 for e in effects if str(e.get('did') or '').startswith('mdid'))}"
     base[0]["did"] = name
-    return name, found
+    return name
 
 
 def _did_refs_ok(effects: list[dict[str, Any]]) -> bool:

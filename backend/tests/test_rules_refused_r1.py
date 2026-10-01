@@ -36,6 +36,9 @@ EXTRA = [
     card('Malakir Blood-Priest', set_code="tst", number="R117", mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Vampire Cleric', oracle_text='When this creature enters, each opponent loses X life and you gain X life, where X is the number of creatures in your party. (Your party consists of up to one each of Cleric, Rogue, Warrior, and Wizard.)', power='2', toughness='1', colors=['B'], color_identity=['B']),
     card('Hexgold Slash', set_code="tst", number="R119", mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Hexgold Slash deals 2 damage to target creature. If that creature has toxic, Hexgold Slash deals 4 damage to that creature instead.', colors=['R'], color_identity=['R']),
     card('Burn the Impure', set_code="tst", number="R120", mana_cost='{1}{R}', cmc=2.0, type_line='Instant', oracle_text="Burn the Impure deals 3 damage to target creature. If that creature has infect, Burn the Impure deals 3 damage to that creature's controller.", colors=['R'], color_identity=['R']),
+    card('Cavalier of Night', set_code="tst", number="R121", mana_cost='{2}{B}{B}{B}', cmc=5.0, type_line='Creature — Elemental Knight', oracle_text='Lifelink\nWhen this creature enters, you may sacrifice another creature. When you do, destroy target creature an opponent controls.\nWhen this creature dies, return target creature card with mana value 3 or less from your graveyard to the battlefield.', power='4', toughness='5', colors=['B'], color_identity=['B'], keywords=['Lifelink']),
+    card('Brokers Hideout', set_code="tst", number="R122", cmc=0.0, type_line='Land', oracle_text='When this land enters, sacrifice it. When you do, search your library for a basic Forest, Plains, or Island card, put it onto the battlefield tapped, then shuffle and you gain 1 life.'),
+    card("Caesar, Legion's Emperor", set_code="tst", number="R124", mana_cost='{1}{R}{W}{B}', cmc=4.0, type_line='Legendary Creature — Human Soldier', oracle_text='Whenever you attack, you may sacrifice another creature. When you do, choose two —\n• Create two 1/1 red and white Soldier creature tokens with haste that are tapped and attacking.\n• You draw a card and you lose 1 life.\n• Caesar deals damage equal to the number of creature tokens you control to target opponent.', power='4', toughness='4', colors=['B', 'R', 'W'], color_identity=['B', 'R', 'W']),
     card('Increasing Savagery', set_code="tst", number="R107", mana_cost='{2}{G}{G}', cmc=4.0, type_line='Sorcery', oracle_text='Put five +1/+1 counters on target creature. If this spell was cast from a graveyard, put ten +1/+1 counters on that creature instead.\nFlashback {5}{G}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)', colors=['G'], color_identity=['G'], keywords=['Flashback']),
 ]
 
@@ -427,4 +430,104 @@ def test_if_that_creature_has_a_keyword(cards):
     mana(s, R=2)
     cast(s, burn, targets=[infected.id])
     assert life(s, "p2") == 37
+    replay_matches(s)
+
+
+# -- reflexive triggered abilities: "When you do, …" (603.12) ------------------------------------------------
+def answer(s, pick):
+    """Answer the open decision with the option ``pick(decision)`` returns (a list of option ids)."""
+    d = s.state.rules.decision
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=pick(d))
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_reflexive_after_an_optional_cost(cards, pay):
+    """Cavalier of Night: as its trigger resolves Alice may sacrifice another creature (118.12); only if she does
+    does the reflexive ability trigger — its target is chosen as it goes on the stack afterwards (603.12, 603.3d)."""
+    s = build(cards, "Cavalier of Night")
+    fodder, bear = _creature(s, "p1", "Fodder"), _creature(s, "p2", "Bear")
+    cavalier = to_hand(s, "Cavalier of Night")
+    mana(s, B=5)
+    act(s, "p1", type="cast_spell", card_id=cavalier.id)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and {o.id for o in d.options} >= {"pay", "decline"}:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert not any(e.name == "Cavalier of Night" and e.targets for e in s.state.rules.stack.values())
+    answer(s, lambda d: ["pay" if pay else "decline"])
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is not None:
+            ids = [o.id for o in d.options]
+            answer(s, lambda d, ids=ids: [bear.id] if bear.id in ids else [fodder.id] if fodder.id in ids else ids[:max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert ("Bear" in on_field_names(s, "p2")) is not pay
+    assert ("Fodder" in on_field_names(s)) is not pay
+    replay_matches(s)
+
+
+def test_reflexive_after_a_mandatory_instruction(cards):
+    """Brokers Hideout: "sacrifice it. When you do, search …" — sacrificed, the reflexive ability finds a basic
+    Forest (tapped) and you gain 1 life."""
+    s = build(cards, "Brokers Hideout")
+    hideout = to_hand(s, "Brokers Hideout")
+    act(s, "p1", type="play_land", card_id=hideout.id)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack") and not s.state.rules.pending_triggers:
+            break
+        if d is not None:
+            answer(s, lambda d: [o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[hideout.id].zone == "p1:graveyard"
+    forests = [c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Forest"]
+    assert len(forests) == 1 and s.state.cards[forests[0]].tapped
+    assert life(s) == 41
+    replay_matches(s)
+
+
+def test_reflexive_modal_modes_are_chosen_after_the_payment(cards):
+    """Caesar, Legion's Emperor: "you may sacrifice another creature. When you do, choose two —". The modes and their
+    target are announced as the reflexive ability goes on the stack (603.3c), after the sacrifice — Alice picks the
+    draw mode and the damage mode; Caesar deals damage equal to her creature tokens (one: the attacker) to Bob."""
+    s = build(cards, "Caesar, Legion's Emperor")
+    caesar = next(c for c in s.state.cards.values() if c.name == "Caesar, Legion's Emperor")
+    act(s, "p1", type="move", card_ids=[caesar.id], to={"player": "p1", "zone": "battlefield"})
+    fodder = _creature(s, "p1", "Fodder")
+    raider = _creature(s, "p1", "Raider")
+    until_turn(s, 3)
+    hand = len(s.state.zones["p1:hand"])
+    seen: list[str] = []
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, "p1", type="declare_attackers", attackers=[{"card_id": raider.id, "target": "p2"}])
+            continue
+        if d is None:
+            if s.state.turn.phase in ("end", "cleanup") or (s.state.turn.phase == "main2" and not s.state.zones.get("stack")):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        seen.append(d.kind)
+        ids = [o.id for o in d.options]
+        if "pay" in ids:
+            assert s.state.rules.pending_triggers == [] and not any(e.modes for e in s.state.rules.stack.values())
+            answer(s, lambda d: ["pay"])
+        elif fodder.id in ids:
+            answer(s, lambda d: [fodder.id])
+        elif any("You draw a card" in o.label for o in d.options):
+            assert d.player == "p1" and d.max_choices == 2 and d.min_choices == 2
+            answer(s, lambda d: [o.id for o in d.options if "You draw" in o.label or "Caesar deals" in o.label])
+        elif "p2" in ids:
+            answer(s, lambda d: ["p2"])
+        else:
+            answer(s, lambda d: [o.id for o in d.options][: max(1, d.min_choices)])
+    assert "Fodder" not in on_field_names(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1 and life(s) == 39
+    assert life(s, "p2") == 40 - 1 - 2  # (Caesar's 1 damage, then Raider's combat damage)
     replay_matches(s)

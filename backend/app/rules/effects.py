@@ -1955,6 +1955,24 @@ def _did_r1(fn: Any, kind: str) -> Any:
 for _name, _kind in (("sacrifice", "leave"), ("sacrifice_choice", "leave"), ("remove_counters", "counters"),
                      ("discard", "discard")):
     PRIMITIVES[_name] = _did_r1(PRIMITIVES[_name], _kind)
+
+
+def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """603.12: "When you do, …" — a reflexive triggered ability: it triggers now, during the resolution, if the
+    action it waits for was taken (a payment made, 118.12; an instruction carried out); like a delayed trigger
+    (603.7) it is put on the stack the next time a player would receive priority (603.3), its controller choosing
+    its modes and targets then (603.3c-d) — not while the ability that created it was announced. Its source is that
+    ability's source; it has no trigger event of its own."""
+    from app.rules import conditions
+    from app.rules.triggers import _add  # (triggers imports this module)
+
+    if conditions.holds(plan, ctx, e["cond"]):
+        _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
+             name=str(ctx.get("name") or ""), index=7300, definition=e["ability"])
+    return True
+
+
+PRIMITIVES["reflexive"] = reflexive
 # -- end refused modal/conditional (wave 3R1) --
 
 

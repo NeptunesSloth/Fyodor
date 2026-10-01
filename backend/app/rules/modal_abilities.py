@@ -97,6 +97,8 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     from app.rules import scripts  # (scripts reads an ability here: a leaf module over it)
 
     m = _HEADER.match(ab.text)
+    if m is not None and ab.kind == "triggered" and (rm := _REFLEXIVE.match(m["prefix"])) is not None:
+        return _reflexive_definitions(ab, ch, rm["outer"], m)  # -- refused modal/conditional (wave 3R1) --
     if m is None or not _header_ok(ab, m["prefix"], m["end"], m["rest"].strip()):
         return {}
     bullets = _bullets(ch, ab.index)
@@ -166,6 +168,53 @@ def _header_ok(ab: AbilityText, prefix: str, end: str, rest: str) -> bool:
             return False
         return rest == "" if end == " —" else rest == "" or restrictions.split(rest)[0] == ""
     return False
+
+
+# -- refused modal/conditional (wave 3R1) -- "Whenever you attack, you may sacrifice another creature. When you do,
+# choose two —" (Caesar, Legion's Emperor): the modes belong to a reflexive triggered ability (603.12), announced as
+# IT is put on the stack (603.3c) — after the payment, never with the ability that created it.
+_REFLEXIVE = re.compile(r"^(?P<outer>.+?\.) When you do, $")
+_NEUTRAL_HEADER = "At the beginning of your upkeep, "  # (a trigger with no object: "it" in a mode isn't read)
+
+
+def _reflexive_definitions(ab: AbilityText, ch: Characteristics, outer: str, m: re.Match[str]) -> dict[int, Definition]:
+    from app.rules import scripts
+
+    if m["end"] != " —" or m["rest"].strip() or m["memory"]:
+        return {}
+    bullets = _bullets(ch, ab.index)
+    lo, top = _COUNTS[m["count"]]
+    n = len(bullets)
+    hi = n if top is None else min(top, n)
+    if n < 2 or lo > n or lo == 0 or (m["count"] == "one or both" and n != 2):
+        return {}
+    after = next((x for x in ch.abilities if x.index == bullets[-1].index + 1), None)
+    if after is not None and _TRAILER.match(after.text):
+        return {}
+    probe = AbilityText(index=ab.index, kind=ab.kind, cost=ab.cost, text=f"{outer} When you do, draw a card.")
+    d = scripts.define(probe, ch)
+    if d is None or d.get("kind") != "triggered" or not d["effects"] or d["effects"][-1]["do"] != "reflexive" \
+            or d["effects"][-1]["ability"]["effects"] != [{"do": "draw", "who": "you", "n": 1}] or d.get("modes"):
+        return {}
+    modes: list[Definition] = []
+    for k, bullet in enumerate(bullets):
+        text = bullet.text[2:].strip()
+        body = _MODE_LABEL.sub("", text, count=1)
+        if body.lower().startswith("if "):
+            return {}
+        one = scripts.define(AbilityText(index=ab.index, kind="triggered", cost=None, text=_NEUTRAL_HEADER + body), ch)
+        if one is None or one["kind"] != "triggered" or one.get("optional") or one.get("targets") or one.get("if") is not None \
+                or one.get("limit") or not one["effects"]:
+            return {}
+        modes.append({"text": text, "effects": scripts.rename_bindings(one["effects"], f"m{k}_"), "target": one["target"]})
+    modal = {"min": lo, "max": hi, "repeat": False, "condition": None, "memory": None, "index": ab.index, "form": "triggered"}
+    ability = {"kind": "triggered", "trigger": "reflexive", "effects": [], "target": None, "optional": False,
+               "modes": modes, "modal": modal}
+    out: dict[int, Definition] = {ab.index: {**d, "effects": [*d["effects"][:-1], {**d["effects"][-1], "ability": ability}]}}
+    for bullet in bullets:
+        out[bullet.index] = {"kind": "mode", "of": ab.index, "form": "triggered", "memory": None, "effects": []}
+    return out
+# -- end refused modal/conditional (wave 3R1) --
 
 
 def _bullets(ch: Characteristics, index: int) -> list[AbilityText]:
