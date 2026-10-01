@@ -342,6 +342,7 @@ export interface RulesHints {
   has_priority?: boolean;
   playable_lands?: string[];
   castable?: string[];
+  free_castable?: string[]; // a permission lets you cast these without paying their mana costs
   activatable?: { card_id: string; ability: number }[];
 }
 

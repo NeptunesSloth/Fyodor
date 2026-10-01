@@ -1079,7 +1079,9 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
     flash = any(g.flash for g in found)
     if free:
-        ways = [g for g in found if g.zone_ok and g.free]
+        # (wave 3C) a free permission with no zone of its own ("you may cast Dragon spells without paying")
+        # covers the zones a card can be cast from anyway
+        ways = [g for g in found if g.free and (g.zone_ok or how is not None)]
     else:
         ways = [g for g in found if g.zone_ok and not g.free]
         if how is not None:
@@ -1208,13 +1210,20 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
     faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
     for face in faces:
         ch = chars.as_cast(card, info, face)
-        if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None:
-            continue
-        grant = cast_grant(state, player, card, ch, info)
-        cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free)
-        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
-            return True
+        if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is None:
+            grant = cast_grant(state, player, card, ch, info)
+            cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free)
+            if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
+                return True
     return False
+
+
+# -- cast without paying (wave 3C) --
+def free_castable(state: GameState, player: str, card: CardInstance, info: CardInfo) -> bool:
+    """Does a permission let ``player`` cast this card without paying its mana cost right now (118.9)?"""
+    faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
+    return any(cast_problem(state, player, card, chars.as_cast(card, info, face), info=info, free=True) is None for face in faces)
+# -- end cast without paying (wave 3C) --
 
 
 def cast_spell(plan: Plan, a: A.CastSpell) -> None:
@@ -1607,18 +1616,44 @@ def _storm_trigger(plan: Plan, card: CardInstance, ch: Characteristics) -> None:
                          "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": before}]})
 
 
+# -- cast without paying (wave 3C) --
 def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpell) -> None:
-    """702.62d: cast a suspended card without paying its mana cost, during its trigger's resolution
-    (timing permissions are ignored). Only cards the engine listed in ``free_casts``."""
-    from app.rules.engine import advance  # the engine imports this module
-
+    """Cast a card the engine let its player cast without paying its mana cost, as an effect
+    resolves (CR 608.2g: the steps of 601.2a-i, timing ignored): a suspended card (702.62d),
+    cascade, rebound, madness (its cost instead), "you may cast a spell with mana value N or less
+    from your hand without paying its mana cost". Only cards the engine listed in ``free_casts``.
+    X is 0 (107.3b); kicker and other additional costs may still be paid (118.9d); modes, an
+    Aura's target and "when you cast" triggers (storm, cascade) work as for any cast."""
     r = plan.rules
-    if card.id not in r.free_casts or card.zone != zone_key(card.owner, "exile") or card.owner != plan.actor:
+    if card.id not in r.free_casts or card.zone == STACK or ch.is_land:
         raise ActionError("You can't cast that without paying its mana cost now")
+    if "Legendary" in ch.supertypes and ch.is_instant_or_sorcery and not _controls_legendary(plan.state, plan.actor, plan.info):
+        raise ActionError(f"{ch.name} needs you to control a legendary creature or planeswalker")  # 205.4e
     definition = None if plan.manual(card) else scripts.spell_definition(ch)
-    picked_targets = choose_targets(plan, a, definition, ch.name or "it")
-    if picked_targets is None:
-        return  # waiting for the target choice; the grant stays
+    aura = None if plan.manual(card) else attachments.enchant_selector(ch)
+    slots: list[list[TargetRef]] = []
+    slot_specs: list[dict[str, Any] | None] = []
+    picked: list[int] = []
+    if definition is not None and definition.get("modes"):
+        from app.rules.modal_abilities import printed_order
+
+        a.modes, a.targets = printed_order(definition, a.modes, a.targets)
+        modes = choose_modes(plan, a, definition, ch.name or "it")
+        if modes is None:
+            return
+        picked = modes
+        slot_specs = [definition["modes"][i]["target"] for i in picked]
+        found = choose_slot_targets(plan, a, slot_specs, ch.name or "it")
+        if found is None:
+            return
+        slots = found
+        picked_targets = ChosenTargets(flat=[t for slot in slots for t in slot])
+    else:
+        found_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
+        if found_targets is None:
+            return  # waiting for the target choice; the grant stays
+        picked_targets = found_targets
+    chosen = picked_targets.flat
     alt = r.alt_costs.get(card.id)
     # 118.9d / 601.2f: additional costs (kicker), increases and reductions still apply to the
     # alternative cost — {0}, or the madness cost
@@ -1634,6 +1669,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         r.alt_costs.pop(card.id, None)
     else:
         record = PaymentRecord(card=card.id, controller=plan.actor, alternative="free")
+    was_suspended = card.id in r.suspended
+    from_hand = card.zone == zone_key(plan.actor, "hand")
     r.free_casts = [c for c in r.free_casts if c != card.id]
     r.suspended = [c for c in r.suspended if c != card.id]
     if card.counters.get("time"):
@@ -1648,26 +1685,37 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     record_payment(plan, card.id, record)
     if a.targets:
         plan.do({"type": "create_arrow", "source": card.id, "targets": list(a.targets), "kind": "target"})
-    if ch.is_creature:
+    if ch.is_creature and was_suspended:
         r.suspend_haste.append(card.id)  # 702.62e: it gains haste
+    if "rebound" in ch.keywords and from_hand:
+        r.rebound_cast.append(plan.oid(card))
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
          amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)  # (the Nth spell this turn)
     if "cascade" in ch.keywords and not plan.manual(card):
         _cascade_triggers(plan, card, ch)
-    if definition is not None:
+    if "storm" in ch.keywords and not plan.manual(card):
+        _storm_trigger(plan, card, ch)
+    if definition is not None and picked:
+        effects_in_order = [e for k, i in enumerate(picked)
+                            for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]
+        r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
+                                      name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
+                                      x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=a.kicker)
+    elif definition is not None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=a.x_value,
-                                      **picked_targets.entry(definition))
+                                      **picked_targets.entry(definition), kicked=a.kicker)
+    if aura is not None and chosen:
+        r.aura_targets = {k: v for k, v in r.aura_targets.items() if plan.state.cards.get(k) is not None
+                          and plan.state.cards[k].zone == STACK}
+        r.aura_targets[card.id] = chosen[0]  # 303.4a: the Aura spell's target
+    if chosen:
+        from app.rules.triggers import targeted
+
+        targeted(plan, card.id, plan.actor, chosen)
     turn = plan.state.turn.number
     r.spells_cast[plan.actor] = TurnCount(turn=turn, count=r.spells_this_turn(plan.actor, turn) + 1)
-    r.passed = []
-    r.priority = plan.actor
-    if r.prefs_for(plan.actor).hold_priority:
-        plan.hold = plan.actor
-        return
-    r.passed.append(plan.actor)
-    r.priority = plan.after(plan.actor)
-    advance(plan)
+# -- end cast without paying (wave 3C) --
 
 
 def resume_crew(plan: Plan, d: Any, chosen: list[str]) -> None:

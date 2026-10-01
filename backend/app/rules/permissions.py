@@ -74,10 +74,25 @@ TOP_LOOK = "you may look at the top card of your library any time"
 # the ability stays manual. A bare "You may cast that card." (no duration) means "cast it now, as
 # this resolves, ignoring timing" — not a permission that lasts: refused.
 GRANT_THAT = re.compile(r"^(?:(?P<until>until end of turn|until the end of your next turn), )?you may (?P<verb>play|cast) "
-                        r"(?P<what>that card|those cards|it)(?P<this_turn> this turn)?$")
+                        r"(?P<what>that card|those cards|it)(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?$")
 # "Until end of turn, you may play lands and cast spells from your graveyard." (Yawgmoth's Will)
 GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>play lands and cast spells|play lands|cast spells)"
                         r" from your graveyard(?P<this_turn> this turn)?$")
+# -- cast without paying (wave 3C) --
+# "You may cast a spell with mana value 5 or less from your hand without paying its mana cost." (cast now,
+# as this resolves: 608.2g) / "You may cast an instant or sorcery spell from your hand with mana value X
+# or less without paying its mana cost."
+FREE_HAND = re.compile(r"^(?:you may )?cast (?:a|an) (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?(?:spell|card)(?P<h1> from your hand)?"
+                       r"(?: with mana value (?:(?P<n>\d+|X) or less|less than or equal to (?P<x2>X)))?(?P<h2> from your hand)?"
+                       r" without paying its mana cost$")
+# "You may cast spells from your hand without paying their mana costs." (Omniscience) / "You may cast
+# Dragon spells without paying their mana costs."
+STATIC_FREE = re.compile(r"^you may cast (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<hand> from your hand)? without paying their mana costs$")
+# "If you control a commander, you may cast this spell without paying its mana cost." (Fierce Guardianship)
+SELF_FREE = re.compile(r"^if you control a commander, you may cast (?:this spell|~) without paying its mana cost$")
+# -- end cast without paying (wave 3C) --
+
+
 def _lower_first(s: str) -> str:
     return s[:1].lower() + s[1:] if s[:1].isupper() else s
 
@@ -135,8 +150,20 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         if cond is None or "succeeded" in cond:
             return None
         return {"kind": "static", "static": "self_cost", "n": int(m["n"]), "cond": cond, "effects": []}
+    # -- cast without paying (wave 3C) --
+    if SELF_FREE.fullmatch(t):
+        return {"kind": "static", "static": "permission", "zone": "hand", "once": False, "flash": False, "self": True, "free": True,
+                "cond": "commander", "play": False, "cast": True, "filter": None, "effects": []}
     if kind != "static":
         return None
+    m = STATIC_FREE.fullmatch(t)
+    if m:
+        key = spell_filter(m["sel"]) if m["sel"] else None
+        if m["sel"] and key is None:
+            return None
+        return {"kind": "static", "static": "permission", "zone": "hand" if m["hand"] else "any", "once": False, "flash": False,
+                "self": False, "free": True, "play": False, "cast": True, "filter": key, "effects": []}
+    # -- end cast without paying (wave 3C) --
     m = STATIC_COST.fullmatch(t)
     if m:
         key = spell_filter(m["sel"]) if m["sel"] else None
@@ -178,15 +205,29 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
 def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """An effect sentence of the permission grammar (see ``scripts._one_clause``), or None.
     ("Exile the top card of your library" itself is the library grammar's: app/rules/language.py.)"""
+    m = FREE_HAND.fullmatch(text)  # -- cast without paying (wave 3C) --
+    if m:
+        if bool(m["h1"]) == bool(m["h2"]):
+            return None
+        key = spell_filter(m["sel"]) if m["sel"] else None
+        if m["sel"] and key is None:
+            return None
+        return [{"do": "free_cast", "zone": "hand", "filter": key, "optional": True, "mv": "x" if (m["n"] or m["x2"]) == "X" else
+                 int(m["n"]) if m["n"] else None}], None
     m = GRANT_THAT.fullmatch(text)
+    if m and m["free"] and not (m["until"] or m["this_turn"]):
+        if m["verb"] != "cast" or m["what"] == "those cards":
+            return None  # (several cards at once, or playing a land as this resolves: not modelled)
+        return [{"do": "free_cast", "zone": "that", "who": "it:card", "filter": None, "mv": None, "optional": True}], None
     if m:
         if (m["until"] and m["this_turn"]) or not (m["until"] or m["this_turn"]):
             return None  # (a bare "you may cast that card": cast it as this resolves, not modelled)
+        free = bool(m["free"])  # (wave 3C) "... without paying its mana cost" (118.9)
         until = "end_of_next_turn" if m["until"] == "until the end of your next turn" else "end_of_turn"
         # "who": a pronoun for scripts.resolve_it — the object(s) the preceding instruction moved
         # ("that card": a card — never a token the same sentence created, 111.1: scripts.resolve_it)
         return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play",
-                 "cast": True, "until": until, "optional": True}], None
+                 "cast": True, "until": until, "optional": True, **({"free": True} if free else {})}], None
     m = GRANT_ZONE.fullmatch(text)
     if m:
         if m["until"] and m["this_turn"]:
@@ -297,6 +338,11 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 if d["once"] and r.once_per_turn.get(key) == turn:
                     continue
                 out.append(Grant("permission", f"{ch.name}: cast it from your graveyard", once_key=key if d["once"] else None))
+    if verb == "cast" and where == "hand":  # -- cast without paying (wave 3C) -- the card's own "cast this spell without paying"
+        for d in _definitions(ch).values():
+            if d.get("static") == "permission" and d.get("self") and d.get("free") and d["zone"] == "hand" \
+                    and (d.get("cond") != "commander" or _controls_commander(state, player)):
+                out.append(Grant("permission", f"{ch.name}: cast it without paying its mana cost", free=True))
     for src, index, d in _table_statics(state, info, {"permission"}):
         if src.controller != player or d.get("self") or not d[verb]:
             continue
@@ -307,9 +353,15 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         key = f"{src.id}:permission:{index}"
         if d["once"] and (r.once_per_turn.get(key) == turn or state.turn.active_player != player):
             continue  # "once during each of your turns"
-        out.append(Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"],
+        out.append(Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")),
                          once_key=key if d["once"] else None))
     return out
+
+
+def _controls_commander(state: GameState, player: str) -> bool:
+    """"If you control a commander": a commander (of any player) on the battlefield under your control."""
+    return any(c.commander_key is not None and c.controller == player and c.zone.endswith(":battlefield")
+               for c in state.cards.values())
 
 
 def _definitions(ch: Characteristics) -> dict[int, Definition]:
@@ -428,8 +480,8 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         for cid in context.objects(plan, ctx, e["who"][len(context.PREFIX):]):
             card = plan.state.cards[cid]
             r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone="any",
-                                            object_id=plan.oid(card), card=cid, until=e["until"], turn=turn,
-                                            source=ctx.get("source_object"), label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}"))
+                                            object_id=plan.oid(card), card=cid, until=e["until"], turn=turn, free=bool(e.get("free")),
+                                            source=ctx.get("source_object"), label=f"{ctx.get('name') or 'An effect'}: {verb} it {when}" + (" without paying its mana cost" if e.get("free") else "")))
             plan.note(f"{plan.name(pid)} may {verb} {card.name} {when}", [cid])
         return True
     r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone=e["zone"],
@@ -487,3 +539,57 @@ def refresh_reveals(state: GameState, info: CardInfo) -> None:
                 found.append(TopReveal(source=card.id, player=card.controller, to=d["to"]))
     if found != r.top_reveals:
         r.top_reveals = found
+
+
+# -- cast without paying (wave 3C) --
+def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"You may cast a spell with mana value N or less from your hand without paying its mana cost" /
+    "you may cast that card without paying its mana cost": as this resolves (608.2g) its controller
+    picks one eligible card (or none); the engine then lets them cast it for {0} (118.9: X is 0,
+    107.3b; kicker and other additional costs may still be paid, 118.9d). Nothing is kept: a card
+    not cast now can't be cast this way later."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import characteristics as chars
+    from app.rules import context, values
+    from app.rules.effects import decide
+
+    pid = ctx["controller"]
+    if e["zone"] == "hand":
+        pool = list(plan.state.zones.get(zone_key(pid, "hand"), []))
+    else:
+        who = str(e.get("who") or "")
+        pool = context.objects(plan, ctx, who[len(context.PREFIX):]) if who.startswith(context.PREFIX) else []
+    limit = None
+    if e.get("mv") is not None:
+        limit = values.evaluate(plan, ctx, {"x": 1}) if e["mv"] == "x" else int(e["mv"])
+    options = []
+    for cid in pool:
+        card = plan.state.cards[cid]
+        ch = chars.of(card, plan.info)
+        if not ch.types or ch.is_land or plan.rules.card_mode(cid) == "manual":
+            continue
+        if limit is not None and ch.mana_value > limit:
+            continue
+        if e.get("filter") and not spell_matches(plan.state, pid, card, ch, e["filter"], plan.info):
+            continue
+        options.append(DecisionOption(id=cid, label=card.name or "Card", card_id=cid))
+    if not options:
+        plan.note(f"{plan.name(pid)} has nothing to cast without paying its mana cost")
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt="Choose a spell to cast without paying its mana cost (or none)",
+           options=options, min_choices=0, max_choices=1, resume={"step": "free_cast_pick", "ctx": ctx})
+    return False
+
+
+def resume_free_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from types import SimpleNamespace
+
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if not chosen:
+        effects.continue_effects(plan, ctx)
+        return
+    plan.rules.free_casts.append(chosen[0])
+    effects.resume_suspend_cast(plan, SimpleNamespace(resume={"ctx": ctx, "card": chosen[0]}, player=d.player), ["yes"])
+# -- end cast without paying (wave 3C) --

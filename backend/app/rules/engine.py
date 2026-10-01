@@ -990,6 +990,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "add_mana": effects.resume_add_mana,  # (mana effects, wave 3M)
     "shock": lambda plan, d, chosen: _resume_shock(plan, d, chosen),
     "suspend_cast": effects.resume_suspend_cast,
+    "free_cast_pick": permissions.resume_free_cast,  # (wave 3C)
     "order_triggers": triggers.resume_order,
     "trigger_target": triggers.resume_target,
     "trigger_confirm": triggers.resume_confirm,
