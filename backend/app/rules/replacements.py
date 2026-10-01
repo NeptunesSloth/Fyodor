@@ -138,7 +138,8 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
     if orders:
         out.setdefault("choices", {}).update(orders)
     if "choice" not in out:
-        order = _entering_order_choice(plan, card, controller, x=x, extra=extra, answers=orders)
+        order = _entering_order_choice(plan, card, controller, x=x, extra=extra, answers=orders,
+                                       choices=answers)  # (wave 3S: the read-ahead number chosen first)
         if order is not None:
             out["choice"] = order
     return out
@@ -174,7 +175,7 @@ def others_enter_tapped(plan: Plan, card: CardInstance, controller: str) -> bool
 
 
 def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, *, x: int | None = None,
-                      extra: dict[str, int] | None = None) -> dict[str, int]:
+                      extra: dict[str, int] | None = None, choices: dict[str, str] | None = None) -> dict[str, int]:
     """The counters a permanent enters with (122.6): its "enters with" counters (614.1c; the X its
     spell was cast with, 107.3), a planeswalker's loyalty (306.5b), bloodthirst (702.54) and what
     the effect putting it there adds (persist / undying)."""
@@ -199,11 +200,18 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                 n = _counter_amount(plan, card.id, controller, d, x)
                 if n > 0:
                     counters[d["counter"]] = counters.get(d["counter"], 0) + n
+        # -- sagas & attached-object triggers (wave 3S): a Saga's lore counters (714.3a; read ahead 714.3b) --
+        from app.rules import sagas
+
+        lore = sagas.entering_lore(ch, choices)
+        if lore:
+            counters[sagas.LORE] = counters.get(sagas.LORE, 0) + lore
     return counters
 
 
 def _entering_order_choice(plan: Plan, card: CardInstance, controller: str, *, x: int | None,
-                           extra: dict[str, int] | None, answers: dict[str, str]) -> dict[str, Any] | None:
+                           extra: dict[str, int] | None, answers: dict[str, str],
+                           choices: dict[str, str] | None = None) -> dict[str, Any] | None:
     """616.1 / 614.12a: when replacement effects would modify the counters a permanent enters with
     and their order matters, its controller chooses before it enters."""
     from app.rules import replace
@@ -211,7 +219,7 @@ def _entering_order_choice(plan: Plan, card: CardInstance, controller: str, *, x
     if x is None and card.zone == "stack" and card.stack_info is not None:
         x = card.stack_info.x
     probe = card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})
-    counters = entering_counters(plan, card, controller, plan.ch(probe), x=x, extra=extra)
+    counters = entering_counters(plan, card, controller, plan.ch(probe), x=x, extra=extra, choices=choices)
     if not counters:
         return None
     puts = [(card.id, kind, n) for kind, n in counters.items()]
@@ -406,7 +414,7 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
             plan.do({"type": "set_choice", "card_id": card_id, "key": CHOICE_LABELS[what], "value": shown}, actor=controller)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with, through the counter
     # choke point (122.6, 614.16), in the order its controller chose before it entered (614.12a) --
-    counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters)
+    counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices)
     puts = [(card_id, kind, n) for kind, n in counters.items() if n > 0]
     if puts:
         from app.rules import replace

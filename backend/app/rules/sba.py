@@ -122,6 +122,11 @@ def find(plan: Plan) -> Found:
         if "Battle" in ch.types and "Siege" not in ch.subtypes and card.counters.get("defense", 0) <= 0:
             out.dying.append((card, "no defense"))  # 704.5w (Siege battles, 704.5v, wait for triggers: M16)
         _attachment(plan, card, ch, out)
+        if "Saga" in ch.subtypes:  # -- sagas & attached-object triggers (wave 3S): 714.4 --
+            from app.rules import sagas
+
+            if sagas.must_sacrifice(plan, card, ch):
+                out.dying.append((card, sagas.SACRIFICE_REASON))
     return out
 
 
@@ -196,6 +201,10 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         for card, reason in found.dying:
             plan.note(f"State-based action: {reason} →", [card.id])
         dead = [card.id for card, _ in found.dying]
+        # -- sagas & attached-object triggers (wave 3S): 714.4 sacrifices (701.21a) --
+        from app.rules import sagas, triggers
+
+        triggers.sacrificing(plan, [card.id for card, why in found.dying if why == sagas.SACRIFICE_REASON])
         plan.do({"type": "move", "card_ids": dead, "to": {"zone": "graveyard"}}, actor=found.dying[0][0].controller)
         r.deathtouched = [c for c in r.deathtouched if c not in dead]
         happened = True

@@ -32,8 +32,12 @@
   step's start, or from the event log: ``delayed.at_step`` / ``delayed.on_events``) and take the
   same APNAP road onto the stack.
 
-Not yet: reflexive triggers (603.12); "dies" of what
-an Aura or Equipment was attached to (needs the attachment as it was, 603.10a); copies of spells
+* **What was attached (603.10a, 400.7f):** "When enchanted creature dies" / "Whenever equipped
+  creature leaves the battlefield" look back in time: the object's last known information lists the
+  permanents attached to it (ObjectSnapshot.attached); "return this card" finds the Aura's new object
+  in its owner's graveyard (400.7f). Chapter abilities of Sagas: app/rules/sagas.py.
+
+Not yet: reflexive triggers (603.12); copies of spells
 (707.10) as "cast or copy"; state triggers (603.8).
 """
 
@@ -191,6 +195,10 @@ def collect(plan: Plan) -> None:
     r.trigger_batch = max(e.batch for e in new)
     _generic_events(plan, new)
     delayed.on_events(plan, new)  # "when that creature dies this turn" (603.7; app/rules/delayed.py)
+    # -- sagas & attached-object triggers (wave 3S): chapter abilities (714.2b) --
+    from app.rules import sagas
+
+    sagas.lore_triggers(plan, new)
     for e in new:
         if e.kind == "spell_cast" and not e.manual:
             _cast_triggers(plan, e.card or "", e.player or "")
@@ -249,7 +257,8 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
     ch = _lki_characteristics(plan, snap)
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, is_token=snap.is_token,
-                        attached_to=snap.attached_to)
+                        attached_to=snap.attached_to,
+                        counters=dict(snap.counters))  # (wave 3S: "each page counter on this Aura", 608.2h)
     return card, ch
 
 
@@ -434,6 +443,10 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     if obj is None or och is None:
         return False
     if subject == "host":  # "enchanted creature" / "equipped creature": what the source is attached to
+        if event in ("die", "leave"):  # -- sagas & attached-object triggers (wave 3S) --
+            # 603.10a: looks back in time — what was attached to it as it last existed on the battlefield
+            snap = info.get("snap")
+            return snap is not None and watcher.id in snap.attached
         return watcher.attached_to is not None and obj.id == watcher.attached_to
     if subject == "self_or_host":  # "~ or equipped creature"
         return obj.id == watcher.id or (watcher.attached_to is not None and obj.id == watcher.attached_to)
@@ -613,7 +626,7 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
 
 
 def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
-                  watchers: list[tuple[Watcher, int, int]] | None = None) -> None:
+                  watchers: list[tuple[Watcher, int, int]] | None = None, left: dict[int, str] | None = None) -> None:
     """Each watcher (with the batches it was on the battlefield for: it sees events from when it
     entered, 603.6a, until it left, 603.10a) against each fact of one event. What the ability
     triggered on is captured now, as a TriggerEvent it carries to resolution (603.2, 608.2k)."""
@@ -646,7 +659,11 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                     pending.event.amount += event.amount
                     pending.event.count += 1
                     continue
-            added = _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher),
+            # -- sagas & attached-object triggers (wave 3S): a watcher that has left since is the object it
+            # was (603.10a: "this Aura" reads its last known information, 608.2h), not the card's new object
+            source_object = (left or {}).get(id(watcher)) or plan.oid(watcher)
+            d = _aura_card_bound(plan, d, (left or {}).get(id(watcher)))
+            added = _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=source_object,
                          name=ch.name, index=i, definition=d, event=event)
             if (cond.get("aggregate") or one_event) and added is not None:
                 fired[(watcher.id, i, batch, per)] = added
@@ -665,6 +682,7 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
     big = 1 << 60
     entered: dict[str, int] = {}
     watchers: list[tuple[Watcher, int, int]] = []
+    left: dict[int, str] = {}  # (a watcher that left: the object it was, wave 3S)
     window: dict[str, Any] = {"cast_from": {}}
     for e in events:
         if e.kind == "cycled" and not e.manual and e.card in plan.state.cards:
@@ -685,6 +703,7 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             if snap is None or snap.controller not in plan.live() or plan.rules.card_mode(snap.card) == "manual":
                 continue
             card, ch = _snapshot_card(plan, snap)
+            left[id(card)] = snap.object_id
             watchers += [((card, ch, i, d), entered.get(snap.object_id, -big), e.batch)
                          for i, d in abilities(plan, ch, "event") if d.get("cond")]
     watchers += [(w, entered.get(plan.oid(w[0]), -big), big) for w in _event_watchers(plan)]
@@ -695,7 +714,7 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             r.draws_this_turn[e.player] = r.draws_this_turn.get(e.player, 0) + 1
         facts = _facts(plan, e, window)
         if facts:
-            _fire_generic(plan, facts, e.batch, fired, watchers)
+            _fire_generic(plan, facts, e.batch, fired, watchers, left)
 
 
 def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
@@ -870,7 +889,37 @@ def at_step_generic(plan: Plan) -> None:
                 continue
             if _whose_step(plan, card, d["trigger"][len(prefix):], ap):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
-                     index=i, definition=d)
+                     index=i, definition=d, event=_step_event(plan, card, d))
+
+
+# -- sagas & attached-object triggers (wave 3S) --
+def _aura_card_bound(plan: Plan, d: dict[str, Any], gone: str | None) -> dict[str, Any]:
+    """400.7f: "return this card" in a trigger on the enchanted permanent leaving names the new object
+    the Aura became in its owner's graveyard — bound now, as it triggers (the Aura is put there with
+    the enchanted permanent, or by the state-based action just before, 704.5m), never found later."""
+    if scripts.AURA_CARD not in str(d.get("effects")):
+        return d
+    new = None
+    if gone is not None:  # (an Aura still on the battlefield: there is no such object)
+        new = next((e.new_object_id for e in plan.rules.events if e.kind == "zone_change" and e.object_id == gone
+                    and _zone(e.from_zone) == "battlefield" and _zone(e.to_zone) == "graveyard"), None)
+    who = f"{scripts.AURA_CARD}:{new or '-'}"
+    return {**d, "effects": [{**e, "who": who} if e.get("who") == scripts.AURA_CARD else e for e in d["effects"]]}
+
+
+def _step_event(plan: Plan, card: CardInstance, d: dict[str, Any]) -> TriggerEvent | None:
+    """"At the beginning of enchanted player's upkeep / the upkeep of enchanted creature's
+    controller, that player … that creature": the player whose step it is, and the enchanted
+    creature as the step began (it, while it's still that object: 400.7)."""
+    if not scripts.step_names_player(d):
+        return None
+    objects = []
+    if str(d["trigger"]).endswith(":host_controller"):
+        host = plan.state.cards.get(card.attached_to or "")
+        if host is not None:
+            objects = [ObjectRef(card=host.id, object_id=plan.oid(host), zone=host.zone)]
+    return TriggerEvent(kind="step", players=[plan.active], objects=objects, count=1)
+# -- end sagas & attached-object triggers (wave 3S) --
 
 
 def _whose_step(plan: Plan, card: CardInstance, whose: str, ap: str) -> bool:

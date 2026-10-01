@@ -244,6 +244,9 @@ class ObjectSnapshot(BaseModel):
     attacking: bool = False
     blocking: bool = False
     attached_to: str | None = None
+    # -- sagas & attached-object triggers (wave 3S) -- the permanents (card ids) attached to it as it
+    # last existed: "When enchanted creature dies" looks back in time (603.10a)
+    attached: list[str] = Field(default_factory=list)
     text: str = ""  # a custom token's rules text (it has no printing to look up)
     # -- quoted grants (wave 2D) --
     # Its abilities and keywords as they last existed (603.10a: leaves-the-battlefield abilities look
@@ -946,6 +949,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
         if snap is not None:
             rules.lki[old_oid] = snap.model_copy(update={"turn": state.turn.number})
             rules.lki[old_oid].copy_recipe = copy_recipe_of(rules, old_oid)  # -- copy system (wave 2F) --
+            # -- sagas & attached-object triggers (wave 3S): what was attached to it (603.10a) --
+            rules.lki[old_oid].attached = [c for c, s in before.snaps.items() if s.attached_to == card_id]
         new_oid = None
         rules.restamped.pop(card_id, None)  # a new object gets its own timestamp as it enters (613.7d)
         if card is not None:

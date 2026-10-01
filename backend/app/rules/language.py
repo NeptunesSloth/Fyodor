@@ -447,6 +447,8 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     sel_text = m["sel"]
     named = _NAMED.fullmatch(sel_text)
     if named:
+        if re.search(r" or an? ", named["name"]):  # -- wave 3S: "a card named X or an Equipment card" (alternatives): not read --
+            raise _Fail
         extra["name"] = named["name"]
         sel_text = named["rest"]
     mv = _MV_X.fullmatch(sel_text)

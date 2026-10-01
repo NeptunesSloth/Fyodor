@@ -115,6 +115,8 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         if src is not None and src.zone.endswith(":graveyard") and plan.oid(src) == ctx.get("source_object"):
             return [src.id]
         return []
+    if who.startswith("self_aura_gy"):  # -- sagas & attached-object triggers (wave 3S) --
+        return _aura_card(plan, ctx, who)
     if who == "host":  # "enchanted creature" / "equipped creature": what the source is attached to now
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
@@ -142,6 +144,20 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c)
                 and plan.ch(c).is_creature]
     return []
+
+
+# -- sagas & attached-object triggers (wave 3S) --
+def _aura_card(plan: Plan, ctx: Context, who: str) -> list[str]:
+    """400.7f: an ability that triggered on the enchanted permanent leaving the battlefield finds the
+    new object its Aura became in its owner's graveyard — put there at the same time, or afterwards
+    by the state-based action for not being attached (704.5m) — while it is still that object (bound
+    as it triggered: "self_aura_gy:<object id>", app/rules/triggers.py)."""
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    oid = who.split(":", 1)[1] if ":" in who else None
+    if src is None or not oid or src.zone != f"{src.owner}:graveyard" or plan.oid(src) != oid:
+        return []
+    return [src.id]
+# -- end sagas & attached-object triggers (wave 3S) --
 
 
 # -- within-resolution references (app/rules/context.py) ---------------------------------------
@@ -2189,6 +2205,12 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
     if what in ("opponent", "player"):
         pids = [p for p in plan.live() if what == "player" or p != ctx["controller"]]
         return [DecisionOption(id=p, label=plan.name(p)) for p in pids]
+    # -- sagas & attached-object triggers (wave 3S): read ahead's number (702.155b) --
+    from app.rules import sagas
+
+    chapters = sagas.choice_options(what)
+    if chapters is not None:
+        return [DecisionOption(id=v, label=label) for v, label in chapters]
     return [DecisionOption(id=v, label=v) for v in CHOICE_OPTIONS[what]]
 
 
