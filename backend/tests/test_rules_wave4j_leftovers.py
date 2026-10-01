@@ -84,6 +84,12 @@ EXTRA = [
          color_identity=["G"], keywords=["Domain"]),
     card("Reliquary Tower", set_code="tst", number="J416", type_line="Land",
          oracle_text="You have no maximum hand size.\n{T}: Add {C}."),
+    card("Bojuka Bog", set_code="tst", number="J417", type_line="Land",
+         oracle_text="This land enters tapped.\nWhen this land enters, exile target player's graveyard.\n{T}: Add {B}.",
+         color_identity=["B"]),
+    card("Farewell", set_code="tst", number="J418", mana_cost="{4}{W}{W}", cmc=6.0, type_line="Sorcery",
+         oracle_text="Choose one or more —\n• Exile all artifacts.\n• Exile all creatures.\n• Exile all enchantments.\n"
+                     "• Exile all graveyards.", colors=["W"], color_identity=["W"]),
 ]
 
 
@@ -604,3 +610,43 @@ def test_no_maximum_hand_size(cards):
         assert len(s.state.zones["p1:hand"]) == (9 if with_tower else 7)
         assert any("maximum hand size" in (p or "") for p in prompts) is not with_tower
         replay_matches(s)
+
+
+# -- exiling graveyards (404.1, 406.1) ---------------------------------------------------------------------------
+def test_bojuka_bog_exiles_the_target_players_graveyard(cards):
+    """Bojuka Bog targeting Bob: every card in Bob's graveyard is exiled at once; Alice's stays."""
+    s = build(cards, "Bojuka Bog", p2=("Grizzly Bears", "Llanowar Elves"))
+    for name in ("Grizzly Bears", "Llanowar Elves"):
+        act(s, "p2", type="move", card_ids=[named(s, name, "p2").id], to={"zone": "graveyard"})
+    mine = s.state.zones["p1:library"][-1]
+    act(s, "p1", type="move", card_ids=[mine], to={"zone": "graveyard"})
+    bog = to_hand(s, "Bojuka Bog")
+    act(s, "p1", type="play_land", card_id=bog.id)
+    drive(s, choose_bob)
+    assert s.state.zones.get("p2:graveyard", []) == []
+    assert {s.state.cards[c].name for c in s.state.zones["p2:exile"]} >= {"Grizzly Bears", "Llanowar Elves"}
+    assert s.state.zones["p1:graveyard"] == [mine]
+    assert s.state.cards[bog.id].tapped
+    replay_matches(s)
+    roundtrip(s)
+
+
+def test_farewell_exiles_all_graveyards(cards):
+    """Farewell choosing only "Exile all graveyards": both graveyards are exiled; creatures stay."""
+    s = build(cards, "Farewell", "Grizzly Bears", p2=("Llanowar Elves",))
+    act(s, "p1", type="move", card_ids=[named(s, "Grizzly Bears").id], to={"zone": "graveyard"})
+    act(s, "p2", type="move", card_ids=[named(s, "Llanowar Elves", "p2").id], to={"zone": "graveyard"})
+    bear = creature(s, "p1", "Beary")
+    farewell = to_hand(s, "Farewell")
+    mana(s, W=6)
+    act(s, "p1", type="cast_spell", card_id=farewell.id)
+
+    def pick(d):
+        graveyards = [o.id for o in d.options if "graveyards" in (o.label or "")]
+        return graveyards or [o.id for o in d.options][: max(1, d.min_choices)]
+
+    drive(s, pick)
+    assert s.state.zones["p1:graveyard"] == [farewell.id]  # (the spell itself goes there after it resolves)
+    assert named(s, "Grizzly Bears").zone == "p1:exile" and named(s, "Llanowar Elves", "p2").zone == "p2:exile"
+    assert s.state.cards[bear.id].zone == "p1:battlefield"
+    replay_matches(s)
