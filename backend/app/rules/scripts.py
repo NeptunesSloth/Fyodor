@@ -2370,6 +2370,12 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if m:  # check lands, fast lands, battle lands, Battlebond lands (614.1d)
         cond = _unless_condition(m["cond"])
         return {"kind": "replacement", "replacement": "enters_tapped", "unless": cond, "effects": []} if cond else None
+    # -- conditional statics (wave 4B) -- "If you control two or more other lands, this land enters tapped." (Den of
+    # the Bugbear; 614.1d, checked as it enters, 614.12): "enters tapped unless" the condition is false
+    m = re.fullmatch(r"If (?P<cond>you control .+), ~ enters tapped\.", text)
+    if m:
+        cond = _unless_condition(m["cond"])
+        return {"kind": "replacement", "replacement": "enters_tapped", "unless": {"not": cond}, "effects": []} if cond else None
     m = SHOCK.match(text)
     if m:  # shock lands: "As ~ enters, you may pay 2 life. If you don't, it enters tapped."
         return {"kind": "replacement", "replacement": "pay_life_or_tapped", "life": int(m["n"]), "effects": []}
