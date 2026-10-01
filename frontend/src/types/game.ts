@@ -343,6 +343,7 @@ export interface RulesHints {
   playable_lands?: string[];
   castable?: string[];
   free_castable?: string[]; // a permission lets you cast these without paying their mana costs
+  alt_castable?: Record<string, { id: string; label: string }[]>; // alternative costs (118.9): card id → costs it can be cast for now
   activatable?: { card_id: string; ability: number }[];
 }
 

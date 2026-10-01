@@ -311,7 +311,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return {"kind": "static", "static": "additional_cost", "cost": extra, "effects": []} if ok else None
     # -- cost changers (wave 4I) -- "This spell costs {X} less to cast, where X is …" / "… for each …" / "… if …" / "{G} less"
     # (app/rules/cost_changes.py: read as the total cost is determined, 601.2f)
-    if cost_changes.SELF_SENTENCE.fullmatch(t):
+    if cost_changes.is_self(t):
         change = cost_changes.self_change(t)
         return {"kind": "static", "static": "self_cost", "change": change, "effects": []} if change else None
     if " rather than pay " in t:  # alternative costs (118.9): app/rules/alt_costs.py
@@ -656,7 +656,8 @@ def _add(a: M.ManaCost, b: M.ManaCost) -> M.ManaCost:
                       a.x, a.unsupported + b.unsupported)
 
 
-def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[CostModifier]:
+def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo,
+              targets: tuple[str, ...] = ()) -> list[CostModifier]:
     """The cost modifiers that apply to ``player`` casting this spell: static abilities on the
     table ("Creature spells you cast cost {1} less to cast", "Spells your opponents cast cost {2}
     more to cast") and stored ones with a duration."""
@@ -666,7 +667,7 @@ def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteris
     found: list[CostModifier] = []
     for src, index, d in _table_statics(state, info, {"cost_modifier"}):
         # -- cost changers (wave 4I) -- per count, with a turn, of the chosen type, from a zone, colored (cost_changes.py)
-        delta = cost_changes.static_delta(state, info, src, d, player, card, ch)
+        delta = cost_changes.static_delta(state, info, src, d, player, card, ch, targets)
         if delta is None:
             continue
         found.append(CostModifier(id=f"{src.id}:{index}", controller=src.controller, delta=delta, caster=d["caster"],
@@ -711,7 +712,8 @@ def self_reduction(state: GameState, player: str, card: CardInstance, ch: Charac
 
 
 def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None, *,
-               base: M.ManaCost, additional: tuple[M.ManaCost, ...] = (), tax: int = 0, affinity: int = 0) -> M.ManaCost:
+               base: M.ManaCost, additional: tuple[M.ManaCost, ...] = (), tax: int = 0, affinity: int = 0,
+               targets: tuple[str, ...] = ()) -> M.ManaCost:
     """601.2f: the mana cost or alternative cost (``base``), plus additional costs (kicker,
     buyback: 118.8) and cost increases (commander tax, "cost {N} more"), minus cost reductions
     (affinity, "cost {N} less", the spell's own). Reductions affect only the generic component
@@ -723,7 +725,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
     reduction = affinity
     changes = cost_changes.Changes()  # -- cost changers (wave 4I) -- colored increases / reductions (118.7b/c)
     if info is not None:
-        for m in modifiers(state, player, card, ch, info):
+        for m in modifiers(state, player, card, ch, info, targets):  # (targets: wave 4I, "spells that target …")
             if m.mana:
                 changes.add(m.delta, m.mana)
             elif m.delta > 0:

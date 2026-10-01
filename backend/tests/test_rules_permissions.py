@@ -474,7 +474,7 @@ def test_cost_modifier_wordings(text, expected):
     "Once during each of your turns, you may cast an instant or sorcery spell from your graveyard. If a spell cast this way would be put into your graveyard, exile it instead.",
     # (wave 4I: "from anywhere other than your hand" and "for each creature in your party" are read now: cost_changes.py)
     "During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard.",
-    "The first creature spell you cast each turn costs {1} less to cast.",
+    # (wave 4I: "The first creature spell you cast each turn costs {1} less" is read now: cost_changes.ORDINAL)
     "Spells your opponents cast that target this creature cost {1} more to cast.",
     "This spell costs {1} less to cast if it targets a tapped creature.",
     "Equip abilities you activate cost {1} less to activate.",

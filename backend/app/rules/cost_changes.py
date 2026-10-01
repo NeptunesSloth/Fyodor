@@ -167,8 +167,21 @@ def ability_delta(state: GameState, player: str, card: CardInstance, ch: Charact
 SELF_SENTENCE = re.compile(rf"^(?:this spell|~) costs {_SYMBOL} (?P<dir>less|more) to cast(?P<rest>.*)$")
 
 
+_SELF_IF_FIRST = re.compile(rf"^if (?P<cond>[^,]+), (?P<rest>(?:this spell|~) costs {_SYMBOL} less to cast)$")
+
+
+def is_self(t: str) -> bool:
+    """Is this line the spell's own cost change ("This spell costs …", "If …, this spell costs {6} less to cast")?"""
+    return bool(SELF_SENTENCE.fullmatch(t) or _SELF_IF_FIRST.fullmatch(t))
+
+
 def self_change(t: str) -> Change | None:
-    """"This spell costs {X} less to cast, where X is the total power of creatures you control." (Ghalta) → change."""
+    """"This spell costs {X} less to cast, where X is the total power of creatures you control." (Ghalta) → change.
+    "If an opponent controls seven or more lands, this spell costs {6} less to cast." (Avatar of Fury) reads as the
+    same sentence with its condition last."""
+    first = _SELF_IF_FIRST.fullmatch(t)
+    if first:
+        t = f"{first['rest']} if {first['cond']}"
     m = SELF_SENTENCE.fullmatch(t)
     if m is None:
         return None
@@ -240,19 +253,25 @@ _FROM = {"from your graveyard": ("your_graveyard",), "from graveyards": ("gravey
          "from your graveyard or from exile": ("your_graveyard", "exile"), "from graveyards or from exile": ("graveyard", "exile"),
          "from anywhere other than your hand": ("not_hand",)}
 STATIC = re.compile(
-    r"^(?P<during>during your turn, |during turns other than yours, )?(?:each )?(?:(?P<sel>[a-z][a-z' ,-]*?) )?spells? "
-    r"(?P<who>you cast |your opponents cast )?(?P<chosen>of the chosen type )?"
+    r"^(?P<during>during your turn, |during turns other than yours, )?(?:each )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? "
+    r"(?:(?P<with>with (?:flying|flash)) )?(?P<who>you cast |your opponents cast )?(?P<chosen>of the chosen type )?"
     r"(?:(?P<from>from (?:your graveyard or from exile|graveyards or from exile|your graveyard|graveyards|exile"
     r"|anywhere other than your hand)) )?"
     rf"costs? {_SYMBOL} (?P<dir>less|more) to cast(?P<rest>.*)$")
 _EXCEPT = " except during its controller's turn"
+# "The first creature spell you cast each turn costs {2} less to cast." (Shadow in the Warp) / "The second spell you cast
+# each turn costs {1} less to cast." (Raging Battle Mouse): read against this turn's casts (history.py, 601.2i)
+ORDINAL = re.compile(rf"^the (?P<ord>first|second) (?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spell you cast each turn costs {_SYMBOL} "
+                     r"less to cast$")
 
 
 def special(t: str) -> bool:
     """Is this a table cost changer with more than the plain "<spells> cost {N} less/more to cast" (which
     permissions.STATIC_COST reads)? Then :func:`static_definition` reads it or nothing does."""
+    if ORDINAL.fullmatch(t) or TARGETING.fullmatch(t):
+        return True
     m = STATIC.fullmatch(t)
-    return m is not None and bool(m["during"] or m["chosen"] or m["from"] or m["rest"] or not m["n"].isdigit())
+    return m is not None and bool(m["during"] or m["with"] or m["chosen"] or m["from"] or m["rest"] or not m["n"].isdigit())
 
 
 def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
@@ -260,6 +279,12 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     from app.rules.permissions import spell_filter
 
     t = re.sub(r"^(\w+) spells and (\w+) spells ", r"\1 or \2 spells ", t)
+    o = ORDINAL.fullmatch(t)
+    if o:
+        return _ordinal_definition(o)
+    tm = TARGETING.fullmatch(t)
+    if tm:
+        return _targeting_definition(tm)
     m = STATIC.fullmatch(t)
     if m is None:
         return None
@@ -270,16 +295,16 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
             return None
         turn, rest = "not_caster", rest[: -len(_EXCEPT)]
     change = parse_change(m["n"], m["dir"], rest)
-    if change is None or change.get("cond") is not None:
-        return None  # (a condition on the static is the static's own "as long as": not this grammar)
-    if change.get("mana") and change.get("value"):
+    if change is None or change.get("mana") and change.get("value"):
         return None
+    # ("… as long as there are three or more Lesson cards in your graveyard": the static's condition, read with its
+    # source's controller as "you" each time a total cost is determined: amount())
     # the chosen type is the permanent's "As ~ enters, choose a creature type." answer (614.12a): only with that line
     if m["chosen"] and not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
         return None
     sel = m["sel"]
-    key = spell_filter(sel) if sel else None
-    if sel and key is None:
+    key = spell_filter(sel, m["with"]) if sel or m["with"] else None
+    if (sel or m["with"]) and key is None:
         return None
     caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
     out: dict[str, Any] = {"kind": "static", "static": "cost_modifier", "delta": change["dir"] * int(change.get("n", 0)),
@@ -293,11 +318,92 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
     return out
 
 
+# "Spells your opponents cast that target ~ cost {2} more to cast." (Charix) / "Spells you cast that target a creature cost
+# {2} less to cast." (Killian) / "Spells your opponents cast that target a creature or planeswalker you control cost {2}
+# more to cast." (Kasmina) / "Spells that target this creature cost {2} less to cast." (Spellwild Ouphe). 601.2c: the
+# targets are chosen before the total cost is determined (601.2f), so the change reads them.
+TARGETING = re.compile(rf"^spells (?P<who>you cast |your opponents cast )?that target (?P<what>[^.]+?) costs? {_SYMBOL} "
+                       r"(?P<dir>less|more) to cast$")
+
+
+def _targeting_definition(m: re.Match[str]) -> dict[str, Any] | None:
+    from app.rules import selectors
+
+    if not m["n"].isdigit():
+        return None
+    what = m["what"]
+    if what == "~":
+        target = "self"
+    else:
+        phrase = re.sub(r"^(?:a|an|one or more) ", "", what)
+        sel = selectors.parse(phrase)
+        if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras \
+                or sel.attacking or sel.blocking or sel.other:
+            return None
+        target = sel.key()
+    n = int(m["n"])
+    sign = -1 if m["dir"] == "less" else 1
+    caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
+    return {"kind": "static", "static": "cost_modifier", "delta": sign * n, "caster": caster, "filter": None,
+            "change": {"dir": sign, "n": n}, "target": target, "effects": []}
+
+
+def _targets_match(state: GameState, info: CardInfo, src: CardInstance, target: str, targets: tuple[str, ...]) -> bool:
+    """Does one of the spell's chosen targets fit "that target …"? ("~": the source itself; else a permanent, read
+    relative to the source's controller: "a Merfolk you control" is one the changer's controller controls.)"""
+    from app.rules import selectors
+
+    view = None
+    for tid in targets:
+        card = state.cards.get(tid)
+        if card is None or not card.zone.endswith(":battlefield"):
+            continue
+        if target == "self":
+            if tid == src.id:
+                return True
+            continue
+        view = view or view_of(state, src.controller, info)
+        if selectors.matches(view, selectors.from_key(target), card, view.ch(card), src.controller, src.id):
+            return True
+    return False
+
+
+def _ordinal_definition(o: re.Match[str]) -> dict[str, Any] | None:
+    from app.rules import history, selectors
+    from app.rules.permissions import spell_filter
+
+    if not o["n"].isdigit():
+        return None
+    key = spell_filter(o["sel"]) if o["sel"] else None
+    if o["sel"] and (key is None or not history.note_selector_ok(selectors.from_key(key))):
+        return None  # (a kind of spell the turn's cast records can't answer: "kicked", "face-down", "with flying")
+    if o["ord"] == "second" and key is not None:
+        return None
+    n = int(o["n"])
+    return {"kind": "static", "static": "cost_modifier", "delta": -n, "caster": "you", "filter": key,
+            "change": {"dir": -1, "n": n}, "ordinal": 1 if o["ord"] == "first" else 2, "effects": []}
+
+
+def _ordinal_ok(state: GameState, info: CardInfo, player: str, d: dict[str, Any]) -> bool:
+    """Is this the first such spell (none of its kind cast yet this turn) / the second spell (one cast so far)?"""
+    from app.rules import history, selectors
+
+    log = history.log_for(view_of(state, player, info))
+    sel = selectors.from_key(d["filter"]) if d.get("filter") else None
+    before = sum(1 for note in log.casts if note.player == player
+                 and (sel is None or history.note_matches(sel, note.types, note.subtypes, note.supertypes, note.colors, note.mv)))
+    return before == d["ordinal"] - 1
+
+
 def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[str, Any], player: str,
-                 card: CardInstance, ch: Characteristics) -> int | None:
+                 card: CardInstance, ch: Characteristics, targets: tuple[str, ...] = ()) -> int | None:
     """The signed change a table cost changer makes to this spell now, or None when it doesn't apply to it."""
     if "change" not in d:
         return int(d["delta"])
+    if d.get("target") and not _targets_match(state, info, src, d["target"], targets):
+        return None
+    if d.get("ordinal") and not _ordinal_ok(state, info, player, d):
+        return None
     turn = d.get("turn")
     active = state.turn.active_player
     if turn == "yours" and active != src.controller or turn == "not_yours" and active == src.controller \

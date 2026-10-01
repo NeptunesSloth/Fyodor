@@ -54,6 +54,12 @@ EXTRA = [
     card("Ertai's Scorn", set_code='tst', number='4I26', mana_cost='{1}{U}{U}', cmc=3.0, type_line='Instant', oracle_text='This spell costs {U} less to cast if an opponent cast two or more spells this turn.\nCounter target spell.', colors=['U'], color_identity=['U'], keywords=[]),
     card("Herald's Horn", set_code='tst', number='4I27', mana_cost='{3}', cmc=3.0, type_line='Artifact', oracle_text="As this artifact enters, choose a creature type.\nCreature spells you cast of the chosen type cost {1} less to cast.\nAt the beginning of your upkeep, look at the top card of your library. If it's a creature card of the chosen type, you may reveal it and put it into your hand.", colors=[], color_identity=[], keywords=[]),
     card('Tolarian Terror', set_code='tst', number='4I28', mana_cost='{6}{U}', cmc=7.0, type_line='Creature — Serpent', oracle_text='This spell costs {1} less to cast for each instant and sorcery card in your graveyard.\nWard {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)', colors=['U'], color_identity=['U'], keywords=['Ward'], power='5', toughness='5'),
+    card('Shadow in the Warp', set_code='tst', number='4J00', mana_cost='{1}{R}{G}', cmc=3.0, type_line='Enchantment', oracle_text='The first creature spell you cast each turn costs {2} less to cast.\nWhenever an opponent casts their first noncreature spell each turn, this enchantment deals 2 damage to that player.', colors=['G', 'R'], color_identity=['G', 'R'], keywords=[]),
+    card('Raging Battle Mouse', set_code='tst', number='4J01', mana_cost='{1}{R}', cmc=2.0, type_line='Creature — Mouse', oracle_text='The second spell you cast each turn costs {1} less to cast.\nCelebration — At the beginning of combat on your turn, if two or more nonland permanents entered the battlefield under your control this turn, target creature you control gets +1/+1 until end of turn.', colors=['R'], color_identity=['R'], keywords=['Celebration'], power='2', toughness='1'),
+    card('Warden of Evos Isle', set_code='tst', number='4J02', mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Bird Wizard', oracle_text='Flying\nCreature spells with flying you cast cost {1} less to cast.', colors=['U'], color_identity=['U'], keywords=['Flying'], power='2', toughness='2'),
+    card('Avatar of Fury', set_code='tst', number='4J03', mana_cost='{6}{R}{R}', cmc=8.0, type_line='Creature — Avatar', oracle_text='If an opponent controls seven or more lands, this spell costs {6} less to cast.\nFlying\n{R}: This creature gets +1/+0 until end of turn.', colors=['R'], color_identity=['R'], keywords=['Flying'], power='6', toughness='6'),
+    card('Charix, the Raging Isle', set_code='tst', number='4J04', mana_cost='{2}{U}{U}', cmc=4.0, type_line='Legendary Creature — Leviathan Crab', oracle_text='Spells your opponents cast that target Charix cost {2} more to cast.\n{3}: Charix gets +X/-X until end of turn, where X is the number of Islands you control.', colors=['U'], color_identity=['U'], keywords=[], power='0', toughness='17'),
+    card('Killian, Ink Duelist', set_code='tst', number='4J05', mana_cost='{W}{B}', cmc=2.0, type_line='Legendary Creature — Human Warlock', oracle_text="Lifelink\nMenace (This creature can't be blocked except by two or more creatures.)\nSpells you cast that target a creature cost {2} less to cast.", colors=['B', 'W'], color_identity=['B', 'W'], keywords=['Lifelink', 'Menace'], power='2', toughness='2'),
 ]
 
 
@@ -161,7 +167,6 @@ def test_the_cards_are_full(name):
     "You may pay {0} rather than pay the equip cost of the first equip ability you activate during each of your turns.",
     # cost changers that read something this grammar doesn't (targets, the first spell each turn, chosen names)
     "Spells your opponents cast that target this creature cost {2} more to cast.",
-    "The first creature spell you cast each turn costs {2} less to cast.",
     "Spells with the chosen name cost {3} more to cast.",
     "This spell costs {1} less to cast if it targets a creature with flying.",
     "This spell costs {1} more to cast for each target beyond the first.",
@@ -552,3 +557,77 @@ def test_flashback_is_already_an_alternative_cost(cards):
     mana(s, W=1, U=1, B=1, R=1, G=1)
     assert firebolt.id not in hints(s.state, "p1", s.cards).get("alt_castable", {})
     refused(s, "Only one alternative cost", type="cast_spell", card_id=firebolt.id, targets=["p2"], alt_cost=f"{jodah.id}:1")
+
+
+# -- the first / second spell each turn, "with flying", "If …, this spell costs …", spells that target ----------------
+def test_shadow_in_the_warp_first_creature_spell_only(cards):
+    s = build(cards, [(1, "Shadow in the Warp"), (1, "Grizzly Bears"), (1, "Elvish Visionary"), (1, "Lightning Bolt")])
+    put(s, "Shadow in the Warp", "battlefield")
+    bears, elf, bolt = put(s, "Grizzly Bears", "hand"), put(s, "Elvish Visionary", "hand"), put(s, "Lightning Bolt", "hand")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])  # a noncreature spell first: doesn't count
+    pass_until_stack_empty(s)
+    assert cost_of(s, bears, s.cards) == "{G}"  # {1}{G} − 2, never below the colored part
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    pass_until_stack_empty(s)
+    assert cost_of(s, elf, s.cards) == "{1}{G}"  # the second creature spell this turn
+    roundtrip(s)
+
+
+def test_raging_battle_mouse_second_spell(cards):
+    s = build(cards, [(1, "Raging Battle Mouse"), (1, "Opt"), (1, "Lightning Bolt"), (1, "Treasure Cruise")])
+    put(s, "Raging Battle Mouse", "battlefield")
+    opt, bolt, cruise = put(s, "Opt", "hand"), put(s, "Lightning Bolt", "hand"), put(s, "Treasure Cruise", "hand")
+    assert cost_of(s, cruise, s.cards) == "{7}{U}"  # the first spell this turn: no change
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    pass_until_stack_empty(s)
+    assert cost_of(s, cruise, s.cards) == "{6}{U}"  # it would be the second
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    pass_until_stack_empty(s)
+    assert cost_of(s, cruise, s.cards) == "{7}{U}"  # the third
+    roundtrip(s)
+
+
+def test_warden_of_evos_isle_only_creature_spells_with_flying(cards):
+    s = build(cards, [(1, "Warden of Evos Isle"), (1, "Mulldrifter"), (1, "Grizzly Bears")])
+    put(s, "Warden of Evos Isle", "battlefield")
+    drifter, bears = put(s, "Mulldrifter", "hand"), put(s, "Grizzly Bears", "hand")
+    assert cost_of(s, drifter, s.cards) == "{3}{U}" and cost_of(s, bears, s.cards) == "{1}{G}"
+
+
+def test_avatar_of_fury_when_an_opponent_has_seven_lands(cards):
+    s = build(cards, [(1, "Avatar of Fury")])
+    avatar = put(s, "Avatar of Fury", "hand")
+    assert cost_of(s, avatar, s.cards) == "{6}{R}{R}"
+    islands = [c.id for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2" and not c.zone.endswith("battlefield")]
+    act(s, "p2", type="move", card_ids=islands[:7], to={"zone": "battlefield"})
+    assert cost_of(s, avatar, s.cards) == "{R}{R}"
+
+
+def test_charix_taxes_spells_that_target_it(cards):
+    s = build(cards, [(1, "Lightning Bolt")], [(1, "Charix, the Raging Isle"), (9, "Island")])
+    charix = find(s, "Charix, the Raging Isle", "p2")
+    act(s, "p2", type="move", card_ids=[charix.id], to={"zone": "battlefield"})
+    bolt = put(s, "Lightning Bolt", "hand")
+    mana(s, R=1)
+    refused(s, "ana|pay", type="cast_spell", card_id=bolt.id, targets=[charix.id])  # {2}{R}: 601.2c then 601.2f
+    mana(s, C=2)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[charix.id])
+    assert s.state.players["p1"].mana == {}
+    pass_until_stack_empty(s)
+    roundtrip(s)
+
+
+def test_killian_reduces_spells_that_target_a_creature(cards):
+    s = build(cards, [(1, "Killian, Ink Duelist"), (1, "Murder"), (1, "Lightning Bolt")])
+    put(s, "Killian, Ink Duelist", "battlefield")
+    murder = put(s, "Murder", "hand")
+    victim = tok(s, "Victim", pid="p2")
+    mana(s, B=2)
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[victim.id])  # {1}{B}{B} − 2 → {B}{B}
+    pass_until_stack_empty(s)
+    assert victim.id not in s.state.cards and s.state.players["p1"].mana == {}
+    roundtrip(s)
