@@ -545,6 +545,17 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e["who"] = "target" if groups is None else f"target:{g}"
                 else:
                     e["who"] = "event_player"  # (only a trigger about a player can: _event_refs_ok)
+            elif isinstance(who, str) and who.startswith("controlled:that_player|"):
+                # -- damage sized by a count (wave 4E) -- "each creature that player controls": that player, bound the same way
+                intro = find(lambda i: i.player, index)
+                if intro is not None:
+                    if event_player:
+                        return None
+                    g = _group_of(out[intro.index])
+                    player = "target" if groups is None else f"target:{g}"
+                else:
+                    player = "event_player"
+                e["who"] = "controlled:" + player + "|" + who.partition("|")[2]
             # -- conditional / instead clauses (wave 1B) --  "If it's a land card, …": the object the pronoun
             # names, read as it is (or as it last existed, 608.2h): a plain target stays "target"
             if e.get("do") == "only_if" and _cond_has_it(e["cond"]):
@@ -2152,7 +2163,8 @@ def _event_refs_ok(d: Definition) -> bool:
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
     if not _event_spell_ok(d):  # -- refused copy/mana (wave 3R3) --
         return False
-    wants_player = any(e.get("who") in ("event_player", "each_other_opponent") for e in effects)
+    wants_player = any(e.get("who") in ("event_player", "each_other_opponent")
+                       or str(e.get("who")).startswith("controlled:event_player|") for e in effects)  # (wave 4E)
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv"))  # ("mv": a free cast's limit, wave 3R5)
     if not wants_player and not wants_amount:
         return True
