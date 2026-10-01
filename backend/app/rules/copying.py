@@ -23,9 +23,10 @@ and adds its own exceptions (707.3).
   division stays as announced (115.7f); the final set must obey 115.3 and "another target", else
   the choice starts over. A copy of a permanent spell becomes a token as it resolves (608.3f,
   707.10f). "Can't be copied" (113.6g) is obeyed. Storm (702.40) uses this path.
-* **Token copies** ("create a token that's a copy of …"): one helper, :func:`create_token_copies`,
-  on today's token path (the ``create_token`` table action, then the entry replacements of
-  app/rules/replacements.py), with the copy effect on each token before anything looks at it.
+* **Token copies** ("create a token that's a copy of …"): one helper, :func:`token_copy_request`,
+  on the token choke point (``replace.create_token_batch``: the ``create_token`` table action, then
+  the entry replacements of app/rules/replacements.py), with the copy effect on each token before
+  anything looks at it; a 616.1 order prompt pauses :func:`token_copy`, which runs again with it.
 * **Entering as a copy** (707.5, 614.1c, 614.12a): a replacement effect whose choice is made
   before the permanent enters (:func:`entering`, called by ``replacements.entry_plan``); the
   permanent's other entry replacements are then read from the copied text (707.5), its "as
@@ -49,6 +50,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.rules_state import (
+    ENTERING_COPY,
     CopyExcept,
     CopyRecipe,
     DecisionOption,
@@ -71,7 +73,7 @@ Context = dict[str, Any]
 Job = dict[str, Any]
 Position = tuple[str, int, int]  # ("plain" | "slot" | "group", slot or group, index)
 
-ENTERING = "entering:"  # ContinuousEffect.source of the copy effect of a permanent entering as a copy
+ENTERING = ENTERING_COPY  # ContinuousEffect.source of the copy effect of a permanent entering as a copy
 TO_COPY = " to copy"  # the end of an "enter as a copy" choice's name ("creature to copy")
 NONE = "none"  # the answer "copy nothing" (the permanent enters as itself)
 DOUBLE_FACED = ("transform", "modal_dfc", "meld", "reversible_card")
@@ -637,44 +639,36 @@ def resume_storm(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 # -- token copies ("create a token that's a copy of …") --------------------------------------------
-def create_token_copies(plan: Plan, ctx: Context, controller: str, recipe: CopyRecipe, count: int, *,
-                        tapped: bool = False) -> list[str]:
-    """THE one way the engine creates token copies — kept to this helper so the token path can be
-    swapped for a replacement-aware one in one place. Today's token path: the ``create_token``
-    table action with the copied object's printing (or a token's own definition, 111.3) as the
-    token's base, entering tapped if the copied text says so (614.1d); then each token's layer-1
-    copy effect (its copiable values are the recipe's, 707.2) before anything looks at it; then its
-    "enters with" part (``replacements.after_entry``: counters, a planeswalker's loyalty, 707.5).
-    111.5: a copy of an instant or sorcery card creates no token. Returns the new tokens."""
+def token_copy_request(plan: Plan, ctx: Context, controller: str, recipe: CopyRecipe, count: int, *,
+                       tapped: bool = False, notes: list[str] | None = None
+                       ) -> tuple[str, dict[str, Any], int, str | None, bool] | None:
+    """THE one way the engine makes a token copy's creation request — for the token choke point
+    (``replace.create_token_batch``): the copied object's printing (or a token's own definition,
+    111.3) as the token's base, entering tapped if the copied text says so (614.1d), and the recipe
+    (``_copy``) the token's layer-1 copy effect is made from before anything looks at it (707.2),
+    then its "enters with" part (``replacements.after_entry``: counters, a planeswalker's loyalty,
+    707.5). 111.5: a copy of an instant or sorcery card creates no token (None, a line in ``notes``)."""
     from app.rules import replacements
 
     if count <= 0:
-        return []
+        return None
     ch = characteristics(recipe, plan.info)
     if ch.is_instant_or_sorcery:
-        plan.note(f"No token is created: a copy of an instant or sorcery card (111.5, {ch.name})", actor=controller)
-        return []
+        (notes if notes is not None else []).append(f"No token is created: a copy of an instant or sorcery card (111.5, {ch.name})")
+        return None
     if recipe.printing and plan.info.get(recipe.printing) is not None:
         spec: dict[str, Any] = {"card_id": recipe.printing, "name": (ch.name or "Token")[:80]}
     elif recipe.token is not None:
         spec = {k: recipe.token.get(k) for k in ("name", "power", "toughness", "colors", "type_line", "text")}
     else:
-        plan.note(f"{recipe.source or 'That object'} isn't in the card database: no copy is created", actor=controller)
-        return []
+        (notes if notes is not None else []).append(f"{recipe.source or 'That object'} isn't in the card database: no copy is created")
+        return None
     probe = {"name": ch.name, "power": ch.power, "toughness": ch.toughness, "colors": sorted(ch.colors),
              "type_line": type_line(ch), "text": ch.oracle_text}
     tapped = tapped or replacements.token_enters_tapped(plan, controller, probe)
     source = ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None
-    from app.rules import (
-        replace as replace_,  # replacement-aware token path (614.16: doubling applies to copies)
-    )
-
-
     # (the copy's types as it's created, for type-restricted token replacements — Ojer Taq; 614.16, 707.2)
-    made = replace_.create_tokens(plan, controller, {**spec, "type_line": probe["type_line"],
-                                                     "_copy": recipe.model_dump(mode="json")}, count,
-                                 source=source, tapped=tapped)
-    return made or []
+    return (controller, {**spec, "type_line": probe["type_line"], "_copy": recipe.model_dump(mode="json")}, count, source, tapped)
 
 
 def _entry_choice(plan: Plan, card_id: str) -> str | None:
@@ -698,10 +692,12 @@ def token_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     exceptions (707.9). The tokens are recorded for "Sacrifice it at the beginning of the next
     end step" and friends."""
     from app.rules import effects, values
+    from app.rules import replace as replace_
 
     count = values.evaluate(plan, ctx, e.get("n", 1))
     excepts = [CopyExcept.model_validate(x) for x in e.get("excepts") or []]
-    made: list[str] = []
+    requests: list[tuple[str, dict[str, Any], int, str | None, bool]] = []
+    notes: list[str] = []
     refused: list[str] = []
     for cid in effects._cards(plan, ctx, e["who"]):
         card = plan.state.cards[cid]
@@ -715,8 +711,21 @@ def token_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             refused.append(f"a copy of {plan.ch(card).name or 'it'} ({problem})")
             continue
         recipe = recipe_of(plan, card) if zone == "battlefield" else base_recipe(card).model_copy(update={"face": 0})
-        made += create_token_copies(plan, ctx, ctx["controller"], with_excepts(recipe, excepts), count,
-                                    tapped=bool(e.get("tapped")))
+        req = token_copy_request(plan, ctx, ctx["controller"], with_excepts(recipe, excepts), count,
+                                 tapped=bool(e.get("tapped")), notes=notes)
+        if req is not None:
+            requests.append(req)
+    # one creation event per copied object, at once (616.1: the creator orders non-commuting
+    # replacements — the choice pauses here and the whole instruction runs again with the answer,
+    # so the tokens, the binding and the 707.6 check below all follow it)
+    made: list[str] = []
+    if requests:
+        out = replace_.create_token_batch(plan, requests, ctx=ctx, bind=None, then=replace_.rerun_then(ctx, e))
+        if out is None:
+            return False
+        made = out
+    for n in notes:
+        plan.note(n, actor=ctx["controller"])
     effects._remember(plan, ctx, e, made)
     for tid in made:
         what = _entry_choice(plan, tid)
@@ -794,9 +803,9 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     answer yet, ``out["choice"]`` asks for it and True stops the rest of the plan (asked through
     the usual entry-choice prompts). With an answer, the copy effect is set up — on the object as it
     is now, so the rest of the plan reads the permanent's other entry replacements from the copied
-    text as it would exist on the battlefield (707.5, 614.12), and on the object it becomes as it
-    enters (the next object number: the rules paths move it right after planning its entry) — and
-    False lets the plan go on. Nothing to copy: no choice, it enters as itself."""
+    text as it would exist on the battlefield (707.5, 614.12); it follows the card onto the
+    battlefield, to the object it becomes there (``rules_state._diff``) — and False lets the plan
+    go on. Nothing to copy: no choice, it enters as itself."""
     d = enter_definition(plan, card)
     if d is None:
         return False
@@ -816,8 +825,9 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
         return False
     excepts = [CopyExcept.model_validate(x) for x in d.get("excepts") or []]
     recipe = with_excepts(recipe_of(plan, source), excepts)
-    predicted = f"{card.id}.{plan.rules.next_object + 1}"
-    add_copy_effect(plan, [plan.oid(card), predicted], recipe, controller, source=ENTERING + card.id)
+    # (on the object as it is now; it follows the card to the object it becomes as it enters,
+    # whatever its number: rules_state._diff — never a predicted id, 400.7)
+    add_copy_effect(plan, [plan.oid(card)], recipe, controller, source=ENTERING + card.id)
     return False
 
 

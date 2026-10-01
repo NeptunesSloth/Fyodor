@@ -2484,16 +2484,22 @@ def still_a(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def prevent_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """"Prevent all damage that would be dealt to him this turn" (Gideon): a this-turn prevention
-    record (app/rules/replacements.py ``prevent_all``, 615) locked to the source as the object it
-    is now (400.7: if it leaves and returns, the new object isn't protected)."""
-    oid = ctx.get("source_object")
-    if not _cards(plan, ctx, "self") or not oid:
-        return True  # (it left: there's nothing to protect)
-    return replacements.prevent_all(plan, ctx, {"scope": {"combat": None, "to_oids": [oid]}})
+    """(Kept for games saved while a Gideon ability was on the stack: the grammar now gives the
+    plain ``prevent_all`` to "~", which locks to the source object itself.)"""
+    return replacements.prevent_all(plan, ctx, {"scope": {"combat": None, "to_objects": "self"}})
 
 
 PRIMITIVES.update({"become": become, "still_a": still_a, "prevent_self": prevent_self})
+
+
+def _siege_defeated(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import battles  # (battles → plan; a leaf here)
+
+    return battles.siege_defeated(plan, ctx, e)
+
+
+PRIMITIVES["siege_defeated"] = _siege_defeated  # 310.12b (app/rules/battles.py)
+PRIMITIVES["cost_modifier"] = permissions.cost_modifier  # "… spells you cast this turn cost {2} less to cast" (611.2a)
 
 
 # -- replacement effects stage 2 (wave 2E) -----------------------------------------------------------

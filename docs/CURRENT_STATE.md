@@ -160,17 +160,15 @@ The current coverage report's top missing features (`data/reports/commander_rule
 - **Non-mana ward costs** are unsupported (manual).
 - **903.9b without a remembered answer:** the commander briefly lands in the hand or library, then
   its owner is asked. With a remembered "yes" it goes straight to the command zone.
-- **"Dies" triggers miss animated permanents and crewed Vehicles** (LKI keeps power/toughness but
-  not types; strict xfail test).
-- **`prevent_all` bug:** records created on resolution don't store `source_card`; Gideon uses a
-  `prevent_self` workaround.
 - **Grants:** quoted granted abilities with a duration and "you don't lose this mana" are manual.
-- **Simultaneous entries** are processed one after another; 613.7m (APNAP order of simultaneous
-  entries) isn't tracked.
+- **613.7m**: simultaneous entries are timestamped APNAP by controller; within one player's, in
+  the order the effect lists them (that player isn't asked).
 - **"Before attackers are declared"** is modelled conservatively.
 - `begin_resolution`'s "may" memory key uses `effects[0]["do"]`: two do-once triggers from
   same-named cards share a remembered answer.
-- **Battles** aren't attackable; damage to a battle removes defense counters.
+- **Battles** (app/rules/battles.py): a defeated Siege is exiled, then cast transformed by hand
+  (casting a card transformed isn't automated; Sieges are never FULL). Cost increases on activated
+  abilities with no mana in their cost (crew, {T} abilities) are not applied.
 - **Fixture caveat:** the Karador/Kess test fixtures use simplified wording.
 - `coverage.REFUSED` still lists "fight" and "choose_targets" (harmless).
 

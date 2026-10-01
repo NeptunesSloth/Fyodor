@@ -1,0 +1,453 @@
+"""Regression tests for engine simplifications replaced by the real rule (batch 3, engine items).
+
+Every card is a real Commander-legal card; its Oracle text (the card database, 2026-09-30 snapshot)
+is transcribed below and named in the comment above it. CR 2026-09-25.
+
+- 616.1 / 614.16: token copies go through the pausable token choke point (the creator orders
+  non-commuting replacements; the instruction's binding and later steps follow the answer).
+- 707.5: a card entering as a copy keeps its copy effect whatever object number it gets.
+- 603.6a / 614.12 / 613.7m: permanents put onto the battlefield together enter as one event, judged
+  against the table before any of them enters, timestamped in APNAP order.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from app.cards.importer import build_database
+from app.config import Settings
+from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act
+from tests.test_rules_attachments import build, ch, named, token
+from tests.test_rules_effects import pass_until_stack_empty, replay_matches
+from tests.test_rules_replacements2 import (
+    DOUBLING_SEASON,
+    XORN,
+    answer,
+    decision,
+    named_all,
+    permanent,
+    reload,
+)
+from tests.test_rules_suspend import until
+
+EXTRA = [
+    # Glacial Fortress
+    card("Glacial Fortress", set_code="tef", number="E1", type_line="Land",
+         oracle_text="This land enters tapped unless you control a Plains or an Island.\n{T}: Add {W} or {U}.",
+         color_identity=["W", "U"]),
+    # Clone
+    card("Clone", set_code="tef", number="E2", mana_cost="{3}{U}", cmc=4.0, type_line="Creature — Shapeshifter",
+         oracle_text="You may have this creature enter as a copy of any creature on the battlefield.", colors=["U"],
+         color_identity=["U"], power="0", toughness="0"),
+    # Invasion of Dominaria // Serra Faithkeeper (a Siege, defense 5)
+    card("Invasion of Dominaria // Serra Faithkeeper", set_code="tef", number="E3", layout="transform", mana_cost=None,
+         cmc=3.0, type_line="Battle — Siege // Creature — Angel", colors=["W"], color_identity=["W"], image_uris=None,
+         card_faces=[
+             {"object": "card_face", "name": "Invasion of Dominaria", "mana_cost": "{2}{W}", "type_line": "Battle — Siege",
+              "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's "
+                             "defeated, exile it, then cast it transformed.)\nWhen this Siege enters, you gain 4 life and "
+                             "draw a card.", "defense": "5", "colors": ["W"],
+              "image_uris": {"normal": "https://img.example/invasion-front.jpg"}},
+             {"object": "card_face", "name": "Serra Faithkeeper", "mana_cost": "", "type_line": "Creature — Angel",
+              "oracle_text": "Flying, vigilance", "power": "4", "toughness": "4", "colors": ["W"],
+              "image_uris": {"normal": "https://img.example/invasion-back.jpg"}},
+         ]),
+    # Fling
+    card("Fling", set_code="tef", number="E4", mana_cost="{1}{R}", cmc=2.0, type_line="Instant",
+         oracle_text="As an additional cost to cast this spell, sacrifice a creature.\nFling deals damage equal to the "
+                     "sacrificed creature's power to any target.", colors=["R"], color_identity=["R"]),
+]
+INVASION = "Invasion of Dominaria // Serra Faithkeeper"
+
+
+@pytest.fixture()
+def card_db(settings: Settings) -> Path:
+    settings.ensure_dirs()
+    build_database(fixture_cards() + EXTRA, settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
+# The Mending of Dominaria, chapter III (its first sentence, as an activated ability)
+RETURN_LANDS = "{1}: Return all land cards from your graveyard to the battlefield."
+# the same instruction for creature cards
+RETURN_CREATURES = "{1}: Return all creature cards from your graveyard to the battlefield."
+# Molten Duplication (sorcery), as the activated ability of a custom permanent (the same effect text)
+MOLTEN_DUPLICATION = ("{1}: Create a token that's a copy of target artifact or creature you control, except it's an "
+                      "artifact in addition to its other types. It gains haste until end of turn. Sacrifice it at the "
+                      "beginning of the next end step.")
+TREASURE = "{T}, Sacrifice this token: Add one mana of any color."
+
+
+def treasure(s, pid="p1"):
+    act(s, pid, type="create_token", player=pid, token={"name": "Treasure", "type_line": "Token Artifact — Treasure",
+                                                       "text": TREASURE})
+    return named_all(s, "Treasure", pid)[-1]
+
+
+def activate(s, card_, pid="p1", **kw):
+    act(s, pid, type="add_mana", player=pid, mana={"C": 1})
+    act(s, pid, type="activate_ability", card_id=card_.id, ability=0, **kw)
+    pass_until_stack_empty(s)
+
+
+# -- token copies: 616.1 order through the token choke point ------------------------------------------
+def test_a_token_copy_asks_the_creator_to_order_xorn_and_doubling_season(cards):
+    s = build(cards)
+    permanent(s, "p1", "Doubling Season", "Enchantment", DOUBLING_SEASON)
+    token(s, "p1", "Xorn", "3/2", XORN)
+    gold = treasure(s)
+    dup = permanent(s, "p1", "Molten Duplication", "Enchantment", MOLTEN_DUPLICATION)
+    activate(s, dup, targets=[gold.id])
+    d = decision(s)
+    assert d is not None and d.player == "p1" and d.resume["step"] == "replace_order"  # 616.1: the creator's choice
+    assert len(named_all(s, "Treasure")) == 1  # nothing is created before the choice (614.6)
+    labels = {o.id: o.label for o in d.options}
+    assert "3 Treasure" in labels["yes"] and "4 Treasure" in labels["no"]
+    paused = reload(s, cards)  # saved and loaded while the choice is open: it goes on the same way
+    for game in (paused, s):
+        answer(game, "no")  # Xorn first: 1 + 1 = 2, then doubled: 4
+        pass_until_stack_empty(game)
+    assert len(named_all(paused, "Treasure")) == 5
+    copies = [c for c in named_all(s, "Treasure") if c.id != gold.id]
+    assert len(copies) == 4 and decision(s) is None
+    # the instruction went on with the answer: "It gains haste" bound the four copies, and
+    # "Sacrifice it at the beginning of the next end step" waits for them
+    assert all("haste" in ch(s, c).keywords for c in copies)
+    assert len(s.state.rules.delayed) == 1
+    replay_matches(s)
+    again = reload(s, cards)
+    assert len(named_all(again, "Treasure")) == 5
+    until(s, lambda s: not s.state.rules.delayed, limit=60)
+    pass_until_stack_empty(s)
+    assert [c.id for c in named_all(s, "Treasure")] == [gold.id]  # sacrificed (and gone: 704.5d)
+
+
+# -- simultaneous entries (603.6a, 614.12, 613.7m) ----------------------------------------------------
+def to_graveyard(s, *cards_, pid="p1"):
+    for c in cards_:
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "graveyard"})
+
+
+def test_a_check_land_does_not_see_an_island_entering_with_it(cards):
+    """614.12: "enters tapped unless you control a Plains or an Island" is judged before either
+    enters — the Island returned with it isn't there yet."""
+    s = build(cards, "Glacial Fortress", "Island")
+    fortress, island = named(s, "Glacial Fortress"), named(s, "Island")
+    to_graveyard(s, island, fortress)
+    activate(s, permanent(s, "p1", "The Mending of Dominaria", "Enchantment", RETURN_LANDS))
+    assert s.state.cards[fortress.id].zone == s.state.cards[island.id].zone == "p1:battlefield"
+    assert s.state.cards[fortress.id].tapped and not s.state.cards[island.id].tapped
+    # one event (603.6a): both zone changes are one batch
+    batches = {e.batch for e in s.state.rules.events if e.kind == "zone_change" and e.to_zone == "p1:battlefield"
+               and e.card in (fortress.id, island.id)}
+    assert len(batches) == 1
+    replay_matches(s)
+
+
+@pytest.mark.parametrize("clone_first", [True, False])
+def test_clone_entering_with_another_creature_keeps_its_copy(cards, clone_first):
+    """707.5: the copy effect follows Clone onto the battlefield whatever object number it gets
+    (two creatures entering together: never a predicted id)."""
+    s = build(cards, "Clone", "Grizzly Bears")
+    clone, bears = named(s, "Clone"), named(s, "Grizzly Bears")
+    to_graveyard(s, *((clone, bears) if clone_first else (bears, clone)))
+    chieftain = token(s, "p1", "Goblin Chieftain", "3/3")
+    activate(s, permanent(s, "p1", "Raiser", "Enchantment", RETURN_CREATURES))
+    d = decision(s)
+    assert d is not None and chieftain.id in {o.id for o in d.options}
+    assert s.state.cards[bears.id].zone == "p1:graveyard"  # nothing entered before the choice (614.12a)
+    answer(s, chieftain.id)
+    pass_until_stack_empty(s)
+    copy = ch(s, s.state.cards[clone.id])
+    assert copy.name == "Goblin Chieftain" and copy.pt == (3, 3)
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
+    replay_matches(s)
+
+
+# -- 603.10a / 700.4: a crewed Vehicle dies as the creature it was ------------------------------------
+# Zulaport Cutthroat (creature 1/1)
+ZULAPORT = "Whenever this creature or another creature you control dies, each opponent loses 1 life and you gain 1 life."
+
+
+@pytest.mark.parametrize("crewed", [True, False])
+def test_a_crewed_vehicle_dies_as_a_creature(cards, crewed):
+    """603.10a: "another creature you control dies" looks back in time — the Vehicle was an
+    artifact creature while crewed (a layer-4 effect gone once it's in the graveyard, 400.7)."""
+    s = build(cards, "Sky-Skiff", "Murder")
+    skiff = named(s, "Sky-Skiff")
+    act(s, "p1", type="move", card_ids=[skiff.id], to={"player": "p1", "zone": "battlefield"})
+    token(s, "p1", "Zulaport Cutthroat", "1/1", ZULAPORT)
+    pilot = token(s, "p1", "Pilot", "1/1")
+    if crewed:
+        act(s, "p1", type="activate_ability", card_id=skiff.id, ability=1)  # "Crew 1"
+        answer(s, pilot.id)
+        pass_until_stack_empty(s)
+        assert ch(s, s.state.cards[skiff.id]).is_creature
+    murder = named(s, "Murder")
+    act(s, "p1", type="move", card_ids=[murder.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"B": 3})
+    if not crewed:  # (Murder needs a creature: an uncrewed Vehicle is destroyed by hand)
+        act(s, "p1", type="move", card_ids=[skiff.id], to={"player": "p1", "zone": "graveyard"})
+    else:
+        act(s, "p1", type="cast_spell", card_id=murder.id, targets=[skiff.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[skiff.id].zone == "p1:graveyard"
+    assert not ch(s, s.state.cards[skiff.id]).is_creature  # (in the graveyard: just an artifact card)
+    assert s.state.players["p1"].life == (41 if crewed else 40)
+    assert s.state.players["p2"].life == (39 if crewed else 40)
+    replay_matches(s)
+
+
+# -- 615: "prevent all damage … this turn" records know their source --------------------------------------
+# Trained Pronghorn (creature 1/1)
+TRAINED_PRONGHORN = "Discard a card: Prevent all damage that would be dealt to this creature this turn."
+
+
+def bolt(s, target, pid="p1"):
+    spell = named(s, "Lightning Bolt")
+    act(s, pid, type="move", card_ids=[spell.id], to={"player": pid, "zone": "hand"})
+    act(s, pid, type="add_mana", player=pid, mana={"R": 1})
+    act(s, pid, type="cast_spell", card_id=spell.id, targets=[target])
+    pass_until_stack_empty(s)
+
+
+def test_trained_pronghorn_prevents_damage_to_itself_only_as_that_object(cards):
+    """615.1 / 400.7: "this creature" is the ability's source as the object it is now (the record
+    is locked to that object and names its card) — the damage to it is prevented."""
+    s = build(cards, "Lightning Bolt", "Grizzly Bears")
+    pronghorn = token(s, "p1", "Trained Pronghorn", "1/1", TRAINED_PRONGHORN)
+    bears = named(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="activate_ability", card_id=pronghorn.id, ability=0)
+    while decision(s) is not None:  # (the card to discard)
+        answer(s, bears.id)
+    pass_until_stack_empty(s)
+    [rec] = [r for r in s.state.rules.replacements if r.get("kind") == "prevent"]
+    assert rec["source_card"] == pronghorn.id and rec["scope"]["to_oids"] == [s.state.rules.object_id(pronghorn.id)]
+    bolt(s, pronghorn.id)
+    assert s.state.cards[pronghorn.id].zone == "p1:battlefield" and not s.state.cards[pronghorn.id].damage
+    replay_matches(s)
+
+
+def test_gideon_jura_prevention_names_its_source(cards):
+    """Gideon Jura's 0: "Prevent all damage that would be dealt to him this turn" — the plain
+    "prevent all" record, locked to Gideon (no special primitive any more)."""
+    from app.rules import scripts
+
+    effects, _, _ = scripts.parse_effects(
+        "Until end of turn, ~ becomes a 6/6 Human Soldier creature that's still a planeswalker. Prevent all damage "
+        "that would be dealt to him this turn.")
+    assert effects[-1] == {"do": "prevent_all", "scope": {"combat": None, "to_objects": "self"}}
+
+
+# -- battles (310) --------------------------------------------------------------------------------------
+def test_a_siege_enters_with_defense_counters_and_a_protector_chosen_among_opponents(cards):
+    """310.4b: it enters with its printed defense in counters; 310.9a / 310.12a: its controller
+    chooses an opponent to protect it as it enters (before it enters, 614.12a)."""
+    from app.rules.combat import attack_targets
+    from tests.test_rules_simplifications import build3
+
+    s = build3(cards, INVASION)
+    siege = next(c for c in s.state.cards.values() if c.name and c.name.startswith("Invasion of Dominaria"))
+    act(s, "p1", type="move", card_ids=[siege.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"W": 1, "C": 2})
+    act(s, "p1", type="cast_spell", card_id=siege.id)
+    pass_until_stack_empty(s)
+    d = decision(s)
+    assert d is not None and d.player == "p1" and {o.id for o in d.options} == {"p2", "p3"}  # opponents only
+    answer(s, "p3")
+    pass_until_stack_empty(s)
+    siege = s.state.cards[siege.id]
+    assert siege.zone == "p1:battlefield" and siege.counters.get("defense") == 5
+    assert s.state.rules.protectors[s.state.rules.object_id(siege.id)] == "p3"
+    assert s.state.players["p1"].life == 44  # its enters ability
+    # 310.9b: its controller and the other opponent may attack it, its protector may not
+    assert siege.id in attack_targets(s.state, "p1", cards) and siege.id in attack_targets(s.state, "p2", cards)
+    assert siege.id not in attack_targets(s.state, "p3", cards)
+    replay_matches(s)
+    assert reload(s, cards).state.rules.protectors == s.state.rules.protectors
+
+
+def test_attacking_a_siege_its_protector_blocks_and_defeat_exiles_it(cards):
+    """310.9c-d: the protector is the defending player for the battle; 120.3h: combat damage
+    removes defense counters; 310.12b: the last one removed, it's exiled and may be cast
+    transformed (by hand); 704.5v waited for that trigger."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, turn_on
+    from tests.test_rules_combat import attack, creature
+
+    decks = [deck(cards, "Krenko, Mob Boss", [(1, INVASION), (9, "Forest")]),
+             deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")]), deck(cards, "Krenko, Mob Boss", [(10, "Mountain")])]
+    s = GameSession(new_game([PlayerSetup(n, cards=d) for n, d in zip(("Alice", "Bob", "Carol"), decks, strict=True)],
+                             shuffle=False), cards=cards)  # (a sandbox table, then automation is switched on)
+    siege =next(c for c in s.state.cards.values() if c.name and c.name.startswith("Invasion of Dominaria"))
+    act(s, "p1", type="move", card_ids=[siege.id], to={"player": "p1", "zone": "battlefield"})  # (by hand: no protector)
+    act(s, "p1", type="counter", card_ids=[siege.id], kind="defense", delta=3)
+    # Rooftop Saboteurs' trigger (Invasion of Kamigawa's back face) on a 3/3
+    giant = creature(s, "p1", "Saboteur", "3/3", "Whenever this creature deals combat damage to a player or battle, draw a card.")
+    creature(s, "p2", "Bob's Wall", "0/4")
+    creature(s, "p3", "Carol's Bear", "2/2")
+    turn_on(s)
+    # 310.11: no protector — its controller chooses one among their opponents
+    d = decision(s)
+    assert d is not None and d.resume["step"] == "battle_protector" and {o.id for o in d.options} == {"p2", "p3"}
+    answer(s, "p3")
+    assert s.state.rules.protectors[s.state.rules.object_id(siege.id)] == "p3"
+    for _ in range(4):  # → combat: Alice declares attackers
+        if decision(s) is not None:
+            break
+        act(s, "p1", type="pass_priority")
+    d = decision(s)
+    assert d is not None and d.kind == "declare_attackers" and f"t:{siege.id}" in {o.id for o in d.options}
+    attack(s, (giant, siege.id))
+    until(s, lambda s: decision(s) is not None and decision(s).kind == "declare_blockers")
+    assert decision(s).player == "p3"  # 310.9c: the protector blocks, not the controller's other opponent
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p3", type="declare_blockers", blocks=[])
+    for _ in range(12):  # (the two triggers: their controller orders them)
+        d = decision(s)
+        if d is not None and d.kind == "manual_resolution":
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:max(d.min_choices, 1)]
+                if d.kind != "order" else [o.id for o in d.options])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert decision(s).resume["step"] == "siege_cast"
+    assert s.state.cards[siege.id].zone == "p1:exile"  # exiled; its controller casts it transformed by hand
+    answer(s, "done")
+    assert s.state.cards[siege.id].zone == "p1:exile" and not s.state.rules.decision
+    pass_until_stack_empty(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1  # "deals combat damage to a player or battle" (120.3h)
+    replay_matches(s)
+
+
+# -- 702.40 / 707.10: storm copies are spells, but not cast ------------------------------------------------
+def test_storm_copies_are_red_sorcery_spells_but_not_cast(cards):
+    """707.10: a copy of a spell is a spell — Fire Servant doubles each storm copy's damage — but it
+    isn't cast (702.40c): Young Pyromancer triggers once, and the copies don't add to storm's count."""
+    from tests.test_rules_replacements2 import FIRE_SERVANT
+
+    s = build(cards, "Grapeshot", "Lightning Bolt", "Young Pyromancer")
+    token(s, "p1", "Fire Servant", "4/3", FIRE_SERVANT)
+    pyro = named(s, "Young Pyromancer")
+    act(s, "p1", type="move", card_ids=[pyro.id], to={"player": "p1", "zone": "battlefield"})
+    bolt(s, "p2")  # one spell before Grapeshot: 3 doubled to 6, and one Elemental
+    shot = named(s, "Grapeshot")
+    act(s, "p1", type="move", card_ids=[shot.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1, "C": 1})
+    act(s, "p1", type="cast_spell", card_id=shot.id, targets=["p2"])
+    for _ in range(12):
+        d = decision(s)
+        if d is not None and d.kind == "order":  # (Young Pyromancer's trigger and storm's)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+        elif d is not None:  # (the copy keeps its target)
+            answer(s, "same" if "same" in {o.id for o in d.options} else "keep" if "keep" in {o.id for o in d.options}
+                   else d.options[0].id)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.players["p2"].life == 40 - 6 - 2 - 2  # Bolt, Grapeshot and its one copy, each doubled
+    assert len(named_all(s, "Elemental")) == 2  # cast twice (Bolt, Grapeshot); the copy wasn't cast
+    assert s.state.rules.spells_this_turn("p1", s.state.turn.number) == 2
+    replay_matches(s)
+
+
+# -- 118.9d: a spell cast without paying its mana cost still pays its additional costs ----------------------
+def test_fling_cast_by_cascade_still_sacrifices_a_creature(cards):
+    """118.9d / 601.2b: "As an additional cost to cast this spell, sacrifice a creature" is paid
+    when cascade casts Fling for free — and its damage is the sacrificed creature's power."""
+    s = build(cards, "Bloodbraid Elf", "Fling")
+    elf, fling = named(s, "Bloodbraid Elf"), named(s, "Fling")
+    act(s, "p1", type="move", card_ids=[elf.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="move", card_ids=[fling.id], to={"player": "p1", "zone": "library"}, position="top")
+    ogre = token(s, "p1", "Ogre", "3/3")
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1, "G": 1, "C": 2})
+    act(s, "p1", type="cast_spell", card_id=elf.id)
+    until(s, lambda s: decision(s) is not None and "Cascade" in decision(s).prompt)
+    answer(s, "yes")
+    answer(s, "p2")  # Fling's target
+    pass_until_stack_empty(s)
+    assert ogre.id not in s.state.cards  # sacrificed as the additional cost (a token: gone)
+    assert s.state.players["p2"].life == 37  # the sacrificed creature's power
+    assert s.state.cards[fling.id].zone == "p1:graveyard"
+    replay_matches(s)
+
+
+# -- 601.2f: cost modifiers on every path -------------------------------------------------------------------
+# Zirda, the Dawnwaker (its second line)
+ZIRDA = ("Abilities you activate that aren't mana abilities cost {2} less to activate. This effect can't reduce the mana "
+         "in that cost to less than one mana.")
+# Urza, Planeswalker's +2 and Ral, Leyline Prodigy's +1 (as activated abilities of custom permanents: the same text)
+URZA_PLUS_TWO = "{0}: Artifact, instant, and sorcery spells you cast this turn cost {2} less to cast. You gain 2 life."
+RAL_PLUS_ONE = "{0}: Until your next turn, instant and sorcery spells you cast cost {1} less to cast."
+
+
+def test_zirda_reduces_a_cycling_cost_to_one_mana(cards):
+    """702.29a: cycling is an activated ability: Zirda's reduction applies (with its one-mana floor)."""
+    s = build(cards, "Twisted Abomination")
+    abomination = named(s, "Twisted Abomination")
+    act(s, "p1", type="move", card_ids=[abomination.id], to={"player": "p1", "zone": "hand"})
+    token(s, "p1", "Zirda, the Dawnwaker", "3/3", ZIRDA)
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    act(s, "p1", type="activate_ability", card_id=abomination.id, ability=1)  # "Swampcycling {2}" for {1}
+    assert s.state.cards[abomination.id].zone == "p1:graveyard" and not s.state.players["p1"].mana
+    replay_matches(s)
+
+
+def test_urza_plus_two_makes_spells_cheaper_this_turn_only(cards):
+    """611.2a / 514.2: "… spells you cast this turn cost {2} less to cast" is stored for the turn."""
+    s = build(cards, "Grapeshot")
+    urza = permanent(s, "p1", "Urza, Planeswalker", "Enchantment", URZA_PLUS_TWO)
+    act(s, "p1", type="activate_ability", card_id=urza.id, ability=0)
+    pass_until_stack_empty(s)
+    assert len(s.state.rules.cost_modifiers) == 1 and s.state.players["p1"].life == 42
+    shot = named(s, "Grapeshot")
+    act(s, "p1", type="move", card_ids=[shot.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1})
+    act(s, "p1", type="cast_spell", card_id=shot.id, targets=["p2"])  # {1}{R} for {R}
+    pass_until_stack_empty(s)
+    assert s.state.cards[shot.id].zone == "p1:graveyard" and s.state.players["p2"].life == 39
+    replay_matches(s)
+    turn = s.state.turn.number
+    until(s, lambda s: s.state.turn.number > turn, limit=60)
+    assert not s.state.rules.cost_modifiers  # ended in the cleanup step (514.2)
+
+
+def test_ral_plus_one_lasts_until_its_controllers_next_turn(cards):
+    from app.rules.permissions import modifiers
+
+    s = build(cards, "Grapeshot")
+    ral = permanent(s, "p1", "Ral, Leyline Prodigy", "Enchantment", RAL_PLUS_ONE)
+    act(s, "p1", type="activate_ability", card_id=ral.id, ability=0)
+    pass_until_stack_empty(s)
+    shot = s.state.cards[named(s, "Grapeshot").id]
+    turn = s.state.turn.number
+    until(s, lambda s: s.state.turn.number > turn, limit=60)  # Bob's turn: still in force
+    assert modifiers(s.state, "p1", shot, ch(s, shot), cards)
+    until(s, lambda s: s.state.turn.active_player == "p1", limit=120)  # Alice's next turn began: over
+    assert not modifiers(s.state, "p1", shot, ch(s, shot), cards)
+    replay_matches(s)
+
+
+def test_simultaneous_entries_are_timestamped_in_apnap_order(cards):
+    """613.7m: the active player's permanent gets the earlier timestamp, whatever order the effect
+    lists them in; both enter in one step under their own controllers."""
+    from app.rules import attachments
+    from app.rules.plan import Plan
+
+    s = build(cards)
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1")
+    island = next(c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2")
+    plan = Plan(s.state, "p1", cards, None)
+    assert attachments.enter(plan, [{"card": island.id, "player": "p2", "actor": "p2"},
+                                    {"card": forest.id, "player": "p1", "actor": "p1"}], None)
+    assert plan.state.cards[forest.id].zone == "p1:battlefield" and plan.state.cards[island.id].zone == "p2:battlefield"
+    assert [st["type"] for st in plan.steps] == ["move"]  # one event (603.6a)
+    objects = plan.state.rules.objects
+    assert objects[forest.id] < objects[island.id]
