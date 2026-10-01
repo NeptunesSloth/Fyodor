@@ -131,10 +131,41 @@ def parse(text: str) -> Condition | None:
     if m:
         n = _num(m["n"])
         return {"static": "self_counter", "counter": m["kind"], "op": ">=", "n": n} if n is not None else None
+    m = _ANY_PLAYER.fullmatch(t)
+    if m:  # "any player controls a black permanent" (Knight of Grace): whoever controls it
+        sel = selectors.parse(m["sel"])
+        if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.controller is not None \
+                or sel.owner is not None or sel.other:
+            return None
+        return {"value": {"count": sel.key()}, "op": ">=", "n": 1}
+    if t == "an opponent has no cards in hand":  # (Guul Draz Specter: some one opponent)
+        return {"static": "opp_hand", "op": "==", "n": 0}
+    if t == "an opponent is poisoned":  # 122.1f: has one or more poison counters (Viridian Betrayers)
+        return {"value": {"player_counters": "poison"}, "op": ">=", "n": 1, "per_opponent": True}
     return None
 
 
-KINDS = frozenset({"attached_is", "designation", "zone", "opp_graveyard", "opp_life", "life_vs_start", "all"})
+_ANY_PLAYER = re.compile(r"any player controls (?:a|an) (?P<sel>.+)")
+_PLAIN = frozenset({"opp_graveyard", "opp_life", "opp_hand", "life_vs_start"})
+
+
+def compound(text: str) -> Condition | None:
+    """"you have 30 or more life and an opponent has 10 or less life" (Blood Baron of Vizkopa): both halves are
+    conditions about players (never about the source or an attached object, whose "it" a group subject could
+    claim). Tried only after the other grammars gave up."""
+    from app.rules import statics
+
+    for piece in re.finditer(" and ", text):
+        left, right = text[: piece.start()], text[piece.end():]
+        a, b = statics.condition(left), statics.condition(right)
+        if a is None or b is None:
+            continue
+        if all(c.get("static") is None or c.get("static") in _PLAIN for c in (a, b)):
+            return {"static": "all", "conds": [a, b]}
+    return None
+
+
+KINDS = frozenset({"attached_is", "designation", "zone", "opp_graveyard", "opp_life", "opp_hand", "life_vs_start", "all"})
 
 
 def attached_object(plan: Plan, source: CardInstance) -> CardInstance | None:
@@ -175,6 +206,8 @@ def holds(plan: Plan, cond: Condition, *, source: CardInstance, controller: str)
         return any(len(plan.state.zones.get(f"{p}:graveyard", ())) >= cond["n"] for p in opponents)
     if kind == "opp_life":
         return any(plan.state.players[p].life <= cond["n"] for p in opponents)
+    if kind == "opp_hand":
+        return any(len(plan.state.zones.get(f"{p}:hand", ())) == cond["n"] for p in opponents)
     if kind == "life_vs_start":
         life = plan.state.players[controller].life
         start = plan.state.settings.starting_life

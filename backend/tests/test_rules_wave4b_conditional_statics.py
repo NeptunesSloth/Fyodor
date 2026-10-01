@@ -192,6 +192,15 @@ def ok(text, name="Card", type_line="Creature — Test"):
      {"keywords": ["hexproof", "indestructible"], "conditions": [{"static": "designation", "is": "monstrous"}]}),
     ("~ has flying as long as it's modified.", {"conditions": [{"static": "self", "test": "modified"}]}),  # Obstinate Gargoyle
     ("As long as equipped creature is a Human, it gets an additional +1/+0.", {"who": "attached", "p": 1}),  # Silver-Inlaid Dagger
+    ("~ gets +1/+0 as long as any player controls a black permanent.",  # Knight of Grace
+     {"p": 1, "conditions": [{"value": {"count": 'sel:{"colors":["B"]}'}, "op": ">=", "n": 1}]}),
+    ("~ gets +3/+3 as long as an opponent has no cards in hand.",  # Guul Draz Specter
+     {"p": 3, "conditions": [{"static": "opp_hand", "op": "==", "n": 0}]}),
+    ("~ has infect as long as an opponent is poisoned.",  # Viridian Betrayers
+     {"keywords": ["infect"], "conditions": [{"value": {"player_counters": "poison"}, "op": ">=", "n": 1, "per_opponent": True}]}),
+    ("As long as you have 30 or more life and an opponent has 10 or less life, ~ gets +6/+6 and has flying.",  # Blood Baron
+     {"p": 6, "conditions": [{"static": "all", "conds": [{"value": {"life": "you"}, "op": ">=", "n": 30},
+                                                         {"static": "opp_life", "op": "<=", "n": 10}]}]}),
 ])
 def test_wordings(text, expected):
     d = statics.parse(text)
@@ -468,6 +477,18 @@ def test_bloodghast_and_thieves_guild_enforcer_read_one_opponent(cards):
     assert ch(s, enforcer).pt == (1, 1)
     act(s, "p2", type="move", card_ids=library[7:], to={"zone": "graveyard"})
     assert ch(s, enforcer).pt == (3, 2) and "deathtouch" in ch(s, enforcer).keywords
+    roundtrip(s)
+
+
+def test_blood_baron_needs_both_halves(cards):
+    s = build(cards, [(5, "Forest")])
+    baron = tok(s, "Blood Baron of Vizkopa", pt="4/4", text="As long as you have 30 or more life and an opponent has 10 or less "
+                                                             "life, this creature gets +6/+6 and has flying.")
+    assert ch(s, baron).pt == (4, 4)
+    act(s, "p1", type="set_life", player="p2", value=10)
+    assert ch(s, baron).pt == (10, 10) and "flying" in ch(s, baron).keywords
+    act(s, "p1", type="set_life", player="p1", value=29)
+    assert ch(s, baron).pt == (4, 4)
     roundtrip(s)
 
 

@@ -601,7 +601,8 @@ def _condition(text: str) -> dict[str, Any] | None:
     found = static_conditions.parse(c)
     if found is not None:
         return found
-    return conditions.parse(c)
+    found = conditions.parse(c)
+    return found if found is not None else static_conditions.compound(c)
 
 
 def condition(text: str) -> dict[str, Any] | None:
