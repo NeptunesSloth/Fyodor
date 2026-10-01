@@ -1954,7 +1954,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return None
     # -- refused zones/sized (wave 3R4) -- a triggered ability's X is not the X its source was cast with
     # (107.3m isn't carried to triggers: X reads 0 there), so a search sized by X in one stays manual (Fblthp)
-    if d is not None and d.get("kind") == "triggered" and \
+    # -- cast X (wave 4J) -- except an enters trigger of the object itself: 107.3m gives it the X of the spell it was
+    # (triggers.cast_x)
+    if d is not None and d.get("kind") == "triggered" and d.get("trigger") != "enters_self" and \
             '{"x": 1}' in json.dumps([e for e in d.get("effects") or [] if e.get("do") == "search"]):
         return None
     # -- unless pays (wave 4C) -- likewise "unless that player pays {X}" with no X defined: only a spell's or an

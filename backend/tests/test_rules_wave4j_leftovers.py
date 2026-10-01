@@ -67,6 +67,21 @@ EXTRA = [
     card("Doom Cannon", set_code="tst", number="J412", mana_cost="{6}", cmc=6.0, type_line="Artifact",
          oracle_text="As this artifact enters, choose a creature type.\n{3}, {T}, Sacrifice a creature of the chosen type: "
                      "This artifact deals 3 damage to any target."),
+    card("Gadwick, the Wizened", set_code="tst", number="J413", mana_cost="{X}{U}{U}{U}", cmc=3.0,
+         type_line="Legendary Creature — Human Wizard",
+         oracle_text="When Gadwick enters, draw X cards.\nWhenever you cast a blue spell, tap target nonland permanent an "
+                     "opponent controls.", power="1", toughness="1", colors=["U"], color_identity=["U"]),
+    card("The Meathook Massacre", set_code="tst", number="J414", mana_cost="{X}{B}{B}", cmc=2.0,
+         type_line="Legendary Enchantment",
+         oracle_text="When The Meathook Massacre enters, each creature gets -X/-X until end of turn.\nWhenever a creature "
+                     "you control dies, each opponent loses 1 life.\nWhenever a creature an opponent controls dies, you "
+                     "gain 1 life.", colors=["B"], color_identity=["B"]),
+    card("Fblthp, Knows the Way", set_code="tst", number="J415", mana_cost="{X}{G}{G}", cmc=2.0,
+         type_line="Legendary Creature — Homunculus Scout",
+         oracle_text="Domain — Fblthp's power is equal to the number of basic land types among lands you control.\nWhen "
+                     "Fblthp enters, search your library for up to X basic land cards with different names, reveal them, "
+                     "put them into your hand, then shuffle.", power="*", toughness="2", colors=["G"],
+         color_identity=["G"], keywords=["Domain"]),
 ]
 
 
@@ -477,3 +492,68 @@ def test_chosen_type_scope():
     assert 0 not in defs("Creatures you control of the chosen type get +1/+1.", {"Artifact"})  # (no enters choice)
     assert 1 in defs("As this artifact enters, choose a creature type.\nCreatures you control of the chosen type get "
                      "+1/+1.", {"Artifact"})
+
+
+# -- X of the spell that became the permanent (107.3m) ---------------------------------------------------------
+def test_enters_trigger_reads_the_cast_x(cards):
+    """Gadwick cast with X=3: its enters trigger draws three cards (107.3m) — not zero."""
+    s = build(cards, "Gadwick, the Wizened")
+    gadwick = to_hand(s, "Gadwick, the Wizened")
+    mana(s, U=6)
+    hand = len(s.state.zones["p1:hand"]) - 1  # (without Gadwick)
+    act(s, "p1", type="cast_spell", card_id=gadwick.id, x_value=3)
+    drive(s, lambda d: [o.id for o in d.options][: max(1, d.min_choices)])
+    assert len(s.state.zones["p1:hand"]) == hand + 3
+    replay_matches(s)
+    roundtrip(s)
+
+
+def test_meathook_massacre_sized_by_its_x(cards):
+    """The Meathook Massacre cast with X=2: each creature gets -2/-2 — Bob's 2/2 dies (Alice gains 1), a 3/3 lives."""
+    s = build(cards, "The Meathook Massacre")
+    small, big = typed(s, "p2", "Small", "Bear"), creature(s, "p2", "Big", power="3", toughness="3")
+    massacre = to_hand(s, "The Meathook Massacre")
+    mana(s, B=4)
+    act(s, "p1", type="cast_spell", card_id=massacre.id, x_value=2)
+    drive(s, lambda d: [o.id for o in d.options][: max(1, d.min_choices)])
+    assert small.id not in s.state.cards or not s.state.cards[small.id].zone.endswith(":battlefield")
+    assert s.state.cards[big.id].zone == "p2:battlefield" and stats(s, big) == (1, 1)
+    assert life(s, "p1") == 41
+    replay_matches(s)
+    roundtrip(s)
+
+
+def test_fblthp_searches_for_x_lands(cards):
+    """Fblthp, Knows the Way cast with X=2: its enters trigger finds up to two basic lands with different names."""
+    s = build(cards, "Fblthp, Knows the Way", "Swamp")
+    fblthp = to_hand(s, "Fblthp, Knows the Way")
+    mana(s, G=4)
+    hand = len(s.state.zones["p1:hand"]) - 1
+    act(s, "p1", type="cast_spell", card_id=fblthp.id, x_value=2)
+    seen = []
+
+    def pick(d):
+        seen.append((d.min_choices, d.max_choices))
+        names = {}
+        for o in d.options:
+            card_ = s.state.cards.get(o.id)
+            if card_ is not None and card_.name in ("Forest", "Swamp"):
+                names.setdefault(card_.name, o.id)
+        return list(names.values()) if names else [o.id for o in d.options][: max(1, d.min_choices)]
+
+    drive(s, pick)
+    got = sorted(s.state.cards[c].name for c in s.state.zones["p1:hand"])
+    assert len(got) == hand + 2 and {"Forest", "Swamp"} <= set(got)
+    assert any(mx == 2 for _, mx in seen)
+    replay_matches(s)
+    roundtrip(s)
+
+
+def test_enters_trigger_x_without_a_cast_is_zero(cards):
+    """Put onto the battlefield without being cast, Gadwick's X is 0 (107.3m applies only to the spell it was)."""
+    s = build(cards, "Gadwick, the Wizened")
+    gadwick = named(s, "Gadwick, the Wizened")
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="move", card_ids=[gadwick.id], to={"player": "p1", "zone": "battlefield"})
+    drive(s, lambda d: [o.id for o in d.options][: max(1, d.min_choices)])
+    assert len(s.state.zones["p1:hand"]) == hand
