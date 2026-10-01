@@ -651,7 +651,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail  # (a second target the damage sentence would have to declare: not read)
         effects = []
         groups = []
-        for part in re.split(r" and (?=each |you$)|" + _AND_TARGET, m["o"]):
+        # -- sized amounts (wave 3D) -- "each opponent and each creature and planeswalker they control": the opponents'
+        # (selectors read "or" for a list of types), and "each other player" is every opponent (102.2)
+        recipients = m["o"].replace("each other player", "each opponent")
+        recipients = re.sub(r"^(each opponent and each .+?) they control$", r"\1 your opponents control", recipients)
+        recipients = re.sub(r"(creatures?) and (planeswalkers?|battles?) (?=you control|your opponents control|an opponent controls)",
+                            r"\1 or \2 ", recipients)
+        for part in re.split(r" and (?=each |you$)|" + _AND_TARGET, recipients):
             if part == "each other opponent":  # -- sized amounts (wave 3D) -- the opponents besides the one the event named
                 effects.append({"do": "damage", "who": "each_other_opponent", "n": n, **src})
                 continue
@@ -753,6 +759,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = _PUMP.fullmatch(text)
     if m:
         return _pump(m, rider)
+    m = _DOUBLE.fullmatch(text)  # -- sized amounts (wave 3D) -- "Double target creature's power until end of turn": +X/+0, X its power now
+    if m and rider is None:
+        kind, key, group = ref(m["o"])
+        if kind not in ("target", "self", "host"):
+            raise _Fail
+        who = _who(kind, key)
+        of = "target" if kind == "target" else who
+        return [{"do": "pump", "who": who, "p": {"power": of}, "t": {"toughness": of} if m["both"] else 0}], _one(group)
     m = _LOSE_GAIN.fullmatch(text)  # -- quoted grants (wave 2D) -- "This creature loses defender and gains ⟦0⟧"
     if m:
         kind, key, group = ref(m["o"])
@@ -866,6 +880,7 @@ _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw
 _GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? (?:gains?|has|have) (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
 _KW_ONLY = rf"(?:{KEYWORDS})(?:(?:, and |, | and )(?:{KEYWORDS}))*"
 _LOSE_GAIN = re.compile(rf"(?P<o>.+?) loses? (?P<rm>{_KW_ONLY}) and gains? (?P<kw>{_KW_LIST})(?P<eot> until end of turn)?")
+_DOUBLE = re.compile(r"double (?P<o>target creature|~|this creature)'s power(?P<both> and toughness)? until end of turn")  # (wave 3D)
 _BITE = re.compile(r"(?P<s>.+?) deals damage equal to (?P<stat>its power|its toughness|twice its power|that creature's power) to (?P<o>.+)")
 _ITS = {"target": "target", "self": "self", "host": "host"}  # what "its" names for a pump's subject
 

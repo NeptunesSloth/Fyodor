@@ -16,6 +16,7 @@ from app.config import Settings
 from app.rules import scripts
 from app.rules.characteristics import Characteristics
 from app.rules.oracle import parse_abilities
+from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, turn_on
 from tests.test_rules_attachments import build, mana, named, to_hand, token
@@ -37,6 +38,15 @@ EXTRA = [
     card("Ingenious Artillerist", set_code="tst", number="IA1", mana_cost="{2}{R}", cmc=3.0, type_line="Creature — Human Artificer",
          oracle_text="Whenever one or more artifacts you control enter, this creature deals that much damage to each opponent.",
          power="3", toughness="1", colors=["R"], color_identity=["R"]),
+    card("End the Festivities", set_code="tst", number="EF1", mana_cost="{R}", cmc=1.0, type_line="Sorcery",
+         oracle_text="End the Festivities deals 1 damage to each opponent and each creature and planeswalker they control.",
+         colors=["R"], color_identity=["R"]),
+    card("Volcanic Torrent", set_code="tst", number="VT1", mana_cost="{2}{R}", cmc=3.0, type_line="Sorcery",
+         oracle_text="Volcanic Torrent deals X damage to each creature and planeswalker your opponents control, where X is "
+                     "the number of spells you've cast this turn.", colors=["R"], color_identity=["R"]),
+    card("Hobbit's Sting", set_code="tst", number="HS1", mana_cost="{1}{R}", cmc=2.0, type_line="Instant",
+         oracle_text="Hobbit's Sting deals X damage to target creature, where X is the number of creatures you control plus "
+                     "the number of Foods you control.", colors=["R"], color_identity=["R"]),
     card("Chain Reaction", set_code="tst", number="CR1", mana_cost="{2}{R}{R}", cmc=4.0, type_line="Sorcery",
          oracle_text="Chain Reaction deals X damage to each creature, where X is the number of creatures on the battlefield.",
          colors=["R"], color_identity=["R"]),
@@ -281,4 +291,71 @@ def test_one_or_more_artifacts_enter_deals_that_much(cards):
     make(s, "{1}: Create two Treasure tokens.")
     pass_until_stack_empty(s)
     assert life(s, "p2") == 38  # one batch of two artifacts: 2 damage, once
+    replay_matches(s)
+
+
+# -- recipients: "they control", "each other player" (multiplayer) ---------------------------------------------
+def test_each_opponent_and_each_creature_and_planeswalker_they_control(cards):
+    s = build(cards, "End the Festivities")
+    mine, theirs = token(s, "p1", "Bear", "2/2"), token(s, "p2", "Elk", "2/2")
+    spell = to_hand(s, "End the Festivities")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 39 and named(s, "Elk").damage == 1 and named(s, "Bear").damage == 0
+    assert mine.id in s.state.cards and theirs.id in s.state.cards
+    replay_matches(s)
+
+
+def test_each_other_player_takes_the_damage(cards):
+    s = table(cards, players=3)
+    act(s, "p1", type="create_token", player="p1", token={"name": "Scorcher", "type_line": "Token Enchantment — Test",
+                                                          "text": "{1}: ~ deals 2 damage to each other player."})
+    src = named(s, "Scorcher")
+    turn_on(s)
+    act(s, "p1", type="pass_priority")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=src.id, ability=0)
+    pass_until_stack_empty(s)
+    assert life(s, "p1") == 40 and life(s, "p2") == 38 and life(s, "p3") == 38
+    replay_matches(s)
+
+
+# -- counts: spells cast this turn, a sum of two counts, doubling a power ------------------------------------------
+def test_x_is_the_number_of_spells_cast_this_turn(cards):
+    s = build(cards, "Volcanic Torrent", "Lightning Bolt")
+    wall = token(s, "p2", "Wall", "0/9")
+    bolt, torrent = to_hand(s, "Lightning Bolt"), to_hand(s, "Volcanic Torrent")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    pass_until_stack_empty(s)
+    mana(s, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=torrent.id)
+    pass_until_stack_empty(s)
+    assert named(s, "Wall").damage == 2 and wall.id in s.state.cards  # Bolt, then Torrent itself
+    replay_matches(s)
+
+
+def test_x_is_one_count_plus_another(cards):
+    s = build(cards, "Hobbit's Sting")
+    token(s, "p1", "Bear", "2/2"), token(s, "p1", "Wolf", "2/2")
+    act(s, "p1", type="create_token", player="p1", token={"name": "Food", "type_line": "Token Artifact — Food"})
+    wall = token(s, "p2", "Wall", "0/9")
+    spell = to_hand(s, "Hobbit's Sting")
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[wall.id])
+    pass_until_stack_empty(s)
+    assert named(s, "Wall").damage == 3  # two creatures plus one Food
+    replay_matches(s)
+
+
+def test_double_target_creatures_power(cards):
+    """"Double target creature's power until end of turn": +X/+0 where X is its power as it resolves (611.2a)."""
+    s = build(cards)
+    bear = token(s, "p1", "Bear", "3/3")
+    src = token(s, "p1", "Skullspore Nexus", "0/4", text="{1}: Double target creature's power until end of turn.")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=src.id, ability=0, targets=[bear.id])
+    pass_until_stack_empty(s)
+    assert Plan(s.state, "p1", cards, None).ch(s.state.cards[bear.id]).pt == (6, 3)
     replay_matches(s)

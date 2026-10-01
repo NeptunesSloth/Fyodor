@@ -188,6 +188,10 @@ def _sized(what: str, it: str | None) -> Value | None:
     if m:
         inner = parse_count(m["v"], it=it)
         return {"plus": [inner, int(m["n"]) if m["n"].isdigit() else NUMBERS[m["n"]]]} if inner is not None else None
+    m = re.match(r"^(?P<a>.+?) plus (?P<b>the number of .+)$", what)
+    if m:  # "the number of creatures you control plus the number of Foods you control" (a sum of two counts)
+        a, b = parse_count(m["a"], it=it), parse_count(m["b"], it=it)
+        return {"plus": [a, b]} if a is not None and b is not None else None
     if _SPELLS_CAST.match(what):
         return {"spells_cast": "you"}
     return None
