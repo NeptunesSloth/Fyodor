@@ -1162,6 +1162,9 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
     # An object chosen for several words "target" (115.3) becomes the target of that spell or
     # ability once: one event, one trigger.
     targets = list({(t.id if hasattr(t, "id") else t): t for t in targets}.values())
+    from app.rules import history  # -- this-turn history (wave 4D) -- 700.13: committing a crime
+
+    history.note_crime(plan, stack_id, controller, targets)
     for t in targets:  # "When ~ becomes the target of a spell or ability, …" (any controller)
         card = plan.state.cards.get(t.id if hasattr(t, "id") else t)
         if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):

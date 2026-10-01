@@ -527,6 +527,11 @@ def _counters_put(m: re.Match[str]) -> Condition | None:
     return {"history": "facts", "kind": "counters", "who": "you", "counter": m["counter"], "sel": key, "n": 1}
 
 
+@_history_pattern(r"you(?:'ve| have)? committed a crime this turn")
+def _crime(m: re.Match[str]) -> Condition:
+    return {"history": "facts", "kind": "crime", "who": "you", "n": 1}  # 700.13
+
+
 @_history_pattern(r"this is the (?P<nth>first|second|third|fourth|fifth) time this ability has resolved this turn")
 def _resolution(m: re.Match[str]) -> Condition:
     return {"history": "resolution", "n": ["first", "second", "third", "fourth", "fifth"].index(m["nth"]) + 1}

@@ -210,6 +210,36 @@ def note_look(plan: Plan, player: str, kind: str) -> None:
         log.facts.append(TurnFact(kind=kind, player=player))
 
 
+def note_crime(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -> None:
+    """700.13: a player commits a crime as they cast a spell, activate an ability or put a triggered ability on the
+    stack that targets an opponent, a permanent / spell / ability an opponent controls, or a card in an opponent's
+    graveyard. A copy (707.10: put on the stack, not cast or activated) commits none."""
+    from app.game.rules_state import TurnFact, turn_log_now
+
+    entry = plan.rules.stack.get(stack_id)
+    log = turn_log_now(plan.state)
+    if log is None or entry is None or entry.copy_of:
+        return
+    for t in targets:
+        tid = t.id if hasattr(t, "id") else str(t)
+        if tid in plan.state.players:
+            crime = tid != controller
+        elif (card := plan.state.cards.get(tid)) is not None:
+            zone = card.zone.rsplit(":", 1)[-1]
+            if zone == "battlefield":
+                crime = card.controller != controller
+            elif zone == "stack":
+                other = plan.rules.stack.get(card.id)
+                crime = (other.controller if other is not None else card.controller) != controller
+            else:
+                crime = zone == "graveyard" and card.owner != controller
+        else:
+            crime = False
+        if crime:
+            log.facts.append(TurnFact(kind="crime", player=controller))
+            return
+
+
 def note_resolution(plan: Plan, key: str) -> int:
     """The ability ``key`` ("<source object>:<index>") is resolving: how many times it has now resolved this turn,
     this time included (a copy of it counts; one that was countered never resolved)."""

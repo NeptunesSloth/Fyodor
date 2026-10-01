@@ -68,6 +68,7 @@ EXTRA = [
     card('Kami of Transience', set_code='tst', number='D428', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Spirit', oracle_text='Trample\nWhenever you cast an enchantment spell, put a +1/+1 counter on this creature.\nAt the beginning of each end step, if an enchantment was put into your graveyard from the battlefield this turn, you may return this card from your graveyard to your hand.', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Trample']),
     card("Smuggler's Share", set_code='tst', number='D429', mana_cost='{2}{W}', cmc=3.0, type_line='Enchantment', oracle_text='At the beginning of each end step, draw a card for each opponent who drew two or more cards this turn, then create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn.', colors=['W'], color_identity=['W'], keywords=['Treasure']),
     card('Land Tax', set_code='tst', number='D430', mana_cost='{W}', cmc=1.0, type_line='Enchantment', oracle_text='At the beginning of your upkeep, if an opponent controls more lands than you, you may search your library for up to three basic land cards, reveal them, put them into your hand, then shuffle.', colors=['W'], color_identity=['W']),
+    card('Nimble Brigand', set_code='tst', number='D431', mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Human Rogue', oracle_text="This creature can't be blocked if you've committed a crime this turn. (Targeting opponents, anything they control, and/or cards in their graveyards is a crime.)\nWhenever this creature deals combat damage to a player, draw a card.", power='1', toughness='3', colors=['U'], color_identity=['U']),
 ]
 
 
@@ -156,7 +157,6 @@ def test_wordings(text, expected):
 
 @pytest.mark.parametrize("text", [
     "you've cast a spell with flying this turn",  # (keywords aren't recorded)
-    "you've committed a crime this turn",  # (700.13: not recorded)
     "you put a counter on a creature this turn",  # (who put a counter isn't recorded)
     "a spell was warped this turn",  # (warp isn't modelled)
     "you attacked with two or more Merfolk this turn",  # (only how many creatures)
@@ -731,4 +731,22 @@ def test_land_tax_asks_only_when_an_opponent_has_more_lands(cards, behind):
     until(s, done)
     assert bool(prompts) == behind
     assert hand_size(s) == before + 1 + (1 if behind else 0)  # (the draw step; a Forest found)
+    replay_matches(s)
+
+
+# -- crimes (700.13) ----------------------------------------------------------------------------------------------------
+def test_nimble_brigand_after_a_crime(cards):
+    """Targeting your own creature is no crime; targeting an opponent is (700.13), and it lasts the turn."""
+    s = build(cards, "Nimble Brigand", "Lightning Bolt", "Slick Sequence")
+    brigand = put(s, "Nimble Brigand")
+    mine = creature(s, "p1", "Mine", pt="5/5")
+    mana(s, R=1)
+    cast(s, to_hand(s, "Lightning Bolt"), targets=[mine.id])
+    assert "cant_be_blocked" not in Plan.view(s.state, "p1", s.cards).ch(s.state.cards[brigand.id]).imposed
+    mana(s, U=1, R=1)
+    cast(s, to_hand(s, "Slick Sequence"), targets=["p2"])
+    s = saved(s)
+    assert "cant_be_blocked" in Plan.view(s.state, "p1", s.cards).ch(s.state.cards[brigand.id]).imposed
+    until(s, lambda s: s.state.turn.number == 2)
+    assert "cant_be_blocked" not in Plan.view(s.state, "p1", s.cards).ch(s.state.cards[brigand.id]).imposed
     replay_matches(s)
