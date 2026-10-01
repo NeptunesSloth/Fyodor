@@ -2566,6 +2566,7 @@ def can_act(state: GameState, player: str, info: CardInfo) -> bool:
             card = state.cards[cid]
             if castable(state, player, card, info, check_priority=False):
                 return True
-            if key.endswith(":hand") and land_play_problem(state, player, card, chars.of(card, info), check_priority=False) is None:
+            if key.endswith(":hand") and land_play_problem(state, player, card, chars.of(card, info), check_priority=False,
+                                                                 info=info) is None:  # (info: wave 4J, additional land plays)
                 return True
     return bool(activatable(state, player, info, check_priority=False))

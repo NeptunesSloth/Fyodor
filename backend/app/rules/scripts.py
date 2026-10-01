@@ -32,6 +32,7 @@ from dataclasses import replace
 from functools import lru_cache
 from typing import Any, Literal
 
+from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
 from app.rules import restrictions, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
 from app.rules.costs import SACRIFICE, parse_ability_cost, spell_additional_cost
@@ -92,7 +93,7 @@ TRIGGERS = [
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
-    (re.compile(r"^At the beginning of (?:(?P<whose>your|each|each player's|each opponent's|the|enchanted player's) "
+    (re.compile(r"^At the beginning of (?:(?P<whose>your|each|each player's|each opponent's|the|enchanted player's|the chosen player's) "
                 r"(?P<step>upkeep|draw step|end step|first main phase|precombat main phase|second main phase|"
                 r"postcombat main phase)|the (?P<hstep>upkeep|end step) of enchanted (?:creature|permanent|land|artifact|"
                 r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's) turn|(?P<each_combat>each combat)), "
@@ -107,7 +108,8 @@ TRIGGERS = [
 STEPS = {"upkeep": "upkeep", "draw step": "draw", "end step": "end", "first main phase": "main1",
          "precombat main phase": "main1", "second main phase": "main2", "postcombat main phase": "main2"}
 WHOSE = {"your": "you", "each": "each", "each player's": "each", "the": "each", "each opponent's": "opponent",
-         "enchanted player's": "enchanted_player"}
+         "enchanted player's": "enchanted_player",
+         "the chosen player's": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
 
 
 def step_trigger(m: re.Match[str]) -> str:
@@ -289,7 +291,7 @@ def _aura_card_effects(effects: list[dict[str, Any]]) -> list[dict[str, Any]] | 
 # "At the beginning of enchanted player's upkeep / the upkeep of enchanted creature's controller /
 # each opponent's upkeep, that player …": the player whose step it is (triggers.at_step_generic
 # gives the event that player and, for the enchanted creature's controller, that creature)
-STEP_PLAYER_WHOSE = ("enchanted_player", "host_controller", "opponent", "each")
+STEP_PLAYER_WHOSE = ("enchanted_player", "host_controller", "opponent", "each", "chosen_player")  # (chosen_player: wave 4J)
 
 
 def step_names_player(d: dict[str, Any]) -> bool:
@@ -1391,6 +1393,11 @@ def _energy_paid(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     return [*found[0][:at + 1], *paid], found[1], found[2]
 
 
+# -- may pay or else (wave 4J) -- the whole ability: one payment, one consequence (no "you may" in it)
+_MAY_PAY_ELSE = re.compile(r"^(?:[Tt]hat player|[Tt]hey) may pay (?P<cost>(?:\{[^}]+\})+)\. If (?:the player|that player|they) "
+                           r"(?:doesn't|don't), (?:you (?=create ))?(?P<rest>(?![^.]*\bmay\b)[^.]+)\.$")
+
+
 def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
@@ -1399,6 +1406,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     effects: list[dict[str, Any]] = []
     groups: list[dict[str, Any]] = []
     start = 0
+    # -- may pay or else (wave 4J) -- "That player may pay {2}. If the player doesn't, you create a Treasure token."
+    # (Smothering Tithe) is 118.12a's own reading of "[Effect] unless that player pays {2}": read as that
+    body = _MAY_PAY_ELSE.sub(lambda m: f"{m['rest'][:1].upper()}{m['rest'][1:]} unless that player pays {m['cost']}.", body)
     texts = [s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     skip_to = 0  # -- refused look/cast-free (wave 3R5) -- sentences read together with an earlier one (piles)
@@ -1987,7 +1997,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return None
     # -- refused zones/sized (wave 3R4) -- a triggered ability's X is not the X its source was cast with
     # (107.3m isn't carried to triggers: X reads 0 there), so a search sized by X in one stays manual (Fblthp)
-    if d is not None and d.get("kind") == "triggered" and \
+    # -- cast X (wave 4J) -- except an enters trigger of the object itself: 107.3m gives it the X of the spell it was
+    # (triggers.cast_x)
+    if d is not None and d.get("kind") == "triggered" and d.get("trigger") != "enters_self" and \
             '{"x": 1}' in json.dumps([e for e in d.get("effects") or [] if e.get("do") == "search"]):
         return None
     # -- unless pays (wave 4C) -- likewise "unless that player pays {X}" with no X defined: only a spell's or an
@@ -1996,6 +2008,13 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             '{"x": 1}' in json.dumps([e.get("n") for e in d.get("effects") or [] if e.get("do") == "optional_payment"]):
         return None
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
+        return None
+    # -- chosen player (wave 4J) -- "the chosen player" is the one this permanent chose as it entered (app/rules/chosen.py):
+    # only on a card with exactly one "As ~ enters, choose an opponent / a player." ("Choose target opponent. … the chosen
+    # player" in one resolution — Haunt the Network — is another choice: not read as this)
+    if d is not None and _chosen.WHO in json.dumps(d, default=str) and not _chosen.chooses_player(ch):
+        return None
+    if d is not None and not _chosen.chosen_value_ok(d, ch):  # -- chosen type (wave 4J) -- "of the chosen type / color"
         return None
     return d
 
@@ -2069,6 +2088,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     and re.search(r"\bthis card\b", body) is not None
                 if aura_card:
                     body = re.sub(r"\bthis card\b", "~", body)
+                if _trigger_antecedent(name, cond) is None:  # -- step triggers (wave 4J) -- "At the beginning of your draw
+                    # step, if this artifact is tapped, it deals 1 damage to you." (Mana Vault): the only object named is ~
+                    body = re.sub(r"^(if ~ is (?:tapped|untapped)), it deals ", r"\1, ~ deals ", body)
                 parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
                 if parsed is None:  # -- this-turn history (wave 4D) -- "…, if [condition], you may …" (603.4 + 603.5)
                     parsed = _intervening_may(body, _trigger_antecedent(name, cond), has_player)
@@ -2624,6 +2646,14 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return extra
     if (cant := cant_gain.static_definition(text)) is not None:  # "Players can't gain life." (614.17)
         return cant
+    from app.rules import hand_size  # -- hand size (wave 4J) -- "You have no maximum hand size." (402.2)
+
+    if (no_max := hand_size.static_definition(text)) is not None:
+        return no_max
+    from app.rules import land_plays  # -- additional land plays (wave 4J) -- (305.2)
+
+    if (extra_lands := land_plays.static_definition(text)) is not None:
+        return extra_lands
     # -- end refused grants/replacements (wave 3R2) --
     if text == "~ enters tapped.":
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
@@ -3367,12 +3397,48 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     else:
         return None
     body = rest[len("When you do, "):] if rest.startswith("When you do, ") else rest[len("when you do, "):]
-    parsed = parse_effects(body[:1].upper() + body[1:])
+    # -- reflexive LKI (wave 4J) -- "… sacrifice another creature. When you do, ~ deals damage equal to that creature's
+    # power …": the sacrificed object, as it last existed (608.2h, 113.7a), is the reflexive trigger's event object
+    lki = _reflexive_lki(base, cond["succeeded"], body)
+    if lki is not None:
+        body = lki
+    # -- end reflexive LKI (wave 4J) --
+    parsed = parse_effects(body[:1].upper() + body[1:], "event" if lki is not None else None)
     if parsed is None or not parsed[0]:
         return None
     b_effects, b_target, b_optional = parsed
-    return {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
-                                                         "optional": b_optional, **target_fields(b_target)}}
+    out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
+                                                        "optional": b_optional, **target_fields(b_target)}}
+    if lki is not None:
+        out["lki"] = cond["succeeded"]  # -- reflexive LKI (wave 4J) --
+    return out
+
+
+# -- reflexive LKI (wave 4J) -------------------------------------------------------------------------------------------
+# "You may sacrifice a/another creature. When you do, …": the reflexive ability (603.12) reads the sacrificed object
+# ("that creature's power", "the sacrificed creature's toughness") as it last existed on the battlefield (608.2h,
+# 113.7a: an ability's effect can read an object that left through its last known information). The sacrificed object
+# is carried to the reflexive trigger as its event object (effects.reflexive); the body is then read with "that
+# creature" meaning it. Only one object sacrificed, and only stat phrases: any other mention of it ("If the sacrificed
+# creature was a Giant", "return it") stays manual.
+_SAC_ONE = re.compile(r"^sacrifice (?:a|an|another) [a-z ,]+$", re.I)
+_LKI_STAT = re.compile(r"\b(?:that|the sacrificed) (?:creature|artifact|permanent)'s (power|toughness|mana value)\b")
+_LKI_OTHER = re.compile(r"\b(?:it|its|itself|they|them|that creature|that artifact|that permanent|the sacrificed)\b")
+
+
+def _reflexive_lki(base: list[dict[str, Any]], name: str, body: str) -> str | None:
+    """The body with each stat phrase about the sacrificed object worded for the event object ("that permanent's
+    power"), or None: no such phrase, more than one object, or another mention of it."""
+    if not _LKI_STAT.search(body):
+        return None
+    if not (len(base) == 1 and base[0]["do"] == "optional_payment" and base[0].get("bind") == name
+            and _SAC_ONE.fullmatch(str(base[0].get("cost") or ""))):
+        return None  # (a mandatory "Sacrifice a creature. When you do, …" — Tip the Scales — isn't read yet)
+    out = _LKI_STAT.sub(lambda m: f"that permanent's {m[1]}", body)
+    if _LKI_OTHER.search(_LKI_STAT.sub("", out)):
+        return None
+    return out
+# -- end reflexive LKI (wave 4J) ---------------------------------------------------------------------------------------
 
 
 def _probe_previous(effects: list[dict[str, Any]], prev_start: int) -> str | None:
@@ -3649,6 +3715,9 @@ from app.rules import source_shields as _source_shields  # noqa: E402
 # (and 614.10 skips: app/rules/skips.py; 614.17 "can't gain life": app/rules/cant_gain.py; flashback and "you may play
 # this card" granted to graveyard cards: app/rules/graveyard_grants.py)
 EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLATES, *_graveyard_grants.TEMPLATES]
+from app.rules import graveyard_exile as _graveyard_exile  # noqa: E402, I001  -- graveyard exile (wave 4J) --
+
+EFFECTS[:0] = _graveyard_exile.TEMPLATES  # "Exile target player's graveyard." (app/rules/graveyard_exile.py)
 # "Choose one of them." chooses among what the instruction before moved; "that card" is then the chosen one
 _RECORDING["choose_one_of"] = None
 _MOVERS.add("choose_one_of")

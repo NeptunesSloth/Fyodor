@@ -865,6 +865,10 @@ class RulesState(BaseModel):
     aura_targets: dict[str, TargetRef] = Field(default_factory=dict)
     # Battles on the battlefield (object id) -> their protector (310.9; app/rules/battles.py).
     protectors: dict[str, str] = Field(default_factory=dict)
+    # -- chosen player (wave 4J) -- "As ~ enters, choose an opponent / a player": object id -> the chosen player's id
+    # (the permanent's "Chosen opponent: <name>" entry is only the display; app/rules/chosen.py). Older saves have
+    # only the display name: chosen.player_of resolves it when exactly one player has that name.
+    chosen_players: dict[str, str] = Field(default_factory=dict)
     # How each spell was paid for (stack object id -> record); follows the spell onto the battlefield.
     payments: dict[str, PaymentRecord] = Field(default_factory=dict)
     # Each player's intents this turn, for REPEAT LAST VALIDATED SEQUENCE (payloads, newest last).

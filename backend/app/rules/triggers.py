@@ -1052,6 +1052,10 @@ def _whose_step(plan: Plan, card: CardInstance, whose: str, ap: str) -> bool:
         return card.controller != ap
     if whose == "enchanted_player":
         return card.attached_player == ap
+    if whose == "chosen_player":  # -- chosen player (wave 4J) -- the player this permanent chose as it entered
+        from app.rules import chosen
+
+        return chosen.player_of(plan, card.id) == ap
     if whose == "host_controller":  # "the upkeep of enchanted creature's controller"
         host = plan.state.cards.get(card.attached_to or "")
         return host is not None and host.controller == ap
@@ -1426,12 +1430,24 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
     r.stack[ability_id] = StackEntry(kind="trigger", controller=t.controller, source_card=t.source_card,
                                      source_object=t.source_object, name=t.name, effects=list(t.ability["effects"]),
                                      targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")),
-                                     event=t.event, **extra)
+                                     event=t.event, x=cast_x(plan, t), **extra)  # (x: wave 4J, 107.3m)
     if targets:
         plan.do({"type": "create_arrow", "source": ability_id, "targets": [x.id for x in targets], "kind": "target"},
                 actor=t.controller)
         targeted(plan, ability_id, t.controller, targets)
     return True
+
+
+# -- cast X (wave 4J) --
+def cast_x(plan: Plan, t: PendingTrigger) -> int | None:
+    """107.3m: an object's enters-the-battlefield triggered ability that refers to X uses the X of the spell that
+    became that object as it resolved (its payment record, which follows it onto the battlefield); for any other
+    triggered ability — or an object that wasn't cast with X — X is undefined here (0, 107.3i)."""
+    if t.event is None or t.event.kind != "enter" or not any(o.object_id == t.source_object for o in t.event.objects):
+        return None
+    record = plan.rules.payments.get(t.source_object)
+    return record.x if record is not None else None
+# -- end cast X (wave 4J) --
 
 
 def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
