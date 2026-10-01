@@ -369,31 +369,62 @@ def _subject(m: re.Match[str]) -> tuple[str, str | None]:
     return PLAYER_GROUPS[s], None
 
 
+# -- tutors (wave 3T) -- one grammar for a library search: what is searched for (a selector, a name,
+# a mana value that may be X), whether it is revealed, where it goes (one place, or "one … and the
+# other …"), and whether the library is shuffled (701.23, 701.24).
+_PRON = r"(?:it|them|that card|those cards|the card|the cards)"
+_PLACE = r"(?:into your hand|onto the battlefield tapped|onto the battlefield|into your graveyard)"
 _SEARCH = re.compile(
-    rf"search your library for (?:(?P<upto>up to) )?(?P<n>{AMT}) (?P<sel>.+?), "
-    r"(?:(?P<reveal>reveal (?:it|them|that card|those cards)), )?"
-    r"(?:(?:put (?:it|them|that card|those cards) (?P<dest>into your hand|onto the battlefield tapped|onto the battlefield|"
-    r"into your graveyard)|(?P<exile>exile (?:it|them|that card)(?P<fd> face down)?)), then shuffle"
-    r"|then shuffle and put (?:that card|it) on top)")
+    rf"search your library for (?:(?P<upto>up to) )?(?P<n>{AMT}) (?P<sel>.+?)(?:,? and |, )"
+    rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, ))?"
+    rf"(?:put (?:(?P<one>one) (?P<d1>{_PLACE}) and the other (?P<d2>{_PLACE})|{_PRON} (?P<dest>{_PLACE}))(?P<shuf>, then shuffle)?"
+    rf"|(?P<exile>exile {_PRON}(?P<fd> face down)?)(?P<shuf2>, then shuffle)?"
+    rf"|then shuffle and put {_PRON} on top)")
 _DESTS = {"into your hand": "hand", "onto the battlefield tapped": "battlefield_tapped", "onto the battlefield": "battlefield",
           "into your graveyard": "graveyard"}
+_MV_X = re.compile(r"(?P<rest>.+?),? with mana value [xX](?P<less> or less)?")
+_NAMED = re.compile(r"(?P<rest>card|cards) named (?P<name>.+)")
 
 
 def _search(text: str) -> tuple[Effects, str | None] | None:
     """701.23: "Search your library for [up to N] [card selector], [reveal it,] put it [where], then
-    shuffle" (or "…, reveal it, then shuffle and put that card on top"; "exile it [face down]")."""
+    shuffle" (or "…, reveal it, then shuffle and put that card on top"; "exile it [face down]";
+    "put one onto the battlefield and the other into your hand"). A card "named …", or with "mana
+    value X or less" (the X the spell or ability has), is searched for too. Without "then shuffle"
+    the library is not shuffled (701.24 shuffles only when told to)."""
     m = _SEARCH.fullmatch(text)
     if not m:
         return None
-    sel = selectors.parse(m["sel"])
-    if sel is None or sel.player is not None or (not sel.card and m["sel"] not in ("a plains", "an island")):
+    extra: dict[str, Any] = {}
+    sel_text = m["sel"]
+    named = _NAMED.fullmatch(sel_text)
+    if named:
+        extra["name"] = named["name"]
+        sel_text = named["rest"]
+    mv = _MV_X.fullmatch(sel_text)
+    if mv:
+        extra["mv"] = ["<=" if mv["less"] else "==", _amount("x")]
+        sel_text = mv["rest"]
+    sel = selectors.parse(sel_text)
+    if sel is None or sel.player is not None or not sel.card:
         raise _Fail
     sel = selectors.replace(sel, zones=("library",), zone_owner="you", card=True)
     n = _amount(m["n"])
-    to = "top" if m["dest"] is None and m["exile"] is None else ("exile" if m["exile"] else _DESTS[m["dest"]])
+    if m["one"]:
+        if n != 2:
+            raise _Fail
+        to, extra["to2"] = _DESTS[m["d1"]], _DESTS[m["d2"]]
+    elif m["exile"]:
+        to = "exile"
+    elif m["dest"]:
+        to = _DESTS[m["dest"]]
+    else:
+        to = "top"
+    if to != "top" and not (m["shuf"] or m["shuf2"]):
+        extra["shuffle"] = False  # (only when the text says so: 701.23e)
     return [{"do": "search", "who": "you", "sel": sel.key(), "label": m["sel"], "max": n,
              "to": to, "reveal": bool(m["reveal"]), "upto": bool(m["upto"]),
-             **({"face_down": True} if m["fd"] else {})}], None  # (only when the text says so: 701.23e)
+             **({"face_down": True} if m["fd"] else {}), **extra}], None
 
 
 # -- the top of a library (401, 701.20 reveal, 701.20e look, 701.24 shuffle) ----------------------
