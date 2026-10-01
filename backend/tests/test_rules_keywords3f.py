@@ -65,6 +65,10 @@ REAL = [
     real("Taunting Kobold", "F12", "{R}", 1, "Creature — Kobold", "Haste\nWhenever this creature attacks, goad target creature "
          f"an opponent controls. {GOAD_REMINDER}", ["R"], ("0", "1")),
 ]
+REAL += [
+    real("Tranquilize", "F13", "{1}{U}", 2, "Sorcery", "Tap target creature an opponent controls and put three stun counters "
+         "on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)", ["U"]),
+]
 NAMES = [c["name"] for c in REAL]
 
 
@@ -209,4 +213,280 @@ def test_goad_triggers_on_a_real_creature(cards):
     with pytest.raises(ActionError, match="attacks each combat if able"):
         act(s, "p2", type="declare_attackers", attackers=[])
     act(s, "p2", type="declare_attackers", attackers=[{"card_id": ogre.id, "target": "p1"}])
+    replay_matches(s)
+
+
+# -- face-down permanents (708, 701.40, 701.58, 701.62, 702.37, 702.168) --------------------------------
+def on_top(s, name, pid="p1"):
+    card = named(s, name, pid)
+    act(s, pid, type="move", card_ids=[card.id], to={"zone": "library"})  # (the top of its owner's library)
+    assert s.state.zones[f"{pid}:library"][0] == card.id
+    return card
+
+
+def cast(s, name, pid="p1", targets=(), **m):
+    spell = to_hand(s, name, pid)
+    mana(s, pid, **m)
+    act(s, pid, type="cast_spell", card_id=spell.id, targets=list(targets))
+    pass_until_stack_empty(s)
+    return spell
+
+
+def hidden_from(s, pid, card):
+    """Nothing a player receives names the card or its printing (view, log, rules, decision)."""
+    blob = json.dumps(s.view(pid))
+    return card.name not in blob and card.card_id not in blob
+
+
+def test_parse_manifest_cloak_and_dread():
+    assert scripts.parse_effects("Manifest the top card of your library.") == (
+        [{"do": "manifest", "kind": "manifest", "who": "you", "n": 1}], None, False)
+    assert scripts.parse_effects("Cloak the top card of your library.") == (
+        [{"do": "manifest", "kind": "cloak", "who": "you", "n": 1}], None, False)
+    assert scripts.parse_effects("Manifest dread twice.") == (
+        [{"do": "manifest", "dread": True, "kind": "manifest", "who": "you", "n": 2}], None, False)
+    effects, target, _ = scripts.parse_effects("Exile target creature. Its controller manifests the top card of their library.")
+    assert effects[1] == {"do": "manifest", "kind": "manifest", "who": "ref:e0.controller", "n": 1} and target == "creature"
+    effects, _, _ = scripts.parse_effects("Manifest dread, then put three +1/+1 counters on that creature.")
+    assert effects[1] == {"do": "add_counters", "who": "ref:e0", "kind": "+1/+1", "n": 3} and effects[0]["as"] == "e0"
+    assert scripts.parse_effects("You manifest the top card of that player's library.") is None  # (not read)
+
+
+def test_soul_summons_manifests_a_hidden_two_two_that_turns_up_for_its_mana_cost(cards):
+    s = build(cards, "Soul Summons", "Hunted Bonebrute", players=2)
+    brute = on_top(s, "Hunted Bonebrute")
+    cast(s, "Soul Summons", W=1, C=1)
+    c = s.state.cards[brute.id]
+    assert c.zone == "p1:battlefield" and c.face_down and c.face_down_kind == "manifest"
+    assert ch(s, brute).pt == (2, 2) and ch(s, brute).name == "" and not ch(s, brute).abilities
+    assert not [x for x in s.state.cards.values() if x.name == "Dog"]  # 708.3: its "enters" trigger doesn't trigger
+    assert hidden_from(s, "p2", brute) and "Hunted Bonebrute" in json.dumps(s.view("p1"))
+    assert s.view("p2")["cards"][brute.id]["face_down_kind"] == "manifest"
+    replay_matches(s)
+    # 701.40b: its mana cost (it's a creature card); 701.40d: or its disguise cost
+    with pytest.raises(ActionError, match="Not enough mana"):
+        act(s, "p1", type="turn_face_up", card_id=brute.id, method="mana_cost")
+    mana(s, B=1, C=2)
+    act(s, "p1", type="turn_face_up", card_id=brute.id, method="mana_cost")
+    c = s.state.cards[brute.id]
+    assert not c.face_down and ch(s, brute).pt == (6, 2) and "menace" in ch(s, brute).keywords
+    assert not [x for x in s.state.cards.values() if x.name == "Dog"]  # 708.8: no "enters" ability now either
+    assert "Hunted Bonebrute" in json.dumps(s.view("p2"))
+    replay_matches(s)
+
+
+def test_a_manifested_noncreature_card_stays_face_down(cards):
+    s = build(cards, "Soul Summons", players=2)
+    mountain = on_top(s, "Mountain")
+    cast(s, "Soul Summons", W=1, C=1)
+    assert s.state.cards[mountain.id].face_down and ch(s, mountain).is_creature  # a 2/2 creature, not a land
+    mana(s, C=5)
+    with pytest.raises(ActionError, match="can't be turned face up"):
+        act(s, "p1", type="turn_face_up", card_id=mountain.id)  # 701.40b: not a creature card
+    with pytest.raises(ActionError):
+        act(s, "p2", type="turn_face_up", card_id=mountain.id)  # (only its controller)
+    assert hidden_from(s, "p2", mountain)
+
+
+def test_reality_shift_its_controller_manifests_and_only_they_see_it(cards):
+    s = build(cards, "Reality Shift", "Disrupt Decorum", players=3, bob=["Hunted Bonebrute"])
+    ogre = token(s, "p2", "Ogre", "3/3")
+    brute = on_top(s, "Hunted Bonebrute", "p2")
+    cast(s, "Reality Shift", targets=[ogre.id], U=1, C=1)
+    c = s.state.cards[brute.id]
+    assert c.zone == "p2:battlefield" and c.controller == "p2" and c.face_down and c.face_down_kind == "manifest"
+    assert hidden_from(s, "p1", brute) and hidden_from(s, "p3", brute)
+    assert "Hunted Bonebrute" in json.dumps(s.view("p2"))  # 708.5: its controller may look at it
+    # goading it names no face-down card in the log (708.5)
+    cast(s, "Disrupt Decorum", R=4)
+    assert "goaded:p1" in ch(s, brute).imposed
+    assert hidden_from(s, "p1", brute) and hidden_from(s, "p3", brute)
+    replay_matches(s)
+
+
+def test_manifest_dread_is_a_private_choice_the_other_card_goes_to_the_graveyard(cards):
+    s = build(cards, "Manifest Dread", "Hunted Bonebrute", "Thelonite Hermit", players=2)
+    hermit = on_top(s, "Thelonite Hermit")
+    brute = on_top(s, "Hunted Bonebrute")
+    dread = to_hand(s, "Manifest Dread")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=dread.id)
+    pass_until_stack_empty(s)
+    d = rules(s).decision
+    assert d is not None and d.player == "p1" and {o.card_id for o in d.options} == {brute.id, hermit.id}
+    assert "options" not in s.view("p2")["rules"]["decision"]
+    assert hidden_from(s, "p2", brute) and hidden_from(s, "p2", hermit)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[hermit.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[hermit.id].face_down and s.state.cards[hermit.id].zone == "p1:battlefield"
+    assert s.state.cards[brute.id].zone == "p1:graveyard"
+    assert hidden_from(s, "p2", hermit)
+    replay_matches(s)
+
+
+def test_fierce_invocation_counters_go_on_the_manifested_creature(cards):
+    s = build(cards, "Fierce Invocation", players=2)
+    to_hand(s, "Fierce Invocation")
+    top = on_top(s, "Mountain")
+    cast(s, "Fierce Invocation", R=1, C=4)
+    assert s.state.cards[top.id].face_down and s.state.cards[top.id].counters == {"+1/+1": 2}
+    assert ch(s, top).pt == (4, 4)
+    replay_matches(s)
+
+
+def test_morph_turned_face_up_triggers_and_secret_plans_draws(cards):
+    s = build(cards, "Thelonite Hermit", "Secret Plans", players=2)
+    cast(s, "Secret Plans", G=1, U=1)
+    hermit = to_hand(s, "Thelonite Hermit")
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=hermit.id, face_down=True)
+    pass_until_stack_empty(s)
+    assert s.state.cards[hermit.id].face_down and ch(s, hermit).pt == (2, 3)  # Secret Plans: +0/+1
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, G=2, C=3)
+    act(s, "p1", type="turn_face_up", card_id=hermit.id)
+    d = rules(s).decision
+    assert d is not None and d.kind == "order"  # two triggers of Alice's at once (603.3b)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+    pass_until_stack_empty(s)
+    saprolings = [c for c in s.state.cards.values() if c.name == "Saproling"]
+    assert len(saprolings) == 4 and all(ch(s, x).pt == (2, 2) for x in saprolings)  # All Saprolings get +1/+1
+    assert len(s.state.zones["p1:hand"]) == hand + 1  # "Whenever a permanent you control is turned face up, draw a card."
+    replay_matches(s)
+
+
+def test_disguise_cast_face_down_has_ward(cards):
+    from app.rules import triggers
+
+    s = build(cards, "Hunted Bonebrute", players=2)
+    brute = to_hand(s, "Hunted Bonebrute")
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=brute.id, face_down=True)
+    pass_until_stack_empty(s)
+    c = s.state.cards[brute.id]
+    assert c.face_down and c.face_down_kind == "disguise" and ch(s, brute).pt == (2, 2)
+    assert triggers.ward_cost(ch(s, brute)) == "{2}"  # 702.168a: a 2/2 with ward {2}
+    assert not [x for x in s.state.cards.values() if x.name == "Dog"]
+    assert hidden_from(s, "p2", brute) and s.view("p2")["cards"][brute.id]["face_down_kind"] == "disguise"
+    replay_matches(s)
+
+
+def test_face_down_creature_dies_revealed_and_its_dies_ability_never_was(cards):
+    s = build(cards, "Hunted Bonebrute", players=2)
+    brute = to_hand(s, "Hunted Bonebrute")
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=brute.id, face_down=True)
+    pass_until_stack_empty(s)
+    killer = token(s, "p1", "Killer", "1/1", text="{1}: Destroy target creature.")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=killer.id, ability=0, targets=[brute.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[brute.id].zone == "p1:graveyard" and not s.state.cards[brute.id].face_down
+    assert s.state.players["p2"].life == 40  # LKI: a face-down 2/2 with no abilities died (708.2, 603.10a)
+    assert "Hunted Bonebrute" in json.dumps(s.view("p2")["log"])  # 708.9: revealed as it left
+    replay_matches(s)
+
+
+def test_face_down_bounced_to_hand_is_revealed_as_it_moves(cards):
+    s = build(cards, "Soul Summons", "Hunted Bonebrute", players=2)
+    brute = on_top(s, "Hunted Bonebrute")
+    cast(s, "Soul Summons", W=1, C=1)
+    act(s, "p1", type="move", card_ids=[brute.id], to={"zone": "hand"})
+    assert "Hunted Bonebrute" in json.dumps(s.view("p2")["log"])  # 708.9
+    assert brute.id not in s.view("p2")["cards"]  # (in the hand it's anonymous again)
+
+
+def test_face_down_state_survives_save_and_load(cards):
+    from app.storage.saves import load_payload
+
+    s = build(cards, "Hunted Bonebrute", players=2)
+    brute = to_hand(s, "Hunted Bonebrute")
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=brute.id, face_down=True)
+    pass_until_stack_empty(s)
+    state, _ = load_payload({"state": s.state.model_dump(mode="json"), "history": s.history.to_dict()})
+    again = GameSession(state, cards=cards)
+    assert state.cards[brute.id].face_down_kind == "disguise"
+    assert Plan(state, "p1", cards, None).ch(state.cards[brute.id]).pt == (2, 2)
+    assert hidden_from(again, "p2", brute)
+
+
+def test_whisperwood_elemental_manifests_at_the_end_step(cards):
+    from tests.test_rules_effects import run_until
+
+    s = build(cards, "Whisperwood Elemental", players=2)
+    cast(s, "Whisperwood Elemental", G=2, C=3)
+    first = on_top(s, "Mountain")
+    run_until(s, lambda s: s.state.cards[first.id].zone == "p1:battlefield" and not s.state.zones.get("stack"))
+    assert s.state.cards[first.id].face_down and s.state.cards[first.id].face_down_kind == "manifest"
+    assert hidden_from(s, "p2", first)
+    replay_matches(s)
+
+
+def test_whisperwood_elemental_sacrifice_grants_a_dies_manifest_to_face_up_nontoken_creatures(cards):
+    """"Sacrifice this creature: Until end of turn, face-up nontoken creatures you control gain "When this
+    creature dies, manifest the top card of your library."" — the Bears gain it; a face-down 2/2 doesn't."""
+    s = build(cards, "Whisperwood Elemental", "Grizzly Bears", "Soul Summons", players=2)
+    cast(s, "Whisperwood Elemental", G=2, C=3)
+    bears = cast(s, "Grizzly Bears", G=1, C=1)
+    down = on_top(s, "Mountain")
+    cast(s, "Soul Summons", W=1, C=1)
+    whisper = named(s, "Whisperwood Elemental")
+    act(s, "p1", type="activate_ability", card_id=whisper.id, ability=1)
+    pass_until_stack_empty(s)
+    assert whisper.id in s.state.zones["p1:graveyard"]
+    killer = token(s, "p1", "Killer", "1/1", text="{1}: Destroy target creature.")
+    library = len(s.state.zones["p1:library"])
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=killer.id, ability=0, targets=[down.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[down.id].zone == "p1:graveyard" and len(s.state.zones["p1:library"]) == library  # (it was face down)
+    second = s.state.zones["p1:library"][0]
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=killer.id, ability=0, targets=[bears.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard"
+    assert s.state.cards[second].zone == "p1:battlefield" and s.state.cards[second].face_down
+    replay_matches(s)
+
+
+def test_geode_rager_goads_each_creature_the_target_player_controls(cards):
+    s = build(cards, "Geode Rager", players=3)
+    ogre = token(s, "p2", "Ogre", "3/3")
+    wolf = token(s, "p3", "Wolf", "2/2")
+    cast(s, "Geode Rager", R=2, C=4)
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Mountain").id)
+    d = rules(s).decision
+    if d is not None:  # the landfall trigger's target player
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if "p2" in o.id)])
+    pass_until_stack_empty(s)
+    assert "goaded:p1" in ch(s, ogre).imposed and not any(r.startswith("goaded") for r in ch(s, wolf).imposed)
+    replay_matches(s)
+
+
+# -- stun counters (122.1d) -------------------------------------------------------------------------------
+def test_tranquilize_stun_counters_replace_untapping(cards):
+    from tests.test_rules_effects import run_until
+
+    s = build(cards, "Tranquilize", players=2)
+    ogre = token(s, "p2", "Ogre", "3/3")
+    cast(s, "Tranquilize", targets=[ogre.id], U=1, C=1)
+    assert s.state.cards[ogre.id].tapped and s.state.cards[ogre.id].counters == {"stun": 3}
+    # Bob's untap step: it stays tapped, one stun counter comes off instead (122.1d)
+    run_until(s, lambda s: s.state.turn.active_player == "p2")
+    assert s.state.cards[ogre.id].tapped and s.state.cards[ogre.id].counters == {"stun": 2}
+    # "untap target creature" is replaced the same way
+    untapper = token(s, "p2", "Untapper", "1/1", text="{1}: Untap target creature.")
+    run_until(s, lambda s: s.state.turn.phase == "main1" and rules(s).priority == "p2")
+    mana(s, "p2", C=1)
+    act(s, "p2", type="activate_ability", card_id=untapper.id, ability=0, targets=[ogre.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[ogre.id].tapped and s.state.cards[ogre.id].counters == {"stun": 1}
+    run_until(s, lambda s: s.state.turn.active_player == "p1")
+    assert s.state.cards[ogre.id].tapped  # (Alice's untap step: not Bob's permanents)
+    run_until(s, lambda s: s.state.turn.active_player == "p2")
+    assert s.state.cards[ogre.id].tapped and not s.state.cards[ogre.id].counters  # the last one came off
+    run_until(s, lambda s: s.state.turn.active_player == "p1")
+    run_until(s, lambda s: s.state.turn.active_player == "p2")
+    assert not s.state.cards[ogre.id].tapped
     replay_matches(s)

@@ -713,7 +713,6 @@ _REPLACEABLE = {"counter", "resource", "create_token", "draw", "life", "rules_da
 _ALLOWED = {
     # outside wave 2E's ownership, to be rerouted at integration (UNVERIFIED how the lead reroutes them):
     ("casting.py", "after_mana_ability"): "mana ability riders: 'deals 1 damage to you', 'draw a card'",
-    ("casting.py", "turn_face_up"): "megamorph's +1/+1 counter (702.37b)",
     ("casting.py", "activate_to_stack"): "a loyalty ability's cost (606.4: a cost, not an effect; agent A's region)",
     ("casting.py", "suspend"): "time counters on a card in exile (not a permanent: no counter replacement applies)",
 }

@@ -181,6 +181,8 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
     "tap and untap", "proliferate", "investigate", "explore",
     # test_rules_keyword_actions.py
     "amass", "connive", "monstrosity", "bolster", "support",
+    # -- keyword actions & face-down (wave 3F) -- test_rules_keywords3f.py
+    "goad", "manifest", "manifest dread", "cloak",
 }
 
 
@@ -194,7 +196,6 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bchoose (?:each of )?(?:up to \w+ |any number of |one or two |\w+ )?(?:(?:an)?other )?targets?\b", re.I),
      "choose_targets: needs a no-op primitive that only names the chosen targets for later sentences "
      "(the target grammar is ready: language._CHOOSE)"),
-    (re.compile(r"\bstun counters?\b", re.I), "stun counters (122.1d) aren't modelled (values.UNMODELED_COUNTERS)"),
     (re.compile(r"\bfor each target beyond the first\b", re.I),
      "a cost per extra target (601.2b/601.2c): the cost grammar doesn't read it"),
     (re.compile(r"\btarget (?:player|opponent)'s (?:graveyard|hand|library)\b", re.I),
@@ -269,7 +270,9 @@ def _keyword_supported(kw: str, line: str) -> bool:
     if kw == "echo":  # triggers.echo_cost: a mana echo cost
         return re.fullmatch(r"echo (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
-        return re.fullmatch(r"(?:mega)?morph (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+        return re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None  # (no X: wave 3F)
+    if kw == "disguise":  # -- keyword actions & face-down (wave 3F) -- casting.disguise_cost: a mana disguise cost
+        return re.fullmatch(r"disguise (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("bushido", "renown", "bloodthirst", "soulshift", "toxic", "fabricate"):  # numbered keywords (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"

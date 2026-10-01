@@ -534,6 +534,7 @@ def tap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def untap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     _remember(plan, ctx, e, _cards(plan, ctx, e["who"]))
     cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].tapped]
+    cards = keyword_actions.untap_stunned(plan, cards, ctx["controller"])  # -- wave 3F -- 122.1d stun counters
     if cards:
         plan.do({"type": "tap", "card_ids": cards, "tapped": False}, actor=ctx["controller"])
     return True
@@ -2591,6 +2592,7 @@ def gain_control(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     _remember(plan, ctx, e, cards)
     if e.get("untap"):  # "Untap target creature and gain control of it": the same objects, untapped first
         tapped = [c for c in cards if plan.state.cards[c].tapped]
+        tapped = keyword_actions.untap_stunned(plan, tapped, ctx["controller"])  # -- wave 3F -- 122.1d
         if tapped:
             plan.do({"type": "tap", "card_ids": tapped, "tapped": False}, actor=ctx["controller"])
     who = _players(plan, ctx, e.get("to", "you"))

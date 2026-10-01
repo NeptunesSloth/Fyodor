@@ -57,7 +57,7 @@ AMOUNT = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|t
 UNMODELED_COUNTERS = frozenset({
     "flying", "first strike", "double strike", "deathtouch", "decayed", "exalted", "haste", "hexproof",
     "indestructible", "lifelink", "menace", "reach", "shadow", "trample", "vigilance",
-    "shield", "stun", "finality", "rad", "hone", "lore"})
+    "shield", "finality", "rad", "hone", "lore"})  # (stun: 122.1d, wave 3F — keyword_actions.untap_stunned)
 
 BASIC_LAND_TYPES = ("Plains", "Island", "Swamp", "Mountain", "Forest")  # 205.3i
 # 205.2a: the card types (as the type line writes them; "Tribal" is the old name of kindred)

@@ -310,6 +310,28 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+# stun counters (122.1d): "If a permanent with a stun counter on it would become untapped, instead remove a
+# stun counter from it." — a replacement effect of the counters themselves, applied wherever the engine untaps
+# a permanent (the untap step, "untap target creature", "untap … and gain control of it").
+def stunned(plan: Plan, card_ids: list[str]) -> list[str]:
+    """The permanents among these that would become untapped but have a stun counter."""
+    return [c for c in card_ids if (card := plan.state.cards.get(c)) is not None and card.tapped
+            and card.zone.endswith(":battlefield") and card.counters.get("stun", 0) > 0 and not plan.manual(card)]
+
+
+def lose_stun(plan: Plan, card_ids: list[str], actor: str | None) -> None:
+    """Instead of untapping: one stun counter comes off each (removing counters isn't replaceable)."""
+    for cid in card_ids:
+        plan.do({"type": "counter", "card_ids": [cid], "kind": "stun", "delta": -1}, actor=actor)
+
+
+def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[str]:
+    """The cards to untap after 122.1d replaced the untapping of the stunned ones."""
+    stuck = stunned(plan, card_ids)
+    lose_stun(plan, stuck, actor)
+    return [c for c in card_ids if c not in stuck]
+
+
 PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
               "goad": goad, **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}

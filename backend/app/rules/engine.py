@@ -439,12 +439,17 @@ def _keep_tapped(plan: Plan) -> list[str]:
 
 def start_next_turn(plan: Plan) -> None:
     keep = _keep_tapped(plan)
+    # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
+    stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
+    keep = [*keep, *stunned]
     skipped: list[tuple[str, int]] = []  # 800.4k: a departed player's turn doesn't begin
     for _ in range(len(plan.state.seat_order) + 1):
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep}, actor=plan.active)
         if plan.active in plan.live():
             break
         skipped.append((plan.active, plan.state.turn.number))
+    effects.keyword_actions.lose_stun(plan, [c for c in stunned if c in plan.state.cards and plan.state.cards[c].controller == plan.active],
+                                      plan.active)
     delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
     if not plan.state.settings.auto_untap:
         plan.do({"type": "untap_all", "player": plan.active, "keep_tapped": keep}, actor=plan.active)
