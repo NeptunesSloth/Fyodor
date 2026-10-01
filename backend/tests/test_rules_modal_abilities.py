@@ -1210,7 +1210,7 @@ def test_a_triggers_intervening_if_belongs_to_the_whole_ability():
     assert d["if"] == {"value": {"count": 'sel:{"controller":"you","subtypes":["Forest"]}'}, "op": ">=", "n": 1}
     assert d["trigger"] == "attacks_self" and [m["effects"][0]["do"] for m in d["modes"]] == ["draw", "gain_life"]
     # the same text when the "if" is unreadable: manual, not guessed
-    assert header("Whenever this creature attacks, if it's night, choose one —\n• Draw a card.\n• You gain 1 life.") is None
+    assert header("Whenever this creature attacks, if you have a full party, choose one —\n• Draw a card.\n• You gain 1 life.") is None
 
 
 def test_modes_that_name_the_event_keep_their_references():

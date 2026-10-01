@@ -252,7 +252,7 @@ def _stat(phrase: str, its: str = "it") -> Any:
 # The instruction joiners scripts._clause splits a sentence on (mirrored here, so a sentence with
 # one "where X is …" for two instructions is read whole before it would be split)
 _JOINER = (r", then | and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|destroy|tap|untap|"
-           r"create|sacrifice|discard|mill|scry|surveil)\b)")
+           r"create|sacrifice|discard|mill|scry|surveil|get)\b)")
 
 
 def _has_x(v: Any) -> bool:
@@ -754,6 +754,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if sel is None or sel.player is not None:
             raise _Fail
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
+    found = player_counters(text, rider) or (designation_instruction(text) if rider is None else None)  # (wave 3E)
+    if found is not None:
+        return found
     # -- damage ---------------------------------------------------------------------------------
     # -- sized amounts (wave 3D) -- "that creature deals damage equal to its power": the pronoun's creature (as "it")
     text = re.sub(r"^that creature deals ", "it deals ", text)
@@ -1697,3 +1700,75 @@ def _exchange(phrase: str) -> tuple[Effects, Any] | None:
     if a is None or a[0] != "target" or a[2] is None or not simple(a[2]):
         return None
     return [{"do": "exchange_control", "who": "target", "with": "target:1"}], [a[2], b[2]]
+# -- counters & designations (wave 3E) --------------------------------------------------------------
+# Counters a player gets (122.1, 122.6): "each opponent gets a poison counter", "you get an experience
+# counter", "target player gets four rad counters", "you get {E}{E}" / "six {E}" / "that many {E}" / "an
+# amount of {E} equal to …" (107.14: {E} is one energy counter). Only the kinds whose rules the engine
+# models: poison (704.5c), energy (107.14), experience (122.1), rad (728: app/rules/designations.py).
+PLAYER_COUNTER_KINDS = ("poison", "energy", "experience", "rad")
+_GETS = _SUBJ + r"gets? "
+_PC_KIND = r"(?P<kind>poison|experience|rad|energy)"
+_PC_FORMS = (
+    re.compile(_GETS + rf"(?P<n>{AMT}) {_PC_KIND} counters?"),
+    re.compile(_GETS + r"(?P<e>(?:\{E\})+)"),
+    re.compile(_GETS + rf"(?P<n>{AMT}) \{{E\}}"),
+    re.compile(_GETS + r"(?:an amount of \{E\}|a number of " + _PC_KIND + r" counters) equal to (?P<stat>.+)"),
+)
+
+
+def player_counters(text: str, rider: Any) -> tuple[Effects, Any] | None:
+    """"<player(s)> get(s) N <kind> counter(s)" → ``player_counter`` (through the counter choke
+    point, app/rules/replace.put_counters: Vorinclex / Winding Constrictor), or None when the
+    sentence isn't one. "They get …" is "that player gets …" (the pronoun binder decides who that is:
+    the trigger event's player, or nobody — then it's refused)."""
+    text = re.sub(r"^they get ", "that player gets ", text)
+    for i, rx in enumerate(_PC_FORMS):
+        m = rx.fullmatch(text)
+        if m is None:
+            continue
+        who, target = _subject(m)
+        kind = m.groupdict().get("kind") or "energy"
+        n: Any
+        if i == 1:  # "{E}{E}" (a count of symbols; "for each …" multiplies it)
+            if rider is not None and rider[0] != "each":
+                raise _Fail
+            n = _apply(m["e"].count("{E}"), rider)
+        elif i == 3:  # "an amount of {E} equal to its mana value"
+            if rider is not None:
+                raise _Fail
+            n = _stat(m["stat"])
+        else:
+            n = _apply(_amount(m["n"]), rider)
+        return [{"do": "player_counter", "who": who, "counter": kind, "n": n}], _value_target(n, target)
+    return None
+
+
+# Designations (app/rules/designations.py): "target player becomes the monarch" (725), "you take the
+# initiative" (726), "venture into the dungeon" / "venture into Undercity" (701.49, 701.49d), "the Ring
+# tempts you" (701.54).
+_MONARCH = re.compile(_SUBJ + r"becomes? the monarch")
+_INITIATIVE = re.compile(_SUBJ + r"takes? the initiative")
+_VENTURE = re.compile(r"(?:you )?venture into (?P<into>the dungeon|Undercity)")
+_RING = re.compile(r"the Ring tempts you")
+
+
+def designation_instruction(text: str) -> tuple[Effects, Any] | None:
+    for rx, do in ((_MONARCH, "monarch"), (_INITIATIVE, "initiative")):
+        m = rx.fullmatch(text)
+        if m:
+            who, target = _subject(m)
+            return [{"do": do, "who": who}], target
+    m = _VENTURE.fullmatch(text)
+    if m:
+        return [{"do": "venture", "who": "you", "into": "undercity" if m["into"] == "Undercity" else "dungeon"}], None
+    if _RING.fullmatch(text):
+        return [{"do": "ring_tempts", "who": "you"}], None
+    m = re.fullmatch(r"it becomes (?P<v>day|night)", text)  # 731.1
+    if m:
+        return [{"do": "day_night", "value": m["v"]}], None
+    if re.fullmatch(r"(?:you may )?pay any amount of \{E\}", text):  # 107.14: an amount chosen as it resolves
+        return [{"do": "pay_energy_any", "as": ENERGY_PAID}], None
+    return None
+
+
+ENERGY_PAID = "energy_paid"  # the binding of "the amount of {E} paid this way" / "that much" after it

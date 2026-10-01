@@ -579,7 +579,8 @@ def untap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def player_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- replacement effects stage 2 (wave 2E): a player getting counters, through the counter
     # choke point ("If you would get one or more counters": Winding Constrictor) --
-    puts = [(pid, e["counter"], int(e["n"])) for pid in _players(plan, ctx, e["who"]) if e["n"]]
+    n = max(0, _amount(plan, ctx, e["n"]))  # -- counters & designations (wave 3E): "that many {E}", "X rad counters" --
+    puts = [(pid, e["counter"], n) for pid in _players(plan, ctx, e["who"]) if n]
     if not puts:
         return True
     return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
@@ -1720,7 +1721,9 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": to, "zone": e["to"]},
                      **({"face_down": True} if e.get("face_down") else {})}, actor=pid)
     else:
-        entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped"} for c in chosen]
+        entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped",
+                    **({"counter": e["counter"], "counter_n": e.get("counter_n", 1)} if e.get("counter") else {})}  # (wave 3E)
+                   for c in chosen]
         if not attachments.enter(plan, entries, ctx):
             return False
     _moved(plan, ctx, e, before)
@@ -2703,3 +2706,11 @@ PRIMITIVES.update({"gain_control": gain_control, "exchange_control": exchange_co
 # -- end control (wave 3K) --
 
 RESUME["search_may"] = resume_search_may
+# -- counters & designations (wave 3E) --------------------------------------------------------------
+# Rad counters (728), the monarch (725), the initiative (726), venture into the dungeon (701.49, 309),
+# the Ring tempts you (701.54): app/rules/designations.py (a leaf module over this one).
+from app.rules import designations  # noqa: E402, I001
+
+PRIMITIVES.update(designations.PRIMITIVES)
+RESUME.update(designations.RESUME)
+# -- end counters & designations (wave 3E) --

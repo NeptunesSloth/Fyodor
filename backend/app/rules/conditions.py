@@ -224,9 +224,41 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         else:
             quantity = {"life": "you"} if what == "life" else {"hand": "you"} if what == "cards in hand" else None
         return {"versus": {"value": quantity, "op": ">"}} if quantity is not None else None
+    found = designation_condition(t)  # -- counters & designations (wave 3E) --
+    if found is not None:
+        return found
     if objects:
         return _object(t)
     return None
+
+
+# -- counters & designations (wave 3E) --------------------------------------------------------------
+# "an opponent has three or more poison counters" (corrupted; one opponent, 122.1f), "you have N or more
+# experience counters", "you have no rad counters"; "there is no monarch" / "an opponent is the
+# monarch" (725), "you've completed a dungeon" (309.7), "it's day / night" (731).
+_HAS_COUNTERS = re.compile(r"(?P<who>you|an opponent) (?:has|have) (?:(?P<no>no)|(?P<a>a|an|one or more)|(?P<n>\w+) or more) "
+                           r"(?P<kind>poison|experience|rad|energy) counters?")
+_DESIGNATIONS = {"there is no monarch": "no_monarch", "an opponent is the monarch": "opponent_monarch",
+                 "you're not the monarch": "not_monarch", "you aren't the monarch": "not_monarch",
+                 "you don't have the initiative": "not_initiative", "you've completed a dungeon": "completed_dungeon",
+                 "you have completed a dungeon": "completed_dungeon",
+                 "it's day": "day", "it's night": "night", "it's neither day nor night": "neither_day_nor_night"}
+
+
+def designation_condition(t: str) -> Condition | None:
+    m = _HAS_COUNTERS.fullmatch(t)
+    if m:
+        n = 0 if m["no"] else 1 if m["a"] else _num(m["n"] or "")
+        if n is None:
+            return None
+        out: Condition = {"value": {"player_counters": m["kind"]}, "op": "==" if m["no"] else ">=", "n": n}
+        if m["who"] == "an opponent":
+            out["per_opponent"] = True  # one opponent must have that many (not all of them together)
+        return out
+    if t in _DESIGNATIONS:
+        return {"status": _DESIGNATIONS[t]}
+    return None
+# -- end counters & designations (wave 3E) --
 
 
 _HISTORY_PATTERNS: list[tuple[re.Pattern[str], Any]] = []
@@ -417,6 +449,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return _versus(plan, ctx, cond["versus"])
     v = cond["value"]
     n = cond["n"]
+    if cond.get("per_opponent") and "player_counters" in v:  # (wave 3E) "an opponent has three or more poison counters"
+        per = [values.evaluate(plan, {**ctx, "controller": p}, v) for p in plan.live() if p != ctx["controller"]]
+        return any(_OPS[cond["op"]](x, n) for x in per)
     if cond.get("per_opponent"):
         found = selectors.candidates(plan, selectors.from_key(v["count"]), ctx["controller"], ctx.get("source_card"))
         per = [sum(1 for c in found if plan.state.cards[c].controller == p) for p in plan.live() if p != ctx["controller"]]
@@ -429,8 +464,12 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
 def _status(plan: Plan, you: str, kind: str) -> bool:
     if kind == "monarch":  # 724: the monarch designation
         return plan.state.table.monarch == you
-    if kind == "initiative":  # 725
+    if kind == "initiative":  # 726
         return plan.state.table.initiative == you
+    if kind != "city_blessing":  # -- counters & designations (wave 3E) --
+        from app.rules import designations
+
+        return designations.status(plan, you, kind)
     return bool(plan.state.players[you].city_blessing)  # 702.131c ascend: the city's blessing
 
 

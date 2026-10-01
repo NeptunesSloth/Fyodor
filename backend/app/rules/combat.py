@@ -91,6 +91,12 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
         return f"{ach.name} has intimidate: only artifact creatures and creatures that share a color with it can block it"
     if "skulk" in ach.keywords and _power(bch) > _power(ach):
         return f"{ach.name} has skulk: creatures with greater power can't block it"
+    # -- counters & designations (wave 3E): the Ring-bearer's evasion (701.54c) --
+    from app.rules import designations
+
+    ring = designations.ring_block_problem(state, attacker, _power(ach), _power(bch))
+    if ring:
+        return ring
     if protection.protected_from(ach, bch):
         return f"{ach.name} has protection: {bch.name} can't block it"
     return None
@@ -629,6 +635,10 @@ def deal_combat_damage(plan: Plan, rnd: Round, shield_order: list[str] | None = 
 
         hitters = [plan.state.cards[src] for src, tgt, n in dealt if tgt == monarch and n > 0 and src in plan.state.cards]
         triggers.monarch_damaged(plan, hitters[:1])  # one trigger per combat damage event
+    # -- counters & designations (wave 3E): 726.2 the initiative changes hands --
+    from app.rules import designations
+
+    designations.initiative_damaged(plan, dealt)
     return True
 
 

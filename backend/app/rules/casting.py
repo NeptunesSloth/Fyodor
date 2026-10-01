@@ -182,8 +182,11 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
             continue
         if parsed.extra_cost:
             extra = parse_ability_cost(parsed.extra_cost, card_name=ch.name)
-            if not extra.basic or (extra.life and state.players[card.controller].life < extra.life) or \
-                    any(card.counters.get(k, 0) < n for k, n in extra.remove_counters):
+            energy = extra.energy  # (wave 3E: "{T}, Pay {E}: Add …", 107.14)
+            if not extra.basic or extra.energy_x or \
+                    (extra.life and state.players[card.controller].life < extra.life) or \
+                    any(card.counters.get(k, 0) < n for k, n in extra.remove_counters) or \
+                    state.players[card.controller].resources.get("energy", 0) < energy:
                 continue
         options = _resolve_options(state, card, parsed, info)
         if options:
@@ -232,8 +235,11 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
             continue
         ch = chars.of(card, info)
         usable_tap = can_use_tap_abilities(state, card, ch)
+        # (wave 3E) an ability paying energy is activated by hand only: several sources sharing one
+        # energy total aren't something the solver can split (118.3: no partial payment)
         abilities = [(i, ab) for i, ab in mana_abilities(state, card, info)
-                     if (usable_tap or not ab.tap) and spend_allowed(ab.spend_only, purpose)]
+                     if (usable_tap or not ab.tap) and spend_allowed(ab.spend_only, purpose)
+                     and not (ab.extra_cost and parse_ability_cost(ab.extra_cost, card_name=ch.name).energy)]
         rank = 0 if ch.is_land else 2 if ch.is_creature else 1
         free = [(i, ab) for i, ab in abilities if not parse_ability_cost(ab.extra_cost, card_name=ch.name).mana]
         plain = [(i, ab) for i, ab in free if not ab.sacrifice_self and ab.tap]
@@ -656,6 +662,8 @@ def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.Ma
     extra = parse_ability_cost(ability.extra_cost, card_name=plan.ch(card).name) if ability.extra_cost else None
     for kind, n in extra.remove_counters if extra else ():
         plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n}, actor=card.controller)
+    if extra is not None and extra.energy:  # (wave 3E: "{T}, Pay {E}: Add one mana of any color", 107.14)
+        plan.do({"type": "resource", "player": card.controller, "key": "energy", "delta": -extra.energy}, actor=card.controller)
     for kind, n in ability.riders:
         if kind == "damage":
             plan.do({"type": "rules_damage", "creatures": {}, "players": {card.controller: n}, "planeswalkers": {},
@@ -1982,7 +1990,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         raise ActionError(problem)
     oid = plan.oid(card)  # the object activating (paying a cost may move it: it'd be a new object)
     mana = M.parse_cost(cost.mana)
-    if (mana.x or cost.loyalty_x) and a.x_value is None:
+    if (mana.x or cost.loyalty_x or cost.energy_x) and a.x_value is None:  # (wave 3E: "Pay X {E}")
         raise ActionError("Choose a value for X")
     if cost.loyalty_x and card.counters.get("loyalty", 0) < (a.x_value or 0):
         raise ActionError(f"{ch.name} doesn't have {a.x_value} loyalty")  # 606.6
@@ -2001,7 +2009,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     if picked_targets is None:
         return
     chosen = picked_targets.flat
-    problem = cost_payment.problem(plan, cost, card, plan.actor)  # 118.3 / 601.2h: nothing is paid unless all can be
+    problem = cost_payment.problem(plan, cost, card, plan.actor, a.x_value)  # 118.3 / 601.2h: nothing is paid unless all can be
     if problem:
         raise ActionError(problem)
     cost_objects = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ability")  # (602.2b → 601.2h)

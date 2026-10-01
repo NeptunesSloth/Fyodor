@@ -245,7 +245,8 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
 
 def _extra(entry: Entry) -> dict[str, int] | None:
     """The counters the effect putting it onto the battlefield adds (persist / undying: 702.79a, 702.93a)."""
-    return {entry["counter"]: 1} if entry.get("counter") else None
+    # (counter_n: wave 3E, "onto the battlefield with three +1/+1 counters on it")
+    return {entry["counter"]: int(entry.get("counter_n") or 1)} if entry.get("counter") else None
 
 
 def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]]:

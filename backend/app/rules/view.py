@@ -49,12 +49,33 @@ def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] 
                        if cid in state.cards and (viewer == OMNISCIENT or can_see(state, state.cards[cid], viewer))},
         "hints": {},
         "stats": stats(state, viewer, info),
+        # -- counters & designations (wave 3E): dungeons, venture markers and the Ring (public, 309.2b / 701.54) --
+        "designations": designations_view(state),
     }
     d = r.decision
     if d is not None:
         out["decision"] = decision_view(state, d, viewer)
     if viewer in state.players and viewer in live_players(state) and not r.paused:
         out["hints"] = hints(state, viewer, info)
+    return out
+
+
+def designations_view(state: GameState) -> dict[str, Any]:
+    """-- counters & designations (wave 3E) -- Each player's dungeon in the command zone and the room their
+    venture marker is on, the dungeons they completed, how many times the Ring tempted them and their
+    Ring-bearer (a permanent on the battlefield): all public."""
+    r = state.rules
+    assert r is not None
+    out: dict[str, Any] = {}
+    for pid in state.players:
+        mark = r.dungeons.get(pid)
+        bearer = r.ring_bearers.get(pid)
+        card = bearer.rsplit(".", 1)[0] if bearer else None
+        entry = {"dungeon": mark.model_dump() if mark else None, "completed": list(r.completed_dungeons.get(pid, [])),
+                 "ring": r.ring_tempted.get(pid, 0),
+                 "ring_bearer": card if card in state.cards and state.cards[card].zone.endswith(":battlefield") else None}
+        if entry["dungeon"] or entry["completed"] or entry["ring"]:
+            out[pid] = entry
     return out
 
 

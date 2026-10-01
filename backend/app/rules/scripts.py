@@ -578,7 +578,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
         return value
     out = {}
     for k, v in value.items():
-        if k in ("as", "bind", "succeeded", "flag", "did") and isinstance(v, str):  # ("bind": the library primitives' recorder;
+        if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount") and isinstance(v, str):  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -1112,7 +1112,7 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if found is not None:
         return found
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
-                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil)\b)"):
+                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get)\b)"):
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
@@ -1122,7 +1122,7 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                         r"that player) ", parts[0])
         same_target = False
         if subj and re.match(r"^(?:draws|discards|mills|loses|gains|sacrifices|shuffles|puts|reveals|exiles|"
-                             r"returns|creates|searches|scry|surveil)\b", parts[1]):
+                             r"returns|creates|searches|scry|surveil|gets)\b", parts[1]):
             parts[1] = f"{subj[1]} {parts[1]}"
             same_target = subj[1].startswith("target")  # (one word "target": the same target)
         left, right = _clause(parts[0]), _clause(parts[1])
@@ -1145,9 +1145,19 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     target_fields). ``it``: what the pronoun "it" means when no target precedes it (resolve_it);
     ``event_player``: the trigger event names a player ("that player" may mean them)."""
     try:
-        return _parse_effects(body, it, event_player)
+        return _energy_paid(_parse_effects(body, it, event_player))
     except _NoMatch:
         return None
+
+
+def _energy_paid(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- counters & designations (wave 3E) -- After "you may pay any amount of {E}", "that much" is the
+    amount paid (608.2c: the text read as a whole), not a trigger event's."""
+    if found is None or not any(e.get("do") == "pay_energy_any" for e in found[0]):
+        return found
+    at = next(i for i, e in enumerate(found[0]) if e.get("do") == "pay_energy_any")
+    paid = json.loads(json.dumps(found[0][at + 1:]).replace('{"event_amount": 1}', '{"ref_amount": "energy_paid"}'))
+    return [*found[0][:at + 1], *paid], found[1], found[2]
 
 
 def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -1469,6 +1479,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return rule
     if ability.kind == "static" and re.fullmatch(r"You control enchanted (?:creature|permanent|land|artifact)\.", text):
         return {"kind": "static", "static": "control", "who": "host", "effects": []}  # -- control (wave 3K) -- layer 2 (613.1b)
+    if ability.kind == "static" and text == "If it's neither day nor night, it becomes day as ~ enters.":
+        return {"kind": "static", "static": "day_as_enters", "effects": []}  # (wave 3E: app/rules/designations.py, 731.1)
     if ability.kind == "static" and text == "~ can be your commander.":
         return {"kind": "static", "static": "deckbuilding", "effects": []}  # 903.3a: deck construction only
     if ability.kind == "static" and text in COMBAT_STATICS:
@@ -1594,7 +1606,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # gained / lost, damage dealt, counters put; for a "one or more" batch of sacrifices, discards,
 # tokens created … the number of them (603.2c)
 _AMOUNT_EVENTS = {"gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
-                  "deal_damage", "counters_put", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard"}
+                  "deal_damage", "counters_put", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
+                  "player_counters"}  # (player_counters: wave 3E, "you get that many {E}")
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
@@ -2776,3 +2789,15 @@ def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
     return _from_language(language.control_forms(m["t"]))
+# -- counters & designations (wave 3E) -- Palace Jailer: "exile target creature an opponent controls until an
+# opponent becomes the monarch" — a delayed trigger (603.7) watching for a player who is an opponent of the
+# ability's controller to become the monarch (725.3; app/rules/designations.py), however long that takes and
+# whether or not the source is still there; the exiled card returns under its owner's control.
+@effect(r"exile (?P<o>target .+?) until an opponent becomes the monarch")
+def _exile_until_monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    found = _one_clause(f"exile {m['o']}")
+    if found is None or len(found[0]) != 1 or found[0][0]["do"] != "exile" or found[0][0]["who"] != "target":
+        raise _NoMatch
+    back = {"do": "return_card", "who": "ref:m0", "to": "battlefield", "tapped": False, "under": "owner"}
+    return [{**found[0][0], "as": "m0"}, *_delayed.wrap_when([back], {"kind": "designation", "what": "monarch", "by": "opponent"})], found[1]
+# -- end counters & designations (wave 3E) --

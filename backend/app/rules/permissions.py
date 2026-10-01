@@ -551,7 +551,8 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
     r = plan.rules
     turn = plan.state.turn.number
-    when = "until the end of their next turn" if e["until"] == "end_of_next_turn" else "this turn"
+    when = "until the end of their next turn" if e["until"] == "end_of_next_turn" else \
+        "for as long as it remains there" if e["until"] == "permanent" else "this turn"  # (permanent: wave 3E, 611.2a)
     verb = "play" if e["play"] else "cast"
     if e.get("who"):
         if not str(e["who"]).startswith(context.PREFIX):

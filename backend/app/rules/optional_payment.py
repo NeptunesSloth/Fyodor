@@ -60,7 +60,7 @@ def cost_text(phrase: str) -> str | None:
     parts = []
     for raw in re.split(r", | and ", phrase.strip()):
         part = raw.strip()
-        if part.startswith("pay ") and _MANA_ONLY.match(part[4:]):
+        if part.startswith("pay ") and _MANA_ONLY.match(part[4:]) and not re.fullmatch(r"(?:\{E\})+", part[4:]):  # ({E}: wave 3E)
             part = part[4:]
         elif re.fullmatch(r"\d+ life", part):  # "… unless that player pays 3 life"
             part = "pay " + part
@@ -74,7 +74,7 @@ def cost_text(phrase: str) -> str | None:
 def parse(text: str) -> AbilityCost | None:
     """The cost text as components, or None if any part isn't one the engine pays here."""
     cost = C.parse_ability_cost(text)
-    if cost.unsupported or not cost.components or "{X}" in cost.mana.upper():
+    if cost.unsupported or not cost.components or "{X}" in cost.mana.upper() or cost.energy_x:
         return None
     if any(c.kind not in SUPPORTED for c in cost.components):
         return None

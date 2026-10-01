@@ -442,12 +442,14 @@ def _keep_tapped(plan: Plan) -> list[str]:
 def start_next_turn(plan: Plan) -> None:
     keep = _keep_tapped(plan)
     skipped: list[tuple[str, int]] = []  # 800.4k: a departed player's turn doesn't begin
+    previous = (plan.active, plan.state.turn.number)
     for _ in range(len(plan.state.seat_order) + 1):
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep}, actor=plan.active)
         if plan.active in plan.live():
             break
         skipped.append((plan.active, plan.state.turn.number))
     delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
+    effects.designations.untap_day_night(plan, *previous)  # -- (wave 3E) 502.2: day / night --
     if not plan.state.settings.auto_untap:
         plan.do({"type": "untap_all", "player": plan.active, "keep_tapped": keep}, actor=plan.active)
     # The untap step has no priority: straight on to upkeep.
@@ -489,6 +491,17 @@ def on_step_start(plan: Plan) -> None:
         triggers.at_step(plan, "upkeep_you" if phase == "upkeep" else "end_step_you")
         if phase == "end":
             triggers.monarch_end_step(plan)
+        else:  # -- counters & designations (wave 3E): 726.2 the initiative's holder ventures into Undercity --
+            effects.designations.initiative_upkeep(plan)
+    elif phase == "main1":
+        # -- sagas & attached-object triggers (wave 3S): 505.4 / 714.3c lore counters (a turn-based action) --
+        from app.rules import sagas
+
+        sagas.precombat_main(plan)
+        # -- counters & designations (wave 3E): 728.1 rad counters (precombat main phase) --
+        effects.designations.rad_trigger(plan)
+    elif phase == "end_combat":  # -- (wave 3E) delayed triggers "at end of combat" (511.2, 603.7: the Ring's sacrifice) --
+        delayed.at_step(plan, "end_combat")
     elif phase == "declare_attackers":
         combat.start_declare_attackers(plan)
     elif phase == "declare_blockers":
@@ -500,10 +513,6 @@ def on_step_start(plan: Plan) -> None:
             combat_damage(plan, "only", "done")
     elif phase == "cleanup":
         cleanup_step(plan)
-    elif phase == "main1":  # -- sagas & attached-object triggers (wave 3S): 505.4 / 714.3c lore counters --
-        from app.rules import sagas
-
-        sagas.precombat_main(plan)
     if phase in ("upkeep", "draw", "main1", "begin_combat", "main2", "end"):
         triggers.at_step_generic(plan)  # "At the beginning of [whose] [step]" (503, 504, 505, 507, 513)
 

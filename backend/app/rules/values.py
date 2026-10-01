@@ -97,6 +97,10 @@ _DEVOTION = re.compile(r"^your devotion to (?P<c1>white|blue|black|red|green)(?:
 _AGGREGATE = re.compile(r"^the (?:(?P<max>greatest|highest)|(?P<sum>total)) (?P<stat>power|toughness|mana value) "
                         r"(?:among|of) (?P<sel>.+)$")
 _PLAYER_COUNTERS = re.compile(r"^(?P<kind>[a-z]+) counters? you have$")
+# -- counters & designations (wave 3E) -- "poison counters your opponents have" (all of them together),
+# "{E} you have" / "the amount of {E} you have" (107.14: each {E} is an energy counter)
+_PLAYER_COUNTERS_3E = re.compile(r"^(?:the amount of )?(?:(?P<kind>poison|experience|rad|energy) counters?|(?P<e>\{E\})) "
+                                 r"(?P<who>you have|your opponents have)$")
 _HALF = re.compile(r"^half (?P<v>.+?), rounded (?P<round>up|down)$")
 _PLUS = re.compile(r"^(?P<v>.+?) plus (?P<n>\d+|one|two|three|four|five)$")
 _TYPE_WORDS = "|".join(selectors.CARD_TYPES)
@@ -149,6 +153,12 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     m = _PLAYER_COUNTERS.match(what)
     if m:
         return {"player_counters": m["kind"]}
+    if what in ("{E} paid this way", "the amount of {E} paid this way", "{E} you paid this way"):  # (wave 3E)
+        return {"ref_amount": "energy_paid"}  # (language.ENERGY_PAID: bound by the pay_energy_any effect)
+    m = _PLAYER_COUNTERS_3E.match(what)  # -- counters & designations (wave 3E) --
+    if m:
+        kind = "energy" if m["e"] else m["kind"]
+        return {"player_counters": kind, "of": "opponents"} if m["who"] == "your opponents have" else {"player_counters": kind}
     m = _COUNTERS_ON.match(what)
     if m:
         on = _ON.get(m["on"].lower())
@@ -258,6 +268,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             return max([plan.state.players[p].life for p in plan.live() if p != you] or [0])
         return max([plan.state.players[p].life for p in _target_players(plan, ctx)] or [0])
     if "player_counters" in v:
+        if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together
+            return sum(max(0, int(plan.state.players[p].resources.get(v["player_counters"], 0))) for p in plan.live() if p != you)
         return max(0, int(plan.state.players[you].resources.get(v["player_counters"], 0)))
     if "distinct" in v:
         return _distinct(plan, ctx, v["distinct"], v["among"])

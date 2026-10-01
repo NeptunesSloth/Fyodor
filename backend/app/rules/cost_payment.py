@@ -69,8 +69,14 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
     return out
 
 
-def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str) -> str | None:
-    """Why the non-mana parts of ``cost`` can't be paid now (118.3), or None."""
+def energy_amount(comp: C.CostComponent, x: int | None) -> int:
+    """-- counters & designations (wave 3E) -- the energy a PAY_ENERGY part removes ("Pay X {E}": X)."""
+    return max(0, x or 0) if comp.x else comp.amount
+
+
+def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: int | None = None) -> str | None:
+    """Why the non-mana parts of ``cost`` can't be paid now (118.3), or None. ``x``: the X chosen
+    for "Pay X {E}" (unknown yet: 0)."""
     from app.rules.casting import summoning_sick  # casting imports this module
 
     name = card.name or "It"
@@ -81,8 +87,8 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str) -> s
             ch = plan.ch(card)
             if ch.is_creature and "haste" not in ch.keywords and summoning_sick(plan.state, card):
                 return f"{name} has summoning sickness"
-        elif comp.kind == C.PAY_ENERGY and plan.state.players[player].resources.get("energy", 0) < comp.amount:
-            return f"You don't have {comp.amount} energy to pay"
+        elif comp.kind == C.PAY_ENERGY and plan.state.players[player].resources.get("energy", 0) < energy_amount(comp, x):
+            return f"You don't have {energy_amount(comp, x)} energy to pay"
         elif comp.selector is not None:
             usable = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
             if len(usable) < comp.amount:
@@ -166,8 +172,8 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
         ids = chosen.get(i, [])
         if comp.kind == C.UNTAP:
             plan.do({"type": "tap", "card_ids": [card.id], "tapped": False})
-        elif comp.kind == C.PAY_ENERGY:
-            plan.do({"type": "resource", "player": player, "key": "energy", "delta": -comp.amount})
+        elif comp.kind == C.PAY_ENERGY and energy_amount(comp, record.x):  # (107.14: remove that many energy counters)
+            plan.do({"type": "resource", "player": player, "key": "energy", "delta": -energy_amount(comp, record.x)})
         elif comp.kind == C.TAP_OTHER:
             plan.do({"type": "tap", "card_ids": ids, "tapped": True})
             record.tapped_for_cost += ids
