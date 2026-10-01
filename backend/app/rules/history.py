@@ -201,6 +201,21 @@ def note_events(plan: Plan, events: list[Any]) -> None:
                                           amount=int(info.get("amount") or 0), counter=info.get("counter"), **what))
 
 
+def note_discards(plan: Plan, card_ids: list[str]) -> None:
+    """Cards discarded from their owners' hands that a replacement put somewhere other than the graveyard (702.35a
+    madness, "exile it instead"): discarded all the same (701.9a; the card is revealed as it goes to exile)."""
+    from app.game.rules_state import TurnFact, turn_log_now
+
+    log = turn_log_now(plan.state)
+    for cid in card_ids:
+        card = plan.state.cards.get(cid)
+        if log is None or card is None:
+            continue
+        ch = chars.of(card, plan.info)
+        log.facts.append(TurnFact(kind="discard", player=card.owner, object_id=plan.oid(card), types=sorted(ch.types),
+                                  subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes)))
+
+
 def note_look(plan: Plan, player: str, kind: str) -> None:
     """701.22b / 701.25c: ``player`` scried / surveilled N (N > 0), even with too few cards to look at (701.22d)."""
     from app.game.rules_state import TurnFact, turn_log_now

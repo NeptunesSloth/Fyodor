@@ -640,6 +640,11 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
                 r.pending_903_9b[cid] = dest  # asked right after the move (sba → offer_903_9b)
     if not replaced and not madness:
         return payload
+    if dest == "graveyard":  # -- this-turn history (wave 4D) -- a discard put elsewhere instead is still a discard (701.9a)
+        from app.rules import history
+
+        history.note_discards(plan, [cid for cid in [c for c, _, _ in replaced] + [c for c, _ in madness]
+                                     if _from_zone(plan.state.cards[cid]) == "hand"])
     for cid, zone, _why in replaced:
         owner = plan.state.cards[cid].owner
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": zone}}, actor=actor)

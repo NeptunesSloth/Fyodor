@@ -750,3 +750,17 @@ def test_nimble_brigand_after_a_crime(cards):
     until(s, lambda s: s.state.turn.number == 2)
     assert "cant_be_blocked" not in Plan.view(s.state, "p1", s.cards).ch(s.state.cards[brigand.id]).imposed
     replay_matches(s)
+
+
+def test_a_madness_discard_is_a_discard(cards):
+    """702.35a: discarded into exile instead — still discarded (701.9a): "a player discarded a card this turn" holds."""
+    from tests.test_rules_unearth_dash import _loot_away_temper, _looter_table
+
+    s, looter, temper = _looter_table(cards)
+    discarded = conditions.parse("a player discarded a card this turn")
+    assert not conditions.holds(Plan.view(s.state, "p1", s.cards), {"controller": "p1"}, discarded)
+    d = _loot_away_temper(s, looter, temper)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["no"])
+    assert conditions.holds(Plan.view(s.state, "p1", s.cards), {"controller": "p2"}, discarded)
+    assert [f.kind for f in s.state.rules.turn_log.facts].count("discard") == 1  # (once, not again as it moves on)
+    replay_matches(s)
