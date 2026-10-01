@@ -3318,12 +3318,48 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     else:
         return None
     body = rest[len("When you do, "):] if rest.startswith("When you do, ") else rest[len("when you do, "):]
-    parsed = parse_effects(body[:1].upper() + body[1:])
+    # -- reflexive LKI (wave 4J) -- "… sacrifice another creature. When you do, ~ deals damage equal to that creature's
+    # power …": the sacrificed object, as it last existed (608.2h, 113.7a), is the reflexive trigger's event object
+    lki = _reflexive_lki(base, cond["succeeded"], body)
+    if lki is not None:
+        body = lki
+    # -- end reflexive LKI (wave 4J) --
+    parsed = parse_effects(body[:1].upper() + body[1:], "event" if lki is not None else None)
     if parsed is None or not parsed[0]:
         return None
     b_effects, b_target, b_optional = parsed
-    return {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
-                                                         "optional": b_optional, **target_fields(b_target)}}
+    out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
+                                                        "optional": b_optional, **target_fields(b_target)}}
+    if lki is not None:
+        out["lki"] = cond["succeeded"]  # -- reflexive LKI (wave 4J) --
+    return out
+
+
+# -- reflexive LKI (wave 4J) -------------------------------------------------------------------------------------------
+# "You may sacrifice a/another creature. When you do, …": the reflexive ability (603.12) reads the sacrificed object
+# ("that creature's power", "the sacrificed creature's toughness") as it last existed on the battlefield (608.2h,
+# 113.7a: an ability's effect can read an object that left through its last known information). The sacrificed object
+# is carried to the reflexive trigger as its event object (effects.reflexive); the body is then read with "that
+# creature" meaning it. Only one object sacrificed, and only stat phrases: any other mention of it ("If the sacrificed
+# creature was a Giant", "return it") stays manual.
+_SAC_ONE = re.compile(r"^sacrifice (?:a|an|another) [a-z ,]+$", re.I)
+_LKI_STAT = re.compile(r"\b(?:that|the sacrificed) (?:creature|artifact|permanent)'s (power|toughness|mana value)\b")
+_LKI_OTHER = re.compile(r"\b(?:it|its|itself|they|them|that creature|that artifact|that permanent|the sacrificed)\b")
+
+
+def _reflexive_lki(base: list[dict[str, Any]], name: str, body: str) -> str | None:
+    """The body with each stat phrase about the sacrificed object worded for the event object ("that permanent's
+    power"), or None: no such phrase, more than one object, or another mention of it."""
+    if not _LKI_STAT.search(body):
+        return None
+    if not (len(base) == 1 and base[0]["do"] == "optional_payment" and base[0].get("bind") == name
+            and _SAC_ONE.fullmatch(str(base[0].get("cost") or ""))):
+        return None  # (a mandatory "Sacrifice a creature. When you do, …" — Tip the Scales — isn't read yet)
+    out = _LKI_STAT.sub(lambda m: f"that permanent's {m[1]}", body)
+    if _LKI_OTHER.search(_LKI_STAT.sub("", out)):
+        return None
+    return out
+# -- end reflexive LKI (wave 4J) ---------------------------------------------------------------------------------------
 
 
 def _probe_previous(effects: list[dict[str, Any]], prev_start: int) -> str | None:
