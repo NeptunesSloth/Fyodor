@@ -106,6 +106,12 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
             return [src.id]
         return []  # the source left: "it" is gone (a new object isn't affected)
+    if who == "self_gy":  # -- reanimation (wave 3R) -- "return this card from your graveyard": the source, only
+        # while it is still the same object in a graveyard (400.7)
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        if src is not None and src.zone.endswith(":graveyard") and plan.oid(src) == ctx.get("source_object"):
+            return [src.id]
+        return []
     if who == "host":  # "enchanted creature" / "equipped creature": what the source is attached to now
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
@@ -1285,18 +1291,21 @@ def return_card(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """Return cards (the target, or those matching) from a graveyard / exile to a hand or the
     battlefield: "to your hand", "to its owner's hand", "to the battlefield [tapped] [under your
     control]". A card that left its zone isn't there to return (a new object, 400.7)."""
-    from app.rules import attachments  # attachments → effects (resume)
-
     # A pronoun ("return it …") names the card an earlier instruction of this effect put there
     # (400.7j); one that isn't there any more — or a token, which ceased to exist (111.7, 111.8)
     # — is nothing to return (603.7c's principle: not in the zone it's expected in).
     cards = [c for c in _cards(plan, ctx, e["who"]) if not plan.state.cards[c].zone.endswith(":battlefield")]
+    return _return_cards(plan, ctx, e, cards)
+
+
+def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
+    from app.rules import attachments  # attachments → effects (resume)
+
     before = _remember(plan, ctx, e, cards)
     if e["to"] == "hand":
-        for cid in cards:
+        for cid in cards:  # (400.3: a card goes to its OWNER's hand, whoever's graveyard it was in)
             card = plan.state.cards[cid]
-            dest = ctx["controller"] if e.get("under") == "you" else card.owner
-            plan.do({"type": "move", "card_ids": [cid], "to": {"player": dest, "zone": "hand"}}, actor=ctx["controller"])
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "hand"}}, actor=ctx["controller"])
         _moved(plan, ctx, e, before)
         return True
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
@@ -2370,3 +2379,42 @@ def replace_record(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES.update({"exile_if_dies": exile_if_dies, "replace_record": replace_record})
 # -- end replacement effects stage 2 (wave 2E) --
+
+
+# -- reanimation (wave 3R) ---------------------------------------------------------------------------
+def return_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Return a creature card from your graveyard to the battlefield" / "return up to two … cards" /
+    "return a card at random …": nothing is targeted, so the controller chooses on resolution (608.2d)
+    among the matching cards in the graveyard (public, 404.2), or the table picks at random
+    (recorded as the move, so a replay is the same). Then the cards go as ``return_card`` does."""
+    import secrets
+
+    pid = ctx["controller"]
+    sel = selectors.from_key(e["sel"])
+    pool = sorted(selectors.candidates(plan, sel, pid, ctx.get("source_card")))
+    want = _amount(plan, ctx, e["n"])
+    if e.get("random"):
+        picked = (plan.rng or secrets.SystemRandom()).sample(pool, min(want, len(pool)))
+        return _return_cards(plan, ctx, e, picked)
+    most = min(want, len(pool))
+    least = 0 if e.get("upto") else most
+    if most == 0 or (least == most == len(pool)):
+        return _return_cards(plan, ctx, e, pool[:most])
+    decide(plan, player=pid, kind="choose_cards",
+           prompt=f"Choose {'up to ' if e.get('upto') else ''}{most} ({e.get('label', 'card')}) to return",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
+           min_choices=least, max_choices=most, resume={"step": "return_choice", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    sel = selectors.from_key(e["sel"])
+    pool = set(selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card")))
+    cards = [c for c in chosen if c in pool]  # (still there and still matching)
+    if _return_cards(plan, ctx, e, cards):
+        continue_effects(plan, ctx)
+
+
+PRIMITIVES["return_choice"] = return_choice
+RESUME["return_choice"] = resume_return_choice

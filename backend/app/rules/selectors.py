@@ -228,6 +228,11 @@ def _graveyards(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", None)  # any graveyards (400.1: each player has their own)
 
 
+@_suffix(r"from all graveyards")  # -- reanimation (wave 3R) --
+def _all_graveyards(s: Selector, m: re.Match[str]) -> Selector:
+    return _in_zone(s, "graveyard", None)
+
+
 @_suffix(r"from a single graveyard")
 def _single_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     """"Exile up to two target cards from a single graveyard": any graveyard, but all the targets

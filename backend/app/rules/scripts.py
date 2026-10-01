@@ -2562,3 +2562,10 @@ _RECORDING.update({"token_copy": None})
 _MOVERS.add("token_copy")
 _TOKEN_MAKERS.add("token_copy")
 _CHOSEN["token_copy"] = "n"
+
+
+# -- reanimation (wave 3R) --  "return a creature card from your graveyard …": chosen on resolution; what it
+# returned is what "that card" / "it" names afterwards (400.7j).
+_RECORDING["return_choice"] = "returned"
+_MOVERS.add("return_choice")
+_CHOSEN["return_choice"] = "n"

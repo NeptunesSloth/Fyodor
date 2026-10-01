@@ -1791,7 +1791,15 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
 
 # -- other activated abilities (they use the stack) -----------------------------------------
 def ability_cost(ch: Characteristics, ability: AbilityText) -> AbilityCost:
-    return parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
+    cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
+    # -- reanimation (wave 3R) -- 113.6m: "{1}{B}: Return this card from your graveyard to the battlefield" moves the
+    # card out of the graveyard, so the ability works only there
+    if ability.kind == "activated" and ":" in ability.text and _GRAVEYARD_SELF.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~")):
+        cost = replace(cost, graveyard_only=True)
+    return cost
+
+
+_GRAVEYARD_SELF = re.compile(r"(?:return|put) (?:this card|this creature|this artifact|this land|~) from your graveyard\b", re.I)
 
 
 def ability_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, ability: AbilityText,
@@ -1976,7 +1984,7 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
         card = state.cards[cid]
         ch = chars.of(card, info)
         for ab in ch.abilities:
-            if ab.kind == "activated" and "graveyard" in (ab.cost or "") and ability_cost(ch, ab).from_graveyard and \
+            if ab.kind == "activated" and ability_cost(ch, ab).from_graveyard and \
                     ability_problem(state, player, card, ch, ab, ability_cost(ch, ab), check_priority=check_priority,
                                     info=info) is None:
                 out.append({"card_id": cid, "ability": ab.index})
