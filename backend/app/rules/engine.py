@@ -23,7 +23,7 @@ from typing import Any
 
 from app.game import actions as A
 from app.game.errors import ActionError
-from app.game.rules_state import Decision, DecisionOption, PlayerPrefs, TurnCount, Yield
+from app.game.rules_state import Decision, DecisionOption, PaymentRecord, PlayerPrefs, TurnCount, Yield
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import (
     attachments,
@@ -142,6 +142,13 @@ def absorb_manual_events(plan: Plan) -> None:
             r.lands_played[owner] = TurnCount(turn=turn, count=r.lands_this_turn(owner, turn) + 1)
         elif from_zone in ("hand", "command") and to_zone == STACK:
             r.spells_cast[card.controller] = TurnCount(turn=turn, count=r.spells_this_turn(card.controller, turn) + 1)
+            # -- refused modal/conditional (wave 3R1) -- cast by hand: where from is known, what paid for it isn't
+            oid = plan.oid(card)
+            if oid not in r.payments:
+                r.payments[oid] = PaymentRecord(card=card.id, controller=card.controller, cast_from=from_zone,
+                                                mana_known=False, alternative="manual",
+                                                cast_main=plan.state.turn.active_player == card.controller
+                                                and plan.state.turn.phase in MAIN_PHASES)
 
 
 def settle(plan: Plan) -> None:

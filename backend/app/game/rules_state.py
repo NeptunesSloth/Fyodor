@@ -342,6 +342,22 @@ class Arrival(BaseModel):
     owner: str = Field(max_length=64)  # whose graveyard it went to
 
 
+# -- refused modal/conditional (wave 3R1) --
+class Entry(BaseModel):
+    """A permanent that entered the battlefield this turn (a token created there included, 111.1), for "if two or
+    more nonland permanents entered the battlefield under your control this turn" (celebration), "if another
+    creature entered …", "as long as ~ entered this turn". 608.2i: what it was is what it was as it entered — its
+    card types and subtypes then (layers applied), when the rules engine put it there (``types`` None: put there
+    by hand, read from the object as it is or last existed)."""
+
+    card: str = Field(max_length=64)
+    object_id: str = Field(max_length=80)  # the object it became on the battlefield
+    controller: str = Field(max_length=64)  # who controlled it as it entered
+    types: list[str] | None = None
+    subtypes: list[str] | None = None
+# -- end refused modal/conditional (wave 3R1) --
+
+
 class TurnLog(BaseModel):
     """What happened during one turn that later text can ask about (608.2i): who attacked (508.1),
     life gained and lost (damage included, 120.3a), cards drawn, permanents that left the
@@ -357,6 +373,7 @@ class TurnLog(BaseModel):
     left: list[Departure] = Field(default_factory=list)
     left_graveyard: list[str] = Field(default_factory=list)  # the owner of each card that left a graveyard
     entered_graveyard: list[Arrival] = Field(default_factory=list)
+    entered: list[Entry] = Field(default_factory=list)  # -- refused modal/conditional (wave 3R1) -- onto the battlefield
 
 
 class ContinuousEffect(BaseModel):
@@ -594,6 +611,14 @@ class PaymentRecord(BaseModel):
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
     additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
     x: int | None = None
+    # -- refused modal/conditional (wave 3R1) -- how the spell was cast, for "if you cast it [from your hand]",
+    # "if this spell was cast from a graveyard" and addendum ("if you cast this spell during your main phase"):
+    # the zone it was cast from (None: not cast — a copy, 707.10 — or an ability's record, or an older save);
+    # whether it was cast during its caster's own main phase; ``mana_known`` False for a card moved onto the
+    # stack by hand (cast by hand: what paid for it is unknown, so no "mana was spent" condition can hold)
+    cast_from: str | None = Field(default=None, max_length=20)
+    cast_main: bool = False
+    mana_known: bool = True
 
 
 class Permission(BaseModel):
@@ -988,6 +1013,9 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
         if new_name == "graveyard" and new_zone and card is not None and card.card_id is not None \
                 and (log := turn_log_now(state)) is not None:  # (a token is no card: it never "descends")
             log.entered_graveyard.append(Arrival(card=card_id, owner=new_zone.split(":")[0]))
+        if new_name == "battlefield" and card is not None and new_oid is not None \
+                and (log := turn_log_now(state)) is not None:  # -- refused modal/conditional (wave 3R1) --
+            log.entered.append(Entry(card=card_id, object_id=new_oid, controller=card.controller))
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
              from_zone=old_zone, to_zone=new_zone)
@@ -998,6 +1026,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
                 rules.objects[card_id] = rules.next_object
             emit(state, "zone_change", new_object_id=rules.object_id(card_id), card=card_id, player=card.controller,
                  to_zone=card.zone)  # created: a token, a copy, an ability on the stack
+            if _zone_name(card.zone) == "battlefield" and (log := turn_log_now(state)) is not None:  # (wave 3R1)
+                log.entered.append(Entry(card=card_id, object_id=rules.object_id(card_id), controller=card.controller))
     for card_id, snap in before.snaps.items():
         card = state.cards.get(card_id)
         if card is None or card.zone != snap.zone:

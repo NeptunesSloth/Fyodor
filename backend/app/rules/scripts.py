@@ -1266,6 +1266,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
     if resolved is None or not _branch_refs_ok(resolved) or not _gated_other_ok(resolved):  # (conditional clauses, wave 1B)
         return None
+    if not _cast_conditions_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
+        return None
     resolved, target = _finish_targets(resolved, groups)
     looked = False
     for e in resolved:  # "… from among them" needs the cards a look put aside (not milled ones)
@@ -2008,7 +2010,21 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     m = SHOCK.match(text)
     if m:  # shock lands: "As ~ enters, you may pay 2 life. If you don't, it enters tapped."
         return {"kind": "replacement", "replacement": "pay_life_or_tapped", "life": int(m["n"]), "effects": []}
+    cast_if = None  # -- refused modal/conditional (wave 3R1) -- adamant: "If at least three white mana was spent to
+    lead = re.match(r"^If (?P<c>[^,]+), ~ enters with ", text)  # cast this spell, ~ enters with a +1/+1 counter on it."
+    if lead is not None:
+        from app.rules import conditions
+
+        cast_if = conditions.parse(lead["c"], objects=True)
+        if cast_if is None or "cast" not in cast_if or cast_if.get("object") != "self":
+            return None
+        text = "~ enters with " + text[lead.end():]
     m = ENTERS_WITH.match(text)
+    if m and cast_if is not None and (m["kicked"] or m["each"] or m["n"] == "X"):
+        return None
+    if m and m["kind"] not in UNMODELED_COUNTERS and cast_if is not None:
+        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": m["kind"], "n": num(m["n"]),
+                "effects": [], **({"tapped": True} if m["tapped"] else {}), "if_cast": cast_if}
     if m and m["kind"] not in UNMODELED_COUNTERS:  # 614.1c: "~ enters with N … counters on it"
         n: Any = "X" if m["n"] == "X" else num(m["n"])
         out: Definition = {"kind": "replacement", "replacement": "enters_with_counters", "counter": m["kind"], "n": n,
@@ -2444,6 +2460,9 @@ def _bind_subject(cond: dict[str, Any], found: tuple[list[dict[str, Any]], Any] 
 
     if found is None or set(conditions.objects_in(cond)) != {"self"}:
         return found
+    if conditions.is_cast_condition(cond):  # -- refused modal/conditional (wave 3R1) -- "If this spell was cast from a
+        return found  # graveyard, …": how the spell was cast isn't the subject of what follows
+
     effects = []
     for e in found[0]:
         e = {**e, "who": "self"} if e.get("who") == "it" else e
@@ -2603,6 +2622,18 @@ def _gated_other_ok(effects: list[dict[str, Any]]) -> bool:
         if made and e["do"] == "only_if" and _mentions_other(effects[i + 1:i + 1 + int(e.get("skip", len(effects)))]):
             return False
     return True
+
+
+# -- refused modal/conditional (wave 3R1) --
+def _cast_conditions_ok(effects: list[dict[str, Any]]) -> bool:
+    """A condition about how a spell was cast ("if you cast it", "if {R} was spent to cast it") is read only of
+    the source itself — the spell, or the permanent it became, whose payment record it keeps — never of another
+    object "it" names (a trigger's creature, a target): their records aren't kept."""
+    from app.rules import conditions
+
+    return all(conditions.cast_conditions_on_source(e["cond"]) for e in effects
+               if e["do"] == "only_if" and conditions.is_cast_condition(e["cond"]))
+# -- end refused modal/conditional (wave 3R1) --
 
 
 def _branch_refs_ok(effects: list[dict[str, Any]]) -> bool:

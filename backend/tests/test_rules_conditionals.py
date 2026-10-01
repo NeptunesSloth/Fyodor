@@ -2021,10 +2021,7 @@ def test_bontu_cant_block_unless_a_creature_died_under_your_control(cards, died)
 # -- what is never guessed (the ability stays manual: "wrong automation is worse than manual") --------------------
 REFUSED = [
     # (why, the wording, the same wording with only a condition the engine reads: it is automated)
-    ("how the spell was cast isn't modelled — Might of Old Krosa",
-     "Target creature gets +2/+2 until end of turn. If you cast this spell during your main phase, that creature gets +4/+4 until end of "
-     "turn instead.",
-     "Target creature gets +2/+2 until end of turn. If you control a Forest, that creature gets +4/+4 until end of turn instead."),
+    # (how the spell was cast: read since wave 3R1, tests/test_rules_refused_r1.py)
     ("what abilities the creature has isn't read — Hexgold Slash",
      "~ deals 2 damage to target creature. If that creature has toxic, ~ deals 4 damage to that creature instead.",
      "~ deals 2 damage to target creature. If that creature is a Zombie, ~ deals 4 damage to that creature instead."),
@@ -2059,10 +2056,6 @@ def test_forms_that_are_not_guessed(why, text, control):
 
 
 @pytest.mark.parametrize(("text", "piece"), [
-    ("Target creature gets +2/+2 until end of turn. If you cast this spell during your main phase, that creature gets +4/+4 until end "
-     "of turn instead.", "phase"),  # Might of Old Krosa
-    ("Put five +1/+1 counters on target creature. If this spell was cast from a graveyard, put ten +1/+1 counters on that creature "
-     "instead.", "zone"),  # Increasing Savagery
     ("This creature gets +1/+1 until end of turn. If mana from a Treasure was spent to activate this ability, put a +1/+1 counter on "
      "this creature instead.", "mana"),  # Jetmir's Fixer
     ("~ deals 2 damage to target creature. If that creature has toxic, ~ deals 4 damage to that creature instead.", "abilities"),  # Hexgold Slash

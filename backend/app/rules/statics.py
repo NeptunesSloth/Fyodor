@@ -494,6 +494,8 @@ def _condition(text: str) -> dict[str, Any] | None:
     m = re.fullmatch(r"(?:it|~)(?:'s| is) (?P<test>attacking alone|attacking|blocking|tapped|untapped|enchanted|equipped)", c)
     if m:
         return {"static": "self", "test": m["test"].replace(" ", "_")}
+    if c in ("it entered this turn", "~ entered this turn"):  # -- refused modal/conditional (wave 3R1) -- (Crew Captain)
+        return {"history": "entered_self"}
     m = re.fullmatch(r"(?:it|~) has (?:(?P<one>a|an)|(?P<n>\w+) or more) "
                      r"(?P<kind>\+1/\+1|-1/-1|[a-z]+ )?counters? on it", c)
     if m:

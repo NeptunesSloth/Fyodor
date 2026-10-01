@@ -225,6 +225,9 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
             quantity = {"life": "you"} if what == "life" else {"hand": "you"} if what == "cards in hand" else None
         return {"versus": {"value": quantity, "op": ">"}} if quantity is not None else None
     if objects:
+        found = _cast_how(t)  # -- refused modal/conditional (wave 3R1) --
+        if found is not None:
+            return found
         return _object(t)
     return None
 
@@ -307,6 +310,24 @@ def _left_graveyard(m: re.Match[str]) -> Condition:
 @_history_pattern(r"you descended this turn")
 def _descended(m: re.Match[str]) -> Condition:
     return {"history": "descended", "n": 1}  # 700.11: a permanent card was put into your graveyard from anywhere
+
+
+# -- refused modal/conditional (wave 3R1) -- celebration and friends (608.2i: as they were when they entered)
+@_history_pattern(r"(?P<q>a|an|another|\w+ or more) (?P<sel>.+?) entered the battlefield under your control this turn")
+def _entered(m: re.Match[str]) -> Condition | None:
+    q = m["q"]
+    n = 1 if q in ("a", "an", "another") else _num(q.split()[0])
+    sel = selectors.parse(m["sel"])
+    if n is None or sel is None or sel.player is not None or sel.controller is not None or sel.owner is not None \
+            or sel.zones != ("battlefield",) or sel.other or sel.tapped is not None or sel.attacking or sel.blocking:
+        return None
+    return {"history": "entered", "sel": sel.key(), "n": n, **({"other": True} if q == "another" else {})}
+
+
+@_history_pattern(r"~ entered this turn")
+def _entered_self(m: re.Match[str]) -> Condition:
+    return {"history": "entered_self"}  # this object entered the battlefield this turn (a new object if it left, 400.7)
+# -- end refused modal/conditional (wave 3R1) --
 
 
 def _history(t: str) -> Condition | None:
@@ -411,6 +432,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import history
 
         return history.holds(plan, ctx, cond)
+    if "cast" in cond:  # -- refused modal/conditional (wave 3R1) --
+        return _cast_holds(plan, ctx, cond)
     if "object" in cond:
         return _object_holds(plan, ctx, cond)
     if "versus" in cond:
@@ -475,3 +498,101 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
             return False
         tapped, attacking, blocking = snap.tapped, snap.attacking, snap.blocking
     return {"tapped": tapped, "untapped": not tapped, "attacking": attacking, "blocking": blocking}[test]
+
+
+# -- refused modal/conditional (wave 3R1): how a spell was cast -----------------------------------------
+# "if you cast it [from your hand]", "if it was cast", "if this spell was cast from a graveyard", "if {R} was spent
+# to cast it", "{U}{B} was spent", adamant ("at least three red mana" / "of the same color"), "five or more mana",
+# addendum ("if you cast this spell during your main phase"). Read from the spell's payment record (601.2h: what
+# paid the total cost; casting.record_payment), which the permanent it becomes keeps (engine.leave_stack). A copy
+# was never cast (707.10): its record says so. ``{"object": "it" | "self", "cast": {...}}``: "it" is bound to its
+# antecedent by scripts.resolve_it, and scripts only keeps an ability whose "it" is the source itself.
+# Refused (None): snow mana ({S}: what produced the mana isn't recorded), "mana from a Treasure" (the source of the
+# mana), "that spell" (the trigger's spell, whose record is gone once it resolved), "entered from your graveyard".
+_CAST_SUBJECT = r"(?:it|this spell|~)"
+_CAST = re.compile(rf"(?:(?P<you>you) cast (?P<who>{_CAST_SUBJECT})|(?P<who2>{_CAST_SUBJECT}) was cast)"
+                   r"(?: from (?P<from>your hand|a graveyard|your graveyard|exile|your library|anywhere other than your hand))?"
+                   r"(?P<main> during your main phase)?")
+_SPENT_SYMBOLS = re.compile(rf"(?P<syms>(?:\{{[WUBRGC]\}})+) was spent to cast (?P<who>{_CAST_SUBJECT})")
+_SPENT_COLOR = re.compile(rf"at least (?P<n>\w+) (?P<color>white|blue|black|red|green) mana was spent to cast (?P<who>{_CAST_SUBJECT})")
+_SPENT_SAME = re.compile(rf"at least (?P<n>\w+) mana of the same color was spent to cast (?P<who>{_CAST_SUBJECT})")
+_SPENT_TOTAL = re.compile(rf"(?P<n>\w+) or more mana was spent to cast (?P<who>{_CAST_SUBJECT})")
+_COLOR_LETTER = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
+_FROM = {"your hand": "hand", "a graveyard": "graveyard", "your graveyard": "graveyard", "exile": "exile",
+         "your library": "library", "anywhere other than your hand": "!hand"}
+
+
+def _cast_who(word: str) -> str:
+    return "it" if word == "it" else "self"
+
+
+def _cast_how(t: str) -> Condition | None:
+    """A condition about how the source was cast, or None."""
+    m = _CAST.fullmatch(t)
+    if m:
+        how: dict[str, Any] = {"by_you": bool(m["you"])}
+        if m["from"]:
+            if m["from"] == "your graveyard" and not m["you"]:
+                return None
+            how["from"] = _FROM[m["from"]]
+        if m["main"]:
+            if not m["you"]:
+                return None
+            how["main"] = True
+        return {"object": _cast_who(m["who"] or m["who2"]), "cast": how}
+    m = _SPENT_SYMBOLS.fullmatch(t)
+    if m:
+        need: dict[str, int] = {}
+        for sym in re.findall(r"\{(\w)\}", m["syms"]):
+            need[sym] = need.get(sym, 0) + 1
+        return {"object": _cast_who(m["who"]), "cast": {"spent": need}}
+    for rx, key in ((_SPENT_COLOR, "spent"), (_SPENT_SAME, "same_color"), (_SPENT_TOTAL, "total")):
+        m = rx.fullmatch(t)
+        n = _num(m["n"]) if m else None
+        if m and n:
+            value: Any = {_COLOR_LETTER[m["color"]]: n} if key == "spent" else n
+            return {"object": _cast_who(m["who"]), "cast": {key: value}}
+    return None
+
+
+def cast_conditions_on_source(cond: Condition) -> bool:
+    """Is every condition about how a spell was cast in ``cond`` about the source itself (the spell, or the
+    permanent it became)? (Not another object's: its record isn't kept once it resolved.)"""
+    if "cast" in cond:
+        return cond.get("object") == "self"
+    return all(cast_conditions_on_source(c) for k in ("all", "any") for c in cond.get(k, ())) and (
+        "not" not in cond or cast_conditions_on_source(cond["not"]))
+
+
+def is_cast_condition(cond: Condition) -> bool:
+    """Is (a part of) ``cond`` about how a spell was cast?"""
+    return "cast" in cond or any(is_cast_condition(c) for k in ("all", "any") for c in cond.get(k, ())) or (
+        "not" in cond and is_cast_condition(cond["not"]))
+
+
+def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    """How the source was cast, from its payment record: a fact that never changes, so it is read the same while
+    the spell is on the stack, once it became a permanent and after that left (608.2h). No record — it wasn't cast
+    (put onto the battlefield, a copy) — fails every such test."""
+    if cond.get("object") != "self":
+        return False
+    record = plan.rules.payments.get(ctx.get("source_object") or "")
+    how = cond["cast"]
+    if record is None or record.cast_from is None:
+        return False
+    if how.get("by_you") and record.controller != ctx["controller"]:
+        return False
+    zone = how.get("from")
+    if zone is not None and (record.cast_from == zone[1:] if zone.startswith("!") else record.cast_from != zone):
+        return False
+    if how.get("main") and not record.cast_main:
+        return False
+    if any(k in how for k in ("spent", "same_color", "total")) and not record.mana_known:
+        return False  # (cast by hand: what paid for it isn't known — such a condition never holds)
+    spent = record.mana_spent
+    if any(spent.get(sym, 0) < n for sym, n in (how.get("spent") or {}).items()):
+        return False
+    if "same_color" in how and not any(spent.get(c, 0) >= how["same_color"] for c in "WUBRG"):
+        return False
+    return "total" not in how or sum(spent.values()) >= how["total"]
+# -- end refused modal/conditional (wave 3R1) --

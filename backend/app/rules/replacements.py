@@ -393,6 +393,11 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
         record = plan.rules.payments.get(plan.oid(card_id))
         kicked = record.kicked if record is not None else 0
         amount = 0 if d.get("if_kicked") and not kicked else amount * kicked if d.get("per_kick") else amount
+    if d.get("if_cast") is not None:  # -- refused modal/conditional (wave 3R1) -- adamant: how its spell was paid (601.2h)
+        from app.rules import conditions
+
+        ctx = {"controller": controller, "source_card": card_id, "source_object": plan.oid(card_id)}
+        amount = amount if conditions.holds(plan, ctx, d["if_cast"]) else 0
     return amount
 
 

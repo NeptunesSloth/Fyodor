@@ -219,13 +219,12 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\btarget creature's power and toughness\b", re.I), "switching or reading a target's P/T pair: not modelled"),
     # -- conditional / instead clauses (wave 1B) --------------------------------------------------------
     # Conditions app/rules/conditions.py deliberately doesn't read: the clause (or the whole ability) stays manual.
-    (re.compile(r"\bif you cast (?:this spell|it) during your main phase\b", re.I),
-     "the phase a spell was cast in isn't recorded (the \"cast during your main phase\" instead clauses): not modelled"),
-    (re.compile(r"\b(?:(?:this spell|it) was cast from|you cast (?:this spell|it) from) (?:a|your|an opponent's|their) "
-                r"(?:graveyard|library|exile|hand)\b|\bentered from your library or was cast from your library\b", re.I),
-     "the zone a spell was cast from or a permanent entered from isn't recorded with the object: not modelled"),
-    (re.compile(r"\b(?:\{[WUBRGC]\}|\w+ or more mana|mana from [^.,]+|mana) (?:of [^.,]+ )?was spent to (?:cast|activate)\b", re.I),
-     "what mana was spent on a spell or ability isn't recorded (601.2h): not modelled"),
+    # -- refused modal/conditional (wave 3R1) -- how a spell was cast (the zone, the caster's main phase, the mana of
+    # each type spent) is now on its payment record (conditions._cast_how); what stays refused:
+    (re.compile(r"\b(?:entered|was put onto the battlefield) from (?:your|a) (?:library|graveyard)\b", re.I),
+     "the zone a permanent entered from isn't recorded with the object: not modelled"),
+    (re.compile(r"\b(?:\{S\}|mana from [^.,]+) (?:of [^.,]+ )?was spent to (?:cast|activate)\b|\bwas spent to activate\b", re.I),
+     "snow mana, the source of the mana spent, and mana spent on an ability aren't recorded (601.2h): not modelled"),
     (re.compile(r"\bif (?:that (?:creature|permanent)|it|this creature) has (?:a |an )?(?:toxic|flying|reach|haste|trample|deathtouch|"
                 r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible)\b", re.I),
      "a condition about the abilities an object has (\"if that creature has toxic\"): only its characteristics (types, "

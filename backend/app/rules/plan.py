@@ -73,8 +73,16 @@ class Plan:
         before = capture(self.state)
         if before is not None:  # (the turn log: what a permanent was as it left, layers applied)
             before.types = self._battlefield_types(payload)
+        entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
         HANDLERS[resolved.type](self.state, resolved)
         track(self.state, before)
+        if entered_before is not None:  # -- refused modal/conditional (wave 3R1) -- what entered was, as it entered (608.2i)
+            log = self.rules.turn_log
+            for entry in log.entered[entered_before[1] if log.turn == entered_before[0] else 0:]:
+                card = self.state.cards.get(entry.card)
+                if entry.types is None and card is not None and self.oid(card) == entry.object_id:
+                    now = self.ch(card)
+                    entry.types, entry.subtypes = sorted(now.types), sorted(now.subtypes)
         for oid, (pt, abilities, keywords, traits) in leaving.items():  # last known information (608.2h)
             snap = self.rules.lki.get(oid)
             if snap is not None:
