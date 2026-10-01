@@ -1969,6 +1969,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # player" in one resolution — Haunt the Network — is another choice: not read as this)
     if d is not None and _chosen.WHO in json.dumps(d, default=str) and not _chosen.chooses_player(ch):
         return None
+    if d is not None and not _chosen.chosen_value_ok(d, ch):  # -- chosen type (wave 4J) -- "of the chosen type / color"
+        return None
     return d
 
 

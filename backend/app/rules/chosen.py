@@ -13,7 +13,7 @@ and the effect subject "the chosen player" (``who: "chosen_player"``, effects._p
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from app.game.state import CardInstance
@@ -32,6 +32,83 @@ def chooses_player(ch: Characteristics) -> bool:
 
     found = [m for ab in ch.abilities if (m := ENTERS_CHOICE.match(self_text(ab.text, ch.name))) is not None]
     return len(found) == 1 and found[0]["what"] in ("opponent", "player")
+
+
+# -- chosen type (wave 4J) ------------------------------------------------------------------------------------------
+# "of the chosen type / color" (selectors.CHOSEN_EXTRAS) names one of two choices:
+# * the source permanent's "As ~ enters, choose a creature type / a color." (614.12a) — read by selectors.matches from
+#   the source's record. Only where the source is the permanent itself: its statics' affected objects (layers), its
+#   trigger conditions, its targets and its resolving instructions; never inside a counted value (a static's count
+#   is evaluated for another object) and never on a card without that one enters choice.
+# * a "Choose a creature type." instruction earlier in the same resolution (Kindred Dominance, Bloodline Bidding) —
+#   bind_effects puts the answer into the instructions after it as the choice is made (effects.resume_choose_value).
+_SOURCE_KEYS = frozenset({"who", "sel", "spell", "obj", "what"})
+
+
+def _uses(node: Any, key: str = "") -> list[tuple[str, str]]:
+    """(the JSON key, "creature type" / "color") for every selector in the definition that reads a chosen value."""
+    from app.rules import selectors
+
+    if isinstance(node, dict):
+        return [u for k, v in node.items() for u in _uses(v, k)]
+    if isinstance(node, list):
+        return [u for v in node for u in _uses(v, key)]
+    if isinstance(node, str) and node.startswith(selectors.PREFIX) and "chosen_" in node:
+        sel = selectors.from_key(node)
+        what = selectors.chosen_what(sel)
+        return [(key, what or "?")] if any(e in selectors.CHOSEN_EXTRAS for e in sel.extras) else []
+    return []
+
+
+def _enters_choices(ch: Characteristics) -> list[str]:
+    from app.rules.language import ENTERS_CHOICE
+    from app.rules.scripts import self_text
+
+    return [m["what"] for ab in ch.abilities if (m := ENTERS_CHOICE.match(self_text(ab.text, ch.name))) is not None]
+
+
+def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
+    """Whether every "of the chosen type / color" in this definition names a choice the engine knows (see above)."""
+    uses = _uses(d)
+    if not uses:
+        return True
+    effects = d.get("effects") or []
+    for what in {w for _, w in uses}:
+        if what == "?":
+            return False
+        inside = [i for i, e in enumerate(effects) if e.get("do") == "choose_value" and e.get("what") == what
+                  and not e.get("remember")]
+        if inside:  # a choice made as it resolves: only in the instructions after it
+            if len(inside) != 1 or what in _enters_choices(ch):
+                return False
+            rest = {k: v for k, v in d.items() if k != "effects"}
+            if any(w == what for _, w in _uses(rest)) or any(w == what for _, w in _uses(effects[:inside[0]])):
+                return False
+            continue
+        if d.get("kind") == "spell" or _enters_choices(ch).count(what) != 1:
+            return False
+        if any(w == what and k not in _SOURCE_KEYS for k, w in uses):
+            return False
+    return True
+
+
+def bind_effects(effects: list[dict[str, Any]], what: str, value: str) -> list[dict[str, Any]]:
+    """The instructions with "of the chosen <what>" replaced by the answer just given (``value``)."""
+    from app.rules import selectors
+
+    def walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            return {k: walk(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [walk(v) for v in node]
+        if isinstance(node, str) and node.startswith(selectors.PREFIX) and "chosen_" in node:
+            sel = selectors.from_key(node)
+            if selectors.chosen_what(sel) == what and (bound := selectors.bind_chosen(sel, value)) is not None:
+                return bound.key()
+        return node
+
+    return [walk(e) for e in effects]
+# -- end chosen type (wave 4J) --------------------------------------------------------------------------------------
 
 
 def record(plan: Plan, card_id: str, player: str) -> None:

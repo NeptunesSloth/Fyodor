@@ -46,6 +46,24 @@ EXTRA = [
          oracle_text="Choose target opponent. Create two 1/1 colorless Thopter artifact creature tokens with flying. Then "
                      "the chosen player loses X life and you gain X life, where X is the number of artifacts you control.",
          colors=["B", "U"], color_identity=["B", "U"]),
+    card("Vanquisher's Banner", set_code="tst", number="J407", mana_cost="{5}", cmc=5.0, type_line="Artifact",
+         oracle_text="As this artifact enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.\n"
+                     "Whenever you cast a creature spell of the chosen type, draw a card."),
+    card("Kindred Dominance", set_code="tst", number="J408", mana_cost="{5}{B}{B}", cmc=7.0, type_line="Sorcery",
+         oracle_text="Choose a creature type. Destroy all creatures that aren't of the chosen type.",
+         colors=["B"], color_identity=["B"]),
+    card("Bloodline Bidding", set_code="tst", number="J409", mana_cost="{6}{B}", cmc=7.0, type_line="Sorcery",
+         oracle_text="Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays "
+                     "for {1} or one mana of that creature's color.)\nChoose a creature type. Return all creature cards of "
+                     "the chosen type from your graveyard to the battlefield.",
+         colors=["B"], color_identity=["B"], keywords=["Convoke"]),
+    card("From the Rubble", set_code="tst", number="J410", mana_cost="{3}{W}", cmc=4.0, type_line="Enchantment",
+         oracle_text="As this enchantment enters, choose a creature type.\nAt the beginning of your end step, return target "
+                     "creature card of the chosen type from your graveyard to the battlefield with a finality counter on "
+                     "it.", colors=["W"], color_identity=["W"]),
+    card("Heraldic Banner", set_code="tst", number="J411", mana_cost="{3}", cmc=3.0, type_line="Artifact",
+         oracle_text="As this artifact enters, choose a color.\nCreatures you control of the chosen color get +1/+0.\n{T}: "
+                     "Add one mana of the chosen color."),
 ]
 
 
@@ -284,3 +302,149 @@ def test_chosen_player_reading_is_safe(cards):
     assert chosen.player_of(plan, vise.id) is None  # (the record and the display disagree: never guessed)
     act(s, "p1", type="set_choice", card_id=vise.id, key="Chosen opponent", value="Nobody")
     assert chosen.player_of(Plan(s.state, "p1", s.cards, None), vise.id) is None
+
+
+# -- the chosen creature type / color (205.3m, 105.1, 614.12a) ---------------------------------------------------
+def stats(s, card):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card.id]).pt
+
+
+def typed(s, pid, name, subtype, color=None):
+    token = {"name": name, "type_line": f"Token Creature — {subtype}", "power": "2", "toughness": "2", "text": ""}
+    if color:
+        token["colors"] = [color]
+    act(s, pid, type="create_token", player=pid, token=token)
+    return named(s, name, pid)
+
+
+def pick_type(value):
+    def pick(d):
+        ids = [o.id for o in d.options]
+        return [value] if value in ids else ids[: max(1, d.min_choices)]
+    return pick
+
+
+def test_vanquishers_banner_anthem_and_cast_trigger(cards):
+    """Vanquisher's Banner naming Elf: Alice's Elves get +1/+1 (not her Bear, not Bob's Elf); casting Llanowar Elves
+    (an Elf creature spell) draws a card, casting Grizzly Bears doesn't."""
+    s = build(cards, "Vanquisher's Banner", "Llanowar Elves", "Grizzly Bears")
+    elf, bear, theirs = typed(s, "p1", "Elfy", "Elf"), typed(s, "p1", "Beary", "Bear"), typed(s, "p2", "Their Elf", "Elf")
+    banner = to_hand(s, "Vanquisher's Banner")
+    mana(s, C=5)
+    act(s, "p1", type="cast_spell", card_id=banner.id)
+    drive(s, pick_type("Elf"))
+    assert s.state.cards[banner.id].choices == {"Chosen creature type": "Elf"}
+    assert stats(s, elf) == (3, 3) and stats(s, bear) == (2, 2) and stats(s, theirs) == (2, 2)
+    llanowar, bears = to_hand(s, "Llanowar Elves"), to_hand(s, "Grizzly Bears")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=llanowar.id)
+    drive(s, pick_type("Elf"))
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + 1  # (cast one, drew one)
+    assert stats(s, llanowar) == (2, 2)  # (a 1/1 Elf, +1/+1)
+    mana(s, G=2)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    drive(s, pick_type("Elf"))
+    assert len(s.state.zones["p1:hand"]) == hand - 1
+    replay_matches(s)
+    roundtrip(s)
+
+
+def test_heraldic_banner_chosen_color(cards):
+    """Heraldic Banner naming red: Alice's red creature gets +1/+0, her green one doesn't."""
+    s = build(cards, "Heraldic Banner")
+    red, green = typed(s, "p1", "Reddy", "Goblin", "R"), typed(s, "p1", "Greeny", "Elf", "G")
+    banner = to_hand(s, "Heraldic Banner")
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=banner.id)
+    drive(s, pick_type("Red"))
+    assert s.state.cards[banner.id].choices == {"Chosen color": "Red"}
+    assert stats(s, red) == (3, 2) and stats(s, green) == (2, 2)
+    replay_matches(s)
+
+
+def test_kindred_dominance_chooses_as_it_resolves(cards):
+    """Kindred Dominance: the type is chosen as it resolves; every creature that isn't an Elf is destroyed — on both
+    sides — and the Elves (and a changeling-free Elf token of Bob's) stay."""
+    s = build(cards, "Kindred Dominance")
+    elf, bear, theirs, their_bear = (typed(s, "p1", "Elfy", "Elf"), typed(s, "p1", "Beary", "Bear"),
+                                     typed(s, "p2", "Their Elf", "Elf"), typed(s, "p2", "Their Bear", "Bear"))
+    spell = to_hand(s, "Kindred Dominance")
+    mana(s, B=7)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    prompts = []
+
+    def pick(d):
+        prompts.append(d.prompt)
+        return pick_type("Elf")(d)
+
+    drive(s, pick)
+    assert any("creature type" in p for p in prompts)
+    alive = {c.name for c in s.state.cards.values() if c.zone.endswith(":battlefield")}
+    assert {"Elfy", "Their Elf"} <= alive and not {"Beary", "Their Bear"} & alive
+    assert elf.id and bear.id and theirs.id and their_bear.id
+    replay_matches(s)
+    roundtrip(s)
+
+
+def test_bloodline_bidding_returns_the_chosen_type(cards):
+    """Bloodline Bidding naming Elf: Llanowar Elves comes back from Alice's graveyard, Grizzly Bears stays there."""
+    s = build(cards, "Bloodline Bidding", "Llanowar Elves", "Grizzly Bears")
+    for name in ("Llanowar Elves", "Grizzly Bears"):
+        act(s, "p1", type="move", card_ids=[named(s, name).id], to={"zone": "graveyard"})
+    spell = to_hand(s, "Bloodline Bidding")
+    mana(s, B=7)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    drive(s, pick_type("Elf"))
+    assert named(s, "Llanowar Elves").zone == "p1:battlefield"
+    assert named(s, "Grizzly Bears").zone == "p1:graveyard"
+    replay_matches(s)
+    roundtrip(s)
+
+
+def test_from_the_rubble_targets_the_chosen_type(cards):
+    """From the Rubble naming Bear: at Alice's end step only a Bear card in her graveyard can be targeted; it returns
+    with a finality counter."""
+    s = build(cards, "From the Rubble", "Llanowar Elves", "Grizzly Bears")
+    for name in ("Llanowar Elves", "Grizzly Bears"):
+        act(s, "p1", type="move", card_ids=[named(s, name).id], to={"zone": "graveyard"})
+    rubble = to_hand(s, "From the Rubble")
+    mana(s, W=4)
+    act(s, "p1", type="cast_spell", card_id=rubble.id)
+    drive(s, pick_type("Bear"))
+    offered = []
+    for _ in range(80):
+        d = s.state.rules.decision
+        if named(s, "Grizzly Bears").zone == "p1:battlefield" and d is None and not s.state.zones.get("stack"):
+            break
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None:
+            offered.append({o.id for o in d.options})
+            answer(s, [o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    bears, elves = named(s, "Grizzly Bears"), named(s, "Llanowar Elves")
+    assert bears.zone == "p1:battlefield" and bears.counters.get("finality") == 1
+    assert elves.zone == "p1:graveyard"
+    assert not any(elves.id in o for o in offered)
+    replay_matches(s)
+
+
+def test_chosen_type_scope():
+    """Where "the chosen type" names no choice the engine knows, the line stays manual: a spell without its own
+    "Choose a creature type." and a counted value on a static (evaluated for another object)."""
+    from app.rules import scripts
+    from app.rules.characteristics import Characteristics
+    from app.rules.oracle import parse_abilities
+
+    def defs(text, types):
+        return scripts.definitions(Characteristics(name="Probe", types=frozenset(types), abilities=tuple(parse_abilities(text)),
+                                                   oracle_text=text))
+
+    assert defs("Destroy all creatures that aren't of the chosen type.", {"Sorcery"}) == {}
+    assert 0 not in defs("Creatures you control of the chosen type get +1/+1.", {"Artifact"})  # (no enters choice)
+    assert 1 in defs("As this artifact enters, choose a creature type.\nCreatures you control of the chosen type get "
+                     "+1/+1.", {"Artifact"})
