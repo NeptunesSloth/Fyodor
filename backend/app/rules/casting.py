@@ -1433,6 +1433,18 @@ def additional_problem(plan: Plan, extra: AbilityCost, card: CardInstance, playe
     return cost_payment.problem(plan, extra, card, player)
 
 
+def life_x_problem(plan: Plan, extra: AbilityCost, a: Any, player: str) -> str | None:
+    """-- X sized by a count (wave 4K) -- "As an additional cost to cast this spell, pay X life.": X is announced as the
+    spell is cast (601.2b, 107.3a) and can't be more than the caster's life (119.4; 119.4b: 0 always can be paid)."""
+    if not extra.life_x:
+        return None
+    if a.x_value is None:
+        return "Choose a value for X (the life to pay)"
+    if a.x_value > 0 and plan.state.players[player].life < extra.life + a.x_value:
+        return f"You can't pay {a.x_value} life"
+    return None
+
+
 def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True) -> bool:
     faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
     for face in faces:
@@ -1548,7 +1560,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     add_cost = None if plan.manual(card) or a.face_down else costs.spell_additional_cost(ch.abilities)
     add_objects: dict[int, list[str]] = {}
     if add_cost is not None:
-        problem = additional_problem(plan, add_cost, card, plan.actor)
+        problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
         if problem:
             raise ActionError(problem)
         found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it")
@@ -1577,6 +1589,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if add_cost.life:
             plan.do({"type": "life", "player": plan.actor, "delta": -add_cost.life})  # 119.4: paying life is losing it
             record.life += add_cost.life
+        if add_cost.life_x and a.x_value:  # -- X sized by a count (wave 4K) -- "pay X life" (119.4)
+            plan.do({"type": "life", "player": plan.actor, "delta": -a.x_value})
+            record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else \
         "flashback" if flashback else "free" if free else None
@@ -1959,7 +1974,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     add_cost = None if plan.manual(card) else costs.spell_additional_cost(ch.abilities)
     add_objects: dict[int, list[str]] = {}
     if add_cost is not None:
-        problem = additional_problem(plan, add_cost, card, plan.actor)
+        problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
         if problem:
             raise ActionError(problem)
         found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it")
@@ -1996,6 +2011,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         if add_cost.life:
             plan.do({"type": "life", "player": plan.actor, "delta": -add_cost.life})  # 119.4
             record.life += add_cost.life
+        if add_cost.life_x and a.x_value:  # -- X sized by a count (wave 4K) -- "pay X life" (119.4)
+            plan.do({"type": "life", "player": plan.actor, "delta": -a.x_value})
+            record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile …
     plan.do({"type": "set_stack_info", "card_id": card.id,
              "tags": ["Cast for its madness cost" if alt is not None else "Cast without paying its mana cost"]

@@ -719,10 +719,12 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
         from app.rules import this_way
 
         each = this_way.by_controller(plan, ctx, e["per_controller"])
+    # -- X sized by a count (wave 4K) -- "an X/X … token": X as the token is created, its printed P/T from then on (111.3)
+    pt = {k: str(values.evaluate(plan, ctx, t[k])) if isinstance(t.get(k), dict) else t.get(k) for k in ("power", "toughness")}
     for pid in (list(each) if each is not None else _players(plan, ctx, e["who"])):
         if each is not None and pid not in plan.live():
             continue
-        spec = {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
+        spec = {"name": t["name"], "power": pt["power"], "toughness": pt["toughness"],
                 "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
         # a token enters tapped when its creator says so ("create a tapped …") or its own text does
         # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
@@ -3051,3 +3053,10 @@ def _note_resolution(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES["note_resolution"] = _note_resolution
 # -- end this-turn history (wave 4D) --
+
+# -- X sized by a count (wave 4K) -- "Shuffle ~ into its owner's library." as a spell's last instruction (the Zenith
+# cycle): app/rules/x_spells.py (a leaf module over this one)
+from app.rules import x_spells as _x_spells  # noqa: E402, I001
+
+PRIMITIVES.update(_x_spells.PRIMITIVES)
+# -- end X sized by a count (wave 4K) --

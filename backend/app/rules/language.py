@@ -55,8 +55,8 @@ MAX_TARGETS = 20  # "any number of target …": at most this many (the intents' 
 _QTY = r"one|two|three|four|five|six|seven|eight|nine|ten|\d+"
 # -- target forms (agent T) --  "up to one other target creature", "each of up to two other targets",
 # "any number of other target nonland permanents you control": "other" inside a counted group
-_GROUP = re.compile(rf"^(?:each of )?(?:up to (?P<upto>{_QTY})|(?P<range>one or two|one, two, or three)|"
-                    rf"(?P<any>any number of)|(?P<n>{_QTY})) (?P<other>(?:an)?other )?(?P<rest>targets|target .+)$")
+_GROUP = re.compile(rf"^(?:each of )?(?:up to (?P<upto>{_QTY}|X)|(?P<range>one or two|one, two, or three)|"  # (X: wave 4K)
+                    rf"(?P<any>any number of)|(?P<n>{_QTY}|X)) (?P<other>(?:an)?other )?(?P<rest>targets|target .+)$")
 
 
 def _qty(word: str) -> int:
@@ -107,7 +107,11 @@ def target_group(phrase: str) -> dict[str, Any] | None:
         else:
             constraints = {**constraints, "another": what}
             what = _group_constraints(_target_key("another " + rest))[0]
-    if m["upto"]:
+    if "X" in (m["upto"], m["n"]):  # -- X sized by a count (wave 4K) -- "X target creatures", "up to X target …": the
+        # number of targets is the X announced as it's cast (601.2b, before 601.2c); targets.group_limits reads it
+        lo, hi = 0, MAX_TARGETS
+        constraints = {**constraints, "x_count": "upto" if m["upto"] else "exact"}
+    elif m["upto"]:
         lo, hi = 0, _qty(m["upto"])
     elif m["range"]:
         lo, hi = 1, 2 if m["range"] == "one or two" else 3
@@ -255,8 +259,9 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
-    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's|(?P<spell>that spell's)|(?P<self>~'s)) "
-                     r"(?P<stat>power|toughness|mana value)", phrase)
+    # (wave 4K: "this creature's power" is the source's own, like "~'s")
+    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's|(?P<spell>that spell's)|"
+                     r"(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
     if m:
         # -- refused copy/mana (wave 3R3) -- "that spell's": a cast/copy trigger's spell even after an instruction
         # named another object (Deekah: "create a … token. Put X +1/+1 counters on it, where X is that spell's mana
@@ -368,8 +373,8 @@ def _with_rider(text: str) -> tuple[str, Any]:
 def _rider_value(phrase: str) -> Any:
     """A rider's quantity: "its power" / "that creature's toughness" / "~'s power" (app: _stat),
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
-    if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|that spell's|~'s|the sacrificed (?:creature|artifact|permanent|land)'s) "
-                    r"(?:power|toughness|mana value)", phrase):
+    if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|that spell's|~'s|this creature's|"
+                    r"the sacrificed (?:creature|artifact|permanent|land)'s) (?:power|toughness|mana value)", phrase):
         return _stat(phrase)
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
         return tw
@@ -379,6 +384,17 @@ def _rider_value(phrase: str) -> Any:
     if v is None:
         raise _Fail
     return v
+
+
+def x_definition(phrase: str) -> Any | None:
+    """-- X sized by a count (wave 4K) -- what "where X is <phrase>" defines X as, for a grammar outside this module
+    (token creation): any rider quantity but one read per recipient player (damage only), else None. A pronoun's
+    stat stays the placeholder "it" for scripts.resolve_it to bind (or refuse)."""
+    try:
+        v = _rider_value(phrase.strip())
+    except _Fail:
+        return None
+    return None if sized_damage.has_per_player({"n": v}) else v
 
 
 def _apply(n: Any, rider: Any) -> Any:
@@ -865,8 +881,19 @@ def _parse(text: str) -> tuple[Effects, Any]:
         # (107.3c: X is defined by the text of the ability for the whole ability), so the halves
         # are read here, each with the rider, rather than split upstream with X unbound in one
         halves = re.split(_JOINER, text, maxsplit=1)
-        if len(halves) == 2:
+        if len(halves) != 2 and re.match(r"(?:target player|target opponent|each player|each opponent|that player) ", text):
+            # (wave 4K: "target player draws X cards and loses X life": one player subject for both halves)
+            halves = re.split(r" and (?=(?:draws|loses|gains|mills|discards) )", text, maxsplit=1)
+        if len(halves) == 2 and not _GAIN_PUMP.fullmatch(text):  # (wave 4K: "gain trample and get +X/+X" is one instruction)
+            # -- X sized by a count (wave 4K) -- "Target player draws X cards and loses X life, where X is …": the right
+            # half's subject is the left's (one word "target": the same target player, 115.1)
+            subj = re.match(r"^(target player|target opponent|each player|each opponent|that player) ", halves[0])
+            same = subj is not None and re.match(r"^(?:draws|loses|gains|mills|discards)\b", halves[1]) is not None
+            if same and subj is not None:
+                halves[1] = f"{subj[1]} {halves[1]}"
             left, right = _parse(halves[0]), _parse(halves[1])
+            if same and left[1] is not None and left[1] == right[1]:
+                right = (right[0], None)
             if left[1] is not None and right[1] is not None:
                 raise _Fail  # (two targets: not read here)
             if not all(_has_x(e) for e in (*left[0], *right[0])):
@@ -1104,6 +1131,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
             _one(group)
     # -- temporary grants & riders (agent G) --  "+X/+0", "+1/+1 … for each …", "-X/-X … where X is …",
     # "gets +2/+2 and gains flying and first strike", "… and can't be blocked this turn", "loses flying"
+    # -- X sized by a count (wave 4K) -- "creatures you control gain trample and get +X/+X until end of turn" (Craterhoof
+    # Behemoth): the grant, then the pump, as printed; X (or "where X is …") read once as the pump begins (608.2h, 611.2c)
+    m = _GAIN_PUMP.fullmatch(text)
+    if m:
+        swapped = _PUMP.fullmatch(f"{m['o']} {m['g']} {m['p']}/{m['t']} and {m['v']} {m['kw']} until end of turn")
+        if swapped is None:
+            raise _Fail
+        effects, target = _pump(swapped, rider)
+        return [*effects[1:], effects[0]], target
     m = _PUMP.fullmatch(text)
     if m:
         return _pump(m, rider)
@@ -1225,6 +1261,8 @@ _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P
                    rf"(?: and gains? (?P<kw>{_KW_LIST}))? until end of turn"
                    r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn)?")
 _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
+_GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
+                        rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
 _GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? (?:gains?|has|have) (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
 _KW_ONLY = rf"(?:{KEYWORDS})(?:(?:, and |, | and )(?:{KEYWORDS}))*"
 _LOSE_GAIN = re.compile(rf"(?P<o>.+?) loses? (?P<rm>{_KW_ONLY}) and gains? (?P<kw>{_KW_LIST})(?P<eot> until end of turn)?")
@@ -1265,7 +1303,13 @@ def _grant_effect(who: str, items: str) -> dict[str, Any]:
 def _end_of_turn_first(rest: str) -> tuple[Effects, Any]:
     """"Until end of turn, <clause>": the clause with the duration after it, if that is a continuous
     effect (only a pump, a grant or a restriction has one: delayed.wrap_duration's rule)."""
-    effects, target = _parse(rest + (" this turn" if _RESTRICT_TAIL.fullmatch(rest) else " until end of turn"))
+    # -- X sized by a count (wave 4K) -- "Until end of turn, creatures you control gain trample and get +X/+X, where X is …":
+    # the duration goes before the rider (which defines X for the whole sentence, 107.3c)
+    head, sep, tail = rest.partition(", where X is ")
+    if sep and not _RESTRICT_TAIL.fullmatch(head):
+        effects, target = _parse(f"{head} until end of turn{sep}{tail}")
+    else:
+        effects, target = _parse(rest + (" this turn" if _RESTRICT_TAIL.fullmatch(rest) else " until end of turn"))
     if not effects or any(e["do"] not in ("pump", "grant", "restrict", "gain_control") for e in effects):
         raise _Fail
     return effects, target

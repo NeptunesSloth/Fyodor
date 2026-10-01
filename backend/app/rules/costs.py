@@ -87,6 +87,7 @@ class AbilityCost:
     unsupported: tuple[str, ...] = field(default_factory=tuple)
     components: tuple[CostComponent, ...] = ()
     graveyard_only: bool = False  # -- reanimation (wave 3R) -- its effect moves this card out of your graveyard (113.6m)
+    life_x: bool = False  # -- X sized by a count (wave 4K) -- a spell's "pay X life" (107.3a: X announced as it's cast)
 
     @property
     def basic(self) -> bool:
@@ -298,11 +299,15 @@ def spell_additional_cost(abilities: Iterable[AbilityText]) -> AbilityCost | Non
     such line, combined), or None. A line the grammar can't pay makes the spell manual (permissions
     .define_static returns no definition), so it is never read here."""
     parts: list[CostComponent] = []
+    life_x = False
     for ab in abilities:
         text = additional_cost_text(ab.text) if ab.kind != "keywords" else None
         found = parse_additional_cost(text) if text is not None else None
         if found is not None:
             parts += found.components
+            life_x = life_x or found.life_x
+    if life_x:  # (wave 4K: "pay X life" alone)
+        return AbilityCost(components=tuple(parts), life=sum(c.amount for c in parts if c.kind == PAY_LIFE), life_x=True)
     return AbilityCost(components=tuple(parts), life=sum(c.amount for c in parts if c.kind == PAY_LIFE)) if parts else None
 
 
@@ -312,6 +317,8 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
     when the engine can't pay it by itself ("you may …", "… or …" alternatives, X, a cost with no
     chosen object): the spell then stays manual rather than being cast without its cost (601.2b)."""
     text = text.strip()
+    if text == "pay X life":  # -- X sized by a count (wave 4K) -- Toxic Deluge: X announced as it's cast (601.2b,
+        return AbilityCost(life_x=True)  # 107.3a), paid with the rest (601.2h), at most your life (119.4, 118.3)
     if text.lower().startswith("you may") or re.search(r"\bx\b", text, re.IGNORECASE) or "," in text:
         return None
     parts = [p.strip() for p in re.split(r" and (?=(?:sacrifice|discard|pay|exile|return|tap) )", text)]

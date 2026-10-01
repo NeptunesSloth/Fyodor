@@ -43,7 +43,7 @@ def static_definition(text: str) -> Definition | None:
     if not found or len(found) != 1 or found[0].get("do") != "create_token" or found[0].get("n") != (2 if same else 1):
         return None
     e = found[0]
-    if set(e) - {"do", "who", "n", "token"}:
+    if set(e) - {"do", "who", "n", "token"} or any(isinstance(e["token"].get(k), dict) for k in ("power", "toughness")):  # (X/X: wave 4K)
         return None  # (a token "for each …", "where X is …", tapped or attacking: not this template)
     return {"kind": "static", "static": "replace", "event": "tokens", "match": {"who": "you"},
             "op": {"do": "extra", "token": e["token"], "n": "same" if same else 1}, "effects": []}

@@ -648,7 +648,12 @@ def needs_manual_resolution(ch: Characteristics) -> bool:
 def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = False, countered: bool = False) -> None:
     """A resolved spell leaves the stack: to the battlefield or its owner's graveyard, or into exile
     if it was cast with flashback (702.34a), or back to its owner's hand with buyback (702.27a)."""
+    # -- X sized by a count (wave 4K) -- it shuffled itself into its library (608.2n)
+    from app.rules import x_spells
+
     oid = plan.oid(card_id)
+    if not countered and x_spells.left_stack_itself(plan, card_id):
+        return
     if oid in plan.rules.rebound_cast:  # 702.88a rebound: exiled as it resolves, cast again next upkeep
         plan.rules.rebound_cast = [o for o in plan.rules.rebound_cast if o != oid]
         if not countered:
