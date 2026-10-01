@@ -30,6 +30,13 @@ EXTRA = [
     card("Polliwallop", set_code="tst", number="PW1", mana_cost="{3}{G}", cmc=4.0, type_line="Instant",
          oracle_text="This spell costs {3} less to cast if you control a Frog.\nTarget creature you control deals damage "
                      "equal to twice its power to target creature you don't control.", colors=["G"], color_identity=["G"]),
+    card("Bartz and Boko", set_code="tst", number="BB1", mana_cost="{3}{G}{G}", cmc=5.0, type_line="Legendary Creature — Human Bird",
+         oracle_text="Affinity for Birds (This spell costs {1} less to cast for each Bird you control.)\nWhen Bartz and Boko enters, "
+                     "each other Bird you control deals damage equal to its power to target creature an opponent controls.",
+         power="4", toughness="3", colors=["G"], color_identity=["G"]),
+    card("Ingenious Artillerist", set_code="tst", number="IA1", mana_cost="{2}{R}", cmc=3.0, type_line="Creature — Human Artificer",
+         oracle_text="Whenever one or more artifacts you control enter, this creature deals that much damage to each opponent.",
+         power="3", toughness="1", colors=["R"], color_identity=["R"]),
     card("Chain Reaction", set_code="tst", number="CR1", mana_cost="{2}{R}{R}", cmc=4.0, type_line="Sorcery",
          oracle_text="Chain Reaction deals X damage to each creature, where X is the number of creatures on the battlefield.",
          colors=["R"], color_identity=["R"]),
@@ -235,4 +242,43 @@ def test_x_is_the_number_of_creatures_on_the_battlefield(cards):
     pass_until_stack_empty(s)
     assert a.id not in s.state.cards and b.id not in s.state.cards  # X is 3: the 2/2s die
     assert named(s, "Wall").damage == 3 and c.id in s.state.cards
+    replay_matches(s)
+
+
+# -- "each creature you control deals damage equal to its power": every one is a source ----------------------
+def test_each_other_bird_deals_damage_equal_to_its_power(cards):
+    s = build(cards, "Bartz and Boko")
+    for name, pt in (("Crow", "2/2"), ("Hawk", "3/3")):
+        p, tt = pt.split("/")
+        act(s, "p1", type="create_token", player="p1", token={"name": name, "type_line": "Token Creature — Bird", "power": p, "toughness": tt})
+    wall = token(s, "p2", "Wall", "0/9")
+    bartz = to_hand(s, "Bartz and Boko")
+    mana(s, G=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=bartz.id)
+    pass_until_stack_empty(s)
+    pick(s, wall.id)
+    assert named(s, "Wall").damage == 5  # 2 + 3 (not Bartz: "each other Bird"), dealt at once
+    replay_matches(s)
+
+
+def test_each_source_with_lifelink_gains_life(cards):
+    s = build(cards)
+    keeper = token(s, "p1", "Keeper", "0/4",
+                   text="{1}: Each creature you control deals damage equal to its power to target creature you don't control.")
+    token(s, "p1", "Vampire", "2/2", text="Lifelink")
+    wall = token(s, "p2", "Wall", "0/9")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=keeper.id, ability=0, targets=[wall.id])
+    pass_until_stack_empty(s)
+    assert named(s, "Wall").damage == 2 and life(s) == 42  # (the 0-power Keeper deals none)
+    replay_matches(s)
+
+
+# -- "that much" of a "one or more" event is how many of them (603.2c) -----------------------------------------
+def test_one_or_more_artifacts_enter_deals_that_much(cards):
+    s = build(cards, "Ingenious Artillerist")
+    act(s, "p1", type="move", card_ids=[to_hand(s, "Ingenious Artillerist").id], to={"zone": "battlefield"})
+    make(s, "{1}: Create two Treasure tokens.")
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 38  # one batch of two artifacts: 2 damage, once
     replay_matches(s)

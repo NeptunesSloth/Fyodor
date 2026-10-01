@@ -369,6 +369,9 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         from app.rules.effects import target_refs  # (effects imports this module)
 
         refs = [(t["id"], t.get("object_id")) for t in target_refs(ctx, who)]
+    if who == "each":  # -- sized amounts (wave 3D) -- "each creature you control deals damage equal to its power": the one being read
+        card = plan.state.cards.get(ctx.get("each_source") or "")
+        return (card, plan.ch(card)) if card is not None else None
     if who == "cost:sacrificed":  # -- sized amounts (wave 3D) -- "the sacrificed creature's power": what a cost sacrificed, as it last existed
         from app.rules.triggers import _snapshot_card
 

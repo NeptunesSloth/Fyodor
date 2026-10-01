@@ -1044,9 +1044,16 @@ def _bite(text: str) -> tuple[Effects, Any] | None:
     if m is None or m["s"] in ("~", "it"):
         return None
     kind, key, group = ref(m["s"])
+    stat = "toughness" if "toughness" in m["stat"] else "power"
+    if kind == "each" and m["stat"] in ("its power", "its toughness", "twice its power"):
+        # -- sized amounts (wave 3D) -- "each creature you control deals damage equal to its power to …": every one is a source
+        if selectors.from_key(key).player is not None:
+            raise _Fail
+        whos, parts = _objects(m["o"])
+        n_each: Any = {stat: "each"} if not m["stat"].startswith("twice ") else {"times": [2, {stat: "each"}]}
+        return [{"do": "damage", "who": w, "n": n_each, "src": "each:" + key} for w in whos], _out(parts)
     if kind not in ("target", "host"):
         raise _Fail  # (a pronoun subject: which creature deals it isn't read here)
-    stat = "toughness" if "toughness" in m["stat"] else "power"
     src = "target" if group is not None else "host"
     groups = [group] if group is not None else []
     whos, parts = _objects(m["o"])

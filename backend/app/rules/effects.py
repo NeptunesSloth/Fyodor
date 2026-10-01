@@ -325,6 +325,15 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     players = _players(plan, ctx, e["who"])
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
+    if str(e.get("src") or "").startswith("each:"):
+        # -- sized amounts (wave 3D) -- "Each creature you control deals damage equal to its power to target creature":
+        # every one is a damage source (its own lifelink and deathtouch count), all dealt at once (120.3, 608.2h)
+        hits: list[tuple[_Source, str, int]] = []
+        for sid in selectors.candidates(plan, selectors.from_key(e["src"][5:]), ctx["controller"], ctx.get("source_card")):
+            each = _amount(plan, {**ctx, "each_source": sid}, e["n"])
+            if each > 0:
+                hits += [(_card_source(plan, sid), key, each) for key in [*cards, *players]]
+        return _deal(plan, ctx, hits, e) if hits else True
     if e.get("src"):
         src = _named_source(plan, ctx, e["src"])
         if src is None:

@@ -1380,6 +1380,10 @@ def parse_anthem(text: str) -> Definition | None:
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     d = _define(ability, ch)
+    cond = d.get("cond") if d is not None and d.get("kind") == "triggered" else None
+    if cond is not None and cond.get("event") == "enter" and cond.get("aggregate"):
+        # "Whenever one or more artifacts you control enter, ~ deals that much damage": the number of them (603.2c)
+        d = json.loads(json.dumps(d, default=str).replace('{"event_amount": 1}', '{"event_count": 1}'))
     # -- sized amounts (wave 3D) -- "the sacrificed creature's power" reads what a *cost* sacrificed (the payment record):
     # in any other ability (an effect sacrificed it, a spell's additional cost) it isn't read
     if d is not None and "cost:sacrificed" in json.dumps(d, default=str):
