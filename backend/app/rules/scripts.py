@@ -1382,7 +1382,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += instead
             continue
         # -- conditional / instead clauses (wave 1B) --  "If C, Y instead." / "Y instead if C." / "Otherwise, Z."
-        if (branch := _instead_or_otherwise(text, effects, prev_start, groups)) is not None:
+        if (branch := _instead_or_otherwise(text, effects, prev_start, groups, it)) is not None:
             if branch is False:
                 return None
             effects, shift = branch
@@ -3025,7 +3025,7 @@ def _next_flag(effects: list[dict[str, Any]]) -> str:
 
 
 def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: int,
-                          groups: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int] | Literal[False] | None:
+                          groups: list[dict[str, Any]], it: str | None = None) -> tuple[list[dict[str, Any]], int] | Literal[False] | None:
     """One sentence as an "instead" / "Otherwise" clause of the sentence before it: None (it isn't one),
     False (it is, but not one the engine reads: the whole ability stays manual), or the effects so far
     with it added and how many effects it put before its own first (the gate goes before the sentence
@@ -3047,7 +3047,10 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
                 and kicked_instead.implies(cond, base[0]["cond"])):
             outer, base = base[0], base[1:]
             prev_start += 1
+        rest = kicked_instead.plain_pronoun(rest)
         restated = kicked_instead.restate(rest, base)
+        if restated is not None and it is not None and _cond_has_it(cond):
+            return False  # ("If that land is a Mountain, ~ deals 2 damage instead": the trigger's land, not the target)
         if rest.startswith("it deals ") and base[0]["do"] == "damage" and not base[0].get("src"):
             rest = "~ deals " + rest[len("it deals "):]  # (the source of the damage the sentence before it dealt)
         alt = (restated, None) if restated is not None else _bind_subject(cond, _clause(rest))

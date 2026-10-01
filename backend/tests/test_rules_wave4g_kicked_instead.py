@@ -78,11 +78,19 @@ EXTRA = [
            "damage instead.", ["R"], number="X714"),
     _spell("Reverberate", "{R}{R}", 2.0, "Instant", "Copy target instant or sorcery spell. You may choose new targets for "
            "the copy.", ["R"], number="X715"),
+    _spell("Fight with Fire", "{2}{R}", 3.0, "Sorcery", "Kicker {5}{R} (You may pay an additional {5}{R} as you cast this "
+           "spell.)\nFight with Fire deals 5 damage to target creature. If this spell was kicked, it deals 10 damage divided "
+           "as you choose among any number of targets instead. (Those targets can include players and planeswalkers.)",
+           ["R"], number="X716"),
+    _spell("Court of Ardenvale", "{2}{W}{W}", 4.0, "Enchantment", "When this enchantment enters, you become the monarch.\n"
+           "At the beginning of your upkeep, return target permanent card with mana value 3 or less from your graveyard to "
+           "your hand. If you're the monarch, return that permanent card to the battlefield instead.", ["W"],
+           number="X717"),
 ]
 EXTRA[11]["loyalty"] = "3"
 FULL = ["Burst Lightning", "Saproling Migration", "Tear Asunder", "Rite of Replication", "Jilt", "Blood Beckoning",
         "Heroic Charge", "Leafkin Druid", "Ilysian Caryatid", "Goldnight Castigator", "Jace's Triumph", "Dega Sanctuary",
-        "Court of Ire"]
+        "Court of Ire", "Fight with Fire", "Court of Ardenvale"]
 
 
 @pytest.fixture()
@@ -152,11 +160,19 @@ def test_wordings():
     "Draw a card and you gain 2 life. If this spell was kicked, create four of those tokens instead.",
     # "those tokens" with no token made before
     "Draw a card. If this spell was kicked, create four of those tokens instead.",
+    # "that land": the trigger's object, not the damage's target (Akoum Hellkite)
     # "If C1, X. If C2, Y instead." where C2 doesn't imply C1 (whether Y needs C1 isn't read)
     "If you control a Forest, you gain 2 life. If you control an Island, you gain 4 life instead.",
 ])
 def test_refused(text):
     assert scripts.parse_effects(text) is None
+
+
+def test_akoum_hellkite_stays_manual():
+    """Akoum Hellkite: "If that land is a Mountain, this creature deals 2 damage instead." — "that land" is the land that
+    entered, not the damage's target: the restatement isn't read with a pronoun naming the trigger's object."""
+    body = "~ deals 1 damage to any target. If that land is a Mountain, ~ deals 2 damage instead."
+    assert scripts.parse_effects(body, "event") is None
 
 
 def test_kicker_targets_only_on_spells(cards):
@@ -420,4 +436,46 @@ def test_court_of_ire(cards, monarch, damage):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
     settle(s)
     assert life(s, "p2") == 40 - damage
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("kicked", [0, 1])
+def test_fight_with_fire(cards, kicked):
+    """Kicked: 10 damage divided among any number of targets (601.2d), the creature target not required (601.2c)."""
+    s = build(cards, ("Fight with Fire",))
+    ogre = creature(s, "p2", "Ogre", "7/7")
+    spell = to_hand(s, "Fight with Fire")
+    mana(s, R=1 + kicked, C=2 + 5 * kicked)
+    if kicked:
+        act(s, "p1", type="cast_spell", card_id=spell.id, kicker=1, targets=[ogre.id, "p2"], target_counts=[0, 2],
+            division=[6, 4])
+    else:
+        act(s, "p1", type="cast_spell", card_id=spell.id, targets=[ogre.id], target_counts=[1, 0])
+    settle(s)
+    if kicked:
+        assert s.state.cards[ogre.id].damage == 6 and life(s, "p2") == 36
+    else:
+        assert s.state.cards[ogre.id].damage == 5 and life(s, "p2") == 40
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("monarch", [True, False])
+def test_court_of_ardenvale(cards, monarch):
+    """"return that permanent card to the battlefield instead": the card the replaced instruction targeted (608.2c)."""
+    s = build(cards, ("Court of Ardenvale", "Grizzly Bears"))
+    bears = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "graveyard"})
+    if monarch:
+        court = to_hand(s, "Court of Ardenvale")
+        mana(s, W=2, C=2)
+        act(s, "p1", type="cast_spell", card_id=court.id)
+        settle(s)
+    else:
+        on_field(s, "Court of Ardenvale")
+    to_turn(s, 3, phase="upkeep")
+    d = until_asked(s)
+    if d is not None:
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == ("p1:battlefield" if monarch else "p1:hand")
     roundtrip(s)

@@ -50,6 +50,15 @@ def plain_addition(rest: str) -> str:
     return f"{m['lead']} {m['pt']}" if m else rest
 
 
+_THAT_TYPED_CARD = re.compile(r"\bthat (?:permanent|creature|artifact|enchantment|land|planeswalker|instant|sorcery) card\b")
+
+
+def plain_pronoun(rest: str) -> str:
+    """"If you're the monarch, return that permanent card to the battlefield instead." (Court of Ardenvale): the card
+    the replaced instruction named — "that card" (the type words only repeat what it is)."""
+    return _THAT_TYPED_CARD.sub("that card", rest)
+
+
 def _amount(word: str) -> int | None:
     return int(word) if word.isdigit() else _WORDS.get(word)
 
@@ -118,8 +127,8 @@ def applicable(specs: list[dict[str, Any]], kicked: int) -> list[dict[str, Any]]
     no targets (cast "as though it did not require those targets")."""
     out = []
     for spec in specs:
-        if "kicked" in spec and spec["kicked"] != (kicked > 0):
-            spec = {**spec, "min": 0, "max": 0}
+        if "kicked" in spec and spec["kicked"] != (kicked > 0):  # (nothing to divide among no targets either: 601.2d)
+            spec = {k: v for k, v in spec.items() if k != "divide"} | {"min": 0, "max": 0}
         out.append(spec)
     return out
 
