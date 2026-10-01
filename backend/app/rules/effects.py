@@ -2370,3 +2370,68 @@ def replace_record(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES.update({"exile_if_dies": exile_if_dies, "replace_record": replace_record})
 # -- end replacement effects stage 2 (wave 2E) --
+
+
+# -- mana (wave 3M): mana added by a spell, a triggered ability or a non-mana activated ability (CR 106.3, 605.1a/605.5) --
+def add_mana(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """106.3: the mana an effect adds goes into its controller's pool (it empties as the step ends,
+    106.4). Forms: ``mana`` (fixed symbols), ``sym`` + ``n`` (n of one type, n a value), ``of`` + ``n`` (n
+    mana each chosen from ``of``; ``same`` = one choice for all of them: "any one color"), ``identity``
+    (``of`` is the controller's commander color identity; none in it = nothing is added, 106.5).
+    Choices are decisions of the controller (resume data kept). Nothing is tapped: the mana is
+    simply added, carrying no restriction (a restricted wording isn't parsed, so never reaches here)."""
+    from app.rules import mana as M
+
+    pid = ctx["controller"]
+    if "mana" in e:
+        return _put_mana(plan, ctx, pid, list(e["mana"]))
+    if "sym" in e:
+        return _put_mana(plan, ctx, pid, [e["sym"]] * _amount(plan, ctx, e["n"]))
+    of = list(e["of"])
+    if e.get("identity"):
+        from app.rules.casting import commander_identity
+
+        ident = commander_identity(plan.state, pid, plan.info)
+        of = [c for c in M.COLORS if c in ident]
+    n = _amount(plan, ctx, e["n"])
+    if n <= 0 or not of:
+        return True
+    if len(of) == 1:
+        return _put_mana(plan, ctx, pid, of * n)
+    same = bool(e.get("same"))
+    return _ask_mana(plan, ctx, pid, of, 1 if same else n, n if same else 1, [])
+
+
+def _ask_mana(plan: Plan, ctx: Context, pid: str, of: list[str], asks: int, repeat: int, got: list[str]) -> bool:
+    """Ask for the next of ``asks`` choices (each chosen mana is added ``repeat`` times)."""
+    if len(got) >= asks:
+        return _put_mana(plan, ctx, pid, got * repeat)
+    decide(plan, player=pid, kind="choose_one",
+           prompt=f"Choose the mana to add ({asks - len(got)} left)" if asks > 1 else "Choose the mana to add",
+           options=[DecisionOption(id=c, label="{" + c + "}") for c in of],
+           resume={"step": "add_mana", "ctx": ctx, "of": of, "asks": asks, "repeat": repeat, "got": got})
+    return False
+
+
+def resume_add_mana(plan: Plan, d: Any, chosen: list[str]) -> None:
+    r = d.resume
+    if chosen[0] not in r["of"]:
+        raise ValueError("not an offered mana type")
+    if _ask_mana(plan, r["ctx"], d.player, r["of"], r["asks"], r["repeat"], [*r["got"], chosen[0]]):
+        continue_effects(plan, r["ctx"])
+
+
+def _put_mana(plan: Plan, ctx: Context, pid: str, mana: list[str]) -> bool:
+    from app.rules import mana as M
+
+    if mana:
+        delta: dict[str, int] = {}
+        for c in mana:
+            delta[c] = delta.get(c, 0) + 1
+        plan.do({"type": "rules_mana", "player": pid, "tap": [], "sacrifice": [], "delta": delta, "life": 0,
+                 "label": f"added {M.symbols(delta)}"}, actor=pid)
+    return True
+
+
+PRIMITIVES["add_mana"] = add_mana
+# -- end mana (wave 3M) --
