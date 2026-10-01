@@ -2373,7 +2373,7 @@ def _for_each(phrase: str) -> Any:
     """"for each <group>" on an "enters with" ability: a count the values grammar evaluates as it enters
     — of cards elsewhere ("creature card in your graveyard") or of *other* permanents. A group the
     entering permanent might itself belong to is not read (whether it counts itself is not settled
-    here); "for each color of mana spent" and "creatures that died this turn" aren't modeled."""
+    here); "creatures that died this turn" isn't modeled ("for each color of mana spent": wave 4F)."""
     from app.rules import selectors  # (a leaf module)
 
     if phrase in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):

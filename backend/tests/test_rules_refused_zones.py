@@ -232,9 +232,10 @@ def test_ability_word_activated_abilities_are_classified_as_activated():
     assert abilities[0].kind == "activated" and abilities[0].cost == "{3}{B}"
     # a flavor word before a cost (207.2d) …
     assert parse_abilities("Sleight of Hand — {8}: Draw two cards.")[0].cost == "{8}"
-    # … but never a keyword written "Name — " (702.177 exhaust, 702.178 max speed, 702.193 power-up)
-    for line in ("Exhaust — {3}{G}: Put two +1/+1 counters on this creature.",
-                 "Max speed — {T}: Draw a card.", "Power-up — {4}{R}: Put a +1/+1 counter on this creature."):
+    # … but never a keyword written "Name — " (702.178 max speed, 702.193 power-up; 702.177 exhaust is read as what it
+    # means since wave 4F: "[Cost]: [Effect]. Activate only once.", app/rules/restrictions.py)
+    assert parse_abilities("Exhaust — {3}{G}: Put two +1/+1 counters on this creature.")[0].cost == "{3}{G}"
+    for line in ("Max speed — {T}: Draw a card.", "Power-up — {4}{R}: Put a +1/+1 counter on this creature."):
         ab = parse_abilities(line)[0]
         assert ab.kind != "activated" or ab.cost is None or "—" in ab.cost, line
 
