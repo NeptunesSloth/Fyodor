@@ -375,6 +375,15 @@ def _cast(c: str) -> Condition | None:
     nth = re.fullmatch(r"(?:your|their) (?P<nth>first|second|third|fourth|fifth) spell(?P<each> each turn)?", spell)
     if nth and (nth["each"] or out.get("turn")):  # (the Nth spell of any kind: counted per player per turn)
         return {**out, "nth": _NTH[nth["nth"]], "spell": selectors.Selector(zones=("stack",)).key()}
+    # -- unless pays (wave 4C) -- "their first noncreature spell each turn" (app/rules/unless_pays.py: the kind's marks)
+    kind = re.fullmatch(r"(?:your|their) first (?P<kind>[a-z ]+?) spell each turn", spell)
+    if kind and not out.get("turn"):
+        from app.rules import unless_pays
+
+        ksel = selectors.parse(f"{kind['kind']} spell")
+        key = selectors.replace(ksel, zones=("stack",)).key() if ksel is not None and ksel.player is None else None
+        return {**out, "first_kind": True, "spell": key} if key is not None and unless_pays.first_kind_ok(key) else None
+    # -- end unless pays (wave 4C) --
     if spell.startswith(("your ", "their ")) or " each turn" in spell or "copy" in spell or " this turn" in spell:
         return None
     f = re.fullmatch(r"(?P<rest>.+?) (?P<from>from exile|from your graveyard|from a graveyard|"
