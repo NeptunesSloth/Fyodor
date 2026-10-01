@@ -148,9 +148,15 @@ _SPEND = [
      "artifact_or_artifact_ability"),
     (re.compile(r"^Spend this mana only to cast (a )?legendary spells?$"), "legendary"),
     (re.compile(r"^Spend this mana only to cast (a |an )?(?P<t>[A-Z][a-z]+) (creature )?spells?$"), "type"),
+    # -- mana (wave 3M): restrictions the payer can enforce (casting.spend_allowed) --
+    (re.compile(r"^Spend this mana only to cast colorless Eldrazi spells or activate abilities of colorless Eldrazi$"), "colorless_eldrazi"),
+    (re.compile(r"^This mana can't be spent to cast (a nonartifact spell|nonartifact spells)$"), "not_nonartifact_spell"),
 ]
 _DAMAGE_YOU = re.compile(r"^(This \w+|[A-Z][^.]{0,60}?) deals (?P<n>\d+) damage to you$")
-_CONTROL = re.compile(r"^Activate only if you control an? (?P<what>[A-Z][a-z]+)$")
+_CONTROL = re.compile(r"^Activate only if you control an? (?P<what>[A-Z][a-z]+)(?: or an? (?P<or>[A-Z][a-z]+))?$")
+# -- mana (wave 3M) -- "Activate only if you control five or more lands"; "for each charge counter on this artifact"
+_CONTROL_COUNT = re.compile(rf"^Activate only if you control {_N} or more (?P<what>lands|creatures|artifacts|enchantments)$")
+_COUNTERS_FOR_EACH = re.compile(r"^Add \{(?P<sym>[WUBRGC])\} for each (?P<kind>[a-z]+) counter on (?:this \w+|~)$")
 _FOR_EACH = re.compile(r"^Add \{(?P<sym>[WUBRGC])\} for each (?P<what>creature|artifact|enchantment|land|[A-Z][a-z]+) you control$")
 _COUNT_TYPES = {"creature": "Creature", "artifact": "Artifact", "enchantment": "Enchantment", "land": "Land"}
 _POWER_OF = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?:this creature|[A-Z][^.]{0,60}?)'s power$")
@@ -185,6 +191,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         what = c.group("what")
         count = f"control:{_COUNT_TYPES.get(what, what)}"
         options: tuple[tuple[str, ...], ...] | None = ((c.group("sym"),),)
+    elif c := _COUNTERS_FOR_EACH.fullmatch(first):
+        count, options = f"counters:{c.group('kind')}", ((c.group("sym"),),)
     elif c := _POWER_OF.fullmatch(first):
         count, options = "power", ((c.group("sym"),),)
     elif _X_POWER.fullmatch(first):
@@ -206,7 +214,9 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         elif s == "Activate only once each turn":
             once = True
         elif c := _CONTROL.fullmatch(s):
-            condition = f"control:{c.group('what')}"
+            condition = f"control:{c.group('what')}" + (f"|{c.group('or')}" if c.group("or") else "")
+        elif c := _CONTROL_COUNT.fullmatch(s):
+            condition = f"count:{_COUNT_TYPES[c.group('what').rstrip('s')]}:{_NUM[c.group(1)]}"
         else:
             for pattern, kind in _SPEND:
                 if sm := pattern.fullmatch(s):

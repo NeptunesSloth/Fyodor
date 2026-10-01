@@ -47,8 +47,9 @@ REAL = [
          oracle_text="Add three mana in any combination of colors."),
     card("Powerstone Test", type_line="Artifact", oracle_text="{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."),
     card("Mox Test Spell", mana_cost="{1}", cmc=1.0, type_line="Instant", oracle_text="Add {R} or {G}."),
-    card("Colorless Eldrazi Test", mana_cost="{4}", cmc=4.0, type_line="Creature — Eldrazi", power="3", toughness="3",
+    card("Colorless Eldrazi Test", mana_cost="{2}", cmc=2.0, type_line="Creature — Eldrazi", power="3", toughness="3",
          oracle_text=""),
+    card("Two Drop Test", mana_cost="{2}", cmc=2.0, type_line="Creature — Bear", power="2", toughness="2", oracle_text=""),
     card("Black Market", mana_cost="{3}{B}{B}", cmc=5.0, type_line="Enchantment", colors=["B"], color_identity=["B"],
          oracle_text="Whenever a creature dies, put a charge counter on this enchantment.\n"
                      "At the beginning of your first main phase, add {B} for each charge counter on this enchantment."),
@@ -223,3 +224,63 @@ def test_unsupported_mana_wordings_stay_unparsed(text):
     from app.rules.scripts import parse_effects
 
     assert parse_effects(text) is None
+
+
+# -- mana-ability wordings (wave 3M) -----------------------------------------------------------------------
+def _abilities(s, cards, name):
+    from app.rules.casting import mana_abilities
+
+    return dict(mana_abilities(s.state, named(s, name), cards))
+
+
+def _to_battlefield(s, *names):
+    for n in names:
+        act(s, "p1", type="move", card_ids=[named(s, n).id], to={"zone": "battlefield"})
+
+
+def test_verge_second_ability_needs_a_swamp_or_forest(mcards):
+    s = table(mcards, ["Wastewood Verge", "Forest"])
+    _to_battlefield(s, "Wastewood Verge")
+    assert [ab.options for ab in _abilities(s, mcards, "Wastewood Verge").values()] == [(("G",),)]
+    _to_battlefield(s, "Forest")
+    got = _abilities(s, mcards, "Wastewood Verge")
+    assert sorted(o for ab in got.values() for opt in ab.options for o in opt) == ["B", "G"]
+
+
+def test_temple_of_the_false_god_needs_five_lands(mcards):
+    s = table(mcards, ["Temple of the False God"], library=((10, "Forest"),))
+    _to_battlefield(s, "Temple of the False God")
+    assert _abilities(s, mcards, "Temple of the False God") == {}
+    act(s, "p1", type="draw", count=4)
+    for cid in list(zone(s.state, "p1", "hand")):
+        if s.state.cards[cid].name == "Forest":
+            act(s, "p1", type="move", card_ids=[cid], to={"zone": "battlefield"})
+    (ab,) = _abilities(s, mcards, "Temple of the False God").values()
+    assert ab.options == (("C", "C"),)
+
+
+def test_everflowing_chalice_adds_one_per_charge_counter(mcards):
+    s = table(mcards, ["Everflowing Chalice"])
+    _to_battlefield(s, "Everflowing Chalice")
+    assert _abilities(s, mcards, "Everflowing Chalice") == {}  # no counters: nothing to add
+    act(s, "p1", type="counter", card_ids=[named(s, "Everflowing Chalice").id], kind="charge", delta=2)
+    (ab,) = _abilities(s, mcards, "Everflowing Chalice").values()
+    assert ab.options == (("C", "C"),)
+
+
+def test_eldrazi_temple_restriction_is_enforced_when_paying(mcards):
+    from app.rules.casting import castable
+
+    s = table(mcards, ["Eldrazi Temple", "Colorless Eldrazi Test", "Two Drop Test"])
+    _to_battlefield(s, "Eldrazi Temple")
+    assert castable(s.state, "p1", named(s, "Colorless Eldrazi Test"), mcards)  # the restricted {C}{C} pays for it
+    assert not castable(s.state, "p1", named(s, "Two Drop Test"), mcards)  # a non-Eldrazi only gets the plain {C}
+
+
+def test_powerstone_mana_pays_for_artifacts_and_abilities_only(mcards):
+    from app.rules.casting import castable
+
+    s = table(mcards, ["Powerstone Test", "Everflowing Chalice", "Mox Test Spell"])
+    _to_battlefield(s, "Powerstone Test")
+    assert not castable(s.state, "p1", named(s, "Mox Test Spell"), mcards)  # a nonartifact spell
+    assert castable(s.state, "p1", named(s, "Everflowing Chalice"), mcards)  # {0}: free anyway

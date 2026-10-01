@@ -106,6 +106,8 @@ def _mana_count(state: GameState, card: CardInstance, count: str, info: CardInfo
         if ch.pt:
             return max(0, ch.pt[0])
         return int(ch.power) if ch.power and ch.power.isdigit() else 0
+    if count.startswith("counters:"):  # (wave 3M) "for each charge counter on this artifact"
+        return card.counters.get(count.split(":", 1)[1], 0)
     what = count.split(":", 1)[1]
     n = 0
     for cid in state.zones.get(zone_key(card.controller, "battlefield"), []):
@@ -140,9 +142,16 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
 
 
 def _controls(state: GameState, player: str, what: str, info: CardInfo) -> bool:
+    """A mana ability's "Activate only if you control …": "<Type>[|<Type>]" (one of them), or
+    "count:<Type>:<n>" (n or more) — wave 3M."""
+    if what.startswith("count:"):
+        _, kind, n = what.split(":")
+        return sum(1 for cid in state.zones.get(zone_key(player, "battlefield"), [])
+                   if kind in chars.of(state.cards[cid], info).types) >= int(n)
+    wanted = what.split("|")
     for cid in state.zones.get(zone_key(player, "battlefield"), []):
         ch = chars.of(state.cards[cid], info)
-        if what in ch.subtypes or what in ch.types:
+        if any(w in ch.subtypes or w in ch.types for w in wanted):
             return True
     return False
 
@@ -164,8 +173,9 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         parsed = M.parse_mana_ability(ab.text, identity)
         if parsed is None:
             continue
-        if parsed.condition and parsed.condition.startswith("control:") and \
-                not _controls(state, card.controller, parsed.condition.split(":", 1)[1], info):
+        cond = parsed.condition or ""
+        if cond.startswith(("control:", "count:")) and \
+                not _controls(state, card.controller, cond[len("control:"):] if cond.startswith("control:") else cond, info):
             continue
         if parsed.once_per_turn and r is not None and \
                 r.once_per_turn.get(f"{r.object_id(card.id)}:{ab.index}") == state.turn.number:
@@ -203,6 +213,11 @@ def spend_allowed(kind: str | None, purpose: Purpose | None) -> bool:
     if kind.startswith("type:"):
         t = kind[5:]
         return spell is not None and (t in spell.subtypes or t in spell.types)
+    if kind == "colorless_eldrazi":  # (wave 3M) Eldrazi Temple
+        return (spell is not None and "Eldrazi" in spell.subtypes and not spell.colors) or \
+            (source is not None and "Eldrazi" in source.subtypes and not source.colors)
+    if kind == "not_nonartifact_spell":  # (wave 3M) Powerstone: any ability, or an artifact spell
+        return spell is None or "Artifact" in spell.types
     return False
 
 
