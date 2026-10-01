@@ -430,3 +430,77 @@ def stored_mana(d: dict[str, Any]) -> str:
     return str((d.get("change") or {}).get("mana") or "")
 
 
+
+
+# -- optional additional costs on other spells (Defiler of Vigor) ---------------------------------------------------
+# "As an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you
+# paid life this way. This effect reduces only the amount of green mana you pay." 601.2b: announced as the spell is
+# cast (the intent's ``optional_costs`` names the permanents whose cost is paid); 601.2f: the reduction applies to
+# that color's symbols only (never the generic part: the card says so, overriding 118.7c).
+_COLORS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
+DEFILER = re.compile(
+    r"^as an additional cost to cast (?P<color>white|blue|black|red|green) permanent spells, you may pay (?P<life>\d+) life\. "
+    r"those spells cost \{(?P<sym>[WUBRG])\} less to cast if you paid life this way\. "
+    r"this effect reduces only the amount of (?P<color2>white|blue|black|red|green) mana you pay$", re.IGNORECASE)
+
+
+def optional_definition(t: str) -> dict[str, Any] | None:
+    from app.rules.permissions import spell_filter
+
+    m = DEFILER.fullmatch(t)
+    if m is None or m["color"].lower() != m["color2"].lower() or _COLORS[m["color"].lower()] != m["sym"]:
+        return None
+    key = spell_filter(f"{m['color'].lower()} permanent")
+    if key is None:
+        return None
+    return {"kind": "static", "static": "optional_additional", "life": int(m["life"]), "mana": m["sym"], "filter": key,
+            "effects": []}
+
+
+@dataclass(frozen=True)
+class Optional:
+    source: str
+    label: str
+    life: int
+    mana: str
+
+
+def optional_offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Optional]:
+    """The optional additional costs the table offers ``player`` for this spell (one per permanent)."""
+    from app.rules import permissions
+
+    out: list[Optional] = []
+    for src, _, d in permissions._table_statics(state, info, {"optional_additional"}):
+        if src.controller == player and permissions.spell_matches(state, player, card, ch, d["filter"], info):
+            out.append(Optional(src.id, f"{src.name}: pay {d['life']} life", int(d["life"]), d["mana"]))
+    return out
+
+
+def chosen_optional(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo,
+                    ids: list[str]) -> list[Optional]:
+    """The optional costs the intent names, each checked now (601.2b), or an ActionError."""
+    from app.game.errors import ActionError
+
+    if len(set(ids)) != len(ids):
+        raise ActionError("Name each optional cost once")
+    offers = {o.source: o for o in optional_offers(state, player, card, ch, info)}
+    out = []
+    for sid in ids:
+        if sid not in offers:
+            raise ActionError("That optional additional cost doesn't apply to this spell")
+        out.append(offers[sid])
+    return out
+
+
+def reduce_only(cost: M.ManaCost, colors: tuple[str, ...]) -> M.ManaCost:
+    """Take one symbol of each color away, never anything else ("reduces only the amount of green mana you pay"). A
+    hybrid or Phyrexian symbol of that color isn't read (which part the player pays isn't known yet): refused."""
+    from app.game.errors import ActionError
+
+    colored = list(cost.colored)
+    for c in colors:
+        if any(c in h for h in cost.hybrid) or c in cost.phyrexian:
+            raise ActionError("A hybrid or Phyrexian mana symbol with that reduction: pay it by hand with the table tools")
+        if c in colored:
+            colored.remove(c)
+    return M.ManaCost(cost.generic, tuple(colored), cost.hybrid, cost.phyrexian, cost.x, cost.unsupported)

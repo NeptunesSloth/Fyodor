@@ -344,6 +344,7 @@ export interface RulesHints {
   castable?: string[];
   free_castable?: string[]; // a permission lets you cast these without paying their mana costs
   alt_castable?: Record<string, { id: string; label: string }[]>; // alternative costs (118.9): card id → costs it can be cast for now
+  optional_costs?: Record<string, { id: string; label: string }[]>; // optional additional costs (Defiler of Vigor): card id → sources
   activatable?: { card_id: string; ability: number }[];
 }
 

@@ -62,6 +62,7 @@ EXTRA = [
     card('Killian, Ink Duelist', set_code='tst', number='4J05', mana_cost='{W}{B}', cmc=2.0, type_line='Legendary Creature — Human Warlock', oracle_text="Lifelink\nMenace (This creature can't be blocked except by two or more creatures.)\nSpells you cast that target a creature cost {2} less to cast.", colors=['B', 'W'], color_identity=['B', 'W'], keywords=['Lifelink', 'Menace'], power='2', toughness='2'),
     card('Gloom', set_code='tst', number='4J10', mana_cost='{2}{B}', cmc=3.0, type_line='Enchantment', oracle_text='White spells cost {3} more to cast.\nActivated abilities of white enchantments cost {3} more to activate.', colors=['B'], color_identity=['B'], keywords=[]),
     card('Stalwart Valkyrie', set_code='tst', number='4J11', mana_cost='{3}{W}', cmc=4.0, type_line='Creature — Angel Warrior', oracle_text="You may pay {1}{W} and exile a creature card from your graveyard rather than pay this spell's mana cost.\nFlying", colors=['W'], color_identity=['W'], keywords=['Flying'], power='3', toughness='2'),
+    card('Defiler of Vigor', set_code='tst', number='4J12', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Phyrexian Wurm', oracle_text='Trample\nAs an additional cost to cast green permanent spells, you may pay 2 life. Those spells cost {G} less to cast if you paid life this way. This effect reduces only the amount of green mana you pay.\nWhenever you cast a green permanent spell, put a +1/+1 counter on each creature you control.', colors=['G'], color_identity=['G'], keywords=['Trample'], power='6', toughness='6'),
 ]
 
 
@@ -661,3 +662,31 @@ def test_stalwart_valkyrie_exiles_a_creature_card_from_the_graveyard(cards):
     assert s.state.cards[bears.id].zone == "p1:exile" and s.state.cards[valkyrie.id].zone == "p1:battlefield"
     assert s.state.players["p1"].mana == {}
     roundtrip(s)
+
+
+# -- optional additional costs on other spells (Defiler of Vigor; 601.2b, 601.2f) -------------------------------------
+def test_defiler_of_vigor_pays_life_for_a_green_symbol_only(cards):
+    s = build(cards, [(1, "Defiler of Vigor"), (1, "Grizzly Bears"), (1, "Llanowar Elves"), (1, "Lightning Bolt")])
+    defiler = put(s, "Defiler of Vigor", "battlefield")
+    bears, elves = put(s, "Grizzly Bears", "hand"), put(s, "Llanowar Elves", "hand")
+    put(s, "Lightning Bolt", "hand")
+    mana(s, C=1)
+    found = hints(s.state, "p1", s.cards).get("optional_costs", {})
+    assert found.get(bears.id) == [{"id": defiler.id, "label": "Defiler of Vigor: pay 2 life"}]
+    assert set(found) <= {bears.id, elves.id}  # (green permanent spells only: never the Bolt)
+    refused(s, "doesn't apply", type="cast_spell", card_id=named(s, "Lightning Bolt").id, targets=["p2"], optional_costs=[defiler.id])
+    act(s, "p1", type="cast_spell", card_id=bears.id, optional_costs=[defiler.id])  # {1}{G} − {G}: {1}, and 2 life
+    assert life(s) == 38 and s.state.players["p1"].mana == {}
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_defiler_never_reduces_generic_mana(cards):
+    from app.rules import mana as M
+    from app.rules.cost_changes import reduce_only
+
+    assert reduce_only(M.parse_cost("{2}{G}"), ("G",)).text() == "{2}"
+    assert reduce_only(M.parse_cost("{3}"), ("G",)).text() == "{3}"  # (no green to reduce: nothing, not {2})
+    with pytest.raises(ActionError):
+        reduce_only(M.parse_cost("{1}{G/W}"), ("G",))  # which half is paid isn't known: refused

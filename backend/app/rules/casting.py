@@ -1465,6 +1465,30 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
         if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
             out.append({"id": offer.key, "label": offer.label})
     return out
+
+
+def optional_castable(state: GameState, player: str, card: CardInstance, info: CardInfo) -> list[dict[str, str]]:
+    """The optional additional costs (Defiler of Vigor) ``player`` could pay casting this card right now, each alone."""
+    from app.rules import cost_changes
+
+    out: list[dict[str, str]] = []
+    if chars.is_two_spell_card(card, info) or state.rules is None or state.rules.card_mode(card.id) == "manual":
+        return out
+    ch = chars.as_cast(card, info, None)
+    if ch.is_land or cast_problem(state, player, card, ch, info=info) is not None:
+        return out
+    grant = cast_grant(state, player, card, ch, info)
+    for offer in cost_changes.optional_offers(state, player, card, ch, info):
+        if state.players[player].life < offer.life:
+            continue
+        try:
+            cost = cost_changes.reduce_only(spell_cost(state, card, ch, info=info, player=player,
+                                                       free=grant is not None and grant.free), (offer.mana,))
+        except ActionError:
+            continue
+        if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
+            out.append({"id": offer.source, "label": offer.label})
+    return out
 # -- end cost changers (wave 4I) --
 
 
@@ -1533,7 +1557,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if free and (alternative is not None or a.face_down):
         raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
     # -- cost changers (wave 4I) -- an alternative cost written on a card (Force of Will, Jodah: app/rules/alt_costs.py)
-    from app.rules import alt_costs  # (a leaf over this module)
+    from app.rules import alt_costs, cost_changes  # (leaves over this module)
 
     alt_offer: alt_costs.Offer | None = None
     if a.alt_cost is not None:
@@ -1576,12 +1600,20 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     # changers read the targets chosen (wave 4I)
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=alternative,
                       free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen))
+    optional = cost_changes.chosen_optional(plan.state, plan.actor, card, ch, plan.info, a.optional_costs) \
+        if a.optional_costs and not plan.manual(card) else []  # -- cost changers (wave 4I) -- (601.2b)
+    if a.optional_costs and plan.manual(card):
+        raise ActionError("That card is played by hand: pay its costs with the table tools")
+    cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional))  # ("reduces only the amount of green mana")
     cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for
     # -- costs (wave 3$) -- 601.2b: an additional cost ("sacrifice a creature", "discard a card", "pay 2 life") is
     # announced with the rest; 601.2h pays it all at once, so nothing moves until every part is chosen and payable
     add_cost = None if plan.manual(card) or a.face_down else costs.spell_additional_cost(ch.abilities)
     if alt_offer is not None:  # -- cost changers (wave 4I) -- its other parts are paid with the rest (601.2h)
         add_cost = alt_costs.merged(add_cost, alt_offer.alt.cost)
+    if optional:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
+        add_cost = alt_costs.merged(add_cost, costs.AbilityCost(components=tuple(
+            costs.CostComponent(costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life") for o in optional)))
     add_objects: dict[int, list[str]] = {}
     if add_cost is not None:
         problem = additional_problem(plan, add_cost, card, plan.actor)
@@ -1620,7 +1652,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if alt_offer.once_key:
             plan.rules.once_per_turn[alt_offer.once_key] = plan.state.turn.number  # ("once each turn")
         plan.note(f"{plan.name(plan.actor)} cast {ch.name} for an alternative cost ({alt_offer.label})", [card.id])
-    record.additional = (["buyback"] if a.buyback else []) + (["kicker"] if a.kicker else [])
+    record.additional = (["buyback"] if a.buyback else []) + (["kicker"] if a.kicker else []) \
+        + [f"optional:{o.source}" for o in optional]  # (wave 4I: Defiler of Vigor's life)
     record.kicked = a.kicker  # 702.33d
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
     record_payment(plan, card.id, record)
