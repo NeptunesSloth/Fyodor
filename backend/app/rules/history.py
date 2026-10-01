@@ -395,6 +395,44 @@ _WAVE_4D: dict[str, Any] = {
 }
 
 
+def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
+    """A quantity of this turn's history (app/rules/values.py ``{"turn_history": …}``), as the effect is carried out."""
+    from app.rules import selectors
+
+    log = log_for(plan)
+    me = ctx["controller"]
+    kind = v["turn_history"]
+    if kind == "gained":
+        return log.gained.get(me, 0)
+    if kind == "lost":
+        return log.lost.get(me, 0)
+    if kind == "drew":
+        return log.drew.get(me, 0)
+    if kind == "died":
+        return sum(1 for d in log.left if d.to == "graveyard" and (snap := plan.rules.lki.get(d.object_id)) is not None
+                   and _departed_matches(plan, selectors.from_key(v["sel"]), d, snap))
+    if kind == "opponents_who":
+        n = int(v.get("n", 1))
+        opponents = [p for p in plan.state.players if p != me]  # (800.4a: a player who left still did it — but isn't counted)
+        opponents = [p for p in opponents if p in plan.live()]
+        if v["what"] == "drew":
+            return sum(1 for p in opponents if log.drew.get(p, 0) >= n)
+        if v["what"] == "lost":
+            return sum(1 for p in opponents if log.lost.get(p, 0) >= n)
+        land = selectors.parse("land")
+        assert land is not None
+        return sum(1 for p in opponents if entered(plan, {**ctx, "controller": p}, {"sel": land.key()}, log) >= n)
+    raise ValueError(f"unknown history amount {v!r}")
+
+
+def _departed_matches(plan: Plan, sel: Any, d: Any, snap: Any) -> bool:
+    from app.rules.triggers import _snapshot_card
+
+    _, ch = _snapshot_card(plan, snap)
+    types = d.types if d.types is not None else ch.types
+    return note_matches(sel, types, ch.subtypes, ch.supertypes, ch.colors, float(ch.mana_value), snap.is_token)
+
+
 def _graveyard_cards(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
     """Cards put into your graveyard from anywhere this turn (whether or not they're still there, 608.2i): a card's
     characteristics are the same in any zone but the battlefield and the stack, so they're read from the card."""

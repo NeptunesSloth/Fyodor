@@ -66,6 +66,7 @@ EXTRA = [
     card('Dunerider Outlaw', set_code='tst', number='D426', mana_cost='{B}{B}', cmc=2.0, type_line='Creature — Human Rebel Rogue', oracle_text='Protection from green\nAt the beginning of each end step, if this creature dealt damage to an opponent this turn, put a +1/+1 counter on it.', power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=['Protection']),
     card('Cactuar', set_code='tst', number='D427', mana_cost='{G}', cmc=1.0, type_line='Creature — Plant', oracle_text="Trample\nAt the beginning of your end step, if this creature didn't enter the battlefield this turn, return it to its owner's hand.", power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Trample']),
     card('Kami of Transience', set_code='tst', number='D428', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Spirit', oracle_text='Trample\nWhenever you cast an enchantment spell, put a +1/+1 counter on this creature.\nAt the beginning of each end step, if an enchantment was put into your graveyard from the battlefield this turn, you may return this card from your graveyard to your hand.', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Trample']),
+    card("Smuggler's Share", set_code='tst', number='D429', mana_cost='{2}{W}', cmc=3.0, type_line='Enchantment', oracle_text='At the beginning of each end step, draw a card for each opponent who drew two or more cards this turn, then create a Treasure token for each opponent who had two or more lands enter the battlefield under their control this turn.', colors=['W'], color_identity=['W'], keywords=['Treasure']),
 ]
 
 
@@ -327,7 +328,8 @@ def test_sygg_an_opponent_lost_three(cards):
 def test_lyse_hext_double_strike_after_two_noncreature_spells(cards):
     """Spells cast before she entered count too (her ruling); a creature spell doesn't."""
     s = build(cards, "Lyse Hext", "Lightning Bolt", "Slick Sequence", "Grizzly Bears")
-    bolt, seq, bears = to_hand(s, "Lightning Bolt"), to_hand(s, "Slick Sequence"), to_hand(s, "Grizzly Bears")
+    bolt, bears = to_hand(s, "Lightning Bolt"), to_hand(s, "Grizzly Bears")
+    to_hand(s, "Slick Sequence")
     mana(s, R=1)
     cast(s, bolt, targets=["p2"])
     lyse = put(s, "Lyse Hext")
@@ -674,3 +676,33 @@ def test_kami_of_transience_after_an_enchantment_went_to_your_graveyard(cards):
     the_end_step(s)
     assert s.state.cards[kami.id].zone == "p1:hand"
     replay_matches(s)
+
+
+# -- amounts of this turn's history ------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("draws", "lands", "cards_drawn", "treasures"), [(2, 2, 1, 1), (1, 1, 0, 0), (3, 0, 1, 0)])
+def test_smugglers_share_counts_opponents(cards, draws, lands, cards_drawn, treasures):
+    """One card per opponent who drew two or more cards this turn, one Treasure per opponent who had two or more lands
+    enter under their control — read as it resolves (608.2h), how many each drew is public, which cards isn't."""
+    s = build(cards, "Smuggler's Share")
+    put(s, "Smuggler's Share")
+    if draws:
+        act(s, "p2", type="draw", count=draws)
+    for _ in range(lands):
+        island = next(c for c in s.state.cards.values() if c.name == "Island" and c.zone == "p2:library")
+        act(s, "p2", type="move", card_ids=[island.id], to={"player": "p2", "zone": "battlefield"})
+    s = saved(s)
+    before = hand_size(s)
+    the_end_step(s)
+    assert hand_size(s) == before + cards_drawn
+    assert names_on_field(s).count("Treasure") == treasures
+    replay_matches(s)
+
+
+def test_values_of_this_turn():
+    from app.rules import values
+
+    assert values.parse_count("the amount of life you gained this turn") == {"turn_history": "gained"}
+    assert values.parse_count("the number of creatures that died this turn") == \
+        {"turn_history": "died", "sel": 'sel:{"types":["Creature"]}'}
+    assert values.parse_count("opponent who lost life this turn") == {"turn_history": "opponents_who", "what": "lost", "n": 1}
+    assert values.parse_count("cards you've drawn this turn") == {"turn_history": "drew"}

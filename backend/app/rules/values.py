@@ -218,7 +218,42 @@ def _sized(what: str, it: str | None) -> Value | None:
         return {"plus": [a, b]} if a is not None and b is not None else None
     if _SPELLS_CAST.match(what):
         return {"spells_cast": "you"}
+    return _turn_amount(what)
+
+
+# -- this-turn history (wave 4D) -- amounts of this turn's history (app/rules/history.py: TurnLog), read as the effect
+# is carried out (608.2h): "the amount of life you gained this turn", "spell you've cast this turn" ("for each …"),
+# "cards you've drawn this turn", "creatures that died this turn", "opponent who drew two or more cards this turn".
+_TURN_LIFE = re.compile(r"^(?:the )?(?:amount of )?life you(?:'ve| have)? (?P<k>gained|lost) this turn$")
+_TURN_SPELL = re.compile(r"^spell you(?:'ve| have) cast this turn$")
+_TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
+_TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?) that died this turn$")
+_OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? who (?:(?P<drew>drew (?P<n>\w+) or more cards)|"
+                            r"(?P<lost>lost life)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
+                            r"this turn$")
+
+
+def _turn_amount(what: str) -> Value | None:
+    m = _TURN_LIFE.match(what)
+    if m:
+        return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
+    if _TURN_SPELL.match(what):
+        return {"spells_cast": "you"}
+    if _TURN_DREW.match(what):
+        return {"turn_history": "drew"}
+    m = _TURN_DIED.match(what)
+    if m:  # 700.4; as they last existed on the battlefield (608.2i)
+        sel = selectors.parse(m["sel"])
+        return {"turn_history": "died", "sel": sel.key()} if sel is not None else None
+    m = _OPPONENTS_WHO.match(what)
+    if m:  # each opponent whose history this turn says so (one per opponent)
+        word = m["n"] or m["m"]
+        n = 1 if word is None else int(word) if word.isdigit() else NUMBERS.get(word)
+        if n is None:
+            return None
+        return {"turn_history": "opponents_who", "what": "drew" if m["drew"] else "lost" if m["lost"] else "lands", "n": n}
     return None
+# -- end this-turn history (wave 4D) --
 
 
 def _normalise(what: str) -> str:
@@ -260,6 +295,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return len(selectors.candidates(plan, sel, you, _other_than(ctx)))
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
         return plan.rules.spells_this_turn(you, plan.state.turn.number)
+    if "turn_history" in v:  # -- this-turn history (wave 4D) --
+        from app.rules import history
+
+        return history.amount(plan, ctx, v)
     if "event_amount" in v:  # "that much" / "that many": the trigger event's amount (608.2k)
         from app.rules import context  # (context → triggers → … → values)
 

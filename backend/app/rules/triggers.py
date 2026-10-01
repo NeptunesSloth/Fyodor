@@ -140,7 +140,8 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         mark = {"object": source_object, "index": index}
         definition = {**definition, "effects": [{"do": "action_gate", **mark}, *definition["effects"],
                                                 {"do": "record_action", **mark}]}
-    from app.rules import history  # -- this-turn history (wave 4D) -- "if this is the second time this ability has resolved"
+    # -- this-turn history (wave 4D) -- "if this is the second time this ability has resolved this turn"
+    from app.rules import history
 
     if "effects" in definition:
         definition = {**definition, "effects": history.counting_resolutions(definition["effects"], f"{source_object}:{index}")}

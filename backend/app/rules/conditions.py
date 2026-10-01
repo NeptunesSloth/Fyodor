@@ -467,7 +467,7 @@ def _cast_this_turn(m: re.Match[str]) -> Condition | None:
     return out
 
 
-@_history_pattern(rf"you(?: haven't| didn't|'ve not| have not| did not) cast (?:a|an|any) (?P<sel>.+?)(?P<hand> from your hand)? this turn")
+@_history_pattern(r"you(?: haven't| didn't|'ve not| have not| did not) cast (?:a|an|any) (?P<sel>.+?)(?P<hand> from your hand)? this turn")
 def _not_cast_this_turn(m: re.Match[str]) -> Condition | None:
     key = _history_sel(m["sel"], "stack")
     if key is None:

@@ -2196,6 +2196,16 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
             finish(plan, ctx, countered=True)
             return
         ctx["targets"] = [t.model_dump() for t in legal]
+    gate = entry.effects[0] if entry.optional and entry.effects else None
+    if gate is not None and gate["do"] == "only_if" and not gate.get("bind") and int(gate.get("skip", 0)) >= len(entry.effects) - 1:
+        # -- this-turn history (wave 4D) -- 603.4: an intervening "if" that no longer holds: the ability does
+        # nothing — there's nothing to ask (603.5)
+        from app.rules import conditions
+
+        if not conditions.holds(plan, ctx, gate["cond"]):
+            plan.note(f"{entry.name or 'It'} does nothing: its condition no longer holds")
+            finish(plan, ctx)
+            return
     if entry.optional:
         from app.rules.engine import remembered  # engine imports this module
 
