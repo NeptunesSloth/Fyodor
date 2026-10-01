@@ -1052,6 +1052,10 @@ def _whose_step(plan: Plan, card: CardInstance, whose: str, ap: str) -> bool:
         return card.controller != ap
     if whose == "enchanted_player":
         return card.attached_player == ap
+    if whose == "chosen_player":  # -- chosen player (wave 4J) -- the player this permanent chose as it entered
+        from app.rules import chosen
+
+        return chosen.player_of(plan, card.id) == ap
     if whose == "host_controller":  # "the upkeep of enchanted creature's controller"
         host = plan.state.cards.get(card.attached_to or "")
         return host is not None and host.controller == ap

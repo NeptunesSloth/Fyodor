@@ -94,6 +94,11 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return context.players(plan, ctx, context.EVENT)
     if who.startswith(context.PREFIX):  # a binding: "that player", "its controller", "its owner" (app/rules/context.py)
         return context.players(plan, ctx, who[len(context.PREFIX):])
+    if who == "chosen_player":  # -- chosen player (wave 4J) -- the player the source chose as it entered (614.12a)
+        from app.rules import chosen
+
+        pid = chosen.player_of(plan, ctx.get("source_card") or "", ctx.get("source_object"))
+        return [pid] if pid is not None and pid in plan.live() else []
     if who.startswith("player:"):  # (older saves: a player bound into the effect when it triggered)
         return [who[7:]] if who[7:] in plan.live() else []
     return []
@@ -2590,6 +2595,10 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     src = plan.state.cards.get(ctx.get("source_card") or "")
     if e.get("remember") and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
         plan.do({"type": "set_choice", "card_id": src.id, "key": CHOICE_LABELS[e["what"]], "value": shown}, actor=d.player)
+        if e["what"] in ("opponent", "player"):  # -- chosen player (wave 4J) --
+            from app.rules import chosen
+
+            chosen.record(plan, src.id, value)
     continue_effects(plan, ctx)
 
 

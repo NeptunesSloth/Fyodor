@@ -481,6 +481,10 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
                 continue
             shown = plan.name(value) if what in ("opponent", "player") and value in plan.state.players else value
             plan.do({"type": "set_choice", "card_id": card_id, "key": CHOICE_LABELS[what], "value": shown}, actor=controller)
+            if what in ("opponent", "player") and value in plan.state.players:  # -- chosen player (wave 4J) --
+                from app.rules import chosen
+
+                chosen.record(plan, card_id, value)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with, through the counter
     # choke point (122.6, 614.16), in the order its controller chose before it entered (614.12a) --
     counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices)
