@@ -149,6 +149,40 @@ def test_clone_entering_with_another_creature_keeps_its_copy(cards, clone_first)
     replay_matches(s)
 
 
+# -- 603.10a / 700.4: a crewed Vehicle dies as the creature it was ------------------------------------
+# Zulaport Cutthroat (creature 1/1)
+ZULAPORT = "Whenever this creature or another creature you control dies, each opponent loses 1 life and you gain 1 life."
+
+
+@pytest.mark.parametrize("crewed", [True, False])
+def test_a_crewed_vehicle_dies_as_a_creature(cards, crewed):
+    """603.10a: "another creature you control dies" looks back in time — the Vehicle was an
+    artifact creature while crewed (a layer-4 effect gone once it's in the graveyard, 400.7)."""
+    s = build(cards, "Sky-Skiff", "Murder")
+    skiff = named(s, "Sky-Skiff")
+    act(s, "p1", type="move", card_ids=[skiff.id], to={"player": "p1", "zone": "battlefield"})
+    token(s, "p1", "Zulaport Cutthroat", "1/1", ZULAPORT)
+    pilot = token(s, "p1", "Pilot", "1/1")
+    if crewed:
+        act(s, "p1", type="activate_ability", card_id=skiff.id, ability=1)  # "Crew 1"
+        answer(s, pilot.id)
+        pass_until_stack_empty(s)
+        assert ch(s, s.state.cards[skiff.id]).is_creature
+    murder = named(s, "Murder")
+    act(s, "p1", type="move", card_ids=[murder.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"B": 3})
+    if not crewed:  # (Murder needs a creature: an uncrewed Vehicle is destroyed by hand)
+        act(s, "p1", type="move", card_ids=[skiff.id], to={"player": "p1", "zone": "graveyard"})
+    else:
+        act(s, "p1", type="cast_spell", card_id=murder.id, targets=[skiff.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[skiff.id].zone == "p1:graveyard"
+    assert not ch(s, s.state.cards[skiff.id]).is_creature  # (in the graveyard: just an artifact card)
+    assert s.state.players["p1"].life == (41 if crewed else 40)
+    assert s.state.players["p2"].life == (39 if crewed else 40)
+    replay_matches(s)
+
+
 def test_simultaneous_entries_are_timestamped_in_apnap_order(cards):
     """613.7m: the active player's permanent gets the earlier timestamp, whatever order the effect
     lists them in; both enter in one step under their own controllers."""
