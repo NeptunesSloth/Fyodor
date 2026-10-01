@@ -197,6 +197,9 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
     "tap and untap", "proliferate", "investigate", "explore",
     # test_rules_keyword_actions.py
     "amass", "connive", "monstrosity", "bolster", "support",
+    # -- counters & designations (wave 3E): app/rules/designations.py, tests/test_rules_designations.py
+    # (venture into Undercity's Arena room — goad — is still resolved by hand)
+    "venture into the dungeon", "the ring tempts you",
 }
 
 
