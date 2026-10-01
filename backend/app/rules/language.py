@@ -232,7 +232,10 @@ def _stat(phrase: str, its: str = "it") -> Any:
     its own subject ("~ deals damage equal to its power": ~'s). Also any quantity the value
     grammar reads ("the number of lands you control", "your devotion to red", "twice its power":
     app/rules/values.py), and "~'s power" (the source's, 608.2h)."""
-    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's|(?P<self>~'s)) "
+    m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
+    if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
+        return {_STATS[m["stat"]]: "cost:sacrificed"}
+    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's|that spell's|(?P<self>~'s)) "
                      r"(?P<stat>power|toughness|mana value)", phrase)
     if m:
         return {_STATS[m["stat"]]: "self" if m["self"] else (its if m["its"] else "it")}
@@ -337,7 +340,8 @@ def _with_rider(text: str) -> tuple[str, Any]:
 def _rider_value(phrase: str) -> Any:
     """A rider's quantity: "its power" / "that creature's toughness" / "~'s power" (app: _stat),
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
-    if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|~'s) (?:power|toughness|mana value)", phrase):
+    if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|that spell's|~'s|the sacrificed (?:creature|artifact|permanent|land)'s) "
+                    r"(?:power|toughness|mana value)", phrase):
         return _stat(phrase)
     v = values.parse_count(phrase, it="it")
     if v is None:
@@ -694,6 +698,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
     # -- damage ---------------------------------------------------------------------------------
+    # -- sized amounts (wave 3D) -- "that creature deals damage equal to its power": the pronoun's creature (as "it")
+    text = re.sub(r"^that creature deals ", "it deals ", text)
     src: dict[str, Any] = {"src": "it"} if text.startswith("it ") else {}
     m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage divided as you choose among (?P<o>.+)", text)
     if m:  # 601.2d: the division is announced as the spell is cast (each target gets at least 1)
@@ -724,7 +730,16 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail  # (a second target the damage sentence would have to declare: not read)
         effects = []
         groups = []
-        for part in re.split(r" and (?=each |you$)|" + _AND_TARGET, m["o"]):
+        # -- sized amounts (wave 3D) -- "each opponent and each creature and planeswalker they control": the opponents'
+        # (selectors read "or" for a list of types), and "each other player" is every opponent (102.2)
+        recipients = m["o"].replace("each other player", "each opponent")
+        recipients = re.sub(r"^(each opponent and each .+?) they control$", r"\1 your opponents control", recipients)
+        recipients = re.sub(r"(creatures?) and (planeswalkers?|battles?) (?=you control|your opponents control|an opponent controls)",
+                            r"\1 or \2 ", recipients)
+        for part in re.split(r" and (?=each |you$)|" + _AND_TARGET, recipients):
+            if part == "each other opponent":  # -- sized amounts (wave 3D) -- the opponents besides the one the event named
+                effects.append({"do": "damage", "who": "each_other_opponent", "n": n, **src})
+                continue
             kind, key, group = ref(part)
             who = _who(kind, key)
             if group is not None:
@@ -827,6 +842,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = _PUMP.fullmatch(text)
     if m:
         return _pump(m, rider)
+    m = _DOUBLE.fullmatch(text)  # -- sized amounts (wave 3D) -- "Double target creature's power until end of turn": +X/+0, X its power now
+    if m and rider is None:
+        kind, key, group = ref(m["o"])
+        if kind not in ("target", "self", "host"):
+            raise _Fail
+        who = _who(kind, key)
+        of = "target" if kind == "target" else who
+        return [{"do": "pump", "who": who, "p": {"power": of}, "t": {"toughness": of} if m["both"] else 0}], _one(group)
     m = _LOSE_GAIN.fullmatch(text)  # -- quoted grants (wave 2D) -- "This creature loses defender and gains ⟦0⟧"
     if m:
         kind, key, group = ref(m["o"])
@@ -940,7 +963,8 @@ _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw
 _GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? (?:gains?|has|have) (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
 _KW_ONLY = rf"(?:{KEYWORDS})(?:(?:, and |, | and )(?:{KEYWORDS}))*"
 _LOSE_GAIN = re.compile(rf"(?P<o>.+?) loses? (?P<rm>{_KW_ONLY}) and gains? (?P<kw>{_KW_LIST})(?P<eot> until end of turn)?")
-_BITE = re.compile(r"(?P<s>.+?) deals damage equal to (?P<stat>its power|its toughness|that creature's power) to (?P<o>.+)")
+_DOUBLE = re.compile(r"double (?P<o>target creature|~|this creature)'s power(?P<both> and toughness)? until end of turn")  # (wave 3D)
+_BITE = re.compile(r"(?P<s>.+?) deals damage equal to (?P<stat>its power|its toughness|twice its power|that creature's power) to (?P<o>.+)")
 _ITS = {"target": "target", "self": "self", "host": "host"}  # what "its" names for a pump's subject
 
 
@@ -1118,13 +1142,21 @@ def _bite(text: str) -> tuple[Effects, Any] | None:
     if m is None or m["s"] in ("~", "it"):
         return None
     kind, key, group = ref(m["s"])
+    stat = "toughness" if "toughness" in m["stat"] else "power"
+    if kind == "each" and m["stat"] in ("its power", "its toughness", "twice its power"):
+        # -- sized amounts (wave 3D) -- "each creature you control deals damage equal to its power to …": every one is a source
+        if selectors.from_key(key).player is not None:
+            raise _Fail
+        whos, parts = _objects(m["o"])
+        n_each: Any = {stat: "each"} if not m["stat"].startswith("twice ") else {"times": [2, {stat: "each"}]}
+        return [{"do": "damage", "who": w, "n": n_each, "src": "each:" + key} for w in whos], _out(parts)
     if kind not in ("target", "host"):
         raise _Fail  # (a pronoun subject: which creature deals it isn't read here)
-    stat = "toughness" if "toughness" in m["stat"] else "power"
     src = "target" if group is not None else "host"
     groups = [group] if group is not None else []
     whos, parts = _objects(m["o"])
-    effects: Effects = [{"do": "damage", "who": _shift(w, len(groups)), "n": {stat: src}, "src": src} for w in whos]
+    n: Any = {stat: src} if not m["stat"].startswith("twice ") else {"times": [2, {stat: src}]}  # (sized amounts, wave 3D)
+    effects: Effects = [{"do": "damage", "who": _shift(w, len(groups)), "n": n, "src": src} for w in whos]
     return effects, _out(groups + parts)
 
 

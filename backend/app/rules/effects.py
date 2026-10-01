@@ -85,6 +85,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if p != me]
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.players and t["id"] in plan.live()]
+    if who == "each_other_opponent":  # -- sized amounts (wave 3D) -- the opponents besides the player the trigger event was about
+        named = set(context.players(plan, ctx, context.EVENT))
+        return [p for p in plan.live() if p != me and p not in named]
     if who == "event_player":  # "that player": the one the trigger event was about (who drew, was dealt damage …)
         return context.players(plan, ctx, context.EVENT)
     if who.startswith(context.PREFIX):  # a binding: "that player", "its controller", "its owner" (app/rules/context.py)
@@ -328,6 +331,15 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     players = _players(plan, ctx, e["who"])
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
+    if str(e.get("src") or "").startswith("each:"):
+        # -- sized amounts (wave 3D) -- "Each creature you control deals damage equal to its power to target creature":
+        # every one is a damage source (its own lifelink and deathtouch count), all dealt at once (120.3, 608.2h)
+        hits: list[tuple[_Source, str, int]] = []
+        for sid in selectors.candidates(plan, selectors.from_key(e["src"][5:]), ctx["controller"], ctx.get("source_card")):
+            each = _amount(plan, {**ctx, "each_source": sid}, e["n"])
+            if each > 0:
+                hits += [(_card_source(plan, sid), key, each) for key in [*cards, *players]]
+        return _deal(plan, ctx, hits, e) if hits else True
     if e.get("src"):
         src = _named_source(plan, ctx, e["src"])
         if src is None:

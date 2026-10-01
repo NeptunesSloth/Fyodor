@@ -573,6 +573,7 @@ class PaymentRecord(BaseModel):
     life: int = 0  # life paid (Phyrexian mana, …)
     tapped: list[str] = Field(default_factory=list)  # permanents tapped for mana while paying (engine-paid)
     sacrificed: list[str] = Field(default_factory=list)
+    sacrificed_objects: list[str] = Field(default_factory=list)  # (wave 3D) the object ids they were: last known information
     discarded: list[str] = Field(default_factory=list)
     exiled: list[str] = Field(default_factory=list)  # cards exiled to pay (from a graveyard, or the source)
     returned: list[str] = Field(default_factory=list)  # permanents returned to hand to pay
