@@ -184,7 +184,7 @@ def self_text(text: str, name: str) -> str:
     # object that gets it ("this creature" is): it stays as written, so no ~ there means the granter
     parts = out.split('"')
     out = '"'.join(own(p) if i % 2 == 0 else p for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
-    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Equipment|Vehicle|Aura)\b", "~", out)
+    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Equipment|Vehicle|Aura)\b", "~", out)
 
 
 EFFECTS: list[tuple[re.Pattern[str], Any]] = []
@@ -2366,9 +2366,22 @@ def _still_a(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 def _prevent_to_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     """Gideon: "Until end of turn, Gideon becomes a 6/6 … creature that's still a planeswalker.
     Prevent all damage that would be dealt to him this turn." — Oracle's "him" / "her" is the
-    named planeswalker itself, the ability's source (``prevent_self``: agent K's ``prevent_all``
-    locked to the source object, 615, 400.7)."""
-    return [{"do": "prevent_self"}], None
+    named planeswalker itself, the ability's source: the "~" of ``prevent_all`` (locked to the
+    source object, 615, 400.7)."""
+    return [{"do": "prevent_all", "scope": {"combat": None, "to_objects": "self"}}], None
+
+
+@_first  # (before the "until your next turn, …" duration wrapper, which only wraps pumps, grants and restrictions)
+@effect(r"(?P<text>until your next turn, .+ spells you cast cost {{\d+}} (?:less|more) to cast)")
+def _stored_cost_next_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """Ral, Leyline Prodigy's +1: "Until your next turn, instant and sorcery spells you cast cost
+    {1} less to cast." — a stored cost modifier (app/rules/permissions.py ``cost_modifier``)."""
+    from app.rules import permissions
+
+    got = permissions.parse_clause(m["text"])
+    if got is None:
+        raise _NoMatch
+    return got
 
 
 _RECORDING.update({"become": None})

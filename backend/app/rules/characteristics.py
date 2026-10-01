@@ -41,6 +41,7 @@ class Characteristics:
     power: str | None = None
     toughness: str | None = None
     loyalty: str | None = None
+    defense: str | None = None  # a battle's printed defense (310.4a)
     oracle_text: str = ""
     abilities: tuple[AbilityText, ...] = field(default_factory=tuple)
     oracle_id: str | None = None
@@ -158,6 +159,7 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
         power=src.get("power"),
         toughness=src.get("toughness"),
         loyalty=src.get("loyalty"),
+        defense=src.get("defense"),
         oracle_text=text,
         abilities=abilities,
         oracle_id=data.get("oracle_id"),
