@@ -18,7 +18,7 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_attachments import ch, named, token
-from tests.test_rules_delayed import on_battlefield, reloaded, rules
+from tests.test_rules_delayed import activate, on_battlefield, reloaded, rules
 from tests.test_rules_effects import replay_matches
 from tests.test_rules_suspend import until
 
@@ -247,3 +247,112 @@ def test_concede_survives_reload(cards):
     s2 = reloaded(s)
     assert s2.state.model_dump(mode="json") == s.state.model_dump(mode="json")
     assert ch(s2, on_battlefield(s2, "Grizzly Bears", "p2")).pt == (2, 2)
+
+
+# -- 610.3d: simultaneous returns ------------------------------------------------------------------------
+JAILER = "{1}: Exile target artifact or creature an opponent controls until ~ leaves the battlefield."
+
+
+def two_player(cards, alice_cards=(), bob_cards=()):
+    alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in alice_cards), (9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [*((1, n) for n in bob_cards), (9, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)),
+                    cards=cards)
+    act(s, "p1", type="pass_priority")  # → Alice's main phase
+    return s
+
+
+def test_returns_after_a_board_wipe_are_one_simultaneous_entry(cards, monkeypatch):
+    from app.rules import attachments
+
+    s = two_player(cards, bob_cards=("Grizzly Bears", "Llanowar Elves"))
+    victims = [named(s, "Grizzly Bears"), named(s, "Llanowar Elves")]
+    for i, victim in enumerate(victims):
+        act(s, "p2", type="move", card_ids=[victim.id], to={"player": "p2", "zone": "battlefield"})
+        jailer = token(s, "p1", f"Jailer {i}", "1/1", text=JAILER)
+        activate(s, jailer, targets=[victim.id])
+        assert s.state.cards[victim.id].zone == "p2:exile"
+    calls = []
+    real = attachments.enter
+
+    def spy(plan, entries, ctx, **kw):
+        calls.append(len(entries))
+        return real(plan, entries, ctx, **kw)
+
+    monkeypatch.setattr(attachments, "enter", spy)
+    wipe = token(s, "p1", "Wiper", "1/1", text="{1}: Destroy all creatures.")
+    activate(s, wipe)
+    settle(s)
+    assert all(s.state.cards[v.id].zone == "p2:battlefield" for v in victims)
+    assert 2 in calls and 1 not in calls  # both in one entry (610.3d), not one source at a time
+    replay_matches(s)
+
+
+# -- 701.21a: "sacrifice ~ unless you pay" checks who controls it ------------------------------------------
+def test_sacrifice_unless_you_pay_does_nothing_after_a_control_change(cards):
+    # Phantasmal Forces: "At the beginning of your upkeep, sacrifice this creature unless you pay
+    # {U}." Bob steals it in response: Alice can't sacrifice what she doesn't control (701.21a).
+    s = two_player(cards, alice_cards=("Phantasmal Forces",))
+    forces = on_battlefield(s, "Phantasmal Forces")
+    act(s, "p1", type="set_prefs", full_control=True)
+    for _ in range(200):
+        if s.state.turn.phase == "upkeep" and s.state.turn.active_player == "p1" and s.state.zones.get("stack"):
+            break
+        d = rules(s).decision
+        if d is not None:
+            assert (d.resume or {}).get("step") != "pay_or_sacrifice"
+            if d.kind == "declare_attackers":
+                act(s, d.player, type="declare_attackers", attackers=[])
+            else:
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:d.min_choices])
+        else:
+            act(s, rules(s).priority, type="pass_priority")
+    act(s, "p2", type="set_controller", card_ids=[forces.id], player="p2")  # (Threaten-style, by hand)
+    for _ in range(10):
+        if not s.state.zones.get("stack"):
+            break
+        d = rules(s).decision
+        assert d is None or (d.resume or {}).get("step") != "pay_or_sacrifice"  # nothing to choose
+        act(s, rules(s).priority, type="pass_priority")
+    assert s.state.cards[forces.id].zone == "p2:battlefield"
+    replay_matches(s)
+
+
+# -- Path to Exile: no search, no shuffle -----------------------------------------------------------------
+PATH = ("{1}: Exile target creature. Its controller may search their library for a basic land card, put that card "
+        "onto the battlefield tapped, then shuffle.")
+
+
+def test_declining_a_may_search_does_not_shuffle(cards):
+    # Path to Exile ruling: "If that player doesn't [search], the player won't shuffle their library."
+    s = two_player(cards)
+    bears = token(s, "p2", "Bob's Brute", "3/3")
+    library = list(s.state.zones["p2:library"])
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    act(s, "p1", type="activate_ability", card_id=token(s, "p1", "Pather", "1/1", text=PATH).id, ability=0,
+        targets=[bears.id])
+    until(s, lambda s: rules(s).decision is not None, limit=10)
+    d = rules(s).decision
+    assert d.player == "p2" and d.kind == "confirm" and [o.id for o in d.options] == ["yes", "no"]
+    assert "options" not in s.view("p1")["rules"]["decision"]  # (Bob's choice, private)
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["no"])
+    settle(s)
+    assert s.state.zones["p2:library"] == library  # same cards, same ids, same order: never shuffled
+    replay_matches(s)
+
+
+def test_searching_and_finding_nothing_still_shuffles(cards):
+    s = two_player(cards)
+    brute = token(s, "p2", "Bob's Brute", "3/3")
+    library = list(s.state.zones["p2:library"])
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    act(s, "p1", type="activate_ability", card_id=token(s, "p1", "Pather", "1/1", text=PATH).id, ability=0,
+        targets=[brute.id])
+    until(s, lambda s: rules(s).decision is not None, limit=10)
+    act(s, "p2", type="choose", decision_id=rules(s).decision.id, option_ids=["yes"])
+    d = rules(s).decision
+    assert d.kind == "choose_cards" and d.min_choices == 0
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[])  # 701.23b: finds nothing
+    settle(s)
+    assert s.state.zones["p2:library"] != library  # shuffled (new hidden ids)
+    replay_matches(s)

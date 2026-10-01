@@ -1171,7 +1171,24 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not who:
             return True
         pid = who[0]
+    if e.get("may"):
+        # "Its controller may search …, then shuffle" (Path to Exile): searching is their choice,
+        # asked first — a player who doesn't search doesn't shuffle either (the card's ruling;
+        # 701.23b: one who searches may still find nothing, and then shuffles)
+        decide(plan, player=pid, kind="confirm", prompt=f"{ctx.get('name') or 'It'}: search your library for a {e.get('label') or 'card'}?",
+               options=[DecisionOption(id="yes", label="Search"), DecisionOption(id="no", label="Don't search")],
+               resume={"step": "search_may", "ctx": ctx, "e": e})
+        return False
     return _ask_search(plan, ctx, e, pid, 0, [])
+
+
+def resume_search_may(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen[0] == "yes":
+        _ask_search(plan, ctx, e, d.player, 0, [])
+        return
+    plan.note(f"{plan.name(d.player)} chose not to search (no shuffle)", actor=d.player)
+    continue_effects(plan, ctx)
 
 
 def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int, picked: list[str]) -> bool:
@@ -1389,10 +1406,12 @@ def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     offered only when they can."""
     from app.rules import mana  # casting imports this module
 
-    src = _cards(plan, ctx, "self")
-    if not src:
-        return True  # it already left: nothing to sacrifice
     pid = ctx["controller"]
+    src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == pid]
+    if not src:
+        # it already left — or 701.21a: another player controls it now (echo, "sacrifice ~ unless
+        # you pay" after a control change): it can't be sacrificed, so there's nothing to choose
+        return True
     cost = mana.parse_cost(e["cost"])
     if e.get("per"):  # cumulative upkeep: the cost once for each age counter
         n = plan.state.cards[src[0]].counters.get(e["per"], 0)
@@ -1418,7 +1437,7 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
             counter_object(plan, sid, d.player)
         continue_effects(plan, ctx)
         return
-    src = _cards(plan, ctx, "self")
+    src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == d.player]  # (701.21a)
     if chosen[0] == "pay" and src:
         cost = mana.parse_cost(d.resume["cost"])
         casting.pay_from_pool(plan, d.player, cost, f"paid {cost.text()} for {ctx.get('name', '')}")
@@ -2561,3 +2580,4 @@ def resume_return_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES["return_choice"] = return_choice
 RESUME["return_choice"] = resume_return_choice
+RESUME["search_may"] = resume_search_may

@@ -189,6 +189,7 @@ def collect(plan: Plan) -> None:
     if not new:
         return
     r.trigger_batch = max(e.batch for e in new)
+    returning: dict[int, list[dict[str, Any]]] = {}  # batch -> the cards returning "until ~ leaves" (610.3c)
     _generic_events(plan, new)
     delayed.on_events(plan, new)  # "when that creature dies this turn" (603.7; app/rules/delayed.py)
     for e in new:
@@ -216,9 +217,9 @@ def collect(plan: Plan) -> None:
                 continue
             ch = _lki_characteristics(plan, snap)  # looks back in time (603.10a)
             if snap.object_id in plan.rules.linked_exile:  # 610.3c: "… until ~ leaves" ends: they return at once
-                from app.rules.effects import return_linked
+                from app.rules.effects import linked_entries
 
-                return_linked(plan, None, {"source": snap.object_id})
+                returning.setdefault(e.batch, []).extend(linked_entries(plan, snap.object_id))
             died = to == "graveyard" or (e.to_zone is None and snap.is_token)  # 700.4
             kinds = ["ltb_self"] + (["dies_self"] if died else [])
             for kind in kinds:
@@ -227,6 +228,15 @@ def collect(plan: Plan) -> None:
                         continue  # persist / undying: "if it had no … counters on it"
                     _add(plan, controller=snap.controller, source_card=snap.card, source_object=snap.object_id,
                          name=ch.name, index=i, definition=d, event=_left("die" if kind == "dies_self" else "leave", snap, e))
+
+    entries = [entry for batch in sorted(returning) for entry in returning[batch]]
+    if entries:
+        # 610.3d: the one-shot effects created right after simultaneous events (a board wipe that
+        # took several "until ~ leaves" sources) are simultaneous too — one entry, not one per
+        # source. (Departures of separate batches seen in one look are rare; they return together.)
+        from app.rules import attachments  # (attachments → effects → this module)
+
+        attachments.enter(plan, entries, None)
 
 
 # -- generic conditions (app/rules/events.py) --------------------------------------------------
