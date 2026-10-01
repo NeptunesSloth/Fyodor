@@ -54,10 +54,10 @@ MANA, TAP, UNTAP, SACRIFICE, DISCARD, PAY_LIFE, PAY_ENERGY = "MANA", "TAP", "UNT
 EXILE, EXILE_FROM_GRAVEYARD, REMOVE_COUNTER, RETURN_PERMANENT = "EXILE", "EXILE_FROM_GRAVEYARD", "REMOVE_COUNTER", "RETURN_PERMANENT"
 TAP_OTHER, REVEAL, LOYALTY, OTHER = "TAP_OTHER", "REVEAL", "LOYALTY", "OTHER"
 # -- activation costs (wave 4H) -- put counters (122.6; blight 701.68a), discard your hand, mill (701.17), exile from the
-# top of your library; ANY_COUNTER: "Remove a counter from …" (the payer picks the kind)
-PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY = "PUT_COUNTER", "DISCARD_HAND", "MILL", "EXILE_LIBRARY"
+# top of your library, exert the source (701.43a); ANY_COUNTER: "Remove a counter from …" (the payer picks the kind)
+PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT = "PUT_COUNTER", "DISCARD_HAND", "MILL", "EXILE_LIBRARY", "EXERT"
 COLLECT_EVIDENCE, FORAGE = "COLLECT_EVIDENCE", "FORAGE"  # 701.59a, 701.61a: the payer picks how many / which way
-WAVE_4H_KINDS = frozenset({PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, COLLECT_EVIDENCE, FORAGE})
+WAVE_4H_KINDS = frozenset({PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE})
 ANY_COUNTER = "*"
 
 
@@ -77,6 +77,8 @@ class CostComponent:
     # -- activation costs (wave 4H) -- PAY_LIFE sized as it's paid: "half" ("Pay half your life, rounded up") or
     # "commander_colors" ("Pay life equal to the number of colors in your commanders' color identity", 903.4f)
     life_rule: str | None = None
+    alt: str | None = None  # (wave 4H) "Sacrifice another creature or an artifact": a second selector, either matches
+    named_self: bool = False  # (wave 4H) grandeur, "Discard another card named ~": a card with the source's name
 
     @property
     def chosen(self) -> bool:
@@ -96,7 +98,8 @@ class CostComponent:
         through app/rules/cost_payment.py): never a mana ability's (605: no stack, no X), an optional payment's or a
         spell's additional cost."""
         return self.kind in WAVE_4H_KINDS or (self.x and self.kind != PAY_ENERGY) or self.counter == ANY_COUNTER \
-            or self.life_rule is not None or (self.kind == EXILE and self.selector is not None)
+            or self.life_rule is not None or (self.kind == EXILE and self.selector is not None) \
+            or self.alt is not None or self.named_self
 
 
 @dataclass(frozen=True)
@@ -256,6 +259,8 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False)
     components: list[CostComponent] = []
     unsupported: list[str] = []
     cost = cost.replace("half your life, rounded up", "half your life rounded up")  # (one part: wave 4H)
+    if card_name and "," in card_name:  # (wave 4H) "Discard another card named Korlash, Heir to Blackblade": one part
+        cost = cost.replace(card_name, "~")
     for part in (p.strip() for p in cost.split(",")):
         if not part:
             continue
@@ -293,6 +298,8 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False)
 #   "Exile a creature you control", "Pay half your life, rounded up" (107.1a, 119.4),
 #   "Pay life equal to the number of colors in your commanders' color identity" (903.4f: no commander, unpayable),
 #   "Collect evidence 3" (701.59a: any number of graveyard cards with total mana value 3 or more), "Forage" (701.61a),
+#   "Sacrifice another creature or an artifact" (either; "another" only for its own noun), grandeur's "Discard another
+#   card named ~" (a card in your hand with the source's name), "Exert this creature" (701.43a-c),
 #   and two parts joined by "and": "Remove three quest counters from this enchantment and sacrifice it",
 #   "Sacrifice two lands and this artifact", "Sacrifice a creature and a Swamp".
 _ANY_SELF = re.compile(rf"^Remove (?P<n>a|an|one|two|three|four|five) counters? from {_SELF}$")
@@ -308,6 +315,8 @@ _MILL = re.compile(rf"^Mill (?:a card|{_N} cards)$")
 _EXILE_TOP = re.compile(rf"^Exile the top (?:card|{_N} cards) of your library$")
 _EXILE_CHOSEN = re.compile(rf"^Exile {_N} (?P<what>[^,]+ you control)$")
 _EVIDENCE = re.compile(r"^Collect evidence (?P<n>\d+)$")
+_SAC_OR = re.compile(r"^Sacrifice (?P<a>a|an|another) (?P<w1>[\w\-]+) or (?P<b>a|an|another) (?P<w2>[\w\-]+)$")  # (no article: refused)
+_GRANDEUR = re.compile(r"^Discard another card named ~$")  # (grandeur, an ability word: 207.2c)
 _HALF_LIFE = "Pay half your life rounded up"
 _COMMANDER_LIFE = "Pay life equal to the number of colors in your commanders' color identity"
 _AND = re.compile(r" and (?=(?:(?:sacrifice|exile|return|remove|discard|tap|put|pay) )?(?:(?:a|an|another|one|two|three|this|it|\d+)\b|~))")
@@ -357,6 +366,15 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(COLLECT_EVIDENCE, amount=int(m["n"]), selector=key, text=part) if key and int(m["n"]) > 0 else None
     if part == "Forage":  # 701.61a
         return CostComponent(FORAGE, amount=3, text=part)
+    if m := _SAC_OR.match(part):  # "another" belongs to its own alternative only (Mold Folk; Malevolent Noble)
+        first = _selector(m["w1"], zone="battlefield", other=m["a"] == "another")
+        second = _selector(m["w2"], zone="battlefield", other=m["b"] == "another")
+        return CostComponent(SACRIFICE, selector=first, alt=second, text=part) if first and second else None
+    if part == "Exert ~":  # 701.43a: it won't untap during your next untap step (engine.start_next_turn)
+        return CostComponent(EXERT, text=part)
+    if _GRANDEUR.match(part):
+        key = _selector("card", zone="hand", other=True)
+        return CostComponent(DISCARD, selector=key, named_self=True, text=part) if key else None
     if part == _HALF_LIFE:
         return CostComponent(PAY_LIFE, amount=0, life_rule="half", text=part)
     if part == _COMMANDER_LIFE:

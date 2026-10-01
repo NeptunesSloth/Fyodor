@@ -48,6 +48,7 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
     """Objects that could pay ``comp`` (one part of a cost), in a stable order."""
     assert comp.selector is not None
     sel = selectors.from_key(comp.selector)
+    alt = selectors.from_key(comp.alt) if comp.alt else None  # (wave 4H: "another creature or an artifact")
     if comp.kind == C.DISCARD:
         zone = zone_key(player, "hand")
     elif comp.kind in (C.EXILE_FROM_GRAVEYARD, C.COLLECT_EVIDENCE):  # (collect evidence: wave 4H)
@@ -61,7 +62,10 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
             continue
         if cid == source.id and not zone.endswith(":battlefield"):
             continue  # -- costs (wave 3$) -- a spell's additional cost can't discard / exile the spell being cast (601.2a)
-        if not selectors.matches(plan, sel, card, plan.ch(card), player, source.id):
+        if not selectors.matches(plan, sel, card, plan.ch(card), player, source.id) and not (
+                alt is not None and selectors.matches(plan, alt, card, plan.ch(card), player, source.id)):
+            continue
+        if comp.named_self and plan.ch(card).name != plan.ch(source).name:  # (wave 4H: grandeur)
             continue
         if comp.kind == C.REMOVE_COUNTER and counters_on(card, comp.counter) < comp.amount:  # (any kind: wave 4H)
             continue
@@ -126,8 +130,8 @@ def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, playe
         if counters_on(card, comp.counter) < need:
             what = "counters" if comp.counter == C.ANY_COUNTER else f"{comp.counter} counters"
             return f"{name} doesn't have {need} {what}"
-    elif comp.kind == C.PUT_COUNTER and comp.selector is None and not card.zone.endswith(":battlefield"):
-        return f"{name} isn't on the battlefield"  # (122.6)
+    elif comp.kind in (C.PUT_COUNTER, C.EXERT) and comp.selector is None and not card.zone.endswith(":battlefield"):
+        return f"{name} isn't on the battlefield"  # (122.6; 701.43c)
     elif comp.kind in (C.MILL, C.EXILE_LIBRARY) and len(plan.state.zones.get(zone_key(player, "library"), [])) < comp.amount:
         return f"You don't have {comp.amount} card{'s' if comp.amount != 1 else ''} in your library"  # 701.17b, 118.3
     elif comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE) and not _flexible_options(plan, comp, card, player, set())[1]:
@@ -410,6 +414,10 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
     if comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # 701.59a / 701.61a: exiled from the graveyard (a Food: pay())
         plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})
         record.exiled += ids
+        return True
+    if comp.kind == C.EXERT:  # 701.43a-b: it won't untap during your next untap step (exerted again: the same one)
+        plan.rules.exerted[plan.oid(card)] = player
+        plan.note(f"{plan.name(player)} exerted {card.name or 'it'}")
         return True
     if comp.kind == C.DISCARD_HAND:  # 701.9a: every card in it (none is fine: Bomat Courier ruling, 2016-09-20)
         hand = list(plan.state.zones.get(zone_key(player, "hand"), []))

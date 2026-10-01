@@ -52,16 +52,20 @@ EXTRA = [
     card('Mold Folk', set_code="tst", number="H20", mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Fungus Warrior', oracle_text='Lifelink\nMold Harvest — {1}, Sacrifice another creature or an artifact: Put a +1/+1 counter on this creature.', power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=['Lifelink', 'Mold Harvest']),  # noqa: E501
     card('Pride Sovereign', set_code="tst", number="H21", mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Cat', oracle_text="This creature gets +1/+1 for each other Cat you control.\n{W}, {T}, Exert this creature: Create two 1/1 white Cat creature tokens with lifelink. (An exerted creature won't untap during your next untap step.)", power='2', toughness='2', colors=['G'], color_identity=['G', 'W'], keywords=['Exert']),  # noqa: E501
     card('Retribution of the Ancients', set_code="tst", number="H22", mana_cost='{B}', cmc=1.0, type_line='Enchantment', oracle_text='{B}, Remove X +1/+1 counters from among creatures you control: Target creature gets -X/-X until end of turn.', colors=['B'], color_identity=['B']),  # noqa: E501
+    card('Tarox Bladewing', set_code="tst", number="H31", mana_cost='{2}{R}{R}{R}', cmc=5.0, type_line='Legendary Creature — Dragon', oracle_text='Flying, haste\nGrandeur — Discard another card named Tarox Bladewing: Tarox Bladewing gets +X/+X until end of turn, where X is its power.', power='4', toughness='3', colors=['R'], color_identity=['R'], keywords=['Flying', 'Grandeur', 'Haste']),  # noqa: E501
+    card('Steward of Solidarity', set_code="tst", number="H32", mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Human Warrior', oracle_text="{T}, Exert this creature: Create a 1/1 white Warrior creature token with vigilance. (An exerted creature won't untap during your next untap step.)", power='2', toughness='2', colors=['W'], color_identity=['W'], keywords=['Exert']),  # noqa: E501
+    card('Malevolent Noble', set_code="tst", number="H33", mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Human Noble', oracle_text='{2}, Sacrifice an artifact or another creature: Put a +1/+1 counter on this creature.', power='2', toughness='2', colors=['B'], color_identity=['B']),  # noqa: E501
+    card('Ice Cream Kitty', set_code="tst", number="H34", mana_cost='{1}{B/G}', cmc=2.0, type_line='Artifact Creature — Food Cat Mutant', oracle_text='{2}, Sacrifice another creature or token: Draw a card. Activate only as a sorcery.\n{2}, {T}, Sacrifice this creature: You gain 3 life.', power='1', toughness='3', colors=['B', 'G'], color_identity=['B', 'G']),  # noqa: E501
     # (the front face only: the test table has no double-faced cards)
     card('Birgi, God of Storytelling', set_code="tst", number="H23", mana_cost='{2}{R}', cmc=3.0, type_line='Legendary Creature — God', oracle_text="Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.\nCreatures you control can boast twice during each of your turns rather than once.", power='3', toughness='3', colors=['R'], color_identity=['R']),  # noqa: E501
 ]
 FULL = ["Ior Ruin Expedition", "Jarad, Golgari Lich Lord", "Loch Mare", "Fain, the Broker", "Devoted Druid", "Evershrike's Gift",
         "Grim Hireling", "Secluded Starforge", "Skullmane Baku", "Slate of Ancestry", "Sinister Concoction", "Royal Herbalist",
-        "City of Shadows", "Lurking Evil", "War Room", "Usher of the Fallen", "Forensic Researcher", "Camellia, the Seedmiser"]
+        "City of Shadows", "Lurking Evil", "War Room", "Usher of the Fallen", "Forensic Researcher", "Camellia, the Seedmiser",
+        "Mold Folk", "Malevolent Noble", "Pride Sovereign", "Steward of Solidarity", "Tarox Bladewing"]
 STILL_MANUAL = {  # (card, the line that stays manual)
     "Springjack Pasture": "Sacrifice X Goats",  # a mana ability (605): no X announced, no stack
-    "Mold Folk": "Sacrifice another creature or an artifact",  # ("another" scopes over one alternative only)
-    "Pride Sovereign": "Exert this creature",  # 701.43: "won't untap during your next untap step" isn't modelled
+    "Ice Cream Kitty": "Sacrifice another creature or token",  # (does "another" cover "token" too? not guessed)
     "Retribution of the Ancients": "from among creatures you control",  # (X counters split among several permanents)
 }
 
@@ -170,7 +174,7 @@ def test_parsing():
         assert parse_ability_cost(text).activation_only and not parse_ability_cost(text).basic
     assert parse_ability_cost("Sacrifice a creature").basic is False and not parse_ability_cost("Sacrifice a creature").activation_only
     # refused: an "or" between objects, exert, snow mana, counters among several permanents, "a black and red creature"
-    for text in ("Sacrifice another creature or an artifact", "Exert this creature", "{S}",
+    for text in ("Sacrifice another creature or token", "Exert another creature", "{S}",
                  "Remove X +1/+1 counters from among creatures you control", "Sacrifice a black and red creature",
                  "Remove a counter from an artifact, creature, land, or planeswalker you control"):
         assert parse_ability_cost(text).unsupported, text
@@ -502,3 +506,59 @@ def test_boast_only_after_attacking_and_once_each_turn(cards):
     assert len([c for c in s.state.cards.values() if c.name.startswith("Human Warrior")]) == 2
     roundtrip(s)
 
+
+# -- "or" between two nouns, grandeur, exert (701.43) -------------------------------------------------------
+def test_sacrifice_another_creature_or_an_artifact(cards):
+    s = build(cards, p1=("Mold Folk", "Malevolent Noble"))
+    folk = on_field(s, "Mold Folk")
+    mana(s, C=1)
+    refused(s, "can't pay", folk, "Mold Harvest")  # (not itself: "another" creature)
+    snack = artifact(s, "Snack", subtype="Food")
+    bear = creature(s, "p1", "Bear")
+    activate(s, folk, "Mold Harvest")
+    d = s.state.rules.decision
+    assert d is not None and {o.id for o in d.options} == {snack.id, bear.id}
+    pick(s, snack.id)
+    settle(s)
+    assert snack.id not in s.state.cards and counters(s, folk, "+1/+1") == 1
+    noble = on_field(s, "Malevolent Noble")  # "Sacrifice an artifact or another creature"
+    mana(s, C=2)
+    activate(s, noble, "{2}", cost_choices=[{"component": 1, "cards": [bear.id]}])
+    settle(s)
+    assert bear.id not in s.state.cards and counters(s, noble, "+1/+1") == 1
+    roundtrip(s)
+
+
+def test_grandeur_discards_another_card_with_the_same_name(cards):
+    s = build(cards, p1=("Tarox Bladewing", "Tarox Bladewing"))
+    tarox, other = [c for c in s.state.cards.values() if c.name == "Tarox Bladewing"]
+    act(s, "p1", type="move", card_ids=[tarox.id], to={"player": "p1", "zone": "battlefield"})
+    draw(s, 2)
+    act(s, "p1", type="move", card_ids=[other.id], to={"zone": "graveyard"})
+    refused(s, "can't pay", tarox, "Grandeur")  # (no other Tarox in hand)
+    act(s, "p1", type="move", card_ids=[other.id], to={"zone": "hand"})
+    before = len(hand(s))
+    assert before >= 2
+    activate(s, tarox, "Grandeur")  # (the only card of that name: no question, the rest of the hand stays)
+    settle(s)
+    assert s.state.cards[other.id].zone == "p1:graveyard" and len(hand(s)) == before - 1
+    assert ch(s, tarox).pt == (8, 7)
+    roundtrip(s)
+
+
+def test_an_exerted_creature_skips_its_controllers_next_untap_step(cards):
+    s = build(cards, p1=("Steward of Solidarity",))
+    steward = on_field(s, "Steward of Solidarity")
+    to_turn(s, 3)
+    activate(s, steward, "{T}, Exert")
+    settle(s)
+    assert s.state.cards[steward.id].tapped and any(c.name.startswith("Warrior") for c in s.state.cards.values())
+    assert s.state.rules.exerted
+    roundtrip(s)
+    to_turn(s, 4)  # (Bob's untap step: not Alice's)
+    assert s.state.cards[steward.id].tapped
+    to_turn(s, 5)  # Alice's next untap step: it doesn't untap (701.43a)
+    assert s.state.cards[steward.id].tapped and not s.state.rules.exerted
+    to_turn(s, 7)  # … and the one after, it does
+    assert not s.state.cards[steward.id].tapped
+    roundtrip(s)
