@@ -43,6 +43,8 @@ EXTRA = [
     card('Prophetic Titan', set_code="tst", number="R126", mana_cost='{4}{U}{R}', cmc=6.0, type_line='Creature — Giant Wizard', oracle_text='Delirium — When this creature enters, choose one. If there are four or more card types among cards in your graveyard, choose both instead.\n• This creature deals 4 damage to any target.\n• Look at the top four cards of your library. Put one of them into your hand and the rest on the bottom of your library in a random order.', power='4', toughness='4', colors=['R', 'U'], color_identity=['R', 'U'], keywords=['Delirium']),
     card('Vindictive Lich', set_code="tst", number="R127", mana_cost='{3}{B}', cmc=4.0, type_line='Creature — Zombie Wizard', oracle_text='When this creature dies, choose one or more. Each mode must target a different player.\n• Target opponent sacrifices a creature of their choice.\n• Target opponent discards two cards.\n• Target opponent loses 5 life.', power='4', toughness='1', colors=['B'], color_identity=['B']),
     card('Academy Rector', set_code="tst", number="R128", mana_cost='{3}{W}', cmc=4.0, type_line='Creature — Human Cleric', oracle_text='When this creature dies, you may exile it. If you do, search your library for an enchantment card, put that card onto the battlefield, then shuffle.', power='1', toughness='2', colors=['W'], color_identity=['W']),
+    card('Martial Coup', set_code="tst", number="R129", mana_cost='{X}{W}{W}', cmc=2.0, type_line='Sorcery', oracle_text='Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures.', colors=['W'], color_identity=['W']),
+    card('Consign to Dream', set_code="tst", number="R130", mana_cost='{2}{U}', cmc=3.0, type_line='Instant', oracle_text="Return target permanent to its owner's hand. If that permanent is red or green, put it on top of its owner's library instead.", colors=['U'], color_identity=['U']),
     card('Increasing Savagery', set_code="tst", number="R107", mana_cost='{2}{G}{G}', cmc=4.0, type_line='Sorcery', oracle_text='Put five +1/+1 counters on target creature. If this spell was cast from a graveyard, put ten +1/+1 counters on that creature instead.\nFlashback {5}{G}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)', colors=['G'], color_identity=['G'], keywords=['Flashback']),
 ]
 
@@ -657,4 +659,38 @@ def test_academy_rector_exile_it_if_you_do(cards, still_there):
         act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
     assert ("Promise of Bunrei" in on_field_names(s)) is still_there
     assert s.state.cards[rector.id].zone == ("p1:exile" if still_there else "p1:hand")
+    replay_matches(s)
+
+
+# -- "instead" and "other" (608.2c, 614.6) -------------------------------------------------------------
+@pytest.mark.parametrize(("name", "where"), [("Gruul Scrapper", "library"), ("Ardenvale Paladin", "hand")])
+def test_instead_pronoun_names_the_target(cards, name, where):
+    """Consign to Dream: a green permanent (Gruul Scrapper) goes on top of its owner's library instead of to the
+    hand — "it" is the target (the return never happened, 614.6); a white one (Ardenvale Paladin) is returned to the
+    hand."""
+    s = build(cards, "Consign to Dream", p2=["Gruul Scrapper", "Ardenvale Paladin"])
+    victim = named(s, name, "p2")
+    act(s, "p2", type="move", card_ids=[victim.id], to={"player": "p2", "zone": "battlefield"})
+    consign = to_hand(s, "Consign to Dream")
+    mana(s, U=3)
+    cast(s, consign, targets=[victim.id])
+    assert s.state.cards[victim.id].zone == f"p2:{where}"
+    if where == "library":
+        assert s.state.zones["p2:library"][0] == victim.id
+    replay_matches(s)
+
+
+@pytest.mark.parametrize(("x", "left"), [(5, 5), (2, 4)])
+def test_martial_coup_other_than_the_tokens(cards, x, left):
+    """Martial Coup: with X 5 or more every creature but the Soldiers it made is destroyed (other than the tokens,
+    not the spell); with less, nothing is."""
+    s = build(cards, "Martial Coup")
+    _creature(s, "p1", "Mine")
+    _creature(s, "p2", "Theirs")
+    coup = to_hand(s, "Martial Coup")
+    mana(s, W=2 + x)
+    cast(s, coup, x_value=x)
+    creatures = on_field_names(s) + on_field_names(s, "p2")
+    assert creatures.count("Soldier") == x
+    assert len(creatures) == left
     replay_matches(s)

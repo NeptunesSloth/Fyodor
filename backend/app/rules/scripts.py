@@ -583,6 +583,8 @@ def rename_bindings(value: Any, prefix: str) -> Any:
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
             v = "ref:" + prefix + v[4:]
+        elif isinstance(v, str) and v.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- (Martial Coup)
+            v = "except:" + prefix + v[len("except:"):]
         else:
             v = rename_bindings(v, prefix)
         out[k] = v
@@ -1276,6 +1278,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             found, sel = parsed_clause
             effects += _add_groups(groups, found, sel)
     resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
+    if resolved is not None:  # -- refused modal/conditional (wave 3R1) -- an "instead" pronoun naming the target
+        resolved = _gated_other_rewrite(_branch_refs_retarget(resolved))
     if resolved is None or not _branch_refs_ok(resolved) or not _gated_other_ok(resolved):  # (conditional clauses, wave 1B)
         return None
     if not _cast_conditions_ok(resolved) or not _did_refs_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
@@ -2411,6 +2415,10 @@ _RECORDING.update({"become": None})
 # effects a resolving spell creates, "If that creature would die this turn, exile it instead": 614.1a
 # continuous replacement effects are a different mechanism), a pronoun in one branch that names what
 # the other branch's instruction would have moved, a chain of "instead" clauses.
+# (Wave 3R1: a pronoun naming the replaced instruction's own target — or the source — is that object:
+# _branch_refs_retarget. "Other" after the spell made tokens is other than those tokens: _gated_other_rewrite.
+# Still refused: chains, an "instead" with a target of its own — its targets would depend on the condition,
+# 115.3 / 601.2c — and a pronoun naming what a non-target instruction moved.)
 # ==============================================================================================
 
 _BRANCHING = frozenset({"only_if", "kicked_gate", "optional_payment", "delayed", "until", "record_action", "action_gate",
@@ -2644,6 +2652,33 @@ def _gated_other_ok(effects: list[dict[str, Any]]) -> bool:
 
 
 # -- refused modal/conditional (wave 3R1) --
+def _gated_other_rewrite(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Martial Coup / White Sun's Twilight: "Create X … tokens. If X is 5 or more, destroy all other creatures." —
+    the rulings read "other" as other than the tokens just created (the spell itself isn't on the battlefield). With
+    exactly one token-making instruction before the gate, a "who" selector saying "other" there becomes "every one
+    of them except what that instruction made" (``except:<binding>|<selector>``: effects._cards). Anything else
+    stays as it was (and _gated_other_ok refuses it)."""
+    from app.rules import selectors
+
+    makers = [i for i, e in enumerate(effects) if e["do"] == "create_token"]
+    if len(makers) != 1 or any(e["do"] == "create_attacking" for e in effects):
+        return effects
+    k = makers[0]
+    out = [dict(e) for e in effects]
+    for i, e in enumerate(effects):
+        if i < k or e["do"] != "only_if":
+            continue
+        for j in range(i + 1, min(len(effects), i + 1 + int(e.get("skip", len(effects))))):
+            who = out[j].get("who")
+            if not (isinstance(who, str) and who.startswith(selectors.PREFIX) and selectors.from_key(who).other):
+                continue
+            if _mentions_other({kk: v for kk, v in out[j].items() if kk != "who"}):
+                return effects
+            name = out[k].setdefault("as", f"made{k}")
+            out[j]["who"] = f"except:{name}|{replace(selectors.from_key(who), other=False).key()}"
+    return out
+
+
 # "If you do" after an instruction that isn't optional ("Sacrifice this enchantment. If you do, create …", "Remove a
 # +1/+1 counter from it. If you do, …", "Discard a card. If you do, draw a card.", "Return it to its owner's hand. If
 # you do, …"): whether that one instruction was actually carried out (608.2c), probed as it runs (effects._did_r1,
@@ -2697,6 +2732,32 @@ def _probe_previous(effects: list[dict[str, Any]], prev_start: int) -> str | Non
     name = f"mdid{sum(1 for e in effects if str(e.get('did') or '').startswith('mdid'))}"
     base[0]["did"] = name
     return name
+
+
+def _branch_refs_retarget(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """"Return target permanent to its owner's hand. If that permanent is red or green, put it on top of its owner's
+    library instead." (Consign to Dream): the pronoun in the "instead" branch names the object the replaced
+    instruction would have acted on — it never did (614.6: a replaced event never happens), so that is the object as
+    the replaced instruction named it: its target (or the source). Such a reference across the branches is
+    rewritten to that target; any other one stays (and _branch_refs_ok refuses it)."""
+    blocks = [(i + 1, min(len(effects), i + 1 + int(e.get("skip", len(effects)))))
+              for i, e in enumerate(effects) if e["do"] == "only_if" and (e.get("bind") or "flag" in e["cond"])]
+    if not blocks:
+        return effects
+    produced = {e["as"]: (i, e.get("who")) for i, e in enumerate(effects) if e.get("as")}
+    out = []
+    for i, e in enumerate(effects):
+        changed = dict(e)
+        for key, value in e.items():
+            m = _REF_NAME.match(value) if isinstance(value, str) else None
+            if m is None or value != f"ref:{m['name']}" or m["name"] not in produced:
+                continue
+            k, who = produced[m["name"]]
+            across = any(lo <= k < hi and not lo <= i < hi for lo, hi in blocks)
+            if across and isinstance(who, str) and (who in ("target", "self") or re.fullmatch(r"target:\d+", who)):
+                changed[key] = who
+        out.append(changed)
+    return out
 
 
 def _did_refs_ok(effects: list[dict[str, Any]]) -> bool:

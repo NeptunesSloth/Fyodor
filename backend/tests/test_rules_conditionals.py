@@ -797,12 +797,14 @@ def test_x_is_six_or_more(cards, x, destroyed):
     replay_matches(s)
 
 
-def test_destroy_all_other_creatures_after_making_tokens_stays_manual(cards):
+def test_destroy_all_other_creatures_after_making_tokens(cards):
     """Martial Coup: "Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures." — "other"
-    means other than those tokens (its rulings), which the engine's "other than the source" isn't: never guessed."""
+    means other than those tokens (its rulings): since wave 3R1 every creature except what the instruction made
+    (played in tests/test_rules_refused_r1.py)."""
     text = "Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures."
-    assert scripts.parse_effects(text) is None
-    assert coverage.of_card_data(cards.resolve("Martial Coup")).level == "PARTIAL"
+    found = scripts.parse_effects(text)
+    assert found is not None and found[0][-1]["who"].startswith("except:")
+    assert coverage.of_card_data(cards.resolve("Martial Coup")).level == "FULL"
     assert scripts.parse_effects("Create a 1/1 white Soldier creature token. If you control four or more creatures, destroy all creatures.")
 
 
@@ -2038,12 +2040,11 @@ REFUSED = [
     ("a lead of several instructions: which of them is the condition about?",
      "Draw a card and you gain 1 life if you control a Forest.",
      "Draw a card if you control a Forest."),
-    ("an 'instead' pronoun naming what the instruction it replaces would have moved — Consign to Dream",
-     "Destroy target creature. If you control a Forest, exile it instead.",
-     "Destroy target creature. If you control a Forest, destroy all creatures instead."),
-    ("'other' than what? (the tokens the spell made, not the source) — Martial Coup",
-     "Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures.",
-     "Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all creatures."),
+    # (wave 3R1 reads an "instead" pronoun naming the replaced instruction's target — Consign to Dream — and "other"
+    # than the tokens the spell made — Martial Coup: tests/test_rules_refused_r1.py)
+    ("an 'instead' pronoun naming what an instruction that isn't a target moved",
+     "Exile the top card of your library. If you control a Forest, put it into your hand instead.",
+     "Exile the top card of your library. If you control a Forest, draw a card instead."),
 ]
 
 
@@ -2065,8 +2066,8 @@ def test_refused_wordings_are_registered_with_their_reason(text, piece):
 
 
 @pytest.mark.parametrize("name", ["Martial Coup"])
-def test_the_cards_with_those_forms_stay_partial(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL"
+def test_the_cards_with_those_forms_are_read_since_wave_3r1(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
 def test_a_static_with_a_history_condition_is_still_read_by_its_own_grammar():

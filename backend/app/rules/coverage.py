@@ -61,10 +61,10 @@ SUPPORTED_REPLACEMENTS.add("enter_as_copy")
 # The forms of modal ability the engine carries out (app/rules/modal_abilities.py; CR 700.2, 603.3c,
 # 602.2b), each with scenario tests in tests/test_rules_modal_abilities.py. A modal ability's definition
 # names its form; a form not listed here stays manual. Refused on purpose (the grammar never reads them):
-# "choose one at random", "each mode must target a different player", "you may choose both instead",
-# "You may choose the same mode more than once", "choose X / up to X", reflexive "When you do, choose …"
-# (603.12), a mode with "you may", several targets or a division, and "up to"/"any number" modes on an
-# activated ability (choosing none isn't modelled).
+# "You may choose the same mode more than once", "choose X / up to X", a mode with "you may", several targets
+# or a division, and "up to"/"any number" modes on an activated ability (choosing none isn't modelled).
+# (Read since wave 3R1: "choose one at random", "each mode must target a different player", "choose both
+# instead", reflexive "When you do, choose …" — the entries at the end of the set.)
 SUPPORTED_MODAL_ABILITIES: set[str] = {
     "triggered",  # "When/Whenever/At …, choose one —": announced as it's put on the stack (603.3c, 700.2b)
     "activated",  # "{cost}: Choose one —": announced before targets and costs (602.2b, 601.2b)

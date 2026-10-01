@@ -23,7 +23,8 @@ paid and the dependent effects don't happen. Non-mana parts go through the gener
 tapping other permanents, removing counters, exiling (this card or cards from your graveyard),
 returning permanents to hand. Mana goes through the mana payment (app/rules/casting.py).
 
-Reflexive triggers ("When you do", 603.12) aren't modeled: the grammar refuses them.
+Reflexive triggers ("When you do", 603.12): a "you may [cost]" followed by "When you do, …" is the same
+payment; the reflexive ability triggers if it was made (wave 3R1: scripts._reflexive, effects.reflexive).
 """
 
 from __future__ import annotations

@@ -37,7 +37,8 @@
   permanents attached to it (ObjectSnapshot.attached); "return this card" finds the Aura's new object
   in its owner's graveyard (400.7f). Chapter abilities of Sagas: app/rules/sagas.py.
 
-Not yet: reflexive triggers (603.12); copies of spells
+Reflexive triggers (603.12, wave 3R1) are added during a resolution by effects.reflexive and put on the
+stack like any other pending trigger. Not yet: copies of spells
 (707.10) as "cast or copy"; state triggers (603.8).
 """
 

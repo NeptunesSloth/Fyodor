@@ -30,11 +30,17 @@ Reading the text is reuse, not a second grammar: each mode is read by the ordina
 (``scripts.define``) as a one-line ability with the same header — "When ~ enters, <mode>" — so the
 trigger condition, the pronouns ("it", "that player"), intervening "if", activation restrictions and
 costs are exactly those of a non-modal ability. A wording it can't read makes the whole ability manual
-(the coverage module's SUPPORTED_MODAL_ABILITIES lists the forms, each tested). Refused (never
-guessed): "choose one at random", "each mode must target a different player", "you may choose both
-instead", "choose X", reflexive "When you do, choose …" (603.12), a mode with "you may", several
-targets or a division, a header with anything else after it, and "up to" / "any number" on an
-activated ability (choosing no mode isn't modelled there).
+(the coverage module's SUPPORTED_MODAL_ABILITIES lists the forms, each tested). Read since wave 3R1
+(tests/test_rules_refused_r1.py): "choose one at random" (a triggered ability: picked among the modes that
+can be chosen as it goes on the stack, public — the Umaro ruling), "Each mode must target a different
+player." (every mode targets a player of one kind), "Choose one. If [condition], [you may] choose both
+instead." (checked as it goes on the stack — the Prophetic Titan ruling), reflexive "When you do, choose …"
+(603.12: the modes belong to the reflexive ability, announced as IT goes on the stack). Refused (never
+guessed): "choose X" / "up to X", "choose two at random", a mode with "you may", several targets or a
+division (a mode has one target slot), a triggered ability's mode starting with "If" (Venser, Corpse Puppet
+and Rankle and Torbran, the only such cards, need other grammar too), a header with anything else after it,
+a limit or restriction line after the modes, and "up to" / "any number" on an activated ability (choosing
+no mode isn't modelled there).
 
 Definition shape (JSON-able, what ``scripts.definitions`` gives for the header line): the ability's
 ordinary fields (``trigger`` / ``cond`` / ``if`` / ``limit``, or ``cost`` / ``restriction`` / ``loyalty``),

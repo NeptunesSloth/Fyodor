@@ -98,6 +98,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
+    if who.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- "all other creatures" after "Create X
+        name, _, key = who[len("except:"):].partition("|")  # … tokens" (Martial Coup): other than what it made
+        made = set(context.objects(plan, ctx, name))
+        return [c for c in _cards(plan, ctx, key) if c not in made]
     if who.startswith(selectors.PREFIX):  # "each creature you control", "all other Goblins" …
         sel = selectors.from_key(who)
         return [] if sel.player else selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
@@ -1946,8 +1950,8 @@ def _did_r1(fn: Any, kind: str) -> Any:
                     c: [plan.oid(plan.state.cards[c]), plan.state.cards[c].counters.get(e["kind"], 0)]
                     for c in _cards(plan, ctx, e["who"])}}
             else:  # discarded: a card left the hand
-                who = _players(plan, ctx, e.get("who", "you")) if e.get("who") else [ctx["controller"]]
-                refs[name] = {"kind": "probe", "hands_down": {p: len(plan.state.zones.get(f"{p}:hand", [])) for p in who}}
+                players = _players(plan, ctx, e.get("who", "you")) if e.get("who") else [ctx["controller"]]
+                refs[name] = {"kind": "probe", "hands_down": {p: len(plan.state.zones.get(f"{p}:hand", [])) for p in players}}
         return bool(fn(plan, ctx, e))
     return run
 
