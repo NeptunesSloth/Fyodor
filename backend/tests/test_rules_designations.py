@@ -460,6 +460,35 @@ def test_become_the_monarch_triggers_only_on_a_change_and_jailer_returns_on_an_o
     roundtrip(s)
 
 
+def test_jailers_exile_ends_at_once_when_an_opponent_becomes_the_monarch(cards):
+    """610.3: the return is a one-shot effect created immediately after the event — no ability goes on the stack."""
+    s = table(cards, theirs=("Twisted Abomination",), hand=("Palace Jailer", "Éomer, King of Rohan"))
+    abomination = find(s, "Twisted Abomination", "p2")
+    mana(s, W=2, C=2)
+    cast(s, "Palace Jailer")
+    resolve(s, abomination.id)
+    assert s.state.cards[abomination.id].zone == "p2:exile" and s.state.table.monarch == "p1"
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_prefs", full_control=True)  # (nothing resolves on its own)
+    mana(s, R=1, W=1, C=3)
+    cast(s, "Éomer, King of Rohan")
+    for _ in range(40):  # one intent at a time, until Bob is the monarch
+        d = rules(s).decision
+        if s.state.table.monarch == "p2":
+            break
+        if d is not None and d.kind == "order":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.id == "p2")])
+        else:
+            act(s, rules(s).priority, type="pass_priority")
+    assert s.state.table.monarch == "p2"
+    back = next(c for c in s.state.cards.values() if c.name == "Twisted Abomination")
+    assert back.zone == "p2:battlefield"  # already back: nothing waited on the stack for it
+    assert not any(e.name == "Palace Jailer" for e in rules(s).stack.values())
+    roundtrip(s)
+
+
 def test_monarch_passes_to_the_active_player_when_the_monarch_leaves_and_that_is_becoming_the_monarch(cards):
     s = table(cards, mine=("Custodi Lich",), theirs=("Grizzly Bears",))
     act(s, "p2", type="set_monarch", player="p2")  # (by hand: a manual event, no trigger)

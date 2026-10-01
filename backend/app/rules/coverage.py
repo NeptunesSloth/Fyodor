@@ -236,11 +236,7 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
 # one of these stays PARTIAL/MANUAL on purpose; the reason names the missing piece so the gap
 # report can rank it (never a guess at what the card does). ``refusal(text)`` gives the reason.
 REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\bfights?\b", re.I),
-     "fight (701.14): needs the fight primitive in app/rules/effects.py (the target grammar is ready: language._FIGHTS)"),
-    (re.compile(r"\bchoose (?:each of )?(?:up to \w+ |any number of |one or two |\w+ )?(?:(?:an)?other )?targets?\b", re.I),
-     "choose_targets: needs a no-op primitive that only names the chosen targets for later sentences "
-     "(the target grammar is ready: language._CHOOSE)"),
+    # (fight (701.14) and "choose … target" are read now: effects.fight, effects.choose_targets)
     (re.compile(r"\bfor each target beyond the first\b", re.I),
      "a cost per extra target (601.2b/601.2c): the cost grammar doesn't read it"),
     (re.compile(r"\btarget (?:player|opponent)'s (?:graveyard|hand|library)\b", re.I),
@@ -249,10 +245,8 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\btarget \w+(?: \w+)* that player controls\b", re.I),
      "a selector relative to a player named earlier (\"target creature that player controls\"): not modelled"),
     (re.compile(r"\bup to x target\b", re.I), "a variable number of targets announced as X (601.2c): not modelled"),
-    # -- copy system (wave 2F): copying a target spell or ability is read (app/rules/copying.py); copying
-    # the spell a cast trigger was about is not yet
-    (re.compile(r"\bcopy (?:it|that spell|that ability|that spell or ability)\b", re.I),
-     "copying the spell or ability a trigger was about (\"copy it\", 707.10): the cast trigger doesn't bind that spell yet"),
+    # (copy system, wave 2F / 3R3: "copy target spell", and "copy it / that spell" for the spell a cast trigger
+    # was about, are read now: app/rules/copying.py)
     (re.compile(r"\bshuffles? up to \w+ target cards? from their graveyard\b", re.I),
      "cards from a target player's graveyard (a zone bound to an earlier target): not modelled"),
     (re.compile(r"\btarget creature with the greatest\b", re.I), "\"the greatest … among\" (a computed extreme): not modelled"),
@@ -295,7 +289,7 @@ REFUSED += (
     (re.compile(r"\byou may play (?:that card|it|one of those cards) without paying\b", re.I),
      "\"you may play that card\" as the ability resolves: playing a land during a resolution (305.2a: it uses a land play) "
      "isn't modelled; free casts never play lands"),
-    (re.compile(r"\bwith total mana value \w+ or less\b", re.I),
+    (re.compile(r"\b(?:any number of|up to \w+) (?!target\b)[^.]*?with total mana value \w+ or less\b", re.I),  # (targets: wave 3R4)
      "choosing a set of cards or spells under a total mana value limit: not modelled"),
     (re.compile(r"\bcast (?:the copy|the copies|any number of the copies|those copies)\b", re.I),
      "casting a copy of a card (707.12): belongs to the copy system"),

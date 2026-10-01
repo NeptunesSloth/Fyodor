@@ -169,7 +169,30 @@ def on_events(plan: Plan, events: list[Event]) -> None:
             if due:
                 r.delayed = [t for t in r.delayed if t not in due or not t.once]
                 for t in due:
-                    delayed._fire(plan, t, None)
+                    if not _return_until(plan, t):
+                        delayed._fire(plan, t, None)
+
+
+def _return_until(plan: Plan, t: Any) -> bool:
+    """610.3: "exile … until an opponent becomes the monarch" (Palace Jailer) — the return is a one-shot
+    effect created immediately after that event, not a triggered ability: the cards still in exile come
+    back under their owners' control at once (610.3c), together (610.3d). False for any other deferred
+    effect (it triggers as a delayed ability, 603.7)."""
+    from app.rules import attachments, context
+
+    if t.controller not in plan.live() or not t.effects or any(
+            e.get("do") != "return_card" or e.get("to") != "battlefield" or e.get("under") != "owner" or e.get("tapped")
+            or not str(e.get("who") or "").startswith(context.PREFIX) for e in t.effects):
+        return False
+    entries = []
+    for e in t.effects:
+        for cid in context.objects(plan, {"refs": t.refs}, str(e["who"])[len(context.PREFIX):]):
+            card = plan.state.cards[cid]
+            if card.zone.endswith(":exile") and card.owner in plan.live():
+                entries.append({"card": cid, "player": card.owner, "actor": card.owner})
+    if entries:
+        attachments.enter(plan, entries, None)
+    return True
 
 
 def facts(plan: Plan, e: Event) -> list[Any]:
