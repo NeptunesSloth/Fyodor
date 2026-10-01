@@ -505,7 +505,12 @@ def _commander_instead(plan: Plan, card: CardInstance, dest: str) -> bool | None
 
     if not card.commander_key or card.owner not in plan.live():
         return False
+    given = plan.rules.answers_903_9b.pop(f"{plan.oid(card)}>{dest}", None)  # asked before the move
+    if given is not None:
+        return given == "yes"
     answer = remembered(plan, card.owner, f"commander_zone:{card.commander_key}", dest)
+    if answer is None and plan.probe_903 is not None:
+        plan.probe_903.append((card.id, dest))  # (a look ahead: ask_903_9b_first asks before the real move)
     return True if answer == "yes" else False if answer == "no" else None
 
 
@@ -640,6 +645,72 @@ def offer_903_9b(plan: Plan) -> bool:
                memory_key=f"commander_zone:{card.commander_key}", memory_context=dest)
         return True
     return False
+
+
+# Effect primitives that may put a card from a public zone into its owner's hand or library.
+MOVERS_903_9B = frozenset({"bounce", "return_card", "return_choice", "return_yours", "to_library", "shuffle_library",
+                           "delayed_move"})
+
+
+def ask_903_9b_first(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """903.9b is a replacement effect ("… may put it into the command zone instead"): its owner
+    chooses before the commander moves, not after it has landed in a hand or library. Before a
+    resolving instruction that may move a commander there runs, it is looked ahead on a scratch
+    copy of the table; a commander it would move without a known answer has its owner asked now
+    (the decision's resume runs the instruction for real, the answer applying to that move).
+    True while the question is open. Moves made outside a resolution (by hand, as a cost) are
+    still asked right after (``offer_903_9b``)."""
+    import copy
+
+    from app.rules.effects import PRIMITIVES  # (effects imports this module)
+    from app.rules.engine import remembered
+    from app.rules.plan import Plan, decide
+
+    if e.get("do") not in MOVERS_903_9B:
+        return False
+    live = plan.live()
+    r = plan.rules
+    waiting = [c for c in plan.state.cards.values()
+               if c.commander_key and c.owner in live and _from_zone(c) not in ("hand", "library", "command")
+               and any(remembered(plan, c.owner, f"commander_zone:{c.commander_key}", dest) is None
+                       and f"{plan.oid(c)}>{dest}" not in r.answers_903_9b for dest in ("hand", "library"))]
+    if not waiting:
+        return False
+    probe = Plan.__new__(Plan)
+    probe.__dict__.update(plan.__dict__)
+    probe.state = plan.state.model_copy(deep=True)
+    probe.steps = list(plan.steps)
+    probe.rng = plan.rng  # (an entropy source: what is random is recorded as the steps, never replayed from it)
+    probe.probe_903 = []
+    pctx = copy.deepcopy(ctx)
+    pctx["next"] = int(pctx.get("next") or 0) + 1
+    try:
+        PRIMITIVES[e["do"]](probe, pctx, copy.deepcopy(e))
+    except Exception:  # noqa: BLE001  (a look ahead only: the real run reports its own problems)
+        return False
+    for cid, dest in probe.probe_903:
+        card = plan.state.cards.get(cid)
+        if card is None or _from_zone(card) in ("hand", "library", "command"):
+            continue
+        key = f"{plan.oid(card)}>{dest}"
+        if key in r.answers_903_9b:
+            continue
+        where = "your library" if dest == "library" else "your hand"
+        name = "Your commander" if card.face_down else card.name
+        decide(plan, player=card.owner, kind="confirm",
+               prompt=f"{name} would be put into {where}: put it into the command zone instead? (903.9b)",
+               options=[DecisionOption(id="yes", label="Command zone"), DecisionOption(id="no", label=f"Into {where}")],
+               resume={"step": "commander_first", "ctx": ctx, "key": key}, source=card,
+               memory_key=f"commander_zone:{card.commander_key}", memory_context=dest)
+        return True
+    return False
+
+
+def resume_commander_first(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects  # (effects imports this module)
+
+    plan.rules.answers_903_9b[d.resume["key"]] = chosen[0]
+    continue_effects(plan, d.resume["ctx"])  # (the instruction runs now, with the answer)
 
 
 def resume_commander_instead(plan: Plan, d: Any, chosen: list[str]) -> None:

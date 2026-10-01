@@ -293,7 +293,7 @@ def test_a_returning_aura_chooses_what_it_enchants_when_its_jailers_owner_conced
 
 
 def test_until_end_of_turn_ends_when_the_active_player_concedes(cards):
-    # 514.2 / 800.4j: the turn's cleanup still happens (the engine ends the turn at once)
+    # 800.4j: the turn goes on to its end without an active player, with its cleanup (514.2)
     s = build3(cards)
     bear = token(s, "p3", "Carol's Bear")
     src = token(s, "p1", "Pumper", "2/2", text="{1}: Target creature gets +2/+2 until end of turn.")

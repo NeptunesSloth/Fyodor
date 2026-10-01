@@ -371,11 +371,14 @@ def test_path_to_exile_gives_its_controller_a_private_optional_search(tcards):
     bob_library = set(zone(s.state, "p2", "library"))
     cast(s, "Path to Exile", targets=[brute.id])
     d = rules(s).decision
+    assert d.kind == "confirm" and d.player == "p2"  # "may": he chooses whether to search first
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["yes"])
+    d = rules(s).decision
     assert d.kind == "choose_cards" and d.player == "p2"  # Bob searches Bob's library: 701.23a
     assert {o.id for o in d.options} == bob_library  # (basic Islands: all of it)
     alice = json.dumps(s.view("p1"))
     assert not any(o.id in alice for o in d.options) and s.view("p1")["rules"]["decision"]["kind"] == "waiting"
-    assert d.min_choices == 0  # "may": he can decline
+    assert d.min_choices == 0  # a stated quality: he may find nothing (701.23b)
     island = d.options[0].id
     act(s, "p2", type="choose", decision_id=d.id, option_ids=[island])
     pass_until_stack_empty(s)

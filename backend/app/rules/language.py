@@ -477,7 +477,7 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         extra["shuffle"] = False  # (only when the text says so: 701.23e)
     return [{"do": "search", "who": _SEARCHERS[m["who"]] if m["who"] else "you", "label": m["sel"], "max": n,
              "to": to, "reveal": bool(m["reveal"]), "upto": bool(m["upto"]) or anything,
-             **({"face_down": True} if m["fd"] else {}), **extra}], None
+             **({"face_down": True} if m["fd"] else {}), **({"may": True} if m["who"] else {}), **extra}], None
 
 
 # -- the top of a library (401, 701.20 reveal, 701.20e look, 701.24 shuffle) ----------------------
@@ -772,6 +772,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
             effects.append({"do": "damage", "who": whos[0] if not parts else ("target" if not groups else f"target:{len(groups)}"),
                             "n": _amount(n), **src})
             groups += parts
+        effects[0]["with_next"] = True  # (dealt at once: one damage event)
         return effects, _out(groups)
     m = re.fullmatch(rf"(?P<src>~|it) deals (?:(?P<n>{AMT}) damage|damage equal to (?P<stat>.+?)) to (?P<o>.+)", text)
     if m is None:  # "~ deals damage to target creature equal to the number of lands you control" (the same, worded after)
@@ -801,6 +802,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
                 who = "target" if not groups else f"target:{len(groups)}"
                 groups.append(group)
             effects.append({"do": "damage", "who": who, "n": n, **src})
+        for joined in effects[:-1]:  # one sentence: one simultaneous damage event (app/rules/effects.damage)
+            joined["with_next"] = True
         return effects, _out(groups)
     found = _bite(text)  # -- temporary grants & riders (agent G) --  "target creature you control deals damage equal to its power to …"
     if found is not None:

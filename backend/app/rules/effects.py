@@ -317,6 +317,27 @@ DEALT_KEY = "dealt"  # -- replacement effects stage 2 (wave 2E) -- ctx: binding 
 
 
 def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """One damage instruction — or, with ``with_next``, one sentence naming several recipients
+    ("~ deals 1 damage to each creature and each player"): all of it is dealt at once, one
+    simultaneous damage event (120, 608.2: one instruction), not one batch per recipient group."""
+    effects = ctx.get("effects") or []
+    k = int(ctx.get("next") or 0)
+    chain = [e]
+    if replace.rerun_then(ctx, e) is not None:
+        while chain[-1].get("with_next") and k + len(chain) - 1 < len(effects) \
+                and effects[k + len(chain) - 1].get("do") == "damage":
+            chain.append(effects[k + len(chain) - 1])
+    if len(chain) == 1 or any(x.get("dealt_as") for x in chain):
+        hits = _damage_hits(plan, ctx, e)
+        return _deal(plan, ctx, hits, e) if hits else True
+    hits = [h for x in chain for h in _damage_hits(plan, ctx, x)]
+    done = _deal(plan, ctx, hits, e) if hits else True
+    if done:
+        ctx["next"] = k + len(chain) - 1  # (the joined instructions are done too)
+    return done
+
+
+def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Source, str, int]]:
     """Noncombat damage from the source (120.3): life loss for players, marked damage for
     creatures, loyalty loss for planeswalkers; lifelink and deathtouch of the source apply. With
     ``src`` ("target", "target:<g>", "host", "self", "ref:…"), the named creature is the source
@@ -339,19 +360,19 @@ def damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             each = _amount(plan, {**ctx, "each_source": sid}, e["n"])
             if each > 0:
                 hits += [(_card_source(plan, sid), key, each) for key in [*cards, *players]]
-        return _deal(plan, ctx, hits, e) if hits else True
+        return hits
     if e.get("src"):
         src = _named_source(plan, ctx, e["src"])
         if src is None:
             plan.note(f"{ctx.get('name') or 'It'}: the creature that would deal the damage is gone", actor=ctx["controller"])
-            return True
+            return []
     else:
         src = _ability_source(plan, ctx)
     if shares is None and n <= 0:
-        return True
+        return []
     if e.get("dealt_as"):  # -- replacement effects stage 2 (wave 2E): "dealt damage this way" --
         ctx.setdefault(DEALT_KEY, {})[e["dealt_as"]] = []
-    return _deal(plan, ctx, [(src, key, amount(key)) for key in [*cards, *players]], e)
+    return [(src, key, amount(key)) for key in [*cards, *players]]
 
 
 def fight(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1171,7 +1192,24 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not who:
             return True
         pid = who[0]
+    if e.get("may"):
+        # "Its controller may search …, then shuffle" (Path to Exile): searching is their choice,
+        # asked first — a player who doesn't search doesn't shuffle either (the card's ruling;
+        # 701.23b: one who searches may still find nothing, and then shuffles)
+        decide(plan, player=pid, kind="confirm", prompt=f"{ctx.get('name') or 'It'}: search your library for a {e.get('label') or 'card'}?",
+               options=[DecisionOption(id="yes", label="Search"), DecisionOption(id="no", label="Don't search")],
+               resume={"step": "search_may", "ctx": ctx, "e": e})
+        return False
     return _ask_search(plan, ctx, e, pid, 0, [])
+
+
+def resume_search_may(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen[0] == "yes":
+        _ask_search(plan, ctx, e, d.player, 0, [])
+        return
+    plan.note(f"{plan.name(d.player)} chose not to search (no shuffle)", actor=d.player)
+    continue_effects(plan, ctx)
 
 
 def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int, picked: list[str]) -> bool:
@@ -1389,10 +1427,12 @@ def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     offered only when they can."""
     from app.rules import mana  # casting imports this module
 
-    src = _cards(plan, ctx, "self")
-    if not src:
-        return True  # it already left: nothing to sacrifice
     pid = ctx["controller"]
+    src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == pid]
+    if not src:
+        # it already left — or 701.21a: another player controls it now (echo, "sacrifice ~ unless
+        # you pay" after a control change): it can't be sacrificed, so there's nothing to choose
+        return True
     cost = mana.parse_cost(e["cost"])
     if e.get("per"):  # cumulative upkeep: the cost once for each age counter
         n = plan.state.cards[src[0]].counters.get(e["per"], 0)
@@ -1418,7 +1458,7 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
             counter_object(plan, sid, d.player)
         continue_effects(plan, ctx)
         return
-    src = _cards(plan, ctx, "self")
+    src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == d.player]  # (701.21a)
     if chosen[0] == "pay" and src:
         cost = mana.parse_cost(d.resume["cost"])
         casting.pay_from_pool(plan, d.player, cost, f"paid {cost.text()} for {ctx.get('name', '')}")
@@ -1934,7 +1974,7 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     if entry.optional:
         from app.rules.engine import remembered  # engine imports this module
 
-        key = f"may:{entry.name}:{entry.effects[0]['do'] if entry.effects else ''}"
+        key = may_key(entry)
         answer = remembered(plan, entry.controller, key, "")
         if answer in ("yes", "no"):
             if answer == "no":
@@ -1947,6 +1987,17 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
                    resume={"step": "may", "ctx": ctx}, memory_key=key)
             return
     continue_effects(plan, ctx)
+
+
+def may_key(entry: StackEntry) -> str:
+    """The remembered-answer key of a "you may" (603.5): this card's own ability — its source card
+    and what the ability does — so two cards with the same name (or two abilities of one card
+    that start alike) never share an answer."""
+    import hashlib
+    import json
+
+    what = hashlib.sha1(json.dumps(entry.effects, sort_keys=True, default=str).encode()).hexdigest()[:12]
+    return f"may:{(entry.source_card or entry.name)[:90]}:{what}"  # (a Yield key is at most 120 characters)
 
 
 def resume_may(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -1962,6 +2013,8 @@ def continue_effects(plan: Plan, ctx: Context) -> None:
     effects = ctx["effects"]
     while ctx["next"] < len(effects):
         e = effects[ctx["next"]]
+        if replacements.ask_903_9b_first(plan, ctx, e):
+            return  # 903.9b: a commander's owner chooses before it would be put into a hand or library
         ctx["next"] += 1
         if not PRIMITIVES[e["do"]](plan, ctx, e):
             return  # waiting for a choice; the decision's resume continues from ctx["next"]
@@ -1974,6 +2027,7 @@ def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:
     stack_id = ctx["stack_id"]
     stack = plan.state.zones.get("stack", [])
     plan.rules.stack.pop(stack_id, None)
+    plan.rules.answers_903_9b = {}  # (answers for moves that didn't happen after all)
     if stack_id in stack:
         from app.rules.engine import leave_stack  # engine imports this module
 
@@ -2625,3 +2679,4 @@ def exchange_control(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES.update({"gain_control": gain_control, "exchange_control": exchange_control})
 # -- end control (wave 3K) --
+RESUME["search_may"] = resume_search_may
