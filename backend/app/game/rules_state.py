@@ -630,7 +630,10 @@ class CostModifier(BaseModel):
     delta: int  # +N: costs {N} more; −N: costs {N} less
     caster: Literal["you", "opponent", "any"] = "you"
     filter: str | None = None  # a selector key the spell must match, or None for every spell
-    until: Literal["end_of_turn", "permanent"] = "end_of_turn"
+    # "permanent" (a static, read from the table), "end_of_turn" ("… you cast this turn cost …": ends in
+    # cleanup, 514.2) or "next_turn" ("Until your next turn, …": ends as its controller's next turn begins)
+    until: Literal["end_of_turn", "permanent", "next_turn"] = "end_of_turn"
+    turn: int = 0  # the turn it was created
     source: str | None = None
     label: str = Field(default="", max_length=120)
 

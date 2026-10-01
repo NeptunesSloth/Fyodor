@@ -1460,7 +1460,9 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
     if found is None:
         raise ActionError("That card has no ability to use from your hand")
     kind, mana_text = found
-    mana = M.parse_cost(mana_text)
+    # 702.29a: cycling is an activated ability — "Abilities you activate that aren't mana abilities cost {1} less"
+    # applies to it (602.2b -> 601.2f; app/rules/permissions.py ability_mana)
+    mana = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, mana_text, plan.info))
     if payment_step(plan, a, mana, f"cycling {ch.name}", purpose=Purpose(ability_of=ch)):
         return
     if kind:

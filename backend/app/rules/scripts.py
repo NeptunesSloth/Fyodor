@@ -2309,6 +2309,19 @@ def _prevent_to_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "prevent_all", "scope": {"combat": None, "to_objects": "self"}}], None
 
 
+@_first  # (before the "until your next turn, …" duration wrapper, which only wraps pumps, grants and restrictions)
+@effect(r"(?P<text>until your next turn, .+ spells you cast cost {{\d+}} (?:less|more) to cast)")
+def _stored_cost_next_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """Ral, Leyline Prodigy's +1: "Until your next turn, instant and sorcery spells you cast cost
+    {1} less to cast." — a stored cost modifier (app/rules/permissions.py ``cost_modifier``)."""
+    from app.rules import permissions
+
+    got = permissions.parse_clause(m["text"])
+    if got is None:
+        raise _NoMatch
+    return got
+
+
 _RECORDING.update({"become": None})
 
 

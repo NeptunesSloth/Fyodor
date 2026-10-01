@@ -379,6 +379,62 @@ def test_fling_cast_by_cascade_still_sacrifices_a_creature(cards):
     replay_matches(s)
 
 
+# -- 601.2f: cost modifiers on every path -------------------------------------------------------------------
+# Zirda, the Dawnwaker (its second line)
+ZIRDA = ("Abilities you activate that aren't mana abilities cost {2} less to activate. This effect can't reduce the mana "
+         "in that cost to less than one mana.")
+# Urza, Planeswalker's +2 and Ral, Leyline Prodigy's +1 (as activated abilities of custom permanents: the same text)
+URZA_PLUS_TWO = "{0}: Artifact, instant, and sorcery spells you cast this turn cost {2} less to cast. You gain 2 life."
+RAL_PLUS_ONE = "{0}: Until your next turn, instant and sorcery spells you cast cost {1} less to cast."
+
+
+def test_zirda_reduces_a_cycling_cost_to_one_mana(cards):
+    """702.29a: cycling is an activated ability: Zirda's reduction applies (with its one-mana floor)."""
+    s = build(cards, "Twisted Abomination")
+    abomination = named(s, "Twisted Abomination")
+    act(s, "p1", type="move", card_ids=[abomination.id], to={"player": "p1", "zone": "hand"})
+    token(s, "p1", "Zirda, the Dawnwaker", "3/3", ZIRDA)
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    act(s, "p1", type="activate_ability", card_id=abomination.id, ability=1)  # "Swampcycling {2}" for {1}
+    assert s.state.cards[abomination.id].zone == "p1:graveyard" and not s.state.players["p1"].mana
+    replay_matches(s)
+
+
+def test_urza_plus_two_makes_spells_cheaper_this_turn_only(cards):
+    """611.2a / 514.2: "… spells you cast this turn cost {2} less to cast" is stored for the turn."""
+    s = build(cards, "Grapeshot")
+    urza = permanent(s, "p1", "Urza, Planeswalker", "Enchantment", URZA_PLUS_TWO)
+    act(s, "p1", type="activate_ability", card_id=urza.id, ability=0)
+    pass_until_stack_empty(s)
+    assert len(s.state.rules.cost_modifiers) == 1 and s.state.players["p1"].life == 42
+    shot = named(s, "Grapeshot")
+    act(s, "p1", type="move", card_ids=[shot.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1})
+    act(s, "p1", type="cast_spell", card_id=shot.id, targets=["p2"])  # {1}{R} for {R}
+    pass_until_stack_empty(s)
+    assert s.state.cards[shot.id].zone == "p1:graveyard" and s.state.players["p2"].life == 39
+    replay_matches(s)
+    turn = s.state.turn.number
+    until(s, lambda s: s.state.turn.number > turn, limit=60)
+    assert not s.state.rules.cost_modifiers  # ended in the cleanup step (514.2)
+
+
+def test_ral_plus_one_lasts_until_its_controllers_next_turn(cards):
+    from app.rules.permissions import modifiers
+
+    s = build(cards, "Grapeshot")
+    ral = permanent(s, "p1", "Ral, Leyline Prodigy", "Enchantment", RAL_PLUS_ONE)
+    act(s, "p1", type="activate_ability", card_id=ral.id, ability=0)
+    pass_until_stack_empty(s)
+    shot = s.state.cards[named(s, "Grapeshot").id]
+    turn = s.state.turn.number
+    until(s, lambda s: s.state.turn.number > turn, limit=60)  # Bob's turn: still in force
+    assert modifiers(s.state, "p1", shot, ch(s, shot), cards)
+    until(s, lambda s: s.state.turn.active_player == "p1", limit=120)  # Alice's next turn began: over
+    assert not modifiers(s.state, "p1", shot, ch(s, shot), cards)
+    replay_matches(s)
+
+
 def test_simultaneous_entries_are_timestamped_in_apnap_order(cards):
     """613.7m: the active player's permanent gets the earlier timestamp, whatever order the effect
     lists them in; both enter in one step under their own controllers."""

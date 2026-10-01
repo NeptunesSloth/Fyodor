@@ -65,6 +65,12 @@ ABILITY_COST = re.compile(
     rf"^(?:activated abilities(?: of (?P<sel>[a-z][a-z' ,-]*?))?|(?P<yours>abilities you activate that aren't mana abilities)) "
     rf"costs? {_N} (?P<dir>less|more) to activate(?:\. (?P<floor>this effect can't reduce the mana in that cost to less than one mana))?$",
     re.IGNORECASE)
+# An effect's cost modifier with a duration (611.2a): "Artifact, instant, and sorcery spells you cast this turn cost {2}
+# less to cast." (Urza, Planeswalker) / "Until your next turn, instant and sorcery spells you cast cost {1} less to cast."
+# (Ral, Leyline Prodigy)
+STORED_COST = re.compile(
+    rf"^(?P<until>until your next turn, )?{_SEL} spells you cast (?P<this_turn>this turn )?cost {_N} (?P<dir>less|more) to cast$",
+    re.IGNORECASE)
 # "This spell costs {1} less to cast for each creature card in your graveyard."
 SELF_PER = re.compile(rf"^(?:this spell|~) costs {_N} less to cast for each (?P<what>.+)$")
 # "This spell costs {1} less to cast if you control a Wizard."
@@ -248,6 +254,13 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
 def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """An effect sentence of the permission grammar (see ``scripts._one_clause``), or None.
     ("Exile the top card of your library" itself is the library grammar's: app/rules/language.py.)"""
+    m = STORED_COST.fullmatch(text)
+    if m and bool(m["until"]) != bool(m["this_turn"]):
+        key = spell_filter(m["sel"])
+        if key is None:
+            return None
+        return [{"do": "cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1), "filter": key,
+                 "until": "next_turn" if m["until"] else "end_of_turn"}], None
     m = FREE_HAND.fullmatch(text)  # -- cast without paying (wave 3C) --
     if m:
         if bool(m["h1"]) == bool(m["h2"]):
@@ -446,7 +459,8 @@ def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteris
     for src, index, d in _table_statics(state, info, {"cost_modifier"}):
         found.append(CostModifier(id=f"{src.id}:{index}", controller=src.controller, delta=d["delta"], caster=d["caster"],
                                   filter=d["filter"], until="permanent", source=r.object_id(src.id), label=src.name))
-    found += r.cost_modifiers
+    found += [m for m in r.cost_modifiers  # ("until your next turn": over once its controller's next turn began)
+              if not (m.until == "next_turn" and r.turn_started.get(m.controller, 0) > m.turn)]
     out = []
     for m in found:
         if m.caster == "you" and m.controller != player:
@@ -588,7 +602,23 @@ def expire(plan: Plan) -> None:
             continue
         keep.append(p)
     r.permissions = keep
-    r.cost_modifiers = [m for m in r.cost_modifiers if m.until != "end_of_turn"]
+    r.cost_modifiers = [m for m in r.cost_modifiers if m.until != "end_of_turn"
+                        and not (m.until == "next_turn" and r.turn_started.get(m.controller, 0) > m.turn)]
+
+
+def cost_modifier(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"<Spells> you cast this turn cost {N} less to cast" / "Until your next turn, <spells> you cast
+    cost {N} less to cast": a cost modifier for its controller's spells with that duration (601.2f,
+    611.2a; generic mana only, 118.7a), read with the table's static ones (``modifiers``)."""
+    pid = ctx["controller"]
+    plan.rules.cost_modifiers.append(CostModifier(
+        id=secrets.token_hex(4), controller=pid, delta=int(e["delta"]), caster="you", filter=e.get("filter"),
+        until=e["until"], turn=plan.state.turn.number, source=ctx.get("source_object"),
+        label=(ctx.get("name") or "An effect")[:120]))
+    amount = f"{{{abs(int(e['delta']))}}} {'less' if int(e['delta']) < 0 else 'more'}"
+    plan.note(f"{plan.name(pid)}'s spells cost {amount} to cast "
+              + ("until their next turn" if e["until"] == "next_turn" else "this turn") + f" ({ctx.get('name') or 'an effect'})")
+    return True
 
 
 def refresh_reveals(state: GameState, info: CardInfo) -> None:

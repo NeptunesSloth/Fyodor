@@ -2474,6 +2474,7 @@ def _siege_defeated(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES["siege_defeated"] = _siege_defeated  # 310.12b (app/rules/battles.py)
+PRIMITIVES["cost_modifier"] = permissions.cost_modifier  # "… spells you cast this turn cost {2} less to cast" (611.2a)
 
 
 # -- replacement effects stage 2 (wave 2E) -----------------------------------------------------------
