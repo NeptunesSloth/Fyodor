@@ -36,6 +36,7 @@ _REMOVE = re.compile(
 _N = r"(?P<n>a|an|another|one|two|three|four|five|six|\d+)"
 _SAC_CHOSEN = re.compile(rf"^Sacrifice {_N} (?P<what>.+)$")
 _DISCARD = re.compile(rf"^Discard {_N} (?P<what>(?:[\w\-]+ )*cards?)(?P<random> at random)?$")
+_DISCARD_SELF = re.compile(r"^Discard (?:this card|~)$")  # -- ability words (wave 4F) -- channel (113.6m)
 _EXILE_SELF_GY = re.compile(rf"^Exile {_SELF} from your graveyard$")
 _EXILE_SELF = re.compile(rf"^Exile {_SELF}$")
 _EXILE_GY = re.compile(rf"^Exile {_N} (?P<what>(?:[\w\-]+ )*cards? from your graveyard)$")
@@ -106,6 +107,12 @@ class AbilityCost:
         return [(i, c) for i, c in enumerate(self.components) if c.chosen]
 
     @property
+    def from_hand(self) -> bool:
+        """-- ability words (wave 4F) -- 113.6m: "Discard this card" (channel: "{1}{R}, Discard this card: …") moves
+        the card out of its owner's hand, so the ability works only there."""
+        return any(c.kind == DISCARD and c.selector is None for c in self.components)
+
+    @property
     def from_graveyard(self) -> bool:
         """113.6m: "Exile this card from your graveyard" — the ability works only from there."""
         return self.graveyard_only or any(c.kind == EXILE_FROM_GRAVEYARD and c.selector is None for c in self.components)
@@ -172,6 +179,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(REMOVE_COUNTER, amount=_n(m["n"]), counter=m["kind"], text=part)
     if _EXILE_SELF_GY.match(part):
         return CostComponent(EXILE_FROM_GRAVEYARD, text=part)
+    if _DISCARD_SELF.match(part):  # -- ability words (wave 4F) -- "Discard this card" (701.9a; 113.6m: from the hand)
+        return CostComponent(DISCARD, text=part)
     if _EXILE_SELF.match(part):
         return CostComponent(EXILE, text=part)
     if _RETURN_SELF.match(part):

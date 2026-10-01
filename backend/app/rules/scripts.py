@@ -154,7 +154,10 @@ ABILITY_WORDS = (
     "grandeur", "hellbent", "heroic", "imprint", "infusion", "inspired", "join forces", "kinship", "landfall",
     "lieutenant", "magecraft", "metalcraft", "morbid", "opus", "pack tactics", "paradox", "parley", "radiance", "raid",
     "rally", "renew", "repartee", "revolt", "secret council", "spell mastery", "strive", "survival", "sweep",
-    "tempting offer", "threshold", "undergrowth", "valiant", "vivid", "void", "will of the council")
+    "tempting offer", "threshold", "undergrowth", "valiant", "vivid", "void", "will of the council",
+    # -- ability words (wave 4F) -- printed in italics like an ability word but absent from 207.2c's list (and from
+    # the whole CR): no rules meaning either way (207.2d); the condition it names is spelled out after the dash
+    "corrupted")
 _ABILITY_WORD = re.compile(r"^(?:" + "|".join(re.escape(w).replace("'", "['’]") for w in ABILITY_WORDS) + r") — ",
                            re.IGNORECASE)
 

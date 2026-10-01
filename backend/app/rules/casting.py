@@ -232,6 +232,18 @@ def _controls(state: GameState, player: str, what: str, info: CardInfo) -> bool:
     return False
 
 
+# -- ability words (wave 4F) -- a mana ability's "Activate only if [condition]" (602.5, 605.3a): the
+# condition grammar of app/rules/conditions.py, read for the ability's controller as it would be activated
+def _mana_condition_holds(state: GameState, card: CardInstance, cond: str, info: CardInfo) -> bool:
+    import json
+
+    from app.rules import conditions
+
+    view = Plan.view(state, card.controller, info)
+    return conditions.holds(view, {"controller": card.controller, "source_card": card.id}, json.loads(cond[len("cond:"):]))
+# -- end ability words (wave 4F) --
+
+
 def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list[tuple[int, M.ManaAbility]]:
     """The permanent's mana abilities the engine can carry out right now (options resolved:
     chosen color, lands' mana; conditions, once-per-turn and non-mana costs checked)."""
@@ -258,6 +270,8 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         cond = parsed.condition or ""
         if cond.startswith(("control:", "count:")) and \
                 not _controls(state, card.controller, cond[len("control:"):] if cond.startswith("control:") else cond, info):
+            continue
+        if cond.startswith("cond:") and not _mana_condition_holds(state, card, cond, info):  # -- ability words (wave 4F) --
             continue
         if parsed.once_per_turn and r is not None and \
                 r.once_per_turn.get(f"{r.object_id(card.id)}:{ab.index}") == state.turn.number:
@@ -2017,6 +2031,10 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         raise ActionError("That card isn't here any more")
     if card.zone == zone_key(plan.actor, "hand"):
         ch = plan.ch(card)
+        ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+        if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).from_hand:
+            activate_to_stack(plan, card, ch, ability, a)  # -- ability words (wave 4F) -- channel (113.6m)
+            return
         found = suspend_info(ch, a.ability)
         if found is not None:
             suspend(plan, card, ch, a, *found)
@@ -2160,7 +2178,10 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     r = state.rules
     if r is None:
         return "Rules automation is off"
-    if cost.from_graveyard:  # 113.6m: its cost moves it out of your graveyard, so it works only there
+    if cost.from_hand:  # -- ability words (wave 4F) -- 113.6m: "Discard this card" (channel) works only from the hand
+        if card.zone != zone_key(player, "hand") or card.owner != player:
+            return "That ability can only be activated from your hand"
+    elif cost.from_graveyard:  # 113.6m: its cost moves it out of your graveyard, so it works only there
         if card.zone != zone_key(player, "graveyard") or card.owner != player:
             return "That ability can only be activated from your graveyard"
     elif card.controller != player or not card.zone.endswith(":battlefield"):
@@ -2329,6 +2350,14 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                 if problem is None:
                     out.append({"card_id": cid, "ability": ab.index})
             elif ab.kind == "keywords" and _can_crew(state, player, card, ch, ab.index, info, check_priority):
+                out.append({"card_id": cid, "ability": ab.index})
+    for cid in state.zones.get(zone_key(player, "hand"), []):  # -- ability words (wave 4F) -- channel (113.6m)
+        card = state.cards[cid]
+        ch = chars.of(card, info)
+        for ab in ch.abilities:
+            if ab.kind == "activated" and ability_cost(ch, ab).from_hand and \
+                    ability_problem(state, player, card, ch, ab, ability_cost(ch, ab), check_priority=check_priority,
+                                    info=info) is None:
                 out.append({"card_id": cid, "ability": ab.index})
     for cid in state.zones.get(zone_key(player, "graveyard"), []):  # 113.6m: "Exile this card from your graveyard: …"
         card = state.cards[cid]

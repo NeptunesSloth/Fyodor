@@ -79,6 +79,8 @@ def parse(text: str) -> AbilityCost | None:
         return None
     if any(c.kind not in SUPPORTED for c in cost.components):
         return None
+    if any(c.kind == C.DISCARD and c.selector is None for c in cost.components):  # -- ability words (wave 4F) --
+        return None  # ("discard this card": a cost of an ability that works from the hand, never an optional payment)
     return cost
 
 
