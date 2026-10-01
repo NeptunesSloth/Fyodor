@@ -311,14 +311,18 @@ def bind_chosen(sel: Selector, value: str) -> Selector | None:
     what = chosen_what(sel)
     neg = any(e.startswith("not_") for e in sel.extras if e in CHOSEN_EXTRAS)
     if what == "creature type" and value in CREATURE_TYPES:
-        if sel.subtypes or sel.not_subtypes:
+        if sel.subtypes or sel.not_subtypes or sel.union:
             return None
-        return replace(sel, extras=rest, **({"not_subtypes": (value,)} if neg else {"subtypes": (value,)}))
+        if neg:
+            return replace(sel, extras=rest, not_subtypes=(value,))
+        return replace(sel, extras=rest, subtypes=(value,))
     color = COLORS.get(value.strip().lower())
     if what == "color" and color is not None:
         if sel.colors or sel.not_colors:
             return None
-        return replace(sel, extras=rest, **({"not_colors": (color,)} if neg else {"colors": (color,)}))
+        if neg:
+            return replace(sel, extras=rest, not_colors=(color,))
+        return replace(sel, extras=rest, colors=(color,))
     return None
 
 
@@ -736,9 +740,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
             return False
-    if any(e in CHOSEN_EXTRAS for e in sel.extras) and not _chosen_ok(plan, sel, ch, source):  # -- chosen type (wave 4J) --
-        return False
-    return True
+    # -- chosen type (wave 4J) --
+    return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source)
 
 
 def _ability_kind(plan: Plan, card: CardInstance, kind: str) -> bool:

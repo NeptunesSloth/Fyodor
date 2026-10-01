@@ -66,7 +66,8 @@ def test_parse_components():
     assert '"other":true' in (cost.components[1].selector or "") and cost.components[2].amount == 2
     assert parse_ability_cost("{Q}").untap
     assert parse_ability_cost("{S}").unsupported == ("{S}",)  # snow mana isn't modeled
-    assert parse_ability_cost("Sacrifice a creature of the chosen type").unsupported
+    # (wave 4J: the source's chosen creature type, read by selectors.matches from the permanent's enters choice)
+    assert '"chosen_type"' in (parse_ability_cost("Sacrifice a creature of the chosen type").components[0].selector or "")
     assert parse_ability_cost("Exile Test Relic from your graveyard", card_name="Test Relic").from_graveyard
     assert kicker_line("Kicker {2}{W}") and kicker_line("Multikicker {1}")
     assert not kicker_line("Kicker {1}{U} and/or {2}{B}") and not kicker_line("Kicker—Sacrifice a land")

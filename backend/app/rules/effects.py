@@ -2593,16 +2593,16 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     if e.get("as"):
         context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}
     if not e.get("remember") and e["what"] in ("creature type", "color"):  # -- chosen type (wave 4J) --
-        from app.rules import chosen  # "Choose a creature type. Destroy all creatures that aren't of the chosen type."
+        from app.rules import chosen as picked
 
-        ctx["effects"] = ctx["effects"][: ctx["next"]] + chosen.bind_effects(ctx["effects"][ctx["next"]:], e["what"], value)
+        ctx["effects"] = ctx["effects"][: ctx["next"]] + picked.bind_effects(ctx["effects"][ctx["next"]:], e["what"], value)
     src = plan.state.cards.get(ctx.get("source_card") or "")
     if e.get("remember") and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
         plan.do({"type": "set_choice", "card_id": src.id, "key": CHOICE_LABELS[e["what"]], "value": shown}, actor=d.player)
         if e["what"] in ("opponent", "player"):  # -- chosen player (wave 4J) --
-            from app.rules import chosen
+            from app.rules import chosen as picked
 
-            chosen.record(plan, src.id, value)
+            picked.record(plan, src.id, value)
     continue_effects(plan, ctx)
 
 

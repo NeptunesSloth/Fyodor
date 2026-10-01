@@ -64,6 +64,9 @@ EXTRA = [
     card("Heraldic Banner", set_code="tst", number="J411", mana_cost="{3}", cmc=3.0, type_line="Artifact",
          oracle_text="As this artifact enters, choose a color.\nCreatures you control of the chosen color get +1/+0.\n{T}: "
                      "Add one mana of the chosen color."),
+    card("Doom Cannon", set_code="tst", number="J412", mana_cost="{6}", cmc=6.0, type_line="Artifact",
+         oracle_text="As this artifact enters, choose a creature type.\n{3}, {T}, Sacrifice a creature of the chosen type: "
+                     "This artifact deals 3 damage to any target."),
 ]
 
 
@@ -430,6 +433,32 @@ def test_from_the_rubble_targets_the_chosen_type(cards):
     assert bears.zone == "p1:battlefield" and bears.counters.get("finality") == 1
     assert elves.zone == "p1:graveyard"
     assert not any(elves.id in o for o in offered)
+    replay_matches(s)
+
+
+def test_doom_cannon_sacrifices_only_the_chosen_type(cards):
+    """Doom Cannon naming Elf: "Sacrifice a creature of the chosen type" offers only Alice's Elf, not her Bear."""
+    s = build(cards, "Doom Cannon")
+    elf, bear = typed(s, "p1", "Elfy", "Elf"), typed(s, "p1", "Beary", "Bear")
+    cannon = to_hand(s, "Doom Cannon")
+    mana(s, C=6)
+    act(s, "p1", type="cast_spell", card_id=cannon.id)
+    drive(s, pick_type("Elf"))
+    mana(s, C=3)
+    act(s, "p1", type="activate_ability", card_id=cannon.id, ability=1)
+    offered = []
+
+    def pick(d):
+        ids = [o.id for o in d.options]
+        if "p2" in ids:  # (the target)
+            return ["p2"]
+        offered.append((d.prompt, set(ids)))
+        return ids[: max(1, d.min_choices)]
+
+    drive(s, pick)
+    assert all(bear.id not in ids for _, ids in offered), offered
+    assert s.state.cards[elf.id].zone == "p1:graveyard" if elf.id in s.state.cards else True
+    assert s.state.cards[bear.id].zone == "p1:battlefield" and life(s, "p2") == 37
     replay_matches(s)
 
 
