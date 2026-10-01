@@ -38,8 +38,8 @@ from typing import TYPE_CHECKING, Any
 from app.game.rules_state import CostModifier, Permission, TopReveal
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
+from app.rules import costs, selectors
 from app.rules import mana as M
-from app.rules import selectors
 from app.rules.characteristics import CardInfo, Characteristics
 
 if TYPE_CHECKING:
@@ -118,6 +118,12 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     t = _lower_first(text.strip().rstrip("."))
     if kind not in ("static", "spell"):
         return None
+    # -- costs (wave 3$) -- "As an additional cost to cast this spell, sacrifice a creature." (601.2b): paid with the
+    # rest of the cost as the spell is cast (casting.cast_spell); a wording the cost grammar can't pay stays manual
+    extra = costs.additional_cost_text(t)
+    if extra is not None:
+        ok = costs.parse_additional_cost(extra) is not None
+        return {"kind": "static", "static": "additional_cost", "cost": extra, "effects": []} if ok else None
     m = SELF_PER.fullmatch(t)
     if m:
         what = m["what"]

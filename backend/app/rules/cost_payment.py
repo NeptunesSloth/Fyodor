@@ -59,6 +59,8 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
         card = plan.state.cards.get(cid)
         if card is None or (zone.endswith(":battlefield") and (card.controller != player or not plan.in_game(card))):
             continue
+        if cid == source.id and not zone.endswith(":battlefield"):
+            continue  # -- costs (wave 3$) -- a spell's additional cost can't discard / exile the spell being cast (601.2a)
         if not selectors.matches(plan, sel, card, plan.ch(card), player, source.id):
             continue
         if comp.kind == C.REMOVE_COUNTER and card.counters.get(comp.counter or "", 0) < comp.amount:
@@ -88,7 +90,7 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str) -> s
     return None
 
 
-def choose(plan: Plan, a: A.ActivateAbility, cost: AbilityCost, card: CardInstance, what: str) -> dict[int, list[str]] | None:
+def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell, cost: AbilityCost, card: CardInstance, what: str) -> dict[int, list[str]] | None:
     """The validated objects for every part of ``cost`` that needs a choice, by component index;
     None while waiting for the payer's (private) choice. Each object pays for one part only."""
     given: dict[int, list[str]] = {}
@@ -140,7 +142,7 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     if len(chosen) != d.resume["amount"]:
         raise ActionError(f"Choose {d.resume['amount']}")
     intent = A.parse_action(d.resume["intent"])
-    assert isinstance(intent, A.ActivateAbility)
+    assert isinstance(intent, A.ActivateAbility | A.CastSpell)
     intent.cost_choices = [*intent.cost_choices, A.CostChoice(component=d.resume["component"], cards=chosen)]
     plan.rules.passed = []
     INTENTS[intent.type](plan, intent)

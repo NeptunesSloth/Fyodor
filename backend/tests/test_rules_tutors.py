@@ -15,6 +15,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.config import Settings
+from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.rules.language import parse_sentence
@@ -200,15 +201,19 @@ def test_demonic_tutor_is_a_private_search_of_the_whole_library(tcards):
     assert reloaded(s).state.model_dump(mode="json") == s.state.model_dump(mode="json")
 
 
-def test_diabolic_intent_search_line_parses_but_the_sacrifice_cost_keeps_the_card_manual(tcards):
-    """The search line is the same grammar as Demonic Tutor; "As an additional cost … sacrifice a creature"
-    (601.2b) is a casting-cost wording outside the tutor grammar, so the card as a whole is not automated."""
+def test_diabolic_intent_sacrifices_a_creature_as_an_additional_cost_then_searches(tcards):
+    """The search line is the Demonic Tutor grammar; "As an additional cost … sacrifice a creature" (601.2b) is paid
+    as the spell is cast (wave 3$): with no creature to sacrifice the cast is refused, never half-automated."""
     assert parse_sentence("search your library for a card, put that card into your hand, then shuffle") is not None
     s = table(tcards, ["Diabolic Intent"])
     give(s, B=1, C=1)
+    with pytest.raises(ActionError, match="can't pay"):
+        act(s, "p1", type="cast_spell", card_id=named(s, "Diabolic Intent").id)
+    act(s, "p1", type="create_token", player="p1", token={"name": "Bear", "type_line": "Token Creature — Bear", "power": "2", "toughness": "2"})
     act(s, "p1", type="cast_spell", card_id=named(s, "Diabolic Intent").id)
     pass_until_stack_empty(s)
-    assert rules(s).decision is not None and rules(s).decision.kind == "manual_resolution"  # (never half-automated)
+    assert not any(c.name == "Bear" for c in s.state.cards.values())
+    assert rules(s).decision is not None and rules(s).decision.kind != "manual_resolution"
 
 
 # -- tutors that put the card on top ------------------------------------------------------------

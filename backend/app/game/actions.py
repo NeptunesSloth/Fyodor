@@ -902,6 +902,9 @@ class CastSpell(_Intent):
     contributions: list[Contribution] = Field(default_factory=list, max_length=60)
     # 702.33: pay the kicker cost this many times (1 for kicker; any number for multikicker)
     kicker: int = Field(default=0, ge=0, le=20)
+    # (wave 3$) the objects chosen for the parts of an additional cost ("As an additional cost to cast this spell,
+    # sacrifice a creature"); anything missing is asked for as a decision
+    cost_choices: list[CostChoice] = Field(default_factory=list, max_length=10)
 
 
 class TurnFaceUp(_Intent):

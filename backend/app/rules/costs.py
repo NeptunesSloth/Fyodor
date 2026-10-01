@@ -255,3 +255,49 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
             return None
         found.append(Kicker(m["cost"], multi=bool(m["multi"])))
     return found[0] if len(found) == 1 else None
+
+
+# -- costs (wave 3$) -- additional costs to cast a spell (118.8, 601.2b) ----------------------------------
+_ADDITIONAL = re.compile(r"^as an additional cost to cast (?:this spell|~), (?P<cost>[^.]+)\.?$", re.IGNORECASE)
+# What a spell's additional cost may be made of: parts with chosen objects (or life / energy). Never the
+# source itself (a spell isn't on the battlefield to be sacrificed), tapping it, mana or counters on it.
+_ADDITIONAL_KINDS = frozenset({SACRIFICE, DISCARD, PAY_LIFE, PAY_ENERGY, EXILE_FROM_GRAVEYARD, RETURN_PERMANENT, TAP_OTHER})
+
+
+def additional_cost_text(line: str) -> str | None:
+    """"As an additional cost to cast this spell, sacrifice a creature." → "sacrifice a creature"."""
+    m = _ADDITIONAL.match(line.strip())
+    return m["cost"] if m else None
+
+
+def spell_additional_cost(abilities: Iterable[AbilityText]) -> AbilityCost | None:
+    """The additional cost a spell's "As an additional cost to cast this spell, …" line asks (every
+    such line, combined), or None. A line the grammar can't pay makes the spell manual (permissions
+    .define_static returns no definition), so it is never read here."""
+    parts: list[CostComponent] = []
+    for ab in abilities:
+        text = additional_cost_text(ab.text) if ab.kind != "keywords" else None
+        found = parse_additional_cost(text) if text is not None else None
+        if found is not None:
+            parts += found.components
+    return AbilityCost(components=tuple(parts), life=sum(c.amount for c in parts if c.kind == PAY_LIFE)) if parts else None
+
+
+def parse_additional_cost(text: str) -> AbilityCost | None:
+    """The parts of a spell's additional cost ("sacrifice a creature", "discard a card and pay 2 life",
+    "exile a creature card from your graveyard") as an :class:`AbilityCost` (components only), or None
+    when the engine can't pay it by itself ("you may …", "… or …" alternatives, X, a cost with no
+    chosen object): the spell then stays manual rather than being cast without its cost (601.2b)."""
+    text = text.strip()
+    if text.lower().startswith("you may") or re.search(r"\bx\b", text, re.IGNORECASE) or "," in text:
+        return None
+    parts = [p.strip() for p in re.split(r" and (?=(?:sacrifice|discard|pay|exile|return|tap) )", text)]
+    components: list[CostComponent] = []
+    for part in parts:
+        found = _component(part[:1].upper() + part[1:], "")
+        if found is None or found.kind not in _ADDITIONAL_KINDS:
+            return None
+        if found.selector is None and found.kind not in (PAY_LIFE, PAY_ENERGY):
+            return None
+        components.append(found)
+    return AbilityCost(components=tuple(components), life=sum(c.amount for c in components if c.kind == PAY_LIFE))

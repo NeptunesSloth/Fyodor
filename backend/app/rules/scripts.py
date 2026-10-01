@@ -34,7 +34,7 @@ from typing import Any, Literal
 
 from app.rules import restrictions
 from app.rules.characteristics import Characteristics
-from app.rules.costs import SACRIFICE, parse_ability_cost
+from app.rules.costs import SACRIFICE, parse_ability_cost, spell_additional_cost
 from app.rules.oracle import AbilityText, parse_abilities, split_sentences
 from app.rules.values import UNMODELED_COUNTERS
 
@@ -1404,6 +1404,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # in any other ability (an effect sacrificed it, a spell's additional cost) it isn't read
     if d is not None and "cost:sacrificed" in json.dumps(d, default=str):
         cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
+        if cost is None and d.get("kind") == "spell":  # -- costs (wave 3$) -- a spell's additional cost ("sacrifice a creature")
+            cost = spell_additional_cost(ch.abilities)
         if cost is None or not any(c.kind == SACRIFICE and c.selector is not None for c in cost.components):
             return None
     return d
@@ -1748,7 +1750,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
         return modal if modal is not None and _event_refs_ok(modal) else None
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
-    lines = [ab for ab in ch.abilities if ab.kind != "keywords" and defs.get(ab.index, {}).get("static") != "self_cost"]
+    lines = [ab for ab in ch.abilities if ab.kind != "keywords" and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost")]
     if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):
         return None
     # Each line's "target" words are the spell's target groups, in printed order (601.2c, 115.3:
