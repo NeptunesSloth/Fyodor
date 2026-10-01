@@ -100,7 +100,7 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
-        return _controlled(plan, ctx, who)
+        return _controlled_by(plan, ctx, who)
     if who.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- "all other creatures" after "Create X
         name, _, key = who[len("except:"):].partition("|")  # … tokens" (Martial Coup): other than what it made
         made = set(context.objects(plan, ctx, name))
@@ -431,9 +431,11 @@ def _other_than(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str], s
     return selectors.candidates(plan, selectors.from_key(who), ctx["controller"], source_card)
 
 
-def _controlled(plan: Plan, ctx: Context, who: str) -> list[str]:
+def _controlled_by(plan: Plan, ctx: Context, who: str) -> list[str]:
     """"each creature that player controls": "controlled:<player reference>|<selector key>"."""
     players, _, key = who[len("controlled:"):].partition("|")
+    if players == "target:0" and not ctx.get("groups"):
+        players = "target"  # (one target group: the spell's plain target)
     owners = set(_players(plan, ctx, players))
     return [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
             if plan.state.cards[c].controller in owners]
