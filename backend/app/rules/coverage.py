@@ -279,6 +279,32 @@ REFUSED += (
 )
 
 
+# -- refused look/cast-free (wave 3R5) -- look-at-the-top and cast-without-paying forms still left to the players
+# (the ones read now: app/rules/permissions.py free_cast, app/rules/looking.py; tests/test_rules_refused_look.py)
+REFUSED += (
+    (re.compile(r"\b(?:of the chosen (?:creature |card )?type|with (?:the|that) chosen name|choose a (?:nonland )?card name)\b", re.I),
+     "a value chosen as the ability resolves used as a filter (\"cards of the chosen type\", \"a card with the chosen name\"): "
+     "no selector reads the resolution's choice, and naming a card would need a prompt over the whole card pool"),
+    (re.compile(r"\bchoose two cards in your hand drawn this turn\b", re.I),
+     "Sylvan Library: which hidden cards in a hand were drawn this turn isn't tracked per card"),
+    (re.compile(r"\bas many times as you choose, you may pay 1 life, put those cards on the bottom\b", re.I),
+     "Lim-Dûl's Vault: a repeated look-and-pay loop, then a shuffle that keeps the last cards on top, isn't modelled"),
+    (re.compile(r"\byou may play (?:that card|it|one of those cards) without paying\b", re.I),
+     "\"you may play that card\" as the ability resolves: playing a land during a resolution (305.2a: it uses a land play) "
+     "isn't modelled; free casts never play lands"),
+    (re.compile(r"\bwith total mana value \w+ or less\b", re.I),
+     "choosing a set of cards or spells under a total mana value limit: not modelled"),
+    (re.compile(r"\bcast (?:the copy|the copies|any number of the copies|those copies)\b", re.I),
+     "casting a copy of a card (707.12): belongs to the copy system"),
+    (re.compile(r"\bcast target [^.]*with mana value less than or equal to [^.]*from [^.]*graveyard\b", re.I),
+     "a target card whose mana value limit is read as it resolves: the target's legality would change with it"),
+    (re.compile(r"\b(?:each opponent|each player) (?:exiles|reveals) cards from the top of their library until\b", re.I),
+     "\"until\" in several libraries at once: the resolution keeps one found card"),
+    (re.compile(r"\btapped and attacking (?:that player|defending player)\b", re.I),
+     "put onto the battlefield attacking a player the effect names (508.4: its choice isn't the controller's)"),
+)
+
+
 def refusal(text: str) -> str | None:
     """Why the engine refuses to automate this wording, if it is a known refusal (else None)."""
     for pattern, reason in REFUSED:

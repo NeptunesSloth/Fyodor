@@ -93,9 +93,10 @@ def test_wordings_are_read_and_the_rest_refused():
     assert ok is not None and ok[0] == [{"do": "free_cast", "zone": "hand", "filter": None, "optional": True, "mv": 5}]
     x = scripts.parse_effects("You may cast an instant or sorcery spell from your hand with mana value X or less without paying its mana cost.")
     assert x is not None and x[0][0]["mv"] == "x" and x[0][0]["filter"]
-    # more instructions after the cast would be lost: refused
-    assert scripts.parse_effects("You may cast a spell with mana value 3 or less from your hand without paying its mana cost. "
-                                 "Draw a card.") is None
+    # (wave 3R5) more instructions after the cast follow it (608.2g: cast during the resolution); only the cast is optional
+    more = scripts.parse_effects("You may cast a spell with mana value 3 or less from your hand without paying its mana cost. "
+                                 "Draw a card.")
+    assert more is not None and [e["do"] for e in more[0]] == ["free_cast", "draw"] and more[2] is False
     # several cards at once / no source of "that card" / a land played as this resolves: not modelled
     assert scripts.parse_effects("Exile the top card of your library. You may cast those cards without paying their mana costs.") is None
     assert scripts.parse_effects("Draw a card. You may cast that card without paying its mana cost.") is None
@@ -158,6 +159,13 @@ def test_nothing_eligible_offers_nothing(cards):
     mana(s, B=4)
     act(s, "p1", type="cast_spell", card_id=find(s, "Yahenni's Expertise").id)
     pass_until_stack_empty(s)
+    # (wave 3R5) the hand is hidden: the choice appears anyway (with nothing to pick), so the other
+    # players can't tell whether an eligible card was there
+    d = rules(s).decision
+    assert d is not None and d.player == "p1" and d.options == []
+    theirs = s.view("p2")["rules"]["decision"]
+    assert theirs["public"]["type"] == "PLAYER_MAKING_CHOICE" and "options" not in theirs
+    pick(s, [])
     assert rules(s).decision is None
     assert find(s, "Mind's Desire").zone == "p1:hand" and not s.state.zones.get("stack")
     roundtrip(s)

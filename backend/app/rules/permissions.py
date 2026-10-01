@@ -105,7 +105,7 @@ GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>p
 # as this resolves: 608.2g) / "You may cast an instant or sorcery spell from your hand with mana value X
 # or less without paying its mana cost."
 FREE_HAND = re.compile(r"^(?:you may )?cast (?:a|an) (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?(?:spell|card)(?P<h1> from your hand)?"
-                       r"(?: with mana value (?:(?P<n>\d+|X) or less|less than or equal to (?P<x2>X)))?(?P<h2> from your hand)?"
+                       r"(?: with mana value (?:(?P<n>\d+|X) or less|less than or equal to (?P<x2>[^,]+?)))?(?P<h2> from your hand)?"
                        r" without paying its mana cost$")
 # "You may cast spells from your hand without paying their mana costs." (Omniscience) / "You may cast
 # Dragon spells without paying their mana costs."
@@ -113,6 +113,146 @@ STATIC_FREE = re.compile(r"^you may cast (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?sp
 # "If you control a commander, you may cast this spell without paying its mana cost." (Fierce Guardianship)
 SELF_FREE = re.compile(r"^if you control a commander, you may cast (?:this spell|~) without paying its mana cost$")
 # -- end cast without paying (wave 3C) --
+# -- refused look/cast-free (wave 3R5) -- casts made as the ability resolves (608.2g), with more
+# instructions after them: "You may cast an instant or sorcery spell with mana value less than or
+# equal to ~'s power from among them without paying its mana cost." (the cards looked at / exiled),
+# "You may cast any number of spells with mana value X or less from among them without paying their
+# mana costs.", "You may cast up to two sorcery spells …", "You may cast target instant or sorcery
+# card with mana value 3 or less from your graveyard without paying its mana cost."
+_FREE_MV = r"with mana value (?:(?P<n>\d+|X) or less|less than or equal to (?P<v>[^,]+?))"
+FREE_AMONG = re.compile(
+    r"^(?:you may )?cast (?:(?P<q>a|an|up to (?P<k>one|two|three)|any number of) )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?(?P<sp>spells?)"
+    rf"(?: {_FREE_MV.replace('?P<n>', '?P<n1>').replace('?P<v>', '?P<v1>')})?"
+    r" from among (?P<src>them|those cards|those nonland cards|cards revealed this way|the revealed cards|the exiled cards"
+    r"|cards exiled this way|the cards exiled this way)"
+    rf"(?: {_FREE_MV.replace('?P<n>', '?P<n2>').replace('?P<v>', '?P<v2>')})?"
+    r" without paying (?:its|their) mana costs?$")
+# "Once during each of your turns, you may cast an instant or sorcery spell from your hand without paying its
+# mana cost." (Zaffai and the Tempests): a static permission used up by the cast (``consume``), on its
+# controller's own turns only, with the cast's normal timing (601.3: a permission, not a cast as something resolves)
+ONCE_FREE = re.compile(r"^once during each of your turns, you may cast (?:a|an) (?:(?P<sel>[a-z][a-z' ,-]*?) )?spell from your hand "
+                       r"without paying its mana cost$")
+FREE_TARGET = re.compile(r"^(?:you may )?cast (?P<what>target .+?) without paying its mana cost$")
+_FREE_COUNT = {"a": 1, "an": 1, "up to one": 1, "up to two": 2, "up to three": 3, "any number of": 99}
+
+
+def free_mv(n: str | None, v: str | None) -> Any:
+    """The mana value limit of a free cast: a number, "x" (the X of the spell or ability), or a
+    value read as it resolves (608.2h): "~'s power", "that damage" (the trigger event's amount),
+    "the number of Spirits you control" (app/rules/values.py). Raises ValueError if unread."""
+    from app.rules import language
+
+    if n is not None:
+        return "x" if n == "X" else int(n)
+    if v is None:
+        return None
+    if v == "X":
+        return "x"
+    if v in ("that damage", "the damage dealt", "the amount of damage dealt"):
+        return {"event_amount": 1}
+    try:
+        value = language._stat(v.replace("this creature's", "~'s"), "self")
+    except Exception as exc:  # noqa: BLE001  (language._Fail: a phrase the value grammar doesn't read)
+        raise ValueError(v) from exc
+    if not isinstance(value, dict) or "it" in value.values():
+        raise ValueError(v)  # ("its power": whose? not bound here)
+    return value
+
+
+def _free_among(text: str) -> list[dict[str, Any]] | None:
+    m = FREE_AMONG.fullmatch(text)
+    if m is None:
+        return None
+    if (m["n1"] or m["v1"]) and (m["n2"] or m["v2"]):
+        return None
+    if m["q"] is None and m["sp"] != "spells":
+        return None  # ("cast instant and sorcery spells … from among them": any number of them; "cast spell": not English)
+    key = spell_filter(m["sel"]) if m["sel"] else None
+    if m["sel"] and key is None:
+        return None
+    try:
+        mv = free_mv(m["n1"] or m["n2"], m["v1"] or m["v2"])
+    except ValueError:
+        return None
+    # "zone": "among" — resolved to the cards looked at (still in the library: "looked") or to the
+    # cards an earlier instruction moved ("that", a binding) by scripts.resolve_it
+    return [{"do": "free_cast", "zone": "among", "who": "them:card", "filter": key, "optional": True, "mv": mv,
+             "n": _FREE_COUNT[m["q"] or "any number of"]}]
+
+
+# "You may cast it without paying its mana cost if it's a spell with lesser mana value." (Rashmi, Eternities
+# Crafter), "… if its mana value is odd." (Yennett), "… if that spell's mana value is 8 or less.", "… if the
+# spell's mana value is less than the number of Mountains you control.", "… if it's an instant or sorcery spell."
+FREE_IF = re.compile(r"^(?:then )?you may cast (?:it|that card|the exiled card|the revealed card) without paying its mana cost "
+                     r"if (?P<cond>.+)$")
+_MV_OF = r"(?:its|that spell's|the spell's) mana value is"
+# "You may cast an instant or sorcery spell from your graveyard with mana value 4 or less without paying its mana
+# cost." (Diviner of Mist) / "… from a graveyard …" (every graveyard: public, 400.2)
+FREE_GY = re.compile(r"^(?:you may )?cast (?:a|an) (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell(?P<g1> from (?P<w1>your|a) graveyard)?"
+                     rf"(?: {_FREE_MV})?(?P<g2> from (?P<w2>your|a) graveyard)? without paying its mana cost$")
+
+
+def _free_if(text: str) -> list[dict[str, Any]] | None:
+    """The cast of the card just revealed / exiled, on a condition about the spell it would be: a mana
+    value limit (``mv``: at most, ``mv_lt``: less than), its parity, or a kind of spell (``filter``)."""
+    m = FREE_IF.fullmatch(text)
+    if m is None:
+        return None
+    cond = m["cond"]
+    e: dict[str, Any] = {"do": "free_cast", "zone": "that", "who": "it:card", "filter": None, "optional": True, "mv": None, "n": 1}
+    try:
+        if cond == "it's a spell with lesser mana value":  # (than the spell that triggered it: Rashmi)
+            e["mv_lt"] = {"mana_value": "event"}
+        elif (c := re.fullmatch(rf"(?:it's a spell with mana value|{_MV_OF}) (?:(?P<n>\d+) or less|less than or equal to "
+                                r"(?P<v>.+)|less than (?P<lt>.+))", cond)):
+            if c["lt"]:
+                e["mv_lt"] = free_mv(None, c["lt"])
+            else:
+                e["mv"] = free_mv(c["n"], c["v"])
+        elif (c := re.fullmatch(rf"{_MV_OF} (?P<p>odd|even)", cond)):
+            e["parity"] = c["p"]
+        elif (c := re.fullmatch(r"it's (?:a|an) (?P<sel>[a-z][a-z ,]*?) spell", cond)):
+            e["filter"] = spell_filter(c["sel"])
+            if e["filter"] is None:
+                return None
+        else:
+            return None
+    except ValueError:
+        return None
+    return [e]
+
+
+def _free_gy(text: str) -> list[dict[str, Any]] | None:
+    m = FREE_GY.fullmatch(text)
+    if m is None or bool(m["g1"]) == bool(m["g2"]):
+        return None
+    key = spell_filter(m["sel"]) if m["sel"] else None
+    if m["sel"] and key is None:
+        return None
+    try:
+        mv = free_mv(m["n"], m["v"])
+    except ValueError:
+        return None
+    return [{"do": "free_cast", "zone": "graveyard", "whose": "you" if (m["w1"] or m["w2"]) == "your" else "any",
+             "filter": key, "optional": True, "mv": mv, "n": 1}]
+
+
+def _free_target(text: str) -> tuple[list[dict[str, Any]], Any] | None:
+    """"You may cast target instant or sorcery card [with mana value N or less] from your graveyard
+    without paying its mana cost": a target card in a graveyard (public: 400.2), cast as this
+    resolves if it's still a legal target (608.2b)."""
+    m = FREE_TARGET.fullmatch(text)
+    if m is None:
+        return None
+    phrase = m["what"][len("target "):]
+    mv = re.search(rf" {_FREE_MV}(?= from )", phrase)
+    if mv and mv["v"] is not None:
+        return None  # (a limit read as it resolves: the target's legality would change with it; not modelled)
+    sel = selectors.parse(phrase)
+    if sel is None or sel.player is not None or sel.zones != ("graveyard",) or not sel.card:
+        return None
+    return [{"do": "free_cast", "zone": "target", "filter": None, "optional": True, "mv": None, "n": 1}], sel.key()
+# -- end refused look/cast-free (wave 3R5) --
 
 
 def _lower_first(s: str) -> str:
@@ -198,6 +338,13 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "permission", "zone": "hand" if m["hand"] else "any", "once": False, "flash": False,
                 "self": False, "free": True, "play": False, "cast": True, "filter": key, "effects": []}
+    m = ONCE_FREE.fullmatch(t)  # -- refused look/cast-free (wave 3R5) -- a once-each-turn free cast from the hand
+    if m:
+        key = spell_filter(m["sel"]) if m["sel"] else None
+        if m["sel"] and key is None:
+            return None
+        return {"kind": "static", "static": "permission", "zone": "hand", "once": True, "flash": False,
+                "self": False, "free": True, "play": False, "cast": True, "filter": key, "effects": []}
     # -- end cast without paying (wave 3C) --
     t = re.sub(r"^(\w+) spells and (\w+) spells ", r"\1 or \2 spells ", t)  # "kithkin spells and soldier spells you cast"
     m = STATIC_COST.fullmatch(t)
@@ -265,6 +412,15 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             return None
         return [{"do": "cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1), "filter": key,
                  "until": "next_turn" if m["until"] else "end_of_turn"}], None
+    among = _free_among(text)  # -- refused look/cast-free (wave 3R5) --
+    if among is not None:
+        return among, None
+    target = _free_target(text)
+    if target is not None:
+        return target
+    conditional = _free_if(text) or _free_gy(text)
+    if conditional is not None:
+        return conditional, None
     m = FREE_HAND.fullmatch(text)  # -- cast without paying (wave 3C) --
     if m:
         if bool(m["h1"]) == bool(m["h2"]):
@@ -272,8 +428,11 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         key = spell_filter(m["sel"]) if m["sel"] else None
         if m["sel"] and key is None:
             return None
-        return [{"do": "free_cast", "zone": "hand", "filter": key, "optional": True, "mv": "x" if (m["n"] or m["x2"]) == "X" else
-                 int(m["n"]) if m["n"] else None}], None
+        try:  # -- refused look/cast-free (wave 3R5) -- "less than or equal to that damage / ~'s power …"
+            mv = free_mv(m["n"], m["x2"])
+        except ValueError:
+            return None
+        return [{"do": "free_cast", "zone": "hand", "filter": key, "optional": True, "mv": mv}], None
     # -- refused grants/replacements (wave 3R2) -- the same permission with its duration at the end ("You may play it
     # until the end of your next turn.": 611.2a, the duration is the one stated, wherever the sentence states it) and
     # "them" for "those cards" ("You may play them until the end of your next turn.")
@@ -669,49 +828,195 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     "you may cast that card without paying its mana cost": as this resolves (608.2g) its controller
     picks one eligible card (or none); the engine then lets them cast it for {0} (118.9: X is 0,
     107.3b; kicker and other additional costs may still be paid, 118.9d). Nothing is kept: a card
-    not cast now can't be cast this way later."""
+    not cast now can't be cast this way later.
+
+    -- refused look/cast-free (wave 3R5) -- The cast happens during the resolution (608.2g: the spell
+    becomes the topmost object and the resolving spell or ability continues), so instructions after it
+    follow the cast ("Put the rest on the bottom of your library"). ``zone``: "hand", "that" (the
+    cards a binding names), "looked" (the cards looked at, still in the library), "found" (the card a
+    "… until you exile / reveal a …" stopped at), "target" (the ability's target card); ``n``: how
+    many spells may be cast this way (one at a time, each cast before the next is chosen: 608.2g
+    "which may include casting other spells this way"); the cards cast are ctx["free_cast_done"]."""
     from app.game.rules_state import DecisionOption
     from app.rules import characteristics as chars
-    from app.rules import context, values
+    from app.rules import values
     from app.rules.effects import decide
 
     pid = ctx["controller"]
-    if e["zone"] == "hand":
-        pool = list(plan.state.zones.get(zone_key(pid, "hand"), []))
-    else:
-        who = str(e.get("who") or "")
-        pool = context.objects(plan, ctx, who[len(context.PREFIX):]) if who.startswith(context.PREFIX) else []
+    done = ctx.setdefault("free_cast_done", [])
+    if sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
+        return _free_cast_over(ctx, e)
+    pool = _free_pool(plan, ctx, e)
     limit = None
     if e.get("mv") is not None:
-        limit = values.evaluate(plan, ctx, {"x": 1}) if e["mv"] == "x" else int(e["mv"])
+        limit = values.evaluate(plan, ctx, {"x": 1} if e["mv"] == "x" else e["mv"])
+    below = values.evaluate(plan, ctx, e["mv_lt"]) if e.get("mv_lt") is not None else None  # (wave 3R5: "lesser")
     options = []
     for cid in pool:
         card = plan.state.cards[cid]
         ch = chars.of(card, plan.info)
-        if not ch.types or ch.is_land or plan.rules.card_mode(cid) == "manual":
+        if not ch.types or ch.is_land or plan.rules.card_mode(cid) == "manual" or cid in done:
             continue
         if limit is not None and ch.mana_value > limit:
+            continue
+        if below is not None and ch.mana_value >= below:
+            continue
+        if e.get("parity") and ch.mana_value % 2 != (1 if e["parity"] == "odd" else 0):
             continue
         if e.get("filter") and not spell_matches(plan.state, pid, card, ch, e["filter"], plan.info):
             continue
         options.append(DecisionOption(id=cid, label=card.name or "Card", card_id=cid))
-    if not options:
+    # (cards in a hand or a library are hidden: whether a choice appears mustn't tell the other
+    # players whether one was eligible, so the looker is asked whenever there were cards to look at)
+    hidden = e["zone"] in ("hand", "looked") and bool(pool)
+    if not options and not hidden:
         plan.note(f"{plan.name(pid)} has nothing to cast without paying its mana cost")
-        return True
-    decide(plan, player=pid, kind="choose_cards", prompt="Choose a spell to cast without paying its mana cost (or none)",
-           options=options, min_choices=0, max_choices=1, resume={"step": "free_cast_pick", "ctx": ctx})
+        return _free_cast_over(ctx, e)
+    many = int(e.get("n", 1)) > 1
+    decide(plan, player=pid, kind="choose_cards",
+           prompt="Choose a spell to cast without paying its mana cost" + (" (one at a time)" if many else "") + " (or none)",
+           options=options, min_choices=0, max_choices=1, resume={"step": "free_cast_pick", "ctx": ctx, "e": e})
     return False
 
 
-def resume_free_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
-    from types import SimpleNamespace
+def _free_cast_over(ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """This free cast is over: "If you don't cast it, …" reads whether it cast anything (``did``)."""
+    from app.rules import context
 
+    done, before = ctx.get("free_cast_done") or [], ctx.get("free_cast_before") or []
+    if e.get("did"):
+        context.refs(ctx)[e["did"]] = {"kind": "payment", "ok": len(done) > len(before)}
+    ctx["free_cast_before"] = list(done)  # (a later free cast of the same ability counts afresh)
+    return True
+
+
+def found_to(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """-- refused look/cast-free (wave 3R5) -- "If you don't cast it, put it into your hand": the card a
+    "… until you exile / reveal a …" stopped at, or the one card revealed, if it is still there."""
+    pid = ctx["controller"]
+    owner = ctx.get("looked_owner") or pid
+    found = ctx.get("found")
+    looked = [c for c in ctx.get("looked") or [] if c in plan.state.zones.get(zone_key(owner, "library"), [])]
+    cid = found if found else (looked[0] if len(looked) == 1 else None)
+    card = plan.state.cards.get(cid or "")
+    if card is None or not card.zone.endswith((":exile", ":library")):
+        return True
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": pid, "zone": e["to"]}}, actor=pid)
+    return True
+
+
+def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
+    """The cards a free cast may choose from (their current objects only, 400.7)."""
+    from app.rules import context
+
+    pid = ctx["controller"]
+    zone = e["zone"]
+    if zone == "hand":
+        return list(plan.state.zones.get(zone_key(pid, "hand"), []))
+    if zone == "looked":  # still in the library they were looked at in
+        owner = ctx.get("looked_owner") or pid
+        library = plan.state.zones.get(zone_key(owner, "library"), [])
+        return [c for c in ctx.get("looked") or [] if c in library]
+    if zone == "found":
+        found = ctx.get("found")
+        card = plan.state.cards.get(found or "")
+        return [found] if found is not None and card is not None and card.zone.endswith((":exile", ":library")) else []
+    if zone == "target":
+        return [t["id"] for t in ctx.get("targets") or [] if t.get("id") in plan.state.cards
+                and plan.state.cards[t["id"]].zone.endswith(":graveyard")]
+    if zone == "graveyard":  # your graveyard, or every graveyard (public zones)
+        whose = [pid] if e.get("whose") == "you" else plan.live()
+        return [c for p in whose for c in plan.state.zones.get(zone_key(p, "graveyard"), [])]
+    who = str(e.get("who") or "")
+    return context.objects(plan, ctx, who[len(context.PREFIX):]) if who.startswith(context.PREFIX) else []
+
+
+def resume_free_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """The spell chosen is cast now, while the ability is still resolving (608.2g); the resolution
+    goes on once that cast is done (``free_cast_done``, from casting.cast_free) or abandoned
+    (cancelled while paying: ``free_cast_abandoned``, from engine.settle)."""
+    from app.game import actions as A
     from app.rules import effects
+    from app.rules.casting import cast_spell
 
     ctx = d.resume["ctx"]
+    e = d.resume.get("e") or {"n": 1}
     if not chosen:
+        _free_cast_over(ctx, e)
         effects.continue_effects(plan, ctx)
         return
-    plan.rules.free_casts.append(chosen[0])
-    effects.resume_suspend_cast(plan, SimpleNamespace(resume={"ctx": ctx, "card": chosen[0]}, player=d.player), ["yes"])
+    r = plan.rules
+    r.free_casts.append(chosen[0])
+    r.free_cast_then = {"card": chosen[0], "ctx": ctx, "e": e}
+    prev = plan.actor
+    plan.actor = d.player
+    try:
+        cast_spell(plan, A.CastSpell(card_id=chosen[0], free=True))
+    finally:
+        plan.actor = prev
+
+
+def free_cast_done(plan: Plan, card_id: str, *, cast: bool) -> None:
+    """A free cast made during a resolution is over (cast, or abandoned): carry on resolving."""
+    from app.rules import effects
+
+    r = plan.rules
+    pending = r.free_cast_then
+    if pending is None or pending["card"] != card_id:
+        return
+    r.free_cast_then = None
+    ctx, e = pending["ctx"], pending["e"]
+    if not cast:
+        r.free_casts = [c for c in r.free_casts if c != card_id]
+        _free_cast_over(ctx, e)
+        effects.continue_effects(plan, ctx)
+        return
+    ctx.setdefault("free_cast_done", []).append(card_id)
+    if e.get("exile_gy"):  # "If that spell would be put into your graveyard, exile it instead" (614.1a)
+        r.exile_if_graveyard.append(plan.oid(card_id))
+    if int(e.get("n", 1)) > 1 and not free_cast(plan, ctx, e):
+        return  # the next one is being chosen
+    _free_cast_over(ctx, e)
+    effects.continue_effects(plan, ctx)
+
+
+def free_cast_abandoned(plan: Plan) -> None:
+    """After an intent (engine.settle): a free cast begun during a resolution that no longer waits
+    for any choice and never reached the stack was cancelled (a payment cancelled: 601.2h, nothing
+    was paid); the resolution goes on without it."""
+    pending = plan.rules.free_cast_then
+    if pending is None or plan.rules.decision is not None:
+        return
+    card = plan.state.cards.get(pending["card"])
+    if card is not None and card.zone == STACK:
+        free_cast_done(plan, pending["card"], cast=True)  # (defensive: it did reach the stack)
+        return
+    plan.note(f"{plan.name(pending['ctx']['controller'])} doesn't cast it")
+    free_cast_done(plan, pending["card"], cast=False)
+
+
+def rest_exiled(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """-- refused look/cast-free (wave 3R5) -- "Put the rest / the exiled cards not cast this way on
+    the bottom of your library in a random order" / "… into your graveyard / hand": the cards an
+    earlier instruction exiled that are still those objects in exile (400.7: the ones cast are on
+    the stack now). A library is the card's owner's; "a random order" is the table's randomness,
+    recorded as moves (replay is deterministic)."""
+    from app.rules import context
+
+    pid = ctx["controller"]
+    who = str(e["who"])
+    cards = [c for c in context.objects(plan, ctx, who[len(context.PREFIX):]) if plan.state.cards[c].zone.endswith(":exile")]
+    if not cards:
+        return True
+    if e["to"] == "bottom_random":
+        order = list(cards)
+        (plan.rng or secrets.SystemRandom()).shuffle(order)
+        for cid in order:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
+                     "position": "bottom"}, actor=pid)
+        return True
+    for cid in cards:
+        to = pid if e["to"] == "hand" else plan.state.cards[cid].owner
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": to, "zone": e["to"]}}, actor=pid)
+    return True
 # -- end cast without paying (wave 3C) --

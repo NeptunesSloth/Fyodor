@@ -847,6 +847,12 @@ class RulesState(BaseModel):
     # steps and phases end" (500.4, 106.4): {"player", "mana": {sym: n}, "until": "end_of_turn" | "end_of_combat",
     # "turn"}; never more than that player's pool holds (spending uses the other mana first)
     kept_mana: list[dict[str, Any]] = Field(default_factory=list)
+    # -- refused look/cast-free (wave 3R5) -- a free cast made while a spell or ability resolves (608.2g):
+    # {"card", "ctx", "e"} — the resolution to continue once that cast is done or abandoned
+    # (app/rules/permissions.free_cast_done); and the stack objects cast "without paying" whose
+    # "If that spell would be put into your graveyard, exile it instead" applies (614.1a)
+    free_cast_then: dict[str, Any] | None = None
+    exile_if_graveyard: list[str] = Field(default_factory=list)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)

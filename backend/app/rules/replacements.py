@@ -612,6 +612,10 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
                 if cost is not None:
                     madness.append((cid, cost))
                     continue
+            if frm == "stack" and oid in r.exile_if_graveyard:  # -- refused look/cast-free (wave 3R5) -- a spell cast
+                r.exile_if_graveyard = [o for o in r.exile_if_graveyard if o != oid]  # "without paying …": "If that spell
+                replaced.append((cid, "exile", "its own cast"))  # would be put into your graveyard, exile it instead"
+                continue
             if _self_exile_instead(plan, card):
                 replaced.append((cid, "exile", card.name or "its own ability"))
                 continue

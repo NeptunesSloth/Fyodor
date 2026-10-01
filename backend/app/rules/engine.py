@@ -36,6 +36,7 @@ from app.rules import (
     delayed,
     effects,
     layers,
+    looking,
     modal_abilities,
     optional_payment,
     permissions,
@@ -154,6 +155,7 @@ def absorb_manual_events(plan: Plan) -> None:
 
 def settle(plan: Plan) -> None:
     """After every intent: state-based actions, triggered abilities, and make sure someone can act."""
+    permissions.free_cast_abandoned(plan)  # -- refused look/cast-free (wave 3R5) -- a cancelled mid-resolution cast (608.2g)
     layers.control_sync(plan)  # -- control (wave 3K) -- continuous effects first (613.1b), then state-based actions
     sba.check(plan)
     r = plan.rules
@@ -658,9 +660,18 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         card = plan.state.cards[card_id]
         plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
         return
+    if oid in plan.rules.exile_if_graveyard:  # -- refused look/cast-free (wave 3R5) -- "If that spell would be put
+        plan.rules.exile_if_graveyard = [o for o in plan.rules.exile_if_graveyard if o != oid]  # into your graveyard, exile it instead"
+        card = plan.state.cards[card_id]
+        if plan.ch(card).is_instant_or_sorcery:  # (a permanent spell enters instead: not replaced, 614.1a)
+            plan.do({"type": "move", "card_ids": [card_id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
+            return
     stack = plan.state.zones.get(STACK, [])
-    if stack and stack[-1] == card_id:
-        plan.do({"type": "resolve_top", "force": True, "tapped": tapped}, actor=controller)
+    if card_id in stack:
+        step: dict[str, Any] = {"type": "resolve_top", "force": True, "tapped": tapped}
+        if stack[-1] != card_id:  # -- refused look/cast-free (wave 3R5) -- 608.2g: spells cast while it resolved are
+            step["card_id"] = card_id  # above it now; it leaves the stack all the same (608.2n)
+        plan.do(step, actor=controller)
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
@@ -1114,6 +1125,10 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "shock": lambda plan, d, chosen: _resume_shock(plan, d, chosen),
     "suspend_cast": effects.resume_suspend_cast,
     "free_cast_pick": permissions.resume_free_cast,  # (wave 3C)
+    # -- refused look/cast-free (wave 3R5) -- piles (700.3)
+    "piles_opponent": looking.resume_opponent,
+    "piles_split": looking.resume_split,
+    "piles_pick": looking.resume_pick,
     "order_triggers": triggers.resume_order,
     "trigger_target": triggers.resume_target,
     "trigger_confirm": triggers.resume_confirm,

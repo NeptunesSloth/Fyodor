@@ -150,7 +150,7 @@ def resolve_top(state: GameState, a: A.ResolveTop) -> None:
     stack = state.zone(STACK)
     if not stack:
         raise ActionError("The stack is empty")
-    top = state.cards[stack[-1]]
+    top = state.cards[a.card_id if a.card_id in stack else stack[-1]]  # (card_id: wave 3R5, 608.2g)
     dest = (a.r.destinations.get(top.id) if a.r else None) or "delete"
     part = ops.card_part(state, top)
     if dest == "delete" or ops.is_ephemeral(top) and not dest.endswith(":battlefield"):

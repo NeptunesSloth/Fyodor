@@ -500,13 +500,17 @@ _UNTIL = re.compile(rf"(?P<verb>reveal|exile) cards from the top of {_LIB} until
 # / "that player's library" (the one looked at), a graveyard "their graveyard"
 _LIBREF = r"(?:your|that|their|that player's) library"
 _REST = (r"(?:the rest|the rest of (?:those|the) cards|the rest of them|the other|the others|the other cards|"
-         r"all other cards revealed this way) "
+         r"all other cards revealed this way|"
+         # -- refused look/cast-free (wave 3R5) -- after a free cast (608.2g): the cards it didn't cast
+         r"all revealed cards not cast this way|the exiled cards not cast this way|the exiled cards that weren't cast this way|"
+         r"all cards exiled this way that weren't cast) "
          rf"(?P<rest>into (?:your|their) graveyard|into your hand|on the bottom(?: of {_LIBREF})? in (?:any|a random) order|"
          rf"on the bottom of {_LIBREF}|(?:back )?on top of {_LIBREF} in any order)")
-_PICK_TO = ("into your hand|onto the battlefield tapped|onto the battlefield|into your graveyard|"
+_PICK_TO = ("into your hand|onto the battlefield tapped and attacking|onto the battlefield tapped|onto the battlefield|into your graveyard|"
             "on top of your library|on the bottom of your library|on the bottom of that player's library|"
             "on top of that player's library|on the bottom of that library|on top of that library")
-_PICK_DESTS = {**_DESTS, "on top of your library": "top", "on the bottom of your library": "bottom",
+_PICK_DESTS = {**_DESTS, "onto the battlefield tapped and attacking": "battlefield_attacking",  # (wave 3R5: 508.4)
+               "on top of your library": "top", "on the bottom of your library": "bottom",
                "on the bottom of that player's library": "bottom", "on top of that player's library": "top",
                "on the bottom of that library": "bottom", "on top of that library": "top"}
 _PICK = re.compile(
@@ -518,6 +522,12 @@ _PICK = re.compile(
     rf"(?:(?P<fd> face down)| (?P<to>{_PICK_TO}))?"
     rf"(?:,? (?:and |then )?(?:put )?{_REST})?")
 _REST_ALONE = re.compile(rf"(?:put {_REST}|exile (?P<exile>the rest|all other cards revealed this way))")
+# -- refused look/cast-free (wave 3R5) -- "That player exiles cards from the top of their library until they exile an
+# instant or sorcery card" (the subject's own library), and "Then that player puts the exiled cards that weren't
+# cast this way on the bottom of their library in a random order" (random: who puts them doesn't matter)
+_SUBJ_UNTIL = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) cards from the top of their library until they "
+                         r"(?:reveal|exile) (?:a|an) (?P<sel>.+)")
+_REST_THEY = re.compile(rf"(?:that player|the player) puts {_REST}")
 _OWNERS = r"(?:its owner's|their owner's|their owners'|your)"
 _TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_OWNERS} library")
 _SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
@@ -525,6 +535,37 @@ _OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that pe
 _OWNER_CHOICE = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it on their choice of the top or bottom of their library")
 _SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)?|shuffle your (?P<z>graveyard|hand and graveyard) into your library"
                       rf"|{_SUBJECTS} shuffles(?: their (?P<z2>graveyard|hand and graveyard) into their library)?)")
+
+
+# -- refused look/cast-free (wave 3R5) -- one card of each listed kind, each a different card: "You may put a
+# creature card and/or a land card from among them into your hand", "You may reveal an Angel card, a Demon card,
+# and/or a Dragon card from among them and put them into your hand", "For each card type, you may put a card of
+# that type from among the revealed cards into your hand" (205.2a: the card types a Commander deck can hold)
+_KINDS = re.compile(r"(?P<verb>you may reveal|you may put) (?P<list>(?:(?:a|an) [a-zA-Z ]+? card, )*(?:a|an) [a-zA-Z ]+? card,? "
+                    r"and/or (?:a|an) [a-zA-Z ]+? card) from among (?:them|the revealed cards)"
+                    r"(?: and put (?:them|the revealed cards|those cards))? into your hand")
+_EACH_TYPE = re.compile(r"for each card type, you may (?P<verb>put|reveal) a card of that type from among (?:them|the revealed cards)"
+                        r"(?: and put (?:it|them|the revealed cards|those cards))? into your hand")
+_COMMANDER_CARD_TYPES = ("artifact", "battle", "creature", "enchantment", "instant", "kindred", "land", "planeswalker", "sorcery")
+
+
+def _pick_kinds(text: str) -> tuple[Effects, Any] | None:
+    m = _EACH_TYPE.fullmatch(text)
+    if m:
+        words = list(_COMMANDER_CARD_TYPES)
+    else:
+        m = _KINDS.fullmatch(text)
+        if m is None:
+            return None
+        words = [re.sub(r"^(?:a|an) | card$", "", w.strip()) for w in re.split(r", and/or |,? and/or |, ", m["list"])]
+    sels = []
+    for w in words:
+        sel = selectors.parse(f"{w} card")
+        if sel is None or sel.player is not None or not sel.card:
+            raise _Fail
+        sels.append(sel.key())
+    return [{"do": "pick_looked", "n": len(sels), "sel": None, "sels": sels, "to": "hand", "optional": True,
+             "reveal": m["verb"].endswith("reveal")}], None
 
 
 def _rest(where: str) -> dict[str, Any]:
@@ -622,12 +663,21 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "exile_top", "n": count(m), "player": who, "face_down": bool(m["fd"])}], _one(group)
     if rider is not None:
         raise _Fail
+    m = _SUBJ_UNTIL.fullmatch(text)  # -- refused look/cast-free (wave 3R5) --
+    if m and not m["subj"].startswith("each"):
+        kind, key, group = ref(m["subj"])
+        do = "look_top" if m["verb"] == "reveals" else "exile_top"
+        return [{"do": do, "n": 0, "player": _who(kind, key), "until": _card_sel(m["sel"]),
+                 **({"reveal": True} if do == "look_top" else {})}], _one(group)
     m = _UNTIL.fullmatch(text)
     if m:
         who, group = _lib_owner(m["lib"])
         do = "look_top" if m["verb"] == "reveal" else "exile_top"
         return [{"do": do, "n": 0, "player": who, "until": _card_sel(m["sel"]), **({"reveal": True} if do == "look_top" else {})}], \
             _one(group)
+    kinds = _pick_kinds(text)  # -- refused look/cast-free (wave 3R5) --
+    if kinds is not None:
+        return kinds
     m = _PICK.fullmatch(text)
     if m and (m["exile"] and (m["to"] or not m["q"]) or not m["exile"] and (m["to"] is None or m["fd"])):
         m = None  # ("exile it" alone is the plain exile instruction, whatever "it" is: not a pick from among the cards looked at)
@@ -657,6 +707,9 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         if m["rest"]:
             out.append(_rest(m["rest"]))
         return out, None
+    m = _REST_THEY.fullmatch(text)  # -- refused look/cast-free (wave 3R5) --
+    if m and "random" in m["rest"]:
+        return [_rest(m["rest"])], None
     m = _REST_ALONE.fullmatch(text)
     if m:
         return [{"do": "rest_looked", "to": "exile"} if m["exile"] else _rest(m["rest"])], None
