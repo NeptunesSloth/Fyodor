@@ -91,6 +91,10 @@ class Plan:
                 # -- quoted grants (wave 2D) -- its abilities, keywords and types as they last existed (603.10a)
                 snap.abilities, snap.keywords, snap.traits = abilities, keywords, traits
         self.steps.append(resolved.model_dump(mode="json"))
+        if payload.get("type") == "rules_mana" and self.rules.kept_mana:  # -- refused copy/mana (wave 3R3) --
+            from app.rules.kept_mana import clamp  # (never more kept than the pool holds)
+
+            clamp(self.state)
         return resolved
 
     def _battlefield_types(self, payload: dict[str, Any]) -> dict[str, list[str]]:

@@ -101,7 +101,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
     return None
 
 
-_ADD_MANA = re.compile(r"^(?P<cost>[^:]+): Add ")
+# (wave 3R3: "{2}, {T}: Choose a color. Add …" (Nykthos) is a mana ability too, 605.1a: it could add mana)
+_ADD_MANA = re.compile(r"^(?P<cost>[^:]+): (?:Choose a color\. )?Add ")
 
 
 def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], str | None]:

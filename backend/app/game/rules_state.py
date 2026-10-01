@@ -843,6 +843,10 @@ class RulesState(BaseModel):
     # -- keyword actions & face-down (wave 3F) -- firebending (702.189a): the {R} each player added that
     # they don't lose as steps end until end of combat (player -> how much of the red in their pool)
     combat_mana: dict[str, int] = Field(default_factory=dict)
+    # -- refused copy/mana (wave 3R3; app/rules/kept_mana.py) -- "Until end of turn, you don't lose this mana as
+    # steps and phases end" (500.4, 106.4): {"player", "mana": {sym: n}, "until": "end_of_turn" | "end_of_combat",
+    # "turn"}; never more than that player's pool holds (spending uses the other mana first)
+    kept_mana: list[dict[str, Any]] = Field(default_factory=list)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)

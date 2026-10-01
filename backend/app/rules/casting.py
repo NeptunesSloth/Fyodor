@@ -75,6 +75,42 @@ def _chosen_color(card: CardInstance) -> str | None:
     return None
 
 
+# -- refused copy/mana (wave 3R3) -- a mana restriction "of the chosen type" (205.3m: a creature type)
+def _chosen_creature_type(card: CardInstance) -> str | None:
+    from app.rules.creature_types import CREATURE_TYPES
+
+    for key, value in card.choices.items():
+        if "creature type" in key.lower():
+            v = value.strip()
+            return v if v in CREATURE_TYPES else None
+    return None
+
+
+def _choice_cost_ok(extra: Any) -> bool:
+    """The other parts of a mana ability's cost are ones its activation pays (mana, life, the source's
+    counters …) or objects the payer chooses (Ashnod's Altar's "Sacrifice a creature")."""
+    from app.rules import costs as C
+
+    return not extra.unsupported and all(
+        c.kind in (C.MANA, C.TAP, C.PAY_LIFE) or (c.kind in (C.SACRIFICE, C.REMOVE_COUNTER) and c.selector is None)
+        or (c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random)
+        for c in extra.components)
+
+
+def _with_chosen_type(spend: str, creature_type: str) -> str:
+    import json
+
+    spec = json.loads(spend[2:])
+    for side in ("cast", "ability"):
+        alts = spec.get(side)
+        if isinstance(alts, list):
+            for alt in alts:
+                if alt.pop("chosen", False):
+                    alt["subtypes"] = sorted({*alt.get("subtypes", []), creature_type})
+    return "q:" + json.dumps(spec, sort_keys=True)
+# -- end refused copy/mana (wave 3R3) --
+
+
 def _land_mana(state: GameState, players: list[str], info: CardInfo, *, skip: str) -> set[str]:
     """Types of mana lands these players control could produce (Reflecting Pool, Exotic Orchard)."""
     out: set[str] = set()
@@ -108,6 +144,13 @@ def _mana_count(state: GameState, card: CardInstance, count: str, info: CardInfo
         return int(ch.power) if ch.power and ch.power.isdigit() else 0
     if count.startswith("counters:"):  # (wave 3M) "for each charge counter on this artifact"
         return card.counters.get(count.split(":", 1)[1], 0)
+    if count == "chosen_type":  # -- refused copy/mana (wave 3R3) -- "creatures you control of the chosen type"
+        chosen = _chosen_creature_type(card)
+        if chosen is None:
+            return 0
+        return sum(1 for cid in state.zones.get(zone_key(card.controller, "battlefield"), [])
+                   if state.cards[cid].controller == card.controller
+                   and (lambda c: c.is_creature and chosen in c.subtypes)(derive(state, state.cards[cid], chars.of(state.cards[cid], info), info)))
     what = count.split(":", 1)[1]
     n = 0
     for cid in state.zones.get(zone_key(card.controller, "battlefield"), []):
@@ -121,6 +164,11 @@ def _mana_count(state: GameState, card: CardInstance, count: str, info: CardInfo
 
 
 def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, info: CardInfo) -> tuple[tuple[str, ...], ...]:
+    if ab.instead_if and all(_controls_subtypes(state, card.controller, need, info) for need in ab.instead_if):
+        return ab.instead  # -- refused copy/mana (wave 3R3): Urza's Tower with the Mine and the Power-Plant --
+    if ab.count == "devotion":  # -- refused copy/mana (wave 3R3): Nykthos, per chosen color (700.5) --
+        found = [opt * n for opt in ab.options if (n := _devotion(state, card.controller, opt[0], info)) > 0]
+        return tuple(found)
     if ab.count:
         n = _mana_count(state, card, ab.count, info)
         return tuple(opt * n for opt in ab.options) if n > 0 else ()
@@ -139,6 +187,34 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         else:
             out.append(opt)
     return tuple(dict.fromkeys(out))
+
+
+def _devotion(state: GameState, player: str, color: str, info: CardInfo) -> int:
+    """-- refused copy/mana (wave 3R3) -- 700.5: mana symbols of that color among the mana costs of permanents
+    ``player`` controls (a hybrid symbol counts once; Phyrexian ones count, 107.4e-f; as values._devotion)."""
+    from app.rules.layers import derive
+
+    total = 0
+    for cid in state.zones.get(zone_key(player, "battlefield"), []):
+        c = state.cards[cid]
+        if c.controller != player:
+            continue
+        for sym in re.findall(r"\{([^}]+)\}", derive(state, c, chars.of(c, info), info).mana_cost or ""):
+            if color in sym.split("/"):
+                total += 1
+    return total
+
+
+def _controls_subtypes(state: GameState, player: str, need: tuple[str, ...], info: CardInfo) -> bool:
+    """-- refused copy/mana (wave 3R3) -- ``player`` controls a permanent with all these subtypes ("an Urza's
+    Power-Plant": the subtypes Urza's and Power-Plant, 205.3n), its current characteristics (613)."""
+    from app.rules.layers import derive
+
+    for cid in state.zones.get(zone_key(player, "battlefield"), []):
+        c = state.cards[cid]
+        if c.controller == player and set(need) <= derive(state, c, chars.of(c, info), info).subtypes:
+            return True
+    return False
 
 
 def _controls(state: GameState, player: str, what: str, info: CardInfo) -> bool:
@@ -173,6 +249,12 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         parsed = M.parse_mana_ability(ab.text, identity)
         if parsed is None:
             continue
+        if parsed.spend_only is not None and parsed.spend_only.startswith("q:") and '"chosen": true' in parsed.spend_only:
+            # -- refused copy/mana (wave 3R3) -- "a creature spell of the chosen type": the type chosen as it entered
+            chosen = _chosen_creature_type(card)
+            if chosen is None:
+                continue
+            parsed = replace(parsed, spend_only=_with_chosen_type(parsed.spend_only, chosen))
         cond = parsed.condition or ""
         if cond.startswith(("control:", "count:")) and \
                 not _controls(state, card.controller, cond[len("control:"):] if cond.startswith("control:") else cond, info):
@@ -183,7 +265,7 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         if parsed.extra_cost:
             extra = parse_ability_cost(parsed.extra_cost, card_name=ch.name)
             energy = extra.energy  # (wave 3E: "{T}, Pay {E}: Add …", 107.14)
-            if not extra.basic or extra.energy_x or \
+            if not (extra.basic or (parsed.chooses and _choice_cost_ok(extra))) or extra.energy_x or \
                     (extra.life and state.players[card.controller].life < extra.life) or \
                     any(card.counters.get(k, 0) < n for k, n in extra.remove_counters) or \
                     state.players[card.controller].resources.get("energy", 0) < energy:
@@ -221,6 +303,15 @@ def spend_allowed(kind: str | None, purpose: Purpose | None) -> bool:
             (source is not None and "Eldrazi" in source.subtypes and not source.colors)
     if kind == "not_nonartifact_spell":  # (wave 3M) Powerstone: any ability, or an artifact spell
         return spell is None or "Artifact" in spell.types
+    if kind.startswith("q:"):  # -- refused copy/mana (wave 3R3): the general restriction (mana.parse_spend) --
+        import json
+
+        spec = json.loads(kind[2:])
+        side, ch = ("cast", spell) if spell is not None else ("ability", source)
+        allowed = spec.get(side)
+        if ch is None or allowed is None or any(a.get("chosen") for a in allowed if isinstance(allowed, list)):
+            return False
+        return allowed == "any" or any(M.spend_alt_matches(a, ch) for a in allowed)
     return False
 
 
@@ -239,6 +330,7 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
         # energy total aren't something the solver can split (118.3: no partial payment)
         abilities = [(i, ab) for i, ab in mana_abilities(state, card, info)
                      if (usable_tap or not ab.tap) and spend_allowed(ab.spend_only, purpose)
+                     and not ab.chooses and ab.self_counter is None  # (wave 3R3: the payer's choice: by hand)
                      and not (ab.extra_cost and parse_ability_cost(ab.extra_cost, card_name=ch.name).energy)]
         rank = 0 if ch.is_land else 2 if ch.is_creature else 1
         free = [(i, ab) for i, ab in abilities if not parse_ability_cost(ab.extra_cost, card_name=ch.name).mana]
@@ -1936,6 +2028,9 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         raise ActionError(f"{ch.name}’s mana can only pay for certain things: Fyodor taps it when you cast or activate them")
     if parsed.tap and not can_use_tap_abilities(plan.state, card, ch):
         raise ActionError(f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness")
+    if parsed.chooses:  # -- refused copy/mana (wave 3R3) --
+        _activate_choosing(plan, card, ch, parsed, a)
+        return
     options = parsed.options
     if len(options) == 1:
         produce(plan, card, parsed, options[0], a.ability)
@@ -2248,6 +2343,12 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
             pay(plan, card.controller, cost, f"paid {extra.mana} to activate {plan.ch(card).name}", sources=[])
         else:
             pay(plan, card.controller, cost, f"paid {extra.mana} to activate {plan.ch(card).name}", exclude=(card.id,))
+    if ability.self_counter is not None:  # -- refused copy/mana (wave 3R3) -- the cost: a counter on the source (122.1a)
+        if not card.zone.endswith(":battlefield"):
+            raise ActionError(f"{plan.ch(card).name} isn't on the battlefield")
+        from app.rules import replace as replace_  # (the counter choke point; a cost, not an effect)
+
+        replace_.put_counters(plan, [(card.id, ability.self_counter, 1)], by=card.controller, effect=False)
     mana = _count(option)
     plan.do({"type": "rules_mana", "player": card.controller, "tap": [card.id] if ability.tap else [],
              "sacrifice": [card.id] if ability.sacrifice_self else [], "delta": mana,
@@ -2257,7 +2358,78 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
         after_mana_ability(plan, card, index, ability)
 
 
+# -- refused copy/mana (wave 3R3) -- a mana ability whose cost chooses objects (Ashnod's Altar: "Sacrifice a
+# creature: Add {C}{C}."). 605.3a / 602.2b → 601.2h: the player chooses the objects as the cost is paid (a private
+# decision, app/rules/cost_payment.py; none chosen cancels), the costs are paid all at once, then the ability
+# resolves at once (605.3a: no stack) — a color to choose is chosen then, after the costs (resume "paid").
+def _activate_choosing(plan: Plan, card: CardInstance, ch: Characteristics, parsed: M.ManaAbility,
+                       a: A.ActivateAbility) -> None:
+    cost = parse_ability_cost(parsed.extra_cost, card_name=ch.name)
+    problem = cost_payment.problem(plan, cost, card, plan.actor)
+    if problem is not None:
+        raise ActionError(problem)
+    objects = cost_payment.choose(plan, a, cost, card, ch.name or "It")
+    if objects is None:
+        return  # (the payer's choice is pending; its resume runs this intent again with it)
+    options = parsed.options
+    option: tuple[str, ...] | None = options[0] if len(options) == 1 else None
+    if option is None and a.mana_choice is not None:
+        option = next((o for o in options if o == (a.mana_choice,)), None)
+        if option is None:
+            raise ActionError(f"{ch.name} can't add {{{a.mana_choice}}}")
+    if cost.mana:
+        mana_cost = M.parse_cost(cost.mana)
+        if payment_mode(plan, card.controller) == "self":
+            if not pool_covers(plan.state, card.controller, mana_cost):
+                raise ActionError(f"Add {mana_cost.text()} to your mana pool first to activate {ch.name}")
+            pay(plan, card.controller, mana_cost, f"paid {cost.mana} to activate {ch.name}", sources=[])
+        else:
+            pay(plan, card.controller, mana_cost, f"paid {cost.mana} to activate {ch.name}",
+                exclude=cost_payment.excluded(cost, card, objects))
+    record = PaymentRecord(card=card.id, controller=card.controller)
+    cost_payment.pay(plan, cost, card, objects, record)
+    if parsed.tap or parsed.sacrifice_self or cost.life:
+        plan.do({"type": "rules_mana", "player": card.controller, "tap": [card.id] if parsed.tap else [],
+                 "sacrifice": [card.id] if parsed.sacrifice_self else [], "delta": {}, "life": cost.life,
+                 "label": f"paid to activate {ch.name}"}, actor=card.controller)
+    if option is None:
+        decide(plan, player=plan.actor, kind="choose_one", prompt=f"Which mana should {ch.name} add?",
+               options=[DecisionOption(id=str(i), label=M.symbols(_count(o))) for i, o in enumerate(options)],
+               resume={"step": "mana_ability", "card": card.id, "ability": a.ability, "paid": True,
+                       "options": [list(o) for o in options], "oid": plan.oid(card)}, source=card)
+        return
+    _add_paid_mana(plan, card, parsed, option, a.ability, plan.oid(card))
+    plan.rules.passed = []
+
+
+def _add_paid_mana(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tuple[str, ...], index: int,
+                   oid: str | None) -> None:
+    """The mana of an ability whose costs are paid (605.3a), then its riders (as ``produce``)."""
+    mana = _count(option)
+    plan.do({"type": "rules_mana", "player": card.controller, "tap": [], "sacrifice": [], "delta": mana, "life": 0,
+             "label": f"added {M.symbols(mana)}"}, actor=plan.actor)
+    emit(plan.state, "mana_added", object_id=oid, card=card.id, player=card.controller, amount=sum(mana.values()))
+    after_mana_ability(plan, card, index, ability)
+
+
+def _resume_paid_mana(plan: Plan, d: Any, chosen: list[str]) -> None:
+    card = plan.state.cards.get(d.resume["card"])
+    options = [tuple(o) for o in d.resume["options"]]
+    k = int(chosen[0]) if chosen and chosen[0].isdigit() else -1
+    if card is None or not 0 <= k < len(options):
+        raise ActionError("Choose one of the offered mana")
+    found = dict(mana_abilities(plan.state, card, plan.info)).get(int(d.resume["ability"]))
+    parsed = found if found is not None else M.ManaAbility(tap=False, sacrifice_self=False, options=tuple(options))
+    _add_paid_mana(plan, card, parsed, options[k], int(d.resume["ability"]), d.resume.get("oid"))
+    plan.rules.priority = plan.actor
+    plan.rules.passed = []
+# -- end refused copy/mana (wave 3R3) --
+
+
 def resume_mana_ability(plan: Plan, d: Any, chosen: list[str]) -> None:
+    if d.resume.get("paid"):  # -- refused copy/mana (wave 3R3): the costs are paid; the mana is added --
+        _resume_paid_mana(plan, d, chosen)
+        return
     card = plan.state.cards.get(d.resume["card"])
     if card is None:
         return

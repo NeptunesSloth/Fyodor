@@ -236,10 +236,13 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
-    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's|that spell's|(?P<self>~'s)) "
+    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's|(?P<spell>that spell's)|(?P<self>~'s)) "
                      r"(?P<stat>power|toughness|mana value)", phrase)
     if m:
-        return {_STATS[m["stat"]]: "self" if m["self"] else (its if m["its"] else "it")}
+        # -- refused copy/mana (wave 3R3) -- "that spell's": a cast/copy trigger's spell even after an instruction
+        # named another object (Deekah: "create a … token. Put X +1/+1 counters on it, where X is that spell's mana
+        # value"); scripts._bind_stats binds it ("it" where no trigger spell is meant)
+        return {_STATS[m["stat"]]: "self" if m["self"] else (its if m["its"] else "that_spell" if m["spell"] else "it")}
     m = re.fullmatch(r"twice (?P<v>.+)", phrase)
     if m:
         return {"times": [2, _stat(m["v"], its)]}

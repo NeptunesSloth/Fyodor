@@ -331,6 +331,14 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
                 "opponent_turn": plan.active != e.player, "kicked": bool(entry is not None and entry.kicked),
                 "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]}
         return [("cast", spell, plan.ch(spell), e.player, info)]
+    if e.kind == "spell_copied":  # -- refused copy/mana (wave 3R3) -- 707.10: a copy put on the stack, not cast
+        spell = plan.state.cards.get(e.card or "")
+        if spell is None or spell.zone != "stack" or plan.oid(spell) != e.object_id:
+            return []
+        entry = r.stack.get(spell.id)
+        return [("copy", spell, plan.ch(spell), e.player, {
+            "oid": e.object_id, "actor": e.player,
+            "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]})]
     if e.kind == "drew":
         return [("draw", None, None, e.player, {"amount": 1})]
     if e.kind == "cycled":  # 702.29: the card is in its owner's graveyard now (702.29c)
@@ -453,6 +461,11 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         return event in wanted and obj is not None and obj.id == watcher.id and _other_ok(plan, cond, watcher, info)
     if want in _PAIRED and cond.get("other"):
         want = _PAIRED[want]  # 509.3b / 509.3d: once per creature on the other side
+    if want == "cast" and cond.get("copy"):  # -- refused copy/mana (wave 3R3) -- magecraft (707.10)
+        if event == "copy":
+            event = "cast"
+        elif cond["copy"] == "only":
+            return False
     if want != event:
         return False
     if not _details_ok(plan, cond, watcher, fact):

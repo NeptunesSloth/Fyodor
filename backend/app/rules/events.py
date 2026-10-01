@@ -350,6 +350,19 @@ def _cast(c: str) -> Condition | None:
     """601.2i: "you cast a creature spell", "an opponent casts a spell", "you cast your second spell
     each turn", "you cast a spell that targets ~" (heroic), "you cast a spell from exile", "you
     cast a kicked spell", "you cast a spell during an opponent's turn"."""
+    # -- refused copy/mana (wave 3R3) -- magecraft: "Whenever you cast or copy an instant or sorcery
+    # spell" / "Whenever you copy a spell". 707.10: copying a spell puts a copy onto the stack under the
+    # control of the player who copies it; it isn't cast. "copy": "or" also triggers on a copy, "only"
+    # only on one (app/rules/triggers.py, the "spell_copied" event). Only the plain spell kinds: an
+    # ordinal, a zone or a target condition is about casting (refused with a copy).
+    cm = re.fullmatch(rf"{_P} (?:(?P<both>casts? or cop(?:y|ies))|cop(?:y|ies)) (?P<spell>.+)", c)
+    if cm is not None:
+        verb = "casts" if cm["p"] in ("an opponent", "a player") else "cast"
+        base = _cast(f"{cm['p']} {verb} {cm['spell']}")
+        if base is None or set(base) != {"event", "subject", "player", "spell"}:
+            return None
+        return {**base, "copy": "or" if cm["both"] else "only"}
+    # -- end refused copy/mana (wave 3R3) --
     m = re.fullmatch(rf"{_P} casts? (?P<spell>.+)", c)
     if not m:
         return None

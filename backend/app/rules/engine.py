@@ -412,6 +412,16 @@ def _mark_step(plan: Plan) -> None:
 def empty_pools(plan: Plan) -> None:
     """Mana empties from every pool at the end of each step and phase (rule 500.4)."""
     kept = effects.keyword_actions.combat_mana_kept(plan)  # -- wave 3F -- firebending: kept until end of combat
+    from app.rules import kept_mana  # -- refused copy/mana (wave 3R3): 106.4 "you don't lose this mana" --
+
+    before = {pid: p.mana.get("R", 0) for pid, p in plan.state.players.items()}
+    if plan.rules.kept_mana and kept_mana.empty(plan):
+        # (both kinds of kept mana: the firebending {R} on top of what the other effects kept, never more than was there)
+        for pid, n in kept.items():
+            add = min(n, before.get(pid, 0) - plan.state.players[pid].mana.get("R", 0))
+            if add > 0:
+                plan.do({"type": "rules_mana", "player": pid, "delta": {"R": add}}, actor=pid)
+        return
     if any(p.mana for p in plan.state.players.values()):
         plan.do({"type": "rules_mana", "player": plan.active, "empty_all": True}, actor=plan.active)
         for pid, n in kept.items():
