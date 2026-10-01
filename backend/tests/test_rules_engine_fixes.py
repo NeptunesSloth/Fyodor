@@ -183,6 +183,48 @@ def test_a_crewed_vehicle_dies_as_a_creature(cards, crewed):
     replay_matches(s)
 
 
+# -- 615: "prevent all damage … this turn" records know their source --------------------------------------
+# Trained Pronghorn (creature 1/1)
+TRAINED_PRONGHORN = "Discard a card: Prevent all damage that would be dealt to this creature this turn."
+
+
+def bolt(s, target, pid="p1"):
+    spell = named(s, "Lightning Bolt")
+    act(s, pid, type="move", card_ids=[spell.id], to={"player": pid, "zone": "hand"})
+    act(s, pid, type="add_mana", player=pid, mana={"R": 1})
+    act(s, pid, type="cast_spell", card_id=spell.id, targets=[target])
+    pass_until_stack_empty(s)
+
+
+def test_trained_pronghorn_prevents_damage_to_itself_only_as_that_object(cards):
+    """615.1 / 400.7: "this creature" is the ability's source as the object it is now (the record
+    is locked to that object and names its card) — the damage to it is prevented."""
+    s = build(cards, "Lightning Bolt", "Grizzly Bears")
+    pronghorn = token(s, "p1", "Trained Pronghorn", "1/1", TRAINED_PRONGHORN)
+    bears = named(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="activate_ability", card_id=pronghorn.id, ability=0)
+    while decision(s) is not None:  # (the card to discard)
+        answer(s, bears.id)
+    pass_until_stack_empty(s)
+    [rec] = [r for r in s.state.rules.replacements if r.get("kind") == "prevent"]
+    assert rec["source_card"] == pronghorn.id and rec["scope"]["to_oids"] == [s.state.rules.object_id(pronghorn.id)]
+    bolt(s, pronghorn.id)
+    assert s.state.cards[pronghorn.id].zone == "p1:battlefield" and not s.state.cards[pronghorn.id].damage
+    replay_matches(s)
+
+
+def test_gideon_jura_prevention_names_its_source(cards):
+    """Gideon Jura's 0: "Prevent all damage that would be dealt to him this turn" — the plain
+    "prevent all" record, locked to Gideon (no special primitive any more)."""
+    from app.rules import scripts
+
+    effects, _, _ = scripts.parse_effects(
+        "Until end of turn, ~ becomes a 6/6 Human Soldier creature that's still a planeswalker. Prevent all damage "
+        "that would be dealt to him this turn.")
+    assert effects[-1] == {"do": "prevent_all", "scope": {"combat": None, "to_objects": "self"}}
+
+
 def test_simultaneous_entries_are_timestamped_in_apnap_order(cards):
     """613.7m: the active player's permanent gets the earlier timestamp, whatever order the effect
     lists them in; both enter in one step under their own controllers."""

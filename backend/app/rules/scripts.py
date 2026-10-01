@@ -2304,9 +2304,9 @@ def _still_a(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 def _prevent_to_self(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     """Gideon: "Until end of turn, Gideon becomes a 6/6 … creature that's still a planeswalker.
     Prevent all damage that would be dealt to him this turn." — Oracle's "him" / "her" is the
-    named planeswalker itself, the ability's source (``prevent_self``: agent K's ``prevent_all``
-    locked to the source object, 615, 400.7)."""
-    return [{"do": "prevent_self"}], None
+    named planeswalker itself, the ability's source: the "~" of ``prevent_all`` (locked to the
+    source object, 615, 400.7)."""
+    return [{"do": "prevent_all", "scope": {"combat": None, "to_objects": "self"}}], None
 
 
 _RECORDING.update({"become": None})

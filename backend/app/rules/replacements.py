@@ -873,8 +873,11 @@ def resume_shield_order(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 def prevent_all(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"Prevent all [combat] damage that would be dealt [to …] [by …] this turn": a record for this
-    turn. A targeted one locks its target (the object it is now: 400.7); with no legal target left
-    nothing is recorded."""
+    turn, with its source (the object and the card: "other creatures you control" is judged from
+    it, and the prevention effect is named after it). A targeted one locks its target (the object
+    it is now: 400.7); with no legal target left nothing is recorded. "~" ("him" / "her" for a
+    planeswalker: Gideon Jura) is the source as the object it is now (400.7: once it left, a new
+    object isn't protected)."""
     from app.rules.effects import _cards
 
     scope = dict(e["scope"])
@@ -883,6 +886,12 @@ def prevent_all(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         if not oids:
             return True
         scope["by_oids" if e.get("role") == "by" else "to_oids"] = oids
+    source = ctx.get("source_object")
+    for side, locked in (("to_objects", "to_oids"), ("by_objects", "by_oids")):
+        if scope.get(side) == "self" and source:
+            del scope[side]
+            scope[locked] = [source]
     plan.rules.replacements.append({"id": secrets.token_hex(4), "kind": "prevent", "turn": plan.state.turn.number,
-                                    "controller": ctx["controller"], "source": ctx.get("source_object"), "scope": scope})
+                                    "controller": ctx["controller"], "source": source,
+                                    "source_card": ctx.get("source_card"), "scope": scope})
     return True
