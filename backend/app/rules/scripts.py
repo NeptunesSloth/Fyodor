@@ -2562,3 +2562,74 @@ _RECORDING.update({"token_copy": None})
 _MOVERS.add("token_copy")
 _TOKEN_MAKERS.add("token_copy")
 _CHOSEN["token_copy"] = "n"
+
+
+# -- mana (wave 3M): "Add {B}{B}{B}." / "Add one mana of any color." / "Add {R} for each …" as an effect (CR 106.3, 605.1a) --
+def _mana_effect(pattern: str):  # type: ignore[no-untyped-def]
+    def register(fn):  # type: ignore[no-untyped-def]
+        EFFECTS.append((re.compile("^" + pattern + "$"), fn))
+        return fn
+    return register
+
+
+_SYM = r"\{[WUBRGC]\}"
+_MANA_AMOUNT = r"(?P<n>\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X)"
+
+
+def _mana_n(word: str) -> Any:
+    from app.rules import values
+
+    v = values.parse_amount(word)
+    if v is None:
+        raise _NoMatch
+    return v
+
+
+@_mana_effect(rf"add (?P<m>(?:{_SYM})+)")
+def _add_fixed(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "add_mana", "mana": re.findall(r"\{(.)\}", m["m"])}], None
+
+
+@_mana_effect(rf"add (?P<m>{_SYM}(?:, {_SYM})*,? or {_SYM})")
+def _add_one_of(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "add_mana", "of": list(dict.fromkeys(re.findall(r"\{(.)\}", m["m"]))), "n": 1}], None
+
+
+@_mana_effect(r"add one mana of any color")
+def _add_any(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "add_mana", "of": list("WUBRG"), "n": 1}], None
+
+
+@_mana_effect(r"add one mana of any color in your commander's color identity")
+def _add_identity(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "add_mana", "of": list("WUBRG"), "n": 1, "identity": True}], None
+
+
+@_mana_effect(rf"add {_MANA_AMOUNT} mana of any one color")
+def _add_one_color(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "add_mana", "of": list("WUBRG"), "n": _mana_n(m["n"]), "same": True}], None
+
+
+@_mana_effect(rf"add {_MANA_AMOUNT} mana in any combination of colors")
+def _add_combination(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "add_mana", "of": list("WUBRG"), "n": _mana_n(m["n"])}], None
+
+
+@_mana_effect(rf"add {_MANA_AMOUNT} mana in any combination of (?P<a>{_SYM}) and/or (?P<b>{_SYM})")
+def _add_combination_two(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "add_mana", "of": [m["a"][1], m["b"][1]], "n": _mana_n(m["n"])}], None
+
+
+@_mana_effect(rf"add (?:(?P<sym>{_SYM}) for each|an amount of (?P<sym2>{_SYM}) equal to the number of) (?P<what>[^,.]+)")
+def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import values
+
+    what = m["what"]
+    if what.startswith(("card named", "color ", "different ", "creature that", "permanent ")) or " this way" in what:
+        raise _NoMatch
+    count = values.parse_count(what)
+    if count is None:
+        raise _NoMatch
+    if isinstance(count, dict) and count.get("hand") == "target":
+        raise _NoMatch  # ("cards in target opponent's hand": a player amount the pronoun binder can't carry yet: manual)
+    return [{"do": "add_mana", "sym": (m["sym"] or m["sym2"])[1], "n": count}], None

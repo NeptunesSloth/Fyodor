@@ -986,6 +986,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "trigger_slot_target": modal_abilities.resume_trigger_slot,
     "fabricate": effects.resume_fabricate,
     "storm": effects.resume_storm,
+    "add_mana": effects.resume_add_mana,  # (mana effects, wave 3M)
     "shock": lambda plan, d, chosen: _resume_shock(plan, d, chosen),
     "suspend_cast": effects.resume_suspend_cast,
     "order_triggers": triggers.resume_order,
