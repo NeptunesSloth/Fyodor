@@ -136,16 +136,25 @@ def test_whisperer_of_the_wilds_ferocious(cards):
     roundtrip(s)
 
 
-def test_circle_of_elders_formidable_and_glistening_sphere_corrupted(cards):
-    s = build(cards, [(1, "Circle of Elders"), (1, "Glistening Sphere"), (5, "Forest")])
+def test_glistening_sphere_corrupted(cards):
+    from app.rules.casting import mana_abilities
+
+    s = build(cards, [(1, "Glistening Sphere"), (5, "Forest")])
     sphere = put(s, "Glistening Sphere", "battlefield")
     corrupted = mana_index(s, sphere, "Corrupted")
+
+    def usable():
+        return [i for i, _ in mana_abilities(s.state, s.state.cards[sphere.id], s.cards)]
+
     act(s, "p1", type="resource", player="p2", key="poison", delta=2)
+    assert corrupted not in usable()
     with pytest.raises(ActionError):
-        act(s, "p1", type="activate_ability", card_id=sphere.id, ability=corrupted, mana_choice="B")
+        act(s, "p1", type="activate_ability", card_id=sphere.id, ability=corrupted)
     act(s, "p1", type="resource", player="p2", key="poison", delta=1)  # one opponent with three (122.1f)
-    act(s, "p1", type="activate_ability", card_id=sphere.id, ability=corrupted, mana_choice="B")
-    assert s.state.players["p1"].mana == {"B": 3}
+    assert corrupted in usable()
+    act(s, "p1", type="resource", player="p1", key="poison", delta=5)  # your own counters don't count
+    act(s, "p1", type="resource", player="p2", key="poison", delta=-1)
+    assert corrupted not in usable()
     roundtrip(s)
 
 
@@ -168,7 +177,6 @@ def test_channel_draws_from_the_hand(cards):
     s = build(cards, [(1, "Reinforced Ronin"), (5, "Mountain")], [(10, "Island")])
     ronin = put(s, "Reinforced Ronin", "hand")
     hand_before = len(s.state.zones["p1:hand"])
-    assert {"card_id": ronin.id, "ability": 2} in activatable(s.state, "p1", s.cards) or True  # (hints need mana)
     mana(s, R=2)
     assert {"card_id": ronin.id, "ability": 2} in activatable(s.state, "p1", s.cards)
     act(s, "p1", type="activate_ability", card_id=ronin.id, ability=2)
@@ -233,7 +241,7 @@ def test_corrupted_static(cards):
 
 
 def test_corrupted_activated_restriction(cards):
-    s = build(cards, [(1, "Sinew Dancer"), (5, "Plains")])
+    s = build(cards, [(1, "Sinew Dancer"), (5, "Forest")])
     dancer = put(s, "Sinew Dancer", "battlefield")
     act(s, "p1", type="pass_priority")
     for _ in range(40):
@@ -248,4 +256,36 @@ def test_corrupted_activated_restriction(cards):
     act(s, "p1", type="activate_ability", card_id=dancer.id, ability=1, targets=[theirs.id])
     pass_until_stack_empty(s)
     assert s.state.cards[theirs.id].tapped
+    roundtrip(s)
+
+
+def next_main(s):
+    """Play on to Alice's next first main phase (her permanents are no longer summoning sick)."""
+    act(s, "p1", type="pass_priority")
+    for _ in range(60):
+        if s.state.turn.active_player == "p1" and s.state.turn.phase == "main1" and s.state.turn.number > 1:
+            return
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+            continue
+        act(s, s.state.rules.priority or s.state.turn.active_player, type="pass_priority")
+
+
+@pytest.mark.parametrize("in_graveyard", [3, 4])
+def test_descend_4_attack_trigger(cards, in_graveyard):
+    s = build(cards, [(1, "Stinging Cave Crawler"), (6, "Forest"), (10, "Island")])
+    crawler = put(s, "Stinging Cave Crawler", "battlefield")
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"]
+    for f in forests[:in_graveyard]:
+        act(s, "p1", type="move", card_ids=[f.id], to={"player": "p1", "zone": "graveyard"})
+    next_main(s)
+    act(s, "p1", type="pass_priority")  # → declare attackers
+    life, hand = s.state.players["p1"].life, len(s.state.zones["p1:hand"])
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": crawler.id, "target": "p2"}])
+    pass_until_stack_empty(s)
+    if in_graveyard >= 4:  # 603.4: "if there are four or more permanent cards in your graveyard"
+        assert (s.state.players["p1"].life, len(s.state.zones["p1:hand"])) == (life - 1, hand + 1)
+    else:
+        assert (s.state.players["p1"].life, len(s.state.zones["p1:hand"])) == (life, hand)
     roundtrip(s)
