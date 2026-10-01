@@ -913,6 +913,9 @@ class TurnFaceUp(_Intent):
     type: Literal["turn_face_up"] = "turn_face_up"
     card_id: Id
     sources: list[Id] | None = Field(default=None, max_length=60)
+    # -- keyword actions & face-down (wave 3F) -- which way, when there are several: its morph cost
+    # (702.37e), its disguise cost (702.168d), or a manifested / cloaked creature card's mana cost (701.40b)
+    method: Literal["morph", "disguise", "mana_cost"] | None = None
 
 
 class ActivateAbility(_Intent):

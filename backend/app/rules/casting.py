@@ -1024,7 +1024,7 @@ def from_graveyard(card: CardInstance, player: str, ch: Characteristics) -> bool
 
 
 MORPH = re.compile(r"^(?P<kind>morph|megamorph) (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
-FACE_DOWN = Characteristics(name="", types=frozenset({"Creature"}), power="2", toughness="2", face_down=True)
+FACE_DOWN = chars.face_down_characteristics("morph")  # (708.2a; disguise: chars.face_down_characteristics)
 
 
 def morph_cost(ch: Characteristics) -> tuple[str, str] | None:
@@ -1037,18 +1037,54 @@ def morph_cost(ch: Characteristics) -> tuple[str, str] | None:
     return None
 
 
+# -- keyword actions & face-down (wave 3F) ------------------------------------------------------
+DISGUISE = re.compile(r"^disguise (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def disguise_cost(ch: Characteristics) -> str | None:
+    """702.168 disguise with a mana cost, from the printed card."""
+    return keyword_cost(ch, "disguise", DISGUISE)
+
+
+def face_down_cast_kind(ch: Characteristics) -> str | None:
+    """How a card may be cast face down (702.37c / 702.168b): "morph" (morph, megamorph) or "disguise"."""
+    return "morph" if morph_cost(ch) is not None else "disguise" if disguise_cost(ch) is not None else None
+
+
+def face_up_ways(card: CardInstance, printed: Characteristics) -> dict[str, tuple[str, str]]:
+    """The ways its controller may turn this face-down permanent face up, as {way: (cost, kind)}:
+    "morph" (702.37e: its morph or megamorph cost; "megamorph" as kind), "disguise" (702.168d), and
+    "mana_cost" for a manifested or cloaked permanent (701.40b / 701.58b: a creature card's mana cost
+    — not an instant or sorcery card, nor one without a mana cost; 701.40c-d / 701.58c-d: a manifested
+    or cloaked card with morph or disguise may use those too). A cost with X isn't automated."""
+    ways: dict[str, tuple[str, str]] = {}
+    found = morph_cost(printed)
+    if found is not None:
+        ways["morph"] = (found[1], found[0])
+    disguise = disguise_cost(printed)
+    if disguise is not None:
+        ways["disguise"] = (disguise, "disguise")
+    if card.face_down_kind in ("manifest", "cloak") and printed.is_creature and printed.mana_cost:
+        ways["mana_cost"] = (printed.mana_cost, "mana_cost")
+    return {w: v for w, v in ways.items() if "{X}" not in v[0]}
+
+
 def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
-    """702.37e: a special action any time you have priority (it doesn't use the stack)."""
+    """702.37e / 702.168d / 701.40b / 701.58b: a special action any time you have priority (it
+    doesn't use the stack): show the cost, pay it, turn the permanent face up (708.8: no "enters"
+    ability triggers). ``a.method`` picks the way when there are several (default: morph or
+    disguise when the card has it, else its mana cost)."""
     require_no_decision(plan)
     require_priority(plan)
     card = plan.state.cards.get(a.card_id)
     if card is None or card.controller != plan.actor or not card.zone.endswith(":battlefield") or not card.face_down:
         raise ActionError("Turn face up a face-down permanent you control")
     printed = chars.of(card.model_copy(update={"face_down": False}), plan.info)
-    found = morph_cost(printed)
-    if found is None:
-        raise ActionError(f"{printed.name} has no morph cost: turn it face up with the table tools")
-    kind, cost_text = found
+    ways = face_up_ways(card, printed)
+    method = a.method or next((w for w in ("morph", "disguise", "mana_cost") if w in ways), None)
+    if method is None or method not in ways:
+        raise ActionError("It can't be turned face up that way: turn it face up with the table tools")
+    cost_text, kind = ways[method]
     cost = M.parse_cost(cost_text)
     if payment_mode(plan, plan.actor) == "self":
         pay_from_pool(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up",
@@ -1059,10 +1095,25 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
         pay(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up", sources=a.sources,
             purpose=Purpose(ability_of=printed))
     plan.do({"type": "face_down", "card_ids": [card.id], "face_down": False})
-    if kind == "megamorph":
-        plan.do({"type": "counter", "card_ids": [card.id], "kind": "+1/+1", "delta": 1})
     emit(plan.state, "turned_face_up", object_id=plan.oid(card), card=card.id, player=plan.actor)
+    from app.rules import triggers  # (triggers imports this module)
+
+    face_up = plan.ch(plan.state.cards[card.id])
+    if not plan.manual(card):  # "When ~ is turned face up, …" (702.37e: not "enters" abilities, 708.8)
+        for i, d in triggers.abilities(plan, face_up, "turned_face_up_self"):
+            triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card),
+                          name=face_up.name, index=i, definition=d)
+    for other in list(plan.state.cards.values()):  # "Whenever a permanent you control is turned face up, …"
+        if other.zone == card.zone and other.controller == card.controller and not other.face_down and not plan.manual(other):
+            och = plan.ch(other)
+            for i, d in triggers.abilities(plan, och, "turned_face_up_you"):
+                triggers._add(plan, controller=other.controller, source_card=other.id, source_object=plan.oid(other),
+                              name=och.name, index=i, definition=d)
     plan.rules.passed = []
+    if kind == "megamorph":  # 702.37b, 708.11: the counter is put on as it's turned face up (the counter choke point)
+        from app.rules import replace as replace_effects
+
+        replace_effects.put_counters(plan, [(card.id, "+1/+1", 1)], by=plan.actor, then={"do": "face_up_done"})
 
 
 def from_command_zone(card: CardInstance, player: str) -> bool:
@@ -1252,10 +1303,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
         cast_free(plan, card, ch, a)
         return
-    if a.face_down:  # morph: a nameless 2/2 creature spell for {3}
-        if morph_cost(ch) is None or card.zone != zone_key(plan.actor, "hand"):
-            raise ActionError("Only a card with morph can be cast face down from your hand")
-        ch = FACE_DOWN
+    face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
+    if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
+        if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
+            raise ActionError("Only a card with morph or disguise can be cast face down from your hand")
+        ch = chars.face_down_characteristics(face_down_kind)
     problem = cast_problem(plan.state, plan.actor, card, ch, info=plan.info, free=a.free)
     if problem:
         raise ActionError(problem)
@@ -1339,7 +1391,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.face is not None and a.face != card.face:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     if a.face_down:
-        plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}, "face_down": True, "face_down_kind": "morph"})
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}, "face_down": True, "face_down_kind": face_down_kind})
     else:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:

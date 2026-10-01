@@ -264,6 +264,9 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
                 attack_problem(plan.state, card, plan.ch(card)) is None and targets:
             raise ActionError(f"{card.name} attacks each combat if able")
+    goad_problem = goad_requirements(plan, eligible, targets, {x.card_id: x.target for x in a.attackers})
+    if goad_problem:  # -- keyword actions & face-down (wave 3F) --
+        raise ActionError(goad_problem)
     r.decision = None
     if not a.attackers:
         r.no_attackers = True
@@ -286,6 +289,48 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     r.priority = plan.active
     r.passed = []
     advance(plan)
+
+
+# -- keyword actions & face-down (wave 3F) ------------------------------------------------------
+def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declared: dict[str, str]) -> str | None:
+    """701.15b / 508.1d for goaded creatures: a goaded creature attacks each combat if able, and
+    attacks a player other than each player who goaded it if able (701.15c: one requirement per
+    goading player; attacking a planeswalker obeys none of those). The declaration must obey as many
+    of each creature's requirements as it could without breaking a restriction (508.1d); each
+    goaded creature's requirements are judged on its own, against the places it may attack.
+    Costs to attack are never required (508.1d), and none are modelled here."""
+    from app.rules.keyword_actions import goaded_by
+
+    live = set(plan.live())
+    for cid in sorted(eligible):
+        card = plan.state.cards.get(cid)
+        if card is None:
+            continue
+        ch = plan.ch(card)
+        goaders = goaded_by(ch)
+        if not goaders or attack_problem(plan.state, card, ch) is not None:
+            continue
+        st = scripts.statics(ch)
+        if "cant_attack_alone" in st and len(eligible) == 1:
+            continue  # (it can't attack at all: alone is the only way it could)
+        places = [t for t in targets if "attack_needs_island" not in st
+                  or _controls_land(plan.state, t if t in plan.state.players else plan.state.cards[t].controller,
+                                    "Island", plan.info)]
+        if not places:
+            continue
+
+        def obeyed(place: str | None, others: set[str] = goaders & live) -> int:
+            if place is None:
+                return 0
+            return 1 + sum(1 for g in others if place in plan.state.players and place != g)
+
+        best = max(obeyed(t) for t in places)
+        if obeyed(declared.get(cid)) < best:
+            who = " or ".join(sorted(plan.name(g) for g in goaders & live)) or "anyone"
+            if cid not in declared:
+                return f"{card.name} is goaded: it attacks each combat if able"
+            return f"{card.name} is goaded: it attacks a player other than {who} if able"
+    return None
 
 
 # -- declare blockers -------------------------------------------------------------------

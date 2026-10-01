@@ -86,6 +86,9 @@ TRIGGERS = [
     (re.compile(r"^Whenever ~ enters or attacks, (?P<body>.+)$"), "enters_or_attacks_self"),
     (re.compile(r"^(?:Landfall — )?Whenever a land you control enters, (?P<body>.+)$"), "landfall"),
     (re.compile(r"^When ~ becomes the target of a spell or ability, (?P<body>.+)$"), "targeted_self"),
+    # -- keyword actions & face-down (wave 3F) -- 702.37e / 702.168d / 701.40b: fired by casting.turn_face_up
+    (re.compile(r"^When ~ is turned face up, (?P<body>.+)$"), "turned_face_up_self"),
+    (re.compile(r"^Whenever a permanent you control is turned face up, (?P<body>.+)$"), "turned_face_up_you"),
     (re.compile(r"^Whenever (?P<filter>another creature you control|a creature you control|another nontoken creature you control|"
                 r"a nontoken creature you control|another creature|a creature) enters, (?P<body>.+)$"), "enters_other"),
     # 503.1a / 504 / 505 / 507 / 513: "At the beginning of [whose] [step]" (generic: see step_trigger)
@@ -1083,7 +1086,7 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     if found is not None:
         return found
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
-                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil)\b)"):
+                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|goad)\b)"):
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
@@ -2727,3 +2730,11 @@ def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
     return _from_language(language.control_forms(m["t"]))
+
+
+# -- keyword actions & face-down (wave 3F) -- goad names its objects ("goad it" after a target, "tap it and goad
+# it"); manifest / cloak put cards onto the battlefield ("then put X +1/+1 counters on it": the face-down
+# permanent it made, app/rules/facedown.py binds it)
+_RECORDING.update({"goad": None, "manifest": None})
+_MOVERS.add("manifest")
+_CHOSEN["manifest"] = "n"

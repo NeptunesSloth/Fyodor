@@ -22,7 +22,7 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption
 from app.game.state import zone_key
-from app.rules import effects, replace, selectors, token_grammar
+from app.rules import effects, facedown, replace, selectors, token_grammar
 from app.rules.plan import Plan, decide
 
 Context = dict[str, Any]
@@ -265,10 +265,58 @@ def resume_bolster(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, r["ctx"])
 
 
+# -- keyword actions & face-down (wave 3F) ------------------------------------------------------
+# goad (701.15). Goaded is a designation (701.15b), not an ability and not copiable: a rule-modifying
+# effect on those objects ("goaded:<player>" in ``Characteristics.imposed``, read by
+# app/rules/combat.py's attack requirements), locked to the objects goaded (a new object isn't, 400.7),
+# lasting until the goading player's next turn (701.15a; ends as it begins, 500.4 / 800.4m:
+# app/rules/delayed.turn_began).
+GOADED = "goaded:"
+
+
+def goaded_by(ch: Any) -> set[str]:
+    """The players who goaded this object (701.15c: possibly several)."""
+    return {r[len(GOADED):] for r in ch.imposed if r.startswith(GOADED)}
+
+
+def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.15a: "Until the next turn of the controller of that spell or ability, that creature is
+    goaded." 701.15d: the same player goading it again has no effect (no second requirement).
+    ``controlled``: "goad each creature target player / that player controls" (``who`` names the
+    player(s))."""
+    from app.rules import delayed, layers
+
+    pid = ctx["controller"]
+    if e.get("controlled"):
+        players = set(effects._players(plan, ctx, e["who"]))
+        cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in players
+                 and plan.in_game(c) and plan.ch(c).is_creature]
+    else:
+        cards = effects._cards(plan, ctx, e["who"])
+    effects._remember(plan, ctx, e, cards)
+    fresh = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")
+             and pid not in goaded_by(plan.ch(plan.state.cards[c]))]
+    if not fresh:
+        return True
+    effect = layers.add_effect(plan, affected=[plan.oid(c) for c in fresh], layer="6", source=ctx.get("source_object"),
+                               controller=pid, imposes=(GOADED + pid,), label=f"goaded by {plan.name(pid)}")
+    effect.duration, effect.until_player, effect.turn = "next_turn", pid, plan.state.turn.number
+    markers: list[str] = []
+    for cid in fresh:
+        markers += delayed.marker_ids(plan.do({"type": "add_effect", "card_ids": [cid], "name": f"Goaded by {plan.name(pid)}"[:60],
+                                               "value": "Goaded", "text": delayed.LABELS["next_turn"]}))
+    effect.markers = markers
+    plan.note(f"{plan.name(pid)} goads {effects._labels(plan, fresh)}", fresh, actor=pid)
+    return True
+
+
 PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
+              "goad": goad, **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
 RESUME = {"amass_choose": resume_amass, "bolster_choose": resume_bolster, "connive_discard": resume_connive,
+          **facedown.RESUME,  # -- keyword actions & face-down (wave 3F) --
           **token_grammar.RESUME}
 # -- replacement effects stage 2 (wave 2E): where a keyword action goes on after a 616.1 choice --
 replace.THEN.update({"amass_rest": _amass_rest, "connive_after_draw": _connive_after_draw_then,
                      "connive_next": _connive_next_then})
+replace.THEN["face_up_done"] = lambda plan, then: None  # -- wave 3F -- (megamorph's counter: the special action is done)

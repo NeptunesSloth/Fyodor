@@ -45,7 +45,6 @@ def test_connive_pronouns_name_the_source():
 @pytest.mark.parametrize("text", [
     "Amass Foo 2.",  # not a creature type
     "Amass Orcs X, where X is that spell's mana value.",  # (the rider isn't understood here)
-    "Goad target creature.",  # 701.15: combat requirements the engine doesn't model
     "Earthbend 2.",  # 701.66: its delayed return trigger isn't modeled
     "Incubate 3.",  # 701.53: the Incubator can't transform
 ])

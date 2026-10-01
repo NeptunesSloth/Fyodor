@@ -15,6 +15,8 @@ anonymous to opponents from then on. Historical log lines are separate (``LogPar
 
 from __future__ import annotations
 
+import re
+
 from app.game.state import (
     ALL,
     OWNER_VISIBLE_ZONES,
@@ -84,3 +86,18 @@ def seers(state: GameState, card: CardInstance) -> set[str]:
     if publicly_visible(state, card):
         return {ALL}
     return {p for p in state.seat_order if can_see(state, card, p)}
+
+
+# -- keyword actions & face-down (wave 3F) ------------------------------------------------------
+def mask_face_down(state: GameState, text: str, viewer: str | None = None) -> str:
+    """708.5: text shown to players (a rules log line, a decision's prompt or option label) never
+    names a face-down spell, permanent or exiled card to a player who may not look at it. The
+    engine's messages use cached card names; each such name is replaced here (``viewer`` None: a
+    line everyone reads)."""
+    for card in state.cards.values():
+        if not card.face_down or not card.name or card.name not in text:
+            continue
+        if viewer is not None and can_see(state, card, viewer):
+            continue
+        text = re.sub(rf"(?<![\w']){re.escape(card.name)}(?![\w'])", "a face-down card", text)
+    return text

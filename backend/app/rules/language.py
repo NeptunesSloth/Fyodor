@@ -838,6 +838,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
     found = control_forms(text)  # -- control (wave 3K) --
     if found is not None:
         return found
+    found = keyword_forms(text)  # -- keyword actions & face-down (wave 3F) --
+    if found is not None:
+        return found
     if text in ("return ~ to its owner's hand", "return it to its owner's hand"):
         return [{"do": "bounce", "who": "self" if text.startswith("return ~") else "it"}], None
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|their hand|your hand|"
@@ -1692,3 +1695,71 @@ def _exchange(phrase: str) -> tuple[Effects, Any] | None:
     if a is None or a[0] != "target" or a[2] is None or not simple(a[2]):
         return None
     return [{"do": "exchange_control", "who": "target", "with": "target:1"}], [a[2], b[2]]
+
+
+# -- keyword actions & face-down (wave 3F) ------------------------------------------------------------
+# "Goad target creature [an opponent controls]", "goad up to two target creatures", "goad it / them / that
+# creature", "goad all creatures you don't control" (701.15a), and "goad each creature target player /
+# that player controls" (``controlled``: "who" names the player). Effect ``goad`` (app/rules/keyword_actions.py).
+_GOAD = re.compile(r"goad (?P<o>.+)")
+_GOAD_PLAYER = re.compile(r"goad (?:each|all) creatures? (?P<p>target player|target opponent|that player) controls?")
+
+
+# "Manifest the top card of your library", "its controller manifests the top card of their library",
+# "manifest the top two cards of your library", "cloak the top card of your library", "manifest dread",
+# "manifest dread twice / X times" (701.40a, 701.58a, 701.62a): effect ``manifest`` ("who": the player
+# who manifests, "kind", "n", "dread"; app/rules/facedown.py).
+_MANIFEST = re.compile(r"(?:(?P<p>its controller|that player|target player|target opponent|each player|each opponent) )?"
+                       r"(?P<v>manifests?|cloaks?) the top (?:(?P<n>two|three|four|five|x|\d+) cards|card) of "
+                       r"(?P<lib>your|their) library")
+_DREAD = re.compile(r"manifest dread(?: (?P<n>twice|x times|\w+ times))?")
+
+
+def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
+    if not has_primitive("manifest"):
+        return None
+    m = _DREAD.fullmatch(text)
+    if m:
+        n: Any = 1 if not m["n"] else 2 if m["n"] == "twice" else _amount(m["n"][:-6])
+        return [{"do": "manifest", "dread": True, "kind": "manifest", "who": "you", "n": n}], None
+    m = _MANIFEST.fullmatch(text)
+    if m is None:
+        return None
+    p = m["p"] or ""
+    if (p == "") != (m["v"] in ("manifest", "cloak")) or (p == "") != (m["lib"] == "your"):
+        return None  # ("you manifests", "manifest the top card of their library": not read)
+    n = 1 if m["n"] is None else _amount(m["n"])
+    who = {"": "you", "its controller": "it.controller", "that player": "that_player", "each player": "each_player",
+           "each opponent": "each_opponent", "target player": "target", "target opponent": "target"}[p]
+    group = target_group(p) if p.startswith("target ") else None
+    kind = "cloak" if m["v"].startswith("cloak") else "manifest"
+    return [{"do": "manifest", "kind": kind, "who": who, "n": n}], _one(group)
+
+
+def keyword_forms(text: str) -> tuple[Effects, Any] | None:
+    """The keyword-action wordings above; None when the sentence is not one of them."""
+    if text.startswith(("manifest", "cloak", "its controller ", "that player ", "target player ", "target opponent ",
+                        "each player ", "each opponent ")):
+        found = _manifest_forms(text)
+        if found is not None:
+            return found
+    if not text.startswith("goad ") or not has_primitive("goad"):
+        return None
+    m = _GOAD_PLAYER.fullmatch(text)
+    if m:
+        if m["p"] == "that player":
+            return [{"do": "goad", "who": "that_player", "controlled": True}], None
+        group = target_group(m["p"])
+        return ([{"do": "goad", "who": "target", "controlled": True}], _one(group)) if group is not None else None
+    m = _GOAD.fullmatch(text)
+    if m is None:
+        return None
+    try:
+        kind, key, group = ref(m["o"])
+    except _Fail:
+        return None
+    if kind not in ("target", "each", "it", "them", "host"):
+        return None  # (a player, or "goad ~": not a printed wording)
+    if kind in ("target", "each") and not on_battlefield_only(key):
+        return None
+    return [{"do": "goad", "who": _who(kind, key)}], _one(group)
