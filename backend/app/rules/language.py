@@ -232,6 +232,9 @@ def _stat(phrase: str, its: str = "it") -> Any:
     its own subject ("~ deals damage equal to its power": ~'s). Also any quantity the value
     grammar reads ("the number of lands you control", "your devotion to red", "twice its power":
     app/rules/values.py), and "~'s power" (the source's, 608.2h)."""
+    m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
+    if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
+        return {_STATS[m["stat"]]: "cost:sacrificed"}
     m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's|that spell's|(?P<self>~'s)) "
                      r"(?P<stat>power|toughness|mana value)", phrase)
     if m:
@@ -337,7 +340,8 @@ def _with_rider(text: str) -> tuple[str, Any]:
 def _rider_value(phrase: str) -> Any:
     """A rider's quantity: "its power" / "that creature's toughness" / "~'s power" (app: _stat),
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
-    if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|that spell's|~'s) (?:power|toughness|mana value)", phrase):
+    if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|that spell's|~'s|the sacrificed (?:creature|artifact|permanent|land)'s) "
+                    r"(?:power|toughness|mana value)", phrase):
         return _stat(phrase)
     v = values.parse_count(phrase, it="it")
     if v is None:
@@ -862,7 +866,7 @@ _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw
 _GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? (?:gains?|has|have) (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
 _KW_ONLY = rf"(?:{KEYWORDS})(?:(?:, and |, | and )(?:{KEYWORDS}))*"
 _LOSE_GAIN = re.compile(rf"(?P<o>.+?) loses? (?P<rm>{_KW_ONLY}) and gains? (?P<kw>{_KW_LIST})(?P<eot> until end of turn)?")
-_BITE = re.compile(r"(?P<s>.+?) deals damage equal to (?P<stat>its power|its toughness|that creature's power) to (?P<o>.+)")
+_BITE = re.compile(r"(?P<s>.+?) deals damage equal to (?P<stat>its power|its toughness|twice its power|that creature's power) to (?P<o>.+)")
 _ITS = {"target": "target", "self": "self", "host": "host"}  # what "its" names for a pump's subject
 
 
@@ -1046,7 +1050,8 @@ def _bite(text: str) -> tuple[Effects, Any] | None:
     src = "target" if group is not None else "host"
     groups = [group] if group is not None else []
     whos, parts = _objects(m["o"])
-    effects: Effects = [{"do": "damage", "who": _shift(w, len(groups)), "n": {stat: src}, "src": src} for w in whos]
+    n: Any = {stat: src} if not m["stat"].startswith("twice ") else {"times": [2, {stat: src}]}  # (sized amounts, wave 3D)
+    effects: Effects = [{"do": "damage", "who": _shift(w, len(groups)), "n": n, "src": src} for w in whos]
     return effects, _out(groups + parts)
 
 

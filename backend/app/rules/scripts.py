@@ -25,6 +25,7 @@ Every template is covered by ``tests/test_rules_scripts.py`` (parsing) and the s
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterator
 from dataclasses import replace
@@ -33,7 +34,7 @@ from typing import Any, Literal
 
 from app.rules import restrictions
 from app.rules.characteristics import Characteristics
-from app.rules.costs import parse_ability_cost
+from app.rules.costs import SACRIFICE, parse_ability_cost
 from app.rules.oracle import AbilityText, parse_abilities, split_sentences
 from app.rules.values import UNMODELED_COUNTERS
 
@@ -425,6 +426,11 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
     def stat_ref(index: int) -> Any:
         intro = objects(index, 1, None)
         if intro is not None:
+            if not intro.recording and intro.do not in _MOVERS and _group_of(out[intro.index]) is not None:
+                # -- sized amounts (wave 3D) -- a plain target ("Put a +1/+1 counter on target creature you control.
+                # Then that creature deals damage equal to its power"): the target itself, as it is (or was: 608.2h)
+                g = _group_of(out[intro.index])
+                return "target" if groups is None else f"target:{g}"
             return "ref:" + bound(intro)
         # (the source's own power, as it is or as it last existed: values._object reads its LKI)
         if antecedent in ("self", "self_gone"):
@@ -501,20 +507,28 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if "n" in e:
                 e["n"] = _bind_stats(e["n"], lambda at=index: stat_ref(at))
             if e.get("src") == "it":
-                if any(i.index < index and (i.do in _MOVERS or _group_of(out[i.index]) is not None
-                                            or out[i.index].get("who") == "host") for i in intros) \
-                        or antecedent not in ("self", "self_gone", "event", "event_gone"):
-                    # (the target — or what an earlier instruction moved, or "tap enchanted creature.
-                    # It deals …" — not the source, deals the damage / explores)
-                    return None
-                if antecedent in ("event", "event_gone"):
-                    # -- sized amounts (wave 3D) -- "Whenever a creature you control enters, it deals damage equal
-                    # to its power": the trigger's object deals it (as it is, or as it last existed: 608.2h)
-                    if e.get("do") != "damage":
-                        return None
+                if any(i.index < index and out[i.index].get("who") == "host" for i in intros):
+                    return None  # ("tap enchanted creature. It deals …": the host, not the source)
+                if e.get("do") != "damage" and any(
+                        i.index < index and (i.do in _MOVERS or _group_of(out[i.index]) is not None) for i in intros):
+                    return None  # (an explore of the target, not the source)
+                found = objects(index, 1, None) if e.get("do") == "damage" else None
+                if found is not None:
+                    # -- sized amounts (wave 3D) -- "… Then that creature deals damage equal to its power to …": the object
+                    # an earlier instruction named (its target, or what it moved / chose), the damage's source
+                    if found.do in _MOVERS or _group_of(out[found.index]) is None:
+                        e["src"] = "ref:" + bound(found)
+                    else:
+                        g = _group_of(out[found.index])
+                        e["src"] = "target" if groups is None else f"target:{g}"
+                elif antecedent in ("event", "event_gone") and e.get("do") == "damage":
+                    # "Whenever a creature you control enters, it deals damage equal to its power": the trigger's
+                    # object deals it (as it is, or as it last existed: 608.2h)
                     e["src"] = "event"
-                else:
+                elif antecedent in ("self", "self_gone"):
                     del e["src"]
+                else:
+                    return None
             if e.get("do") in _RECORDING or _group_of(e) is not None:
                 intros.append(_Introducer(index, e, groups))
     except _NoMatch:
@@ -1119,6 +1133,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     for i, sentence in enumerate(texts):
         text = _lower_first(sentence.rstrip(".").strip())
+        if i > 0 and text.startswith("then "):
+            text = text[5:]  # -- sized amounts (wave 3D) -- "Then that creature deals …": the sentences already run in order
         prev_start, start = start, len(effects)
         sentences.append(start)
         if (kicked := _KICKED.match(text)) is not None:
@@ -1363,6 +1379,18 @@ def parse_anthem(text: str) -> Definition | None:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    d = _define(ability, ch)
+    # -- sized amounts (wave 3D) -- "the sacrificed creature's power" reads what a *cost* sacrificed (the payment record):
+    # in any other ability (an effect sacrificed it, a spell's additional cost) it isn't read
+    if d is not None and "cost:sacrificed" in json.dumps(d, default=str):
+        cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
+        if cost is None or not any(c.kind == SACRIFICE and c.selector is not None for c in cost.components):
+            return None
+    return d
+
+
+def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
+    """The engine definition of one ability, or None (manual)."""
     text = self_text(ability.text, ch.name)
     if ability.kind == "static":
         # replacement / prevention effects of the permanent itself (the block at the end of this
@@ -1390,6 +1418,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if ability.kind == "triggered":
         for pattern, trigger in TRIGGERS:
             m = pattern.match(text)
+            if m and trigger == "cast_you" and re.search(r"\bthat spell\b", m["body"]):
+                continue  # -- sized amounts (wave 3D) -- it reads the spell cast: the generic condition's event carries it
             if m:
                 name = step_trigger(m) if trigger == "step" else trigger
                 # -- trigger limits (app/rules/restrictions.py): "This ability triggers only once
@@ -1471,7 +1501,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         parsed_restriction = restrictions.parse(text) if restriction is not None else []
         if parsed_restriction is None:
             return None
-        parsed = parse_effects(body)
+        # -- sized amounts (wave 3D) -- "Sacrifice this creature: It deals damage equal to its power": "it" is the source
+        # the cost put into a graveyard (its last known information: 608.2h)
+        gone = cost.sacrifice_self or re.search(r"\b(?:[Dd]iscard|[Ee]xile) (?:this card|~)", ability.cost or "") is not None
+        parsed = parse_effects(body, "self_gone" if gone else None)
         if parsed is None or parsed[2]:
             return None
         effects, target, _ = parsed

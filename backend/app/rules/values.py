@@ -369,6 +369,14 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         from app.rules.effects import target_refs  # (effects imports this module)
 
         refs = [(t["id"], t.get("object_id")) for t in target_refs(ctx, who)]
+    if who == "cost:sacrificed":  # -- sized amounts (wave 3D) -- "the sacrificed creature's power": what a cost sacrificed, as it last existed
+        from app.rules.triggers import _snapshot_card
+
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        oids = record.sacrificed_objects if record is not None else []
+        snap = plan.rules.lki.get(oids[0]) if len(oids) == 1 else None
+        return _snapshot_card(plan, snap) if snap is not None else None
     if who == "event" or who.startswith("ref:"):  # the trigger event's object, or an earlier effect's
         from app.rules import context  # (as it is, or as it last existed: 603.10a, 608.2h)
 

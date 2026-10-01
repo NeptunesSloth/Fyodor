@@ -193,5 +193,6 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
         from app.rules.triggers import sacrificing  # (the event "whenever you sacrifice …" triggers on)
 
         sacrificing(plan, sacrifice)
+        record.sacrificed_objects += [plan.oid(c) for c in sacrifice]  # (wave 3D: "the sacrificed creature's power", 608.2h)
         plan.do({"type": "move", "card_ids": sacrifice, "to": {"zone": "graveyard"}})
         record.sacrificed += sacrifice
