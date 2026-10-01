@@ -180,6 +180,10 @@ def collect(plan: Plan) -> None:
     """Look at the events since the last look (603.2)."""
     r = plan.rules
     delayed.expire(plan)  # "for as long as …" effects whose duration ended (611.2b; app/rules/delayed.py)
+    # -- counters & designations (wave 3E): daybound / nightbound permanents (702.145c-g), before any trigger is looked at
+    from app.rules import designations
+
+    designations.day_night_sync(plan)
     if any(e.batch > r.batch for e in r.events):
         # An event recorded after the step's last table change (a spell becoming cast, 601.2i)
         # is its own batch: close it now, before anyone would receive priority (603.3), rather
@@ -191,6 +195,10 @@ def collect(plan: Plan) -> None:
     r.trigger_batch = max(e.batch for e in new)
     _generic_events(plan, new)
     delayed.on_events(plan, new)  # "when that creature dies this turn" (603.7; app/rules/delayed.py)
+    # -- counters & designations (wave 3E): 726.2 "whenever a player takes the initiative" --
+    from app.rules import designations
+
+    designations.on_events(plan, new)
     for e in new:
         if e.kind == "spell_cast" and not e.manual:
             _cast_triggers(plan, e.card or "", e.player or "")
@@ -323,6 +331,10 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         return _damage_facts(plan, e)
     if e.kind == "player_counters" and e.amount > 0 and e.player:  # -- counters & designations (wave 3E): 122.6 a player got counters --
         return [("player_counters", None, None, e.player, {"counter": e.counter, "amount": e.amount})]
+    if e.kind == "designation":  # -- counters & designations (wave 3E) --
+        from app.rules import designations
+
+        return designations.facts(plan, e)
     return []
 
 
@@ -1083,6 +1095,10 @@ def blocked(plan: Plan, blockers: list[CardInstance], attackers: list[CardInstan
              if b.blocking in plan.state.cards]
     generic_combat(plan, "block", list({c.id: c for c in blockers}.values()), pairs)
     generic_combat(plan, "blocked", list({c.id: c for c in attackers}.values()), [(a, b) for b, a in pairs])
+    # -- counters & designations (wave 3E): the Ring's third ability (701.54c) --
+    from app.rules import designations
+
+    designations.ring_blocked(plan, [(a, b) for b, a in pairs])
     for card in {c.id: c for c in [*blockers, *attackers]}.values():
         if plan.manual(card):
             continue
@@ -1096,6 +1112,10 @@ def blocked(plan: Plan, blockers: list[CardInstance], attackers: list[CardInstan
 def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> None:
     """702.112 renown N: "When this creature deals combat damage to a player, if it isn't renowned,
     put N +1/+1 counters on it and it becomes renowned." (Checked again on resolution.)"""
+    # -- counters & designations (wave 3E): the Ring's fourth ability (701.54c) --
+    from app.rules import designations
+
+    designations.ring_damage(plan, sources)
     for card in sources:
         if plan.manual(card):
             continue
@@ -1113,6 +1133,10 @@ def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> No
 
 def attacked(plan: Plan, attackers: list[CardInstance]) -> None:
     generic_combat(plan, "attack", attackers)
+    # -- counters & designations (wave 3E): the Ring's second ability (701.54c) --
+    from app.rules import designations
+
+    designations.ring_attacks(plan, attackers)
     if len(attackers) == 1:
         _exalted(plan, attackers[0])
     for card in attackers:

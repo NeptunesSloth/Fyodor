@@ -752,7 +752,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if sel is None or sel.player is not None:
             raise _Fail
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
-    found = player_counters(text, rider)  # -- counters & designations (wave 3E) --
+    found = player_counters(text, rider) or (designation_instruction(text) if rider is None else None)  # (wave 3E)
     if found is not None:
         return found
     # -- damage ---------------------------------------------------------------------------------
@@ -1632,7 +1632,9 @@ _PC_FORMS = (
 def player_counters(text: str, rider: Any) -> tuple[Effects, Any] | None:
     """"<player(s)> get(s) N <kind> counter(s)" → ``player_counter`` (through the counter choke
     point, app/rules/replace.put_counters: Vorinclex / Winding Constrictor), or None when the
-    sentence isn't one."""
+    sentence isn't one. "They get …" is "that player gets …" (the pronoun binder decides who that is:
+    the trigger event's player, or nobody — then it's refused)."""
+    text = re.sub(r"^they get ", "that player gets ", text)
     for i, rx in enumerate(_PC_FORMS):
         m = rx.fullmatch(text)
         if m is None:
@@ -1651,4 +1653,30 @@ def player_counters(text: str, rider: Any) -> tuple[Effects, Any] | None:
         else:
             n = _apply(_amount(m["n"]), rider)
         return [{"do": "player_counter", "who": who, "counter": kind, "n": n}], _value_target(n, target)
+    return None
+
+
+# Designations (app/rules/designations.py): "target player becomes the monarch" (725), "you take the
+# initiative" (726), "venture into the dungeon" / "venture into Undercity" (701.49, 701.49d), "the Ring
+# tempts you" (701.54).
+_MONARCH = re.compile(_SUBJ + r"becomes? the monarch")
+_INITIATIVE = re.compile(_SUBJ + r"takes? the initiative")
+_VENTURE = re.compile(r"(?:you )?venture into (?P<into>the dungeon|Undercity)")
+_RING = re.compile(r"the Ring tempts you")
+
+
+def designation_instruction(text: str) -> tuple[Effects, Any] | None:
+    for rx, do in ((_MONARCH, "monarch"), (_INITIATIVE, "initiative")):
+        m = rx.fullmatch(text)
+        if m:
+            who, target = _subject(m)
+            return [{"do": do, "who": who}], target
+    m = _VENTURE.fullmatch(text)
+    if m:
+        return [{"do": "venture", "who": "you", "into": "undercity" if m["into"] == "Undercity" else "dungeon"}], None
+    if _RING.fullmatch(text):
+        return [{"do": "ring_tempts", "who": "you"}], None
+    m = re.fullmatch(r"it becomes (?P<v>day|night)", text)  # 731.1
+    if m:
+        return [{"do": "day_night", "value": m["v"]}], None
     return None

@@ -282,6 +282,9 @@ EventKind = Literal[
     # -- copy system (wave 2F): a copy of a spell was put onto the stack (707.10: not cast); the
     # object is the copy, ``source`` the spell it copies, ``player`` its controller
     "spell_copied",
+    # -- counters & designations (wave 3E): ``counter`` = "monarch" | "initiative" | "day" | "night" |
+    # "ring" (701.54d: the Ring tempted ``player``) | "dungeon" (309.7: ``player`` completed a dungeon)
+    "designation",
 ]
 
 
@@ -846,7 +849,7 @@ class Capture:
     compares against to find zone changes, counters and taps, and the objects' last known
     information for anything that leaves the battlefield or the stack."""
 
-    __slots__ = ("zones", "snaps", "resources", "types")
+    __slots__ = ("zones", "snaps", "resources", "types", "designations")
 
     def __init__(self, state: GameState) -> None:
         self.zones = {cid: c.zone for cid, c in state.cards.items()}
@@ -854,6 +857,8 @@ class Capture:
             cid: snapshot(state, cid) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES
         }
         self.resources = {pid: dict(p.resources) for pid, p in state.players.items()}
+        # -- counters & designations (wave 3E) -- the monarch (725), the initiative (726), day / night (731)
+        self.designations = (state.table.monarch, state.table.initiative, state.table.day_night)
         # card id -> card types as they are now (layers applied) for the permanents the rules engine
         # is about to move off the battlefield (set by Plan.do; empty for a step made by hand)
         self.types: dict[str, list[str]] = {}
@@ -1017,6 +1022,16 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
             delta = p.resources.get(kind, 0) - old.get(kind, 0)
             if delta:
                 emit(state, "player_counters", player=pid, counter=kind, amount=delta)
+    # -- counters & designations (wave 3E) -- a player became the monarch (725.3) / took the initiative
+    # (726.3), day became night or night day (731.1a): ``counter`` names the designation, ``from_zone``
+    # what it was ("" for none)
+    monarch, initiative, day_night = before.designations
+    if state.table.monarch != monarch and state.table.monarch:
+        emit(state, "designation", player=state.table.monarch, counter="monarch", from_zone=monarch or "")
+    if state.table.initiative != initiative and state.table.initiative:
+        emit(state, "designation", player=state.table.initiative, counter="initiative", from_zone=initiative or "")
+    if state.table.day_night != day_night and state.table.day_night:
+        emit(state, "designation", counter=state.table.day_night, from_zone=day_night or "")
     departures.clear()
 
 

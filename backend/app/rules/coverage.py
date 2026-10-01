@@ -102,6 +102,20 @@ def definition_supported(d: dict[str, Any]) -> bool:
     return True
 
 
+# -- counters & designations (wave 3E) -----------------------------------------------------------------
+# Player counters with rules (energy 107.14, experience, poison 704.5c, rad 728), the monarch (725), the
+# initiative (726), venture into the dungeon (701.49, 309) and the Ring tempts you (701.54) are carried out
+# by app/rules/designations.py. A card that ventures (or takes the initiative: 726.2 ventures into Undercity)
+# is carried out, but it is FULL only while every room it may lead into is automated too
+# (designations.room_definition; an "engine:dungeon" feature otherwise): goad (Undercity's Arena), Oubliette,
+# Mad Wizard's Lair and Throne of the Dead Three are resolved by hand.
+def counters_designations_gap(d: dict[str, Any]) -> str | None:
+    from app.rules import designations
+
+    return designations.unautomated(d)
+# -- end counters & designations (wave 3E) --
+
+
 # -- replacement effects stage 2 (wave 2E) -----------------------------------------------------------
 # The events app/rules/replace.py applies statics to (app/rules/replace_grammar.py) and the ops it
 # carries out for each, every one with scenario tests in tests/test_rules_replacements2.py. A parsed
@@ -169,6 +183,8 @@ SUPPORTED_KEYWORDS: set[str] = {
     "convoke",
     # 702.125 undaunted: costs {1} less for each opponent (permissions.self_reduction)
     "undaunted",
+    # -- counters & designations (wave 3E) -- 702.145 day and night (app/rules/designations.py day_night_sync)
+    "daybound", "nightbound",
 }
 
 
@@ -224,10 +240,9 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
                 r"lifelink|menace|vigilance|first strike|double strike|hexproof|indestructible)\b", re.I),
      "a condition about the abilities an object has (\"if that creature has toxic\"): only its characteristics (types, "
      "colors, power, toughness, mana value) are read"),
-    (re.compile(r"\bif you have a full party\b|\bcompleted a dungeon\b|\bif it's (?:day|night)\b|"
-                r"\bthis is the \w+ time this ability has resolved this turn\b", re.I),
-     "party size, dungeon progress, the day/night designation and how often an ability resolved this turn: not tracked "
-     "as state a condition can read"),
+    # (wave 3E: "you've completed a dungeon" and "it's day / night" are read now: app/rules/designations.py)
+    (re.compile(r"\bif you have a full party\b|\bthis is the \w+ time this ability has resolved this turn\b", re.I),
+     "party size and how often an ability resolved this turn: not tracked as state a condition can read"),
 )
 
 
@@ -355,6 +370,13 @@ def features_of(ch: Characteristics) -> list[Feature]:
             add("mana:ability", ab.text, "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None)
         else:
             add(f"text:{ab.index}", ab.text, ab.index in templated)
+    # -- counters & designations (wave 3E) -- the dungeon rooms a venture may lead into (automated or not)
+    defs = templates.definitions(ch)
+    gaps = {g for i in templated if i in defs and (g := counters_designations_gap(defs[i])) is not None}
+    if ch.is_instant_or_sorcery and templated and (whole := templates.spell_definition(ch)) is not None:
+        gaps |= {g for g in [counters_designations_gap(whole)] if g is not None}
+    for gap in sorted(gaps):
+        add("engine:dungeon", gap[0].upper() + gap[1:], False)
     return out
 
 

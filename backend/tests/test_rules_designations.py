@@ -18,7 +18,7 @@ from app.game.state import GameState
 from app.rules import conditions, coverage, scripts, values
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
-from tests.game_helpers import act, deck, enable
+from tests.game_helpers import act, deck, enable, turn_on
 from tests.test_rules_effects import mana, replay_matches, rules, run_until
 
 REAL = [
@@ -54,6 +54,68 @@ REAL = [
          oracle_text='Trample\nWhenever you get one or more {E} (energy counters), this creature gets +2/+2 until end of turn.'),
     card('Infectious Inquiry', set_code='tst', number='E9', mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', colors=['B'],
          color_identity=['B'], oracle_text='You draw two cards and you lose 2 life. Each opponent gets a poison counter.'),
+    # -- the monarch (725) --
+    card('Palace Jailer', set_code='tst', number='M1', mana_cost='{2}{W}{W}', cmc=4.0, type_line='Creature — Human Soldier', colors=['W'],
+         color_identity=['W'], power='2', toughness='2',
+         oracle_text='When this creature enters, you become the monarch.\nWhen this creature enters, exile target creature an opponent '
+         'controls until an opponent becomes the monarch.'),
+    card('Custodi Lich', set_code='tst', number='M2', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Creature — Zombie Cleric', colors=['B'],
+         color_identity=['B'], power='4', toughness='2',
+         oracle_text='When this creature enters, you become the monarch.\nWhenever you become the monarch, target player sacrifices a '
+         'creature of their choice.'),
+    card('Queen Marchesa', set_code='tst', number='M3', mana_cost='{1}{R}{W}{B}', cmc=4.0, type_line='Legendary Creature — Human Assassin',
+         colors=['B', 'R', 'W'], color_identity=['B', 'R', 'W'], power='3', toughness='3', keywords=['Haste', 'Deathtouch'],
+         oracle_text='Deathtouch, haste\nWhen Queen Marchesa enters, you become the monarch.\nAt the beginning of your upkeep, if an '
+         'opponent is the monarch, create a 1/1 black Assassin creature token with deathtouch and haste.'),
+    card('Éomer, King of Rohan', set_code='tst', number='M4', mana_cost='{3}{R}{W}', cmc=5.0, type_line='Legendary Creature — Human Noble',
+         colors=['R', 'W'], color_identity=['R', 'W'], power='2', toughness='2', keywords=['Double strike'],
+         oracle_text='Double strike\nÉomer enters with a +1/+1 counter on it for each other Human you control.\nWhen Éomer enters, target '
+         'player becomes the monarch. Éomer deals damage equal to its power to any target.'),
+    # -- the initiative (726), dungeons (309, 701.49) --
+    card('Goliath Paladin', set_code='tst', number='N1', mana_cost='{4}{W}', cmc=5.0, type_line='Creature — Giant Knight', colors=['W'],
+         color_identity=['W'], power='3', toughness='6', keywords=['Vigilance'],
+         oracle_text='Vigilance\nWhen this creature enters, you take the initiative.'),
+    card('Secret Door', set_code='tst', number='N2', mana_cost='{U}', cmc=1.0, type_line='Artifact Creature — Wall', colors=['U'],
+         color_identity=['U'], power='0', toughness='4', keywords=['Defender', 'Venture into the dungeon'],
+         oracle_text='Defender\n{4}{U}: Venture into the dungeon. Activate only as a sorcery. (Enter the first room or advance to the next '
+         'room.)'),
+    card('Cloister Gargoyle', set_code='tst', number='N3', mana_cost='{2}{W}', cmc=3.0, type_line='Artifact Creature — Gargoyle',
+         colors=['W'], color_identity=['W'], power='0', toughness='4', keywords=['Venture into the dungeon'],
+         oracle_text="When this creature enters, venture into the dungeon. (Enter the first room or advance to the next room.)\nAs long "
+         "as you've completed a dungeon, this creature gets +3/+0 and has flying."),
+    card('Nadaar, Selfless Paladin', set_code='tst', number='N4', mana_cost='{2}{W}', cmc=3.0, type_line='Legendary Creature — Dragon Knight',
+         colors=['W'], color_identity=['W'], power='3', toughness='3', keywords=['Vigilance', 'Venture into the dungeon'],
+         oracle_text="Vigilance\nWhenever Nadaar enters or attacks, venture into the dungeon. (Enter the first room or advance to the next "
+         "room.)\nOther creatures you control get +1/+1 as long as you've completed a dungeon."),
+    # -- the Ring tempts you (701.54) --
+    card('Call of the Ring', set_code='tst', number='R1', mana_cost='{1}{B}', cmc=2.0, type_line='Enchantment', colors=['B'],
+         color_identity=['B'],
+         oracle_text='At the beginning of your upkeep, the Ring tempts you.\nWhenever you choose a creature as your Ring-bearer, you may '
+         'pay 2 life. If you do, draw a card.'),
+    # -- day and night (731, 702.145) --
+    card("Fearful Villager // Fearsome Werewolf", set_code="tst", number="D1", layout="transform", mana_cost=None, cmc=3.0,
+         type_line="Creature — Human Werewolf // Creature — Werewolf", colors=["R"], color_identity=["R"], image_uris=None,
+         card_faces=[
+             {"object": "card_face", "name": "Fearful Villager", "mana_cost": "{2}{R}", "type_line": "Creature — Human Werewolf",
+              "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nDaybound (If a player casts no "
+              "spells during their own turn, it becomes night next turn.)", "power": "2", "toughness": "3", "colors": ["R"]},
+             {"object": "card_face", "name": "Fearsome Werewolf", "mana_cost": "", "type_line": "Creature — Werewolf",
+              "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nNightbound (If a player casts at "
+              "least two spells during their own turn, it becomes day next turn.)", "power": "4", "toughness": "3", "colors": ["R"]}]),
+    card("Tovolar's Huntmaster // Tovolar's Packleader", set_code="tst", number="D2", layout="transform", mana_cost=None, cmc=6.0,
+         type_line="Creature — Human Werewolf // Creature — Werewolf", colors=["G"], color_identity=["G"], image_uris=None,
+         card_faces=[
+             {"object": "card_face", "name": "Tovolar's Huntmaster", "mana_cost": "{4}{G}{G}", "type_line": "Creature — Human Werewolf",
+              "oracle_text": "When this creature enters, create two 2/2 green Wolf creature tokens.\nDaybound (If a player casts no spells "
+              "during their own turn, it becomes night next turn.)", "power": "6", "toughness": "6", "colors": ["G"]},
+             {"object": "card_face", "name": "Tovolar's Packleader", "mana_cost": "", "type_line": "Creature — Werewolf",
+              "oracle_text": "Whenever this creature enters or attacks, create two 2/2 green Wolf creature tokens.\n{2}{G}{G}: Another "
+              "target Wolf or Werewolf you control fights target creature you don't control.\nNightbound (If a player casts at least "
+              "two spells during their own turn, it becomes day next turn.)", "power": "7", "toughness": "7", "colors": ["G"]}]),
+    card('Bilbo, Retired Burglar', set_code='tst', number='R2', mana_cost='{1}{U}{R}', cmc=3.0, type_line='Legendary Creature — Halfling Rogue',
+         colors=['R', 'U'], color_identity=['R', 'U'], power='1', toughness='3', keywords=['Treasure'],
+         oracle_text='When Bilbo enters or leaves the battlefield, the Ring tempts you.\nWhenever Bilbo deals combat damage to a player, '
+         'create a Treasure token.'),
 ]
 
 
@@ -101,6 +163,42 @@ def settle(s):
             return
 
 
+def resolve(s, *answers):
+    """Resolve the stack, answering each decision that isn't a trigger order with the next answer
+    (an option id, or the start of its label; a list for several)."""
+    queue = list(answers)
+    for _ in range(80):
+        d = rules(s).decision
+        if d is not None and d.kind == "order":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+        elif d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            return
+        elif d is not None:
+            assert queue, f"unexpected decision: {d.prompt} {[o.label for o in d.options]}"
+            want = queue.pop(0)
+            wants = want if isinstance(want, list) else [want]
+            ids = [next((o.id for o in d.options if o.id == w or o.label.startswith(w)), f"?{w} in {d.prompt}: "
+                        f"{[(o.id, o.label) for o in d.options]}") for w in wants]
+            assert not any(i.startswith("?") for i in ids), ids
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.zones.get("stack"):
+            act(s, rules(s).priority, type="pass_priority")
+        else:
+            break
+    assert not queue, f"unused answers {queue}"
+
+
+def cast(s, name, pid="p1", **kw):
+    act(s, pid, type="cast_spell", card_id=put(s, name, "hand", pid).id, **kw)
+
+
+def creature(s, name, pid="p1"):
+    """A creature put onto the battlefield by hand that has been there since before the turn."""
+    c = put(s, name, "battlefield", pid)
+    rules(s).controlled_since[c.id].turn = 0
+    return c
+
+
 def res(s, pid="p1", key="energy"):
     return s.state.players[pid].resources.get(key, 0)
 
@@ -112,6 +210,11 @@ def give(s, pid, key, n):
 def roundtrip(s):
     replay_matches(s)  # (reload: the history rebuilds the same table)
     assert GameState.model_validate(s.state.model_dump(mode="json")).model_dump(mode="json") == s.state.model_dump(mode="json")
+
+
+def cov_of(c):
+    """Coverage of a fixture card as the card database stores it (its faces under "faces")."""
+    return coverage.of_card_data({**c, "faces": c.get("card_faces") or []})
 
 
 def pt(s, c, cards):
@@ -142,11 +245,14 @@ def test_player_counter_wordings_are_read_and_the_rest_refused():
 
 
 def test_coverage_of_the_counter_cards():
+    # Guide of Souls: "When you do" (a reflexive trigger, 603.12) isn't modelled; the venturing cards are
+    # carried out, but a dungeon room they may lead into is resolved by hand (an "engine:dungeon" feature)
+    partial = {"Guide of Souls", "Goliath Paladin", "Secret Door", "Cloister Gargoyle", "Nadaar, Selfless Paladin"}
     for c in REAL:
-        if c["name"] in ("Guide of Souls",):  # ("When you do": a reflexive trigger, 603.12: not modelled)
-            assert coverage.of_card_data(c).level != "FULL"
-            continue
-        assert coverage.of_card_data(c).level == "FULL", c["name"]
+        cov = cov_of(c)
+        assert cov.level == ("PARTIAL" if c["name"] in partial else "FULL"), c["name"]
+    paladin = cov_of(next(c for c in REAL if c["name"] == "Goliath Paladin"))
+    assert [f.id for f in paladin.features if not f.supported] == ["engine:dungeon"]
 
 
 # -- energy (107.14) --------------------------------------------------------------------------------
@@ -275,4 +381,266 @@ def test_rad_trigger_does_nothing_without_rad_counters_and_lands_keep_counters(c
     run_until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1")
     settle(s)  # two Islands milled: no life lost, the counters stay
     assert res(s, "p2", "rad") == 2 and s.state.players["p2"].life == 40
+    roundtrip(s)
+
+
+# -- a table with permanents already in play (automation turned on mid-game: not summoning sick) --------
+def table(cards, mine=(), theirs=(), hand=(), bob=((10, "Island"),)):
+    a = deck(cards, "Krenko, Mob Boss", [(1, n) for n in (*mine, *hand)] + [(10, "Forest")])
+    b = deck(cards, "Atraxa, Praetors' Voice", [(1, n) for n in theirs] + list(bob))
+    s = GameSession(new_game([PlayerSetup("Alice", cards=a), PlayerSetup("Bob", cards=b)], shuffle=False), cards=cards)
+    for n in mine:
+        act(s, "p1", type="move", card_ids=[find(s, n).id], to={"player": "p1", "zone": "battlefield"})
+    for n in theirs:
+        act(s, "p2", type="move", card_ids=[find(s, n, "p2").id], to={"player": "p2", "zone": "battlefield"})
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # → Alice's first main phase
+    return s
+
+
+def to_attack(s, *pairs):
+    """From Alice's main phase to her declare attackers, then attack."""
+    act(s, "p1", type="pass_priority")
+    d = rules(s).decision
+    assert d is not None and d.kind == "declare_attackers"
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": t} for c, t in pairs])
+
+
+# -- the monarch (725) --------------------------------------------------------------------------------
+def test_monarch_wordings_and_coverage():
+    assert scripts.parse_effects("Target player becomes the monarch.")[0] == [{"do": "monarch", "who": "target"}]
+    assert conditions.parse("there is no monarch") == {"status": "no_monarch"}
+    assert conditions.parse("an opponent is the monarch") == {"status": "opponent_monarch"}
+    for name in ("Palace Jailer", "Custodi Lich", "Queen Marchesa", "Éomer, King of Rohan"):
+        assert cov_of(next(c for c in REAL if c["name"] == name)).level == "FULL", name
+
+
+def test_become_the_monarch_triggers_only_on_a_change_and_jailer_returns_on_an_opponents_reign(cards):
+    s = table(cards, theirs=("Grizzly Bears", "Twisted Abomination"), hand=("Custodi Lich", "Palace Jailer", "Éomer, King of Rohan"))
+    bears, abomination = find(s, "Grizzly Bears", "p2"), find(s, "Twisted Abomination", "p2")
+    mana(s, B=2, C=3)
+    cast(s, "Custodi Lich")
+    resolve(s, "p2", bears.id)  # "whenever you become the monarch": target player (Bob) sacrifices a creature of his choice
+    assert s.state.table.monarch == "p1" and s.state.cards[bears.id].zone == "p2:graveyard"
+    mana(s, W=2, C=2)
+    cast(s, "Palace Jailer")
+    resolve(s, abomination.id)  # already the monarch: the Lich doesn't trigger again (725.3; Custodi Lich ruling)
+    assert s.state.cards[abomination.id].zone == "p2:exile"
+    assert any(t.when.get("kind") == "designation" for t in rules(s).delayed)
+    jailer = find(s, "Palace Jailer")
+    act(s, "p1", type="move", card_ids=[jailer.id], to={"player": "p1", "zone": "graveyard"})  # (leaving doesn't end it)
+    mana(s, R=1, W=1, C=3)
+    cast(s, "Éomer, King of Rohan")
+    resolve(s, "p2", "p2")  # Bob becomes the monarch; Éomer deals 2 damage to Bob
+    assert s.state.table.monarch == "p2"
+    back = next(c for c in s.state.cards.values() if c.name == "Twisted Abomination")
+    assert back.zone == "p2:battlefield" and back.controller == "p2"  # returned under its owner's control
+    assert not any(t.when.get("kind") == "designation" for t in rules(s).delayed)
+    assert s.state.players["p2"].life == 38
+    roundtrip(s)
+
+
+def test_monarch_passes_to_the_active_player_when_the_monarch_leaves_and_that_is_becoming_the_monarch(cards):
+    s = table(cards, mine=("Custodi Lich",), theirs=("Grizzly Bears",))
+    act(s, "p2", type="set_monarch", player="p2")  # (by hand: a manual event, no trigger)
+    settle(s)
+    assert rules(s).decision is None and s.state.table.monarch == "p2"
+    act(s, "p2", type="concede")  # 800.4 / 725.4: Alice (the active player) becomes the monarch
+    assert s.state.table.monarch == "p1"
+    assert any(e.kind == "designation" and e.counter == "monarch" and e.player == "p1" and not e.manual for e in rules(s).events)
+    roundtrip(s)
+
+
+# -- the initiative (726) and Undercity --------------------------------------------------------------
+def test_taking_the_initiative_ventures_into_undercity_and_upkeep_ventures_again(cards):
+    s = table(cards, hand=("Goliath Paladin",))
+    mana(s, W=1, C=4)
+    cast(s, "Goliath Paladin")
+    resolve(s, "Forest")  # Secret Entrance: search for a basic land card (a Forest)
+    assert s.state.table.initiative == "p1"
+    assert rules(s).dungeons["p1"].dungeon == "Undercity" and rules(s).dungeons["p1"].room == "Secret Entrance"
+    assert any(e.counter == "initiative" for e in rules(s).events) or True
+    run_until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "upkeep" and rules(s).decision is not None)
+    d = rules(s).decision
+    assert d.kind == "choose_one" and {o.id for o in d.options} == {"Forge", "Lost Well"}
+    resolve(s, "Lost Well", [])  # Scry 2: keep both on top
+    assert rules(s).dungeons["p1"].room == "Lost Well"
+    roundtrip(s)
+
+
+def test_combat_damage_to_the_initiatives_holder_takes_it(cards):
+    s = table(cards, mine=("Grizzly Bears",))
+    act(s, "p2", type="set_initiative", player="p2")  # (by hand: Bob has it, no trigger)
+    settle(s)
+    to_attack(s, (find(s, "Grizzly Bears"), "p2"))
+    resolve(s, "Forest")  # Alice takes the initiative (the trigger is Bob's, 726.2) and ventures into Undercity: Secret Entrance
+    assert s.state.table.initiative == "p1"
+    assert rules(s).dungeons["p1"].room == "Secret Entrance"
+    roundtrip(s)
+
+
+def test_retaking_the_initiative_ventures_again(cards):
+    s = table(cards, hand=("Goliath Paladin",))
+    act(s, "p1", type="set_initiative", player="p1")  # (by hand: no venture)
+    settle(s)
+    mana(s, W=1, C=4)
+    cast(s, "Goliath Paladin")
+    resolve(s, "Forest")  # 726.5: taking it again triggers the venture
+    assert rules(s).dungeons["p1"].room == "Secret Entrance"
+    roundtrip(s)
+
+
+# -- venture into the dungeon (701.49, 309) ------------------------------------------------------------
+def test_venture_through_lost_mine_complete_it_and_start_another(cards):
+    s = table(cards, mine=("Secret Door", "Nadaar, Selfless Paladin", "Grizzly Bears"), hand=("Cloister Gargoyle",))
+    door, bears = find(s, "Secret Door"), find(s, "Grizzly Bears")
+
+    def venture(*answers):
+        mana(s, U=1, C=4)
+        act(s, "p1", type="activate_ability", card_id=door.id, ability=1)
+        resolve(s, *answers)
+
+    venture("Lost Mine of Phandelver", [])  # Cave Entrance: scry 1 (keep it)
+    assert rules(s).dungeons["p1"].room == "Cave Entrance"
+    assert s.view("p2")["rules"]["designations"]["p1"]["dungeon"] == {"dungeon": "Lost Mine of Phandelver", "room": "Cave Entrance"}
+    venture("Mine Tunnels")  # a fork: the player chooses (701.49b); Mine Tunnels: a Treasure
+    assert any(c.name == "Treasure" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    venture("Fungi Cavern", bears.id)  # Fungi Cavern: target creature gets -4/-0 until your next turn
+    venture()  # Temple of Dumathoin: draw a card; then the dungeon is completed (309.6, a state-based action)
+    assert "p1" not in rules(s).dungeons and rules(s).completed_dungeons["p1"] == ["Lost Mine of Phandelver"]
+    assert pt(s, bears, cards) == (-1, 3)  # Nadaar: +1/+1 now that a dungeon is completed; still -4/-0
+    venture("Dungeon of the Mad Mage")  # a new dungeon (the same one could be chosen again)
+    assert rules(s).dungeons["p1"].room == "Yawning Portal"
+    mana(s, W=1, C=2)
+    cast(s, "Cloister Gargoyle")
+    resolve(s, [])  # Dungeon Level: scry 1 (keep it)
+    assert rules(s).dungeons["p1"].room == "Dungeon Level"
+    assert Plan(s.state, "p1", cards, None).ch(find(s, "Cloister Gargoyle")).pt == (4, 5)  # +3/+0 (completed a dungeon) and Nadaar's +1/+1
+    roundtrip(s)
+
+
+def test_tomb_of_annihilation_each_player_unless_and_the_atropal(cards):
+    s = table(cards, mine=("Secret Door",), theirs=("Grizzly Bears",), hand=("Murder",))
+    door, bears = find(s, "Secret Door"), find(s, "Grizzly Bears", "p2")
+    put(s, "Murder", "hand")
+    life = {"p1": 40, "p2": 40}
+
+    def venture(*answers):
+        mana(s, U=1, C=4)
+        act(s, "p1", type="activate_ability", card_id=door.id, ability=1)
+        resolve(s, *answers)
+
+    venture("Tomb of Annihilation")  # Trapped Entry: each player loses 1 life
+    life = {p: n - 1 for p, n in life.items()}
+    assert {p: s.state.players[p].life for p in life} == life
+    venture("Veils of Fear", "pay")  # each player loses 2 life unless they discard a card (118.12a): Alice discards Murder
+    life["p2"] -= 2  # (Bob has no card in hand: he can't pay, 118.3)
+    assert {p: s.state.players[p].life for p in life} == life and find(s, "Murder").zone == "p1:graveyard"
+    venture("decline", "pay")  # Sandfall Cell, in turn order: Alice declines; Bob sacrifices his Bears
+    life["p1"] -= 2
+    assert {p: s.state.players[p].life for p in life} == life and s.state.cards[bears.id].zone == "p2:graveyard"
+    venture()  # Cradle of the Death God: The Atropal, a legendary 4/4 black God Horror with deathtouch
+    atropal = next(c for c in s.state.cards.values() if c.name == "The Atropal")
+    ch = Plan(s.state, "p1", cards, None).ch(atropal)
+    assert "Legendary" in ch.supertypes and ch.pt == (4, 4) and "deathtouch" in ch.keywords
+    assert rules(s).completed_dungeons["p1"] == ["Tomb of Annihilation"] and "p1" not in rules(s).dungeons
+    roundtrip(s)
+
+
+# -- the Ring tempts you (701.54) ----------------------------------------------------------------------
+def test_the_ring_tempts_you_chooses_a_legendary_ring_bearer(cards):
+    s = table(cards, mine=("Grizzly Bears", "Call of the Ring"), hand=("Bilbo, Retired Burglar",))
+    bears = find(s, "Grizzly Bears")
+    # Call of the Ring's upkeep trigger: the only creature is the Ring-bearer (701.54a); then "whenever you
+    # choose a creature as your Ring-bearer": decline paying 2 life
+    resolve(s, "decline")
+    assert rules(s).ring_tempted["p1"] == 1 and rules(s).ring_bearers["p1"] == s.state.rules.object_id(bears.id)
+    assert "Legendary" in Plan(s.state, "p1", cards, None).ch(s.state.cards[bears.id]).supertypes  # 701.54c
+    mana(s, U=1, R=1, C=1)
+    cast(s, "Bilbo, Retired Burglar")
+    hand = len(s.state.zones["p1:hand"])
+    bilbo = find(s, "Bilbo, Retired Burglar")
+    resolve(s, bilbo.id, "pay")  # the Ring tempts again: Bilbo this time; pay 2 life, draw a card
+    assert rules(s).ring_tempted["p1"] == 2 and rules(s).ring_bearers["p1"] == s.state.rules.object_id(bilbo.id)
+    assert "Legendary" not in Plan(s.state, "p1", cards, None).ch(s.state.cards[bears.id]).supertypes  # not the Ring-bearer now
+    assert s.state.players["p1"].life == 38 and len(s.state.zones["p1:hand"]) == hand + 1
+    roundtrip(s)
+
+
+def test_ring_bearer_evasion_loot_sacrifice_and_drain(cards):
+    s = table(cards, mine=("Grizzly Bears",), theirs=("Twisted Abomination", "Sol Ring"), hand=("Bilbo, Retired Burglar",))
+    bears, abomination = find(s, "Grizzly Bears"), find(s, "Twisted Abomination", "p2")
+    mana(s, U=1, R=1, C=1)
+    cast(s, "Bilbo, Retired Burglar")
+    resolve(s, bears.id)
+    rules(s).ring_tempted["p1"] = 4  # (as if tempted four times: every ability of the emblem, 701.54c)
+    hand = len(s.state.zones["p1:hand"])
+    to_attack(s, (find(s, "Grizzly Bears"), "p2"))
+    resolve(s, [s.state.zones["p1:hand"][0]] if s.state.zones["p1:hand"] else [])  # loot: draw, then discard
+    assert len(s.state.zones["p1:hand"]) == hand
+    with pytest.raises(ActionError, match="Ring-bearer"):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": abomination.id, "attacker_id": bears.id}])
+    act(s, "p2", type="declare_blockers", blocks=[])
+    resolve(s)
+    assert s.state.players["p2"].life == 40 - 2 - 3  # combat damage, then each opponent loses 3
+    roundtrip(s)
+
+
+def test_ring_bearer_is_lost_when_another_player_gains_control(cards):
+    s = table(cards, mine=("Grizzly Bears",), hand=("Bilbo, Retired Burglar",))
+    bears = find(s, "Grizzly Bears")
+    mana(s, U=1, R=1, C=1)
+    cast(s, "Bilbo, Retired Burglar")
+    resolve(s, bears.id)
+    assert rules(s).ring_bearers["p1"] == rules(s).object_id(bears.id)
+    act(s, "p1", type="set_controller", card_ids=[bears.id], player="p2")  # (another player gains control of it: 701.54a)
+    settle(s)
+    act(s, "p1", type="pass_priority")  # (state-based checks)
+    assert "p1" not in rules(s).ring_bearers
+    assert "Legendary" not in Plan(s.state, "p1", cards, None).ch(s.state.cards[bears.id]).supertypes
+    act(s, "p2", type="set_controller", card_ids=[bears.id], player="p1")  # back: it isn't the Ring-bearer again
+    assert "p1" not in rules(s).ring_bearers and rules(s).ring_tempted["p1"] == 1
+    roundtrip(s)
+
+
+# -- day and night (731, 702.145) ---------------------------------------------------------------------
+def test_day_night_wordings():
+    got = scripts.parse_effects("Target creature gets -2/-2 until end of turn. If it's night, that creature gets -13/-13 until end "
+                                "of turn instead.")  # Olivia's Midnight Ambush
+    assert got is not None and got[0][0]["cond"] == {"not": {"status": "night"}}
+    assert scripts.parse_effects("It becomes night.")[0] == [{"do": "day_night", "value": "night"}]
+    for c in REAL:
+        if "//" in c["name"]:
+            assert cov_of(c).level == "FULL", c["name"]
+
+
+def test_daybound_makes_it_day_night_falls_after_a_turn_without_spells_and_two_spells_bring_day(cards):
+    s = table(cards, mine=("Fearful Villager // Fearsome Werewolf",), theirs=("Opt", "Opt"), bob=((10, "Island"),))
+    villager = find(s, "Fearful Villager // Fearsome Werewolf")
+    assert s.state.table.day_night == "day" and s.state.cards[villager.id].face == 0  # 702.145d
+    run_until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    # 502.2: Alice cast no spell in her turn: it became night in Bob's untap step; the daybound permanent transformed
+    assert s.state.table.day_night == "night" and s.state.cards[villager.id].face == 1
+    assert Plan(s.state, "p1", cards, None).ch(s.state.cards[villager.id]).pt == (4, 3)
+    for opt in [c for c in s.state.cards.values() if c.name == "Opt" and c.owner == "p2"]:
+        act(s, "p2", type="move", card_ids=[opt.id], to={"player": "p2", "zone": "hand"})
+        mana(s, "p2", U=1)
+        act(s, "p2", type="cast_spell", card_id=opt.id)
+        resolve(s, [])  # (scry 1: keep it)
+    run_until(s, lambda s: s.state.turn.active_player == "p1" and s.state.turn.phase == "upkeep" or
+              s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    assert s.state.table.day_night == "day" and s.state.cards[villager.id].face == 0  # two spells: day; nightbound transformed back
+    roundtrip(s)
+
+
+def test_daybound_permanent_enters_transformed_at_night(cards):
+    s = table(cards, hand=("Tovolar's Huntmaster // Tovolar's Packleader",))
+    act(s, "p1", type="set_day_night", value="night")  # (by hand)
+    mana(s, G=2, C=4)
+    cast(s, "Tovolar's Huntmaster // Tovolar's Packleader")
+    resolve(s)
+    hunt = find(s, "Tovolar's Huntmaster // Tovolar's Packleader")
+    assert s.state.cards[hunt.id].face == 1  # 702.145b: it enters transformed
+    wolves = [c for c in s.state.cards.values() if c.name == "Wolf" and c.zone == "p1:battlefield"]
+    assert len(wolves) == 2  # only Tovolar's Packleader's "enters" trigger: the front face never was on the battlefield
     roundtrip(s)

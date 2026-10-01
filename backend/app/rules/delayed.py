@@ -194,6 +194,8 @@ def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, na
 
 
 def describe_when(when: dict[str, Any]) -> str:
+    if when["kind"] == "designation":  # (wave 3E: app/rules/designations.py fires these)
+        return "when an opponent becomes the monarch"
     if when["kind"] == "event":
         return "when it " + ("dies" if when["event"] == "die" else "leaves the battlefield") + " this turn"
     whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's"}[when["whose"]]

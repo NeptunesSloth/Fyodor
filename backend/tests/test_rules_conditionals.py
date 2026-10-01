@@ -2068,7 +2068,6 @@ def test_forms_that_are_not_guessed(why, text, control):
     ("~ deals 2 damage to target creature. If that creature has toxic, ~ deals 4 damage to that creature instead.", "abilities"),  # Hexgold Slash
     ("Put a +1/+1 counter on target creature you control. If you have a full party, put three +1/+1 counters on that creature instead.",
      "party"),  # The Destined White Mage
-    ("Target creature gets -2/-2 until end of turn. If it's night, that creature gets -13/-13 until end of turn instead.", "day/night"),  # Olivia's Midnight Ambush
 ])
 def test_refused_wordings_are_registered_with_their_reason(text, piece):
     reason = coverage.refusal(text)

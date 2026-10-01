@@ -240,7 +240,9 @@ _HAS_COUNTERS = re.compile(r"(?P<who>you|an opponent) (?:has|have) (?:(?P<no>no)
                            r"(?P<kind>poison|experience|rad|energy) counters?")
 _DESIGNATIONS = {"there is no monarch": "no_monarch", "an opponent is the monarch": "opponent_monarch",
                  "you're not the monarch": "not_monarch", "you aren't the monarch": "not_monarch",
-                 "you don't have the initiative": "not_initiative"}
+                 "you don't have the initiative": "not_initiative", "you've completed a dungeon": "completed_dungeon",
+                 "you have completed a dungeon": "completed_dungeon",
+                 "it's day": "day", "it's night": "night", "it's neither day nor night": "neither_day_nor_night"}
 
 
 def designation_condition(t: str) -> Condition | None:

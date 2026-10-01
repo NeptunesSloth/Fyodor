@@ -1429,6 +1429,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return anthem
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
         return rule
+    if ability.kind == "static" and text == "If it's neither day nor night, it becomes day as ~ enters.":
+        return {"kind": "static", "static": "day_as_enters", "effects": []}  # (wave 3E: app/rules/designations.py, 731.1)
     if ability.kind == "static" and text == "~ can be your commander.":
         return {"kind": "static", "static": "deckbuilding", "effects": []}  # 903.3a: deck construction only
     if ability.kind == "static" and text in COMBAT_STATICS:
@@ -1543,7 +1545,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # gained / lost, damage dealt, counters put; for a "one or more" batch of sacrifices, discards,
 # tokens created … the number of them (603.2c)
 _AMOUNT_EVENTS = {"gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
-                  "deal_damage", "counters_put", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard"}
+                  "deal_damage", "counters_put", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
+                  "player_counters"}  # (player_counters: wave 3E, "you get that many {E}")
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
@@ -2708,3 +2711,17 @@ def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 _RECORDING["return_choice"] = "returned"
 _MOVERS.add("return_choice")
 _CHOSEN["return_choice"] = "n"
+
+
+# -- counters & designations (wave 3E) -- Palace Jailer: "exile target creature an opponent controls until an
+# opponent becomes the monarch" — a delayed trigger (603.7) watching for a player who is an opponent of the
+# ability's controller to become the monarch (725.3; app/rules/designations.py), however long that takes and
+# whether or not the source is still there; the exiled card returns under its owner's control.
+@effect(r"exile (?P<o>target .+?) until an opponent becomes the monarch")
+def _exile_until_monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    found = _one_clause(f"exile {m['o']}")
+    if found is None or len(found[0]) != 1 or found[0][0]["do"] != "exile" or found[0][0]["who"] != "target":
+        raise _NoMatch
+    back = {"do": "return_card", "who": "ref:m0", "to": "battlefield", "tapped": False, "under": "owner"}
+    return [{**found[0][0], "as": "m0"}, *_delayed.wrap_when([back], {"kind": "designation", "what": "monarch", "by": "opponent"})], found[1]
+# -- end counters & designations (wave 3E) --

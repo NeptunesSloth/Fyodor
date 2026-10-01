@@ -208,6 +208,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         if len(left) == 1 and r.winner is None:
             r.winner = left[0]
             plan.note(f"{state.players[left[0]].name} wins the game")
+    # -- counters & designations (wave 3E): 309.6 dungeons, 701.54a Ring-bearers --
+    from app.rules import designations
+
+    if designations.sba(plan):
+        happened = True
 
     # 704.5j legend rule: the controller chooses one to keep (one decision at a time)
     legends: dict[tuple[str, str], list[CardInstance]] = {}
