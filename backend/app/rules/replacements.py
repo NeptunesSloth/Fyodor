@@ -443,7 +443,7 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
         amount = int(x or 0)
     elif isinstance(n, dict):  # "for each creature card in your graveyard": the values grammar
         amount = values.evaluate(plan, {"controller": controller, "source_card": card_id,  # (wave 4F: converge's record)
-                                        "source_object": plan.oid(card_id)}, n)
+                                        "source_object": plan.oid(card_id), "x": x}, n)  # (x: "twice X", wave 4K)
     else:
         amount = int(n)
     if d.get("if_kicked") or d.get("per_kick"):  # 702.33e: how its spell was cast (the payment record)
