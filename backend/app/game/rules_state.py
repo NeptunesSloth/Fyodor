@@ -756,6 +756,9 @@ class RulesState(BaseModel):
     lands_played: dict[str, TurnCount] = Field(default_factory=dict)
     spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
     loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
+    # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't
+    # untap during that player's next untap step (app/rules/engine.start_next_turn)
+    exerted: dict[str, str] = Field(default_factory=dict)
     once_per_turn: dict[str, int] = Field(default_factory=dict)  # "<card>:<ability>" -> turn it was activated
     # Activation restrictions and trigger limits (app/rules/restrictions.py): how many times an
     # object's ability was activated / triggered — "<object id>:<ability index>:t<turn>" -> count this

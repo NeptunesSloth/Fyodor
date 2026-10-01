@@ -179,6 +179,8 @@ def self_text(text: str, name: str) -> str:
     out = _ABILITY_WORD.sub("", text, count=1)
     if out.startswith("Exhaust — "):  # -- ability words (wave 4F) -- 702.177a (the restriction: restrictions.parse)
         out = out[len("Exhaust — "):]
+    if out.startswith("Boast — "):  # -- activation costs (wave 4H) -- 702.142a (the restriction: restrictions.parse)
+        out = out[len("Boast — "):]
     if out == text and (worded := word_prefix(text)) is not None:  # -- refused zones/sized (wave 3R4) -- 207.2d
         out = worded[1]
     short = _short_name(name)

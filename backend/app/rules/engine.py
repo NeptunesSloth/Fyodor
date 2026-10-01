@@ -470,8 +470,21 @@ def _keep_tapped(plan: Plan) -> list[str]:
             and not plan.manual(c) and "doesnt_untap" in scripts.statics(plan.ch(c))][:250]
 
 
+def _exerted(plan: Plan, player: str) -> list[str]:
+    """-- activation costs (wave 4H) -- 701.43a: tapped permanents ``player`` exerted (still the same objects, 400.7)
+    that they control: they don't untap during ``player``'s next untap step."""
+    out = []
+    for oid, who in plan.rules.exerted.items():
+        card = plan.state.cards.get(oid.rsplit(".", 1)[0])
+        if who == player and card is not None and plan.oid(card) == oid and card.zone.endswith(":battlefield") \
+                and card.tapped and card.controller == player:
+            out.append(card.id)
+    return out
+
+
 def start_next_turn(plan: Plan) -> None:
     keep = _keep_tapped(plan)
+    keep += [c for c in _exerted(plan, plan.after(plan.active)) if c not in keep]  # (wave 4H: an exerted one isn't stunned, 122.1d)
     # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
     keep = [*keep, *stunned]
@@ -483,6 +496,7 @@ def start_next_turn(plan: Plan) -> None:
     stay = effects.skips.untap_skipped(plan, skip_to or plan.after(plan.active))
     if stay is not None:
         keep = list(dict.fromkeys([*keep, *stay]))[:250]
+    keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or plan.after(plan.active))]))[:250]  # (wave 4H)
     if skip_to is not None:
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep, "player": skip_to}, actor=plan.active)
     # -- end refused grants/replacements (wave 3R2) --
@@ -496,6 +510,9 @@ def start_next_turn(plan: Plan) -> None:
     effects.keyword_actions.lose_stun(plan, [c for c in stunned if c in plan.state.cards and plan.state.cards[c].controller == plan.active],
                                       plan.active)
     delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
+    if stay is None:  # -- activation costs (wave 4H) -- 701.43a: that untap step happened; 614.10a: a skipped one doesn't count
+        plan.rules.exerted = {k: p for k, p in plan.rules.exerted.items()
+                              if p != plan.active and plan.rules.object_id(k.rsplit(".", 1)[0]) == k}
     if stay is None:  # (wave 3R2: not in a skipped untap step)
         effects.designations.untap_day_night(plan, *previous)  # -- (wave 3E) 502.2: day / night --
     if not plan.state.settings.auto_untap and stay is None:
