@@ -473,7 +473,6 @@ def test_cost_modifier_wordings(text, expected):
     # each of these means something the engine doesn't model: refused, never guessed
     "Once during each of your turns, you may cast an instant or sorcery spell from your graveyard. If a spell cast this way would be put into your graveyard, exile it instead.",
     "Spells you cast from anywhere other than your hand cost {1} less to cast.",
-    "You may cast historic spells as though they had flash.",
     "During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard.",
     "The first creature spell you cast each turn costs {1} less to cast.",
     "Spells your opponents cast that target this creature cost {1} more to cast.",

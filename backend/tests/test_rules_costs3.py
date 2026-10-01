@@ -17,14 +17,18 @@ import pytest
 from app.cards.importer import build_database
 from app.config import Settings
 from app.game.errors import ActionError
-from app.rules import costs, scripts
+from app.rules import casting, costs, permissions, scripts
+from app.rules import characteristics as chars
 from app.rules.characteristics import Characteristics
+from app.rules.layers import derive
 from app.rules.oracle import parse_abilities
 from app.rules.view import hints
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_attachments import build, named, to_hand, token
 from tests.test_rules_effects import pass_until_stack_empty, replay_matches
+from tests.test_rules_permissions import build as pbuild
+from tests.test_rules_permissions import cost_of, put
 
 SPELLS = [
     ("Fling", "{1}{R}", "Instant", "As an additional cost to cast this spell, sacrifice a creature.\n"
@@ -35,7 +39,30 @@ SPELLS = [
     ("Deadly Dispute", "{1}{B}", "Instant", "As an additional cost to cast this spell, sacrifice an artifact or creature.\n"
      "Draw two cards and create a Treasure token.", ["B"]),
 ]
-EXTRA = [card(n, set_code="tst", number=f"X{i}", mana_cost=mc, cmc=float(sum(int(c) if c.isdigit() else 1 for c in mc.replace("{", " ").replace("}", " ").split())),
+MODIFIERS = [  # real Commander cards (name, mana cost, type line, oracle text, colors, power/toughness)
+    ("Goblin Electromancer", "{U}{R}", "Creature — Goblin Wizard", "Instant and sorcery spells you cast cost {1} less to cast.", ["U", "R"], ("2", "2")),
+    ("Thalia, Guardian of Thraben", "{1}{W}{W}", "Legendary Creature — Human Soldier", "First strike\nNoncreature spells cost {1} more to cast.", ["W"], ("2", "1")),
+    ("Helm of Awakening", "{2}", "Artifact", "Spells cost {1} less to cast.", [], None),
+    ("Jhoira's Familiar", "{4}", "Artifact Creature — Bird", "Flying\nHistoric spells you cast cost {1} less to cast.", [], ("2", "2")),
+    ("Goreclaw, Terror of Qal Sisma", "{3}{G}", "Legendary Creature — Bear Warrior",
+     "Creature spells you cast with power 4 or greater cost {2} less to cast.", ["G"], ("3", "3")),
+    ("Danitha Capashen, Paragon", "{2}{W}", "Legendary Creature — Human Knight",
+     "First strike, vigilance, lifelink\nAura and Equipment spells you cast cost {1} less to cast.", ["W"], ("2", "2")),
+    ("Ballyrush Banneret", "{1}{W}", "Creature — Kithkin Soldier", "Kithkin spells and Soldier spells you cast cost {1} less to cast.", ["W"], ("2", "1")),
+    ("Training Grounds", "{U}", "Enchantment", "Activated abilities of creatures you control cost {2} less to activate. "
+     "This effect can't reduce the mana in that cost to less than one mana.", ["U"], None),
+    ("Goblin Anarchomancer", "{R}{G}", "Creature — Goblin Shaman", "Each spell you cast that's red or green costs {1} less to cast.", ["R", "G"], ("2", "2")),
+    ("Test Bear Four", "{3}{G}", "Creature — Bear", "", ["G"], ("4", "4")),
+    ("Test Bear Two", "{2}{G}", "Creature — Bear", "", ["G"], ("2", "2")),
+    ("Test Kithkin", "{1}{W}", "Creature — Kithkin", "", ["W"], ("1", "1")),
+    ("Test Human", "{1}{W}", "Creature — Human", "", ["W"], ("1", "1")),
+    ("Test Saber", "{3}", "Artifact — Equipment", "Equip {2}", [], None),
+]
+EXTRA = [card(n, set_code="tst", number=f"M{i}", mana_cost=mc, type_line=t, oracle_text=text, colors=col, color_identity=col,
+              cmc=float(sum(int(c) if c.isdigit() else 1 for c in mc.replace("{", " ").replace("}", " ").split())),
+              **({"power": pt[0], "toughness": pt[1]} if pt else {}))
+         for i, (n, mc, t, text, col, pt) in enumerate(MODIFIERS)]
+EXTRA += [card(n, set_code="tst", number=f"X{i}", mana_cost=mc, cmc=float(sum(int(c) if c.isdigit() else 1 for c in mc.replace("{", " ").replace("}", " ").split())),
               type_line=t, oracle_text=text, colors=col, color_identity=col) for i, (n, mc, t, text, col) in enumerate(SPELLS)]
 
 
@@ -238,4 +265,114 @@ def test_discard_a_card_is_private_and_never_the_spell_itself(cards):
     assert "options" not in s.view("p2")["rules"]["decision"]
     choose(s, other.id)
     assert other.zone == "p1:graveyard"
+    replay_matches(s)
+
+
+# -- cost modifiers for other spells (601.2f, 118.7) ----------------------------------------------------
+def define(text):
+    return permissions.define_static(text, "static")
+
+
+@pytest.mark.parametrize("text", [m[3].split("\n")[-1] for m in MODIFIERS if "cost" in m[3]])
+def test_modifier_wordings_of_real_cards(text):
+    d = define(text)
+    assert d is not None and d["static"] in ("cost_modifier", "ability_cost_modifier")
+
+
+@pytest.mark.parametrize("text", [
+    "Spells you cast from anywhere other than your hand cost {1} less to cast.",  # (zone: not modelled)
+    "The first creature spell you cast each turn costs {1} less to cast.",
+    "Red creature spells and green creature spells cost {1} more to cast.",  # (one selector can't say "red creature or green creature")
+    "Activated abilities of creatures you control cost {2} less to activate.",  # (the printed floor is part of the wording)
+])
+def test_modifier_wordings_still_refused(text):
+    assert define(text) is None
+
+
+def test_instant_and_sorcery_reduction_leaves_creatures_alone(cards):
+    s = pbuild(cards, [(1, "Goblin Electromancer"), (1, "Opt"), (1, "Grizzly Bears")])
+    put(s, "Goblin Electromancer", "battlefield")
+    opt, bears = put(s, "Opt", "hand"), put(s, "Grizzly Bears", "hand")
+    assert cost_of(s, opt, cards) == "{U}" and cost_of(s, bears, cards) == "{1}{G}"
+    assert cost_of(s, opt, cards, pid="p2") == "{U}"  # (nothing generic to take)
+
+
+def test_thalia_taxes_noncreature_spells_of_everyone(cards):
+    s = pbuild(cards, [(1, "Thalia, Guardian of Thraben"), (1, "Opt"), (1, "Grizzly Bears")])
+    put(s, "Thalia, Guardian of Thraben", "battlefield")
+    opt, bears = put(s, "Opt", "hand"), put(s, "Grizzly Bears", "hand")
+    assert cost_of(s, opt, cards) == "{1}{U}" and cost_of(s, bears, cards) == "{1}{G}"
+    mana(s, U=1)
+    refused(s, "ana", type="cast_spell", card_id=opt.id)  # {1}{U} with only {U}
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    assert s.state.cards[opt.id].zone == "p1:graveyard" and not s.state.players["p1"].mana.get("C")
+    replay_matches(s)
+
+
+def test_increases_apply_before_reductions(cards):
+    s = pbuild(cards, [(1, "Helm of Awakening"), (1, "Thalia, Guardian of Thraben"), (1, "Sol Ring"), (1, "Opt")])
+    put(s, "Helm of Awakening", "battlefield")
+    ring, opt = put(s, "Sol Ring", "hand"), put(s, "Opt", "hand")
+    assert cost_of(s, ring, cards) == "{0}" and cost_of(s, opt, cards) == "{U}"
+    put(s, "Thalia, Guardian of Thraben", "battlefield")  # both: {1} + {1} − {1}
+    assert cost_of(s, ring, cards) == "{1}" and cost_of(s, opt, cards) == "{U}"
+    assert cost_of(s, put(s, "Thalia, Guardian of Thraben", "hand", pid="p1"), cards) == "{W}{W}"  # a creature: Helm only
+
+
+def test_historic_spells_cost_less_with_jhoiras_familiar(cards):
+    s = pbuild(cards, [(1, "Jhoira's Familiar"), (1, "Test Saber"), (1, "Grizzly Bears"), (1, "Thalia, Guardian of Thraben")])
+    put(s, "Jhoira's Familiar", "battlefield")
+    saber, bears, thalia = (put(s, n, "hand") for n in ("Test Saber", "Grizzly Bears", "Thalia, Guardian of Thraben"))
+    assert cost_of(s, saber, cards) == "{2}"  # an artifact is historic
+    assert cost_of(s, thalia, cards) == "{W}{W}"  # a legendary creature is historic
+    assert cost_of(s, bears, cards) == "{1}{G}"  # a plain creature isn't
+
+
+def test_power_four_or_greater_creatures_cost_two_less_with_goreclaw(cards):
+    s = pbuild(cards, [(1, "Goreclaw, Terror of Qal Sisma"), (1, "Test Bear Four"), (1, "Test Bear Two")])
+    put(s, "Goreclaw, Terror of Qal Sisma", "battlefield")
+    big, small = put(s, "Test Bear Four", "hand"), put(s, "Test Bear Two", "hand")
+    assert cost_of(s, big, cards) == "{1}{G}" and cost_of(s, small, cards) == "{2}{G}"
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=big.id)
+    assert s.state.cards[big.id].zone == "p1:battlefield" and not s.state.players["p1"].mana.get("C")
+    replay_matches(s)
+
+
+def test_capitalized_subtypes_lists_and_colors(cards):
+    s = pbuild(cards, [(1, "Danitha Capashen, Paragon"), (1, "Ballyrush Banneret"), (1, "Goblin Anarchomancer"), (1, "Test Saber"),
+                       (1, "Test Bear Four"), (1, "Opt"), (1, "Test Kithkin"), (1, "Test Human")])
+    for n in ("Danitha Capashen, Paragon", "Goblin Anarchomancer"):
+        put(s, n, "battlefield")
+    saber, bear, opt = (put(s, n, "hand") for n in ("Test Saber", "Test Bear Four", "Opt"))
+    assert cost_of(s, saber, cards) == "{2}"  # Equipment: Danitha ({3} − 1)
+    assert cost_of(s, bear, cards) == "{2}{G}"  # green: Anarchomancer
+    assert cost_of(s, opt, cards) == "{U}"
+    put(s, "Ballyrush Banneret", "battlefield")
+    kithkin, human = put(s, "Test Kithkin", "hand"), put(s, "Test Human", "hand")
+    assert cost_of(s, kithkin, cards) == "{W}" and cost_of(s, human, cards) == "{1}{W}"  # Kithkin spells and Soldier spells
+
+
+# -- activated abilities (602.2b, 118.7) -------------------------------------------------------------------
+def activate_cost(s, cards, card):
+    ch = derive(s.state, card, chars.of(card, cards), cards)
+    return casting.ability_cost(ch, ch.abilities[0], state=s.state, card=card, info=cards).mana
+
+
+def test_training_grounds_reduces_activated_abilities_but_not_below_one_mana(cards):
+    s = pbuild(cards, [(1, "Training Grounds")])
+    put(s, "Training Grounds", "battlefield")
+    big = token(s, "p1", "Big", "2/2", text="{4}: You gain 1 life.")
+    small = token(s, "p1", "Small", "2/2", text="{1}{G}: You gain 1 life.")
+    tiny = token(s, "p1", "Tiny", "2/2", text="{1}: You gain 1 life.")
+    theirs = token(s, "p2", "Theirs", "2/2", text="{4}: You gain 1 life.")
+    assert activate_cost(s, cards, big) == "{2}"
+    assert activate_cost(s, cards, small) == "{G}"  # only the generic part reduces (118.7a), and one mana stays
+    assert activate_cost(s, cards, tiny) == "{1}"  # the floor: never less than one mana
+    assert activate_cost(s, cards, theirs) == "{4}"  # "creatures you control"
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=big.id, ability=0)
+    pass_until_stack_empty(s)
+    assert life(s) == 41 and not s.state.players["p1"].mana.get("C")
     replay_matches(s)

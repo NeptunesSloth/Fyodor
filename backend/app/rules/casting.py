@@ -1836,8 +1836,14 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
 
 
 # -- other activated abilities (they use the stack) -----------------------------------------
-def ability_cost(ch: Characteristics, ability: AbilityText) -> AbilityCost:
+def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState | None = None,
+                 card: CardInstance | None = None, info: CardInfo | None = None) -> AbilityCost:
     cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
+    if state is not None and card is not None and info is not None and ability.kind == "activated" and cost.mana:
+        # -- costs (wave 3$) -- "Activated abilities of creatures you control cost {2} less to activate" (601.2f)
+        reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info)
+        if reduced != cost.mana:
+            cost = replace(cost, mana=reduced)
     # -- reanimation (wave 3R) -- 113.6m: "{1}{B}: Return this card from your graveyard to the battlefield" moves the
     # card out of the graveyard, so the ability works only there
     if ability.kind == "activated" and ":" in ability.text and _GRAVEYARD_SELF.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~")):
@@ -1920,7 +1926,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
     from app.rules import modal_abilities  # (a leaf module over this one)
     from app.rules.engine import advance  # the engine imports this module
 
-    cost = ability_cost(ch, ability)
+    cost = ability_cost(ch, ability, state=plan.state, card=card, info=plan.info)
     problem = ability_problem(plan.state, plan.actor, card, ch, ability, cost, plan=plan)
     if problem:
         raise ActionError(problem)
@@ -2020,7 +2026,7 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
         ch = derive(state, card, chars.of(card, info), info)
         for ab in ch.abilities:
             if ab.kind in ("activated", "loyalty"):
-                problem = ability_problem(state, player, card, ch, ab, ability_cost(ch, ab),
+                problem = ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),
                                           check_priority=check_priority, info=info)
                 if problem is None:
                     out.append({"card_id": cid, "ability": ab.index})
