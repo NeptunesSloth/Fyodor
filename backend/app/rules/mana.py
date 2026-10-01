@@ -226,7 +226,7 @@ def _choice_part(part: str) -> bool:
     from app.rules import costs as C
 
     found = C.parse_ability_cost(part, card_name="~")
-    return not found.unsupported and bool(found.components) and all(
+    return not found.unsupported and not found.activation_only and bool(found.components) and all(  # (activation_only: wave 4H)
         c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random
         for c in found.components)
 

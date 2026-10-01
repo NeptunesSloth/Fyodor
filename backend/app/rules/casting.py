@@ -91,7 +91,7 @@ def _choice_cost_ok(extra: Any) -> bool:
     counters …) or objects the payer chooses (Ashnod's Altar's "Sacrifice a creature")."""
     from app.rules import costs as C
 
-    return not extra.unsupported and all(
+    return not extra.unsupported and not extra.activation_only and all(  # (activation_only: wave 4H, 605)
         c.kind in (C.MANA, C.TAP, C.PAY_LIFE) or (c.kind in (C.SACRIFICE, C.REMOVE_COUNTER) and c.selector is None)
         or (c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random)
         for c in extra.components)
@@ -2256,7 +2256,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         raise ActionError(problem)
     oid = plan.oid(card)  # the object activating (paying a cost may move it: it'd be a new object)
     mana = M.parse_cost(cost.mana)
-    if (mana.x or cost.loyalty_x or cost.energy_x) and a.x_value is None:  # (wave 3E: "Pay X {E}")
+    if (mana.x or cost.loyalty_x or cost.energy_x or cost.x_chosen) and a.x_value is None:  # (wave 3E: "Pay X {E}"; x_chosen: wave 4H)
         raise ActionError("Choose a value for X")
     if cost.loyalty_x and card.counters.get("loyalty", 0) < (a.x_value or 0):
         raise ActionError(f"{ch.name} doesn't have {a.x_value} loyalty")  # 606.6

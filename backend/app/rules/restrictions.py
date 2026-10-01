@@ -105,6 +105,10 @@ def split_trigger_limit(body: str) -> tuple[str, str | None]:
 
 
 EXHAUST = "Exhaust — "  # -- ability words (wave 4F) -- 702.177
+# -- activation costs (wave 4H) -- 702.142a: "Boast — [Cost]: [Effect]" means "[Cost]: [Effect]. Activate only if this
+# creature attacked this turn and only once each turn." (Birgi, God of Storytelling: twice during each of your turns)
+BOAST = "Boast — "
+_BOAST_TWICE = frozenset({"Birgi, God of Storytelling"})
 
 
 def parse(text: str) -> list[Restriction] | None:
@@ -113,6 +117,9 @@ def parse(text: str) -> list[Restriction] | None:
     _, found = split(text.split(":", 1)[1] if ":" in text else text)
     # -- ability words (wave 4F) -- 702.177a: "Exhaust — [Cost]: [Effect]" means "[Cost]: [Effect]. Activate only once."
     exhaust: list[Restriction] = [{"kind": "per_game", "n": 1, "exhaust": True}] if text.startswith(EXHAUST) else []
+    if text.startswith(BOAST):  # -- activation costs (wave 4H) -- 702.142a
+        exhaust = [{"kind": "if", "cond": {"history": "self_attacked", "object": "self"}, "text": "this creature attacked this turn"},
+                   {"kind": "per_turn", "n": 1, "boast": True}]
     if found is None:
         return exhaust
     out: list[Restriction] = list(exhaust)
@@ -222,7 +229,11 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
             if turn.phase not in x["phases"]:
                 return f"That can only be activated {_when(x)}"
         elif kind == "per_turn":
-            if uses(r, r.object_id(card.id), index, turn.number) >= x["n"]:
+            n = x["n"]
+            if x.get("boast") and turn.active_player == player and any(  # (wave 4H) Birgi: "can boast twice during each of your turns"
+                    (c := state.cards.get(cid)) is not None and c.name in _BOAST_TWICE for cid in state.zones.get(f"{player}:battlefield", [])):
+                n = 2
+            if uses(r, r.object_id(card.id), index, turn.number) >= n:
                 return "That can only be activated once each turn" if x["n"] == 1 else \
                     f"That can be activated only {_times(x['n'])} each turn"
         elif kind == "per_game":

@@ -75,7 +75,7 @@ def cost_text(phrase: str) -> str | None:
 def parse(text: str) -> AbilityCost | None:
     """The cost text as components, or None if any part isn't one the engine pays here."""
     cost = C.parse_ability_cost(text)
-    if cost.unsupported or not cost.components or "{X}" in cost.mana.upper() or cost.energy_x:
+    if cost.unsupported or not cost.components or "{X}" in cost.mana.upper() or cost.energy_x or cost.activation_only:  # (wave 4H)
         return None
     if any(c.kind not in SUPPORTED for c in cost.components):
         return None
