@@ -66,6 +66,8 @@ REAL = [
          f"an opponent controls. {GOAD_REMINDER}", ["R"], ("0", "1")),
 ]
 REAL += [
+    real("Eyes of Gitaxias", "F16", "{2}{U}", 3, "Sorcery", "Incubate 3. (Create an Incubator token with three +1/+1 counters "
+         "on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)\nDraw a card.", ["U"]),
     real("Fire Sages", "F15", "{1}{R}", 2, "Creature — Human Cleric", "Firebending 1 (Whenever this creature attacks, add {R}. "
          "This mana lasts until end of combat.)\n{1}{R}{R}: Put a +1/+1 counter on this creature.", ["R"], ("2", "2")),
     real("Earthbending Lesson", "F14", "{3}{G}", 4, "Sorcery — Lesson", "Earthbend 4. (Target land you control becomes a 0/0 "
@@ -470,6 +472,12 @@ def test_geode_rager_goads_each_creature_the_target_player_controls(cards):
 
 
 # -- stun counters (122.1d) -------------------------------------------------------------------------------
+def test_parse_stun_counters():
+    assert scripts.parse_effects("Tap up to two target creatures and put a stun counter on each of them.") == (
+        [{"do": "tap", "who": "target:0"}, {"do": "add_counters", "who": "target:0", "kind": "stun", "n": 1}],
+        [{"what": 'sel:{"types":["Creature"]}', "min": 0, "max": 2}], False)
+
+
 def test_tranquilize_stun_counters_replace_untapping(cards):
     from tests.test_rules_effects import run_until
 
@@ -547,3 +555,33 @@ def test_fire_sages_firebending_mana_lasts_until_end_of_combat(cards):
     assert s.state.turn.phase == "main2"  # (on through damage and end of combat)
     assert not s.state.players["p1"].mana and not rules(s).combat_mana  # gone as the combat phase ended
     replay_matches(s)
+
+
+# -- incubate (701.53) -----------------------------------------------------------------------------------
+def test_eyes_of_gitaxias_incubates_a_double_faced_token_that_transforms(cards):
+    from app.storage.saves import load_payload
+
+    s = build(cards, "Eyes of Gitaxias", players=2)
+    cast(s, "Eyes of Gitaxias", U=1, C=2)
+    incubator = named(s, "Incubator")
+    assert incubator.is_token and incubator.counters == {"+1/+1": 3}
+    now = ch(s, incubator)
+    assert now.types == {"Artifact"} and "Incubator" in now.subtypes and not now.is_creature and not now.colors
+    oid = rules(s).object_id(incubator.id)
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=incubator.id, ability=0)  # {2}: Transform this token.
+    pass_until_stack_empty(s)
+    t = s.state.cards[incubator.id]
+    assert t.face == 1 and t.name == "Phyrexian Token" and rules(s).object_id(t.id) == oid  # the same object (701.27)
+    now = ch(s, t)
+    assert now.types == {"Artifact", "Creature"} and "Phyrexian" in now.subtypes and now.pt == (3, 3)
+    assert s.view("p2")["cards"][t.id]["token"]["name"] == "Phyrexian Token"
+    from app.game.rules_state import snapshot
+
+    assert "Creature" in (snapshot(s.state, t.id).token_type_line or "")  # its last known information is the back face
+    mana(s, C=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=t.id, ability=0)  # (the back face has no such ability)
+    replay_matches(s)
+    state, _ = load_payload({"state": s.state.model_dump(mode="json"), "history": s.history.to_dict()})
+    assert Plan(state, "p1", cards, None).ch(state.cards[t.id]).pt == (3, 3)

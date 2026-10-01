@@ -825,6 +825,8 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
     c = state.cards[card_id]
     rules = state.rules
     token = c.token
+    if token is not None and token.back is not None and c.face == 1:  # -- wave 3F -- a transformed double-faced token
+        token = token.back
     return ObjectSnapshot(
         object_id=rules.object_id(card_id) if rules else card_id, card=card_id, printing=c.card_id, name=c.name,
         owner=c.owner, controller=c.controller, zone=c.zone, turn=state.turn.number, tapped=c.tapped,

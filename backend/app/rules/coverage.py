@@ -182,7 +182,7 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
     # test_rules_keyword_actions.py
     "amass", "connive", "monstrosity", "bolster", "support",
     # -- keyword actions & face-down (wave 3F) -- test_rules_keywords3f.py
-    "goad", "manifest", "manifest dread", "cloak",
+    "goad", "manifest", "manifest dread", "cloak", "earthbend", "incubate",
 }
 
 

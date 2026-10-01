@@ -245,6 +245,8 @@ def of(card: CardInstance, info: CardInfo) -> Characteristics:
         return face_down_characteristics(card.face_down_kind)  # -- keyword actions & face-down (wave 3F) --
     if card.token is not None and not card.card_id:
         t = card.token
+        if t.back is not None and card.face == 1:  # -- keyword actions & face-down (wave 3F) -- transformed (701.27, 111.10i)
+            t = t.back
         supertypes, types, subtypes = parse_type_line(t.type_line)
         abilities = with_intrinsic_mana(parse_abilities(t.text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
         return Characteristics(

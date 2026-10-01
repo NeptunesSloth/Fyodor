@@ -116,7 +116,6 @@ def test_target_forms_are_parsed(text, effects_, target):
     "Counter target activated or triggered ability from an artifact or enchantment source.",
     "Exile target player's graveyard.",  # (a target player's zone as the objects: not modelled)
     "Exile it until ~ leaves the battlefield.",
-    "Tap up to two target creatures and put a stun counter on each of them.",  # (stun: values.UNMODELED_COUNTERS)
     "Target player shuffles up to four target cards from their graveyard into their library.",
     "Tap up to X target creatures.",
 ])
@@ -129,7 +128,6 @@ def test_refusals_are_registered():
     for text, piece in [
         ("Target creature you control fights another target creature.", "fight"),
         ("Choose up to one target creature. That creature can't block this turn.", "choose_targets"),
-        ("Tap up to two target creatures and put a stun counter on each of them.", "stun"),
         ("This spell costs {1}{U} more to cast for each target beyond the first.", "extra target"),
         ("Exile target player's graveyard.", "zone"),
         ("Destroy target creature that player controls.", "named earlier"),

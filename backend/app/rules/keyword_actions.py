@@ -381,6 +381,43 @@ def combat_mana_kept(plan: Plan) -> dict[str, int]:
     return dict(r.combat_mana)
 
 
+# incubate (701.53): "create an Incubator token that enters the battlefield with N +1/+1 counters on it";
+# 111.10i: a double-faced token — front "Incubator", a colorless artifact with "{2}: Transform this token.",
+# back a 0/0 colorless Phyrexian artifact creature named "Phyrexian Token". Transforming (701.27) turns the
+# token over (``set_face``; its new timestamp, 613.7g, is app/game/rules_state.py's): it's the same object.
+INCUBATOR: dict[str, Any] = {
+    "name": "Incubator", "power": None, "toughness": None, "colors": [], "type_line": "Token Artifact — Incubator",
+    "text": "{2}: Transform this token.",
+    "back": {"name": "Phyrexian Token", "power": "0", "toughness": "0", "colors": [],
+             "type_line": "Token Artifact Creature — Phyrexian", "text": ""}}
+
+
+def incubate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    pid = ctx["controller"]
+    n = effects._amount(plan, ctx, e.get("n", 0))
+    source = ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None
+    made = replace.create_tokens(plan, pid, dict(INCUBATOR), 1, source=source, ctx=ctx, bind=e.get("as"),
+                                 then=replace.rerun_then(ctx, e))
+    if made is None:
+        return False  # (616.1: the creating player orders replacement effects first; incubate runs again)
+    puts = [(t, "+1/+1", n) for t in made if t in plan.state.cards and n > 0]
+    if not puts:
+        return True
+    # 122.6: the counters it enters with, through the counter choke point
+    return replace.put_counters(plan, puts, by=pid, entering={t: pid for t, _, _ in puts}, then={"do": "continue", "ctx": ctx})
+
+
+def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.27a, "Transform this token.": a double-faced token turns over; 701.27c: anything else that isn't a
+    double-faced permanent doesn't (nothing happens)."""
+    for cid in effects._cards(plan, ctx, e.get("who", "self")):
+        card = plan.state.cards[cid]
+        if card.token is None or card.token.back is None or not card.zone.endswith(":battlefield"):
+            continue
+        plan.do({"type": "set_face", "card_id": cid, "face": 1 - min(card.face, 1)}, actor=ctx["controller"])
+    return True
+
+
 # stun counters (122.1d): "If a permanent with a stun counter on it would become untapped, instead remove a
 # stun counter from it." — a replacement effect of the counters themselves, applied wherever the engine untaps
 # a permanent (the untap step, "untap target creature", "untap … and gain control of it").
@@ -404,7 +441,8 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
 
 
 PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
-              "goad": goad, "earthbend": earthbend, "firebend": firebend, **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
+              "goad": goad, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform,
+              **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
 RESUME = {"amass_choose": resume_amass, "bolster_choose": resume_bolster, "connive_discard": resume_connive,
           **facedown.RESUME,  # -- keyword actions & face-down (wave 3F) --

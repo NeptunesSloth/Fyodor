@@ -45,7 +45,6 @@ def test_connive_pronouns_name_the_source():
 @pytest.mark.parametrize("text", [
     "Amass Foo 2.",  # not a creature type
     "Amass Orcs X, where X is that spell's mana value.",  # (the rider isn't understood here)
-    "Incubate 3.",  # 701.53: the Incubator can't transform
 ])
 def test_unsupported_keyword_actions_stay_manual(text):
     assert scripts.parse_effects(text) is None

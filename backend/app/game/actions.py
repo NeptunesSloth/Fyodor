@@ -242,6 +242,7 @@ class TokenSpec(BaseModel):
     colors: list[Literal["W", "U", "B", "R", "G"]] = Field(default_factory=list)
     type_line: str = Field(default="Token Creature", max_length=120)
     text: str = Field(default="", max_length=1000)
+    back: TokenSpec | None = None  # -- wave 3F -- a double-faced token's back face (111.10i)
 
     @field_validator("name", "type_line")
     @classmethod

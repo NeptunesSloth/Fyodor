@@ -703,8 +703,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if found is not None:
         return found
     text, rider = _with_rider(text)
-    if rider is not None and rider[0] == "x" and re.fullmatch(r"(?:you )?earthbend [xX]", text):
-        found = keyword_forms("earthbend x")  # -- keyword actions & face-down (wave 3F) -- "earthbend X, where X is …"
+    kw_x = re.fullmatch(r"(?:you )?(?P<v>earthbend|incubate) [xX]", text) if rider is not None and rider[0] == "x" else None
+    if kw_x:
+        found = keyword_forms(f"{kw_x['v']} x")  # -- keyword actions & face-down (wave 3F) -- "earthbend X, where X is …"
         if found is None:
             raise _Fail
         return [_bind_x(e, rider[1]) for e in found[0]], found[1]
@@ -1748,6 +1749,11 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         found = _manifest_forms(text)
         if found is not None:
             return found
+    m = re.fullmatch(r"(?:you )?incubate (?P<n>\d+|[xX])", text)
+    if m and has_primitive("incubate"):  # 701.53a
+        return [{"do": "incubate", "n": _amount(m["n"])}], None
+    if text == "transform this token" and has_primitive("transform"):  # (not "transform ~": DFC cards stay manual)
+        return [{"do": "transform", "who": "self"}], None  # (701.27: only a double-faced token turns over)
     m = re.fullmatch(r"(?:you )?earthbend (?P<n>\d+|[xX]|one|two|three|four|five|six|seven|eight)", text)
     if m and has_primitive("earthbend"):  # 701.66a: "Target land you control …" is part of the action
         land = selectors.parse("land you control")
