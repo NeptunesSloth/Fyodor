@@ -164,6 +164,9 @@ def _mana_count(state: GameState, card: CardInstance, count: str, info: CardInfo
 
 
 def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, info: CardInfo) -> tuple[tuple[str, ...], ...]:
+    if ab.instead_if == (M.PLAYED_LAND,):  # -- this-turn history (wave 4D) -- River of Tears
+        played = state.rules is not None and state.rules.lands_this_turn(card.controller, state.turn.number) > 0
+        return ab.instead if played else ab.options
     if ab.instead_if and all(_controls_subtypes(state, card.controller, need, info) for need in ab.instead_if):
         return ab.instead  # -- refused copy/mana (wave 3R3): Urza's Tower with the Mine and the Power-Plant --
     if ab.count == "devotion":  # -- refused copy/mana (wave 3R3): Nykthos, per chosen color (700.5) --

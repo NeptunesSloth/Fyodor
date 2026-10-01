@@ -395,9 +395,37 @@ def _history_sel(phrase: str, zone: str) -> str | None:
     from app.rules import history
 
     sel = selectors.parse(phrase)
-    if sel is None or not history.note_selector_ok(sel) or sel.zones not in ((zone,), ()):
+    if sel is None or not history.note_selector_ok(sel) or sel.zones != (zone,):
         return None
     return sel.key()
+
+
+@_history_pattern(r"~ (?P<neg>didn't |did not )?attack(?:ed)? this turn")
+def _self_attacked(m: re.Match[str]) -> Condition:
+    found: Condition = {"history": "self_attacked", "object": "self"}  # 508.1: this object was declared as an attacker this turn
+    return {"not": found} if m["neg"] else found
+
+
+@_history_pattern(r"~ (?:didn't|did not) enter the battlefield this turn")
+def _self_not_entered(m: re.Match[str]) -> Condition:
+    return {"not": {"history": "entered_self", "object": "self"}}  # ("object": what "it" after it names, 608.2c)
+
+
+@_history_pattern(r"~ dealt (?P<kind>combat )?damage to an opponent this turn")
+def _self_dealt(m: re.Match[str]) -> Condition:
+    return {"history": "damage", "who": "opponent", "n": 1, "by_self": True, "object": "self", **({"combat": True} if m["kind"] else {})}
+
+
+@_history_pattern(r"(?P<q>a|an|one or more|\w+ or more) (?P<sel>.+? cards?) (?:was|were) put into your graveyard from anywhere this turn")
+def _to_graveyard(m: re.Match[str]) -> Condition | None:
+    q = _q(m["q"])
+    sel = selectors.parse(m["sel"] + " in your graveyard")
+    from app.rules import history
+
+    if q is None or sel is None or sel.zones != ("graveyard",) or sel.zone_owner != "you" \
+            or not history.note_selector_ok(replace(sel, zone_owner=None, card=False)):
+        return None
+    return {"history": "graveyard_cards", "sel": sel.key(), "n": q[0]}  # (cards: a token never is one, 111.1)
 
 
 @_history_pattern(r"you(?:'ve| have)? created (?:a token|(?P<n>\w+) or more tokens) this turn")
@@ -429,7 +457,7 @@ def _cast_this_turn(m: re.Match[str]) -> Condition | None:
     sel = m["sel"].replace(" and/or ", " or ")
     sel = re.sub(r"^(instant|sorcery) and (instant|sorcery) spells$", r"\1 or \2 spells", sel)
     key = _history_sel(sel, "stack")
-    if q is None or key is None or not re.search(r"\bspells?$", sel) or (m["q"] == "another" and _who(m) != "you"):
+    if q is None or key is None or (m["q"] == "another" and _who(m) != "you"):
         return None
     out: Condition = {"history": "cast", "who": _who(m), "sel": key, "n": q[0], "op": q[1]}
     if m["q"] == "another":
@@ -442,7 +470,7 @@ def _cast_this_turn(m: re.Match[str]) -> Condition | None:
 @_history_pattern(rf"you(?: haven't| didn't|'ve not| have not| did not) cast (?:a|an|any) (?P<sel>.+?)(?P<hand> from your hand)? this turn")
 def _not_cast_this_turn(m: re.Match[str]) -> Condition | None:
     key = _history_sel(m["sel"], "stack")
-    if key is None or not re.search(r"\bspells?$", m["sel"]):
+    if key is None:
         return None
     return {"not": {"history": "cast", "who": "you", "sel": key, "n": 1, "op": ">=", **({"from": "hand"} if m["hand"] else {})}}
 
@@ -525,7 +553,7 @@ def _entered_opponent(m: re.Match[str]) -> Condition | None:
     return None if found is None or found.get("other") else {**found, "who": "opponent"}
 
 
-@_history_pattern(rf"{_Q} (?P<sel>.+?) (?P<verb>died|left the battlefield|(?:was|were) put into a graveyard from the battlefield)"
+@_history_pattern(rf"{_Q} (?P<sel>.+?) (?P<verb>died|left the battlefield|(?:was|were) put into (?P<gy>a|your) graveyard from the battlefield)"
                   r"(?P<whose> under your control| under an opponent's control)? this turn")
 def _departed(m: re.Match[str]) -> Condition | None:
     q = _q(m["q"])
@@ -539,6 +567,8 @@ def _departed(m: re.Match[str]) -> Condition | None:
         out["who"] = "you" if "your" in m["whose"] else "opponent"
     if m["q"] == "another":
         out["other"] = True
+    if m["gy"] == "your":
+        out["owner"] = "you"  # (a permanent goes to its owner's graveyard, 400.3)
     return out
 # -- end this-turn history (wave 4D) --
 

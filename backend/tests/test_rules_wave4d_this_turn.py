@@ -61,6 +61,11 @@ EXTRA = [
     card('Skarrgan Firebird', set_code='tst', number='D420', mana_cost='{4}{R}{R}', cmc=6.0, type_line='Creature — Phoenix', oracle_text='Bloodthirst 3 (If an opponent was dealt damage this turn, this creature enters with three +1/+1 counters on it.)\nFlying\n{R}{R}{R}: Return this card from your graveyard to your hand. Activate only if an opponent was dealt damage this turn.', power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=['Flying', 'Bloodthirst']),
     card('Fairgrounds Trumpeter', set_code='tst', number='D421', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Elephant', oracle_text='At the beginning of each end step, if a +1/+1 counter was put on a permanent under your control this turn, put a +1/+1 counter on this creature.', power='2', toughness='2', colors=['G'], color_identity=['G']),
     card('White Glove Gourmand', set_code='tst', number='D422', mana_cost='{2}{W}{B}', cmc=4.0, type_line='Creature — Human Noble', oracle_text='When this creature enters, create two 1/1 white Human Soldier creature tokens.\nAt the beginning of your end step, if another Human died under your control this turn, create a Food token.', power='2', toughness='2', colors=['B', 'W'], color_identity=['B', 'W'], keywords=['Food']),
+    card('River of Tears', set_code='tst', number='D424', mana_cost='', cmc=0.0, type_line='Land', oracle_text='{T}: Add {U}. If you played a land this turn, add {B} instead.', color_identity=['B', 'U']),
+    card('Air Nomad Student', set_code='tst', number='D425', mana_cost='{3}{W}', cmc=4.0, type_line='Creature — Human Monk', oracle_text="Flying\nAt the beginning of your end step, if this creature didn't attack this turn, put a +1/+1 counter on it.", power='2', toughness='2', colors=['W'], color_identity=['W'], keywords=['Flying']),
+    card('Dunerider Outlaw', set_code='tst', number='D426', mana_cost='{B}{B}', cmc=2.0, type_line='Creature — Human Rebel Rogue', oracle_text='Protection from green\nAt the beginning of each end step, if this creature dealt damage to an opponent this turn, put a +1/+1 counter on it.', power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=['Protection']),
+    card('Cactuar', set_code='tst', number='D427', mana_cost='{G}', cmc=1.0, type_line='Creature — Plant', oracle_text="Trample\nAt the beginning of your end step, if this creature didn't enter the battlefield this turn, return it to its owner's hand.", power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Trample']),
+    card('Kami of Transience', set_code='tst', number='D428', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Spirit', oracle_text='Trample\nWhenever you cast an enchantment spell, put a +1/+1 counter on this creature.\nAt the beginning of each end step, if an enchantment was put into your graveyard from the battlefield this turn, you may return this card from your graveyard to your hand.', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Trample']),
 ]
 
 
@@ -593,3 +598,79 @@ def test_the_history_starts_over_each_turn_and_isn_t_shown(cards):
 def test_restriction_names_its_condition():
     found = restrictions.parse("{T}: Draw a card. Activate only if you created a token this turn.")
     assert found == [{"kind": "if", "cond": {"history": "tokens", "who": "you", "n": 1}, "text": "you created a token this turn"}]
+
+
+# -- a mana ability: "If you played a land this turn, add {B} instead." ---------------------------------------------------
+def test_river_of_tears_after_playing_a_land(cards):
+    """Its ruling: {B} only after you *played* a land (305.1), not after one was put onto the battlefield; next turn,
+    {U} again until you play one."""
+    from app.rules.casting import mana_abilities
+
+    s = build(cards, "River of Tears")
+    river = put(s, "River of Tears")  # (put onto the battlefield, not played)
+    assert dict(mana_abilities(s.state, s.state.cards[river.id], s.cards))[0].options == (("U",),)
+    act(s, "p1", type="activate_ability", card_id=river.id, ability=0)
+    assert dict(s.state.players["p1"].mana) == {"U": 1}
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "hand"})
+    act(s, "p1", type="play_land", card_id=forest.id)
+    assert dict(mana_abilities(s.state, s.state.cards[river.id], s.cards))[0].options == (("B",),)
+    s = saved(s)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    assert dict(mana_abilities(s.state, s.state.cards[river.id], s.cards))[0].options == (("U",),)
+    replay_matches(s)
+
+
+# -- what this object did this turn -------------------------------------------------------------------------------------
+def test_air_nomad_student_and_dunerider_outlaw(cards):
+    """The Outlaw attacks and deals damage to Bob: it gets a counter at the end step; the Student didn't attack: it gets
+    one too. On Bob's turn ("each end step") the Outlaw dealt no damage: no counter."""
+    s = sandbox(cards, "Air Nomad Student", "Dunerider Outlaw")
+    student, outlaw = put(s, "Air Nomad Student"), put(s, "Dunerider Outlaw")
+    combat_step(s)
+    attack(s, (outlaw, "p2"))
+    through_combat(s)
+    s = saved(s)
+    the_end_step(s)
+    assert s.state.cards[outlaw.id].counters.get("+1/+1") == 1
+    assert s.state.cards[student.id].counters.get("+1/+1") == 1
+    the_end_step(s)
+    assert s.state.cards[outlaw.id].counters.get("+1/+1") == 1
+    replay_matches(s)
+
+
+def test_air_nomad_student_that_attacked_gets_nothing(cards):
+    s = sandbox(cards, "Air Nomad Student")
+    student = put(s, "Air Nomad Student")
+    combat_step(s)
+    attack(s, (student, "p2"))
+    through_combat(s)
+    the_end_step(s)
+    assert not s.state.cards[student.id].counters.get("+1/+1")
+    replay_matches(s)
+
+
+def test_cactuar_returns_unless_it_entered_this_turn(cards):
+    s = build(cards, "Cactuar")
+    cactuar = put(s, "Cactuar")
+    the_end_step(s)
+    assert s.state.cards[cactuar.id].zone == "p1:battlefield"  # (it entered this turn)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    the_end_step(s)
+    assert s.state.cards[cactuar.id].zone == "p1:hand"
+    replay_matches(s)
+
+
+def test_kami_of_transience_after_an_enchantment_went_to_your_graveyard(cards):
+    """608.2i: the enchantment needn't still be in the graveyard; 400.3: it went to its owner's graveyard."""
+    s = build(cards, "Kami of Transience", "Deathreap Ritual")
+    kami = named(s, "Kami of Transience")
+    act(s, "p1", type="move", card_ids=[kami.id], to={"player": "p1", "zone": "graveyard"})
+    ritual = put(s, "Deathreap Ritual")
+    the_end_step(s)
+    assert s.state.cards[kami.id].zone == "p1:graveyard"
+    act(s, "p1", type="move", card_ids=[ritual.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[ritual.id], to={"player": "p1", "zone": "exile"})
+    the_end_step(s)
+    assert s.state.cards[kami.id].zone == "p1:hand"
+    replay_matches(s)

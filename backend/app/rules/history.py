@@ -351,6 +351,8 @@ def _damage(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog)
             continue
         if src and not (set(src["types"]) <= set(f.source_types) and set(src["supertypes"]) <= set(f.source_supertypes)):
             continue
+        if cond.get("by_self") and f.object_id != _source_object(plan, ctx):  # ("~ dealt damage to an opponent")
+            continue
         per[f.player] = per.get(f.player, 0) + f.amount
     return any(per.get(p, 0) >= int(cond.get("n", 1)) for p in _players(plan, ctx["controller"], cond.get("who")))
 
@@ -370,7 +372,7 @@ def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLo
         if cond.get("who") and (d.controller == me) != (cond["who"] == "you"):
             continue
         snap = plan.rules.lki.get(d.object_id)
-        if snap is None:
+        if snap is None or (cond.get("owner") == "you" and snap.owner != me):
             continue
         _, ch = _snapshot_card(plan, snap)
         types = d.types if d.types is not None else ch.types
@@ -388,7 +390,28 @@ _WAVE_4D: dict[str, Any] = {
     "departed": _departed,
     "lands": lambda plan, ctx, cond, log: plan.rules.lands_this_turn(ctx["controller"], plan.state.turn.number) >= int(cond.get("n", 1)),
     "resolution": lambda plan, ctx, cond, log: resolution_holds(ctx, cond),
+    "self_attacked": lambda plan, ctx, cond, log: _source_object(plan, ctx) in {a for v in log.attackers.values() for a in v},
+    "graveyard_cards": lambda plan, ctx, cond, log: _graveyard_cards(plan, ctx, cond, log),
 }
+
+
+def _graveyard_cards(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
+    """Cards put into your graveyard from anywhere this turn (whether or not they're still there, 608.2i): a card's
+    characteristics are the same in any zone but the battlefield and the stack, so they're read from the card."""
+    from dataclasses import replace
+
+    from app.rules import selectors
+
+    sel = replace(selectors.from_key(cond["sel"]), zone_owner=None, card=False)
+    n = 0
+    for arrival in log.entered_graveyard:
+        card = plan.state.cards.get(arrival.card)
+        if arrival.owner != ctx["controller"] or card is None:
+            continue
+        ch = chars.of(card, plan.info)
+        if note_matches(sel, ch.types, ch.subtypes, ch.supertypes, ch.colors, float(ch.mana_value)):
+            n += 1
+    return _cmp(n, cond)
 
 
 def resolution_holds(ctx: dict[str, Any], cond: dict[str, Any]) -> bool:

@@ -177,6 +177,10 @@ _POWER_OF = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?:thi
 _X_POWER = re.compile(r"^Add X mana of any one color, where X is (?:this creature|[A-Z][^.]{0,60}?)'s power$")
 _URZA = re.compile(r"^If you control an? (?P<what>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*(?: and an? [A-Z][\w'-]*(?: [A-Z][\w'-]*)*)*), "
                    r"add (?P<add>(?:\{[WUBRGC]\})+) instead$")  # (wave 3R3: the Urza lands)
+# -- this-turn history (wave 4D) -- "If you played a land this turn, add {B} instead." (River of Tears; 305.1, 701.18a:
+# played, not put onto the battlefield): ``instead_if`` holds this marker instead of permanents to control
+_PLAYED_LAND = re.compile(r"^If you played a land this turn, add (?P<add>(?:\{[WUBRGC]\})+) instead$")
+PLAYED_LAND = ("@played_land",)
 _CHOSEN_COLOR: dict[str, str | None] = {  # (wave 3R3) "Choose a color. <this>": how many of that color
     "Add one mana of that color": None,
     "Add an amount of mana of that color equal to your devotion to that color": "devotion",  # 700.5 (Nykthos)
@@ -278,6 +282,11 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             if more is None or len(more) != 1 or not all(needs):
                 return None
             instead_if, instead = needs, more
+        elif (pl := _PLAYED_LAND.fullmatch(s)) and not instead and len(options) == 1:  # -- this-turn history (wave 4D) --
+            more = _effect_options("Add " + pl.group("add"), identity)
+            if more is None or len(more) != 1:
+                return None
+            instead_if, instead = (PLAYED_LAND,), more
         else:
             for pattern, kind in _SPEND:
                 if sm := pattern.fullmatch(s):
