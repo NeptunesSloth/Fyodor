@@ -322,6 +322,38 @@ def test_attacking_a_siege_its_protector_blocks_and_defeat_exiles_it(cards):
     replay_matches(s)
 
 
+# -- 702.40 / 707.10: storm copies are spells, but not cast ------------------------------------------------
+def test_storm_copies_are_red_sorcery_spells_but_not_cast(cards):
+    """707.10: a copy of a spell is a spell — Fire Servant doubles each storm copy's damage — but it
+    isn't cast (702.40c): Young Pyromancer triggers once, and the copies don't add to storm's count."""
+    from tests.test_rules_replacements2 import FIRE_SERVANT
+
+    s = build(cards, "Grapeshot", "Lightning Bolt", "Young Pyromancer")
+    token(s, "p1", "Fire Servant", "4/3", FIRE_SERVANT)
+    pyro = named(s, "Young Pyromancer")
+    act(s, "p1", type="move", card_ids=[pyro.id], to={"player": "p1", "zone": "battlefield"})
+    bolt(s, "p2")  # one spell before Grapeshot: 3 doubled to 6, and one Elemental
+    shot = named(s, "Grapeshot")
+    act(s, "p1", type="move", card_ids=[shot.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1, "C": 1})
+    act(s, "p1", type="cast_spell", card_id=shot.id, targets=["p2"])
+    for _ in range(12):
+        d = decision(s)
+        if d is not None and d.kind == "order":  # (Young Pyromancer's trigger and storm's)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+        elif d is not None:  # (the copy keeps its target)
+            answer(s, "same" if "same" in {o.id for o in d.options} else "keep" if "keep" in {o.id for o in d.options}
+                   else d.options[0].id)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.players["p2"].life == 40 - 6 - 2 - 2  # Bolt, Grapeshot and its one copy, each doubled
+    assert len(named_all(s, "Elemental")) == 2  # cast twice (Bolt, Grapeshot); the copy wasn't cast
+    assert s.state.rules.spells_this_turn("p1", s.state.turn.number) == 2
+    replay_matches(s)
+
+
 def test_simultaneous_entries_are_timestamped_in_apnap_order(cards):
     """613.7m: the active player's permanent gets the earlier timestamp, whatever order the effect
     lists them in; both enter in one step under their own controllers."""
