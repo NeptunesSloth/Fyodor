@@ -37,6 +37,8 @@ COLOR_WORDS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"
 ARTIFACT_TYPES = frozenset({"Attraction", "Blood", "Bobblehead", "Book", "Clue", "Contraption", "Equipment", "Food",
                             "Fortification", "Gold", "Heartwood", "Incubator", "Infinity", "Junk", "Lander", "Map",
                             "Mutagen", "Powerstone", "Spacecraft", "Stone", "Treasure", "Vehicle", "Vibranium"})
+LAND_TYPES = frozenset({"Plains", "Island", "Swamp", "Mountain", "Forest", "Desert", "Cave", "Gate", "Lair", "Locus", "Sphere",
+                        "Town", "Urza's", "Mine", "Power-Plant", "Tower"})  # 205.3i (wave 4K: a land creature token)
 ENCHANTMENT_TYPES = frozenset({"Aura", "Background", "Cartouche", "Case", "Class", "Curse", "Plan", "Role", "Room",
                                "Rune", "Saga", "Shard", "Shrine"})
 
@@ -54,7 +56,7 @@ _COLORS = r"colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|
 _CAPS = r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*"
 _SENTENCE = re.compile(
     rf"^create (?P<n>{_QTY}) (?P<tapped>tapped )?"
-    rf"(?:(?P<pt>(?:\d+|X)/(?:\d+|X)) (?P<colors>{_COLORS}) (?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?creature tokens?"
+    rf"(?:(?P<pt>(?:\d+|X)/(?:\d+|X)) (?P<colors>{_COLORS}) (?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?(?P<land>land )?creature tokens?"
     r"|(?P<pre>[A-Z][a-z]+) tokens?)"
     rf"(?: named (?P<name>{_CAPS}))?"
     r"(?: with (?P<with>.+?))?"
@@ -171,7 +173,10 @@ def parse(sentence: str) -> list[Effect] | None:
                                  "colors": list(scripts.PREDEFINED_COLORS.get(m["pre"], ())), "type_line": type_line,
                                  "text": ability}
     else:
-        extra = (ARTIFACT_TYPES if m["art"] else frozenset()) | (ENCHANTMENT_TYPES if m["ench"] else frozenset())
+        extra = (ARTIFACT_TYPES if m["art"] else frozenset()) | (ENCHANTMENT_TYPES if m["ench"] else frozenset()) \
+            | (LAND_TYPES if m["land"] else frozenset())  # (wave 4K: "Forest Dryad land creature tokens", 205.3i)
+        if m["land"] and (m["ench"] or m["art"]):
+            return None
         subtypes = _subtypes(m["sub"], extra)
         parsed_with = _with(m["with"])
         if subtypes is None or parsed_with is None:
@@ -181,7 +186,8 @@ def parse(sentence: str) -> list[Effect] | None:
         # (111.3: its copiable values; fixed then, 608.2h), evaluated by effects.create_token
         p, t = (_qty(s) if s == "X" else s for s in m["pt"].split("/"))
         colors = [] if m["colors"] == "colorless" else [COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", m["colors"])]
-        type_line = f"Token {'Enchantment ' if m['ench'] else ''}{'Artifact ' if m['art'] else ''}Creature — {' '.join(subtypes)}"
+        type_line = (f"Token {'Enchantment ' if m['ench'] else ''}{'Artifact ' if m['art'] else ''}{'Land ' if m['land'] else ''}"
+                     f"Creature — {' '.join(subtypes)}")
         lines = [k.capitalize() for k in kws] + ([quoted] if quoted else [])
         token = {"name": m["name"] or " ".join(subtypes), "power": p, "toughness": t, "colors": colors,
                  "type_line": type_line, "text": "\n".join(lines)}

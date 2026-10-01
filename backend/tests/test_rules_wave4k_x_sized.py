@@ -99,6 +99,18 @@ EXTRA = [
     _card("Ghoulcaller Gisa", "{3}{B}{B}", 5.0, "Legendary Creature — Human Wizard",
           "{B}, {T}, Sacrifice another creature: Create X 2/2 black Zombie creature tokens, where X is the sacrificed "
           "creature's power.", ["B"], "3/4", n=19),
+    _card("Awaken the Woods", "{X}{G}{G}", 2.0, "Sorcery", "Create X 1/1 green Forest Dryad land creature tokens. (They're affected by summoning sickness.)", ["G"], n=20),
+    _card("Artifact Mutation", "{R}{G}", 2.0, "Instant",
+          "Destroy target artifact. It can't be regenerated. Create X 1/1 green Saproling creature tokens, where X is that "
+          "artifact's mana value.", ["R", "G"], n=21),
+    _card("Mirror Entity", "{2}{W}", 3.0, "Creature — Shapeshifter",
+          "Changeling (This card is every creature type.)\n" + "{X}: Until end of turn, creatures you control have base power "
+          "and toughness X/X and gain all creature types.", ["W"], "1/1", n=22),
+    _card("Finale of Glory", "{X}{W}{W}", 2.0, "Sorcery",
+          "Create X 2/2 white Soldier creature tokens with vigilance. If X is 10 or more, also create X 4/4 white Angel "
+          "creature tokens with flying and vigilance.", ["W"], n=24),
+    _card("Sanctum Weaver","{1}{G}", 2.0, "Enchantment Creature — Dryad",
+          "{T}: Add X mana of any one color, where X is the number of enchantments you control.", ["G"], "0/2", n=23),
 ]
 
 
@@ -145,7 +157,8 @@ def hand(s, pid="p1"):
 @pytest.mark.parametrize("name", ["Toxic Deluge", "Craterhoof Behemoth", "Overwhelming Stampede", "Blue Sun's Zenith",
                                   "Black Sun's Zenith", "Pest Infestation", "By Force", "Monumental Corruption",
                                   "Elenda's Hierophant", "Kin-Tree Invocation", "Prime Speaker Zegana", "Stag Beetle",
-                                  "Meteor Swarm", "Candelabra of Tawnos", "Gelatinous Genesis", "Hatred", "Ghoulcaller Gisa"])
+                                  "Meteor Swarm", "Candelabra of Tawnos", "Gelatinous Genesis", "Hatred", "Ghoulcaller Gisa",
+                                  "Awaken the Woods", "Artifact Mutation", "Mirror Entity", "Sanctum Weaver", "Finale of Glory"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -394,6 +407,18 @@ def test_gelatinous_genesis_x_tokens_of_x_x(cards):
     roundtrip(s)
 
 
+@pytest.mark.parametrize(("x", "angels"), [(2, 0), (10, 10)])
+def test_finale_of_glory_also_creates_angels_at_ten(cards, x, angels):
+    s = build(cards, "Finale of Glory")
+    spell = to_hand(s, "Finale of Glory")
+    mana(s, W=2, C=x)
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=x)
+    pass_until_stack_empty(s)
+    names = [c.name for c in s.state.cards.values() if c.zone == "p1:battlefield"]
+    assert names.count("Soldier") == x and names.count("Angel") == angels  # (in addition: not instead)
+    roundtrip(s)
+
+
 def test_elendas_hierophant_tokens_equal_its_last_power(cards):
     s = build(cards, "Elenda's Hierophant", "Lightning Bolt")
     vamp = named(s, "Elenda's Hierophant")
@@ -446,4 +471,93 @@ def test_prime_speaker_zegana(cards):
     resolve_all(s)
     assert named(s, "Prime Speaker Zegana").counters.get("+1/+1") == 3
     assert hand(s) == before - 1 + 4  # its power as the trigger resolves
+    roundtrip(s)
+
+
+# -- mana sized by a count ----------------------------------------------------------------------------
+WEAVER = "{T}: Add X mana of any one color, where X is the number of enchantments you control."
+
+
+def test_sanctum_weaver_adds_one_color_per_enchantment(cards):
+    s = table(cards)
+    weaver = creature(s, "p1", "Weaver", "0/2", WEAVER)
+    for i in range(3):
+        act(s, "p1", type="create_token", player="p1", token={"name": f"Aura {i}", "type_line": "Token Enchantment — Shrine"})
+    act(s, "p2", type="create_token", player="p2", token={"name": "Their Aura", "type_line": "Token Enchantment — Shrine"})
+    turn_on(s)
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="activate_ability", card_id=weaver.id, ability=0)
+    d = s.state.rules.decision
+    if d is not None:  # (the color: one choice for all of it, 605.3a)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    pool = s.state.players["p1"].mana
+    assert sum(pool.values()) == 3 and len([k for k, v in pool.items() if v]) == 1  # three of one color (not theirs)
+    replay_matches(s)
+
+
+# -- base power and toughness X/X ----------------------------------------------------------------------
+MIRROR = "{X}: Until end of turn, creatures you control have base power and toughness X/X and gain all creature types."
+JOLRAEL = ("{4}{G}{G}: Until end of turn, creatures you control have base power and toughness X/X, where X is the number of "
+           "cards in your hand.")
+
+
+def test_mirror_entity_sets_base_pt_to_x_and_all_types(cards):
+    s = table(cards)
+    entity = creature(s, "p1", "Entity", "1/1", MIRROR)
+    bear = creature(s, "p1", "Bear", "2/2")
+    act(s, "p1", type="counter", card_ids=[bear.id], kind="+1/+1", delta=1)
+    theirs = creature(s, "p2", "Theirs", "2/2")
+    turn_on(s)
+    act(s, "p1", type="pass_priority")
+    mana(s, C=4)
+    act(s, "p1", type="activate_ability", card_id=entity.id, ability=0, x_value=4)
+    pass_until_stack_empty(s)
+    assert pt(s, entity)[0] == (4, 4) and pt(s, bear)[0] == (5, 5)  # 7b, then its counter (7c)
+    assert "Sliver" in pt(s, bear)[1].subtypes and pt(s, theirs)[0] == (2, 2)
+    late = creature(s, "p1", "Late", "1/1")
+    assert pt(s, late)[0] == (1, 1)  # 611.2c
+    replay_matches(s)
+
+
+def test_jolrael_counts_the_hand_once(cards):
+    s = table(cards)
+    jolrael = creature(s, "p1", "Jolrael", "1/2", JOLRAEL)
+    turn_on(s)
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="draw", count=3)
+    n = hand(s)
+    assert n >= 3
+    mana(s, G=2, C=4)
+    act(s, "p1", type="activate_ability", card_id=jolrael.id, ability=0)
+    pass_until_stack_empty(s)
+    assert pt(s, jolrael)[0] == (n, n)
+    act(s, "p1", type="draw", count=1)
+    assert pt(s, jolrael)[0] == (n, n)  # (608.2h: not read again)
+    replay_matches(s)
+
+
+def test_awaken_the_woods_land_creature_tokens(cards):
+    s = build(cards, "Awaken the Woods")
+    spell = to_hand(s, "Awaken the Woods")
+    mana(s, G=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=2)
+    pass_until_stack_empty(s)
+    dryads = [c for c in s.state.cards.values() if c.name == "Forest Dryad"]
+    assert len(dryads) == 2
+    _, got = pt(s, dryads[0])
+    assert got.is_land and got.is_creature and {"Forest", "Dryad"} <= set(got.subtypes) and got.pt == (1, 1)
+    roundtrip(s)
+
+
+def test_artifact_mutation_reads_the_destroyed_artifacts_mana_value(cards):
+    s = build(cards, "Artifact Mutation", "Sol Grail")
+    relic = named(s, "Sol Grail")
+    act(s, "p1", type="move", card_ids=[relic.id], to={"zone": "battlefield"})
+    relic = named(s, "Sol Grail")
+    spell = to_hand(s, "Artifact Mutation")
+    mana(s, R=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[relic.id])
+    pass_until_stack_empty(s)
+    assert named(s, "Sol Grail").zone == "p1:graveyard"
+    assert len([c for c in s.state.cards.values() if c.name == "Saproling"]) == 3  # as it last existed (608.2h)
     roundtrip(s)

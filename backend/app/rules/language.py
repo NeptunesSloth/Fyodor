@@ -260,8 +260,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
-    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's|(?P<spell>that spell's)|"
-                     r"(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
+    m = re.fullmatch(r"(?:(?P<its>its)|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
+                     r"(?P<spell>that spell's)|(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
     if m:
         # -- refused copy/mana (wave 3R3) -- "that spell's": a cast/copy trigger's spell even after an instruction
         # named another object (Deekah: "create a … token. Put X +1/+1 counters on it, where X is that spell's mana
@@ -373,7 +373,7 @@ def _with_rider(text: str) -> tuple[str, Any]:
 def _rider_value(phrase: str) -> Any:
     """A rider's quantity: "its power" / "that creature's toughness" / "~'s power" (app: _stat),
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
-    if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|that spell's|~'s|this creature's|"
+    if re.fullmatch(r"(?:its|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|that spell's|~'s|this creature's|"
                     r"the sacrificed (?:creature|artifact|permanent|land)'s) (?:power|toughness|mana value)", phrase):
         return _stat(phrase)
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
@@ -1856,7 +1856,8 @@ def _become(text: str) -> tuple[Effects, Any]:
 
 
 BASE_PT = (r"(?:(?P<lead>until end of turn|until your next turn), )?(?P<o>.+?) (?:has|have) base power and toughness "
-           r"(?P<p>\d+)/(?P<t>\d+)(?: (?P<trail>until end of turn|until your next turn))?")
+           r"(?P<p>\d+|X)/(?P<t>\d+|X)(?P<all> and gain all creature types)?(?:, where X is (?P<xdef>[^\"]+?))?"  # (X: wave 4K)
+           r"(?: (?P<trail>until end of turn|until your next turn))?")
 
 
 def parse_base_pt(m: re.Match[str]) -> tuple[Effects, Any]:
@@ -1869,8 +1870,22 @@ def parse_base_pt(m: re.Match[str]) -> tuple[Effects, Any]:
         raise _Fail
     when = m["lead"] or m["trail"] or ""
     duration = {"until end of turn": "end_of_turn", "until your next turn": "next_turn"}.get(when, "permanent")
-    return [{"do": "become", "who": _who(kind, key), "types": [], "p": int(m["p"]), "t": int(m["t"]),
-             "duration": duration}], _one(group)
+    # -- X sized by a count (wave 4K) -- "have base power and toughness X/X [and gain all creature types][, where X is …]"
+    # (Mirror Entity, Jolrael): X read once as the effect begins (608.2h), for the objects then (611.2c); 613.4b
+    x: Any = {"x": 1}
+    if m["xdef"]:
+        import json
+
+        x = x_definition(m["xdef"])
+        if x is None or "X" not in (m["p"], m["t"]) or '"it"' in json.dumps(x):
+            raise _Fail
+    if (m["all"] or m["xdef"]) and duration == "permanent":
+        raise _Fail
+    out: dict[str, Any] = {"do": "become", "who": _who(kind, key), "types": [],
+                           "p": x if m["p"] == "X" else int(m["p"]), "t": x if m["t"] == "X" else int(m["t"]), "duration": duration}
+    if m["all"]:
+        out["all_creature_types"] = True
+    return [out], _one(group)
 
 
 def parse_still(m: re.Match[str]) -> tuple[Effects, Any]:

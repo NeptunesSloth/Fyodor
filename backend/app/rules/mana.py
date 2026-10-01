@@ -175,6 +175,10 @@ _FOR_EACH = re.compile(r"^Add \{(?P<sym>[WUBRGC])\} for each (?P<what>creature|a
 _COUNT_TYPES = {"creature": "Creature", "artifact": "Artifact", "enchantment": "Enchantment", "land": "Land"}
 _POWER_OF = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?:this creature|[A-Z][^.]{0,60}?)'s power$")
 _X_POWER = re.compile(r"^Add X mana of any one color, where X is (?:this creature|[A-Z][^.]{0,60}?)'s power$")
+# -- X sized by a count (wave 4K) -- "Add X mana of any one color, where X is the number of enchantments you control."
+# (Sanctum Weaver): counted as the ability resolves (605.3a: at once), like "Add {G} for each …"
+_X_COUNT = re.compile(r"^Add X mana of any one color, where X is the number of (?P<what>creatures|artifacts|enchantments|lands) "
+                      r"you control$")
 _URZA = re.compile(r"^If you control an? (?P<what>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*(?: and an? [A-Z][\w'-]*(?: [A-Z][\w'-]*)*)*), "
                    r"add (?P<add>(?:\{[WUBRGC]\})+) instead$")  # (wave 3R3: the Urza lands)
 # -- this-turn history (wave 4D) -- "If you played a land this turn, add {B} instead." (River of Tears; 305.1, 701.18a:
@@ -289,6 +293,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         count, options = "power", ((c.group("sym"),),)
     elif _X_POWER.fullmatch(first):
         count, options = "power", tuple((col,) for col in COLORS)
+    elif c := _X_COUNT.fullmatch(first):  # (wave 4K)
+        count, options = f"control:{_COUNT_TYPES[c.group('what')[:-1]]}", tuple((col,) for col in COLORS)
     else:
         options = _effect_options(sentences[0], identity)
     if options is None:
