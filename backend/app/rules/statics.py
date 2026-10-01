@@ -43,8 +43,8 @@ the untap step. The vocabulary (``RULES`` plus parameterised ones, ``name:value`
 
     cant_block, cant_attack, cant_attack_or_block, cant_be_blocked, must_attack, must_block,
     must_be_blocked, doesnt_untap, max_one_blocker, cant_attack_alone, cant_block_alone,
-    cant_activate,
-    min_blockers:N                          "can't be blocked except by N or more creatures"
+    cant_activate, attack_despite_defender (wave 4B: "can attack as though it didn't have defender"),
+    min_blockers:N                         "can't be blocked except by N or more creatures"
     cant_be_blocked_by:<sel>[|<sel>…]       "can't be blocked by artifact creatures"
     cant_be_blocked_except_by:<sel>[|…]     "can't be blocked except by creatures with flying or reach"
     cant_be_blocked_by_power:less|greater   "creatures with power less than ~'s power can't block it"
@@ -126,6 +126,7 @@ def parse(text: str) -> Definition | None:
     if m:
         return _definition("self", None, [], rules=[f"cant_be_blocked_by_power:{m['dir']}"])
     conds: list[dict[str, Any]] = []
+    names_source = False  # -- conditional statics (wave 4B) -- the condition names the source as "~", not "it"
     defender_sel: str | None = None  # "… as long as defending player controls an artifact"
     rule_cond = False  # "unless …" / "if …": conditions only restrictions are worded with
     # "During your turn, …" / "As long as <condition>, …" / "… as long as <condition>"
@@ -134,13 +135,16 @@ def parse(text: str) -> Definition | None:
         conds.append({"static": "your_turn"})
         body = m["rest"]
     else:
-        m = re.match(r"^As long as (?P<cond>.+?), (?P<rest>(?:~|it|[A-Z]).+)$", body)
+        # -- conditional statics (wave 4B) -- the subject after the condition may be any group ("As long as
+        # ~ has seven or more quest counters on it, creatures you control get +5/+5.")
+        m = re.match(r"^As long as (?P<cond>.+?), (?P<rest>(?:~|it|[A-Z]|[a-z]+ ).+)$", body)
         if m:
             cond = _condition(m["cond"])
             if cond is None:
                 return None
             conds.append(cond)
             body = m["rest"]
+            names_source = _names_source(m["cond"])
         else:
             m = re.match(r"^(?P<rest>.+?) as long as defending player controls an? (?P<sel>.+)$", body)
             if m:
@@ -154,6 +158,7 @@ def parse(text: str) -> Definition | None:
                     cond = _condition(m["cond"])
                     if cond is None:
                         return None
+                    names_source = _names_source(m["cond"])  # -- conditional statics (wave 4B) --
                     if m["r"]:
                         rule_cond = True
                         if m["r"] == "unless":
@@ -162,13 +167,34 @@ def parse(text: str) -> Definition | None:
                     body = m["rest"]
     if " as long as " in body or " unless " in body or body.startswith(("As long as", "During ", "If ", "if ")):
         return None
+    # -- conditional statics (wave 4B) -- "Creatures you control also get +1/+0 and have trample as long as …"
+    # (Jetmir: "also" only says the effect adds to the line before it)
+    body = re.sub(r"^(?P<s>[A-Z][\w' ]*?) also (?P<v>gets?|ha(?:s|ve)) ", r"\g<s> \g<v> ", body)
+    body = re.sub(r"^(?P<s>it|~) gets an additional (?P<pt>[+−-]\d+/[+−-]\d+)$", r"\g<s> gets \g<pt>", body)  # (Bladed Pinions-style)
+    # layer 4 (613.1d) on the source itself: "~ isn't a creature" (Theros gods), "… and is a Knight in addition to
+    # its other types" (205.1b)
+    layer4 = _layer4_parts(body)
+    if layer4 is not None:
+        if defender_sel or rule_cond or x_phrase is not None or not conds or not all(_layer4_safe(c) for c in conds):
+            return None
+        body, type_parts = layer4
+        if not body:
+            return {**_definition("self", None, conds), **type_parts}
+    attached_cond = next((c for c in conds if c.get("static") == "attached_is"), None)
+    if attached_cond is not None and re.match(r"it (?:gets?|has|can't|attacks|blocks|must|doesn't)\b", body):
+        # "As long as equipped creature is legendary, it has hexproof.": "it" is the object the condition names
+        body = f"{attached_cond['who'].capitalize()} {attached_cond['noun']}{body[2:]}"
     subject, predicate = _split_subject(body)
     if subject is None or predicate is None:
         return None
     who, kind = _subject(subject)
     if who is None:
         return None
-    if who != "self" and any(c.get("static") == "self" or c.get("static") == "self_counter" for c in conds):
+    if layer4 is not None and who != "self":
+        return None
+    if attached_cond is not None and (who != "attached" or (kind or attached_cond["noun"]) != attached_cond["noun"]):
+        return None  # (the condition and the subject name the same attached object)
+    if who != "self" and not names_source and any(c.get("static") in ("self", "self_counter", "designation") for c in conds):
         return None  # "it's attacking" means the source; a group subject would need "each … that's attacking"
     # "counters on it": "it" is the source only when the source is the subject ("~ gets …"); for
     # "Equipped creature gets +1/+1 for each counter on it" it's the equipped creature (not read)
@@ -192,7 +218,58 @@ def parse(text: str) -> Definition | None:
                 or parts["each"]:
             return None
         parts["rules"] = [f"cant_be_blocked_if_defender_controls:{defender_sel}"]
+    if who in ("self", "attached") and any(_zone_of(c) for c in conds):
+        return None  # -- conditional statics (wave 4B) -- a card in a graveyard is no permanent to grant to
+    if layer4 is not None:
+        return {**_definition(who, kind, conds, **parts), **layer4[1]}
     return _definition(who, kind, conds, **parts)
+
+
+# -- conditional statics (wave 4B) ----------------------------------------------------------------------------
+_NOT_CREATURE = re.compile(r"^(?:~|it) isn't a creature$")
+_IN_ADDITION = re.compile(r"^(?:(?P<pre>.+?),? and |(?:~|it) )is (?:a|an) (?P<sub>[A-Z][a-z]+) in addition to its other types$")
+
+
+def _names_source(cond: str) -> bool:
+    """The condition names the source as "~" ("~ has seven or more quest counters on it", "there are five or more
+    growth counters on ~"), not with a bare "it" a group subject could claim."""
+    return "~" in cond and not re.match(r"it\b|it's\b", cond)
+
+
+def _layer4_parts(body: str) -> tuple[str, dict[str, Any]] | None:
+    """Layer-4 parts of a static of the source itself (613.1d): "~ isn't a creature" (removes the card type,
+    and with it the creature types, 205.3d) and "is a Knight in addition to its other types" (205.1b: adds a
+    creature type). → (the rest of the predicate, or "" when nothing is left; the definition keys)."""
+    if _NOT_CREATURE.fullmatch(body):
+        return "", {"remove_types": ["Creature"], "add_subtypes": []}
+    m = _IN_ADDITION.fullmatch(body)
+    if m:
+        from app.rules.creature_types import CREATURE_TYPES
+
+        if m["sub"] not in CREATURE_TYPES:
+            return None
+        return (m["pre"] or ""), {"remove_types": [], "add_subtypes": [m["sub"]]}
+    return None
+
+
+def _layer4_safe(cond: dict[str, Any]) -> bool:
+    """A layer-4 static's condition must not read characteristics (it is applied while they are being derived,
+    for every reader: 613.8 dependencies on other objects' types aren't modelled): the source's counters, devotion
+    (700.5a: mana costs after copy effects only), life totals, whose turn it is."""
+    if cond.get("static") in ("self_counter", "your_turn", "life_vs_start", "opp_life"):
+        return True
+    value = cond.get("value")
+    return cond.get("static") is None and isinstance(value, dict) and set(value) == {"devotion"}
+
+
+def _zone_of(cond: dict[str, Any]) -> bool:
+    return cond.get("static") == "zone" or (cond.get("static") == "all" and any(_zone_of(c) for c in cond["conds"]))
+
+
+def zone_static(d: Definition) -> bool:
+    """Does the static function from its owner's graveyard ("As long as this card is in your graveyard, …",
+    113.6b) rather than from the battlefield?"""
+    return any(_zone_of(c) for c in d.get("conditions") or ())
 
 
 def _definition(who: str, kind: str | None, conds: list[dict[str, Any]], *, p: int = 0, t: int = 0,
@@ -418,6 +495,9 @@ RULES: dict[str, tuple[str, ...]] = {
 # opponents control with power less than ~'s power are goaded." (701.15b: goaded by the controller of the
 # permanent that caused it — "@you" becomes the static's controller where app/rules/layers.py applies it)
 RULES.update({"is goaded": ("goaded:@you",), "are goaded": ("goaded:@you",)})
+# -- conditional statics (wave 4B) -- 702.3b: a creature with defender can't attack; this lets it (app/rules/combat.py)
+RULES.update({"can attack as though it didn't have defender": ("attack_despite_defender",),
+              "can attack as though they didn't have defender": ("attack_despite_defender",)})
 
 
 def _rule(piece: str) -> list[str] | None:
@@ -503,8 +583,8 @@ def _condition(text: str) -> dict[str, Any] | None:
         return {"static": "self", "test": m["test"].replace(" ", "_")}
     if c in ("it entered this turn", "~ entered this turn"):  # -- refused modal/conditional (wave 3R1) -- (Crew Captain)
         return {"history": "entered_self"}
-    m = re.fullmatch(r"(?:it|~) has (?:(?P<one>a|an)|(?P<n>\w+) or more) "
-                     r"(?P<kind>\+1/\+1|-1/-1|[a-z]+ )?counters? on it", c)
+    m = re.fullmatch(r"(?:it|~) has (?:(?P<one>a|an)|(?P<n>\w+) or more) "  # (wave 4B: "+1/+1 counters", "on him")
+                     r"(?P<kind>(?:\+1/\+1|-1/-1|[a-z]+) )?counters? on (?:it|him|her)", c)
     if m:
         n = 1 if m["one"] else _num(m["n"] or "")
         if n is None:
@@ -516,7 +596,17 @@ def _condition(text: str) -> dict[str, Any] | None:
     if m:
         n = _num(m["n1"] or m["n2"])
         return {"static": "graveyard", "op": ">=", "n": n} if n is not None else None
+    from app.rules import static_conditions  # -- conditional statics (wave 4B) --
+
+    found = static_conditions.parse(c)
+    if found is not None:
+        return found
     return conditions.parse(c)
+
+
+def condition(text: str) -> dict[str, Any] | None:
+    """-- conditional statics (wave 4B) -- one static condition from its wording."""
+    return _condition(text)
 
 
 def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller: str) -> bool:
@@ -537,6 +627,10 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
             return bool(source.blocking)
         if test in ("tapped", "untapped"):
             return source.tapped == (test == "tapped")
+        if test == "modified":  # -- conditional statics (wave 4B) -- 700.9
+            from app.rules import static_conditions
+
+            return static_conditions.modified(plan, source)
         sub = "Aura" if test == "enchanted" else "Equipment"
         return any(c.attached_to == source.id and c.zone.endswith(":battlefield") and sub in plan.ch(c).subtypes
                    for c in plan.state.cards.values())
@@ -545,6 +639,10 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
         return sum(source.counters.get(k, 0) for k in kinds) >= cond["n"]
     if kind == "graveyard":
         return len(plan.state.zones.get(f"{controller}:graveyard", [])) >= cond["n"]
+    from app.rules import static_conditions  # -- conditional statics (wave 4B) --
+
+    if kind in static_conditions.KINDS:
+        return static_conditions.holds(plan, cond, source=source, controller=controller)
     return conditions.holds(plan, {"controller": controller, "source_card": source.id}, cond)
 
 
