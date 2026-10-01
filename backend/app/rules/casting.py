@@ -24,7 +24,7 @@ from app.game.rules_state import (
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import attachments, cost_payment, costs, permissions, restrictions, scripts
+from app.rules import attachments, cost_payment, costs, history, permissions, restrictions, scripts
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
@@ -1598,6 +1598,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         targeted(plan, card.id, plan.actor, chosen)
     turn = plan.state.turn.number
     r.spells_cast[plan.actor] = TurnCount(turn=turn, count=r.spells_this_turn(plan.actor, turn) + 1)
+    history.note_cast(plan, card)  # -- this-turn history (wave 4D) --
     r.passed = []
     r.priority = plan.actor
     if r.prefs_for(plan.actor).hold_priority:
@@ -1992,6 +1993,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         targeted(plan, card.id, plan.actor, chosen)
     turn = plan.state.turn.number
     r.spells_cast[plan.actor] = TurnCount(turn=turn, count=r.spells_this_turn(plan.actor, turn) + 1)
+    history.note_cast(plan, card)  # -- this-turn history (wave 4D) --
     permissions.free_cast_done(plan, card.id, cast=True)  # -- refused look/cast-free (wave 3R5) -- 608.2g: resolution goes on
 # -- end cast without paying (wave 3C) --
 
@@ -2292,8 +2294,9 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         modal_abilities.announced(plan, ability_id, card, modal, oid)  # the modes chosen are public; remembered
     elif definition is not None and ability_id:
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
-                                         name=ch.name, effects=list(definition["effects"]), x=a.x_value,
-                                         **picked_targets.entry(definition))
+                                         name=ch.name, x=a.x_value, **picked_targets.entry(definition),
+                                         # -- this-turn history (wave 4D) -- "the second time this ability has resolved"
+                                         effects=history.counting_resolutions(list(definition["effects"]), f"{oid}:{a.ability}"))
     if chosen and ability_id:
         from app.rules.triggers import targeted
 

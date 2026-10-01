@@ -151,6 +151,9 @@ def absorb_manual_events(plan: Plan) -> None:
                                                 mana_known=False, alternative="manual",
                                                 cast_main=plan.state.turn.active_player == card.controller
                                                 and plan.state.turn.phase in MAIN_PHASES)
+            from app.rules import history  # -- this-turn history (wave 4D) --
+
+            history.note_cast(plan, card)
 
 
 def settle(plan: Plan) -> None:
@@ -675,6 +678,10 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
+        if card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
+            from app.rules import history  # -- this-turn history (wave 4D) --
+
+            history.note_became(plan, oid, plan.oid(card_id))
         copying.resolved(plan, card_id, oid)  # -- copy system (wave 2F): a permanent spell's copy became a token (608.3f)
     else:  # (defensive: resolution never adds to the stack today)
         plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "graveyard"}}, actor=controller)

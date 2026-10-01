@@ -646,7 +646,12 @@ def surveil(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     pid = ctx["controller"]
-    top = plan.state.zones.get(zone_key(pid, "library"), [])[: _amount(plan, ctx, e["n"])]
+    n = _amount(plan, ctx, e["n"])
+    if n > 0:  # -- this-turn history (wave 4D) -- 701.22b/d, 701.25c/d: N > 0 scries / surveils, even an empty library
+        from app.rules import history
+
+        history.note_look(plan, pid, "scry" if where == "bottom" else "surveil")
+    top = plan.state.zones.get(zone_key(pid, "library"), [])[:n]
     if not top:
         return True
     options = [DecisionOption(id=cid, label=plan.state.cards[cid].name or "Card", card_id=cid) for cid in top]
@@ -2267,7 +2272,7 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library"}
     # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
     parts = [words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if")]
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution")]
     return (", ".join(parts) or "do it").capitalize()
 
 
@@ -2955,3 +2960,16 @@ from app.rules import kept_mana as _kept_mana  # noqa: E402, I001
 
 PRIMITIVES["keep_mana"] = _kept_mana.keep
 # -- end refused copy/mana (wave 3R3) --
+
+
+# -- this-turn history (wave 4D) -- "If this is the second time this ability has resolved this turn": the resolution
+# is counted as it begins (app/rules/history.py), the count kept for this resolution's condition
+def _note_resolution(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import history
+
+    context.refs(ctx)["resolution"] = {"kind": "amount", "n": history.note_resolution(plan, str(e["key"]))}
+    return True
+
+
+PRIMITIVES["note_resolution"] = _note_resolution
+# -- end this-turn history (wave 4D) --

@@ -140,6 +140,10 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         mark = {"object": source_object, "index": index}
         definition = {**definition, "effects": [{"do": "action_gate", **mark}, *definition["effects"],
                                                 {"do": "record_action", **mark}]}
+    from app.rules import history  # -- this-turn history (wave 4D) -- "if this is the second time this ability has resolved"
+
+    if "effects" in definition:
+        definition = {**definition, "effects": history.counting_resolutions(definition["effects"], f"{source_object}:{index}")}
     pending = PendingTrigger(id=secrets.token_hex(4), controller=controller, source_card=source_card,
                              source_object=source_object, name=name, ability=definition, key=f"{name}:{index}",
                              event=event)
@@ -199,6 +203,9 @@ def collect(plan: Plan) -> None:
         return
     r.trigger_batch = max(e.batch for e in new)
     returning: dict[int, list[dict[str, Any]]] = {}  # batch -> the cards returning "until ~ leaves" (610.3c)
+    from app.rules import history  # -- this-turn history (wave 4D) -- before any trigger checks a condition
+
+    history.note_events(plan, new)
     _generic_events(plan, new)
     delayed.on_events(plan, new)  # "when that creature dies this turn" (603.7; app/rules/delayed.py)
     # -- sagas & attached-object triggers (wave 3S): chapter abilities (714.2b) --

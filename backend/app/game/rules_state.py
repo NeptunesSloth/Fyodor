@@ -361,6 +361,45 @@ class Entry(BaseModel):
 # -- end refused modal/conditional (wave 3R1) --
 
 
+# -- this-turn history (wave 4D) --
+class CastNote(BaseModel):
+    """A spell cast this turn, as it became cast (601.2i; 608.2i: "if you've cast a noncreature spell this turn"
+    reads the spell as it was then — whether it resolved, was countered or is still on the stack doesn't matter).
+    Spells on the stack are public: a face-down spell is recorded with its face-down characteristics (708.2)."""
+
+    player: str = Field(max_length=64)
+    object_id: str = Field(max_length=80)
+    types: list[str] = Field(default_factory=list)
+    subtypes: list[str] = Field(default_factory=list)
+    supertypes: list[str] = Field(default_factory=list)
+    colors: list[str] = Field(default_factory=list)
+    mv: float = 0
+    cast_from: str | None = Field(default=None, max_length=20)  # "hand", "graveyard", "exile", "command" …
+    became: str | None = Field(default=None, max_length=80)  # the permanent a permanent spell became (608.3)
+
+
+class TurnFact(BaseModel):
+    """Something a player did, or that happened to a player, this turn (608.2i): ``kind`` "token" (111.2: ``player``
+    created a token — its owner), "discard" (701.9a), "sacrifice" (701.21a), "damage" (``player`` was dealt
+    ``amount`` damage, ``combat``; ``source_types`` / ``source_supertypes`` the source as it was then), "scry" /
+    "surveil" (701.22, 701.25; nothing about the cards), "counters" (``amount`` ``counter`` counters were put on a
+    permanent ``player`` controlled). ``types`` …: the object concerned, as it was then."""
+
+    kind: str = Field(max_length=20)
+    player: str = Field(max_length=64)
+    object_id: str | None = Field(default=None, max_length=80)
+    types: list[str] = Field(default_factory=list)
+    subtypes: list[str] = Field(default_factory=list)
+    supertypes: list[str] = Field(default_factory=list)
+    token: bool = False
+    amount: int = 1
+    combat: bool = False
+    counter: str | None = Field(default=None, max_length=40)
+    source_types: list[str] = Field(default_factory=list)
+    source_supertypes: list[str] = Field(default_factory=list)
+# -- end this-turn history (wave 4D) --
+
+
 class TurnLog(BaseModel):
     """What happened during one turn that later text can ask about (608.2i): who attacked (508.1),
     life gained and lost (damage included, 120.3a), cards drawn, permanents that left the
@@ -377,6 +416,13 @@ class TurnLog(BaseModel):
     left_graveyard: list[str] = Field(default_factory=list)  # the owner of each card that left a graveyard
     entered_graveyard: list[Arrival] = Field(default_factory=list)
     entered: list[Entry] = Field(default_factory=list)  # -- refused modal/conditional (wave 3R1) -- onto the battlefield
+    # -- this-turn history (wave 4D; app/rules/history.py) --
+    casts: list[CastNote] = Field(default_factory=list)  # spells cast, as they became cast (601.2i)
+    facts: list[TurnFact] = Field(default_factory=list)  # tokens created, discards, sacrifices, damage to players …
+    attackers: dict[str, list[str]] = Field(default_factory=dict)  # player -> creatures (objects) declared as attackers
+    # "<source object>:<ability index>" -> how many times that ability resolved this turn (copies included)
+    resolved: dict[str, int] = Field(default_factory=dict)
+    # -- end this-turn history (wave 4D) --
 
 
 class ContinuousEffect(BaseModel):
@@ -980,11 +1026,15 @@ def _note_player_fact(state: GameState, kind: str, player: str | None, amount: i
     book[player] = book.get(player, 0) + amount
 
 
-def note_attack(state: GameState, player: str) -> None:
-    """508.1: ``player`` declared one or more attackers this turn ("if you attacked this turn")."""
+def note_attack(state: GameState, player: str, attackers: list[str] | None = None) -> None:
+    """508.1: ``player`` declared one or more attackers this turn ("if you attacked this turn"); ``attackers``: the
+    objects declared (wave 4D: "if you attacked with two or more creatures this turn" — every combat of the turn)."""
     log = turn_log_now(state)
     if log is not None and player not in log.attacked:
         log.attacked.append(player)
+    if log is not None and attackers:  # -- this-turn history (wave 4D) --
+        seen = log.attackers.setdefault(player, [])
+        seen += [a for a in attackers if a not in seen]
 
 
 def track(state: GameState, before: Capture | None = None, *, manual: bool = False) -> None:
