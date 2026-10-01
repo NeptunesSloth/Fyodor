@@ -1493,6 +1493,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if card is None:
         raise ActionError("That card isn't here any more")
     ch = chars.as_cast(card, plan.info, a.face)  # split cards / adventures: the half being cast
+    if a.alt_cost is not None and (a.free or a.evoke or a.dash or a.face_down):  # -- cost changers (wave 4I) --
+        raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
     if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
         cast_free(plan, card, ch, a)
         return
@@ -2224,8 +2226,9 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
 def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState | None = None,
                  card: CardInstance | None = None, info: CardInfo | None = None) -> AbilityCost:
     cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
-    if state is not None and card is not None and info is not None and ability.kind == "activated" and cost.mana:
+    if state is not None and card is not None and info is not None and ability.kind == "activated":
         # -- costs (wave 3$) -- "Activated abilities of creatures you control cost {2} less to activate" (601.2f)
+        # (wave 4I: a cost with no mana in it can be increased too: "{T}: …" taxed {2} is "{2}, {T}: …")
         # -- cost changers (wave 4I) -- and the ability's own "This ability costs {1} less to activate for each …" (602.2b)
         from app.rules import cost_changes  # (a leaf over this module)
 

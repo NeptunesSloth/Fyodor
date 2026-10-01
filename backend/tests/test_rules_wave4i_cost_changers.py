@@ -60,6 +60,8 @@ EXTRA = [
     card('Avatar of Fury', set_code='tst', number='4J03', mana_cost='{6}{R}{R}', cmc=8.0, type_line='Creature — Avatar', oracle_text='If an opponent controls seven or more lands, this spell costs {6} less to cast.\nFlying\n{R}: This creature gets +1/+0 until end of turn.', colors=['R'], color_identity=['R'], keywords=['Flying'], power='6', toughness='6'),
     card('Charix, the Raging Isle', set_code='tst', number='4J04', mana_cost='{2}{U}{U}', cmc=4.0, type_line='Legendary Creature — Leviathan Crab', oracle_text='Spells your opponents cast that target Charix cost {2} more to cast.\n{3}: Charix gets +X/-X until end of turn, where X is the number of Islands you control.', colors=['U'], color_identity=['U'], keywords=[], power='0', toughness='17'),
     card('Killian, Ink Duelist', set_code='tst', number='4J05', mana_cost='{W}{B}', cmc=2.0, type_line='Legendary Creature — Human Warlock', oracle_text="Lifelink\nMenace (This creature can't be blocked except by two or more creatures.)\nSpells you cast that target a creature cost {2} less to cast.", colors=['B', 'W'], color_identity=['B', 'W'], keywords=['Lifelink', 'Menace'], power='2', toughness='2'),
+    card('Gloom', set_code='tst', number='4J10', mana_cost='{2}{B}', cmc=3.0, type_line='Enchantment', oracle_text='White spells cost {3} more to cast.\nActivated abilities of white enchantments cost {3} more to activate.', colors=['B'], color_identity=['B'], keywords=[]),
+    card('Stalwart Valkyrie', set_code='tst', number='4J11', mana_cost='{3}{W}', cmc=4.0, type_line='Creature — Angel Warrior', oracle_text="You may pay {1}{W} and exile a creature card from your graveyard rather than pay this spell's mana cost.\nFlying", colors=['W'], color_identity=['W'], keywords=['Flying'], power='3', toughness='2'),
 ]
 
 
@@ -298,6 +300,8 @@ def test_one_alternative_cost_only(cards):
     mana(s, W=1, U=1, B=1, R=1, G=1)
     offers = hints(s.state, "p1", s.cards)["alt_castable"][bringer.id]
     assert len(offers) == 2  # its own and Jodah's: the player picks one (118.9a)
+    refused(s, "Only one alternative cost", type="cast_spell", card_id=bringer.id, alt_cost=offers[0]["id"], face_down=True)
+    refused(s, "Only one alternative cost", type="cast_spell", card_id=bringer.id, alt_cost=offers[0]["id"], free=True)
     act(s, "p1", type="cast_spell", card_id=bringer.id, alt_cost=offers[1]["id"])
     pass_until_stack_empty(s)
     assert s.state.cards[bringer.id].zone == "p1:battlefield" and s.state.players["p1"].mana == {}
@@ -630,4 +634,30 @@ def test_killian_reduces_spells_that_target_a_creature(cards):
     act(s, "p1", type="cast_spell", card_id=murder.id, targets=[victim.id])  # {1}{B}{B} − 2 → {B}{B}
     pass_until_stack_empty(s)
     assert victim.id not in s.state.cards and s.state.players["p1"].mana == {}
+    roundtrip(s)
+
+
+def test_gloom_taxes_an_ability_with_no_mana_in_its_cost(cards):
+    s = build(cards, [(1, "Gloom")])
+    put(s, "Gloom", "battlefield")
+    shrine = tok(s, "Shrine", "0/0", type_line="Token Enchantment — Test", text="{T}: You gain 1 life.", colors=["W"])
+    refused(s, "mana", type="activate_ability", card_id=shrine.id, ability=0)  # "{T}" is "{3}, {T}" now (601.2f)
+    mana(s, C=3)
+    act(s, "p1", type="activate_ability", card_id=shrine.id, ability=0)
+    pass_until_stack_empty(s)
+    assert life(s) == 41 and s.state.players["p1"].mana == {}
+    roundtrip(s)
+
+
+def test_stalwart_valkyrie_exiles_a_creature_card_from_the_graveyard(cards):
+    s = build(cards, [(1, "Stalwart Valkyrie"), (1, "Grizzly Bears"), (1, "Lightning Bolt")])
+    valkyrie = put(s, "Stalwart Valkyrie", "hand")
+    put(s, "Lightning Bolt", "graveyard")
+    mana(s, W=1, C=1)
+    assert valkyrie.id not in hints(s.state, "p1", s.cards).get("alt_castable", {})  # no creature card there
+    bears = put(s, "Grizzly Bears", "graveyard")
+    act(s, "p1", type="cast_spell", card_id=valkyrie.id, alt_cost=alt_key(s, valkyrie))
+    pass_until_stack_empty(s)
+    assert s.state.cards[bears.id].zone == "p1:exile" and s.state.cards[valkyrie.id].zone == "p1:battlefield"
+    assert s.state.players["p1"].mana == {}
     roundtrip(s)

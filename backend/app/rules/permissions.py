@@ -750,7 +750,7 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
     mods = [(src, d) for src, _, d in _table_statics(state, info, {"ability_cost_modifier"})]
-    if not mods and not own or not mana:  # (own: the ability's "This ability costs {1} less …", wave 4I)
+    if not mods and not own:  # (own: the ability's "This ability costs {1} less …", wave 4I)
         return mana
     cost = M.parse_cost(mana)
     if cost.x or cost.unsupported:
@@ -781,7 +781,8 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
         symbols = cost.generic + len(cost.colored) + len(cost.hybrid) + len(cost.phyrexian)
         cut = min(cut, max(0, symbols - 1))
     cut = min(cost.generic, cut + own_cut)
-    return cost.plus_generic(-cut).text()
+    out = cost.plus_generic(-cut)
+    return mana if not mana and out.is_free else out.text()  # (wave 4I: "{T}: …" taxed {2} becomes "{2}, {T}: …")
 
 
 # -- effects ---------------------------------------------------------------------------------------

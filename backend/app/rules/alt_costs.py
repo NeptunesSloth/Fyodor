@@ -71,7 +71,8 @@ def _part(text: str) -> C.CostComponent | str | None:
     # "tap four untapped creatures you control with flying" (Sephara): the selector grammar reads "… with flying you control"
     part = re.sub(r"^(Tap \w+ untapped \w+) you control (with [a-z ]+)$", r"\1 \2 you control", part)
     found = C._component(part, "")
-    if found is None or found.kind not in (C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.RETURN_PERMANENT, C.TAP_OTHER, C.DISCARD):
+    if found is None or found.kind not in (C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.RETURN_PERMANENT, C.TAP_OTHER, C.DISCARD,
+                                           C.EXILE_FROM_GRAVEYARD):
         return None
     if found.kind not in (C.PAY_LIFE, C.PAY_ENERGY) and (found.selector is None or found.random):
         return None  # (never the spell itself; a random discard isn't printed on an alternative cost)
