@@ -28,6 +28,7 @@ A value is an int (a literal) or a dict:
 * ``{"neg": v}`` — a negative amount (only through :func:`evaluate_signed`: "-1/-1 for each …");
 * ``{"event_amount": 1}`` — "that much" / "that many": the trigger event's amount, read from the
   context the ability carries from when it triggered (app.game.rules_state.TriggerEvent).
+* ``{"spells_cast": "you"}`` — the spells you've cast this turn (wave 3D);
 * ``{"kicked": 1}`` — the number of times the spell (or the permanent it became) was kicked
   (702.33d; "for each time it was kicked").
 
@@ -125,6 +126,9 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if m:
         inner = parse_count(m["v"], it=it)
         return {"plus": [inner, int(m["n"]) if m["n"].isdigit() else NUMBERS[m["n"]]]} if inner is not None else None
+    sized = _sized(what, it)  # -- sized amounts (wave 3D) --
+    if sized is not None:
+        return sized
     if what in ("cards in your hand", "card in your hand"):
         return {"hand": "you"}
     if what in ("cards in target player's hand", "cards in target opponent's hand"):
@@ -171,11 +175,29 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     return {"count": sel.key()}
 
 
+# -- sized amounts (wave 3D) -- ------------------------------------------------------------------
+_N_PLUS = re.compile(r"^(?P<n>\d+|one|two|three|four|five) plus (?P<v>.+)$")
+_SPELLS_CAST = re.compile(r"^(?:the number of )?spells you(?:'ve| have) cast this turn$")
+
+
+def _sized(what: str, it: str | None) -> Value | None:
+    """"2 plus the number of Lessons in your graveyard" (a sum), "the number of spells you've cast
+    this turn" (the turn's spell count, 601.2i). ``{"spells_cast": "you"}`` reads it as the effect
+    is carried out (608.2h)."""
+    m = _N_PLUS.match(what)
+    if m:
+        inner = parse_count(m["v"], it=it)
+        return {"plus": [inner, int(m["n"]) if m["n"].isdigit() else NUMBERS[m["n"]]]} if inner is not None else None
+    if _SPELLS_CAST.match(what):
+        return {"spells_cast": "you"}
+    return None
+
+
 def _normalise(what: str) -> str:
     """Noun phrases the selector grammar spells differently: "cards in all graveyards" (400.1:
     every player's), "instant and sorcery cards" (cards of either type: a list, not "artifact
     creature"'s both-types reading)."""
-    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", what)
+    out = re.sub(r"\b(?:from|in) all graveyards$", "in graveyards", re.sub(r" on the battlefield$", "", what))  # (sized amounts, wave 3D)
     return re.sub(rf"\b(?P<a>{_TYPE_WORDS}) and (?P<b>{_TYPE_WORDS}) (?P<n>cards?|spells?)\b", r"\g<a> or \g<b> \g<n>", out)
 
 
@@ -208,6 +230,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if sel.player is not None:
             return sum(1 for p in plan.live() if selectors.matches_player(plan, sel, p, you))
         return len(selectors.candidates(plan, sel, you, _other_than(ctx)))
+    if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
+        return plan.rules.spells_this_turn(you, plan.state.turn.number)
     if "event_amount" in v:  # "that much" / "that many": the trigger event's amount (608.2k)
         from app.rules import context  # (context → triggers → … → values)
 

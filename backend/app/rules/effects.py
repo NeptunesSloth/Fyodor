@@ -85,6 +85,9 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if p != me]
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.players and t["id"] in plan.live()]
+    if who == "each_other_opponent":  # -- sized amounts (wave 3D) -- the opponents besides the player the trigger event was about
+        named = set(context.players(plan, ctx, context.EVENT))
+        return [p for p in plan.live() if p != me and p not in named]
     if who == "event_player":  # "that player": the one the trigger event was about (who drew, was dealt damage …)
         return context.players(plan, ctx, context.EVENT)
     if who.startswith(context.PREFIX):  # a binding: "that player", "its controller", "its owner" (app/rules/context.py)

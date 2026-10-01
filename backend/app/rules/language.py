@@ -232,7 +232,7 @@ def _stat(phrase: str, its: str = "it") -> Any:
     its own subject ("~ deals damage equal to its power": ~'s). Also any quantity the value
     grammar reads ("the number of lands you control", "your devotion to red", "twice its power":
     app/rules/values.py), and "~'s power" (the source's, 608.2h)."""
-    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's|(?P<self>~'s)) "
+    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's|that spell's|(?P<self>~'s)) "
                      r"(?P<stat>power|toughness|mana value)", phrase)
     if m:
         return {_STATS[m["stat"]]: "self" if m["self"] else (its if m["its"] else "it")}
@@ -337,7 +337,7 @@ def _with_rider(text: str) -> tuple[str, Any]:
 def _rider_value(phrase: str) -> Any:
     """A rider's quantity: "its power" / "that creature's toughness" / "~'s power" (app: _stat),
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
-    if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|~'s) (?:power|toughness|mana value)", phrase):
+    if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|that spell's|~'s) (?:power|toughness|mana value)", phrase):
         return _stat(phrase)
     v = values.parse_count(phrase, it="it")
     if v is None:
@@ -615,6 +615,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
     # -- damage ---------------------------------------------------------------------------------
+    # -- sized amounts (wave 3D) -- "that creature deals damage equal to its power": the pronoun's creature (as "it")
+    text = re.sub(r"^that creature deals ", "it deals ", text)
     src: dict[str, Any] = {"src": "it"} if text.startswith("it ") else {}
     m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage divided as you choose among (?P<o>.+)", text)
     if m:  # 601.2d: the division is announced as the spell is cast (each target gets at least 1)
@@ -646,6 +648,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         effects = []
         groups = []
         for part in re.split(r" and (?=each |you$)|" + _AND_TARGET, m["o"]):
+            if part == "each other opponent":  # -- sized amounts (wave 3D) -- the opponents besides the one the event named
+                effects.append({"do": "damage", "who": "each_other_opponent", "n": n, **src})
+                continue
             kind, key, group = ref(part)
             who = _who(kind, key)
             if group is not None:

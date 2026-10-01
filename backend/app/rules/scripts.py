@@ -246,6 +246,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     if name in ("enters_other", "landfall"):
         return "event"
     subject = cond.get("subject")
+    if subject == "player" and event == "cast":
+        return "event_spell"  # -- sized amounts (wave 3D) -- "that spell's mana value": read from the spell, never "it"
     if subject in ("sel", "self_or", "host") or (subject == "player" and event == "create_token"):
         if event in _STAYING:
             return "event_all" if cond.get("aggregate") else "event"
@@ -428,7 +430,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         if antecedent in ("self", "self_gone"):
             return "self"
         # the trigger event's object, as it is or as it last existed (603.10a, 608.2h)
-        return "event" if antecedent in ("event", "event_gone") else None
+        return "event" if antecedent in ("event", "event_gone", "event_spell") else None
 
     def cond_ref(index: int) -> Any:
         """The object "it" names in a condition (conditional / instead clauses, wave 1B): what an earlier
@@ -436,7 +438,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         (the target itself), the source, or the trigger event's object."""
         intro = objects(index, 1, None, skip_gated=True)
         if intro is None:
-            return stat_ref(index)
+            return None if antecedent == "event_spell" else stat_ref(index)
         if intro.do in _MOVERS or _group_of(out[intro.index]) is None:
             return "ref:" + bound(intro)
         g = _group_of(out[intro.index])
@@ -501,11 +503,18 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if e.get("src") == "it":
                 if any(i.index < index and (i.do in _MOVERS or _group_of(out[i.index]) is not None
                                             or out[i.index].get("who") == "host") for i in intros) \
-                        or antecedent not in ("self", "self_gone"):
+                        or antecedent not in ("self", "self_gone", "event", "event_gone"):
                     # (the target — or what an earlier instruction moved, or "tap enchanted creature.
                     # It deals …" — not the source, deals the damage / explores)
                     return None
-                del e["src"]
+                if antecedent in ("event", "event_gone"):
+                    # -- sized amounts (wave 3D) -- "Whenever a creature you control enters, it deals damage equal
+                    # to its power": the trigger's object deals it (as it is, or as it last existed: 608.2h)
+                    if e.get("do") != "damage":
+                        return None
+                    e["src"] = "event"
+                else:
+                    del e["src"]
             if e.get("do") in _RECORDING or _group_of(e) is not None:
                 intros.append(_Introducer(index, e, groups))
     except _NoMatch:
@@ -1502,7 +1511,7 @@ def _event_refs_ok(d: Definition) -> bool:
     trigger has one event per batch (603.2c) — per damaged player for damage to players, per
     acting player for a player's actions — so it can too."""
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
-    wants_player = any(e.get("who") == "event_player" for e in effects)
+    wants_player = any(e.get("who") in ("event_player", "each_other_opponent") for e in effects)
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t"))
     if not wants_player and not wants_amount:
         return True
