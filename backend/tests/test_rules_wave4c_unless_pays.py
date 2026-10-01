@@ -142,13 +142,19 @@ def test_wordings():
     "Counter target spell unless its controller pays {3} for each card discarded this way.",  # (an earlier choice's count)
     "Counter target spell unless its controller pays {B} or {3}.",  # a choice of costs
     "Counter target spell unless its controller pays {1} for each {E} paid this way.",
-    "Draw a card unless that player pays {X}.",  # no X defined for an ability that isn't cast or activated
 ])
 def test_refused(text):
-    found = scripts.parse_effects(text, event_player=True)
-    assert found is None or text == "Draw a card unless that player pays {X}."
-    if text == "Draw a card unless that player pays {X}.":  # (it parses; scripts.define refuses it on a trigger)
-        assert found is not None and found[0][0]["n"] == {"x": 1}
+    assert scripts.parse_effects(text, event_player=True) is None
+
+
+def test_a_triggered_ability_has_no_x():
+    """107.3: X is chosen as a spell is cast or an ability activated; a trigger that doesn't define it stays manual."""
+    def line_supported(cost):
+        fake = card(f"Fake Study {cost}", set_code="tst", number="X499", mana_cost="{U}", cmc=1.0, type_line="Enchantment",
+                    oracle_text=f"Whenever an opponent casts a spell, draw a card unless that player pays {cost}.")
+        return next(f.supported for f in coverage.of_card_data({**fake, "faces": []}).features if f.id == "text:0")
+
+    assert line_supported("{1}") and not line_supported("{X}")
 
 
 @pytest.mark.parametrize("name", ["Rhystic Study", "Mystic Remora", "Nether Void", "Mausoleum Wanderer", "Esper Sentinel", *COUNTERS])
