@@ -698,3 +698,25 @@ def test_target_player_skips_their_next_draw_step(cards):
 ])
 def test_skip_wordings_left_manual(text):
     assert not all(supported(text)), text
+
+
+def test_a_shield_on_a_permanent_spell_covers_the_permanent_it_becomes(cards):
+    """609.7a / 400.7: a permanent spell chosen as the source covers the permanent it becomes. Object numbers
+    come from one table-wide counter, so the new object's id is bound as it enters, not predicted (other zone
+    changes in between, such as the shield ability's own, take numbers too)."""
+    from app.rules import source_shields
+
+    s = build(cards)
+    heed = permanent(s, "p1", "Pay No Heed", "Enchantment", "{1}: " + PAY_NO_HEED)
+    krenko = next(c for c in s.state.cards.values() if c.name == "Krenko, Mob Boss")
+    act(s, krenko.owner, type="move", card_ids=[krenko.id], to={"zone": "stack"})
+    spell_oid = rules(s).object_id(krenko.id)
+    activate(s, heed)
+    _choose(s, "Krenko")
+    # the spell resolved after the shield's ability (the ability's own zone changes took numbers first)
+    assert s.state.cards[krenko.id].zone.endswith(":battlefield")
+    new_oid = rules(s).object_id(krenko.id)
+    assert new_oid != f"{krenko.id}.{int(spell_oid.rsplit('.', 1)[1]) + 1}"
+    shield = next(r for r in rules(s).replacements if r.get("kind") == "replace")
+    assert shield["match"]["source"]["oids"] == [spell_oid, source_shields.BECOMES + spell_oid, new_oid]
+    replay_matches(s)

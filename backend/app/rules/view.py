@@ -96,8 +96,8 @@ def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
         # at is never named in the prompt or an option's label
         options = [o.model_dump() for o in d.options]
         for o in options:
-            o["label"] = mask_face_down(state, o["label"], viewer)
-        full: dict[str, Any] = {"id": d.id, "player": d.player, "kind": d.kind, "prompt": mask_face_down(state, d.prompt, viewer),
+            o["label"] = mask_face_down(state, o["label"], viewer, refs=[o.get("card_id")])
+        full: dict[str, Any] = {"id": d.id, "player": d.player, "kind": d.kind, "prompt": mask_face_down(state, d.prompt, viewer, refs=[d.source_id, *(o.card_id for o in d.options)]),
                                 "source_id": d.source_id, "options": options,
                                 "min_choices": d.min_choices, "max_choices": d.max_choices,
                                 "rememberable": d.memory_key is not None}

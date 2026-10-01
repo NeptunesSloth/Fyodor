@@ -348,9 +348,9 @@ def choosable(plan: Plan, props: dict[str, Any]) -> list[tuple[str, list[str], s
         if card.ability is None:
             oid = plan.oid(card)
             permanent = bool({"Artifact", "Creature", "Enchantment", "Land", "Planeswalker", "Battle"} & plan.ch(card).types)
-            n = int(oid.rsplit(".", 1)[1])
-            # 609.7a: a permanent spell covers the permanent it becomes (the next object of the card, 400.7)
-            add(card.id, oid, [f"{card.id}.{n + 1}"] if permanent else None)
+            # 609.7a: a permanent spell covers the permanent it becomes (400.7: a new object, numbered only as it
+            # enters, so the shield names it by the spell object: app/game/rules_state._diff adds the new id)
+            add(card.id, oid, [BECOMES + oid] if permanent else None)
         elif entry is not None:
             add(entry.source_card, entry.source_object)
         if entry is None:
@@ -405,6 +405,9 @@ def source_shield(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
            resume={"step": "source_shield", "ctx": ctx, "e": e,
                    "map": {f"s{i}": [oids, label] for i, (label, oids, _) in enumerate(options)}})
     return False
+
+
+BECOMES = "becomes:"  # (an "oids" entry: the permanent the spell object after it becomes)
 
 
 def _record(plan: Plan, ctx: Context, e: dict[str, Any], oids: list[str], label: str) -> None:

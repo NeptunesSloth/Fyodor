@@ -149,10 +149,11 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED` 
 
 Known approximations (correct in normal play; listed so nobody is surprised):
 
-- **Face-down masking** is a text substitution by card name: in logs, every same-named public card
-  (e.g. basic lands when a Mountain is face down) shows as "a face-down card". It over-masks; it does
-  not leak. `rules_view.stats` skips face-down creatures, so even their controller doesn't see a
-  pumped face-down creature's real P/T (cosmetic).
+- **Face-down masking** replaces a face-down card's name in log lines, prompts and option labels. It is
+  tied to the cards each text refers to: a line about a public card that shares the name keeps it; a
+  line about the face-down card, or with several uses of the name, is masked. `rules_view.stats` skips
+  face-down creatures, so even their controller doesn't see a pumped face-down creature's real P/T
+  (cosmetic).
 - **Kept mana** (106.4) is spent last automatically instead of asking the player.
 - **Firebending** keeps as much {R} as it added, as if the player spent other red first.
 - **Ring-bearer** after control changes hands and back within one resolution stays the bearer

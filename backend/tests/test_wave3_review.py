@@ -131,3 +131,21 @@ def test_cryptic_pursuit_exiles_a_dead_face_down_instant_card(cards):
     # "exile it if it's an instant or sorcery card": the card in the graveyard, face up (708.9), not the face-down 2/2
     assert s.state.cards[opt.id].zone == "p1:exile"
     replay_matches(s)
+
+
+def test_masking_names_only_the_face_down_card_a_text_is_about(cards):
+    """708.5 without over-masking: a line about a public card that shares a face-down card's name keeps the name;
+    a line about the face-down card, or one whose cards aren't known, never names it."""
+    from app.game.visibility import mask_face_down
+
+    s = build(cards)
+    hidden = token(s, "p1", "Grizzly Bears", "2/2")
+    public = token(s, "p2", "Grizzly Bears", "2/2")
+    s.state.cards[hidden.id].face_down = True
+    line = "Grizzly Bears deals 2 damage"
+    assert mask_face_down(s.state, line, "p2", refs=[public.id]) == line  # about the public Bears
+    assert mask_face_down(s.state, line, "p2", refs=[hidden.id]) == "a face-down card deals 2 damage"
+    assert mask_face_down(s.state, line, "p2") == "a face-down card deals 2 damage"  # (unknown: masked)
+    # two names, one public card referenced: still masked (one of them may be the face-down card)
+    assert "Grizzly Bears" not in mask_face_down(s.state, "Grizzly Bears blocks Grizzly Bears", "p2", refs=[public.id])
+    assert mask_face_down(s.state, line, "p1", refs=[hidden.id]) == line  # its controller may look at it (708.5)

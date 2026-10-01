@@ -1073,6 +1073,11 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
             rules.next_object += 1
             rules.objects[card_id] = rules.next_object
             new_oid = rules.object_id(card_id)
+            if new_name == "battlefield" and old_name == "stack":  # -- refused grants/replacements (wave 3R2) --
+                for rec in rules.replacements:  # 609.7a: a shield on a permanent spell covers the permanent it became
+                    oids = ((rec.get("match") or {}).get("source") or {}).get("oids")
+                    if isinstance(oids, list) and "becomes:" + old_oid in oids:
+                        oids.append(new_oid)
             if new_name == "battlefield":  # 707.5: the copy effect it is entering with is the new object's
                 for eff in rules.effects:
                     if eff.layer == "1" and eff.source == ENTERING_COPY + card_id and old_oid in eff.affected:
