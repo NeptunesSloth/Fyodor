@@ -121,6 +121,15 @@ export const choose = (decisionId: string, optionIds: string[], remember?: strin
 export const divide = (decisionId: string, amounts: number[]) =>
   send({ type: "choose", decision_id: decisionId, option_ids: [], amounts });
 export const setPrefs =(patch: Record<string, unknown>) => send({ type: "set_prefs", ...patch });
+/** Concede (CR 104.3a): any time — with or without priority, during anyone's decision, while paused. */
+export const concede = () => send({ type: "concede" });
+
+/** Whether `me` may concede now: a seated player still in a game the rules engine runs, not over yet. */
+export function canConcede(view: GameView | null, me: string | null): boolean {
+  const rules = view?.rules;
+  if (!view || !rules || !me || view.viewer === "__spectator__" || !view.seat_order.includes(me)) return false;
+  return !rules.winner && !rules.conceded.includes(me) && !(me in (rules.lost ?? {}));
+}
 
 export const RESPONSE_CYCLE: ResponseMode[] = ["off", "auto", "on"];
 

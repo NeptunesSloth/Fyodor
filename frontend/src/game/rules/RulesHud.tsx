@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { PHASE_LABEL, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
-import { choose, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana } from "./intents";
+import { canConcede, choose, concede, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana } from "./intents";
 import { GameCardFace } from "../GameCardFace";
 import { ManaText } from "../../cards/ManaText";
 import { useCardCache } from "../../state/cardCache";
@@ -25,8 +25,9 @@ function useRules() {
 export function AutomationHud() {
   const ctx = useRules();
   const [open, setOpen] = useState(false);
+  const [conceding, setConceding] = useState(false);
   if (!ctx) return null;
-  const { view, rules, seated } = ctx;
+  const { view, rules, seated, me } = ctx;
   const level = rules ? (rules.paused ? "PAUSED" : rules.automation.toUpperCase()) : "OFF";
   const custom = rules?.preset === "custom" ? "*" : "";
   const prefs = rules?.prefs;
@@ -43,6 +44,17 @@ export function AutomationHud() {
           </button>
         </>
       )}
+      {canConcede(view, me) && (conceding ? (
+        <span className="auto-pill" data-testid="concede-confirm">
+          Concede the game?{" "}
+          <button className="tt-btn ghost" data-testid="concede-yes" onClick={() => { setConceding(false); void concede(); }}>Concede</button>
+          <button className="tt-btn ghost" data-testid="concede-no" onClick={() => setConceding(false)}>Keep playing</button>
+        </span>
+      ) : (
+        <button className="auto-pill" data-testid="concede" title="Concede the game (any time: CR 104.3a)" onClick={() => setConceding(true)}>
+          Concede
+        </button>
+      ))}
       {open && <AutomationSettings onClose={() => setOpen(false)} />}
       {view.rules?.winner && <span className="auto-pill winner">{playerName(view, view.rules.winner)} wins</span>}
     </div>

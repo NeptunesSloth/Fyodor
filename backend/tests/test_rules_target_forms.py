@@ -68,7 +68,7 @@ def test_refused_selectors(phrase):
     # a player, or any planeswalker (whoever controls it)
     ("~ deals 4 damage to target player or planeswalker.", [{"do": "damage", "who": "target", "n": 4}], "player_or_planeswalker"),
     ("~ deals 3 damage to target player or planeswalker and 3 damage to target creature.",
-     [{"do": "damage", "who": "target:0", "n": 3}, {"do": "damage", "who": "target:1", "n": 3}],
+     [{"do": "damage", "who": "target:0", "n": 3, "with_next": True}, {"do": "damage", "who": "target:1", "n": 3}],
      [{"what": "player_or_planeswalker", "min": 1, "max": 1}, {"what": CREATURE, "min": 1, "max": 1}]),
     # "other" inside a counted group: other than the source when nothing was targeted before …
     ("Up to one other target creature gets -3/-0 until end of turn.", [{"do": "pump", "who": "target:0", "p": -3, "t": 0}],
@@ -79,10 +79,10 @@ def test_refused_selectors(phrase):
      [{"what": 'sel:{"not_types":["Land"],"other":true}', "min": 0, "max": 2}]),
     # … and distinct from the earlier target (115.3) when there is one
     ("~ deals 4 damage to any target and 3 damage to each of up to two other targets.",
-     [{"do": "damage", "who": "target:0", "n": 4}, {"do": "damage", "who": "target:1", "n": 3}],
+     [{"do": "damage", "who": "target:0", "n": 4, "with_next": True}, {"do": "damage", "who": "target:1", "n": 3}],
      [{"what": "any", "min": 1, "max": 1}, {"what": "any", "min": 0, "max": 2, "distinct_from": [0]}]),
     ("~ deals 2 damage to any target and 1 damage to any other target.",
-     [{"do": "damage", "who": "target:0", "n": 2}, {"do": "damage", "who": "target:1", "n": 1}],
+     [{"do": "damage", "who": "target:0", "n": 2, "with_next": True}, {"do": "damage", "who": "target:1", "n": 1}],
      [{"what": "any", "min": 1, "max": 1}, {"what": "any", "min": 1, "max": 1, "distinct_from": [0]}]),
     ("Tap target creature. Tap up to one other target creature.", [{"do": "tap", "who": "target:0"}, {"do": "tap", "who": "target:1"}],
      [{"what": "creature", "min": 1, "max": 1}, {"what": CREATURE, "min": 0, "max": 1, "distinct_from": [0]}]),

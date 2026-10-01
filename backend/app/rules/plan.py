@@ -37,6 +37,7 @@ class Plan:
         self.steps: list[dict[str, Any]] = []
         self.max_steps = MAX_STEPS
         self.hold: str | None = None  # a player keeping priority right now (HOLD PRIORITY, a cancelled cast)
+        self.probe_903: list[tuple[str, str]] | None = None  # a look ahead for 903.9b (replacements.ask_903_9b_first)
 
     @classmethod
     def view(cls, state: GameState, actor: str, info: CardInfo) -> Plan:
@@ -45,6 +46,7 @@ class Plan:
         plan = cls.__new__(cls)
         plan.state, plan.actor, plan.info, plan.rng = state, actor, info, None
         plan.steps, plan.max_steps, plan.hold = [], 0, None
+        plan.probe_903 = None
         return plan
 
     @property
@@ -152,6 +154,16 @@ class Plan:
     @property
     def active(self) -> str:
         return self.state.turn.active_player
+
+    @property
+    def turn_player(self) -> str:
+        """Who makes the active player's choices: the active player, or — when they have left the
+        game and their turn goes on without them (800.4j) — the next player in turn order (800.4h)."""
+        return self.active if self.active in self.live() else self.after(self.active)
+
+    def has_active_player(self) -> bool:
+        """False while a turn goes on without its active player, who left the game (800.4j)."""
+        return self.active in self.live()
 
     def live(self) -> list[str]:
         return live_players(self.state)
