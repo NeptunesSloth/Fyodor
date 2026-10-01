@@ -859,7 +859,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         # are read here, each with the rider, rather than split upstream with X unbound in one
         halves = re.split(_JOINER, text, maxsplit=1)
         if len(halves) == 2:
-            left, right = _rider_half(halves[0]), _rider_half(halves[1])  # (wave 4E: _rider_half)
+            left, right = _parse(halves[0]), _parse(halves[1])
             if left[1] is not None and right[1] is not None:
                 raise _Fail  # (two targets: not read here)
             if not all(_has_x(e) for e in (*left[0], *right[0])):
@@ -1415,20 +1415,6 @@ def _bite(text: str) -> tuple[Effects, Any] | None:
 
 
 # -- damage sized by a count (wave 4E): app/rules/sized_damage.py ------------------------------------
-def _rider_half(text: str) -> tuple[Effects, Any]:
-    """One half of "…X… and …X…, where X is …": this grammar's, else a literal template's (scripts: "each player
-    creates X Treasure tokens and ~ deals X damage to each player, where X is …", Descent into Avernus)."""
-    try:
-        return _parse(text)
-    except _Fail:
-        from app.rules import scripts  # (scripts imports this module)
-
-        found = scripts._one_clause(text)
-        if found is None:
-            raise
-        return found[0], found[1]
-
-
 
 def _bite_recipients(o: str) -> tuple[list[str], list[dict[str, Any]]]:
     """A bite's recipients: "target creature you don't control", "each other creature and each opponent"
