@@ -780,6 +780,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
     found = reanimation_forms(text)  # -- reanimation (wave 3R) --
     if found is not None:
         return found
+    found = control_forms(text)  # -- control (wave 3K) --
+    if found is not None:
+        return found
     if text in ("return ~ to its owner's hand", "return it to its owner's hand"):
         return [{"do": "bounce", "who": "self" if text.startswith("return ~") else "it"}], None
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|their hand|your hand|"
@@ -1001,7 +1004,7 @@ def _end_of_turn_first(rest: str) -> tuple[Effects, Any]:
     """"Until end of turn, <clause>": the clause with the duration after it, if that is a continuous
     effect (only a pump, a grant or a restriction has one: delayed.wrap_duration's rule)."""
     effects, target = _parse(rest + (" this turn" if _RESTRICT_TAIL.fullmatch(rest) else " until end of turn"))
-    if not effects or any(e["do"] not in ("pump", "grant", "restrict") for e in effects):
+    if not effects or any(e["do"] not in ("pump", "grant", "restrict", "gain_control") for e in effects):
         raise _Fail
     return effects, target
 

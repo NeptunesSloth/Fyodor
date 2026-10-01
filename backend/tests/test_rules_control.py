@@ -150,6 +150,7 @@ def check(s):
     ("Exchange control of target artifact or creature you control and target creature an opponent controls with power 3 or less.",
      "exchange_control"),
     ("Untap all creatures and gain control of them until end of turn. They gain haste until end of turn.", "gain_control"),
+    ("Until end of turn, gain control of target creature.", "gain_control"),
 ])
 def test_the_grammar_reads_control_changes(text, do):
     found = scripts.parse_effects(text)
@@ -297,6 +298,16 @@ def test_wrong_turn_gives_a_creature_to_an_opponent(cards):
     bear = put(s, "Grizzly Bears", pid="p1")
     cast(s, "Wrong Turn", ["p2", bear.id], counts=[1, 1], U=1, C=2)
     assert s.state.cards[bear.id].controller == "p2" and s.state.cards[bear.id].zone == "p2:battlefield"
+    check(s)
+
+
+def test_harmless_offering_gives_your_permanent_to_an_opponent(cards):
+    s = build(cards)
+    land = put(s, "Forest", pid="p1")
+    cast(s, "Harmless Offering", ["p2", land.id], counts=[1, 1], R=3)
+    assert s.state.cards[land.id].controller == "p2" and s.state.cards[land.id].owner == "p1"
+    next_end_step(s)
+    assert s.state.cards[land.id].controller == "p2"  # no duration: for the game
     check(s)
 
 
