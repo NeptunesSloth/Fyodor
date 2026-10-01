@@ -938,9 +938,10 @@ def madness_offer(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
-def counter_object(plan: Plan, stack_id: str, actor: str) -> None:
+def counter_object(plan: Plan, stack_id: str, actor: str, *, exile: bool = False) -> None:
     """701.6: a countered spell goes to its owner's graveyard (a flashback spell into exile); a
-    countered ability simply stops existing."""
+    countered ability simply stops existing. ``exile``: "If that spell is countered this way, exile
+    it instead of putting it into its owner's graveyard" (608.2c; wave 4C)."""
     card = plan.state.cards.get(stack_id)
     if card is None or card.zone != "stack":
         return
@@ -954,7 +955,7 @@ def counter_object(plan: Plan, stack_id: str, actor: str) -> None:
     oid = plan.oid(stack_id)
     r.buyback = [o for o in r.buyback if o != oid]
     plan.note(f"{card.name or 'It'} is countered", [stack_id])
-    if oid in r.flashback:
+    if oid in r.flashback or exile:
         r.flashback = [o for o in r.flashback if o != oid]
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
     else:
@@ -964,13 +965,15 @@ def counter_object(plan: Plan, stack_id: str, actor: str) -> None:
 def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
     if e.get("object"):
         return [e["object"]] if e["object"] in plan.state.cards and plan.state.cards[e["object"]].zone == "stack" else []
+    if e.get("who") == "event_spell":  # -- unless pays (wave 4C) -- a cast trigger's spell, while it's still that object (400.7)
+        return [c for c in context.objects(plan, ctx, context.EVENT) if plan.state.cards[c].zone == "stack"]
     return [t["id"] for t in target_refs(ctx, e.get("who") or "target") if t["id"] in plan.state.cards
             and plan.state.cards[t["id"]].zone == "stack" and plan.oid(t["id"]) == t.get("object_id")]
 
 
 def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for sid in _stack_targets(plan, ctx, e):
-        counter_object(plan, sid, ctx["controller"])
+        counter_object(plan, sid, ctx["controller"], exile=bool(e.get("exile")))  # (exile: wave 4C)
     return True
 
 
@@ -2955,3 +2958,9 @@ from app.rules import kept_mana as _kept_mana  # noqa: E402, I001
 
 PRIMITIVES["keep_mana"] = _kept_mana.keep
 # -- end refused copy/mana (wave 3R3) --
+
+# -- unless pays (wave 4C) -- "you may [effect] unless that player pays …" (118.12a): app/rules/unless_pays.py
+from app.rules import unless_pays as _unless_pays  # noqa: E402, I001
+
+PRIMITIVES.update(_unless_pays.PRIMITIVES)
+# -- end unless pays (wave 4C) --

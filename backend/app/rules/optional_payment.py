@@ -163,7 +163,12 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """``{"do": "optional_payment", "who": <payer>, "cost": <cost text>, "bind": "pay0"}``: offer
     the payer the cost (PAY / DECLINE, privately) if they can pay it now; record the result as the
     binding ``bind`` (``{"succeeded": bind}`` in a following ``only_if``)."""
-    cost = parse(e["cost"])
+    # -- unless pays (wave 4C) -- a cost sized as it resolves ("{X}", "{1} for each …": app/rules/unless_pays.py)
+    from app.rules import unless_pays
+
+    text = unless_pays.concrete_cost(plan, ctx, e)
+    cost = parse(text)
+    # -- end unless pays (wave 4C) --
     name = str(e.get("bind") or "pay0")
     payer = payer_of(plan, ctx, e.get("who", "you"))
     if cost is None or payer is None:
@@ -175,7 +180,7 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         context.bind_payment(ctx, name, False)
         return True
     source = plan.state.cards.get(ctx.get("source_card") or "")
-    opt = {"cost": e["cost"], "bind": name, "payer": payer, "chosen": {}}
+    opt = {"cost": text, "bind": name, "payer": payer, "chosen": {}}  # (the concrete cost: wave 4C)
     hint = " (tap your mana first)" if cost.mana and _self_pays(plan, payer) else ""
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {_label(cost)}?{hint}",
            options=[DecisionOption(id=PAY, label=f"Pay {_label(cost)}"), DecisionOption(id=DECLINE, label="Don't pay")],
