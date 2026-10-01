@@ -274,10 +274,9 @@ def static_definition(t: str, lines: tuple[str, ...]) -> dict[str, Any] | None:
         return None  # (a condition on the static is the static's own "as long as": not this grammar)
     if change.get("mana") and change.get("value"):
         return None
-    if m["chosen"]:
-        # the chosen type is the permanent's "As ~ enters, choose a creature type." answer (614.12a): only with that line
-        if not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
-            return None
+    # the chosen type is the permanent's "As ~ enters, choose a creature type." answer (614.12a): only with that line
+    if m["chosen"] and not any(re.fullmatch(r"As .+ enters, choose a creature type\.?", x.strip()) for x in lines):
+        return None
     sel = m["sel"]
     key = spell_filter(sel) if sel else None
     if sel and key is None:

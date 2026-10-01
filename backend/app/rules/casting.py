@@ -24,7 +24,7 @@ from app.game.rules_state import (
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import alt_costs, attachments, cost_changes, cost_payment, costs, history, permissions, restrictions, scripts
+from app.rules import attachments, cost_payment, costs, history, permissions, restrictions, scripts
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
@@ -1444,6 +1444,8 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
                  check_priority: bool = True) -> list[dict[str, str]]:
     """The alternative costs (118.9) ``player`` could cast this card for right now, each with what the intent's
     ``alt_cost`` names: its condition holds, and the whole total cost (601.2f) can be paid (118.3)."""
+    from app.rules import alt_costs  # (a leaf over this module)
+
     out: list[dict[str, str]] = []
     if chars.is_two_spell_card(card, info) or state.rules is None or state.rules.card_mode(card.id) == "manual":
         return out  # (a split card / adventure: which half isn't part of the hint)
@@ -1528,6 +1530,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if free and (alternative is not None or a.face_down):
         raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
     # -- cost changers (wave 4I) -- an alternative cost written on a card (Force of Will, Jodah: app/rules/alt_costs.py)
+    from app.rules import alt_costs  # (a leaf over this module)
+
     alt_offer: alt_costs.Offer | None = None
     if a.alt_cost is not None:
         if free or alternative is not None or a.face_down or (grant is not None and grant.how == "flashback"):
@@ -2219,6 +2223,8 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
     if state is not None and card is not None and info is not None and ability.kind == "activated" and cost.mana:
         # -- costs (wave 3$) -- "Activated abilities of creatures you control cost {2} less to activate" (601.2f)
         # -- cost changers (wave 4I) -- and the ability's own "This ability costs {1} less to activate for each …" (602.2b)
+        from app.rules import cost_changes  # (a leaf over this module)
+
         own = cost_changes.ability_delta(state, card.controller, card, ch, ability.text, info) \
             if "This ability costs " in ability.text else 0
         reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own)
