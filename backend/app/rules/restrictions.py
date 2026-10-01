@@ -104,13 +104,18 @@ def split_trigger_limit(body: str) -> tuple[str, str | None]:
     return body, None
 
 
+EXHAUST = "Exhaust — "  # -- ability words (wave 4F) -- 702.177
+
+
 def parse(text: str) -> list[Restriction] | None:
     """The restrictions in an ability's text (an empty list: none), or None when a restriction
     sentence isn't one this module reads (the ability then stays manual)."""
     _, found = split(text.split(":", 1)[1] if ":" in text else text)
+    # -- ability words (wave 4F) -- 702.177a: "Exhaust — [Cost]: [Effect]" means "[Cost]: [Effect]. Activate only once."
+    exhaust: list[Restriction] = [{"kind": "per_game", "n": 1, "exhaust": True}] if text.startswith(EXHAUST) else []
     if found is None:
-        return []
-    out: list[Restriction] = []
+        return exhaust
+    out: list[Restriction] = list(exhaust)
     for sentence in _sentences(found):
         m = _RESTRICTION_SENTENCE.match(sentence)
         assert m is not None  # (split only keeps matching sentences)
@@ -221,6 +226,8 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
                 return "That can only be activated once each turn" if x["n"] == 1 else \
                     f"That can be activated only {_times(x['n'])} each turn"
         elif kind == "per_game":
+            if x.get("exhaust") and _exhaust_again(state, player):
+                continue  # (wave 4F) 702.177b: an effect lets exhaust abilities be activated again: the player decides
             if uses(r, r.object_id(card.id), index, None) >= x["n"]:
                 return "That can only be activated once"
         elif kind == "if":
@@ -231,6 +238,17 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
             if not conditions.holds(plan, {"controller": player, "source_card": card.id}, x["cond"]):
                 return f"That can only be activated if {x['text']}"
     return None
+
+
+def _exhaust_again(state: GameState, player: str) -> bool:
+    """-- ability words (wave 4F) -- does a permanent let exhaust abilities be activated "as though they haven't been
+    activated" (Elvish Refueler, 702.177b: the only such card)? That permission isn't modelled, so the engine doesn't
+    refuse the activation."""
+    return any((c := state.cards.get(cid)) is not None and c.name in _EXHAUST_AGAIN
+               for cid in state.zones.get(f"{player}:battlefield", []))
+
+
+_EXHAUST_AGAIN = frozenset({"Elvish Refueler"})
 
 
 def _times(n: int) -> str:

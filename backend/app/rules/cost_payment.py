@@ -187,6 +187,8 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
                 if len(pool) < comp.amount:
                     raise ActionError(f"You can't pay “{comp.text}”")
                 ids = secrets.SystemRandom().sample(pool, comp.amount)
+            if comp.selector is None:  # -- ability words (wave 4F) -- "Discard this card" (channel)
+                ids = [card.id]
             plan.do({"type": "move", "card_ids": ids, "to": {"zone": "graveyard"}})  # 701.9a
             record.discarded += ids
         elif comp.kind in (C.EXILE, C.EXILE_FROM_GRAVEYARD):

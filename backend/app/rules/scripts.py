@@ -154,7 +154,10 @@ ABILITY_WORDS = (
     "grandeur", "hellbent", "heroic", "imprint", "infusion", "inspired", "join forces", "kinship", "landfall",
     "lieutenant", "magecraft", "metalcraft", "morbid", "opus", "pack tactics", "paradox", "parley", "radiance", "raid",
     "rally", "renew", "repartee", "revolt", "secret council", "spell mastery", "strive", "survival", "sweep",
-    "tempting offer", "threshold", "undergrowth", "valiant", "vivid", "void", "will of the council")
+    "tempting offer", "threshold", "undergrowth", "valiant", "vivid", "void", "will of the council",
+    # -- ability words (wave 4F) -- printed in italics like an ability word but absent from 207.2c's list (and from
+    # the whole CR): no rules meaning either way (207.2d); the condition it names is spelled out after the dash
+    "corrupted")
 _ABILITY_WORD = re.compile(r"^(?:" + "|".join(re.escape(w).replace("'", "['’]") for w in ABILITY_WORDS) + r") — ",
                            re.IGNORECASE)
 
@@ -174,6 +177,8 @@ def self_text(text: str, name: str) -> str:
     """The ability with the card's own name (and "this creature" etc.) written as ~, without an
     ability word (207.2c)."""
     out = _ABILITY_WORD.sub("", text, count=1)
+    if out.startswith("Exhaust — "):  # -- ability words (wave 4F) -- 702.177a (the restriction: restrictions.parse)
+        out = out[len("Exhaust — "):]
     if out == text and (worded := word_prefix(text)) is not None:  # -- refused zones/sized (wave 3R4) -- 207.2d
         out = worded[1]
     short = _short_name(name)
@@ -2495,11 +2500,13 @@ def _for_each(phrase: str) -> Any:
     """"for each <group>" on an "enters with" ability: a count the values grammar evaluates as it enters
     — of cards elsewhere ("creature card in your graveyard") or of *other* permanents. A group the
     entering permanent might itself belong to is not read (whether it counts itself is not settled
-    here); "for each color of mana spent" and "creatures that died this turn" aren't modeled."""
+    here); "creatures that died this turn" isn't modeled ("for each color of mana spent": wave 4F)."""
     from app.rules import selectors  # (a leaf module)
 
     if phrase in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
         return {"kicked": 1}
+    if phrase in ("color of mana spent to cast it", "color of mana spent to cast ~"):  # -- ability words (wave 4F) --
+        return {"colors_spent": 1}  # converge (its spell's payment record, read as it enters: replacements._counter_amount)
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or (not sel.card and sel.zones == ("battlefield",) and not sel.other):
         return None

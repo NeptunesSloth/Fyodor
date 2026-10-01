@@ -192,6 +192,34 @@ _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it)$")
 _EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one|two|three|four|five|six|seven|eight) \{E\}$|^Remove (a|an|one|two|three) [a-z]+ counters? from (this \w+|it)$")
 
 
+# -- ability words (wave 4F) ---------------------------------------------------------------------------
+# "Metalcraft — {T}: Add one mana of any color. Activate only if you control three or more artifacts." (Mox
+# Opal): the ability word has no rules meaning (207.2c), so the line is read without it; a flavor word the
+# same (207.2d; oracle.word_prefix: never a keyword written "Name —" such as exhaust, 702.177). Any other
+# "Activate only if [condition]" the condition grammar reads (app/rules/conditions.py) is kept as
+# ``"cond:<json>"`` and checked as the ability would be activated (602.5: a mana ability too, 605.3a).
+_ACTIVATE_IF = re.compile(r"^Activate only if (?P<cond>.+)$")
+
+
+def _without_ability_word(text: str) -> str:
+    from app.rules.oracle import word_prefix
+
+    worded = word_prefix(text)
+    return worded[1] if worded is not None else text
+
+
+def _general_condition(text: str) -> str | None:
+    import json
+
+    from app.rules import conditions
+
+    cond = conditions.parse(text)
+    if cond is None or conditions.is_cast_condition(cond):
+        return None
+    return "cond:" + json.dumps(cond, sort_keys=True)
+# -- end ability words (wave 4F) --
+
+
 def _choice_part(part: str) -> bool:
     """-- refused copy/mana (wave 3R3) -- a cost part the payer pays with objects they choose (601.2h via
     602.2b): sacrificing, discarding, tapping an untapped permanent, exiling from the graveyard."""
@@ -206,7 +234,8 @@ def _choice_part(part: str) -> bool:
 def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbility | None:
     """Understand a mana ability. ``identity`` is the controller's commander color identity (for
     Command Tower-style wording). Returns None for wordings the engine doesn't carry out."""
-    m = _COST_AND_EFFECT.match(text.strip())
+    text = _without_ability_word(text.strip())  # -- ability words (wave 4F) --
+    m = _COST_AND_EFFECT.match(text)
     if not m:
         return None
     cost = [c.strip() for c in m.group("cost").split(",")]
@@ -276,6 +305,11 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             condition = f"control:{c.group('what')}" + (f"|{c.group('or')}" if c.group("or") else "")
         elif c := _CONTROL_COUNT.fullmatch(s):
             condition = f"count:{_COUNT_TYPES[c.group('what').rstrip('s')]}:{_NUM[c.group(1)]}"
+        elif (g := _ACTIVATE_IF.fullmatch(s)) and condition is None:  # -- ability words (wave 4F) --
+            general = _general_condition(g["cond"])
+            if general is None:
+                return None
+            condition = general
         elif (u := _URZA.fullmatch(s)) and not instead and len(options) == 1:  # -- refused copy/mana (wave 3R3) --
             needs = tuple(tuple(x.split()) for x in re.split(r" and an? ", u.group("what")))
             more = _effect_options("Add " + u.group("add"), identity)
