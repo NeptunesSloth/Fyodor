@@ -1154,7 +1154,7 @@ def flush(plan: Plan) -> bool:
         return False
     if not plan.options.auto_trigger_stacking and not getattr(plan, "triggers_confirmed", False):
         names = ", ".join(t.name for t in r.pending_triggers)
-        decide(plan, player=plan.active, kind="confirm", prompt=f"Triggered: {names}",
+        decide(plan, player=plan.turn_player, kind="confirm", prompt=f"Triggered: {names}",
                options=[DecisionOption(id="yes", label="Put on the stack"), DecisionOption(id="no", label="By hand")],
                resume={"step": "trigger_confirm"})
         return True

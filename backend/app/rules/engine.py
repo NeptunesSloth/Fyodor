@@ -77,7 +77,7 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         PREFS[intent.type](plan, intent)
         plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
         return plan.steps
-    if state.rules.paused:
+    if state.rules.paused and intent.type != "concede":  # (104.3a: conceding is possible at any time)
         raise ActionError("Automation is paused by the host. Use the table tools meanwhile.")
     if state.pregame is not None and not state.pregame.finished:
         raise ActionError("Finish opening hands first")
@@ -354,9 +354,6 @@ def advance(plan: Plan) -> None:
         if len(players) <= 1:
             r.priority = players[0] if players else None  # game over: the table stays a sandbox
             return
-        if plan.active not in players:
-            end_turn_early(plan)  # the active player has left the game: on to the next turn
-            continue
         if all(p in r.passed for p in players):
             if plan.state.zones.get(STACK):
                 resolve_top_of_stack(plan)
@@ -457,6 +454,18 @@ def on_step_start(plan: Plan) -> None:
     state = plan.state
     phase = state.turn.phase
     ap = plan.active
+    if not plan.has_active_player() and phase in ("draw", "declare_attackers", "cleanup"):
+        # 800.4j: the turn goes on without its active player — their turn-based actions (the draw,
+        # 504.1; declaring attackers, 508.1; discarding to hand size, 514.1) don't happen; the
+        # cleanup's 514.2 still does. "At the beginning of" triggers of the step still trigger.
+        if phase == "declare_attackers":
+            plan.rules.no_attackers = True
+        elif phase == "cleanup":
+            finish_cleanup(plan)
+            return
+        else:
+            triggers.at_step_generic(plan)
+        return
     if phase == "draw":
         first_turn_skip = state.turn.number == 1 and len(plan.live()) == 2
         if first_turn_skip:
@@ -491,7 +500,7 @@ def on_step_start(plan: Plan) -> None:
 def combat_damage(plan: Plan, rnd: str, then: str) -> None:
     """Deal a round of combat damage, or with AUTO COMBAT DAMAGE off (ASSISTED), ask first."""
     plan.rules.combat_round = then  # type: ignore[assignment]
-    if plan.options.auto_combat_damage or not combat.attackers_on(plan.state):
+    if plan.options.auto_combat_damage or not combat.attackers_on(plan.state) or not plan.has_active_player():
         combat.deal_combat_damage(plan, rnd)  # type: ignore[arg-type]
         return
     preview = combat.damage_preview(plan, rnd)  # type: ignore[arg-type]
@@ -528,15 +537,6 @@ def cleanup_step(plan: Plan) -> None:
         )
         return
     finish_cleanup(plan)
-
-
-def end_turn_early(plan: Plan) -> None:
-    """The active player left the game (800.4a). 800.4j has the turn go on to its end without an
-    active player; the engine ends it at once instead (the rest of its steps, and their "at the
-    beginning of the end step" triggers, are skipped), but with that turn's cleanup (514.2), so
-    damage and "until end of turn" effects don't last into the next player's turn."""
-    turn_cleanup(plan)
-    start_next_turn(plan)
 
 
 def finish_cleanup(plan: Plan) -> None:
@@ -837,25 +837,82 @@ def _resume_cleanup_discard(plan: Plan, d: Decision, chosen: list[str]) -> None:
 
 
 def concede(plan: Plan, _: A.Action) -> None:
+    """104.3a: a player can concede at any time — with or without priority, during anyone's
+    decision, mid-combat — and leaves the game at once (800.4a, app/rules/leave.py). A decision
+    left pending is settled so the others go on: their own is dropped (800.4f-h: a player who left
+    makes no choices; the resolution it was part of goes on without it), and one that was part of
+    a spell or ability that left the game with them ends with it. Their turn goes on without an
+    active player (800.4j)."""
     r = plan.rules
+    if r.winner is not None:
+        raise ActionError(f"The game is over: {plan.name(r.winner)} won")
+    _require_seated(plan)
     r.conceded.append(plan.actor)
     plan.note(f"{plan.name(plan.actor)} conceded")
-    was_deciding = r.decision is not None and r.decision.player == plan.actor
+    pending = r.decision
     leave_game(plan, plan.actor)
     left = plan.live()
     if len(left) == 1:
         plan.note(f"{plan.name(left[0])} is the last player standing")
+        r.decision = None
         r.winner = left[0]
         r.priority = left[0]
         return
-    if was_deciding:
-        _after_resolution(plan)
-    if r.priority is None and r.decision is None:
+    if pending is not None:
+        _settle_decision(plan, pending, plan.actor)
+    if r.decision is None and (r.priority is None or r.priority not in left):
+        # 800.4a: priority passes to the next player in turn order who's still in the game
         r.priority = plan.after(plan.actor)
-    if plan.active == plan.actor and r.decision is None:
-        end_turn_early(plan)  # the conceding player's turn ends
-        return
     advance(plan)
+
+
+def _settle_decision(plan: Plan, d: Decision, leaver: str) -> None:
+    """The decision pending as ``leaver`` left the game: keep it, re-ask it as things now are, or
+    end it (and with it the resolution it belonged to) — never leave the others stuck."""
+    r = plan.rules
+    resume = d.resume or {}
+    found = resume.get("ctx")
+    ctx: dict[str, Any] = found if isinstance(found, dict) else {}
+    resolving = "stack_id" in ctx and "effects" in ctx
+    if resolving and ctx["stack_id"] not in plan.state.zones.get(STACK, []):
+        # the spell or ability being resolved left the game with its controller (800.4a): the rest
+        # of it doesn't happen
+        r.decision = None
+        plan.rules.stack.pop(ctx["stack_id"], None)
+        _after_resolution(plan)
+        return
+    if d.player != leaver:
+        if d.kind == "declare_attackers" and r.decision is not None:
+            r.decision = None
+            combat.start_declare_attackers(plan)  # (the attack targets changed)
+        elif d.kind == "declare_blockers" and r.decision is not None:
+            r.decision = None
+            combat.ask_next_blocker(plan)  # (the attackers changed: maybe none attack them now)
+            if r.decision is None:
+                combat.blocks_declared(plan)
+        return
+    r.decision = None  # (leave_game dropped it already)
+    if resolving:
+        # 800.4f-g: the choice isn't made; the resolution goes on — with the other players still to
+        # choose in APNAP order ("each opponent discards a card"), then its next instruction
+        plan.note(f"{plan.name(leaver)} left the game: their choice isn't made")
+        if "rest" in resume and "picked" in resume and str(resume.get("step")) in RESUME:
+            RESUME[str(resume["step"])](plan, d, [])
+        else:
+            effects.continue_effects(plan, ctx)
+        return
+    step = resume.get("step")
+    if d.kind == "declare_blockers":
+        combat.ask_next_blocker(plan)  # (leave_game took them off the defenders still to declare)
+        if r.decision is None:
+            combat.blocks_declared(plan)
+        return
+    if d.kind == "declare_attackers":
+        r.no_attackers = True  # (they declared none: 800.4j, the turn goes on)
+    if step in ("cleanup_discard", "cleanup_manual"):
+        finish_cleanup(plan)  # 514.2 still happens; then the next player's turn
+        return
+    _after_resolution(plan)
 
 
 def set_stops(plan: Plan, a: A.SetStops) -> None:

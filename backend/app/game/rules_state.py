@@ -74,6 +74,11 @@ class ControlMark(BaseModel):
 
     controller: str
     turn: int
+    # 800.4a: True when it came under this controller's control while on the battlefield (a
+    # control-changing effect, done by hand: ``set_controller``), False when it entered the
+    # battlefield under this control (reanimated "under your control"), None when unknown (an
+    # older save, or automation turned on mid-game).
+    changed: bool | None = None
 
 
 # -- automation levels and options ---------------------------------------------------------
@@ -909,7 +914,8 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
         on_battlefield.add(card_id)
         mark = rules.controlled_since.get(card_id)
         if mark is None or mark.controller != card.controller:
-            rules.controlled_since[card_id] = ControlMark(controller=card.controller, turn=state.turn.number)
+            rules.controlled_since[card_id] = ControlMark(controller=card.controller, turn=state.turn.number,
+                                                          changed=mark is not None)
     for card_id in [c for c in rules.controlled_since if c not in on_battlefield]:
         del rules.controlled_since[card_id]
     if before is not None:

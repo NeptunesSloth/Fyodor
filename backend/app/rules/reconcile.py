@@ -63,7 +63,7 @@ def reconcile(plan: Plan, *, fresh: bool) -> None:
     if questions:
         options = [o for _, opts in questions for o in opts]
         n = len(questions)
-        decide(plan, player=plan.active, kind="reconcile",
+        decide(plan, player=plan.turn_player, kind="reconcile",
                prompt=f"Automation needs {n} answer{'s' if n != 1 else ''} it can't work out from the table",
                options=options, min_choices=n, max_choices=n, resume={"step": "reconcile"})
     elif r.decision is None and (r.priority is None or r.priority not in plan.live()):

@@ -6,6 +6,9 @@ Their seat is not simply hidden. In order:
    players' battlefields or on the stack go back to their own (now inert) side of the table;
 2. effects that gave them control of other players' objects end: those return to their owners;
 3. abilities they controlled on the stack cease to exist;
+3b. objects they still control are exiled: another player's card they put onto the battlefield
+   under their own control (reanimated "under your control" — no control-changing effect to end)
+   or are casting (from another player's graveyard or exile);
 4. they are removed from combat (creatures attacking them or their planeswalkers stop attacking)
    and from pending combat decisions;
 5. the monarch / initiative pass on (to the active player, or the next player if that's them).
@@ -39,10 +42,12 @@ def leave_game(plan: Plan, player: str) -> None:
         elif card.owner != player and card.controller == player:
             if card.ability is not None:
                 plan.do({"type": "delete_card", "card_ids": [card.id], "force": True}, actor=player)  # 800.4a
-            elif zone == "battlefield" and card.owner in plan.live():
+            elif card.owner not in plan.live():
+                continue  # (it left the game with its own owner already)
+            elif zone == "battlefield" and _control_changed(plan, card.id):
                 plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "battlefield"}},
                         actor=player)  # the control-changing effect ends
-            elif card.zone == STACK:
+            elif zone == "battlefield" or card.zone == STACK:  # 800.4a: still controlled by them: exiled
                 plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}},
                         actor=player)
     _end_linked(plan, leaving)
@@ -62,6 +67,14 @@ def leave_game(plan: Plan, player: str) -> None:
     if state.table.initiative == player:
         plan.do({"type": "set_initiative", "player": successor}, actor=successor)
     plan.note(f"{plan.name(player)} has left the game")
+
+
+def _control_changed(plan: Plan, card_id: str) -> bool:
+    """800.4a: does the leaver control this permanent through a control-changing effect (which
+    ends), rather than because it entered the battlefield under their control (then it's exiled)?
+    Unknown (an older save, automation turned on mid-game): a control change, as before."""
+    mark = plan.rules.controlled_since.get(card_id)
+    return mark is None or mark.changed is not False
 
 
 def _end_linked(plan: Plan, leaving: set[str]) -> None:

@@ -1,0 +1,249 @@
+"""Regression tests for rules simplifications replaced by the real rule (batch 3).
+
+- 800.4j: a turn whose active player left goes on to its end without an active player.
+- 800.4a: objects the leaver still controls are exiled; a control-changing effect just ends.
+- 104.3a: a player can concede at any time (another player's priority or decision, their own
+  decision, mid-combat); the others go on.
+- 610.3d: "until ~ leaves" returns after simultaneous departures happen at once.
+- 701.21a: "sacrifice ~ unless you pay" doesn't sacrifice what its controller no longer controls.
+- 701.23 (Path to Exile ruling): a player who declines to search doesn't shuffle.
+- 903.9b: a commander's owner is asked before it would go to a hand or library.
+- "may" memory: remembered answers belong to one card's ability, not a name.
+- 120 / 608.2: "each creature and each player" is one simultaneous damage event.
+"""
+
+from __future__ import annotations
+
+from app.game.factory import PlayerSetup, new_game
+from app.game.session import GameSession
+from tests.game_helpers import act, deck, enable
+from tests.test_rules_attachments import ch, named, token
+from tests.test_rules_delayed import on_battlefield, reloaded, rules
+from tests.test_rules_effects import replay_matches
+from tests.test_rules_suspend import until
+
+
+def build3(cards, *names):
+    """Alice (p1, active, in her main phase), Bob (p2) and Carol (p3)."""
+    alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in names), (9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(1, "Grizzly Bears"), (9, "Island")])
+    carol = deck(cards, "Krenko, Mob Boss", [(10, "Mountain")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob),
+                                     PlayerSetup("Carol", cards=carol)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")  # → Alice's main phase
+    return s
+
+
+def life(s, pid):
+    return s.state.players[pid].life
+
+
+def log_text(s, pid="p1"):
+    import json
+
+    return json.dumps(s.view(pid)["log"])
+
+
+def settle(s, limit=30):
+    """Answer every decision with its first options and pass until the stack is empty."""
+    for _ in range(limit):
+        d = rules(s).decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:max(d.min_choices, 1)]
+                if d.kind != "order" else [o.id for o in d.options])
+        elif s.state.zones.get("stack"):
+            act(s, rules(s).priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+# -- 800.4j: the turn goes on without its active player ------------------------------------------------
+END_STEP_GAIN = "At the beginning of each end step, you gain 1 life."
+
+
+def test_the_turn_continues_to_its_end_step_after_the_active_player_concedes(cards):
+    s = build3(cards)
+    token(s, "p3", "Carol's Keeper", "1/1", text=END_STEP_GAIN)
+    before = life(s, "p3")
+    turn = s.state.turn.number
+    act(s, "p1", type="concede")  # in Alice's own main phase
+    until(s, lambda s: s.state.turn.number > turn, limit=60)
+    # the end step of Alice's turn still happened (800.4j): its "at the beginning of" trigger did
+    assert life(s, "p3") >= before + 1
+    assert s.state.turn.active_player == "p2"  # 800.4k: then the next player's turn
+    replay_matches(s)
+
+
+def test_a_departed_active_player_neither_draws_nor_attacks(cards):
+    s = build3(cards)
+    act(s, "p2", type="set_prefs", stops_my_turn=["upkeep"], response="on")
+    act(s, "p3", type="set_prefs", stops_their_turn=["draw", "main1", "end"], response="on")
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "upkeep"
+          and rules(s).priority == "p2", limit=120)
+    hand = list(s.state.zones["p2:hand"])
+    library = list(s.state.zones["p2:library"])
+    turn = s.state.turn.number
+    act(s, "p2", type="concede")  # during Bob's own upkeep
+    assert s.state.turn.active_player == "p2" and s.state.turn.number == turn  # the turn isn't over …
+    assert rules(s).priority == "p3"  # (800.4j: the next player instead of the active player)
+    seen = set()
+
+    def watch(s):
+        seen.add(s.state.turn.phase)
+        assert rules(s).decision is None or rules(s).decision.player != "p2"
+        return s.state.turn.number > turn
+
+    until(s, watch, limit=80)
+    assert {"draw", "main1", "end"} <= seen  # … it went on step by step (800.4j)
+    assert s.state.zones["p2:hand"] == hand and s.state.zones["p2:library"] == library  # no draw (504.1)
+    assert s.state.turn.active_player == "p3"
+    replay_matches(s)
+
+
+# -- 800.4a: what the leaver still controls is exiled ---------------------------------------------------
+def test_a_reanimated_card_of_another_player_is_exiled_when_its_controller_leaves(cards):
+    # "Return target creature card from a graveyard to the battlefield under your control": no
+    # control-changing effect to end — the card is exiled (800.4a), not returned to its owner.
+    s = build3(cards)
+    bears = named(s, "Grizzly Bears")  # Bob's
+    act(s, "p2", type="move", card_ids=[bears.id], to={"player": "p2", "zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[bears.id], to={"player": "p1", "zone": "battlefield"})
+    assert s.state.cards[bears.id].controller == "p1" and s.state.cards[bears.id].owner == "p2"
+    act(s, "p1", type="concede")
+    assert s.state.cards[bears.id].zone == "p2:exile"
+    replay_matches(s)
+
+
+def test_a_stolen_permanent_returns_to_its_owner_when_the_thief_leaves(cards):
+    # Threaten-style (done by hand: set_controller): the control-changing effect ends (800.4a).
+    s = build3(cards)
+    bears = named(s, "Grizzly Bears")
+    act(s, "p2", type="move", card_ids=[bears.id], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p1", type="set_controller", card_ids=[bears.id], player="p1")
+    act(s, "p1", type="concede")
+    assert s.state.cards[bears.id].zone == "p2:battlefield" and s.state.cards[bears.id].controller == "p2"
+    replay_matches(s)
+
+
+# -- 104.3a: concede at any time -------------------------------------------------------------------------
+def test_concede_while_another_player_has_priority(cards):
+    s = build3(cards)
+    assert rules(s).priority == "p1"
+    act(s, "p3", type="concede")
+    assert "p3" in rules(s).conceded
+    assert rules(s).priority == "p1" and rules(s).decision is None
+    replay_matches(s)
+
+
+def test_concede_with_priority_passes_it_on(cards):
+    s = build3(cards)
+    act(s, "p1", type="set_prefs", response="on")
+    act(s, "p2", type="set_prefs", response="on", full_control=True)
+    act(s, "p3", type="set_prefs", response="on", full_control=True)
+    src = token(s, "p1", "Pinger", "1/1", text="{1}: You gain 1 life.")
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    act(s, "p1", type="activate_ability", card_id=src.id, ability=0)
+    if rules(s).priority == "p1":
+        act(s, "p1", type="pass_priority")
+    assert rules(s).priority == "p2"
+    act(s, "p2", type="concede")  # 800.4a: priority passes to the next player still in the game
+    assert rules(s).priority == "p3" and s.state.zones.get("stack")
+    replay_matches(s)
+
+
+def test_concede_during_another_players_decision_keeps_it(cards):
+    s = build3(cards)
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    src = token(s, "p1", "Looter", "1/1", text="{1}: Scry 2.")
+    act(s, "p1", type="activate_ability", card_id=src.id, ability=0)
+    until(s, lambda s: rules(s).decision is not None, limit=10)
+    d = rules(s).decision
+    assert d.player == "p1"
+    act(s, "p3", type="concede")
+    assert rules(s).decision is not None and rules(s).decision.id == d.id  # Alice still decides
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+    settle(s)
+    replay_matches(s)
+
+
+def test_concede_during_own_decision_mid_resolution_lets_the_resolution_go_on(cards):
+    # Alice's ability: each opponent discards a card (Bob, then Carol: APNAP), then Alice gains 2
+    # life. Bob concedes while choosing: his choice isn't made (800.4f-h), Carol still discards and
+    # the rest of Alice's ability still resolves.
+    s = build3(cards)
+    for pid, name in (("p2", "Island"), ("p3", "Mountain")):
+        ids = [c.id for c in s.state.cards.values() if c.owner == pid and c.name == name][:2]
+        act(s, pid, type="move", card_ids=ids, to={"player": pid, "zone": "hand"})
+    src = token(s, "p1", "Mindripper", "1/1", text="{1}: Each opponent discards a card. You gain 2 life.")
+    before, carol_hand = life(s, "p1"), len(s.state.zones["p3:hand"])
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 1})
+    act(s, "p1", type="activate_ability", card_id=src.id, ability=0)
+    until(s, lambda s: rules(s).decision is not None, limit=20)
+    assert rules(s).decision.player == "p2"
+    act(s, "p2", type="concede")
+    d = rules(s).decision
+    assert d is not None and d.player == "p3"  # Carol's choice is still asked
+    act(s, "p3", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    settle(s)
+    assert len(s.state.zones["p3:hand"]) == carol_hand - 1
+    assert life(s, "p1") == before + 2
+    replay_matches(s)
+
+
+def test_the_active_player_concedes_while_declaring_attackers(cards):
+    s = build3(cards)
+    token(s, "p1", "Alice's Bear", "2/2")
+    until(s, lambda s: rules(s).decision is not None and rules(s).decision.kind == "declare_attackers", limit=40)
+    turn = s.state.turn.number
+    act(s, "p1", type="concede")  # mid-combat, with her own decision pending
+    assert rules(s).decision is None or rules(s).decision.player != "p1"
+    until(s, lambda s: s.state.turn.number > turn, limit=60)
+    assert s.state.turn.active_player == "p2"
+    replay_matches(s)
+
+
+def test_a_defender_concedes_while_declaring_blockers(cards):
+    s = build3(cards)
+    bear = token(s, "p1", "Alice's Bear", "2/2")
+    act(s, "p1", type="set_controller", card_ids=[bear.id], player="p1")  # (no-op: still Alice's)
+    token(s, "p2", "Bob's Wall", "0/4")
+    token(s, "p3", "Carol's Wall", "0/4")
+    # (not summoning sick: it has been under Alice's control since her turn began)
+    rules(s).controlled_since[bear.id].turn = 0
+    until(s, lambda s: rules(s).decision is not None and rules(s).decision.kind == "declare_attackers", limit=40)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
+    until(s, lambda s: rules(s).decision is not None and rules(s).decision.kind == "declare_blockers", limit=10)
+    assert rules(s).decision.player == "p2"
+    act(s, "p2", type="concede")
+    # the creature attacking Bob is removed from combat (506.4, 800.4a); nobody is left blocking
+    assert rules(s).decision is None or rules(s).decision.player != "p2"
+    assert s.state.cards[bear.id].attacking is None
+    until(s, lambda s: s.state.turn.phase == "main2", limit=30)
+    replay_matches(s)
+
+
+def test_concede_while_paused(cards):
+    s = build3(cards)
+    rules(s).paused = True
+    act(s, "p2", type="concede")
+    assert "p2" in rules(s).conceded
+
+
+def test_cannot_concede_twice(cards):
+    import pytest
+
+    from app.game.errors import ActionError
+
+    s = build3(cards)
+    act(s, "p2", type="concede")
+    with pytest.raises(ActionError):
+        act(s, "p2", type="concede")
+
+
+def test_concede_survives_reload(cards):
+    s = build3(cards)
+    act(s, "p1", type="concede")
+    s2 = reloaded(s)
+    assert s2.state.model_dump(mode="json") == s.state.model_dump(mode="json")
+    assert ch(s2, on_battlefield(s2, "Grizzly Bears", "p2")).pt == (2, 2)

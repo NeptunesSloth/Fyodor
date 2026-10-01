@@ -151,6 +151,16 @@ class Plan:
     def active(self) -> str:
         return self.state.turn.active_player
 
+    @property
+    def turn_player(self) -> str:
+        """Who makes the active player's choices: the active player, or — when they have left the
+        game and their turn goes on without them (800.4j) — the next player in turn order (800.4h)."""
+        return self.active if self.active in self.live() else self.after(self.active)
+
+    def has_active_player(self) -> bool:
+        """False while a turn goes on without its active player, who left the game (800.4j)."""
+        return self.active in self.live()
+
     def live(self) -> list[str]:
         return live_players(self.state)
 

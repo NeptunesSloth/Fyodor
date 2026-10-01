@@ -164,7 +164,7 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         fingerprint = found.fingerprint()
         if r.sba_declined == fingerprint:
             return bool(found.vanishing)
-        decide(plan, player=plan.active, kind="confirm", prompt=f"State-based actions: {found.summary(plan)}",
+        decide(plan, player=plan.turn_player, kind="confirm", prompt=f"State-based actions: {found.summary(plan)}",
                options=[DecisionOption(id="yes", label="Apply"), DecisionOption(id="no", label="Leave for now")],
                resume={"step": "sba_confirm", "fingerprint": fingerprint})
         return True
