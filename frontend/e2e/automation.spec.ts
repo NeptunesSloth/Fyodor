@@ -2,8 +2,15 @@ import { expect, test } from "@playwright/test";
 import { ALICE_DECK, BOB_DECK, menuPath } from "./helpers";
 
 test("Automation FULL: HUD, RESPONSE toggle, play a land through the rules, pass priority", async ({ page }) => {
-  for (const text of [ALICE_DECK, BOB_DECK]) expect((await page.request.post("/api/decks", { data: { text } })).ok()).toBeTruthy();
-  await page.goto("/#/play");
+  const ids: string[] = [];
+  for (const text of [ALICE_DECK, BOB_DECK]) {
+    const res = await page.request.post("/api/decks", { data: { text } });
+    expect(res.ok()).toBeTruthy();
+    ids.push((await res.json()).id as string);
+  }
+  // Player 1 plays Alice's Islands deck: preselect it (the library lists the newest deck first, so the
+  // default would depend on whether the two imports landed in the same second).
+  await page.goto(`/#/play?deck=${ids[0]}`);
   await page.getByTestId("mulligan-rule").selectOption("none");
   await page.getByTestId("automation-level").selectOption("full");
   await page.getByTestId("first-player").selectOption("0");
