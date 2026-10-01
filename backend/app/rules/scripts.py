@@ -1311,6 +1311,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     texts = [s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     skip_to = 0  # -- refused look/cast-free (wave 3R5) -- sentences read together with an earlier one (piles)
+    groups_at = 0  # -- kicked / instead (wave 4G) --
     for i, sentence in enumerate(texts):
         if i < skip_to:
             continue
@@ -1318,6 +1319,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (i > 0 or effects) and text.startswith("then ") and not text.startswith(("then shuffle", "then you may ")):
             text = text[5:]  # -- waves 3D/3L/3C -- "Then that creature deals …" / "Then draw a card.": "then" only orders (608.2c)
         prev_start, start = start, len(effects)
+        prev_groups, groups_at = groups_at, len(groups)  # -- kicked / instead (wave 4G) -- each sentence's own target groups
         sentences.append(start)
         if (piles := _piles(texts, i, effects)) is not None:  # -- refused look/cast-free (wave 3R5) -- 700.3
             if not piles[0]:
@@ -1344,7 +1346,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects.append({"do": "excess_redirect", "if_trample": bool(excess["trample"])})
             continue
         if (kicked := _KICKED.match(text)) is not None:
-            with_kicker = _kicked_sentence(kicked, effects, prev_start)
+            with_kicker = _kicked_sentence(kicked, effects, prev_start, groups, prev_groups)
             if with_kicker is None:
                 return None
             effects = with_kicker
@@ -1497,6 +1499,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     if resolved is None or not _branch_refs_ok(resolved) or not _gated_other_ok(resolved):  # (conditional clauses, wave 1B)
         return None
     if not _cast_conditions_ok(resolved) or not _did_refs_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
+        return None
+    # -- kicked / instead (wave 4G) -- targets tied to the kicker (702.33g)
+    from app.rules import kicked_instead
+
+    if not kicked_instead.refs_ok(resolved, groups):
         return None
     resolved, target = _finish_targets(resolved, groups)
     looked = False
@@ -1776,22 +1783,44 @@ def _player_target(what: str) -> bool | None:
     return selectors.from_key(what).player is not None if what.startswith(selectors.PREFIX) else False
 
 
-def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start: int) -> list[dict[str, Any]] | None:
+def _kicked_sentence(m: re.Match[str], effects: list[dict[str, Any]], prev_start: int,
+                     groups: list[dict[str, Any]], prev_groups: int) -> list[dict[str, Any]] | None:
     """702.33e: "If this spell was kicked, [effect]." — the effect happens only if it was kicked;
-    "… instead" replaces the sentence before it when it was kicked. Kicked-only text may not add
-    a target (702.33g: those targets are chosen only if it's kicked — not modeled yet)."""
+    "… instead" replaces the sentence before it when it was kicked. -- kicked / instead (wave 4G) --
+    Kicked-only text may add targets: they're chosen only if it's kicked (702.33g), and the targets of
+    the sentence an "instead" replaces only if it isn't (601.2c; kicked_instead.applicable). "… instead"
+    may restate the replaced instruction with another amount (kicked_instead.restate)."""
+    from app.rules import kicked_instead
+
     rest = m["rest"]
     if rest.startswith("you may ") or rest.startswith("instead "):
         return None
-    if rest.startswith("it deals "):
-        rest = "~ deals " + rest[len("it deals "):]  # "If this spell was kicked, it deals …": the spell (wave 1B)
-    found = _clause(rest)
-    if found is None or found[1] is not None or not found[0]:
+    instead = bool(m["instead1"] or m["instead2"])
+    if not instead:
+        rest = kicked_instead.plain_addition(rest)
+    base = effects[prev_start:]
+    restated = kicked_instead.restate(rest, base) if instead else None
+    if restated is not None:
+        found: tuple[list[dict[str, Any]], Any] | None = (restated, None)
+    else:
+        if rest.startswith("it deals "):
+            rest = "~ deals " + rest[len("it deals "):]  # "If this spell was kicked, it deals …": the spell (wave 1B)
+        found = _clause(rest)
+    if found is None or not found[0]:
         return None
-    alt = found[0]
-    if m["instead1"] or m["instead2"]:
-        base = effects[prev_start:]
+    own = len(groups)
+    try:  # (its own targets: its own groups, 115.3; a restatement's are the replaced instruction's, numbered already)
+        alt = restated if restated is not None else _add_groups(groups, *found)
+    except _NoMatch:
+        return None
+    if not kicked_instead.mark(groups, own, len(groups), True):
+        return None
+    if instead:
         if not base or any(e["do"] == "kicked_gate" for e in base):
+            return None
+        # (an alternative with targets of its own replaces the replaced sentence's targets too; one without
+        # any — "it deals 4 damage instead", "put that card onto the battlefield instead" — keeps them)
+        if len(groups) > own and not kicked_instead.mark(groups, prev_groups, own, False):
             return None
         return [*effects[:prev_start], {"do": "kicked_gate", "kicked": False, "n": len(base)}, *base,
                 {"do": "kicked_gate", "kicked": True, "n": len(alt)}, *alt]
@@ -1832,6 +1861,10 @@ def parse_anthem(text: str) -> Definition | None:
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     d = _define(ability, ch)
+    from app.rules import kicked_instead  # -- kicked / instead (wave 4G) -- 702.33g: a spell's targets only
+
+    if d is not None and d.get("kind") != "spell" and kicked_instead.has_kicked_groups(d):
+        return None
     cond = d.get("cond") if d is not None and d.get("kind") == "triggered" else None
     if cond is not None and cond.get("event") == "enter" and cond.get("aggregate"):
         # "Whenever one or more artifacts you control enter, ~ deals that much damage": the number of them (603.2c)
@@ -3006,9 +3039,18 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
         base = effects[prev_start:]
         if cond is None or rest.startswith("you may ") or not base:
             return False
+        # -- kicked / instead (wave 4G) -- "it deals 7 damage instead" (608.2c)
+        from app.rules import kicked_instead
+
+        outer = None  # "If C1, X. If C2, Y instead." with C2 holding only when C1 does: Y replaces X inside C1's gate
+        if (len(base) > 1 and base[0]["do"] == "only_if" and not base[0].get("bind") and base[0].get("skip") == len(base) - 1
+                and kicked_instead.implies(cond, base[0]["cond"])):
+            outer, base = base[0], base[1:]
+            prev_start += 1
+        restated = kicked_instead.restate(rest, base)
         if rest.startswith("it deals ") and base[0]["do"] == "damage" and not base[0].get("src"):
             rest = "~ deals " + rest[len("it deals "):]  # (the source of the damage the sentence before it dealt)
-        alt = _bind_subject(cond, _clause(rest))
+        alt = (restated, None) if restated is not None else _bind_subject(cond, _clause(rest))
         if alt is None or alt[1] is not None or not _replaceable(base, alt[0]):
             return False
         if _cond_has_it(cond):  # "it": what the replaced sentence is about — its one target (else an earlier object)
@@ -3018,6 +3060,8 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
             if whos:
                 cond = _bind_cond(cond, next(iter(whos)))
         flag = _next_flag(effects)
+        if outer is not None:  # -- kicked / instead (wave 4G) -- (the outer gate now covers both branches)
+            effects = [*effects[:prev_start - 1], {**outer, "skip": len(base) + len(alt[0]) + 2}, *effects[prev_start:]]
         return [*effects[:prev_start], {"do": "only_if", "cond": {"not": cond}, "skip": len(base), "bind": flag}, *base,
                 {"do": "only_if", "cond": {"flag": flag, "negate": True}, "skip": len(alt[0])}, *alt[0]], 1
     m = _OTHERWISE.match(text)

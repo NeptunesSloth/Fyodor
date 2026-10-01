@@ -421,6 +421,10 @@ def test_kicker_coverage():
 
     assert coverage.of_characteristics(ch("Kicker {1}\nDraw a card. If this spell was kicked, draw a card.")).level == "FULL"
     assert coverage.of_characteristics(ch("Kicker {1}{U} and/or {2}{B}\nDraw a card.")).level != "FULL"
-    # 702.33g: a target chosen only if kicked isn't modeled: stays manual
+    # 702.33g: a target chosen only if kicked (wave 4G: kicked_instead.applicable, tests/test_rules_wave4g_kicked_instead.py)
     assert coverage.of_characteristics(
-        ch("Kicker {1}\nDraw a card. If this spell was kicked, destroy target creature.")).level != "FULL"
+        ch("Kicker {1}\nDraw a card. If this spell was kicked, destroy target creature.")).level == "FULL"
+    # (but not on a permanent's ability: 702.33g is about a spell's targets)
+    assert coverage.of_characteristics(
+        ch("Kicker {1}\nWhen this creature enters, draw a card. If it was kicked, destroy target creature.",
+           types=frozenset({"Creature"}))).level != "FULL"

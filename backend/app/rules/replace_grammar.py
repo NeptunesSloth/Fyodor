@@ -321,6 +321,8 @@ def _damage(text: str) -> Definition | None:
     if src is None or to is None:
         return None
     rest = m["rest"]
+    if m["to"] == "you" and rest.endswith(" to you instead"):  # -- kicked / instead (wave 4G) -- "… deals double that
+        rest = rest[: -len(" to you instead")] + " instead"  # damage to you instead" (Goldnight Castigator): the same recipient
     for pattern, kind in _DAMAGE_OPS:
         m2 = pattern.match(rest)
         if not m2:

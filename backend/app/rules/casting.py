@@ -167,6 +167,8 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
     if ab.instead_if == (M.PLAYED_LAND,):  # -- this-turn history (wave 4D) -- River of Tears
         played = state.rules is not None and state.rules.lands_this_turn(card.controller, state.turn.number) > 0
         return ab.instead if played else ab.options
+    if ab.instead_if and ab.instead_if[0][:1] in (("@count",), ("@power",)):  # -- kicked / instead (wave 4G) --
+        return ab.instead if _controls_for_instead(state, card.controller, ab.instead_if[0], info) else ab.options
     if ab.instead_if and all(_controls_subtypes(state, card.controller, need, info) for need in ab.instead_if):
         return ab.instead  # -- refused copy/mana (wave 3R3): Urza's Tower with the Mine and the Power-Plant --
     if ab.count == "devotion":  # -- refused copy/mana (wave 3R3): Nykthos, per chosen color (700.5) --
@@ -190,6 +192,24 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         else:
             out.append(opt)
     return tuple(dict.fromkeys(out))
+
+
+def _controls_for_instead(state: GameState, player: str, marker: tuple[str, ...], info: CardInfo) -> bool:
+    """-- kicked / instead (wave 4G) -- a mana ability's "If you control …, add … instead" (mana._CONTROL_INSTEAD), as
+    the permanents are now (613: their characteristics after continuous effects)."""
+    from app.rules.layers import derive
+
+    found = [derive(state, state.cards[cid], chars.of(state.cards[cid], info), info)
+             for cid in state.zones.get(zone_key(player, "battlefield"), []) if state.cards[cid].controller == player]
+    if marker[0] == "@count":
+        return sum(1 for ch in found if marker[1] in ch.types) >= int(marker[2])
+    return any(ch.is_creature and _power(ch) >= int(marker[1]) for ch in found)
+
+
+def _power(ch: Characteristics) -> int:
+    if ch.pt:
+        return ch.pt[0]
+    return int(ch.power) if ch.power and ch.power.lstrip("-").isdigit() else 0
 
 
 def _devotion(state: GameState, player: str, color: str, info: CardInfo) -> int:
@@ -488,6 +508,10 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
         chosen = choose_target(plan, a, definition, what, exclude=exclude)
         return None if chosen is None else ChosenTargets(flat=chosen)
     specs = scripts.target_groups(definition)
+    if isinstance(a, A.CastSpell):  # -- kicked / instead (wave 4G) -- 601.2c / 702.33g: targets tied to the kicker
+        from app.rules import kicked_instead
+
+        specs = kicked_instead.applicable(specs, a.kicker)
     found = choose_groups(plan, specs, plan.actor, source_of(plan, a.card_id), a.card_id, list(a.targets),
                           list(a.target_counts), list(a.division), a.x_value, what, exclude)
     if found.ask is not None:

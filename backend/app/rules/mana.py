@@ -181,6 +181,12 @@ _URZA = re.compile(r"^If you control an? (?P<what>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*
 # played, not put onto the battlefield): ``instead_if`` holds this marker instead of permanents to control
 _PLAYED_LAND = re.compile(r"^If you played a land this turn, add (?P<add>(?:\{[WUBRGC]\})+) instead$")
 PLAYED_LAND = ("@played_land",)
+# -- kicked / instead (wave 4G) -- "If you control four or more creatures, add {G}{G} instead." (Leafkin Druid); "If you
+# control a creature with power 4 or greater, add two mana of any one color instead." (Ilysian Caryatid). 605.3a: a mana
+# ability resolves as it's activated, so the condition is checked then (608.2c: the "instead" replaces the first "Add").
+# ``instead_if`` holds one marker: ("@count", <card type>, n) or ("@power", n) — creatures with that power or more.
+_CONTROL_INSTEAD = re.compile(rf"^If you control (?:{_N} or more (?P<what>creatures|artifacts|enchantments|lands)|"
+                              r"a creature with power (?P<p>\d+) or greater), (?P<add>add .+) instead$")
 _CHOSEN_COLOR: dict[str, str | None] = {  # (wave 3R3) "Choose a color. <this>": how many of that color
     "Add one mana of that color": None,
     "Add an amount of mana of that color equal to your devotion to that color": "devotion",  # 700.5 (Nykthos)
@@ -282,6 +288,13 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             if more is None or len(more) != 1 or not all(needs):
                 return None
             instead_if, instead = needs, more
+        elif (ci := _CONTROL_INSTEAD.fullmatch(s)) and not instead and count is None:  # -- kicked / instead (wave 4G) --
+            more = _effect_options("A" + ci.group("add")[1:], identity)
+            if more is None or not all(more) or any(x not in ALL_MANA for opt in (*options, *more) for x in opt):
+                return None  # (plain mana only: no chosen color, no "a land could produce")
+            marker = ("@power", ci.group("p")) if ci.group("p") else \
+                ("@count", _COUNT_TYPES[ci.group("what").rstrip("s")], str(_NUM[ci.group(1)]))
+            instead_if, instead = (marker,), more
         elif (pl := _PLAYED_LAND.fullmatch(s)) and not instead and len(options) == 1:  # -- this-turn history (wave 4D) --
             more = _effect_options("Add " + pl.group("add"), identity)
             if more is None or len(more) != 1:
