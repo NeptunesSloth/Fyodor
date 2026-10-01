@@ -126,15 +126,10 @@ def test_refused_forms(text):
 def test_refusals_are_registered():
     """Every refused wording names why (the missing piece), so the gap report can rank it."""
     for text, piece in [
-        ("Target creature you control fights another target creature.", "fight"),
-        ("Choose up to one target creature. That creature can't block this turn.", "choose_targets"),
         ("This spell costs {1}{U} more to cast for each target beyond the first.", "extra target"),
         ("Exile target player's graveyard.", "zone"),
         ("Destroy target creature that player controls.", "named earlier"),
         ("Destroy up to X target artifacts.", "variable number"),
-        # (copy system, wave 2F: "Copy target activated or triggered ability you control." is read now —
-        # tests/test_rules_copy.py; copying the spell a trigger was about is still refused)
-        ("Whenever you cast an instant or sorcery spell, copy it.", "copying"),
         ("Target player shuffles up to four target cards from their graveyard into their library.", "earlier target"),
         ("Switch target creature's power and toughness until end of turn.", "P/T"),
     ]:
@@ -142,6 +137,11 @@ def test_refusals_are_registered():
         assert reason is not None and piece in reason, text
         assert parse_effects(text) is None or language.has_primitive(piece), text
     assert coverage.refusal("Destroy target creature.") is None
+    # (read since: fight, "choose … target", "copy that spell", target groups with a total mana value)
+    for text in ("Target creature you control fights another target creature.", "You may copy that spell.",
+                 "Return up to three target creature cards with total mana value 3 or less from your graveyard to the battlefield."):
+        assert coverage.refusal(text) is None and parse_effects(text) is not None, text
+    assert coverage.refusal("Put up to two creature cards with total mana value 6 or less from among them onto the battlefield.")
 
 
 # -- the primitives another module must add: the grammar is ready, the wording is refused until then

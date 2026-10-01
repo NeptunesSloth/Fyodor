@@ -522,6 +522,14 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if "test" in cond:
         return _self_state(plan, ctx, cond["test"])
     got = values._object(plan, ctx, who)
+    if who == "event" and "is" in cond and selectors.from_key(cond["is"]).card:
+        # "exile it if it's an instant or sorcery card" after "dies": the card it is now (a face-down 2/2 that died
+        # is its face-up card in the graveyard, 708.9), while it is still there; else as it last existed
+        from app.rules import context
+
+        new = context.objects(plan, ctx, context.EVENT_NEW)
+        if new:
+            got = (plan.state.cards[new[0]], plan.ch(plan.state.cards[new[0]]))
     if got is None:
         return False
     card, ch = got
