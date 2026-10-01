@@ -1133,8 +1133,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     for i, sentence in enumerate(texts):
         text = _lower_first(sentence.rstrip(".").strip())
-        if i > 0 and text.startswith("then "):
-            text = text[5:]  # -- sized amounts (wave 3D) -- "Then that creature deals …": the sentences already run in order
+        if (i > 0 or effects) and text.startswith("then ") and not text.startswith("then shuffle"):
+            text = text[5:]  # -- waves 3D/3L -- "Then that creature deals …" / "Then draw a card.": the sentences already run in order
         prev_start, start = start, len(effects)
         sentences.append(start)
         if (kicked := _KICKED.match(text)) is not None:
@@ -1159,8 +1159,22 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:
             effects.append(paid)
             continue
+        text = _PICK_NEG.sub(r"if you \1, ", text)  # -- look and distribute (wave 3L) -- "If you don't put the card into your hand, …"
         if (if_do := _IF_YOU_DO.match(text)) is not None:
             bind = _last_payment(effects)
+            pick = next((e for e in reversed(effects) if e["do"] == "pick_looked"), None)
+            if bind is None and pick is not None and pick.get("optional"):
+                # -- look and distribute (wave 3L) -- "You may put a land card from among them onto the
+                # battlefield. If you don't, put a card from among them into your hand.": the pick records
+                # whether it moved a card (effects._picked)
+                inner = _clause(if_do["rest"])
+                if inner is None:
+                    return None
+                name = pick.setdefault("did", f"pdid{sum(1 for x in effects if x.get('did'))}")
+                added = _add_groups(groups, *inner)
+                pick_gate: dict[str, Any] = {"succeeded": name, **({"negate": True} if if_do["neg"] else {})}
+                effects += [{"do": "only_if", "cond": pick_gate, "skip": len(added)}, *added]
+                continue
             if bind is None:  # -- conditional / instead clauses (wave 1B) --  "You may draw a card. If you do, discard a card."
                 after_may = _if_you_do_after_may(if_do, effects, optional, i, len(texts))
                 if after_may is None:
@@ -1236,6 +1250,8 @@ _KICKED = re.compile(r"^if (?:this spell|it|~) was kicked, (?P<instead1>instead 
 
 
 # -- optional payments (118.12 / 118.12a): app/rules/optional_payment.py ------------------------------
+_PICK_NEG = re.compile(r"^if you (don't|do) put (?:the card|that card|it|them) (?:into your (?:hand|graveyard)|onto the battlefield(?: tapped)?"
+                       r"|on (?:top of|the bottom of) your library), ")
 _IF_YOU_DO = re.compile(r"^if you (?:(?P<neg>don't)|do), (?P<rest>.+)$")
 _UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller) "
                      r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?) .+)$")  # (wave 1B: any cost the engine pays)

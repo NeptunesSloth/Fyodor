@@ -648,6 +648,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "equipped" and not _has_attached(plan, card, "Equipment"):
             return False
+        # (700.6; set only by the look-and-distribute grammar: "a historic card from among them")
+        if extra == "historic" and not ("Artifact" in ch.types or "Legendary" in ch.supertypes or "Saga" in ch.subtypes):
+            return False
         if extra.startswith("counter:") and not card.counters.get(extra[8:], 0):
             return False
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
