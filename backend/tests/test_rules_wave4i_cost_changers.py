@@ -169,7 +169,7 @@ def test_the_cards_are_full(name):
     "You may pay {X} rather than pay the mana cost for Samurai spells you cast, where X is that spell's mana value.",
     "You may pay {0} rather than pay the equip cost of the first equip ability you activate during each of your turns.",
     # cost changers that read something this grammar doesn't (targets, the first spell each turn, chosen names)
-    "Spells your opponents cast that target this creature cost {2} more to cast.",
+    "Spells you cast that target enchanted player cost {1} less to cast.",
     "Spells with the chosen name cost {3} more to cast.",
     "This spell costs {1} less to cast if it targets a creature with flying.",
     "This spell costs {1} more to cast for each target beyond the first.",
