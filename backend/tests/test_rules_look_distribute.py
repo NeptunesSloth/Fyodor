@@ -75,7 +75,7 @@ def cards(settings) -> Iterator[CardRepository]:
 
 
 SPELLS = ["Impulse", "Ancestral Memories", "Commune with Nature", "Adventurous Impulse", "Satyr Wayfinder", "Grisly Salvage",
-          "Risen Reef"]
+          "Risen Reef", "Gathering Stone"]
 
 
 def build(cards):
@@ -173,8 +173,6 @@ def zone_of(s, ids):
     ("put one into your hand and the rest into their graveyard",
      [{"do": "pick_looked", "n": 1, "sel": None, "to": "hand", "optional": False, "reveal": False},
       {"do": "rest_looked", "to": "graveyard"}]),
-    ("you may exile it", [{"do": "pick_looked", "n": 1, "sel": None, "to": "exile", "optional": True, "reveal": False,
-                          "which": "that"}]),
 ])
 def test_parse_distribution_wordings(text, effects):
     assert parse_sentence(text) == (effects, None)
@@ -397,4 +395,76 @@ def test_risen_reef_nonland_goes_to_hand_without_a_choice(cards):
     assert s.state.rules.decision is None
     assert s.state.cards[top[0]].zone == "p1:hand"
     assert not any(s.state.cards[c].zone == "p1:battlefield" for c in top)
+    assert_sound(s)
+
+
+# -- activated abilities (tokens carrying the real cards' text) ---------------------------------------------------
+def _activate(s, src, **kw):
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=src.id, ability=0, **kw)
+    pass_until_stack_empty(s)
+
+
+def _token(s, name, text, pid="p1"):
+    from tests.test_rules_effects import token
+
+    return token(s, pid, name, text=text)
+
+
+def test_monumental_henge_historic_card_from_among_them(cards):
+    s = build(cards)
+    top = stack_library(s, ["Grizzly Bears", "Gathering Stone", "Forest", "Llanowar Elves", "Forest", "Forest"])
+    src = _token(s, "Henge", "{1}: Look at the top five cards of your library. You may reveal a historic card from among them and "
+                             "put it into your hand. Put the rest on the bottom of your library in a random order.")
+    _activate(s, src)
+    d = decision(s, "choose_cards")
+    assert [o.id for o in d.options] == [top[1]] and (d.min_choices, d.max_choices) == (0, 1)  # an artifact is historic (700.6)
+    choose(s, [top[1]])
+    assert s.state.cards[top[1]].zone == "p1:hand" and s.state.rules.decision is None
+    library = zone(s.state, "p1", "library")
+    assert library[0] == top[5] and set(library[-4:]) == {top[0], top[2], top[3], top[4]}  # (random order: recorded as moves)
+    assert_sound(s)
+
+
+def test_jace_plus_two_bottoms_the_opponents_top_card_privately(cards):
+    s = build(cards)
+    src = _token(s, "Jace", "{1}: Look at the top card of target player's library. You may put that card on the bottom of that "
+                            "player's library.")
+    bob_top = zone(s.state, "p2", "library")[0]
+    below = zone(s.state, "p2", "library")[1]
+    _activate(s, src, targets=["p2"])
+    d = decision(s, "choose_cards")
+    assert [o.id for o in d.options] == [bob_top] and (d.min_choices, d.max_choices) == (0, 1)
+    assert d.player == "p1"
+    assert bob_top not in json.dumps(s.view("p2"))
+    choose(s, [bob_top])
+    assert zone(s.state, "p2", "library")[0] == below and zone(s.state, "p2", "library")[-1] == bob_top  # Bob's own library
+    assert s.state.cards[bob_top].zone == "p2:library"
+    assert_sound(s)
+
+
+def test_look_at_an_opponents_top_three_exile_one_face_down_rest_to_their_graveyard(cards):
+    s = build(cards)
+    src = _token(s, "Thief", "{1}: Look at the top three cards of target player's library, exile one of them face down, then put "
+                             "the rest into their graveyard.")
+    a, b, c = zone(s.state, "p2", "library")[:3]
+    _activate(s, src, targets=["p2"])
+    d = decision(s, "choose_cards")
+    assert d.player == "p1" and {o.id for o in d.options} == {a, b, c} and (d.min_choices, d.max_choices) == (1, 1)
+    assert not any(x in json.dumps(s.view("p2")) for x in (a, b, c))
+    choose(s, [b])
+    assert s.state.cards[b].zone == "p2:exile"  # (an owner's exile)
+    assert s.state.cards[a].zone == "p2:graveyard" and s.state.cards[c].zone == "p2:graveyard"
+    assert_sound(s)
+
+
+def test_underrealm_lich_wording_one_to_hand_the_rest_to_the_graveyard(cards):
+    s = build(cards)
+    src = _token(s, "Lich", "{1}: Look at the top three cards of your library, then put one into your hand and the rest into "
+                            "your graveyard.")
+    a, b, c = zone(s.state, "p1", "library")[:3]
+    _activate(s, src)
+    decision(s, "choose_cards")
+    choose(s, [c])
+    assert s.state.cards[c].zone == "p1:hand" and s.state.cards[a].zone == "p1:graveyard" and s.state.cards[b].zone == "p1:graveyard"
     assert_sound(s)

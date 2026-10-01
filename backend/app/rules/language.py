@@ -20,6 +20,7 @@ Effects name a group with "target" (the sentence's first) or "target:<k>" (its k
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from typing import Any
 
 from app.rules import selectors, values
@@ -540,13 +541,10 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         return [{"do": do, "n": 0, "player": who, "until": _card_sel(m["sel"]), **({"reveal": True} if do == "look_top" else {})}], \
             _one(group)
     m = _PICK.fullmatch(text)
+    if m and (m["exile"] and (m["to"] or not m["q"]) or not m["exile"] and (m["to"] is None or m["fd"])):
+        m = None  # ("exile it" alone is the plain exile instruction, whatever "it" is: not a pick from among the cards looked at)
     if m:
         optional = bool(m["may"] or m["mayput"] or (m["exile"] or "").startswith("you may"))
-        if m["exile"]:
-            if m["to"]:
-                raise _Fail
-        elif m["to"] is None or m["fd"]:
-            raise _Fail
         e: dict[str, Any] = {"do": "pick_looked", "n": 1, "sel": None, "to": _PICK_DESTS[m["to"]] if m["to"] else "exile",
                              "optional": optional, "reveal": bool(m["may"]), **({"face_down": True} if m["fd"] else {})}
         if m["q"]:
@@ -554,9 +552,12 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
             e["optional"] = optional or q.startswith(("up to", "any number"))
             e["n"] = 99 if q in ("any number of", "all") else _amount(q[6:] if q.startswith("up to ") else q)
             if m["sel"]:
-                parsed = selectors.parse(m["sel"])
+                historic = bool(re.match(r"historic (?!.* or )", m["sel"]))  # (700.6: artifact, legendary or Saga; "a historic card")
+                parsed = selectors.parse(m["sel"][9:] if historic else m["sel"])
                 if parsed is None or parsed.player is not None:
                     raise _Fail
+                if historic:
+                    parsed = replace(parsed, extras=(*parsed.extras, "historic"))
                 e["sel"] = parsed.key()
             elif q == "all":
                 raise _Fail
