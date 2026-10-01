@@ -280,7 +280,7 @@ def test_modifier_wordings_of_real_cards(text):
 
 
 @pytest.mark.parametrize("text", [
-    "Spells you cast from anywhere other than your hand cost {1} less to cast.",  # (zone: not modelled)
+    # (wave 4I: "Spells you cast from anywhere other than your hand cost {1} less" is read now: cost_changes.py)
     "The first creature spell you cast each turn costs {1} less to cast.",
     "Red creature spells and green creature spells cost {1} more to cast.",  # (one selector can't say "red creature or green creature")
     "Activated abilities of creatures you control cost {2} less to activate.",  # (the printed floor is part of the wording)

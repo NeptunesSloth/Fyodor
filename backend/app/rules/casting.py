@@ -24,7 +24,7 @@ from app.game.rules_state import (
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import attachments, cost_payment, costs, history, permissions, restrictions, scripts
+from app.rules import attachments, cost_changes, cost_payment, costs, history, permissions, restrictions, scripts
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
@@ -1111,13 +1111,26 @@ def resume_payment_sources(plan: Plan, d: Any, chosen: list[str]) -> None:
     _rerun(plan, d, A.parse_action(d.resume["intent"]), chosen)
 
 
+def _locked(plan: Plan, cost: M.ManaCost) -> M.ManaCost:
+    """-- cost changers (wave 4I) -- the total cost locked in when the payment was asked for (601.2f), if this is that
+    cast or activation resumed (``_rerun``); read once."""
+    locked, plan.locked_cost = plan.locked_cost, None
+    return M.parse_cost(locked) if locked is not None else cost
+
+
 def _rerun(plan: Plan, d: Any, intent: Any, sources: list[str]) -> None:
     from app.rules.engine import INTENTS  # the engine imports this module
 
     intent.sources = sources
     plan.rules.priority = d.player
     plan.rules.passed = []
-    INTENTS[intent.type](plan, intent)
+    # -- cost changers (wave 4I) -- 601.2f: the total cost was locked in when the payment was asked for; mana abilities
+    # activated meanwhile (a Treasure sacrificed, a creature sacrificed for mana) don't change it
+    plan.locked_cost = d.resume.get("cost") if isinstance(d.resume, dict) else None
+    try:
+        INTENTS[intent.type](plan, intent)
+    finally:
+        plan.locked_cost = None
 
 
 def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, exclude: tuple[str, ...] = (),
@@ -1492,6 +1505,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     # before increases and reductions apply, so a reduction sees the kicked total
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=alternative,
                       free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down)
+    cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f
     for target in a.targets:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
@@ -2162,7 +2176,10 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
     cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
     if state is not None and card is not None and info is not None and ability.kind == "activated" and cost.mana:
         # -- costs (wave 3$) -- "Activated abilities of creatures you control cost {2} less to activate" (601.2f)
-        reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info)
+        # -- cost changers (wave 4I) -- and the ability's own "This ability costs {1} less to activate for each …" (602.2b)
+        own = cost_changes.ability_delta(state, card.controller, card, ch, ability.text, info) \
+            if "This ability costs " in ability.text else 0
+        reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own)
         if reduced != cost.mana:
             cost = replace(cost, mana=reduced)
     # -- reanimation (wave 3R) -- 113.6m: "{1}{B}: Return this card from your graveyard to the battlefield" moves the
@@ -2256,6 +2273,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         raise ActionError(problem)
     oid = plan.oid(card)  # the object activating (paying a cost may move it: it'd be a new object)
     mana = M.parse_cost(cost.mana)
+    if plan.locked_cost is not None and not mana.x:  # -- cost changers (wave 4I) -- 602.2b → 601.2f: locked in
+        mana = _locked(plan, mana)
     if (mana.x or cost.loyalty_x or cost.energy_x) and a.x_value is None:  # (wave 3E: "Pay X {E}")
         raise ActionError("Choose a value for X")
     if cost.loyalty_x and card.counters.get("loyalty", 0) < (a.x_value or 0):
@@ -2362,7 +2381,8 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
         ch = chars.of(card, info)
         for ab in ch.abilities:
             if ab.kind == "activated" and ability_cost(ch, ab).from_hand and \
-                    ability_problem(state, player, card, ch, ab, ability_cost(ch, ab), check_priority=check_priority,
+                    ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),  # (wave 4I)
+                                    check_priority=check_priority,
                                     info=info) is None:
                 out.append({"card_id": cid, "ability": ab.index})
     for cid in state.zones.get(zone_key(player, "graveyard"), []):  # 113.6m: "Exile this card from your graveyard: …"
@@ -2370,7 +2390,8 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
         ch = chars.of(card, info)
         for ab in ch.abilities:
             if ab.kind == "activated" and ability_cost(ch, ab).from_graveyard and \
-                    ability_problem(state, player, card, ch, ab, ability_cost(ch, ab), check_priority=check_priority,
+                    ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),  # (wave 4I)
+                                    check_priority=check_priority,
                                     info=info) is None:
                 out.append({"card_id": cid, "ability": ab.index})
     return out

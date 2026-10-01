@@ -2101,6 +2101,14 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         parsed_restriction = restrictions.parse(text) if restriction is not None else []
         if parsed_restriction is None:
             return None
+        # -- cost changers (wave 4I) -- "This ability costs {1} less to activate for each …" is part of its total cost
+        # (602.2b → 601.2f; casting.ability_cost reads it), not of what it does
+        from app.rules import cost_changes
+
+        body, own_cost = cost_changes.split_ability(body)
+        if own_cost is not None and (not cost_changes.ability_change(text) or "{X}" in (ability.cost or "") or not cost.mana):
+            return None
+        # -- end cost changers (wave 4I) --
         # -- sized amounts (wave 3D) -- "Sacrifice this creature: It deals damage equal to its power": "it" is the source
         # the cost put into a graveyard (its last known information: 608.2h)
         gone = cost.sacrifice_self or re.search(r"\b(?:[Dd]iscard|[Ee]xile) (?:this card|~)", ability.cost or "") is not None

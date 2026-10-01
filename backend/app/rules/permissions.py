@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, Any
 from app.game.rules_state import CostModifier, Permission, TopReveal
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
-from app.rules import costs, selectors
+from app.rules import cost_changes, costs, selectors
 from app.rules import mana as M
 from app.rules.characteristics import CardInfo, Characteristics
 
@@ -309,6 +309,12 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     if extra is not None:
         ok = costs.parse_additional_cost(extra) is not None
         return {"kind": "static", "static": "additional_cost", "cost": extra, "effects": []} if ok else None
+    # -- cost changers (wave 4I) -- "This spell costs {X} less to cast, where X is …" / "… for each …" / "… if …" / "{G} less"
+    # (app/rules/cost_changes.py: read as the total cost is determined, 601.2f)
+    if cost_changes.SELF_SENTENCE.fullmatch(t):
+        change = cost_changes.self_change(t)
+        return {"kind": "static", "static": "self_cost", "change": change, "effects": []} if change else None
+    # -- end cost changers (wave 4I) --
     m = SELF_PER.fullmatch(t)
     if m:
         what = m["what"]
@@ -348,6 +354,8 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 "self": False, "free": True, "play": False, "cast": True, "filter": key, "effects": []}
     # -- end cast without paying (wave 3C) --
     t = re.sub(r"^(\w+) spells and (\w+) spells ", r"\1 or \2 spells ", t)  # "kithkin spells and soldier spells you cast"
+    if cost_changes.special(t):  # -- cost changers (wave 4I) -- a turn, the chosen type, a zone, "for each", X, colored
+        return cost_changes.static_definition(t, lines)
     m = STATIC_COST.fullmatch(t)
     if m:
         if m["sel"] and m["thats"]:
@@ -651,8 +659,13 @@ def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteris
         return []
     found: list[CostModifier] = []
     for src, index, d in _table_statics(state, info, {"cost_modifier"}):
-        found.append(CostModifier(id=f"{src.id}:{index}", controller=src.controller, delta=d["delta"], caster=d["caster"],
-                                  filter=d["filter"], until="permanent", source=r.object_id(src.id), label=src.name))
+        # -- cost changers (wave 4I) -- per count, with a turn, of the chosen type, from a zone, colored (cost_changes.py)
+        delta = cost_changes.static_delta(state, info, src, d, player, card, ch)
+        if delta is None:
+            continue
+        found.append(CostModifier(id=f"{src.id}:{index}", controller=src.controller, delta=delta, caster=d["caster"],
+                                  filter=d["filter"], until="permanent", source=r.object_id(src.id), label=src.name,
+                                  mana=cost_changes.stored_mana(d)))
     found += [m for m in r.cost_modifiers  # ("until your next turn": over once its controller's next turn began)
               if not (m.until == "next_turn" and r.turn_started.get(m.controller, 0) > m.turn)]
     out = []
@@ -678,7 +691,7 @@ def self_reduction(state: GameState, player: str, card: CardInstance, ch: Charac
         total += opponents
     view = None
     for d in _definitions(ch).values():
-        if d.get("static") != "self_cost":
+        if d.get("static") != "self_cost" or "change" in d:  # (wave 4I: a "change" is cost_changes.own_changes')
             continue
         if d.get("per") == "opponent":
             total += d["n"] * opponents
@@ -702,30 +715,40 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
         cost = _add(cost, extra)
     increase = tax
     reduction = affinity
+    changes = cost_changes.Changes()  # -- cost changers (wave 4I) -- colored increases / reductions (118.7b/c)
     if info is not None:
         for m in modifiers(state, player, card, ch, info):
-            if m.delta > 0:
+            if m.mana:
+                changes.add(m.delta, m.mana)
+            elif m.delta > 0:
                 increase += m.delta
             else:
                 reduction -= m.delta
         reduction += self_reduction(state, player, card, ch, info)
-    cost = cost.plus_generic(increase)
+        own = cost_changes.own_changes(state, player, card, ch, info, _definitions(ch))
+        increase += own.increase
+        reduction += own.reduction
+        changes.colored_more += own.colored_more
+        changes.colored_less += own.colored_less
+    cost = cost_changes.add_colored(cost.plus_generic(increase), changes.colored_more)
+    cost = cost_changes.reduce_colored(cost, changes.colored_less)  # (colored first: what's left over reduces generic, 118.7c)
     return cost.plus_generic(-min(cost.generic, reduction))
 
 
 # -- costs (wave 3$) -- cost modifiers for activated abilities (602.2b -> 601.2f, 118.7) ---------------------
-def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characteristics, mana: str, info: CardInfo) -> str:
+def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characteristics, mana: str, info: CardInfo,
+                 own: int = 0) -> str:
     """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
     mods = [(src, d) for src, _, d in _table_statics(state, info, {"ability_cost_modifier"})]
-    if not mods or not mana:
+    if not mods and not own or not mana:  # (own: the ability's "This ability costs {1} less …", wave 4I)
         return mana
     cost = M.parse_cost(mana)
     if cost.x or cost.unsupported:
         return mana
     view = None
-    increase = reduction = 0
+    increase, reduction = max(0, own), max(0, -own)
     floor = False
     for src, d in mods:
         if d["who"] == "you" and src.controller != player:
@@ -742,10 +765,14 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
     if not increase and not reduction:
         return mana
     cost = cost.plus_generic(increase)
-    cut = min(cost.generic, reduction)
+    # -- cost changers (wave 4I) -- the floor ("can't reduce … to less than one mana") limits only its own effect; the
+    # player orders reductions (601.2f), so the floored ones go first and the ability's own reduction after them
+    own_cut = max(0, -own)
+    cut = reduction - own_cut
     if floor:
         symbols = cost.generic + len(cost.colored) + len(cost.hybrid) + len(cost.phyrexian)
         cut = min(cut, max(0, symbols - 1))
+    cut = min(cost.generic, cut + own_cut)
     return cost.plus_generic(-cut).text()
 
 

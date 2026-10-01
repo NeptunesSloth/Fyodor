@@ -472,11 +472,10 @@ def test_cost_modifier_wordings(text, expected):
 @pytest.mark.parametrize("text", [
     # each of these means something the engine doesn't model: refused, never guessed
     "Once during each of your turns, you may cast an instant or sorcery spell from your graveyard. If a spell cast this way would be put into your graveyard, exile it instead.",
-    "Spells you cast from anywhere other than your hand cost {1} less to cast.",
+    # (wave 4I: "from anywhere other than your hand" and "for each creature in your party" are read now: cost_changes.py)
     "During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard.",
     "The first creature spell you cast each turn costs {1} less to cast.",
     "Spells your opponents cast that target this creature cost {1} more to cast.",
-    "This spell costs {1} less to cast for each creature in your party.",
     "This spell costs {1} less to cast if it targets a tapped creature.",
     "Equip abilities you activate cost {1} less to activate.",
     "You may cast spells from the top of your library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.",
