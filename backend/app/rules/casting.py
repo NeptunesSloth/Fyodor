@@ -1237,7 +1237,16 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
 def free_castable(state: GameState, player: str, card: CardInstance, info: CardInfo) -> bool:
     """Does a permission let ``player`` cast this card without paying its mana cost right now (118.9)?"""
     faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
-    return any(cast_problem(state, player, card, chars.as_cast(card, info, face), info=info, free=True) is None for face in faces)
+    for face in faces:
+        ch = chars.as_cast(card, info, face)
+        if cast_problem(state, player, card, ch, info=info, free=True) is not None:
+            continue
+        manual = state.rules is not None and state.rules.card_mode(card.id) == "manual"
+        extra = None if manual else costs.spell_additional_cost(ch.abilities)
+        if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
+            continue  # (118.9d: its additional cost still has to be paid, and can't be now)
+        return True
+    return False
 # -- end cast without paying (wave 3C) --
 
 
@@ -1688,14 +1697,28 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         picked_targets = found_targets
     chosen = picked_targets.flat
     alt = r.alt_costs.get(card.id)
+    # 118.9d / 601.2b: a spell's own additional cost ("As an additional cost to cast this spell,
+    # sacrifice a creature": Fling cast by cascade) is still paid — chosen now, paid with the rest
+    add_cost = None if plan.manual(card) else costs.spell_additional_cost(ch.abilities)
+    add_objects: dict[int, list[str]] = {}
+    if add_cost is not None:
+        problem = additional_problem(plan, add_cost, card, plan.actor)
+        if problem:
+            raise ActionError(problem)
+        found_objects = cost_payment.choose(plan, a, add_cost, card, ch.name or "it")
+        if found_objects is None:
+            return  # waiting for the payer's choice; nothing has been paid (the grant stays)
+        add_objects = found_objects
+    not_mana = cost_payment.excluded(add_cost, card, add_objects) if add_cost is not None else ()
     # 118.9d / 601.2f: additional costs (kicker), increases and reductions still apply to the
     # alternative cost — {0}, or the madness cost
     cost = spell_cost(plan.state, card, ch, 0, plan.info, player=plan.actor, free=alt is None,
                       alternative=M.parse_cost(alt) if alt is not None else None, kicker=a.kicker)
     if alt is not None or not cost.is_free:
-        if payment_step(plan, a, cost, ch.name or "it", purpose=Purpose(spell=ch)):
+        if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=Purpose(spell=ch)):
             return
-        record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (" (madness)" if alt else ""))
+        record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name}" + (" (madness)" if alt else ""),
+                           not_mana=not_mana)
         record.alternative = "madness" if alt is not None else "free"
         record.additional = ["kicker"] if a.kicker else []
         record.kicked = a.kicker
@@ -1711,6 +1734,11 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     if a.x_value is None and M.parse_cost(ch.mana_cost).x:
         a.x_value = 0  # X is 0 when a spell is cast without paying its mana cost (107.3b)
     plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
+    if add_cost is not None:  # (601.2h: with the rest of the total cost)
+        if add_cost.life:
+            plan.do({"type": "life", "player": plan.actor, "delta": -add_cost.life})  # 119.4
+            record.life += add_cost.life
+        cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile …
     plan.do({"type": "set_stack_info", "card_id": card.id,
              "tags": ["Cast for its madness cost" if alt is not None else "Cast without paying its mana cost"]
              + (["Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}"] if a.kicker else [])})

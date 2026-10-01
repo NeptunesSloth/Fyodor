@@ -55,6 +55,10 @@ EXTRA = [
               "oracle_text": "Flying, vigilance", "power": "4", "toughness": "4", "colors": ["W"],
               "image_uris": {"normal": "https://img.example/invasion-back.jpg"}},
          ]),
+    # Fling
+    card("Fling", set_code="tef", number="E4", mana_cost="{1}{R}", cmc=2.0, type_line="Instant",
+         oracle_text="As an additional cost to cast this spell, sacrifice a creature.\nFling deals damage equal to the "
+                     "sacrificed creature's power to any target.", colors=["R"], color_identity=["R"]),
 ]
 INVASION = "Invasion of Dominaria // Serra Faithkeeper"
 
@@ -351,6 +355,27 @@ def test_storm_copies_are_red_sorcery_spells_but_not_cast(cards):
     assert s.state.players["p2"].life == 40 - 6 - 2 - 2  # Bolt, Grapeshot and its one copy, each doubled
     assert len(named_all(s, "Elemental")) == 2  # cast twice (Bolt, Grapeshot); the copy wasn't cast
     assert s.state.rules.spells_this_turn("p1", s.state.turn.number) == 2
+    replay_matches(s)
+
+
+# -- 118.9d: a spell cast without paying its mana cost still pays its additional costs ----------------------
+def test_fling_cast_by_cascade_still_sacrifices_a_creature(cards):
+    """118.9d / 601.2b: "As an additional cost to cast this spell, sacrifice a creature" is paid
+    when cascade casts Fling for free — and its damage is the sacrificed creature's power."""
+    s = build(cards, "Bloodbraid Elf", "Fling")
+    elf, fling = named(s, "Bloodbraid Elf"), named(s, "Fling")
+    act(s, "p1", type="move", card_ids=[elf.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="move", card_ids=[fling.id], to={"player": "p1", "zone": "library"}, position="top")
+    ogre = token(s, "p1", "Ogre", "3/3")
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1, "G": 1, "C": 2})
+    act(s, "p1", type="cast_spell", card_id=elf.id)
+    until(s, lambda s: decision(s) is not None and "Cascade" in decision(s).prompt)
+    answer(s, "yes")
+    answer(s, "p2")  # Fling's target
+    pass_until_stack_empty(s)
+    assert ogre.id not in s.state.cards  # sacrificed as the additional cost (a token: gone)
+    assert s.state.players["p2"].life == 37  # the sacrificed creature's power
+    assert s.state.cards[fling.id].zone == "p1:graveyard"
     replay_matches(s)
 
 
