@@ -203,7 +203,10 @@ def _table_key(state: GameState) -> tuple:
     log = r.turn_log if r else None  # (conditions read this turn's history: "a creature died this turn")
     history = (log.turn, tuple(log.attacked), tuple(sorted(log.gained.items())), tuple(sorted(log.lost.items())),
                tuple(sorted(log.drew.items())), len(log.left), len(log.left_graveyard),
-               len(log.entered_graveyard), len(log.entered)) if log is not None else ()  # (wave 3R1: entered)
+               len(log.entered_graveyard), len(log.entered),  # (wave 3R1: entered)
+               # -- this-turn history (wave 4D) -- spells cast, facts, attackers, lands played
+               len(log.casts), len(log.facts), tuple(sorted((p, len(a)) for p, a in log.attackers.items())),
+               tuple(sorted((p, (c.turn, c.count)) for p, c in r.lands_played.items()))) if log is not None and r else ()
     designations = (tuple(r.monstrous), tuple(r.renowned)) if r else ()  # -- conditional statics (wave 4B) --
     return (state.seq, state.turn.number, state.turn.active_player, players, field,
             r.timestamp if r else 0, len(r.effects) if r else 0, history, designations)

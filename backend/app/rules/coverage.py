@@ -260,8 +260,8 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\b(?:\{S\}|mana from [^.,]+) (?:of [^.,]+ )?was spent to (?:cast|activate)\b|\bwas spent to activate\b", re.I),
      "snow mana, the source of the mana spent, and mana spent on an ability aren't recorded (601.2h): not modelled"),
     # (wave 3E: "you've completed a dungeon" and "it's day / night" are read now: app/rules/designations.py)
-    (re.compile(r"\bthis is the \w+ time this ability has resolved this turn\b", re.I),
-     "how often an ability resolved this turn: not tracked as state a condition can read"),
+    # (-- this-turn history (wave 4D) -- "this is the second time this ability has resolved this turn" is read now:
+    # app/rules/history.py counts each object's ability resolutions per turn)
 )
 
 

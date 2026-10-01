@@ -1927,6 +1927,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if aura_card:
                     body = re.sub(r"\bthis card\b", "~", body)
                 parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
+                if parsed is None:  # -- this-turn history (wave 4D) -- "…, if [condition], you may …" (603.4 + 603.5)
+                    parsed = _intervening_may(body, _trigger_antecedent(name, cond), has_player)
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
@@ -2014,6 +2016,27 @@ _AMOUNT_EVENTS = {"gain_life", "lose_life", "dealt_damage", "deal_damage_opponen
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
+
+
+# -- this-turn history (wave 4D) --
+def _intervening_may(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """"At the beginning of each end step, if a creature died this turn, you may draw a card.": an intervening "if"
+    (603.4: checked as it triggers and as it resolves) over an optional ability (603.5: the choice is made as it
+    resolves) — the gate over the whole of the rest. A condition about an object ("if it's …") isn't read here."""
+    from app.rules import conditions
+
+    m = re.match(r"^if (?P<c>[^,]+), (?P<rest>you may .+)$", body.strip(), re.DOTALL)
+    if m is None:
+        return None
+    cond = conditions.parse(m["c"], objects=True)
+    if cond is None or set(conditions.objects_in(cond)) - {"self"}:
+        return None
+    parsed = parse_effects(m["rest"][0].upper() + m["rest"][1:], it=it, event_player=event_player)
+    if parsed is None or not parsed[0]:
+        return None
+    effects, target, optional = parsed
+    return [{"do": "only_if", "cond": cond, "skip": len(effects)}, *effects], target, optional
+# -- end this-turn history (wave 4D) --
 
 
 def _has_player(cond: dict[str, Any]) -> bool:

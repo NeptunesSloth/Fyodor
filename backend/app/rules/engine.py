@@ -119,6 +119,10 @@ def begin(plan: Plan) -> None:
     layers.control_sync(plan)  # -- control (wave 3K) -- an Aura or effect source moved by hand: control follows (613.1b)
     # (keep what hasn't been looked at for triggers yet: a resolution that stopped for a
     # decision may have left events its triggers still have to see, 603.2)
+    # -- this-turn history (wave 4D) -- what was done by hand still happened (608.2i)
+    from app.rules import history
+
+    history.note_events(plan, [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch and e.manual])
     plan.rules.events = [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch and not e.manual]
     turn = plan.state.turn.number
     for prefs in plan.rules.prefs.values():
@@ -151,6 +155,9 @@ def absorb_manual_events(plan: Plan) -> None:
                                                 mana_known=False, alternative="manual",
                                                 cast_main=plan.state.turn.active_player == card.controller
                                                 and plan.state.turn.phase in MAIN_PHASES)
+            from app.rules import history  # -- this-turn history (wave 4D) --
+
+            history.note_cast(plan, card)
 
 
 def settle(plan: Plan) -> None:
@@ -675,6 +682,10 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
+        if card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
+            from app.rules import history  # -- this-turn history (wave 4D) --
+
+            history.note_became(plan, oid, plan.oid(card_id))
         copying.resolved(plan, card_id, oid)  # -- copy system (wave 2F): a permanent spell's copy became a token (608.3f)
     else:  # (defensive: resolution never adds to the stack today)
         plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "graveyard"}}, actor=controller)

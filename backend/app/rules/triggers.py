@@ -140,6 +140,11 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         mark = {"object": source_object, "index": index}
         definition = {**definition, "effects": [{"do": "action_gate", **mark}, *definition["effects"],
                                                 {"do": "record_action", **mark}]}
+    # -- this-turn history (wave 4D) -- "if this is the second time this ability has resolved this turn"
+    from app.rules import history
+
+    if "effects" in definition:
+        definition = {**definition, "effects": history.counting_resolutions(definition["effects"], f"{source_object}:{index}")}
     pending = PendingTrigger(id=secrets.token_hex(4), controller=controller, source_card=source_card,
                              source_object=source_object, name=name, ability=definition, key=f"{name}:{index}",
                              event=event)
@@ -199,6 +204,9 @@ def collect(plan: Plan) -> None:
         return
     r.trigger_batch = max(e.batch for e in new)
     returning: dict[int, list[dict[str, Any]]] = {}  # batch -> the cards returning "until ~ leaves" (610.3c)
+    from app.rules import history  # -- this-turn history (wave 4D) -- before any trigger checks a condition
+
+    history.note_events(plan, new)
     _generic_events(plan, new)
     delayed.on_events(plan, new)  # "when that creature dies this turn" (603.7; app/rules/delayed.py)
     # -- sagas & attached-object triggers (wave 3S): chapter abilities (714.2b) --
@@ -1163,6 +1171,9 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
     # An object chosen for several words "target" (115.3) becomes the target of that spell or
     # ability once: one event, one trigger.
     targets = list({(t.id if hasattr(t, "id") else t): t for t in targets}.values())
+    from app.rules import history  # -- this-turn history (wave 4D) -- 700.13: committing a crime
+
+    history.note_crime(plan, stack_id, controller, targets)
     for t in targets:  # "When ~ becomes the target of a spell or ability, …" (any controller)
         card = plan.state.cards.get(t.id if hasattr(t, "id") else t)
         if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):

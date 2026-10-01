@@ -50,7 +50,8 @@ def test_parse(text, expected):
 @pytest.mark.parametrize("text", [
     # (card types among graveyard cards, "a creature died this turn": read since conditional clauses, wave 1B —
     # test_rules_conditionals.py)
-    "{1}: Foo. Activate only as a sorcery and only if you've cast an instant or sorcery spell this turn.",
+    # ("you've cast an instant or sorcery spell this turn": read since wave 4D — test_rules_wave4d_this_turn.py)
+    "{1}: Foo. Activate only as a sorcery and only if you've cast a spell with flying this turn.",
     "{1}: Foo. Activate only if this creature is attacking.",
     "{1}: Foo. Activate only if you control the most creatures.",
 ])
