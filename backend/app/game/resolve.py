@@ -208,7 +208,7 @@ def _resolve_move(state: GameState, a: A.Move, actor: str, info: CardInfo) -> A.
         card = state.cards.get(cid)
         if card is None:
             continue
-        pid = a.to.player or actor
+        pid = (a.controllers or {}).get(cid) or a.to.player or actor
         key = zone_key(pid, "battlefield")
         if card.zone == key:
             continue

@@ -37,7 +37,7 @@ A condition is a dict:
   (a spell, not an ability), ``first_each_turn`` ("for the first time each turn");
 * counters_put only: ``counter`` (the kind, or None for any);
 * deal_damage only: ``to`` ("any" | "player" | "opponent" | "creature" | "you" | "planeswalker" |
-  "player_or_pw" | "enchanted_player"), ``combat`` (True: only combat damage, False: only noncombat
+  "player_or_pw" | "player_or_battle" | "enchanted_player"), ``combat`` (True: only combat damage, False: only noncombat
   damage, None: any); dealt_damage: ``combat`` likewise ("~ is dealt combat damage"), with a player
   subject for damage dealt to a player ("you're dealt combat damage");
 * multi: ``events`` (each a trigger event of this object: "When ~ enters or dies", 603.2).
@@ -76,13 +76,12 @@ _EVENT_VERBS = [
     (r"deals? damage to an opponent", "deal_damage_opponent"),
 ]
 # "~ deals [combat / noncombat] damage [to a creature / player / you]" (120.1, 510.2)
-# ("to a player or battle": combat damage only — attack_targets in
-# app/rules/combat.py offers players and planeswalkers, never a battle, so of the
-# two only damage to a player can happen)
+# ("to a player or battle": a battle is dealt damage like a planeswalker, 120.3h — it can be
+# attacked, 310.5, and targeted by "any target" spells)
 _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature", " to an opponent": "opponent",
               " to you": "you", " to a player or planeswalker": "player_or_pw", " to a planeswalker": "planeswalker",
               " to one of your opponents": "opponent", " to enchanted player": "enchanted_player",
-              " to a player or battle": "player"}
+              " to a player or battle": "player_or_battle"}
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
 _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
@@ -461,9 +460,7 @@ def _object_event(c: str) -> Condition | None:
     if m and not (m["to"] == " to an opponent" and m["c"] != "noncombat ") and \
             not (m["to"] == " to a player" and m["c"] == "combat "):
         to = _DAMAGE_TO[m["to"]]
-        if m["to"] == " to a player or battle" and m["c"] != "combat ":
-            raise _Refuse  # (a spell or ability can deal damage to a battle: 120.3h — not only a player)
-        who = _subject(m["s"], host=True, many=to in ("opponent", "player", "player_or_pw"))
+        who = _subject(m["s"], host=True, many=to in ("opponent", "player", "player_or_pw", "player_or_battle"))
         if who is None:
             return None
         return {**who, "event": "deal_damage", "to": to,

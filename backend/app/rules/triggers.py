@@ -213,6 +213,11 @@ def collect(plan: Plan) -> None:
         if e.kind == "spell_cast" and not e.manual:
             _cast_triggers(plan, e.card or "", e.player or "")
             continue
+        if e.kind == "counters" and e.counter == "defense" and e.amount < 0 and not e.manual:
+            from app.rules import battles  # 310.12b: "When the last defense counter is removed …"
+
+            battles.defeated_triggers(plan, e)
+            continue
         if e.kind != "zone_change" or e.manual:
             continue
         frm, to = _zone(e.from_zone), _zone(e.to_zone)
@@ -422,9 +427,10 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     recipient_is_creature = got is not None and got[1].is_creature
     # (120.1: a planeswalker is dealt damage too — "to a player or planeswalker", 510.2)
     recipient_is_walker = got is not None and "Planeswalker" in got[1].types
+    recipient_is_battle = got is not None and "Battle" in got[1].types  # (120.3h)
     out.append(("deal_damage", src[0], src[1], src[0].controller,
                 {**base, "combat": e.combat, "recipient": e.player, "recipient_creature": recipient_is_creature,
-                 "recipient_planeswalker": recipient_is_walker}))
+                 "recipient_planeswalker": recipient_is_walker, "recipient_battle": recipient_is_battle}))
     if e.player is not None and e.player != src[0].controller:
         info = {**base, "recipient": e.player}
         out.append(("deal_damage_opponent", src[0], src[1], src[0].controller, info))
@@ -565,6 +571,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "creature" and not info.get("recipient_creature")) or \
                 (to == "planeswalker" and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_pw" and recipient is None and not info.get("recipient_planeswalker")) or \
+                (to == "player_or_battle" and recipient is None and not info.get("recipient_battle")) or \
                 (to == "enchanted_player" and (recipient is None or recipient != watcher.attached_player)):
             return False
     return True

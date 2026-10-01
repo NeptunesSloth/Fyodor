@@ -27,6 +27,7 @@ from app.game.rules_state import Decision, DecisionOption, PlayerPrefs, TurnCoun
 from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import (
     attachments,
+    battles,
     casting,
     combat,
     copying,
@@ -1053,6 +1054,8 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "return_yours": effects.resume_return_yours,
     "explore": effects.resume_explore,
     "aura_enters": attachments.resume_aura_enters,
+    "battle_protector": battles.resume_protector,  # 310.11
+    "siege_cast": battles.resume_siege_cast,  # 310.12b
     "sacrifice_choice": effects.resume_sacrifice_choice,
     "pick_looked": effects.resume_pick_looked,
     "library_place": effects.resume_library_place,
