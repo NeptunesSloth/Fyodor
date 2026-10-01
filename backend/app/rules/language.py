@@ -1406,6 +1406,9 @@ def _graveyard_cards(key: str) -> bool:
 def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     """The graveyard-return wordings above; None when the sentence is not one of them (the older
     grammar then reads it, or it stays manual)."""
+    may = text.startswith("you may ")  # (mid-ability: "Mill three cards, then you may return a creature card …")
+    if may:
+        text = text[len("you may "):]
     put = _RA_PUT.fullmatch(text)
     m = put or _RA_RETURN.fullmatch(text)
     if m is None:
@@ -1415,6 +1418,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     if not hand:  # (110.2a: the one instructed controls it unless the text says "its owner's")
         effect.update(tapped=bool(m["t"]), under="owner" if m["u"] and m["u"] != "your" else "you")
     obj = m["o"]
+    if may and not _RA_CHOICE.fullmatch(obj):
+        return None  # (only a choice models its own "may": choosing none)
     if _RA_SELF.fullmatch(obj):  # works from the graveyard (113.6m): coverage keeps it to activated abilities
         return [{**effect, "who": "self_gy"}], None
     c = _RA_CHOICE.fullmatch(obj)
@@ -1426,8 +1431,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         n = _amount(c["upto"] or c["n"]) if (c["upto"] or c["n"]) else 1
         if not isinstance(n, int) or (c["rand"] and (c["upto"] or sel.zone_owner != "you")):
             return None
-        return [{**effect, "do": "return_choice", "sel": sel.key(), "n": n, "upto": bool(c["upto"]), "random": bool(c["rand"]),
-                 "label": words}], None
+        return [{**effect, "do": "return_choice", "sel": sel.key(), "n": n, "upto": bool(c["upto"] or may),
+                 "random": bool(c["rand"]), "label": words, **({"optional": True} if may else {})}], None
     if not put:
         return None  # ("return target …" / "return all …": the grammar below)
     try:
