@@ -58,6 +58,30 @@ def test_a_disguised_creatures_ward_trigger_names_nothing_to_the_opponent(cards)
     assert not leaks(s, "p2", brute)
 
 
+def test_a_manifested_creature_attacking_and_goaded_names_nothing_to_the_others(cards):
+    from app.game.visibility import SPECTATOR
+    from tests.test_rules_keywords3f import until_attackers
+
+    s = build(cards, "Manifest Dread", "Hunted Bonebrute", "Thelonite Hermit", players=3)
+    hermit = on_top(s, "Thelonite Hermit")
+    on_top(s, "Hunted Bonebrute")  # (the other card: into the graveyard, public)
+    to_hand(s, "Manifest Dread")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=named(s, "Manifest Dread").id)
+    pass_until_stack_empty(s)
+    d = rules(s).decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[hermit.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[hermit.id].face_down
+    for pid in ("p2", "p3", SPECTATOR):
+        assert not leaks(s, pid, hermit), pid
+    until_attackers(s, "p1")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": hermit.id, "target": "p2"}])
+    for pid in ("p2", "p3", SPECTATOR):
+        assert not leaks(s, pid, hermit), pid
+    replay_matches(s)
+
+
 # -- firebending + kept mana (500.4, 106.4, 702.189a) ---------------------------------------------------------
 def _pools_after_step_end(s, phase, pool, combat_mana, kept):
     from app.rules import engine
