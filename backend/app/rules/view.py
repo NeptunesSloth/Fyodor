@@ -15,7 +15,7 @@ from app.game.rules_state import preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see
 from app.rules import characteristics as chars
-from app.rules.casting import activatable, castable
+from app.rules.casting import activatable, castable, free_castable
 from app.rules.characteristics import CardInfo
 from app.rules.engine import land_play_problem
 from app.rules.plan import live_players
@@ -142,4 +142,6 @@ def hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     out["playable_lands"] = playable
     out["activatable"] = activatable(state, viewer, info)
     out["castable"] = [cid for cid in candidates if castable(state, viewer, state.cards[cid], info)]
+    # (wave 3C) cards a permission lets you cast without paying their mana costs
+    out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info)]
     return out

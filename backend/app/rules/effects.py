@@ -1822,7 +1822,8 @@ def resume_shuffle_library(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looked": rest_looked, "exile_top": exile_top,
-                   "to_library": to_library, "shuffle_library": shuffle_library, "grant_play": permissions.grant_play})
+                   "to_library": to_library, "shuffle_library": shuffle_library, "grant_play": permissions.grant_play,
+                   "free_cast": permissions.free_cast})  # (free_cast: wave 3C)
 
 
 def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

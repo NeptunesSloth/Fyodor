@@ -458,7 +458,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if isinstance(who, str) and (who in ("it", "them") or who.startswith(("it:", "them:"))):
                 pronoun, _, verb = who.partition(":")
                 intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
-                if e.get("do") == "grant_play" and (intro is None or intro.do not in _MOVERS):
+                if e.get("do") in ("grant_play", "free_cast") and (intro is None or intro.do not in _MOVERS):
                     # "You may play that card this turn": only what an earlier instruction of this
                     # ability moved (exiled, found), where it went (400.7h/j) — never the source,
                     # a trigger's object, or a card an instruction put in a hidden zone ("draw a
@@ -1133,8 +1133,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     for i, sentence in enumerate(texts):
         text = _lower_first(sentence.rstrip(".").strip())
-        if (i > 0 or effects) and text.startswith("then ") and not text.startswith("then shuffle"):
-            text = text[5:]  # -- waves 3D/3L -- "Then that creature deals …" / "Then draw a card.": the sentences already run in order
+        if (i > 0 or effects) and text.startswith("then ") and not text.startswith(("then shuffle", "then you may ")):
+            text = text[5:]  # -- waves 3D/3L/3C -- "Then that creature deals …" / "Then draw a card.": "then" only orders (608.2c)
         prev_start, start = start, len(effects)
         sentences.append(start)
         if (kicked := _KICKED.match(text)) is not None:
@@ -1243,6 +1243,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         looked = looked or e["do"] == "look_top"
         if e["do"] in ("pick_looked", "rest_looked") and not looked:
             return None
+    # -- cast without paying (wave 3C) -- the cast is the ability's last act: the engine casts the card once the
+    # ability has finished resolving, so anything after it would be lost
+    if any(e["do"] == "free_cast" for e in resolved[:-1]):
+        return None
     return resolved, target, optional
 
 
@@ -1748,7 +1752,9 @@ def spell_definition(ch: Characteristics) -> Definition | None:
         return modal if modal is not None and _event_refs_ok(modal) else None
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
-    lines = [ab for ab in ch.abilities if ab.kind != "keywords" and defs.get(ab.index, {}).get("static") != "self_cost"]
+    # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost")
+    lines = [ab for ab in ch.abilities if ab.kind != "keywords" and defs.get(ab.index, {}).get("static") != "self_cost"
+             and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self") and defs[ab.index].get("free"))]
     if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):
         return None
     # Each line's "target" words are the spell's target groups, in printed order (601.2c, 115.3:
