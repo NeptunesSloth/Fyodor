@@ -195,6 +195,8 @@ def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, na
 
 def describe_when(when: dict[str, Any]) -> str:
     if when["kind"] == "event":
+        if when["event"] == "die_or_exile":  # -- wave 3F -- (earthbend: no "this turn")
+            return "when it dies or is put into exile"
         return "when it " + ("dies" if when["event"] == "die" else "leaves the battlefield") + " this turn"
     whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's"}[when["whose"]]
     return f"at the beginning of {whose} {'end step' if when['step'] == 'end' else 'upkeep'}"
@@ -264,7 +266,9 @@ def on_events(plan: Plan, events: list[Event]) -> None:
             oids = {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []}
             if e.object_id not in oids or (t.when["event"] == "die" and not died):
                 continue
-            kind = "die" if t.when["event"] == "die" else "leave"
+            if t.when["event"] == "die_or_exile" and not (died or _zone(e.to_zone) == "exile"):
+                continue  # -- keyword actions & face-down (wave 3F) -- earthbend's "dies or is put into exile" (701.66a)
+            kind = "die" if t.when["event"] in ("die", "die_or_exile") and died else "leave"
             event = TriggerEvent(kind=kind, batch=e.batch, count=1,
                                  objects=[ObjectRef(card=snap.card, object_id=snap.object_id, zone=snap.zone, snapshot=snap)],
                                  new_objects=_new_ref(snap.card, e.new_object_id, e.to_zone))

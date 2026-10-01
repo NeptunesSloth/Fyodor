@@ -703,6 +703,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if found is not None:
         return found
     text, rider = _with_rider(text)
+    if rider is not None and rider[0] == "x" and re.fullmatch(r"(?:you )?earthbend [xX]", text):
+        found = keyword_forms("earthbend x")  # -- keyword actions & face-down (wave 3F) -- "earthbend X, where X is …"
+        if found is None:
+            raise _Fail
+        return [_bind_x(e, rider[1]) for e in found[0]], found[1]
     if rider is not None and rider[0] == "x":
         # "Each opponent loses X life and you gain X life, where X is …": one X for both halves
         # (107.3c: X is defined by the text of the ability for the whole ability), so the halves
@@ -1743,6 +1748,12 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         found = _manifest_forms(text)
         if found is not None:
             return found
+    m = re.fullmatch(r"(?:you )?earthbend (?P<n>\d+|[xX]|one|two|three|four|five|six|seven|eight)", text)
+    if m and has_primitive("earthbend"):  # 701.66a: "Target land you control …" is part of the action
+        land = selectors.parse("land you control")
+        if land is None:
+            return None
+        return [{"do": "earthbend", "who": "target", "n": _amount(m["n"])}], land.key()
     if not text.startswith("goad ") or not has_primitive("goad"):
         return None
     m = _GOAD_PLAYER.fullmatch(text)

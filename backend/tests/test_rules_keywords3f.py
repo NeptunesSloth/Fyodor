@@ -66,6 +66,9 @@ REAL = [
          f"an opponent controls. {GOAD_REMINDER}", ["R"], ("0", "1")),
 ]
 REAL += [
+    real("Earthbending Lesson", "F14", "{3}{G}", 4, "Sorcery — Lesson", "Earthbend 4. (Target land you control becomes a 0/0 "
+         "creature with haste that's still a land. Put four +1/+1 counters on it. When it dies or is exiled, return it to the "
+         "battlefield tapped.)", ["G"]),
     real("Tranquilize", "F13", "{1}{U}", 2, "Sorcery", "Tap target creature an opponent controls and put three stun counters "
          "on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)", ["U"]),
 ]
@@ -489,4 +492,39 @@ def test_tranquilize_stun_counters_replace_untapping(cards):
     run_until(s, lambda s: s.state.turn.active_player == "p1")
     run_until(s, lambda s: s.state.turn.active_player == "p2")
     assert not s.state.cards[ogre.id].tapped
+    replay_matches(s)
+
+
+# -- earthbend (701.66) ----------------------------------------------------------------------------------
+def test_earthbending_lesson_animates_a_land_that_returns_tapped_when_it_dies(cards):
+    s = build(cards, "Earthbending Lesson", players=2)
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Mountain").id)
+    land = next(c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Mountain")
+    cast(s, "Earthbending Lesson", targets=[land.id], G=1, C=3)
+    now = ch(s, land)
+    assert now.is_creature and now.is_land and "haste" in now.keywords and now.pt == (4, 4)
+    assert s.state.cards[land.id].counters == {"+1/+1": 4}
+    assert any(t.when.get("event") == "die_or_exile" for t in rules(s).delayed)
+    replay_matches(s)
+    killer = token(s, "p1", "Killer", "1/1", text="{1}: Destroy target creature.")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=killer.id, ability=0, targets=[land.id])
+    pass_until_stack_empty(s)
+    back = s.state.cards[land.id]
+    assert back.zone == "p1:battlefield" and back.tapped and not back.counters  # a new object (400.7): a plain land
+    assert not ch(s, back).is_creature
+    assert not rules(s).delayed  # (it triggered once, 603.7b)
+    replay_matches(s)
+
+
+def test_earthbent_land_exiled_returns_too(cards):
+    s = build(cards, "Earthbending Lesson", players=2)
+    act(s, "p1", type="play_land", card_id=to_hand(s, "Mountain").id)
+    land = next(c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Mountain")
+    cast(s, "Earthbending Lesson", targets=[land.id], G=1, C=3)
+    exiler = token(s, "p1", "Exiler", "1/1", text="{1}: Exile target creature.")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=exiler.id, ability=0, targets=[land.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[land.id].zone == "p1:battlefield" and s.state.cards[land.id].tapped
     replay_matches(s)

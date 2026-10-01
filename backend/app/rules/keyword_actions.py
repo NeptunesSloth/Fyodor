@@ -310,6 +310,47 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+# earthbend (701.66a): "Target land you control becomes a 0/0 land creature with haste in addition to its
+# other types. Put N +1/+1 counters on it. When that land dies or is put into exile, return it to the
+# battlefield tapped under your control." No duration is stated: the effects last for that object (611.2a;
+# a new object isn't it, 400.7). The return is a delayed trigger (603.7) watching that object.
+def earthbend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    import secrets
+
+    from app.game.rules_state import DelayedTrigger
+    from app.rules import context, layers
+
+    pid = ctx["controller"]
+    n = effects._amount(plan, ctx, e.get("n", 0))
+    lands = [c for c in effects._cards(plan, ctx, e.get("who", "target")) if plan.state.cards[c].zone.endswith(":battlefield")]
+    effects._remember(plan, ctx, e, lands)
+    if not lands:
+        return True
+    oids = [plan.oid(c) for c in lands]
+    name = ctx.get("name") or "Earthbend"
+    layers.add_effect(plan, affected=oids, layer="4", source=ctx.get("source_object"), controller=pid, add_types=("Creature",),
+                      duration="permanent", label=f"0/0 land creature with haste (earthbend, {name})")
+    layers.add_effect(plan, affected=oids, layer="6", source=ctx.get("source_object"), controller=pid, add_keywords=("haste",),
+                      duration="permanent", label=f"haste (earthbend, {name})")
+    layers.add_effect(plan, affected=oids, layer="7b", source=ctx.get("source_object"), controller=pid, power=0, toughness=0,
+                      duration="permanent", label=f"base 0/0 (earthbend, {name})")
+    for cid in lands:
+        plan.do({"type": "add_effect", "card_ids": [cid], "name": "Earthbent: 0/0 creature, haste", "value": "Earthbent",
+                 "text": "as long as it's on the battlefield"})
+    refs: dict[str, Any] = {}
+    context.bind_objects(plan, {"refs": refs}, "watch", lands)
+    plan.rules.delayed.append(DelayedTrigger(
+        id=secrets.token_hex(4), controller=pid, source_card=ctx.get("source_card"), source_object=ctx.get("source_object"),
+        name=name, when={"kind": "event", "event": "die_or_exile"}, refs=refs, turn=plan.state.turn.number,
+        step=plan.state.turn.phase,
+        effects=[{"do": "return_card", "who": "event.new", "to": "battlefield", "tapped": True, "under": "you"}]))
+    plan.note(f"{plan.name(pid)} earthbends {n}: {effects._labels(plan, lands)} becomes a 0/0 creature with haste", lands,
+              actor=pid)
+    if n <= 0:
+        return True
+    return replace.put_counters(plan, [(c, "+1/+1", n) for c in lands], by=pid, then={"do": "continue", "ctx": ctx})
+
+
 # stun counters (122.1d): "If a permanent with a stun counter on it would become untapped, instead remove a
 # stun counter from it." — a replacement effect of the counters themselves, applied wherever the engine untaps
 # a permanent (the untap step, "untap target creature", "untap … and gain control of it").
@@ -333,7 +374,7 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
 
 
 PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
-              "goad": goad, **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
+              "goad": goad, "earthbend": earthbend, **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
 RESUME = {"amass_choose": resume_amass, "bolster_choose": resume_bolster, "connive_discard": resume_connive,
           **facedown.RESUME,  # -- keyword actions & face-down (wave 3F) --
