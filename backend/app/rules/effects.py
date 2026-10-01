@@ -1665,7 +1665,9 @@ def _picked(plan: Plan, ctx: Context, e: dict[str, Any], chosen: list[str]) -> b
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": to, "zone": e["to"]},
                      **({"face_down": True} if e.get("face_down") else {})}, actor=pid)
     else:
-        entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped"} for c in chosen]
+        entries = [{"card": c, "player": pid, "actor": pid, "tapped": e["to"] == "battlefield_tapped",
+                    **({"counter": e["counter"], "counter_n": e.get("counter_n", 1)} if e.get("counter") else {})}  # (wave 3E)
+                   for c in chosen]
         if not attachments.enter(plan, entries, ctx):
             return False
     _moved(plan, ctx, e, before)

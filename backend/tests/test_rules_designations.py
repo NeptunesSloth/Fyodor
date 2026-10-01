@@ -13,6 +13,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
+from app.game.rules_state import DungeonMark
 from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import conditions, coverage, scripts, values
@@ -54,6 +55,10 @@ REAL = [
          oracle_text='Trample\nWhenever you get one or more {E} (energy counters), this creature gets +2/+2 until end of turn.'),
     card('Infectious Inquiry', set_code='tst', number='E9', mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery', colors=['B'],
          color_identity=['B'], oracle_text='You draw two cards and you lose 2 life. Each opponent gets a poison counter.'),
+    card('Harnessed Lightning', set_code='tst', number='E10', mana_cost='{1}{R}', cmc=2.0, type_line='Instant', colors=['R'],
+         color_identity=['R'],
+         oracle_text='Choose target creature. You get {E}{E}{E} (three energy counters), then you may pay any amount of {E}. Harnessed '
+         'Lightning deals that much damage to that creature.'),
     # -- the monarch (725) --
     card('Palace Jailer', set_code='tst', number='M1', mana_cost='{2}{W}{W}', cmc=4.0, type_line='Creature — Human Soldier', colors=['W'],
          color_identity=['W'], power='2', toughness='2',
@@ -247,7 +252,7 @@ def test_player_counter_wordings_are_read_and_the_rest_refused():
 def test_coverage_of_the_counter_cards():
     # Guide of Souls: "When you do" (a reflexive trigger, 603.12) isn't modelled; the venturing cards are
     # carried out, but a dungeon room they may lead into is resolved by hand (an "engine:dungeon" feature)
-    partial = {"Guide of Souls", "Goliath Paladin", "Secret Door", "Cloister Gargoyle", "Nadaar, Selfless Paladin"}
+    partial = {"Guide of Souls", "Goliath Paladin"}  # (Goliath Paladin: Undercity's Arena — goad — is resolved by hand)
     for c in REAL:
         cov = cov_of(c)
         assert cov.level == ("PARTIAL" if c["name"] in partial else "FULL"), c["name"]
@@ -311,6 +316,21 @@ def test_pay_x_energy_draws_x(cards):
     assert res(s) == 2
     settle(s)
     assert len(s.state.zones["p1:hand"]) == hand + 3
+    roundtrip(s)
+
+
+def test_pay_any_amount_of_energy_deals_that_much(cards):
+    s = build(cards, ["Harnessed Lightning", "Grizzly Bears"])
+    give(s, "p1", "energy", 2)
+    bears = put(s, "Grizzly Bears", "battlefield")
+    mana(s, R=2)
+    act(s, "p1", type="cast_spell", card_id=put(s, "Harnessed Lightning", "hand").id, targets=[bears.id])
+    settle(s)
+    d = rules(s).decision
+    assert d is not None and d.player == "p1" and [o.id for o in d.options][:1] == ["5"]  # 2 + {E}{E}{E}: any amount, 0 to 5
+    pick(s, ["4"])
+    settle(s)
+    assert res(s) == 1 and s.state.cards[bears.id].zone == "p1:graveyard", s.state.cards[bears.id].damage  # 4 damage
     roundtrip(s)
 
 
@@ -544,6 +564,47 @@ def test_tomb_of_annihilation_each_player_unless_and_the_atropal(cards):
     ch = Plan(s.state, "p1", cards, None).ch(atropal)
     assert "Legendary" in ch.supertypes and ch.pt == (4, 4) and "deathtouch" in ch.keywords
     assert rules(s).completed_dungeons["p1"] == ["Tomb of Annihilation"] and "p1" not in rules(s).dungeons
+    roundtrip(s)
+
+
+def door_venture(s, *answers):
+    mana(s, U=1, C=4)
+    act(s, "p1", type="activate_ability", card_id=find(s, "Secret Door").id, ability=1)
+    resolve(s, *answers)
+
+
+def test_oubliette_sacrifices_different_permanents_as_many_as_possible(cards):
+    s = table(cards, mine=("Secret Door", "Grizzly Bears", "Forest"), hand=("Murder",))
+    put(s, "Murder", "hand")
+    door_venture(s, "Tomb of Annihilation")
+    door_venture(s, "Oubliette")  # discard Murder; the artifact creature is the artifact, the Bears the creature (Release ruling)
+    assert find(s, "Murder").zone == "p1:graveyard"
+    for name in ("Secret Door", "Grizzly Bears"):
+        assert find(s, name).zone == "p1:graveyard", name
+    assert any(c.name == "Forest" and c.zone == "p1:graveyard" for c in s.state.cards.values())
+    roundtrip(s)
+
+
+def test_mad_wizards_lair_reveals_the_cards_drawn_and_casts_one_free(cards):
+    s = table(cards, mine=("Secret Door",), hand=("Grizzly Bears", "Lightning Bolt", "Island"))
+    rules(s).dungeons["p1"] = DungeonMark(dungeon="Dungeon of the Mad Mage", room="Deep Mines")  # (eight rooms in)
+    bears = find(s, "Grizzly Bears")
+    door_venture(s, bears.id)  # draw three, reveal them; cast the Bears without paying its mana cost
+    resolve(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
+    assert find(s, "Lightning Bolt").zone == "p1:hand" and find(s, "Lightning Bolt").revealed_to == []  # (the reveal is over)
+    assert any("revealed" in "".join(p.t or "" for p in e.parts) for e in s.state.log)
+    roundtrip(s)
+
+
+def test_throne_of_the_dead_three_puts_a_creature_onto_the_battlefield_with_counters(cards):
+    s = table(cards, mine=("Secret Door",), hand=("Island", "Grizzly Bears"))
+    rules(s).dungeons["p1"] = DungeonMark(dungeon="Undercity", room="Archives")  # (venturing into "the dungeon" goes on in it)
+    bears = find(s, "Grizzly Bears")
+    door_venture(s)  # (the only creature card among the ten: put onto the battlefield)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[bears.id].counters.get("+1/+1") == 3
+    assert "hexproof" in Plan(s.state, "p1", cards, None).ch(s.state.cards[bears.id]).keywords
+    assert rules(s).completed_dungeons["p1"] == ["Undercity"]
     roundtrip(s)
 
 

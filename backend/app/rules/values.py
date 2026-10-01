@@ -153,6 +153,8 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     m = _PLAYER_COUNTERS.match(what)
     if m:
         return {"player_counters": m["kind"]}
+    if what in ("{E} paid this way", "the amount of {E} paid this way", "{E} you paid this way"):  # (wave 3E)
+        return {"ref_amount": "energy_paid"}  # (language.ENERGY_PAID: bound by the pay_energy_any effect)
     m = _PLAYER_COUNTERS_3E.match(what)  # -- counters & designations (wave 3E) --
     if m:
         kind = "energy" if m["e"] else m["kind"]

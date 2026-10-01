@@ -549,7 +549,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
         return value
     out = {}
     for k, v in value.items():
-        if k in ("as", "bind", "succeeded", "flag", "did") and isinstance(v, str):  # ("bind": the library primitives' recorder;
+        if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount") and isinstance(v, str):  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -1116,9 +1116,19 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     target_fields). ``it``: what the pronoun "it" means when no target precedes it (resolve_it);
     ``event_player``: the trigger event names a player ("that player" may mean them)."""
     try:
-        return _parse_effects(body, it, event_player)
+        return _energy_paid(_parse_effects(body, it, event_player))
     except _NoMatch:
         return None
+
+
+def _energy_paid(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- counters & designations (wave 3E) -- After "you may pay any amount of {E}", "that much" is the
+    amount paid (608.2c: the text read as a whole), not a trigger event's."""
+    if found is None or not any(e.get("do") == "pay_energy_any" for e in found[0]):
+        return found
+    at = next(i for i, e in enumerate(found[0]) if e.get("do") == "pay_energy_any")
+    paid = json.loads(json.dumps(found[0][at + 1:]).replace('{"event_amount": 1}', '{"ref_amount": "energy_paid"}'))
+    return [*found[0][:at + 1], *paid], found[1], found[2]
 
 
 def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:

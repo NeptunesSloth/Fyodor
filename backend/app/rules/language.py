@@ -1679,4 +1679,9 @@ def designation_instruction(text: str) -> tuple[Effects, Any] | None:
     m = re.fullmatch(r"it becomes (?P<v>day|night)", text)  # 731.1
     if m:
         return [{"do": "day_night", "value": m["v"]}], None
+    if re.fullmatch(r"(?:you may )?pay any amount of \{E\}", text):  # 107.14: an amount chosen as it resolves
+        return [{"do": "pay_energy_any", "as": ENERGY_PAID}], None
     return None
+
+
+ENERGY_PAID = "energy_paid"  # the binding of "the amount of {E} paid this way" / "that much" after it

@@ -263,14 +263,24 @@ _ROOM_EFFECTS: dict[tuple[str, str], list[dict[str, Any]]] = {
         {"do": "create_token", "who": "you", "n": 1, "token": {
             "name": "The Atropal", "power": "4", "toughness": "4", "colors": ["B"],
             "type_line": "Legendary Token Creature — God Horror", "text": "Deathtouch"}}],
+    # Oubliette: discard, then one permanent of each type, different permanents, as many as possible
+    # (the Release ruling, 2013-04-15, for the same "sacrifice an artifact, a creature, …" instruction)
+    ("Tomb of Annihilation", "Oubliette"): [
+        {"do": "discard", "who": "you", "n": 1}, {"do": "sacrifice_types", "types": ["Creature", "Artifact", "Land"]}],
+    # Mad Wizard's Lair: the cards drawn are revealed (and seen by everyone), then one of them may be cast
+    # without paying its mana cost (118.9) — the last instruction, as free_cast requires
+    ("Dungeon of the Mad Mage", "Mad Wizard's Lair"): [
+        {"do": "hand_mark", "as": "lair0"}, {"do": "draw", "who": "you", "n": 3},
+        {"do": "reveal_drawn", "since": "lair0", "as": "lair1"},
+        {"do": "free_cast", "zone": "ref", "who": "ref:lair1", "filter": None, "optional": True, "mv": None}],
 }
+# Throne of the Dead Three: the grammar reads it all but "with three +1/+1 counters on it" (122.6: it enters
+# with them, app/rules/replacements.py)
+_THRONE = ("Reveal the top ten cards of your library. Put a creature card from among them onto the battlefield. It gains "
+           "hexproof until your next turn. Then shuffle.")
 # Room abilities left to the players (a decision to resolve them by hand), and why: goad (701.15) is a
-# combat requirement the engine doesn't enforce; Oubliette's three sacrifices — whether one permanent
-# of two of those types may count for both — isn't settled by the CR (UNCERTAIN: not guessed); Mad
-# Wizard's Lair casts from among the cards drawn; Throne of the Dead Three puts the chosen card onto
-# the battlefield with counters and grants it hexproof.
-_BY_HAND = {("Undercity", "Arena"), ("Tomb of Annihilation", "Oubliette"), ("Dungeon of the Mad Mage", "Mad Wizard's Lair"),
-            ("Undercity", "Throne of the Dead Three")}
+# combat requirement the engine doesn't enforce.
+_BY_HAND = {("Undercity", "Arena")}
 
 
 def room(dungeon: str, name: str) -> Room:
@@ -288,10 +298,16 @@ def room_definition(dungeon: str, name: str) -> dict[str, Any] | None:
     effects = _ROOM_EFFECTS.get((dungeon, name))
     if effects is not None:
         return {"kind": "triggered", "trigger": "room", "effects": effects, "optional": False, "target": None}
-    parsed = scripts.parse_effects(room(dungeon, name).text)
+    throne = (dungeon, name) == (UNDERCITY, "Throne of the Dead Three")
+    parsed = scripts.parse_effects(_THRONE if throne else room(dungeon, name).text)
     if parsed is None:
         return None
     found, target, optional = parsed
+    if throne:
+        picks = [x for x in found if x["do"] == "pick_looked"]
+        if len(picks) != 1 or picks[0]["to"] != "battlefield":
+            return None
+        found = [{**x, "counter": "+1/+1", "counter_n": 3} if x is picks[0] else x for x in found]
     return {"kind": "triggered", "trigger": "room", "effects": found, "optional": optional, **scripts.target_fields(target)}
 
 
@@ -418,6 +434,135 @@ def each_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     ctx["effects"] = [*ctx["effects"][:at], *added, *ctx["effects"][at:]]
     effects.continue_effects(plan, ctx)
     return False
+
+
+def pay_energy_any(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"You may pay any amount of {E}" (107.14): the controller chooses how many energy counters to
+    remove (0 to all they have) as it resolves; the amount is bound for "that much" / "for each {E}
+    paid this way"."""
+    from app.rules import context
+
+    pid = ctx["controller"]
+    have = max(0, plan.state.players[pid].resources.get("energy", 0)) if pid in plan.live() else 0
+    if have == 0:
+        context.bind_amount(ctx, e["as"], 0)
+        return True
+    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay how much {{E}}? (you have {have})",
+           options=[DecisionOption(id=str(n), label=f"Pay {n} {{E}}") for n in range(min(have, 60), -1, -1)],
+           resume={"step": "pay_energy_any", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_pay_energy_any(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import context, effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    n = int(chosen[0])
+    if n > plan.state.players[d.player].resources.get("energy", 0):
+        raise ActionError("You don't have that much energy")
+    if n:
+        plan.do({"type": "resource", "player": d.player, "key": "energy", "delta": -n}, actor=d.player)
+    context.bind_amount(ctx, e["as"], n)
+    plan.note(f"{plan.name(d.player)} paid {n} {{E}}")
+    effects.continue_effects(plan, ctx)
+
+
+def hand_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Remember the cards in the controller's hand (what "draw three cards and reveal them" draws is
+    what joins it)."""
+    from app.rules import context
+
+    context.refs(ctx)[e["as"]] = {"kind": "probe", "hand": list(plan.state.zones.get(zone_key(ctx["controller"], "hand"), []))}
+    return True
+
+
+def reveal_drawn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"… and reveal them": the cards drawn since the mark are revealed to everyone (701.16a) and
+    bound as "them"; the reveal ends once everyone has seen them (they stay in the hand, hidden)."""
+    from app.rules import context
+
+    pid = ctx["controller"]
+    before = set((context.refs(ctx).get(e["since"]) or {}).get("hand") or [])
+    drawn = [c for c in plan.state.zones.get(zone_key(pid, "hand"), []) if c not in before]
+    context.bind_objects(plan, ctx, e["as"], drawn)
+    if drawn:
+        plan.do({"type": "reveal", "card_ids": drawn}, actor=pid)
+        plan.do({"type": "hide", "card_ids": drawn}, actor=pid)
+    return True
+
+
+def sacrifice_types(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Sacrifice a creature, an artifact, and a land": one permanent of each listed type, different
+    permanents, as many as possible (the Release ruling of 2013-04-15: a permanent with two of the
+    types counts for one of them only); the player chooses which (701.21a), all sacrificed at once."""
+    pid = ctx["controller"]
+    pool, best = _type_pool(plan, pid, e["types"])
+    if best == 0:
+        return True
+    sets = _max_sets(pool, e["types"], best)
+    if len(sets) == 1:
+        return _sacrifice_set(plan, ctx, pid, sorted(sets[0]))
+    options = sorted({c for s in sets for c in s})
+    decide(plan, player=pid, kind="choose_cards",
+           prompt=f"Sacrifice {', '.join('an ' + t.lower() if t[0] in 'AEIOU' else 'a ' + t.lower() for t in e['types'])} "
+                  "(different permanents, as many as you can)",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in options],
+           min_choices=best, max_choices=best, resume={"step": "sacrifice_types", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_sacrifice_types(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    pool, best = _type_pool(plan, d.player, e["types"])
+    if frozenset(chosen) not in {frozenset(s) for s in _max_sets(pool, e["types"], best)}:
+        raise ActionError("Choose one permanent for each type, different permanents, as many as you can")
+    if _sacrifice_set(plan, ctx, d.player, sorted(chosen)):
+        effects.continue_effects(plan, ctx)
+
+
+def _type_pool(plan: Plan, pid: str, types: list[str]) -> tuple[dict[str, set[str]], int]:
+    pool: dict[str, set[str]] = {}
+    for c in plan.state.cards.values():
+        if c.zone == zone_key(pid, "battlefield") and c.controller == pid and plan.in_game(c):
+            has = {t for t in types if t in plan.ch(c).types}
+            if has:
+                pool[c.id] = has
+    sets = _max_sets(pool, types, None)
+    return pool, max((len(s) for s in sets), default=0)
+
+
+def _max_sets(pool: dict[str, set[str]], types: list[str], size: int | None) -> list[set[str]]:
+    """Every set of different permanents that can stand for different listed types (all of the
+    biggest size, or of ``size``)."""
+    from itertools import permutations
+
+    found: set[frozenset[str]] = set()
+    ids = sorted(pool)
+    for n in range(len(types), 0, -1):
+        for order in permutations(types, n):
+            def pick(i: int, used: frozenset[str], order: tuple[str, ...] = order) -> None:
+                if i == len(order):
+                    found.add(used)
+                    return
+                for c in ids:
+                    if c not in used and order[i] in pool[c]:
+                        pick(i + 1, used | {c})
+            pick(0, frozenset())
+        if found and size is None:
+            break
+    best = size if size is not None else max((len(s) for s in found), default=0)
+    return [set(s) for s in found if len(s) == best]
+
+
+def _sacrifice_set(plan: Plan, ctx: Context, pid: str, cards: list[str]) -> bool:
+    from app.rules import effects
+
+    effects._sacrifice_cards(plan, cards, pid, ctx)
+    return True
 
 
 def sba(plan: Plan) -> bool:
@@ -702,5 +847,7 @@ def _walk(value: Any) -> list[dict[str, Any]]:
 
 PRIMITIVES: dict[str, Any] = {"rad": rad, "initiative": take_initiative, "venture": venture, "room_by_hand": room_by_hand,
                               "each_unless": each_unless, "ring_tempts": ring_tempts, "ring_blocker": ring_blocker,
-                              "sacrifice_object": sacrifice_object, "day_night": day_night}
-RESUME: dict[str, Any] = {"venture": resume_venture, "room_by_hand": resume_room_by_hand, "ring_tempts": resume_ring_tempts}
+                              "sacrifice_object": sacrifice_object, "day_night": day_night, "hand_mark": hand_mark,
+                              "reveal_drawn": reveal_drawn, "sacrifice_types": sacrifice_types, "pay_energy_any": pay_energy_any}
+RESUME: dict[str, Any] = {"venture": resume_venture, "room_by_hand": resume_room_by_hand, "ring_tempts": resume_ring_tempts,
+                          "sacrifice_types": resume_sacrifice_types, "pay_energy_any": resume_pay_energy_any}
