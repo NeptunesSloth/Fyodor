@@ -137,6 +137,10 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
             out["life"] = out.get("life", 0) + life
         else:
             out["tapped"] = True
+    # -- "this way" outcomes (wave 4A) -- "you may reveal an Island or Swamp card … If you don't, it enters tapped"
+    from app.rules import reveal_lands
+
+    reveal_lands.plan_entry(plan, card, controller, defs, answers, out)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with (122.6) --
     orders = {k: v for k, v in answers.items() if k.startswith(ORDER)}
     if orders:
@@ -269,7 +273,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     from app.rules.effects import _choice_options
 
     what = choice["what"]
-    from app.rules import battles
+    from app.rules import battles, reveal_lands
+
+    if reveal_lands.is_choice(what):  # -- "this way" outcomes (wave 4A) -- private: the cards in their hand
+        return reveal_lands.prompt(plan, card, controller, what)
 
     if what == battles.PROTECTOR:  # 310.9a / 310.12a
         return f"{card.name}: as it enters, choose its protector", battles.choice_options(plan, controller, card)
@@ -461,6 +468,10 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     from app.rules import battles
 
     battles.entered(plan, card_id, choices)  # 310.9a: the protector chosen as it entered
+    # -- "this way" outcomes (wave 4A) -- the card revealed as it entered (701.20a)
+    from app.rules import reveal_lands
+
+    reveal_lands.after_entry(plan, controller, choices)
     if choices:
         from app.rules.effects import CHOICE_LABELS
 

@@ -23,7 +23,7 @@ import re
 from dataclasses import replace
 from typing import Any
 
-from app.rules import selectors, values
+from app.rules import selectors, this_way, values  # (this_way: wave 4A)
 
 Effects = list[dict[str, Any]]
 AMT = values.AMOUNT
@@ -198,6 +198,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
     if p in _THEM:
         return "them", "", None  # the objects just named (scripts.resolve_it)
+    if p in ("the chosen cards", "the chosen card"):  # -- "this way" outcomes (wave 4A) -- a "Choose target …" sentence's
+        return ("them" if p.endswith("s") else "it"), "chosen", None
     m = _THIS_WAY.match(p) or _THE_VERBED.match(p)
     if m:
         plural = "what" not in m.groupdict() or m["what"].endswith("s")
@@ -262,6 +264,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"twice (?P<v>.+)", phrase)
     if m:
         return {"times": [2, _stat(m["v"], its)]}
+    if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
+        return tw
     v = values.parse_count(phrase)
     if v is None:
         raise _Fail
@@ -363,6 +367,8 @@ def _rider_value(phrase: str) -> Any:
     if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|that spell's|~'s|the sacrificed (?:creature|artifact|permanent|land)'s) "
                     r"(?:power|toughness|mana value)", phrase):
         return _stat(phrase)
+    if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
+        return tw
     v = values.parse_count(phrase, it="it")
     if v is None:
         raise _Fail
@@ -879,6 +885,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m:  # 701.9b: the cards are chosen at random (effects.discard: the table picks; the move records which)
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": _apply(_amount(m["n"]), rider), "random": True}], target
+    # -- "this way" outcomes (wave 4A) -- "discard your hand" / "each player discards their hand" (701.9a: every card in
+    # it; one choice-free discard, all at once, 101.4)
+    m = re.fullmatch(_SUBJ + r"discards? (?:(?P<your>your)|their) hand", text)
+    if m and rider is None and (m["your"] is not None) == (m["s"] in (None, "you")):
+        who, target = _subject(m)
+        return [{"do": "discard", "who": who, "n": 0, "all": True}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)

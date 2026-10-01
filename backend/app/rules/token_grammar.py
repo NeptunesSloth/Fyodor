@@ -142,7 +142,10 @@ def parse(sentence: str) -> list[Effect] | None:
         return None
     n = _qty(m["n"])
     if each is not None:
-        v = values.parse_count(each)
+        # -- "this way" outcomes (wave 4A) -- "for each creature card milled this way"
+        from app.rules import this_way
+
+        v = this_way.parse(each) or values.parse_count(each)
         if v is None:
             return None
         n = v if n == 1 else {"times": [n, v]}

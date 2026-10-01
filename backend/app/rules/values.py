@@ -274,6 +274,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if isinstance(v, int):
         return max(0, v)
     you = ctx["controller"]
+    if "ref_count" in v:  # -- "this way" outcomes (wave 4A) -- what an earlier instruction actually did
+        from app.rules import this_way
+
+        return this_way.count(plan, ctx, v)
     if "x" in v:
         return max(0, int(ctx.get("x") or 0))
     if "times" in v:

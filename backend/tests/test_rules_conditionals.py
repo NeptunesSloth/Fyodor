@@ -2206,10 +2206,18 @@ def test_you_may_exile_a_creature_and_if_you_do_it_returns_at_the_next_end_step(
     ("You may draw a card. If you do, discard a card. You gain 1 life.", None),  # (a third sentence would be optional too)
     ("You gain 1 life. You may draw a card. If you do, discard a card.", None),  # (a "you may" that isn't the whole ability)
     ("You may draw X cards. If you do, discard a card.", None),  # (a count that could be zero)
-    ("You may draw a card. If you do, target creature gets +1/+1 until end of turn.", None),  # (B's target)
 ])
 def test_optional_then_if_you_do_forms_that_are_not_read(text, it):
     assert scripts.parse_effects(text, it=it) is None
+
+
+def test_b_with_its_own_target_is_read_since_wave_4a():
+    """-- "this way" outcomes (wave 4A) -- B's target is chosen as the ability is put on the stack (603.3d) whatever
+    the player answers on resolution (603.5), and with no legal target the whole ability doesn't resolve (608.2b):
+    the same as the printed ability (Greenwarden of Murasa: tests/test_rules_wave4a_this_way.py)."""
+    found = scripts.parse_effects("You may draw a card. If you do, target creature gets +1/+1 until end of turn.")
+    assert found is not None and found[1] == "creature" and found[2] is True
+    assert found[0][1] == {"do": "only_if", "cond": {"succeeded": "did0"}, "skip": 1}
 
 
 def test_academy_rector_is_read_since_wave_3r1(cards):

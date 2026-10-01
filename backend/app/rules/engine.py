@@ -1118,6 +1118,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "battle_protector": battles.resume_protector,  # 310.11
     "siege_cast": battles.resume_siege_cast,  # 310.12b
     "sacrifice_choice": effects.resume_sacrifice_choice,
+    "tap_choice": effects._this_way.resume_tap_choice,  # -- "this way" outcomes (wave 4A) --
     "pick_looked": effects.resume_pick_looked,
     "library_place": effects.resume_library_place,
     "shuffle_library": effects.resume_shuffle_library,
