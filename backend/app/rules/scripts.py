@@ -2054,6 +2054,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import permissions  # permissions, cost modifiers, "play with the top card revealed"
 
         granted = permissions.define_static(text, ability.kind, tuple(self_text(ab.text, ch.name) for ab in ch.abilities))
+        if granted is not None and granted.get("static") in ("alt_cost", "cost_modifier") and "Room" in ch.subtypes:
+            return None  # -- cost changers (wave 4I) -- a Room door's ability works only while it's unlocked: not modelled
         if granted is not None:
             return granted
     if ability.kind == "triggered":
@@ -2158,6 +2160,14 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         parsed_restriction = restrictions.parse(text) if restriction is not None else []
         if parsed_restriction is None:
             return None
+        # -- cost changers (wave 4I) -- "This ability costs {1} less to activate for each …" is part of its total cost
+        # (602.2b → 601.2f; casting.ability_cost reads it), not of what it does
+        from app.rules import cost_changes
+
+        body, own_cost = cost_changes.split_ability(body)
+        if own_cost is not None and (not cost_changes.ability_change(text) or "{X}" in (ability.cost or "") or not cost.mana):
+            return None
+        # -- end cost changers (wave 4I) --
         # -- sized amounts (wave 3D) -- "Sacrifice this creature: It deals damage equal to its power": "it" is the source
         # the cost put into a graveyard (its last known information: 608.2h)
         gone = cost.sacrifice_self or re.search(r"\b(?:[Dd]iscard|[Ee]xile) (?:this card|~)", ability.cost or "") is not None
@@ -2444,7 +2454,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
     lines = [ab for ab in ch.abilities if ab.kind != "keywords"
-             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost")
+             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost")  # (alt_cost: wave 4I)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self") and defs[ab.index].get("free"))]
     if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):
         return None
