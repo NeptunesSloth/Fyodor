@@ -1065,8 +1065,8 @@ def prevent_all(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         if not oids:
             return True
         scope["to_oids"] = scope["by_oids"] = oids
-    elif e.get("who") == "target":
-        oids = [plan.oid(c) for c in _cards(plan, ctx, "target")]
+    elif e.get("who"):  # (-- prevention variants (wave 12B) -- "to it": what an earlier instruction named)
+        oids = [plan.oid(c) for c in _cards(plan, ctx, e["who"])]
         if not oids:
             return True
         scope["by_oids" if e.get("role") == "by" else "to_oids"] = oids

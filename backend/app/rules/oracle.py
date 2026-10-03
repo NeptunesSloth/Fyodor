@@ -37,13 +37,13 @@ KEYWORDS = frozenset({
     "defender", "menace", "hexproof", "indestructible", "flash", "shroud", "fear", "intimidate", "skulk", "prowess",
     "protection", "ward", "equip", "enchant", "cycling", "kicker", "multikicker", "flashback", "convoke", "delve", "cascade",
     "affinity", "storm", "partner", "partner with", "changeling", "landwalk", "islandwalk", "swampwalk",
-    "forestwalk", "mountainwalk", "plainswalk", "exalted", "undying", "persist", "wither", "infect", "toxic",
+    "forestwalk", "mountainwalk", "plainswalk", "snow landwalk", "nonbasic landwalk", "legendary landwalk", "artifact landwalk", "snow plainswalk", "snow islandwalk", "snow swampwalk", "snow mountainwalk", "snow forestwalk", "desertwalk", "exalted", "undying", "persist", "wither", "infect", "toxic",
     "annihilator", "evolve", "extort", "unearth", "embalm", "eternalize", "afflict", "riot", "escape", "mutate",
     "companion", "foretell", "disturb", "daybound", "nightbound", "training", "casualty", "blitz", "backup",
     "bargain", "craft", "disguise", "offspring", "saddle", "crew", "ninjutsu", "morph", "megamorph", "suspend",
     "rebound", "overload", "surge", "emerge", "madness", "miracle", "dash", "evoke", "bestow", "outlast", "dethrone",
     "fabricate", "improvise", "ascend", "mentor", "jump-start", "spectacle", "encore", "boast", "sneak",
-    "horsemanship", "shadow", "banding", "rampage", "flanking", "bushido", "provoke", "fading", "vanishing", "echo",
+    "champion", "horsemanship", "shadow", "banding", "rampage", "flanking", "bushido", "provoke", "fading", "vanishing", "echo",
     "cumulative upkeep", "buyback", "entwine", "splice", "retrace", "replicate", "soulbond", "unleash", "battle cry",
     "living weapon", "totem armor", "umbra armor", "fortify", "reconfigure", "for mirrodin!", "prototype",
     "read ahead", "ravenous", "squad", "enlist", "decayed", "cleave", "compleated", "demonstrate", "hideaway",
@@ -238,11 +238,22 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         from app.rules import levelers
 
         lines = levelers.rewrite(lines, lambda t: _keywords_line(t) is not None)
+    # -- keyword meanings (wave 12B) -- 702.72a: "Champion an [object]" represents two linked triggered abilities (607.2a)
+    for i, line in enumerate(lines):
+        if m := re.fullmatch(r"Champion an? ([A-Za-z]+(?: or [A-Za-z]+)?)", line):
+            lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
+                              "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
+                              "its owner's control."]
     for line in lines:
         # -- keyword meanings (wave 11B) -- 702.107a: "Outlast [cost]" means "[Cost], {T}: Put a +1/+1 counter on this
         # creature. Activate only as a sorcery." (read as that activated ability)
         if m := re.fullmatch(r"Outlast ((?:\{[^}]+\})+)", line):
             line = f"{m[1]}, {{T}}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
+        # -- keyword meanings (wave 12B) -- 702.97a: "Scavenge [cost]" means "[Cost], Exile this card from your graveyard: Put a
+        # number of +1/+1 counters equal to the power of the card you exiled on target creature. Activate only as a sorcery."
+        if m := re.fullmatch(r"Scavenge ((?:\{[^}]+\})+)", line):
+            line = (f"{m[1]}, Exile this card from your graveyard: Put X +1/+1 counters on target creature, where X is this "
+                    "creature's power. Activate only as a sorcery.")  # (X: the exiled card's power, as it last existed)
         kind, kws, cost = classify(line, spell=spell)
         out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost))
     return out

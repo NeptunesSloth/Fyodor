@@ -99,7 +99,6 @@ FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime A
 STILL_MANUAL = {
     "Sedgemoor Witch": "Ward",  # (ward—Pay 3 life: a cost the ward trigger doesn't read)
     "Silvergill Adept": "reveal a Merfolk card",
-    "Oketra's Avenger": "prevent all combat damage",  # (a prevention shield from a trigger: not read)  # (revealing a card as a cost: not paid by the engine)
 }
 
 

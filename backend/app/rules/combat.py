@@ -188,16 +188,21 @@ def _phrase(arg: str) -> str:
 
 
 LANDWALK = {"plainswalk": "Plains", "islandwalk": "Island", "swampwalk": "Swamp", "mountainwalk": "Mountain",
-            "forestwalk": "Forest", "desertwalk": "Desert"}
+            "forestwalk": "Forest", "desertwalk": "Desert",
+            # -- landwalk variants (wave 12B) -- 702.14a/c: the type, supertype and/or subtype the land has, or (nonbasic) lacks
+            "snow landwalk": "Snow", "nonbasic landwalk": "nonbasic", "legendary landwalk": "Legendary",
+            "artifact landwalk": "Artifact", **{f"snow {w}walk": f"Snow {w.capitalize()}"
+                                                for w in ("plains", "island", "swamp", "mountain", "forest")}}
 
 
-def _controls_land(state: GameState, player: str, subtype: str, info: CardInfo | None) -> bool:
+def _controls_land(state: GameState, player: str, kind: str, info: CardInfo | None) -> bool:
     for cid in state.zones.get(zone_key(player, "battlefield"), []):
         card = state.cards[cid]
         if card.controller != player:
             continue
         ch = chars.of(card, info) if info is not None else None
-        if ch is not None and ch.is_land and subtype in ch.subtypes:
+        if ch is not None and ch.is_land and (
+                "Basic" not in ch.supertypes if kind == "nonbasic" else set(kind.split()) <= {*ch.supertypes, *ch.types, *ch.subtypes}):
             return True
     return False
 
@@ -603,7 +608,10 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
     blocking = {d.blocker_id: d.attacker_id for d in a.blocks}
     for b in (state.cards[i] for i in blockers):
         wanted = [arg for name, arg in map(rule_arg, scripts.statics(plan.ch(b))) if name == "must_block_obj"]
-        wanted += [plan.oid(y) for y in att if "all_able_block" in scripts.statics(plan.ch(y))]  # (wave 11E: Lure)
+        # -- lure (wave 12B) -- 509.1c: "All creatures able to block ~ do so": every blocker has "blocks it if able"
+        lures = [(y, arg) for y in att for name, arg in map(rule_arg, scripts.statics(plan.ch(y))) if name == "lure"]
+        wanted = list(dict.fromkeys([*wanted, *(plan.oid(y) for y, arg in lures
+                                                if not arg or _any_selector(state, plan.info, arg, b, plan.ch(b), y))]))
         for x in (y for y in att if plan.oid(y) in wanted):
             other = state.cards.get(blocking.get(b.id, ""))
             if other is not None and (other.id == x.id or len(wanted) > 1 or "must_be_blocked" in scripts.statics(plan.ch(other))):
@@ -618,7 +626,7 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
         # "blocks this creature if able": taking it away would only trade one obeyed requirement for another)
         def obeying(d: A.BlockDeclaration) -> bool:
             blocker, target = plan.ch(state.cards[d.blocker_id]), state.cards[d.attacker_id]
-            return "must_block" in scripts.statics(blocker) or "all_able_block" in scripts.statics(plan.ch(target)) or any(
+            return "must_block" in scripts.statics(blocker) or any(name == "lure" for name, _ in map(rule_arg, scripts.statics(plan.ch(target)))) or any(
                 name == "must_block_obj" and arg == plan.oid(target) for name, arg in map(rule_arg, scripts.statics(blocker)))
 
         free = idle + [state.cards[d.blocker_id] for d in a.blocks

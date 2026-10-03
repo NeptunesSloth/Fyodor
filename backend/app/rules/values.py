@@ -624,6 +624,10 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
             from app.rules.triggers import _snapshot_card  # (triggers imports this module's users)
 
             return _snapshot_card(plan, snap)
+        if who == "self" and card is not None and card.zone.endswith(":exile"):
+            # -- scavenge (wave 12B) -- 702.97a: "the power of the card you exiled" as a cost from the graveyard. No last-known
+            # snapshot is kept of a graveyard card, and in the graveyard and in exile it has its printed characteristics
+            return card, plan.ch(card)
     return None
 
 
