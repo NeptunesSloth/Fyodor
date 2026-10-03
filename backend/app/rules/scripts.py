@@ -3274,6 +3274,21 @@ def _for_each(phrase: str) -> Any:
     return {"count": sel.key()}
 
 
+def _prevent_group(phrase: str) -> Any:
+    """"target legendary creature" / "up to two target creatures" → its target group when it names battlefield permanents."""
+    from app.rules import language, selectors
+
+    try:
+        group = language.target_group(phrase)
+    except language._Fail:
+        return None
+    what = group["what"] if group else ""
+    if not what.startswith(selectors.PREFIX):
+        return None
+    sel = selectors.from_key(what)
+    return group if sel.player is None and sel.zones == ("battlefield",) else None
+
+
 def _prevent_scope(kind: str | None, to: str | None, by: str | None) -> tuple[Definition, str | None, str | None] | None:
     """The scope of a "prevent all" wording → (scope, target selector for a targeted one, its role)."""
     scope: Definition = {"combat": {"combat ": True, "noncombat ": False}.get(kind or "")}
@@ -3291,6 +3306,13 @@ def _prevent_scope(kind: str | None, to: str | None, by: str | None) -> tuple[De
                 return None
     elif to in SELECTORS and SELECTORS[to] in ("creature", "creature_you_control", "creature_opponent_controls"):
         target, role = SELECTORS[to], "to"
+    elif to == "it" and by is None:  # "Untap target creature. Prevent all damage that would be dealt to it this turn." (Djeru's Resolve)
+        target, role = "it", "to"
+    # -- prevention variants (wave 12B) -- "to target legendary creature", "to up to two target creatures", "to target
+    # creature with power 5 or greater": the creatures chosen as the spell or ability is put on the stack (115.1); the
+    # damage a creature would be dealt this turn (615.1)
+    elif by is None and to.startswith(("target ", "up to ", "another target ")) and _prevent_group(to) is not None:
+        target, role = _prevent_group(to), "to"  # type: ignore[assignment]
     else:
         key = _selector_key(to)
         if key is None:
@@ -3642,6 +3664,8 @@ def _prevent_all_this_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str 
         raise _NoMatch
     scope, _this_turn, target, role = got
     e: dict[str, Any] = {"do": "prevent_all", "scope": scope}
+    if target == "it":  # (a pronoun: scripts.resolve_it binds it to the earlier instruction's object)
+        return [{**e, "who": "it", "role": role}], None
     if target is not None:
         e.update(who="target", role=role)
     return [e], target

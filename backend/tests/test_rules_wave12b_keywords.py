@@ -20,6 +20,8 @@ from tests.test_rules_wave7e_activated import combat_table
 
 EXTRA = [
     card('Deadbridge Goliath', set_code='tst', number='Y01', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Creature — Insect Skeleton', oracle_text="Scavenge {4}{G}{G} ({4}{G}{G}, Exile this card from your graveyard: Put a number of +1/+1 counters equal to this card's power on target creature. Scavenge only as a sorcery.)", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Scavenge']),  # noqa: E501
+    card('Redeem', set_code='tst', number='Y02', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text='Prevent all damage that would be dealt this turn to up to two target creatures.', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
+    card("Djeru's Resolve", set_code='tst', number='Y03', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text='Untap target creature. Prevent all damage that would be dealt to it this turn.', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
 ]
 
 
@@ -41,6 +43,27 @@ def test_scavenge_puts_counters_equal_to_the_exiled_cards_power(cards):
     assert s.state.cards[bear.id].counters == {"+1/+1": 5}  # 702.97a: the power of the card exiled
     assert s.state.cards[goliath.id].zone == "p1:exile"
     check(s)
+
+
+def test_prevention_to_targets_and_to_it(cards):
+    from tests.test_rules_attachments import build as build_attach
+    from tests.test_rules_attachments import mana, named, to_hand, token
+    from tests.test_rules_effects import pass_until_stack_empty
+    from tests.test_rules_wave6b_damage import PINGER, cast, ping, roundtrip, zone
+
+    s = build_attach(cards, "Redeem", "Djeru's Resolve")
+    a, b, c, d = (token(s, "p1", n, "1/1", PINGER) for n in "ABCD")
+    redeem = to_hand(s, "Redeem")  # 615.1: damage to the two targets this turn is prevented
+    mana(s, W=1)
+    act(s, "p1", type="cast_spell", card_id=redeem.id, targets=[a.id, b.id], target_counts=[2])
+    pass_until_stack_empty(s)
+    ping(s, c, a.id)
+    ping(s, d, b.id)
+    assert zone(s, a) == zone(s, b) == "p1:battlefield"
+    cast(s, "Djeru's Resolve", targets=[c.id], W=1)
+    ping(s, a, c.id)
+    assert zone(s, c) == "p1:battlefield" and not named(s, "C").tapped
+    roundtrip(s)
 
 
 def check(s):
