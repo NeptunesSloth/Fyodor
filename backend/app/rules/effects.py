@@ -3158,6 +3158,10 @@ from app.rules import cant_gain, graveyard_grants, skips, source_shields  # noqa
 
 PRIMITIVES.update(source_shields.PRIMITIVES)
 PRIMITIVES.update(skips.PRIMITIVES)  # 614.10 "skips their next …" (app/rules/skips.py)
+# -- next untap step (wave 6A) --
+from app.rules import next_untap as _next_untap  # noqa: E402
+
+PRIMITIVES.update(_next_untap.PRIMITIVES)  # 502.3 "doesn't untap during its controller's next untap step"
 PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
 PRIMITIVES.update(graveyard_grants.PRIMITIVES)  # "gains flashback until end of turn" (app/rules/graveyard_grants.py)
 RESUME.update(graveyard_grants.RESUME)  # ("Choose one of them.")
