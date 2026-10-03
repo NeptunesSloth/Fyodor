@@ -105,8 +105,8 @@ def test_real_card_wordings_are_automated(text):
 
 
 @pytest.mark.parametrize("text", [
-    # the sacrificed creature is read only from a cost's payment record: an effect's sacrifice, or no sacrifice at all, stays manual
-    "Whenever this creature attacks, you may sacrifice another creature. When you do, ~ deals damage equal to the sacrificed creature's power to any target.",
+    # the sacrificed creature is read from a cost's payment record (or, wave 4J, a reflexive trigger's payment); no
+    # sacrifice at all stays manual
     "{R}, {T}: ~ deals damage equal to the sacrificed creature's power to target player or planeswalker.",
     # "each other opponent" without an event naming one opponent
     "At the beginning of your upkeep, ~ deals 1 damage to each other opponent.",

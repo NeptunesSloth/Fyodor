@@ -296,6 +296,75 @@ def _with_counter(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"counter:{m['c']}"))
 
 
+# -- chosen type (wave 4J) ------------------------------------------------------------------------------------------
+# "creatures you control of the chosen type", "a spell of the chosen color", "creatures that aren't of the chosen
+# type": the creature type (205.3m) / color (105.1) chosen for the source — as it entered ("As ~ enters, choose a
+# creature type": its public "Chosen creature type" record, 614.12a), or earlier in the same resolution ("Choose a
+# creature type. Destroy all creatures that aren't of the chosen type": bind_chosen substitutes that answer).
+# ``matches`` reads the source's record; without a source or a valid record nothing matches (never a guess).
+CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_chosen_type": "creature type",
+                 "not_chosen_color": "color"}
+
+
+@_suffix(r"(?P<neg>that (?:aren't|isn't|are not|is not) )?of the chosen (?P<what>type|color)")
+def _of_chosen(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, ("not_" if m["neg"] else "") + f"chosen_{m['what']}"))
+
+
+def chosen_what(sel: Selector) -> str | None:
+    """"creature type" / "color" when the selector reads a chosen value, else None."""
+    found = {CHOSEN_EXTRAS[e] for e in sel.extras if e in CHOSEN_EXTRAS}
+    return found.pop() if len(found) == 1 else None
+
+
+def bind_chosen(sel: Selector, value: str) -> Selector | None:
+    """The selector with the chosen value put in place (``value``: "Elf", "Blue"); None if the value isn't one."""
+    rest = tuple(e for e in sel.extras if e not in CHOSEN_EXTRAS)
+    what = chosen_what(sel)
+    neg = any(e.startswith("not_") for e in sel.extras if e in CHOSEN_EXTRAS)
+    if what == "creature type" and value in CREATURE_TYPES:
+        if sel.subtypes or sel.not_subtypes or sel.union:
+            return None
+        if neg:
+            return replace(sel, extras=rest, not_subtypes=(value,))
+        return replace(sel, extras=rest, subtypes=(value,))
+    color = COLORS.get(value.strip().lower())
+    if what == "color" and color is not None:
+        if sel.colors or sel.not_colors:
+            return None
+        if neg:
+            return replace(sel, extras=rest, not_colors=(color,))
+        return replace(sel, extras=rest, colors=(color,))
+    return None
+
+
+def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
+    """The source permanent's recorded "As ~ enters, choose a creature type / a color" answer (its public
+    ``choices`` entry), or None."""
+    card = plan.state.cards.get(source or "")
+    if card is None:
+        return None
+    label = {"creature type": "Chosen creature type", "color": "Chosen color"}[what]
+    value = card.choices.get(label)
+    return value.strip() if value else None
+
+
+def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | None) -> bool:
+    what = chosen_what(sel)
+    value = source_choice(plan, source, what) if what is not None else None
+    bound = bind_chosen(sel, value) if value is not None else None
+    if bound is None:
+        return False
+    if bound.subtypes and not set(bound.subtypes) & ch.subtypes:
+        return False
+    if set(bound.not_subtypes) & ch.subtypes:
+        return False
+    if bound.colors and not set(bound.colors) & ch.colors:
+        return False
+    return not set(bound.not_colors) & ch.colors
+# -- end chosen type (wave 4J) --------------------------------------------------------------------------------------
+
+
 def _singular(word: str) -> str:
     low = word.lower()
     if low in _IRREGULAR:
@@ -685,7 +754,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
             return False
-    return True
+    # -- chosen type (wave 4J) --
+    return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source)
 
 
 def _ability_kind(plan: Plan, card: CardInstance, kind: str) -> bool:

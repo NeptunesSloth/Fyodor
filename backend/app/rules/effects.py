@@ -98,6 +98,11 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return attached_players.attacking_opponents(plan, ctx)
     if who.startswith(context.PREFIX):  # a binding: "that player", "its controller", "its owner" (app/rules/context.py)
         return context.players(plan, ctx, who[len(context.PREFIX):])
+    if who == "chosen_player":  # -- chosen player (wave 4J) -- the player the source chose as it entered (614.12a)
+        from app.rules import chosen
+
+        pid = chosen.player_of(plan, ctx.get("source_card") or "", ctx.get("source_object"))
+        return [pid] if pid is not None and pid in plan.live() else []
     if who.startswith("player:"):  # (older saves: a player bound into the effect when it triggered)
         return [who[7:]] if who[7:] in plan.live() else []
     return []
@@ -106,6 +111,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
         return _controlled_by(plan, ctx, who)
+    if who.startswith("graveyard_of:"):  # -- graveyard exile (wave 4J) -- "target player's graveyard": every card in it
+        return [c for p in _players(plan, ctx, who[len("graveyard_of:"):]) for c in plan.state.zones.get(f"{p}:graveyard", [])]
     if who.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- "all other creatures" after "Create X
         name, _, key = who[len("except:"):].partition("|")  # … tokens" (Martial Coup): other than what it made
         made = set(context.objects(plan, ctx, name))
@@ -723,10 +730,12 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
         from app.rules import this_way
 
         each = this_way.by_controller(plan, ctx, e["per_controller"])
+    # -- X sized by a count (wave 4K) -- "an X/X … token": X as the token is created, its printed P/T from then on (111.3)
+    pt = {k: str(values.evaluate(plan, ctx, t[k])) if isinstance(t.get(k), dict) else t.get(k) for k in ("power", "toughness")}
     for pid in (list(each) if each is not None else _players(plan, ctx, e["who"])):
         if each is not None and pid not in plan.live():
             continue
-        spec = {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
+        spec = {"name": t["name"], "power": pt["power"], "toughness": pt["toughness"],
                 "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
         # a token enters tapped when its creator says so ("create a tapped …") or its own text does
         # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
@@ -2189,9 +2198,24 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.triggers import _add  # (triggers imports this module)
 
     if conditions.holds(plan, ctx, e["cond"]):
+        event = _reflexive_event(plan, ctx, e["lki"]) if e.get("lki") else None  # -- reflexive LKI (wave 4J) --
         _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
-             name=str(ctx.get("name") or ""), index=7300, definition=e["ability"])
+             name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=event)
     return True
+
+
+# -- reflexive LKI (wave 4J) --
+def _reflexive_event(plan: Plan, ctx: Context, name: str) -> Any:
+    """The object the payment a reflexive trigger waited for sacrificed (its binding), with its last known
+    information (608.2h, 113.7a): the trigger's event object, which "that creature's power" in its body reads
+    (scripts._reflexive_lki)."""
+    from app.game.rules_state import TriggerEvent
+
+    b = context.refs(ctx).get(name) or {}
+    before = [ObjectRef.model_validate(r) for r in b.get("objects") or []] if b.get("kind") == "payment" else []
+    objects = [r.model_copy(update={"snapshot": context.snapshot(plan, r)}) for r in before]
+    return TriggerEvent(kind="reflexive", objects=objects, count=len(objects))
+# -- end reflexive LKI (wave 4J) --
 
 
 PRIMITIVES["reflexive"] = reflexive
@@ -2576,9 +2600,17 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
     if e.get("as"):
         context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}
+    if not e.get("remember") and e["what"] in ("creature type", "color"):  # -- chosen type (wave 4J) --
+        from app.rules import chosen as picked
+
+        ctx["effects"] = ctx["effects"][: ctx["next"]] + picked.bind_effects(ctx["effects"][ctx["next"]:], e["what"], value)
     src = plan.state.cards.get(ctx.get("source_card") or "")
     if e.get("remember") and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
         plan.do({"type": "set_choice", "card_id": src.id, "key": CHOICE_LABELS[e["what"]], "value": shown}, actor=d.player)
+        if e["what"] in ("opponent", "player"):  # -- chosen player (wave 4J) --
+            from app.rules import chosen as picked
+
+            picked.record(plan, src.id, value)
     continue_effects(plan, ctx)
 
 
@@ -3055,3 +3087,10 @@ def _note_resolution(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES["note_resolution"] = _note_resolution
 # -- end this-turn history (wave 4D) --
+
+# -- X sized by a count (wave 4K) -- "Shuffle ~ into its owner's library." as a spell's last instruction (the Zenith
+# cycle): app/rules/x_spells.py (a leaf module over this one)
+from app.rules import x_spells as _x_spells  # noqa: E402, I001
+
+PRIMITIVES.update(_x_spells.PRIMITIVES)
+# -- end X sized by a count (wave 4K) --

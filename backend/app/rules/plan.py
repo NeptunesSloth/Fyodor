@@ -28,6 +28,9 @@ class Plan:
     """A scratch copy of the table plus the table actions carried out on it so far."""
 
     x_choice: int | None = None  # the X announced for the spell being cast, while its targets are chosen (selectors read it)
+    # -- cost changers (wave 4I) -- 601.2f: the total cost locked in before the player was asked to pay it; a cast or
+    # activation resumed after that payment prompt pays exactly this (casting._rerun), whatever the table says now
+    locked_cost: str | None = None
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)

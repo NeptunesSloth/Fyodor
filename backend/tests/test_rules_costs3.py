@@ -116,7 +116,7 @@ def test_additional_costs_the_engine_pays(text):
 
 
 @pytest.mark.parametrize("text", [
-    "you may sacrifice a creature", "pay X life", "discard X cards", "sacrifice a creature or discard a card",
+    "you may sacrifice a creature", "discard X cards", "sacrifice a creature or discard a card",  # ("pay X life": wave 4K)
     "sacrifice this spell", "tap an untapped creature you control, discard a card",
 ])
 def test_additional_costs_it_refuses(text):
@@ -280,8 +280,8 @@ def test_modifier_wordings_of_real_cards(text):
 
 
 @pytest.mark.parametrize("text", [
-    "Spells you cast from anywhere other than your hand cost {1} less to cast.",  # (zone: not modelled)
-    "The first creature spell you cast each turn costs {1} less to cast.",
+    # (wave 4I: "Spells you cast from anywhere other than your hand cost {1} less" is read now: cost_changes.py)
+    # (wave 4I: "The first creature spell you cast each turn costs {1} less" is read now: cost_changes.ORDINAL)
     "Red creature spells and green creature spells cost {1} more to cast.",  # (one selector can't say "red creature or green creature")
     "Activated abilities of creatures you control cost {2} less to activate.",  # (the printed floor is part of the wording)
 ])

@@ -32,6 +32,7 @@ from app.rules.plan import Plan, decide
 
 _VERBS = {C.SACRIFICE: "sacrifice", C.DISCARD: "discard", C.EXILE_FROM_GRAVEYARD: "exile",
           C.RETURN_PERMANENT: "return to its owner's hand", C.TAP_OTHER: "tap", C.REMOVE_COUNTER: "remove counters from"}
+_VERBS["EXILE_FROM_HAND"] = "exile"  # -- cost changers (wave 4I) -- "exile a blue card from your hand" (alt_costs.py)
 
 
 def _reserved(cost: AbilityCost, comp: CostComponent, source: CardInstance) -> set[str]:
@@ -49,7 +50,7 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
     assert comp.selector is not None
     sel = selectors.from_key(comp.selector)
     alt = selectors.from_key(comp.alt) if comp.alt else None  # (wave 4H: "another creature or an artifact")
-    if comp.kind == C.DISCARD:
+    if comp.kind in (C.DISCARD, "EXILE_FROM_HAND"):  # (EXILE_FROM_HAND: wave 4I, alt_costs.py — Force of Will)
         zone = zone_key(player, "hand")
     elif comp.kind in (C.EXILE_FROM_GRAVEYARD, C.COLLECT_EVIDENCE):  # (collect evidence: wave 4H)
         zone = zone_key(player, "graveyard")
@@ -314,7 +315,7 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
                 ids = [card.id]
             plan.do({"type": "move", "card_ids": ids, "to": {"zone": "graveyard"}})  # 701.9a
             record.discarded += ids
-        elif comp.kind in (C.EXILE, C.EXILE_FROM_GRAVEYARD):
+        elif comp.kind in (C.EXILE, C.EXILE_FROM_GRAVEYARD, "EXILE_FROM_HAND"):  # (wave 4I: from the hand, public in exile, 406.3)
             ids = ids if comp.selector is not None else [card.id]
             plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})
             record.exiled += ids

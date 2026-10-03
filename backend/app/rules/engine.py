@@ -614,6 +614,10 @@ def cleanup_step(plan: Plan) -> None:
         return
     hand = plan.state.zones.get(zone_key(ap, "hand"), [])
     excess = len(hand) - MAX_HAND_SIZE
+    from app.rules import hand_size  # -- hand size (wave 4J) -- "You have no maximum hand size." (402.2)
+
+    if excess > 0 and hand_size.no_maximum(plan, ap):
+        excess = 0
     if excess > 0:
         decide(
             plan, player=ap, kind="choose_cards",
@@ -665,7 +669,12 @@ def needs_manual_resolution(ch: Characteristics) -> bool:
 def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = False, countered: bool = False) -> None:
     """A resolved spell leaves the stack: to the battlefield or its owner's graveyard, or into exile
     if it was cast with flashback (702.34a), or back to its owner's hand with buyback (702.27a)."""
+    # -- X sized by a count (wave 4K) -- it shuffled itself into its library (608.2n)
+    from app.rules import x_spells
+
     oid = plan.oid(card_id)
+    if not countered and x_spells.left_stack_itself(plan, card_id):
+        return
     if oid in plan.rules.rebound_cast:  # 702.88a rebound: exiled as it resolves, cast again next upkeep
         plan.rules.rebound_cast = [o for o in plan.rules.rebound_cast if o != oid]
         if not countered:
@@ -825,8 +834,11 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
         return "You can only play a land while the stack is empty"
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
-    if r.lands_this_turn(player, state.turn.number) >= 1:
-        return "You've already played a land this turn"
+    from app.rules import land_plays  # -- additional land plays (wave 4J) -- 305.2a
+
+    played = r.lands_this_turn(player, state.turn.number)
+    if played >= 1 and played >= (allowed := land_plays.allowed(state, player, info)):  # (counted only when it matters)
+        return "You've already played a land this turn" if allowed == 1 else "You've already played all the lands you can this turn"
     return None
 
 
