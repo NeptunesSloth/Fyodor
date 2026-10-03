@@ -63,6 +63,7 @@ EXTRA = [
     card('Luxa River Shrine', set_code='tst', number='T7C40', mana_cost='{3}', cmc=3.0, type_line='Artifact', oracle_text='{1}, {T}: You gain 1 life. Put a brick counter on this artifact.\n{T}: You gain 2 life. Activate only if there are three or more brick counters on this artifact.'),
     card('Iron-Heart Chimera', set_code='tst', number='T7C41', mana_cost='{4}', cmc=4.0, type_line='Artifact Creature — Chimera', oracle_text='Vigilance\nSacrifice this creature: Put a +2/+2 counter on target Chimera creature. It gains vigilance. (This effect lasts indefinitely.)', power='2', toughness='2', keywords=['Vigilance']),
     card('Shield Sphere', set_code='tst', number='T7C42', mana_cost='{0}', cmc=0.0, type_line='Artifact Creature — Wall', oracle_text='Defender\nWhenever this creature blocks, put a -0/-1 counter on it.', power='0', toughness='6', keywords=['Defender']),
+    card('Fabled Hero', set_code='tst', number='T7C43', mana_cost='{1}{W}{W}', cmc=3.0, type_line='Creature — Human Soldier', oracle_text='Double strike\nHeroic — Whenever you cast a spell that targets this creature, put a +1/+1 counter on it.', power='2', toughness='2', colors=['W'], color_identity=['W'], keywords=['Heroic', 'Double strike']),
 ]
 
 
@@ -525,4 +526,24 @@ def test_iron_heart_chimera_puts_a_plus_two_counter_on_another_chimera(cards):
 
 @pytest.mark.parametrize("name", ["Luxa River Shrine", "Pyramid of the Pantheon", "Iron-Heart Chimera", "Shield Sphere"])
 def test_counter_conditions_coverage(name):
+    assert cov(name) == "FULL"
+
+
+# -- heroic: "Whenever you cast a spell that targets this creature, put a +1/+1 counter on it" (603.2) --------------------
+def test_fabled_hero_grows_only_when_it_is_targeted(cards):
+    s = build(cards, "Fabled Hero", "Giant Growth", "Giant Growth", "Grizzly Bears")
+    hero, bears = put(s, "Fabled Hero"), put(s, "Grizzly Bears")
+    cast(s, "Giant Growth", targets=[bears.id], G=1)
+    settle(s)
+    assert not counters(s, hero)
+    s = saved(s)
+    cast(s, "Giant Growth", targets=[hero.id], G=1)
+    settle(s)
+    assert counters(s, hero) == {"+1/+1": 1}
+    replay_matches(s)
+    replay_matches(saved(s))
+
+
+@pytest.mark.parametrize("name", ["Fabled Hero"])
+def test_heroic_counter_coverage(name):
     assert cov(name) == "FULL"
