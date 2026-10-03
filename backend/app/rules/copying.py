@@ -170,6 +170,19 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
     supertypes = (ch.supertypes | frozenset(ex.add_supertypes)) - frozenset(ex.remove_supertypes)
     types = ch.types | frozenset(ex.add_types)
     subtypes = frozenset(s for s in ch.subtypes | frozenset(ex.add_subtypes) if _subtype_fits(s, types))
+    if ex.set_creature_types is not None:  # -- token copies & attach on entry (wave 5J) -- 205.1a, 707.9d
+        from app.rules.creature_types import CREATURE_TYPES
+
+        subtypes = frozenset(s for s in (subtypes - CREATURE_TYPES) | frozenset(ex.set_creature_types) if _subtype_fits(s, types))
+        dropped = {"changeling", *(["devoid"] if ex.set_colors is not None else [])}
+        if any(a.kind == "keywords" and dropped & set(a.keywords) for a in kept):
+            kept = [_without_keywords(a, dropped) for a in kept]
+            kept = [a for a in kept if a.text]
+            rewrite = True
+        every = f"{ch.name} is every creature type."  # (Mistform Ultimus: the same CDA, 604.3)
+        if any(a.kind == "static" and a.text.startswith(every[:-1]) for a in kept):
+            kept = [a for a in kept if not (a.kind == "static" and a.text.startswith(every[:-1]))]
+            rewrite = True
     text = "\n".join([*(a.text for a in kept), *ex.add_text]) if rewrite else ch.oracle_text
     if rewrite:
         abilities = chars.with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
@@ -183,6 +196,18 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
                    toughness=ex.toughness if ex.toughness is not None else ch.toughness,
                    colors=(frozenset(ex.set_colors) if ex.set_colors is not None else ch.colors) | frozenset(ex.add_colors),
                    oracle_text=text, abilities=abilities, oracle_id=None if rewrite else ch.oracle_id)
+
+
+def _without_keywords(a: Any, dropped: set[str]) -> Any:
+    """-- token copies & attach on entry (wave 5J) -- a keyword line without these keywords (707.9d: a
+    characteristic-defining ability for a characteristic the copy effect sets isn't copied); "" if none is left."""
+    if a.kind != "keywords" or not dropped & set(a.keywords):
+        return a
+    from app.rules.oracle import strip_reminders
+
+    parts = [p.strip() for p in re.split(r"[,;]\s*", strip_reminders(a.text)) if p.strip()]
+    left = [p for p in parts if p.lower() not in dropped]
+    return replace(a, text=", ".join(left))
 
 
 def type_line(ch: Characteristics) -> str:
@@ -739,7 +764,21 @@ def token_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             refused.append(f"a copy of {plan.ch(card).name or 'it'} ({problem})")
             continue
         recipe = recipe_of(plan, card) if zone == "battlefield" else base_recipe(card).model_copy(update={"face": 0})
-        req = token_copy_request(plan, ctx, ctx["controller"], with_excepts(recipe, excepts), count,
+        # -- token copies & attach on entry (wave 5J) -- "its controller creates a token that's a copy of that creature"
+        maker = card.controller if e.get("their") else ctx["controller"]
+        req = token_copy_request(plan, ctx, maker, with_excepts(recipe, excepts), count,
+                                 tapped=bool(e.get("tapped")), notes=notes)
+        if req is not None:
+            requests.append(req)
+    # -- token copies & attach on entry (wave 5J) -- 608.2h, 111.12: the object the trigger (or the source) was about
+    # left the battlefield: the copy uses its copiable values as it last existed there
+    from app.rules import populate
+
+    for recipe_or_why, maker in populate.left_battlefield(plan, ctx, e["who"], bool(e.get("their"))):
+        if isinstance(recipe_or_why, str):
+            refused.append(recipe_or_why)
+            continue
+        req = token_copy_request(plan, ctx, maker, with_excepts(recipe_or_why, excepts), count,
                                  tapped=bool(e.get("tapped")), notes=notes)
         if req is not None:
             requests.append(req)
@@ -1032,6 +1071,16 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         ex.add_types = sorted({*ex.add_types, "Creature", *(["Artifact"] if artifact else [])})
         ex.add_subtypes = sorted({*ex.add_subtypes, *subs})
         ex.add_text = [*ex.add_text, *(k.capitalize() for k in with_kws[0])]
+        return True
+    # -- token copies & attach on entry (wave 5J) -- "it's a 1/1 green Frog" / "it's a 4/4 black Zombie" (707.9b):
+    # P/T and colors set, the creature types set (205.1a: no "in addition": they replace the copied creature types)
+    m = re.fullmatch(_SUBJECT + r"(?:is|are) an? (?P<p>\d+)/(?P<t>\d+) (?P<colors>(?:white|blue|black|red|green)"
+                                r"(?:,? (?:and )?(?:white|blue|black|red|green))* )?(?P<subs>[A-Z][A-Za-z'-]*(?: [A-Z][A-Za-z'-]*)*)", c)
+    if m and all(s in CREATURE_TYPES for s in m["subs"].split()) and ex.set_creature_types is None:
+        ex.power, ex.toughness = m["p"], m["t"]
+        if m["colors"]:
+            ex.set_colors = [_COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", m["colors"])]
+        ex.set_creature_types = m["subs"].split()
         return True
     # -- enter as copy (wave 5F) -- "it's a Synth artifact creature in addition to its other types" (707.9b, 707.9d)
     m = re.fullmatch(_SUBJECT + r"(?:is|are) an? (?P<subs>(?:[A-Z][A-Za-z'-]* )+)(?P<t>artifact creature|artifact|creature)s? "

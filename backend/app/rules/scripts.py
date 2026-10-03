@@ -614,6 +614,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e["src"] = "event"
                 elif antecedent in ("self", "self_gone"):
                     del e["src"]
+                elif antecedent == "event" and e.get("do") == "attach_to":  # -- token copies & attach on entry (wave 5J) --
+                    e["src"] = "event"  # ("Whenever an Equipment you control enters, you may attach it to …")
                 else:
                     return None
             if e.get("do") in _RECORDING or _group_of(e) is not None:
@@ -955,7 +957,7 @@ _COLORS_RE = r"(?P<colors>colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:a
 
 
 @effect(r"create {N} (?P<pt>\d+/\d+) " + _COLORS_RE + r" (?P<sub>[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*) (?P<ench>enchantment )?(?P<art>artifact )?creature tokens?"
-        r"(?: with (?P<kws>[a-z ,]+?)| with \"(?P<quoted>[^\"]+)\")?")
+        r"(?: with (?P<kws>(?:(?!, then )[a-z ,])+?)| with \"(?P<quoted>[^\"]+)\")?")  # (", then …": wave 5J, _clause)
 def _create_creature(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     p, t = m["pt"].split("/")
     colors = [] if m["colors"] == "colorless" else [COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", m["colors"])]
@@ -1517,6 +1519,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             if len(bound_x) != 1 or not re.search(r"\bwhere x is\b", body, re.IGNORECASE):
                 return None  # (X is the one an earlier sentence of this ability defined: 107.3c)
             effects.append({"do": "win_if_library", "x": bound_x[0]})
+            continue
+        # -- token copies & attach on entry (wave 5J) -- Mechanized Production's win
+        from app.rules import populate as _populate
+
+        if (won := _populate.win_sentence(text)) is not None and effects:
+            effects.append(won)
             continue
         if text == "if you search your library this way, shuffle":  # -- refused zones/sized (wave 3R4) -- (_gy_shuffle)
             effects.append({"do": "gy_search_shuffle"})
@@ -3836,6 +3844,48 @@ _RECORDING.update({"token_copy": None})
 _MOVERS.add("token_copy")
 _TOKEN_MAKERS.add("token_copy")
 _CHOSEN["token_copy"] = "n"
+
+
+# -- token copies & attach on entry (wave 5J) -- "attach it to target creature you control" (Embercleave, Sigarda's Aid,
+# Hammer of Nazahn: "attach that Equipment to …"): 701.3a-b — the source (or the trigger's object) attached to the
+# target if it can be, else it doesn't move (app/rules/attach_entry.py, through effects.attach_self). "it" is resolved by
+# resolve_it: this object ("When ~ enters"), or the object the trigger was about ("Whenever an Equipment … enters")
+@_first
+@effect(r"attach (?:it|that Equipment) to (?P<tgt>(?:up to one )?target [^,.]+)")
+def _attach_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import attach_entry
+
+    found = attach_entry.parse(m["tgt"])
+    if found is None:
+        raise _NoMatch
+    return found
+
+
+@_first
+@effect(r"populate")
+def _populate(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "populate"}], None  # 701.36 (app/rules/populate.py)
+
+
+@_first
+@effect(r"for each [^,]+, (?:its controller creates|create) (?:a|one) (?:tapped )?token that's a copy of that [a-z]+(?:, except .+)?")
+def _for_each_token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import populate
+
+    inner = populate.FOR_EACH.fullmatch(m.group(0))
+    found = populate.parse_for_each(inner) if inner is not None else None
+    if found is None:
+        raise _NoMatch
+    return found
+
+
+@_first
+@effect(r"for each of them, create (?:a|one) (?P<tapped>tapped )?token that's a copy of it")
+def _for_each_of_them_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """"Whenever one or more tokens … enter, for each of them, create a tapped token that's a copy of it." (Kambal):
+    one copy of every object of the event ("them": resolve_it binds it to the "one or more" event, 603.2c)."""
+    return [{"do": "token_copy", "n": 1, "who": "them", **({"tapped": True} if m["tapped"] else {})}], None
+# -- end token copies & attach on entry (wave 5J) --
 
 
 # -- mana (wave 3M): "Add {B}{B}{B}." / "Add one mana of any color." / "Add {R} for each …" as an effect (CR 106.3, 605.1a) --
