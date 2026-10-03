@@ -403,6 +403,12 @@ After the rules engine and the tabletop are mature: a persistent pod lobby, the 
 (d20 rolls for game 1, then the previous winner goes last), a 2–4 s pre-game commander intro, group concession with an agreed result,
 a winner spotlight, a rematch vote and spectator rejoin. Not started.
 
+### Later: tabletop quality-of-life milestone — planned (`TABLETOP_QOL_MILESTONE.md`)
+
+After the rules engine and the 3D table are stable: 17 table aids built in order over shared primitives
+(private choice drawer, pending decision indicator, token piles, owner/controller colors, X/mode badges,
+commander damage hover, quick undo request, then readability and social features). Not started.
+
 ## Deliberately out of scope
 
 - **Other formats:** Standard, Modern, Pioneer, Legacy, Vintage, Pauper, Brawl, Oathbreaker,
