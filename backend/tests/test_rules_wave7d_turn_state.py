@@ -137,7 +137,7 @@ def test_the_watch_ignores_what_happened_before_it_existed(cards):
     s = build(cards, "Glimpse of Nature", "Runeclaw Bear")
     to_hand(s, "Glimpse of Nature")
     to_hand(s, "Runeclaw Bear")
-    mana(s, G=2, R=1)
+    mana(s, G=3, R=1)
     cast(s, "Runeclaw Bear")
     before = hand(s)
     cast(s, "Glimpse of Nature")
@@ -185,7 +185,7 @@ def test_vizkopa_guildmage_drains_for_each_life_gain_this_turn(cards):
     s = build(cards, "Vizkopa Guildmage", "Revitalize")
     put(s, "Vizkopa Guildmage")
     to_hand(s, "Revitalize")
-    mana(s, W=2, B=1, G=1)
+    mana(s, W=2, B=1, G=2)
     act(s, "p1", type="activate_ability", card_id=card_named(s, "Vizkopa Guildmage").id, ability=1)
     settle(s)
     assert len(watches(s)) == 1
@@ -207,3 +207,18 @@ def test_rite_of_harmony_draws_for_a_creature_entering_under_your_control_only(c
         token={"name": "Imp", "type_line": "Token Creature — Imp", "power": "1", "toughness": "1", "text": ""})
     settle(s)
     assert hand(s) == before - 1  # (an opponent's creature doesn't trigger it)
+
+
+def test_storm_kings_thunder_copies_the_next_spell_x_times(cards):
+    """107.3: the X it was cast with is fixed when the delayed trigger is created."""
+    s = build(cards, "Storm King's Thunder", "Lightning Bolt")
+    to_hand(s, "Storm King's Thunder")
+    to_hand(s, "Lightning Bolt")
+    mana(s, R=7)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Storm King's Thunder").id, x_value=2)
+    settle(s)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=["p2"], target_counts=[1])
+    settle(s)
+    assert s.state.players["p2"].life == 40 - 9  # (the Bolt and two copies)
+    replay_matches(s)
+    replay_matches(reloaded(s))
