@@ -41,6 +41,19 @@ EXTRA = [
     card('Boon of Safety', set_code='tst', number='T7C18', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text='Put a shield counter on target creature. (If it would be dealt damage or destroyed, remove a shield counter from it instead.)\nScry 1.', colors=['W'], color_identity=['W'], keywords=['Scry']),
     card('Rites of Flourishing', set_code='tst', number='T7C19', mana_cost='{2}{G}', cmc=3.0, type_line='Enchantment', oracle_text="At the beginning of each player's draw step, that player draws an additional card.\nEach player may play an additional land on each of their turns.", colors=['G'], color_identity=['G']),
     card('Gift of the Viper', set_code='tst', number='T7C20', mana_cost='{G}', cmc=1.0, type_line='Instant', oracle_text='Put a +1/+1 counter, a reach counter, and a deathtouch counter on target creature. Untap it.', colors=['G'], color_identity=['G']),
+    card('Pouncing Kavu', set_code='tst', number='T7C21', mana_cost='{1}{R}', cmc=2.0, type_line='Creature — Kavu', oracle_text='Kicker {2}{R} (You may pay an additional {2}{R} as you cast this spell.)\nFirst strike\nIf this creature was kicked, it enters with two +1/+1 counters on it and with haste.', power='1', toughness='1', colors=['R'], color_identity=['R'], keywords=['First strike', 'Kicker']),
+    card('Faerie Squadron', set_code='tst', number='T7C22', mana_cost='{U}', cmc=1.0, type_line='Creature — Faerie', oracle_text='Kicker {3}{U} (You may pay an additional {3}{U} as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it and with flying.', power='1', toughness='1', colors=['U'], color_identity=['U'], keywords=['Kicker']),
+    card('Kavu Titan', set_code='tst', number='T7C23', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Kavu', oracle_text='Kicker {2}{G} (You may pay an additional {2}{G} as you cast this spell.)\nIf this creature was kicked, it enters with three +1/+1 counters on it and with trample.', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Kicker']),
+    card('Benalish Lancer', set_code='tst', number='T7C24', mana_cost='{2}{W}', cmc=3.0, type_line='Creature — Human Knight', oracle_text='Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it and with first strike.', power='2', toughness='2', colors=['W'], color_identity=['W'], keywords=['Kicker']),
+    card('Duskwalker', set_code='tst', number='T7C25', mana_cost='{B}', cmc=1.0, type_line='Creature — Human Minion', oracle_text="Kicker {3}{B} (You may pay an additional {3}{B} as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it and with fear. (It can't be blocked except by artifact creatures and/or black creatures.)", power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=['Kicker']),
+    card('Pouncing Wurm', set_code='tst', number='T7C26', mana_cost='{3}{G}', cmc=4.0, type_line='Creature — Wurm', oracle_text='Kicker {2}{G} (You may pay an additional {2}{G} as you cast this spell.)\nIf this creature was kicked, it enters with three +1/+1 counters on it and with haste.', power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Kicker']),
+    card('Bloodcrazed Paladin', set_code='tst', number='T7C27', mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Vampire Knight', oracle_text='Flash\nThis creature enters with a +1/+1 counter on it for each creature that died this turn.', power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=['Flash']),
+    card('Grizzly Ghoul', set_code='tst', number='T7C28', mana_cost='{2}{B}{G}', cmc=4.0, type_line='Creature — Zombie Bear', oracle_text='Trample\nThis creature enters with a +1/+1 counter on it for each creature that died this turn.', power='4', toughness='3', colors=['B', 'G'], color_identity=['B', 'G'], keywords=['Trample']),
+    card('Ferocious Tigorilla', set_code='tst', number='T7C29', mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Cat Ape', oracle_text="This creature enters with your choice of a trample counter or a menace counter on it. (A creature with menace can't be blocked except by two or more creatures.)", power='4', toughness='3', colors=['R'], color_identity=['R']),
+    card('Boot Nipper', set_code='tst', number='T7C30', mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Beast', oracle_text='This creature enters with your choice of a deathtouch counter or a lifelink counter on it.', power='2', toughness='1', colors=['B'], color_identity=['B']),
+    card('Wingfold Pteron', set_code='tst', number='T7C31', mana_cost='{5}{U}', cmc=6.0, type_line='Creature — Dinosaur', oracle_text="This creature enters with your choice of a flying counter or a hexproof counter on it. (A creature with hexproof can't be the target of spells or abilities your opponents control.)", power='3', toughness='6', colors=['U'], color_identity=['U']),
+    card('Helica Glider', set_code='tst', number='T7C32', mana_cost='{2}{W}', cmc=3.0, type_line='Creature — Nightmare Squirrel', oracle_text='This creature enters with your choice of a flying counter or a first strike counter on it.', power='2', toughness='2', colors=['W'], color_identity=['W']),
+    card('Flycatcher Giraffid', set_code='tst', number='T7C33', mana_cost='{4}{G}', cmc=5.0, type_line='Creature — Antelope Lizard', oracle_text='This creature enters with your choice of a reach counter or a vigilance counter on it.', power='3', toughness='5', colors=['G'], color_identity=['G']),
 ]
 
 
@@ -275,3 +288,90 @@ def test_mind_unbound_counts_its_lore_counters(cards):
     settle(s)
     assert counters(s, mind) == {"lore": 1}
     replay_matches(saved(s))
+
+
+# -- "If ~ was kicked, it enters with … counters on it and with <keyword>" (702.33e, 614.1c, 613.1f) ----------------------
+def test_pouncing_kavu_kicked_enters_with_counters_and_haste(cards):
+    from app.rules.plan import Plan
+
+    s = build(cards, "Pouncing Kavu", "Pouncing Kavu")
+    kavu = to_hand(s, "Pouncing Kavu")
+    mana(s, R=3, C=3)
+    act(s, "p1", type="cast_spell", card_id=kavu.id, kicker=1)
+    settle(s)
+    assert counters(s, kavu) == {"+1/+1": 2}
+    assert "haste" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[kavu.id]).keywords
+    s = saved(s)
+    assert "haste" in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[kavu.id]).keywords
+    replay_matches(s)
+
+
+def test_pouncing_kavu_unkicked_is_a_plain_creature(cards):
+    from app.rules.plan import Plan
+
+    s = build(cards, "Pouncing Kavu")
+    kavu = cast(s, "Pouncing Kavu", R=1, C=1)
+    settle(s)
+    assert zone(s, kavu) == "p1:battlefield" and not counters(s, kavu)
+    assert "haste" not in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[kavu.id]).keywords
+    replay_matches(saved(s))
+
+
+@pytest.mark.parametrize("name", ["Pouncing Kavu", "Faerie Squadron", "Kavu Titan", "Benalish Lancer", "Duskwalker", "Pouncing Wurm"])
+def test_kicked_with_keyword_coverage(name):
+    assert cov(name) == "FULL"
+
+
+# -- "enters with a +1/+1 counter on it for each creature that died this turn" (614.1c, history 4D) ---------------------
+def test_bloodcrazed_paladin_counts_the_creatures_that_died_this_turn(cards):
+    s = build(cards, "Bloodcrazed Paladin", "Lightning Bolt", "Grizzly Bears")
+    bears = put(s, "Grizzly Bears")
+    cast(s, "Lightning Bolt", targets=[bears.id], R=1)
+    settle(s)
+    assert zone(s, bears) == "p1:graveyard"
+    paladin = cast(s, "Bloodcrazed Paladin", B=1, C=1)
+    settle(s)
+    assert zone(s, paladin) == "p1:battlefield" and counters(s, paladin) == {"+1/+1": 1}
+    replay_matches(s)
+    replay_matches(saved(s))
+
+
+def test_bloodcrazed_paladin_alone_has_no_counters(cards):
+    s = build(cards, "Bloodcrazed Paladin")
+    paladin = cast(s, "Bloodcrazed Paladin", B=1, C=1)
+    settle(s)
+    assert zone(s, paladin) == "p1:battlefield" and not counters(s, paladin)
+
+
+@pytest.mark.parametrize("name", ["Bloodcrazed Paladin", "Grizzly Ghoul"])
+def test_died_this_turn_counters_coverage(name):
+    assert cov(name) == "FULL"
+
+
+# -- "enters with your choice of a trample counter or a menace counter on it" (614.1c, 614.12a, 122.1b) ---------------
+def test_ferocious_tigorilla_enters_with_the_chosen_keyword_counter(cards):
+    from app.rules.plan import Plan
+
+    s = build(cards, "Ferocious Tigorilla")
+    tiger = cast(s, "Ferocious Tigorilla", R=1, G=1, C=3)
+    d = s.state.rules.decision
+    for _ in range(3):
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+    assert d is not None and {o.id for o in d.options} == {"trample", "menace"}
+    s = saved(s)
+    d = s.state.rules.decision
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=["menace"])
+    settle(s)
+    assert zone(s, tiger) == "p1:battlefield" and counters(s, tiger) == {"menace": 1}
+    keywords = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[tiger.id]).keywords
+    assert "menace" in keywords and "trample" not in keywords
+    replay_matches(s)
+    replay_matches(saved(s))
+
+
+@pytest.mark.parametrize("name", ["Ferocious Tigorilla", "Boot Nipper", "Wingfold Pteron", "Helica Glider", "Flycatcher Giraffid"])
+def test_choice_of_counter_coverage(name):
+    assert cov(name) == "FULL"

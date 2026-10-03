@@ -223,6 +223,10 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                 n = _counter_amount(plan, card.id, controller, d, x)
                 if n > 0:
                     counters[d["counter"]] = counters.get(d["counter"], 0) + n
+        from app.rules import counter_choice  # -- counters (wave 7C) -- the kind its controller chose as it enters
+
+        for kind, n in counter_choice.entering(list(scripts.definitions(ch).values()), choices).items():
+            counters[kind] = counters.get(kind, 0) + n
         # -- sagas & attached-object triggers (wave 3S): a Saga's lore counters (714.3a; read ahead 714.3b) --
         from app.rules import sagas
 
@@ -534,6 +538,15 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
 
     # (-- counters (wave 5H) -- with none, other permanents' "enters with an additional …" statics may still add some;
     # ``newcomers``: the permanents entering with it, whose statics don't apply to it, 614.12)
+    # -- counters (wave 7C) -- "If ~ was kicked, it enters with two +1/+1 counters on it and with flying" (614.1c, 613.1f)
+    if not plan.manual(card):
+        from app.rules import layers
+
+        for d in scripts.definitions(plan.ch(card)).values():
+            if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters" and d.get("grant") \
+                    and _counter_amount(plan, card.id, controller, d, x) > 0:
+                layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
+                                  add_keywords=tuple(d["grant"]), duration="permanent", label=f"Enters with {d['grant'][0]}")
     if puts or replace.entering_kinds(plan, replace.candidates(plan, "counters")):
         orders = {k[len(ORDER):]: v for k, v in (choices or {}).items() if k.startswith(ORDER)}
         replace.put_counters(plan, puts, by=controller, effect=True, entering={card_id: controller}, answers=orders,

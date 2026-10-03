@@ -2823,7 +2823,8 @@ SHOCK = re.compile(r"^As ~ enters, you may pay (?P<n>\d+) life\. If you don't, i
 # "~ enters [tapped] with N … counters on it [for each …]" (614.1c); "If ~ was kicked, it enters with …" (702.33e)
 ENTERS_WITH = re.compile(r"^(?:(?P<kicked>If ~ was kicked, it)|~) enters (?P<tapped>tapped )?with "
                          r"(?P<n>twice X|X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "  # (twice X: wave 4K)
-                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it(?: for each (?P<each>.+?)|, where X is (?P<xdef>.+?))?\.$")
+                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it(?: for each (?P<each>.+?)|, where X is (?P<xdef>.+?))?"
+                         r"(?: and with (?P<kw>haste|trample|flying|first strike|fear))?\.$")  # (kw: wave 7C)
 ENTERS_TAPPED_UNLESS = re.compile(r"^~ enters tapped unless (?P<cond>.+)\.$")
 _A_THING = r"(?:a|an) (?P<{name}>[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*|legendary(?: [a-z]+)? creature|basic land|planeswalker)"
 _UNLESS_ONE_OR_TWO = re.compile(r"^you control " + _A_THING.format(name="a") + r"(?: or " + _A_THING.format(name="b") + r")?$")
@@ -3076,7 +3077,13 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         if cast_if is None or "cast" not in cast_if or cast_if.get("object") != "self":
             return None
         text = "~ enters with " + text[lead.end():]
+    from app.rules import counter_choice  # -- counters (wave 7C) --
+
+    if (chosen_kind := counter_choice.parse(text)) is not None:
+        return chosen_kind
     m = ENTERS_WITH.match(text)
+    if m and m["kw"] and (not m["kicked"] or m["each"] or m["xdef"] or cast_if is not None or m["n"] in ("X", "twice X")):
+        return None  # -- counters (wave 7C) -- "If ~ was kicked, it enters with N +1/+1 counters on it and with haste." only
     if m and (m["xdef"] or m["n"] == "twice X"):  # -- X sized by a count (wave 4K) -- "~ enters with X +1/+1 counters on it,
         # where X is the greatest power among other creatures you control" (read as it enters, 614.1c, 608.2h); "twice X":
         # the X its spell was cast with, doubled (107.3m)
@@ -3105,9 +3112,15 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
             out["tapped"] = True
         if m["kicked"]:  # 702.33e: "If ~ was kicked, it enters with …"
             out["if_kicked"] = True
+        if m["kw"]:  # -- counters (wave 7C) -- "… and with haste": the keyword it enters with, for as long as it stays
+            out["grant"] = [m["kw"]]
         if m["each"]:
             each = _for_each(m["each"])
-            if each is None or n == "X" or m["kicked"]:
+            if each is None and re.fullmatch(r"(?:nontoken )?creature that died this turn", m["each"]):
+                from app.rules import values  # -- counters (wave 7C) -- this turn's history (wave 4D), read as it enters
+
+                each = values.parse_count("the number of " + m["each"].replace("creature", "creatures", 1))
+            if each is None or n == "X" or (m["kicked"] and each == {"kicked": 1}):  # (wave 7C: kicked + each is read)
                 return None
             if each == {"kicked": 1}:  # "… for each time it was kicked" (multikicker, 702.33c)
                 out["per_kick"] = True

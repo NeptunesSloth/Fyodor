@@ -2669,6 +2669,10 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
     if what in ("opponent", "player"):
         pids = [p for p in plan.live() if what == "player" or p != ctx["controller"]]
         return [DecisionOption(id=p, label=plan.name(p)) for p in pids]
+    from app.rules import counter_choice  # -- counters (wave 7C) -- "enters with your choice of a flying or a hexproof counter"
+
+    if (kinds := counter_choice.options(what)) is not None:
+        return [DecisionOption(id=k, label=k) for k in kinds]
     # -- sagas & attached-object triggers (wave 3S): read ahead's number (702.155b) --
     from app.rules import sagas
 
