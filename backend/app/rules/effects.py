@@ -3239,3 +3239,12 @@ from app.rules import stack_interaction as _stack_interaction  # noqa: E402, I00
 PRIMITIVES.update(_stack_interaction.PRIMITIVES)
 RESUME.update(_stack_interaction.RESUME)
 # -- end stack interaction (wave 5B) --
+
+# -- token & pump wordings (wave 6C) -- Role tokens created attached to a creature (app/rules/roles.py)
+from app.rules import roles as _roles  # noqa: E402, I001
+
+PRIMITIVES.update(_roles.PRIMITIVES)
+from app.rules import decayed as _decayed  # noqa: E402, I001  (702.147: decayed's sacrifice at end of combat)
+
+PRIMITIVES.update(_decayed.PRIMITIVES)
+# -- end token & pump wordings (wave 6C) --

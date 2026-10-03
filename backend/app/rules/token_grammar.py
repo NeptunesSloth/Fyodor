@@ -51,16 +51,29 @@ PREDEFINED_TOKENS = {
     "Mutagen": ("Token Artifact — Mutagen", "{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target creature. Activate only as a sorcery."),
 }
 
-_QTY = r"\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X"
+# -- token & pump wordings (wave 6C) -- numbers past ten ("Create thirteen tapped 2/2 black Zombie creature tokens.")
+NUMBERS.update({"eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
+                "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20})
+_QTY = r"\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|" \
+       r"seventeen|eighteen|nineteen|twenty|x|X"
 _COLORS = r"colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*"
 _CAPS = r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*"
+# -- token & pump wordings (wave 6C) -- a token's name (111.4: the ability sets it): capitalized words, with the small
+# words a name may have inside ("Kobolds of Kher Keep", "Wolves of the Hunt", "Voja, Friend to Elves")
+_NAME = r"[A-Z][A-Za-z'\-]*(?:,? (?:(?:of|the|to|of the) )?[A-Z][A-Za-z'\-]*)*"
 _SENTENCE = re.compile(
-    rf"^create (?P<n>{_QTY}) (?P<tapped>tapped )?"
-    rf"(?:(?P<pt>(?:\d+|X)/(?:\d+|X)) (?P<colors>{_COLORS}) (?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?(?P<land>land )?creature tokens?"
+    rf"^create (?:(?P<n>{_QTY}) |(?P<lname>{_NAME}), an? (?P<legendary>legendary) )(?P<tapped>tapped )?"
+    rf"(?:(?P<pt>(?:\d+|X)/(?:\d+|X)) (?:(?P<colors>{_COLORS}) )?(?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?"
+    r"(?P<land>land )?creature tokens?"
     r"|(?P<pre>[A-Z][a-z]+) tokens?)"
-    rf"(?: named (?P<name>{_CAPS}))?"
+    rf"(?: named (?P<name>{_NAME}))?"
     r"(?: with (?P<with>.+?))?"
+    rf"(?: named (?P<name2>{_NAME}))?"  # (wave 6C: "… with flying named Wasp")
+    rf"(?: that's (?P<thats>all colors|{_COLORS}))?"  # (wave 6C: "an 8/8 Beast creature token that's red, green, and white")
     r"(?P<attacking> that(?:'s| are) tapped and attacking)?$")
+# (wave 6C) "For each creature your opponents control, create a 4/4 green Phyrexian Beast creature token.": the same
+# instruction as "Create a 4/4 … token for each creature your opponents control." (the count is read as it resolves)
+_EACH_FIRST = re.compile(r"^for each (?P<each>[^,\"]+), create (?P<rest>[^\"]+?(?:\"[^\"]+\")?)$")
 _RIDER = re.compile(r"^(?P<head>.+?)(?: for each (?P<each>[^\"]+)|, where [xX] is (?P<xdef>[^\"]+))$")
 
 
@@ -136,6 +149,11 @@ def parse(sentence: str) -> list[Effect] | None:
     from app.rules import scripts  # (scripts calls this module from its templates)
 
     text, each, xdef = sentence, None, None
+    first = _EACH_FIRST.match(sentence)  # -- token & pump wordings (wave 6C) --
+    if first is not None:
+        if " for each " in first["rest"] or ", where " in first["rest"]:
+            return None
+        sentence = f"create {first['rest']} for each {first['each']}"
     # -- X sized by a count (wave 4K) -- "create twice X …", "create half X Food tokens, rounded up" (107.1a: the text
     # says which way to round)
     half = re.match(r"^create (?:(?P<twice>twice X)|half X) (?P<rest>.+?)(?:, rounded (?P<round>up|down))?$", sentence)
@@ -151,7 +169,13 @@ def parse(sentence: str) -> list[Effect] | None:
     m = _SENTENCE.match(text)
     if not m:
         return None
-    n = _qty(m["n"])
+    if m["name"] and m["name2"]:
+        return None
+    if m["lname"] and (m["pre"] or m["name"] or m["name2"] or each is not None or xdef is not None or half is not None):
+        return None  # -- token & pump wordings (wave 6C) -- "create Voja, a legendary 2/2 … token": one, named so (111.4)
+    if (m["colors"] is None) == (m["thats"] is None) and not m["pre"]:
+        return None  # (the colors are said once: before the creature types, or as "that's …")
+    n = _qty(m["n"]) if m["n"] else 1
     if half is not None:
         n = {"times": [2, n]} if half["twice"] else {"half": n, "round": half["round"]}
     if each is not None:
@@ -163,7 +187,7 @@ def parse(sentence: str) -> list[Effect] | None:
             return None
         n = v if n == 1 else {"times": [n, v]}
     if m["pre"]:
-        if m["with"] or m["name"] or m["attacking"]:
+        if m["with"] or m["name"] or m["name2"] or m["thats"] or m["attacking"]:
             return None
         found = PREDEFINED_TOKENS.get(m["pre"]) or scripts.PREDEFINED_TOKENS.get(m["pre"])
         if found is None:
@@ -185,11 +209,15 @@ def parse(sentence: str) -> list[Effect] | None:
         # -- X sized by a count (wave 4K) -- "an X/X … token": the value of X as the token is created is its printed P/T
         # (111.3: its copiable values; fixed then, 608.2h), evaluated by effects.create_token
         p, t = (_qty(s) if s == "X" else s for s in m["pt"].split("/"))
-        colors = [] if m["colors"] == "colorless" else [COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", m["colors"])]
-        type_line = (f"Token {'Enchantment ' if m['ench'] else ''}{'Artifact ' if m['art'] else ''}{'Land ' if m['land'] else ''}"
-                     f"Creature — {' '.join(subtypes)}")
+        said = m["colors"] or m["thats"]
+        # (105.2c colorless; wave 6C: "that's all colors" — each of the five, 105.1)
+        colors = [] if said == "colorless" else list("WUBRG") if said == "all colors" else \
+            [COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", said)]
+        type_line = (f"{'Legendary ' if m['legendary'] else ''}Token {'Enchantment ' if m['ench'] else ''}"
+                     f"{'Artifact ' if m['art'] else ''}{'Land ' if m['land'] else ''}Creature — {' '.join(subtypes)}")
         lines = [k.capitalize() for k in kws] + ([quoted] if quoted else [])
-        token = {"name": m["name"] or " ".join(subtypes), "power": p, "toughness": t, "colors": colors,
+        name = m["lname"] or m["name"] or m["name2"]
+        token = {"name": name or " ".join(subtypes), "power": p, "toughness": t, "colors": colors,
                  "type_line": type_line, "text": "\n".join(lines)}
     if xdef is not None:  # -- X sized by a count (wave 4K) -- one X for the number and the P/T alike (107.3c)
         from app.rules import language

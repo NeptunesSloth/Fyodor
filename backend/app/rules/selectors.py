@@ -288,12 +288,17 @@ def _equal(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, (what, "==", n)))
 
 
-@_suffix(r"with (?P<kw>" + "|".join(KEYWORDS) + r")")
+# -- token & pump wordings (wave 6C) -- keywords a selector may ask about but a grant doesn't give ("if you control no
+# creatures with decayed": read from the object's keywords, like the others)
+_WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk")
+
+
+@_suffix(r"with (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")
 def _with_kw(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, with_keywords=(*s.with_keywords, m["kw"]))
 
 
-@_suffix(r"without (?P<kw>" + "|".join(KEYWORDS) + r")")
+@_suffix(r"without (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")
 def _without_kw(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, without_keywords=(*s.without_keywords, m["kw"]))
 

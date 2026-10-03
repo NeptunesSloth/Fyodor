@@ -1393,7 +1393,13 @@ def _target_forms(text: str) -> tuple[Effects, Any] | None:
 # duration (the resolved-effect layer model carries keywords only), "gains flashback until end of
 # turn" (a casting permission from the graveyard), "where X is" a quantity the value grammar
 # doesn't read, "its power" for a pronoun subject the pump can't bind itself.
-_GRANT_ITEM = rf"(?:{KEYWORDS}|⟦\d+⟧)"  # (a keyword, or -- wave 2D -- a quoted ability set aside as ⟦n⟧)
+# -- token & pump wordings (wave 6C) -- the evasion and damage keywords the engine reads from a creature's keywords
+# wherever they come from (combat.py: 702.14c landwalk, 702.28b shadow, 702.31b horsemanship, 702.36b fear, 702.13b
+# intimidate, 702.118b skulk; 702.80 wither, 702.90 infect): a resolved grant carries them like any other (613.1f)
+GRANT_KEYWORDS = KEYWORDS + "|" + "|".join(("fear", "shadow", "horsemanship", "intimidate", "skulk", "wither", "infect",
+                                             "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk",
+                                             "desertwalk"))
+_GRANT_ITEM = rf"(?:{GRANT_KEYWORDS}|⟦\d+⟧)"  # (a keyword, or -- wave 2D -- a quoted ability set aside as ⟦n⟧)
 _KW_LIST = rf"{_GRANT_ITEM}(?:(?:, and |, | and ){_GRANT_ITEM})*"
 _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX]))"
                    rf"(?: and gains? (?P<kw>{_KW_LIST}))? until end of turn"
@@ -1402,7 +1408,7 @@ _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw
 _GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
                         rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
 _GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? (?:gains?|has|have) (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
-_KW_ONLY = rf"(?:{KEYWORDS})(?:(?:, and |, | and )(?:{KEYWORDS}))*"
+_KW_ONLY = rf"(?:{GRANT_KEYWORDS})(?:(?:, and |, | and )(?:{GRANT_KEYWORDS}))*"  # (wave 6C)
 _LOSE_GAIN = re.compile(rf"(?P<o>.+?) loses? (?P<rm>{_KW_ONLY}) and gains? (?P<kw>{_KW_LIST})(?P<eot> until end of turn)?")
 _DOUBLE = re.compile(r"double (?P<o>target creature|~|this creature)'s power(?P<both> and toughness)? until end of turn")  # (wave 3D)
 _BITE = re.compile(r"(?P<s>.+?) deals damage equal to (?P<stat>its power|its toughness|twice its power|that creature's power) to (?P<o>.+)")
