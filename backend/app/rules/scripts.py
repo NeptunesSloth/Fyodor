@@ -218,6 +218,7 @@ def _it_source(word: str) -> dict[str, str]:
 # that's a new object in another zone, 400.7)
 _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
             "deal_combat_damage_player", "deal_damage", "counters_put", "targeted", "create_token"}
+_STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 # Zone-change events after which "it" is the new object the card became where it went — found
 # only there (400.7e, 603.6, 603.6c): "When ~ dies, return it to its owner's hand"
 _GONE = {"die", "leave"}
@@ -2059,6 +2060,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             '{"x": 1}' in json.dumps([e.get("n") for e in d.get("effects") or [] if e.get("do") == "optional_payment"]):
         return None
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
+        return None
+    from app.rules import tap_mana as _tm  # -- mana riders (wave 5A) -- 605.1b: adding mana makes it a mana ability
+
+    if d is not None and _tm.adds_mana(d):
         return None
     # -- chosen player (wave 4J) -- "the chosen player" is the one this permanent chose as it entered (app/rules/chosen.py):
     # only on a card with exactly one "As ~ enters, choose an opponent / a player." ("Choose target opponent. … the chosen

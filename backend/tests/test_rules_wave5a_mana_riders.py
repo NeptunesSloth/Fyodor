@@ -65,6 +65,9 @@ EXTRA = [
     card('Simian Spirit Guide', set_code="tst", number="D01", mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Ape Spirit', oracle_text='Exile this card from your hand: Add {R}.', power='2', toughness='2', colors=['R'], color_identity=['R']),  # noqa: E501
     card('Rite of Flame', set_code="tst", number="D02", mana_cost='{R}', cmc=1.0, type_line='Sorcery', oracle_text='Add {R}{R}, then add {R} for each card named Rite of Flame in each graveyard.', colors=['R'], color_identity=['R']),  # noqa: E501
     card('Accumulated Knowledge', set_code="tst", number="D03", mana_cost='{1}{U}', cmc=2.0, type_line='Instant', oracle_text='Draw a card, then draw cards equal to the number of cards named Accumulated Knowledge in all graveyards.', colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Forbidden Orchard', set_code="tst", number="F01", mana_cost='', cmc=0.0, type_line='Land', oracle_text='{T}: Add one mana of any color.\nWhenever you tap this land for mana, target opponent creates a 1/1 colorless Spirit creature token.', colors=[], color_identity=[]),  # noqa: E501
+    card('Manabarbs', set_code="tst", number="F02", mana_cost='{3}{R}', cmc=4.0, type_line='Enchantment', oracle_text='Whenever a player taps a land for mana, this enchantment deals 1 damage to that player.', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('Zhur-Taa Druid', set_code="tst", number="F03", mana_cost='{R}{G}', cmc=2.0, type_line='Creature — Human Druid', oracle_text='{T}: Add {G}.\nWhenever you tap this creature for mana, it deals 1 damage to each opponent.', power='1', toughness='1', colors=['G', 'R'], color_identity=['G', 'R']),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -615,4 +618,43 @@ def test_spirit_guide_while_paying_for_a_spell(cards):
     act(s, "p1", type="activate_ability", card_id=guide.id, ability=0)
     assert s.state.cards[guide.id].zone == "p1:exile"
     assert s.state.cards[rite.id].zone != "p1:hand"  # paid: cast
+    roundtrip(s)
+
+
+# -- triggers on tapping for mana that use the stack (605.5a, 106.12a, 603.3) -------------------------------------------------------
+def test_forbidden_orchard_gives_the_target_opponent_a_spirit(cards):
+    s = build(cards, [(1, "Forbidden Orchard"), (9, "Forest")])
+    orchard = put(s, "Forbidden Orchard", "battlefield")
+    act(s, "p1", type="activate_ability", card_id=orchard.id, ability=0, mana_choice="W")
+    assert s.state.players["p1"].mana == {"W": 1}  # the mana first (605.3b); the trigger waits for priority (603.3)
+    d = s.state.rules.decision
+    assert d is not None and [o.id for o in d.options] == ["p2"]  # "target opponent" (115.1)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["p2"])
+    pass_until_stack_empty(s)
+    spirits = [c for c in s.state.cards.values() if c.name.startswith("Spirit") and c.controller == "p2"]
+    assert len(spirits) == 1 and s.state.cards[spirits[0].id].zone == "p2:battlefield"
+    roundtrip(s)
+
+
+def test_manabarbs_when_the_payer_taps_lands(cards):
+    s = build(cards, [(1, "Manabarbs"), (1, "Grizzly Bears"), (8, "Forest")])
+    put(s, "Manabarbs", "battlefield")
+    lands(s, "Forest", n=2)
+    life = s.state.players["p1"].life
+    bears = find(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="cast_spell", card_id=bears.id)  # the auto-payer taps two Forests: two triggers
+    pass_until_stack_empty(s)
+    assert s.state.players["p1"].life == life - 2
+    roundtrip(s)
+
+
+def test_zhur_taa_druid_hurts_each_opponent(cards):
+    s = build(cards, [(1, "Zhur-Taa Druid"), (9, "Forest")])
+    druid = put(s, "Zhur-Taa Druid", "battlefield")
+    next_main(s)
+    life = s.state.players["p2"].life
+    act(s, "p1", type="activate_ability", card_id=druid.id, ability=0)
+    pass_until_stack_empty(s)
+    assert s.state.players["p1"].mana == {"G": 1} and s.state.players["p2"].life == life - 1
     roundtrip(s)

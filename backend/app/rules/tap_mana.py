@@ -172,3 +172,36 @@ def _template(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(re.compile(r"^until end of turn, whenever .+ for mana, .+$"), _template)]
+
+
+# -- triggers on tapping for mana that aren't mana abilities (605.5a: a target, or no mana) --------------------------------------
+# "Whenever you tap this land for mana, target opponent creates a 1/1 colorless Spirit creature token." (Forbidden
+# Orchard), "Whenever you tap this creature for mana, it deals 1 damage to each opponent." (Zhur-Taa Druid), "Whenever a
+# player taps a land for mana, this enchantment deals 1 damage to that player." (Manabarbs): ordinary triggered abilities
+# (603), put on the stack the next time a player would receive priority (603.3) — after the spell being paid for is cast.
+# The event is a mana ability with {T} in its cost resolving and producing mana (106.12a): app/rules/casting.py emits
+# "mana_added" with counter "tap"; app/rules/triggers.py reads it as the fact "tapped_for_mana" (its player: who tapped).
+_CONDITION = re.compile(r"(?P<p>you|a player) taps? (?P<o>~|an? [^,]+?) for mana")
+
+
+def condition(c: str) -> dict[str, Any] | None:
+    from app.rules import selectors
+
+    m = _CONDITION.fullmatch(c)
+    if m is None:
+        return None
+    if m["o"] == "~":
+        return {"event": "tapped_for_mana", "subject": "self"} if m["p"] == "you" else None
+    sel = selectors.parse(re.sub(r"^an? ", "", m["o"]))
+    if sel is None or sel.player is not None or sel.zones not in ((), ("battlefield",)):
+        return None
+    return {"event": "tapped_for_mana", "subject": "player", "player": "you" if m["p"] == "you" else "any", "obj": sel.key()}
+
+
+def adds_mana(d: dict[str, Any]) -> bool:
+    """A "tapped for mana" trigger that would add mana is a triggered mana ability (605.1b), never a stack trigger: the
+    ones this module doesn't read stay manual."""
+    import json
+
+    cond = d.get("cond") or {}
+    return d.get("kind") == "triggered" and cond.get("event") == "tapped_for_mana" and '"add_mana"' in json.dumps(d)

@@ -184,6 +184,11 @@ def _parse(c: str) -> Condition | None:
     found = _player_action(c)
     if found is not None:
         return found
+    from app.rules import tap_mana  # -- mana riders (wave 5A) -- "you tap ~ for mana", "a player taps a land for mana"
+
+    found = tap_mana.condition(c)
+    if found is not None:
+        return found
     m = _GETS_COUNTERS.fullmatch(c)  # -- counters & designations (wave 3E): "whenever you get one or more {E}" (122.6) --
     if m:
         return {"event": "player_counters", "subject": "player", "player": _PLAYERS[m["p"]],

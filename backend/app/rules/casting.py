@@ -861,10 +861,13 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[
         extras.append((card, index, ability))
         if ability.extra_cost:
             life += parse_ability_cost(ability.extra_cost, card_name=plan.ch(card).name).life
+    oids = {card.id: plan.oid(card) for card, _, _ in extras}  # (wave 5A: the objects as they were tapped)
     plan.do({"type": "rules_mana", "player": player, "tap": payment.tapped, "sacrifice": payment.sacrificed,
              "delta": payment.delta(), "life": life, "label": label}, actor=player)
     for card, index, ability in extras:
-        emit(plan.state, "mana_added", object_id=plan.oid(card), card=card.id, player=player)
+        # -- mana riders (wave 5A) -- counter "tap": tapped for mana (106.12a: an ability with {T} in its cost)
+        emit(plan.state, "mana_added", object_id=oids[card.id], card=card.id, player=player,
+             counter="tap" if ability.tap else None)
         after_mana_ability(plan, card, index, ability)
     payment.life = life
     return payment
@@ -2642,10 +2645,12 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
 
         replace_.put_counters(plan, [(card.id, ability.self_counter, 1)], by=card.controller, effect=False)
     mana = _count(option)
+    oid = plan.oid(card)  # (wave 5A: the object as it was tapped)
     plan.do({"type": "rules_mana", "player": card.controller, "tap": [card.id] if ability.tap else [],
              "sacrifice": [card.id] if ability.sacrifice_self else [], "delta": mana,
              "life": extra.life if extra else 0, "label": f"added {M.symbols(mana)}"}, actor=card.controller)
-    emit(plan.state, "mana_added", object_id=plan.oid(card), card=card.id, player=card.controller, amount=sum(mana.values()))
+    emit(plan.state, "mana_added", object_id=oid, card=card.id, player=card.controller, amount=sum(mana.values()),
+         counter="tap" if ability.tap else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
     if index is not None:
         after_mana_ability(plan, card, index, ability)
 
@@ -2700,7 +2705,8 @@ def _add_paid_mana(plan: Plan, card: CardInstance, ability: M.ManaAbility, optio
     mana = _count(option)
     plan.do({"type": "rules_mana", "player": card.controller, "tap": [], "sacrifice": [], "delta": mana, "life": 0,
              "label": f"added {M.symbols(mana)}"}, actor=plan.actor)
-    emit(plan.state, "mana_added", object_id=oid, card=card.id, player=card.controller, amount=sum(mana.values()))
+    emit(plan.state, "mana_added", object_id=oid, card=card.id, player=card.controller, amount=sum(mana.values()),
+         counter="tap" if ability.tap else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
     after_mana_ability(plan, card, index, ability)
 
 
