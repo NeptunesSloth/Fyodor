@@ -21,6 +21,7 @@ from app.game.state import GameState
 from app.rules import coverage, scripts
 from app.rules.characteristics import Characteristics
 from app.rules.oracle import parse_abilities
+from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_attachments import build, mana, named, to_hand, token
@@ -486,4 +487,101 @@ def test_step_trigger_binds_the_player_whose_turn_it_is(cards):
         raise AssertionError("the trigger never asked for its target")
     pass_until_stack_empty(s)
     assert s.state.cards[theirs.id].tapped and not s.state.cards[mine.id].tapped
+    roundtrip(s)
+
+
+# -- more instruction forms -----------------------------------------------------------------------------------------
+FORMS = [
+    card('Crackling Doom', set_code="tst", number="B641", mana_cost="{R}{W}{B}", cmc=3.0, type_line="Instant",
+         oracle_text='Crackling Doom deals 2 damage to each opponent. Each opponent sacrifices a creature with the greatest '
+                     'power among creatures that player controls.', colors=['B', 'R', 'W'], color_identity=['B', 'R', 'W']),
+    card("Misthios's Fury", set_code="tst", number="B642", mana_cost="{1}{R}", cmc=2.0, type_line="Instant",
+         oracle_text="Misthios's Fury deals 3 damage to target creature. If you control an Equipment, Misthios's Fury also "
+                     "deals 2 damage to that creature's controller.", colors=['R'], color_identity=['R']),
+]
+EXTRA += FORMS
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in FORMS])
+def test_forms_coverage_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_crackling_doom_offers_only_the_greatest_power(cards):
+    s = build(cards, "Crackling Doom")
+    big = token(s, "p2", "Big", "5/5")
+    also_big = token(s, "p2", "Also Big", "5/1")
+    small = token(s, "p2", "Small", "2/2")
+    token(s, "p1", "Mine", "9/9")  # (not Bob's: never compared)
+    cast(s, "Crackling Doom", R=1, W=1, B=1)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"
+    assert {o.card_id for o in d.options if o.card_id} == {big.id, also_big.id}  # ties: his choice (the 2/2 isn't one)
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.card_id == also_big.id)])
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 38 and zone(s, also_big) != "p2:battlefield"
+    assert zone(s, big) == "p2:battlefield" and zone(s, small) == "p2:battlefield"
+    roundtrip(s)
+
+
+@pytest.mark.parametrize(("equipped", "bob"), [(True, 38), (False, 40)])
+def test_also_deals_damage_to_that_creatures_controller(cards, equipped, bob):
+    s = build(cards, "Misthios's Fury")
+    ogre = token(s, "p2", "Ogre", "5/5")
+    if equipped:
+        act(s, "p1", type="create_token", player="p1", token={"name": "Blade", "type_line": "Token Artifact — Equipment"})
+    cast(s, "Misthios's Fury", targets=[ogre.id], R=1, C=1)
+    assert s.state.cards[ogre.id].damage == 3 and life(s, "p2") == bob
+    roundtrip(s)
+
+
+def test_gets_and_deals_one_subject_two_instructions(cards):
+    s = build(cards)
+    eel = token(s, "p1", "Eel", "1/3", "{R}{R}: This creature gets +2/+0 until end of turn and deals 1 damage to you.")
+    mana(s, R=2)
+    act(s, "p1", type="activate_ability", card_id=eel.id, ability=0)
+    pass_until_stack_empty(s)
+    assert life(s, "p1") == 39
+    plan_power = Plan.view(s.state, "p1", s.cards)
+    assert plan_power.ch(s.state.cards[eel.id]).pt[0] == 3
+    roundtrip(s)
+
+
+JAVELINEER = "Haste\nWhenever this creature becomes blocked, it deals 1 damage to target creature blocking it."
+BERSERKER = "Haste\nWhenever this creature becomes blocked, it gets +1/+1 until end of turn for each creature blocking it."
+
+
+def test_target_creature_blocking_it(cards):
+    s = build(cards)
+    javelineer = token(s, "p1", "Javelineer", "2/2", JAVELINEER)
+    blocker = token(s, "p2", "Blocker", "1/1")
+    bystander = token(s, "p2", "Bystander", "1/1")
+    to_combat(s, javelineer)
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": blocker.id, "attacker_id": javelineer.id}])
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_one":
+            assert {o.card_id for o in d.options} == {blocker.id}  # only the creature blocking it
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[blocker.id])
+            continue
+        if not s.state.rules.stack and not s.state.rules.pending_triggers:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    pass_until_stack_empty(s)
+    assert zone(s, blocker) != "p2:battlefield" and zone(s, bystander) == "p2:battlefield"
+    roundtrip(s)
+
+
+def test_count_of_creatures_blocking_it(cards):
+    s = build(cards)
+    berserker = token(s, "p1", "Berserker", "1/1", BERSERKER)
+    a = token(s, "p2", "Elf A", "1/1")
+    b = token(s, "p2", "Elf B", "1/1")
+    to_combat(s, berserker)
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": a.id, "attacker_id": berserker.id},
+                                                  {"blocker_id": b.id, "attacker_id": berserker.id}])
+    pass_until_stack_empty(s)
+    plan = Plan.view(s.state, "p1", s.cards)
+    assert s.state.cards[berserker.id].zone == "p1:battlefield"
+    assert plan.ch(s.state.cards[berserker.id]).pt == (3, 3)  # +2/+2: two blockers
     roundtrip(s)

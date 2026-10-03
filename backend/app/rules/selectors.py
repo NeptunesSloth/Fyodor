@@ -224,6 +224,11 @@ def _that_player_controls(s: Selector, m: re.Match[str]) -> Selector:  # to it a
     return replace(s, controller=THAT_PLAYER)  # (triggers.bind_that_player: "player:<id>"; unbound, nothing matches)
 
 
+@_suffix(r"(?P<b>blocking it|it['’]s blocking)")  # "target creature blocking it" / "… it's blocking": the source's
+def _blocking_source(s: Selector, m: re.Match[str]) -> Selector:  # blocks (509.1; scripts._event_refs_ok: "it" is ~)
+    return replace(s, extras=(*s.extras, "blocking_source" if m["b"] == "blocking it" else "blocked_by_source"))
+
+
 @_suffix(r"with toughness greater than (?:its|their) power")  # (Ghalta the Immovable, Bedrock Tortoise)
 def _toughness_over_power(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "toughness_gt_power"))
@@ -964,6 +969,19 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             from app.rules import damage_history
 
             if not damage_history.matches(plan, card, extra, you):
+                return False
+        if extra in ("blocking_source", "blocked_by_source"):  # -- damage wordings (wave 6B) -- the source's block now
+            src = plan.state.cards.get(source or "")
+            if src is None or not src.zone.endswith(":battlefield") or not card.zone.endswith(":battlefield"):
+                return False
+            if (card.blocking != src.id) if extra == "blocking_source" else (src.blocking != card.id):
+                return False
+        if extra == "greatest_power_own":  # -- damage wordings (wave 6B) -- the greatest power among creatures its
+            # controller controls (Crackling Doom: what the sacrificing player may choose; ties all qualify)
+            mine = _stat(ch, "power")
+            others = [_stat(plan.ch(c), "power") for c in plan.state.cards.values()
+                      if c.controller == card.controller and c.zone.endswith(":battlefield") and plan.ch(c).is_creature]
+            if mine is None or any(p is None or p > mine for p in others):
                 return False
         if extra == "toughness_gt_power":  # -- damage wordings (wave 6B) -- as it is now (611.3a for a static)
             p, t = _stat(ch, "power"), _stat(ch, "toughness")

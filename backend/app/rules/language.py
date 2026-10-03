@@ -947,6 +947,16 @@ def _parse(text: str) -> tuple[Effects, Any]:
     lead = _EOT_LEAD.match(text)  # -- quoted grants (wave 2D) -- "Until end of turn, target creature gets +1/+0."
     if lead:
         return _end_of_turn_first(lead["rest"])
+    # -- damage wordings (wave 6B) -- "If you control an Equipment, ~ also deals 2 damage to that creature's controller":
+    # "also" says only that it adds to the instruction before it (another damage event, after it: 608.2c)
+    text = re.sub(r"^(~|it) also deals ", r"\1 deals ", text)
+    # "~ gets +1/+1 until end of turn and deals 1 damage to each opponent": one subject, two instructions in order
+    both =re.fullmatch(r"(?P<s>~|it) (?P<g>gets [+−-]\d+/[+−-]\d+ until end of turn) and (?P<d>deals .+)", text)
+    if both:
+        first, second = _parse(f"{both['s']} {both['g']}"), _parse(f"{both['s']} {both['d']}")
+        if first[1] is not None and second[1] is not None:
+            raise _Fail  # (two targets: not this form)
+        return first[0] + second[0], first[1] if first[1] is not None else second[1]
     found = _search(text) or _search_gy(text) or _looking(text)  # (_search_gy: refused zones/sized, wave 3R4)
     if found is not None:
         return found
@@ -1023,9 +1033,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = re.fullmatch(_SUBJ + rf"sacrifices? (?P<n>{AMT}) (?P<sel>.+)", text)
     if m and rider is None:
         who, target = _subject(m)
-        sel = selectors.parse(m["sel"])
+        # -- damage wordings (wave 6B) -- "Each opponent sacrifices a creature with the greatest power among creatures
+        # that player controls" (Crackling Doom): among the sacrificing player's own creatures (ties: their choice)
+        greatest = re.fullmatch(r"(?P<s>creature) with the greatest power among creatures (?:that player|they) controls?",
+                                m["sel"])
+        sel = selectors.parse(greatest["s"] if greatest else m["sel"])
         if sel is None or sel.player is not None:
             raise _Fail
+        if greatest:
+            sel = replace(sel, extras=(*sel.extras, "greatest_power_own"))
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
     found = player_counters(text, rider) or (designation_instruction(text) if rider is None else None)  # (wave 3E)
     if found is not None:

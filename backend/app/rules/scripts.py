@@ -2492,6 +2492,13 @@ def _event_refs_ok(d: Definition) -> bool:
         return False
     # -- damage wordings (wave 6B) -- "target artifact that player controls": the one player a trigger is about, bound
     # as it's put on the stack (triggers.bind_that_player) — never in a spell, nor beside a target player (which one?)
+    # "target creature blocking it" / "it's blocking": "it" must be the source itself, still there to be read (a cost that
+    # sacrifices it — Tinder Wall — leaves only its last known block, which isn't kept)
+    if "blocking_source" in json.dumps(d) or "blocked_by_source" in json.dumps(d):
+        self_trigger = d.get("kind") == "triggered" and _trigger_antecedent(str(d.get("trigger")), d.get("cond")) == "self"
+        mine = d.get("kind") == "activated" and not re.search(r"\b[Ss]acrifice (?:this|~)", str(d.get("cost")))
+        if not (self_trigger or mine):
+            return False
     if '\\"controller\\":\\"that_player\\"' in json.dumps(d):
         cond = d.get("cond") if d.get("trigger") == "event" else None
         about_player = step_names_player(d) or (cond is not None and cond["event"] != "multi" and _has_player(cond))
