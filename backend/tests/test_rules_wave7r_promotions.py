@@ -50,6 +50,9 @@ ORACLE = {
     'Charitable Levy': ('{1}{W}', 2.0, 'Enchantment',
         'Noncreature spells cost {1} more to cast.\nWhenever a player casts a noncreature spell, put a collection counter on this enchantment. Then if there are three or more collection counters on it, sacrifice it. If you do, draw a card, then you may search your library for a Plains card, put it onto the battlefield tapped, then shuffle.',
         None, None, ['W']),
+    'Chilling Shade': ('{2}{B}', 3.0, 'Snow Creature — Shade',
+        'Flying\n{S}: This creature gets +1/+1 until end of turn. ({S} can be paid with one mana from a snow source.)',
+        '1', '1', ['B']),
     'Chronatog Totem': ('{3}', 3.0, 'Artifact',
         '{T}: Add {U}.\n{1}{U}: This artifact becomes a 1/2 blue Atog artifact creature until end of turn.\n{0}: This creature gets +3/+3 until end of turn. You skip your next turn. Activate only once each turn and only if this permanent is a creature.',
         None, None, []),
@@ -70,6 +73,9 @@ ORACLE = {
         None, None, ['G']),
     'Flitterwing Nuisance': ('{U}', 1.0, 'Creature — Faerie Rogue',
         'Flying\nThis creature enters with a -1/-1 counter on it.\n{2}{U}, Remove a counter from this creature: Whenever a creature you control deals combat damage to a player or planeswalker this turn, draw a card.',
+        '2', '2', ['U']),
+    'Frost Raptor': ('{2}{U}', 3.0, 'Snow Creature — Bird',
+        "Flying\n{S}{S}: This creature gains shroud until end of turn. ({S} can be paid with one mana from a snow source. A creature with shroud can't be the target of spells or abilities.)",
         '2', '2', ['U']),
     'Gnawing Crescendo': ('{2}{R}', 3.0, 'Instant',
         'Creatures you control get +2/+0 until end of turn. Whenever a nontoken creature you control dies this turn, create a 1/1 black Rat creature token with "This token can\'t block."',
@@ -122,6 +128,9 @@ ORACLE = {
     'Phyrexian Ironfoot': ('{3}', 3.0, 'Snow Artifact Creature — Phyrexian Construct',
         "This creature doesn't untap during your untap step.\n{1}{S}: Untap this creature. ({S} can be paid with one mana from a snow source.)",
         '3', '4', []),
+    'Phyrexian Snowcrusher': ('{6}', 6.0, 'Snow Artifact Creature — Phyrexian Juggernaut',
+        'This creature attacks each combat if able.\n{1}{S}: This creature gets +1/+0 until end of turn. ({S} can be paid with one mana from a snow source.)',
+        '6', '5', []),
     "Puppet's Verdict": ('{1}{R}{R}', 3.0, 'Instant',
         'Flip a coin. If you win the flip, destroy all creatures with power 2 or less. If you lose the flip, destroy all creatures with power 3 or greater.',
         None, None, ['R']),
@@ -176,6 +185,7 @@ ORACLE = {
 }
 
 
+
 def real(*names: str) -> list[dict[str, Any]]:
     out = []
     for i, n in enumerate(names):
@@ -227,7 +237,12 @@ def test_still_full(name):
 def flips(monkeypatch, *results):
     """The coins come up as asked, in order (the result is recorded on the step: a replay doesn't flip again)."""
     queue = list(results)
-    monkeypatch.setattr("app.game.resolve._rng_int", lambda rng, lo, hi: 1 if (queue.pop(0) if queue else True) else 0)
+
+    def coin(rng, lo, hi):
+        value = queue.pop(0) if len(queue) > 1 else queue[0]  # (the last result repeats)
+        return 1 if value else 0
+
+    monkeypatch.setattr("app.game.resolve._rng_int", coin)
 
 
 def chars(s, c, pid="p1"):
@@ -537,4 +552,176 @@ def test_volatile_rig_sacrifices_itself_and_then_blows_up(cards, monkeypatch):
     settle(s)
     assert not alive(s, rig) and not alive(s, bystander)
     assert s.state.players["p1"].life == 36 and s.state.players["p2"].life == 33  # (3 trampled over, then 4)
+    check(s)
+
+
+# -- activated abilities with restrictions, modes and counters ---------------------------------------------------------
+def test_triassic_egg_needs_two_hatchling_counters_and_returns_a_creature(cards):
+    s = sandbox(cards, "Triassic Egg", "Grizzly Bears")
+    egg = put(s, "Triassic Egg")
+    bears = to_hand(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "graveyard"})
+    to_main1(s)
+    idx = ability_of(s, egg, "Choose one")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=egg.id, ability=idx, modes=[1], targets=[bears.id])
+    act(s, "p1", type="counter", card_ids=[egg.id], kind="hatchling", delta=2)
+    act(s, "p1", type="activate_ability", card_id=egg.id, ability=idx, modes=[1], targets=[bears.id])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[egg.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_oracles_vault_plays_for_free_only_with_three_brick_counters(cards):
+    s = sandbox(cards, "Oracle's Vault")
+    vault = put(s, "Oracle's Vault")
+    to_main1(s)
+    s.state.rules.controlled_since[vault.id].turn = 0
+    free = ability_of(s, vault, "without paying")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=vault.id, ability=free)
+    mana(s, C=2)
+    activate(s, vault, "Put a brick counter")
+    assert s.state.cards[vault.id].counters.get("brick") == 1 and s.state.cards[vault.id].tapped
+    act(s, "p1", type="counter", card_ids=[vault.id], kind="brick", delta=2)
+    act(s, "p1", type="tap", card_ids=[vault.id], tapped=False)
+    top = s.state.zones["p1:library"][0]
+    activate(s, vault, "without paying")
+    assert s.state.cards[top].zone == "p1:exile"
+    check(s)
+
+
+def test_family_favor_shields_an_attacker_that_pays_for_a_card(cards):
+    s = sandbox(cards, "Family's Favor")
+    put(s, "Family's Favor")
+    hero = creature(s, "p1", "Hero", "2/2")
+    combat_step(s)
+    hand = len(s.state.zones["p1:hand"])
+    attack(s, (hero, "p2"))
+    settle(s)
+    through_combat(s)
+    assert s.state.players["p2"].life == 38
+    assert not s.state.cards[hero.id].counters.get("shield")  # (removed by the granted trigger)
+    assert len(s.state.zones["p1:hand"]) == hand + 1
+    check(s)
+
+
+def test_charitable_levy_taxes_noncreature_spells_and_is_sacrificed_on_the_third(cards):
+    s = sandbox(cards, "Charitable Levy", "Opt", "Lightning Bolt", "Giant Growth")
+    levy = put(s, "Charitable Levy")
+    bear = creature(s, "p2", "Bear", "4/4")
+    spells = [(to_hand(s, "Opt"), {"U": 1, "C": 1}, []), (to_hand(s, "Lightning Bolt"), {"R": 1, "C": 1}, [bear.id]),
+              (to_hand(s, "Giant Growth"), {"G": 1, "C": 1}, [bear.id])]
+    to_main1(s)
+    for i, (spell, paid, targets) in enumerate(spells):
+        mana(s, **paid)
+        if i == 0:  # (the tax is real: {U} alone doesn't cast Opt)
+            s.state.players["p1"].mana = {"U": 1}
+            with pytest.raises(ActionError):
+                act(s, "p1", type="cast_spell", card_id=spell.id)
+            s.state.players["p1"].mana = paid
+        act(s, "p1", type="cast_spell", card_id=spell.id, **({"targets": targets} if targets else {}))
+        settle(s)
+    assert s.state.cards[levy.id].zone == "p1:graveyard"
+    assert s.state.cards[levy.id].counters.get("collection") is None
+    check(s)
+
+
+# -- snow ({S}) activations ------------------------------------------------------------------------------------------------
+def snow_table(cards, *names, forests=9, p2=()):
+    """A sandbox with ``forests`` Snow-Covered Forests in play for Alice, rules on, in her first main phase."""
+    s = sandbox(cards, *names, p2=p2)
+    for _ in range(forests):
+        act(s, "p1", type="create_token", player="p1", token={
+            "name": "Snow-Covered Forest", "type_line": "Basic Snow Land — Forest", "power": None, "toughness": None, "text": "({T}: Add {G}.)"})
+    return s
+
+
+def test_ascendant_spirit_levels_up_with_snow_mana(cards):
+    s = snow_table(cards, "Ascendant Spirit")
+    spirit = put(s, "Ascendant Spirit")
+    to_main1(s)
+    activate(s, spirit, "Spirit Warrior with base")
+    assert {"Spirit", "Warrior"} <= set(chars(s, spirit).subtypes) and pt(s, spirit) == (2, 3)
+    activate(s, spirit, "If this creature is a Warrior")
+    assert "Angel" in chars(s, spirit).subtypes and pt(s, spirit) == (4, 4)
+    assert s.state.cards[spirit.id].counters.get("flying") == 1
+    lands = [c for c in s.state.cards.values() if c.name == "Snow-Covered Forest"]
+    assert sum(1 for c in lands if c.tapped) == 5
+    check(s)
+
+
+def test_a_non_snow_source_cannot_pay_snow_mana(cards):
+    s = sandbox(cards, "Chilling Shade")
+    shade = put(s, "Chilling Shade")
+    for _ in range(3):
+        act(s, "p1", type="create_token", player="p1", token={
+            "name": "Forest", "type_line": "Basic Land — Forest", "power": None, "toughness": None, "text": "({T}: Add {G}.)"})
+    to_main1(s)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=shade.id, ability=ability_of(s, shade, "{S}:"))
+    check(s)
+
+
+# -- energy, ice counters, "you may flip", delayed draws -----------------------------------------------------------------
+def test_multiform_wonder_pays_energy_for_its_choices(cards):
+    s = build(cards, "Multiform Wonder")
+    wonder = to_hand(s, "Multiform Wonder")
+    mana(s, C=5)
+    act(s, "p1", type="cast_spell", card_id=wonder.id)
+    settle(s)
+    assert s.state.players["p1"].resources.get("energy") == 3
+    act(s, "p1", type="activate_ability", card_id=wonder.id, ability=ability_of(s, wonder, "your choice of flying"))
+    decide_first(s, index=2)  # lifelink
+    settle(s)
+    assert "lifelink" in chars(s, wonder).keywords and s.state.players["p1"].resources.get("energy") == 2
+    act(s, "p1", type="activate_ability", card_id=wonder.id, ability=ability_of(s, wonder, "+2/-2"))
+    decide_first(s, index=0)
+    settle(s)
+    assert pt(s, wonder) == (5, 1) and s.state.players["p1"].resources.get("energy") == 1
+    check(s)
+
+
+def test_rimescale_dragon_taps_and_freezes_a_creature(cards):
+    s = snow_table(cards, "Rimescale Dragon", p2=())
+    dragon = put(s, "Rimescale Dragon")
+    bear = creature(s, "p2", "Bear", "2/2")
+    to_main1(s)
+    activate(s, dragon, "ice counter", targets=[bear.id])
+    assert s.state.cards[bear.id].tapped and s.state.cards[bear.id].counters.get("ice") == 1
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    assert s.state.cards[bear.id].tapped  # it didn't untap in its controller's untap step
+    check(s)
+
+
+@pytest.mark.parametrize("heads", [True, False])
+def test_goblin_bomb_may_flip_each_upkeep(cards, monkeypatch, heads):
+    flips(monkeypatch, heads)
+    s = sandbox(cards, "Goblin Bomb")
+    bomb = put(s, "Goblin Bomb")
+    act(s, "p1", type="counter", card_ids=[bomb.id], kind="fuse", delta=2)
+    turn_on_rules(s)
+    until(s, lambda s: s.state.turn.number == 2)  # (the first upkeep's "you may flip" is answered: the first option, yes)
+    assert s.state.cards[bomb.id].counters.get("fuse") == (3 if heads else 1)
+    check(s)
+
+
+def turn_on_rules(s):
+    from tests.game_helpers import turn_on
+
+    turn_on(s)
+
+
+def test_immortus_adds_blue_per_card_drawn_for_noncreature_spells_only(cards):
+    s = sandbox(cards, "Immortus, Master of Eternity", "Opt", "Merfolk Looter")
+    im = put(s, "Immortus, Master of Eternity")
+    opt, looter = to_hand(s, "Opt"), to_hand(s, "Merfolk Looter")
+    to_main1(s)
+    s.state.rules.controlled_since[im.id].turn = 0
+    act(s, "p1", type="draw", player="p1", count=2)
+    with pytest.raises(ActionError):  # (Immortus' mana can't pay for a creature spell)
+        act(s, "p1", type="cast_spell", card_id=looter.id)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    settle(s)
+    assert s.state.cards[im.id].tapped and s.state.cards[opt.id].zone == "p1:graveyard"
     check(s)
