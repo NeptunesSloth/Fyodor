@@ -14,8 +14,15 @@ from __future__ import annotations
 import json
 
 from tests.game_helpers import act, zone
-from tests.test_rules_effects import build, mana, replay_matches, token
-from tests.test_rules_player_choices import activate, assert_observer_sees_only_who, bob_holds, bobs_hand, choose, reloaded
+from tests.test_rules_effects import build, replay_matches, token
+from tests.test_rules_player_choices import (
+    activate,
+    assert_observer_sees_only_who,
+    bob_holds,
+    bobs_hand,
+    choose,
+    reloaded,
+)
 
 PROBE = "Look at target player's hand."
 INQUISITION = ("Target player reveals their hand. You choose a nonland card from it with mana value 3 or less. "

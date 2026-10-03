@@ -9,9 +9,8 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.test_rules_effects import replay_matches, token
+from tests.test_rules_effects import build, replay_matches, token
 from tests.test_rules_player_choices import activate, assert_observer_sees_only_who, choose, reloaded
-from tests.test_rules_effects import build
 from tests.test_rules_scripts import ch
 
 DIVINE_RECKONING = "Each player chooses a creature they control. Destroy the rest."
@@ -93,7 +92,7 @@ def test_covetous_elegy_up_to_two_and_then_the_treasures(cards):
 def test_planetary_annihilation_keeps_six_lands_then_deals_damage(cards):
     s = build(cards)
     lands = []
-    for i in range(8):
+    for _ in range(8):
         card = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone.endswith(":library")
                     and c.id not in [x.id for x in lands])
         act(s, "p1", type="move", card_ids=[card.id], to={"player": "p1", "zone": "battlefield"})
