@@ -96,6 +96,9 @@ EXTRA = [
     real('Merfolk Looter', '{1}{U}', 2, 'Creature — Merfolk Rogue',
          '{T}: Draw a card, then discard a card.',
          ('1', '1'), 'U', []),
+    real('Joraga Treespeaker', '{G}', 1, 'Creature — Elf Druid',
+         'Level up {1}{G} ({1}{G}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 1-4\n1/2\n{T}: Add {G}{G}.\nLEVEL 5+\n1/4\nElves you control have "{T}: Add {G}{G}."',
+         ('1', '1'), 'G', ['Level Up']),
     real("Caprichrome", "{3}{W}", 4, "Artifact Creature — Goat",
          "Flash\nVigilance\nDevour artifact 1 (As this creature enters, you may sacrifice any number of artifacts. It enters "
          "with that many +1/+1 counters on it.)", ("2", "2"), "W", ["Vigilance", "Flash", "Devour"]),
@@ -566,4 +569,20 @@ def test_lighthouse_chronologist_takes_extra_turns_only_from_level_seven(cards):
     assert pt(s, chron) == (3, 5)
     to_turn(s, 4)
     assert s.state.turn.active_player == "p1"  # Alice took the extra turn after Bob's: turns 3 and 4 are hers
+    roundtrip(s)
+
+
+def test_joraga_treespeaker_taps_for_mana_at_level_one_and_gives_elves_the_ability_at_five(cards):
+    s = build(cards, "Joraga Treespeaker", "Llanowar Elves")
+    elves = on_field(s, "Llanowar Elves")
+    joraga = cast_with(s, "Joraga Treespeaker", G=1)
+    level(s, joraga, 1)
+    assert pt(s, joraga) == (1, 2)
+    assert not [a for a in derived(s, elves).abilities if "{G}{G}" in a.text]  # only Joraga has it at level 1
+    level(s, joraga, 5)
+    assert pt(s, joraga) == (1, 4)
+    assert [a for a in derived(s, elves).abilities if "{G}{G}" in a.text]  # LEVEL 5+: Elves you control have it
+    to_turn(s, 3)
+    activate(s, elves, "{G}{G}")
+    assert s.state.players["p1"].mana.get("G", 0) == 2
     roundtrip(s)

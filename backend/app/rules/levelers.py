@@ -18,7 +18,7 @@ import re
 _LEVEL_UP = re.compile(r"^Level up ((?:\{[^}]+\})+)$")
 _SYMBOL = re.compile(r"^LEVEL (\d+)(?:-(\d+)|(\+))$")
 _PT = re.compile(r"^\d+/\d+$")
-_STARTS_AS_ABILITY = re.compile(r"^(?:When|Whenever|At) |: ")
+_STARTS_AS_ABILITY = re.compile(r"^(?:When|Whenever|At) |^[^\"]*: ")
 
 
 def condition(lo: int, hi: int | None) -> str:
