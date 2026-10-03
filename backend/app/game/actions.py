@@ -217,6 +217,7 @@ class Counter(Base):
     card_ids: IdList
     kind: str = Field(min_length=1, max_length=40)
     delta: int = Field(default=1, ge=-1000, le=1000)
+    group: int = Field(default=0, ge=0)  # -- counters (wave 7C) -- the steps of one instruction's counters (Event.group)
 
     @field_validator("kind")
     @classmethod

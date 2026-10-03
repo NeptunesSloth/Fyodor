@@ -1146,6 +1146,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
     found = _target_forms(text)  # -- target forms (agent T) --
     if found is not None:
         return found
+    # -- counters (wave 7C) -- "Exile ~ with three time counters on it." (the printed spell half of a suspend card, 702.62b)
+    m = re.fullmatch(rf"exile ~ with (?P<n>{AMT}) time counters on it", text)
+    if m and rider is None:
+        n = _amount(m["n"])
+        if isinstance(n, int):
+            return [{"do": "spell_self_move", "to": "exile", "counters": {"time": n}}], None
+    # -- end counters (wave 7C) --
     m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap) (?P<o>.+)", text)
     if m:
         whos, groups = _objects(m["o"])
@@ -1197,7 +1204,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "bounce", "who": "self" if text.startswith("return ~") else "it"}], None
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|their hand|your hand|"
                      r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?"
-                     r"(?: with (?:an?|one) (?P<ck>\+1/\+1|-1/-1|[a-z]+) counter on it)?)", text)
+                     r"(?: with (?:an?|one) (?P<ck>[+-]\d+/[+-]\d+|[a-z]+) counter on it)?)", text)
     if m:
         kind, key, group = ref(m["o"])
         if kind in ("players", "self"):
@@ -1222,7 +1229,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["d"] == "your hand":
             raise _Fail
         return [{"do": "bounce", "who": who}], target
-    m = re.fullmatch(rf"distribute (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters among (?P<o>.+)", text)
+    m = re.fullmatch(rf"distribute (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters among (?P<o>.+)", text)
     if m and rider is None:  # 601.2d: counters divided among the targets as the ability is put on the stack
         if m["k"] in values.UNMODELED_COUNTERS:
             raise _Fail
@@ -1234,8 +1241,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # left (otherwise it would be a move, 122.5: refused)
     # "put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control"
     # (Brokers Ascendancy): one instruction, all at once (122.6)
-    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o>each [^,]+?) and "
-                     rf"(?P<n2>{AMT}) (?P<k2>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o2>each .+)", text)
+    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o>each [^,]+?) and "
+                     rf"(?P<n2>{AMT}) (?P<k2>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o2>each .+)", text)
     if m and rider is None and "target" not in text:
         if m["k"] in values.UNMODELED_COUNTERS or m["k2"] in values.UNMODELED_COUNTERS:
             raise _Fail
@@ -1261,10 +1268,10 @@ def _parse(text: str) -> tuple[Effects, Any]:
                  "who": _who(kind, key)}], _one(group)
     # -- counters (wave 5H) -- "put a +1/+1 counter, a reach counter, and a deathtouch counter on target creature",
     # "put two +1/+1 counters and a flying counter on …": counters of several kinds put at once (one event, 122.6)
-    m = re.fullmatch(rf"put (?P<list>(?:(?:{AMT}) (?:\+1/\+1|-1/-1|[a-z]+(?: [a-z]+)?) counters?,? )+and "
-                     rf"(?:{AMT}) (?:\+1/\+1|-1/-1|[a-z]+(?: [a-z]+)?) counters?) on (?P<o>.+)", text)
+    m = re.fullmatch(rf"put (?P<list>(?:(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+(?: [a-z]+)?) counters?,? )+and "
+                     rf"(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+(?: [a-z]+)?) counters?) on (?P<o>.+)", text)
     if m and rider is None:
-        specs = [re.fullmatch(rf"(?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+(?: [a-z]+)?) counters?", p.strip())
+        specs = [re.fullmatch(rf"(?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+(?: [a-z]+)?) counters?", p.strip())
                  for p in re.split(r",? and |, ", m["list"])]
         if any(p is None or p["k"] in values.UNMODELED_COUNTERS
                or (" " in p["k"] and p["k"] not in ("first strike", "double strike")) for p in specs):
@@ -1278,7 +1285,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "add_counters", "who": _who(kind, key), "kind": kinds[0][0], "n": kinds[0][1],
                  "also": [{"kind": k, "n": n} for k, n in kinds[1:]]}], _one(group)
     # -- end counters (wave 5H) --
-    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o>.+)", text)
+    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o>.+)", text)
     if m:
         if m["k"] in values.UNMODELED_COUNTERS:
             raise _Fail
@@ -1293,7 +1300,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             _one(group)
-    m = re.fullmatch(rf"remove (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? from (?P<o>.+)", text)
+    m = re.fullmatch(rf"remove (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
         kind, key, group = ref(m["o"])
         if kind == "players":
@@ -1302,7 +1309,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
             _one(group)
     # -- counters (wave 5H) -- "double the number of +1/+1 counters on each creature you control" (Kalonian Hydra),
     # "double the number of each kind of counter on target permanent" (Vorel): 701.10e, as many more as it has
-    m = re.fullmatch(r"double the number of (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) counters|(?P<each>each kind of counter)) on (?P<o>.+)",
+    m = re.fullmatch(r"double the number of (?:(?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters|(?P<each>each kind of counter)) on (?P<o>.+)",
                      text)
     if m and rider is None:
         kind, key, group = ref(m["o"])
@@ -2144,7 +2151,7 @@ def parse_still(m: re.Match[str]) -> tuple[Effects, Any]:
 # returns to its OWNER's hand (400.3).
 _RA_UNDER = r"(?: under (?P<u>your|its owner's|their owner's|their owners') control)?"
 # -- refused zones/sized (wave 3R4) -- "… with a finality counter on it": it enters with it (122.6, 122.1h)
-_RA_WITH = (r"(?: with (?:(?:an?|one) (?P<add1>additional )?(?P<ck>\+1/\+1|-1/-1|[a-z]+) counter|"
+_RA_WITH = (r"(?: with (?:(?:an?|one) (?P<add1>additional )?(?P<ck>[+-]\d+/[+-]\d+|[a-z]+) counter|"
             # -- recursion & tutors (wave 4M) -- "… with two additional +1/+1 counters on it" (Rakdos Joins Up): they
             # enter with them (122.6; "additional": besides any it would enter with, 614.1c)
             r"(?P<cn>two|three|four|five) (?P<add2>additional )?(?P<ck2>\+1/\+1|-1/-1) counters) on it)?")

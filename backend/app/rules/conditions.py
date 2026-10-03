@@ -130,7 +130,18 @@ def _cmp(word: str | None) -> str:
     return "<=" if word in ("less", "fewer") else ">="
 
 
+# -- counters (wave 7C) -- "~ has twenty or more growth counters on it", "there are three or more brick counters on this
+# artifact", "~ has no charge counters on it": how many counters of a kind its source has now (122.1)
+_SELF_COUNTS = re.compile(r"(?:(?:~|this [a-z]+) has|there (?:are|is)) (?:(?P<n>\w+) or (?P<cmp>more|fewer)|(?P<no>no)) "
+                          r"(?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?:it|~|this [a-z]+)")
+
+
 def _parse_one(t: str, objects: bool) -> Condition | None:
+    m = _SELF_COUNTS.fullmatch(t)
+    if m and m["k"] not in ("any", "more", "fewer"):
+        n = 0 if m["no"] else _num(m["n"])
+        if n is not None:
+            return {"value": {"counters": m["k"], "on": "self"}, "op": "==" if m["no"] else _cmp(m["cmp"]), "n": n}
     # -- combat (wave 5C) -- "it's the first combat phase of the turn" (500.8: additional ones may follow), "it's your
     # main phase" (505.1)
     if t in ("it's the first combat phase of the turn", "it is the first combat phase of the turn"):

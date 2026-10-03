@@ -50,6 +50,11 @@ def spell_self_move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     controller = ctx["controller"]
     if to == "exile":
         plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}}, actor=controller)
+        # -- counters (wave 7C) -- "Exile ~ with three time counters on it.": with suspend it is suspended now (702.62b)
+        for kind, n in (e.get("counters") or {}).items():
+            plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": n}, actor=controller)
+            if kind == "time" and "suspend" in plan.ch(card).keywords and card.id not in r.suspended:
+                r.suspended.append(card.id)
     elif to == "shuffle":  # 701.24
         plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "library"}}, actor=controller)
         plan.do({"type": "shuffle", "player": card.owner, "zone": "library"}, actor=card.owner)

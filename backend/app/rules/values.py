@@ -58,7 +58,7 @@ AMOUNT = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|t
 UNMODELED_COUNTERS = frozenset({
     "decayed", "exalted",  # (-- counters (wave 5H) -- the other keyword counters give their keyword in layer 6:
     # app/rules/layers.keyword_counters, 122.1b, 613.1f, 613.7c)
-    "shield", "rad", "hone", "lore"})  # (stun: 122.1d, wave 3F — keyword_actions.untap_stunned; finality: 122.1h, wave 3R4 — replacements.replace_move)
+    "rad", "hone"})  # (shield: 122.1c, wave 7C — shield_counters.py; lore: 714, sagas.py handles any lore counter put)  # (stun: 122.1d, wave 3F — keyword_actions.untap_stunned; finality: 122.1h, wave 3R4 — replacements.replace_move)
 
 BASIC_LAND_TYPES = ("Plains", "Island", "Swamp", "Mountain", "Forest")  # 205.3i
 # 205.2a: the card types (as the type line writes them; "Tribal" is the old name of kindred)

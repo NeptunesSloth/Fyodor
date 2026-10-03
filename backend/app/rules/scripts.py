@@ -190,6 +190,8 @@ def self_text(text: str, name: str) -> str:
         out = out[len("Exhaust — "):]
     if out.startswith("Boast — "):  # -- activation costs (wave 4H) -- 702.142a (the restriction: restrictions.parse)
         out = out[len("Boast — "):]
+    if out.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193a (restrictions.parse, power_up.py)
+        out = out[len("Power-up — "):]
     if out == text and (worded := word_prefix(text)) is not None:  # -- refused zones/sized (wave 3R4) -- 207.2d
         out = worded[1]
     short = _short_name(name)
@@ -2330,6 +2332,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if d is not None and d.get("kind") == "triggered" and \
             '{"x": 1}' in json.dumps([e.get("n") for e in d.get("effects") or [] if e.get("do") == "optional_payment"]):
         return None
+    if d is not None and d.get("kind") != "spell" and '"spell_self_move"' in json.dumps(d, default=str):
+        return None  # -- counters (wave 7C) -- only a spell moves itself off the stack
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
         return None
     # -- defending player (wave 6D) -- only an attacking creature's trigger names one (508.5: app/rules/defending.py)
@@ -2599,6 +2603,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # -- activation restrictions (app/rules/restrictions.py): the trailing "Activate only …"
         # sentences are split off the effect and enforced as it's activated (casting.ability_problem);
         # a restriction the engine doesn't read leaves the ability manual
+        if ability.text.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193: the reduction must be readable
+            from app.rules import power_up
+
+            if not power_up.readable(ch, cost.mana):
+                return None
         body, restriction = restrictions.split(text.split(":", 1)[1])
         parsed_restriction = restrictions.parse(text) if restriction is not None else []
         if parsed_restriction is None:
@@ -2980,9 +2989,10 @@ def spell_definition(ch: Characteristics) -> Definition | None:
 # =====================================================================================================
 SHOCK = re.compile(r"^As ~ enters, you may pay (?P<n>\d+) life\. If you don't, it enters tapped\.$")
 # "~ enters [tapped] with N … counters on it [for each …]" (614.1c); "If ~ was kicked, it enters with …" (702.33e)
-ENTERS_WITH = re.compile(r"^(?:(?P<kicked>If ~ was kicked, it)|~) enters (?P<tapped>tapped )?with "
+ENTERS_WITH = re.compile(r"^(?:(?P<kicked>If ~ was kicked, it)|~) enters (?P<tapped>tapped (?:and )?)?with "
                          r"(?P<n>twice X|X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "  # (twice X: wave 4K)
-                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it(?: for each (?P<each>.+?)|, where X is (?P<xdef>.+?))?\.$")
+                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it(?: for each (?P<each>.+?)|, where X is (?P<xdef>.+?))?"
+                         r"(?: and with (?P<kw>haste|trample|flying|first strike|fear))?\.$")  # (kw: wave 7C)
 ENTERS_TAPPED_UNLESS = re.compile(r"^~ enters tapped unless (?P<cond>.+)\.$")
 _A_THING = r"(?:a|an) (?P<{name}>[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*|legendary(?: [a-z]+)? creature|basic land|planeswalker)"
 _UNLESS_ONE_OR_TWO = re.compile(r"^you control " + _A_THING.format(name="a") + r"(?: or " + _A_THING.format(name="b") + r")?$")
@@ -3253,7 +3263,14 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         if cast_if is None or "cast" not in cast_if or cast_if.get("object") != "self":
             return None
         text = "~ enters with " + text[lead.end():]
+    # -- counters (wave 7C) --
+    from app.rules import counter_choice
+
+    if (chosen_kind := counter_choice.parse(text)) is not None:
+        return chosen_kind
     m = ENTERS_WITH.match(text)
+    if m and m["kw"] and (not m["kicked"] or m["each"] or m["xdef"] or cast_if is not None or m["n"] in ("X", "twice X")):
+        return None  # -- counters (wave 7C) -- "If ~ was kicked, it enters with N +1/+1 counters on it and with haste." only
     if m and (m["xdef"] or m["n"] == "twice X"):  # -- X sized by a count (wave 4K) -- "~ enters with X +1/+1 counters on it,
         # where X is the greatest power among other creatures you control" (read as it enters, 614.1c, 608.2h); "twice X":
         # the X its spell was cast with, doubled (107.3m)
@@ -3282,9 +3299,16 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
             out["tapped"] = True
         if m["kicked"]:  # 702.33e: "If ~ was kicked, it enters with …"
             out["if_kicked"] = True
+        if m["kw"]:  # -- counters (wave 7C) -- "… and with haste": the keyword it enters with, for as long as it stays
+            out["grant"] = [m["kw"]]
         if m["each"]:
             each = _for_each(m["each"])
-            if each is None or n == "X" or m["kicked"]:
+            if each is None and re.fullmatch(r"(?:nontoken )?creature that died this turn", m["each"]):
+                # -- counters (wave 7C) -- this turn's history (wave 4D), read as it enters
+                from app.rules import values
+
+                each = values.parse_count("the number of " + m["each"].replace("creature", "creatures", 1))
+            if each is None or n == "X" or (m["kicked"] and each == {"kicked": 1}):  # (wave 7C: kicked + each is read)
                 return None
             if each == {"kicked": 1}:  # "… for each time it was kicked" (multikicker, 702.33c)
                 out["per_kick"] = True

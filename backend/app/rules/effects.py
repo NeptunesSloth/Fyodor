@@ -662,7 +662,7 @@ def destroy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # controller …" means the target's controller even if it was indestructible or regenerated)
     before = _remember(plan, ctx, e, _cards(plan, ctx, e["who"]))
     doomed = [c for c in _cards(plan, ctx, e["who"]) if "indestructible" not in plan.ch(plan.state.cards[c]).keywords]
-    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx))
+    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx), actor=ctx["controller"])
     if doomed:
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
     _moved(plan, ctx, e, before)
@@ -1381,7 +1381,7 @@ def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         hit = (not ch.is_land) if wanted == ["*nonland"] else bool(ch.types & set(wanted))
         if hit and "indestructible" not in ch.keywords:
             doomed.append(c.id)
-    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx))
+    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx), actor=ctx["controller"])
     before = _remember(plan, ctx, e, doomed)  # "creatures destroyed this way": the ones it destroys
     if doomed:
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
@@ -2699,6 +2699,11 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
     if what in ("opponent", "player"):
         pids = [p for p in plan.live() if what == "player" or p != ctx["controller"]]
         return [DecisionOption(id=p, label=plan.name(p)) for p in pids]
+    # -- counters (wave 7C) -- "enters with your choice of a flying or a hexproof counter"
+    from app.rules import counter_choice
+
+    if (kinds := counter_choice.options(what)) is not None:
+        return [DecisionOption(id=k, label=k) for k in kinds]
     # -- sagas & attached-object triggers (wave 3S): read ahead's number (702.155b) --
     from app.rules import sagas
 
