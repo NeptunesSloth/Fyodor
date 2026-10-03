@@ -109,6 +109,10 @@ ORACLE = {
     'Sphere of the Suns': ('{2}', 2.0, 'Artifact',
         'This artifact enters tapped and with three charge counters on it.\n{T}, Remove a charge counter from this artifact: Add one mana of any color.',
         None, None, []),
+    # (made up: Wight's ability on a creature that can deal the damage)
+    'Probe Pinger': ('{2}{B}', 3.0, 'Creature — Zombie',
+        "{T}: This creature deals 1 damage to target creature.\nWhenever a creature dealt damage by this creature this turn dies, "
+        "create a tapped 2/2 black Zombie creature token and exile that card.", '1', '1', ['B']),
 }
 
 
@@ -476,16 +480,33 @@ def test_power_up_reduction_keeps_x(cards):
     check(s)
 
 
-def test_wight_stays_manual_that_card_is_not_the_token():
+def test_wight_exiles_the_dead_card_not_its_new_token(cards):
     """"… create a tapped 2/2 black Zombie creature token and exile that card": the card is the creature that died, not the
-    token (a token is no card). The pronoun reader would have exiled the new token: the sentence is not read."""
-    from app.rules import coverage
+    token (a token is no card): the pronoun reader used to bind it to the token and exile that. A Pinger with Wight's ability
+    kills Llanowar Elves: the Elves card is exiled and the tapped Zombie stays."""
+    from app.rules import coverage, scripts
+    from tests.test_rules_conditionals import to_turn
     from tests.test_rules_scripts import ch as characteristics
 
-    c = real("Wight")[0]
-    chs = characteristics(c["name"], c["type_line"], c["oracle_text"])
-    assert coverage.of_characteristics(chs).level != "FULL"
-    assert "Life Drain" in " ".join(coverage.of_characteristics(chs).manual_parts)
+    wight = real("Wight")[0]
+    chs = characteristics(wight["name"], wight["type_line"], wight["oracle_text"])
+    assert coverage.of_characteristics(chs).level == "FULL"
+    drain = next(d for d in scripts.definitions(chs).values() if d.get("kind") == "triggered")
+    assert [e["do"] for e in drain["effects"]] == ["exile", "create_token"] and drain["effects"][0]["who"] == "event.new"
+    # a sentence with another verb, or the token as the object, is not read
+    assert scripts.parse_effects("Create a 1/1 white Soldier creature token and return that card to its owner's hand.") is None
+
+    s = build(cards, "Probe Pinger", p2=("Llanowar Elves",))
+    pinger = put(s, "Probe Pinger")
+    elves = put(s, "Llanowar Elves", "p2")
+    to_turn(s, 3)
+    act(s, "p1", type="activate_ability", card_id=pinger.id, ability=ability(s, pinger, "{T}: This creature deals 1"),
+        targets=[elves.id])
+    settle(s)
+    assert s.state.cards[elves.id].zone == "p2:exile"
+    zombies = [c for c in s.state.cards.values() if c.name == "Zombie" and c.zone == "p1:battlefield"]
+    assert len(zombies) == 1 and zombies[0].tapped
+    check(s)
 
 
 def test_myth_realized_becomes_as_big_as_its_lore_counters(cards):
