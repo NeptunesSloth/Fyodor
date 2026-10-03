@@ -33,11 +33,11 @@ from functools import lru_cache
 from typing import Any, Literal
 
 from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
+from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules import restrictions, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
 from app.rules.costs import SACRIFICE, parse_ability_cost, spell_additional_cost
 from app.rules.oracle import AbilityText, parse_abilities, split_sentences, word_prefix
-from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules.values import UNMODELED_COUNTERS
 
 Definition = dict[str, Any]
