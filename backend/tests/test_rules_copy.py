@@ -877,7 +877,7 @@ def test_unsupported_enter_as_a_copy_wordings_stay_manual(text):
 
 @pytest.mark.parametrize("text", [
     "Create a token that's a copy of it.",  # (no antecedent)
-    "Create a token that's a copy of target creature, except it's a 1/1 green Frog.",  # (sets the creature types)
+    "Create a token that's a copy of target creature, except it's a 1/1 green Forest.",  # (not a creature type; the Frog form: wave 5J)
     "Copy target instant or sorcery spell for each creature you control.",  # (707.10d-like: not read)
     "Copy target activated ability you control, except it has flying.",
 ])

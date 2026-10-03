@@ -3248,3 +3248,18 @@ from app.rules import decayed as _decayed  # noqa: E402, I001  (702.147: decayed
 
 PRIMITIVES.update(_decayed.PRIMITIVES)
 # -- end token & pump wordings (wave 6C) --
+
+# -- token copies & attach on entry (wave 5J) -- "attach it to target creature you control" (app/rules/attach_entry.py),
+# populate and "for each …, create a token that's a copy of that …" (app/rules/populate.py)
+from app.rules import attach_entry as _attach_entry  # noqa: E402, I001
+
+PRIMITIVES.update(_attach_entry.PRIMITIVES)
+from app.rules import populate as _populate  # noqa: E402, I001
+
+PRIMITIVES.update(_populate.PRIMITIVES)
+RESUME.update(_populate.RESUME)
+from app.rules import put_from_hand as _put_from_hand  # noqa: E402, I001
+
+PRIMITIVES.update(_put_from_hand.PRIMITIVES)
+RESUME.update(_put_from_hand.RESUME)
+# -- end token copies & attach on entry (wave 5J) --
