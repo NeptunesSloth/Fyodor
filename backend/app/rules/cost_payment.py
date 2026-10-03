@@ -150,6 +150,7 @@ def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, playe
 def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: int | None = None) -> str | None:
     """Why the non-mana parts of ``cost`` can't be paid now (118.3), or None. ``x``: the X chosen
     for "Pay X {E}" (unknown yet: 0)."""
+    from app.rules import cast_limits  # -- cast limits (wave 5E) --
     from app.rules.casting import summoning_sick  # casting imports this module
 
     name = card.name or "It"
@@ -158,7 +159,8 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
             if not card.tapped:
                 return f"{name} isn't tapped"
             ch = plan.ch(card)
-            if ch.is_creature and "haste" not in ch.keywords and summoning_sick(plan.state, card):
+            if ch.is_creature and "haste" not in ch.keywords and summoning_sick(plan.state, card) \
+                    and not cast_limits.as_though_haste(plan.state, card, plan.info):  # -- cast limits (wave 5E) --
                 return f"{name} has summoning sickness"
         elif comp.kind == C.PAY_ENERGY and plan.state.players[player].resources.get("energy", 0) < energy_amount(comp, x):
             return f"You don't have {energy_amount(comp, x)} energy to pay"

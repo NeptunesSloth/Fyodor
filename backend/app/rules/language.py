@@ -1234,6 +1234,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail  # (keywords only: not read here)
         e = {**e, "remove": _keyword_list(m["rm"])}
         return [e if m["eot"] else {**e, "duration": "permanent"}], _one(group)
+    # -- protection grants (wave 5E) -- "… gains protection from red / the color of your choice until end of turn"
+    from app.rules import protection_grants
+
+    if (protected := protection_grants.clause(text)) is not None:
+        return protected
     m = _GRANT.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"])

@@ -339,6 +339,13 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
                 and source_shields.protection_applies(plan, ev):  # (615.12: protection's prevention, 702.16e, too)
             notes.append((f"Protection prevents the damage to {plan.ch(plan.state.cards[key]).name}", [key]))
             continue
+        # -- player shields (wave 5E) -- a player's protection (702.16e, 702.16j)
+        from app.rules import player_shields
+
+        if key in plan.state.players and player_shields.protected_from(plan, key, src.ch) is not None \
+                and source_shields.protection_applies(plan, ev):
+            notes.append((f"Protection prevents the damage to {plan.name(key)}", []))
+            continue
         kept.append(ev)
     rerun = replace.rerun_then(ctx, e)
     answers = dict(ctx.get(replace.ANSWERS) or {})
@@ -903,6 +910,12 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     cid = d.resume["card"]
     finish(plan, d.resume["ctx"])
     r = plan.rules
+    # -- cast limits (wave 5E) -- a prohibited cast (601.3) can't begin: as if declined
+    from app.rules import cast_limits
+
+    if chosen[0] == "yes" and (limited := cast_limits.free_cast_blocked(plan, d.player, cid)) is not None:
+        plan.note(limited, actor=d.player)
+        chosen = ["no"]
     if chosen[0] != "yes":
         r.free_casts = [c for c in r.free_casts if c != cid]
         r.suspended = [c for c in r.suspended if c != cid]
@@ -3104,6 +3117,17 @@ from app.rules import unless_pays as _unless_pays  # noqa: E402, I001
 
 PRIMITIVES.update(_unless_pays.PRIMITIVES)
 # -- end unless pays (wave 4C) --
+
+# -- cast limits (wave 5E) -- "… can't cast spells this turn" / flash for a turn (app/rules/cast_limits.py)
+from app.rules import cast_limits as _cast_limits  # noqa: E402, I001
+
+PRIMITIVES.update(_cast_limits.PRIMITIVES)
+RESUME.update(_cast_limits.RESUME)  # (and player hexproof / protection: app/rules/player_shields.py)
+from app.rules import protection_grants as _protection_grants  # noqa: E402, I001
+
+PRIMITIVES.update(_protection_grants.PRIMITIVES)  # "gains protection from the color of your choice" (608.2)
+RESUME.update(_protection_grants.RESUME)
+# -- end cast limits (wave 5E) --
 
 
 # -- this-turn history (wave 4D) -- "If this is the second time this ability has resolved this turn": the resolution
