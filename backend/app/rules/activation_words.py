@@ -116,7 +116,7 @@ def step_clause(clause: str) -> dict[str, Any] | None:
                 "text": "before the combat damage step"}
     if clause == "during combat after blockers are declared":
         return {"kind": "step", "phases": ["declare_blockers", "combat_damage", "end_combat"], "whose": None,
-                "text": "during combat after blockers are declared"}
+                "text": "during combat after blockers are declared", "needs_blockers": True}  # (needs_blockers: wave 7R)
     if clause == "before the end of combat step":
         return {"kind": "step", "phases": ["untap", "upkeep", "draw", "main1", *_BEFORE_DAMAGE, "combat_damage"],
                 "whose": None, "text": "before the end of combat step"}

@@ -9,8 +9,13 @@ opponent's upkeep." (Festival). Researched against CR 2026-09-25.
 * The steps are those of 500.1 / 506-511: "after blockers are declared" is the declare blockers step on (the blockers are
   declared as it begins, 509.1), "before blockers are declared" every moment up to the declare attackers step's end,
   "before attackers are declared" up to the beginning of combat's end (the same phases the activation restrictions read).
-* "You've been attacked this step" is true when one or more creatures are attacking you (not a planeswalker you control,
-  506.3); "fewer creatures than each opponent" compares your creature count with every opponent's (Even the Odds).
+* "You've been attacked this step" is true when one or more creatures are attacking you, not only a planeswalker you control
+  (506.3: a player, a planeswalker or a battle can each be attacked; the Heavy Fog ruling of 2009-10-01: "To cast it, a
+  creature needs to have attacked you"); "fewer creatures than each opponent" compares your creature count with every
+  opponent's (Even the Odds).
+* 506.8d-f (wave 7R): "only before [attackers / blockers are declared, the combat damage step]" without "during combat" is about
+  the turn's first combat phase only; "after blockers are declared" needs a declare blockers step (skipped when nobody attacks,
+  508.8). The "during combat …" forms hold in any combat phase (506.8c).
 * Read through the activation restrictions' clause grammar (app/rules/restrictions.py): the same steps, the same
   "only if" conditions; anything else stays manual.
 """
@@ -20,7 +25,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from app.game.state import PHASES
+from app.game.state import COMBAT_PHASES, PHASES
 
 if TYPE_CHECKING:
     from app.game.state import CardInstance, GameState
@@ -40,13 +45,13 @@ def _clause(clause: str) -> dict[str, Any] | None:
     m = re.fullmatch(r"during combat (?P<when>after|before) blockers are declared", clause)
     if m:  # (declare blockers begins with the blockers declared, 509.1)
         phases = ["declare_blockers", "combat_damage", "end_combat"] if m["when"] == "after" else ["begin_combat", "declare_attackers"]
-        return {"kind": "step", "phases": phases, "whose": None}
+        return {"kind": "step", "phases": phases, "whose": None, **({"needs_blockers": True} if m["when"] == "after" else {})}
     if clause == "before combat or during combat before blockers are declared":
         return {"kind": "step", "phases": _phases_before("declare_blockers"), "whose": None}
     m = re.fullmatch(r"before (?P<what>blockers are declared|the combat damage step)", clause)
     if m:
         return {"kind": "step", "phases": _phases_before("declare_blockers" if m["what"].startswith("blockers") else "combat_damage"),
-                "whose": None}
+                "whose": None, "first_combat": True}  # (first_combat: wave 7R, see problem)
     if clause == "during an opponent's turn after their upkeep step":
         return {"kind": "step", "phases": list(PHASES[PHASES.index("upkeep") + 1:]), "whose": "opponent"}
     if clause == "during an opponent's upkeep":
@@ -57,7 +62,10 @@ def _clause(clause: str) -> dict[str, Any] | None:
     if m:
         return {"kind": "if", "text": clause, "cond": {"versus": {"value": {"count": 'sel:{"controller":"you","types":["Creature"]}'},
                                                                 "op": ">", "every": True}}}
-    return restrictions._clause(clause)
+    found = restrictions._clause(clause)
+    if found is not None and re.fullmatch(r"before (?:attackers|blockers) are declared|before the combat damage step", clause):
+        found = {**found, "first_combat": True}  # -- review (wave 7R) -- 506.8d (see problem)
+    return found
 
 
 def definition(text: str) -> dict[str, Any] | None:
@@ -86,4 +94,9 @@ def problem(state: GameState, player: str, card: CardInstance, ch: Characteristi
             why = restrictions.problem(state, player, card, index, d["restrictions"], Plan.view(state, player, info))
             if why:
                 return why.replace("activated", "cast")
+            # -- review (wave 7R) -- 506.8d: "only before [a point in combat]" (without "during combat") counts the turn's
+            # first combat phase only: in an additional combat phase the point has long passed
+            if any(x.get("first_combat") for x in d["restrictions"]) and state.turn.phase in COMBAT_PHASES \
+                    and state.rules.combats > 1:
+                return "That can only be cast before the first combat phase's point it names (506.8d)"
     return None
