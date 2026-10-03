@@ -15,6 +15,7 @@ This extends the elimination hub; it is not a second hub. For eliminated players
 3. Live Reactions / Emotes
 4. Damage Calculator Sandbox
 5. Prediction Bets with fake points
+6. Spectator Points cosmetic progression (Cosmetics Locker)
 
 The first two give the most practical game-night value.
 
@@ -119,6 +120,64 @@ differently?").
 - **Session recap:** `SPECTATOR PREDICTIONS — Alex 740 · Chris 610 · Jordan 425`, optionally Best
   Prediction, Biggest Miss and Longest Streak. Keep it casual: nothing that looks like money or competitive
   rankings.
+
+## 6. Spectator Points cosmetic progression (extends 5; build after it)
+
+Requested 2026-10-03. Prediction points become a lightweight, earn-only cosmetic currency.
+
+**Spectator Points are not money.** No cash value, no real-money purchases, no player-to-player
+trading, no withdrawals, no gameplay advantages, and no effect on card draws, dice results, rules,
+priority, matchmaking or outcomes.
+
+- **Earning:** modest amounts from correct predictions, from taking part in a full pod session, from
+  optional session achievements, and later from other light game-night activities. No odds or exchange
+  system.
+- **Persistence:** unlike the per-session prediction stakes, the earned balance, unlocked cosmetic IDs and
+  equipped cosmetic IDs persist across pod sessions. They are stored per player profile and never tied to
+  live match state.
+- **Server authority:** the server stores the balance, the unlock transactions and the owned cosmetics. A
+  client can never submit `balance = 999999`; it only requests an unlock, and the server checks the
+  balance. Cosmetic state is completely separate from rules/gameplay authority.
+
+### Cosmetics Locker
+
+Opened from PROFILE → COSMETICS or LOBBY → COSMETICS.
+
+- **Dice (visual only):** standard acrylic, marble, obsidian, brass, gemstone, holographic, galaxy, fire,
+  ice, arcane/rune. Every roll still uses the same server-authoritative RNG, and a pricier die never has
+  better odds.
+- **Dice effects (subtle and cheap to render):** a small spark on landing, a restrained trail, a rune flash,
+  a tiny smoke puff, metallic sound variations.
+- **Card/table cosmetics:** sleeve and card-back styles, playmat accents, counter styles, token frames,
+  commander pedestals, table trinkets, dice trays, spectator seat decorations, profile frames,
+  reaction/emote packs, victory/elimination effects. None may hurt card readability.
+- **Equipping:** per category (for example Dice: Obsidian D20; Sleeves: Black Lotus Pattern; Counters:
+  Brass; Reaction pack: Commander Chaos). Selections persist between games.
+- **Listing:** shows the balance ("Spectator Points: 1,240"), each item as Owned or its price (Obsidian D20
+  500 SP, Arcane Rune Set 900 SP, Galaxy Set 1,500 SP), [PREVIEW], [UNLOCK], then [EQUIP].
+- **Preview before spending:** dice get a small interactive 3D preview (rotate, roll, inspect
+  material/effect). Preview rolls are cosmetic and unrelated to live-game RNG.
+- **Forgiving purchases:** a simple confirmation ("Unlock Obsidian Dice for 500 SP? [UNLOCK] [CANCEL]"),
+  and ideally an undo/refund until the player leaves the locker.
+- **Look:** part of the tabletop aesthetic, with dark wood, felt, brass and a physical display case.
+- **Never like a store:** not a mobile cash shop, loot-box screen, battle pass, casino or urgency-driven
+  storefront. No limited-time FOMO, random boxes, premium currency or sale timers.
+- **Casual progression:** "I've played with this pod a lot, so I have cool dice", not "I need to grind
+  currency".
+
+### Session recap (optional, subtle)
+
+`+75 Spectator Points · Predictions 3 correct / 5 · New balance 1,240 SP`, plus a quiet "Obsidian Dice
+now available" when something becomes affordable.
+
+### Design notes
+
+- **Generic catalog:** cosmetics are data-driven (id, category, name, price, preview asset/parameters), so a
+  new category doesn't mean hardcoding items into UI logic. Not a marketplace: this is a simple local/LAN
+  unlock system.
+- **Tests:** the server rejects a client-set balance; an unlock debits exactly once and is refused when
+  unaffordable; undo restores the balance; equipped cosmetics persist across sessions; dice cosmetics never
+  change RNG or results; cosmetic state never touches the live game revision or history.
 
 ## End-of-session spectator stats (optional, secondary)
 
