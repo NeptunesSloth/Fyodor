@@ -99,6 +99,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return attached_players.attacking_opponents(plan, ctx)
     if who.startswith(context.PREFIX):  # a binding: "that player", "its controller", "its owner" (app/rules/context.py)
         return context.players(plan, ctx, who[len(context.PREFIX):])
+    if who == "defending_player":  # -- defending player (wave 6D) -- 508.5 (app/rules/defending.py)
+        from app.rules import defending
+
+        return defending.players(plan, ctx)
     if who == "chosen_player":  # -- chosen player (wave 4J) -- the player the source chose as it entered (614.12a)
         from app.rules import chosen
 
@@ -3270,3 +3274,8 @@ from app.rules import put_from_hand as _put_from_hand  # noqa: E402, I001
 PRIMITIVES.update(_put_from_hand.PRIMITIVES)
 RESUME.update(_put_from_hand.RESUME)
 # -- end token copies & attach on entry (wave 5J) --
+# -- tap or untap (wave 6D) -- "You may tap or untap target permanent." (app/rules/tap_or_untap.py)
+from app.rules import tap_or_untap as _tap_or_untap  # noqa: E402
+
+PRIMITIVES.update(_tap_or_untap.PRIMITIVES)
+RESUME["tap_or_untap"] = _tap_or_untap.resume

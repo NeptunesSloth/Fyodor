@@ -92,7 +92,7 @@ def test_parse(text, who, parts):
     "Creature you control gets +1/+1.",  # not Oracle wording
     "~ has flying.",  # unconditional self grant: that's a keyword line
     "Each creature you control has trample as long as it's attacking.",  # "it" would be each creature, not the source
-    'Enchanted creature has "Whenever ~ attacks, you may tap or untap target permanent."',  # an ability the engine can't run
+    'Enchanted creature has "Whenever ~ attacks, you may draw a card for each foo."',  # an ability the engine can't run
     "As long as an opponent has 10 or less life, ~ gets +2/+1 and has annihilator 2.",  # (wave 4B reads the condition)
     "Creature spells you cast have convoke.",
 ])

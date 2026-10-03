@@ -2245,6 +2245,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
         return None
+    # -- defending player (wave 6D) -- only an attacking creature's trigger names one (508.5: app/rules/defending.py)
+    from app.rules import defending
+
+    if d is not None and not defending.allowed(d):
+        return None
     # -- combat (wave 5C) -- "attacks each combat if able" needs its duration
     from app.rules import combat_rules
 
@@ -2399,11 +2404,15 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import trigger_words
 
                 body = trigger_words.rewrite_body(body, name, cond, has_player)
-                parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
+                # -- other side (wave 6D) -- "… blocks a creature, destroy that creature" (app/rules/other_side.py)
+                from app.rules import other_side
+
+                ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
+                parsed = parse_effects(body, it=ante, event_player=has_player)
                 if same and parsed is not None:
                     parsed = attached_players.does_the_same(parsed)
                 if parsed is None:  # -- this-turn history (wave 4D) -- "…, if [condition], you may …" (603.4 + 603.5)
-                    parsed = _intervening_may(body, _trigger_antecedent(name, cond), has_player)
+                    parsed = _intervening_may(body, ante, has_player)
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
@@ -3279,6 +3288,19 @@ def _delayed_trailing(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return _deferred(m["clause"], _delayed.WHEN[m["when"]])
 
 
+# -- other side (wave 6D) -- "Destroy that creature at end of combat." / "At end of combat, sacrifice it.": a delayed
+# trigger (603.7) that triggers as the next end of combat step begins (511.2)
+@effect(r"at end of combat, (?P<clause>.+)")
+def _delayed_end_combat_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _deferred(m["clause"], _delayed.END_OF_COMBAT)
+
+
+@effect(r"(?P<clause>.+?) at end of combat")
+def _delayed_end_combat_trailing(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _deferred(m["clause"], _delayed.END_OF_COMBAT)
+# -- end other side (wave 6D) --
+
+
 @effect(_delayed.EVENT.pattern.lstrip("^").rstrip("$"))
 def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     inner = _clause(m["clause"])
@@ -4036,6 +4058,15 @@ def _attach_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return found
 
 
+# -- other side (wave 6D) -- "Whenever a creature you control enters, you may attach ~ to it." (Hero's Blade), "create a
+# 1/1 … token, then attach ~ to it." (Ancestral Blade): this object attached to the one the pronoun names (701.3a-b, the
+# same primitive: nothing moves if it can't be attached there or either has become a new object, 400.7)
+@_first
+@effect(r"attach ~ to (?:it|that creature)")
+def _attach_self_to_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "attach_to", "src": "self", "who": "it"}], None
+
+
 @_first
 @effect(r"populate")
 def _populate(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -4367,3 +4398,7 @@ EFFECTS[:0] = _stack_interaction.TEMPLATES
 # -- turn grants (wave 6A) -- one subject for two grants ("… gains vigilance until end of turn and can't be blocked this
 # turn"): after every other template (it defers to the generic grammar first: app/rules/turn_grants.py)
 EFFECTS.extend(_turn_grants.LAST)
+# -- tap or untap (wave 6D) -- "You may tap or untap target permanent." (app/rules/tap_or_untap.py)
+from app.rules import tap_or_untap as _tap_or_untap  # noqa: E402
+
+EFFECTS[:0] = _tap_or_untap.TEMPLATES

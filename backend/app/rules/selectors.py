@@ -651,6 +651,13 @@ def _parse(phrase: str) -> Selector | None:
     # matches, narrowing one card type (205.3); "historic card" (700.6: legendary, artifact or Saga)
     if text.strip() in ("historic card", "historic cards") and not qualified:
         return replace(s, card=True, zones=() if s.zones == ("battlefield",) else s.zones, extras=(*s.extras, "historic"))
+    # -- historic (wave 6D) -- "a historic spell" (Jhoira), "another nontoken historic permanent" (700.6)
+    hist = re.fullmatch(r"(?P<pre>(?:nontoken )?)historic (?P<rest>spells?|permanents?)", text.strip())
+    if hist is not None and not qualified:
+        base = _parse(hist["pre"] + hist["rest"])
+        if base is None or base.types or base.subtypes or base.card:
+            return None
+        return replace(s, zones=base.zones, token=base.token, extras=(*s.extras, "historic"))
     alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker) cards?)",
                             text.strip())
     if alt_subs is not None:

@@ -268,9 +268,11 @@ def test_that_many_is_the_number_discarded(cards):
     ("At the beginning of your upkeep, its controller loses 1 life.", False),
     ("Whenever a creature you control dies, put a +1/+1 counter on it.", False),  # (it's in a graveyard)
     ("Exile target creature. Return it to the battlefield under its owner's control.", False),  # (a blink)
-    # "that creature" is the creature on the other side, which the event doesn't name
-    ("Whenever this creature becomes blocked by a creature, destroy that creature.", False),
-    ("Whenever this creature deals damage to a creature, exile that creature.", False),
+    # "that creature" is the creature on the other side (read since wave 6D: app/rules/other_side.py); a bare "it" first
+    # is the source there ("it deals 2 damage to that creature"): manual
+    ("Whenever this creature becomes blocked by a creature, destroy that creature.", True),
+    ("Whenever this creature deals damage to a creature, exile that creature.", True),
+    ("Whenever this creature becomes blocked by a creature, it deals 2 damage to that creature.", False),
     # "that player" after a target player is that target, not the event's player
     ("Whenever you cast a spell from exile, this creature deals 2 damage to target player. That player discards a card.",
      False),

@@ -465,9 +465,11 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     # (120.1: a planeswalker is dealt damage too — "to a player or planeswalker", 510.2)
     recipient_is_walker = got is not None and "Planeswalker" in got[1].types
     recipient_is_battle = got is not None and "Battle" in got[1].types  # (120.3h)
-    out.append(("deal_damage", src[0], src[1], src[0].controller,
-                {**base, "combat": e.combat, "recipient": e.player, "recipient_creature": recipient_is_creature,
-                 "recipient_planeswalker": recipient_is_walker, "recipient_battle": recipient_is_battle}))
+    dealt_info = {**base, "combat": e.combat, "recipient": e.player, "recipient_creature": recipient_is_creature,
+                  "recipient_planeswalker": recipient_is_walker, "recipient_battle": recipient_is_battle}
+    if got is not None:  # -- other side (wave 6D) -- "deals damage to a creature, destroy that creature" (other_side.py)
+        dealt_info.update(other=got[0].id, other_oid=e.object_id)
+    out.append(("deal_damage", src[0], src[1], src[0].controller, dealt_info))
     if e.player is not None and e.player != src[0].controller:
         info = {**base, "recipient": e.player}
         out.append(("deal_damage_opponent", src[0], src[1], src[0].controller, info))
@@ -719,7 +721,16 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         source=info.get("source_ref") or (
                             _source_ref(plan, info.get("source_oid")) if kind == "dealt_damage" else None),
                         amount=int(info.get("amount") or 0), count=1,
-                        defended=info.get("defended") if kind == "you_attack" else None)  # -- combat (wave 5C) --
+                        defended=info.get("defended") if kind == "you_attack" else _attack_defended(plan, kind, obj))
+
+
+def _attack_defended(plan: Plan, kind: str, obj: CardInstance | None) -> str | None:
+    """-- defending player (wave 6D) -- an attacking creature's event: its defending player now (508.5)."""
+    if kind not in ("attack", "unblocked", "blocked", "blocked_pair") or obj is None:
+        return None
+    from app.rules import defending
+
+    return defending.defended(plan, obj)
 
 
 def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
@@ -741,6 +752,11 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 continue
             event = _event(plan, fact, batch)
             info = fact[4]
+            # -- other side (wave 6D) -- "that creature": the one on the other side (app/rules/other_side.py)
+            from app.rules import other_side
+
+            if other_side.wanted(cond):
+                event = other_side.event(plan, info, event)
             # One damage event to several recipients at once is one "deals damage" (and several
             # sources at once one "is dealt damage"): once per batch per object, amounts summed
             one_event = cond["event"] == "dealt_damage" or (cond["event"] == "deal_damage" and cond.get("to", "any") == "any")
@@ -866,7 +882,8 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
             facts.append(("you_attack", None, None, cards[0].controller,
                           {"defended": defended, "direct": bool(g["direct"]), "attackers": len(g["all"]),
                            "attacking": g["all"], "attacking_direct": g["direct"]}))
-    facts += [(_PAIRED[event], c, plan.ch(c), c.controller, {"oid": plan.oid(c), "other": other.id})
+    facts += [(_PAIRED[event], c, plan.ch(c), c.controller, {"oid": plan.oid(c), "other": other.id,
+                                                              "other_oid": plan.oid(other)})  # (other_oid: wave 6D)
               for c, other in pairs if event in _PAIRED]
     _fire_generic(plan, facts, -1, fired)
 
@@ -1361,9 +1378,12 @@ def attacked(plan: Plan, attackers: list[CardInstance]) -> None:
         if plan.manual(card):
             continue
         ch = plan.ch(card)
+        # -- defending player (wave 6D) -- the attack, with the player it's against (508.5: app/rules/defending.py)
+        attack = TriggerEvent(kind="attack", count=1, objects=[ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone)],
+                              defended=_attack_defended(plan, "attack", card))
         for i, d in abilities(plan, ch, "attacks_self"):
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
-                 definition=d)
+                 definition=d, event=attack)
 
 
 def _exalted(plan: Plan, alone: CardInstance) -> None:
