@@ -19,7 +19,7 @@ from app.config import Settings
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_effects import mana, pass_until_stack_empty
+from tests.test_rules_effects import mana
 from tests.test_rules_wave9b_exile_permission import build, find, put, roundtrip
 
 EXTRA = [
