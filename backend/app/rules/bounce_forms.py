@@ -9,6 +9,7 @@
 * "Return target creature you control and target creature you don't control to their owners' hands." (Peel from
   Reality, Aether Tradewinds, Churning Eddy): one target group per word "target" (115.3); one instruction, so one
   move (all at once).
+* "Return this creature and target creature you control to their owner's hand." (Wizard Mentor, Coastal Wizard).
 * "Return all artifacts and enchantments to their owners' hands." (Reduce to Dreams): every permanent that is either.
 
 A card goes to its owner's hand whoever controlled it (400.3).
@@ -29,6 +30,7 @@ _YOURS = re.compile(rf"^return (?:(?P<n>{_N})|(?P<another>another)) (?P<sel>.+?)
 _THEIRS = re.compile(rf"^(?P<s>each player|each opponent|that player|target player|target opponent) returns? (?P<n>{_N}) "
                      rf"(?P<sel>.+?) they control {_HAND}$")
 _TWO_TARGETS = re.compile(rf"^return (?P<o>target .+? and (?:another )?target .+?) {_HAND}$")
+_SELF_AND = re.compile(r"^return (?:this creature|~) and (?P<t>(?:another )?target .+?) to their (?:owners' hands|owner's hand)$")
 _ALL_AND = re.compile(rf"^return all (?P<a>[a-z]+s) and (?P<b>[a-z]+s) {_HAND}$")
 
 
@@ -79,6 +81,20 @@ def _two_targets(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "bounce_together", "who": whos[0], "also": whos[1:]}], language._out(groups)
 
 
+def _self_and(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """"Return this creature and target creature you control to their owner's hand." (Wizard Mentor): the source and
+    the target, together (the source only while it is still that permanent, 400.7)."""
+    from app.rules import language
+
+    try:
+        kind, _key, group = language.ref(m["t"])
+    except language._Fail:
+        raise _fail() from None
+    if kind != "target" or group is None or group.get("what", "").endswith("spell"):
+        raise _fail()
+    return [{"do": "bounce_together", "who": "self", "also": ["target"]}], language._one(group)
+
+
 def _all_and(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import selectors
 
@@ -99,7 +115,8 @@ def _deferring(build: Any) -> Any:
 
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_YOURS, _deferring(_yours)), (_THEIRS, _deferring(_theirs)),
-                                                (_TWO_TARGETS, _deferring(_two_targets)), (_ALL_AND, _deferring(_all_and))]
+                                                (_TWO_TARGETS, _deferring(_two_targets)), (_ALL_AND, _deferring(_all_and)),
+                                                (_SELF_AND, _deferring(_self_and))]
 
 
 def bounce_together(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

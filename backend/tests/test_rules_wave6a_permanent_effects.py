@@ -53,11 +53,14 @@ EXTRA = [
     card('Pym Particles', set_code="tst", number="C03", mana_cost='{U}', cmc=1.0, type_line='Sorcery', oracle_text="Target creature gains vigilance until end of turn and can't be blocked this turn.\nDraw a card.", colors=['U'], color_identity=['U']),  # noqa: E501
     card('Water Wings', set_code="tst", number="C04", mana_cost='{1}{U}', cmc=2.0, type_line='Instant', oracle_text="Until end of turn, target creature you control has base power and toughness 4/4 and gains flying and hexproof. (It can't be the target of spells or abilities your opponents control.)", colors=['U'], color_identity=['U']),  # noqa: E501
     card('Doorman', set_code="tst", number="C05", mana_cost='{1}{U}', cmc=2.0, type_line='Creature — Human Advisor', oracle_text='{T}: Until end of turn, target creature can\'t be blocked by creatures with power 2 or less and/or Walls.', power='1', toughness='2', colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Cloudcrest Lake', set_code="tst", number="D01", mana_cost='', cmc=0.0, type_line='Land', oracle_text="{T}: Add {C}.\n{T}: Add {W} or {U}. This land doesn't untap during your next untap step.", color_identity=['U', 'W']),  # noqa: E501
+    card('Wizard Mentor', set_code="tst", number="D02", mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Human Wizard', oracle_text="{T}: Return this creature and target creature you control to their owner's hand.", power='2', toughness='2', colors=['U'], color_identity=['U']),  # noqa: E501
     card('Grizzly Bears', set_code="tst", number="A08", mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Bear', oracle_text='', power='2', toughness='2', colors=['G'], color_identity=['G']),  # noqa: E501
 ]
 FULL = ["Frost Breath", "Kefnet's Monument", "Arbalest Elite", "Apes of Rath", "Ojutai's Breath", "Sneak Attack", "Arms Race",
         "Kor Skyfisher", "Ambush Krotiq", "Curfew", "Peel from Reality", "Reduce to Dreams",
-        "Gingerbrute", "Tower of Coireall", "Pym Particles", "Water Wings"]
+        "Gingerbrute", "Tower of Coireall", "Pym Particles", "Water Wings",
+        "Cloudcrest Lake", "Wizard Mentor"]
 STILL_MANUAL = {  # (card, the line that stays manual)
     "Sleep": "that player's next untap step",  # (that player's, not its controller's: not read)
     "Bontu's Last Reckoning": "Lands you control don't untap",  # 611.2c: a rules effect on whatever matches then
@@ -369,4 +372,30 @@ def test_pym_particles_and_water_wings_one_subject_two_grants(cards):
     to_turn(s, 2)
     ch_ = characteristics(s, bear)
     assert ch_.pt == (2, 2) and "flying" not in ch_.keywords and "cant_be_blocked" not in ch_.imposed
+    roundtrip(s)
+
+
+def test_cloudcrest_lake_colored_mana_keeps_it_tapped_through_your_next_untap_step(cards):
+    """A mana ability's rider (605.3a: no stack): the land stays tapped during Alice's next untap step only (502.3)."""
+    s = build(cards, p1=("Cloudcrest Lake",))
+    lake = on_field(s, "Cloudcrest Lake")
+    act(s, "p1", type="activate_ability", card_id=lake.id, ability=1, mana_choice="W")
+    assert tapped(s, lake) and s.state.rules.stay_tapped
+    roundtrip(s)
+    to_turn(s, 3)
+    assert tapped(s, lake) and not s.state.rules.stay_tapped
+    to_turn(s, 5)
+    assert not tapped(s, lake)
+    act(s, "p1", type="activate_ability", card_id=lake.id, ability=0)  # {C}: no rider
+    assert not s.state.rules.stay_tapped
+    roundtrip(s)
+
+
+def test_wizard_mentor_returns_itself_and_the_target(cards):
+    s = build(cards, p1=("Wizard Mentor", "Grizzly Bears"))
+    mentor, bears = on_field(s, "Wizard Mentor"), on_field(s, "Grizzly Bears")
+    to_turn(s, 3)  # (summoning sickness: {T}, 302.6)
+    act(s, "p1", type="activate_ability", card_id=mentor.id, ability=0, targets=[bears.id])
+    settle(s)
+    assert zone_of(s, mentor) == "p1:hand" and zone_of(s, bears) == "p1:hand"
     roundtrip(s)
