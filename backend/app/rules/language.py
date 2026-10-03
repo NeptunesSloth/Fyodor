@@ -1202,6 +1202,16 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             _one(group)
+    # -- counters (wave 5H) -- "double the number of +1/+1 counters on each creature you control" (Kalonian Hydra),
+    # "double the number of each kind of counter on target permanent" (Vorel): 701.10e, as many more as it has
+    m = re.fullmatch(r"double the number of (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) counters|(?P<each>each kind of counter)) on (?P<o>.+)",
+                     text)
+    if m and rider is None:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail  # (a player's counters: not read here)
+        return [{"do": "double_counters", "who": _who(kind, key), "kind": m["k"] or "*"}], _one(group)
+    # -- end counters (wave 5H) --
     # -- temporary grants & riders (agent G) --  "+X/+0", "+1/+1 … for each …", "-X/-X … where X is …",
     # "gets +2/+2 and gains flying and first strike", "… and can't be blocked this turn", "loses flying"
     # -- X sized by a count (wave 4K) -- "creatures you control gain trample and get +X/+X until end of turn" (Craterhoof

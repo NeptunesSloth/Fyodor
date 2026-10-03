@@ -783,6 +783,24 @@ def remove_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+# -- counters (wave 5H) --
+def double_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.10e: "double the number of [kind] counters on …" gives each object as many more of that kind as it has
+    ("each kind of counter": every kind it has) — counters put, all at once, through the choke point (122.6, 614.16:
+    Hardened Scales and Doubling Season apply)."""
+    cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
+    puts = []
+    for cid in cards:
+        have = plan.state.cards[cid].counters
+        kinds = [k for k, v in have.items() if v > 0] if e["kind"] == "*" else [e["kind"]]
+        puts += [(cid, k, have.get(k, 0)) for k in kinds if have.get(k, 0) > 0]
+    if not puts:
+        return True
+    return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
+# -- end counters (wave 5H) --
+
+
 def proliferate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.34a: choose any number of permanents and/or players that have a counter; each gets one
     more of each kind it already has."""
@@ -1756,6 +1774,7 @@ PRIMITIVES = {
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
     "fabricate": fabricate, "storm": storm,
     "fight": fight, "choose_targets": choose_targets,
+    "double_counters": double_counters,  # -- counters (wave 5H) --
 }
 # -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py,
 # which imports this module lazily) --

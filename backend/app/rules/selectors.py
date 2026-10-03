@@ -303,6 +303,32 @@ def _with_counter(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"counter:{m['c']}"))
 
 
+# -- counters (wave 5H) -- "creatures you control with +1/+1 counters on them", "each creature you control with a
+# counter on it" (any kind, 122.1), "creatures with no counters on them", "each creature without a +1/+1 counter on
+# it", "each nonland permanent without a fate counter on it", "a creature that has a +1/+1 counter on it"
+_CK = r"(?:(?!no |one |any |more )(?P<c>\+1/\+1|-1/-1|[a-z]+) )?"
+
+
+@_suffix(r"(?:with (?:an? |one or more )?|that (?:has|have) (?:an? |one or more )?)" + _CK + r"counters? on (?:it|them)")
+def _with_counters(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"counter:{m['c'] or COUNTER_ANY}"))
+
+
+@_suffix(r"(?:with no |without (?:an? |any )?)" + _CK + r"counters? on (?:it|them)")
+def _without_counters(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"nocounter:{m['c'] or COUNTER_ANY}"))
+
+
+COUNTER_ANY = "*"
+
+
+def _has_counter(card: CardInstance, kind: str) -> bool:
+    if kind == COUNTER_ANY:
+        return any(v > 0 for v in card.counters.values())
+    return card.counters.get(kind, 0) > 0
+# -- end counters (wave 5H) --
+
+
 # -- chosen type (wave 4J) ------------------------------------------------------------------------------------------
 # "creatures you control of the chosen type", "a spell of the chosen color", "creatures that aren't of the chosen
 # type": the creature type (205.3m) / color (105.1) chosen for the source — as it entered ("As ~ enters, choose a
@@ -848,7 +874,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         # (700.6; set only by the look-and-distribute grammar: "a historic card from among them")
         if extra == "historic" and not ("Artifact" in ch.types or "Legendary" in ch.supertypes or "Saga" in ch.subtypes):
             return False
-        if extra.startswith("counter:") and not card.counters.get(extra[8:], 0):
+        if extra.startswith("counter:") and not _has_counter(card, extra[8:]):  # (wave 5H: any kind, "*")
+            return False
+        if extra.startswith("nocounter:") and _has_counter(card, extra[10:]):  # -- counters (wave 5H) --
             return False
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False

@@ -233,7 +233,7 @@ def _entering_order_choice(plan: Plan, card: CardInstance, controller: str, *, x
         x = card.stack_info.x
     probe = card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})
     counters = entering_counters(plan, card, controller, plan.ch(probe), x=x, extra=extra, choices=choices)
-    if not counters:
+    if not counters and not replace.entering_kinds(plan, replace.candidates(plan, "counters")):  # (wave 5H)
         return None
     puts = [(card.id, kind, n) for kind, n in counters.items()]
     planned = replace.plan_counters(plan, puts, by=controller, effect=True, entering={card.id: controller},
@@ -413,13 +413,15 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
     if any(e["player"] != first["player"] for e, _, _ in planned):
         payload["controllers"] = {c.id: e["player"] for e, c, _ in planned}
     plan.do(payload, actor=first["actor"])
+    together = [c.id for _, c, _ in planned]  # (wave 5H: 614.12)
     for entry, card, ep in planned:
-        _after_move(plan, entry, card.id, ep)
+        _after_move(plan, entry, card.id, ep, together)
 
 
-def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any]) -> None:
+def _after_move(plan: Plan, entry: Entry, card_id: str, ep: dict[str, Any], together: list[str] | None = None) -> None:
     controller = entry["player"]
-    after_entry(plan, card_id, controller, x=entry.get("x"), extra_counters=_extra(entry), choices=ep.get("choices"))
+    after_entry(plan, card_id, controller, x=entry.get("x"), extra_counters=_extra(entry), choices=ep.get("choices"),
+                newcomers=together)
     entered = plan.state.cards.get(card_id)
     if entered is None or not entered.zone.endswith(":battlefield"):
         return
@@ -467,7 +469,8 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
 
 
 def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None,
-                extra_counters: dict[str, int] | None = None, choices: dict[str, str] | None = None) -> None:
+                extra_counters: dict[str, int] | None = None, choices: dict[str, str] | None = None,
+                newcomers: list[str] | None = None) -> None:
     """The "enters with" part of entering (122.6: counters put on it as it enters, by its controller;
     306.5b: a planeswalker's loyalty), right after the move that put it onto the battlefield, and the
     record of what was chosen as it entered ("Chosen color: Blue" on the permanent, 614.12a)."""
@@ -497,11 +500,14 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     # choke point (122.6, 614.16), in the order its controller chose before it entered (614.12a) --
     counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices)
     puts = [(card_id, kind, n) for kind, n in counters.items() if n > 0]
-    if puts:
-        from app.rules import replace
+    from app.rules import replace
 
+    # (-- counters (wave 5H) -- with none, other permanents' "enters with an additional …" statics may still add some;
+    # ``newcomers``: the permanents entering with it, whose statics don't apply to it, 614.12)
+    if puts or replace.entering_kinds(plan, replace.candidates(plan, "counters")):
         orders = {k[len(ORDER):]: v for k, v in (choices or {}).items() if k.startswith(ORDER)}
-        replace.put_counters(plan, puts, by=controller, effect=True, entering={card_id: controller}, answers=orders)
+        replace.put_counters(plan, puts, by=controller, effect=True, entering={card_id: controller}, answers=orders,
+                             newcomers=newcomers)
 
 
 def token_enters_tapped(plan: Plan, controller: str, spec: dict[str, Any]) -> bool:
