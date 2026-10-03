@@ -3295,3 +3295,12 @@ RESUME["tap_or_untap"] = _tap_or_untap.resume
 from app.rules import state_triggers as _state_triggers  # noqa: E402
 
 PRIMITIVES.update(_state_triggers.PRIMITIVES)
+# -- endure (wave 6D) -- "it endures 2" (701.63: app/rules/endure.py)
+from app.rules import endure as _endure  # noqa: E402
+
+PRIMITIVES.update(_endure.PRIMITIVES)
+RESUME["endure"] = _endure.resume
+# -- win the game (wave 6D) -- "you win the game" (104.2b: app/rules/win_game.py)
+from app.rules import win_game as _win_game  # noqa: E402
+
+PRIMITIVES.update(_win_game.PRIMITIVES)

@@ -564,3 +564,67 @@ def test_raven_of_fell_omens_once_each_turn_for_a_crime(cards):
     resolve(s)
     assert s.state.players["p1"].life == lives[0] + 1
     roundtrip(s)
+
+
+
+# -- fourth batch: endure (701.63), "draw an additional card", untap and remove from combat, win the game (104.2b) ----
+EXTRA += [
+    card('Fortress Kin-Guard', set_code="tst", number="H01", mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Dog Soldier', oracle_text='When this creature enters, it endures 1. (Put a +1/+1 counter on it or create a 1/1 white Spirit creature token.)', power='1', toughness='2', colors=['W'], color_identity=['W'], keywords=['Endure']),  # noqa: E501
+    card('Grafted Skullcap', set_code="tst", number="H02", mana_cost='{4}', cmc=4.0, type_line='Artifact', oracle_text='At the beginning of your draw step, draw an additional card.\nAt the beginning of your end step, discard your hand.'),  # noqa: E501
+    card('Gustcloak Runner', set_code="tst", number="H03", mana_cost='{W}', cmc=1.0, type_line='Creature — Human Soldier', oracle_text='Whenever this creature becomes blocked, you may untap it and remove it from combat.', power='1', toughness='1', colors=['W'], color_identity=['W']),  # noqa: E501
+    card('Felidar Sovereign', set_code="tst", number="H04", mana_cost='{4}{W}{W}', cmc=6.0, type_line='Creature — Cat Beast', oracle_text="Vigilance (Attacking doesn't cause this creature to tap.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nAt the beginning of your upkeep, if you have 40 or more life, you win the game.", power='4', toughness='6', colors=['W'], color_identity=['W'], keywords=['Lifelink', 'Vigilance']),  # noqa: E501
+]
+FULL += ["Fortress Kin-Guard", "Grafted Skullcap", "Gustcloak Runner", "Felidar Sovereign"]
+
+
+@pytest.mark.parametrize("choice", ["counters", "token"])
+def test_fortress_kin_guard_endures(cards, choice):
+    s = build(cards, "Fortress Kin-Guard")
+    guard = cast_from_hand(s, "Fortress Kin-Guard", W=1, G=1)
+    for _ in range(20):
+        d = until_asked(s)
+        if d is None:
+            break
+        if any(o.id == choice for o in d.options):
+            roundtrip(s)  # (a save in the middle of the choice)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[choice])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    spirits = [c for c in s.state.cards.values() if c.name == "Spirit" and c.zone == "p1:battlefield"]
+    if choice == "counters":
+        assert s.state.cards[guard.id].counters.get("+1/+1") == 1 and not spirits
+    else:
+        assert not s.state.cards[guard.id].counters.get("+1/+1") and len(spirits) == 1
+    roundtrip(s)
+
+
+def test_grafted_skullcap_draws_an_additional_card(cards):
+    s = build(cards, "Grafted Skullcap")
+    put(s, "Grafted Skullcap")
+    until(s, lambda s: s.state.turn.number == 2)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and not s.state.zones.get("stack"))
+    assert hand_size(s, "p1") == 2  # (its hand was discarded at its end step; then the draw and one more)
+    roundtrip(s)
+
+
+def test_gustcloak_runner_leaves_combat_untapped(cards):
+    s = build(cards, "Gustcloak Runner")
+    runner = put(s, "Gustcloak Runner")
+    wall = named(s, "Wall p2")
+    to_attack(s, 3)
+    declare(s, (runner, "p2"))
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": runner.id}])
+    answer_may(s, "yes")
+    card = s.state.cards[runner.id]
+    assert card.attacking is None and not card.tapped
+    roundtrip(s)
+
+
+@pytest.mark.parametrize(("life", "wins"), [(40, True), (39, False)])
+def test_felidar_sovereign_wins_at_forty_life(cards, life, wins):
+    s = build(cards, "Felidar Sovereign")
+    put(s, "Felidar Sovereign")
+    act(s, "p1", type="set_life", player="p1", value=life)
+    until(s, lambda s: s.state.rules.winner is not None or (s.state.turn.number == 3 and s.state.turn.phase == "main1"))
+    assert (s.state.rules.winner == "p1") == wins
+    roundtrip(s)

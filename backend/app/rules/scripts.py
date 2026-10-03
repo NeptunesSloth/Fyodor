@@ -1410,7 +1410,8 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         if left is not None and right is not None and left[1] is None and right[1] is None:
             return left[0] + right[0], None
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
-                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad)\b)"):
+                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
+                                 r"remove)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
@@ -2420,6 +2421,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import trigger_words
 
                 body = trigger_words.rewrite_body(body, name, cond, has_player)
+                if name == "step:draw:you":  # -- draw step (wave 6D) -- "At the beginning of your draw step, draw an
+                    # additional card.": a triggered ability that draws, after the draw of 504.1 (504.2)
+                    body = re.sub(r"^draw (an|two|three) additional (cards?)\.$",
+                                  lambda m: f"draw {'a' if m[1] == 'an' else m[1]} {m[2]}.", body)
                 # -- other side (wave 6D) -- "… blocks a creature, destroy that creature" (app/rules/other_side.py)
                 from app.rules import other_side
 
@@ -4431,3 +4436,11 @@ EFFECTS[:0] = _tap_or_untap.TEMPLATES
 from app.rules import exiled_with as _exiled_with  # noqa: E402
 
 EFFECTS[:0] = _exiled_with.TEMPLATES
+# -- endure (wave 6D) -- "it endures 2" (701.63: app/rules/endure.py)
+from app.rules import endure as _endure  # noqa: E402
+
+EFFECTS[:0] = _endure.TEMPLATES
+# -- win the game (wave 6D) -- "you win the game" (104.2b: app/rules/win_game.py)
+from app.rules import win_game as _win_game  # noqa: E402
+
+EFFECTS[:0] = _win_game.TEMPLATES
