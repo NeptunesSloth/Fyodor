@@ -457,7 +457,10 @@ _PLACE = r"(?:into your hand|onto the battlefield tapped|onto the battlefield|in
 _SEARCHERS = {**{k: v for k, v in PLAYER_GROUPS.items() if k in ("its controller", "that player", "that creature's controller",
                                                                    "that permanent's controller")},
               "that land's controller": "it.controller", "that artifact's controller": "it.controller",
-              "that enchantment's controller": "it.controller"}
+              "that enchantment's controller": "it.controller",
+              # -- other players' choices (wave 12D) -- "Each opponent may search their library …" (effects.search: one search
+              # per player, in turn order, 101.4)
+              "each opponent": "each_opponent", "each other player": "each_opponent", "each player": "each_player"}
 _SEARCH = re.compile(
     rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) may )?"
     rf"search (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"

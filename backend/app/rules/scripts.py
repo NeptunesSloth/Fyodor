@@ -1331,6 +1331,11 @@ def _tutor(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
              "reveal": "reveal it" in m.group(0)}], None
 
 
+@effect(r"(?:then )?each player who searched their library this way shuffles")
+def _searchers_shuffle(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "searchers_shuffle"}], None  # (joined to the search before it: _gy_shuffle; alone it stays manual)
+
+
 @effect(r"tap any number of untapped (?P<sel>.+?) you control")
 def _tap_choice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """-- "this way" outcomes (wave 4A) -- "Tap any number of untapped creatures you control." (a choice of 0 or more,
@@ -1650,10 +1655,17 @@ def _attached_host(found: tuple[list[dict[str, Any]], Any, bool] | None, it: str
 def _gy_shuffle(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """-- refused zones/sized (wave 3R4) -- "If you search your library this way, shuffle." belongs to the
     "search your library and/or graveyard" right before it (language._search_gy); anywhere else: manual."""
-    if found is None or not any(e.get("do") == "gy_search_shuffle" for e in found[0]):
+    if found is None or not any(e.get("do") in ("gy_search_shuffle", "searchers_shuffle") for e in found[0]):
         return found
     effects: list[dict[str, Any]] = []
     for e in found[0]:
+        if e.get("do") == "searchers_shuffle":  # -- other players' choices (wave 12D) -- "Then each player who searched their
+            prev = effects[-1] if effects else None  # library this way shuffles." (701.24): after "Each opponent may search …"
+            if prev is None or prev.get("do") != "search" or prev.get("who") not in ("each_opponent", "each_player") \
+                    or prev.get("shuffle", True):
+                return None
+            effects[-1] = {**prev, "shuffle": True}
+            continue
         if e.get("do") != "gy_search_shuffle":
             effects.append(e)
             continue
@@ -4591,6 +4603,22 @@ def _put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         raise _NoMatch
     if m["may"]:
         found[0][0]["optional"] = True
+    return found
+
+
+from app.rules.put_from_hand import EACH_PATTERN as _put_from_hand_pattern  # noqa: E402  (a leaf module)
+
+
+@_first
+@effect(_put_from_hand_pattern)
+def _each_put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """-- other players' choices (wave 12D) -- "Each opponent may put a creature card from their hand onto the battlefield."
+    (app/rules/put_from_hand.py)"""
+    from app.rules import put_from_hand
+
+    found = put_from_hand.parse_each(m)
+    if found is None:
+        raise _NoMatch
     return found
 
 

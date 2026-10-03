@@ -97,5 +97,61 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"put_from_hand": put_from_hand}
-RESUME = {"put_from_hand": resume}
+# -- other players' choices (wave 12D) -- "Each opponent may put a creature card from their hand onto the battlefield." (Hunted
+# Wumpus, Iwamori of the Open Fist), "Each player may put an artifact, creature, enchantment, or land card from their hand onto
+# the battlefield." (Show and Tell), "… any number of … cards …" (Tempting Wurm), "That player may put …" (Braids, Conjurer
+# Adept). 101.4: each player makes the choice in turn order (the active player first), knowing the earlier choices, and then
+# the cards enter the battlefield at the same time (614.12, one event). The choice is from a hidden zone and every player is
+# asked, whether or not they hold a matching card, so nobody learns that from the question. Each enters under its chooser's
+# control (110.2) and is not cast (601.1).
+EACH_PATTERN = (r"(?P<who>each opponent|each other player|each player|that player) may put (?P<q>an?|any number of) "
+                r"(?P<what>[^.]+?) cards? (?:from their hand onto the battlefield|onto the battlefield from their hand)")
+_EACH_WHO = {"each opponent": "each_opponent", "each other player": "each_opponent", "each player": "each_player",
+             "that player": "that_player"}
+
+
+def parse_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
+    inner = re.fullmatch(PATTERN, f"put a {m['what']} card from your hand onto the battlefield")
+    one = parse(inner) if inner is not None else None
+    if one is None:
+        return None
+    return [{"do": "each_put", "who": _EACH_WHO[m["who"]], "sel": one[0][0]["sel"], "label": m["what"],
+             "many": m["q"] == "any number of"}], None
+
+
+def each_put(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    who = [p for p in plan.apnap() if p in effects._players(plan, ctx, e["who"])]
+    return _ask_each(plan, ctx, e, who, [])
+
+
+def _ask_each(plan: Plan, ctx: Context, e: dict[str, Any], who: list[str], picks: list[dict[str, Any]]) -> bool:
+    from app.rules import attachments, selectors
+    from app.rules.plan import decide
+
+    if not who:
+        return not picks or attachments.enter(plan, picks, ctx)  # (an Aura chooses what it enchants: the resolution goes on after)
+    pid = who[0]
+    options = [c for c in selectors.candidates(plan, selectors.from_key(e["sel"]), pid, ctx.get("source_card"))
+               if plan.state.cards[c].zone == f"{pid}:hand" and _permanent_card(plan, c)]
+    decide(plan, player=pid, kind="choose_cards",
+           prompt=f"{ctx.get('name') or 'It'}: you may put {'any number of ' if e.get('many') else 'a '}{e.get('label') or 'permanent'} "
+                  "card from your hand onto the battlefield",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in options],
+           min_choices=0, max_choices=len(options) if e.get("many") else min(1, len(options)),
+           resume={"step": "each_put", "ctx": ctx, "e": e, "who": who[1:], "picks": picks})
+    return False
+
+
+def resume_each(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    picks = [*r["picks"], *({"card": c, "player": d.player, "actor": d.player, "tapped": False} for c in chosen)]
+    if _ask_each(plan, r["ctx"], r["e"], r["who"], picks):
+        effects.continue_effects(plan, r["ctx"])
+
+
+PRIMITIVES = {"put_from_hand": put_from_hand, "each_put": each_put}
+RESUME = {"put_from_hand": resume, "each_put": resume_each}

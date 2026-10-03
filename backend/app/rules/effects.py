@@ -1498,6 +1498,15 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """A tutor. The server filters the library; only the searching player gets the matching cards
     in their private decision (nobody else learns the library's contents)."""
     pid = ctx["controller"]
+    if e.get("who") in ("each_opponent", "each_player"):  # -- other players' choices (wave 12D) -- "Each opponent may search their
+        # library for …": one search per player, the active player first (101.4). A library is hidden, so each search is its
+        # player's private choice; the cards they put onto the battlefield enter as each search ends (a corner of 101.4's
+        # "actions happen simultaneously" that only an entering permanent watching the others entering could notice)
+        order = [p for p in plan.apnap() if p in _players(plan, ctx, e["who"])]
+        at = ctx["next"]
+        ctx["effects"] = [*ctx["effects"][:at], *({**e, "who": f"player:{p}"} for p in order), *ctx["effects"][at:]]
+        continue_effects(plan, ctx)
+        return False
     if e.get("who", "you") != "you":  # "Its controller may search their library …" (Path to Exile)
         who = _players(plan, ctx, e["who"])
         if not who:

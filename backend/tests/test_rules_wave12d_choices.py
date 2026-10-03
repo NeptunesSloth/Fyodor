@@ -56,11 +56,21 @@ REAL = [
          oracle_text="Each land is a Swamp in addition to its other land types."),
     card("Evil Presence", set_code="tst", number="D13", mana_cost="{B}", cmc=1.0, type_line="Enchantment — Aura",
          oracle_text="Enchant land\nEnchanted land is a Swamp.", colors=["B"], color_identity=["B"], keywords=["Enchant"]),
+    card("Show and Tell", set_code="tst", number="D14", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery",
+         oracle_text="Each player may put an artifact, creature, enchantment, or land card from their hand onto the battlefield.",
+         colors=["U"], color_identity=["U"]),
+    card("Hunted Wumpus", set_code="tst", number="D15", mana_cost="{3}{G}", cmc=4.0, type_line="Creature — Beast",
+         oracle_text="When this creature enters, each other player may put a creature card from their hand onto the battlefield.",
+         power="6", toughness="6", colors=["G"], color_identity=["G"]),
+    card("Old-Growth Dryads", set_code="tst", number="D16", mana_cost="{G}", cmc=1.0, type_line="Creature — Dryad",
+         oracle_text="When this creature enters, each opponent may search their library for a basic land card, put it onto the "
+                     "battlefield tapped, then shuffle.", power="3", toughness="3", colors=["G"], color_identity=["G"]),
     card("Wrong Turn Test", set_code="tst", number="D5", mana_cost="{2}{U}", cmc=3.0, type_line="Instant",
          oracle_text="Target opponent gains control of target creature.", colors=["U"], color_identity=["U"]),
 ]
 NAMES = ["Akroan Horse", "Humble Defector", "Sky Swallower", "Trostani Discordant", "Wrong Turn Test", "Eladamri's Vineyard", "Tangleroot",
-         "The Warring Triad", "Tidal Warrior", "Reef Shaman", "Command Tower", "Urborg, Tomb of Yawgmoth", "Evil Presence"]
+         "The Warring Triad", "Tidal Warrior", "Reef Shaman", "Command Tower", "Urborg, Tomb of Yawgmoth", "Evil Presence", "Show and Tell",
+         "Hunted Wumpus", "Old-Growth Dryads"]
 
 
 @pytest.fixture()
@@ -181,6 +191,56 @@ def test_the_warring_triad_lets_a_target_player_choose_the_color(cards):
     act(s, "p2", type="choose", decision_id=d.id, option_ids=["R"])
     pass_until_stack_empty(s)
     assert s.state.players["p2"].mana == {"R": 1} and s.state.players["p1"].mana == {}
+    check(s)
+
+
+# -- other players' choices (101.4) ----------------------------------------------------------------------------------
+def test_show_and_tell_asks_every_player_in_turn_order_then_puts_the_cards_in_together(cards):
+    s = build(cards)
+    mine, theirs = put(s, "Grizzly Bears", "hand"), put(s, "Llanowar Elves", "hand", "p2")
+    cast(s, "Show and Tell", None, U=1, C=2)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and mine.id in {o.id for o in d.options} and theirs.id not in {o.id for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[mine.id])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and theirs.id in {o.id for o in d.options}  # 101.4: the next player, knowing the first
+    assert s.state.cards[mine.id].zone == "p1:hand"  # (nothing enters until everyone chose)
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[theirs.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[mine.id].zone == "p1:battlefield" and s.state.cards[theirs.id].zone == "p2:battlefield"
+    assert s.state.cards[theirs.id].controller == "p2"
+    check(s)
+
+
+def test_a_player_with_nothing_to_put_is_asked_all_the_same(cards):
+    """Skipping the question would tell the table that player holds no such card (hidden information)."""
+    s = build(cards)
+    for c in [c for c in s.state.cards.values() if c.zone == "p2:hand"]:
+        act(s, "p2", type="move", card_ids=[c.id], to={"zone": "graveyard", "player": "p2"})
+    wumpus = cast(s, "Hunted Wumpus", None, G=1, C=3)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and d.options == [] and d.min_choices == d.max_choices == 0
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[])
+    pass_until_stack_empty(s)
+    assert s.state.cards[wumpus.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_each_opponent_may_search_in_turn_order_each_with_their_own_library(cards):
+    s = build(cards, three=True)
+    dryads = cast(s, "Old-Growth Dryads", None, G=1)
+    for player, land in (("p2", "Island"), ("p3", "Mountain")):  # 101.4: Alice's left-hand neighbour first
+        d = s.state.rules.decision
+        assert d is not None and d.player == player and d.kind == "confirm"
+        act(s, player, type="choose", decision_id=d.id, option_ids=["yes"])
+        d = s.state.rules.decision
+        assert d is not None and d.player == player
+        found = next(o for o in d.options if s.state.cards[o.id].name == land)
+        assert all(s.state.cards[o.id].zone == f"{player}:library" for o in d.options)  # only their own library
+        act(s, player, type="choose", decision_id=d.id, option_ids=[found.id])
+        pass_until_stack_empty(s)
+        assert s.state.cards[found.id].zone == f"{player}:battlefield" and s.state.cards[found.id].tapped
+    assert s.state.cards[dryads.id].zone == "p1:battlefield"
     check(s)
 
 
