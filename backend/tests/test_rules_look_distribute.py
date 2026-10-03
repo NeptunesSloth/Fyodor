@@ -392,6 +392,11 @@ def test_risen_reef_nonland_goes_to_hand_without_a_choice(cards):
     s = build(cards)
     top = stack_library(s, ["Grizzly Bears", "Forest"])
     cast(s, "Risen Reef", {"G": 1, "U": 1, "C": 1})
+    # (wave 5I, 701.20e) the question is asked whatever the hidden card is — with nothing to choose for a nonland card —
+    # so whether it appears doesn't tell the table what the card was (a declined land goes to the hand too)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and d.options == [] and d.min_choices == 0
+    choose(s, [])
     assert s.state.rules.decision is None
     assert s.state.cards[top[0]].zone == "p1:hand"
     assert not any(s.state.cards[c].zone == "p1:battlefield" for c in top)

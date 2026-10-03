@@ -387,7 +387,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         if got is None:
             return []
         return [("counters_put", got[0], got[1], got[0].controller,
-                 {"oid": e.object_id, "counter": e.counter, "amount": e.amount,
+                 {"oid": e.object_id, "counter": e.counter, "amount": e.amount, "actor": e.actor,  # (actor: wave 5H)
                   "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or "")})]
     if e.kind == "damage":
         return _damage_facts(plan, e)
@@ -614,6 +614,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
         return False
+    if event == "counters_put" and cond.get("by") == "you" and info.get("actor") != you:  # -- counters (wave 5H) --
+        return False  # ("Whenever you put one or more +1/+1 counters on …": the player who put them, 122.6a)
     if event == "player_counters" and info.get("counter") != cond.get("counter"):  # (wave 3E: "you get one or more {E}")
         return False
     if event == "deal_damage":

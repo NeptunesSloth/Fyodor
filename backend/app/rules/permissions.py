@@ -400,6 +400,15 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True,
                 "play": False, "cast": True, "filter": None, "while": cond, "effects": []}
+    # -- top of library (wave 5I) -- "You may cast Dragon spells / artifact spells and colorless spells / creature spells of
+    # the chosen type … from the top of your library", Radha's look-and-play line (app/rules/top_library.py)
+    from app.rules import escape, top_library
+
+    if (top := top_library.permission(t, lines)) is not None:
+        return top
+    if t.lower().startswith(("escape—", "each ")) and (found_escape := escape.define_static(t)) is not None:
+        return found_escape  # (702.138a: a printed escape cost, or "Each nonland card in your graveyard has escape. …")
+    # -- end top of library (wave 5I) --
     m = PERMISSION.fullmatch(t)
     if m:
         what = _permission_what(m["what"], m["sel"], m["qual"])
@@ -518,10 +527,12 @@ def _view(state: GameState, player: str, info: CardInfo) -> Plan:
     return Plan.view(state, player, info)
 
 
-def spell_matches(state: GameState, player: str, card: CardInstance, ch: Characteristics, key: str, info: CardInfo) -> bool:
-    """Would the spell this card becomes match the selector ("creature spells", "red spells")?"""
+def spell_matches(state: GameState, player: str, card: CardInstance, ch: Characteristics, key: str, info: CardInfo,
+                  source: str | None = None) -> bool:
+    """Would the spell this card becomes match the selector ("creature spells", "red spells")? (``source``: the
+    permanent whose "chosen type" the selector reads, wave 5I)"""
     probe = card.model_copy(update={"zone": STACK, "controller": player})
-    return selectors.matches(_view(state, player, info), selectors.from_key(key), probe, ch, player)
+    return selectors.matches(_view(state, player, info), selectors.from_key(key), probe, ch, player, source)
 
 
 def _table_statics(state: GameState, info: CardInfo, kinds: set[str]) -> list[tuple[CardInstance, int, Definition]]:
@@ -624,11 +635,19 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         if d["filter"] and verb == "cast" and not spell_matches(state, player, card, ch, d["filter"], info):
             continue
+        # -- top of library (wave 5I) -- "artifact spells and colorless spells", the chosen type, historic lands
+        from app.rules import top_library
+
+        if not top_library.static_ok(state, player, card, ch, info, d, src, verb):
+            continue
         key = f"{src.id}:permission:{index}"
-        if d["once"] and (r.once_per_turn.get(key) == turn or state.turn.active_player != player):
-            continue  # "once during each of your turns"
+        if d["once"] and (r.once_per_turn.get(key) == turn or (state.turn.active_player != player and not d.get("once_any"))):
+            continue  # "once during each of your turns" ("once each turn": any turn, wave 5I)
         out.append(Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")),
                          once_key=key if d["once"] else None))
+    # -- top of library (wave 5I) -- the player picks the permission they use (601.3): a once-each-turn one is offered
+    # last, so a cast another permission also allows doesn't use it up
+    out.sort(key=lambda g: g.once_key is not None)
     return out
 
 
@@ -896,6 +915,8 @@ def refresh_reveals(state: GameState, info: CardInfo) -> None:
         for d in scripts.definitions(ch).values():
             if d.get("kind") == "static" and d.get("static") == "top_reveal":
                 found.append(TopReveal(source=card.id, player=card.controller, to=d["to"]))
+            elif d.get("kind") == "static" and d.get("static") == "permission" and d.get("look"):  # (wave 5I: Radha)
+                found.append(TopReveal(source=card.id, player=card.controller, to="owner"))
     if found != r.top_reveals:
         r.top_reveals = found
 

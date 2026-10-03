@@ -95,7 +95,7 @@ class Selector:
     multicolored: bool | None = None
     with_keywords: tuple[str, ...] = ()
     without_keywords: tuple[str, ...] = ()
-    compare: tuple[tuple[str, str, int], ...] = ()  # ("mv"|"power"|"toughness", "<="|">="|"==", n)
+    compare: tuple[tuple[str, str, int | str], ...] = ()  # ("mv"|"power"|"toughness", "<="|">="|"==", n) (str: wave 5H)
     # "enchanted", "equipped", "counter:+1/+1", "all_types", "attacking_you", "single_graveyard"
     # (a group constraint: every target from one graveyard — read by language.target_group)
     extras: tuple[str, ...] = field(default_factory=tuple)
@@ -301,6 +301,72 @@ def _without_kw(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"with an? (?P<c>\+1/\+1|-1/-1|[a-z]+) counter on it")
 def _with_counter(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"counter:{m['c']}"))
+
+
+# -- counters (wave 5H) -- "creatures you control with +1/+1 counters on them", "each creature you control with a
+# counter on it" (any kind, 122.1), "creatures with no counters on them", "each creature without a +1/+1 counter on
+# it", "each nonland permanent without a fate counter on it", "a creature that has a +1/+1 counter on it"
+_CK = r"(?:(?!no |one |any |more )(?P<c>\+1/\+1|-1/-1|[a-z]+) )?"
+
+
+@_suffix(r"(?:with (?:an? |one or more )?|that (?:has|have) (?:an? |one or more )?)" + _CK + r"counters? on (?:it|them)")
+def _with_counters(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"counter:{m['c'] or COUNTER_ANY}"))
+
+
+@_suffix(r"(?:with no |without (?:an? |any )?)" + _CK + r"counters? on (?:it|them)")
+def _without_counters(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"nocounter:{m['c'] or COUNTER_ANY}"))
+
+
+COUNTER_ANY = "*"
+SOURCE_COUNTERS = "counters:"  # a comparison with the number of a kind of counters on the source (as it last existed)
+
+
+# "each nonland permanent with mana value equal to the number of charge counters on ~" (Ratchet Bomb, Blast Zone),
+# "a spell with mana value equal to the number of charge counters on ~" (Chalice of the Void): the source's counters as
+# it is, or as it last existed on the battlefield (sacrificed as a cost: 608.2h, 122.2)
+@_suffix(r"with mana value (?P<op>equal to|less than or equal to) the number of (?P<k>\+1/\+1|[a-z]+) counters on "
+         r"(?:~|this (?:artifact|land|creature|enchantment|permanent))")
+def _mv_source_counters(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, compare=(*s.compare, ("mv", "==" if m["op"] == "equal to" else "<=", SOURCE_COUNTERS + m["k"])))
+
+
+def _source_counters(plan: Plan, source: str | None, kind: str) -> int | None:
+    src = plan.state.cards.get(source or "")
+    if src is None:
+        return None
+    if src.zone.endswith(":battlefield"):
+        return src.counters.get(kind, 0)
+    snaps = [s for s in plan.rules.lki.values() if s.card == src.id and s.zone.endswith(":battlefield")]
+    if not snaps:
+        return None
+    last = max(snaps, key=lambda s: int(s.object_id.rsplit(".", 1)[-1]))
+    return last.counters.get(kind, 0)
+
+
+# "each creature that entered this turn", "target non-Human creature that entered this turn", "each creature that
+# entered the battlefield under your control this turn": the permanent is an object that entered this turn (400.7: a
+# new object if it left and came back), read from this turn's log (app/rules/history.py)
+@_suffix(r"that entered (?:the battlefield )?(?P<you>under your control )?this turn")
+def _entered_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "entered_this_turn_you" if m["you"] else "entered_this_turn"))
+
+
+def _entered_now(plan: Plan, card: CardInstance, you: str | None) -> bool:
+    from app.rules.history import log_for
+
+    if not card.zone.endswith(":battlefield"):
+        return False
+    oid = plan.oid(card)
+    return any(e.object_id == oid and (you is None or e.controller == you) for e in log_for(plan, False).entered)
+
+
+def _has_counter(card: CardInstance, kind: str) -> bool:
+    if kind == COUNTER_ANY:
+        return any(v > 0 for v in card.counters.values())
+    return card.counters.get(kind, 0) > 0
+# -- end counters (wave 5H) --
 
 
 # -- chosen type (wave 4J) ------------------------------------------------------------------------------------------
@@ -828,7 +894,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if set(sel.without_keywords) & ch.keywords:
         return False
     for what, op, n in sel.compare:
-        if n == X_VALUE:  # (107.3f: X is the one chosen for the spell; none known: nothing matches)
+        if isinstance(n, str) and n.startswith(SOURCE_COUNTERS):  # -- counters (wave 5H) --
+            have = _source_counters(plan, source, n[len(SOURCE_COUNTERS):])
+            if have is None:
+                return False
+            n = have
+        elif n == X_VALUE:  # (107.3f: X is the one chosen for the spell; none known: nothing matches)
             src = plan.state.cards.get(source or "")
             x = src.stack_info.x if src is not None and src.stack_info is not None and src.stack_info.x is not None \
                 else getattr(plan, "x_choice", None)  # (not on the stack yet: the X announced for it)
@@ -838,7 +909,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         value = _stat(ch, what)
         if what == "mv" and value is not None and zone == "stack" and card.stack_info is not None and card.stack_info.x:
             value += card.stack_info.x * ch.mana_cost.count("{X}")  # 202.3e: X on the stack is the value chosen
-        if value is None or not {"<=": value <= n, ">=": value >= n, "==": value == n}[op]:
+        if value is None or not isinstance(n, int) or not {"<=": value <= n, ">=": value >= n, "==": value == n}[op]:
             return False
     for extra in sel.extras:
         if extra == "enchanted" and not _has_attached(plan, card, "Aura"):
@@ -848,8 +919,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         # (700.6; set only by the look-and-distribute grammar: "a historic card from among them")
         if extra == "historic" and not ("Artifact" in ch.types or "Legendary" in ch.supertypes or "Saga" in ch.subtypes):
             return False
-        if extra.startswith("counter:") and not card.counters.get(extra[8:], 0):
+        if extra.startswith("counter:") and not _has_counter(card, extra[8:]):  # (wave 5H: any kind, "*")
             return False
+        if extra.startswith("nocounter:") and _has_counter(card, extra[10:]):  # -- counters (wave 5H) --
+            return False
+        if extra.startswith("entered_this_turn") and not _entered_now(plan, card, you if extra.endswith("_you") else None):
+            return False  # (wave 5H)
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --

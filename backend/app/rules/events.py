@@ -490,6 +490,17 @@ def _object_event(c: str) -> Condition | None:
     """Object events beyond the basic verbs: counters put on (122.6), leaving a graveyard (603.10a),
     becoming the target of a spell or ability (115.9, 603.2e), dealing damage (120.1)."""
     # "one or more +1/+1 counters are put on ~", "a +1/+1 counter is put on a creature you control"
+    # -- counters (wave 5H) -- "you put one or more +1/+1 counters on a creature you control" (122.6, 122.6a: the player
+    # who put them — the step's actor at the counter choke point). Only +1/+1 counters: -1/-1 counters dealt as damage
+    # (wither, infect: 120.3d) are put by each source's controller, which one damage step doesn't record; and "counters"
+    # of any kind put at once land in one step per kind (one trigger per step, not per event): both refused.
+    m = re.fullmatch(r"you put one or more (?P<k>\+1/\+1|[a-z]+) counters on (?P<s>.+)", c)
+    if m:
+        base = _subject(m["s"])
+        if base is None or m["k"] in ("-1/-1", "counters"):
+            raise _Refuse
+        return {**base, "event": "counters_put", "counter": m["k"], "by": "you"}
+    # -- end counters (wave 5H) --
     m = re.fullmatch(r"(?:one or more|an?) (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) )?counters? (?:is|are) put on (?P<s>.+)", c)
     if m:
         base = _subject(m["s"])

@@ -372,7 +372,45 @@ def _enters_tapped(text: str) -> Definition | None:
     return {"kind": "static", "static": "enters_tapped_others", "who": keys, "effects": []} if keys else None
 
 
-PARSERS = (_tokens, _counters, _draw, _life, _damage, _enters_tapped)
+# -- counters (wave 5H) -- "Each other creature you control enters with an additional +1/+1 counter on it." (Renata,
+# Called to the Hunt), "Colorless creatures you control enter with two additional +1/+1 counters on them.", "… for each
+# Angel you already control" (Giada), "… a number of additional +1/+1 counters on it equal to ~'s toughness" (Arwen):
+# a replacement effect on how the permanent enters (614.1c), applied to the counters event of an entering permanent
+# (122.6) — even one that would enter with none of that kind (Renata's ruling, 2020-01-24) — so the 616.1 loop orders
+# it against Hardened Scales / Doubling Season. Judged as the permanent would exist on the battlefield (614.12): only
+# permanents already there give it (a creature entering with Renata doesn't get one: ruling).
+_ENTER_EXTRA = re.compile(
+    r"^(?:Each (?P<one>.+?) enters|(?P<many>[A-Z].+?) enter) with (?:(?P<n>an|one|two|three|four|five) additional "
+    r"(?P<k>\+1/\+1|loyalty) counters?|a number of additional (?P<k2>\+1/\+1|loyalty) counters) on (?:it|them)"
+    r"(?: for each (?P<each>.+?)| equal to (?P<eq>~'s|this creature's) (?P<stat>power|toughness))?\.$")
+
+
+def _enter_extra(text: str) -> Definition | None:
+    m = _ENTER_EXTRA.match(text)
+    if not m or bool(m["k2"]) != bool(m["eq"]):  # ("a number of" goes with "equal to", and only it)
+        return None
+    group = m["one"] or m["many"]
+    group = group[:1].lower() + group[1:]
+    sel = selectors.parse(group)
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card:
+        return None
+    op: dict[str, Any] = {"do": "add", "n": 1 if m["n"] in (None, "an") else _num(m["n"]), "entering": True}
+    if m["eq"]:
+        op["times"] = {m["stat"]: "self"}
+    elif m["each"]:
+        from app.rules import values  # (values → selectors: no cycle back here)
+
+        each = m["each"]
+        already = re.fullmatch(r"(?P<w>.+) you already control", each)
+        times = values.parse_count(f"{already['w']} you control" if already else each)
+        if not isinstance(times, dict) or (already and "count" not in times):
+            return None
+        op["times"] = {"already": times["count"]} if already else times
+    return _static("counters", {"on": {"sel": sel.key()}, "counter": m["k"] or m["k2"], "entering_only": True}, op)
+# -- end counters (wave 5H) --
+
+
+PARSERS = (_tokens, _counters, _draw, _life, _damage, _enters_tapped, _enter_extra)
 
 
 def parse(text: str) -> Definition | None:

@@ -158,5 +158,5 @@ def apply(state: GameState, action: A.Action) -> None:
             # Automation isn't running: the bookkeeping may drift from the table. Resuming or
             # turning automation back on reconciles (app/rules/reconcile.py).
             rules.unsynced = True
-        track(state, before, manual=manual)
+        track(state, before, manual=manual, actor=action.actor)  # (actor: wave 5H)
     state.departures().clear()

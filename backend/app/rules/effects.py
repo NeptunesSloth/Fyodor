@@ -364,6 +364,8 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
         # "a creature dealt damage this way" (the objects actually dealt damage: after prevention)
         ctx[DEALT_KEY][e["dealt_as"]] = [ev["target_oid"] for ev in out.events if ev.get("target_oid")]
     replace.do_damage(plan, out, actor=ctx["controller"], combat=False)
+    if e is not None and e.get("bind_dealt"):  # -- if you do (wave 5G) -- "the damage dealt this way" (this_way.damage_dealt)
+        context.bind_amount(ctx, e["bind_dealt"], sum(max(0, int(ev["amount"])) for ev in out.events))
     return True
 
 
@@ -774,6 +776,10 @@ def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     else:
         n = _amount(plan, ctx, e["n"])
         puts = [(cid, e["kind"], n) for cid in cards] if n else []
+        for more in e.get("also") or ():  # -- counters (wave 5H) -- several kinds at once (one event, 122.6)
+            k = _amount(plan, ctx, more["n"])
+            more_cards = _cards(plan, ctx, more["who"]) if more.get("who") else cards
+            puts += [(cid, more["kind"], k) for cid in more_cards] if k else []
     if not puts:
         return True
     return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
@@ -789,6 +795,55 @@ def remove_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if have and n:
             plan.do({"type": "counter", "card_ids": [cid], "kind": e["kind"], "delta": -min(have, n)}, actor=ctx["controller"])
     return True
+
+
+# -- counters (wave 5H) --
+def double_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.10e: "double the number of [kind] counters on …" gives each object as many more of that kind as it has
+    ("each kind of counter": every kind it has) — counters put, all at once, through the choke point (122.6, 614.16:
+    Hardened Scales and Doubling Season apply)."""
+    cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
+    puts = []
+    for cid in cards:
+        have = plan.state.cards[cid].counters
+        kinds = [k for k, v in have.items() if v > 0] if e["kind"] == "*" else [e["kind"]]
+        puts += [(cid, k, have.get(k, 0)) for k in kinds if have.get(k, 0) > 0]
+    if not puts:
+        return True
+    return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
+
+
+def lki_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """122.8: "put its counters on …" after the object left: the same number of each kind it had as it last
+    existed (603.10a) are put — not moved — through the choke point (614.16 applies). Nothing to read: nothing put."""
+    got = values._object(plan, ctx, e["from"])
+    cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
+    had = {k: n for k, n in sorted(got[0].counters.items()) if n > 0} if got is not None else {}
+    puts = [(cid, k, n) for cid in cards for k, n in had.items()]
+    if not puts:
+        return True
+    return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
+
+
+def move_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """122.5: "move all counters from ~ onto target creature": each counter is removed from the source and put on
+    the other permanent (a put: 614.16 applies, Nesting Grounds ruling). If the source is gone (no longer that object
+    on the battlefield) or the other is the source itself, nothing is moved."""
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    cards = [c for c in _cards(plan, ctx, e["who"]) if src is None or c != src.id]
+    _remember(plan, ctx, e, cards)
+    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object") or len(cards) != 1:
+        return True
+    have = {k: n for k, n in sorted(src.counters.items()) if n > 0}
+    if not have or not plan.state.cards[cards[0]].zone.endswith(":battlefield"):
+        return True
+    for k, n in have.items():
+        plan.do({"type": "counter", "card_ids": [src.id], "kind": k, "delta": -n}, actor=ctx["controller"])
+    return replace.put_counters(plan, [(cards[0], k, n) for k, n in have.items()], by=ctx["controller"],
+                                then=_then(ctx, e), ctx=ctx)
+# -- end counters (wave 5H) --
 
 
 def proliferate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1770,6 +1825,7 @@ PRIMITIVES = {
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
     "fabricate": fabricate, "storm": storm,
     "fight": fight, "choose_targets": choose_targets,
+    "double_counters": double_counters, "lki_counters": lki_counters, "move_counters": move_counters,  # (wave 5H)
 }
 # -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py,
 # which imports this module lazily) --
@@ -1915,8 +1971,9 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     owner, looked = _looked(plan, ctx)
     ctx["looked"] = looked
     sel = selectors.from_key(e["sel"]) if e.get("sel") else None
-    options = [c for c in looked if sel is None
-               or selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+    options = [c for c in looked if sel is None  # (the source: "of the chosen type", wave 5I)
+               or selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid,
+                                    ctx.get("source_card"))]
     if e.get("sels"):  # -- refused look/cast-free (wave 3R5) -- "a creature card and/or a land card": any listed kind
         from app.rules import looking
 
@@ -2380,6 +2437,8 @@ def continue_effects(plan: Plan, ctx: Context) -> None:
         if replacements.ask_903_9b_first(plan, ctx, e):
             return  # 903.9b: a commander's owner chooses before it would be put into a hand or library
         ctx["next"] += 1
+        if e.get("note_group"):  # -- counters (wave 5H) -- the permanents a count reads, for a later "those creatures"
+            context.bind_objects(plan, ctx, e["note_group"]["as"], _cards(plan, ctx, e["note_group"]["who"]))
         if not PRIMITIVES[e["do"]](plan, ctx, e):
             return  # waiting for a choice; the decision's resume continues from ctx["next"]
     finish(plan, ctx)

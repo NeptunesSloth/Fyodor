@@ -111,6 +111,12 @@ _OBJECT_WORDS = {"it": "it", "~": "self", "that creature": "it", "that permanent
 _OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact)) "
                      r"(?P<verb>is|was|isn't|wasn't|is not|was not) (?P<what>.+)")
 _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking", "blocking": "blocking"}
+# -- counters (wave 5H) -- "if it had counters on it", "if it had a +1/+1 counter on it", "if ~ has counters on it",
+# "if it doesn't have an indestructible counter on it": the object's counters as it is, or as it last existed
+# (603.10a, 122.2: they cease to exist as it leaves)
+_HAD_COUNTERS = re.compile(r"(?P<who>it|~|that creature|that permanent) (?:had|has|(?P<neg>doesn't have|didn't have)) "
+                           r"(?:(?:a|an|one or more) )?(?:(?!no |any )(?P<k>\+1/\+1|-1/-1|[a-z]+) )?"
+                           r"counters? on (?:it|them|~|him|her)")
 # -- refused modal/conditional (wave 3R1) -- an ability the object has (a characteristic, 109.3: as it is, or as it
 # last existed, 608.2h — granted ones included). Keyword abilities only; "protection" (which quality?) isn't read.
 _HAS_KEYWORD = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card)) has (?P<kw>flying|reach|haste|trample|deathtouch|"
@@ -607,6 +613,10 @@ def _object(t: str) -> Condition | None:
             return None
         return {"object": "self" if m["who"] == "~'s" else "it", "stat": m["stat"].replace(" ", "_"),
                 "op": "<=" if m["cmp"] in ("less", "fewer") else ">=", "n": n}
+    m = _HAD_COUNTERS.fullmatch(t)  # -- counters (wave 5H) --
+    if m:
+        out_c: Condition = {"object": _OBJECT_WORDS[m["who"]], "counters": m["k"] or "*"}
+        return {"not": out_c} if m["neg"] else out_c
     m = _HAS_KEYWORD.fullmatch(t)  # -- refused modal/conditional (wave 3R1) -- "if that creature has toxic"
     if m:
         return {"object": _OBJECT_WORDS[m["who"]], "has": m["kw"]}
@@ -757,6 +767,9 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if got is None:
         return False
     card, ch = got
+    if "counters" in cond:  # -- counters (wave 5H) -- as it is, or as it last existed (603.10a)
+        kind = cond["counters"]
+        return any(v > 0 for v in card.counters.values()) if kind == "*" else card.counters.get(kind, 0) > 0
     if "has" in cond:  # -- refused modal/conditional (wave 3R1) --
         return cond["has"] in ch.keywords
     if "stat" in cond:  # "its mana value was 3 or less": a characteristic, as it is or as it last existed (608.2h)
@@ -809,8 +822,15 @@ def _cast_who(word: str) -> str:
     return "it" if word == "it" else "self"
 
 
+_NO_MANA = re.compile(r"no mana was spent to cast (?:it|that spell)")  # -- if you do (wave 5G) --
+
+
 def _cast_how(t: str) -> Condition | None:
     """A condition about how the source was cast, or None."""
+    if t in ("it escaped", "~ escaped"):  # -- escape (wave 5I) -- 702.138b
+        return {"object": _cast_who(t.split()[0]), "cast": {"escaped": True}}
+    if _NO_MANA.fullmatch(t):  # -- if you do (wave 5G) -- "if no mana was spent to cast it" (a cast trigger's spell)
+        return {"object": "it", "cast": {"no_mana": True}}
     m = _CAST.fullmatch(t)
     if m:
         how: dict[str, Any] = {"by_you": bool(m["you"])}
@@ -841,8 +861,8 @@ def _cast_how(t: str) -> Condition | None:
 def cast_conditions_on_source(cond: Condition) -> bool:
     """Is every condition about how a spell was cast in ``cond`` about the source itself (the spell, or the
     permanent it became)? (Not another object's: its record isn't kept once it resolved.)"""
-    if "cast" in cond:
-        return cond.get("object") == "self"
+    if "cast" in cond:  # (wave 5G: "no mana was spent to cast it" of a cast trigger's spell, still on the stack)
+        return cond.get("object") == "self" or (cond.get("object") == "event" and bool(cond["cast"].get("no_mana")))
     return all(cast_conditions_on_source(c) for k in ("all", "any") for c in cond.get(k, ())) and (
         "not" not in cond or cast_conditions_on_source(cond["not"]))
 
@@ -857,15 +877,19 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     """How the source was cast, from its payment record: a fact that never changes, so it is read the same while
     the spell is on the stack, once it became a permanent and after that left (608.2h). No record — it wasn't cast
     (put onto the battlefield, a copy) — fails every such test."""
+    how = cond["cast"]
+    if cond.get("object") == "event" and how.get("no_mana"):  # -- if you do (wave 5G) --
+        return _no_mana_spent(plan, ctx)
     if cond.get("object") != "self":
         return False
     record = plan.rules.payments.get(ctx.get("source_object") or "")
-    how = cond["cast"]
     if record is None or record.cast_from is None:
         return False
     if how.get("by_you") and record.controller != ctx["controller"]:
         return False
     if how.get("kicked") and not record.kicked:  # 702.33d (a modal header's "If it was kicked, choose both instead")
+        return False
+    if how.get("escaped") and record.alternative != "escape":  # -- escape (wave 5I) -- 702.138b
         return False
     zone = how.get("from")
     if zone is not None and (record.cast_from == zone[1:] if zone.startswith("!") else record.cast_from != zone):
@@ -881,3 +905,25 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return False
     return "total" not in how or sum(spent.values()) >= how["total"]
 # -- end refused modal/conditional (wave 3R1) --
+
+
+# -- if you do (wave 5G) --
+def _no_mana_spent(plan: Plan, ctx: dict[str, Any]) -> bool:
+    """"Whenever a player casts a spell, if no mana was spent to cast it, counter that spell." (Boromir, Vexing
+    Bauble): the cast spell's payment record (601.2h: the mana that paid its total cost — convoke, delve and costs
+    other than mana aren't mana). Read while the spell is on the stack (603.4: as the ability triggers and as it
+    resolves); once it has left, its record is the permanent's and the counter has nothing to do anyway. A spell
+    cast by hand has no known payment: the condition doesn't hold (said in the log)."""
+    from app.rules import context
+
+    refs = context._object_refs(ctx, context.EVENT)
+    record = plan.rules.payments.get(refs[0].object_id) if refs else None
+    if record is None or record.cast_from is None:
+        return False
+    if not record.mana_known:
+        name = plan.state.cards[record.card].name if record.card in plan.state.cards else ""
+        plan.note(f"{name or 'That spell'} was cast by hand: whether mana was spent to cast it isn't known — "
+                  "apply the ability by hand", [record.card] if record.card in plan.state.cards else ())
+        return False
+    return sum(record.mana_spent.values()) == 0
+

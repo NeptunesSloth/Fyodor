@@ -1180,6 +1180,56 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": "target", "kind": m["k"], "n": {"divided": 0}}], \
             _divided(m["o"], "counters", _amount(m["n"]))
+    # -- counters (wave 5H) -- "When ~ dies, put its counters on target creature you control", "Whenever a creature you
+    # control leaves the battlefield, if it had counters on it, put those counters on ~": the same number of each kind
+    # the object had as it last existed (122.8) — a placeholder "it" bound by scripts.resolve_it only to an object that
+    # left (otherwise it would be a move, 122.5: refused)
+    # "put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control"
+    # (Brokers Ascendancy): one instruction, all at once (122.6)
+    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o>each [^,]+?) and "
+                     rf"(?P<n2>{AMT}) (?P<k2>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o2>each .+)", text)
+    if m and rider is None and "target" not in text:
+        if m["k"] in values.UNMODELED_COUNTERS or m["k2"] in values.UNMODELED_COUNTERS:
+            raise _Fail
+        k1, key1, _g1 = ref(m["o"])
+        k2, key2, _g2 = ref(m["o2"])
+        if "players" in (k1, k2):
+            raise _Fail
+        return [{"do": "add_counters", "who": _who(k1, key1), "kind": m["k"], "n": _amount(m["n"]),
+                 "also": [{"kind": m["k2"], "n": _amount(m["n2"]), "who": _who(k2, key2)}]}], None
+    # "move all counters from ~ onto target creature" (The Ozolith): removed from it and put on the other (122.5)
+    m = re.fullmatch(r"move all counters from ~ onto (?P<o>.+)", text)
+    if m and rider is None:
+        kind, key, group = ref(m["o"])
+        if kind in ("players", "self"):
+            raise _Fail
+        return [{"do": "move_counters", "who": _who(kind, key)}], _one(group)
+    m = re.fullmatch(r"put (?P<whose>its|those|~'s|this creature's) counters on (?P<o>.+)", text)
+    if m and rider is None:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "lki_counters", "from": "it" if m["whose"] in ("its", "those") else "self_named",
+                 "who": _who(kind, key)}], _one(group)
+    # -- counters (wave 5H) -- "put a +1/+1 counter, a reach counter, and a deathtouch counter on target creature",
+    # "put two +1/+1 counters and a flying counter on …": counters of several kinds put at once (one event, 122.6)
+    m = re.fullmatch(rf"put (?P<list>(?:(?:{AMT}) (?:\+1/\+1|-1/-1|[a-z]+(?: [a-z]+)?) counters?,? )+and "
+                     rf"(?:{AMT}) (?:\+1/\+1|-1/-1|[a-z]+(?: [a-z]+)?) counters?) on (?P<o>.+)", text)
+    if m and rider is None:
+        specs = [re.fullmatch(rf"(?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+(?: [a-z]+)?) counters?", p.strip())
+                 for p in re.split(r",? and |, ", m["list"])]
+        if any(p is None or p["k"] in values.UNMODELED_COUNTERS
+               or (" " in p["k"] and p["k"] not in ("first strike", "double strike")) for p in specs):
+            raise _Fail
+        kinds = [(p["k"], _amount(p["n"])) for p in specs if p is not None]
+        if len({k for k, _ in kinds}) != len(kinds):
+            raise _Fail
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "add_counters", "who": _who(kind, key), "kind": kinds[0][0], "n": kinds[0][1],
+                 "also": [{"kind": k, "n": n} for k, n in kinds[1:]]}], _one(group)
+    # -- end counters (wave 5H) --
     m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o>.+)", text)
     if m:
         if m["k"] in values.UNMODELED_COUNTERS:
@@ -1202,6 +1252,16 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             _one(group)
+    # -- counters (wave 5H) -- "double the number of +1/+1 counters on each creature you control" (Kalonian Hydra),
+    # "double the number of each kind of counter on target permanent" (Vorel): 701.10e, as many more as it has
+    m = re.fullmatch(r"double the number of (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) counters|(?P<each>each kind of counter)) on (?P<o>.+)",
+                     text)
+    if m and rider is None:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail  # (a player's counters: not read here)
+        return [{"do": "double_counters", "who": _who(kind, key), "kind": m["k"] or "*"}], _one(group)
+    # -- end counters (wave 5H) --
     # -- temporary grants & riders (agent G) --  "+X/+0", "+1/+1 … for each …", "-X/-X … where X is …",
     # "gets +2/+2 and gains flying and first strike", "… and can't be blocked this turn", "loses flying"
     # -- X sized by a count (wave 4K) -- "creatures you control gain trample and get +X/+X until end of turn" (Craterhoof

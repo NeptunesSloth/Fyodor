@@ -735,6 +735,8 @@ def _entry_choice(plan: Plan, card_id: str) -> str | None:
     for d in scripts.definitions(plan.ch(card)).values():
         if d.get("kind") == "replacement" and d.get("replacement") == "enters_choice":
             return str(next((e.get("what") for e in d.get("effects") or [] if e.get("what")), "value"))
+        if d.get("kind") == "replacement" and d.get("replacement") == "enter_cost":  # -- entering for a cost (wave 5G) --
+            return "payment (or none) as it would enter"
     return None
 
 

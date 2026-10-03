@@ -56,8 +56,8 @@ AMOUNT = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|t
 # 122.1d stun, 122.1h finality, 122.1i rad, 122.1j hone, 714 lore): an effect putting one of these
 # stays manual rather than placing an inert marker.
 UNMODELED_COUNTERS = frozenset({
-    "flying", "first strike", "double strike", "deathtouch", "decayed", "exalted", "haste", "hexproof",
-    "indestructible", "lifelink", "menace", "reach", "shadow", "trample", "vigilance",
+    "decayed", "exalted",  # (-- counters (wave 5H) -- the other keyword counters give their keyword in layer 6:
+    # app/rules/layers.keyword_counters, 122.1b, 613.1f, 613.7c)
     "shield", "rad", "hone", "lore"})  # (stun: 122.1d, wave 3F — keyword_actions.untap_stunned; finality: 122.1h, wave 3R4 — replacements.replace_move)
 
 BASIC_LAND_TYPES = ("Plains", "Island", "Swamp", "Mountain", "Forest")  # 205.3i
@@ -174,6 +174,8 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     m = _PLAYER_COUNTERS.match(what)
     if m:
         return {"player_counters": m["kind"]}
+    if what == "the damage dealt this way":  # -- if you do (wave 5G) -- what the damage just before dealt (this_way)
+        return {"ref_amount": "damage_dealt"}
     if what == "the life lost this way":  # -- refused zones/sized (wave 3R4) -- what the lose_life just before lost
         return {"ref_amount": "life_lost"}  # (scripts._life_lost binds it to that instruction, else the line is manual)
     if what in ("{E} paid this way", "the amount of {E} paid this way", "{E} you paid this way"):  # (wave 3E)
@@ -293,6 +295,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sized_damage.evaluate(plan, ctx, v)
     if "x" in v:
         return max(0, int(ctx.get("x") or 0))
+    if "paid_x" in v:  # -- sized payments (wave 5G) -- the X an optional payment of this resolution paid
+        from app.rules import paid_x
+
+        return paid_x.amount(ctx, v["paid_x"])
     if "times" in v:
         a, b = v["times"]
         return evaluate(plan, ctx, a) * evaluate(plan, ctx, b)

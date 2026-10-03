@@ -1407,6 +1407,9 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
         "flashback" if from_graveyard(card, player, ch, state) else None
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
     flash = any(g.flash for g in found)
+    if how is None and info is not None and card.zone == zone_key(player, "graveyard") and not free \
+            and not any(g.zone_ok and not g.free for g in found) and _escape_offers(state, player, card, ch, info):
+        how = "escape"  # -- escape (wave 5I) -- 702.138a: cast from the graveyard for an escape cost (only that way)
     if free:
         # (wave 3C) a free permission with no zone of its own ("you may cast Dragon spells without paying")
         # covers the zones a card can be cast from anyway
@@ -1419,6 +1422,13 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
         return None
     best = ways[0]
     return replace(best, flash=flash or best.flash)
+
+
+def _escape_offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Any]:
+    """-- escape (wave 5I) -- the escape costs this card can be cast for now (app/rules/escape.py)."""
+    from app.rules import escape
+
+    return escape.offers(state, player, card, ch, info)
 
 
 def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, *,
@@ -1573,6 +1583,10 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
         grant = cast_grant(state, player, card, ch, info)
+        if grant is not None and grant.how == "escape":  # -- escape (wave 5I) -- only for an escape cost (702.138a)
+            if alt_castable(state, player, card, info, check_priority=check_priority):
+                return True
+            continue
         cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free,
                           targets=_hint_targets(ch))  # -- review (Codex) --
         if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
@@ -1602,10 +1616,13 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
     if cast_problem(state, player, card, ch, check_priority=check_priority, info=info) is not None:
         return out
     grant = cast_grant(state, player, card, ch, info)
-    if grant is not None and grant.how == "flashback":
+    in_graveyard = card.zone == zone_key(player, "graveyard")  # -- escape (wave 5I) -- from there: escape costs only
+    if grant is not None and grant.how == "flashback" and not in_graveyard:
         return out  # (flashback is an alternative cost already: 118.9a)
     view = permissions._view(state, player, info)
     for offer in alt_costs.offers(state, player, card, ch, info):
+        if in_graveyard and not offer.escape and grant is not None and grant.how in ("escape", "flashback"):
+            continue  # (escape and flashback are the cast's own alternative costs: 118.9a)
         extra = alt_costs.merged(costs.spell_additional_cost(ch.abilities), offer.alt.cost)
         if extra is not None and additional_problem(view, extra, card, player):
             continue
@@ -1709,8 +1726,18 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     from app.rules import alt_costs, cost_changes  # (leaves over this module)
 
     alt_offer: alt_costs.Offer | None = None
+    # -- escape (wave 5I) -- a card cast from the graveyard only by escape: its (first) escape cost unless the intent
+    # names one (702.138a); an escape cost named for a card that also has flashback is used instead of flashback
+    if grant is not None and grant.how == "escape" and a.alt_cost is None and not free:
+        escapes = _escape_offers(plan.state, plan.actor, card, ch, plan.info)
+        if escapes:
+            a.alt_cost = escapes[0].key
+    escaping = a.alt_cost is not None and card.zone == zone_key(plan.actor, "graveyard") and any(
+        o.key == a.alt_cost for o in _escape_offers(plan.state, plan.actor, card, ch, plan.info))
+    if grant is not None and grant.how == "escape" and not escaping:
+        raise ActionError(f"{ch.name} can be cast from your graveyard only for its escape cost (702.138a)")
     if a.alt_cost is not None:
-        if free or alternative is not None or a.face_down or (grant is not None and grant.how == "flashback"):
+        if free or alternative is not None or a.face_down or (grant is not None and grant.how == "flashback" and not escaping):
             raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
         alt_offer = alt_costs.chosen(plan, a.alt_cost, card, ch)
         alternative = alt_offer.alt.mana_cost
@@ -1776,7 +1803,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=Purpose(spell=ch)):
         return
     commander_cast = from_command_zone(card, plan.actor)
-    flashback = from_graveyard(card, plan.actor, ch, plan.state)
+    flashback = from_graveyard(card, plan.actor, ch, plan.state) and not escaping  # (wave 5I: escape instead, 118.9a)
     card_was_in_hand = card.zone == zone_key(plan.actor, "hand")
     cast_zone = card.zone.rsplit(":", 1)[-1]  # -- refused modal/conditional (wave 3R1) -- where it was cast from
     from_where = {"graveyard": "the graveyard", "exile": "exile", "library": "the library", "hand": "the hand"}.get(
@@ -1799,7 +1826,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else \
-        "flashback" if flashback else "free" if free else "alternative" if alt_offer is not None else None
+        "flashback" if flashback else "free" if free else "escape" if escaping else \
+        "alternative" if alt_offer is not None else None  # ("escape": 702.138b, wave 5I)
     if alt_offer is not None:  # -- cost changers (wave 4I) --
         if alt_offer.once_key:
             plan.rules.once_per_turn[alt_offer.once_key] = plan.state.turn.number  # ("once each turn")
@@ -1809,7 +1837,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     record.kicked = a.kicker  # 702.33d
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
     record_payment(plan, card.id, record)
-    tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else ["Dashed"] if a.dash else []
+    tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else ["Dashed"] if a.dash else \
+        ["Escaped"] if escaping else []  # (wave 5I)
     if grant is not None and grant.how == "permission":
         permissions.consume(plan, grant)  # (a "once during each of your turns" permission is used up)
         tags.append(f"Cast from {from_where}" + (" without paying its mana cost" if free else ""))
