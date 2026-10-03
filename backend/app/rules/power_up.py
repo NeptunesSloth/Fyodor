@@ -25,7 +25,9 @@ def readable(ch: Characteristics, mana: str | None) -> bool:
     """Can its reduction be worked out? (No hybrid / Phyrexian / X / unsupported symbol in the permanent's mana cost or
     in the activation cost.)"""
     own, cost = M.parse_cost(ch.mana_cost), M.parse_cost(mana)
-    return not (own.hybrid or own.phyrexian or own.x or own.unsupported or cost.hybrid or cost.phyrexian or cost.unsupported)
+    snow = M.SNOW in own.colored or M.SNOW in cost.colored  # (118.7g: snow reduces generic mana only: not read)
+    return not (own.hybrid or own.phyrexian or own.x or own.unsupported or cost.hybrid or cost.phyrexian or cost.unsupported
+                or snow)
 
 
 def entered_this_turn(state: GameState, card: CardInstance) -> bool:

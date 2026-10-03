@@ -61,10 +61,11 @@ def coin_flip(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def refs_ok(effects: list[dict[str, Any]]) -> bool:
     """A condition about a flip only after a flip of the same ability."""
     flipped = False
-    for e in effects:
-        if e["do"] == "coin_flip":
+    for e in effects:  # (-- review (wave 7R) -- any nesting: a condition read before any flip would be false both ways)
+        text = str(e)
+        if "'coin_flip'" in text:
             flipped = True
-        elif e["do"] == "only_if" and "coin" in str(e.get("cond")) and not flipped:
+        elif "'coin':" in text and not flipped:
             return False
     return True
 
