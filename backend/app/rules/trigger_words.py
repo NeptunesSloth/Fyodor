@@ -96,4 +96,6 @@ def comma_condition(text: str, m: re.Match[str]) -> re.Match[str]:
 
 def have_subject(text: str) -> str:
     """"have ~ deal 1 damage to any target" → "~ deals 1 damage to any target" (after "you may")."""
+    # -- grammar (wave 11C) -- "you may have Ally creatures you control gain flying …": a group, so no third-person -s
+    text = re.sub(r"^have (?P<s>[A-Z][\w-]* creatures you control|[A-Z][\w-]+s you control) (?P<v>gain|get)\b", r"\g<s> \g<v>", text)
     return _HAVE.sub(lambda m: f"{m['s']} {_VERBS[m['v']]}", text)

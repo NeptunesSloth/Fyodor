@@ -127,9 +127,39 @@ _SELF_OR_HOST = ("~ or equipped creature", "~ or enchanted creature")
 def parse_condition(cond: str) -> Condition | None:
     """The part between "When/Whenever" and the comma → a condition, or None."""
     try:
-        return _parse(cond.strip())
+        try:
+            found = _parse(cond.strip())
+        except _Refuse:  # (a trailing qualifier can be what the plain reading refused: "… a permanent during your turn")
+            found = None
+        return found or _qualified(cond.strip())
     except _Refuse:
         return None
+
+
+def _qualified(c: str) -> Condition | None:
+    """-- trigger qualifiers (wave 11C) -- "… during your turn" / "during an opponent's turn" / "during their turn" (the acting
+    player's own): the turn it happens in is part of the trigger event (603.2), read as it happens (triggers._cond_matches);
+    "you gain / lose life", "you create one or more tokens" "for the first time each turn" (also "during each of your
+    turns"): the first such event of that player this turn, kept per player per turn whoever is watching, so an object that
+    entered later this turn still sees the earlier ones (triggers._generic_events)."""
+    during = first = None
+    m = re.fullmatch(r"(?P<c>.+?) during (?P<t>your|an opponent's|their) turn", c)
+    if m:
+        c, during = m["c"], {"your": "you", "an opponent's": "opponent", "their": "their"}[m["t"]]
+    m = re.fullmatch(r"(?P<c>.+?) for the first time (?P<w>each turn|during each of your turns)", c)
+    if m:
+        c, first = m["c"], True
+        if m["w"] != "each turn":
+            during = "you"
+    if during is None and first is None:
+        return None
+    inner = _parse(c)
+    if inner is None and during and re.search(r" (?:second|third|fourth|fifth) ", c):
+        inner = _parse(f"{c} each turn")  # ("their second card during their turn": the Nth this turn, as "… each turn")
+    if inner is None or (first and (inner.get("event") not in ("gain_life", "lose_life", "create_token")
+                                    or inner.get("subject") != "player")):
+        return None
+    return {**inner, **({"during": during} if during else {}), **({"first_each_turn": True} if first else {})}
 
 
 def _object_sel(phrase: str, *, card: bool = False) -> str:
@@ -190,9 +220,18 @@ def _parse(c: str) -> Condition | None:
     if found is not None:
         return found
     # battalion: "~ and at least two other creatures attack" (the creatures declared as attackers)
-    m = re.fullmatch(r"~ and at least (?P<n>\w+) other creatures attack", c)
+    m = re.fullmatch(r"~ and at least (?P<n>\w+) other creatures? attack", c)
     if m:
         return {"event": "attack", "subject": "self", "min_attackers": _count(m["n"]) + 1}
+    # -- trigger qualifiers (wave 11C) -- "~ and at least one other Warrior attack" (attackers other than ~ that are Warriors),
+    # "~ and at least two Zombies attack" (Zombies among all the attackers, ~ counting if it is one)
+    m = re.fullmatch(r"~ and at least (?P<n>\w+) (?P<o>other )?(?P<w>[A-Z][\w-]*?)s? attack", c)
+    if m:
+        sel = _token_or_sel(m["w"])
+        if sel is None or sel.player is not None or sel.card or sel.types not in ((), ("Creature",)) and not sel.subtypes:
+            return None
+        return {"event": "attack", "subject": "self", "min_attackers": _count(m["n"]), "sel": sel.key(),
+                **({"others_only": True} if m["o"] else {})}
     # "you draw your second card each turn"
     m = re.fullmatch(rf"{_P} draws? (?:their|your) (?P<nth>first|second|third) card each turn", c)
     if m:
@@ -286,6 +325,10 @@ def _parse(c: str) -> Condition | None:
         if inner is None or inner.get("event") != "die" or inner.get("subject") not in ("self", "sel"):
             return None
         return {**inner, "gy_owner": "you" if m["g"] == "your" else "opponent"}
+    m = re.fullmatch(r"(?P<p>you|an opponent|a player|each opponent) gains? or loses? life", c)  # (wave 11C) each event: 603.2
+    if m:
+        return {"event": "either", "subject": "player", "player": _PLAYERS[m["p"]],
+                "conds": [{"event": e, "subject": "player", "player": _PLAYERS[m["p"]]} for e in ("gain_life", "lose_life")]}
     for pattern, event in _PLAYER_VERBS:
         m = re.fullmatch(rf"(?P<p>you|an opponent|a player|each opponent) (?:{pattern})", c)
         if m:

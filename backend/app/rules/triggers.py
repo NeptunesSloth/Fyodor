@@ -69,6 +69,9 @@ from app.rules.plan import Plan, decide
 from app.rules.targets import choose_groups, label, legal_targets, ref, source_of
 
 
+_FIRST_KINDS = ("gain_life", "lose_life", "create_token")  # (wave 11C) events counted "for the first time each turn"
+
+
 def _zone(key: str | None) -> str:
     return (key or "").rsplit(":", 1)[-1]
 
@@ -504,6 +507,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     event, obj, och, player, info = fact
     you = watcher.controller
     want = cond["event"]
+    if cond.get("during") and (plan.active != (player if cond["during"] == "their" else you)) != (cond["during"] == "opponent"):
+        return False  # -- trigger qualifiers (wave 11C) -- "during your / an opponent's / their turn" (603.2)
     if want == "either":  # -- triggers (wave 5D) -- "Whenever you create or sacrifice a token": each event (603.2c)
         return any(_cond_matches(plan, sub, watcher, fact) for sub in cond["conds"])
     if want == "multi":  # "Whenever ~ attacks or blocks" (this object; each event, 603.2)
@@ -604,6 +609,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 return False
     if event == "dealt_damage" and cond.get("combat") is not None and bool(info.get("combat")) != cond["combat"]:
         return False
+    if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)
+        return False
     if event in ("scry", "surveil") and cond.get("nth") and info.get("nth") != cond["nth"]:  # -- looks (wave 8B) --
         return False
     if event == "die" and cond.get("damaged_by_self") and not _damaged_by(plan, watcher, info.get("oid")):  # (wave 7C)
@@ -613,6 +620,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         direct = cond.get("defender") not in (None, "you_or_pw")  # (only the creatures attacking that player)
         attackers = [plan.state.cards[c] for c in info.get("attacking_direct" if direct and "attacking_direct" in info
                                                            else "attacking") or [] if c in plan.state.cards]
+        if cond.get("others_only"):  # (wave 11C) "~ and at least one other Warrior attack": not counting ~
+            attackers = [c for c in attackers if c.id != watcher.id]
         if cond.get("sel"):
             sel = selectors.from_key(cond["sel"])
             attackers = [c for c in attackers if selectors.matches(plan, sel, c, plan.ch(c), you, watcher.id)]
@@ -893,6 +902,11 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
         if e.kind == "drew" and e.player:
             r.draws_this_turn[e.player] = r.draws_this_turn.get(e.player, 0) + 1
         facts = _facts(plan, e, window)
+        for f in facts:  # -- trigger qualifiers (wave 11C) -- 603.2: "for the first time each turn", kept per player whoever watches
+            if f[0] in _FIRST_KINDS and f[3] and int(f[4].get("amount") or 0) > 0:
+                key = f"first:{f[0]}:{f[3]}"
+                f[4]["first"] = r.once_per_turn.get(key) != plan.state.turn.number
+                r.once_per_turn[key] = plan.state.turn.number
         if e.kind == "drew" and e.player and facts:  # -- triggers (wave 5D) -- the first card a player draws in
             # their own draw step (504.1), kept per player per turn (they have one draw step a turn)
             first = plan.state.turn.phase == "draw" and e.player == plan.active and \

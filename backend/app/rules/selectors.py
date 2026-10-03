@@ -186,6 +186,11 @@ def _defending_controls(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="defending")
 
 
+@_suffix(r"that['’]s enchanted or equipped")  # -- grammar (wave 11C) -- an Aura or an Equipment on it (303.4, 301.5)
+def _enchanted_or_equipped(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "enchanted_or_equipped"))
+
+
 @_suffix(r"other than ~")
 def _other_than_self(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, other=True)
@@ -568,7 +573,7 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, multicolored=False, colorless=False)
     if low == "commander":
         return replace(s, commander=True)
-    if low in ("enchanted", "equipped"):
+    if low in ("enchanted", "equipped", "modified", "historic"):  # (wave 11C: modified 700.9, historic 700.6)
         return replace(s, extras=(*s.extras, low))
     if low in ("face-down", "face-up"):  # -- keyword actions & face-down (wave 3F) -- 708: "face-down creatures you control"
         return replace(s, extras=(*s.extras, low.replace("-", "_")))
@@ -981,6 +986,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "enchanted" and not _has_attached(plan, card, "Aura"):
             return False
         if extra == "equipped" and not _has_attached(plan, card, "Equipment"):
+            return False
+        if extra == "enchanted_or_equipped" and not (_has_attached(plan, card, "Aura") or _has_attached(plan, card, "Equipment")):
+            return False
+        # -- grammar (wave 11C) -- 700.9:a counter on it, equipped, or enchanted by an Aura its own controller controls
+        if extra == "modified" and not (_has_counter(card, COUNTER_ANY) or _has_attached(plan, card, "Equipment") or any(
+                c.attached_to == card.id and "Aura" in plan.ch(c).subtypes and c.controller == card.controller
+                for c in plan.state.cards.values())):
             return False
         # (700.6; set only by the look-and-distribute grammar: "a historic card from among them")
         if extra == "historic" and not ("Artifact" in ch.types or "Legendary" in ch.supertypes or "Saga" in ch.subtypes):

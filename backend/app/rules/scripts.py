@@ -1505,9 +1505,17 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         left, right = _one_clause(f"{selfdmg['s']} {selfdmg['a']}"), _one_clause(f"~ deals {selfdmg['d']}")
         if left is not None and right is not None and left[1] is None and right[1] is None:
             return left[0] + right[0], None
+    # -- grammar (wave 11C) -- "Put a +1/+1 counter on ~ and a +1/+1 counter on each Golem you control." (two instructions of
+    # one sentence, in order: 608.2c)
+    text = re.sub(r"^(Put an? [^,.]+? counters? on ~) and prevent all damage that would be dealt to it this turn$",
+                  r"\1 and prevent all damage that would be dealt to ~ this turn", text)  # ("it" is the one object named)
+    twin = re.fullmatch(r"(?P<p>[Pp]ut) (?P<a>an? .+? counters?) on (?P<x>(?:(?!\bcounters?\b).)+?) and (?P<b>an? .+? counters?) on "
+                        r"(?P<y>.+)", text)
+    if twin is not None:
+        text = f"{twin['p']} {twin['a']} on {twin['x']}, then put {twin['b']} on {twin['y']}"
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
-                                 r"remove)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
+                                 r"remove|add|investigate|prevent)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
