@@ -54,7 +54,8 @@ def test_two_blockers_use_up_one_shield_counter_and_deathtouch_does_not_kill(car
     automate(s)
     attack(s, (rhino, "p2"))
     block(s, "p2", (a, rhino), (b, rhino))
-    r = s.state.cards[rhino.id]
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, amounts=[1, 4, 1])  # (wave 14A: 510.1c, 702.19b)
+    r =s.state.cards[rhino.id]
     assert r.zone == "p1:battlefield" and not r.counters.get("shield") and r.damage == 0  # all prevented, one counter
     replay_matches(s)
 

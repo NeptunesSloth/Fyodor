@@ -204,6 +204,7 @@ def test_except_by_two_or_more(cards):
     with pytest.raises(ActionError, match="2 or more creatures"):
         block(s, "p2", (cat, troll))
     block(s, "p2", (cat, troll), (dog, troll))
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, amounts=[2, 2])  # (wave 14A: 510.1c)
     assert troll.id not in s.state.cards  # 2 + 2 damage on a 4/4
 
 

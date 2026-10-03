@@ -597,6 +597,7 @@ def test_prevented_plain_damage_does_not_erase_a_deathtouch_blockers_damage(card
     attack(s, (big, "p2"))
     rules(s).prevention[rules(s).object_id(big.id)] = 2
     block(s, "p2", (fang, big), (bear, big))
+    act(s, "p1", type="choose", decision_id=rules(s).decision.id, amounts=[1, 3])  # (wave 14A: 510.1c)
     until(s, lambda s: (rules(s).decision is not None and rules(s).decision.resume.get("step") == "shield_order")
           or s.state.turn.phase == "main2")
     d = rules(s).decision

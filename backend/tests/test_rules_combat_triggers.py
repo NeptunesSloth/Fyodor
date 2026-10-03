@@ -30,6 +30,12 @@ def through_combat(s, blocks=None):
                     assert "options" not in s.view(other)["rules"]["decision"]
             block(s, d.player, *blocks.get(d.player, ()))
             continue
+        if d is not None and d.kind == "divide":  # (wave 14A: lethal to each blocker, the rest to the last option)
+            lethal = d.display.get("lethal") or []
+            amounts = [lethal[i] if i < len(lethal) else 0 for i in range(len(d.options))]
+            amounts[-1] += d.display["total"] - sum(amounts)
+            act(s, d.player, type="choose", decision_id=d.id, amounts=amounts)
+            continue
         if d is not None:
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
             continue

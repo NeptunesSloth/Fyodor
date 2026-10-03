@@ -94,6 +94,8 @@ def test_trample_deathtouch_and_lifelink(cards):
     automate(s)
     attack(s, (wurm, "p2"), (viper, "p2"))
     block(s, "p2", (b1, wurm), (b2, viper))
+    for amounts in ([2, 3], [1, 2]):  # (wave 14A: a trampler with excess damage divides it, 702.19b)
+        act(s, "p1", type="choose", decision_id=decision(s).id, amounts=amounts)
     st = s.state
     # Wurm: 2 to the Guard, 3 trample over. Viper: 1 deathtouch damage is lethal, 2 over; lifelink 3.
     assert st.players["p2"].life == 40 - 3 - 2
@@ -129,6 +131,7 @@ def test_evasion_legal_blocks(cards):
     automate(s)
     attack(s, (bird, "p2"), (brute, "p2"))
     block(s, "p2", (spider, bird), (cat, brute), (dog, brute))
+    act(s, "p1", type="choose", decision_id=decision(s).id, amounts=[2, 1])  # (wave 14A: 510.1c)
     st = s.state
     assert bird.id not in st.cards and st.cards[spider.id].damage == 1  # 1/3 reach kills the 1/1 flyer
     assert brute.id not in st.cards  # 2 + 2 damage on a 3/3

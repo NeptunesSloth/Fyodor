@@ -143,6 +143,8 @@ def test_afflict_triggers_once_when_blocked(cards):
     life = s.state.players["p2"].life
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": b1.id, "attacker_id": eternal.id},
                                                  {"blocker_id": b2.id, "attacker_id": eternal.id}])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "divide")  # (wave 14A: 510.1c)
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, amounts=[0, s.state.rules.decision.display["total"]])
     settle(s)
     assert s.state.players["p2"].life == life - 2  # afflict 2, once
     check(s)
