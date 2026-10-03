@@ -62,6 +62,8 @@ EXTRA = [
     card('Brokers Ascendancy', set_code='tst', number='T5H32', mana_cost='{G}{W}{U}', cmc=3.0, type_line='Enchantment', oracle_text='At the beginning of your end step, put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control.', colors=['G', 'U', 'W'], color_identity=['G', 'U', 'W']),
     card('Ratchet Bomb', set_code='tst', number='T5H33', mana_cost='{2}', cmc=2.0, type_line='Artifact', oracle_text='{T}: Put a charge counter on this artifact.\n{T}, Sacrifice this artifact: Destroy each nonland permanent with mana value equal to the number of charge counters on this artifact.'),
     card('Blast Zone', set_code='tst', number='T5H34', mana_cost='', cmc=0.0, type_line='Land', oracle_text='This land enters with a charge counter on it.\n{T}: Add {C}.\n{X}{X}, {T}: Put X charge counters on this land.\n{3}, {T}, Sacrifice this land: Destroy each nonland permanent with mana value equal to the number of charge counters on this land.'),
+    card("Boss's Chauffeur", set_code='tst', number='T5H35', mana_cost='{4}{W}', cmc=5.0, type_line='Creature — Elf Citizen', oracle_text='This creature enters with a number of +1/+1 counters on it equal to one plus the number of other creatures you control.\nAlliance — Whenever another creature you control enters, put a +1/+1 counter on this creature.\nWhen this creature dies, create a 1/1 green and white Citizen creature token for each +1/+1 counter on it.', power='0', toughness='0', colors=['W'], color_identity=['W'], keywords=['Alliance']),
+    card('Myojin of Blooming Dawn', set_code='tst', number='T5H36', mana_cost='{5}{W}{W}{W}', cmc=8.0, type_line='Legendary Creature — Spirit', oracle_text='Myojin of Blooming Dawn enters with an indestructible counter on it if you cast it from your hand.\nRemove an indestructible counter from Myojin of Blooming Dawn: Create a 1/1 colorless Spirit creature token for each permanent you control.', power='4', toughness='6', colors=['W'], color_identity=['W']),
     card('Essence Channeler', set_code='tst', number='T5H30', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Bat Cleric', oracle_text="As long as you've lost life this turn, this creature has flying and vigilance.\nWhenever you gain life, put a +1/+1 counter on this creature.\nWhen this creature dies, put its counters on target creature you control.", power='2', toughness='1', colors=['W'], color_identity=['W']),
 ]
 
@@ -124,6 +126,7 @@ def cov(name):
     ("Luminous Broodmoth", "FULL"), ("Unexpected Fangs", "FULL"), ("Iron Apprentice", "FULL"), ("The Ozolith", "FULL"),
     ("Grakmaw, Skyclave Ravager", "FULL"), ("Blowfly Infestation", "FULL"), ("Essence Channeler", "FULL"),
     ("Oran-Rief, the Vastwood", "FULL"), ("Brokers Ascendancy", "FULL"), ("Ratchet Bomb", "FULL"), ("Blast Zone", "FULL"),
+    ("Myojin of Blooming Dawn", "FULL"), ("Boss's Chauffeur", "PARTIAL"),  # (its tokens "for each": not read)
     # refused: a type change with the counters (layer 4 as it enters), a keyword counter, "those creatures"
     ("Master Biomancer", "PARTIAL"), ("Tayam, Luminous Enigma", "PARTIAL"),
 ])
@@ -644,5 +647,29 @@ def test_blast_zone_spares_lands_and_other_mana_values(cards):
     act(s, "p1", type="activate_ability", card_id=zone_land.id, ability=3)
     settle(s)
     assert zone(s, elves) == "p1:graveyard" and zone(s, bears) == "p1:battlefield" and zone(s, zone_land) == "p1:graveyard"
+    replay_matches(s)
+
+
+# -- its own "enters with" wordings (614.1c) ---------------------------------------------------------------------------
+def test_bosss_chauffeur_counts_the_other_creatures(cards):
+    s = build(cards, "Boss's Chauffeur", "Grizzly Bears", "Llanowar Elves")
+    put(s, "Grizzly Bears")
+    put(s, "Llanowar Elves")
+    s = saved(s)
+    chauffeur = cast(s, "Boss's Chauffeur", W=1, C=4)
+    settle(s)
+    assert counters(s, chauffeur) == {"+1/+1": 3}  # one plus two others (not itself)
+    replay_matches(s)
+
+
+def test_myojin_enters_with_its_counter_only_if_cast_from_hand(cards):
+    s = build(cards, "Myojin of Blooming Dawn", "Wrath of God")
+    myojin = cast(s, "Myojin of Blooming Dawn", W=3, C=5)
+    settle(s)
+    assert counters(s, myojin) == {"indestructible": 1} and "indestructible" in kws(s, myojin)
+    s = saved(s)
+    cast(s, "Wrath of God", W=2, C=2)
+    settle(s)
+    assert zone(s, myojin) == "p1:battlefield"
     replay_matches(s)
 

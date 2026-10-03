@@ -2863,6 +2863,33 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     m = SHOCK.match(text)
     if m:  # shock lands: "As ~ enters, you may pay 2 life. If you don't, it enters tapped."
         return {"kind": "replacement", "replacement": "pay_life_or_tapped", "life": int(m["n"]), "effects": []}
+    # -- counters (wave 5H) -- "~ enters with an indestructible counter on her", "… on it if you cast it from your hand"
+    # (Myojin: the cast condition as "If you cast it from your hand, ~ enters with …"), "~ enters with a number of +1/+1
+    # counters on it equal to the number of creatures that died this turn" (a count read as it enters, 614.1c)
+    text = re.sub(r"^(~ enters (?:tapped )?with .+? counters? on) (?:him|her)( |\.)", r"\1 it\2", text)
+    tail = re.fullmatch(r"(?P<body>~ enters with .+? counters? on it) (?P<c>if you cast it(?: from your hand)?)\.", text)
+    if tail is not None:
+        text = f"If {tail['c'][3:].replace(' it', ' ~', 1)}, {tail['body']}."
+    eq = re.fullmatch(r"~ enters with a number of (?P<kind>\+1/\+1|[a-z]+) counters on it equal to (?P<v>.+)\.", text)
+    if eq is not None:
+        from app.rules import values
+
+        ev = values.parse_count(eq["v"])
+        if ev is None or eq["kind"] in UNMODELED_COUNTERS or '"it"' in json.dumps(ev):
+            return None
+        # (a count of permanents that could include itself is read before it enters, 614.12; it's counted after the
+        # move here: only "other …" counts and counts outside the battlefield are read)
+        from app.rules import selectors
+
+        def sels(v: Any) -> list[str]:
+            if isinstance(v, dict):
+                return [x for k, w in v.items() for x in ([w] if k in ("count", "of") and isinstance(w, str) else sels(w))]
+            return [x for w in v for x in sels(w)] if isinstance(v, list) else []
+
+        if any(selectors.from_key(k).zones == ("battlefield",) and not selectors.from_key(k).other for k in sels(ev)):
+            return None
+        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": eq["kind"], "n": ev, "effects": []}
+    # -- end counters (wave 5H) --
     cast_if = None  # -- refused modal/conditional (wave 3R1) -- adamant: "If at least three white mana was spent to
     lead = re.match(r"^If (?P<c>[^,]+), ~ enters with ", text)  # cast this spell, ~ enters with a +1/+1 counter on it."
     if lead is not None:
