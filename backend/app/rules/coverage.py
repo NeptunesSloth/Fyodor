@@ -153,6 +153,8 @@ SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
 # -- refused grants/replacements (wave 3R2) -- 614.9 redirection statics (Pariah, Palisade Giant: app/rules/source_shields.py,
 # tests/test_rules_refused_grants.py)
 SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"redirect"}
+# -- damage wordings (wave 6B) -- "prevent half that damage, rounded up" (Gisela, Blade of Goldnight; 615)
+SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"prevent_half_up"}
 # … and token creation adding a different token (Peregrin Took, Chatterfang: app/rules/extra_tokens.py)
 SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra"}
 SUPPORTED_REPLACEMENTS |= {

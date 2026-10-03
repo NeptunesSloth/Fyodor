@@ -114,6 +114,14 @@ _COLORS_SPENT = re.compile(r"colors? of mana spent to cast (?:this spell|it|~|th
 
 
 def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
+    """See ``_parse_count``. -- damage wordings (wave 6B) -- a count of what "that player" controls is a different
+    number for each player it could name (the target player's, the recipient's: app/rules/sized_damage.py): never read
+    through the selectors' trigger-bound "that player" (selectors.THAT_PLAYER)."""
+    v = _parse_count(phrase, it=it)
+    return None if v is not None and f'"controller":"{selectors.THAT_PLAYER}"' in str(v) else v
+
+
+def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     """A quantity phrase → value: "the number of creatures you control" / "cards in your hand" /
     "opponents you have" / "+1/+1 counters on ~" / "card types among cards in all graveyards" /
     "your devotion to green" / "your life total" / "twice …" / "half …, rounded up" / "X".

@@ -52,6 +52,7 @@ Binding = dict[str, Any]
 PREFIX = "ref:"
 EVENT = "event"
 EVENT_NEW = "event.new"
+EVENT_OTHER = "event_other"  # -- damage wordings (wave 6B) -- "Whenever ~ blocks a creature, … that creature"
 HIDDEN_ZONES = ("hand", "library")
 
 
@@ -120,6 +121,8 @@ def _object_refs(ctx: Context, name: str, *, was: bool = False) -> list[ObjectRe
         raw = event.get("objects") or []
     elif name == EVENT_NEW:
         raw = event.get("new_objects") or []
+    elif name == EVENT_OTHER:  # -- damage wordings (wave 6B) -- the creature on the other side of a block
+        raw = [event["other"]] if event.get("other") else []
     else:
         b = (ctx.get("refs") or {}).get(name) or {}
         raw = (b.get("was") if was and b.get("was") is not None else b.get("objects")) or []

@@ -383,7 +383,8 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
     if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
         return goaded["s"], goaded["p"]
-    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", body)
+    # (-- damage wordings (wave 6B) -- "assigns": "Each creature assigns combat damage equal to its toughness …")
+    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?)\b", body)
     if m is None or m.start() == 0:
         return None, None
     return body[: m.start()].strip(), body[m.start():].strip()
@@ -613,6 +614,10 @@ RULES.update({"can't attack you or planeswalkers you control": ("cant_attack_pla
 # -- conditional statics (wave 4B) -- 702.3b: a creature with defender can't attack; this lets it (app/rules/combat.py)
 RULES.update({"can attack as though it didn't have defender": ("attack_despite_defender",),
               "can attack as though they didn't have defender": ("attack_despite_defender",)})
+# -- damage wordings (wave 6B) -- 510.1a: "Each creature assigns combat damage equal to its toughness rather than its
+# power" (Doran): the amount it assigns in the combat damage step (app/rules/combat.py ``compute_combat_damage``)
+RULES.update({"assigns combat damage equal to its toughness rather than its power": ("assign_toughness",),
+              "assign combat damage equal to their toughness rather than their power": ("assign_toughness",)})
 
 
 def _rule(piece: str) -> list[str] | None:

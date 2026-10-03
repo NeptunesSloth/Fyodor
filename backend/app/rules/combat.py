@@ -640,6 +640,14 @@ class CombatDamage:
         return not (self.creatures or self.players or self.walkers or self.wither or self.poison)
 
 
+# -- damage wordings (wave 6B) --
+def _assigns(card: CardInstance, ch: Characteristics) -> int | None:
+    """510.1a: the combat damage a creature assigns is its power — or its toughness while a static says so ("Each
+    creature assigns combat damage equal to its toughness rather than its power", Doran: the rule assign_toughness)."""
+    return toughness(card, ch) if "assign_toughness" in ch.imposed else power(card, ch)
+# -- end damage wordings (wave 6B) --
+
+
 def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
     state = plan.state
     r = plan.rules
@@ -702,7 +710,7 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
     blockers_all = [c for c in state.cards.values() if c.blocking and c.zone.endswith(":battlefield")]
     for att in attackers_on(state):
         ach = plan.ch(att)
-        p = power(att, ach)
+        p = _assigns(att, ach)  # (wave 6B: 510.1a)
         if not _deals(ach, rnd) or p is None or p <= 0:
             continue
         blockers = [b for b in blockers_all if b.blocking == att.id]
@@ -730,7 +738,7 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
         gain(att, ach, dealt)
     for b in blockers_all:
         bch = plan.ch(b)
-        p = power(b, bch)
+        p = _assigns(b, bch)  # (wave 6B: 510.1a)
         blocked = state.cards.get(b.blocking or "")
         if blocked is None or blocked.attacking is None or not _deals(bch, rnd) or p is None or p <= 0:
             continue
