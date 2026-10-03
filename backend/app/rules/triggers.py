@@ -44,6 +44,7 @@ stack like any other pending trigger. Not yet: copies of spells
 
 from __future__ import annotations
 
+import json
 import re
 import secrets
 from dataclasses import replace
@@ -1455,6 +1456,9 @@ def cast_x(plan: Plan, t: PendingTrigger) -> int | None:
     if t.event is None or t.event.kind != "enter" or not any(o.object_id == t.source_object for o in t.event.objects):
         return None
     record = plan.rules.payments.get(t.source_object)
+    if record is not None and not record.mana_known and '"x"' in json.dumps(t.ability.get("effects") or []):
+        # -- review (wave 4R) -- cast by hand: its X isn't known (read as 0, as for the permanent's counters)
+        plan.note(f"{t.name or 'It'} was cast by hand: its X isn't known (read as 0) — adjust by hand")
     return record.x if record is not None else None
 # -- end cast X (wave 4J) --
 

@@ -307,7 +307,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return kicked_count(plan, ctx)
     if "colors_spent" in v:  # -- ability words (wave 4F) -- converge (a spell cast by hand: no mana known, 0)
         record = plan.rules.payments.get(ctx.get("source_object") or "")
-        if record is None or not record.mana_known:
+        if record is None:
+            return 0
+        if not record.mana_known:  # -- review (wave 4R) -- cast by hand: say the 0 isn't the colors spent
+            name = plan.state.cards[record.card].name if record.card in plan.state.cards else ''
+            plan.note(f"{name or 'It'} was cast by hand: the colors of mana spent to cast it aren't known (read as 0) — "
+                      "adjust by hand", [record.card] if record.card in plan.state.cards else ())
             return 0
         return sum(1 for c in "WUBRG" if record.mana_spent.get(c, 0) > 0)
     if "count" in v:

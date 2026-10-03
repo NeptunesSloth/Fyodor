@@ -446,6 +446,14 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
                                         "source_object": plan.oid(card_id), "x": x}, n)  # (x: "twice X", wave 4K)
     else:
         amount = int(n)
+    # -- review (wave 4R) -- a spell cast by hand has no payment known (engine.absorb_manual_events): X, converge's
+    # kicks read 0 (converge's colors: values.evaluate says so) — say so; its controller adds the counters by hand.
+    manual = plan.rules.payments.get(plan.oid(card_id))
+    if manual is not None and not manual.mana_known and (n == "X" or "'x'" in str(n) or d.get("per_kick")
+                                                          or d.get("if_kicked")):
+        plan.note(f"{plan.state.cards[card_id].name or 'It'} was cast by hand: what was paid for it isn't known — "
+                  "put its counters on by hand", [card_id])
+    # -- end review (wave 4R) --
     if d.get("if_kicked") or d.get("per_kick"):  # 702.33e: how its spell was cast (the payment record)
         record = plan.rules.payments.get(plan.oid(card_id))
         kicked = record.kicked if record is not None else 0

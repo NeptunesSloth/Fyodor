@@ -1060,6 +1060,14 @@ def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     sid = targets[0]
     payer = plan.state.cards[sid].controller
     cost = mana.parse_cost(e["cost"])
+    # -- review (wave 4R) -- 118.3: PAY is offered only while the payer can pay all of it (as optional_payment)
+    from app.rules import casting  # casting imports this module
+
+    if not cost.is_free and not casting.can_pay(plan.state, payer, cost, plan.info):
+        plan.note(f"{plan.name(payer)} can't pay {cost.text()}")
+        counter_object(plan, sid, payer)
+        return True
+    # -- end review (wave 4R) --
     options = [DecisionOption(id="pay", label=f"Pay {cost.text()}"),  # (tap your mana first)
                DecisionOption(id="decline", label="Don't pay (it's countered)")]
     decide(plan, player=payer, kind="choose_one",

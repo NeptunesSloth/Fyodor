@@ -588,6 +588,13 @@ def _own_layer4(state: GameState, card: CardInstance, info: CardInfo | None) -> 
     (statics ``_layer4_safe``: counters on the source, devotion from copiable mana costs (700.5a), life)."""
     if info is None or state.rules is None or not card.zone.endswith(":battlefield") or card.id in _L4_VISITING:
         return []
+    # -- review (wave 4R) -- (cheap first: only an object whose own copiable abilities have such a static reads the
+    # table's statics — whose cache key is a pass over the battlefield, once per derive otherwise)
+    from app.rules import scripts
+
+    if not any(d["kind"] == "static" and ("remove_types" in d or "add_subtypes" in d)
+               for d in scripts.definitions(copiable(state, card, info)).values()):
+        return []
     table = [st for st in statics(state, info) if st.source == card.id and st.gate is None
              and ("remove_types" in st.definition or "add_subtypes" in st.definition)]
     if not table:

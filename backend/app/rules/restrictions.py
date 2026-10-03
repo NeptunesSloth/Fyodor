@@ -111,6 +111,15 @@ BOAST = "Boast — "
 _BOAST_TWICE = frozenset({"Birgi, God of Storytelling"})
 
 
+def _face_name(card: CardInstance) -> str:
+    """-- review (wave 4R) -- the name of the face a permanent shows: a modal double-faced card's instance carries
+    both names ("Birgi, God of Storytelling // Harnfel, Horn of Bounty"); face down, it has none (708.2)."""
+    if card.face_down:
+        return ""
+    names = card.name.split(" // ")
+    return names[card.face] if 0 <= card.face < len(names) else names[0]
+
+
 def parse(text: str) -> list[Restriction] | None:
     """The restrictions in an ability's text (an empty list: none), or None when a restriction
     sentence isn't one this module reads (the ability then stays manual)."""
@@ -231,7 +240,7 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
         elif kind == "per_turn":
             n = x["n"]
             if x.get("boast") and turn.active_player == player and any(  # (wave 4H) Birgi: "can boast twice during each of your turns"
-                    (c := state.cards.get(cid)) is not None and c.name in _BOAST_TWICE for cid in state.zones.get(f"{player}:battlefield", [])):
+                    (c := state.cards.get(cid)) is not None and _face_name(c) in _BOAST_TWICE for cid in state.zones.get(f"{player}:battlefield", [])):
                 n = 2
             if uses(r, r.object_id(card.id), index, turn.number) >= n:
                 return "That can only be activated once each turn" if x["n"] == 1 else \
@@ -255,7 +264,7 @@ def _exhaust_again(state: GameState, player: str) -> bool:
     """-- ability words (wave 4F) -- does a permanent let exhaust abilities be activated "as though they haven't been
     activated" (Elvish Refueler, 702.177b: the only such card)? That permission isn't modelled, so the engine doesn't
     refuse the activation."""
-    return any((c := state.cards.get(cid)) is not None and c.name in _EXHAUST_AGAIN
+    return any((c := state.cards.get(cid)) is not None and _face_name(c) in _EXHAUST_AGAIN
                for cid in state.zones.get(f"{player}:battlefield", []))
 
 
