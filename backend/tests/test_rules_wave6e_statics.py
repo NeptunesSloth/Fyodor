@@ -21,6 +21,8 @@
   (614.1c, 614.12): Neglected Manor, Turbulent Moor.
 * "Each creature [you control] assigns combat damage equal to its toughness rather than its power." (510.1a's amount):
   Doran, the Siege Tower, Belligerent Brontodon.
+* "… and must be blocked this turn if able." / "It must be blocked this turn if able." (509.1c, a requirement for the
+  turn): Emergent Growth, Enlarge.
 * Anthems over two groups ("Skeletons you control and other Zombies you control"): Death Baron, Caterwauling Boggart,
   Timber Protector.
 
@@ -83,6 +85,8 @@ EXTRA = [
     card('Doran, the Siege Tower', set_code='tst', number='E36', mana_cost='{W}{B}{G}', cmc=3.0, type_line='Legendary Creature — Treefolk Shaman', oracle_text='Each creature assigns combat damage equal to its toughness rather than its power.', power='0', toughness='5', colors=['B', 'G', 'W'], color_identity=['B', 'G', 'W'], keywords=[]),  # noqa: E501
     card('Belligerent Brontodon', set_code='tst', number='E37', mana_cost='{5}{G}{W}', cmc=7.0, type_line='Creature — Dinosaur', oracle_text='Each creature you control assigns combat damage equal to its toughness rather than its power.', power='4', toughness='6', colors=['G', 'W'], color_identity=['G', 'W'], keywords=[]),  # noqa: E501
     card('Blind Obedience', set_code='tst', number='E38', mana_cost='{1}{W}', cmc=2.0, type_line='Enchantment', oracle_text='Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nArtifacts and creatures your opponents control enter tapped.', colors=['W'], color_identity=['W'], keywords=['Extort']),  # noqa: E501
+    card('Emergent Growth', set_code='tst', number='E39', mana_cost='{3}{G}', cmc=4.0, type_line='Sorcery', oracle_text='Target creature gets +5/+5 until end of turn and must be blocked this turn if able.', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
+    card('Enlarge', set_code='tst', number='E40', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Sorcery', oracle_text="Target creature gets +7/+7 and gains trample until end of turn. It must be blocked this turn if able. (A creature with trample can deal excess combat damage to the player or planeswalker it's attacking.)", colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
 ]
 FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime Archangel", "Bria, Riptide Rogue",
         "Caterwauling Boggart", "Timber Protector", "Demand Answers", "Bitter Triumph", "Eaten Alive",
@@ -91,7 +95,7 @@ FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime A
         "Bruse Tarl, Roving Rancher", "Arms of Hadar", "How to Start a Riot", "Neutralize the Guards",
         "Hero of Oxid Ridge", "Mist Intruder", "Crimson Wisps", "Aphotic Wisps", "Cerulean Wisps", "Neglected Manor",
         "Turbulent Moor", "Orzhov Racketeers", "Doran, the Siege Tower", "Belligerent Brontodon",
-        "Blind Obedience"]
+        "Blind Obedience", "Emergent Growth", "Enlarge"]
 STILL_MANUAL = {
     "Sedgemoor Witch": "Ward",  # (ward—Pay 3 life: a cost the ward trigger doesn't read)
     "Silvergill Adept": "reveal a Merfolk card",
@@ -714,3 +718,23 @@ def test_extort_declined_does_nothing(cards):
     settle(s)
     assert s.state.players["p2"].life == 40 and s.state.players["p1"].life == 40
     replay_matches(s)
+
+
+# -- must be blocked this turn (509.1c) -------------------------------------------------------------------------------
+def test_emergent_growth_must_be_blocked(cards):
+    s = build(cards, "Emergent Growth")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2", "Haste")
+    wall = token_of(s, "p2", "Wall", "Token Creature — Wall", "0/4")
+    growth = to_hand(s, "Emergent Growth")
+    mana(s, G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=growth.id, targets=[bear.id])
+    settle(s)
+    assert pt(s, bear) == (7, 7)
+    attack_with(s, bear)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_blockers", blocks=[])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": bear.id}])
+    through_combat(s)
+    assert gone(s, wall) and s.state.players["p2"].life == 40
+    replay_matches(reloaded(s))

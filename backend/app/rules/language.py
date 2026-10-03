@@ -1126,6 +1126,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "each" and m["v"] == "destroy":
             return [{"do": "destroy", "who": key}], None
         return [{"do": m["v"], "who": _who(kind, key)}], _one(group)
+    # -- static wordings (wave 6E) -- "It must be blocked this turn if able." (Enlarge): a requirement (509.1c)
+    m = re.fullmatch(r"(?P<o>.+?) must be blocked this turn if able", text)
+    if m and not _PUMP.fullmatch(text):
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": ["must_be_blocked"]}], _one(group)
     m = re.fullmatch(r"(?P<o>.+?) can't (?P<r>attack or block|block|attack|be blocked) this turn", text)
     if m and not _PUMP.fullmatch(text):  # (agent G: "… gets +2/+2 until end of turn and can't be blocked …" is a pump's rider)
         kind, key, group = ref(m["o"])
@@ -1412,7 +1419,8 @@ _KW_LIST = rf"{_GRANT_ITEM}(?:(?:, and |, | and ){_GRANT_ITEM})*"
 _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX]))"
                    rf"(?: and gains? (?P<kw>{_KW_LIST}))? until end of turn"
                    r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn"
-                   r"| and (?P<d>can attack this turn as though it didn't have defender))?")  # (d: wave 6C)
+                   r"| and (?P<d>can attack this turn as though it didn't have defender)"  # (d: wave 6C)
+                   r"| and (?P<mb>must be blocked this turn if able))?")  # (mb: wave 6E, 509.1c)
 _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
 _GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
                         rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
@@ -1603,6 +1611,8 @@ def _pump(m: re.Match[str], rider: Any) -> tuple[Effects, Any]:
         out.append({"do": "restrict", "who": who, "rules": RESTRICTIONS[m["r"]]})
     if m["d"]:  # -- token & pump wordings (wave 6C) -- 702.3b
         out.append({"do": "restrict", "who": who, "rules": ["attack_despite_defender"]})
+    if m["mb"]:  # -- static wordings (wave 6E) -- a blocking requirement for this turn (509.1c: combat.block_requirements)
+        out.append({"do": "restrict", "who": who, "rules": ["must_be_blocked"]})
     return out, _one(group)
 
 
