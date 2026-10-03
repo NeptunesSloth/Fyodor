@@ -222,6 +222,7 @@ SUPPORTED_KEYWORDS: set[str] = {
 # precombat main phase, chapter abilities (a chapter line is automated when its effect parses: it is a
 # template), the 714.4 sacrifice; read ahead (702.155): the number chosen as it enters, skipped chapters.
 SUPPORTED_KEYWORDS.add("read ahead")
+SUPPORTED_KEYWORDS.add("split second")  # -- split second (wave 8A) -- 702.61 (app/rules/split_second.py, cast_limits)
 # -- end sagas & attached-object triggers (wave 3S) --
 
 
@@ -338,7 +339,11 @@ DECKBUILDING_KEYWORDS = {"partner", "choose a background", "doctor's companion",
 
 def _keyword_supported(kw: str, line: str) -> bool:
     if kw in DECKBUILDING_KEYWORDS:
-        return not line.strip().lower().startswith("partner with")
+        if line.strip().lower().startswith("partner with"):  # -- keyword pieces (wave 8A) -- 702.124j's enters trigger
+            from app.rules import keyword_triggers
+
+            return keyword_triggers.partner_with_definition(line) is not None
+        return True
     if kw in ("enchant", "equip"):  # app/rules/attachments.py: the wordings it maps
         from app.rules import attachments
 

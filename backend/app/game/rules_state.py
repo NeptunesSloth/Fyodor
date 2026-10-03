@@ -821,6 +821,10 @@ class RulesState(BaseModel):
     # -- refused grants/replacements (wave 3R2) -- 614.10 "skips their next …" effects waiting for that
     # occurrence (app/rules/skips.py): {"id", "player", "what": "untap"|"upkeep"|"draw"|"combat"|"turn", "label"}
     skips: list[dict[str, Any]] = Field(default_factory=list)
+    # -- extra turns (wave 8A) -- 500.7 (app/rules/extra_turns.py): the extra turns waiting (the last is taken first),
+    # {"player", "label"}; and the player whose regular turn was the latest (the turn order goes on after them)
+    extra_turns: list[dict[str, Any]] = Field(default_factory=list)
+    turn_base: str | None = None
     # … and "can't gain life this turn / for the rest of the game" (614.17; app/rules/cant_gain.py):
     # {"id", "player", "controller", "turn" (None: the rest of the game), "label"}
     cant_gain: list[dict[str, Any]] = Field(default_factory=list)

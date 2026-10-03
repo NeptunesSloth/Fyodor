@@ -2862,6 +2862,8 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
             if kw in _kw_meanings.MEANINGS:  # -- static wordings (wave 6E) -- read as its CR meaning (app/rules/keyword_triggers.py)
                 out += [(1000 + ab.index * 10 + k, d) for d in _kw_meanings.definitions(kw, ab.text)[:1]]
+            if kw == "partner" and (pw := _kw_meanings.partner_with_definition(ab.text)) is not None:  # -- keyword pieces (wave 8A) --
+                out.append((1000 + ab.index * 10 + k, pw))
             if kw == "decayed":  # -- token & pump wordings (wave 6C) -- 702.147a (app/rules/decayed.py)
                 from app.rules import decayed
 
@@ -4502,6 +4504,10 @@ EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLA
 from app.rules import next_untap as _next_untap  # noqa: E402
 
 EFFECTS[:0] = _next_untap.TEMPLATES
+# -- extra turns (wave 8A) -- "Take an extra turn after this one." (app/rules/extra_turns.py)
+from app.rules import extra_turns as _extra_turns  # noqa: E402
+
+EFFECTS[:0] = _extra_turns.TEMPLATES
 # -- untap choice (wave 7F) -- "… doesn't untap during its controller's untap step for as long as ~ remains tapped"
 from app.rules import untap_choice as _untap_choice  # noqa: E402
 

@@ -218,6 +218,12 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                         m = re.fullmatch(r"bloodthirst (\d+)", ab.text.strip().rstrip(".").lower())
                         if m:
                             counters["+1/+1"] = counters.get("+1/+1", 0) + int(m.group(1))
+        for ab in ch.abilities:  # -- keyword pieces (wave 8A) -- 702.43a modular N: "This permanent enters with N +1/+1 counters"
+            if ab.kind == "keywords" and "modular" in ab.keywords:
+                from app.rules import keyword_triggers
+
+                for piece in keyword_triggers.pieces("modular", ab.text):
+                    counters["+1/+1"] = counters.get("+1/+1", 0) + int(piece.split()[1])
         for d in scripts.definitions(ch).values():
             if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
                 n = _counter_amount(plan, card.id, controller, d, x)
