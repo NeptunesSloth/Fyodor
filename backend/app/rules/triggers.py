@@ -364,6 +364,9 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]})]
     if e.kind == "drew":
         return [("draw", None, None, e.player, {"amount": 1})]
+    if e.kind == "land_played":  # -- entry forms (wave 5F) -- 305.1 (the land, as it is on the battlefield)
+        got = _object_then(plan, e.card, e.object_id)
+        return [("land_played", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player})] if got is not None else []
     if e.kind == "cycled":  # 702.29: the card is in its owner's graveyard now (702.29c)
         card = plan.state.cards.get(e.card or "")
         if card is None:

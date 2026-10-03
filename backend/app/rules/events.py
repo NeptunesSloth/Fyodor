@@ -450,6 +450,12 @@ def _cast(c: str) -> Condition | None:
 
 def _player_action(c: str) -> Condition | None:
     """A player sacrifices (701.21), discards (701.9), cycles (702.29) or creates a token (111.2)."""
+    # -- entry forms (wave 5F) -- "When you play another land" (City of Traitors), "Whenever a player plays a land": 305.1
+    # (playing a land — not putting one onto the battlefield)
+    m = re.fullmatch(rf"{_P} plays? (?P<o>a land|another land)", c)
+    if m:
+        return {"event": "land_played", "subject": "player", "player": _PLAYERS[m["p"]], "obj": _object_sel(m["o"]),
+                "aggregate": False}
     m = re.fullmatch(rf"{_P} (?P<v>sacrifices?|discards?|cycles? or discards?|cycles?|creates?) (?P<o>.+)", c)
     if not m:
         return None

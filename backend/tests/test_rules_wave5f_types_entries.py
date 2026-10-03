@@ -89,6 +89,10 @@ EXTRA = [
          oracle_text="Flying\nYou may have this creature enter as a copy of any creature on the battlefield with mana value less than "
                      "or equal to the amount of mana spent to cast this creature, except it's a Bird in addition to its other types "
                      "and it has flying.", power='1', toughness='1', colors=['U'], color_identity=['U'], keywords=['Flying']),
+    card('City of Traitors', set_code="tst", number="5F701", type_line='Land',
+         oracle_text='When you play another land, sacrifice this land.\n{T}: Add {C}{C}.'),
+    card('Horn of Greed', set_code="tst", number="5F702", mana_cost='{3}', cmc=3.0, type_line='Artifact',
+         oracle_text='Whenever a player plays a land, that player draws a card.'),
     card('Reanimate', set_code="tst", number="5F301", mana_cost='{B}', cmc=1.0, type_line='Sorcery',
          oracle_text="Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that "
                      "card's mana value.", colors=['B'], color_identity=['B']),
@@ -598,3 +602,35 @@ def test_mockingbird_put_onto_the_battlefield_spent_nothing(cards):
 def test_this_ability_needs_an_ability_of_its_own():
     assert ok("{2}, {T}: This land becomes a copy of target land, except it has this ability.", "Thespian's Stage", "Land")
     assert not ok("You may have this creature enter as a copy of any creature on the battlefield, except it has this ability.")
+
+
+# -- "When you play another land" (305.1: playing a land, not putting one onto the battlefield) --------------------------
+def test_land_play_trigger_wordings():
+    assert ok("When you play another land, sacrifice this land.", "City of Traitors", "Land")
+    assert ok("Whenever a player plays a land, that player draws a card.", "Horn of Greed", "Artifact")
+
+
+def test_city_of_traitors_is_sacrificed_when_you_play_another_land(cards):
+    s = build(cards, [(1, "City of Traitors"), (1, "Forest"), (1, "Dryad of the Ilysian Grove"), (1, "Island")])
+    put(s, "Dryad of the Ilysian Grove", "battlefield")  # (an additional land each turn)
+    island = put(s, "Island", "battlefield")
+    city = play(s, "City of Traitors")
+    drive(s)
+    assert city.zone == "p1:battlefield" and s.state.cards[city.id].zone == "p1:battlefield"  # not by its own play
+    act(s, "p1", type="move", card_ids=[island.id], to={"player": "p1", "zone": "graveyard"})  # (put there by hand: no trigger)
+    act(s, "p1", type="move", card_ids=[island.id], to={"player": "p1", "zone": "battlefield"})
+    assert s.state.cards[city.id].zone == "p1:battlefield"
+    play(s, "Forest")
+    drive(s)
+    assert s.state.cards[city.id].zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_horn_of_greed_draws_for_the_player_who_played_the_land(cards):
+    s = build(cards, [(1, "Horn of Greed"), (1, "Forest")])
+    put(s, "Horn of Greed", "battlefield")
+    hand = len(s.state.zones["p1:hand"])
+    play(s, "Forest")
+    drive(s)
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + 1  # (the Forest left the hand, then a card was drawn)
+    roundtrip(s)
