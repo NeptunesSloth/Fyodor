@@ -299,18 +299,25 @@ def excess_dealt(found: Any) -> Any:
 def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
     """120.10: the damage dealt by these events to permanents, in excess of what was lethal (a creature: its toughness less the
     damage marked before this damage; a planeswalker: its loyalty; a battle: its defense; several of those types: the greatest),
-    all sources together, summed over the permanents. Read before the damage is recorded. (A deathtouch source's "any amount
-    beyond 1" is 120.4a's, about modifying the event, and 702.2c's, about combat damage: neither is part of 120.10.)"""
+    all sources together, summed over the permanents. Read before the damage is recorded. -- review (wave 10C) -- 120.4a: "Any
+    amount of damage greater than 1 is excess damage if the source dealing that damage to a creature has deathtouch" (702.2c: any
+    nonzero deathtouch damage is lethal for excess): a deathtouch source's damage beyond 1 is excess (all of it once the creature
+    has already been dealt lethal). Wither and infect (120.3d) deal the same damage, as counters: lethal damage is unchanged.
+    Deathtouch mixed with other sources on one creature: how the lethal share splits is unsettled (noted)."""
     total: dict[str, int] = {}
-    odd: list[str] = []
+    dt: dict[str, int] = {}  # damage to a target from deathtouch sources, and how many such hits
+    dt_hits: dict[str, int] = {}
     for ev in events:
         if ev["target"] in plan.state.cards and int(ev["amount"]) > 0:
-            total[ev["target"]] = total.get(ev["target"], 0) + int(ev["amount"])
-            if {"deathtouch", "wither", "infect"} & set(ev.get("kw") or ()):  # (120.4a / 702.2c count deathtouch's excess differently)
-                odd.append(ev["target"])
-    if odd:
-        plan.note("The damage came from a deathtouch, wither or infect source: the excess is counted as the damage beyond the "
-                  "creature's toughness — adjust by hand if it should differ", odd)
+            n = int(ev["amount"])
+            total[ev["target"]] = total.get(ev["target"], 0) + n
+            if "deathtouch" in set(ev.get("kw") or ()):
+                dt[ev["target"]] = dt.get(ev["target"], 0) + n
+                dt_hits[ev["target"]] = dt_hits.get(ev["target"], 0) + 1
+    mixed = [cid for cid in dt if dt[cid] != total[cid] and plan.ch(plan.state.cards[cid]).is_creature]
+    if mixed:
+        plan.note("Damage from a deathtouch source and from other sources was dealt to the same creature together: the excess is "
+                  "counted as the damage beyond its toughness — adjust by hand if it should differ", mixed)
     excess = 0
     for cid, n in total.items():
         card = plan.state.cards[cid]
@@ -319,7 +326,9 @@ def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
         ch = plan.ch(card)
         over = []
         if ch.is_creature and ch.pt is not None:
-            over.append(n - max(0, ch.pt[1] - card.damage))
+            left = max(0, ch.pt[1] - card.damage)
+            # only deathtouch sources: 120.4a, each source's damage beyond 1 (all of it if lethal damage is already marked)
+            over.append((n if left == 0 else n - dt_hits[cid]) if dt.get(cid) == n else n - left)
         if "Planeswalker" in ch.types:
             over.append(n - card.counters.get("loyalty", 0))
         if "Battle" in ch.types:
