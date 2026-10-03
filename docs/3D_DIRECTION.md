@@ -303,7 +303,9 @@ The whole dramatic sequence takes roughly 1–3 seconds.
 | **Draw** (calmer than victory or defeat) | brief neutral desaturation / silver pulse → "DRAW" → short explanation if known → result panel | almost stationary | a few neutral/silver particles |
 | **Eliminated** (Commander-specific: the local player lost but the game continues; shorter and less dramatic than Defeat) | brief dark pulse → "ELIMINATED" → "Game continues" → immediately offer **Spectate** / **Leave game** | small pull-back | little or none |
 
-Elimination must **not** end the match UI for the other players: only the eliminated player sees it.
+Elimination must **not** end the match UI for the other players: only the eliminated player sees it. After the scene, the
+eliminated player gets the activity hub planned in `ELIMINATION_HUB.md` (Spectate, Practice Table, Opening Hand
+Simulator, Deck Lab).
 
 **Result panel** (compact, never a dashboard), for example:
 
