@@ -70,13 +70,15 @@ EXTRA = [
          oracle_text="Each player may sacrifice an artifact or enchantment. Impulsive Destruction deals 3 damage to each player who didn't sacrifice a permanent this way.", colors=[], color_identity=[], keywords=[]),
     card('Fire Prophecy', set_code='tst', number='F20', mana_cost='{1}{R}', cmc=2.0, type_line='Instant',
          oracle_text='Fire Prophecy deals 3 damage to target creature. You may put a card from your hand on the bottom of your library. If you do, draw a card.', colors=['R'], color_identity=['R'], keywords=[]),
+    card('Culling Ritual', set_code='tst', number='F21', mana_cost='{2}{B}{G}', cmc=4.0, type_line='Sorcery',
+         oracle_text='Destroy each nonland permanent with mana value 2 or less. Add {B} or {G} for each permanent destroyed this way.', colors=['B', 'G'], color_identity=['B', 'G'], keywords=[]),
     card('Sol Ring', set_code='tst', number='F16', mana_cost='{1}', cmc=1.0, type_line='Artifact',
          oracle_text='{T}: Add {C}{C}.', colors=[], color_identity=[], keywords=[]),
 ]
 FULL = ["Sourbread Auntie", "Gutsplitter Gang", "Mage-Ring Network", "Blue Mana Battery", "Forgotten Creation",
         "Narset, Jeskai Waymaster", "Vision of Love", "K'un-Lun Warrior", "Dromar, the Banisher", "Rith, the Awakener",
         "Dwarven Hammer", "Ancestral Blade", "Dream Seizer", "Boggart Mischief", "Book Devourer", "Braids, Arisen Nightmare",
-        "Fandaniel, Telophoroi Ascian", "Impulsive Destruction", "Fire Prophecy"]
+        "Fandaniel, Telophoroi Ascian", "Impulsive Destruction", "Fire Prophecy", "Culling Ritual"]
 
 
 @pytest.fixture()
@@ -566,4 +568,25 @@ def test_fire_prophecy_with_an_empty_hand_is_not_offered(cards):
     act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bear.id])
     assert until_asked(s) is None  # (her hand is empty — public: its size may be counted, 402.3)
     assert len(zone(s.state, "p1", "library")) == library and hand(s) == []
+    roundtrip(s)
+
+
+# -- mana for each permanent destroyed this way -------------------------------------------------------
+def test_culling_ritual_one_mana_of_either_type_per_permanent_destroyed(cards):
+    s = build(cards, p1=("Culling Ritual", "Sol Ring"))
+    ring = on_field(s, "Sol Ring")
+    creature(s, "p2", "Bear")
+    creature(s, "p1", "Indestructible Thing", text="Indestructible")
+    spell = to_hand(s, "Culling Ritual")
+    add_mana(s, "p1", B=1, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    picks = []
+    for want in ("B", "G"):  # two destroyed (701.8b: the indestructible one wasn't)
+        d = until_asked(s)
+        assert d is not None and d.player == "p1" and [o.id for o in d.options] == ["B", "G"]
+        picks.append(want)
+        pick(s, want)
+    settle(s)
+    assert s.state.cards[ring.id].zone == "p1:graveyard"
+    assert s.state.players["p1"].mana.get("B", 0) == 1 and s.state.players["p1"].mana.get("G", 0) == 1
     roundtrip(s)

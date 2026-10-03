@@ -4184,11 +4184,29 @@ def _add_combination_two(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | 
     return [{"do": "add_mana", "of": [m["a"][1], m["b"][1]], "n": _mana_n(m["n"])}], None
 
 
+# -- if you do (wave 6F) -- "Add {B} or {G} for each permanent destroyed this way." (Culling Ritual), "add {R} or {G} for
+# each Raccoon you control" (Muerra): one mana per object counted, each of the two types chosen separately (106.1:
+# each mana is chosen on its own; effects.add_mana asks once per mana)
+@_mana_effect(rf"add (?P<a>{_SYM}) or (?P<b>{_SYM}) for each (?P<what>[^,.]+)")
+def _add_either_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import values
+
+    what = m["what"]
+    count = this_way.parse(what) if " this way" in what else values.parse_count(what)
+    if count is None or (isinstance(count, dict) and count.get("hand") == "target") or m["a"] == m["b"]:
+        raise _NoMatch
+    return [{"do": "add_mana", "of": [m["a"][1], m["b"][1]], "n": count}], None
+
+
 @_mana_effect(rf"add (?:(?P<sym>{_SYM}) for each|an amount of (?P<sym2>{_SYM}) equal to the number of) (?P<what>[^,.]+)")
 def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     from app.rules import values
 
     what = m["what"]
+    # -- if you do (wave 6F) -- "Add {B} for each permanent destroyed this way." (Culling Ritual's form): the objects the
+    # earlier instruction actually destroyed (app/rules/this_way.py; resolve_it binds it, 608.2h)
+    if " this way" in what and m["sym"] and (counted := this_way.parse(what)) is not None:
+        return [{"do": "add_mana", "sym": m["sym"][1], "n": counted}], None
     if (what.startswith(("card named", "color ", "different ", "creature that", "permanent ")) or " this way" in what) \
             and not re.fullmatch(r"card named ~ in each graveyard", what):  # (wave 5A: Rite of Flame, values.parse_count)
         raise _NoMatch
