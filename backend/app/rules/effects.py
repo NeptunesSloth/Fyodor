@@ -3239,3 +3239,18 @@ from app.rules import stack_interaction as _stack_interaction  # noqa: E402, I00
 PRIMITIVES.update(_stack_interaction.PRIMITIVES)
 RESUME.update(_stack_interaction.RESUME)
 # -- end stack interaction (wave 5B) --
+
+# -- token copies & attach on entry (wave 5J) -- "attach it to target creature you control" (app/rules/attach_entry.py),
+# populate and "for each …, create a token that's a copy of that …" (app/rules/populate.py)
+from app.rules import attach_entry as _attach_entry  # noqa: E402, I001
+
+PRIMITIVES.update(_attach_entry.PRIMITIVES)
+from app.rules import populate as _populate  # noqa: E402, I001
+
+PRIMITIVES.update(_populate.PRIMITIVES)
+RESUME.update(_populate.RESUME)
+from app.rules import put_from_hand as _put_from_hand  # noqa: E402, I001
+
+PRIMITIVES.update(_put_from_hand.PRIMITIVES)
+RESUME.update(_put_from_hand.RESUME)
+# -- end token copies & attach on entry (wave 5J) --
