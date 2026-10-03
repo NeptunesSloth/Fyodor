@@ -884,24 +884,6 @@ def lki_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
 
 
-def move_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """122.5: "move all counters from ~ onto target creature": each counter is removed from the source and put on
-    the other permanent (a put: 614.16 applies, Nesting Grounds ruling). If the source is gone (no longer that object
-    on the battlefield) or the other is the source itself, nothing is moved."""
-    src = plan.state.cards.get(ctx.get("source_card") or "")
-    cards = [c for c in _cards(plan, ctx, e["who"]) if src is None or c != src.id]
-    _remember(plan, ctx, e, cards)
-    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object") or len(cards) != 1:
-        return True
-    have = {k: n for k, n in sorted(src.counters.items()) if n > 0}
-    if e.get("kind"):  # -- keyword mechanics (wave 9D) -- "move a +1/+1 counter from ~ onto …" (702.58a): n of that kind
-        have = {e["kind"]: min(e["n"], have[e["kind"]])} if have.get(e["kind"]) else {}
-    if not have or not plan.state.cards[cards[0]].zone.endswith(":battlefield"):
-        return True
-    for k, n in have.items():
-        plan.do({"type": "counter", "card_ids": [src.id], "kind": k, "delta": -n}, actor=ctx["controller"])
-    return replace.put_counters(plan, [(cards[0], k, n) for k, n in have.items()], by=ctx["controller"],
-                                then=_then(ctx, e), ctx=ctx)
 # -- end counters (wave 5H) --
 
 
@@ -1905,7 +1887,7 @@ PRIMITIVES = {
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
     "fabricate": fabricate, "storm": storm,
     "fight": fight, "choose_targets": choose_targets,
-    "double_counters": double_counters, "lki_counters": lki_counters, "move_counters": move_counters,  # (wave 5H)
+    "double_counters": double_counters, "lki_counters": lki_counters,  # (wave 5H; move_counters: wave 12A, app/rules/counter_moves.py)
 }
 # -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py,
 # which imports this module lazily) --
@@ -3470,4 +3452,8 @@ from app.rules import clash as _clash  # noqa: E402, I001  -- clash (wave 12A)
 
 PRIMITIVES.update(_clash.PRIMITIVES)
 RESUME[_clash.STEP] = _clash.resume
+from app.rules import counter_moves as _counter_moves  # noqa: E402, I001  -- moving counters (wave 12A)
+
+PRIMITIVES.update(_counter_moves.PRIMITIVES)
+RESUME[_counter_moves.STEP] = _counter_moves.resume
 RESUME.update(_choice_grants.RESUME)

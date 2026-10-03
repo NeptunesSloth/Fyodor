@@ -38,6 +38,21 @@ EXTRA = [
     real("Repeat Offender", "{1}{B}", 2, "Creature — Human Rogue",
          "{2}{B}: If this creature is suspected, put a +1/+1 counter on it. Otherwise, suspect it. (A suspected creature has "
          "menace and can't block.)", ("2", "2"), "B"),
+    real("Daghatar the Adamant", "{3}{W}", 4, "Legendary Creature — Human Warrior",
+         "Vigilance\nDaghatar enters with four +1/+1 counters on it.\n{1}{B/G}{B/G}: Move a +1/+1 counter from target creature onto a "
+         "second target creature.", ("0", "0"), "W"),
+    real("Nesting Grounds", "", 0, "Land",
+         "{T}: Add {C}.\n{1}, {T}: Move a counter from target permanent you control onto a second target permanent. Activate only as "
+         "a sorcery."),
+    real("Spike Cannibal", "{1}{B}{B}", 3, "Creature — Spike",
+         "This creature enters with a +1/+1 counter on it.\nWhen this creature enters, move all +1/+1 counters from all creatures "
+         "onto it.", ("0", "0"), "B"),
+    real("Rhino, Terrible Trampler", "{4}{G}{G}", 6, "Legendary Creature — Human Villain",
+         "Trample\nWhen Rhino enters, destroy target artifact or land. Distribute three +1/+1 counters among up to three other target "
+         "creatures. They gain trample until end of turn.", ("7", "6"), "G"),
+    real("Scrounging Bandar", "{1}{G}", 2, "Creature — Cat Monkey",
+         "This creature enters with two +1/+1 counters on it.\nAt the beginning of your upkeep, you may move any number of +1/+1 "
+         "counters from this creature onto another target creature.", ("0", "0"), "G"),
     real("Test Giant", "{6}", 6, "Creature — Giant", "", ("6", "6")),
     real("Test Mite", "{1}", 1, "Creature — Insect", "", ("1", "1")),
 ]
@@ -57,13 +72,18 @@ def full(cards, name):
 
 
 def answer(s, *picks, limit=30):
-    """Resolve the stack; decisions are answered from ``picks`` (option ids) in turn, else with their first option."""
+    """Resolve the stack; decisions are answered from ``picks`` in turn (an option id, a list of ids, or ``("divide", [amounts])``),
+    else with their first option."""
     picks = list(picks)
     for _ in range(limit):
         d = s.state.rules.decision
         if d is not None:
-            ids = [picks.pop(0)] if picks else [o.id for o in d.options][: max(1, d.min_choices)]
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+            pick = picks.pop(0) if picks else None
+            if isinstance(pick, tuple):
+                act(s, d.player, type="choose", decision_id=d.id, amounts=pick[1])
+            else:
+                ids = [pick] if isinstance(pick, str) else pick or [o.id for o in d.options][: max(1, d.min_choices)]
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
         elif s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
         else:
@@ -200,6 +220,123 @@ def test_an_aura_suspects_the_creature_it_enchants(cards):
     act(s, "p1", type="cast_spell", card_id=aura.id)
     answer(s)
     assert "menace" in chars(s, bear).keywords and "cant_block" in chars(s, bear).imposed
+    check(s)
+
+
+# -- moving counters (122.5) and distributing them (601.2d) ----------------------------------------------
+@pytest.mark.parametrize("name", ["Daghatar the Adamant", "Nesting Grounds", "Spike Cannibal", "Rhino, Terrible Trampler"])
+def test_counter_cards_are_full(cards, name):
+    full(cards, name)
+
+
+def test_daghatar_moves_one_counter_onto_a_second_target(cards):
+    from tests.test_rules_conditionals import token_of
+    from tests.test_rules_wave7b_activation import ability_index
+
+    s = build(cards, ["Daghatar the Adamant"], [])
+    dag = to_hand(s, "Daghatar the Adamant")
+    mana(s, "p1", W=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=dag.id)
+    answer(s)
+    bear = token_of(s, "p2", "Bob Bear", "Creature — Bear", "2/2")
+    assert counters(s, dag) == 4
+    mana(s, "p1", B=2, C=1)
+    act(s, "p1", type="activate_ability", card_id=dag.id, ability=ability_index(s, dag, "Move a +1/+1"),
+        targets=[dag.id, bear.id], target_counts=[1, 1])
+    answer(s)
+    assert (counters(s, dag), counters(s, bear)) == (3, 1)
+    check(s)
+
+
+def test_nesting_grounds_asks_which_kind_and_moves_nothing_onto_the_same_object(cards):
+    from tests.test_rules_conditionals import token_of
+    from tests.test_rules_wave7b_activation import ability_index
+
+    s = build(cards, ["Nesting Grounds"], [])
+    land = put(s, "Nesting Grounds")
+    a = token_of(s, "p1", "Mine A", "Creature — Bear", "2/2")
+    b = token_of(s, "p1", "Mine B", "Creature — Bear", "2/2")
+    act(s, "p1", type="counter", card_ids=[a.id], kind="+1/+1", delta=2)
+    act(s, "p1", type="counter", card_ids=[a.id], kind="charge", delta=1)
+    mana(s, "p1", C=1)
+    act(s, "p1", type="activate_ability", card_id=land.id, ability=ability_index(s, land, "Move a counter"),
+        targets=[a.id, b.id], target_counts=[1, 1])
+    d = s.state.rules.decision
+    assert d is None or d.player == "p1"
+    answer(s, "charge")  # (two kinds on the first: the controller chooses)
+    assert (counters(s, a, "charge"), counters(s, b, "charge"), counters(s, a), counters(s, b)) == (0, 1, 2, 0)
+    check(s)
+    s2 = build(cards, ["Nesting Grounds"], [])  # 122.5: the same object twice → nothing moves
+    land = put(s2, "Nesting Grounds")
+    a = token_of(s2, "p1", "Mine A", "Creature — Bear", "2/2")
+    act(s2, "p1", type="counter", card_ids=[a.id], kind="+1/+1", delta=1)
+    mana(s2, "p1", C=1)
+    act(s2, "p1", type="activate_ability", card_id=land.id, ability=ability_index(s2, land, "Move a counter"),
+        targets=[a.id, a.id], target_counts=[1, 1])
+    answer(s2)
+    assert counters(s2, a) == 1
+    check(s2)
+
+
+def test_spike_cannibal_takes_every_counter_from_every_other_creature(cards):
+    from tests.test_rules_conditionals import token_of
+
+    s = build(cards, ["Spike Cannibal"], [])
+    mine = token_of(s, "p1", "Mine", "Creature — Bear", "2/2")
+    theirs = token_of(s, "p2", "Theirs", "Creature — Bear", "2/2")
+    act(s, "p1", type="counter", card_ids=[mine.id], kind="+1/+1", delta=2)
+    act(s, "p2", type="counter", card_ids=[theirs.id], kind="+1/+1", delta=3)
+    spike = to_hand(s, "Spike Cannibal")
+    mana(s, "p1", B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=spike.id)
+    answer(s)
+    assert (counters(s, spike), counters(s, mine), counters(s, theirs)) == (6, 0, 0)  # 1 + 2 + 3
+    check(s)
+
+
+def test_rhino_distributes_three_counters_and_the_creatures_gain_trample(cards):
+    from tests.test_rules_conditionals import token_of
+
+    s = build(cards, ["Rhino, Terrible Trampler"], [])
+    a = token_of(s, "p2", "Bob A", "Creature — Bear", "2/2")
+    b = token_of(s, "p2", "Bob B", "Creature — Bear", "2/2")
+    island = put(s, "Island", "p2")
+    rhino = to_hand(s, "Rhino, Terrible Trampler")
+    mana(s, "p1", G=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=rhino.id)
+    answer(s, [island.id], [a.id, b.id], ("divide", [2, 1]))
+    assert (counters(s, a), counters(s, b)) == (2, 1)
+    assert zone_of(s, "Island", "p2") == "p2:graveyard"
+    assert "trample" in chars(s, a).keywords and "trample" in chars(s, b).keywords
+    check(s)
+
+
+def test_scrounging_bandar_moves_the_number_its_controller_chooses(cards):
+    from tests.test_rules_conditionals import to_turn, token_of
+
+    full(cards, "Scrounging Bandar")
+    s = build(cards, ["Scrounging Bandar"], [])
+    bandar = to_hand(s, "Scrounging Bandar")
+    mana(s, "p1", G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=bandar.id)
+    answer(s)
+    bear = token_of(s, "p1", "Mine Bear", "Creature — Bear", "2/2")
+    assert counters(s, bandar) == 2
+    to_turn(s, 3, "upkeep")
+    d = s.state.rules.decision
+    seen = []
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        seen.append(d.kind)
+        pick = "1" if "how many" in d.prompt else (bear.id if d.kind == "choose_cards" and any(o.id == bear.id for o in d.options)
+                                                   else d.options[0].id)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+    assert (counters(s, bandar), counters(s, bear)) == (1, 1), seen
     check(s)
 
 

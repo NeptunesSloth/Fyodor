@@ -175,7 +175,9 @@ def _divided(phrase: str, what: str, total: Any) -> dict[str, Any]:
     counters among …": each target gets at least one, so at least one target and at most
     ``total`` of them."""
     group = target_group(phrase)
-    if group is None or "another" in group or not (isinstance(total, int) or total == {"x": 1}):
+    # (-- distribute (wave 12A) -- "any number of other target creatures you control": other than the source, 115.3)
+    if group is None or group.get("another") == "any" or group["max"] < 2 and "another" in group \
+            or not (isinstance(total, int) or total == {"x": 1}):
         raise _Fail
     group = {**group, "min": max(1, group["min"]), "divide": {"what": what, "total": total}}
     if isinstance(total, int):
@@ -1276,20 +1278,27 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": _who(k1, key1), "kind": m["k"], "n": _amount(m["n"]),
                  "also": [{"kind": m["k2"], "n": _amount(m["n2"]), "who": _who(k2, key2)}]}], None
-    # "move all counters from ~ onto target creature" (The Ozolith): removed from it and put on the other (122.5)
-    m = re.fullmatch(r"move all counters from ~ onto (?P<o>.+)", text)
-    if m and rider is None:
-        kind, key, group = ref(m["o"])
-        if kind in ("players", "self"):
+    # -- moving counters (wave 12A) -- "move all counters from ~ onto target creature" (The Ozolith), graft's "move a +1/+1
+    # counter from ~ onto that creature" (702.58a), "move a counter from target permanent you control onto a second target
+    # permanent" (Nesting Grounds), "move any number of +1/+1 counters from ~ onto another target creature" (122.5:
+    # app/rules/counter_moves.py); "a second target" is another word "target" (115.3)
+    m = re.fullmatch(r"move (?P<n>a|one|all|any number of) (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) )?counters? from (?P<s>.+?) onto (?P<o>.+)", text)
+    if m and rider is None and (m["k"] is None) <= (m["n"] != "any number of") and m["k"] not in values.UNMODELED_COUNTERS:
+        s_kind, s_key, s_group = ref(m["s"])
+        d_kind, d_key, d_group = ref(re.sub(r"^an? second target ", "target ", m["o"]))
+        if s_kind not in ("self", "target", "each") or d_kind not in ("self", "it", "target") or (s_kind, d_kind) == ("self", "self") \
+                or (s_kind == "each" and m["n"] != "all"):  # (a number from several: which ones? the player's choice, not read)
             raise _Fail
-        return [{"do": "move_counters", "who": _who(kind, key)}], _one(group)
-    # -- keyword mechanics (wave 9D) -- 702.58a graft: "move a +1/+1 counter from ~ onto that creature" (122.5: one counter)
-    m = re.fullmatch(r"move a (?P<k>\+1/\+1) counter from ~ onto (?P<o>.+)", text)
-    if m and rider is None:
-        kind, key, group = ref(m["o"])
-        if kind in ("players", "self"):
+        if any(g is not None and not on_battlefield_only(g["what"]) for g in (s_group, d_group)) \
+                or (s_kind == "each" and not on_battlefield_only(s_key)):
             raise _Fail
-        return [{"do": "move_counters", "who": _who(kind, key), "kind": m["k"], "n": 1}], _one(group)
+        move: dict[str, Any] = {"do": "move_counters", "n": {"a": 1, "one": 1, "all": "all", "any number of": "any"}[m["n"]],
+                                "who": "target:1" if s_group is not None and d_group is not None else _who(d_kind, d_key)}
+        if s_kind != "self":
+            move["from"] = "target" if s_group is not None else _who(s_kind, s_key)
+        if m["k"]:
+            move["kind"] = m["k"]
+        return [move], _out([g for g in (s_group, d_group) if g is not None])
     m = re.fullmatch(r"put (?P<whose>its|those|~'s|this creature's) counters on (?P<o>.+)", text)
     if m and rider is None:
         kind, key, group = ref(m["o"])
