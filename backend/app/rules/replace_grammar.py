@@ -229,8 +229,9 @@ _DAMAGE_OPS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^prevent (?P<n>\d+|one|two|three) of that damage$"), "prevent"),
     (re.compile(r"^prevent all but (?P<n>\d+|one) of that damage$"), "prevent_all_but"),
     (re.compile(r"^prevent that damage$"), "prevent_all"),
+    (re.compile(r"^prevent half that damage, rounded up$"), "prevent_half_up"),  # -- damage wordings (wave 6B) --
 )
-_SOURCE = re.compile(r"^(?P<det>a|an|any|another) (?:(?P<words>[A-Za-z ]+?) )?(?P<noun>source|spell|creature)"
+_SOURCE = re.compile(r"^(?P<det>a|an|any|another) (?:(?P<words>[A-Za-z ]+?) )?(?P<noun>source|spell|creature|artifact)"
                      r"(?P<ctrl> you control| an opponent controls)?$")
 
 
@@ -254,6 +255,10 @@ def _source(phrase: str) -> dict[str, Any] | None:
         out["spell"] = True
     elif m["noun"] == "creature":
         out["types"] = ["Creature"]
+    elif m["noun"] == "artifact":  # -- damage wordings (wave 6B) -- "If an artifact would deal damage to you" (609.7c)
+        if m["words"]:
+            return None
+        out["types"] = ["Artifact"]
     words = (m["words"] or "").split()
     colors: list[str] = []
     types: list[str] = []
@@ -336,8 +341,8 @@ def _damage(text: str) -> Definition | None:
             return _static("damage", match, {"do": "mul", "n": 2})
         if kind == "half":
             return _static("damage", match, {"do": "half"})
-        if kind == "prevent_all":
-            return _static("damage", match, {"do": "prevent_all", "prevention": True})
+        if kind in ("prevent_all", "prevent_half_up"):
+            return _static("damage", match, {"do": kind, "prevention": True})
         n = _num(m2["n"])
         if not n:
             return None

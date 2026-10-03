@@ -1168,6 +1168,8 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         n //= 2
     elif kind == "prevent":
         n = max(0, n - int(op["n"]))
+    elif kind == "prevent_half_up":  # -- damage wordings (wave 6B) -- prevent half, rounded up: half rounded down is left
+        n //= 2
     elif kind == "prevent_all_but":
         n = min(n, int(op["n"]))
     elif kind == "prevent_all":

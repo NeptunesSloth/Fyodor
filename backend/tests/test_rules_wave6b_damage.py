@@ -585,3 +585,34 @@ def test_count_of_creatures_blocking_it(cards):
     assert s.state.cards[berserker.id].zone == "p1:battlefield"
     assert plan.ch(s.state.cards[berserker.id]).pt == (3, 3)  # +2/+2: two blockers
     roundtrip(s)
+
+
+# -- prevention amounts and sources ---------------------------------------------------------------------------------
+GISELA = "If a source would deal damage to you or a permanent you control, prevent half that damage, rounded up."
+SPHERE = "If an artifact would deal damage to you, prevent 1 of that damage."
+
+
+@pytest.mark.parametrize(("hits", "left"), [(1, 40), (3, 39), (4, 38)])
+def test_prevent_half_rounded_up(cards, hits, left):
+    s = build(cards)
+    act(s, "p1", type="create_token", player="p1", token={"name": "Shield", "type_line": "Token Enchantment", "text": GISELA})
+    pinger = token(s, "p1", "Pinger", "1/1", f"Haste\n{{T}}: This creature deals {hits} damage to any target.")
+    ping(s, pinger, "p1")
+    assert life(s, "p1") == left  # 615: ceil(hits / 2) prevented
+    roundtrip(s)
+
+
+def test_an_artifact_source(cards):
+    s = build(cards)
+    act(s, "p1", type="create_token", player="p1", token={"name": "Sphere", "type_line": "Token Enchantment", "text": SPHERE})
+    act(s, "p1", type="create_token", player="p1", token={
+        "name": "Thopter", "type_line": "Token Artifact Creature — Thopter", "power": "1", "toughness": "1",
+        "text": "Haste\n{T}: This creature deals 2 damage to any target."})
+    thopter = named(s, "Thopter")
+    plain = token(s, "p1", "Plain", "1/1", "Haste\n{T}: This creature deals 2 damage to any target.")
+    act(s, "p1", type="activate_ability", card_id=thopter.id, ability=1, targets=["p1"])
+    pass_until_stack_empty(s)
+    assert life(s, "p1") == 39  # an artifact's damage: 1 prevented
+    ping(s, plain, "p1")
+    assert life(s, "p1") == 37  # not an artifact: all of it
+    roundtrip(s)
