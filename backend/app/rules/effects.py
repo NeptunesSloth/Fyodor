@@ -2959,6 +2959,11 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     _remember(plan, ctx, e, cards)
     if not cards:
         return True
+    if e.get("land_pick"):  # -- land types set (wave 12D) -- "the basic land type of your choice": made as it resolves, by the controller
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a basic land type",
+               options=[DecisionOption(id=t, label=t) for t in e["land_pick"]],
+               resume={"step": "become_land", "ctx": ctx, "e": e})
+        return False
     per_object = _reads_it(e.get("p")) or _reads_it(e.get("t"))
     groups = [[c] for c in cards] if per_object else [cards]
     duration = e.get("duration", "end_of_turn")
@@ -2972,13 +2977,15 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                                   "duration": duration, "label": f"{label} ({name})" if name else label}
         made: list[str] = []
         types = list(e.get("types") or [])
+        lands = list(e.get("land_types") or ())  # -- land types set (wave 12D) -- 305.7: set, or added ("in addition", 205.1b)
         if types or e.get("creature_types") is not None or e.get("add_creature_types") or e.get("all_creature_types") \
-                or e.get("legendary"):
+                or e.get("legendary") or lands:
             made.append(layers.add_effect(plan, layer="4", **common,
                                           add_types=tuple(types) if e.get("retain") else (),
                                           set_types=None if e.get("retain") or not types else types,
                                           set_creature_types=e.get("creature_types"),
-                                          add_subtypes=tuple(e.get("add_creature_types") or ()),
+                                          set_land_types=lands if lands and not e.get("retain") else None,
+                                          add_subtypes=(*(e.get("add_creature_types") or ()), *(lands if e.get("retain") else ())),
                                           all_creature_types=bool(e.get("all_creature_types")),
                                           add_supertypes=["Legendary"] if e.get("legendary") else []).id)
         if e.get("colors") is not None or e.get("add_colors"):
@@ -3025,7 +3032,7 @@ def _become_label(e: dict[str, Any], p: int | None, t: int | None) -> str:
         words.append(" and ".join(_COLOR_WORDS.get(c, c) for c in e["colors"]))
     elif e.get("colors") == []:
         words.append("colorless")
-    words += list(e.get("creature_types") or e.get("add_creature_types") or [])
+    words += list(e.get("creature_types") or e.get("add_creature_types") or e.get("land_types") or [])
     words += [w.lower() for w in e.get("types") or []]
     extras = list(e.get("keywords") or [])
     if e.get("all_creature_types"):
@@ -3035,6 +3042,17 @@ def _become_label(e: dict[str, Any], p: int | None, t: int | None) -> str:
     if extras:
         words.append("with " + ", ".join(extras))
     return " ".join(words) or "a creature"
+
+
+def resume_become_land(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen[0] not in e["land_pick"]:
+        raise ValueError("not an offered basic land type")
+    if become(plan, ctx, {**e, "land_pick": None, "land_types": [chosen[0]]}):
+        continue_effects(plan, ctx)
+
+
+RESUME["become_land"] = resume_become_land
 
 
 def still_a(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

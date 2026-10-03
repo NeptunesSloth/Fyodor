@@ -120,7 +120,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                          if c.zone.endswith(":battlefield") and c.attached_to))
     key_all: tuple = (key, graveyards, gy_modes, hosts, tuple(sorted(live)),
                       # -- attached events (wave 4L) -- "loses all abilities" effects: their objects' statics are gone
-                      tuple(e.id for e in r.effects if e.remove_abilities) if r else ())
+                      tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else ())
     hit = _STATIC_CACHE.get(key_all)
     if hit is not None:
         if memo is not None and memo[0] is state and memo[1] is info:
@@ -457,6 +457,8 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
             subtypes = kept | frozenset(e.set_creature_types)
         if e.all_creature_types:
             subtypes = subtypes | CREATURE_TYPES
+        if e.set_land_types is not None:  # -- land types set (wave 12D) -- 305.7, 205.1a: the old land types are gone
+            subtypes = (subtypes - LAND_TYPES) | frozenset(e.set_land_types)
         if e.add_subtypes:
             subtypes = subtypes | frozenset(e.add_subtypes)
         subtypes = frozenset(s for s in subtypes if _subtype_fits(s, types))
@@ -546,7 +548,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     before4 = ch
     group4 = type_statics.layer4_entries(state, card, ch, info, lambda extra: _layer4(before4, effects, own4 + extra))
     ch = _layer4(ch, effects, own4 + group4)  # layer 4: type-changing (animation, agent A2: also layer 5 below)
-    ch = type_statics.with_gained_mana(before4, ch)
+    ch = type_statics.with_gained_mana(before4, ch, any(e.layer == "4" and e.set_land_types is not None for e in effects))
     # -- end type statics (wave 5F) --
     ch = _layer5(ch, effects, attached45 + _own_layer5(state, card, info))  # -- ability words (wave 9C) --
     imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …

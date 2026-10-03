@@ -187,6 +187,11 @@ def wipes(state: GameState, table: list[Static]) -> dict[str, tuple[int, int, in
                 cid = by_object.get(oid)
                 if cid is not None:
                     out[cid] = max(out.get(cid, (-1, 0, 0)), (e.object_seq, 1, e.timestamp))
+        elif e.layer == "4" and e.set_land_types is not None:  # -- land types set (wave 12D) -- 305.7: its own abilities are
+            for oid in e.affected:  # gone, whatever it is granted (layer 6) still applies: the earliest possible key
+                cid = by_object.get(oid)
+                if cid is not None:
+                    out.setdefault(cid, (-1, 0, 0))
     for st in table:
         if st.definition.get("lose_all") and st.gate is None:
             host = state.cards[st.source].attached_to

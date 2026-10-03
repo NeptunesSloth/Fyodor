@@ -19,7 +19,7 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
-from tests.test_rules_control import answer, cast, check, put
+from tests.test_rules_control import answer, cast, chars, check, put
 from tests.test_rules_delayed import next_end_step
 from tests.test_rules_effects import mana, pass_until_stack_empty
 
@@ -45,11 +45,20 @@ REAL = [
          oracle_text="Flying, trample, haste\nAs long as there are fewer than eight cards in your graveyard, The Warring Triad isn't a "
                      "creature.\n{T}, Mill a card: Target player adds one mana of any color. (Activate only as an instant.)",
          power="5", toughness="5", keywords=["Flying", "Haste", "Trample", "Mill"]),
+    card("Tidal Warrior", set_code="tst", number="D9", mana_cost="{U}", cmc=1.0, type_line="Creature — Merfolk Warrior",
+         oracle_text="{T}: Target land becomes an Island until end of turn.", power="1", toughness="1", colors=["U"], color_identity=["U"]),
+    card("Reef Shaman", set_code="tst", number="D10", mana_cost="{U}", cmc=1.0, type_line="Creature — Merfolk Shaman",
+         oracle_text="{T}: Target land becomes the basic land type of your choice until end of turn.", power="0", toughness="2",
+         colors=["U"], color_identity=["U"]),
+    card("Command Tower", set_code="tst", number="D11", type_line="Land",
+         oracle_text="{T}: Add one mana of any color in your commander's color identity."),
+    card("Urborg, Tomb of Yawgmoth", set_code="tst", number="D12", type_line="Legendary Land",
+         oracle_text="Each land is a Swamp in addition to its other land types."),
     card("Wrong Turn Test", set_code="tst", number="D5", mana_cost="{2}{U}", cmc=3.0, type_line="Instant",
          oracle_text="Target opponent gains control of target creature.", colors=["U"], color_identity=["U"]),
 ]
 NAMES = ["Akroan Horse", "Humble Defector", "Sky Swallower", "Trostani Discordant", "Wrong Turn Test", "Eladamri's Vineyard", "Tangleroot",
-         "The Warring Triad"]
+         "The Warring Triad", "Tidal Warrior", "Reef Shaman", "Command Tower", "Urborg, Tomb of Yawgmoth"]
 
 
 @pytest.fixture()
@@ -170,4 +179,66 @@ def test_the_warring_triad_lets_a_target_player_choose_the_color(cards):
     act(s, "p2", type="choose", decision_id=d.id, option_ids=["R"])
     pass_until_stack_empty(s)
     assert s.state.players["p2"].mana == {"R": 1} and s.state.players["p1"].mana == {}
+    check(s)
+
+
+# -- land types set (305.7, 613.1d) ----------------------------------------------------------------------------------
+def ready(s, name):
+    c = put(s, name)
+    s.state.rules.controlled_since[c.id].turn = 0  # (no summoning sickness)
+    return c
+
+
+def abilities(s, c):
+    return [a.text for a in chars(s, c).abilities]
+
+
+def test_tidal_warrior_sets_the_land_type_and_takes_the_rules_text_away(cards):
+    s = build(cards)
+    warrior, tower = ready(s, "Tidal Warrior"), put(s, "Command Tower")
+    act(s, "p1", type="activate_ability", card_id=warrior.id, ability=0, targets=[tower.id])
+    pass_until_stack_empty(s)
+    now = chars(s, tower)
+    assert now.subtypes == {"Island"} and "Land" in now.types
+    assert abilities(s, tower) == ["{T}: Add {U}."]  # 305.7: only the new type's intrinsic mana ability
+    act(s, "p1", type="activate_ability", card_id=tower.id, ability=91)
+    assert s.state.players["p1"].mana == {"U": 1}
+    next_end_step(s)  # until end of turn
+    assert chars(s, tower).subtypes == frozenset()
+    assert abilities(s, tower) == ["{T}: Add one mana of any color in your commander's color identity."]
+    check(s)
+
+
+def test_a_basic_land_loses_its_old_type_and_ability(cards):
+    s = build(cards)
+    warrior, forest = ready(s, "Tidal Warrior"), put(s, "Forest")
+    act(s, "p1", type="activate_ability", card_id=warrior.id, ability=0, targets=[forest.id])
+    pass_until_stack_empty(s)
+    assert chars(s, forest).subtypes == {"Island"} and abilities(s, forest) == ["{T}: Add {U}."]  # not {G}
+    check(s)
+
+
+def test_the_basic_land_type_of_your_choice_is_chosen_as_it_resolves(cards):
+    s = build(cards)
+    shaman, forest = ready(s, "Reef Shaman"), put(s, "Forest")
+    act(s, "p1", type="activate_ability", card_id=shaman.id, ability=0, targets=[forest.id])
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and {o.id for o in d.options} == {"Plains", "Island", "Swamp", "Mountain", "Forest"}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Mountain"])
+    pass_until_stack_empty(s)
+    assert chars(s, forest).subtypes == {"Mountain"} and abilities(s, forest) == ["{T}: Add {R}."]
+    check(s)
+
+
+def test_urborg_made_an_island_no_longer_makes_lands_swamps(cards):
+    """613.8 / 305.7: the target's own static ability is gone, so nothing else is a Swamp (it applies first)."""
+    s = build(cards)
+    warrior, urborg, forest = ready(s, "Tidal Warrior"), put(s, "Urborg, Tomb of Yawgmoth"), put(s, "Forest")
+    assert chars(s, forest).subtypes == {"Forest", "Swamp"}
+    act(s, "p1", type="activate_ability", card_id=warrior.id, ability=0, targets=[urborg.id])
+    pass_until_stack_empty(s)
+    assert chars(s, urborg).subtypes == {"Island"} and chars(s, forest).subtypes == {"Forest"}
+    next_end_step(s)
+    assert chars(s, forest).subtypes == {"Forest", "Swamp"}
     check(s)

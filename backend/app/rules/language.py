@@ -2146,10 +2146,37 @@ def parse_become(text: str) -> tuple[Effects, Any] | None:
         return None
 
 
+# -- land types set (wave 12D) -- "Target land becomes an Island until end of turn." (Tidal Warrior), "… becomes the basic land
+# type of your choice …" (Reef Shaman), "… becomes a Plains or an Island …" (Tundra Kavu), "… becomes an Island in addition to
+# its other types" (Sealock Monster). 305.7: setting a land's subtype to basic land types takes away its old land types and
+# the abilities of its rules text and gives the new types' mana abilities (a layer 4 effect, 613.1d); "in addition" keeps
+# them (205.1b). Only a target land is read (a group's choice, "Choose a basic land type. Each land … that type", is not).
+_BASICS = "Plains|Island|Swamp|Mountain|Forest"
+_BECOME_LAND = re.compile(
+    rf"^(?:(?P<lead>until end of turn, ))?(?P<o>target .+?) becomes? (?:(?:an? )?(?P<a>{_BASICS})(?: or an? (?P<b>{_BASICS}))?|"
+    rf"(?P<pick>the basic land type of your choice))(?P<add> in addition to its other types)?(?P<trail> until end of turn)?$")
+
+
+def _become_land(m: re.Match[str]) -> tuple[Effects, Any]:
+    kind, key, group = ref(m["o"])
+    if kind != "target" or group is None or '"types":["Land"]' not in key or (m["lead"] and m["trail"]):
+        raise _Fail
+    e: dict[str, Any] = {"do": "become", "who": "target", "types": [], "duration": "end_of_turn" if m["lead"] or m["trail"] else "permanent"}
+    if m["pick"] or m["b"]:
+        e["land_pick"] = list(_BASICS.split("|")) if m["pick"] else [m["a"], m["b"]]
+    else:
+        e["land_types"] = [m["a"]]
+    if m["add"]:
+        e["retain"] = True  # 205.1b
+    return [e], _one(group)
+
+
 def _become(text: str) -> tuple[Effects, Any]:
     from app.rules.creature_types import CREATURE_TYPES
 
     text, rider = _with_rider(text)
+    if rider is None and (land := _BECOME_LAND.fullmatch(text)) is not None:
+        return _become_land(land)
     m = _BECOME.fullmatch(text)
     if m is None and rider is None and (c := _BECOME_COLOR.fullmatch(text)) is not None:
         return _become_color(c)  # -- static wordings (wave 6E) --

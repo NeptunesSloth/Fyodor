@@ -3882,7 +3882,7 @@ def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # their layers, 613.6); "It's still a land." is ``still_a``, which turns the types it set into
 # types added (205.1b). A quoted ability it grants must be one the engine carries out
 # (``granted_ability``), else the ability stays manual.
-@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:a|an) .+)")
+@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:(?:a|an) |the basic land type of your choice).+)")
 def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 

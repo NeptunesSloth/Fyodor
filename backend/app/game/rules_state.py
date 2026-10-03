@@ -499,6 +499,9 @@ class ContinuousEffect(BaseModel):
     add_supertypes: list[str] = Field(default_factory=list)
     set_creature_types: list[str] | None = None
     all_creature_types: bool = False
+    # -- land types set (wave 12D) -- 305.7: "target land becomes an Island": its land types are replaced by these basic
+    # land types, it loses the abilities of its rules text (and any copiable effects) and gains the types' mana abilities.
+    set_land_types: list[str] | None = None
     # Layer 5 (613.1e, 105.3): ``set_colors`` replaces its colors ([]: colorless) — None: unchanged;
     # ``add_colors``: "in addition to its other colors".
     set_colors: list[str] | None = None
