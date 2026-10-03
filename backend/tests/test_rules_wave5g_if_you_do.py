@@ -79,6 +79,14 @@ OTHERS = [
          oracle_text='At the beginning of your upkeep, this creature deals 1 damage to each opponent. You gain life equal to the damage dealt this way.', power='1', toughness='2', colors=['B'], color_identity=['B']),
 ]
 EXTRA += OTHERS
+EXTRA += [
+    card('Rotisserie Elemental', set_code="tst", number="G44", mana_cost='{R}', cmc=1.0, type_line='Creature — Elemental',
+         oracle_text='Menace\nWhenever this creature deals combat damage to a player, put a skewer counter on this creature. Then you may sacrifice it. If you do, exile the top X cards of your library, where X is the number of skewer counters on this creature. You may play those cards this turn.', power='1', toughness='1', colors=['R'], color_identity=['R'], keywords=['Menace']),
+    card('Thrilling Discovery', set_code="tst", number="G45", mana_cost='{R}{W}', cmc=2.0, type_line='Sorcery',
+         oracle_text='You gain 2 life. Then you may discard two cards. If you do, draw three cards.', colors=['R', 'W'], color_identity=['R', 'W']),
+]
+EXTRA.append(card('Tivash, Gloom Summoner', set_code="tst", number="G43", mana_cost='{4}{B}', cmc=5.0, type_line='Legendary Creature — Human Warlock',
+                  oracle_text='Lifelink\nAt the beginning of your end step, if you gained life this turn, you may pay X life, where X is the amount of life you gained this turn. If you do, create an X/X black Demon creature token with flying.', power='4', toughness='4', colors=['B'], color_identity=['B'], keywords=['Lifelink']))
 SIZED = ["Vigil for the Lost", "Hero of Leina Tower", "Squealing Devil", "Well of Lost Dreams", "Shanna, Purifying Blade",
          "Mask of Griselbrand", "Niv-Mizzet, Ghost Counsel", "Madame Null, Power Broker", "Taj-Nar Swordsmith",
          "Mortarion, Daemon Primarch", "Stark's Ingenuity"]
@@ -555,4 +563,69 @@ def test_creeping_bloodsucker_at_upkeep(cards):
     before = life(s)
     until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase not in ("untap", "upkeep") and not s.state.zones.get("stack"))
     assert life(s, "p2") == 39 and life(s) == before + 1
+    roundtrip(s)
+
+
+def test_tivash_pays_the_life_gained_for_an_x_x_demon(cards):
+    s = build(cards, p1=("Tivash, Gloom Summoner", "Spike Feeder"))
+    on_field(s, "Tivash, Gloom Summoner")
+    feeder = on_field(s, "Spike Feeder")
+    act(s, "p1", type="counter", card_ids=[feeder.id], kind="+1/+1", delta=2)
+    act(s, "p1", type="activate_ability", card_id=feeder.id, ability=1)
+    act(s, "p1", type="activate_ability", card_id=feeder.id, ability=1)
+    settle(s)
+    before = life(s)
+    until(s, lambda s: s.state.rules.decision is not None or s.state.turn.phase == "end" and s.state.zones.get("stack"))
+    d = until_asked(s)
+    assert d is not None and "4 life" in d.options[0].label  # (two gains of 2: X is 4)
+    pick(s, "pay")
+    settle(s)
+    demon = next(c for c in s.state.cards.values() if c.name == "Demon")
+    assert life(s) == before - 4 and pt(s, demon) == (4, 4)
+    roundtrip(s)
+
+
+# -- "Then you may [cost]. If you do, …" ("then" only orders the instructions, 608.2c) -----------------------------
+@pytest.mark.parametrize("paid", [True, False])
+def test_thrilling_discovery(cards, paid):
+    s = build(cards, p1=("Thrilling Discovery", "Lightning Bolt", "Grizzly Bears"))
+    spell = to_hand(s, "Thrilling Discovery")
+    to_hand(s, "Lightning Bolt")
+    to_hand(s, "Grizzly Bears")
+    mana(s, "p1", R=1, W=1)
+    before, cards_in_hand = life(s), len(hand(s))
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    d = until_asked(s)
+    assert d.player == "p1" and [o.id for o in d.options] == ["pay", "decline"]
+    pick(s, "pay" if paid else "decline")
+    settle(s)
+    assert life(s) == before + 2
+    assert len(hand(s)) == cards_in_hand - 1 + (1 if paid else 0)  # (the spell; two discarded, three drawn)
+    roundtrip(s)
+
+
+def test_rotisserie_elemental_counts_its_counters_as_it_last_existed(cards):
+    """608.2h: "the number of skewer counters on this creature" after it was sacrificed — as it last existed: 2."""
+    s = build(cards, p1=("Rotisserie Elemental",))
+    rot = on_field(s, "Rotisserie Elemental")
+    act(s, "p1", type="counter", card_ids=[rot.id], kind="skewer", delta=1)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and not s.state.zones.get("stack"))
+    act(s, "p1", type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "declare_attackers"
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": rot.id, "target": "p2"}])
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None and [o.id for o in d.options][:2] == ["pay", "decline"]:
+            break
+        elif d is not None:
+            pick(s, d.options[0].id)
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    pick(s, "pay")
+    settle(s)
+    assert s.state.cards[rot.id].zone == "p1:graveyard"
+    assert len([c for c in s.state.cards.values() if c.zone.endswith("exile") and c.owner == "p1"]) == 2
     roundtrip(s)

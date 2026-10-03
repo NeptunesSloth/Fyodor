@@ -1590,6 +1590,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
         if _paid_x.cap_sentence(text, effects):
             continue
+        if text.startswith("then you may ") and effects \
+                and _may_pay_sentence(text[5:], texts[i + 1:i + 2], it, effects) is not None:
+            text = text[5:]  # ("You gain 2 life. Then you may discard two cards. If you do, …": "then" only orders, 608.2c)
         if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:
             effects.append(paid)
             continue
