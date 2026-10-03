@@ -204,6 +204,12 @@ def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "attacked_this_turn"))
 
 
+# -- both colors (wave 6D) -- "a spell that's both red and white" (the Mimics): each of the colors (105.2)
+@_suffix(r"that['’]s both (?P<c1>" + "|".join(COLORS) + r") and (?P<c2>" + "|".join(COLORS) + r")")
+def _thats_both(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "all_colors:" + COLORS[m["c1"]] + COLORS[m["c2"]]))
+
+
 # -- blocking it (wave 6D) -- "for each creature blocking it", "each creature blocking it" (509.1g): blocking the
 # ability's source (only read in a trigger about the source itself: scripts.define checks "it" is the source)
 @_suffix(r"blocking (?:it|~)")
@@ -957,6 +963,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra.startswith("entered_this_turn") and not _entered_now(plan, card, you if extra.endswith("_you") else None):
             return False  # (wave 5H)
+        if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
+            return False
         if extra == "blocking_source" and (source is None or card.blocking != source):  # -- blocking it (wave 6D) --
             return False
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):

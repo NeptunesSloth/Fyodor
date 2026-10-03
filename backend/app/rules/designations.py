@@ -208,6 +208,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return out
     if e.counter == "dungeon" and e.player:
         return [("complete_dungeon", None, None, e.player, {})]
+    if e.counter == "crime" and e.player:  # -- crimes (wave 6D) -- 700.13
+        return [("commit_crime", None, None, e.player, {})]
     if e.counter in ("monstrous", "renowned") and e.card in plan.state.cards:  # -- becomes monstrous (wave 6D) --
         card = plan.state.cards[e.card]  # (701.37b / 702.112b: the permanent that became monstrous / renowned)
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:

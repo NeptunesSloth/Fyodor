@@ -1007,6 +1007,12 @@ def _cast_triggers(plan: Plan, spell_id: str, caster: str, batch: int = 0) -> No
     # -- trigger multipliers (wave 5D) -- what it triggered on (603.2d "you casting … causes")
     cast = TriggerEvent(kind="cast", batch=batch, count=1, players=[caster],
                         objects=[ObjectRef(card=spell.id, object_id=plan.oid(spell), zone=spell.zone)])
+    # -- cast triggers (wave 6D) -- "When you cast this spell, …": the spell's own ability, from the stack (601.2i;
+    # a copy isn't cast, 707.10: no spell_cast event)
+    if not plan.manual(spell) and spell.zone == "stack" and spell.controller == caster:
+        for i, d in abilities(plan, sch, "cast_self"):
+            _add(plan, controller=caster, source_card=spell.id, source_object=plan.oid(spell), name=sch.name, index=i,
+                 definition=d, event=cast.model_copy(deep=True))
     for watcher, ch, i, d in _watchers(plan, "cast_you"):
         if watcher.controller == caster and CAST_FILTERS[d.get("filter", "a spell")](sch):
             _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher), name=ch.name,

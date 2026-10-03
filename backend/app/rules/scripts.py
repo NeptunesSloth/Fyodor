@@ -100,6 +100,8 @@ TRIGGERS = [
                 r"(?P<body>.+)$"), "step"),
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
                 r"an artifact spell|an enchantment spell), (?P<body>.+)$"), "cast_you"),
+    # -- cast triggers (wave 6D) -- "When you cast this spell, …" (603.2, 601.2i: it triggers from the stack)
+    (re.compile(r"^When you cast this spell, (?P<body>.+)$"), "cast_self"),
     # -- state triggers (wave 6D) -- "When you control no Islands, …" (603.8: app/rules/state_triggers.py)
     (re.compile(r"^When (?P<state>you control (?:no|a|an|\w+ or more) [^,]+|there are no [^,]+ on the battlefield|"
                 r"you have \w+ or (?:more|less) life), (?P<body>.+)$"), "state"),
@@ -128,7 +130,8 @@ def step_trigger(m: re.Match[str]) -> str:
 
 # ("Whenever ~ deals combat damage to a player" is generic: its event has the player dealt the
 # damage and the amount — "that player", "that much", 510.2)
-_LEGACY_SELF = {"enter": "enters_self", "die": "dies_self", "leave": "ltb_self", "attack": "attacks_self"}
+_LEGACY_SELF = {"enter": "enters_self", "die": "dies_self", "leave": "ltb_self", "attack": "attacks_self",
+                "turned_face_up": "turned_face_up_self"}  # (-- face up (wave 6D) --: only in "~ enters or is turned face up")
 
 
 def _legacy_trigger(cond: dict[str, Any]) -> str | None:
@@ -2459,6 +2462,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     out["limit"] = restrictions.limit_kind(limit)
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
+                if trigger == "cast_self" and re.search(r'"(?:self|event)', json.dumps(effects, default=str)):
+                    return None  # -- cast triggers (wave 6D) -- the spell itself is on the stack: not read as "~"
                 if trigger == "state":  # -- state triggers (wave 6D) -- 603.8
                     from app.rules import state_triggers
 

@@ -503,3 +503,64 @@ def test_a_state_trigger_doesnt_trigger_again_while_it_waits(cards):
     resolve(s)
     assert zone_of(s, dragon) == "p1:graveyard"
     roundtrip(s)
+
+
+
+# -- third batch: cast triggers of the spell itself, both colors, crimes, "enters or is turned face up" --------------
+EXTRA += [
+    card('Desolation Twin', set_code="tst", number="G01", mana_cost='{10}', cmc=10.0, type_line='Creature — Eldrazi', oracle_text='When you cast this spell, create a 10/10 colorless Eldrazi creature token.', power='10', toughness='10'),  # noqa: E501
+    card('Battlegate Mimic', set_code="tst", number="G02", mana_cost='{1}{R/W}', cmc=2.0, type_line='Creature — Shapeshifter', oracle_text="Whenever you cast a spell that's both red and white, this creature has base power and toughness 4/2 until end of turn and gains first strike until end of turn.", power='2', toughness='1', colors=['R', 'W'], color_identity=['R', 'W']),  # noqa: E501
+    card('Raven of Fell Omens', set_code="tst", number="G03", mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Bird', oracle_text='Flying\nWhenever you commit a crime, each opponent loses 1 life and you gain 1 life. This ability triggers only once each turn. (Targeting opponents, anything they control, and/or cards in their graveyards is a crime.)', power='1', toughness='2', colors=['B'], color_identity=['B'], keywords=['Flying']),  # noqa: E501
+    card('Ponyback Brigade', set_code="tst", number="G04", mana_cost='{3}{R}{W}{B}', cmc=6.0, type_line='Creature — Goblin Warrior', oracle_text='When this creature enters or is turned face up, create three 1/1 red Goblin creature tokens.\nMorph {2}{R}{W}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)', power='2', toughness='2', colors=['B', 'R', 'W'], color_identity=['B', 'R', 'W'], keywords=['Morph']),  # noqa: E501
+]
+FULL += ["Desolation Twin", "Battlegate Mimic", "Raven of Fell Omens", "Ponyback Brigade"]
+
+
+def test_desolation_twin_makes_its_token_before_it_resolves(cards):
+    s = build(cards, "Desolation Twin")
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_stops", own=["main1"], others=["main1"], smart_pass=False)
+    twin = cast_from_hand(s, "Desolation Twin", C=10)
+    assert any(e.kind == "trigger" for e in s.state.rules.stack.values()) or s.state.rules.pending_triggers
+    roundtrip(s)
+    act(s, s.state.rules.priority, type="pass_priority")
+    until(s, lambda s: any(c.name == "Eldrazi" for c in s.state.cards.values()))
+    assert s.state.cards[twin.id].zone == "stack"  # (the trigger resolved first, 603.3, 405.5)
+    resolve(s)
+    assert zone_of(s, twin) == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_battlegate_mimic_only_for_a_red_and_white_spell(cards):
+    from tests.test_rules_attachments import ch as chars
+
+    s = build(cards, "Battlegate Mimic", "Lightning Bolt", "Ponyback Brigade")
+    mimic = put(s, "Battlegate Mimic")
+    bolt = named(s, "Lightning Bolt")
+    act(s, "p1", type="move", card_ids=[bolt.id], to={"zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1})
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    resolve(s)
+    assert chars(s, mimic).pt == (2, 1)  # (red only)
+    cast_from_hand(s, "Ponyback Brigade", R=1, W=1, B=1, C=3)
+    resolve(s)
+    assert chars(s, mimic).pt == (4, 2) and "first strike" in chars(s, mimic).keywords
+    assert len([c for c in s.state.cards.values() if c.name == "Goblin" and c.zone == "p1:battlefield"]) == 3
+    roundtrip(s)
+
+
+def test_raven_of_fell_omens_once_each_turn_for_a_crime(cards):
+    s = build(cards, "Raven of Fell Omens", "Lightning Bolt", "Murder")
+    put(s, "Raven of Fell Omens")
+    victim = old(s, "p2", "Victim")
+    lives = (s.state.players["p1"].life, s.state.players["p2"].life)
+    bolt = named(s, "Lightning Bolt")
+    act(s, "p1", type="move", card_ids=[bolt.id], to={"zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 1})
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])  # a crime (700.13)
+    resolve(s)
+    assert s.state.players["p1"].life == lives[0] + 1 and s.state.players["p2"].life == lives[1] - 4
+    murder(s, victim)  # another crime this turn: it doesn't trigger again
+    resolve(s)
+    assert s.state.players["p1"].life == lives[0] + 1
+    roundtrip(s)
