@@ -4542,14 +4542,21 @@ def _probe_previous(effects: list[dict[str, Any]], prev_start: int) -> str | Non
     return name
 
 
+def _branch_blocks(effects: list[dict[str, Any]]) -> list[tuple[int, int]]:
+    """The instructions only one branch of an "instead" / "Otherwise" clause runs ([start, end) of each): an only_if
+    block, and (wave 13E) the base and the kicked alternative of "If this spell was kicked, … instead"."""
+    return [(i + 1, min(len(effects), i + 1 + int(e.get("skip", len(effects)) if e["do"] == "only_if" else e.get("n", 0))))
+            for i, e in enumerate(effects)
+            if (e["do"] == "only_if" and (e.get("bind") or "flag" in e["cond"])) or e["do"] == "kicked_gate"]
+
+
 def _branch_refs_retarget(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """"Return target permanent to its owner's hand. If that permanent is red or green, put it on top of its owner's
     library instead." (Consign to Dream): the pronoun in the "instead" branch names the object the replaced
     instruction would have acted on — it never did (614.6: a replaced event never happens), so that is the object as
     the replaced instruction named it: its target (or the source). Such a reference across the branches is
     rewritten to that target; any other one stays (and _branch_refs_ok refuses it)."""
-    blocks = [(i + 1, min(len(effects), i + 1 + int(e.get("skip", len(effects)))))
-              for i, e in enumerate(effects) if e["do"] == "only_if" and (e.get("bind") or "flag" in e["cond"])]
+    blocks = _branch_blocks(effects)
     if not blocks:
         return effects
     produced = {e["as"]: (i, e.get("who")) for i, e in enumerate(effects) if e.get("as")}
@@ -4562,8 +4569,9 @@ def _branch_refs_retarget(effects: list[dict[str, Any]]) -> list[dict[str, Any]]
                 continue
             k, who = produced[m["name"]]
             across = any(lo <= k < hi and not lo <= i < hi for lo, hi in blocks)
-            if across and isinstance(who, str) and (who in ("target", "self") or re.fullmatch(r"target:\d+", who)):
-                changed[key] = who
+            if across and isinstance(who, str) and (who in ("target", "self") or re.fullmatch(r"target:\d+", who)
+                                                    or who.startswith(("controlled:target", "sel:")) or who == "creatures_you_control"):
+                changed[key] = who  # (wave 13E: a group is named again as the branch that ran reads it, 608.2c)
         out.append(changed)
     return out
 
@@ -4593,8 +4601,7 @@ def _branch_refs_ok(effects: list[dict[str, Any]]) -> bool:
     """Nothing refers to what an instruction in an "instead" / "Otherwise" branch moved or chose, from
     outside that branch: only one of the branches happens, so the other branch's (and any later)
     "it" / "its controller" would name nothing, silently — the ability stays manual instead."""
-    blocks = [(i + 1, min(len(effects), i + 1 + int(e.get("skip", len(effects)))))
-              for i, e in enumerate(effects) if e["do"] == "only_if" and (e.get("bind") or "flag" in e["cond"])]
+    blocks = _branch_blocks(effects)
     if not blocks:
         return True
     produced = {e["as"]: i for i, e in enumerate(effects) if e.get("as")}
