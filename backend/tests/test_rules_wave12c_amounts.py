@@ -39,6 +39,15 @@ EXTRA = [
     card('Frenzied Gorespawn', set_code='tst', number='W10', mana_cost='{3}{B}{R}', cmc=5.0, type_line='Creature — Horror', oracle_text='When this creature enters, for each opponent, goad target creature that player controls. (Until your next turn, those creatures attack each combat if able and attack a player other than you if able.)\nWhenever one or more creatures attack one of your opponents, those creatures gain menace until end of turn.', power='4', toughness='4', colors=['B', 'R'], color_identity=['B', 'R'], keywords=['Goad']),  # noqa: E501
     card('Molten Primordial', set_code='tst', number='W11', mana_cost='{5}{R}{R}', cmc=7.0, type_line='Creature — Avatar', oracle_text='Haste\nWhen this creature enters, for each opponent, gain control of up to one target creature that player controls until end of turn. Untap those creatures. They gain haste until end of turn.', power='6', toughness='4', colors=['R'], color_identity=['R'], keywords=['Haste']),  # noqa: E501
 
+    card('Plague Rats', set_code='tst', number='V01', mana_cost='{2}{B}', cmc=3.0, type_line='Creature — Rat', oracle_text="Plague Rats's power and toughness are each equal to the number of creatures named Plague Rats on the battlefield.", power='*', toughness='*', colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
+    card('Timberpack Wolf', set_code='tst', number='V02', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Wolf', oracle_text='This creature gets +1/+1 for each other creature you control named Timberpack Wolf.', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
+    card('Pack Mastiff', set_code='tst', number='V03', mana_cost='{1}{R}', cmc=2.0, type_line='Creature — Dog', oracle_text='{1}{R}: Each creature you control named Pack Mastiff gets +1/+0 until end of turn.', power='2', toughness='2', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
+    card('Faerie Miscreant', set_code='tst', number='V04', mana_cost='{U}', cmc=1.0, type_line='Creature — Faerie Rogue', oracle_text='Flying\nWhen this creature enters, if you control another creature named Faerie Miscreant, draw a card.', power='1', toughness='1', colors=['U'], color_identity=['U'], keywords=['Flying']),  # noqa: E501
+    card('Cleric of the Forward Order', set_code='tst', number='V05', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Human Cleric', oracle_text='When this creature enters, you gain 2 life for each creature you control named Cleric of the Forward Order.', power='2', toughness='2', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
+    card('Demigod of Revenge', set_code='tst', number='V06', mana_cost='{B/R}{B/R}{B/R}{B/R}{B/R}', cmc=5.0, type_line='Creature — Spirit Avatar', oracle_text='When you cast this spell, return all cards named Demigod of Revenge from your graveyard to the battlefield.\nFlying, haste', power='5', toughness='4', colors=['B', 'R'], color_identity=['B', 'R'], keywords=['Flying', 'Haste']),  # noqa: E501
+    card('Battlefield Medic', set_code='tst', number='U01', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Human Cleric', oracle_text='{T}: Prevent the next X damage that would be dealt to target creature this turn, where X is the number of Clerics on the battlefield.', power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
+    card('Burnt Offering', set_code='tst', number='U02', mana_cost='{B}', cmc=1.0, type_line='Instant', oracle_text="As an additional cost to cast this spell, sacrifice a creature.\nAdd X mana in any combination of {B} and/or {R}, where X is the sacrificed creature's mana value.", power=None, toughness=None, colors=['B'], color_identity=['B', 'R'], keywords=[]),  # noqa: E501
+    card('Judgment Bolt', set_code='tst', number='U04', mana_cost='{3}{R}', cmc=4.0, type_line='Instant', oracle_text="Judgment Bolt deals 5 damage to target creature and X damage to that creature's controller, where X is the number of Equipment you control.", power=None, toughness=None, colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
 ]
 NAMES = [c["name"] for c in EXTRA]
 
@@ -212,3 +221,115 @@ def test_per_opponent_is_read_only_for_a_triggered_ability_own_clause():
                  "For each opponent, exile up to one target creature that player controls and up to one target artifact.",
                  "For each opponent, exile up to two target creatures that player controls."):
         assert scripts.parse_effects(text) is None, text
+
+
+# -- 201.2: "named ~" is the source's own name, as the rules text writes it ---------------------------------
+def test_named_self_in_a_cda_a_static_and_a_group_ability(cards):
+    from tests.wave9c_kit import build as kbuild
+    from tests.wave9c_kit import mana as kmana
+    from tests.wave9c_kit import pt as kpt
+    from tests.wave9c_kit import put as kput
+
+    s = kbuild(cards, mine=("Plague Rats", "Plague Rats", "Timberpack Wolf", "Timberpack Wolf", "Pack Mastiff"))
+    first, second = [c for c in s.state.cards.values() if c.name == "Plague Rats"]
+    for c in (first, second):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    assert kpt(s, "Plague Rats") == (2, 2)  # the number of creatures named Plague Rats on the battlefield
+    wolf1, wolf2 = [c for c in s.state.cards.values() if c.name == "Timberpack Wolf"]
+    act(s, "p1", type="move", card_ids=[wolf1.id], to={"player": "p1", "zone": "battlefield"})
+    assert kpt(s, "Timberpack Wolf") == (2, 2)
+    act(s, "p1", type="move", card_ids=[wolf2.id], to={"player": "p1", "zone": "battlefield"})
+    assert kpt(s, "Timberpack Wolf") == (3, 3)  # +1/+1 for each OTHER creature named Timberpack Wolf
+    kput(s, "Pack Mastiff")
+    kmana(s, R=2)
+    act(s, "p1", type="activate_ability", card_id=next(c.id for c in s.state.cards.values() if c.name == "Pack Mastiff"), ability=0)
+    pass_until_stack_empty(s)
+    assert kpt(s, "Pack Mastiff") == (3, 2) and kpt(s, "Timberpack Wolf") == (3, 3)  # only the creatures named Pack Mastiff
+    roundtrip(s)
+
+
+def test_named_self_in_enters_triggers(cards):
+    from tests.wave9c_kit import build as kbuild
+    from tests.wave9c_kit import mana as kmana
+
+    s = kbuild(cards, mine=("Faerie Miscreant", "Faerie Miscreant", "Cleric of the Forward Order", "Cleric of the Forward Order"))
+    one, two = [c for c in s.state.cards.values() if c.name == "Faerie Miscreant"]
+    c1, c2 = [c for c in s.state.cards.values() if c.name == "Cleric of the Forward Order"]
+    before = hand(s)
+    act(s, "p1", type="move", card_ids=[one.id], to={"player": "p1", "zone": "hand"})
+    kmana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=one.id)
+    pass_until_stack_empty(s)
+    assert hand(s) == before  # no other Faerie Miscreant: nothing drawn
+    act(s, "p1", type="move", card_ids=[two.id], to={"player": "p1", "zone": "hand"})
+    kmana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=two.id)
+    pass_until_stack_empty(s)
+    assert hand(s) == before + 1  # another one: draw a card
+    for c in (c1, c2):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "hand"})
+    life0 = life(s)
+    kmana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=c1.id)
+    pass_until_stack_empty(s)
+    assert life(s) == life0 + 2
+    kmana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=c2.id)
+    pass_until_stack_empty(s)
+    assert life(s) == life0 + 2 + 4  # 2 life for each creature named Cleric of the Forward Order (itself included)
+    roundtrip(s)
+
+
+def test_demigod_of_revenge_cast_trigger_returns_the_others_from_the_graveyard(cards):
+    from tests.wave9c_kit import build as kbuild
+    from tests.wave9c_kit import mana as kmana
+
+    s = kbuild(cards, mine=("Demigod of Revenge", "Demigod of Revenge"))
+    dead, live = [c for c in s.state.cards.values() if c.name == "Demigod of Revenge"]
+    act(s, "p1", type="move", card_ids=[dead.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[live.id], to={"player": "p1", "zone": "hand"})
+    kmana(s, B=5)
+    act(s, "p1", type="cast_spell", card_id=live.id)
+    pass_until_stack_empty(s)
+    assert s.state.cards[dead.id].zone == "p1:battlefield" and s.state.cards[live.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+# -- the amount lands in the right field: a shield, mana, counters, two recipients -------------------------
+def test_battlefield_medic_prevents_as_many_as_there_are_clerics(cards):
+    from tests.wave9c_kit import build as kbuild
+    from tests.wave9c_kit import put as kput
+
+    s = kbuild(cards, mine=("Battlefield Medic", "Grizzly Bears"))
+    medic, bears = kput(s, "Battlefield Medic"), kput(s, "Grizzly Bears")
+    s.state.rules.controlled_since[medic.id].turn = 0  # (it has been under its controller since before the turn)
+    act(s, "p1", type="activate_ability", card_id=medic.id, ability=0, targets=[bears.id])
+    pass_until_stack_empty(s)
+    assert s.state.rules.prevention[next(iter(s.state.rules.prevention))] == 1  # one Cleric on the battlefield: the Medic
+    roundtrip(s)
+
+
+def test_burnt_offering_adds_mana_for_the_sacrificed_mana_value(cards):
+    s = build(cards, p1=("Burnt Offering", "Grizzly Bears"))
+    put(s, "Grizzly Bears", "battlefield")
+    spell = find(s, "Burnt Offering")
+    act(s, "p1", type="move", card_ids=[spell.id], to={"player": "p1", "zone": "hand"})
+    mana(s, B=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    pass_until_stack_empty(s)
+    d = decision(s)
+    assert d is not None and d.kind == "choose_one"  # two mana, each {B} or {R}
+    choose(s, ["B"])
+    choose(s, ["R"])
+    pass_until_stack_empty(s)
+    assert s.state.players["p1"].mana.get("B") == 1 and s.state.players["p1"].mana.get("R") == 1
+    roundtrip(s)
+
+
+
+def test_judgment_bolt_hits_the_creature_and_its_controller(cards):
+    s = build(cards, p1=("Judgment Bolt",), p2=("Grizzly Bears",))
+    bears = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    cast(s, "Judgment Bolt", [bears.id], R=1, C=3)
+    assert s.state.cards[bears.id].zone == "p2:graveyard" and life(s, "p2") == 40  # no Equipment: X is 0
+    roundtrip(s)
