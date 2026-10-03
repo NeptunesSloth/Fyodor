@@ -242,7 +242,9 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         context.bind_payment(ctx, name, False)
         return True
     source = plan.state.cards.get(ctx.get("source_card") or "")
-    opt = {"cost": text, "bind": name, "payer": payer, "chosen": {}}  # (the concrete cost: wave 4C)
+    opt: dict[str, Any] = {"cost": text, "bind": name, "payer": payer, "chosen": {}}  # (the concrete cost: wave 4C)
+    if e.get("defer"):  # -- review (wave 6R) -- paid with the other players' choices (pay_deferred)
+        opt["defer"] = True
     hint = " (tap your mana first)" if cost.mana and _self_pays(plan, payer) else ""
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {_label(cost)}?{hint}",
            options=[DecisionOption(id=PAY, label=f"Pay {_label(cost)}"), DecisionOption(id=DECLINE, label="Don't pay")],
@@ -262,7 +264,9 @@ def _offer_alternatives(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             plan.note(f"{plan.name(payer)} can't pay {' or '.join(e['alts'])} for {ctx.get('name') or 'it'}")
         context.bind_payment(ctx, name, False)
         return True
-    opt = {"alts": list(e["alts"]), "bind": name, "payer": payer, "chosen": {}, "cost": payable[0][1]}
+    opt: dict[str, Any] = {"alts": list(e["alts"]), "bind": name, "payer": payer, "chosen": {}, "cost": payable[0][1]}
+    if e.get("defer"):  # -- review (wave 6R) --
+        opt["defer"] = True
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {' or '.join(e['alts'])}?",
            options=[*(DecisionOption(id=f"{PAY}:{i}", label=f"Pay {_label(cost)}") for i, _, cost in payable),
                     DecisionOption(id=DECLINE, label="Don't pay")],
@@ -320,8 +324,72 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
         return
     if _choose_next(plan, ctx, opt, cost):
-        _pay(plan, ctx, opt, cost)
+        if opt.get("defer"):  # -- review (wave 6R) -- chosen now, paid with the others' (101.4)
+            _defer(plan, ctx, opt, cost)
+        else:
+            _pay(plan, ctx, opt, cost)
         effects.continue_effects(plan, ctx)
+
+
+# -- review (wave 6R) -- "Each opponent may sacrifice …" (app/rules/each_may.py): 101.4 — each player in turn order
+# chooses whether to pay (and what with; 101.4b: the choices made before are known), then the actions happen
+# simultaneously (Wizards ruling on Fandaniel, Telophoroi Ascian, 2025-06-06: "each of the chosen creatures are
+# sacrificed simultaneously"). A choice is kept in the resolution context; ``pay_deferred`` pays them all, the
+# sacrifices as one move (one event batch: a permanent sacrificed alongside another sees it go, 603.10a).
+def defers(text: str | None, alts: list[str] | None = None) -> bool:
+    """Whether a payment of this cost can wait for the other players' choices: anything but mana (the payer taps their
+    mana while their own prompt is open)."""
+    costs = [parse(t) for t in ([text] if text else []) + list(alts or [])]
+    return bool(costs) and all(c is not None and not c.mana for c in costs)
+
+
+def _defer(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> None:
+    payer = opt["payer"]
+    picked = [c for ids in opt["chosen"].values() for c in ids]
+    public = [c for c in picked if (x := plan.state.cards.get(c)) is not None and x.zone.endswith(":battlefield")]
+    # (a card chosen from a hand stays hidden until it is discarded: 101.4a)
+    plan.note(f"{plan.name(payer)} chooses to pay {_label(cost)} for {ctx.get('name') or 'it'}",
+              public if len(public) == len(picked) else [])
+    ctx.setdefault("deferred_pay", {})[opt["bind"]] = {**opt, "defer": None}
+
+
+def _sacrifice_only(cost: AbilityCost) -> bool:
+    return (not cost.mana and not cost.life and not cost.remove_counters and not _self_parts(cost)
+            and all(c.kind == C.SACRIFICE and c.selector is not None for c in cost.components))
+
+
+def pay_deferred(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """``{"do": "pay_deferred", "binds": [...]}``: pay the payments chosen (in the binds' order); the sacrifices all at
+    once, after the other parts (so a permanent being sacrificed is still there as a card is discarded)."""
+    from app.rules.triggers import sacrificing
+
+    pending = ctx.pop("deferred_pay", None) or {}
+    together: list[tuple[dict[str, Any], AbilityCost, list[str]]] = []
+    for name in e["binds"]:
+        opt = pending.get(name)
+        cost = parse(opt["cost"]) if opt is not None else None
+        if opt is None or cost is None:
+            continue
+        if not _sacrifice_only(cost):
+            _pay(plan, ctx, opt, cost)
+            continue
+        chosen = {int(k): list(v) for k, v in opt["chosen"].items()}
+        why = problem(plan, ctx, cost, opt["payer"], chosen)
+        if why is not None:
+            plan.note(f"{plan.name(opt['payer'])} couldn't pay {_label(cost)} for {ctx.get('name') or 'it'}: {why}")
+            context.bind_payment(ctx, name, False)
+            continue
+        together.append((opt, cost, [c for ids in chosen.values() for c in ids]))
+    if not together:
+        return True
+    gone = [c for _, _, ids in together for c in ids]
+    refs = {opt["bind"]: [r for r in (context.ref_of(plan, c) for c in ids) if r is not None] for opt, _, ids in together}
+    sacrificing(plan, gone)  # 701.21a: to their owners' graveyards, all at once
+    plan.do({"type": "move", "card_ids": gone, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+    for opt, cost, ids in together:
+        plan.note(f"{plan.name(opt['payer'])} paid {_label(cost)} for {ctx.get('name') or 'it'}", [c for c in ids if c in plan.state.cards])
+        context.bind_payment(ctx, opt["bind"], True, refs[opt["bind"]])
+    return True
 
 
 def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> bool:

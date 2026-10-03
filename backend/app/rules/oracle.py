@@ -118,7 +118,8 @@ _ADD_MANA = re.compile(r"^(?P<cost>[^:]+): (?:Choose a color\. )?Add ")
 # Anything else is a flavor word only when what follows is a trigger or a cost-led activated ability; other lines are left as they were.
 _WORD_PREFIX = re.compile(r"^(?P<w>[A-Z][A-Za-z0-9'’!?,\- ]{0,48}?) — (?P<rest>\S.*)$")
 _NOT_FLAVOR = frozenset({"max speed", "power-up", "exhaust", "boast", "forecast", "visit", "companion", "prototype",
-                         "solved", "to solve", "jump", "station", "level up"})
+                         "solved", "to solve", "jump", "station", "level up",
+                         "prize"})  # (-- review (wave 6R) -- "Prize —" is part of an Attraction's visit ability: 702.159b)
 _ROMAN = re.compile(r"^[IVX]+(?:, [IVX]+)*$")
 
 
@@ -133,6 +134,8 @@ def word_prefix(line: str) -> tuple[str, str] | None:
     if word in ABILITY_WORDS:
         return m["w"], m["rest"]
     if word in _NOT_FLAVOR or keyword_name(m["w"]) is not None or "{" in word:
+        return None
+    if word.endswith("villainous choice"):  # -- review (wave 6R) -- "Each opponent faces a villainous choice — …" (701.55a)
         return None
     rest = m["rest"]
     if re.match(r"(?:When|Whenever|At) ", rest):

@@ -136,7 +136,7 @@ def _shared_cost(plan: Plan, ctx: Context, bind: str) -> str | None:
 
 def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """One optional payment per player of the group (turn order, 101.4), then the effect for each who didn't pay."""
-    from app.rules import effects
+    from app.rules import effects, optional_payment
 
     players = [p for p in plan.apnap() if p in effects._players(plan, ctx, e["who"])]
     cost = e.get("cost")
@@ -147,11 +147,17 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     at = ctx["next"]
     tag = f"m{at}_"
     added: list[dict[str, Any]] = []
+    # -- review (wave 6R) -- 101.4: every choice first (in turn order), then the payments together (pay_deferred)
+    defer = optional_payment.defers(cost, None if cost is not None else e.get("alts"))
     for i, p in enumerate(players):
         pay: dict[str, Any] = {"do": "optional_payment", "who": f"player:{p}", "cost": cost if cost is not None else e["alts"][0], "bind": f"{tag}{i}"}
         if e.get("alts") and cost is None:
             pay["alts"] = list(e["alts"])
+        if defer:
+            pay["defer"] = True
         added.append(pay)
+    if defer and players:
+        added.append({"do": "pay_deferred", "binds": [f"{tag}{i}" for i in range(len(players))]})
     for i, p in enumerate(players):
         inner = _for(e["effects"], p)
         added += [{"do": "only_if", "cond": {"succeeded": f"{tag}{i}", "negate": True}, "skip": len(inner)}, *inner]
@@ -161,3 +167,12 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"each_may": each_may}
+
+
+def _pay_deferred(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:  # -- review (wave 6R) --
+    from app.rules import optional_payment
+
+    return optional_payment.pay_deferred(plan, ctx, e)
+
+
+PRIMITIVES["pay_deferred"] = _pay_deferred
