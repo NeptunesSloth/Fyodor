@@ -715,7 +715,8 @@ def rename_bindings(value: Any, prefix: str) -> Any:
         return value
     out = {}
     for k, v in value.items():
-        if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount", "ref_count") and isinstance(v, str):  # ("bind": the library primitives' recorder;
+        if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount", "ref_count",
+                 "bind_dealt", "paid_x") and isinstance(v, str):  # (bind_dealt, paid_x: wave 5G)  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -1356,8 +1357,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     body = trigger_words.plain_amounts(body)
     try:
-        return _excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(_energy_paid(
-            _parse_effects(body, it, event_player)))), it)))
+        return _excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(this_way.damage_dealt(_energy_paid(
+            _parse_effects(body, it, event_player))))), it)))  # (damage_dealt: wave 5G)
     except _NoMatch:
         return None
 
@@ -1486,6 +1487,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import recursion as _recursion  # -- recursion & tutors (wave 4M) --
 
     body = _recursion.join_sized_search(body)
+    if it is None and not event_player:  # -- if you do (wave 5G) -- a spell's or an activated ability's "each other
+        # player": every other player than its controller is an opponent in a free-for-all (102.2, 806.2); in a trigger
+        # "other" may be relative to the event's player — not read there
+        body = re.sub(r"\b([Ee])ach other player\b", lambda m: f"{m[1]}ach opponent", body)
     texts =[s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     skip_to = 0  # -- refused look/cast-free (wave 3R5) -- sentences read together with an earlier one (piles)
@@ -2213,6 +2218,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 continue  # -- sized amounts (wave 3D) -- it reads the spell cast: the generic condition's event carries it
             if m:
                 name = step_trigger(m) if trigger == "step" else trigger
+                if name.startswith("step:") and not name.endswith(":you") and re.search(r"\beach other player\b", m["body"]):
+                    return None  # -- if you do (wave 5G) -- "other" than whose step it is, or than you? (not read)
                 # -- trigger limits (app/rules/restrictions.py): "This ability triggers only once
                 # each turn." is split off and enforced as it triggers (triggers._add); "Do this
                 # only once each turn." (603.2h) isn't modeled yet: the ability stays manual

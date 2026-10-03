@@ -244,6 +244,31 @@ def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[d
     return out
 
 
+# -- if you do (wave 5G) -- "~ deals 2 damage to each other player. You gain life equal to the damage dealt this way."
+DAMAGE_DEALT = "damage_dealt"
+
+
+def damage_dealt(found: Any) -> Any:
+    """"You gain life equal to the damage dealt this way." (Syphon Soul, Creeping Bloodsucker): the total damage the
+    damage instruction just before actually dealt — after prevention and replacement (615.6, 120.4: the damage events
+    as they are dealt), all recipients together. Only right after one plain damage instruction; anything else in
+    between, or no such instruction, leaves the ability manual."""
+    import json
+
+    if found is None or f'"{DAMAGE_DEALT}"' not in json.dumps(found[0]):
+        return found
+    effects = found[0]
+    for i, e in enumerate(effects):
+        if f'"{DAMAGE_DEALT}"' not in json.dumps(e):
+            continue
+        prev = effects[i - 1] if i else None
+        if prev is None or prev.get("do") != "damage" or prev.get("with_next") or prev.get("bind_dealt") \
+                or e.get("do") != "gain_life" or (i > 1 and effects[i - 2].get("with_next")):
+            return None
+        effects = [*effects[:i - 1], {**prev, "bind_dealt": DAMAGE_DEALT}, *effects[i:]]
+    return effects, found[1], found[2]
+
+
 # -- "Tap any number of untapped creatures you control. … for each creature tapped this way" ----------------------
 def tap_choice(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """The controller chooses any number (0 or more) of the untapped permanents they control that match, and taps

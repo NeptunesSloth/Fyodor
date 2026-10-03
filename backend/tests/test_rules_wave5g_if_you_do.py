@@ -70,6 +70,15 @@ NO_MANA = [
          oracle_text='Vigilance\nWhenever an opponent casts a spell, if no mana was spent to cast it, counter that spell.\nSacrifice Boromir: Creatures you control gain indestructible until end of turn. The Ring tempts you.', power='3', toughness='3', colors=['W'], color_identity=['W'], keywords=['Vigilance']),
 ]
 EXTRA += NO_MANA
+OTHERS = [
+    card('Syphon Mind', set_code="tst", number="G40", mana_cost='{3}{B}', cmc=4.0, type_line='Sorcery',
+         oracle_text='Each other player discards a card. You draw a card for each card discarded this way.', colors=['B'], color_identity=['B']),
+    card('Syphon Soul', set_code="tst", number="G41", mana_cost='{2}{B}', cmc=3.0, type_line='Sorcery',
+         oracle_text='Syphon Soul deals 2 damage to each other player. You gain life equal to the damage dealt this way.', colors=['B'], color_identity=['B']),
+    card('Creeping Bloodsucker', set_code="tst", number="G42", mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Vampire',
+         oracle_text='At the beginning of your upkeep, this creature deals 1 damage to each opponent. You gain life equal to the damage dealt this way.', power='1', toughness='2', colors=['B'], color_identity=['B']),
+]
+EXTRA += OTHERS
 SIZED = ["Vigil for the Lost", "Hero of Leina Tower", "Squealing Devil", "Well of Lost Dreams", "Shanna, Purifying Blade",
          "Mask of Griselbrand", "Niv-Mizzet, Ghost Counsel", "Madame Null, Power Broker", "Taj-Nar Swordsmith",
          "Mortarion, Daemon Primarch", "Stark's Ingenuity"]
@@ -487,4 +496,63 @@ def test_boromir_only_opponents_spells(cards):
     pick(s, forest.id)
     settle(s)
     assert where(s, mox) == "p1:battlefield"
+    roundtrip(s)
+
+
+# -- "each other player" (102.2: every other player is an opponent in a free-for-all) and "the damage dealt this way"
+def build3(cards, p1=()):
+    alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in p1), (12, "Forest")])
+    others = [deck(cards, c, [(3, "Grizzly Bears"), (12, "Island")]) for c in ("Atraxa, Praetors' Voice", "Krenko, Mob Boss")]
+    s = GameSession(enable(new_game([PlayerSetup(n, cards=d) for n, d in zip(("Alice", "Bob", "Carol"), [alice, *others],
+                                                                            strict=True)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    return s
+
+
+def test_other_players_coverage(cards):
+    for name in ("Syphon Mind", "Syphon Soul", "Creeping Bloodsucker"):
+        assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+    # a trigger on another player's step: "other" than whom? (not read)
+    assert scripts.parse_effects("Each other player discards a card.") is not None
+    fake = card("Fake Upkeep", set_code="tst", number="X599", mana_cost="{B}", cmc=1.0, type_line="Enchantment",
+                oracle_text="At the beginning of each player's upkeep, each other player loses 1 life.")
+    assert coverage.of_card_data({**fake, "faces": []}).level != "FULL"
+
+
+def test_syphon_mind_each_other_player_discards(cards):
+    s = build3(cards, p1=("Syphon Mind",))
+    for c in list(hand(s, "p3")):  # (Carol has nothing to discard: only Bob's card counts)
+        act(s, "p3", type="move", card_ids=[c], to={"zone": "library"})
+    bears = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2"][:2]
+    act(s, "p2", type="move", card_ids=[c.id for c in bears], to={"zone": "hand"})
+    spell = to_hand(s, "Syphon Mind")
+    mana(s, "p1", B=1, C=3)
+    drawn, bobs = len(hand(s)), len(hand(s, "p2"))
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    d = until_asked(s)
+    assert d.player == "p2" and "options" not in s.view("p1")["rules"]["decision"]  # (Bob's hand: his choice, privately)
+    settle(s)
+    assert len(hand(s, "p2")) == bobs - 1
+    assert len(hand(s)) == drawn - 1 + 1  # (the spell left her hand; one card discarded: one drawn)
+    roundtrip(s)
+
+
+def test_syphon_soul_gains_the_damage_dealt(cards):
+    s = build3(cards, p1=("Syphon Soul",))
+    spell = to_hand(s, "Syphon Soul")
+    mana(s, "p1", B=1, C=2)
+    before = life(s)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    settle(s)
+    assert life(s, "p2") == 38 and life(s, "p3") == 38
+    assert life(s) == before + 4
+    roundtrip(s)
+
+
+def test_creeping_bloodsucker_at_upkeep(cards):
+    s = build(cards, p1=("Creeping Bloodsucker",))
+    on_field(s, "Creeping Bloodsucker")
+    before = life(s)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase not in ("untap", "upkeep") and not s.state.zones.get("stack"))
+    assert life(s, "p2") == 39 and life(s) == before + 1
     roundtrip(s)

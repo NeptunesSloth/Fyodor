@@ -174,6 +174,8 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     m = _PLAYER_COUNTERS.match(what)
     if m:
         return {"player_counters": m["kind"]}
+    if what == "the damage dealt this way":  # -- if you do (wave 5G) -- what the damage just before dealt (this_way)
+        return {"ref_amount": "damage_dealt"}
     if what == "the life lost this way":  # -- refused zones/sized (wave 3R4) -- what the lose_life just before lost
         return {"ref_amount": "life_lost"}  # (scripts._life_lost binds it to that instruction, else the line is manual)
     if what in ("{E} paid this way", "the amount of {E} paid this way", "{E} you paid this way"):  # (wave 3E)
