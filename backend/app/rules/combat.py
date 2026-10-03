@@ -357,6 +357,11 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
 
         note_attack(plan.state, plan.actor,  # (wave 4D: the attacking objects)
                     [plan.oid(plan.state.cards[x.card_id]) for x in a.attackers])  # 508.1: "if you attacked this turn" (conditional clauses, wave 1B)
+        # -- static wordings (wave 6E) -- 508.1g / 701.43d: "You may exert this creature as it attacks" (app/rules/exert.py)
+        from app.rules import exert
+
+        if exert.ask(plan, [plan.state.cards[x.card_id] for x in a.attackers]):
+            return
         triggers.attacked(plan, [plan.state.cards[x.card_id] for x in a.attackers])
     r.priority = plan.active
     r.passed = []
@@ -744,6 +749,14 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
             continue
         gain(b, bch, hit_creature(b, bch, blocked, p))
     return out
+
+
+def _assigns(card: CardInstance, ch: Characteristics) -> int | None:
+    """-- static wordings (wave 6E) -- the combat damage a creature assigns: its power (510.1a), or its toughness when an
+    effect says it "assigns combat damage equal to its toughness rather than its power"."""
+    if "damage_by_toughness" in scripts.statics(ch):
+        return toughness(card, ch)
+    return power(card, ch)
 
 
 def damage_preview(plan: Plan, rnd: Round) -> str:

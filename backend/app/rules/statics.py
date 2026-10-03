@@ -62,6 +62,7 @@ than none). Applying these in layer order is app/rules/layers.py's job.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import TYPE_CHECKING, Any
 
@@ -85,6 +86,11 @@ GRANTABLE_KEYWORDS: frozenset[str] = frozenset({
     "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "desertwalk",
     "shadow", "horsemanship", "fear", "intimidate", "skulk", "wither", "infect",
 })
+
+# -- static wordings (wave 6E) -- triggered keywords a static may grant (613.1f): granted as the keyword line itself, an
+# ability of the object like a printed one (scripts.keyword_triggers: prowess 702.108a, persist 702.79a, undying
+# 702.93a; triggers._exalted: exalted 702.83a, each instance triggering separately, 702.83b / 702.108b)
+TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "undying"})
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
                      "enchanted permanent": "permanent", "enchanted artifact": "artifact",
@@ -199,6 +205,8 @@ def parse(text: str) -> Definition | None:
     who, kind = _subject(subject, plural=re.match(r"(?:get|have) ", predicate) is not None)
     if who is None:
         return None
+    if who.startswith(UNION) and (conds or x_phrase is not None or defender_sel or rule_cond):
+        return None  # -- static wordings (wave 6E) -- (a union subject: only plain grants)
     if layer4 is not None and who != "self":
         return None
     if attached_cond is not None and (who != "attached" or (kind or attached_cond["noun"]) != attached_cond["noun"]):
@@ -214,6 +222,8 @@ def parse(text: str) -> Definition | None:
     parts = _predicate(predicate, x_value, it)
     if parts is None:
         return None
+    if who.startswith(UNION) and (parts["rules"] or parts["each"] or parts["extra"]):
+        return None  # -- static wordings (wave 6E) -- (a union subject: only P/T, keyword and ability grants)
     # -- attached events (wave 4L) --
     from app.rules import attached_types
 
@@ -412,8 +422,42 @@ def _type_list(subject: str) -> str:
     return f"{m['pre']}{' or '.join(words)}{m['post'] or ''}"
 
 
+# -- static wordings (wave 6E) -- two groups joined by "and", each its own selector: "Skeletons you control and other
+# Zombies you control" (Death Baron: "other" belongs to the Zombies only, so a Skeleton Death Baron would pump itself),
+# "Goblins you control and Elementals you control", "Other Treefolk and Forests you control". The static applies to an
+# object in either group (``UNION`` + the selector keys; ``applies``), once.
+UNION = "any:"
+_UNION_TWO = re.compile(r"^(?P<a>.+? you control) and (?P<b>(?:other )?[A-Za-z][\w' -]*? you control)$")
+_UNION_SHARED = re.compile(r"^(?P<pre>[Oo]ther )?(?P<a>[A-Z][a-z'\-]+) and (?P<b>[A-Z][a-z'\-]+) you control$")
+
+
+def _union_subject(subject: str) -> str | None:
+    m = _UNION_TWO.match(subject)
+    parts = [m["a"], m["b"]] if m else None
+    if parts is None and (m := _UNION_SHARED.match(subject)) is not None and _type_list(subject) == subject:
+        parts = [f"{m['pre'] or ''}{m['a']} you control", f"{m['pre'] or ''}{m['b']} you control"]
+    if parts is None:
+        return None
+    keys = []
+    for part in parts:
+        if " and " in part:
+            return None
+        key, _ = _subject(part[0].upper() + part[1:], plural=True)
+        if key is None or not key.startswith(selectors.PREFIX) or "keywords" in key:
+            return None
+        keys.append(key)
+    return UNION + json.dumps(keys)
+
+
+def _union_keys(who: str) -> list[str]:
+    return list(json.loads(who[len(UNION):]))
+
+
 def _subject(subject: str, *, plural: bool = False) -> tuple[str | None, str | None]:
     """→ ("self" | "attached" | selector key, attached kind). ``plural``: the verb is plural (wave 6C)."""
+    union = _union_subject(subject)  # -- static wordings (wave 6E) --
+    if union is not None:
+        return union, None
     subject = _type_list(subject)  # -- token & pump wordings (wave 6C) --
     low = subject.lower()
     if low in ("~", "it"):
@@ -542,6 +586,9 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         if rest in GRANTABLE_KEYWORDS:
             keywords.append(rest)
             continue
+        if rest in TRIGGERED_GRANTS:  # -- static wordings (wave 6E) --
+            grants.append(rest.capitalize())
+            continue
         line = keyword_line(rest.replace(_FROM_JOIN, " and from "))  # -- attached events (wave 4L) --
         if line is not None:
             grants.append(line)
@@ -611,6 +658,10 @@ RULES.update({"is goaded": ("goaded:@you",), "are goaded": ("goaded:@you",)})
 # 508.1c: a restriction on where it attacks — "you" is the Aura's controller, app/rules/combat.py ``attack_forbidden``)
 RULES.update({"can't attack you or planeswalkers you control": ("cant_attack_player_pw:@you",),
               "can't attack you": ("cant_attack_player:@you",)})
+# -- static wordings (wave 6E) -- "Each creature you control assigns combat damage equal to its toughness rather than its
+# power." (Doran, Belligerent Brontodon): 510.1a's amount read from toughness instead (app/rules/combat.py)
+RULES.update({"assigns combat damage equal to its toughness rather than its power": ("damage_by_toughness",),
+              "assign combat damage equal to their toughness rather than their power": ("damage_by_toughness",)})
 # -- conditional statics (wave 4B) -- 702.3b: a creature with defender can't attack; this lets it (app/rules/combat.py)
 RULES.update({"can attack as though it didn't have defender": ("attack_despite_defender",),
               "can attack as though they didn't have defender": ("attack_despite_defender",)})
@@ -795,6 +846,9 @@ def applies(plan: Plan, d: Definition, *, source: CardInstance, controller: str,
         if kind == "land" and not ch.is_land:
             return False
         if kind == "artifact" and "Artifact" not in ch.types:
+            return False
+    elif who.startswith(UNION):  # -- static wordings (wave 6E) -- either group
+        if not any(selectors.matches(plan, selectors.from_key(k), card, ch, controller, source.id) for k in _union_keys(who)):
             return False
     elif not selectors.matches(plan, selectors.from_key(who), card, ch, controller, source.id):
         return False

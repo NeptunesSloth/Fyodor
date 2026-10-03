@@ -82,7 +82,7 @@ def test_parse(text, who, parts):
 @pytest.mark.parametrize("text", [
     "Creatures you control get +1/+1 until end of turn.",  # a duration: an effect, not a static
     "Enchanted creature gets +1/+1 and has protection from the chosen color.",  # a quality chosen as it entered (wave 4L reads the rest)
-    "Other creatures you control have exalted.",  # a triggered keyword
+    "Other creatures you control have cascade.",  # a keyword of spells (wave 6E reads granted exalted)
     "You have hexproof.",  # a player's characteristic (613.10): not modelled
     "Instant and sorcery spells you control have lifelink.",  # spells, not permanents
     "Creatures you control get +1/+1. As long as you have the city's blessing, they also have vigilance.",
