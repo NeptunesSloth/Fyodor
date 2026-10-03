@@ -16,7 +16,7 @@ from app.game.state import GameState
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_conditionals import build, settle, to_hand
+from tests.test_rules_conditionals import build, settle, to_hand, token_of
 from tests.test_rules_effects import mana, replay_matches
 from tests.test_rules_suspend import until
 
@@ -59,6 +59,10 @@ EXTRA = [
     card('Blood Cultist', set_code='tst', number='T7C36', mana_cost='{1}{B}{R}', cmc=3.0, type_line='Creature — Human Wizard', oracle_text='{T}: This creature deals 1 damage to target creature.\nWhenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature.', power='1', toughness='1', colors=['B', 'R'], color_identity=['B', 'R']),
     card('Vampiric Sliver', set_code='tst', number='T7C37', mana_cost='{3}{B}', cmc=4.0, type_line='Creature — Sliver', oracle_text='All Sliver creatures have "Whenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature."', power='3', toughness='3', colors=['B'], color_identity=['B']),
     card('Sengir Vampire', set_code='tst', number='T7C38', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Creature — Vampire', oracle_text="Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature.", power='4', toughness='4', colors=['B'], color_identity=['B'], keywords=['Flying']),
+    card('Pyramid of the Pantheon', set_code='tst', number='T7C39', mana_cost='{1}', cmc=1.0, type_line='Artifact', oracle_text='{2}, {T}: Add one mana of any color. Put a brick counter on this artifact.\n{T}: Add three mana of any one color. Activate only if there are three or more brick counters on this artifact.'),
+    card('Luxa River Shrine', set_code='tst', number='T7C40', mana_cost='{3}', cmc=3.0, type_line='Artifact', oracle_text='{1}, {T}: You gain 1 life. Put a brick counter on this artifact.\n{T}: You gain 2 life. Activate only if there are three or more brick counters on this artifact.'),
+    card('Iron-Heart Chimera', set_code='tst', number='T7C41', mana_cost='{4}', cmc=4.0, type_line='Artifact Creature — Chimera', oracle_text='Vigilance\nSacrifice this creature: Put a +2/+2 counter on target Chimera creature. It gains vigilance. (This effect lasts indefinitely.)', power='2', toughness='2', keywords=['Vigilance']),
+    card('Shield Sphere', set_code='tst', number='T7C42', mana_cost='{0}', cmc=0.0, type_line='Artifact Creature — Wall', oracle_text='Defender\nWhenever this creature blocks, put a -0/-1 counter on it.', power='0', toughness='6', keywords=['Defender']),
 ]
 
 
@@ -464,4 +468,61 @@ def test_blood_cultist_ignores_other_deaths_and_survivors_damaged_earlier(cards)
 
 @pytest.mark.parametrize("name", ["Blood Cultist", "Vampiric Sliver", "Sengir Vampire"])
 def test_damaged_by_this_turn_dies_coverage(name):
+    assert cov(name) == "FULL"
+
+
+# -- "Activate only if there are three or more brick counters on this artifact" (602.5, 122.1) ---------------------------
+def test_luxa_river_shrine_needs_three_brick_counters(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, "Luxa River Shrine")
+    shrine = put(s, "Luxa River Shrine")
+    add(s, shrine, 2, "brick")
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and not s.state.zones.get("stack")
+          and s.state.rules.decision is None, limit=600)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=shrine.id, ability=1)
+    add(s, shrine, 1, "brick")
+    life = s.state.players["p1"].life
+    act(s, "p1", type="activate_ability", card_id=shrine.id, ability=1)
+    settle(s)
+    assert s.state.players["p1"].life == life + 2
+    replay_matches(saved(s))
+
+
+def test_pyramid_of_the_pantheon_taps_only_with_three_brick_counters(cards):
+    from app.rules.casting import mana_abilities
+    from app.rules.plan import Plan
+
+    s = build(cards, "Pyramid of the Pantheon")
+    pyramid = put(s, "Pyramid of the Pantheon")
+    add(s, pyramid, 2, "brick")
+
+    def offered():
+        plan = Plan(s.state, "p1", s.cards, None)
+        return 1 in dict(mana_abilities(s.state, s.state.cards[pyramid.id], plan.info))
+
+    assert not offered()
+    add(s, pyramid, 1, "brick")
+    assert offered()
+    replay_matches(saved(s))
+
+
+# -- +2/+2 counters (122.1a) --------------------------------------------------------------------------------------------
+def test_iron_heart_chimera_puts_a_plus_two_counter_on_another_chimera(cards):
+    from app.rules.plan import Plan
+
+    s = build(cards, "Iron-Heart Chimera")
+    iron = put(s, "Iron-Heart Chimera")
+    other = token_of(s, "p1", "Chimera", "Token Artifact Creature — Chimera", "1/1")
+    act(s, "p1", type="activate_ability", card_id=iron.id, ability=1, targets=[other.id])
+    settle(s)
+    assert zone(s, iron) == "p1:graveyard" and counters(s, other) == {"+2/+2": 1}
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[other.id])
+    assert ch.pt == (3, 3) and "vigilance" in ch.keywords
+    replay_matches(saved(s))
+
+
+@pytest.mark.parametrize("name", ["Luxa River Shrine", "Pyramid of the Pantheon", "Iron-Heart Chimera", "Shield Sphere"])
+def test_counter_conditions_coverage(name):
     assert cov(name) == "FULL"
