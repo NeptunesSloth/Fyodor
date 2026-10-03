@@ -6,6 +6,9 @@
   each instance separately, 702.83b): Mikaeus the Unhallowed, Sublime Archangel, Bria.
 * A choice between additional costs (601.2b announced before targets, 601.2f in the total cost, 601.2h paid with the
   rest, 118.3): Demand Answers, Bitter Triumph, Eaten Alive, Annihilating Glare.
+* "Regenerate each creature you control." (701.19a, the group read as it resolves, 608.2c): Golgari Charm, Wrap in Vigor.
+* "You may exert this creature as it attacks. When you do, …" (701.43d: an optional cost to attack, 508.1g, linked to
+  its reflexive trigger, 607.2h, 603.12; 701.43a: no untap next untap step): Hooded Brawler, Glorybringer, Tah-Crop Elite.
 * Anthems over two groups ("Skeletons you control and other Zombies you control"): Death Baron, Caterwauling Boggart,
   Timber Protector.
 
@@ -23,7 +26,7 @@ from app.config import Settings
 from app.rules import coverage, statics
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_conditionals import settle, token_of, until
+from tests.test_rules_conditionals import settle, through_combat, token_of, until
 from tests.test_rules_effects import replay_matches
 from tests.test_rules_wave6c_tokens_pumps import build, chars, mana, pt, put, reloaded, to_hand
 
@@ -42,13 +45,20 @@ EXTRA = [
     card('Eaten Alive', set_code='tst', number='E11', mana_cost='{B}', cmc=1.0, type_line='Sorcery', oracle_text='As an additional cost to cast this spell, sacrifice a creature or pay {3}{B}.\nExile target creature or planeswalker.', colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
     card('Annihilating Glare', set_code='tst', number='E12', mana_cost='{B}', cmc=1.0, type_line='Sorcery', oracle_text='As an additional cost to cast this spell, pay {4} or sacrifice an artifact or creature.\nDestroy target creature or planeswalker.', colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
     card('Silvergill Adept', set_code='tst', number='E13', mana_cost='{1}{U}', cmc=2.0, type_line='Creature — Merfolk Wizard', oracle_text='As an additional cost to cast this spell, reveal a Merfolk card from your hand or pay {3}.\nWhen this creature enters, draw a card.', power='2', toughness='1', colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
+    card('Golgari Charm', set_code='tst', number='E14', mana_cost='{B}{G}', cmc=2.0, type_line='Instant', oracle_text='Choose one —\n• All creatures get -1/-1 until end of turn.\n• Destroy target enchantment.\n• Regenerate each creature you control.', colors=['B', 'G'], color_identity=['B', 'G'], keywords=['Regenerate']),  # noqa: E501
+    card('Wrap in Vigor', set_code='tst', number='E15', mana_cost='{1}{G}', cmc=2.0, type_line='Instant', oracle_text='Regenerate each creature you control.', colors=['G'], color_identity=['G'], keywords=['Regenerate']),  # noqa: E501
+    card('Hooded Brawler', set_code='tst', number='E16', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Snake Warrior', oracle_text="You may exert this creature as it attacks. When you do, it gets +2/+2 until end of turn. (An exerted creature won't untap during your next untap step.)", power='3', toughness='2', colors=['G'], color_identity=['G'], keywords=['Exert']),  # noqa: E501
+    card('Glorybringer', set_code='tst', number='E17', mana_cost='{3}{R}{R}', cmc=5.0, type_line='Creature — Dragon', oracle_text="Flying, haste\nYou may exert this creature as it attacks. When you do, it deals 4 damage to target non-Dragon creature an opponent controls. (An exerted creature won't untap during your next untap step.)", power='4', toughness='4', colors=['R'], color_identity=['R'], keywords=['Flying', 'Haste', 'Exert']),  # noqa: E501
+    card('Tah-Crop Elite', set_code='tst', number='E18', mana_cost='{3}{W}', cmc=4.0, type_line='Creature — Bird Warrior', oracle_text="Flying\nYou may exert this creature as it attacks. When you do, creatures you control get +1/+1 until end of turn. (An exerted creature won't untap during your next untap step.)", power='2', toughness='2', colors=['W'], color_identity=['W'], keywords=['Flying', 'Exert']),  # noqa: E501
+    card("Oketra's Avenger", set_code='tst', number='E19', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Human Warrior', oracle_text="You may exert this creature as it attacks. When you do, prevent all combat damage that would be dealt to it this turn. (An exerted creature won't untap during your next untap step.)", power='3', toughness='1', colors=['W'], color_identity=['W'], keywords=['Exert']),  # noqa: E501
 ]
 FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime Archangel", "Bria, Riptide Rogue",
         "Caterwauling Boggart", "Timber Protector", "Demand Answers", "Bitter Triumph", "Eaten Alive",
-        "Annihilating Glare"]
+        "Annihilating Glare", "Golgari Charm", "Wrap in Vigor", "Hooded Brawler", "Glorybringer", "Tah-Crop Elite"]
 STILL_MANUAL = {
     "Sedgemoor Witch": "Ward",  # (ward—Pay 3 life: a cost the ward trigger doesn't read)
-    "Silvergill Adept": "reveal a Merfolk card",  # (revealing a card as a cost: not paid by the engine)
+    "Silvergill Adept": "reveal a Merfolk card",
+    "Oketra's Avenger": "prevent all combat damage",  # (a prevention shield from a trigger: not read)  # (revealing a card as a cost: not paid by the engine)
 }
 
 
@@ -337,3 +347,92 @@ def test_demand_answers_sacrifices_an_artifact(cards):
     assert gone(s, relic)
     assert len(s.state.zones["p1:hand"]) == hand - 1 + 2
     replay_matches(reloaded(s))
+
+
+# -- a regeneration shield for each creature of a group (701.19a) ------------------------------------------------
+def test_golgari_charm_regenerates_each_creature_you_control(cards):
+    s = build(cards, "Golgari Charm", "Murder")
+    mine = token_of(s, "p1", "Mine", "Token Creature — Bear", "2/2")
+    theirs = token_of(s, "p2", "Theirs", "Token Creature — Bear", "2/2")
+    charm = to_hand(s, "Golgari Charm")
+    mana(s, B=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=charm.id, modes=[2])
+    settle(s)
+    murder = to_hand(s, "Murder")
+    mana(s, B=3)
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[mine.id])
+    settle(s)
+    assert s.state.cards[mine.id].zone == "p1:battlefield" and s.state.cards[mine.id].tapped  # regenerated
+    act(s, "p1", type="move", card_ids=[murder.id], to={"zone": "hand"})
+    mana(s, B=3)
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[theirs.id])
+    settle(s)
+    assert gone(s, theirs)  # (only creatures you control)
+    replay_matches(reloaded(s))
+
+
+# -- exert as it attacks (701.43d, 508.1g) -------------------------------------------------------------------------
+BRAWLER = ("You may exert this creature as it attacks. When you do, it gets +2/+2 until end of turn. (An exerted creature "
+           "won't untap during your next untap step.)")
+
+
+def attack_with(s, *creatures):
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in creatures])
+
+
+def test_exerted_brawler_gets_the_bonus_and_stays_tapped(cards):
+    s = build(cards)
+    brawler = token_of(s, "p1", "Brawler", "Token Creature — Snake Warrior", "3/2", "Haste\n" + BRAWLER)
+    attack_with(s, brawler)
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards" and [o.id for o in d.options] == [brawler.id]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[brawler.id])
+    settle(s)
+    assert pt(s, brawler) == (5, 4)
+    s = reloaded(s)
+    replay_matches(s)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    assert s.state.cards[brawler.id].tapped  # 701.43a: it didn't untap during the next untap step
+    replay_matches(s)
+
+
+def test_brawler_not_exerted_gets_nothing_and_untaps(cards):
+    s = build(cards)
+    brawler = token_of(s, "p1", "Brawler", "Token Creature — Snake Warrior", "3/2", "Haste\n" + BRAWLER)
+    attack_with(s, brawler)
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=[])
+    settle(s)
+    assert pt(s, brawler) == (3, 2)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    assert not s.state.cards[brawler.id].tapped
+    replay_matches(s)
+
+
+def test_glorybringer_exerted_deals_damage_to_a_non_dragon(cards):
+    s = build(cards, "Glorybringer")
+    glory = put(s, "Glorybringer")
+    victim = token_of(s, "p2", "Victim", "Token Creature — Bear", "3/3")
+    token_of(s, "p2", "Their Dragon", "Token Creature — Dragon", "3/3")
+    attack_with(s, glory)
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=[glory.id])
+    d = s.state.rules.decision
+    if d is not None and d.kind != "declare_blockers":  # (the target: the Dragon isn't offered)
+        assert [o.id for o in d.options] == [victim.id]
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[victim.id])
+    through_combat(s)
+    assert gone(s, victim)
+    replay_matches(reloaded(s))
+
+
+def test_tah_crop_elite_pumps_the_team_when_exerted(cards):
+    s = build(cards, "Tah-Crop Elite")
+    elite = token_of(s, "p1", "Elite", "Token Creature — Bird Warrior", "2/2",
+                     "Flying\nHaste\nYou may exert this creature as it attacks. When you do, creatures you control get "
+                     "+1/+1 until end of turn.")
+    other = token_of(s, "p1", "Other", "Token Creature — Bear", "2/2")
+    attack_with(s, elite)
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=[elite.id])
+    settle(s)
+    assert pt(s, elite) == (3, 3) and pt(s, other) == (3, 3)
+    replay_matches(s)

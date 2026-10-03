@@ -1196,6 +1196,16 @@ def _regenerate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "regenerate", "who": "target"}], SELECTORS[m["who"]]
 
 
+# -- static wordings (wave 6E) -- "Regenerate each creature you control." (Golgari Charm, Wrap in Vigor): a shield on each
+# object of the group as the effect resolves (701.19a; 608.2c: the group is read then)
+@effect(r"regenerate (?:each|all) (?P<what>[a-z][a-z ]*?)")
+def _regenerate_group(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    key = _selector_key(m["what"])
+    if key is None:
+        raise _NoMatch
+    return [{"do": "regenerate", "who": key}], None
+
+
 SEARCH_FILTERS = {"basic land card": "basic_land", "land card": "land", "creature card": "creature", "card": "any",
                   "artifact card": "artifact", "enchantment card": "enchantment", "instant or sorcery card": "instant_or_sorcery"}
 
@@ -2305,6 +2315,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
         if (tapped := tap_mana.definition(text)) is not None:
             return tapped
+    if ability.kind == "static" and text.startswith("You may exert "):  # -- static wordings (wave 6E) -- 701.43d
+        from app.rules import exert
+
+        return exert.definition(text, ch, ability.index)
     if ability.kind == "static" and (untaps := _untap_riders.static_definition(text)) is not None:
         return untaps  # -- mana riders (wave 5A) -- "Untap all … you control during each other player's untap step."
     if ability.kind == "static":
