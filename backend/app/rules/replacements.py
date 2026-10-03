@@ -117,7 +117,8 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
             unless = d.get("unless")
             if unless is None or not unless_holds(plan, controller, card, unless):
                 out["tapped"] = True
-        elif kind == "enters_with_counters" and d.get("tapped"):  # "~ enters tapped with two charge counters on it."
+        # "~ enters tapped with two charge counters on it."; -- entry forms (wave 5F) -- the Thriving lands
+        elif kind in ("enters_with_counters", "enters_choice") and d.get("tapped"):
             out["tapped"] = True
     if not out["tapped"] and others_enter_tapped(plan, card, controller):  # -- replacement effects stage 2 (wave 2E) --
         out["tapped"] = True
@@ -281,7 +282,8 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     if what == battles.PROTECTOR:  # 310.9a / 310.12a
         return f"{card.name}: as it enters, choose its protector", battles.choice_options(plan, controller, card)
     article = "an" if what[:1] in "aeiou" else "a"
-    return f"{card.name}: as it enters, choose {article} {what}", _choice_options(plan, {"controller": controller}, what)
+    return (f"{card.name}: as it enters, choose {article} {what}",  # (-- enter as copy (wave 5F) --: the entering card)
+            _choice_options(plan, {"controller": controller, "source_card": card.id}, what))
 
 
 def _answer(entry_or_answers: dict[str, Any], choice: dict[str, Any], chosen: str) -> dict[str, Any]:
