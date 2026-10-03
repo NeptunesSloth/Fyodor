@@ -253,9 +253,18 @@ def _then(ctx: Context, e: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    n = _amount(plan, ctx, e["n"])
+    # -- life lost (wave 8B) -- "Each opponent loses life equal to the life they lost this turn": each one's own amount,
+    # worked out before any of them loses life (608.2h; they lose it at once)
+    each = {p: _amount(plan, {**ctx, "recipient": p}, e["n"]) for p in _players(plan, ctx, e["who"])} \
+        if sized_damage.has_per_player(e["n"]) else None
+    n = 0 if each is not None else _amount(plan, ctx, e["n"])
     lost = 0
     for pid in _players(plan, ctx, e["who"]):
+        if each is not None:
+            n = each[pid]
+        if e.get("half"):  # -- attached events (wave 8D) -- "loses half their life, rounded up": of the life total now (a
+            half_of = max(0, plan.state.players[pid].life)  # negative total is 0, 107.1b)
+            n = half_of // 2 + (half_of % 2 if e["half"] == "up" else 0)
         if n:
             before = plan.state.players[pid].life
             plan.do({"type": "life", "player": pid, "delta": -n}, actor=ctx["controller"])
@@ -2755,6 +2764,12 @@ PRIMITIVES.update({"edict": edict, "player_chooses": player_chooses, "reveal_han
                    "choose_from_hand": choose_from_hand, "discard_named": discard_named, "choose_value": choose_value})
 RESUME = {"edict": resume_edict, "player_chooses": resume_player_chooses, "choose_from_hand": resume_choose_from_hand,
           "choose_value": resume_choose_value}
+# -- if you do (wave 8C) -- "put your choice of a +1/+1, first strike, or trample counter on it" (app/rules/counter_pick.py)
+from app.rules import counter_pick as _counter_pick  # noqa: E402, I001
+
+PRIMITIVES["pick_counter"] = _counter_pick.pick_counter
+RESUME["pick_counter"] = _counter_pick.resume
+# -- end if you do (wave 8C) --
 
 
 # -- temporary grants & riders (agent G) ------------------------------------------------------------

@@ -187,7 +187,8 @@ def test_optional_payments_and_mana_abilities_never_take_these_parts():
     # -- if you do (wave 6F) -- "you may discard your hand. If you do, …" is paid as it resolves (tests/
     # test_rules_wave6f_if_you_do.py); the other activation-only parts still aren't
     assert optional_payment.parse("Discard your hand") is not None
-    assert optional_payment.parse("Mill two cards") is None
+    assert optional_payment.parse("Mill two cards") is not None  # (wave 8C: "you may mill four cards. If you do, …", 701.17b)
+    assert optional_payment.parse("Forage") is None
     assert mana.parse_mana_ability("{T}, Sacrifice X Goats: Add X mana of any one color. You gain X life.") is None or \
         not parse_ability_cost("{T}, Sacrifice X Goats").basic
 
