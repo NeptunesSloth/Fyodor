@@ -54,6 +54,14 @@ EXTRA = [
     card('Nirkana Revenant', set_code="tst", number="B07", mana_cost='{4}{B}{B}', cmc=6.0, type_line='Creature — Vampire Shade', oracle_text='Whenever you tap a Swamp for mana, add an additional {B}.\n{B}: This creature gets +1/+1 until end of turn.', power='4', toughness='4', colors=['B'], color_identity=['B']),  # noqa: E501
     card('Groundchuck & Dirtbag', set_code="tst", number="B08", mana_cost='{4}{G}{G}', cmc=6.0, type_line='Legendary Creature — Ox Mole Mutant', oracle_text='Trample\nWhenever you tap a land for mana, add {G}.', power='8', toughness='8', colors=['G'], color_identity=['G'], keywords=['Trample']),  # noqa: E501
     card('Eldrazi Temple', set_code="tst", number="B09", mana_cost='', cmc=0.0, type_line='Land', oracle_text='{T}: Add {C}.\n{T}: Add {C}{C}. Spend this mana only to cast colorless Eldrazi spells or activate abilities of colorless Eldrazi.', colors=[], color_identity=[]),  # noqa: E501
+    card('Snap', set_code="tst", number="C01", mana_cost='{1}{U}', cmc=2.0, type_line='Instant', oracle_text="Return target creature to its owner's hand. Untap up to two lands.", colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Peregrine Drake', set_code="tst", number="C02", mana_cost='{4}{U}', cmc=5.0, type_line='Creature — Drake', oracle_text='Flying\nWhen this creature enters, untap up to five lands.', power='2', toughness='3', colors=['U'], color_identity=['U'], keywords=['Flying']),  # noqa: E501
+    card('Seedborn Muse', set_code="tst", number="C03", mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text="Untap all permanents you control during each other player's untap step.", power='2', toughness='4', colors=['G'], color_identity=['G']),  # noqa: E501
+    card('Unwinding Clock', set_code="tst", number="C04", mana_cost='{4}', cmc=4.0, type_line='Artifact', oracle_text="Untap all artifacts you control during each other player's untap step.", colors=[], color_identity=[]),  # noqa: E501
+    card("Bender's Waterskin", set_code="tst", number="C05", mana_cost='{3}', cmc=3.0, type_line='Artifact', oracle_text="Untap this artifact during each other player's untap step.\n{T}: Add one mana of any color.", colors=[], color_identity=[]),  # noqa: E501
+    card('Colossus of Sardia', set_code="tst", number="C06", mana_cost='{9}', cmc=9.0, type_line='Artifact Creature — Golem', oracle_text="Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nThis creature doesn't untap during your untap step.\n{9}: Untap this creature. Activate only during your upkeep.", power='9', toughness='9', colors=[], color_identity=[], keywords=['Trample']),  # noqa: E501
+    card('Frantic Search', set_code="tst", number="C07", mana_cost='{2}{U}', cmc=3.0, type_line='Instant', oracle_text='Draw two cards, then discard two cards. Untap up to three lands.', colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Murkfiend Liege', set_code="tst", number="C08", mana_cost='{2}{G/U}{G/U}{G/U}', cmc=5.0, type_line='Creature — Horror', oracle_text="Other green creatures you control get +1/+1.\nOther blue creatures you control get +1/+1.\nUntap all green and/or blue creatures you control during each other player's untap step.", power='4', toughness='4', colors=['G', 'U'], color_identity=['G', 'U']),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -418,4 +426,107 @@ def test_high_tide_lasts_until_end_of_turn_for_every_player(cards):
     assert options(reloaded, mine)[0].options == (("U", "U"),)
     next_main(s)
     assert options(s, mine)[0].options == (("U",),)  # it ended with the turn (514.2)
+    roundtrip(s)
+
+
+# -- untap riders ----------------------------------------------------------------------------------------------------------
+def to_bobs_main(s):
+    """Play on to Bob's next first main phase; nobody attacks."""
+    act(s, s.state.rules.priority or s.state.turn.active_player, type="pass_priority")
+    for _ in range(80):
+        if s.state.turn.active_player == "p2" and s.state.turn.phase == "main1":
+            return
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blockers=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority or s.state.turn.active_player, type="pass_priority")
+    raise AssertionError("never reached Bob's main phase")
+
+
+def test_snap_untaps_up_to_two_lands_of_the_players_choice(cards):
+    s = build(cards, [(1, "Snap"), (4, "Island"), (5, "Forest")])
+    islands = lands(s, "Island", n=3)
+    theirs, = lands(s, "Island", "p2")
+    act(s, "p1", type="tap", card_ids=[c.id for c in islands], tapped=True)
+    act(s, "p2", type="tap", card_ids=[theirs.id], tapped=True)
+    act(s, "p1", type="create_token", player="p2", token={"name": "Wolf", "type_line": "Token Creature — Wolf",
+                                                         "power": "2", "toughness": "2", "text": ""})
+    wolf = next(c for c in s.state.cards.values() if c.name == "Wolf")
+    snap = find(s, "Snap")
+    act(s, "p1", type="move", card_ids=[snap.id], to={"player": "p1", "zone": "hand"})
+    mana(s, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=snap.id, targets=[wolf.id])
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards" and d.max_choices == 2 and d.min_choices == 0
+    assert {o.card_id for o in d.options} == {c.id for c in islands} | {theirs.id}  # any tapped land (no "you control")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[islands[0].id, islands[1].id, islands[2].id])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[islands[0].id, islands[1].id])
+    assert not s.state.cards[islands[0].id].tapped and not s.state.cards[islands[1].id].tapped
+    assert s.state.cards[islands[2].id].tapped and s.state.cards[theirs.id].tapped
+    assert wolf.id not in s.state.cards or s.state.cards[wolf.id].zone != "p2:battlefield"
+    roundtrip(s)
+
+
+def test_peregrine_drake_enters_and_untaps_up_to_five(cards):
+    s = build(cards, [(1, "Peregrine Drake"), (9, "Forest")])
+    forest, other = lands(s, "Forest", n=2)
+    act(s, "p1", type="tap", card_ids=[forest.id, other.id], tapped=True)
+    drake = find(s, "Peregrine Drake")
+    act(s, "p1", type="move", card_ids=[drake.id], to={"player": "p1", "zone": "hand"})
+    mana(s, U=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=drake.id)
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    assert d is not None and {o.card_id for o in d.options} == {forest.id, other.id} and d.max_choices == 2
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[forest.id])
+    assert not s.state.cards[forest.id].tapped and s.state.cards[other.id].tapped
+    roundtrip(s)
+
+
+def test_seedborn_muse_untaps_during_each_other_players_untap_step(cards):
+    s = build(cards, [(1, "Seedborn Muse"), (1, "Colossus of Sardia"), (8, "Forest")])
+    muse = put(s, "Seedborn Muse", "battlefield")
+    colossus = put(s, "Colossus of Sardia", "battlefield")
+    a, b = lands(s, "Forest", n=2)
+    theirs, = lands(s, "Island", "p2")
+    act(s, "p1", type="tap", card_ids=[muse.id, colossus.id, a.id, b.id], tapped=True)
+    act(s, "p2", type="tap", card_ids=[theirs.id], tapped=True)
+    act(s, "p1", type="counter", card_ids=[b.id], kind="stun", delta=1)
+    to_bobs_main(s)
+    assert not s.state.cards[theirs.id].tapped  # Bob's own untap step
+    assert not s.state.cards[muse.id].tapped and not s.state.cards[a.id].tapped
+    # "doesn't untap during your untap step": this isn't Alice's untap step (Seedborn ruling 2004-10-04)
+    assert not s.state.cards[colossus.id].tapped
+    assert s.state.cards[b.id].tapped and "stun" not in s.state.cards[b.id].counters  # 122.1d
+    roundtrip(s)
+
+
+def test_unwinding_clock_and_benders_waterskin_untap_only_what_they_name(cards):
+    s = build(cards, [(1, "Unwinding Clock"), (1, "Bender's Waterskin"), (8, "Forest")])
+    clock = put(s, "Unwinding Clock", "battlefield")
+    skin = put(s, "Bender's Waterskin", "battlefield")
+    forest, = lands(s, "Forest")
+    act(s, "p1", type="tap", card_ids=[clock.id, skin.id, forest.id], tapped=True)
+    act(s, "p1", type="move", card_ids=[clock.id], to={"player": "p1", "zone": "hand"})  # only the Waterskin now
+    to_bobs_main(s)
+    assert not s.state.cards[skin.id].tapped and s.state.cards[forest.id].tapped
+    roundtrip(s)
+
+
+def test_unwinding_clock_untaps_artifacts_not_lands(cards):
+    s = build(cards, [(1, "Unwinding Clock"), (1, "Pristine Talisman"), (8, "Forest")])
+    clock = put(s, "Unwinding Clock", "battlefield")
+    talisman = put(s, "Pristine Talisman", "battlefield")
+    forest, = lands(s, "Forest")
+    act(s, "p1", type="tap", card_ids=[clock.id, talisman.id, forest.id], tapped=True)
+    to_bobs_main(s)
+    assert not s.state.cards[clock.id].tapped and not s.state.cards[talisman.id].tapped
+    assert s.state.cards[forest.id].tapped
     roundtrip(s)

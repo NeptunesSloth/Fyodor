@@ -2101,6 +2101,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
         if (tapped := tap_mana.definition(text)) is not None:
             return tapped
+    if ability.kind == "static" and (untaps := _untap_riders.static_definition(text)) is not None:
+        return untaps  # -- mana riders (wave 5A) -- "Untap all … you control during each other player's untap step."
     if ability.kind == "static":
         # replacement / prevention effects of the permanent itself (the block at the end of this
         # module): "~ enters tapped [unless …]", shock lands, "~ enters with … counters", "If ~ would
@@ -3857,6 +3859,9 @@ EFFECTS[:0] = _graveyard_exile.TEMPLATES  # "Exile target player's graveyard." (
 from app.rules import tap_mana as _tap_mana  # noqa: E402, I001  -- mana riders (wave 5A) --
 
 EFFECTS[:0] = _tap_mana.TEMPLATES  # "Until end of turn, whenever a player taps an Island for mana, …" (High Tide)
+from app.rules import untap_riders as _untap_riders  # noqa: E402, I001
+
+EFFECTS[:0] = _untap_riders.TEMPLATES  # "Untap up to three lands." (app/rules/untap_riders.py)
 # "Choose one of them." chooses among what the instruction before moved; "that card" is then the chosen one
 _RECORDING["choose_one_of"] = None
 _MOVERS.add("choose_one_of")

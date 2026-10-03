@@ -521,6 +521,8 @@ def start_next_turn(plan: Plan) -> None:
         effects.designations.untap_day_night(plan, *previous)  # -- (wave 3E) 502.2: day / night --
     if not plan.state.settings.auto_untap and stay is None:
         plan.do({"type": "untap_all", "player": plan.active, "keep_tapped": keep}, actor=plan.active)
+    if stay is None:  # -- mana riders (wave 5A) -- 502.3: Seedborn Muse untaps the others' permanents in this untap step
+        effects._untap_riders.other_untap_step(plan)
     # The untap step has no priority: straight on to upkeep.
     plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
     effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step
@@ -1152,6 +1154,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "siege_cast": battles.resume_siege_cast,  # 310.12b
     "sacrifice_choice": effects.resume_sacrifice_choice,
     "tap_choice": effects._this_way.resume_tap_choice,  # -- "this way" outcomes (wave 4A) --
+    "untap_choice": effects._untap_riders.resume_untap_choice,  # -- mana riders (wave 5A) -- "Untap up to three lands."
     "pick_looked": effects.resume_pick_looked,
     "library_place": effects.resume_library_place,
     "shuffle_library": effects.resume_shuffle_library,
