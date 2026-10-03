@@ -150,7 +150,7 @@ Opened from PROFILE → COSMETICS or LOBBY → COSMETICS.
   a tiny smoke puff, metallic sound variations.
 - **Card/table cosmetics:** sleeve and card-back styles, playmat accents, counter styles, token frames,
   commander pedestals, table trinkets, dice trays, spectator seat decorations, profile frames,
-  reaction/emote packs, victory/elimination effects. None may hurt card readability.
+  reaction/emote packs, victory effects, elimination effects (below). None may hurt card readability.
 - **Equipping:** per category (for example Dice: Obsidian D20; Sleeves: Black Lotus Pattern; Counters:
   Brass; Reaction pack: Commander Chaos). Selections persist between games.
 - **Listing:** shows the balance ("Spectator Points: 1,240"), each item as Owned or its price (Obsidian D20
@@ -164,6 +164,29 @@ Opened from PROFILE → COSMETICS or LOBBY → COSMETICS.
   storefront. No limited-time FOMO, random boxes, premium currency or sale timers.
 - **Casual progression:** "I've played with this pod a lot, so I have cool dice", not "I need to grind
   currency".
+
+### Elimination effects (a Cosmetics Locker category)
+
+Short cosmetic VFX that play when a player is officially eliminated. Each player can unlock and equip one
+with Spectator Points: Simple Fade, Disintegrate, Shatter, Void, Lightning, Flames, Frozen, Arcane Runes,
+Soul Drain, Commander Finisher.
+
+- **Presentation only.** They never affect rules, change damage, alter RNG, delay authoritative
+  resolution, remove game objects before the server has resolved the elimination, or obscure a required
+  player decision.
+- **Timing:** they play only after the server has confirmed the elimination. They last about 1–2 s and are
+  restrained, so the remaining game continues immediately.
+- **Variations by cause**, only where the engine already knows the public reason: commander damage
+  emphasizes the responsible commander, poison gets a toxic/decay variation, combat damage an impact
+  variation, library depletion a card/deck variation, an alternate win condition a winner-focused effect,
+  and a concession a subdued exit/fade.
+- **Attribution from rules information only.** A visual link to a killer or source is drawn only from an
+  authoritative record (for example "Player 2 was eliminated by commander damage from Player 4's
+  commander"). Never infer a killer from recent actions. With no single deterministically known
+  player/card, use the generic equipped effect.
+- **Setting:** Elimination Effects FULL / REDUCED / OFF, respecting the reduced-motion preference. What
+  REDUCED shows is still to be confirmed (the request was cut off at "REDUCED should replace"). The working
+  assumption is a brief simple fade or a static marker in place of the motion effect.
 
 ### Session recap (optional, subtle)
 
