@@ -37,6 +37,7 @@ from app.rules import restrictions, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
 from app.rules.costs import SACRIFICE, parse_ability_cost, spell_additional_cost
 from app.rules.oracle import AbilityText, parse_abilities, split_sentences, word_prefix
+from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules.values import UNMODELED_COUNTERS
 
 Definition = dict[str, Any]
@@ -527,6 +528,15 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         for index, e in enumerate(effects):
             e = dict(e)
             out.append(e)
+            if e.get("player") == "that_player":  # -- static wordings (wave 6E) -- "that player exiles the top card of
+                intro = find(lambda i: i.player, index)  # their library": whose library, bound like "who" below
+                if intro is not None:
+                    if event_player:
+                        return None
+                    g = _group_of(out[intro.index])
+                    e["player"] = "target" if groups is None else f"target:{g}"
+                else:
+                    e["player"] = "event_player"
             who = e.get("who")
             if isinstance(who, str) and (who in ("it", "them") or who.startswith(("it:", "them:"))):
                 pronoun, _, verb = who.partition(":")
@@ -2577,7 +2587,8 @@ def _event_refs_ok(d: Definition) -> bool:
     if not _event_spell_ok(d):  # -- refused copy/mana (wave 3R3) --
         return False
     wants_player = any(e.get("who") in ("event_player", "each_other_opponent")
-                       or str(e.get("who")).startswith("controlled:event_player|") for e in effects)  # (wave 4E)
+                       or str(e.get("who")).startswith("controlled:event_player|") for e in effects) \
+        or any(e.get("player") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E)
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv"))  # ("mv": a free cast's limit, wave 3R5)
     if not wants_player and not wants_amount:
         return True
@@ -2720,6 +2731,8 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
         for k, kw in enumerate(ab.keywords):
             if kw in KEYWORD_TRIGGERS:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
+            if kw in _kw_meanings.MEANINGS:  # -- static wordings (wave 6E) -- read as its CR meaning (app/rules/keyword_triggers.py)
+                out += [(1000 + ab.index * 10 + k, d) for d in _kw_meanings.definitions(kw, ab.text)[:1]]
             if kw == "decayed":  # -- token & pump wordings (wave 6C) -- 702.147a (app/rules/decayed.py)
                 from app.rules import decayed
 

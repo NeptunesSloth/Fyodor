@@ -51,6 +51,7 @@ KEYWORDS = frozenset({
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",
     "transmute",  # (wave 3R4: casting.transmute)
+    "ingest", "poisonous", "frenzy",  # -- static wordings (wave 6E) -- (app/rules/keyword_triggers.py)
 })
 
 _PARAM = re.compile(r"(\{[^}]*\}|\d+|—.*$|\bfrom\b.*$| with .*$|walk$)")

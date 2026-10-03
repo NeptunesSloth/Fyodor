@@ -13,6 +13,8 @@
   "Bring it Down! — Whenever …"): Bloodcrusher of Khorne, Inquisitor Greyfax, Ghost, Company Commander.
 * "Creatures target player controls get +N/+N until end of turn." (608.2c, 611.2c): Arms of Hadar, How to Start a Riot,
   Neutralize the Guards. Irregular plurals in anthems ("Oxen you control"): Bruse Tarl.
+* Triggered keywords read through their CR meaning: battle cry (702.91a), ingest (702.115a), poisonous N (702.70a),
+  frenzy N (702.68a): Hero of Oxid Ridge, Mist Intruder.
 * Anthems over two groups ("Skeletons you control and other Zombies you control"): Death Baron, Caterwauling Boggart,
   Timber Protector.
 
@@ -64,12 +66,15 @@ EXTRA = [
     card('Arms of Hadar', set_code='tst', number='E25', mana_cost='{3}{B}', cmc=4.0, type_line='Sorcery', oracle_text='Creatures target player controls get -2/-2 until end of turn.', colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
     card('How to Start a Riot', set_code='tst', number='E26', mana_cost='{2}{R}', cmc=3.0, type_line='Instant — Lesson', oracle_text="Target creature gains menace until end of turn. (It can't be blocked except by two or more creatures.)\nCreatures target player controls get +2/+0 until end of turn.", colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
     card('Neutralize the Guards', set_code='tst', number='E27', mana_cost='{2}{B}', cmc=3.0, type_line='Instant', oracle_text='Creatures target opponent controls get -1/-1 until end of turn. Surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)', colors=['B'], color_identity=['B'], keywords=['Surveil']),  # noqa: E501
+    card('Hero of Oxid Ridge', set_code='tst', number='E28', mana_cost='{2}{R}{R}', cmc=4.0, type_line='Creature — Human Knight', oracle_text="Haste\nBattle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)\nWhenever this creature attacks, creatures with power 1 or less can't block this turn.", power='4', toughness='2', colors=['R'], color_identity=['R'], keywords=['Battle Cry', 'Haste']),  # noqa: E501
+    card('Mist Intruder', set_code='tst', number='E29', mana_cost='{1}{U}', cmc=2.0, type_line='Creature — Eldrazi Drone', oracle_text='Devoid (This card has no color.)\nFlying\nIngest (Whenever this creature deals combat damage to a player, that player exiles the top card of their library.)', power='1', toughness='2', colors=[], color_identity=['U'], keywords=['Flying', 'Devoid', 'Ingest']),  # noqa: E501
 ]
 FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime Archangel", "Bria, Riptide Rogue",
         "Caterwauling Boggart", "Timber Protector", "Demand Answers", "Bitter Triumph", "Eaten Alive",
         "Annihilating Glare", "Golgari Charm", "Wrap in Vigor", "Hooded Brawler", "Glorybringer", "Tah-Crop Elite",
         "Bloodcrusher of Khorne", "Inquisitor Greyfax", "Ghost, Spectral Saboteur", "Company Commander",
-        "Bruse Tarl, Roving Rancher", "Arms of Hadar", "How to Start a Riot", "Neutralize the Guards"]
+        "Bruse Tarl, Roving Rancher", "Arms of Hadar", "How to Start a Riot", "Neutralize the Guards",
+        "Hero of Oxid Ridge", "Mist Intruder"]
 STILL_MANUAL = {
     "Sedgemoor Witch": "Ward",  # (ward—Pay 3 life: a cost the ward trigger doesn't read)
     "Silvergill Adept": "reveal a Merfolk card",
@@ -518,4 +523,36 @@ def test_how_to_start_a_riot_menace_on_one_target_and_pump_on_the_players(cards)
     settle(s)
     assert "menace" in chars(s, theirs).keywords and pt(s, theirs) == (2, 2)
     assert pt(s, mine) == (4, 2) and "menace" not in chars(s, mine).keywords
+    replay_matches(reloaded(s))
+
+
+# -- triggered keywords through their meaning (702.91a, 702.115a, 702.70a, 702.68a) --------------------------------
+def test_keyword_meanings_read():
+    from app.rules import keyword_triggers
+
+    assert keyword_triggers.supported("battle cry", "Haste, battle cry")
+    assert keyword_triggers.supported("poisonous", "Poisonous 2")
+    assert not keyword_triggers.supported("poisonous", "Poisonous")  # (no number)
+    (d,) = keyword_triggers.definitions("frenzy", "Frenzy 1")
+    assert d["effects"] == [{"do": "pump", "who": "self", "p": 1, "t": 0}]
+
+
+def test_battle_cry_pumps_each_other_attacker(cards):
+    s = build(cards)
+    hero = token_of(s, "p1", "Hero", "Token Creature — Human Warrior", "4/2", "Haste\nBattle cry")
+    pal = token_of(s, "p1", "Pal", "Token Creature — Bear", "2/2", "Haste")
+    home = token_of(s, "p1", "Home", "Token Creature — Bear", "2/2", "Haste")
+    attack_with(s, hero, pal)
+    settle(s)
+    assert pt(s, pal) == (3, 2) and pt(s, hero) == (4, 2) and pt(s, home) == (2, 2)
+    replay_matches(reloaded(s))
+
+
+def test_ingest_exiles_the_top_card_of_the_damaged_players_library(cards):
+    s = build(cards)
+    mist = token_of(s, "p1", "Mist", "Token Creature — Eldrazi Drone", "2/2", "Haste\nIngest")
+    top = s.state.zones["p2:library"][0]
+    attack_with(s, mist)
+    through_combat(s)
+    assert s.state.cards[top].zone == "p2:exile" and s.state.players["p2"].life == 38
     replay_matches(reloaded(s))
