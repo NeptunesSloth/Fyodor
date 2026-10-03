@@ -327,6 +327,8 @@ def _parse(c: str) -> Condition | None:
     # -- into a graveyard (wave 6D) -- "one or more land cards are put into your graveyard from anywhere" (The Gitrog
     # Monster), "… from your library" (Hedge Shredder): a card put there, as it is there (603.6c: "from anywhere" is never
     # a leaves-the-battlefield ability, so it doesn't look back), whatever zone it came from (or only the library)
+    if c == "~ is put into a graveyard from anywhere":  # -- trigger tail (wave 15B) -- 603.6c: not a leaves-the-battlefield ability
+        return {"event": "to_graveyard", "subject": "self"}  # (it triggers from the graveyard, on the card's new object)
     m = re.fullmatch(r"(?P<o>one or more .+? cards|an? .+? card|a card) (?:is|are) put into (?P<g>your|an opponent's|a) "
                      r"graveyard from (?P<f>anywhere|your library)", c)
     if m:

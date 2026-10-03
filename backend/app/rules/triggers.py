@@ -911,7 +911,7 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             card, ch = _snapshot_card(plan, snap)
             left[id(card)] = snap.object_id
             watchers += [((card, ch, i, d), entered.get(snap.object_id, -big), e.batch)
-                         for i, d in abilities(plan, ch, "event") if d.get("cond")]
+                         for i, d in abilities(plan, ch, "event") if d.get("cond") and not arrives_in_graveyard(d)]
     watchers += [(w, entered.get(plan.oid(w[0]), -big), big) for w in _event_watchers(plan)]
     for e in events:
         if e.manual:
@@ -1022,7 +1022,14 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
 def graveyard_ability(d: dict[str, Any]) -> bool:
     import json
 
-    return '"self_gy"' in json.dumps(d, default=str)
+    return '"self_gy"' in json.dumps(d, default=str) or arrives_in_graveyard(d)
+
+
+def arrives_in_graveyard(d: dict[str, Any]) -> bool:
+    """-- trigger tail (wave 15B) -- "When ~ is put into a graveyard from anywhere" (603.6c: never a leaves-the-battlefield
+    ability): it triggers on the card's new object in the graveyard, and works only from there."""
+    cond = d.get("cond") or {}
+    return cond.get("event") == "to_graveyard" and cond.get("subject") == "self"
 
 
 def graveyard_abilities(plan: Plan, card: CardInstance, trigger: str,
@@ -1049,7 +1056,8 @@ def graveyard_trigger_ok(d: dict[str, Any]) -> bool:
         return False
     cond = d.get("cond") or {}
     return trigger != "event" or (cond.get("event") not in _GY_LOOK_BACK
-                                  and cond.get("subject") not in ("self", "self_or", "host", "self_or_host"))
+                                  and cond.get("subject") not in ("self", "self_or", "host", "self_or_host")) \
+        or arrives_in_graveyard(d)
 
 
 def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics, oid: str, batch: int = 0) -> None:

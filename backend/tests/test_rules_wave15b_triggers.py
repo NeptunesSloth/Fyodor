@@ -46,6 +46,16 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
+EXTRA += [
+    real("Kozilek, Butcher of Truth", "{8}{C}{C}", 10, "Legendary Creature — Eldrazi",
+         "When you cast this spell, draw four cards.\nAnnihilator 4\nWhen Kozilek is put into a graveyard from anywhere, its owner "
+         "shuffles their graveyard into their library.", ("12", "12")),
+    real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
+         "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
+         "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
+]
+
+
 def on_battlefield(s, name, pid="p1"):
     return [c for c in s.state.cards.values() if c.name == name and c.zone == f"{pid}:battlefield"]
 
@@ -83,6 +93,27 @@ def test_zubera_count_includes_every_zubera_that_died_this_turn(cards):
     kill(s, "Silent-Chant Zubera")
     answer(s)
     assert s.state.players["p1"].life == 44  # two Zubera died this turn: 2 life each
+    check(s)
+
+
+def test_put_into_a_graveyard_from_anywhere_works_from_the_graveyard(cards):
+    # 603.6c: never a leaves-the-battlefield ability; the card's new object in the graveyard triggers (once)
+    s = build(cards, ["Kozilek, Butcher of Truth", "Lightning Bolt"], [])
+    put(s, "Kozilek, Butcher of Truth")
+    act(s, "p1", type="move", card_ids=[card_named(s, "Lightning Bolt").id], to={"zone": "graveyard"})
+    kill(s, "Kozilek, Butcher of Truth")
+    assert [c.name for c in s.state.cards.values() if c.zone == "p1:graveyard"] == []
+    assert {"Kozilek, Butcher of Truth", "Lightning Bolt"} <= {c.name for c in s.state.cards.values() if c.zone == "p1:library"}
+    check(s)
+
+
+def test_shuffle_it_into_its_owners_library_after_dying(cards):
+    s = build(cards, ["Serra Avatar"], [])
+    put(s, "Serra Avatar")
+    act(s, "p1", type="set_damage", card_ids=[card_named(s, "Serra Avatar").id], value=99)
+    act(s, s.state.rules.priority or "p1", type="pass_priority")
+    answer(s)
+    assert card_named(s, "Serra Avatar").zone == "p1:library"
     check(s)
 
 
