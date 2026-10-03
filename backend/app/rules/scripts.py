@@ -2848,6 +2848,15 @@ def _event_refs_ok(d: Definition) -> bool:
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
     if not _event_spell_ok(d):  # -- refused copy/mana (wave 3R3) --
         return False
+    # -- intervening ifs (wave 11F) -- "if that player controls …" / "if defending player has …" (603.4: read as it triggers
+    # and as it resolves): only a trigger whose event names that player — the one the event is about, or the one attacked
+    raw = json.dumps(d)
+    ev = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
+    if '"as": "event"' in raw and not (d.get("kind") == "triggered" and (step_names_player(d) or (
+            ev is not None and ev["event"] != "multi" and _has_player(ev)))):
+        return False
+    if '"as": "defended"' in raw and not (ev is not None and ev["event"] in ("attack", "unblocked", "blocked", "you_attack")):
+        return False
     # -- damage wordings (wave 6B) -- "target artifact that player controls": the one player a trigger is about, bound
     # as it's put on the stack (triggers.bind_that_player) — never in a spell, nor beside a target player (which one?)
     # "target creature blocking it" / "it's blocking": "it" must be the source itself, still there to be read (a cost that
