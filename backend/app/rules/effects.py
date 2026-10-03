@@ -1155,9 +1155,7 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
     card = plan.state.cards.get(stack_id)
     if card is None or card.zone != "stack":
         return
-    from app.rules import scripts
-
-    from app.rules import permissions
+    from app.rules import permissions, scripts
 
     if card.ability is None and (scripts.uncounterable(plan.ch(card))
                                  or permissions.spell_uncounterable(plan.state, plan.info, card, plan.ch(card))):

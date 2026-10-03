@@ -391,8 +391,6 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                     or sel.extras or sel.attacking or sel.blocking:
                 return None
             key = sel.key()
-        if m["dir"] == "less" and not m["floor"]:
-            return None  # (only the printed wording with its floor is known; never guess a bare reduction)
         return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
                 "filter": key, "who": "you" if m["yours"] or (m["sel"] and "you control" in m["sel"]) else "any",
                 "floor": bool(m["floor"]), "effects": []}
