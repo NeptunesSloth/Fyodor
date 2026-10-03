@@ -2096,6 +2096,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import attached_mana
 
         return attached_mana.definition(text)
+    if ability.kind == "triggered" and text.startswith(("Whenever you tap ", "Whenever a player taps ")):
+        from app.rules import tap_mana  # -- mana riders (wave 5A) -- a triggered mana ability (605.1b)
+
+        if (tapped := tap_mana.definition(text)) is not None:
+            return tapped
     if ability.kind == "static":
         # replacement / prevention effects of the permanent itself (the block at the end of this
         # module): "~ enters tapped [unless …]", shock lands, "~ enters with … counters", "If ~ would
@@ -3849,6 +3854,9 @@ EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLA
 from app.rules import graveyard_exile as _graveyard_exile  # noqa: E402, I001  -- graveyard exile (wave 4J) --
 
 EFFECTS[:0] = _graveyard_exile.TEMPLATES  # "Exile target player's graveyard." (app/rules/graveyard_exile.py)
+from app.rules import tap_mana as _tap_mana  # noqa: E402, I001  -- mana riders (wave 5A) --
+
+EFFECTS[:0] = _tap_mana.TEMPLATES  # "Until end of turn, whenever a player taps an Island for mana, …" (High Tide)
 # "Choose one of them." chooses among what the instruction before moved; "that card" is then the chosen one
 _RECORDING["choose_one_of"] = None
 _MOVERS.add("choose_one_of")

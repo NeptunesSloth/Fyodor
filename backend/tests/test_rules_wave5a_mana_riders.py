@@ -45,6 +45,15 @@ EXTRA = [
     card("Baldur's Gate", set_code="tst", number="A17", mana_cost='', cmc=0.0, type_line='Legendary Land — Gate', oracle_text='{T}: Add {C}.\n{2}, {T}: Add X mana of any one color, where X is the number of other Gates you control.', colors=[], color_identity=[]),  # noqa: E501
     card('Millikin', set_code="tst", number="A18", mana_cost='{2}', cmc=2.0, type_line='Artifact Creature — Construct', oracle_text='{T}, Mill a card: Add {C}. (Activate only as an instant. To mill a card, put the top card of your library into your graveyard.)', power='0', toughness='1', colors=[], color_identity=[], keywords=['Mill']),  # noqa: E501
     card("Karametra's Acolyte", set_code="tst", number="A19", mana_cost='{3}{G}', cmc=4.0, type_line='Creature — Human Druid', oracle_text='{T}: Add an amount of {G} equal to your devotion to green. (Each {G} in the mana costs of permanents you control counts toward your devotion to green.)', power='1', toughness='4', colors=['G'], color_identity=['G']),  # noqa: E501
+    card("Mirari's Wake", set_code="tst", number="B01", mana_cost='{3}{G}{W}', cmc=5.0, type_line='Enchantment', oracle_text='Creatures you control get +1/+1.\nWhenever you tap a land for mana, add one mana of any type that land produced.', colors=['G', 'W'], color_identity=['G', 'W']),  # noqa: E501
+    card('Kinnan, Bonder Prodigy', set_code="tst", number="B02", mana_cost='{G}{U}', cmc=2.0, type_line='Legendary Creature — Human Druid', oracle_text='Whenever you tap a nonland permanent for mana, add one mana of any type that permanent produced.\n{5}{G}{U}: Look at the top five cards of your library. You may put a non-Human creature card from among them onto the battlefield. Put the rest on the bottom of your library in a random order.', power='2', toughness='2', colors=['G', 'U'], color_identity=['G', 'U']),  # noqa: E501
+    card('Badgermole Cub', set_code="tst", number="B03", mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Badger Mole', oracle_text="When this creature enters, earthbend 1. (Target land you control becomes a 0/0 creature with haste that's still a land. Put a +1/+1 counter on it. When it dies or is exiled, return it to the battlefield tapped.)\nWhenever you tap a creature for mana, add an additional {G}.", power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Earthbend']),  # noqa: E501
+    card('Regal Behemoth', set_code="tst", number="B04", mana_cost='{4}{G}{G}', cmc=6.0, type_line='Creature — Dinosaur', oracle_text="Trample\nWhen this creature enters, you become the monarch.\nWhenever you tap a land for mana while you're the monarch, add an additional one mana of any color.", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Trample']),  # noqa: E501
+    card('High Tide', set_code="tst", number="B05", mana_cost='{U}', cmc=1.0, type_line='Instant', oracle_text='Until end of turn, whenever a player taps an Island for mana, that player adds an additional {U}.', colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Mana Flare', set_code="tst", number="B06", mana_cost='{2}{R}', cmc=3.0, type_line='Enchantment', oracle_text='Whenever a player taps a land for mana, that player adds one mana of any type that land produced.', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('Nirkana Revenant', set_code="tst", number="B07", mana_cost='{4}{B}{B}', cmc=6.0, type_line='Creature — Vampire Shade', oracle_text='Whenever you tap a Swamp for mana, add an additional {B}.\n{B}: This creature gets +1/+1 until end of turn.', power='4', toughness='4', colors=['B'], color_identity=['B']),  # noqa: E501
+    card('Groundchuck & Dirtbag', set_code="tst", number="B08", mana_cost='{4}{G}{G}', cmc=6.0, type_line='Legendary Creature — Ox Mole Mutant', oracle_text='Trample\nWhenever you tap a land for mana, add {G}.', power='8', toughness='8', colors=['G'], color_identity=['G'], keywords=['Trample']),  # noqa: E501
+    card('Eldrazi Temple', set_code="tst", number="B09", mana_cost='', cmc=0.0, type_line='Land', oracle_text='{T}: Add {C}.\n{T}: Add {C}{C}. Spend this mana only to cast colorless Eldrazi spells or activate abilities of colorless Eldrazi.', colors=[], color_identity=[]),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -301,4 +310,112 @@ def test_millikin_uses_the_stack(cards):
     assert s.state.zones.get("stack")  # 605.1a: not a mana ability, so it waits on the stack
     pass_until_stack_empty(s)
     assert s.state.players["p1"].mana.get("C") == 1
+    roundtrip(s)
+
+
+# -- triggered mana abilities on tapping for mana (106.12a, 605.1b, 605.4a) ------------------------------------------------
+def lands(s, name, pid="p1", n=1):
+    out = [c for c in s.state.cards.values() if c.name == name and c.owner == pid and not c.zone.endswith("battlefield")][:n]
+    for c in out:
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "battlefield"})
+    return out
+
+
+def test_mirraris_wake_adds_a_type_the_land_produced(cards):
+    s = build(cards, [(1, "Mirari's Wake"), (1, "Grove of the Burnwillows"), (1, "Eldrazi Temple"), (1, "Grizzly Bears"),
+                      (6, "Forest")])
+    put(s, "Mirari's Wake", "battlefield")
+    forest, = lands(s, "Forest")
+    grove = put(s, "Grove of the Burnwillows", "battlefield")
+    temple = put(s, "Eldrazi Temple", "battlefield")
+    island, = lands(s, "Island", "p2")
+    assert options(s, forest)[0].options == (("G", "G"),)
+    assert options(s, grove)[0].options == (("C", "C"),)
+    assert options(s, grove)[1].options == (("R", "R"), ("G", "G"))  # one of the types that land produced
+    assert list(options(s, temple)) == [0]  # its restricted {C}{C}: left to the player while the Wake applies
+    assert options(s, island)[0].options == (("U",),)  # "you": only Alice's lands
+    bears = find(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="tap", card_ids=[grove.id, temple.id], tapped=True)
+    act(s, "p1", type="cast_spell", card_id=bears.id)  # {1}{G}: the one Forest pays it all (605.4a)
+    assert s.state.cards[forest.id].tapped and s.state.cards[bears.id].zone != "p1:hand"
+    assert s.state.players["p1"].mana == {}
+    roundtrip(s)
+
+
+def test_mana_flare_gives_each_player_more_and_stacks(cards):
+    s = build(cards, [(1, "Mana Flare"), (1, "Mirari's Wake"), (8, "Forest")])
+    put(s, "Mana Flare", "battlefield")
+    forest, = lands(s, "Forest")
+    island, = lands(s, "Island", "p2")
+    assert options(s, island)[0].options == (("U", "U"),)  # "that player adds"
+    assert options(s, forest)[0].options == (("G", "G"),)
+    put(s, "Mirari's Wake", "battlefield")
+    assert options(s, forest)[0].options == (("G", "G", "G"),)  # two triggers, each adds one
+    act(s, "p1", type="activate_ability", card_id=forest.id, ability=0)
+    assert s.state.players["p1"].mana == {"G": 3}
+    roundtrip(s)
+
+
+def test_kinnan_and_badgermole_cub_on_a_mana_creature(cards):
+    s = build(cards, [(1, "Kinnan, Bonder Prodigy"), (1, "Badgermole Cub"), (1, "Llanowar Elves"), (7, "Forest")])
+    put(s, "Kinnan, Bonder Prodigy", "battlefield")
+    elves = put(s, "Llanowar Elves", "battlefield")
+    forest, = lands(s, "Forest")
+    assert options(s, elves)[0].options == (("G", "G"),)  # a nonland permanent: one more of a type it produced
+    assert options(s, forest)[0].options == (("G",),)  # a land: not Kinnan's
+    cub = find(s, "Badgermole Cub")
+    act(s, "p1", type="move", card_ids=[cub.id], to={"player": "p1", "zone": "battlefield"})
+    pass_until_stack_empty(s)
+    if s.state.rules.decision is not None:  # (its earthbend target)
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        pass_until_stack_empty(s)
+    next_main(s)
+    assert options(s, elves)[0].options == (("G", "G", "G"),)
+    act(s, "p1", type="activate_ability", card_id=elves.id, ability=0)
+    assert s.state.players["p1"].mana == {"G": 3}
+    roundtrip(s)
+
+
+def test_regal_behemoth_only_while_you_are_the_monarch(cards):
+    s = build(cards, [(1, "Regal Behemoth"), (9, "Forest")])
+    behemoth = find(s, "Regal Behemoth")
+    act(s, "p1", type="move", card_ids=[behemoth.id], to={"player": "p1", "zone": "battlefield"})
+    forest, = lands(s, "Forest")
+    act(s, "p1", type="set_monarch", player="p2")
+    assert options(s, forest)[0].options == (("G",),)
+    act(s, "p1", type="set_monarch", player="p1")
+    assert set(options(s, forest)[0].options) == {("G", c) for c in "WUBRG"}
+    act(s, "p1", type="activate_ability", card_id=forest.id, ability=0)
+    choose(s, "{R}{G}")
+    assert s.state.players["p1"].mana == {"R": 1, "G": 1}
+    roundtrip(s)
+
+
+def test_nirkana_revenant_and_groundchuck_read_the_land(cards):
+    s = build(cards, [(1, "Nirkana Revenant"), (1, "Groundchuck & Dirtbag"), (2, "Swamp"), (6, "Forest")])
+    put(s, "Nirkana Revenant", "battlefield")
+    swamp, = lands(s, "Swamp")
+    forest, = lands(s, "Forest")
+    assert options(s, swamp)[0].options == (("B", "B"),) and options(s, forest)[0].options == (("G",),)
+    put(s, "Groundchuck & Dirtbag", "battlefield")
+    assert options(s, swamp)[0].options == (("B", "B", "G"),) and options(s, forest)[0].options == (("G", "G"),)
+    roundtrip(s)
+
+
+def test_high_tide_lasts_until_end_of_turn_for_every_player(cards):
+    s = build(cards, [(1, "High Tide"), (5, "Island"), (4, "Forest")])
+    tide = find(s, "High Tide")
+    act(s, "p1", type="move", card_ids=[tide.id], to={"player": "p1", "zone": "hand"})
+    mine, = lands(s, "Island")
+    theirs, = lands(s, "Island", "p2")
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=tide.id)
+    pass_until_stack_empty(s)
+    assert options(s, mine)[0].options == (("U", "U"),) and options(s, theirs)[0].options == (("U", "U"),)
+    reloaded = GameSession(s.history.rebuild(), cards=s.cards)
+    assert options(reloaded, mine)[0].options == (("U", "U"),)
+    next_main(s)
+    assert options(s, mine)[0].options == (("U",),)  # it ended with the turn (514.2)
     roundtrip(s)

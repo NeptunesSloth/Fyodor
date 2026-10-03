@@ -318,8 +318,9 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         if options:
             out.append((ab.index, replace(parsed, options=options)))
     # -- attached events (wave 4L) -- "Whenever enchanted land is tapped for mana"
-    from app.rules import attached_mana
+    from app.rules import attached_mana, tap_mana
 
+    out = tap_mana.extend(state, card, info, out)  # -- mana riders (wave 5A) -- "Whenever you tap a land for mana, …"
     return attached_mana.extend(state, card, info, ch.is_land, out)
 
 
