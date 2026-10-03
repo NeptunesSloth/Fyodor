@@ -2269,6 +2269,46 @@ def gy_to_library(text: str) -> tuple[Effects, Any] | None:
              "label": words, **({"optional": True} if may else {})}], None
 
 
+def _reanimation_compound(obj: str, effect: dict[str, Any]) -> tuple[Effects, Any] | None:
+    """-- reanimation (wave 10A) -- see reanimation_forms: "X card and Y card from your graveyard" → one instruction per kind
+    (``effect`` is the shared destination: to hand / battlefield). None for anything not exactly that shape."""
+    zone = " from your graveyard"
+    if not obj.endswith(zone):
+        return None
+    body = obj[: -len(zone)]
+    if re.search(r"\btargets?\b", body):
+        parts = re.split(_AND_TARGET, body)
+        if len(parts) < 2:
+            return None
+        whos: list[str] = []
+        groups: list[dict[str, Any]] = []
+        for part in parts:
+            try:
+                kind, key, group = ref(part + zone)
+            except _Fail:
+                return None
+            if kind != "target" or group is None or not _graveyard_cards(key) or group.get("another"):
+                return None
+            whos.append("target" if not groups else f"target:{len(groups)}")
+            groups.append(group)
+        return [{**effect, "who": w} for w in whos], _out(groups)
+    parts = re.split(r" and (?=(?:an?|up to \w+) )", body)
+    if len(parts) < 2:
+        return None
+    out: list[dict[str, Any]] = []
+    for part in parts:
+        c = _RA_CHOICE.fullmatch(part + zone)
+        if c is None or c["n"] or c["any"] or c["rand"] or c["z"] != "your graveyard" or (c["upto"] and c["upto"] != "one"):
+            return None
+        words = re.sub(r"\bcards\b", "card", c["what"])
+        sel = selectors.parse(f"{words} from {c['z']}")
+        if sel is None or not _graveyard_cards(sel.key()) or "card" not in words.split():
+            return None
+        out.append({**effect, "do": "return_choice", "sel": sel.key(), "n": 1, "upto": bool(c["upto"]), "random": False,
+                    "label": words})
+    return out, None
+
+
 def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     """The graveyard-return wordings above; None when the sentence is not one of them (the older
     grammar then reads it, or it stays manual)."""
@@ -2305,6 +2345,14 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         return None  # (only a choice models its own "may": choosing none)
     if _RA_SELF.fullmatch(obj):  # works from the graveyard (113.6m): coverage keeps it to activated abilities
         return [{**effect, "who": "self_gy"}], None
+    # -- reanimation (wave 10A) -- one instruction, several cards of different kinds: "Return up to one target instant card
+    # and up to one target sorcery card from your graveyard to your hand." (one target group each, 115.1, 601.2c; the zone
+    # is stated once) and "return a creature card and a land card from your graveyard to your hand." (nothing targeted: each
+    # card is chosen on resolution, 608.2d). Only your own graveyard, and no "may" (a choice models its own).
+    if not may and not _RA_SELF.search(obj) and not obj.startswith("all "):
+        compound = _reanimation_compound(obj, effect)
+        if compound is not None:
+            return compound
     c = _RA_CHOICE.fullmatch(obj)
     if c is not None:
         what, different = c["what"], None

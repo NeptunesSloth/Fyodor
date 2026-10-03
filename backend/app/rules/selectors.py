@@ -328,13 +328,51 @@ def _compare(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, (what, "<=" if m["dir"] == "less" else ">=", n)))
 
 
-@_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM)
+@_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM.replace("|x)", "|[xX])"))
 def _equal(s: Selector, m: re.Match[str]) -> Selector:
     n = _n(m.group(2))
+    if n is None and m["what"] == "mana value" and m.group(2).lower() == "x":
+        n = X_VALUE  # -- reanimation (wave 10A) -- "target creature card with mana value X" (Postmortem Lunge): the spell's X
     if n is None:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
     return replace(s, compare=(*s.compare, (what, "==", n)))
+
+
+# -- reanimation (wave 10A) -- "target creature card with mana value less than or equal to ~'s power from your graveyard"
+# (Carmen, Cruel Skymarcher; Fiendish Panda), "… with power less than ~'s" (Mirko): a comparison with a characteristic of
+# the ability's source, as it is or (once it has left the battlefield: "When this creature dies") as it last existed
+# (608.2h). Only a card in a graveyard is read this way (_parse refuses the others: a spell or permanent selector has no
+# such users), and a source with no such value (no power: not a creature) matches nothing.
+SOURCE_STAT = "src:"
+_REF_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "==", "greater than or equal to": ">=",
+            "greater than": ">"}
+_REF_STAT = {"mana value": "mv", "power": "power", "toughness": "toughness"}
+
+
+@_suffix(r"with (?P<what>mana value|power|toughness) (?P<op>less than or equal to|less than|equal to|greater than or equal to|"
+         r"greater than) (?:~|this creature)'s(?: (?P<ref>mana value|power|toughness))?")
+def _compare_source(s: Selector, m: re.Match[str]) -> Selector:
+    if m["ref"] is None and m["what"] == "mana value":
+        raise ValueError("incomplete reference")  # ("mana value less than ~'s": which characteristic?)
+    ref = m["ref"] or m["what"]  # ("power less than Mirko's": the same characteristic)
+    return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], _REF_OPS[m["op"]], SOURCE_STAT + _REF_STAT[ref])))
+
+
+def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
+    """The source's mana value / power / toughness: on the battlefield as it is, else as it last existed there."""
+    card = plan.state.cards.get(source or "")
+    if card is None:
+        return None
+    if card.zone.endswith(":battlefield"):
+        return _stat(plan.ch(card), what)
+    snaps = [x for x in plan.rules.lki.values() if x.card == card.id and x.zone.endswith(":battlefield")]
+    if not snaps:
+        return None
+    from app.rules.triggers import _lki_characteristics
+
+    return _stat(_lki_characteristics(plan, max(snaps, key=lambda x: int(x.object_id.rsplit(".", 1)[-1]))), what)
+# -- end reanimation (wave 10A) --
 
 
 # -- token & pump wordings (wave 6C) -- keywords a selector may ask about but a grant doesn't give ("if you control no
@@ -681,6 +719,10 @@ def _parse(phrase: str) -> Selector | None:
                     break
     except ValueError:
         return None
+    if any(isinstance(c[2], str) and c[2].startswith(SOURCE_STAT) for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
+        return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source)
+    if any(c[1] == "==" and c[2] == X_VALUE for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
+        return None  # -- reanimation (wave 10A) -- ("mana value X" exactly: read only for a card in a graveyard)
     if qualified and re.search(r", or \S+$", text):
         # "artifact, enchantment, or creature with flying": the qualifier is the last item's
         # only (any artifact; a creature with flying), which a selector can't say: not a guess
@@ -960,7 +1002,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if set(sel.without_keywords) & ch.keywords:
         return False
     for what, op, n in sel.compare:
-        if isinstance(n, str) and n.startswith(SOURCE_COUNTERS):  # -- counters (wave 5H) --
+        if isinstance(n, str) and n.startswith(SOURCE_STAT):  # -- reanimation (wave 10A) --
+            ref_value = source_stat(plan, source, n[len(SOURCE_STAT):])
+            if ref_value is None:
+                return False
+            n = ref_value
+        elif isinstance(n, str) and n.startswith(SOURCE_COUNTERS):  # -- counters (wave 5H) --
             have = _source_counters(plan, source, n[len(SOURCE_COUNTERS):])
             if have is None:
                 return False
@@ -975,7 +1022,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         value = _stat(ch, what)
         if what == "mv" and value is not None and zone == "stack" and card.stack_info is not None and card.stack_info.x:
             value += card.stack_info.x * ch.mana_cost.count("{X}")  # 202.3e: X on the stack is the value chosen
-        if value is None or not isinstance(n, int) or not {"<=": value <= n, ">=": value >= n, "==": value == n}[op]:
+        if value is None or not isinstance(n, int) or not {"<=": value <= n, ">=": value >= n, "==": value == n, "<": value < n, ">": value > n}[op]:
             return False
     for extra in sel.extras:
         if extra == "enchanted" and not _has_attached(plan, card, "Aura"):
