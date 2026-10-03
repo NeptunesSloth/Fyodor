@@ -340,6 +340,11 @@ _CHOSEN = {"sacrifice_choice": "n", "edict": "n", "discard": "n", "mill": "n", "
 # "that player's hand" names a player, which _bind_stats (objects only) can't bind — values reads
 # only "you" / "target" hands, so the phrase stays manual.)
 _STAT_KEYS = ("power", "toughness", "mana_value", "on")
+# -- stack interaction (wave 5B) -- "Counter target spell. Its controller …": the counter records the
+# spell it countered (effects.counter), so "its controller" / "its mana value" read it as it last existed
+# on the stack (608.2h). Not a mover: after it, "it" stays the target (the countered card isn't "it").
+_RECORDING["counter"] = "countered"
+# -- end stack interaction (wave 5B) --
 
 
 def _is_player_group(group: dict[str, Any]) -> bool:
@@ -3794,6 +3799,15 @@ def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "add_mana", "sym": (m["sym"] or m["sym2"])[1], "n": count}], None
 
 
+# -- stack interaction (wave 5B) -- Mana Drain: "… add an amount of {C} equal to that spell's mana value": the spell an
+# earlier instruction countered, as it last existed on the stack (608.2h; its X counts, 202.3e). resolve_it binds
+# "that spell" to that instruction's record; with nothing to bind it to, the line stays manual.
+@_mana_effect(rf"add an amount of (?P<sym>{_SYM}) equal to that spell's mana value")
+def _add_spell_mv(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "add_mana", "sym": m["sym"][1], "n": {"mana_value": "that_spell"}}], None
+# -- end stack interaction (wave 5B) --
+
+
 # -- reanimation (wave 3R) --  "return a creature card from your graveyard …": chosen on resolution; what it
 # returned is what "that card" / "it" names afterwards (400.7j).
 _RECORDING["return_choice"] = "returned"
@@ -3901,3 +3915,11 @@ def _event_spell_ok(d: Definition) -> bool:
     lead = [e for e in effects if e.get("do") != "only_if"]
     return all(not effects[k].get("first") or (lead and lead[0] is effects[k]) for k in uses)
 # -- end refused copy/mana (wave 3R3) --
+
+
+# -- stack interaction (wave 5B) -- "Change the target of target spell with a single target." / "Change a target of
+# target spell or ability to this creature." (115.7): app/rules/stack_interaction.py
+from app.rules import stack_interaction as _stack_interaction  # noqa: E402, I001
+
+EFFECTS[:0] = _stack_interaction.TEMPLATES
+# -- end stack interaction (wave 5B) --
