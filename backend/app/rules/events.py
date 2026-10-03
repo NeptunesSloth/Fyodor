@@ -190,6 +190,16 @@ def _parse(c: str) -> Condition | None:
     found = _player_action(c)
     if found is not None:
         return found
+    # -- triggers (wave 5D) -- "Whenever another creature you control enters or dies" (Daxos): either event of the
+    # same objects (603.2), each read on its own ("~ enters or dies" is the "multi" form above)
+    m = re.fullmatch(r"(?P<s>(?!~ )(?!one or more ).+?) (?P<a>enters|dies|attacks|blocks|leaves the battlefield) or "
+                     r"(?P<b>enters|dies|attacks|blocks|leaves the battlefield|deals combat damage to a player)", c)
+    if m:
+        a, b = _parse(f"{m['s']} {m['a']}"), _parse(f"{m['s']} {m['b']}")
+        if a is None or b is None or a.get("aggregate") or b.get("aggregate") or a.get("subject") != b.get("subject") \
+                or a.get("subject") not in ("sel", "self_or"):
+            return None
+        return {"event": "either", "subject": a["subject"], "conds": [a, b]}
     # -- triggers (wave 5D) -- "Whenever you create or sacrifice a token" (Mirkwood Bats): either action, each one its
     # own event (603.2c) — both halves must read on their own
     m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<a>[a-z]+) or (?P<b>[a-z]+) (?P<o>(?:an?) .+)", c)

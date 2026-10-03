@@ -608,3 +608,59 @@ def test_panharmonicon_each_token_entering(cards):
     settle(s)
     assert life(s) == before + 4
     replay_matches(s)
+
+
+# -- conditions with commas, "that many", "enters or dies" of other objects ----------------------------------------------
+EXTRA += [
+    card('Sram, Senior Edificer', set_code='tst', number='T5D46', mana_cost='{1}{W}', cmc=2.0, type_line='Legendary Creature — Dwarf Advisor', oracle_text='Whenever you cast an Aura, Equipment, or Vehicle spell, draw a card.', power='2', toughness='2', colors=['W'], color_identity=['W']),
+    card('Old Gnawbone', set_code='tst', number='T5D47', mana_cost='{5}{G}{G}', cmc=7.0, type_line='Legendary Creature — Dragon', oracle_text='Flying\nWhenever a creature you control deals combat damage to a player, create that many Treasure tokens.', power='7', toughness='7', colors=['G'], color_identity=['G'], keywords=['Flying', 'Treasure']),
+    card('Daxos, Blessed by the Sun', set_code='tst', number='T5D48', mana_cost='{W}{W}', cmc=2.0, type_line='Legendary Enchantment Creature — Demigod', oracle_text="Daxos's toughness is equal to your devotion to white. (Each {W} in the mana costs of permanents you control counts toward your devotion to white.)\nWhenever another creature you control enters or dies, you gain 1 life.", power='2', toughness='*', colors=['W'], color_identity=['W']),
+]
+
+
+@pytest.mark.parametrize("name", ["Sram, Senior Edificer", "Old Gnawbone", "Daxos, Blessed by the Sun"])
+def test_more_trigger_wordings_are_automated(name):
+    assert cov(name) == "FULL"
+
+
+def test_sram_an_aura_equipment_or_vehicle_spell(cards):
+    s = build(cards, "Sram, Senior Edificer", "Holy Strength", "Grizzly Bears")
+    put(s, "Sram, Senior Edificer")
+    bears = put(s, "Grizzly Bears")
+    aura = to_hand(s, "Holy Strength")
+    before = hand_size(s)
+    mana(s, W=1)
+    act(s, "p1", type="cast_spell", card_id=aura.id, targets=[bears.id])
+    settle(s)
+    assert hand_size(s) == before - 1 + 1
+    replay_matches(s)
+
+
+def test_old_gnawbone_that_many_treasures(cards):
+    from tests.test_rules_conditionals import attack, combat_step, creature, sandbox, through_combat
+
+    s = sandbox(cards, "Old Gnawbone")
+    gnaw = named(s, "Old Gnawbone")
+    act(s, "p1", type="move", card_ids=[gnaw.id], to={"player": "p1", "zone": "battlefield"})
+    bear = creature(s, "p1", "Bear", pt="3/3")
+    combat_step(s)
+    attack(s, (bear, "p2"))
+    through_combat(s)
+    treasures = [c for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield"]
+    assert len(treasures) == 3
+    replay_matches(s)
+
+
+def test_daxos_another_creature_enters_or_dies(cards):
+    s = build(cards, "Daxos, Blessed by the Sun", "Grizzly Bears")
+    put(s, "Daxos, Blessed by the Sun")
+    bears = to_hand(s, "Grizzly Bears")
+    before = life(s)
+    mana(s, G=2)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    settle(s)
+    assert life(s) == before + 1
+    s = saved(s)
+    kill(s, s.state.cards[bears.id])
+    assert life(s) == before + 2
+    replay_matches(s)

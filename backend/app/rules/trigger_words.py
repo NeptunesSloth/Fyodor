@@ -40,6 +40,7 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
     if name.startswith("step:draw:") and name.rsplit(":", 1)[-1] in ("each", "opponent"):
         # 504.1: the active player draws in the draw step; "an additional card" is one more card
         body = re.sub(r"\bthat player draws an additional card\.$", "that player draws a card.", body)
+        body = re.sub(r"\bthat player draws (two|three) additional cards\.$", r"that player draws \1 cards.", body)
     return body
 
 
@@ -57,6 +58,34 @@ def plain_amounts(body: str) -> str:
     if m is not None:
         body = f"you gain life equal to {m['v']}. Draw cards equal to {m['v']}."
     return body
+
+
+def comma_condition(text: str, m: re.Match[str]) -> re.Match[str]:
+    """"Whenever you cast an Aura, Equipment, or Vehicle spell, draw a card.": the trigger condition runs to the first
+    comma after which the condition grammar reads it (app/rules/events.py) — the shortest such, so "Whenever X, if Y,
+    Z" keeps its intervening "if"; the match unchanged when the plain split reads or no longer one does."""
+    from app.rules import events
+
+    # a list in the condition ("an Aura, Equipment, or Vehicle spell"): the whole list, even when its first word alone
+    # would read ("you cast an Aura")
+    listed = re.match(r"^(?:When|Whenever) (?P<cond>.+?\b(?:[\w-]+, )+(?:or|and|and/or) [^,]+), (?P<body>.+)$", text,
+                      re.DOTALL)
+    if listed is not None and events.parse_condition(listed["cond"]) is not None:
+        return listed
+    if events.parse_condition(m["cond"]) is not None:
+        return m
+    head = re.match(r"^(?:When|Whenever) ", text)
+    if head is None:
+        return m
+    rest = text[head.end():]
+    for found in re.finditer(r", ", rest):
+        cond = rest[: found.start()]
+        if len(cond) <= len(m["cond"]):
+            continue
+        if events.parse_condition(cond) is not None:
+            again = re.match(rf"^(?:When|Whenever) (?P<cond>{re.escape(cond)}), (?P<body>.+)$", text, re.DOTALL)
+            return again if again is not None else m
+    return m
 
 
 def have_subject(text: str) -> str:

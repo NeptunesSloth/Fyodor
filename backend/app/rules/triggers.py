@@ -912,7 +912,8 @@ def graveyard_abilities(plan: Plan, card: CardInstance, trigger: str,
 
 
 _GY_TRIGGERS = ("event", "landfall", "enters_other", "cast_you", "upkeep_you", "end_step_you")
-_GY_LOOK_BACK = ("die", "leave", "sacrifice", "leave_graveyard", "multi")  # (603.10a; "multi": not judged here)
+_GY_LOOK_BACK = ("die", "leave", "sacrifice", "leave_graveyard", "multi",  # (603.10a; "multi": not judged here)
+                 "either")  # (-- triggers (wave 5D) -- nor "either": one of its events may look back)
 
 
 def graveyard_trigger_ok(d: dict[str, Any]) -> bool:

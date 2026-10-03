@@ -2153,6 +2153,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if ability.kind == "triggered":
         for pattern, trigger in TRIGGERS:
             m = pattern.match(text)
+            if m and trigger == "event":  # -- triggers (wave 5D) -- a condition with commas in it ("an Aura, Equipment,
+                from app.rules import trigger_words  # or Vehicle spell", "a noncreature, nonland card")
+
+                m = trigger_words.comma_condition(text, m)
             if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b", m["body"]):  # (3R3: copy it)
                 continue  # -- sized amounts (wave 3D) -- it reads the spell cast: the generic condition's event carries it
             if m:
@@ -3975,4 +3979,15 @@ def _create_several_kinds(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 EFFECTS[:0] = [EFFECTS.pop()]  # (before the one-kind templates, which would read "with deathtouch and a 3/3 …" as keywords)
+
+
+@effect(r"create that many (?P<rest>[^\"]+ tokens?(?: with [^\"]+)?)")
+def _create_that_many(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """"Whenever a creature you control deals combat damage to a player, create that many Treasure tokens." (Old
+    Gnawbone): as many as the trigger event's amount (608.2k; scripts._event_refs_ok: only an event with an amount)."""
+    found = _one_clause("create two " + m["rest"])
+    if found is None or found[1] is not None or len(found[0]) != 1 or found[0][0].get("do") != "create_token" \
+            or found[0][0].get("n") != 2:
+        raise _NoMatch
+    return [{**found[0][0], "n": {"event_amount": 1}}], None
 # -- end triggers (wave 5D) --
