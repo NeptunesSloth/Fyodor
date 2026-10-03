@@ -24,7 +24,7 @@ from app.rules.oracle import parse_abilities
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_attachments import build, mana, named, to_hand, token
-from tests.test_rules_effects import pass_until_stack_empty, replay_matches
+from tests.test_rules_effects import pass_until_stack_empty, replay_matches, run_until
 
 # Real Oracle wording (the local card database, current).
 EXTRA = [
@@ -333,4 +333,86 @@ def test_blightning_on_a_planeswalker_reads_its_controller(cards):
     act(s, "p2", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:2])
     pass_until_stack_empty(s)
     assert life(s, "p2") == 40 and hand(s, "p2") == 1 and zone(s, walker) != "p2:battlefield"
+    roundtrip(s)
+
+
+# -- the player a trigger is about ------------------------------------------------------------------------------
+TRIGGERED = [
+    card('Lavaborn Muse', set_code="tst", number="B631", mana_cost="{3}{R}", cmc=4.0, type_line="Creature — Spirit",
+         oracle_text="At the beginning of each opponent's upkeep, if that player has two or fewer cards in hand, this creature "
+                     "deals 3 damage to that player.", power="3", toughness="3", colors=['R'], color_identity=['R']),
+    card('Roiling Vortex', set_code="tst", number="B632", mana_cost="{1}{R}", cmc=2.0, type_line="Enchantment",
+         oracle_text="At the beginning of each player's upkeep, this enchantment deals 1 damage to them.\nWhenever a player "
+                     "casts a spell, if no mana was spent to cast that spell, this enchantment deals 5 damage to that player.\n"
+                     "{R}: Your opponents can't gain life this turn.", colors=['R'], color_identity=['R']),
+    card('Vengeful Tracker', set_code="tst", number="B633", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Human Detective",
+         oracle_text='Whenever an opponent sacrifices an artifact, this creature deals 2 damage to them.', power="2",
+         toughness="2", colors=['R'], color_identity=['R']),
+]
+EXTRA += TRIGGERED
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in TRIGGERED])
+def test_trigger_coverage_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def keep_hand(s, pid, n):
+    """Leave ``pid`` with exactly ``n`` cards in hand (the rest back into the library)."""
+    hand = list(s.state.zones.get(f"{pid}:hand", []))
+    while len(hand) < n:
+        act(s, pid, type="draw", count=1)
+        hand = list(s.state.zones[f"{pid}:hand"])
+    if len(hand) > n:
+        act(s, pid, type="move", card_ids=hand[n:], to={"zone": "library", "player": pid})
+
+
+@pytest.mark.parametrize(("cards_in_hand", "bob"), [(1, 37), (2, 37), (3, 40)])
+def test_lavaborn_muse_reads_that_players_hand(cards, cards_in_hand, bob):
+    s = build(cards, "Lavaborn Muse")
+    act(s, "p1", type="move", card_ids=[named(s, "Lavaborn Muse").id], to={"zone": "battlefield"})
+    keep_hand(s, "p2", cards_in_hand)  # (his upkeep comes before his draw step)
+    run_until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")
+    assert life(s, "p2") == bob and life(s, "p1") == 40
+    replay_matches(s)
+
+
+def test_roiling_vortex_deals_damage_to_the_upkeep_player(cards):
+    s = build(cards, "Roiling Vortex")
+    act(s, "p1", type="move", card_ids=[named(s, "Roiling Vortex").id], to={"zone": "battlefield"})
+    run_until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")
+    assert life(s, "p2") == 39 and life(s, "p1") == 40  # Bob's upkeep: him, not Alice
+    roundtrip(s)
+
+
+# -- the creature on the other side of a block ----------------------------------------------------------------------
+SLINGER = "Haste\nWhenever this creature blocks or becomes blocked by a creature, this creature deals 1 damage to that creature."
+ALPHAS = ("Haste\nWhenever this creature blocks or becomes blocked by a creature, this creature deals 3 damage to that "
+          "creature and 3 damage to that creature's controller.")
+
+
+def test_block_trigger_deals_damage_to_each_blocker(cards):
+    s = build(cards)
+    slinger = token(s, "p1", "Slinger", "3/3", SLINGER)
+    a = token(s, "p2", "Elf A", "1/1")
+    b = token(s, "p2", "Elf B", "1/1")
+    to_combat(s, slinger)
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": a.id, "attacker_id": slinger.id},
+                                                  {"blocker_id": b.id, "attacker_id": slinger.id}])
+    pass_until_stack_empty(s)
+    # 509.3d: once for each creature blocking it — both 1/1s die before combat damage, so it deals none
+    assert zone(s, a) != "p2:battlefield" and zone(s, b) != "p2:battlefield"
+    assert s.state.cards[slinger.id].damage == 0
+    roundtrip(s)
+
+
+def test_block_trigger_reads_that_creatures_controller(cards):
+    s = build(cards)
+    alphas = token(s, "p1", "Alphas", "5/5", ALPHAS)
+    ox = token(s, "p2", "Ox", "2/6")
+    to_combat(s, alphas)
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": ox.id, "attacker_id": alphas.id}])
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 37 and life(s, "p1") == 40
+    assert zone(s, ox) != "p2:battlefield"  # 3 from the trigger, then 5 combat damage
     roundtrip(s)

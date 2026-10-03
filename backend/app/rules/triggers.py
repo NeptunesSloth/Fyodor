@@ -719,7 +719,10 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         source=info.get("source_ref") or (
                             _source_ref(plan, info.get("source_oid")) if kind == "dealt_damage" else None),
                         amount=int(info.get("amount") or 0), count=1,
-                        defended=info.get("defended") if kind == "you_attack" else None)  # -- combat (wave 5C) --
+                        defended=info.get("defended") if kind == "you_attack" else None,  # -- combat (wave 5C) --
+                        # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
+                        other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
+                        if kind in _PAIRED.values() and info.get("other") in plan.state.cards else None)
 
 
 def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,

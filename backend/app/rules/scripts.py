@@ -2331,6 +2331,16 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import trigger_words
 
                 body = trigger_words.rewrite_body(body, name, cond, has_player)
+                # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
+                # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
+                if cond is not None and cond.get("other") and cond.get("subject", "self") == "self" and (
+                        cond["event"] in ("block", "blocked")
+                        or (cond["event"] == "multi" and set(cond["events"]) <= {"block", "blocked"})):
+                    from app.rules.language import OTHER_SIDE
+
+                    body = re.sub(r"^it deals ", "~ deals ", body)
+                    body = body.replace("that creature's controller", OTHER_SIDE + "'s controller")
+                    body = body.replace("that creature", OTHER_SIDE)
                 parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
                 if same and parsed is not None:
                     parsed = attached_players.does_the_same(parsed)

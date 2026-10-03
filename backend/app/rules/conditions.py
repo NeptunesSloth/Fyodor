@@ -180,6 +180,14 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         if life is None:
             return None
         return {"value": {"life": "you"}, "op": "<=" if m["cmp"] in ("less", "fewer") else ">=", "n": life}
+    # -- damage wordings (wave 6B) -- "if that player has two or fewer cards in hand" (Lavaborn Muse): the hand of the
+    # player "that player" names (scripts._that_players_hand binds it: the target player, or the trigger's)
+    m = re.fullmatch(r"that player has (?P<n>\w+) or (?P<cmp>more|fewer|less) cards in (?:their )?hand", t)
+    if m:
+        n_cards = _num(m["n"])
+        if n_cards is None:
+            return None
+        return {"value": {"hand": "that_player"}, "op": ">=" if m["cmp"] == "more" else "<=", "n": n_cards}
     # "you have no cards in hand", "you have N or more cards in hand"
     m = _HAND.fullmatch(t)
     if m:

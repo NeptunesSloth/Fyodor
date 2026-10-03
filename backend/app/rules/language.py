@@ -52,6 +52,11 @@ PLAYER_GROUPS.update({f"{the} {kind}'s controller": "it.controller" for the in (
 # "~ deals 3 damage to target player or planeswalker. That player or that planeswalker's controller discards two cards."
 # (Blightning): the target player, or the target planeswalker's controller (app/rules/effects._players)
 PLAYER_GROUPS["that player or that planeswalker's controller"] = "target_player_or_controller"
+# "Whenever ~ blocks or becomes blocked by a creature, ~ deals 3 damage to that creature and 3 damage to that creature's
+# controller" (Assembled Alphas): the creature on the other side of the block (509.3c-d; the trigger event's ``other``)
+OTHER_SIDE = "the creature on the other side of the block"
+PLAYER_GROUPS[OTHER_SIDE + "'s controller"] = "ref:event_other.controller"
+# -- end damage wordings (wave 6B) --
 PLAYER_PHRASES = "|".join(sorted(PLAYER_GROUPS, key=len, reverse=True))
 
 
@@ -209,6 +214,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return "self", "", None
     if p in ("it", "that creature", "that permanent", "that card", "that token"):
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
+    if p == OTHER_SIDE:  # -- damage wordings (wave 6B) -- (scripts._define writes it for a block trigger's "that creature")
+        return "each", "ref:event_other", None
     if p == "that land":  # -- recursion & tutors (wave 4M) -- "… put it onto the battlefield tapped, then shuffle. Then if
         return "it", "", None  # you control four or more lands, untap that land." (Fabled Passage): the land found
     if p in _THEM:
