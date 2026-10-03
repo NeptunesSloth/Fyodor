@@ -810,6 +810,9 @@ class RulesState(BaseModel):
     # … and abilities granted to graveyard cards this turn (app/rules/graveyard_grants.py): "gains flashback until
     # end of turn" — {"id", "oid" (the card as the object it was then, 400.7), "card", "turn", "flashback", "controller"}
     graveyard_grants: list[dict[str, Any]] = Field(default_factory=list)
+    # -- mana riders (wave 5A) -- "Until end of turn, whenever a player taps an Island for mana, that player adds an
+    # additional {U}." (High Tide; app/rules/tap_mana.py): {"turn", "controller", "def"}
+    tap_mana: list[dict[str, Any]] = Field(default_factory=list)
     # 903.9b: commanders just put into their owner's hand / library (card id -> "hand" | "library")
     # whose owner hasn't yet said whether it goes to the command zone instead (asked before priority)
     pending_903_9b: dict[str, str] = Field(default_factory=dict)

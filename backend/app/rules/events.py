@@ -198,6 +198,12 @@ def _parse(c: str) -> Condition | None:
     found = _player_action(c)
     if found is not None:
         return found
+    # -- mana riders (wave 5A) -- "you tap ~ for mana", "a player taps a land for mana"
+    from app.rules import tap_mana
+
+    found = tap_mana.condition(c)
+    if found is not None:
+        return found
     # -- triggers (wave 5D) -- "Whenever another creature you control enters or dies" (Daxos): either event of the
     # same objects (603.2), each read on its own ("~ enters or dies" is the "multi" form above)
     m = re.fullmatch(r"(?P<s>(?!~ )(?!one or more ).+?) (?P<a>enters|dies|attacks|blocks|leaves the battlefield) or "
