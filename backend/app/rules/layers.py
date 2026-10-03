@@ -362,6 +362,10 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
             granted -= set(item.remove_keywords)
             lost |= set(item.remove_keywords)
             lost -= set(item.add_keywords)
+    for st in hits:  # -- static statics (wave 10B) -- "can't have or gain flying": whatever the timestamps, it ends up gone
+        deny = set(st.definition.get("deny_keywords") or ())
+        granted -= deny
+        lost |= deny
     return replace(ch, granted=frozenset(granted), lost=frozenset(lost), abilities=abilities)
 
 
@@ -705,7 +709,7 @@ def _grants(d: dict[str, Any]) -> bool:
     """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
     opponents control can't block.") is applied by ``_with_rules`` instead."""
     return bool(d["p"] or d["t"] or d.get("base") or d["keywords"] or d["grants"] or d.get("each")
-                or d.get("lose_keywords") or d.get("lose_all"))  # -- attached events (wave 4L) --
+                or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords"))  # -- attached events (wave 4L) --
 
 
 def _attached45(state: GameState, card: CardInstance, info: CardInfo | None) -> list[tuple[int, dict[str, Any]]]:

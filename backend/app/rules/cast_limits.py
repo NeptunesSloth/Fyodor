@@ -101,6 +101,41 @@ STATIC_HASTE = "you may activate abilities of creatures you control as though th
 STATIC_HELPER = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells you cast have (?P<kw>convoke|improvise|delve)$")
 
 
+# -- static statics (wave 10B) -- 702.85a: "Spells you cast with mana value 6 or greater have cascade." / "The first spell
+# you cast each turn has cascade." / "Enchantment spells you cast from your hand have cascade." / `Colorless spells you
+# cast from your hand with mana value 7 or greater have "Cascade, cascade."` — the spell has the keyword as it's cast
+# (601.2i: it becomes cast with its abilities; cascade's "when you cast this spell" trigger, 702.85a, is then put on the
+# stack), one instance per word quoted. A grant to the spell's own copy or to a spell cast by another player isn't read.
+_FROM_ZONES = {"your hand": "hand", "exile": "exile", "anywhere other than your hand": "not_hand"}
+STATIC_CASCADE = re.compile(
+    r"^(?:(?P<first>the first) )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? you cast"
+    r"(?: from (?P<frm>your hand|exile|anywhere other than your hand))?"
+    r"(?: (?P<tail>with mana value \d+ or (?:greater|less)))?(?P<each> each turn)? "
+    r"(?:has|have) (?P<kw>cascade|\"[Cc]ascade, cascade\.?\")$")
+
+
+def _cascade_definition(m: re.Match[str]) -> Definition | None:
+    if m["first"]:
+        # "The first spell you cast each turn" / "… from exile each turn": no spell filter, one condition
+        if m["sel"] or m["tail"] or not m["each"] or m["frm"] == "your hand":
+            return None
+        first = "from" if m["frm"] else "turn"
+        key = None
+    elif m["each"]:
+        return None
+    else:
+        from app.rules.permissions import spell_filter
+
+        phrase = re.sub(r"^(\w+) spells and (\w+)$", r"\1 or \2", m["sel"].strip()) if m["sel"] else None
+        key = spell_filter(phrase, m["tail"]) if phrase or m["tail"] else None
+        if key is None and (phrase or m["tail"]):
+            return None  # (a wording the spell selector doesn't read)
+        first = None
+    return {"kind": "static", "static": "spell_keyword", "keyword": "cascade",
+            "count": 2 if m["kw"].startswith('"') else 1, "filter": key,
+            "from": _FROM_ZONES[m["frm"]] if m["frm"] else None, "first": first, "effects": []}
+
+
 def _lower_first(s: str) -> str:
     return s[:1].lower() + s[1:] if s[:1].isupper() else s
 
@@ -191,6 +226,9 @@ def static_definition(text: str) -> Definition | None:
         return d
     if t == STATIC_HASTE:
         return {"kind": "static", "static": "activate_as_haste", "effects": []}
+    m = STATIC_CASCADE.fullmatch(t)
+    if m:  # -- static statics (wave 10B) --
+        return _cascade_definition(m)
     m = STATIC_HELPER.fullmatch(t)
     if m:
         ok, key = _filter(m["sel"])
@@ -331,7 +369,7 @@ def _spells_words(key: str | None, frm: list[str] | None) -> str:
 
 # -- reading the table -----------------------------------------------------------------------------
 _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
-_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper")
+_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword")
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -536,6 +574,37 @@ def granted_helpers(state: GameState, player: str, spell_card: str, spell: Chara
 
     return {d["keyword"] for src, d in found if src.controller == player
             and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))}
+
+
+def granted_cascade(plan: Plan, spell_card: str, spell: Characteristics, cast_from: str | None) -> int:
+    """-- static statics (wave 10B) -- how many extra instances of cascade (702.85a) the permanents ``plan.actor``
+    controls give this spell as it is cast from ``cast_from`` (the zone's name). "The first spell you cast each turn"
+    reads the spells cast before this one (it isn't counted yet: 601.2i), "from exile" those cast from exile."""
+    found = _statics(plan.state, plan.info, "spell_keyword")
+    card = plan.state.cards.get(spell_card)
+    if not found or card is None or plan.rules is None:
+        return 0
+    from app.rules.permissions import spell_matches
+
+    player, turn = plan.actor, plan.state.turn.number
+    log = plan.rules.turn_log if plan.rules.turn_log.turn == turn else None
+    earlier = [c for c in (log.casts if log else []) if c.player == player and c.object_id != plan.oid(card)]
+    total = 0
+    for src, d in found:
+        if src.controller != player or d.get("keyword") != "cascade":
+            continue
+        zone = d.get("from")
+        if zone is not None and not (cast_from != "hand" if zone == "not_hand" else cast_from == zone):
+            continue
+        if d.get("first") == "turn" and plan.rules.spells_this_turn(player, turn) > 0:
+            continue
+        if d.get("first") == "from" and (cast_from is None or any(c.cast_from == cast_from or (zone == "not_hand" and c.cast_from != "hand")
+                                                                  for c in earlier)):
+            continue
+        if d.get("filter") is not None and not spell_matches(plan.state, player, card, spell, d["filter"], plan.info):
+            continue
+        total += int(d.get("count", 1))
+    return total
 
 
 def permission_during_ok(state: GameState, d: Definition, player: str) -> bool:

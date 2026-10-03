@@ -98,6 +98,7 @@ ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "cre
 _PT = re.compile(r"^(?P<p>[+−-]\d+)/(?P<t>[+−-]\d+)$")
 _BASE = re.compile(r"^base power and toughness (?P<p>\d+)/(?P<t>\d+)$")
 _QUOTED = re.compile(r'^"(?P<q>[^"]+)"$')
+_DENY = re.compile(r"^(?P<s>(?:Creatures|Permanents) .+? control) lose (?P<kw>[a-z ]+) and can't have or gain (?P=kw)$")  # (10B)
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
 
@@ -129,6 +130,14 @@ def parse(text: str) -> Definition | None:
     m = re.match(r"^(?P<rest>.+), where X is (?P<x>.+)$", body)
     if m:
         x_phrase, body = m["x"], m["rest"]
+    # -- static statics (wave 10B) -- "Creatures your opponents control lose flying and can't have or gain flying."
+    # (the Archetypes): lose it now (613.1f, in timestamp order) and never have or gain it (the deny is applied last)
+    m = _DENY.fullmatch(body)
+    if m is not None and m["kw"] in GRANTABLE_KEYWORDS:
+        who, kind = _subject(m["s"], plural=True)
+        if who is None or who == "self" or who.startswith(UNION):
+            return None
+        return {**_definition(who, kind, []), "lose_keywords": [m["kw"]], "deny_keywords": [m["kw"]]}
     # "Creatures with power less than ~'s power can't block it." (Wandering Wolf): an evasion ability
     # of the source, worded from the blockers' side.
     m = re.fullmatch(r"Creatures with power (?P<dir>less|greater) than ~'s power can't block it", body)
