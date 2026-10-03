@@ -31,7 +31,7 @@ from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_attachments import ch, named, token
-from tests.test_rules_conditionals import settle, through_combat, until
+from tests.test_rules_conditionals import settle, through_combat, until, until_asked
 from tests.test_rules_effects import replay_matches
 
 # Real Oracle wording (the local card database, current).
@@ -53,6 +53,13 @@ EXTRA = [
     card('Aurelia, the Warleader', set_code="tst", number="C15", mana_cost='{2}{R}{R}{W}{W}', cmc=6.0, type_line='Legendary Creature — Angel', oracle_text='Flying, vigilance, haste\nWhenever Aurelia attacks for the first time each turn, untap all creatures you control. After this phase, there is an additional combat phase.', power='3', toughness='4', colors=['R', 'W'], color_identity=['R', 'W'], keywords=['Flying', 'Vigilance', 'Haste']),  # noqa: E501
     card('Adeline, Resplendent Cathar', set_code="tst", number="C16", mana_cost='{1}{W}{W}', cmc=3.0, type_line='Legendary Creature — Human Knight', oracle_text="Vigilance\nAdeline's power is equal to the number of creatures you control.\nWhenever you attack, for each opponent, create a 1/1 white Human creature token that's tapped and attacking that player or a planeswalker they control.", power='*', toughness='4', colors=['W'], color_identity=['W'], keywords=['Vigilance']),  # noqa: E501
     card('Soaring Lightbringer', set_code="tst", number="C17", mana_cost='{4}{W}', cmc=5.0, type_line='Enchantment Creature — Bird Glimmer', oracle_text="Flying\nOther enchantment creatures you control have flying.\nWhenever you attack a player, create a 1/1 white Glimmer enchantment creature token that's tapped and attacking that player.", power='4', toughness='5', colors=['W'], color_identity=['W'], keywords=['Flying']),  # noqa: E501
+    card('Maze of Ith', set_code="tst", number="C18", mana_cost='', cmc=0.0, type_line='Land', oracle_text='{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn.', colors=[], color_identity=[], keywords=[]),  # noqa: E501
+    card('Reconnaissance', set_code="tst", number="C19", mana_cost='{W}', cmc=1.0, type_line='Enchantment', oracle_text='{0}: Remove target attacking creature you control from combat and untap it. (If you activate during end of combat, the creature will untap after it deals combat damage.)', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
+    card('Unnatural Growth', set_code="tst", number="C20", mana_cost='{1}{G}{G}{G}{G}', cmc=5.0, type_line='Enchantment', oracle_text='At the beginning of each combat, double the power and toughness of each creature you control until end of turn.', colors=['G'], color_identity=['G'], keywords=['Double']),  # noqa: E501
+    card('Bulk Up', set_code="tst", number="C21", mana_cost='{1}{R}', cmc=2.0, type_line='Instant', oracle_text="Double target creature's power until end of turn.\nFlashback {4}{R}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)", colors=['R'], color_identity=['R'], keywords=['Flashback', 'Double']),  # noqa: E501
+    card('Relentless Assault', set_code="tst", number="C22", mana_cost='{2}{R}{R}', cmc=4.0, type_line='Sorcery', oracle_text='Untap all creatures that attacked this turn. After this main phase, there is an additional combat phase followed by an additional main phase.', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
+    card('Hellkite Charger', set_code="tst", number="C23", mana_cost='{4}{R}{R}', cmc=6.0, type_line='Creature — Dragon', oracle_text='Flying, haste\nWhenever this creature attacks, you may pay {5}{R}{R}. If you do, untap all attacking creatures and after this phase, there is an additional combat phase.', power='5', toughness='5', colors=['R'], color_identity=['R'], keywords=['Flying', 'Haste']),  # noqa: E501
+    card('Finest Hour', set_code="tst", number="C24", mana_cost='{2}{G}{W}{U}', cmc=5.0, type_line='Enchantment', oracle_text="Exalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)\nWhenever a creature you control attacks alone, if it's the first combat phase of the turn, untap that creature. After this phase, there is an additional combat phase.", colors=['G', 'U', 'W'], color_identity=['G', 'U', 'W'], keywords=['Exalted']),  # noqa: E501
     # (still manual)
     card('Karlach, Fury of Avernus', set_code="tst", number="C30", mana_cost='{4}{R}', cmc=5.0, type_line='Legendary Creature — Tiefling Barbarian', oracle_text="Whenever you attack, if it's the first combat phase of the turn, untap all attacking creatures. They gain first strike until end of turn. After this phase, there is an additional combat phase.\nChoose a Background (You can have a Background as a second commander.)", power='5', toughness='4', colors=['R'], color_identity=['R'], keywords=['Choose a background']),  # noqa: E501
     card('Sphere of Safety', set_code="tst", number="C31", mana_cost='{4}{W}', cmc=5.0, type_line='Enchantment', oracle_text="Creatures can't attack you or planeswalkers you control unless their controller pays {X} for each of those creatures, where X is the number of enchantments you control.", colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
@@ -61,9 +68,9 @@ EXTRA = [
 FULL = ["Propaganda", "Ghostly Prison", "Windborn Muse", "Elephant Grass", "Crawlspace", "Champion of Lambholt",
         "Bower Passage", "Bident of Thassa", "Kardur, Doomscourge", "The Akroan War", "Rage Nimbus", "Goblin Diplomats",
         "Aggravated Assault", "Seize the Day", "Aurelia, the Warleader", "Adeline, Resplendent Cathar",
-        "Soaring Lightbringer"]
+        "Soaring Lightbringer", "Karlach, Fury of Avernus", "Maze of Ith", "Reconnaissance", "Unnatural Growth", "Bulk Up",
+        "Relentless Assault", "Hellkite Charger", "Finest Hour"]
 STILL_MANUAL = {
-    "Karlach, Fury of Avernus": "first combat phase",  # ("They gain first strike": the creatures untapped)
     "Sphere of Safety": "{X}",  # (a cost sized by a count, and planeswalkers too)
     "Nahiri, the Unforgiving": "attacks a player each combat",
 }
@@ -85,7 +92,7 @@ def build(cards, *names, players=2, forests=9, payment="auto", bob=()):
     alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in names), (forests, "Forest")])
     seats = [PlayerSetup("Alice", cards=alice),
              PlayerSetup("Bob", cards=deck(cards, "Atraxa, Praetors' Voice", [*((1, n) for n in bob), (10, "Island")])),
-             PlayerSetup("Carol", cards=deck(cards, "Krenko, Mob Boss", [(10, "Mountain")]))][:players]
+             PlayerSetup("Carol", cards=deck(cards, "Krenko, Mob Boss", [(1, "Gideon Jura"), (10, "Mountain")]))][:players]
     state = enable(new_game(seats, shuffle=False))
     for prefs in state.rules.prefs.values():
         prefs.payment = payment
@@ -535,3 +542,153 @@ def test_statics_parse_for_the_combat_rules():
                                        "they control that's attacking you.")
     assert d is not None and d["rules"] == ["attack_tax:@you:2:@src"]
     assert statics.parse("Creatures with flying can't block creatures you control.") is None  # (read here, not there)
+
+
+# -- more combat wordings ----------------------------------------------------------------------------------------
+def respond_on(s):
+    for prefs in s.state.rules.prefs.values():
+        prefs.response = "on"
+
+
+def test_maze_of_ith(cards):
+    """Untap the attacker; combat damage to it and by it this turn is prevented (615)."""
+    s = build(cards, bob=["Maze of Ith"])
+    maze = put(s, "Maze of Ith", "p2")
+    ogre = old(s, "p1", "Ogre", "3/3")
+    to_attack(s)
+    respond_on(s)
+    declare(s, (ogre, "p2"))
+    act(s, "p1", type="pass_priority")
+    assert s.state.rules.priority == "p2"
+    act(s, "p2", type="activate_ability", card_id=maze.id, ability=0, targets=[ogre.id])
+    settle(s)
+    assert not s.state.cards[ogre.id].tapped and attacking(s, ogre) == "p2"
+    through_combat(s)
+    assert s.state.players["p2"].life == 40
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_reconnaissance_removes_from_combat(cards):
+    s = build(cards, "Reconnaissance")
+    recon = put(s, "Reconnaissance")
+    ogre, wolf = old(s, "p1", "Ogre", "3/3"), old(s, "p1", "Wolf")
+    to_attack(s)
+    respond_on(s)
+    declare(s, (ogre, "p2"), (wolf, "p2"))
+    assert s.state.rules.priority == "p1"
+    act(s, "p1", type="activate_ability", card_id=recon.id, ability=0, targets=[ogre.id])
+    settle(s)
+    assert attacking(s, ogre) is None and not s.state.cards[ogre.id].tapped  # 506.4
+    assert attacking(s, wolf) == "p2"
+    through_combat(s)
+    assert s.state.players["p2"].life == 38
+    replay_matches(s)
+
+
+def test_unnatural_growth_and_bulk_up(cards):
+    """701.10b: +X/+Y with X and Y the creature's power and toughness as the effect begins (layer 7c)."""
+    s = build(cards, "Unnatural Growth", "Bulk Up")
+    put(s, "Unnatural Growth")
+    ogre = old(s, "p1", "Ogre", "3/2")
+    act(s, "p1", type="counter", card_ids=[ogre.id], kind="+1/+1", delta=1)  # 4/3
+    bulk = named(s, "Bulk Up")
+    act(s, "p1", type="move", card_ids=[bulk.id], to={"zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 2})
+    act(s, "p1", type="cast_spell", card_id=bulk.id, targets=[ogre.id])
+    settle(s)
+    assert ch(s, ogre).pt == (8, 3)
+    to_attack(s)
+    assert ch(s, ogre).pt == (16, 6)  # "At the beginning of each combat": both doubled
+    act(s, "p1", type="counter", card_ids=[ogre.id], kind="+1/+1", delta=1)
+    assert ch(s, ogre).pt == (17, 7)  # (a fixed modification: the counter isn't doubled after the fact)
+    s = reloaded(s)
+    until(s, lambda s: s.state.turn.number == 2)
+    assert ch(s, ogre).pt == (5, 4)
+    replay_matches(s)
+
+
+def test_relentless_assault_untaps_the_creatures_that_attacked(cards):
+    s = build(cards, "Relentless Assault")
+    ogre, tapped = old(s, "p1", "Ogre", "3/3"), old(s, "p1", "Tapped")
+    act(s, "p1", type="tap", card_ids=[tapped.id], tapped=True)
+    to_attack(s)
+    declare(s, (ogre, "p2"))
+    through_combat(s)
+    assault = named(s, "Relentless Assault")
+    act(s, "p1", type="move", card_ids=[assault.id], to={"zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 4})
+    act(s, "p1", type="cast_spell", card_id=assault.id)
+    settle(s)
+    assert not s.state.cards[ogre.id].tapped and s.state.cards[tapped.id].tapped
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    declare(s, (ogre, "p2"))
+    through_combat(s)
+    assert s.state.players["p2"].life == 34 and s.state.turn.number == 1
+    replay_matches(s)
+
+
+def test_hellkite_charger_pays_for_another_combat(cards):
+    s = build(cards, "Hellkite Charger")
+    charger = put(s, "Hellkite Charger")
+    to_attack(s)
+    respond_on(s)
+    declare(s, (charger, "p2"))
+    act(s, "p1", type="add_mana", player="p1", mana={"R": 7})  # (mana empties between steps: 500.4)
+    d = until_asked(s)
+    assert d is not None and {o.id for o in d.options} == {"pay", "decline"}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+    to_blocks(s)
+    assert not s.state.cards[charger.id].tapped and s.state.rules.extra_phases == ["begin_combat", "main2"]
+    replay_matches(s)
+
+
+def test_finest_hour_only_in_the_first_combat(cards):
+    s = build(cards, "Finest Hour")
+    put(s, "Finest Hour")
+    ogre = old(s, "p1", "Ogre", "3/3")
+    to_attack(s)
+    declare(s, (ogre, "p2"))
+    to_blocks(s)
+    assert not s.state.cards[ogre.id].tapped and s.state.rules.extra_phases == ["begin_combat", "main2"]
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    declare(s, (ogre, "p2"))
+    to_blocks(s)
+    assert s.state.cards[ogre.id].tapped and s.state.rules.extra_phases == ["main2"]  # (603.4: not the first combat)
+    through_combat(s)
+    assert s.state.players["p2"].life == 31  # (exalted each time, until end of turn: 4, then 5)
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_karlach_first_strike_for_the_untapped_attackers(cards):
+    s = build(cards, "Karlach, Fury of Avernus")
+    ogre, wolf = old(s, "p1", "Ogre", "3/3"), old(s, "p1", "Wolf")
+    put(s, "Karlach, Fury of Avernus")
+    to_attack(s)
+    declare(s, (ogre, "p2"))
+    to_blocks(s)
+    assert not s.state.cards[ogre.id].tapped and "first strike" in ch(s, ogre).keywords
+    assert "first strike" not in ch(s, wolf).keywords
+    assert s.state.rules.extra_phases == ["begin_combat", "main2"]
+    replay_matches(s)
+
+
+def test_adeline_token_may_attack_a_planeswalker(cards):
+    s = build(cards, "Adeline, Resplendent Cathar", players=3)
+    gideon = next(c for c in s.state.cards.values() if c.name == "Gideon Jura")
+    act(s, "p3", type="move", card_ids=[gideon.id], to={"player": "p3", "zone": "battlefield"})
+    act(s, "p3", type="counter", card_ids=[gideon.id], kind="loyalty", delta=6)
+    adeline = put(s, "Adeline, Resplendent Cathar")
+    to_attack(s, 4)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": adeline.id, "target": "p2"}])
+    d = until_asked(s)
+    while d is not None and d.kind != "choose_one":
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        d = until_asked(s)
+    assert d is not None and {o.id for o in d.options} == {"p3", gideon.id}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[gideon.id])
+    to_blocks(s)
+    humans = [c for c in s.state.cards.values() if c.name == "Human" and c.zone == "p1:battlefield"]
+    assert sorted(attacking(s, h) for h in humans) == sorted(["p2", gideon.id])
+    replay_matches(s)

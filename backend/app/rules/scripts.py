@@ -2952,6 +2952,10 @@ def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[
 def _prevent_all_this_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     got = parse_prevent_all(m["text"])
     if got is None or not got[1]:
+        from app.rules import combat_rules  # -- combat (wave 5C) -- (Maze of Ith)
+
+        if (maze := combat_rules.clause(m["text"])) is not None:
+            return maze
         raise _NoMatch
     scope, _this_turn, target, role = got
     e: dict[str, Any] = {"do": "prevent_all", "scope": scope}

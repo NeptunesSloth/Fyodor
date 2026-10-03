@@ -197,6 +197,11 @@ def _thats_status(s: Selector, m: re.Match[str]) -> Selector:
     return s2
 
 
+@_suffix(r"that attacked this turn")  # -- combat (wave 5C) -- declared as attackers this turn (508.1; 508.4: not put)
+def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "attacked_this_turn"))
+
+
 @_suffix(r"that['’]s attacking you")
 def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
@@ -768,8 +773,18 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
             return False
+        if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
+            return False
     # -- chosen type (wave 4J) --
     return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source)
+
+
+def _attacked_this_turn_now(plan: Plan, card: CardInstance) -> bool:
+    """-- combat (wave 5C) -- the object (400.7: not a new one) was declared as an attacker this turn (wave 4D log)."""
+    r = plan.state.rules
+    if r is None or r.turn_log.turn != plan.state.turn.number:
+        return False
+    return r.object_id(card.id) in {a for ids in r.turn_log.attackers.values() for a in ids}
 
 
 def _ability_kind(plan: Plan, card: CardInstance, kind: str) -> bool:

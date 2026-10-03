@@ -123,6 +123,12 @@ def _cmp(word: str | None) -> str:
 
 
 def _parse_one(t: str, objects: bool) -> Condition | None:
+    # -- combat (wave 5C) -- "it's the first combat phase of the turn" (500.8: additional ones may follow), "it's your
+    # main phase" (505.1)
+    if t in ("it's the first combat phase of the turn", "it is the first combat phase of the turn"):
+        return {"combat_phase": "first"}
+    if t in ("it's your main phase", "it is your main phase"):
+        return {"main_phase": "yours"}
     # "you control a Forest", "you control two or more Islands", "you control another Elf",
     # "you control no creatures", "you don't control a …", "an opponent controls a …"
     m = _DIFFERENT_POWERS.fullmatch(t)
@@ -692,6 +698,12 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return _object_holds(plan, ctx, cond)
     if "versus" in cond:
         return _versus(plan, ctx, cond["versus"])
+    if "combat_phase" in cond:  # -- combat (wave 5C) --
+        from app.game.state import COMBAT_PHASES
+
+        return plan.state.turn.phase in COMBAT_PHASES and plan.rules.combats == 1
+    if "main_phase" in cond:  # -- combat (wave 5C) --
+        return plan.state.turn.phase in ("main1", "main2") and plan.state.turn.active_player == ctx["controller"]
     v = cond["value"]
     n = cond["n"]
     if cond.get("per_opponent") and "player_counters" in v:  # (wave 3E) "an opponent has three or more poison counters"

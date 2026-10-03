@@ -229,9 +229,9 @@ def extra_phases(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     r = plan.rules
     phase = plan.state.turn.phase
     current = "combat" if phase in _COMBAT else phase if phase in _MAIN else None
-    if current is None or (e["after"] == "main" and current == "combat"):
-        plan.note(f"{ctx.get('name') or 'It'}: there is no {'main ' if e['after'] == 'main' else ''}phase this turn to "
-                  "add a combat phase after (500.8)")
+    if current is None or (e["after"] == "main" and current == "combat") or (e["after"] == "combat" and current != "combat"):
+        kind = {"main": "main ", "combat": "combat "}.get(e["after"], "")
+        plan.note(f"{ctx.get('name') or 'It'}: this isn't a {kind}phase to add a combat phase after (500.8)")
         return True
     added = ["begin_combat"] + (["main2"] if e.get("main") else [])
     r.extra_phases = added + (list(r.extra_phases) or [_NATURAL[current]])
@@ -259,14 +259,21 @@ def combat_began(plan: Plan) -> None:
 
 
 # -- effects ---------------------------------------------------------------------------------------------------------
-_EXTRA = re.compile(r"after this (?P<main>main )?phase, there is an additional combat phase"
-                    r"(?P<and> followed by an additional main phase)?")
+_EXTRA = re.compile(r"(?:after this (?:(?P<main>main )|(?P<combat>combat ))?phase, there is an additional combat phase"
+                    r"(?P<and> followed by an additional main phase)?"
+                    r"|there is an additional combat phase after this (?:(?P<main2>main )|(?P<combat2>combat ))?phase)")
 _MUST = re.compile(r"(?P<o>.+?) attacks? this turn if able")
 _EACH_COMBAT = re.compile(r"(?P<o>.+?) (?:attack each combat if able(?P<pl> and attack a player other than you if able)?"
                          r"|attacks each combat if able(?P<sg> and attacks a player other than you if able)?)"
                          r"(?P<eot> until end of turn)?")
 _EACH_OPP = re.compile(r"for each opponent, (?P<create>create .+? token(?:s)? that's tapped and attacking) that player"
                        r"(?P<pw> or a planeswalker they control)?")
+_AND_EXTRA = re.compile(r"(?P<a>.+?),? and (?P<b>after this (?:main |combat )?phase, there is an additional combat phase.*)")
+_REMOVE = re.compile(r"remove (?P<o>.+?) from combat")
+_MAZE = re.compile(r"prevent all combat damage that would be dealt to and dealt by (?P<o>that creature|it|target creature|~)"
+                   r" this turn")
+_DOUBLE = re.compile(r"double (?:the (?P<w1>power and toughness|power) of (?P<o1>.+?)|(?P<o2>.+?)'s "
+                     r"(?P<w2>power and toughness|power)|(?P<o3>its) (?P<w3>power and toughness|power)) until end of turn")
 _THAT_PLAYER = re.compile(r"(?P<create>create .+? tokens? that(?:'s| are) tapped and attacking) that player")
 
 
@@ -274,7 +281,33 @@ def clause(text: str) -> tuple[Effects, Any] | None:
     """One instruction of this module (lower-cased first word, no final period), or None."""
     m = _EXTRA.fullmatch(text)
     if m:
-        return [{"do": "extra_phases", "after": "main" if m["main"] else "phase", "main": bool(m["and"])}], None
+        after = "main" if m["main"] or m["main2"] else "combat" if m["combat"] or m["combat2"] else "phase"
+        return [{"do": "extra_phases", "after": after, "main": bool(m["and"])}], None
+    m = _AND_EXTRA.fullmatch(text)
+    if m:  # "untap all attacking creatures and after this phase, there is an additional combat phase"
+        from app.rules import scripts
+
+        left, right = scripts._clause(m["a"]), clause(m["b"])
+        if left is None or right is None:
+            return None
+        return left[0] + right[0], left[1]
+    m = _REMOVE.fullmatch(text)
+    if m:  # 506.4
+        found = _object(m["o"])
+        return ([{"do": "remove_from_combat", "who": found[0]}], found[1]) if found is not None else None
+    m = _MAZE.fullmatch(text)
+    if m:  # (Maze of Ith: 615, a prevention effect for this turn)
+        found = _object(m["o"])
+        if found is None:
+            return None
+        return [{"do": "prevent_all", "scope": {"combat": True, "to_or_by": True}, "who": found[0], "role": "both"}], found[1]
+    m = _DOUBLE.fullmatch(text)
+    if m:  # 701.10b / 613.4c
+        what = m["w1"] or m["w2"] or m["w3"]
+        found = _object(m["o1"] or m["o2"] or m["o3"], each=True)
+        if found is None:
+            return None
+        return [{"do": "double_pt", "who": found[0], "toughness": what == "power and toughness"}], found[1]
     m = _EACH_COMBAT.fullmatch(text)
     if m:  # (with a duration: "until end of turn", or "until your next turn, …" read as that: ``unwrapped``)
         found = _restrict(m["o"], ["must_attack"] + ([f"{OTHER_THAN}:@you"] if m["pl"] or m["sg"] else []))
@@ -325,6 +358,22 @@ def _token(create: str) -> dict[str, Any] | None:
     if not found or len(found) != 1 or found[0].get("do") != "create_attacking" or isinstance(found[0].get("n"), dict):
         return None
     return found[0]
+
+
+def _object(phrase: str, *, each: bool = False) -> tuple[str, Any] | None:
+    """An object reference: a target, "it" / "that creature", ~ (and with ``each``, a group: "each creature you
+    control") -> (who, target group)."""
+    from app.rules import language
+
+    if phrase == "its":
+        phrase = "it"
+    try:
+        kind, key, group = language.ref(phrase)
+    except language._Fail:
+        return None
+    if kind in ("players", "them", "host") or (kind == "each" and not each):
+        return None
+    return language._who(kind, key), language._one(group)
 
 
 def _restrict(phrase: str, rules: list[str]) -> tuple[Effects, Any] | None:
@@ -409,5 +458,50 @@ def resume_attack_each(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, r["ctx"])
 
 
-PRIMITIVES = {"extra_phases": extra_phases, "create_attacking_each": create_attacking_each}
+# -- removing from combat (506.4), doubling power and toughness (701.10) --------------------------------------------
+def remove_from_combat(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """506.4: the creature stops being an attacking or blocking creature (a creature it blocked stays blocked,
+    509.1h). It doesn't untap or tap."""
+    from app.rules import effects
+
+    for cid in effects._cards(plan, ctx, e["who"]):
+        card = plan.state.cards[cid]
+        if not card.zone.endswith(":battlefield"):
+            continue
+        if card.attacking is not None:
+            plan.do({"type": "attack", "card_ids": [cid], "target": None}, actor=ctx["controller"])
+            plan.rules.blocked = [c for c in plan.rules.blocked if c != cid]
+        if card.blocking:
+            plan.do({"type": "block", "card_id": cid, "attacker_id": None}, actor=ctx["controller"])
+    return True
+
+
+def double_pt(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """701.10b: doubling a creature's power gives it +X/+0 where X is its power as the effect begins (and +0/+Y for
+    its toughness); 701.10c: a negative power gets -X/-0 where X is the difference from 0 - the same as adding the
+    power. Layer 7c (613.4c), until end of turn; each creature its own amount."""
+    from app.rules import effects, layers
+    from app.rules.sba import power, toughness
+
+    cards = effects._cards(plan, ctx, e["who"])
+    effects._remember(plan, ctx, e, cards)
+    for cid in cards:
+        card = plan.state.cards[cid]
+        ch = plan.ch(card)
+        if not card.zone.endswith(":battlefield") or not ch.is_creature:
+            continue
+        p = power(card, ch)
+        t = toughness(card, ch) if e.get("toughness") else 0
+        if p is None or t is None:
+            plan.note(f"{ctx.get('name') or 'The effect'}: {card.name}'s power isn't known: double it by hand")
+            continue
+        layers.add_effect(plan, affected=[plan.oid(card)], layer="7c", source=ctx.get("source_object"),
+                          controller=ctx["controller"], power=p, toughness=t,
+                          label=f"doubled: {p:+d}/{t:+d} until end of turn ({ctx.get('name', '')})")
+        effects._mark(plan, [cid], f"{p:+d}/{t:+d}")
+    return True
+
+
+PRIMITIVES = {"extra_phases": extra_phases, "create_attacking_each": create_attacking_each,
+              "remove_from_combat": remove_from_combat, "double_pt": double_pt}
 RESUME = {"attack_each_opponent": resume_attack_each}
