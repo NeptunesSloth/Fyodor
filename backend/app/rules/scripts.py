@@ -172,15 +172,38 @@ _ABILITY_WORD = re.compile(r"^(?:" + "|".join(re.escape(w).replace("'", "['’]"
                            re.IGNORECASE)
 
 
-def _short_name(name: str) -> str | None:
+_SELF_VERBS = r"(?:enters|attacks|dies|deals|becomes|is|gets|gains|can't|has|blocks|leaves|fights|isn't|doesn't)\b"
+
+
+def _short_name(name: str, text: str = "") -> str | None:
     """How Oracle text shortens a name like "Sharuum the Hegemon" or "Zur the Enchanter" (the
     first word), unless that word is also a creature type ("Soldier of the Pantheon")."""
     from app.rules.creature_types import CREATURE_TYPES
 
     m = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]{2,}) (?:the|of) ", name)  # (-- extremes (wave 8B) -- a capital with an accent: Éomer)
-    if m is None or m[1] in CREATURE_TYPES or m[1].rstrip("s") in CREATURE_TYPES:
+    if m is None:
+        # -- grammar (wave 11C) -- 201.5c: "Elanor Gardner" is "Elanor" in its own text; taken only where that word acts as
+        # the subject ("Elanor enters", "Elanor's power"), so a color or type word of a plain name is never read as it
+        m = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]{2,}) [A-ZÀ-ÖØ-Þ]", name)
+        if m is None or not re.search(rf"\b{re.escape(m[1])}(?: {_SELF_VERBS}|'s )", text):
+            return None
+    if m[1] in CREATURE_TYPES or m[1].rstrip("s") in CREATURE_TYPES:
         return None
     return m[1]
+
+
+_POSSESSED = r"(?:owner|library|hand|graveyard|name|power|toughness)"
+
+
+def _self_pronouns(part: str) -> str:
+    """-- grammar (wave 11C) -- a named character's "he / she / him / her / his" is the card itself ("Hercules attacks, put a
+    counter on him. He gains …"), written as ~. Anything else stays and so stays unsupported: "he or she" (a player), a
+    contraction ("he's"), "her controller" (an earlier permanent's)."""
+    part = re.sub(r"(~ enters (?:tapped )?with [^.]+? counters? on) (?:him|her)\b", r"\1 it", part)  # (as the "on it" form)
+    part = re.sub(r"\b(?:[Hh]e|[Ss]he)\b(?! or |')", "~", part)
+    part = re.sub(rf"\b(?:his|her) (?={_POSSESSED}\b)", "~'s ", part)
+    return re.sub(r"\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
+                  "~", part)
 
 
 def self_text(text: str, name: str) -> str:
@@ -195,14 +218,14 @@ def self_text(text: str, name: str) -> str:
         out = out[len("Power-up — "):]
     if out == text and (worded := word_prefix(text)) is not None:  # -- refused zones/sized (wave 3R4) -- 207.2d
         out = worded[1]
-    short = _short_name(name)
+    short = _short_name(name, out)
     names = [n for n in sorted({name, name.split(",")[0].strip(), *([short] if short else [])}, key=len, reverse=True)
              if len(n) >= 3]
 
     def own(part: str) -> str:
         for n in names:
             part = re.sub(rf"\b{re.escape(n)}\b", "~", part)
-        return part
+        return _self_pronouns(part) if "~" in part else part
 
     # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the
     # object that gets it ("this creature" is): it stays as written, so no ~ there means the granter
