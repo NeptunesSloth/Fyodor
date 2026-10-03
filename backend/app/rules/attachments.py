@@ -130,6 +130,11 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
             return "it can't enchant a player"
         if selector == "opponent" and host == you:
             return "it can only enchant an opponent"
+        # -- player shields (wave 5E) -- 702.16c, 702.16j
+        from app.rules import player_shields
+
+        if (shield := player_shields.protected_from(plan, host, sch)) is not None:
+            return f"{plan.name(host)} has protection from it ({shield})"
         return None
     card = plan.state.cards.get(host)
     if card is None or not card.zone.endswith(":battlefield"):
@@ -186,7 +191,7 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
     rest continue on resume, then ``shuffle``'s library is shuffled — "put it onto the battlefield,
     then shuffle" — and ``ctx``'s effects go on)."""
     from app.rules import characteristics as chars
-    from app.rules import replacements
+    from app.rules import copying, replacements
 
     entries = [dict(e) for e in entries]
     for i, entry in enumerate(entries):
@@ -197,7 +202,9 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
             # a shock land: "As ~ enters, you may pay 2 life" is decided before it enters (614.12a)
             replacements.ask_entry_choice(plan, entries, i, ctx, shuffle)
             return False
-        if attach_kind(chars.of(card, plan.info)) != "aura" or entry.get("host"):
+        # -- enter as copy (wave 5F) -- as it will enter: a permanent entering as a copy of an Aura is one (707.5, 303.4f)
+        if attach_kind(plan.ch(card) if copying.entering_as_copy(plan, card) else chars.of(card, plan.info)) != "aura" \
+                or entry.get("host"):
             continue
         hosts = _hosts_on_entering(plan, card, entry["player"])
         if not hosts:

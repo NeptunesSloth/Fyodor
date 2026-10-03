@@ -24,6 +24,7 @@ from app.game.state import zone_key
 from app.rules import (
     context,
     delayed,
+    entry_forms,
     layers,
     optional_payment,
     permissions,
@@ -338,6 +339,13 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
         if key not in plan.state.players and protection.protected_from(plan.ch(plan.state.cards[key]), src.ch) \
                 and source_shields.protection_applies(plan, ev):  # (615.12: protection's prevention, 702.16e, too)
             notes.append((f"Protection prevents the damage to {plan.ch(plan.state.cards[key]).name}", [key]))
+            continue
+        # -- player shields (wave 5E) -- a player's protection (702.16e, 702.16j)
+        from app.rules import player_shields
+
+        if key in plan.state.players and player_shields.protected_from(plan, key, src.ch) is not None \
+                and source_shields.protection_applies(plan, ev):
+            notes.append((f"Protection prevents the damage to {plan.name(key)}", []))
             continue
         kept.append(ev)
     rerun = replace.rerun_then(ctx, e)
@@ -956,6 +964,12 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     cid = d.resume["card"]
     finish(plan, d.resume["ctx"])
     r = plan.rules
+    # -- cast limits (wave 5E) -- a prohibited cast (601.3) can't begin: as if declined
+    from app.rules import cast_limits
+
+    if chosen[0] == "yes" and (limited := cast_limits.free_cast_blocked(plan, d.player, cid)) is not None:
+        plan.note(limited, actor=d.player)
+        chosen = ["no"]
     if chosen[0] != "yes":
         r.free_casts = [c for c in r.free_casts if c != cid]
         r.suspended = [c for c in r.suspended if c != cid]
@@ -1816,6 +1830,7 @@ PRIMITIVES = {
 from app.rules import copying  # noqa: E402
 
 PRIMITIVES.update(copying.PRIMITIVES)
+PRIMITIVES.update(entry_forms.PRIMITIVES)  # -- entry forms (wave 5F) -- "It's an enchantment." (611.2e)
 
 
 def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -2636,15 +2651,18 @@ CHOICE_OPTIONS: dict[str, list[str]] = {
 }
 CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
                  "opponent": "Chosen opponent", "player": "Chosen player"}
+CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
 
 
 def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]:
     from app.rules.creature_types import CREATURE_TYPES
 
     if what.endswith(copying.TO_COPY):  # -- copy system (wave 2F): "enter as a copy of …" (707.5, 614.12a) --
-        return copying.entry_options(plan, ctx["controller"], what)
+        return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
         return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
+    if (others := entry_forms.color_options(what)) is not None:  # -- entry forms (wave 5F) --
+        return [DecisionOption(id=v, label=v) for v in others]
     if what in ("opponent", "player"):
         pids = [p for p in plan.live() if what == "player" or p != ctx["controller"]]
         return [DecisionOption(id=p, label=plan.name(p)) for p in pids]
@@ -3160,6 +3178,17 @@ from app.rules import unless_pays as _unless_pays  # noqa: E402, I001
 
 PRIMITIVES.update(_unless_pays.PRIMITIVES)
 # -- end unless pays (wave 4C) --
+
+# -- cast limits (wave 5E) -- "… can't cast spells this turn" / flash for a turn (app/rules/cast_limits.py)
+from app.rules import cast_limits as _cast_limits  # noqa: E402, I001
+
+PRIMITIVES.update(_cast_limits.PRIMITIVES)
+RESUME.update(_cast_limits.RESUME)  # (and player hexproof / protection: app/rules/player_shields.py)
+from app.rules import protection_grants as _protection_grants  # noqa: E402, I001
+
+PRIMITIVES.update(_protection_grants.PRIMITIVES)  # "gains protection from the color of your choice" (608.2)
+RESUME.update(_protection_grants.RESUME)
+# -- end cast limits (wave 5E) --
 
 
 # -- this-turn history (wave 4D) -- "If this is the second time this ability has resolved this turn": the resolution

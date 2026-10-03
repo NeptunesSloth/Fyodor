@@ -1685,6 +1685,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 and (paid_may := _unless_sentence(text[len("you may "):], effects, may=True, it=it)) is not None:
             effects += _add_groups(groups, *paid_may)
             continue
+        # -- cast limits (wave 5E) -- "You may cast spells this turn as though they had flash."
+        from app.rules import cast_limits
+
+        if (flash := cast_limits.flash_sentence(text)) is not None:  # (a permission, not a choice made on resolution)
+            effects += flash
+            continue
         if text.startswith("you may "):
             if effects:
                 # "…. You may reveal … from among them …": a clause that models its own choice
@@ -2079,7 +2085,8 @@ def granted_ability(text: str) -> AbilityText | None:
         # -- attached events (wave 4L) -- "Protection from red", "Ward {2}", "Toxic 1"
         from app.rules import statics
 
-        return ab if statics.keyword_line(ab.text[0].lower() + ab.text[1:]) == ab.text else None
+        line = ab.text.rstrip(".")  # -- protection grants (wave 5E) -- (a resolved grant's text ends with a period)
+        return ab if statics.keyword_line(line[0].lower() + line[1:]) == line else None
     probe = Characteristics(name="\u0000", abilities=(ab,))
     return ab if define(ab, probe) is not None else None
 
@@ -2154,6 +2161,15 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str):
         return None  # ("up to X target …" in a trigger: its targets are chosen before any X is known to it)
+    # -- entry forms (wave 5F) -- "It's an enchantment." only right after a return
+    from app.rules import entry_forms
+
+    if d is not None and not entry_forms.enters_as_bound(d.get("effects") or []):
+        return None
+    if d is not None:  # "becomes a copy of …, except it has this ability" (707.9a): this ability's own line
+        from app.rules import copying
+
+        d = copying.with_this_ability(d, ability.text)
     return d
 
 
@@ -2193,6 +2209,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
         if (found := combat_rules.static_definition(text)) is not None:
             return found
+    if ability.kind == "static":  # -- type statics (wave 5F) -- "Each land is a Swamp in addition …" (613.1d, 305.7)
+        from app.rules import type_statics
+
+        if (typed := type_statics.parse(text)) is not None:
+            return typed
     if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
         return anthem
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
@@ -2868,6 +2889,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen
+    # -- entry forms (wave 5F) -- "~ enters tapped. As it enters, choose a color …"
+    from app.rules import entry_forms
+
+    if (tapped_choice := entry_forms.tapped_choice(text)) is not None:
+        return tapped_choice
     m = ENTERS_TAPPED_UNLESS.match(text)
     if m:  # check lands, fast lands, battle lands, Battlebond lands (614.1d)
         cond = _unless_condition(m["cond"])
@@ -3285,6 +3311,16 @@ def _is_in_addition(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if found is None or any(e["do"] != "become" or e.get("abilities") or e.get("lose_abilities") for e in found[0]):
         raise _NoMatch
     return found
+
+
+# -- entry forms (wave 5F) -- "It's an enchantment." after "return it to the battlefield" (the Enduring cycle): the card
+# types are set as it enters (611.2e; app/rules/entry_forms.py) — read only right after such a return (``define``)
+@effect(r"it's an enchantment(?: \(it's not a creature\.?\))?")
+def _enters_as_enchantment(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "enters_as", "who": "it", "types": ["Enchantment"]}], None
+
+
+_RECORDING["enters_as"] = None
 
 
 @_first  # (before agent J's "until your next turn" wrapper, which only wraps pumps, grants and restrictions)
@@ -4009,6 +4045,12 @@ EFFECTS[:0] = _tap_mana.TEMPLATES  # "Until end of turn, whenever a player taps 
 from app.rules import untap_riders as _untap_riders  # noqa: E402, I001
 
 EFFECTS[:0] = _untap_riders.TEMPLATES  # "Untap up to three lands." (app/rules/untap_riders.py)
+# -- cast limits (wave 5E) -- "Your opponents can't cast spells this turn." / "You may cast spells this turn as though they
+# had flash." (app/rules/cast_limits.py)
+from app.rules import cast_limits as _cast_limits  # noqa: E402, I001
+
+EFFECTS[:0] = _cast_limits.TEMPLATES
+# -- end cast limits (wave 5E) --
 # "Choose one of them." chooses among what the instruction before moved; "that card" is then the chosen one
 _RECORDING["choose_one_of"] = None
 _MOVERS.add("choose_one_of")

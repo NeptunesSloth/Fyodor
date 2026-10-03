@@ -673,6 +673,11 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
         if tgt.kind == "player":
             if tgt.id not in state.players:
                 return 0
+            # -- player shields (wave 5E) -- 702.16e, 702.16j
+            from app.rules import player_shields
+
+            if player_shields.protected_from(plan, tgt.id, ach) is not None and _protection_prevents(att, ach, tgt.id):
+                return 0
             into = out.poison if "infect" in ach.keywords else out.players
             into[tgt.id] = into.get(tgt.id, 0) + n
             toxic = sum(int(x) for ab in ach.abilities if ab.kind == "keywords" and "toxic" in ab.keywords

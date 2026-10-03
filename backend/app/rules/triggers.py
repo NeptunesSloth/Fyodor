@@ -367,6 +367,9 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]})]
     if e.kind == "drew":
         return [("draw", None, None, e.player, {"amount": 1})]
+    if e.kind == "land_played":  # -- entry forms (wave 5F) -- 305.1 (the land, as it is on the battlefield)
+        got = _object_then(plan, e.card, e.object_id)
+        return [("land_played", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player})] if got is not None else []
     if e.kind == "cycled":  # 702.29: the card is in its owner's graveyard now (702.29c)
         card = plan.state.cards.get(e.card or "")
         if card is None:
@@ -603,6 +606,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         if cond.get("spell_only") and not info.get("spell"):
             return False
         if cond.get("first_each_turn") and not info.get("first"):
+            return False
+    if event == "enter" and cond.get("entered_tapped") is not None:  # -- entry forms (wave 5F) --
+        from app.rules import entry_forms
+
+        if entry_forms.entered_tapped(plan, info) != cond["entered_tapped"]:
             return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
         return False
