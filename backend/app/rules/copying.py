@@ -798,7 +798,7 @@ def enter_definition(plan: Plan, card: CardInstance) -> dict[str, Any] | None:
     return None
 
 
-def entry_candidates(plan: Plan, controller: str, what: str) -> list[str]:
+def entry_candidates(plan: Plan, controller: str, what: str, card_id: str | None = None) -> list[str]:
     """What an entering permanent may copy ("any creature on the battlefield", "a creature or
     planeswalker you control"): objects on the battlefield (public), never a hidden one. Face-down
     ones (707.2) and Rooms (709.5d) aren't offered. -- enter as copy (wave 5F) -- an Aura is: put onto the battlefield by
@@ -806,20 +806,44 @@ def entry_candidates(plan: Plan, controller: str, what: str) -> list[str]:
     cast as an Aura spell, so it has no target), it is attached by hand (engine: manual resolution)."""
     from app.rules import selectors
 
-    sel = selectors.parse(what[: -len(TO_COPY)] if what.endswith(TO_COPY) else what)
+    phrase = what[: -len(TO_COPY)] if what.endswith(TO_COPY) else what
+    limit = None
+    if phrase.endswith(MV_SPENT):  # -- enter as copy (wave 5F) -- Mockingbird: the mana spent to cast the entering card
+        phrase, limit = phrase[: -len(MV_SPENT)], mana_spent(plan, card_id)
+    sel = selectors.parse(phrase)
     if sel is None or sel.player is not None:
         return []
     out = []
     for cid in selectors.candidates(plan, sel, controller):
         card = plan.state.cards[cid]
-        if card.zone.endswith(":battlefield") and supported_source(plan, card) is None:
+        if card.zone.endswith(":battlefield") and supported_source(plan, card) is None \
+                and (limit is None or plan.ch(card).mana_value <= limit):
             out.append(cid)
     return out
 
 
-def entry_options(plan: Plan, controller: str, what: str) -> list[DecisionOption]:
+# -- enter as copy (wave 5F) -- "… with mana value less than or equal to the amount of mana spent to cast this creature"
+# (Mockingbird): the mana actually spent on its total cost (601.2h, the payment record), as it enters (614.12a); not cast
+# (put onto the battlefield, a copy of the spell: 707.10) — none was spent, 0.
+MV_SPENT = " with mana value up to the mana spent to cast it"
+_MV_SPENT_TEXT = " with mana value less than or equal to the amount of mana spent to cast ~"
+
+
+def mana_spent(plan: Plan, card_id: str | None) -> int:
+    card = plan.state.cards.get(card_id or "")
+    record = plan.rules.payments.get(plan.oid(card)) if card is not None else None
+    if card is None or record is None or record.cast_from is None:
+        return 0
+    if not record.mana_known:  # (cast by hand: what paid for it isn't known — read as 0, said so)
+        plan.note(f"{card.name or 'It'} was cast by hand: the mana spent to cast it isn't known (read as 0) — "
+                  "copy by hand if more was spent", [card.id])
+        return 0
+    return sum(record.mana_spent.values())
+
+
+def entry_options(plan: Plan, controller: str, what: str, card_id: str | None = None) -> list[DecisionOption]:
     """The options of an "enter as a copy" choice (614.12a), for ``effects._choice_options``."""
-    ids = entry_candidates(plan, controller, what)
+    ids = entry_candidates(plan, controller, what, card_id)
     if not ids:
         return []
     options = [DecisionOption(id=cid, label=f"{plan.ch(plan.state.cards[cid]).name or 'A permanent'} "
@@ -855,14 +879,14 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     answer = (answers or {}).get(what)
     _drop_entering(plan, card)
     if answer is None:
-        if not entry_candidates(plan, controller, what):
+        if not entry_candidates(plan, controller, what, card.id):
             return False
         out["choice"] = {"what": what}
         return True
     if answer in ("", NONE):
         return False
     source = plan.state.cards.get(answer)
-    if source is None or answer not in entry_candidates(plan, controller, what):
+    if source is None or answer not in entry_candidates(plan, controller, what, card.id):
         plan.note(f"{card.name or 'It'}: what it was to copy is gone, so it enters as itself", actor=controller)
         return False
     excepts = [CopyExcept.model_validate(x) for x in d.get("excepts") or []]
@@ -1158,7 +1182,8 @@ def define_static(text: str) -> dict[str, Any] | None:
     elif not rest.endswith('."'):  # (a quoted ability can end the sentence: its period is inside the quotes)
         return None
     what, _, exc = rest.partition(", except ")
-    what = what.removesuffix(" on the battlefield")
+    spent = what.endswith(" on the battlefield" + _MV_SPENT_TEXT)  # -- enter as copy (wave 5F) -- Mockingbird
+    what = what.removesuffix(_MV_SPENT_TEXT).removesuffix(" on the battlefield")
     sel = selectors.parse(what)
     if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.other:
         return None
@@ -1168,8 +1193,8 @@ def define_static(text: str) -> dict[str, Any] | None:
     ex = parse_excepts(exc or None)
     if ex is None:
         return None
-    out = {"kind": "replacement", "replacement": "enter_as_copy", "optional": True, "what": what + TO_COPY,
-           "effects": [], **_dump(ex)}
+    out = {"kind": "replacement", "replacement": "enter_as_copy", "optional": True,
+           "what": what + (MV_SPENT if spent else "") + TO_COPY, "effects": [], **_dump(ex)}
     if not until_eot and m["tapped"]:
         out["tapped"] = True  # (Vesuva: tapped only if it enters as a copy)
     if until_eot:

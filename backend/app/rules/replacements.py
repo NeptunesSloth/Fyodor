@@ -283,7 +283,8 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     if what == battles.PROTECTOR:  # 310.9a / 310.12a
         return f"{card.name}: as it enters, choose its protector", battles.choice_options(plan, controller, card)
     article = "an" if what[:1] in "aeiou" else "a"
-    return f"{card.name}: as it enters, choose {article} {what}", _choice_options(plan, {"controller": controller}, what)
+    return (f"{card.name}: as it enters, choose {article} {what}",  # (-- enter as copy (wave 5F) --: the entering card)
+            _choice_options(plan, {"controller": controller, "source_card": card.id}, what))
 
 
 def _answer(entry_or_answers: dict[str, Any], choice: dict[str, Any], chosen: str) -> dict[str, Any]:

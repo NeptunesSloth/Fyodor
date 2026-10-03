@@ -2589,7 +2589,7 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
     from app.rules.creature_types import CREATURE_TYPES
 
     if what.endswith(copying.TO_COPY):  # -- copy system (wave 2F): "enter as a copy of …" (707.5, 614.12a) --
-        return copying.entry_options(plan, ctx["controller"], what)
+        return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
         return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
     if (others := entry_forms.color_options(what)) is not None:  # -- entry forms (wave 5F) --

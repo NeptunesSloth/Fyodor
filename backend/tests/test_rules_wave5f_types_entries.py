@@ -85,6 +85,10 @@ EXTRA = [
          oracle_text='Destroy target artifact or enchantment.', colors=['W'], color_identity=['W']),
     card("Thespian's Stage", set_code="tst", number="5F601", type_line='Land',
          oracle_text='{T}: Add {C}.\n{2}, {T}: This land becomes a copy of target land, except it has this ability.'),
+    card('Mockingbird', set_code="tst", number="5F207", mana_cost='{X}{U}', cmc=1.0, type_line='Creature — Bird Bard',
+         oracle_text="Flying\nYou may have this creature enter as a copy of any creature on the battlefield with mana value less than "
+                     "or equal to the amount of mana spent to cast this creature, except it's a Bird in addition to its other types "
+                     "and it has flying.", power='1', toughness='1', colors=['U'], color_identity=['U'], keywords=['Flying']),
     card('Reanimate', set_code="tst", number="5F301", mana_cost='{B}', cmc=1.0, type_line='Sorcery',
          oracle_text="Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that "
                      "card's mana value.", colors=['B'], color_identity=['B']),
@@ -378,10 +382,10 @@ def test_clone_variant_wordings_are_covered():
               "except it has haste.", "Cursed Mirror", "Artifact")
     assert ok("You may have this creature enter as a copy of any creature on the battlefield, except it's a Synth artifact "
               "creature in addition to its other types.", "Synth Infiltrator", "Artifact Creature — Synth")
-    # still refused: a mana value sized by the mana spent (Mockingbird), a card in a graveyard (Body Double)
-    assert not ok("You may have this creature enter as a copy of any creature on the battlefield with mana value less than or "
+    assert ok("You may have this creature enter as a copy of any creature on the battlefield with mana value less than or "
                   "equal to the amount of mana spent to cast this creature, except it's a Bird in addition to its other types "
                   "and it has flying.", "Mockingbird")
+    # still refused: a card in a graveyard (Body Double)
     assert not ok("You may have this creature enter as a copy of any creature card in a graveyard.", "Body Double")
 
 
@@ -552,6 +556,42 @@ def test_thespians_stage_copies_a_land_and_keeps_its_ability(cards):
     assert any("for each creature you control" in t for t in texts)
     copied = next(a for a in got.abilities if a.text == stage_text)
     assert coverage.ability_supported(got, copied.index)
+    roundtrip(s)
+
+
+def test_mockingbird_copies_only_up_to_the_mana_spent(cards):
+    s = build(cards, [(1, "Mockingbird"), (1, "Grizzly Bears"), (1, "Mulldrifter")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    drifter = put(s, "Mulldrifter", "battlefield")
+    bird = put(s, "Mockingbird", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"U": 1, "C": 2})
+    act(s, "p1", type="cast_spell", card_id=bird.id, x_value=2)  # 3 mana spent
+    offered = None
+    for _ in range(10):
+        d = rules(s).decision
+        if d is not None and d.prompt.endswith("to copy"):
+            offered = {o.id for o in d.options}
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+        elif d is None and s.state.zones.get("stack"):
+            act(s, rules(s).priority, type="pass_priority")
+        else:
+            break
+    assert offered is not None and bears.id in offered and drifter.id not in offered  # mana value 5 > 3
+    got = ch(s, s.state.cards[bird.id])
+    assert got.name == "Grizzly Bears" and "Bird" in got.subtypes and "flying" in got.keywords  # 707.9b, 707.9a
+    roundtrip(s)
+
+
+def test_mockingbird_put_onto_the_battlefield_spent_nothing(cards):
+    s = build(cards, [(1, "Mockingbird"), (1, "Grizzly Bears"), (1, "Reanimate")])
+    put(s, "Grizzly Bears", "battlefield")
+    bird = put(s, "Mockingbird", "graveyard")
+    reanimate = put(s, "Reanimate", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"B": 1})
+    act(s, "p1", type="cast_spell", card_id=reanimate.id, targets=[bird.id])
+    drive(s, lambda d: [d.options[0].id])
+    got = ch(s, s.state.cards[bird.id])
+    assert s.state.cards[bird.id].zone == "p1:battlefield" and got.name == "Mockingbird"  # (no creature of mana value 0)
     roundtrip(s)
 
 
