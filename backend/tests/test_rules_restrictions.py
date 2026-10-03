@@ -52,7 +52,7 @@ def test_parse(text, expected):
     # test_rules_conditionals.py)
     # ("you've cast an instant or sorcery spell this turn": read since wave 4D — test_rules_wave4d_this_turn.py)
     "{1}: Foo. Activate only as a sorcery and only if you've cast a spell with flying this turn.",
-    "{1}: Foo. Activate only if this creature is attacking.",
+    "{1}: Foo. Activate only if defending player controls a snow land.",
     "{1}: Foo. Activate only if you control the most creatures.",
 ])
 def test_unread_restrictions_are_refused(text):
