@@ -11,13 +11,13 @@ import pytest
 
 from app.cards.importer import build_database
 from app.config import Settings
-from app.game.state import GameState
 from app.game.session import GameSession
+from app.game.state import GameState
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, zone
 from tests.test_rules_attachments import build, named, to_hand
-from tests.test_rules_effects import pass_until_stack_empty, replay_matches, rules
+from tests.test_rules_effects import replay_matches, rules
 from tests.test_rules_trigger_context import responsive
 
 
@@ -43,6 +43,28 @@ EXTRA = [
     _card("Valeria Richards, Precocious", "V4", "{3}{U}", "Legendary Creature — Human Scientist Hero",
           "Noncreature spells you cast cost {1} less to cast.\nWhenever you cast your first noncreature spell each turn, "
           "draw a card.", ["U"], power="2", toughness="4"),
+    _card("Reflections of Littjara", "V6", "{4}{U}", "Enchantment",
+          "As this enchantment enters, choose a creature type.\nWhenever you cast a spell of the chosen type, copy that spell.",
+          ["U"]),
+    card("Birgi, God of Storytelling // Harnfel, Horn of Bounty", set_code="trv", number="V7", layout="modal_dfc",
+         mana_cost=None, cmc=3.0, type_line="Legendary Creature — God // Legendary Artifact", colors=["R"],
+         color_identity=["R"], image_uris=None,
+         card_faces=[
+             {"object": "card_face", "name": "Birgi, God of Storytelling", "mana_cost": "{2}{R}",
+              "type_line": "Legendary Creature — God",
+              "oracle_text": "Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and "
+                             "phases end.\nCreatures you control can boast twice during each of your turns rather than once.",
+              "power": "3", "toughness": "3", "colors": ["R"]},
+             {"object": "card_face", "name": "Harnfel, Horn of Bounty", "mana_cost": "{4}{R}",
+              "type_line": "Legendary Artifact",
+              "oracle_text": "Discard a card: Exile the top two cards of your library. You may play those cards this turn.",
+              "colors": ["R"]},
+         ]),
+    _card("Usher of the Fallen", "V8", "{W}", "Creature — Spirit Warrior",
+          "Boast — {1}{W}: Create a 1/1 white Human Warrior creature token. (Activate only if this creature attacked this "
+          "turn and only once each turn.)", ["W"], power="2", toughness="1", keywords=["Boast"]),
+    _card("Gloom", "V9", "{2}{B}", "Enchantment",
+          "White spells cost {3} more to cast.\nActivated abilities of white enchantments cost {3} more to activate.", ["B"]),
     _card("Woodland Wanderer", "V5", "{3}{G}", "Creature — Elemental",
           "Vigilance, trample\nConverge — This creature enters with a +1/+1 counter on it for each color of mana spent to "
           "cast it.", ["G"], power="2", toughness="2", keywords=["Vigilance", "Converge", "Trample"]),
@@ -88,13 +110,13 @@ def roundtrip(s):
     assert loaded.state.model_dump(mode="json") == s.state.model_dump(mode="json")
 
 
-def settle(s):
-    """Pass until the stack is empty, keeping every copy's targets."""
+def settle(s, prefer="keep"):
+    """Pass until the stack is empty, keeping every copy's targets (or picking ``prefer`` where offered)."""
     for _ in range(40):
         d = decision(s)
         if d is not None:
             ids = [o.id for o in d.options]
-            choose(s, "keep" if "keep" in ids else ids[0])
+            choose(s, prefer if prefer in ids else "keep" if "keep" in ids else ids[0])
             continue
         if not s.state.zones.get("stack"):
             return
@@ -222,3 +244,70 @@ def test_converge_cast_by_hand_reads_zero_and_says_so(cards):
     assert s.state.cards[wanderer.id].counters.get("+1/+1", 0) == 0
     assert any("cast by hand" in "".join(p.t or "" for p in e.parts) for e in s.state.log)
     roundtrip(s)
+
+
+# -- 4J: the chosen type in a cast trigger, copying a permanent spell (707.10, 608.3f: the copy becomes a token) ---------
+def test_reflections_of_littjara_copies_a_creature_spell_of_the_chosen_type(cards):
+    s = build(cards, "Reflections of Littjara", "Grizzly Bears", "Llanowar Elves")
+    responsive(s)
+    reflections = to_hand(s, "Reflections of Littjara")
+    pay(s, U=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=reflections.id)
+    settle(s, prefer="Bear")
+    assert s.state.cards[reflections.id].choices == {"Chosen creature type": "Bear"}
+    elves = to_hand(s, "Llanowar Elves")
+    pay(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=elves.id)
+    assert len(s.state.zones["stack"]) == 1  # (an Elf: no copy)
+    settle(s)
+    bears = to_hand(s, "Grizzly Bears")
+    pay(s, G=2)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    assert len(s.state.zones["stack"]) == 2
+    settle(s)
+    on_field = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p1:battlefield"]
+    assert len(on_field) == 2 and sum(1 for c in on_field if c.is_token) == 1
+    roundtrip(s)
+
+
+# -- 4H: Birgi's "boast twice" read from the face a modal double-faced permanent shows ---------------------------------
+@pytest.mark.parametrize("face", [0, 1])
+def test_birgi_boast_twice_from_the_real_double_faced_card(cards, face):
+    from tests.test_rules_conditionals import attack, to_turn, until_asked
+    from tests.test_rules_wave4h_activation_costs import activate, refused
+
+    s = build(cards, "Usher of the Fallen", "Birgi, God of Storytelling // Harnfel, Horn of Bounty")
+    usher = on_battlefield(s, "Usher of the Fallen")
+    birgi = on_battlefield(s, "Birgi, God of Storytelling // Harnfel, Horn of Bounty")
+    s.state.cards[birgi.id].face = face  # (Harnfel, its back face, doesn't let creatures boast twice)
+    to_turn(s, 3)
+    act(s, "p1", type="pass_priority")  # → declare attackers
+    attack(s, (usher, "p2"))
+    pay(s, W=1, C=1)
+    activate(s, usher, "Boast")
+    until_asked(s)
+    pay(s, W=1, C=1)
+    if face == 0:
+        activate(s, usher, "Boast")
+        until_asked(s)
+    else:
+        refused(s, "once each turn", usher, "Boast")
+    assert len([c for c in s.state.cards.values() if c.name.startswith("Human Warrior")]) == (2 if face == 0 else 1)
+
+
+# -- 4I: "Activated abilities of white enchantments cost {3} more" reaches mana abilities too (602.2b, 605.3a) ----------
+def test_gloom_taxes_a_white_enchantments_mana_ability_so_it_is_left_to_the_player(cards):
+    from app.game.errors import ActionError
+    from app.rules import casting
+    from app.rules import mana as M
+
+    s = build(cards, "Gloom")
+    act(s, "p1", type="create_token", player="p1", token={
+        "name": "Shrine", "type_line": "Token Enchantment — Shrine", "colors": ["W"], "text": "{T}: Add {W}."})
+    shrine = named(s, "Shrine")
+    assert casting.can_pay(s.state, "p1", M.parse_cost("{W}"), s.cards)  # (no Gloom yet)
+    on_battlefield(s, "Gloom")
+    assert not casting.can_pay(s.state, "p1", M.parse_cost("{W}"), s.cards)  # (its mana ability costs {3} now)
+    with pytest.raises(ActionError, match="by hand"):
+        act(s, "p1", type="activate_ability", card_id=shrine.id, ability=0)
+    assert not s.state.cards[shrine.id].tapped

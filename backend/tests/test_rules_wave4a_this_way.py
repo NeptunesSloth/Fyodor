@@ -405,7 +405,7 @@ def test_snarl_enters_tapped_when_declined_or_with_nothing_to_reveal(cards):
     for c in [c for c in s.state.cards.values() if c.zone == "p1:hand" and c.name in ("Island", "Swamp")]:
         act(s, "p1", type="move", card_ids=[c.id], to={"zone": "library", "player": "p1"})
     act(s, "p1", type="play_land", card_id=land.id)
-    assert s.state.rules.decision is None  # nothing to reveal: no question
+    assert s.state.rules.decision is None  # nothing else in hand (its size is public): no question
     assert s.state.cards[land.id].tapped
     roundtrip(s)
     s = build(cards)
@@ -415,6 +415,24 @@ def test_snarl_enters_tapped_when_declined_or_with_nothing_to_reveal(cards):
     d = s.state.rules.decision
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["none"])
     assert s.state.cards[land.id].zone == "p1:battlefield" and s.state.cards[land.id].tapped
+    roundtrip(s)
+
+
+# -- review (wave 4R) -- hidden information: with cards in hand but none matching, Alice is still asked (only "Don't
+# reveal" offered), so whether she was asked tells Bob nothing about her hand
+def test_snarl_asks_even_without_a_matching_card_in_a_nonempty_hand(cards):
+    s = build(cards)
+    land = _estuary_in_hand(s)
+    for c in [c for c in s.state.cards.values() if c.zone == "p1:hand" and c.name in ("Island", "Swamp")]:
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "library", "player": "p1"})
+    put(s, "Forest", "hand")
+    act(s, "p1", type="play_land", card_id=land.id)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and [o.id for o in d.options] == ["none"]
+    bob = s.view("p2")["rules"]["decision"]
+    assert "options" not in bob
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["none"])
+    assert s.state.cards[land.id].tapped
     roundtrip(s)
 
 

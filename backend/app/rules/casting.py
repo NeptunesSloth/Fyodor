@@ -316,6 +316,29 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
     return attached_mana.extend(state, card, info, ch.is_land, out)
 
 
+# -- review (wave 4R) -- 602.2b → 601.2f: "Activated abilities of … cost {N} more / less to activate" (Gloom, Training
+# Grounds) apply to mana abilities too (605.3a: they're activated abilities). The engine doesn't pay such a changed
+# cost for a mana ability: one whose cost a modifier changes isn't tapped automatically, and is activated by hand.
+def ability_taxes(state: GameState, info: CardInfo) -> bool:
+    """Is any "activated abilities … cost more / less" static on the battlefield (a cheap scan of printed text)?"""
+    for cid in (c for z, ids in state.zones.items() if z.endswith(":battlefield") for c in ids):
+        card = state.cards[cid]
+        if card.face_down:
+            continue
+        ch = chars.of(card, info)
+        if " to activate" in ch.oracle_text and any(d.get("static") == "ability_cost_modifier"
+                                                    for d in scripts.definitions(ch).values()):
+            return True
+    return False
+
+
+def mana_ability_taxed(state: GameState, card: CardInstance, ch: Characteristics, ab: M.ManaAbility, info: CardInfo) -> bool:
+    """Does a cost modifier change this mana ability's cost (``ability_taxes`` checked first by the caller)?"""
+    mana = parse_ability_cost(ab.extra_cost, card_name=ch.name).mana if ab.extra_cost else ""
+    return permissions.ability_mana(state, card.controller, card, ch, mana, info) != mana
+# -- end review (wave 4R) --
+
+
 def spend_allowed(kind: str | None, purpose: Purpose | None) -> bool:
     """May mana with this spending restriction pay for ``purpose``?"""
     if kind is None:
@@ -360,6 +383,7 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
     is one source whose options are ordered painless-first; a filter-style ability (with its own
     mana cost) is a separate source that other mana must pay for."""
     out: list[M.Source] = []
+    taxes = ability_taxes(state, info)  # -- review (wave 4R) --
     for cid in state.zones.get(zone_key(player, "battlefield"), []):
         card = state.cards[cid]
         if card.controller != player:
@@ -371,7 +395,8 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
         abilities = [(i, ab) for i, ab in mana_abilities(state, card, info)
                      if (usable_tap or not ab.tap) and spend_allowed(ab.spend_only, purpose)
                      and not ab.chooses and ab.self_counter is None  # (wave 3R3: the payer's choice: by hand)
-                     and not (ab.extra_cost and parse_ability_cost(ab.extra_cost, card_name=ch.name).energy)]
+                     and not (ab.extra_cost and parse_ability_cost(ab.extra_cost, card_name=ch.name).energy)
+                     and not (taxes and mana_ability_taxed(state, card, ch, ab, info))]  # (review 4R: by hand)
         rank = 0 if ch.is_land else 2 if ch.is_creature else 1
         free = [(i, ab) for i, ab in abilities if not parse_ability_cost(ab.extra_cost, card_name=ch.name).mana]
         plain = [(i, ab) for i, ab in free if not ab.sacrifice_self and ab.tap]
@@ -2230,6 +2255,8 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         raise ActionError(f"Fyodor can't carry out “{ability.text}” yet. Use the table tools.")
     if parsed.spend_only is not None:
         raise ActionError(f"{ch.name}’s mana can only pay for certain things: Fyodor taps it when you cast or activate them")
+    if ability_taxes(plan.state, plan.info) and mana_ability_taxed(plan.state, card, ch, parsed, plan.info):  # (review 4R)
+        raise ActionError(f"Another effect changes the cost of {ch.name}’s mana ability: activate it by hand with the table tools")
     if parsed.tap and not can_use_tap_abilities(plan.state, card, ch):
         raise ActionError(f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness")
     if parsed.chooses:  # -- refused copy/mana (wave 3R3) --
@@ -2294,6 +2321,8 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     parsed = dict(mana_abilities(plan.state, card, plan.info)).get(a.ability) if ability.kind == "mana" else None
     if parsed is None or parsed.spend_only is not None:
         raise ActionError("While paying you can only tap for mana")
+    if ability_taxes(plan.state, plan.info) and mana_ability_taxed(plan.state, card, ch, parsed, plan.info):  # (review 4R)
+        raise ActionError(f"Another effect changes the cost of {ch.name}’s mana ability: activate it by hand with the table tools")
     if parsed.tap and not can_use_tap_abilities(plan.state, card, ch):
         raise ActionError(f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness")
     options = parsed.options

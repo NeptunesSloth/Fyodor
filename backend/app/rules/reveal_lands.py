@@ -61,7 +61,10 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, defs: list[dict[
         what = PREFIX + d["sel"]
         cards = _matching(plan, card, controller, d["sel"])
         given = answers.get(what)
-        if not cards or given == NONE:
+        # -- review (wave 4R) -- asked whenever their hand holds another card (its size is public): skipping the
+        # question only when no card matches would tell the table they hold none (hidden information)
+        others = any(c != card.id for c in plan.state.zones.get(zone_key(controller, "hand"), []))
+        if not others or given == NONE:
             out["tapped"] = True
         elif given is None:
             if "choice" not in out:
