@@ -3433,6 +3433,11 @@ from app.rules import discover as _discover  # noqa: E402, I001
 
 PRIMITIVES.update(_discover.PRIMITIVES)
 # -- end discover (wave 9A) --
+# -- reveal until (wave 13E) -- app/rules/reveal_until.py
+from app.rules import reveal_until as _reveal_until  # noqa: E402, I001
+
+PRIMITIVES.update(_reveal_until.PRIMITIVES)
+RESUME["reveal_until_may"] = _reveal_until.resume_may
 
 # -- recursion & tutors (wave 4M) -- a spell moving itself (608.2m/n) and the rest: app/rules/recursion.py
 from app.rules import recursion as _recursion  # noqa: E402, I001

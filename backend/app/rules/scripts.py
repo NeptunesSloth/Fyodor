@@ -345,9 +345,9 @@ def _group_of(e: dict[str, Any]) -> int | None:
         return 0
     if isinstance(who, str) and who.startswith("target:"):
         return int(who[7:])
-    if isinstance(who, str) and who.startswith("controlled:target"):  # (wave 13E) "all creatures target player controls"
-        head = who[11:].partition("|")[0]
-        return 0 if head == "target" else int(head[7:])
+    m = re.match(r"controlled:target(?::(\d+))?\|", who) if isinstance(who, str) else None
+    if m:  # (wave 13E) "all creatures target player controls"; not 6B's "controlled:target_player_or_controller|…"
+        return int(m[1] or 0)
     return None
 
 
@@ -1827,6 +1827,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import name_search  # -- name search (wave 11D) --
 
     body = name_search.rewrite(body)
+    from app.rules import reveal_until  # -- reveal until (wave 13E) --
+
+    body = reveal_until.rewrite(body)
     body = re.sub(r"(chooses [^.]*? they control)\. Destroy the rest\.", r"\1, then the rest are destroyed.", body)  # (wave 11D)
     from app.rules import watches  # -- turn watches (wave 7D) --
 
@@ -5156,6 +5159,10 @@ EFFECTS[:0] = _block_effects.TEMPLATES
 from app.rules import discover as _discover  # noqa: E402, I001
 
 EFFECTS[:0] = _discover.TEMPLATES
+# -- reveal until (wave 13E) -- "Reveal cards from the top of your library until you reveal a creature card. Put that card …"
+from app.rules import reveal_until as _reveal_until  # noqa: E402, I001
+
+EFFECTS[:0] = _reveal_until.TEMPLATES
 # -- X actions (wave 9A) -- "bolster X, where X is …", "amass Orcs X, where X is …" (app/rules/x_actions.py)
 from app.rules import x_actions as _x_actions  # noqa: E402, I001
 
