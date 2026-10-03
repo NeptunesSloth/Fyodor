@@ -76,10 +76,9 @@ def bind_objects(plan: Plan, ctx: Context, name: str, card_ids: list[str]) -> No
     refs(ctx)[name] = {"kind": "objects", "objects": found}
 
 
-def bind_moved(plan: Plan, ctx: Context, name: str, before: list[ObjectRef]) -> None:
-    """After an effect moved these objects: the object each became, if it went to a public zone
-    (400.7j: other parts of the effect can find it there); if it went to a hidden zone or ceased
-    to exist, only what it was (with its last known information, 608.2h)."""
+def moved_objects(plan: Plan, before: list[ObjectRef]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """After an effect moved these objects: (the object each became, "was" = each as it was, with its last known
+    information) — see ``bind_moved``."""
     out = []
     was = []
     for old in before:
@@ -91,6 +90,14 @@ def bind_moved(plan: Plan, ctx: Context, name: str, before: list[ObjectRef]) -> 
             out.append(ObjectRef(card=card.id, object_id=plan.oid(card), zone=card.zone).model_dump(mode="json"))
         else:
             out.append(was[-1])
+    return out, was
+
+
+def bind_moved(plan: Plan, ctx: Context, name: str, before: list[ObjectRef]) -> None:
+    """After an effect moved these objects: the object each became, if it went to a public zone
+    (400.7j: other parts of the effect can find it there); if it went to a hidden zone or ceased
+    to exist, only what it was (with its last known information, 608.2h)."""
+    out, was = moved_objects(plan, before)
     refs(ctx)[name] = {"kind": "objects", "objects": out, "was": was}
 
 
@@ -102,8 +109,12 @@ def bind_amount(ctx: Context, name: str, n: int) -> None:
     refs(ctx)[name] = {"kind": "amount", "n": int(n)}
 
 
-def bind_payment(ctx: Context, name: str, ok: bool, objects: list[ObjectRef] = ()) -> None:  # type: ignore[assignment]
-    refs(ctx)[name] = {"kind": "payment", "ok": bool(ok), "objects": [o.model_dump(mode="json") for o in objects]}
+def bind_payment(ctx: Context, name: str, ok: bool, objects: list[ObjectRef] = (),  # type: ignore[assignment]
+                 moved: tuple[list[dict[str, Any]], list[dict[str, Any]]] | None = None) -> None:
+    b: Binding = {"kind": "payment", "ok": bool(ok), "objects": [o.model_dump(mode="json") for o in objects]}
+    if moved is not None:  # -- if you do (wave 8C) -- what the payment moved: the new objects to act on, as they were to read
+        b["moved"], b["was"] = moved
+    refs(ctx)[name] = b
 
 
 def bind_flag(ctx: Context, name: str, ok: bool) -> None:
@@ -125,7 +136,7 @@ def _object_refs(ctx: Context, name: str, *, was: bool = False) -> list[ObjectRe
         raw = [event["other"]] if event.get("other") else []
     else:
         b = (ctx.get("refs") or {}).get(name) or {}
-        raw = (b.get("was") if was and b.get("was") is not None else b.get("objects")) or []
+        raw = (b.get("was") if was and b.get("was") is not None else b.get("moved") or b.get("objects")) or []  # (moved: wave 8C)
     return [ObjectRef.model_validate(r) for r in raw]
 
 

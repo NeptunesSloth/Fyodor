@@ -1095,6 +1095,17 @@ def _create_predefined(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | No
                        "type_line": type_line, "text": text}}], None
 
 
+# -- if you do (wave 8C) -- "put your choice of a +1/+1, first strike, or trample counter on that creature" (counter_pick.py)
+@effect(r"put your choice of (?P<kinds>.+?) counters? on (?P<who>~|this creature|it|that creature)")
+def _counter_pick(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import counter_pick
+
+    found = counter_pick.parse(m["kinds"], m["who"])
+    if found is None:
+        raise _NoMatch
+    return found, None
+
+
 @effect(r"put {N} (?P<kind>\+1/\+1|-1/-1) counters? on (?P<who>target creature you control|target creature|~|it|each creature you control)")
 def _counters(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     who = {"~": "self", "it": "it", "each creature you control": "creatures_you_control"}.get(m["who"], "target")
@@ -1680,7 +1691,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if text == "if you search your library this way, shuffle":  # -- refused zones/sized (wave 3R4) -- (_gy_shuffle)
             effects.append({"do": "gy_search_shuffle"})
             continue
-        may_mill = re.fullmatch(r"you may mill (?P<n>two|three|four|five|\d+) cards", text) if i == 0 and len(texts) > 1 else None
+        may_mill = re.fullmatch(r"you may mill (?P<n>two|three|four|five|\d+) cards", text) if i == 0 and len(texts) > 1 \
+            and not texts[1].startswith("If you ") else None  # (wave 8C: "If you do" asks about the mill: a payment)
         if may_mill is not None:  # -- refused zones/sized (wave 3R4) -- "You may mill three cards. Then return …": only the
             # mill is optional (the rest happens either way): refused_zones.may_mill asks as it resolves
             effects.append({"do": "may_mill", "n": num(may_mill["n"])})
@@ -1817,7 +1829,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             if sized_pay and (if_do["neg"] or not re.search(r"\bX\b", rest_text)) and not (
                     pay_e.get("life_x") == {"event_amount": 1} and not if_do["neg"]):  # (Niv-Mizzet: "that many" = that much)
                 return None
+            from app.rules import pay_objects
+
+            rest_text = pay_objects.rewrite(rest_text, pay_e, it)  # -- if you do (wave 8C) -- "that creature's mana value"
             inner = _clause(rest_text) if not rest_text.startswith("you may ") else None
+            if inner is not None:
+                inner = pay_objects.bind(inner, pay_e)  # -- if you do (wave 8C) -- the sacrificed / exiled object, from the payment
             if inner is None:
                 return None
             if sized_pay or hand_pay:  # (hand_pay: wave 6F)
@@ -1894,6 +1911,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     if resolved is not None:  # -- refused modal/conditional (wave 3R1) -- an "instead" pronoun naming the target
         resolved = _gated_other_rewrite(_branch_refs_retarget(resolved))
     if resolved is None or not _branch_refs_ok(resolved) or not _gated_other_ok(resolved):  # (conditional clauses, wave 1B)
+        return None
+    from app.rules import pay_objects  # -- if you do (wave 8C) --
+
+    if pay_objects.leftover(resolved):  # -- if you do (wave 8C) -- "the exiled card" with no payment before it
         return None
     if not _cast_conditions_ok(resolved) or not _did_refs_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
         return None

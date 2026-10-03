@@ -2754,6 +2754,12 @@ PRIMITIVES.update({"edict": edict, "player_chooses": player_chooses, "reveal_han
                    "choose_from_hand": choose_from_hand, "discard_named": discard_named, "choose_value": choose_value})
 RESUME = {"edict": resume_edict, "player_chooses": resume_player_chooses, "choose_from_hand": resume_choose_from_hand,
           "choose_value": resume_choose_value}
+# -- if you do (wave 8C) -- "put your choice of a +1/+1, first strike, or trample counter on it" (app/rules/counter_pick.py)
+from app.rules import counter_pick as _counter_pick  # noqa: E402, I001
+
+PRIMITIVES["pick_counter"] = _counter_pick.pick_counter
+RESUME["pick_counter"] = _counter_pick.resume
+# -- end if you do (wave 8C) --
 
 
 # -- temporary grants & riders (agent G) ------------------------------------------------------------
