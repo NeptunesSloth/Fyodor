@@ -335,6 +335,8 @@ def _each_part(rest: str, x_value: values.Value | None, it: str | None) -> dict[
         return {"p": _signed(m["p"]), "t": _signed(m["t"]), "value": rel}
     if m:
         v = values.parse_count(m["each"], it=it)  # ("counters on it": on the source, when ~ is the subject)
+        if v is None:  # -- attached events (wave 8D) -- "Equipped creature gets +1/+1 for each Aura and Equipment attached to it"
+            v = _attached_relative(m["each"])
         if v is None:
             return None
         return {"p": _signed(m["p"]), "t": _signed(m["t"]), "value": v}
@@ -354,6 +356,13 @@ def _each_part(rest: str, x_value: values.Value | None, it: str | None) -> dict[
 # gets +1/+1 for each other creature you control with the same name as that creature" (Mirror Box; 201.2)
 _SHARING = re.compile(r"^(?P<sel>other .+?) that shares? at least one creature type with it$")
 _SAME_NAME = re.compile(r"^(?P<sel>other .+?) with the same name as that creature$")
+
+
+def _attached_relative(each: str) -> dict[str, Any] | None:
+    """-- attached events (wave 8D) -- 301.5, 303.4: the Auras / Equipment attached to the object the static modifies (the
+    host of an Aura or Equipment: "it"), read for it whenever its characteristics are (611.3a)."""
+    m = re.fullmatch(r"(?P<kinds>Aura|Equipment|Aura (?:and|or|and/or) Equipment) attached to it", each)
+    return {"relative": "attached", "kinds": sorted(set(re.findall(r"Aura|Equipment", m["kinds"])))} if m else None
 
 
 def _relative_count(each: str) -> dict[str, Any] | None:

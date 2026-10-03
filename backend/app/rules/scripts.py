@@ -3234,6 +3234,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     tail = re.fullmatch(r"(?P<body>~ enters with .+? counters? on it) (?P<c>if you cast it(?: from your hand)?)\.", text)
     if tail is not None:
         text = f"If {tail['c'][3:].replace(' it', ' ~', 1)}, {tail['body']}."
+    # -- this-turn conditions (wave 8D) -- "~ enters with a +1/+1 counter on it if you attacked this turn." (Raid, Morbid …)
+    ttail = re.fullmatch(r"(?P<body>~ enters with .+? counters? on it) if (?P<c>[^,]+ this turn)\.", text)
+    if ttail is not None:
+        text = f"If {ttail['c']}, {ttail['body']}."
+    # -- end this-turn conditions --
     eq = re.fullmatch(r"~ enters with a number of (?P<kind>\+1/\+1|[a-z]+) counters on it equal to (?P<v>.+)\.", text)
     if eq is not None:
         from app.rules import values
@@ -3260,7 +3265,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         from app.rules import conditions
 
         cast_if = conditions.parse(lead["c"], objects=True)
-        if cast_if is None or "cast" not in cast_if or cast_if.get("object") != "self":
+        if cast_if is not None and lead["c"].endswith(" this turn") and (  # -- this-turn conditions (wave 8D) -- 608.2i, 614.12:
+                "history" in cast_if or all("history" in x for x in cast_if.get("any", [None]))):  # read as it enters
+            pass
+        elif cast_if is None or "cast" not in cast_if or cast_if.get("object") != "self":
             return None
         text = "~ enters with " + text[lead.end():]
     # -- counters (wave 7C) --
@@ -3930,6 +3938,8 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         if len(lead_groups) > 1 or _is_player_group(lead_groups[0]):
             return None
         cond = _bind_cond(cond, "target")  # (the lead's one target: numbered with its group by _add_groups)
+    elif _cond_has_it(cond) and found[0] and all(e.get("who") == "host" for e in found[0]):
+        cond = _bind_cond(cond, "host")  # -- attached events (wave 8D) -- "… on equipped creature if it's red": "it" is the host
     if m["kw"] == "unless":
         cond = {"not": cond}
     return [{"do": "only_if", "cond": cond, "skip": 1}, *found[0]], found[1]
