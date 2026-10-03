@@ -184,7 +184,8 @@ def _parse(c: str) -> Condition | None:
     found = _player_action(c)
     if found is not None:
         return found
-    from app.rules import tap_mana  # -- mana riders (wave 5A) -- "you tap ~ for mana", "a player taps a land for mana"
+    # -- mana riders (wave 5A) -- "you tap ~ for mana", "a player taps a land for mana"
+    from app.rules import tap_mana
 
     found = tap_mana.condition(c)
     if found is not None:

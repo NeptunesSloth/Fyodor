@@ -162,8 +162,6 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"kicked": 1}
     if _COLORS_SPENT.fullmatch(what):  # -- ability words (wave 4F) -- converge
         return {"colors_spent": 1}
-    if re.fullmatch(r"cards? named ~ in (?:all|each) graveyards?", what):  # -- mana riders (wave 5A) -- Rite of Flame
-        return {"named_self_in_graveyards": 1}
     if what == "your life total":
         return {"life": "you"}
     if what in ("target player's life total", "target opponent's life total"):

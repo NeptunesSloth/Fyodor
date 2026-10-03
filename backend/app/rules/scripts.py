@@ -2061,7 +2061,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
         return None
-    from app.rules import tap_mana as _tm  # -- mana riders (wave 5A) -- 605.1b: adding mana makes it a mana ability
+    # -- mana riders (wave 5A) -- 605.1b: adding mana makes it a mana ability
+    from app.rules import tap_mana as _tm
 
     if d is not None and _tm.adds_mana(d):
         return None
@@ -3799,7 +3800,9 @@ def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     hand = re.fullmatch(r"cards? in target (?P<who>player|opponent)'s hand", what)
     if hand is not None:
         return [{"do": "add_mana", "sym": (m["sym"] or m["sym2"])[1], "n": {"hand": "target"}}], hand["who"]
-    count = values.parse_count(what)
+    # -- mana riders (wave 5A) -- Rite of Flame: "add {R} for each card named ~ in each graveyard" (the spell's own name;
+    # only in this "add" instruction: values.evaluate {"named_self_in_graveyards": 1})
+    count = {"named_self_in_graveyards": 1} if what == "card named ~ in each graveyard" else values.parse_count(what)
     if count is None:
         raise _NoMatch
     if isinstance(count, dict) and count.get("hand") == "target":

@@ -68,8 +68,10 @@ EXTRA = [
     card('Forbidden Orchard', set_code="tst", number="F01", mana_cost='', cmc=0.0, type_line='Land', oracle_text='{T}: Add one mana of any color.\nWhenever you tap this land for mana, target opponent creates a 1/1 colorless Spirit creature token.', colors=[], color_identity=[]),  # noqa: E501
     card('Manabarbs', set_code="tst", number="F02", mana_cost='{3}{R}', cmc=4.0, type_line='Enchantment', oracle_text='Whenever a player taps a land for mana, this enchantment deals 1 damage to that player.', colors=['R'], color_identity=['R']),  # noqa: E501
     card('Zhur-Taa Druid', set_code="tst", number="F03", mana_cost='{R}{G}', cmc=2.0, type_line='Creature — Human Druid', oracle_text='{T}: Add {G}.\nWhenever you tap this creature for mana, it deals 1 damage to each opponent.', power='1', toughness='1', colors=['G', 'R'], color_identity=['G', 'R']),  # noqa: E501
+    card('Twitching Doll', set_code="tst", number="G01", mana_cost='{1}{G}', cmc=2.0, type_line='Artifact Creature — Spider Toy', oracle_text='{T}: Add one mana of any color. Put a nest counter on this creature.\n{T}, Sacrifice this creature: Create a 2/2 green Spider creature token with reach for each counter on this creature. Activate only as a sorcery.', power='2', toughness='2', colors=['G'], color_identity=['G']),  # noqa: E501
+    card('Gemstone Mine', set_code="tst", number="G02", mana_cost='', cmc=0.0, type_line='Land', oracle_text='This land enters with three mining counters on it.\n{T}, Remove a mining counter from this land: Add one mana of any color. If there are no mining counters on this land, sacrifice it.', colors=[], color_identity=[]),  # noqa: E501
 ]
-FULL = [c["name"] for c in EXTRA]
+FULL = [c["name"] for c in EXTRA if c["name"] != "Accumulated Knowledge"]
 
 
 @pytest.fixture()
@@ -584,17 +586,13 @@ def test_rite_of_flame_counts_the_others_in_every_graveyard(cards):
     roundtrip(s)
 
 
-def test_accumulated_knowledge_draws_one_more_for_each(cards):
-    s = build(cards, [(2, "Accumulated Knowledge"), (8, "Forest")])
-    ak, other = [c for c in s.state.cards.values() if c.name == "Accumulated Knowledge"]
-    act(s, "p1", type="move", card_ids=[other.id], to={"player": "p1", "zone": "graveyard"})
-    act(s, "p1", type="move", card_ids=[ak.id], to={"player": "p1", "zone": "hand"})
-    hand = len(s.state.zones["p1:hand"])
-    mana(s, U=1, C=1)
-    act(s, "p1", type="cast_spell", card_id=ak.id)
-    pass_until_stack_empty(s)
-    assert len(s.state.zones["p1:hand"]) == hand - 1 + 2  # a card, then one more (the other in the graveyard)
-    roundtrip(s)
+def test_named_counts_elsewhere_stay_manual():
+    """Only Rite of Flame's "add" instruction reads its own name in the graveyards; other uses aren't guessed."""
+    from tests.test_rules_scripts import ch as characteristics
+
+    ak = next(c for c in EXTRA if c["name"] == "Accumulated Knowledge")
+    level = coverage.of_characteristics(characteristics(ak["name"], ak["type_line"], ak["oracle_text"]))
+    assert level.level != "FULL"
 
 
 def test_spirit_guide_while_paying_for_a_spell(cards):
@@ -657,4 +655,27 @@ def test_zhur_taa_druid_hurts_each_opponent(cards):
     act(s, "p1", type="activate_ability", card_id=druid.id, ability=0)
     pass_until_stack_empty(s)
     assert s.state.players["p1"].mana == {"G": 1} and s.state.players["p2"].life == life - 1
+    roundtrip(s)
+
+
+# -- counter riders ----------------------------------------------------------------------------------------------------------------
+def test_twitching_doll_puts_a_nest_counter_on_itself(cards):
+    s = build(cards, [(1, "Twitching Doll"), (9, "Forest")])
+    doll = put(s, "Twitching Doll", "battlefield")
+    next_main(s)
+    act(s, "p1", type="activate_ability", card_id=doll.id, ability=0, mana_choice="B")
+    assert s.state.players["p1"].mana == {"B": 1} and s.state.cards[doll.id].counters.get("nest") == 1
+    roundtrip(s)
+
+
+def test_gemstone_mine_is_sacrificed_with_its_last_counter(cards):
+    s = build(cards, [(1, "Gemstone Mine"), (9, "Forest")])
+    mine = put(s, "Gemstone Mine", "battlefield")
+    act(s, "p1", type="counter", card_ids=[mine.id], kind="mining", delta=2)
+    act(s, "p1", type="activate_ability", card_id=mine.id, ability=1, mana_choice="U")
+    assert s.state.cards[mine.id].zone == "p1:battlefield" and s.state.cards[mine.id].counters.get("mining") == 1
+    act(s, "p1", type="tap", card_ids=[mine.id], tapped=False)
+    act(s, "p1", type="activate_ability", card_id=mine.id, ability=1, mana_choice="R")
+    assert s.state.players["p1"].mana == {"U": 1, "R": 1}
+    assert s.state.cards[mine.id].zone == "p1:graveyard"  # no mining counters left: sacrificed (701.21a)
     roundtrip(s)

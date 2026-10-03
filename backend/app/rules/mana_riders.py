@@ -58,6 +58,11 @@ _COMBO = re.compile(r"^Add (?P<n>two|three) mana in any combination of \{(?P<a>[
 _DIFFERENT = re.compile(r"^Add (?P<n>two|three) mana of different colors$")
 _GAIN = re.compile(r"^You gain (?P<n>\d+|one|two|three|four|five) life$")
 _OPP_GAIN = re.compile(r"^Each opponent gains (?P<n>\d+|one|two|three|four|five) life$")
+# "Put a nest counter on this creature." (Twitching Doll, Strixhaven Stadium, the depletion lands); "If there are no
+# mining counters on this land, sacrifice it." (Gemstone Mine, Peat Bog — after the cost removed one, 602.2b / 605.3b)
+_PUT_COUNTER = re.compile(r"^Put an? (?P<k>[a-z]+) counter on (?:this (?:artifact|creature|land|permanent|enchantment)|~)$")
+_SAC_IF_NONE = re.compile(r"^If there are no (?P<k>[a-z]+) counters on (?:this (?:artifact|creature|land|permanent)|~), "
+                          r"sacrifice it$")
 
 # value kinds a mana ability may be sized by (read for its controller, with the source as "this"/"other")
 _SAFE_KEYS = {"count", "distinct", "among", "devotion", "sum", "max", "of", "opponents", "spells_cast", "party",
@@ -83,7 +88,7 @@ def _safe(v: Any) -> bool:
     if "turn_history" in v:
         return v["turn_history"] in ("drew", "gained", "lost", "died")
     if "times" in v or "plus" in v or "minus" in v:
-        return all(_safe(x) for x in (v.get("times") or v.get("plus") or v.get("minus")))
+        return all(_safe(x) for x in (v.get("times") or v.get("plus") or v.get("minus") or []))
     if "half" in v:
         return _safe(v["half"])
     if "hand" in v:
@@ -153,6 +158,12 @@ def rider(sentence: str) -> tuple[str, int] | None:
         return "gain", _n(m["n"])
     if m := _OPP_GAIN.fullmatch(sentence):
         return "opp_gain", _n(m["n"])
+    from app.rules.values import UNMODELED_COUNTERS
+
+    if (m := _PUT_COUNTER.fullmatch(sentence)) and m["k"] not in UNMODELED_COUNTERS:
+        return f"counter:{m['k']}", 1
+    if m := _SAC_IF_NONE.fullmatch(sentence):
+        return f"sac_if_none:{m['k']}", 0
     return None
 
 
@@ -197,7 +208,15 @@ def after(plan: Plan, card: CardInstance, kind: str, n: int) -> None:
     """A rider of this module, right after the ability's mana was added (605.3b: the same resolution)."""
     from app.rules import replace
 
-    if kind == "gain":
+    if kind.startswith("counter:"):  # (an effect of the ability: the counter choke point, 122.6 / 614)
+        if card.zone.endswith(":battlefield"):
+            replace.put_counters(plan, [(card.id, kind.split(":", 1)[1], n)], by=card.controller)
+    elif kind.startswith("sac_if_none:"):  # 701.21a: its controller sacrifices it (it's still there, 400.7)
+        from app.rules.effects import _sacrifice_cards
+
+        if card.zone.endswith(":battlefield") and card.counters.get(kind.split(":", 1)[1], 0) == 0:
+            _sacrifice_cards(plan, [card.id], card.controller)
+    elif kind == "gain":
         replace.gain_life(plan, [(card.controller, n)], actor=card.controller)
     elif kind == "opp_gain":
         gains = [(p, n) for p in plan.live() if p != card.controller]
@@ -211,9 +230,9 @@ def activate_from_hand(plan: Plan, card: CardInstance, ch: Any, ability: Any) ->
     ability, activated whenever its controller has priority or is paying, resolving at once: the cost (the card is
     exiled from the hand — a public move) and then the mana. The auto-payer never spends a card from the hand."""
     from app.game.errors import ActionError
+    from app.game.rules_state import emit
     from app.rules import mana as M
     from app.rules.casting import commander_identity
-    from app.game.rules_state import emit
 
     parsed = M.parse_mana_ability(ability.text, commander_identity(plan.state, plan.actor, plan.info))
     if parsed is None or not parsed.from_hand or card.owner != plan.actor or len(parsed.options) != 1:
