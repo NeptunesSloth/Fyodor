@@ -689,7 +689,8 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
     return TriggerEvent(kind=kind, batch=batch, objects=[ref] if ref else [], new_objects=new, players=players,
                         source=info.get("source_ref") or (
                             _source_ref(plan, info.get("source_oid")) if kind == "dealt_damage" else None),
-                        amount=int(info.get("amount") or 0), count=1)
+                        amount=int(info.get("amount") or 0), count=1,
+                        defended=info.get("defended") if kind == "you_attack" else None)  # -- combat (wave 5C) --
 
 
 def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,

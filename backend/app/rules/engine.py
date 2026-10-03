@@ -30,6 +30,7 @@ from app.rules import (
     battles,
     casting,
     combat,
+    combat_rules,  # -- combat (wave 5C) --
     copying,
     cost_payment,
     coverage,
@@ -454,7 +455,10 @@ def next_step(plan: Plan) -> None:
         return
     if phase == "end_combat":
         combat.end_combat(plan)
-    if phase == "declare_attackers" and r.no_attackers:
+    extra = combat_rules.next_phase(plan) if phase in ("main1", "main2", "end_combat") else None  # -- combat (wave 5C) -- 500.8
+    if extra is not None:
+        plan.do({"type": "phase", "to": extra, "force": True}, actor=plan.active)
+    elif phase == "declare_attackers" and r.no_attackers:
         # Nobody attacked: skip declare blockers and combat damage (rule 508.8).
         plan.do({"type": "phase", "to": "end_combat", "force": True}, actor=plan.active)
     else:
@@ -487,6 +491,7 @@ def _exerted(plan: Plan, player: str) -> list[str]:
 
 
 def start_next_turn(plan: Plan) -> None:
+    combat_rules.new_turn(plan)  # -- combat (wave 5C) -- added phases belong to the turn that ends
     keep = _keep_tapped(plan)
     keep += [c for c in _exerted(plan, plan.after(plan.active)) if c not in keep]  # (wave 4H: an exerted one isn't stunned, 122.1d)
     # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
@@ -570,6 +575,8 @@ def on_step_start(plan: Plan) -> None:
         sagas.precombat_main(plan)
         # -- counters & designations (wave 3E): 728.1 rad counters (precombat main phase) --
         effects.designations.rad_trigger(plan)
+    elif phase == "begin_combat":  # -- combat (wave 5C) -- "if it's the first combat phase of the turn"
+        combat_rules.combat_began(plan)
     elif phase == "end_combat":  # -- (wave 3E) delayed triggers "at end of combat" (511.2, 603.7: the Ring's sacrifice) --
         delayed.at_step(plan, "end_combat")
     elif phase == "declare_attackers":

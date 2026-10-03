@@ -1079,6 +1079,8 @@ def resume_pay_mana(plan: Plan, d: Any, chosen: list[str]) -> None:
     assert d.resume is not None
     if chosen[0] == "cancel":  # nothing committed was tapped or exiled yet (601.2h: no partial payments)
         plan.note(f"{plan.name(d.player)} cancelled")
+        if _attack_cancelled(plan, d):  # -- combat (wave 5C) --
+            return
         plan.rules.priority = d.player
         plan.hold = d.player
         return
@@ -1142,12 +1144,25 @@ def ask_sources(plan: Plan, cost: M.ManaCost, what: str, resume: dict[str, Any])
            resume={**resume, "step": "payment_sources"})
 
 
+def _attack_cancelled(plan: Plan, d: Any) -> bool:
+    """-- combat (wave 5C) -- the cost to attack wasn't paid: attackers are declared again (508.1j: the declaration
+    is illegal without the payment)."""
+    if ((d.resume or {}).get("intent") or {}).get("type") != "declare_attackers":
+        return False
+    from app.rules import combat
+
+    combat.start_declare_attackers(plan)
+    return True
+
+
 def resume_payment(plan: Plan, d: Any, chosen: list[str]) -> None:
     """PAY (the suggestion), MANUAL (pick sources) or CANCEL."""
     assert d.resume is not None
     answer = chosen[0]
     if answer == "cancel":
         plan.note(f"{plan.name(d.player)} cancelled")
+        if _attack_cancelled(plan, d):  # -- combat (wave 5C) --
+            return
         plan.rules.priority = d.player
         plan.hold = d.player
         return

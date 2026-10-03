@@ -1243,6 +1243,11 @@ def _lower_first(s: str) -> str:
 
 def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """One instruction: a literal template, else the generic grammar (app/rules/language.py)."""
+    # -- combat (wave 5C) -- extra combat phases, "attacks this turn if able", attacking tokens
+    from app.rules import combat_rules
+
+    if (combat_found := combat_rules.clause(text)) is not None:
+        return combat_found
     from app.rules import language  # the generic grammar (a leaf module)
 
     for pattern, build in EFFECTS:
@@ -2060,6 +2065,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
         return None
+    # -- combat (wave 5C) -- "attacks each combat if able" needs its duration
+    from app.rules import combat_rules
+
+    if d is not None and combat_rules.unwrapped(d):
+        return None
     # -- chosen player (wave 4J) -- "the chosen player" is the one this permanent chose as it entered (app/rules/chosen.py):
     # only on a card with exactly one "As ~ enters, choose an opponent / a player." ("Choose target opponent. … the chosen
     # player" in one resolution — Haunt the Network — is another choice: not read as this)
@@ -2105,6 +2115,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return replacement
     if ability.kind == "static" and (copied := _copy_static(text)) is not None:  # -- copy system (wave 2F) --
         return copied
+    if ability.kind == "static":  # -- combat (wave 5C) -- attack costs and limits, "can't block creatures you control"
+        from app.rules import combat_rules
+
+        if (found := combat_rules.static_definition(text)) is not None:
+            return found
     if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
         return anthem
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
