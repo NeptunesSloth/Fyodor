@@ -79,6 +79,8 @@ OTHERS = [
          oracle_text='At the beginning of your upkeep, this creature deals 1 damage to each opponent. You gain life equal to the damage dealt this way.', power='1', toughness='2', colors=['B'], color_identity=['B']),
 ]
 EXTRA += OTHERS
+EXTRA.append(card('Living Death', set_code="tst", number="G46", mana_cost='{3}{B}{B}', cmc=5.0, type_line='Sorcery',
+                  oracle_text='Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield.', colors=['B'], color_identity=['B']))
 EXTRA += [
     card('Rotisserie Elemental', set_code="tst", number="G44", mana_cost='{R}', cmc=1.0, type_line='Creature — Elemental',
          oracle_text='Menace\nWhenever this creature deals combat damage to a player, put a skewer counter on this creature. Then you may sacrifice it. If you do, exile the top X cards of your library, where X is the number of skewer counters on this creature. You may play those cards this turn.', power='1', toughness='1', colors=['R'], color_identity=['R'], keywords=['Menace']),
@@ -628,4 +630,23 @@ def test_rotisserie_elemental_counts_its_counters_as_it_last_existed(cards):
     settle(s)
     assert s.state.cards[rot.id].zone == "p1:graveyard"
     assert len([c for c in s.state.cards.values() if c.zone.endswith("exile") and c.owner == "p1"]) == 2
+    roundtrip(s)
+
+
+# -- Living Death: each player at once, each instruction in turn (101.4, 608.2c) -----------------------------------
+def test_living_death_swaps_graveyards_and_battlefields(cards):
+    s = build(cards, p1=("Living Death", "Grizzly Bears", "Llanowar Elves"), p2=("Grizzly Bears", "Llanowar Elves"))
+    my_dead, my_live = nth(s, "Grizzly Bears"), nth(s, "Llanowar Elves")
+    his_dead, his_live = nth(s, "Llanowar Elves", pid="p2"), nth(s, "Grizzly Bears", pid="p2")
+    act(s, "p1", type="move", card_ids=[my_dead.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p2", type="move", card_ids=[his_dead.id], to={"player": "p2", "zone": "graveyard"})
+    on_field(s, "Llanowar Elves")
+    on_field(s, "Grizzly Bears", "p2")
+    spell = to_hand(s, "Living Death")
+    mana(s, "p1", B=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    settle(s)
+    assert where(s, my_dead) == "p1:battlefield" and where(s, his_dead) == "p2:battlefield"  # (each under its owner)
+    assert s.state.cards[his_dead.id].controller == "p2"
+    assert where(s, my_live) == "p1:graveyard" and where(s, his_live) == "p2:graveyard"  # (not returned: exiled before)
     roundtrip(s)

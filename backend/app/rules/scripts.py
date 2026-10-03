@@ -1510,6 +1510,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (per := _each_controller_creates(text)) is not None:  # -- "this way" outcomes (wave 4A) --
             effects += per
             continue
+        if (swap := this_way.graveyard_swap(text)) is not None:  # -- if you do (wave 5G) -- Living Death
+            effects += swap
+            continue
         if (dest := _COUNTERED_INSTEAD.fullmatch(text)) is not None and len(effects) - prev_start == 1 \
                 and effects[-1]["do"] == "counter" and "to" not in effects[-1]:  # -- "this way" outcomes (wave 4A) --
             # (after anything but a plain counter: other readers, e.g. unless_pays (wave 4C), or manual)
