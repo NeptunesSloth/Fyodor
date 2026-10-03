@@ -55,12 +55,24 @@ def static_definition(text: str) -> Definition | None:
             "op": {"do": "extra", "token": e["token"], "n": "same" if same else 1}, "effects": []}
 
 
-def applies(c: Any, ev: dict[str, Any]) -> bool:
-    """A fixed number of added tokens is added once to the event (not to its added parts)."""
-    return not (c.op.get("n") != "same" and ev.get("satellite"))
+def applies(c: Any, ev: dict[str, Any], sim: dict[str, Any] | None = None, matches: Any = None) -> bool:
+    """A fixed number of added tokens is added once to the event, not once per part of it. A satellite (a part another
+    effect added) can take a fixed addition only if this effect did not match the event's own tokens (it applies there
+    instead, 614.5) and has not been applied to another added part yet: "creature tokens plus a Soldier" (Queen Allenal)
+    after "artifact tokens plus a Thopter" (Stridehangar Automaton) on a Treasure, where the Thopter is what makes the
+    event one of creature tokens (616.1: an effect applies once the modified event is one it applies to)."""
+    if c.op.get("n") == "same" or not ev.get("satellite"):
+        return True
+    if sim is None or matches is None or c.id in (sim.get("sat_done") or ()):
+        return False
+    root = ev.get("root")
+    return root is not None and not matches(c, root)
 
 
-def apply(c: Any, ev: dict[str, Any]) -> list[dict[str, Any]]:
+def apply(c: Any, ev: dict[str, Any], sim: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     n = int(ev["count"]) if c.op.get("n") == "same" else int(c.op.get("n") or 1)
-    extra = {**ev, "token": dict(c.op["token"]), "count": n, "tapped": False, "satellite": True}
-    return [dict(ev), extra]
+    root = ev.get("root") or dict(ev["token"])
+    if ev.get("satellite") and sim is not None and c.op.get("n") != "same":
+        sim.setdefault("sat_done", []).append(c.id)
+    extra = {**ev, "token": dict(c.op["token"]), "count": n, "tapped": False, "satellite": True, "root": root}
+    return [{**ev, "root": root}, extra]

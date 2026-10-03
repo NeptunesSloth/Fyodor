@@ -113,3 +113,20 @@ def test_queen_and_helm_together_both_apply_to_an_artifact_creature_token(cards)
         answer(s, d.options[0].id)
     assert count(s, "Thopter") == 1 and count(s, "Soldier") == 1 and count(s, "Map") == 1
     replay_matches(s)
+
+
+def test_a_creature_added_by_another_replacement_makes_the_event_one_of_creature_tokens(cards):
+    """616.1: after the Automaton adds its Thopter the event creates a creature token, so Queen Allenal applies to it (once);
+    the order the player picks doesn't change the result."""
+    from tests.test_rules_replacements2 import answer, decision
+
+    for pick in (0, 1):
+        s = build(cards)
+        permanent(s, "p1", "Queen Allenal of Ruadach", "Enchantment", QUEEN)
+        permanent(s, "p1", "Stridehangar Automaton", "Enchantment", STRIDEHANGAR)
+        activate(s, maker(s, TREASURES, name="Treasure Maker"))
+        while decision(s) is not None:
+            d = decision(s)
+            answer(s, d.options[min(pick, len(d.options) - 1)].id)
+        assert count(s, "Treasure") == 1 and count(s, "Thopter") == 1 and count(s, "Soldier") == 1, pick
+        replay_matches(s)

@@ -557,9 +557,13 @@ def _tokens_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if c.op["do"] == "extra":  # -- refused grants/replacements (wave 3R2) -- app/rules/extra_tokens.py
         from app.rules import extra_tokens
 
-        if not extra_tokens.applies(c, ev):
+        if not extra_tokens.applies(c, ev, sim, lambda cand, token: _token_matches(cand.match, token)):
             return False
-    types, subtypes = _token_types(ev["token"])
+    return _token_matches(m, ev["token"])
+
+
+def _token_matches(m: dict[str, Any], token: dict[str, Any]) -> bool:
+    types, subtypes = _token_types(token)
     if m.get("types") and not set(m["types"]) & types:
         return False
     return not (m.get("subtypes") and not set(m["subtypes"]) & subtypes)
@@ -570,7 +574,7 @@ def _tokens_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     if op["do"] == "extra":  # -- refused grants/replacements (wave 3R2) -- "those tokens plus a Food token" (614.16)
         from app.rules import extra_tokens
 
-        return extra_tokens.apply(c, ev)
+        return extra_tokens.apply(c, ev, sim)
     n = ev["count"] * int(op["n"]) if op["do"] == "mul" else ev["count"] + int(op["n"]) if op["do"] == "add" else ev["count"]
     return [{**ev, "count": max(0, n)}]
 

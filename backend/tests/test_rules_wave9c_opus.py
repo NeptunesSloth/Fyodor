@@ -146,3 +146,72 @@ def test_the_trigger_reads_the_spell_it_was_about_not_the_next_one(cards):
     cast(s, "Small Sorcery")
     assert counters(s, artist) == 3  # (+1 only: two mana)
     check(s)
+
+
+def _pt(s, name):
+    from app.rules import sba
+    from app.rules.plan import Plan
+
+    c = s.state.cards[card_named(s, name).id]
+    return sba.power(c, Plan(s.state, "p1", s.cards, None).ch(c)), sba.toughness(c, Plan(s.state, "p1", s.cards, None).ch(c))
+
+
+@pytest.mark.parametrize(("spell", "bonus"), [("Four Sorcery", 1), ("Big Sorcery", 2)])
+def test_deluge_virtuoso_gets_two_instead_of_one(cards, spell, bonus):
+    s, _ = table(cards, "Deluge Virtuoso", spell)
+    base = _pt(s, "Deluge Virtuoso")
+    cast(s, spell)
+    assert _pt(s, "Deluge Virtuoso") == (base[0] + bonus, base[1] + bonus)  # (+2/+2 instead of +1/+1: not +3/+3)
+    check(s)
+
+
+@pytest.mark.parametrize(("spell", "power", "counters_"), [("Four Sorcery", 4, 0), ("Big Sorcery", 4, 3)])
+def test_spectacular_skywhale_puts_three_counters_instead_of_the_pump(cards, spell, power, counters_):
+    s, whale = table(cards, "Spectacular Skywhale", spell)
+    cast(s, spell)
+    assert counters(s, whale) == counters_
+    assert _pt(s, "Spectacular Skywhale")[0] == power  # (1 + 3 from the pump, or 1 + 3 from the counters: never both)
+    check(s)
+
+
+@pytest.mark.parametrize(("spell", "double"), [("Four Sorcery", False), ("Big Sorcery", True)])
+def test_expressive_firedancer_gains_double_strike_with_five_mana(cards, spell, double):
+    from app.rules.plan import Plan
+
+    s, _ = table(cards, "Expressive Firedancer", spell)
+    cast(s, spell)
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card_named(s, "Expressive Firedancer").id])
+    assert ("double strike" in {k.lower() for k in ch.keywords}) is double
+    assert _pt(s, "Expressive Firedancer") == (3, 3)  # (the pump happens either way: "also")
+    check(s)
+
+
+@pytest.mark.parametrize(("spell", "power"), [("Four Sorcery", 3), ("Big Sorcery", 3)])
+def test_molten_core_maestro_adds_red_equal_to_its_power_with_five_mana(cards, spell, power):
+    s, maestro = table(cards, "Molten-Core Maestro", spell)
+    cast(s, spell)
+    assert counters(s, maestro) == 1
+    # the counter is put first, so the power counted is 3 (not 2)
+    assert s.state.players["p1"].mana.get("R", 0) == (power if spell == "Big Sorcery" else 0)
+    check(s)
+
+
+@pytest.mark.parametrize(("spell", "copies"), [("Four Sorcery", 1), ("Big Sorcery", 2)])
+def test_colorstorm_stallion_copies_itself_with_five_mana(cards, spell, copies):
+    s, _ = table(cards, "Colorstorm Stallion", spell)
+    cast(s, spell)
+    stallions = [c for c in s.state.cards.values() if c.name == "Colorstorm Stallion" and c.zone == "p1:battlefield"]
+    assert len(stallions) == copies and sum(1 for c in stallions if c.is_token) == copies - 1
+    check(s)
+
+
+@pytest.mark.parametrize(("spell", "exiled"), [("Four Sorcery", 0), ("Big Sorcery", 1)])
+def test_elemental_mascot_exiles_the_top_card_with_five_mana(cards, spell, exiled):
+    s, _ = table(cards, "Elemental Mascot", spell)
+    exile = len(s.state.zones.get("p1:exile", []))
+    library = len(s.state.zones["p1:library"])
+    cast(s, spell)
+    assert len(s.state.zones.get("p1:exile", [])) == exile + exiled and len(s.state.zones["p1:library"]) == library - exiled
+    assert _pt(s, "Elemental Mascot") == (2, 4)  # (+1/+0 until end of turn either way)
+    assert len(s.state.rules.permissions) == exiled  # (the exiled card may be played until the end of the next turn)
+    check(s)
