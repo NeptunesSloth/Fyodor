@@ -164,7 +164,7 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
         name=str(src.get("name") or data.get("name") or ""),
         supertypes=supertypes,
         types=types,
-        subtypes=changeling(subtypes, abilities),
+        subtypes=changeling(subtypes, abilities, str(src.get("name") or data.get("name") or "")),
         mana_cost=cost,
         mana_value=mana_value(cost),
         colors=frozenset() if _devoid(abilities) else frozenset(colors or []),
@@ -183,10 +183,13 @@ def _devoid(abilities: tuple[AbilityText, ...]) -> bool:
     return any(a.kind == "keywords" and "devoid" in a.keywords for a in abilities)
 
 
-def changeling(subtypes: frozenset[str], abilities: tuple[AbilityText, ...]) -> frozenset[str]:
+def changeling(subtypes: frozenset[str], abilities: tuple[AbilityText, ...], name: str = "") -> frozenset[str]:
     """702.73a: changeling is a characteristic-defining ability, "this object is every creature
-    type" — in every zone (CR 205.3m list)."""
-    if any(a.kind == "keywords" and "changeling" in a.keywords for a in abilities):
+    type" — in every zone (CR 205.3m list). -- type statics (wave 5F) -- so is "Mistform Ultimus is every creature
+    type (even if this card isn't on the battlefield)." (604.3: a characteristic-defining ability of the object itself)."""
+    every = f"{name} is every creature type." if name else None
+    if any((a.kind == "keywords" and "changeling" in a.keywords) or (a.kind == "static" and a.text == every)
+           for a in abilities):
         from app.rules.creature_types import CREATURE_TYPES
 
         return subtypes | CREATURE_TYPES
@@ -252,7 +255,7 @@ def of(card: CardInstance, info: CardInfo) -> Characteristics:
         supertypes, types, subtypes = parse_type_line(t.type_line)
         abilities = with_intrinsic_mana(parse_abilities(t.text, spell=bool(types & {"Instant", "Sorcery"})), subtypes)
         return Characteristics(
-            name=t.name, supertypes=supertypes, types=types, subtypes=changeling(subtypes, abilities),
+            name=t.name, supertypes=supertypes, types=types, subtypes=changeling(subtypes, abilities, t.name),
             colors=frozenset() if _devoid(abilities) else frozenset(t.colors), power=t.power, toughness=t.toughness, oracle_text=t.text, abilities=abilities,
         )
     data = info.get(card.card_id) if card.card_id else None

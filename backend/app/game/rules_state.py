@@ -284,6 +284,7 @@ EventKind = Literal[
     "untapped",
     "spell_cast",  # a player cast a spell (the object is the spell on the stack)
     "cycled",  # a player cycled a card (702.29: "when you cycle …")
+    "land_played",  # -- entry forms (wave 5F) -- a player played a land (305.1: "when you play another land")
     "mana_added",  # a mana ability produced mana (106.3, 106.12a); convoke/improvise/delve never do
     "drew",  # a player drew a card (121.2: one event per card)
     "crewed",
@@ -362,6 +363,9 @@ class Entry(BaseModel):
     controller: str = Field(max_length=64)  # who controlled it as it entered
     types: list[str] | None = None
     subtypes: list[str] | None = None
+    # -- entry forms (wave 5F) -- whether it entered tapped ("When this land enters untapped", "Whenever a permanent
+    # you control enters tapped": part of the event, 603.2); None: not known (an older save)
+    tapped: bool | None = None
 # -- end refused modal/conditional (wave 3R1) --
 
 
@@ -1178,7 +1182,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
             log.entered_graveyard.append(Arrival(card=card_id, owner=new_zone.split(":")[0]))
         if new_name == "battlefield" and card is not None and new_oid is not None \
                 and (log := turn_log_now(state)) is not None:  # -- refused modal/conditional (wave 3R1) --
-            log.entered.append(Entry(card=card_id, object_id=new_oid, controller=card.controller))
+            log.entered.append(Entry(card=card_id, object_id=new_oid, controller=card.controller,
+                                     tapped=card.tapped))  # (-- entry forms (wave 5F) --)
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
              from_zone=old_zone, to_zone=new_zone)
@@ -1190,7 +1195,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
             emit(state, "zone_change", new_object_id=rules.object_id(card_id), card=card_id, player=card.controller,
                  to_zone=card.zone)  # created: a token, a copy, an ability on the stack
             if _zone_name(card.zone) == "battlefield" and (log := turn_log_now(state)) is not None:  # (wave 3R1)
-                log.entered.append(Entry(card=card_id, object_id=rules.object_id(card_id), controller=card.controller))
+                log.entered.append(Entry(card=card_id, object_id=rules.object_id(card_id), controller=card.controller,
+                                         tapped=card.tapped))  # (-- entry forms (wave 5F) --)
     for card_id, snap in before.snaps.items():
         card = state.cards.get(card_id)
         if card is None or card.zone != snap.zone:
