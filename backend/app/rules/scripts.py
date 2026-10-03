@@ -574,6 +574,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 e["who"] = "controlled:" + player + "|" + who.partition("|")[2]
             # -- conditional / instead clauses (wave 1B) --  "If it's a land card, …": the object the pronoun
             # names, read as it is (or as it last existed, 608.2h): a plain target stays "target"
+            if e.get("do") == "only_if" and _cond_has_it(e["cond"]) and antecedent == "event_spell" \
+                    and e["cond"].get("cast", {}).get("no_mana"):  # -- if you do (wave 5G) -- the cast spell
+                e["cond"] = _bind_cond(e["cond"], "event")
             if e.get("do") == "only_if" and _cond_has_it(e["cond"]):
                 ref = cond_ref(index)
                 if ref is None:
@@ -4001,6 +4004,14 @@ def _copy_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if m["w"] == "it":
         out["first"] = True
     return [out], None
+
+
+# -- if you do (wave 5G) -- "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell."
+# (Vexing Bauble, Boromir): the trigger event's spell (701.6a), while it is still that object on the stack (400.7;
+# effects.counter); only in a cast trigger (``_event_spell_ok``).
+@effect(r"counter that spell")
+def _counter_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "counter", "who": "event_spell"}], None
 
 
 def _event_spell_ok(d: Definition) -> bool:

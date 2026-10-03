@@ -63,6 +63,13 @@ ENTER = [
     card('Swamp', set_code="tst", number="G25", type_line='Basic Land — Swamp', oracle_text='({T}: Add {B}.)', color_identity=['B']),
 ]
 EXTRA += ENTER
+NO_MANA = [
+    card('Vexing Bauble', set_code="tst", number="G30", mana_cost='{1}', cmc=1.0, type_line='Artifact',
+         oracle_text='Whenever a player casts a spell, if no mana was spent to cast it, counter that spell.\n{1}, {T}, Sacrifice this artifact: Draw a card.', colors=[], color_identity=[]),
+    card('Boromir, Warden of the Tower', set_code="tst", number="G31", mana_cost='{2}{W}', cmc=3.0, type_line='Legendary Creature — Human Soldier',
+         oracle_text='Vigilance\nWhenever an opponent casts a spell, if no mana was spent to cast it, counter that spell.\nSacrifice Boromir: Creatures you control gain indestructible until end of turn. The Ring tempts you.', power='3', toughness='3', colors=['W'], color_identity=['W'], keywords=['Vigilance']),
+]
+EXTRA += NO_MANA
 SIZED = ["Vigil for the Lost", "Hero of Leina Tower", "Squealing Devil", "Well of Lost Dreams", "Shanna, Purifying Blade",
          "Mask of Griselbrand", "Niv-Mizzet, Ghost Counsel", "Madame Null, Power Broker", "Taj-Nar Swordsmith",
          "Mortarion, Daemon Primarch", "Stark's Ingenuity"]
@@ -439,4 +446,45 @@ def test_entering_together_can_not_pay_with_one_entering_with_it(cards, swamp_ou
         assert d is None
         assert where(s, lake) == "p1:graveyard"
     assert where(s, gy_swamp) == "p1:battlefield"
+    roundtrip(s)
+
+
+# -- "if no mana was spent to cast it" (601.2h: the spell's payment record) -----------------------------------------
+def test_no_mana_coverage(cards):
+    for name in ("Vexing Bauble", "Boromir, Warden of the Tower"):
+        assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+
+
+@pytest.mark.parametrize("free", [True, False])
+def test_vexing_bauble_counters_a_spell_no_mana_was_spent_on(cards, free):
+    s = build_enter(cards, p1=("Vexing Bauble", "Mox Diamond", "Grizzly Bears"))
+    on_field(s, "Vexing Bauble")
+    to_hand(s, "Forest")
+    if free:
+        spell = to_hand(s, "Mox Diamond")  # ({0}: no mana spent)
+    else:
+        spell = to_hand(s, "Grizzly Bears")
+        mana(s, "p1", G=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    settle(s)
+    if free:
+        assert where(s, spell) == "p1:graveyard"  # (countered: it never resolved, nothing was discarded for it)
+        assert len(hand(s)) == 1
+    else:
+        assert where(s, spell) == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_boromir_only_opponents_spells(cards):
+    """Her own {0} spell isn't countered (Boromir: an opponent's): it resolves and asks for its land."""
+    s = build_enter(cards, p1=("Boromir, Warden of the Tower", "Mox Diamond"))
+    on_field(s, "Boromir, Warden of the Tower")
+    mox = to_hand(s, "Mox Diamond")
+    forest = to_hand(s, "Forest")
+    act(s, "p1", type="cast_spell", card_id=mox.id)
+    d = until_asked(s)
+    assert d is not None and forest.id in [o.id for o in d.options]
+    pick(s, forest.id)
+    settle(s)
+    assert where(s, mox) == "p1:battlefield"
     roundtrip(s)
