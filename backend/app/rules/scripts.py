@@ -2645,6 +2645,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # -- triggers (wave 5D) -- "they lose 2 life", "an additional card"
                 from app.rules import trigger_words
 
+                if cond is not None and cond.get("subject") == "source" and re.search(r"\b(?:that player|they|them)\b", body):
+                    return None  # -- source damage (wave 11F) -- the source's controller, or the player dealt damage? (not read)
                 body = trigger_words.rewrite_body(body, name, cond, has_player)
                 if name == "step:draw:you":  # -- draw step (wave 6D) -- "At the beginning of your draw step, draw an
                     # additional card.": a triggered ability that draws, after the draw of 504.1 (504.2)
@@ -2820,7 +2822,8 @@ def _has_player(cond: dict[str, Any]) -> bool:
     if cond.get("subject") == "sel" and cond["event"] in ("enter", "die", "leave") and not cond.get("aggregate") \
             and '"controller":"opponent"' in str(cond.get("sel")):
         return True
-    return cond["event"] == "deal_damage" and cond.get("to") in ("player", "opponent", "you")
+    # -- source damage (wave 11F) -- "that source's controller": the player who controlled the source (triggers._fire_generic)
+    return cond["event"] == "deal_damage" and (cond.get("to") in ("player", "opponent", "you") or cond.get("subject") == "source")
 
 
 def _wants_amount(value: Any) -> bool:
