@@ -19,6 +19,8 @@
 * Afterlife N (702.135a) through its meaning: Orzhov Racketeers.
 * "This land enters tapped unless a player has 13 or less life." / "… unless your opponents control eight or more lands."
   (614.1c, 614.12): Neglected Manor, Turbulent Moor.
+* "Each creature [you control] assigns combat damage equal to its toughness rather than its power." (510.1a's amount):
+  Doran, the Siege Tower, Belligerent Brontodon.
 * Anthems over two groups ("Skeletons you control and other Zombies you control"): Death Baron, Caterwauling Boggart,
   Timber Protector.
 
@@ -78,6 +80,8 @@ EXTRA = [
     card('Neglected Manor', set_code='tst', number='E33', mana_cost='', cmc=0.0, type_line='Land', oracle_text='This land enters tapped unless a player has 13 or less life.\n{T}: Add {W} or {B}.', colors=[], color_identity=['B', 'W'], keywords=[]),  # noqa: E501
     card('Turbulent Moor', set_code='tst', number='E34', mana_cost='', cmc=0.0, type_line='Land — Plains Swamp', oracle_text='({T}: Add {W} or {B}.)\nThis land enters tapped unless your opponents control eight or more lands.', colors=[], color_identity=['B', 'W'], keywords=[]),  # noqa: E501
     card('Orzhov Racketeers', set_code='tst', number='E35', mana_cost='{4}{B}', cmc=5.0, type_line='Creature — Human Rogue', oracle_text='Whenever this creature deals combat damage to a player, that player discards a card.\nAfterlife 2 (When this creature dies, create two 1/1 white and black Spirit creature tokens with flying.)', power='3', toughness='2', colors=['B'], color_identity=['B'], keywords=['Afterlife']),  # noqa: E501
+    card('Doran, the Siege Tower', set_code='tst', number='E36', mana_cost='{W}{B}{G}', cmc=3.0, type_line='Legendary Creature — Treefolk Shaman', oracle_text='Each creature assigns combat damage equal to its toughness rather than its power.', power='0', toughness='5', colors=['B', 'G', 'W'], color_identity=['B', 'G', 'W'], keywords=[]),  # noqa: E501
+    card('Belligerent Brontodon', set_code='tst', number='E37', mana_cost='{5}{G}{W}', cmc=7.0, type_line='Creature — Dinosaur', oracle_text='Each creature you control assigns combat damage equal to its toughness rather than its power.', power='4', toughness='6', colors=['G', 'W'], color_identity=['G', 'W'], keywords=[]),  # noqa: E501
 ]
 FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime Archangel", "Bria, Riptide Rogue",
         "Caterwauling Boggart", "Timber Protector", "Demand Answers", "Bitter Triumph", "Eaten Alive",
@@ -85,7 +89,7 @@ FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime A
         "Bloodcrusher of Khorne", "Inquisitor Greyfax", "Ghost, Spectral Saboteur", "Company Commander",
         "Bruse Tarl, Roving Rancher", "Arms of Hadar", "How to Start a Riot", "Neutralize the Guards",
         "Hero of Oxid Ridge", "Mist Intruder", "Crimson Wisps", "Aphotic Wisps", "Cerulean Wisps", "Neglected Manor",
-        "Turbulent Moor", "Orzhov Racketeers"]
+        "Turbulent Moor", "Orzhov Racketeers", "Doran, the Siege Tower", "Belligerent Brontodon"]
 STILL_MANUAL = {
     "Sedgemoor Witch": "Ward",  # (ward—Pay 3 life: a cost the ward trigger doesn't read)
     "Silvergill Adept": "reveal a Merfolk card",
@@ -645,4 +649,37 @@ def test_turbulent_moor_counts_the_opponents_lands(cards):
     act(s, "p1", type="move", card_ids=[moor.id], to={"player": "p1", "zone": "battlefield"})
     settle(s)
     assert not s.state.cards[moor.id].tapped  # (614.1c: also when put onto the battlefield)
+    replay_matches(s)
+
+
+# -- combat damage from toughness (510.1a) ----------------------------------------------------------------------------
+def test_brontodon_creatures_deal_damage_equal_to_toughness(cards):
+    s = build(cards, "Belligerent Brontodon")
+    put(s, "Belligerent Brontodon")
+    wall = token_of(s, "p1", "Wall", "Token Creature — Wall", "1/4", "Haste")
+    blocker = token_of(s, "p2", "Blocker", "Token Creature — Bear", "0/3")
+    attacker = token_of(s, "p1", "Pup", "Token Creature — Wolf", "3/1", "Haste")
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": wall.id, "target": "p2"},
+                                                      {"card_id": attacker.id, "target": "p2"}])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": blocker.id, "attacker_id": attacker.id}])
+    through_combat(s)
+    assert s.state.players["p2"].life == 36  # (the 1/4 Wall: 4)
+    assert gone(s, blocker) is False and s.state.cards[blocker.id].damage == 1  # (the 3/1: its toughness, 1)
+    assert gone(s, attacker) is False  # (the blocker isn't Alice's: it deals its power, 0)
+    replay_matches(reloaded(s))
+
+
+def test_doran_applies_to_every_creature(cards):
+    s = build(cards, "Doran, the Siege Tower")
+    put(s, "Doran, the Siege Tower")
+    blocker = token_of(s, "p2", "Blocker", "Token Creature — Bear", "0/3")
+    attacker = token_of(s, "p1", "Pup", "Token Creature — Wolf", "3/3", "Haste")
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": attacker.id, "target": "p2"}])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": blocker.id, "attacker_id": attacker.id}])
+    through_combat(s)
+    assert gone(s, blocker) and gone(s, attacker)  # (each deals 3: its toughness)
     replay_matches(s)

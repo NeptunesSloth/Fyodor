@@ -707,7 +707,7 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
     blockers_all = [c for c in state.cards.values() if c.blocking and c.zone.endswith(":battlefield")]
     for att in attackers_on(state):
         ach = plan.ch(att)
-        p = power(att, ach)
+        p = _assigns(att, ach)  # -- static wordings (wave 6E) --
         if not _deals(ach, rnd) or p is None or p <= 0:
             continue
         blockers = [b for b in blockers_all if b.blocking == att.id]
@@ -735,12 +735,20 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
         gain(att, ach, dealt)
     for b in blockers_all:
         bch = plan.ch(b)
-        p = power(b, bch)
+        p = _assigns(b, bch)  # -- static wordings (wave 6E) --
         blocked = state.cards.get(b.blocking or "")
         if blocked is None or blocked.attacking is None or not _deals(bch, rnd) or p is None or p <= 0:
             continue
         gain(b, bch, hit_creature(b, bch, blocked, p))
     return out
+
+
+def _assigns(card: CardInstance, ch: Characteristics) -> int | None:
+    """-- static wordings (wave 6E) -- the combat damage a creature assigns: its power (510.1a), or its toughness when an
+    effect says it "assigns combat damage equal to its toughness rather than its power"."""
+    if "damage_by_toughness" in scripts.statics(ch):
+        return toughness(card, ch)
+    return power(card, ch)
 
 
 def damage_preview(plan: Plan, rnd: Round) -> str:

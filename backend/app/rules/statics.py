@@ -393,7 +393,7 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
     if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
         return goaded["s"], goaded["p"]
-    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", body)
+    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?(?= combat damage))\b", body)  # (assigns: wave 6E)
     if m is None or m.start() == 0:
         return None, None
     return body[: m.start()].strip(), body[m.start():].strip()
@@ -657,6 +657,10 @@ RULES.update({"is goaded": ("goaded:@you",), "are goaded": ("goaded:@you",)})
 # 508.1c: a restriction on where it attacks — "you" is the Aura's controller, app/rules/combat.py ``attack_forbidden``)
 RULES.update({"can't attack you or planeswalkers you control": ("cant_attack_player_pw:@you",),
               "can't attack you": ("cant_attack_player:@you",)})
+# -- static wordings (wave 6E) -- "Each creature you control assigns combat damage equal to its toughness rather than its
+# power." (Doran, Belligerent Brontodon): 510.1a's amount read from toughness instead (app/rules/combat.py)
+RULES.update({"assigns combat damage equal to its toughness rather than its power": ("damage_by_toughness",),
+              "assign combat damage equal to their toughness rather than their power": ("damage_by_toughness",)})
 # -- conditional statics (wave 4B) -- 702.3b: a creature with defender can't attack; this lets it (app/rules/combat.py)
 RULES.update({"can attack as though it didn't have defender": ("attack_despite_defender",),
               "can attack as though they didn't have defender": ("attack_despite_defender",)})
