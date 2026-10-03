@@ -3304,3 +3304,9 @@ RESUME["endure"] = _endure.resume
 from app.rules import win_game as _win_game  # noqa: E402
 
 PRIMITIVES.update(_win_game.PRIMITIVES)
+
+# -- if you do (wave 6F) -- "Each opponent may [cost]. Each opponent who doesn't …" (app/rules/each_may.py)
+from app.rules import each_may as _each_may  # noqa: E402, I001
+
+PRIMITIVES.update(_each_may.PRIMITIVES)
+# -- end if you do (wave 6F) --

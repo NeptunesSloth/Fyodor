@@ -1624,6 +1624,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         # "other" may be relative to the event's player — not read there
         # (not where the grammar reads it already: an edict, language.EDICT_OTHERS; "during each other player's …")
         body = re.sub(r"\b([Ee])ach other player\b(?! sacrifices)(?!'s)", lambda m: f"{m[1]}ach opponent", body)
+    body = _choose_then(body)  # -- if you do (wave 6F) --
     texts =[s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     skip_to = 0  # -- refused look/cast-free (wave 3R5) -- sentences read together with an earlier one (piles)
@@ -1732,6 +1733,13 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
         if _paid_x.cap_sentence(text, effects):
             continue
+        # -- if you do (wave 6F) -- "Each opponent may …. Each opponent who doesn't …"
+        from app.rules import each_may as _each_may
+
+        if (each := _each_may.pair(text, texts[i + 1] if i + 1 < len(texts) else None, effects, _last_payment(effects))) is not None:
+            effects += each
+            skip_to = i + 2
+            continue
         if text.startswith("then you may ") and effects and texts[i + 1:i + 2] and texts[i + 1].startswith("If you do") \
                 and _may_pay_sentence(text[5:], texts[i + 1:i + 2], it, effects) is not None:
             text = text[5:]  # ("You gain 2 life. Then you may discard two cards. If you do, …": "then" only orders, 608.2c)
@@ -1793,13 +1801,20 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             sized_pay = "choose_x" in pay_e or "life_x" in pay_e
             if pay_e.get("that_many") and not if_do["neg"]:
                 rest_text = re.sub(r"\bthat many\b", "X", rest_text)
+            # -- if you do (wave 6F) -- "you may discard your hand. If you do, draw that many cards": the cards discarded
+            # (optional_payment records them as the payment's X), never a trigger event's amount
+            hand_pay = pay_e.get("cost") == "Discard your hand" and re.search(r"\bthat many\b", rest_text) is not None
+            if hand_pay and (if_do["neg"] or re.search(r"\bX\b", rest_text)):
+                return None
+            if hand_pay:
+                rest_text = re.sub(r"\bthat many\b", "X", rest_text)
             if sized_pay and (if_do["neg"] or not re.search(r"\bX\b", rest_text)) and not (
                     pay_e.get("life_x") == {"event_amount": 1} and not if_do["neg"]):  # (Niv-Mizzet: "that many" = that much)
                 return None
             inner = _clause(rest_text) if not rest_text.startswith("you may ") else None
             if inner is None:
                 return None
-            if sized_pay:
+            if sized_pay or hand_pay:  # (hand_pay: wave 6F)
                 from app.rules import paid_x
 
                 if re.search(r'"x"|\bX\b', json.dumps(inner[1], default=str)):
@@ -1925,6 +1940,25 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     return resolved, target, optional
 
 
+# -- if you do (wave 6F) -- "If you do, choose a color, then return all creatures of that color to their owners' hands."
+# (Dromar, Rith, Treva, Crosis): the choice is made as the instruction is reached (608.2c), then the rest reads it — the
+# same as "Choose a color. Return all creatures of the chosen color …" (effects.choose_value, chosen.bind_effects).
+_CHOOSE_THEN = re.compile(r"(?:^|(?<=\. ))(?P<if>If you do, )?(?P<c>[Cc])hoose a (?P<what>color|creature type), then "
+                          r"(?P<rest>[^.]+)\.")
+
+
+def _choose_then(body: str) -> str:
+    def sub(m: re.Match[str]) -> str:
+        rest = m["rest"]
+        if f"of that {m['what']}" not in rest or "chosen" in rest:
+            return m[0]
+        rest = rest.replace(f"of that {m['what']}", f"of the chosen {m['what']}")
+        if m["if"]:  # (both instructions hinge on the same payment: "If you do" names the latest one)
+            return f"If you do, choose a {m['what']}. If you do, {rest}."
+        return f"{m['c']}hoose a {m['what']}. {rest[:1].upper()}{rest[1:]}."
+    return _CHOOSE_THEN.sub(sub, body)
+
+
 def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """-- refused look/cast-free (wave 3R5) -- A spell or activated ability that is all "You may cast …
     without paying its mana cost": the "may" is the cast's own choice (choosing no card), not a
@@ -2027,6 +2061,8 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
         return None
     cost = optional_payment.cost_text(phrase)
     sized: dict[str, Any] = {}
+    if cost is None and (alts := optional_payment.alternatives(phrase)) is not None:  # -- if you do (wave 6F) -- A or B
+        cost, sized = alts[0], {"alts": alts}
     if cost is None:  # -- sized payments (wave 5G) -- "pay {X}" / "pay X life, where X is …" (app/rules/paid_x.py)
         from app.rules import paid_x
 
@@ -4149,9 +4185,10 @@ def _attach_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return found
 
 
-# -- other side (wave 6D) -- "Whenever a creature you control enters, you may attach ~ to it." (Hero's Blade), "create a
-# 1/1 … token, then attach ~ to it." (Ancestral Blade): this object attached to the one the pronoun names (701.3a-b, the
-# same primitive: nothing moves if it can't be attached there or either has become a new object, 400.7)
+# -- other side (wave 6D) / if you do (wave 6F) -- "Whenever a creature you control enters, you may attach ~ to it." (Hero's
+# Blade), "create a 1/1 … token, then attach ~ to it." (Ancestral Blade, Dwarven Hammer): this object attached to the one
+# the pronoun names (701.3a-b, attachments.host_problem: nothing moves if it can't be attached there or either has become
+# a new object, 400.7)
 @_first
 @effect(r"attach ~ to (?:it|that creature)")
 def _attach_self_to_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -4261,11 +4298,29 @@ def _add_combination_two(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | 
     return [{"do": "add_mana", "of": [m["a"][1], m["b"][1]], "n": _mana_n(m["n"])}], None
 
 
+# -- if you do (wave 6F) -- "Add {B} or {G} for each permanent destroyed this way." (Culling Ritual), "add {R} or {G} for
+# each Raccoon you control" (Muerra): one mana per object counted, each of the two types chosen separately (106.1:
+# each mana is chosen on its own; effects.add_mana asks once per mana)
+@_mana_effect(rf"add (?P<a>{_SYM}) or (?P<b>{_SYM}) for each (?P<what>[^,.]+)")
+def _add_either_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import values
+
+    what = m["what"]
+    count = this_way.parse(what) if " this way" in what else values.parse_count(what)
+    if count is None or (isinstance(count, dict) and count.get("hand") == "target") or m["a"] == m["b"]:
+        raise _NoMatch
+    return [{"do": "add_mana", "of": [m["a"][1], m["b"][1]], "n": count}], None
+
+
 @_mana_effect(rf"add (?:(?P<sym>{_SYM}) for each|an amount of (?P<sym2>{_SYM}) equal to the number of) (?P<what>[^,.]+)")
 def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     from app.rules import values
 
     what = m["what"]
+    # -- if you do (wave 6F) -- "Add {B} for each permanent destroyed this way." (Culling Ritual's form): the objects the
+    # earlier instruction actually destroyed (app/rules/this_way.py; resolve_it binds it, 608.2h)
+    if " this way" in what and m["sym"] and (counted := this_way.parse(what)) is not None:
+        return [{"do": "add_mana", "sym": m["sym"][1], "n": counted}], None
     if (what.startswith(("card named", "color ", "different ", "creature that", "permanent ")) or " this way" in what) \
             and not re.fullmatch(r"card named ~ in each graveyard", what):  # (wave 5A: Rite of Flame, values.parse_count)
         raise _NoMatch
