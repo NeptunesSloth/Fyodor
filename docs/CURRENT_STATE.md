@@ -1,7 +1,7 @@
 # Current state — handoff for the next session
 
-Written 2026-10-03 at the end of the session that built PR #11 (wave 4 of the rules engine). Every
-fact here was checked against git, CI and local runs at that time. Where something was not
+Written 2026-10-03 at the end of the session that built PR #12 (waves 5–8 and part of wave 9 of the rules
+engine). Every fact here was checked against git, CI and local runs at that time. Where something was not
 verified, the text says so.
 
 ## Current repository state
@@ -9,148 +9,104 @@ verified, the text says so.
 | | |
 |---|---|
 | Repository | `NeptunesSloth/Fyodor` |
-| `main` | Has PRs #7–#10 (review 5 fixes, waves 1–3 of the rules engine). |
-| Open PR | **#11** (`claude/dazzling-heisenberg-h6juen`): wave 4, below. Marked ready for review at the end of this session; merge it when CI is green. |
-| Other branches | `claude/wip-wave4a` … `claude/wip-wave4m`, `claude/wip-wave4r`: the agent branches of this session, all merged into #11. Safe to delete once #11 is merged. `claude/sharp-curie-nOXLF` is an unrelated old branch; ignore it. |
-| Agent worktrees | Local to this session's container and gone with it. Everything worth keeping is merged into PR #11. |
+| `main` | Has PRs #7–#11 (rules engine waves 1–4). |
+| Open PR | **#12** (`claude/dazzling-heisenberg-h6juen`, draft): waves 5, 6, 7, 8 and 9A, with the wave 5 and wave 6 reviews. **Not ready to merge yet**: the wave 7 and wave 8 reviews are not done (see "Next session start instructions"). |
+| Unfinished agent branches (pushed, **not merged, not verified**) | `claude/wip-wave7r` (wave 7 review, partly done), `claude/wip-wave9b`, `claude/wip-wave9c`, `claude/wip-wave9d`. All stopped at a usage limit; the last commit on each is a snapshot of uncommitted work. |
+| Merged agent branches | `claude/wip-wave5*`, `wave6*`, `wave7a`–`7f`, `wave8a`–`8d`, `wave9a`: all merged into #12; safe to delete once #12 is merged. |
+| Agent worktrees | Local to this session's container and gone with it. |
 
-## Last known test status (PR #11 head)
+## Last known test status (PR #12 head, wave 9A merged)
 
 | Check | Status |
 |---|---|
-| Backend pytest (full, `-n 8` with pytest-xdist) | Passed locally on the final head: all 3,579 tests (exit 0), including the fixes for the three Codex review findings. |
-| ruff (`backend`) / mypy (`app tools`, 178 files) | Passed locally. |
-| Frontend tsc / vitest (61) | Passed locally after wave 4I (the only wave that touched the frontend). |
-| Playwright (17 spec files) | Passed in GitHub CI on `551e636` (all waves merged, before the review merge). Not run locally this session. |
-| GitHub CI | Green on `551e636`. Check the final head (review merge and this file) before merging. |
+| Backend pytest (full, `-n 8`) | Passed locally: 4,723 tests. |
+| ruff / mypy (`app tools`, 234 files) | Passed locally. |
+| Frontend tsc / vitest | No wave in PR #12 touched the frontend. |
+| Playwright (20 specs) | Passed locally after waves 7C/7F were merged, and in GitHub CI on `9f0cfd7` (all of wave 8). One failure on `cbd835b` (`offline.spec.ts`: the 3D table not visible after create-game) did not reproduce locally or on any later CI run. |
+| GitHub CI | Green on `9f0cfd7`. Check the newer head (9A and this file) before relying on it. |
 
-`test_rules_statics.py::test_full_board_derive_is_fast` (a 500 ms timing limit) can fail when the
-machine is heavily loaded, for example with several agents running full suites at once. Alone it
-takes about 45 ms.
+`test_rules_statics.py::test_full_board_derive_is_fast` (500 ms) can fail under heavy load (several agents
+running full suites at once); rerun it alone.
 
 ## Current Commander coverage
 
 Data: Scryfall snapshot 2026-09-30, Comprehensive Rules 2026-09-25.
 
-| | Before PR #8 | After PR #10 (`main`) | Now (PR #11 head) |
-|---|---|---|---|
-| Commander-legal cards | 32,068 | 32,068 | 32,068 |
-| FULL | 12,643 (39.4%) | 15,515 (48.4%) | **16,927 (52.8%)** |
-| PARTIAL | 19,425 | 16,553 | 15,141 |
-| Possible commanders FULL (of 3,501) | 677 | 956 | **1,113** |
+| | After PR #11 (`main`) | Now (PR #12 head) |
+|---|---|---|
+| Commander-legal cards | 32,068 | 32,068 |
+| FULL | 16,927 (52.8%) | **19,506 (60.8%)** |
+| PARTIAL | 15,141 | 12,562 |
+| Possible commanders FULL | 1,113 | **1,456** |
 
-To reproduce: build the card database with `scripts/update-cards.sh --images none`, then from
-`backend/` run `python -m tools.commander_coverage --db ../data/cards.sqlite --out <dir>` (use
-`--out` to keep the committed `data/reports` untouched; they were **not** regenerated).
+Progression in PR #12: wave 5 with its review → 17,850; wave 6 → about 18,960; wave 7 → 19,167; wave 8 →
+19,470; wave 9A → 19,506. Each wave compared every card before and after: no card dropped from FULL except
+the deliberate wave 5 review demotions below. Reproduce with `python -m tools.gap_rank --db
+../data/cards.sqlite` (first line) or `tools.commander_coverage --out <dir>`; `data/reports` were **not**
+regenerated.
 
-## What PR #11 (wave 4) added
+## What PR #12 added
 
-Everything below is in the engine with real-card tests (replay and save/load checked). Each wave has
-its own test file, `backend/tests/test_rules_wave4<x>_*.py`, and its code is marked `wave 4X` so
-`grep` finds it. Shared files were changed only in small marked blocks; new logic lives in new
-modules where possible.
+Each wave has its own test file `backend/tests/test_rules_wave<N><x>_*.py`, and its code is marked
+`wave <N><X>` (`grep -rn "wave 7C" backend/app`). All scenarios use real Oracle text with replay and
+save/load checks.
 
-- **Gap ranking tool** (`backend/tools/gap_rank.py`, now committed): buckets every unsupported line
-  into regex families and counts sole blockers. `--family <name>` lists a family's cards.
-- **4A "If you do" / "this way"** (`this_way.py`, `reveal_lands.py`): counts and conditions on what an
-  earlier instruction actually did ("for each creature destroyed this way", Windfall's greatest
-  number discarded, "If a creature is destroyed this way"), per-controller token batches
-  (Terastodon), counterspells with their own destination (Memory Lapse), the Snarl lands, discarding a
-  hand, "tap any number of …", and "You may A. If you do, B" where B has its own target.
-- **4B conditional statics** (`static_conditions.py`): "as long as …" on the attached object,
-  devotion (the Theros gods, with layer 4 type removal), counters on the source, monstrous/renowned,
-  life against the starting total, opponents' states; statics that work from the graveyard (Anger,
-  Wonder, Brawn); "You may cast this card from your graveyard as long as …"; "If you control two or
-  more other lands, this land enters tapped".
-- **4C "unless [player] pays"** (`unless_pays.py`): Rhystic Study, Mystic Remora, Esper Sentinel;
-  costs sized at resolution, energy, counterspell riders ("If that spell is countered this way, exile
-  it instead", "If they do"), "first <kind> spell each turn" cast triggers.
-- **4D "this turn" game state** (`history.py`, `TurnLog`): a per-turn history (casts, tokens, deaths,
-  life gained/lost, attackers, discards, sacrifices, damage, crimes, resolution counts) behind
-  intervening-if triggers, "Activate only if", statics and values. Raid, morbid, Idol of Oblivion,
-  Minas Tirith, "the second time this ability has resolved this turn". Also reads "…, if C, you may
-  X" triggers (Land Tax).
-- **4E damage sized by a count** (`sized_damage.py`): amounts per recipient player (Price of
-  Progress, Heartless Hidetsugu), creatures dealing damage to themselves (Justice Strike), Chandra's
-  Ignition as one damage event, counters on the subject with last known information.
-- **4F ability words**: ability words stripped on mana abilities with "Activate only if" (Mox
-  Opal), digits in trigger prefixes (descend), "corrupted"; channel ("Discard this card" as a cost
-  from hand), exhaust, converge.
-- **4G kicked / "instead"** (`kicked_instead.py`): targets that depend on the kicker (Tear Asunder,
-  Jilt), short "instead" restatements (Burst Lightning, Rite of Replication), kicked add-ons, mana
-  abilities with "add … instead", planeswalker types in selectors.
-- **4H activation-cost parts**: removing or putting counters, X-sized parts (sacrifice X, tap X,
-  exile X from graveyard), discard your hand, mill, exile from library, half your life, War Room's
-  color-identity life, collect evidence, forage, compound and either-or sacrifices, exert, boast.
-- **4I cost changers and alternative costs** (`cost_changes.py`, `alt_costs.py`): the 601.2f total
-  (one alternative cost, then additions, then reductions with the 118.7 floors), locked once payment
-  starts; "This ability costs {N} less" (the Kamigawa channel lands), self reductions (Blasphemous
-  Act, Ghalta), permanents changing other spells' costs (Defense Grid, Urza's Incubator, Thalia),
-  alternative costs (Force of Will, Snuff Out, Daze, Jodah) with a frontend menu entry, Defilers.
-- **4J leftovers** (`chosen.py`, `hand_size.py`, `land_plays.py`, `graveyard_exile.py`): reflexive
-  "When you do" triggers reading the sacrificed object; "the chosen player" stored as a player id
-  (Black Vise, The Rack); chosen creature type / color selectors (Patchwork Banner, Plague
-  Engineer); the cast X for a permanent's own enters trigger (fixed Meathook Massacre and Gadwick,
-  which were FULL with X = 0; Fblthp); no maximum hand size, additional land plays, graveyard exile
-  (Bojuka Bog), Mana Vault, Smothering Tithe.
-- **4K effects sized by X or a count** (`x_spells.py`): Craterhoof-style pumps fixed on resolution,
-  "pay X life" additional costs (Toxic Deluge), "X target …", X/X tokens, enters with X counters,
-  spells that shuffle themselves (the Zeniths), one X shared by both halves of a sentence.
-- **4L attached permanents** (`attached_types.py`, `attached_mana.py`, `attached_players.py`):
-  granted protection/ward/toxic, "loses all abilities" with type/color/base P/T setting, extra mana
-  from enchanted lands (Wild Growth), sharing Curses (Curse of Opulence), "can't attack you",
-  regenerate enchanted creature; fixed `Equipped creature has "{T}: …"` being read as an activated
-  ability.
-- **4M recursion and tutors** (`recursion.py`): spells that move themselves, Myriad Landscape's
-  shared land type, and/or searches, sized "up to X" searches, mana value comparisons, Fabled
-  Passage's untap, "return all A and B cards", effects on what was just returned.
-- **4R independent review** fixed: counter-unless and ward offering PAY to a player who can't pay
-  (118.3); hand casts missing from "first spell each turn"; Snarl lands leaking an empty match by
-  skipping the question; mana abilities ignoring cost increases (now left to the player); Birgi's
-  boast permission never matching the real card's name; a log note when a spell cast by hand reads
-  X, converge or kicks as 0; cost lock-in missing on cycling and transmute; a layer cache-key
-  slowdown. It read ~80 promoted cards' parsed definitions and demoted none.
+- **Wave 5** (catch-all families split out in `gap_rank`): mana riders and tap-for-mana triggers, stack
+  interaction (change target, Mana Drain), combat rules (attack costs 508.1d, extra combats), trigger
+  multipliers / trigger words / put-back, cast limits / protection grants / player shields, type-setting
+  statics and entry forms, paid X and enter costs (Mox Diamond), counters. **5R review** demoted
+  Panharmonicon, Ancient Greenwarden, Yarok, Virtue of Knowledge and Naban (whether "create a token"
+  triggers are multiplied is unsettled: `trigger_multipliers.ENTERING = False`), and fixed token-kind
+  batching, a reflexive-trigger renumbering crash, X in the cast log and derive performance.
+- **Wave 6**: next-untap / bounce forms / turn grants (6A), damage history and prevention wordings (6B),
+  Roles / decayed / token and pump grammar (6C), trigger conditions including 603.8 state triggers and
+  "exiled with" (6D), either-costs / exert / keyword triggers (6E), each-may and removed mana (6F).
+  **6R review** fixed: "[A] and [B] your opponents control enter tapped" also tapped the controller's own
+  permanents (Thalia, Heretic Cathar; Frozen Aether; Kismet; Blind Obedience); each-may payments were not
+  simultaneous (now `pay_deferred`, 101.4); Voyager Staff and Hide on the Ceiling were wrongly refused; two
+  rules-bearing prefixes were read as flavor words.
+- **Wave 7**: cast-timing restrictions (7A, `cast_timing.py`); activation conditions, any-player
+  abilities, adapt (7B); counters, second pass: shield counters, counter-put triggers with `Event.group`,
+  power-up, "enters with your choice of counter", suspend self-exile (7C); turn watches "whenever … this
+  turn" and "when you next cast" (7D); activated abilities, second pass: creature lands, snow mana, coin
+  flips, choice grants, attach abilities, switching P/T, block effects (7E); the untap-step choice and "for
+  as long as ~ remains tapped" (7F).
+- **Wave 8**: modular, partner with, extra turns (a LIFO queue, `extra_turns.py`), split second, one-shot
+  extra land plays (8A); superlative conditions (`extremes.py`), scry/surveil events, Dark Confidant,
+  per-player life loss (8B); objects a payment used (`pay_objects.py`), mill and exile-from-hand
+  payments, a choice of counter (8C); enter counters conditioned on this turn's history, the Rings,
+  attached-count pumps, half-life loss (8D).
+- **Wave 9A**: discover, "where X is" keyword actions (bolster, amass, connive, endure), "the amount of
+  mana spent to cast", "creatures that died under your control this turn".
 
 ## Top remaining rules gaps
 
-From `python -m tools.gap_rank --db ../data/cards.sqlite --top 25` on the final head. "Sole" = non-FULL
-cards whose every unsupported line is in that family (an upper bound). A line goes to the first family
-whose regex matches; `static_other`, `trigger_other` and `activated_other` are catch-alls, so look
-inside them with `--family` before choosing work.
+`python -m tools.gap_rank --db ../data/cards.sqlite --top 15` on the wave 9A head. "Sole" = non-FULL cards
+whose every unsupported line is in that family (an upper bound). Use `--ngrams <family>` to see the
+phrases shared inside the catch-all families.
 
-| # | Family | Missing | Sole | Examples |
-|---|---|---|---|---|
-| 1 | static_other (catch-all) | 5,813 | 2,805 | Chaos Warp, Arcane Denial, Swan Song |
-| 2 | trigger_other (catch-all) | 3,108 | 2,084 | The One Ring, Mystic Sanctuary, Orcish Bowmasters |
-| 3 | activated_other (catch-all) | 1,245 | 918 | Path of Ancestry, Command Beacon, The Great Henge |
-| 4 | "If you do" / "this way", still unread | 1,295 | 893 | Mox Diamond, Braids, Living Death |
-| 5 | Counters, other wordings | 1,238 | 745 | Inspiring Call, The Ozolith, Spark Double |
-| 6 | "This turn" game state, still unread | 554 | 391 | Sylvan Library, Veil of Summer, Combat Celebrant |
-| 7 | Attached-permanent lines, other wordings | 516 | 374 | The Reaver Cleaver, Blade of Selves |
-| 8 | X values, other wordings | 631 | 351 | Torment of Hailfire, Sphere of Safety |
-| 9 | Damage sized, other wordings | 456 | 298 | Descent into Avernus, Myr Battlesphere |
-| 10 | Conditional statics, other wordings | 450 | 254 | Promise of Loyalty, Conqueror's Flail |
-| 11 | Ability-word lines | 392 | 240 | Tireless Provisioner, Puresteel Paladin |
-| 12 | "Instead", other wordings | 393 | 230 | Academy Manufactor, Bloodletter of Aclazotz, Blightsteel Colossus |
-| 13 | Reanimation, other wordings | 380 | 181 | Sevinne's Reclamation, Agadeem's Awakening |
-| 14 | Activation-cost parts | 246 | 161 | Arena of Glory, Walking Ballista |
-| 15 | Free casts, other wordings | 250 | 126 | Mystic Forge, Tibalt's Trickery, Urza |
-| 16 | Tutors, other wordings | 183 | 109 | Scapeshift, Defense of the Heart |
-| 17 | "Unless pays", other wordings | 123 | 99 | Volatile Stormdrake, Unsettled Mariner |
-| 18 | Transform / meld | 243 | 86 | Westvale Abbey, Bloodline Keeper |
-| 19 | Token copies / populate | 132 | 79 | Second Harvest, Mechanized Production |
-| 20 | Saga chapters | 163 | 76 | There and Back Again |
-| 21 | Control changes, other durations | 109 | 72 | Treasure Nabber, Seize the Spotlight |
-| 22 | Chosen type, other uses | 137 | 70 | Roaming Throne, Kindred Discovery |
-| 23 | Cost changers, other wordings | 124 | 60 | Inquisitive Glimmer, Thryx |
-| 24 | "Attach it to target creature" on entry | 74 | 57 | Embercleave, Mithril Coat |
-| 25 | Look at top N | 88 | 56 | Herald's Horn, Loot |
+| # | Family | Missing | Sole | Sole commanders | Examples |
+|---|---|---|---|---|---|
+| 1 | static_other | 4,572 | 2,105 | 183 | Chaos Warp, Rakdos Charm, Birgi |
+| 2 | trigger_other | 2,091 | 1,351 | 334 | Guardian Project, Forgotten Ancient, Necropotence |
+| 3 | if_you_do | 1,156 | 811 | 167 | Ripples of Undeath, Saw in Half, Bloodchief Ascension |
+| 4 | activated_other | 794 | 559 | 83 | Command Beacon, Emry, Haywire Mite |
+| 5 | counters | 824 | 492 | 132 | Spark Double, Opal Palace, Slip Out the Back |
+| 6 | attached_events | 458 | 343 | 8 | Trailblazer's Boots, Blade of Selves |
+| 7 | this_turn_state | 469 | 340 | 63 | Sylvan Library, Veil of Summer |
+| 8 | x_value | 581 | 331 | 65 | Torment of Hailfire, Crackle with Power |
+| 9 | damage_sized | 423 | 277 | 33 | Descent into Avernus, Myr Battlesphere (9B in progress) |
+| 10 | as_long_as_static | 425 | 269 | 36 | Promise of Loyalty, Conqueror's Flail (9B in progress) |
+| 11 | instead | 390 | 235 | 44 | Academy Manufactor, Bloodletter of Aclazotz (9C in progress) |
+| 12 | ability_word | 352 | 211 | 31 | Tireless Provisioner, Puresteel Paladin (9C in progress) |
+| 13 | reanimation | 361 | 177 | 26 | Sevinne's Reclamation, Haven of the Spirit Dragon |
+| 14 | activation_cost | 201 | 138 | 35 | Arena of Glory, Walking Ballista |
+| 15 | free_cast | 233 | 121 | 42 | Tibalt's Trickery, Urza, Muldrotha |
 
-Reusable ideas seen during wave 4 but not done: a life-loss replacement choke point (Bloodletter,
-Plague Drone), a zone-move replacement that can pause for the 616.1 choice (Blightsteel, Progenitus
-against Rest in Peace), "When you cast this spell" triggers (Hydroid Krasis, Genesis Hydra), snow mana
-(needs the mana pool to record each mana's source), voting, granted triggered abilities on other
-permanents (Tabernacle, Kataki), simultaneous searches and edicts by several players (701.23i, 101.4).
+Ideas noted but not done: copies with exceptions that enter with counters (Spark Double), mana provenance
+("if this mana is spent to cast a creature spell, it enters with a counter"; also needed for complete snow
+mana), "you put -1/-1 counters" (several putters in one damage step), a lose-the-game primitive (Final
+Fortune), voting, land-type-setting effects (305.7).
 
 ## Known shipped limitations and open items
 
@@ -167,7 +123,8 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
 - **Copies**: cast-a-copy (707.12), "each other object it could target" (Zada), Garth One-Eye / Magar,
   linked abilities (707.7), melded and reversible sources.
 - **Mana**: restricted mana added by spells (Geosurge, Karn), "that spell can't be countered" riders,
-  restrictions on costs rather than spells, Mana Drain, snow mana `{S}`, exhaust mana abilities.
+  restrictions on costs rather than spells, Mana Drain, exhaust mana abilities. Snow mana `{S}` (wave 7E) is paid only by tapping a snow
+  source during payment; snow mana already in the pool never pays it.
   A mana ability whose cost a cost modifier changes (Gloom on a white enchantment) is left to the
   player. An enchanted land whose own {T} ability restricts spending is left to the player while
   enchanted.
@@ -181,7 +138,8 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   divisions, restriction lines after modes.
 - **"Unless pays"**: "each opponent … unless they pay" (simultaneous edicts), "unless any player
   pays", choice of costs, "counter that spell or ability" triggered by targeting.
-- **Keywords**: airbend, waterbend, non-mana morph costs, warp, max speed, the dungeon Arena room,
+- **Keywords**: devour, graft, sunburst, amplify, dredge and level up (in progress on
+  `claude/wip-wave9d`), airbend, waterbend, non-mana morph costs, warp, max speed, the dungeon Arena room,
   attack costs not weighed by goad, annihilator and myriad as granted keywords, ward Auras
   (702.16n), land-type-setting Auras (305.7).
 - **X**: Torment of Hailfire (repeated per-opponent choices), "investigate X times", "up to X target"
@@ -191,6 +149,25 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   `oracle.word_prefix` is maintained by hand; add new mechanics to it.
 
 Known approximations (correct in normal play; listed so nobody is surprised):
+
+- **Shield counters** (7C, 122.1c): other prevention applies first and the shield takes what is left; one
+  counter is removed per simultaneous damage batch.
+- **"Blocks this creature if able"** (7E): the requirement check is lenient when the blocker has a
+  competing requirement (509.1c's maximum-requirements rule is not solved there).
+- **Untap step choice** (7F): "you may choose not to untap" is a real decision during the untap step, with
+  no priority (502.4). A skipped untap step no longer removes stun counters.
+- **Split second** (8A): while a split-second spell is on the stack, the existing auto-pass may pass for a
+  player who could still take a special action (turning a face-down creature up, 116.2). Not yet reviewed.
+- **Partner with** (8A): the enters trigger follows CR 702.124j (search and reveal) rather than the shorter
+  current Oracle reminder text.
+- **Coin flips** (7E): heads counts as a win (the call doesn't change the odds, 705.2); the result is
+  recorded on the table step, so replay and saves reproduce it.
+- **"Each player may pay"** (6F, fixed in 6R): choices are made in turn order, then all payments happen at
+  once (101.4). The older `designations.each_unless` still pays as each player chooses; this only matters
+  for non-mana costs.
+- **State triggers** (6D, 603.8) are re-checked when the table produces events, not when an effect ends
+  during cleanup.
+- **"Can't win the game"** (`win_game`) reads only printed text on the battlefield.
 
 - **Cards cast by hand** (moved to the stack manually): X, converge, kicks and every "mana was spent"
   condition read as 0 or false. Since wave 4R the log says so and asks the table to adjust by hand.
@@ -239,31 +216,37 @@ Known approximations (correct in normal play; listed so nobody is surprised):
 
 ## Next session start instructions
 
-1. Start a **fresh session** from `main`. If PR #11 is still open, check its CI and merge it first.
-2. Set up the backend: `cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
-   'mypy==2.3.1' pytest-xdist`. For coverage and gap ranking, build the card DB
-   (`scripts/update-cards.sh --images none`). For frontend checks, `cd frontend && npm ci`.
-3. Read this file, `docs/ARCHITECTURE.md`, `docs/RULES_COVERAGE.md`, `docs/AUTOMATION_UX.md`.
-4. Run `python -m tools.gap_rank --db ../data/cards.sqlite` and pick from it. The named families
-   are now mostly long tails; the biggest remaining work is inside the catch-all families
-   (`--family static_other --family trigger_other --limit 200`): split them into new regex families
-   in `gap_rank.FAMILIES` first, then rank again. Also consider the reusable ideas listed under the
-   gap table.
-5. Workflow that worked: one agent per family in its own worktree, a shared brief file, code in
-   marked blocks (`# -- <area> (wave N) --`), the lead merges each branch as it lands (ruff, mypy,
-   full pytest before every push), then one independent reviewer that fixes what it finds.
-   Agents in worktrees must run with `PYTHONPATH=$PWD` (the venv is an editable install of the main
-   checkout).
-6. Usage limits stopped agents twice this session. When that happens, commit each agent worktree's
-   uncommitted work as WIP, push it to `claude/wip-*`, and resume the agent with `SendMessage` after the
-   reset. Add `.claude/worktrees/` to `.git/info/exclude` so the stop hook doesn't flag agent
-   worktrees as untracked files.
+1. Start a fresh session on `claude/dazzling-heisenberg-h6juen` (PR #12) and check CI on its head.
+2. Set up: `cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]' 'mypy==2.3.1'
+   pytest-xdist`; the card DB with `scripts/update-cards.sh --images none`; `cd frontend && npm ci`.
+3. Read this file and `.claude/skills/fyodor-game-development/SKILL.md` (policies, setup, wave workflow).
+4. **Finish the unfinished branches.** Each one is a snapshot taken at a usage limit. Verify everything
+   (ruff, mypy, full pytest, a per-card coverage diff) before merging:
+   - `claude/wip-wave7r`, the wave 7 review. It had fixed cast timing in extra combats and without a
+     declare-blockers step, made power-up keep X, and refused Wight; the rest of its checklist is undone.
+     Wave 7 risk points: shield-counter ordering, `Event.group` in saves and replay, the power-up cost
+     reduction (118.7), the untap-step rework and stun counters, snow `{S}`, coin flips, the lenient
+     must-block check, choice grants, about 30 surprise promotions that were not scenario-tested.
+   - `claude/wip-wave9b` (sized damage and as-long-as statics: exile-for-as-long-as permissions, excess
+     damage), `claude/wip-wave9c` (instead / ability words: parley, token and mana replacements, opus,
+     adventure permanents; marked WIP by its agent), `claude/wip-wave9d` (graft, sunburst, devour, level up).
+5. **Review waves 8 and 9 independently.** Risk points: extra-turn edge cases (skipped turns, players who
+   left, a save mid-queue); split second against special actions in the auto-pass; partner-with's reveal;
+   `pay_objects` binding "that creature" to the paid object; mill as a payment with a short library; 8B's
+   scry events and the Dark Confidant `resolve_it` disambiguation; discover's free cast and bottom order;
+   "mana spent to cast" on cards cast by hand; surprise promotions such as Wormfang Manta, Magosi, Twice
+   Upon a Time and Commence the Endgame.
+6. Then wave 10 on the biggest families from a fresh `gap_rank`, then a final **independent review of all of
+   PR #12 and of the engine's core premise** (layers, replacements, triggers, priority and the stack,
+   privacy, save and replay) by the strongest available model, a coverage run, an update of this file,
+   and mark PR #12 ready.
+7. On usage limits: commit each agent worktree's work as WIP, push it to `claude/wip-*`, resume with
+   `SendMessage`. Keep `.claude/worktrees/` in `.git/info/exclude`.
 
 ## Usage control
 
-- Fresh session per major PR; Opus for implementation of risky subsystems and for review.
-- Narrow agent scopes; don't reread the whole repository or the Comprehensive Rules.
-- Targeted tests while implementing; full verification at integration checkpoints. The full
-  backend suite takes about 3–4 minutes with `-n 8` locally.
-- Four parallel agents each running full suites load the machine enough to trip the timing test;
-  rerun it alone before treating it as a regression.
+- This session ran five agents at a time for hours; nearly all usage came from subagents working at more
+  than 150k context. Give agents smaller scopes (one family, two to four wordings) so they finish before
+  their context grows, and run fewer in parallel when limits matter.
+- Targeted tests while implementing; full verification at integration checkpoints. The full backend suite
+  takes 2–6 minutes with `-n 8`, depending on load.
