@@ -873,6 +873,8 @@ def move_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object") or len(cards) != 1:
         return True
     have = {k: n for k, n in sorted(src.counters.items()) if n > 0}
+    if e.get("kind"):  # -- keyword mechanics (wave 9D) -- "move a +1/+1 counter from ~ onto …" (702.58a): n of that kind
+        have = {e["kind"]: min(e["n"], have[e["kind"]])} if have.get(e["kind"]) else {}
     if not have or not plan.state.cards[cards[0]].zone.endswith(":battlefield"):
         return True
     for k, n in have.items():

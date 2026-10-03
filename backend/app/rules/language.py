@@ -1267,6 +1267,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind in ("players", "self"):
             raise _Fail
         return [{"do": "move_counters", "who": _who(kind, key)}], _one(group)
+    # -- keyword mechanics (wave 9D) -- 702.58a graft: "move a +1/+1 counter from ~ onto that creature" (122.5: one counter)
+    m = re.fullmatch(r"move a (?P<k>\+1/\+1) counter from ~ onto (?P<o>.+)", text)
+    if m and rider is None:
+        kind, key, group = ref(m["o"])
+        if kind in ("players", "self"):
+            raise _Fail
+        return [{"do": "move_counters", "who": _who(kind, key), "kind": m["k"], "n": 1}], _one(group)
     m = re.fullmatch(r"put (?P<whose>its|those|~'s|this creature's) counters on (?P<o>.+)", text)
     if m and rider is None:
         kind, key, group = ref(m["o"])
