@@ -5,6 +5,8 @@
 * Triggers on the permanent an Aura / Equipment is attached to (603.2): "When enchanted creature becomes the target of
   a spell or ability" (Ice Cage) and "Whenever enchanted creature blocks or becomes blocked by a creature, destroy the
   other creature at end of combat" (Venom; 509.3b / 509.3d: the creature on the other side).
+* "This creature is the chosen type in addition to its other types." (Metallic Mimic; 613.1d, 205.1b): layer 4, with
+  the creature type chosen as it entered (614.12a).
 * "Instant and sorcery spells you control can't be countered." (Sphinx of the Final Word; 101.2, 701.6): the counter
   does nothing to such a spell, but the rest of the counterspell still happens (608.2c).
 """
@@ -17,7 +19,7 @@ from app.cards.importer import build_database
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_attachments import mana, to_hand, token
+from tests.test_rules_attachments import ch, mana, to_hand, token
 from tests.test_rules_conditionals import settle, until
 from tests.test_rules_wave4h_activation_costs import activate, counters, roundtrip, set_counters
 from tests.test_rules_wave5c_combat import build, put
@@ -29,6 +31,8 @@ from tests.test_rules_wave5b_stack_interaction import roundtrip as roundtrip_cou
 from tests.test_rules_wave6d_trigger_bodies import bob_attacks_into, gone
 
 EXTRA = [
+    card('Metallic Mimic', set_code="tst", number="Q05", mana_cost='{2}', cmc=2.0, type_line='Artifact Creature — Shapeshifter', oracle_text="Changeling\nAs this creature enters, choose a creature type.\nThis creature is the chosen type in addition to its other types.\nEach other creature you control of the chosen type enters with an additional +1/+1 counter on it.", power='1', toughness='1', colors=[], color_identity=[], keywords=['Changeling']),  # noqa: E501
+    card('Adaptive Automaton', set_code="tst", number="Q06", mana_cost='{3}', cmc=3.0, type_line='Artifact Creature — Construct', oracle_text="As this creature enters, choose a creature type.\nThis creature is the chosen type in addition to its other types.\nOther creatures you control of the chosen type get +1/+1.", power='2', toughness='2', colors=[], color_identity=[]),  # noqa: E501
     card('Sphinx of the Final Word', set_code="tst", number="Q04", mana_cost='{U}{U}{U}{U}{U}', cmc=5.0, type_line='Creature — Sphinx', oracle_text="Flash\nThis spell can't be countered.\nFlying\nInstant and sorcery spells you control can't be countered.", power='5', toughness='5', colors=['U'], color_identity=['U'], keywords=['Flash', 'Flying']),  # noqa: E501
     card('Triskelion', set_code="tst", number="Q01", mana_cost='{6}', cmc=6.0, type_line='Artifact Creature — Construct', oracle_text='Triskelion enters with three +1/+1 counters on it.\nRemove a +1/+1 counter from Triskelion: It deals 1 damage to any target.', power='1', toughness='1', colors=[], color_identity=[]),  # noqa: E501
     card('Ice Cage', set_code="tst", number="Q02", mana_cost='{1}{U}', cmc=2.0, type_line='Enchantment — Aura', oracle_text="Enchant creature\nEnchanted creature can't attack or block.\nWhen enchanted creature becomes the target of a spell or ability, destroy Ice Cage.", colors=['U'], color_identity=['U'], keywords=['Enchant']),  # noqa: E501
@@ -43,7 +47,7 @@ def card_db(settings):
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", ["Triskelion", "Ice Cage", "Venom"])
+@pytest.mark.parametrize("name", ["Triskelion", "Ice Cage", "Venom", "Adaptive Automaton"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -92,3 +96,12 @@ def test_spells_you_control_cant_be_countered(cards):
     assert s.state.cards[bolt.id].zone == "p1:graveyard"
     assert life(s, "p2") == 37 and life(s, "p1") == 38  # (the Bolt resolved; "its controller loses 2 life" still happened, 608.2c)
     roundtrip_counters(s)
+
+
+def test_adaptive_automaton_is_the_chosen_type(cards):
+    s = build(cards, "Adaptive Automaton")
+    auto = put(s, "Adaptive Automaton")
+    assert "Elf" not in ch(s, auto).subtypes
+    act(s, "p1", type="set_choice", card_id=auto.id, key="Chosen creature type", value="Elf")
+    assert "Elf" in ch(s, auto).subtypes and "Construct" in ch(s, auto).subtypes  # (in addition to its other types)
+    roundtrip(s)
