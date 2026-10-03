@@ -247,6 +247,8 @@ def test_propaganda_paid_with_mirraris_wake_extra_mana(cards):
     declare(s, (a, "p2"))
     d = s.state.rules.decision
     assert d is not None and d.display["kind"] == "tap_mana" and d.display["cost"] == "{2}"
+    roundtrip(s)  # (saved and loaded with the attack payment open)
+    s = GameSession(GameState.model_validate_json(s.state.model_dump_json()), cards=s.cards)
     act(s, "p1", type="activate_ability", card_id=forest, ability=0)
     assert attacking(s, a) == "p2"
     assert s.state.players["p1"].mana == {}
