@@ -387,7 +387,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         if got is None:
             return []
         return [("counters_put", got[0], got[1], got[0].controller,
-                 {"oid": e.object_id, "counter": e.counter, "amount": e.amount, "actor": e.actor,  # (actor: wave 5H)
+                 {"oid": e.object_id, "counter": e.counter, "amount": e.amount, "actor": e.actor, "group": e.group,  # (5H, 7C)
                   "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or "")})]
     if e.kind == "damage":
         return _damage_facts(plan, e)
@@ -616,6 +616,10 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event == "counters_put" and cond.get("by") == "you" and info.get("actor") != you:  # -- counters (wave 5H) --
         return False  # ("Whenever you put one or more +1/+1 counters on …": the player who put them, 122.6a)
+    if event == "counters_put" and cond.get("by") == "opponent" and (info.get("actor") in (None, you)):  # (wave 7C)
+        return False
+    if event == "counters_put" and cond.get("own") and (obj is None or obj.controller != info.get("actor")):
+        return False  # ("… on a creature they control": the permanent's controller is the player who put them)
     if event == "player_counters" and info.get("counter") != cond.get("counter"):  # (wave 3E: "you get one or more {E}")
         return False
     if event == "deal_damage":
@@ -744,14 +748,23 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             # One damage event to several recipients at once is one "deals damage" (and several
             # sources at once one "is dealt damage"): once per batch per object, amounts summed
             one_event = cond["event"] == "dealt_damage" or (cond["event"] == "deal_damage" and cond.get("to", "any") == "any")
+            # -- counters (wave 7C) -- counters of any kind one instruction put on one permanent: one event (122.6)
+            anykind = cond["event"] == "counters_put" and not cond.get("counter") and not cond.get("aggregate") \
+                and bool(fact[4].get("group"))
             # ("one or more creatures you control attack a player": once for each player attacked, 508.3e)
             per = (info.get("oid") or info.get("recipient") or "") if one_event else \
                 info.get("recipient") or info.get("actor") or (info.get("defended") if cond.get("defender") else "") or ""
-            if cond.get("aggregate") or one_event:  # "one or more …": once per event batch (603.2c) …
+            if anykind:  # (its steps are in batches of their own: keyed by the instruction, not the batch)
+                per, batch_key = f"{info.get('oid')}:{info['group']}", 0
+            else:
+                batch_key = batch
+            if cond.get("aggregate") or one_event or anykind:  # "one or more …": once per event batch (603.2c) …
                 # (… and per player dealt the damage: "one or more creatures deal combat damage to a player")
-                key = (watcher.id, i, batch, per)
+                key = (watcher.id, i, batch_key, per)
                 pending = fired.get(key)
                 if pending is not None and pending.event is not None:  # the batch's other objects join it
+                    if anykind:
+                        continue
                     if not one_event:
                         pending.event.objects += event.objects
                         pending.event.new_objects += event.new_objects
@@ -767,8 +780,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             d = _aura_card_bound(plan, d, (left or {}).get(id(watcher)))
             added = _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=source_object,
                          name=ch.name, index=i, definition=d, event=event)
-            if (cond.get("aggregate") or one_event) and added is not None:
-                fired[(watcher.id, i, batch, per)] = added
+            if (cond.get("aggregate") or one_event or anykind) and added is not None:
+                fired[(watcher.id, i, batch_key, per)] = added
 
 
 def _generic_events(plan: Plan, events: list[Event]) -> None:

@@ -848,14 +848,12 @@ def do_counters(plan: Plan, planned: CounterPlan, *, by: str) -> None:
                 continue
             if ev["card"] in plan.state.cards:
                 groups.setdefault(("card", ev["counter"], ev["n"]), []).append(ev["card"])
-    r = plan.rules  # -- counters (wave 7C) -- one instruction: its steps share a group (see RulesState.put_group)
-    r.put_seq += 1
-    r.put_group = r.put_seq
-    try:
-        for (_, kind, n), cards in groups.items():
-            plan.do({"type": "counter", "card_ids": cards, "kind": kind, "delta": n}, actor=by)
-    finally:
-        r.put_group = 0
+    # -- counters (wave 7C) -- several kinds at once are one instruction: its steps share a group (the batch the first
+    # one gets), so "whenever you put one or more counters on a creature" triggers once (122.6)
+    group = plan.rules.batch + 1 if len(groups) > 1 else 0
+    for (_, kind, n), cards in groups.items():
+        plan.do({"type": "counter", "card_ids": cards, "kind": kind, "delta": n, **({"group": group} if group else {})},
+                actor=by)
 
 
 def _run_counters(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:

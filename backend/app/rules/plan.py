@@ -78,7 +78,7 @@ class Plan:
             before.types = self._battlefield_types(payload)
         entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
         HANDLERS[resolved.type](self.state, resolved)
-        track(self.state, before, actor=resolved.actor or None)  # (actor: wave 5H, counters put)
+        track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0))  # (5H, 7C)
         if entered_before is not None:  # -- refused modal/conditional (wave 3R1) -- what entered was, as it entered (608.2i)
             log = self.rules.turn_log
             for entry in log.entered[entered_before[1] if log.turn == entered_before[0] else 0:]:

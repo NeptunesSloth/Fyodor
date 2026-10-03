@@ -486,6 +486,9 @@ def _player_action(c: str) -> Condition | None:
             "aggregate": aggregate}
 
 
+_PLAIN_COUNTERS = frozenset({"lore", "loyalty", "charge", "oil", "time", "quest", "stun", "flying", "shield"})
+
+
 def _object_event(c: str) -> Condition | None:
     """Object events beyond the basic verbs: counters put on (122.6), leaving a graveyard (603.10a),
     becoming the target of a spell or ability (115.9, 603.2e), dealing damage (120.1)."""
@@ -494,12 +497,19 @@ def _object_event(c: str) -> Condition | None:
     # who put them — the step's actor at the counter choke point). Only +1/+1 counters: -1/-1 counters dealt as damage
     # (wither, infect: 120.3d) are put by each source's controller, which one damage step doesn't record; and "counters"
     # of any kind put at once land in one step per kind (one trigger per step, not per event): both refused.
-    m = re.fullmatch(r"you put one or more (?P<k>\+1/\+1|[a-z]+) counters on (?P<s>.+)", c)
+    # -- counters (wave 7C) -- also "a counter" / "a +1/+1 counter", counters of any kind, "an opponent puts one or more
+    # counters on a creature they control", and subjects like "a creature you don't control" / "one or more other Heroes"
+    m = re.fullmatch(r"(?P<p>you|an opponent) puts? (?:one or more|an?) (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) )?counters? on (?P<s>.+)", c)
     if m:
-        base = _subject(m["s"])
-        if base is None or m["k"] in ("-1/-1", "counters"):
+        own = m["p"] == "an opponent" and m["s"].endswith(" they control")
+        if m["p"] == "an opponent" and not own:
             raise _Refuse
-        return {**base, "event": "counters_put", "counter": m["k"], "by": "you"}
+        base = _subject(m["s"][: -len(" they control")] if own else m["s"], many=True)
+        if base is None or m["k"] in ("-1/-1", "counters") or (m["k"] and m["k"] not in _PLAIN_COUNTERS and
+                                                                 m["k"] != "+1/+1"):
+            raise _Refuse
+        return {**base, "event": "counters_put", **({"counter": m["k"]} if m["k"] else {}),
+                "by": "you" if m["p"] == "you" else "opponent", **({"own": True} if own else {})}
     # -- end counters (wave 5H) --
     m = re.fullmatch(r"(?:one or more|an?) (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) )?counters? (?:is|are) put on (?P<s>.+)", c)
     if m:
