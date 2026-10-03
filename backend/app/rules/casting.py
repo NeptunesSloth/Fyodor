@@ -164,6 +164,13 @@ def _mana_count(state: GameState, card: CardInstance, count: str, info: CardInfo
 
 
 def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, info: CardInfo) -> tuple[tuple[str, ...], ...]:
+    # -- mana riders (wave 5A) -- "for each …" / "where X is …" counts, "any color among …" (app/rules/mana_riders.py)
+    from app.rules import mana_riders
+
+    more = mana_riders.resolve(state, card, ab, info)
+    if more is not None:
+        return more
+    # -- end mana riders (wave 5A) --
     if ab.instead_if == (M.PLAYED_LAND,):  # -- this-turn history (wave 4D) -- River of Tears
         played = state.rules is not None and state.rules.lands_this_turn(card.controller, state.turn.number) > 0
         return ab.instead if played else ab.options
@@ -832,6 +839,10 @@ def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.Ma
                      "dealt": [{"source": plan.oid(card.id), "target": card.controller, "amount": n}]}, actor=card.controller)
         elif kind == "draw":
             plan.do({"type": "draw", "player": card.controller, "count": n}, actor=card.controller)
+        else:  # -- mana riders (wave 5A) -- "You gain 2 life.", "Each opponent gains 1 life."
+            from app.rules import mana_riders
+
+            mana_riders.after(plan, card, kind, n)
 
 
 def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[str] | None = None,
