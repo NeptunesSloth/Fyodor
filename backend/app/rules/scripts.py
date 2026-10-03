@@ -1409,7 +1409,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # -- may pay or else (wave 4J) -- "That player may pay {2}. If the player doesn't, you create a Treasure token."
     # (Smothering Tithe) is 118.12a's own reading of "[Effect] unless that player pays {2}": read as that
     body = _MAY_PAY_ELSE.sub(lambda m: f"{m['rest'][:1].upper()}{m['rest'][1:]} unless that player pays {m['cost']}.", body)
-    texts = [s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
+    from app.rules import recursion as _recursion  # -- recursion & tutors (wave 4M) --
+
+    body = _recursion.join_sized_search(body)
+    texts =[s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     skip_to = 0  # -- refused look/cast-free (wave 3R5) -- sentences read together with an earlier one (piles)
     groups_at = 0  # -- kicked / instead (wave 4G) --
@@ -1589,6 +1592,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 effects += _add_groups(groups, own[0], own[1])
                 continue
             optional, text = True, text[len("you may "):]
+        if effects and (bare := _language.bare_pronoun_grant(text)) is not None:  # -- recursion & tutors (wave 4M) --
+            effects += bare  # ("It gains haste.": a whole sentence, after the instruction that names "it")
+            continue
         for pattern, build in EFFECTS:
             m = pattern.match(text)
             if m:
@@ -2466,6 +2472,14 @@ def spell_definition(ch: Characteristics) -> Definition | None:
             effects += rename_bindings(_renumber(defs[ab.index]["effects"], index), f"l{ab.index}_")
         except _NoMatch:
             return None
+    # -- recursion & tutors (wave 4M) -- "Exile ~." / "Shuffle ~ into its owner's library." / "Put ~ on the bottom of its
+    # owner's library.": the spell card itself, moved where the instruction stands (608.2m/n: app/rules/recursion.py)
+    from app.rules import recursion as _recursion
+
+    effects = [{"do": "spell_self_move", "to": to} if (to := _recursion.self_move_of(e)) is not None else e for e in effects]
+    if sum(e["do"] == "spell_self_move" for e in effects) > 1:
+        return None
+    # -- end recursion & tutors (wave 4M) --
     if any(e.get("who") == "self" for e in effects):
         return None  # ("Exile ~." on an instant or sorcery: the spell itself, which effects don't move)
     effects, target = _finish_targets(effects, groups)
@@ -3011,6 +3025,20 @@ def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
             if any(c is None for c in checked):
                 raise _NoMatch
             e["abilities"] = checked
+    return found
+
+
+# -- recursion & tutors (wave 4M) -- "That creature is a black Zombie in addition to its other colors and types."
+# (Rise from the Grave, Liliana, Death's Majesty), "It's a Phyrexian in addition to its other types." (Portal to
+# Phyrexia): the object an earlier instruction put onto the battlefield gets the types (and colors) for as long as
+# it exists (611.2a, 205.1b): the "becomes" effect above, said of a pronoun only
+@effect(r"(?P<o>it|that creature|each of them|each of those creatures)(?:'s| is) (?P<desc>an? [^.]+? in addition to its other "
+        r"(?:colors and )?types)")
+def _is_in_addition(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    o = "each of them" if m["o"].startswith("each of") else "it"
+    found = _language.parse_become(f"{o} becomes {m['desc']}")
+    if found is None or any(e["do"] != "become" or e.get("abilities") or e.get("lose_abilities") for e in found[0]):
+        raise _NoMatch
     return found
 
 

@@ -198,6 +198,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return "self", "", None
     if p in ("it", "that creature", "that permanent", "that card", "that token"):
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
+    if p == "that land":  # -- recursion & tutors (wave 4M) -- "… put it onto the battlefield tapped, then shuffle. Then if
+        return "it", "", None  # you control four or more lands, untap that land." (Fabled Passage): the land found
     if p in _THEM:
         return "them", "", None  # the objects just named (scripts.resolve_it)
     if p in ("the chosen cards", "the chosen card"):  # -- "this way" outcomes (wave 4A) -- a "Choose target …" sentence's
@@ -430,6 +432,9 @@ _MV_X = re.compile(r"(?P<rest>.+?),? with mana value [xX](?P<less> or less)?")
 _NAMED = re.compile(r"(?P<rest>card|cards) named (?P<name>.+)")
 _MV_EQUAL = re.compile(r"(?P<rest>.+?),? with mana value equal to (?:(?P<n>\d+|one|two) plus )?(?P<v>the sacrificed \w+'s mana value)"
                        r"(?: plus (?P<n2>\d+|one|two))?")  # (wave 3R4)
+_MV_CMP = re.compile(r"(?P<rest>.+? cards?),? with mana value (?P<op>less than or equal to|less than|equal to) "
+                     r"(?P<v>the number of .+|your devotion to .+|~'s power|the greatest .+)")  # (wave 4M)
+_MV_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "=="}  # (wave 4M)
 
 
 def _card_selector(text: str) -> str | None:
@@ -448,8 +453,32 @@ def _search_selectors(text: str, one: bool) -> dict[str, Any]:
     whole = _card_selector(text)
     if whole is not None:
         return {"sel": whole}
-    if " with " in text or "and/or" in text:
+    # -- recursion & tutors (wave 4M) -- "up to two basic land cards and/or Gate cards" (Circuitous Route): each card
+    # found is either; "an Aura card and/or an Equipment card" (Axgard Armory): a card of each kind, each optional
+    # (701.23b: a stated quality); "an instant card or a card with flash" (Mystical Teachings): alternatives, each a
+    # whole card phrase of its own (no qualifier shared across them)
+    if " and/or " in text:
+        halves = text.split(" and/or ")
+        if len(halves) == 2 and re.fullmatch(r"(?!an? )\S.* card", halves[0]) and re.fullmatch(r"an? \S.* card", halves[1]) and one:
+            keys = [_card_selector(re.sub(r"^an? ", "", h)) for h in halves]
+            if None in keys:
+                raise _Fail
+            return {"sel": keys[0], "parts": keys}
+        if len(halves) == 2 and all(re.fullmatch(r"(?!an? )\S.* cards", h) for h in halves) and not one:
+            keys = [_card_selector(h[: -len("s")]) for h in halves]
+            if None in keys:
+                raise _Fail
+            return {"sel": keys[0], "alts": keys}
         raise _Fail
+    if " with " in text:
+        alts = re.split(r",? or (?=an? )", text)
+        if len(alts) < 2 or not all(re.fullmatch(r"(?:an? )?(?:\S+ )*?card(?: with .+)?", a) for a in alts):
+            raise _Fail
+        keys = [_card_selector(re.sub(r"^an? ", "", a)) for a in alts]
+        if None in keys:
+            raise _Fail
+        return {"sel": keys[0], "alts": keys}
+    # -- end recursion & tutors (wave 4M) --
     parts = re.split(r"(?:, and |, | and )(?=an? )", text)
     if len(parts) > 1 and one:
         keys = [_card_selector(re.sub(r"^an? ", "", x)) for x in parts]
@@ -472,6 +501,25 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     "put one onto the battlefield and the other into your hand"). A card "named …", or with "mana
     value X or less" (the X the spell or ability has), is searched for too. Without "then shuffle"
     the library is not shuffled (701.24 shuffles only when told to)."""
+    # -- recursion & tutors (wave 4M) -- "… then shuffle. You may search your library for a basic land card, put it onto the
+    # battlefield, then shuffle." (Demolition Field, mid-ability): searching is the controller's choice, asked first; one
+    # who doesn't search doesn't shuffle (effects.search, as for "Its controller may search …")
+    if text.startswith("you may search your library for "):
+        found = _search(text[len("you may "):])
+        if found is None or found[0][0].get("who", "you") != "you" or found[0][0].get("may"):
+            raise _Fail
+        return [{**found[0][0], "may": True, "optional": True}], None
+    # -- recursion & tutors (wave 4M) -- "Search your library for up to X basic land cards, where X is the number of
+    # lands you control, put them onto the battlefield tapped, then shuffle." (Boundless Realms): how many cards may be
+    # found is the count, read as the search begins (107.3c: X defined by the ability's text)
+    sized = re.fullmatch(r"(?P<a>search your library for up to [xX] (?!.*\bwith mana value [xX]\b).+?),? where [xX] is (?P<v>.+?), "
+                         r"(?P<b>(?:put|reveal) .+)", text)
+    if sized:
+        found = _search(f"{sized['a']}, {sized['b']}")
+        if found is None or found[0][0].get("max") != {"x": 1}:
+            raise _Fail
+        return [{**found[0][0], "max": _rider_value(sized["v"])}], None
+    # -- end recursion & tutors (wave 4M) --
     m = _SEARCH.fullmatch(text)
     if not m:
         return None
@@ -481,6 +529,15 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     sel_text = m["sel"]
     # -- refused zones/sized (wave 3R4) -- "up to three Aura cards with different names": the cards found must
     # all have different names (checked as the searcher chooses: effects.resume_search)
+    # -- recursion & tutors (wave 4M) -- "up to two basic land cards that share a land type" (Myriad Landscape): the
+    # cards found must have a land type in common (205.3i; checked as the searcher chooses: recursion.check_found)
+    share = re.fullmatch(r"(?P<rest>.+? land cards) that share a land type", sel_text)
+    if share:
+        if m["n"] in ("a", "an", "one"):
+            raise _Fail
+        sel_text = share["rest"]
+        extra["share_land_type"] = True
+    # -- end recursion & tutors (wave 4M) --
     distinct = re.fullmatch(r"(?P<rest>.+?) (?:with|that each have) different names(?P<tail>(?: that .+)?)", sel_text)
     if distinct:
         if m["n"] in ("a", "an", "one"):
@@ -508,6 +565,15 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         extra["mv"] = ["==", {"plus": [base, int(k) if k.isdigit() else values.NUMBERS[k]]} if k else base]
         sel_text = pod["rest"]
         mv = pod
+    # -- recursion & tutors (wave 4M) -- "a card with mana value less than or equal to the number of lands you control"
+    # (Beseech the Queen), "… less than Sisay's power", "… equal to the number of verse counters on Yisan": the count
+    # is read as the search is made (608.2h)
+    cmp = None if mv else _MV_CMP.fullmatch(sel_text)
+    if cmp:
+        extra["mv"] = [_MV_OPS[cmp["op"]], _rider_value(cmp["v"])]
+        sel_text = cmp["rest"]
+        mv = cmp
+    # -- end recursion & tutors (wave 4M) --
     anything = m["n"] == "any number of"
     n = 999 if anything else _amount(m["n"])
     single = m["n"] in ("a", "an", "one")
@@ -1039,6 +1105,10 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], _one(group)
+    # -- recursion & tutors (wave 4M) -- "Return all artifact and enchantment cards from your graveyard to the battlefield"
+    # (Brilliant Restoration): every card that is any of the types named (the "and" lists the kinds, as "or" would)
+    text = re.sub(r"^return all ((?:[a-z]+, )*[a-z]+),? and ([a-z]+) cards (?=(?:with [^,]+ )?from your graveyard to )",
+                  lambda m: "return all " + " or ".join([*m[1].split(", "), m[2]]) + " cards ", text)
     found = reanimation_forms(text)  # -- reanimation (wave 3R) --
     if found is not None:
         return found
@@ -1263,6 +1333,24 @@ def _grant_effect(who: str, items: str) -> dict[str, Any]:
     if quotes:
         e["quotes"] = quotes
     return e
+
+
+def bare_pronoun_grant(text: str) -> Effects | None:
+    """-- recursion & tutors (wave 4M) -- a whole sentence "It gains haste." / "That creature gains menace, deathtouch,
+    and haste." after an instruction that put the object onto the battlefield (Puppeteer Clique, Sneak Attack): no
+    duration is stated, so the grant lasts as long as that object exists (611.2a, 400.7). Read for a whole sentence
+    only (scripts._parse_effects): inside "Until end of turn, … and it gains first strike" the lead's duration rules."""
+    m = re.fullmatch(rf"(?P<o>it|that creature|that token|they|those creatures|those tokens) gains? (?P<kw>{_KW_ONLY})", text)
+    if m is None:
+        return None
+    try:
+        kind, _key, _group = ref(m["o"])
+        e = _grant_effect(_who(kind, _key), m["kw"])
+    except _Fail:
+        return None
+    if kind not in ("it", "them") or "quotes" in e or not e["keywords"]:
+        return None
+    return [{**e, "duration": "permanent"}]
 
 
 def _end_of_turn_first(rest: str) -> tuple[Effects, Any]:
@@ -1845,7 +1933,10 @@ def parse_still(m: re.Match[str]) -> tuple[Effects, Any]:
 # returns to its OWNER's hand (400.3).
 _RA_UNDER = r"(?: under (?P<u>your|its owner's|their owner's|their owners') control)?"
 # -- refused zones/sized (wave 3R4) -- "… with a finality counter on it": it enters with it (122.6, 122.1h)
-_RA_WITH = r"(?: with (?:an?|one) (?P<ck>\+1/\+1|-1/-1|[a-z]+) counter on it)?"
+_RA_WITH = (r"(?: with (?:(?:an?|one) (?P<add1>additional )?(?P<ck>\+1/\+1|-1/-1|[a-z]+) counter|"
+            # -- recursion & tutors (wave 4M) -- "… with two additional +1/+1 counters on it" (Rakdos Joins Up): they
+            # enter with them (122.6; "additional": besides any it would enter with, 614.1c)
+            r"(?P<cn>two|three|four|five) (?P<add2>additional )?(?P<ck2>\+1/\+1|-1/-1) counters) on it)?")
 # "… attached to this creature / that creature" (303.4f, 303.4i, 301.5e): app/rules/effects._return_cards
 _RA_HOST = r"(?: attached to (?P<host>this creature|~|that creature))?"
 _RA_RETURN = re.compile(rf"return (?P<o>.+?) to (?:(?P<h>your hand|its owner's hand|their owner's hand|their owners' hands|their hand)|"
@@ -1889,6 +1980,10 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     """The graveyard-return wordings above; None when the sentence is not one of them (the older
     grammar then reads it, or it stays manual)."""
     text = text[len("then "):] if text.startswith("then you may ") else text  # (wave 3R4: "Then you may return …")
+    # -- recursion & tutors (wave 4M) -- "Then you return up to two creature cards …" (Unseal the Necropolis), "Then you put
+    # a creature card from a graveyard onto the battlefield under your control" (Extract from Darkness): the subject
+    # is the one instructed anyway (110.2a)
+    text = re.sub(r"^you (return|put) (?=(?:an?|one|up to \w+|\w+) [^,]*?cards? from )", r"\1 ", text)
     may = text.startswith("you may ")  # (mid-ability: "Mill three cards, then you may return a creature card …")
     if may:
         text = text[len("you may "):]
@@ -1904,6 +1999,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
             if m["ck"] in values.UNMODELED_COUNTERS:
                 return None
             effect["counter"] = m["ck"]
+        if m["ck2"]:  # -- recursion & tutors (wave 4M) --
+            effect.update(counter=m["ck2"], counter_n=values.NUMBERS[m["cn"]])
         if m["atk"]:  # -- refused zones/sized (wave 3R4) -- 508.4 (effects._return_cards → refused_zones.enter_attacking)
             if m["u"] and m["u"] != "your":
                 return None  # (under its owner's control: 506.3b, not read)
@@ -1931,7 +2028,7 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         return [{**effect, "do": "return_choice", "sel": sel.key(), "n": n, "upto": bool(c["upto"] or c["any"] or may),
                  "random": bool(c["rand"]), "label": words, **({"optional": True} if may else {}),
                  **({"different": different} if different else {})}], None
-    if not put and not (not hand and (m["atk"] or m["host"])):  # (wave 3R4: "… tapped and attacking", "… attached to" read here)
+    if not put and not (not hand and (m["atk"] or m["host"] or m["ck2"] or m["add1"])):  # (ck2/add1: wave 4M)  # (wave 3R4: "… tapped and attacking", "… attached to" read here)
         return None  # ("return target …" / "return all …": the grammar below)
     try:
         kind, key, group = ref(obj)
