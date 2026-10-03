@@ -15,6 +15,7 @@ import pytest
 from app.rules import coverage, scripts
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
+from tests.test_rules_attachments import ch
 from tests.test_rules_conditionals import attack, creature, on_field, settle, to_hand, to_turn
 from tests.test_rules_effects import mana
 from tests.test_rules_wave4h_activation_costs import build, roundtrip
@@ -28,9 +29,11 @@ EXTRA = [
     card("Ojutai's Breath", set_code="tst", number="A05", mana_cost='{2}{U}', cmc=3.0, type_line='Instant', oracle_text="Tap target creature. It doesn't untap during its controller's next untap step.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)", colors=['U'], color_identity=['U'], keywords=['Rebound']),  # noqa: E501
     card('Sleep', set_code="tst", number="A06", mana_cost='{2}{U}{U}', cmc=4.0, type_line='Sorcery', oracle_text="Tap all creatures target player controls. Those creatures don't untap during that player's next untap step.", colors=['U'], color_identity=['U']),  # noqa: E501
     card("Bontu's Last Reckoning", set_code="tst", number="A07", mana_cost='{1}{B}{B}', cmc=3.0, type_line='Sorcery', oracle_text="Destroy all creatures. Lands you control don't untap during your next untap step.", colors=['B'], color_identity=['B']),  # noqa: E501
+    card('Sneak Attack', set_code="tst", number="A09", mana_cost='{3}{R}', cmc=4.0, type_line='Enchantment', oracle_text='{R}: You may put a creature card from your hand onto the battlefield. That creature gains haste. Sacrifice the creature at the beginning of the next end step.', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('Arms Race', set_code="tst", number="A10", mana_cost='{3}{R}', cmc=4.0, type_line='Enchantment', oracle_text='{3}{R}: You may put an artifact card from your hand onto the battlefield. That artifact gains haste. Sacrifice it at the beginning of the next end step.', colors=['R'], color_identity=['R']),  # noqa: E501
     card('Grizzly Bears', set_code="tst", number="A08", mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Bear', oracle_text='', power='2', toughness='2', colors=['G'], color_identity=['G']),  # noqa: E501
 ]
-FULL = ["Frost Breath", "Kefnet's Monument", "Arbalest Elite", "Apes of Rath", "Ojutai's Breath"]
+FULL = ["Frost Breath", "Kefnet's Monument", "Arbalest Elite", "Apes of Rath", "Ojutai's Breath", "Sneak Attack", "Arms Race"]
 STILL_MANUAL = {  # (card, the line that stays manual)
     "Sleep": "that player's next untap step",  # (that player's, not its controller's: not read)
     "Bontu's Last Reckoning": "Lands you control don't untap",  # 611.2c: a rules effect on whatever matches then
@@ -158,4 +161,21 @@ def test_apes_of_rath_stay_tapped_after_attacking(cards):
     assert tapped(s, apes) and not s.state.rules.stay_tapped
     to_turn(s, 7)
     assert not tapped(s, apes)
+    roundtrip(s)
+
+
+# -- put from hand: Sneak Attack's follow-up (the put itself: wave 5J, app/rules/put_from_hand.py) -------------------
+def test_sneak_attack_haste_then_sacrifice_at_the_next_end_step(cards):
+    s = build(cards, p1=("Sneak Attack", "Grizzly Bears"))
+    sneak = on_field(s, "Sneak Attack")
+    bears = to_hand(s, "Grizzly Bears")
+    mana(s, R=1)
+    act(s, "p1", type="activate_ability", card_id=sneak.id, ability=0)
+    settle(s)
+    card_ = s.state.cards[bears.id]
+    assert card_.zone == "p1:battlefield"
+    assert "haste" in ch(s, card_).keywords
+    roundtrip(s)
+    to_turn(s, 2)
+    assert s.state.cards[bears.id].zone == "p1:graveyard"
     roundtrip(s)
