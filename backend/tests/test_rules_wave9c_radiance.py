@@ -29,6 +29,8 @@ EXTRA = [
     card('Wojek Embermage', set_code='wr', number='E05', mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Human Wizard', oracle_text='Radiance — {T}: This creature deals 1 damage to target creature and each other creature that shares a color with it.', colors=['R'], color_identity=['R'], keywords=['Radiance'], power='1', toughness='2'),  # noqa: E501
     card('Incite Hysteria', set_code='wr', number='E06', mana_cost='{2}{R}', cmc=3.0, type_line='Sorcery', oracle_text='Radiance — Until end of turn, target creature and each other creature that shares a color with it gain "This creature can\'t block."', colors=['R'], color_identity=['R'], keywords=['Radiance']),  # noqa: E501
     card('Rally the Righteous', set_code='wr', number='E07', mana_cost='{1}{R}{W}', cmc=3.0, type_line='Instant', oracle_text='Radiance — Untap target creature and each other creature that shares a color with it. Those creatures get +2/+0 until end of turn.', colors=['R', 'W'], color_identity=['R', 'W'], keywords=['Radiance']),  # noqa: E501
+    card('Wojek Apothecary', set_code='wr', number='A01', mana_cost='{2}{W}{W}', cmc=4.0, type_line='Creature — Human Cleric', oracle_text='Radiance — {T}: Prevent the next 1 damage that would be dealt to target creature and each other creature that shares a color with it this turn.', colors=['W'], color_identity=['W'], keywords=['Radiance'], power='1', toughness='1'),  # noqa: E501
+    card('Surge of Zeal', set_code='wr', number='A02', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Radiance — Target creature and each other creature that shares a color with it gain haste until end of turn.', colors=['R'], color_identity=['R'], keywords=['Radiance']),  # noqa: E501
     card('Green Bear', set_code='wr', number='E10', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', oracle_text='', power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
     card('Red Imp', set_code='wr', number='E11', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Imp', oracle_text='', power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
     card('Gruul Pair', set_code='wr', number='E12', mana_cost='{R}{G}', cmc=2.0, type_line='Creature — Elemental', oracle_text='', power='3', toughness='3', colors=['R', 'G'], color_identity=['R', 'G'], keywords=[]),  # noqa: E501
@@ -39,7 +41,7 @@ EXTRA = [
     card('Blue Omen', set_code='wr', number='E17', mana_cost='{1}{U}', cmc=2.0, type_line='Enchantment', oracle_text='', colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
 ]
 FULL = ["Cleansing Beam", "Wojek Siren", "Brightflame", "Leave No Trace", "Wojek Embermage", "Incite Hysteria",
-        "Rally the Righteous"]
+        "Rally the Righteous", "Wojek Apothecary", "Surge of Zeal"]
 
 
 @pytest.fixture()
@@ -217,4 +219,45 @@ def test_wojek_embermage_pings_the_group(cards):
     assert s.state.cards[target(s, "Red Imp", "p2")].damage == 1 and s.state.cards[target(s, "Gruul Pair")].damage == 1
     assert s.state.cards[em.id].damage == 1  # (the Embermage is red too)
     assert s.state.cards[target(s, "Green Bear")].damage == 0
+    check(s)
+
+
+def test_surge_of_zeal_gives_haste_to_the_target_and_its_color_mates(cards):
+    from app.rules.plan import Plan
+
+    s = board(cards, "Surge of Zeal")
+    to_hand(s, "Surge of Zeal")
+    mana(s, R=1)
+    cast(s, "Surge of Zeal", targets=[target(s, "Red Imp", "p2")])
+
+    def haste(n, p="p1"):
+        return "haste" in {k.lower() for k in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[target(s, n, p)]).keywords}
+
+    assert haste("Red Imp", "p2") and haste("Gruul Pair") and not haste("Green Bear") and not haste("Steel Golem")
+    check(s)
+
+
+def test_wojek_apothecary_shields_each_creature_sharing_a_color_from_one_damage(cards):
+    """615.7: each creature the effect names gets its own shield of 1; the 2 damage of the Beam is then 1 on each of the
+    two red creatures, and the shield is used up."""
+    from tests.game_helpers import turn_on
+    from tests.test_rules_conditionals import sandbox
+    from tests.wave9c_kit import card_named
+
+    s = sandbox(cards, "Wojek Apothecary", "Cleansing Beam", "Gruul Pair", p2=("Red Imp", "Green Bear"))
+    put(s, "Wojek Apothecary")
+    put(s, "Gruul Pair")
+    put(s, "Red Imp", "p2")
+    put(s, "Green Bear", "p2")
+    to_hand(s, "Cleansing Beam")
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # → main 1
+    act(s, "p1", type="activate_ability", card_id=card_named(s, "Wojek Apothecary").id, ability=0,
+        targets=[card_named(s, "Red Imp", "p2").id])
+    settle(s)
+    mana(s, R=5)
+    cast(s, "Cleansing Beam", targets=[card_named(s, "Red Imp", "p2").id])
+    assert s.state.cards[card_named(s, "Red Imp", "p2").id].damage == 1
+    assert s.state.cards[card_named(s, "Gruul Pair").id].damage == 1
+    assert s.state.cards[card_named(s, "Green Bear", "p2").id].damage == 0
     check(s)

@@ -274,9 +274,10 @@ def test_that_many_is_the_number_discarded(cards):
     ("Whenever this creature deals damage to a creature, exile that creature.", True),
     # (a bare "it" before "that creature" in a damage-to-a-creature trigger: the source? not read)
     ("Whenever this creature deals damage to a creature, it deals 2 damage to that creature.", False),
-    # "that player" after a target player is that target, not the event's player
+    # "that player" after a target player is that target, not the event's player (wave 9C: the caster of "Whenever you cast"
+    # is "you", never "that player", so the only player it can name is the target)
     ("Whenever you cast a spell from exile, this creature deals 2 damage to target player. That player discards a card.",
-     False),
+     True),
     # "it" after "enchanted creature": which one?
     ("When this creature enters, tap enchanted creature. It deals damage to you equal to its power.", False),
     # a card returned from a graveyard: its printed characteristics (a within-resolution binding)

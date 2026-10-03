@@ -127,3 +127,14 @@ def test_gold_rush_counts_the_treasure_it_makes(cards):
     cast(s, "Gold Rush", targets=[card_named(s, "Green Bear").id], target_counts=[1])
     assert pt(s, "Green Bear") == (5, 5)  # one Treasure: +2/+2
     check(s)
+
+
+def test_fists_of_flame_counts_the_cards_drawn_this_turn_including_its_own(cards):
+    s = build(cards, ("Fists of Flame", "Green Bear"), ())
+    put(s, "Green Bear")
+    to_hand(s, "Fists of Flame")
+    mana(s, R=2)
+    cast(s, "Fists of Flame", targets=[card_named(s, "Green Bear").id])
+    # (the first turn has no draw step: its own draw is the only card drawn this turn)
+    assert pt(s, "Green Bear") == (4, 3) and has_trample(s, "Green Bear")
+    check(s)
