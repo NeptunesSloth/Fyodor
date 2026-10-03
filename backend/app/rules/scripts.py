@@ -2764,7 +2764,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # -- sized amounts (wave 3D) -- "Sacrifice this creature: It deals damage equal to its power": "it" is the source
         # the cost put into a graveyard (its last known information: 608.2h)
         gone = cost.sacrifice_self or re.search(r"\b(?:[Dd]iscard|[Ee]xile) (?:this card|~)", ability.cost or "") is not None
-        parsed = _own_choice(parse_effects(body, "self_gone" if gone else None))  # (_own_choice: wave 3R5)
+        # -- small wordings (wave 11E) -- "Remove a +1/+1 counter from this creature: It deals 1 damage …": the only object
+        # the cost names is the source, so "it" is the source itself (a cost that names another object stays unbound)
+        own = "self" if re.fullmatch(r"Remove [^,]+ counters? from (?:~|this \w+)", (ability.cost or "").replace(ch.name, "~")) else None
+        parsed = _own_choice(parse_effects(body, "self_gone" if gone else own))  # (_own_choice: wave 3R5)
         if parsed is None or parsed[2]:
             return None
         effects, target, _ = parsed
