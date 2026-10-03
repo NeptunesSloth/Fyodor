@@ -148,6 +148,19 @@ def _legacy_trigger(cond: dict[str, Any]) -> str | None:
     return None
 
 
+def _half_trigger(text: str) -> tuple[str, dict[str, Any] | None] | None:
+    """-- trigger tail (wave 15B) -- one half of "A and when B": a trigger the engine fires by name, or a generic condition."""
+    if text == "you cast this spell":
+        return "cast_self", None
+    from app.rules import events as event_grammar
+
+    found = event_grammar.parse_condition(text)
+    if found is None or found["event"] == "multi":
+        return None
+    legacy = _legacy_trigger(found)
+    return (legacy, None) if legacy else ("event", found)
+
+
 def num(word: str) -> int:
     return int(word) if word.isdigit() else NUMBERS[word.lower()]
 
@@ -2767,11 +2780,23 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
                     # -- triggers (wave 5D) -- "When ~ enters and whenever an opponent draws a card …" (Orcish
                     # Bowmasters): one ability, two trigger conditions — it triggers on each (603.2)
-                    both = re.fullmatch(r"~ enters and whenever (?P<rest>.+)", m["cond"])
-                    cond = event_grammar.parse_condition(both["rest"] if both else m["cond"])
-                    if cond is None or (both and (_legacy_trigger(cond) or cond["event"] == "multi")):
-                        return None
-                    name = "multi:enters_self+event" if both else (_legacy_trigger(cond) or "event")
+                    both = re.fullmatch(r"(?P<a>.+?) and (?:when|whenever) (?P<b>.+)", m["cond"])
+                    if both:  # -- trigger tail (wave 15B) -- two conditions, at most one of them generic: "When you cycle this
+                        # card and when ~ dies", "When you cast this spell and whenever ~ attacks" (603.2: it triggers on each)
+                        halves = [_half_trigger(both["a"]), _half_trigger(both["b"])]
+                        if None in halves:
+                            return None
+                        names = [h[0] for h in halves if h]
+                        generic = [h[1] for h in halves if h and h[1] is not None]
+                        if len(set(names)) < 2 or len(generic) > 1:
+                            return None
+                        cond = generic[0] if generic else None
+                        name = "multi:" + "+".join(names)
+                    else:
+                        cond = event_grammar.parse_condition(m["cond"])
+                        if cond is None:
+                            return None
+                        name = _legacy_trigger(cond) or "event"
                 if cond is not None and cond.get("event") == "activate" and not cond["loyalty"]:
                     # -- activation (wave 11F) -- only non-mana abilities use the stack (605.3b): "if it isn't a mana ability"
                     # (Harsh Mentor) is the same as "that isn't a mana ability"; without either, mana abilities would trigger it
@@ -2865,7 +2890,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     return None  # ("other" than the object the event happened to, not ~: not modeled)
                 out = {"kind": "triggered", "trigger": name,
                        "effects": effects, "optional": optional, **target_fields(target)}
-                if cond is not None and name in ("event", "multi:enters_self+event"):  # (wave 5D: the second)
+                if cond is not None and "event" in name.removeprefix("multi:").split("+"):  # (wave 5D, 15B)
                     out["cond"] = cond
                 if intervening is not None:
                     out["if"] = intervening
@@ -2875,7 +2900,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     out["limit"] = restrictions.limit_kind(limit)
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
-                if trigger == "cast_self" and re.search(r'"(?:self|event)', json.dumps(effects, default=str)):
+                if (trigger == "cast_self" or "cast_self" in name) and re.search(r'"(?:self|event)', json.dumps(effects, default=str)):
                     return None  # -- cast triggers (wave 6D) -- the spell itself is on the stack: not read as "~"
                 if trigger == "state":  # -- state triggers (wave 6D) -- 603.8
                     from app.rules import state_triggers
