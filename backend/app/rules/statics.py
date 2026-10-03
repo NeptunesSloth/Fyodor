@@ -194,7 +194,9 @@ def parse(text: str) -> Definition | None:
         subject, predicate = m["s"], m["p"]
     if subject is None or predicate is None:
         return None
-    who, kind = _subject(subject)
+    # -- token & pump wordings (wave 6C) -- a plural verb ("get", "have") says the subject is a group even when its noun
+    # is the same in both numbers ("Other Merfolk you control get +1/+1.")
+    who, kind = _subject(subject, plural=re.match(r"(?:get|have) ", predicate) is not None)
     if who is None:
         return None
     if layer4 is not None and who != "self":
@@ -316,6 +318,8 @@ def _each_part(rest: str, x_value: values.Value | None, it: str | None) -> dict[
 
     Definition key ``each`` on a grant static; app/rules/layers.py applies it in layer 7c."""
     m = _PT_EACH.match(rest)
+    if m and (rel := _relative_count(m["each"])) is not None:  # -- token & pump wordings (wave 6C) --
+        return {"p": _signed(m["p"]), "t": _signed(m["t"]), "value": rel}
     if m:
         v = values.parse_count(m["each"], it=it)  # ("counters on it": on the source, when ~ is the subject)
         if v is None:
@@ -329,6 +333,24 @@ def _each_part(rest: str, x_value: values.Value | None, it: str | None) -> dict[
         t = 0 if m["t2"] == "0" else (1 if m["t"] == "+" else -1)
         return {"p": p, "t": t, "value": x_value}
     return None
+
+
+# -- token & pump wordings (wave 6C) -- a count relative to the object the static modifies (613.4c, read for each one,
+# 611.3a): "Each creature gets +1/+1 for each other creature on the battlefield that shares at least one creature type
+# with it" (Coat of Arms: 205.3m creature types, a changeling has them all, 702.73a), "Each nontoken creature you control
+# gets +1/+1 for each other creature you control with the same name as that creature" (Mirror Box; 201.2)
+_SHARING = re.compile(r"^(?P<sel>other .+?) that shares? at least one creature type with it$")
+_SAME_NAME = re.compile(r"^(?P<sel>other .+?) with the same name as that creature$")
+
+
+def _relative_count(each: str) -> dict[str, Any] | None:
+    m = _SHARING.match(each) or _SAME_NAME.match(each)
+    if m is None:
+        return None
+    sel = selectors.parse(re.sub(r" on the battlefield$", "", m["sel"]))
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or not sel.other:
+        return None
+    return {"relative": "creature_type" if m.re is _SHARING else "name", "among": sel.key()}
 
 
 def parse_cda(body: str) -> Definition | None:
@@ -367,8 +389,31 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     return body[: m.start()].strip(), body[m.start():].strip()
 
 
-def _subject(subject: str) -> tuple[str | None, str | None]:
-    """→ ("self" | "attached" | selector key, attached kind)."""
+# -- token & pump wordings (wave 6C) -- "Other Wolves and Werewolves you control", "Skeletons, Vampires, and Zombies you
+# control": a list of creature types joined by "and" names each creature with any of them (the same group as "Wolves
+# or Werewolves")
+_TYPE_LIST = re.compile(r"^(?P<pre>(?:[Oo]ther |[Aa]ll )?)(?P<list>[A-Z][a-z'\-]+(?:, [A-Z][a-z'\-]+)*,? and [A-Z][a-z'\-]+)"
+                        r"(?P<post> you control)?$")
+
+
+def _type_list(subject: str) -> str:
+    from app.rules.creature_types import CREATURE_TYPES
+    from app.rules.protection import _PLURALS
+
+    m = _TYPE_LIST.match(subject)
+    if m is None:
+        return subject
+    words = re.split(r",? and |, ", m["list"])
+    for w in words:
+        one = _PLURALS.get(w.lower()) or (w[:-1] if w.endswith("s") else w)
+        if one not in CREATURE_TYPES and w not in CREATURE_TYPES:
+            return subject
+    return f"{m['pre']}{' or '.join(words)}{m['post'] or ''}"
+
+
+def _subject(subject: str, *, plural: bool = False) -> tuple[str | None, str | None]:
+    """→ ("self" | "attached" | selector key, attached kind). ``plural``: the verb is plural (wave 6C)."""
+    subject = _type_list(subject)  # -- token & pump wordings (wave 6C) --
     low = subject.lower()
     if low in ("~", "it"):
         return "self", None
@@ -387,7 +432,7 @@ def _subject(subject: str) -> tuple[str | None, str | None]:
     # nouns the selector grammar doesn't name: tokens are "token <permanents>" to it
     phrase = re.sub(r"\bcreature tokens\b", "token creatures", phrase, flags=re.IGNORECASE)
     phrase = re.sub(r"^(?P<pre>(?:other |attacking |untapped |tapped )*)tokens\b", r"\g<pre>token permanents", phrase)
-    if not each and not selectors.is_plural(phrase):
+    if not each and not plural and not selectors.is_plural(phrase):
         return None, None  # "Creature you control gets …": not Oracle wording for a static
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card:
@@ -402,6 +447,7 @@ def _pieces(predicate: str) -> list[str]:
     quoted = False
     i = 0
     predicate = predicate.replace("power and toughness", "power_and_toughness")
+    predicate = predicate.replace("Aura and Equipment", "Aura_and_Equipment")  # (wave 6C: one count, values._ATTACHED_TO)
     while i < len(predicate):
         c = predicate[i]
         if c == '"':
@@ -420,7 +466,8 @@ def _pieces(predicate: str) -> list[str]:
         buf += c
         i += 1
     out.append(buf.strip())
-    return [p.replace("power_and_toughness", "power and toughness") for p in out if p]
+    return [p.replace("power_and_toughness", "power and toughness").replace("Aura_and_Equipment", "Aura and Equipment")
+            for p in out if p]
 
 
 def _predicate(predicate: str, x_value: values.Value | None = None, it: str | None = None) -> dict[str, Any] | None:

@@ -711,7 +711,7 @@ def _each_amount(view: Plan, st: Static, tkey: tuple, card: CardInstance) -> int
     from app.rules import values
 
     each = st.definition["each"]
-    other = '"other":true' in repr(each["value"])
+    other = '"other":true' in repr(each["value"]) or "'relative'" in repr(each["value"])  # (wave 6C: about ``card``)
     key = (tkey, st.source, st.controller, repr(each["value"]), card.id if other else "")
     hit = _EACH_CACHE.get(key) if tkey else None
     if hit is None:

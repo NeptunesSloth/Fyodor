@@ -1015,6 +1015,12 @@ def _create_creature(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
              "token": {"name": m["sub"], "power": p, "toughness": t, "colors": colors, "type_line": type_line, "text": text}}], None
 
 
+def _token_parse(sentence: str) -> list[dict[str, Any]] | None:  # -- token & pump wordings (wave 6C) --
+    from app.rules import token_grammar
+
+    return token_grammar.parse(sentence)
+
+
 def _granted_token_text(quoted: str) -> str:
     """The quoted ability a token is created with; only ones the engine carries out (a mana
     ability such as an Eldrazi Spawn's "Sacrifice this token: Add {C}.")."""
@@ -1032,6 +1038,12 @@ def _someone_creates(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
     subject (a pronoun is resolved later, resolve_it)."""
     from app.rules import language  # (a leaf module)
 
+    # -- token & pump wordings (wave 6C) -- "Its controller creates a 1/1 … token with changeling": the token grammar
+    made = _token_parse("create " + m["rest"]) if not re.search(r"\bfor each\b|, where ", m["rest"]) else None
+    if made is not None and all(e["do"] == "create_token" for e in made):
+        if m["s"] in ("target player", "target opponent"):
+            return [{**e, "who": "target"} for e in made], SELECTORS[m["s"]]
+        return [{**e, "who": language.PLAYER_GROUPS[m["s"]]} for e in made], None
     for pattern, build in EFFECTS:
         if build not in (_create_creature, _create_predefined):
             continue
@@ -1246,6 +1258,23 @@ def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return found, None
 
 
+# -- token & pump wordings (wave 6C) -- the token grammar's newer forms (app/rules/token_grammar.py): "For each …, create
+# …", "Create Voja, a legendary 2/2 …", "… named Kobolds of Kher Keep", "… with flying named Wasp", "… that's all
+# colors", "Create thirteen …" (never a copy, nor an instruction joined to another one)
+@_first
+@effect(r"(?!.*\b(?:cop(?:y|ies)|then|unless|instead|blocking|attached|equal|attacking that|that player)\b)"
+        r"(?:(?:for each [^,\"]+, )?create (?:[A-Z][^\"]*?, an? legendary .+|(?:eleven|twelve|thirteen|fourteen|fifteen|"
+        r"sixteen|seventeen|eighteen|nineteen|twenty) .+|.+ named .+|.+ that's (?:all colors|colorless|white|blue|black|red|"
+        r"green)(?:[ ,].+)?)|for each [^,\"]+, create .+)")
+def _create_tokens_6c(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import token_grammar
+
+    found = token_grammar.parse(m.group(0))
+    if found is None:
+        raise _NoMatch
+    return found, None
+
+
 @_first
 @effect(r"(?:it has|they have) \"(?P<quoted>[^\"]+)\"")
 def _token_has_ability(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
@@ -1317,6 +1346,17 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 
     if (combat_found := combat_rules.clause(text)) is not None:
         return combat_found
+    # -- token & pump wordings (wave 6C) -- "create a Monster Role token attached to it"
+    from app.rules import roles
+
+    if (role_found := roles.clause(text)) is not None:
+        return role_found
+    # (wave 6C) "[you may] have target creature get -1/-1 until end of turn": the same instruction as "target creature
+    # gets -1/-1 until end of turn" (the "you may" is read before this)
+    had = re.fullmatch(r"have (?P<o>target [^,\"]+?) (?P<v>get|gain) (?P<rest>[^\"]+ until end of turn)", text)
+    if had is not None:
+        rest = re.sub(r" and (get|gain) ", r" and \1s ", had["rest"])
+        return _one_clause(f"{had['o']} {had['v']}s {rest}")
     from app.rules import language  # the generic grammar (a leaf module)
 
     for pattern, build in EFFECTS:
@@ -1355,6 +1395,13 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     found = _one_clause(text)
     if found is not None:
         return found
+    # -- token & pump wordings (wave 6C) -- "This creature gets +1/+0 until end of turn and deals 1 damage to you." (one
+    # subject, two instructions in order, 608.2c): the pump (or grant), then the source's damage
+    selfdmg = re.fullmatch(r"(?P<s>~|this creature) (?P<a>(?:gets|gains) [^\"]+? until end of turn) and deals (?P<d>.+)", text)
+    if selfdmg is not None:
+        left, right = _one_clause(f"{selfdmg['s']} {selfdmg['a']}"), _one_clause(f"~ deals {selfdmg['d']}")
+        if left is not None and right is not None and left[1] is None and right[1] is None:
+            return left[0] + right[0], None
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad)\b)"):
         parts = re.split(joiner, text, maxsplit=1)
@@ -2645,6 +2692,10 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
         for k, kw in enumerate(ab.keywords):
             if kw in KEYWORD_TRIGGERS:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
+            if kw == "decayed":  # -- token & pump wordings (wave 6C) -- 702.147a (app/rules/decayed.py)
+                from app.rules import decayed
+
+                out.append((1000 + ab.index * 10 + k, decayed.TRIGGER))
             if kw in ("persist", "undying"):  # 702.79 / 702.93: return with a -1/-1 (+1/+1) counter
                 out.append((1000 + ab.index * 10 + k, {
                     "kind": "triggered", "trigger": "dies_self", "optional": False, "target": None,

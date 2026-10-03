@@ -55,6 +55,8 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
         return f"{bch.name} is tapped"
     if {"cant_block", "cant_attack_or_block"} & scripts.statics(bch):
         return f"{bch.name} can't block"
+    if "decayed" in bch.keywords:  # -- token & pump wordings (wave 6C) -- 702.147a: "This creature can't block."
+        return f"{bch.name} has decayed: it can't block"
     if "cant_be_blocked" in scripts.statics(ach):
         return f"{ach.name} can't be blocked"
     # rules of the attacker about its blockers (evasion, 509.1b: flying is one of them) and of the
