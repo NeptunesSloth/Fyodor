@@ -154,7 +154,7 @@ def test_parse_cda(text, p, t):
 
 
 @pytest.mark.parametrize("text", [
-    "Equipped creature gets +1/+1 for each Aura attached to it.",  # (wave 6C: "it" is the equipped creature)
+    "Equipped creature gets +1/+1 for each Aura attached to another creature.",  # (wave 8D: "attached to it" is read)
     "Equipped creature gets +1/+1 for each +1/+1 counter on it.",  # "it" is the equipped creature, not the source
     "Creatures you control get +1/+1 for each counter on it.",
     "~ gets +1/+1 for each creature that attacked this turn.",
