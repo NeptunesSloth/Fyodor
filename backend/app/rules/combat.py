@@ -613,8 +613,15 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
         if x.id in per_attacker or "must_be_blocked" not in scripts.statics(plan.ch(x)):
             continue
         # creatures free to block it: idle ones, and ones blocking an attacker that needn't be blocked
+        # (-- review (wave 7R) -- 509.1c: not one whose own requirement that block obeys: "blocks each combat if able" or
+        # "blocks this creature if able": taking it away would only trade one obeyed requirement for another)
+        def obeying(d: A.BlockDeclaration) -> bool:
+            blocker, target = plan.ch(state.cards[d.blocker_id]), state.cards[d.attacker_id]
+            return "must_block" in scripts.statics(blocker) or any(
+                name == "must_block_obj" and arg == plan.oid(target) for name, arg in map(rule_arg, scripts.statics(blocker)))
+
         free = idle + [state.cards[d.blocker_id] for d in a.blocks
-                       if "must_be_blocked" not in scripts.statics(plan.ch(state.cards[d.attacker_id]))]
+                       if "must_be_blocked" not in scripts.statics(plan.ch(state.cards[d.attacker_id])) and not obeying(d)]
         able = [b for b in free if could(b, x, joined=len(free))]
         if len(able) >= min_blockers(plan.ch(x)):
             return f"{x.name} must be blocked if able"

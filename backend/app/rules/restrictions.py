@@ -169,7 +169,8 @@ def _clause(clause: str) -> Restriction | None:
         return {"kind": "opponents_turn"}
     m = re.fullmatch(r"(?:during your turn, )?before attackers are declared", clause)
     if m:
-        return {"kind": "step", "phases": list(_BEFORE_ATTACKERS), "whose": "you" if clause.startswith("during your turn") else None}
+        return {"kind": "step", "phases": list(_BEFORE_ATTACKERS), "whose": "you" if clause.startswith("during your turn") else None,
+                "first_combat": True}  # (wave 7R: 506.8d, 506.8g)
     if (stepped := activation_words.step_clause(clause)) is not None:  # -- activation wordings (wave 7B) --
         return stepped
     m = re.fullmatch(r"during (?P<step>.+)", clause)
@@ -248,6 +249,12 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
                 return "That can only be activated during an opponent's turn"
             if turn.phase not in x["phases"]:
                 return f"That can only be activated {_when(x)}"
+            # -- review (wave 7R) -- "after blockers are declared": with no attackers the declare blockers step is skipped
+            # (508.8, 506.8f), so end of combat comes without blockers having been declared
+            if x.get("first_combat") and turn.phase in COMBAT_PHASES and r.combats > 1:  # 506.8d / 506.8g
+                return "That can only be done before that point of the turn's first combat phase (506.8d)"
+            if x.get("needs_blockers") and turn.phase == "end_combat" and r.no_attackers:
+                return "That can only be activated after blockers are declared (this combat has no declare blockers step)"
         elif kind == "per_turn":
             n = x["n"]
             if x.get("boast") and turn.active_player == player and any(  # (wave 4H) Birgi: "can boast twice during each of your turns"
