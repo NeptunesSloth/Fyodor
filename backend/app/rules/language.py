@@ -1060,6 +1060,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if greatest:
             sel = replace(sel, extras=(*sel.extras, "greatest_power_own"))
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
+    # -- grammar (wave 11C) -- "that player loses the game", "you lose the game", "target player loses the game" (104.3e)
+    m = re.fullmatch(_SUBJ + r"loses? the game", text)
+    if m and rider is None:
+        who, target = _subject(m)
+        return [{"do": "lose_game", "who": who}], target
     found = player_counters(text, rider) or (designation_instruction(text) if rider is None else None)  # (wave 3E)
     if found is not None:
         return found
