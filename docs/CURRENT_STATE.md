@@ -18,7 +18,7 @@ verified, the text says so.
 
 | Check | Status |
 |---|---|
-| Backend pytest (full, `-n 8` with pytest-xdist) | Passed locally on the final head: all 3,576 tests (exit 0). |
+| Backend pytest (full, `-n 8` with pytest-xdist) | Passed locally on the final head: all 3,579 tests (exit 0), including the fixes for the three Codex review findings. |
 | ruff (`backend`) / mypy (`app tools`, 178 files) | Passed locally. |
 | Frontend tsc / vitest (61) | Passed locally after wave 4I (the only wave that touched the frontend). |
 | Playwright (17 spec files) | Passed in GitHub CI on `551e636` (all waves merged, before the review merge). Not run locally this session. |
