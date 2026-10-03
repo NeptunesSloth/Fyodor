@@ -39,7 +39,16 @@ EXTRA = [
     card('Ashes of the Abhorrent', set_code="tst", number="Z515", mana_cost='{1}{W}', cmc=2.0, type_line='Enchantment', oracle_text="Players can't cast spells from graveyards or activate abilities of cards in graveyards.\nWhenever a creature dies, you gain 1 life.", colors=['W'], color_identity=['W']),
     card('Marisi, Breaker of the Coil', set_code="tst", number="Z516", mana_cost='{1}{R}{G}{W}', cmc=4.0, type_line='Legendary Creature — Cat Warrior', oracle_text="Your opponents can't cast spells during combat.\nWhenever a creature you control deals combat damage to a player, goad each creature that player controls. (Until your next turn, those creatures attack each combat if able and attack a player other than you if able.)", power='5', toughness='4', colors=['G', 'R', 'W'], color_identity=['G', 'R', 'W'], keywords=['Goad']),
 ]
-FULL = ["Grand Abolisher", "Silence", "Drannith Magistrate", "Ranger-Captain of Eos", "Emergence Zone", "Thousand-Year Elixir",
+EXTRA += [
+    card('Inspiring Statuary', set_code="tst", number="Z540", mana_cost='{3}', cmc=3.0, type_line='Artifact', oracle_text="Nonartifact spells you cast have improvise. (Your artifacts can help cast those spells. Each artifact you tap after you're done activating mana abilities pays for {1}.)"),
+    card('Chief Engineer', set_code="tst", number="Z541", mana_cost='{1}{U}', cmc=2.0, type_line='Creature — Vedalken Artificer', oracle_text="Artifact spells you cast have convoke. (Your creatures can help cast those spells. Each creature you tap while casting an artifact spell pays for {1} or one mana of that creature's color.)", power='1', toughness='3', colors=['U'], color_identity=['U']),
+]
+EXTRA += [
+    card('Teferi, Mage of Zhalfir', set_code="tst", number="Z550", mana_cost='{2}{U}{U}{U}', cmc=5.0, type_line='Legendary Creature — Human Wizard', oracle_text="Flash\nCreature cards you own that aren't on the battlefield have flash.\nEach opponent can cast spells only any time they could cast a sorcery.", power='3', toughness='4', colors=['U'], color_identity=['U'], keywords=['Flash']),
+    card('Illusion Spinners', set_code="tst", number="Z551", mana_cost='{4}{U}', cmc=5.0, type_line='Creature — Faerie Wizard', oracle_text="You may cast this spell as though it had flash if you control a Faerie.\nFlying\nThis creature has hexproof as long as it's untapped. (It can't be the target of spells or abilities your opponents control.)", power='4', toughness='3', colors=['U'], color_identity=['U'], keywords=['Flying']),
+    card('Clarion Conqueror', set_code="tst", number="Z552", mana_cost='{2}{W}', cmc=3.0, type_line='Creature — Dragon', oracle_text="Flying\nActivated abilities of artifacts, creatures, and planeswalkers can't be activated.", power='3', toughness='3', colors=['W'], color_identity=['W'], keywords=['Flying']),
+]
+FULL = ["Teferi, Mage of Zhalfir", "Illusion Spinners", "Clarion Conqueror", "Inspiring Statuary", "Chief Engineer", "Grand Abolisher", "Silence", "Drannith Magistrate", "Ranger-Captain of Eos", "Emergence Zone", "Thousand-Year Elixir",
         "Dragonlord Dromoka", "Rattlechains", "Archon of Emeria", "Collector Ouphe", "Orim's Chant", "Tidal Barracuda",
         "Final-Word Phantom", "Ashes of the Abhorrent", "Marisi, Breaker of the Coil"]
 
@@ -376,3 +385,78 @@ def test_until_your_next_turn_limits_end_as_that_turn_begins(cards):
     assert not can_cast(s, "p2", bolt)  # (Bob's turn: Alice's next turn hasn't begun)
     to_turn(s, 3)
     assert not s.state.rules.cast_limits
+
+
+# -- granted convoke / improvise ---------------------------------------------------------------------
+def test_inspiring_statuary_improvise_for_nonartifact_spells_only(cards):
+    s = build(cards, p1=("Inspiring Statuary", "Grizzly Bears", "Sol Ring"))
+    statuary = field(s, "Inspiring Statuary")
+    bears = to_hand(s, "Grizzly Bears")
+    ring = to_hand(s, "Sol Ring")
+    assert not can_cast(s, "p1", ring)  # (an artifact spell: no improvise, and no mana)
+    mana(s, G=1)
+    assert can_cast(s, "p1", bears)  # ({1}{G}: the Statuary taps for the {1})
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[statuary.id].tapped
+    roundtrip(s)
+
+
+def test_chief_engineer_convoke_for_artifact_spells(cards):
+    s = build(cards, p1=("Chief Engineer", "Sol Ring", "Grizzly Bears"))
+    engineer = field(s, "Chief Engineer")
+    ring = to_hand(s, "Sol Ring")
+    bears = to_hand(s, "Grizzly Bears")
+    assert can_cast(s, "p1", ring) and not can_cast(s, "p1", bears)
+    act(s, "p1", type="cast_spell", card_id=ring.id)
+    settle(s)
+    assert s.state.cards[ring.id].zone == "p1:battlefield" and s.state.cards[engineer.id].tapped
+    roundtrip(s)
+
+
+# -- sorcery timing for opponents, flash for your own cards ------------------------------------------
+def test_teferi_mage_of_zhalfir(cards):
+    s = build(cards, p1=("Teferi, Mage of Zhalfir", "Grizzly Bears", "Lightning Bolt"), p2=("Lightning Bolt",))
+    field(s, "Teferi, Mage of Zhalfir")
+    bolt = to_hand(s, "Lightning Bolt")
+    bears = to_hand(s, "Grizzly Bears")
+    theirs = to_hand(s, "Lightning Bolt", "p2")
+    mana(s, R=1, G=2)
+    mana(s, "p2", R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    act(s, "p1", type="cast_spell", card_id=bears.id)  # (a creature card Alice owns: flash)
+    assert not can_cast(s, "p2", theirs)  # (an instant, but only as a sorcery)
+    settle(s)
+    to_turn(s, 2)
+    mana(s, "p2", R=1)
+    assert can_cast(s, "p2", theirs)  # (Bob's main phase, the stack empty)
+    act(s, "p2", type="cast_spell", card_id=theirs.id, targets=["p1"])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.players["p1"].life == 37
+    roundtrip(s)
+
+
+def test_illusion_spinners_flash_only_with_a_faerie(cards):
+    s = build(cards, p1=("Illusion Spinners", "Lightning Bolt"))
+    spinners = to_hand(s, "Illusion Spinners")
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, R=1, U=5)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    with pytest.raises(ActionError, match="stack is empty"):
+        act(s, "p1", type="cast_spell", card_id=spinners.id)
+    act(s, "p1", type="create_token", player="p1", token={"name": "Faerie", "type_line": "Token Creature — Faerie",
+                                                          "power": "1", "toughness": "1"})
+    act(s, "p1", type="cast_spell", card_id=spinners.id)
+    settle(s)
+    assert s.state.cards[spinners.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_clarion_conqueror_stops_artifact_mana(cards):
+    s = build(cards, p1=("Clarion Conqueror",), p2=("Sol Ring",))
+    field(s, "Clarion Conqueror")
+    ring = field(s, "Sol Ring", "p2")
+    to_turn(s, 2)
+    with pytest.raises(ActionError, match="can't be activated"):
+        act(s, "p2", type="activate_ability", card_id=ring.id, ability=0)
+    roundtrip(s)

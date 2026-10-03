@@ -436,8 +436,16 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
 HELPER_ABILITY: dict[P.Kind, int] = {"convoke": -1, "improvise": -2, "delve": -3}  # pseudo "ability index" in the can_pay hint
 
 
-def helper_kinds(spell: Characteristics | None) -> tuple[P.Kind, ...]:
-    return tuple(k for k in P.KINDS if spell is not None and k in spell.keywords)
+def helper_kinds(spell: Characteristics | None, state: GameState | None = None, player: str | None = None,
+                 spell_card: str | None = None, info: CardInfo | None = None) -> tuple[P.Kind, ...]:
+    """The spell's convoke / improvise / delve — its own, and (-- cast limits (wave 5E) --, given the table) those a
+    permanent grants ("Nonartifact spells you cast have improvise.": app/rules/cast_limits.py)."""
+    granted: set[str] = set()
+    if spell is not None and state is not None and player is not None and spell_card is not None and info is not None:
+        from app.rules import cast_limits
+
+        granted = cast_limits.granted_helpers(state, player, spell_card, spell, info)
+    return tuple(k for k in P.KINDS if spell is not None and (k in spell.keywords or k in granted))
 
 
 def helper_problem(state: GameState, player: str, info: CardInfo, kind: P.Kind, card: CardInstance | None,
@@ -463,7 +471,7 @@ def helper_problem(state: GameState, player: str, info: CardInfo, kind: P.Kind, 
 def helpers_for(state: GameState, player: str, info: CardInfo, spell: Characteristics | None, spell_card: str | None,
                 contributions: list[dict[str, Any]]) -> list[P.Helper]:
     """Validate a spell's chosen cost contributions (each card once, the spell has the keyword)."""
-    kinds = helper_kinds(spell)
+    kinds = helper_kinds(spell, state, player, spell_card, info)
     out: list[P.Helper] = []
     seen: set[str] = set()
     for c in contributions:
@@ -484,7 +492,7 @@ def available_helpers(state: GameState, player: str, info: CardInfo, spell: Char
                       spell_card: str | None) -> list[P.Helper]:
     """Everything that could pay part of this spell's cost right now."""
     out: list[P.Helper] = []
-    for kind in helper_kinds(spell):
+    for kind in helper_kinds(spell, state, player, spell_card, info):
         zone = zone_key(player, "graveyard" if kind == "delve" else "battlefield")
         for cid in state.zones.get(zone, []):
             problem, colors = helper_problem(state, player, info, kind, state.cards[cid], spell_card)
@@ -891,7 +899,8 @@ def _auto_helpers(plan: Plan, cost: M.ManaCost, spell: Characteristics, spell_ca
     """The engine pays (AUTO/ASK — tests and the sandbox payer): use convoke / improvise / delve
     only when mana alone can't pay, choosing them with the castability solver."""
     state, player = plan.state, plan.actor
-    if not helper_kinds(spell) or can_pay(state, player, cost, plan.info, purpose=Purpose(spell=spell)):
+    if not helper_kinds(spell, state, player, spell_card, plan.info) or can_pay(state, player, cost, plan.info,
+                                                                               purpose=Purpose(spell=spell)):
         return []
     plain = [s for s in mana_sources(state, player, plan.info, Purpose(spell=spell)) if s.activation is None]
     try:
@@ -1232,7 +1241,8 @@ def _rerun(plan: Plan, d: Any, intent: Any, sources: list[str]) -> None:
 def can_pay(state: GameState, player: str, cost: M.ManaCost, info: CardInfo, *, exclude: tuple[str, ...] = (),
             purpose: Purpose | None = None) -> bool:
     everything = [s for s in mana_sources(state, player, info, purpose) if s.card_id not in exclude]
-    if purpose is not None and purpose.card is not None and helper_kinds(purpose.spell):  # (a hint: never paid here)
+    if purpose is not None and purpose.card is not None \
+            and helper_kinds(purpose.spell, state, player, purpose.card, info):  # (a hint: never paid here)
         assert purpose.spell is not None
         everything = _helper_sources(state, player, info, purpose.spell, purpose.card, everything)
     try:
@@ -2133,7 +2143,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     # -- cast limits (wave 5E) -- 601.3 applies to a cast as something resolves too
     from app.rules import cast_limits
 
-    limited = cast_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info)
+    limited = cast_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, resolving=True)
     if limited:
         raise ActionError(limited)
     definition = None if plan.manual(card) else scripts.spell_definition(ch)
@@ -2367,7 +2377,7 @@ def _commit_helper(plan: Plan, card: CardInstance | None, kind: P.Kind) -> None:
     assert d is not None and d.resume is not None
     resume = d.resume
     spell, spell_card = _prompt_spell(plan, resume)
-    if spell is None or kind not in spell.keywords:
+    if spell is None or kind not in helper_kinds(spell, plan.state, d.player, spell_card, plan.info):  # (wave 5E: granted)
         raise ActionError(f"Only a spell with {kind} can be paid for that way")
     if card is None:
         raise ActionError("That card isn't here any more")

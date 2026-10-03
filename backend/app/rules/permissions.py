@@ -604,6 +604,11 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             if d.get("static") == "permission" and d.get("self") and d.get("free") and d["zone"] == "hand" \
                     and (d.get("cond") != "commander" or _controls_commander(state, player)):
                 out.append(Grant("permission", f"{ch.name}: cast it without paying its mana cost", free=True))
+    if verb == "cast":  # -- cast limits (wave 5E) -- 601.3d: "You may cast this spell as though it had flash if …"
+        from app.rules import cast_limits
+
+        if (label := cast_limits.self_flash(state, player, card, ch, info)) is not None:
+            out.append(Grant("permission", label, zone_ok=False, flash=True))
     for src, index, d in _table_statics(state, info, {"permission"}):
         # -- cast limits (wave 5E) -- "Any player may cast …" / "During each opponent's end step, you may cast …"
         if (src.controller != player and not d.get("any_player")) or d.get("self") or not d[verb]:
@@ -613,6 +618,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
 
             if not cast_limits.permission_during_ok(state, d, player):
                 continue
+        if d.get("own") and card.owner != player:  # ("Creature cards you own …")
+            continue
         if d["zone"] != "any" and d["zone"] != where:
             continue
         if d["filter"] and verb == "cast" and not spell_matches(state, player, card, ch, d["filter"], info):

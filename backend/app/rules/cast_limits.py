@@ -76,6 +76,14 @@ STATIC_ADDITIONAL = re.compile(r"^each player who has cast (?:a|an) (?P<sel>[a-z
 # creatures, and planeswalkers …" (mana abilities included, 605.1a, unless it says otherwise)
 STATIC_ABILITIES = re.compile(r"^activated abilities of (?P<sel>[a-z][a-z' ,-]*?) can't be activated(?P<nm> unless they're mana abilities)?$")
 STATIC_LOYALTY = "players can't activate planeswalkers' loyalty abilities"
+# 307.1: "Each opponent can cast spells only any time they could cast a sorcery." (Teferi, Mage of Zhalfir) — their own main
+# phase, with priority and an empty stack: never as something resolves (608.2g), whatever lets them cast it then
+STATIC_SORCERY = "each opponent can cast spells only any time they could cast a sorcery"
+# "Creature cards you own that aren't on the battlefield have flash." (Teferi, Mage of Zhalfir): what matters of having flash
+# is when the card may be cast (601.3b-d)
+STATIC_OWN_FLASH = re.compile(r"^(?P<sel>[a-z]+) cards you own that aren't on the battlefield have flash$")
+# 601.3d: "You may cast this spell as though it had flash if you control a Faerie."
+SELF_FLASH_IF = re.compile(r"^you may cast (?:this spell|~) as though it had flash if (?P<cond>.+)$")
 # Effects: "Your opponents can't cast spells this turn." / "Target player can't cast spells this turn." / "Players can't cast
 # noncreature spells this turn." / "Until your next turn, your opponents can't cast spells from anywhere other than their hands."
 EFFECT_CAST = re.compile(rf"^(?:(?P<lead>until your next turn|this turn), )?(?P<who>your opponents|players|each player|each opponent|"
@@ -88,6 +96,9 @@ STATIC_FLASH = re.compile(r"^(?P<during>during each opponent's end step, )?(?P<w
 EFFECT_FLASH = re.compile(r"^(?:until end of turn, )?you may cast (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<this> this turn)? "
                           r"as though they had flash$")
 STATIC_HASTE = "you may activate abilities of creatures you control as though those creatures had haste"
+# 702.51 / 702.126 / 702.66: "Nonartifact spells you cast have improvise." / "Artifact spells you cast have convoke." / "Spells
+# you cast have delve." — the spell has it while it's being cast (601.2g-h: costs are paid with the spell on the stack)
+STATIC_HELPER = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells you cast have (?P<kw>convoke|improvise|delve)$")
 
 
 def _lower_first(s: str) -> str:
@@ -138,12 +149,31 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": key, "from": None,
                 "act": None, "max": 1, "effects": []}
     m = STATIC_ABILITIES.fullmatch(t)
-    if m:
-        sel = selectors.parse(m["sel"])
+    if m:  # ("of artifacts, creatures, and planeswalkers": the abilities of each of them)
+        sel = selectors.parse(re.sub(r",? and ", ", or " if "," in m["sel"] else " or ", m["sel"]))
         if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras or sel.other:
             return None
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": None, "from": None,
                 "act": "nonmana_of" if m["nm"] else "of", "of": sel.key(), "max": None, "spells": False, "effects": []}
+    if t == STATIC_SORCERY:
+        return {"kind": "static", "static": "cast_limit", "who": "opponents", "when": None, "filter": None, "from": None,
+                "act": None, "max": None, "sorcery": True, "effects": []}
+    m = STATIC_OWN_FLASH.fullmatch(t)
+    if m:
+        ok, key = _filter(m["sel"])
+        if not ok or key is None:
+            return None
+        return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": False,
+                "play": False, "cast": True, "filter": key, "own": True, "effects": []}
+    m = SELF_FLASH_IF.fullmatch(t)
+    if m:
+        from app.rules import conditions
+
+        cond = conditions.parse(m["cond"])
+        if cond is None or "succeeded" in cond:
+            return None
+        return {"kind": "static", "static": "permission", "zone": "any", "once": False, "flash": True, "self": True,
+                "play": False, "cast": True, "filter": None, "if": cond, "effects": []}
     if t == STATIC_LOYALTY:
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": None, "from": None,
                 "act": "loyalty", "max": None, "spells": False, "effects": []}
@@ -161,6 +191,12 @@ def static_definition(text: str) -> Definition | None:
         return d
     if t == STATIC_HASTE:
         return {"kind": "static", "static": "activate_as_haste", "effects": []}
+    m = STATIC_HELPER.fullmatch(t)
+    if m:
+        ok, key = _filter(m["sel"])
+        if not ok:
+            return None
+        return {"kind": "static", "static": "spell_helper", "keyword": m["kw"], "filter": key, "effects": []}
     from app.rules import player_shields  # "You have hexproof." (app/rules/player_shields.py)
 
     return player_shields.static_definition(text)
@@ -295,7 +331,7 @@ def _spells_words(key: str | None, frm: list[str] | None) -> str:
 
 # -- reading the table -----------------------------------------------------------------------------
 _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
-_KINDS = ("cast_limit", "activate_as_haste", "player_shield")
+_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper")
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -367,10 +403,13 @@ def _record_live(state: GameState, x: dict[str, Any]) -> bool:
 
 
 def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None,
-              d: dict[str, Any]) -> bool:
-    """Does this limit forbid ``player`` casting this card as this spell now?"""
+              d: dict[str, Any], resolving: bool = False) -> bool:
+    """Does this limit forbid ``player`` casting this card as this spell now (``resolving``: as something resolves)?"""
     if d.get("spells") is False:
         return False
+    if d.get("sorcery"):  # 307.1
+        return resolving or not (state.turn.active_player == player and state.turn.phase in ("main1", "main2")
+                                 and not state.zones.get("stack"))
     frm = d.get("from")
     if frm:
         if frm == ["not_hand"]:
@@ -402,8 +441,10 @@ def _cast_this_turn(state: GameState, player: str, key: str | None) -> int:
                and (sel is None or history.note_matches(sel, n.types, n.subtypes, n.supertypes, n.colors, n.mv)))
 
 
-def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> str | None:
-    """Why a rule or effect prohibits ``player`` from casting this card as this spell now (601.3), or None."""
+def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None, *,
+                 resolving: bool = False) -> str | None:
+    """Why a rule or effect prohibits ``player`` from casting this card as this spell now (601.3), or None. ``resolving``:
+    the cast is made as something resolves (608.2g: suspend, cascade, "you may cast … without paying …")."""
     r = state.rules
     if r is None:
         return None
@@ -412,8 +453,9 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
             return f"{x.get('label') or 'An effect'}: you can't cast {_spells_words(x.get('filter'), x.get('from'))} now"
     for src, d in _statics(state, info, "cast_limit"):
         if _who_ok(d["who"], player, src.controller) and _when_ok(state, d.get("when"), src.controller) \
-                and _cast_hit(state, player, card, ch, info, d):
-            more = " more than once this turn" if d.get("max") is not None else ""
+                and _cast_hit(state, player, card, ch, info, d, resolving):
+            more = " more than once this turn" if d.get("max") is not None else \
+                " except any time you could cast a sorcery" if d.get("sorcery") else ""
             return f"{src.name or 'A permanent'}: you can't cast {_spells_words(d.get('filter'), d.get('from'))}{more} now"
     return None
 
@@ -473,11 +515,37 @@ def as_though_haste(state: GameState, card: CardInstance, info: CardInfo | None)
     return any(src.controller == card.controller for src, _ in _statics(state, info, "activate_as_haste"))
 
 
+def granted_helpers(state: GameState, player: str, spell_card: str, spell: Characteristics, info: CardInfo) -> set[str]:
+    """Convoke / improvise / delve that permanents ``player`` controls give this spell they're casting."""
+    found = _statics(state, info, "spell_helper")
+    card = state.cards.get(spell_card)
+    if not found or card is None:
+        return set()
+    from app.rules.permissions import spell_matches
+
+    return {d["keyword"] for src, d in found if src.controller == player
+            and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))}
+
+
 def permission_during_ok(state: GameState, d: Definition, player: str) -> bool:
     """A flash permission's "During each opponent's end step" (513: the end step of a turn of an opponent's)."""
     if d.get("during") == "opponents_end_step":
         return state.turn.active_player != player and state.turn.phase == "end"
     return True
+
+
+def self_flash(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> str | None:
+    """601.3d: the card's own "You may cast this spell as though it had flash if …", when its condition holds now (the
+    grant's label), else None."""
+    from app.rules import conditions, scripts
+    from app.rules.plan import Plan
+
+    for d in scripts.definitions(ch).values():
+        if d.get("static") == "permission" and d.get("self") and d.get("flash") and d.get("if") is not None:
+            ctx = {"controller": player, "source_card": card.id, "source_object": state.rules.object_id(card.id) if state.rules else None}
+            if conditions.holds(Plan.view(state, player, info), ctx, d["if"]):
+                return f"{ch.name}: as though it had flash"
+    return None
 
 
 def free_cast_blocked(plan: Plan, player: str, card_id: str) -> str | None:
@@ -489,5 +557,5 @@ def free_cast_blocked(plan: Plan, player: str, card_id: str) -> str | None:
     if card is None:
         return None
     faces = (0, 1) if chars.is_two_spell_card(card, plan.info) else (None,)
-    found = [cast_problem(plan.state, player, card, chars.as_cast(card, plan.info, f), plan.info) for f in faces]
+    found = [cast_problem(plan.state, player, card, chars.as_cast(card, plan.info, f), plan.info, resolving=True) for f in faces]
     return found[0] if all(found) else None
