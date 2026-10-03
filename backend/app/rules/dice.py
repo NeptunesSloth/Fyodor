@@ -8,7 +8,10 @@ result". Researched against CR 2026-09-25, 706.
 * 706.4: an ability without a results table says in its text how the result is used; here as an amount, read from this
   resolution's own roll (``ctx["die"]``; ``ctx["die_other"]`` for the other die of "choose one result": the roller chooses).
 
-Refused (manual): results tables (706.3), "whenever you roll" triggers, rerolls and ignored rolls (706.2b, 706.6), "roll X dice",
+-- wave 13E -- "Whenever you roll one or more dice" is a trigger event (a "designation" event, counter "roll", once per roll of
+any number of dice; its highest result rides along); the results themselves are not read by a trigger yet.
+
+Refused (manual): results tables (706.3), triggers that read a result, rerolls and ignored rolls (706.2b, 706.6), "roll X dice",
 rolling for each player, a roll that is part of a cost, a result used by a reflexive "When you do" ability.
 """
 
@@ -77,6 +80,9 @@ def roll(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
     done = plan.do({"type": "roll", "sides": e["sides"], "count": e["count"]}, actor=pid)
     results = list(done.r.results)  # type: ignore[union-attr]
+    from app.game.rules_state import emit
+
+    emit(plan.state, "designation", counter="roll", player=pid, amount=max(results))  # "Whenever you roll one or more dice"
     if e["count"] == 1 or results[0] == results[1]:
         ctx["die"], ctx["die_other"] = results[0], results[-1]
         return True

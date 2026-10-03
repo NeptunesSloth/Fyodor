@@ -307,6 +307,8 @@ def _parse(c: str) -> Condition | None:
             return None  # (the first scry or surveil, or the first of each? the wording doesn't say: manual)
         conds = [{"event": k, "subject": "player", "player": "you", **({"nth": 1} if m["first"] else {})} for k in kinds]
         return conds[0] if len(conds) == 1 else {"event": "either", "subject": "player", "player": "you", "conds": conds}
+    if c == "you roll one or more dice":  # -- rolling dice (wave 13E) -- 706: once per roll, however many dice (rules/dice.py)
+        return {"event": "roll", "subject": "player", "player": "you"}
     for rx, event in _DESIGNATION_EVENTS:  # -- counters & designations (wave 3E) --
         m = rx.fullmatch(c)
         if m:

@@ -345,6 +345,9 @@ def _group_of(e: dict[str, Any]) -> int | None:
         return 0
     if isinstance(who, str) and who.startswith("target:"):
         return int(who[7:])
+    m = re.match(r"controlled:target(?::(\d+))?\|", who) if isinstance(who, str) else None
+    if m:  # (wave 13E) "all creatures target player controls"; not 6B's "controlled:target_player_or_controller|…"
+        return int(m[1] or 0)
     return None
 
 
@@ -413,13 +416,15 @@ class _Introducer:
         if g is not None and groups is not None and g < len(groups):
             if _is_player_group(groups[g]):
                 self.player = groups[g]["max"] == 1
-                self.objects = self.objects and self.do in _CHOSEN  # ("target player sacrifices a creature")
+                self.objects = self.objects and (self.do in _CHOSEN or who.startswith("controlled:"))  # ("target player sacrifices a creature")
             else:
                 self.objects = True  # (a targeted object: "it" is that target, whatever the effect)
             self.number = 1 if groups[g]["max"] == 1 else 2
         elif who.startswith(selectors.PREFIX) or who in ("creatures_you_control", "each_creature", "all",
                                                         "each_player", "each_opponent"):
             self.number = 2  # ("exile all creatures", "each opponent sacrifices …")
+        if who.startswith("controlled:"):  # (wave 13E: "Tap all creatures target player controls. Those creatures …")
+            self.number = 2
         if self.do in _CHOSEN:  # ("sacrifice a creature", "create two … tokens"): as many as it says
             n = e.get(_CHOSEN[self.do], 1)
             self.number = 1 if n == 1 else (2 if isinstance(n, int) else None)
@@ -611,7 +616,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     # card. You may play it": the hand is hidden, 400.7 — manual)
                     return None
                 if intro is not None:
-                    if intro.do in _MOVERS or _group_of(out[intro.index]) is None:
+                    if intro.do in _MOVERS or _group_of(out[intro.index]) is None \
+                            or str(out[intro.index].get("who")).startswith("controlled:"):  # (wave 13E: the objects, not the player)
                         e["who"] = "ref:" + bound(intro)
                     else:
                         g = _group_of(out[intro.index])
@@ -810,7 +816,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "to", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
+_TARGET_REFS = ("who", "to", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -1316,6 +1322,18 @@ def _pump_their_team(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
         SELECTORS[f"target {m['pl']}"]
 
 
+# -- untap restrictions (wave 13E) -- "Tap all creatures target player controls." (Sleep, Kiora Bests the Sea God): the
+# permanents that player controls as it resolves (608.2c)
+@effect(r"(?P<v>tap|untap) all (?P<what>creatures|nonland permanents|lands|artifacts|permanents) target (?P<pl>player|opponent) controls")
+def _tap_their_all(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors
+
+    sel = selectors.parse(m["what"])
+    if sel is None:
+        raise _NoMatch
+    return [{"do": m["v"], "who": f"controlled:target|{sel.key()}"}], SELECTORS[f"target {m['pl']}"]
+
+
 # -- static wordings (wave 6E) -- "Regenerate each creature you control." (Golgari Charm, Wrap in Vigor): a shield on each
 # object of the group as the effect resolves (701.19a; 608.2c: the group is read then)
 @effect(r"regenerate (?:each|all) (?P<what>[a-z][a-z ]*?)")
@@ -1816,6 +1834,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     body = name_search.rewrite(body)
     body = re.sub(r"(chooses [^.]*? they control)\. Destroy the rest\.", r"\1, then the rest are destroyed.", body)  # (wave 11D)
+    # -- reveal until (wave 13E) -- 701.20b: the revealed cards stay in the library, so "shuffle the rest into your library" is a
+    # shuffle of it ("…, then shuffle"); "you may reveal … until … If you do, put that card …": the reveal is the optional action
+    if "until you reveal " in body:
+        body = re.sub(r"(until you reveal [^.]*?)\. If you do, put ", r"\1. Put ", body) if "ou may reveal cards" in body else body
+        body = re.sub(r"(?:, then| and) shuffle (?:the rest|all other cards revealed this way) into your library", ", then shuffle", body)
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     body = watches.join_retarget(body)
@@ -2668,6 +2691,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
         if (replaced := mana_replace.definition(text)) is not None:
             return replaced
+    if ability.kind == "static" and (untap_limit := _untap_choice.static_definition(text)) is not None:
+        return untap_limit  # -- untap restrictions (wave 13E) -- "Players can't untap more than one creature during their untap steps."
     if ability.kind == "static" and (untaps := _untap_riders.static_definition(text)) is not None:
         return untaps  # -- mana riders (wave 5A) -- "Untap all … you control during each other player's untap step."
     if ability.kind == "static":
@@ -4525,14 +4550,21 @@ def _probe_previous(effects: list[dict[str, Any]], prev_start: int) -> str | Non
     return name
 
 
+def _branch_blocks(effects: list[dict[str, Any]]) -> list[tuple[int, int]]:
+    """The instructions only one branch of an "instead" / "Otherwise" clause runs ([start, end) of each): an only_if
+    block, and (wave 13E) the base and the kicked alternative of "If this spell was kicked, … instead"."""
+    return [(i + 1, min(len(effects), i + 1 + int(e.get("skip", len(effects)) if e["do"] == "only_if" else e.get("n", 0))))
+            for i, e in enumerate(effects)
+            if (e["do"] == "only_if" and (e.get("bind") or "flag" in e["cond"])) or e["do"] == "kicked_gate"]
+
+
 def _branch_refs_retarget(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """"Return target permanent to its owner's hand. If that permanent is red or green, put it on top of its owner's
     library instead." (Consign to Dream): the pronoun in the "instead" branch names the object the replaced
     instruction would have acted on — it never did (614.6: a replaced event never happens), so that is the object as
     the replaced instruction named it: its target (or the source). Such a reference across the branches is
     rewritten to that target; any other one stays (and _branch_refs_ok refuses it)."""
-    blocks = [(i + 1, min(len(effects), i + 1 + int(e.get("skip", len(effects)))))
-              for i, e in enumerate(effects) if e["do"] == "only_if" and (e.get("bind") or "flag" in e["cond"])]
+    blocks = _branch_blocks(effects)
     if not blocks:
         return effects
     produced = {e["as"]: (i, e.get("who")) for i, e in enumerate(effects) if e.get("as")}
@@ -4545,8 +4577,9 @@ def _branch_refs_retarget(effects: list[dict[str, Any]]) -> list[dict[str, Any]]
                 continue
             k, who = produced[m["name"]]
             across = any(lo <= k < hi and not lo <= i < hi for lo, hi in blocks)
-            if across and isinstance(who, str) and (who in ("target", "self") or re.fullmatch(r"target:\d+", who)):
-                changed[key] = who
+            if across and isinstance(who, str) and (who in ("target", "self") or re.fullmatch(r"target:\d+", who)
+                                                    or who.startswith(("controlled:target", "sel:")) or who == "creatures_you_control"):
+                changed[key] = who  # (wave 13E: a group is named again as the branch that ran reads it, 608.2c)
         out.append(changed)
     return out
 
@@ -4576,8 +4609,7 @@ def _branch_refs_ok(effects: list[dict[str, Any]]) -> bool:
     """Nothing refers to what an instruction in an "instead" / "Otherwise" branch moved or chose, from
     outside that branch: only one of the branches happens, so the other branch's (and any later)
     "it" / "its controller" would name nothing, silently — the ability stays manual instead."""
-    blocks = [(i + 1, min(len(effects), i + 1 + int(e.get("skip", len(effects)))))
-              for i, e in enumerate(effects) if e["do"] == "only_if" and (e.get("bind") or "flag" in e["cond"])]
+    blocks = _branch_blocks(effects)
     if not blocks:
         return True
     produced = {e["as"]: i for i, e in enumerate(effects) if e.get("as")}

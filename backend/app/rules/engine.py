@@ -523,7 +523,9 @@ def start_next_turn(plan: Plan) -> None:
     keep = list(dict.fromkeys([*keep, *next_untap.kept(plan, skip_to or upcoming)]))[:250]  # (wave 6A)
     # -- untap choice (wave 7F) -- 502.3: "You may choose not to untap ~": asked below, after the turn changes
     asked = untap_choice.candidates(plan, skip_to or upcoming, keep) if stay is None else []
-    keep = [*keep, *asked]
+    # -- untap restrictions (wave 13E) -- 502.3: "Players can't untap more than one creature": held back until chosen below
+    limited = untap_choice.limited(plan, skip_to or upcoming, [*keep, *asked]) if stay is None else []
+    keep = [*keep, *asked, *dict.fromkeys(c for g in limited for c in g[0])]
     # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
     # (wave 7F: after every other reason to stay tapped, so a permanent that isn't untapping keeps its counter)
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
@@ -540,7 +542,7 @@ def start_next_turn(plan: Plan) -> None:
         skipped.append((plan.active, plan.state.turn.number))
     plan.rules.turn_base = base if extra else plan.active  # -- extra turns (wave 8A) -- 500.7
     if untap_choice.ask(plan, asked, {"stunned": stunned, "previous": list(previous), "skipped": [list(s) for s in skipped],
-                                      "plain": stay is None, "keep": keep}):  # (wave 7F) the untap step waits for the choice
+                                      "plain": stay is None, "keep": keep}, limited):  # (wave 7F) the untap step waits for the choice
         return
     finish_turn_start(plan, stunned, previous, skipped, stay is None, keep)
 
@@ -1232,6 +1234,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "block_split": _resume_block_split,
     "cleanup_manual": lambda plan, d, chosen: start_next_turn(plan),
     "untap_keep": untap_choice.resume,  # -- untap choice (wave 7F) --
+    "untap_limit": untap_choice.resume_limit,  # -- untap restrictions (wave 13E) --
     "sba_confirm": sba.resume_confirm,
     "reconcile": reconcile.resume_reconcile,
     "payment": casting.resume_payment,

@@ -1284,7 +1284,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
                      **({"counter": m["ck"]} if m["ck"] else {})}], target
         if from_zone and kind not in ("it", "them"):
             return [{"do": "return_card", "who": who, "to": "hand", "under": "you" if m["d"] == "your hand" else "owner"}], target
-        if m["d"] == "your hand":
+        if m["d"] == "your hand" and kind not in ("it", "them"):  # (wave 13E: 400.3 a card goes to its owner's hand, "your" or not)
             raise _Fail
         return [{"do": "bounce", "who": who}], target
     m = re.fullmatch(rf"distribute (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters among (?P<o>.+)", text)
