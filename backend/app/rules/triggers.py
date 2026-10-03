@@ -1219,10 +1219,18 @@ def ward_costs(ch: Any) -> list[str]:
     out = []
     for ab in ch.abilities:
         if ab.kind == "keywords" and "ward" in ab.keywords:
-            m = WARD.fullmatch(ab.text.strip().rstrip("."))
-            if m:
-                out.append(m["cost"])
+            # -- static wordings (wave 6E) -- a keyword line listing several keywords ("Flying, ward {2}"): each piece
+            # is its own keyword ability (702.1), the ward piece triggers as any other (702.21a)
+            for piece in ward_pieces(ab.text):
+                m = WARD.fullmatch(piece)
+                if m:
+                    out.append(m["cost"])
     return out
+
+
+def ward_pieces(line: str) -> list[str]:
+    """-- static wordings (wave 6E) -- the ward pieces of a keyword line ("Flying, ward {2}" → ["ward {2}"])."""
+    return [p.strip() for p in re.split(r"[,;]\s*", line.strip().rstrip(".")) if p.strip().lower().startswith("ward")]
 
 
 def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[Any], *, crime: bool = True) -> None:
