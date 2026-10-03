@@ -138,6 +138,12 @@ def evasion_rules(ach: Characteristics) -> set[str]:
     return scripts.statics(ach) | {rule for kw, rule in KEYWORD_RULES.items() if kw in ach.keywords}
 
 
+def block_limit(bch: Characteristics) -> int:
+    """-- multiple blocks (wave 13B) -- 509.1a: one attacker per blocker, and one more for each "can block an additional
+    creature" (``block_extra:N:<source>``, one per source, so several add up; "any number of creatures": a huge N)."""
+    return 1 + sum(int(arg.split(":")[0]) for name, arg in map(rule_arg, bch.imposed) if name == "block_extra")
+
+
 def min_blockers(ach: Characteristics) -> int:
     """509.1b / 702.111b: the fewest creatures that may block it together (menace: 2)."""
     n = 1
@@ -527,7 +533,7 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         raise ActionError(f"{plan.name(d.player)} is declaring blockers")
     blockers = {o.id[2:] for o in d.options if o.id.startswith("b:")}
     attackers = {o.id[2:] for o in d.options if o.id.startswith("a:")}
-    used: set[str] = set()
+    used: dict[str, list[str]] = {}
     per_attacker: dict[str, int] = {}
     for decl in a.blocks:
         blocker = plan.state.cards.get(decl.blocker_id)
@@ -536,9 +542,11 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
             raise ActionError("That creature can't block now")
         if decl.attacker_id not in attackers or attacker is None:
             raise ActionError(f"{blocker.name} can't block that")
-        if decl.blocker_id in used:
+        if decl.attacker_id in used.get(decl.blocker_id, []):
+            raise ActionError(f"{blocker.name} can't block {attacker.name} twice")
+        if len(used.get(decl.blocker_id, [])) >= block_limit(plan.ch(blocker)):  # (-- multiple blocks (wave 13B) -- 509.1a)
             raise ActionError(f"{blocker.name} can only block one attacker")
-        used.add(decl.blocker_id)
+        used.setdefault(decl.blocker_id, []).append(decl.attacker_id)
         problem = block_problem(plan.state, blocker, plan.ch(blocker), attacker, plan.ch(attacker), plan.info)
         if problem:
             raise ActionError(problem)
@@ -551,7 +559,7 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
                               + (" (menace)" if "menace" in ach.keywords else ""))
         if "max_one_blocker" in scripts.statics(ach) and n > 1:
             raise ActionError(f"{ach.name} can't be blocked by more than one creature")
-    if len(a.blocks) == 1:  # 506.5: blocking alone
+    if len(used) == 1:  # 506.5: blocking alone (one creature declared as a blocker, however many attackers it blocks)
         lone = plan.state.cards[a.blocks[0].blocker_id]
         if "cant_block_alone" in scripts.statics(plan.ch(lone)):
             raise ActionError(f"{lone.name} can't block alone")
@@ -561,8 +569,10 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
     r.decision = None
     if r.blockers_pending and r.blockers_pending[0] == plan.actor:
         r.blockers_pending.pop(0)
+    done: set[str] = set()
     for decl in a.blocks:
-        plan.do({"type": "block", "card_id": decl.blocker_id, "attacker_id": decl.attacker_id})
+        plan.do({"type": "block", "card_id": decl.blocker_id, "attacker_id": decl.attacker_id, "also": decl.blocker_id in done})
+        done.add(decl.blocker_id)
     r.blocked = list(dict.fromkeys([*r.blocked, *per_attacker]))
     if a.blocks:
         from app.rules import triggers  # triggers → plan; imported late
@@ -581,7 +591,7 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
 
 
 def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], attackers: set[str],
-                       used: set[str], per_attacker: dict[str, int]) -> str | None:
+                       used: dict[str, list[str]], per_attacker: dict[str, int]) -> str | None:
     """509.1c requirements the declaration disobeys although it could obey them: "~ blocks each
     combat if able" (must_block, on a creature of the defending player) and "~ must be blocked if
     able" (must_be_blocked, on an attacker). Each requirement is judged on its own, against the
@@ -605,7 +615,6 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
             return f"{b.name} blocks each combat if able"
     # -- block effects (wave 7E) -- "blocks this creature this turn if able": judged for the creatures that block nothing, and
     # for those blocking another attacker unless that block meets a requirement of its own (509.1c)
-    blocking = {d.blocker_id: d.attacker_id for d in a.blocks}
     for b in (state.cards[i] for i in blockers):
         wanted = [arg for name, arg in map(rule_arg, scripts.statics(plan.ch(b))) if name == "must_block_obj"]
         # -- lure (wave 12B) -- 509.1c: "All creatures able to block ~ do so": every blocker has "blocks it if able"
@@ -613,8 +622,9 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
         wanted = list(dict.fromkeys([*wanted, *(plan.oid(y) for y, arg in lures
                                                 if not arg or _any_selector(state, plan.info, arg, b, plan.ch(b), y))]))
         for x in (y for y in att if plan.oid(y) in wanted):
-            other = state.cards.get(blocking.get(b.id, ""))
-            if other is not None and (other.id == x.id or len(wanted) > 1 or "must_be_blocked" in scripts.statics(plan.ch(other))):
+            blocks = used.get(b.id, [])  # (-- multiple blocks (wave 13B) -- a blocker with a block to spare could add this one)
+            if x.id in blocks or (blocks and len(blocks) >= block_limit(plan.ch(b)) and (
+                    len(wanted) > 1 or any("must_be_blocked" in scripts.statics(plan.ch(state.cards[i])) for i in blocks))):
                 continue
             if could(b, x, joined=1 + per_attacker.get(x.id, 0)):
                 return f"{b.name} blocks {x.name} this turn if able"
@@ -629,8 +639,10 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
             return "must_block" in scripts.statics(blocker) or any(name == "lure" for name, _ in map(rule_arg, scripts.statics(plan.ch(target)))) or any(
                 name == "must_block_obj" and arg == plan.oid(target) for name, arg in map(rule_arg, scripts.statics(blocker)))
 
-        free = idle + [state.cards[d.blocker_id] for d in a.blocks
-                       if "must_be_blocked" not in scripts.statics(plan.ch(state.cards[d.attacker_id])) and not obeying(d)]
+        spare = [state.cards[b] for b, ids in used.items() if len(ids) < block_limit(plan.ch(state.cards[b]))]
+        free = idle + spare + [state.cards[d.blocker_id] for d in a.blocks
+                               if state.cards[d.blocker_id] not in spare
+                               and "must_be_blocked" not in scripts.statics(plan.ch(state.cards[d.attacker_id])) and not obeying(d)]
         able = [b for b in free if could(b, x, joined=len(free))]
         if len(able) >= min_blockers(plan.ch(x)):
             return f"{x.name} must be blocked if able"
@@ -748,7 +760,7 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
         p = _assigns(att, ach)  # (wave 6B: 510.1a)
         if not _deals(ach, rnd) or p is None or p <= 0:
             continue
-        blockers = [b for b in blockers_all if b.blocking == att.id]
+        blockers = [b for b in blockers_all if b.blocks(att.id)]
         dealt = 0
         if att.id in r.blocked:
             remaining = p
@@ -774,11 +786,39 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
     for b in blockers_all:
         bch = plan.ch(b)
         p = _assigns(b, bch)  # (wave 6B: 510.1a)
-        blocked = state.cards.get(b.blocking or "")
-        if blocked is None or blocked.attacking is None or not _deals(bch, rnd) or p is None or p <= 0:
+        if not _deals(bch, rnd) or p is None or p <= 0:
             continue
-        gain(b, bch, hit_creature(b, bch, blocked, p))
+        blocked = blocked_by(state, b)
+        shares = r.block_split.get(b.id)  # 510.1d: divided as its controller chose (asked first: ``ask_split``)
+        parts = [(t, shares.get(t.id, 0)) for t in blocked] if len(blocked) > 1 and shares else [(t, p) for t in blocked[:1]]
+        gain(b, bch, sum(hit_creature(b, bch, t, n) for t, n in parts if n > 0))
     return out
+
+
+# -- multiple blocks (wave 13B) -- 510.1d
+def blocked_by(state: GameState, b: CardInstance) -> list[CardInstance]:
+    """The attackers a blocker is blocking now (510.1d: those still attacking and on the battlefield)."""
+    found = (state.cards.get(i) for i in [b.blocking or "", *b.blocking_more])
+    return [t for t in found if t is not None and t.attacking is not None and t.zone.endswith(":battlefield")]
+
+
+def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
+    """510.1d: a blocker blocking two or more attackers assigns its combat damage divided as its controller chooses
+    (any share may be 0). Asks the first such blocker whose division isn't known yet; False: none is missing."""
+    r = plan.rules
+    for b in plan.state.cards.values():
+        if not (b.blocking and b.blocking_more) or b.id in r.block_split or not b.zone.endswith(":battlefield"):
+            continue
+        bch, p = plan.ch(b), _assigns(b, plan.ch(b))
+        targets = blocked_by(plan.state, b)
+        if len(targets) < 2 or p is None or p <= 0 or not _deals(bch, rnd):
+            continue
+        decide(plan, player=b.controller, kind="divide", prompt=f"Divide {b.name}'s {p} combat damage among the creatures it blocks",
+               options=[DecisionOption(id=t.id, label=t.name or "Attacker", card_id=t.id) for t in targets],
+               min_choices=len(targets), max_choices=len(targets), display={"kind": "divide", "total": p, "what": "damage", "least": 0},
+               resume={"step": "block_split", "round": rnd, "then": then, "blocker": b.id, "total": p, "least": 0})
+        return True
+    return False
 
 
 def damage_preview(plan: Plan, rnd: Round) -> str:
@@ -840,6 +880,7 @@ def deal_combat_damage(plan: Plan, rnd: Round, shield_order: list[str] | None = 
         if ev["target"] in plan.state.players and source is not None and source.commander_key:
             key = (ev["target"], source.commander_key)
             commander[key] = commander.get(key, 0) + int(ev["amount"])
+    plan.rules.block_split = {}
     replace.do_damage(plan, out, actor=plan.active, combat=True, extra={
         "first_strike": rnd == "first",
         "commander": [{"player": pid, "commander": key, "amount": n} for (pid, key), n in commander.items()]})
@@ -868,5 +909,6 @@ def end_combat(plan: Plan) -> None:
         plan.do({"type": "clear_combat"}, actor=plan.active)
     r = plan.rules
     r.blocked = []
+    r.block_split = {}
     r.no_attackers = False
     r.combat_round = ""

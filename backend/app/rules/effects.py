@@ -656,8 +656,9 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
     _remember(plan, ctx, e, cards)
-    e = {**e, "rules": [r.replace("@you", ctx["controller"]).replace("@src", ctx.get("source_object") or "")  # (@src: wave 7E)
-                        for r in e["rules"]]}  # -- combat (wave 5C) -- (Kardur)
+    e = {**e, "rules": [r.replace("@you", ctx["controller"])
+                        .replace("@src", f"e{plan.rules.timestamp + 1}" if r.startswith("block_extra:") else ctx.get("source_object") or "")
+                        for r in e["rules"]]}  # (@src: wave 7E; wave 13B: each "can block an additional creature" adds up, 509.1a)  # -- combat (wave 5C) -- (Kardur)
     group = who.startswith(selectors.PREFIX) and not e.get("locked")
     duration = e.get("duration", "end_of_turn")
     if cards or group:

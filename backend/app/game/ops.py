@@ -84,8 +84,8 @@ def delete(state: GameState, c: CardInstance) -> None:
         if other.attached_to == c.id:
             other.attached_to = None
             other.attach_offset = None
-        if other.blocking == c.id:
-            other.blocking = None
+        if other.blocks(c.id):
+            other.unblock(c.id)
         if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
             other.attacking = None
 
@@ -149,10 +149,10 @@ def move_card(
         # A control change (another player's battlefield) is not a zone change: the permanent
         # stays the same object with its damage, counters and tapped state. It leaves combat.
         c.attacking = None
-        c.blocking = None
+        c.unblock()
         for other in state.cards.values():
-            if other.blocking == c.id:
-                other.blocking = None
+            if other.blocks(c.id):
+                other.unblock(c.id)
             if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
                 other.attacking = None
     else:
@@ -167,13 +167,13 @@ def move_card(
         if src_zone == "battlefield" or dst_zone == "battlefield":
             c.tapped = False
             c.attacking = None
-            c.blocking = None
+            c.unblock()
             c.flipped = False
             if src_zone == "battlefield":
                 c.counters = {}
                 for other in state.cards.values():
-                    if other.blocking == c.id:
-                        other.blocking = None
+                    if other.blocks(c.id):
+                        other.unblock(c.id)
                     if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
                         other.attacking = None
     if dst_zone in HIDDEN_ZONES or src_zone in HIDDEN_ZONES or (src_zone == "battlefield" and dst_zone != "battlefield"):

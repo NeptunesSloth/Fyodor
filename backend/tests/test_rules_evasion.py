@@ -130,8 +130,6 @@ def test_parse_rules(text, who, rules, extra):
 @pytest.mark.parametrize("text", [
     "~ can't be blocked by creatures with power 2 or less and/or Walls.",  # two selectors joined oddly
     "~ can't be blocked by creatures with banding.",  # not a selector keyword (wave 6C: horsemanship now is)
-    "~ can block an additional creature each combat.",  # one creature blocking two: not on this table yet
-    "~ can block any number of creatures.",
     "Enchanted permanent can't attack or block, and its activated abilities can't be activated unless they're mana abilities.",
     "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
     "~ gets +1/+1 if you control a Forest.",  # "if" belongs to restrictions only
@@ -151,7 +149,7 @@ def test_unknown_rules_stay_manual(text):
 
 def test_coverage_counts_rule_statics():
     ab = parse_abilities("Flying\nThis creature can't be blocked by creatures with power 2 or less.\n"
-                         "Creatures your opponents control can't block.\nThis creature can block an additional creature each combat.")
+                         "Creatures your opponents control can't block.\nThis creature must block an additional creature each combat.")
     feats = coverage.features_of(Characteristics(name="Ghost", types=frozenset({"Creature"}), abilities=tuple(ab)))
     assert [f.supported for f in feats if f.id.startswith("text:")] == [True, True, False]
 

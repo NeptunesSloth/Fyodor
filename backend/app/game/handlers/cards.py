@@ -292,7 +292,7 @@ def set_controller(state: GameState, a: A.SetController) -> None:
         ops.insert(state, c, dest)
         c.controller = pid
         c.attacking = None
-        c.blocking = None
+        c.unblock()
     log(state, a.actor, a.ts, [pname(state, pid), text(" gained control of "), group(state, targets)])
 
 
@@ -311,7 +311,7 @@ def return_to_owner(state: GameState, a: A.ReturnToOwner) -> None:
             ops.insert(state, c, dest)
             c.controller = c.owner
             c.attacking = None
-            c.blocking = None
+            c.unblock()
         else:
             ops.move_card(state, c, dest)
         moved.append(c)

@@ -1224,6 +1224,17 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], _one(group)
+    # -- multiple blocks (wave 13B) -- "Target creature can block any number of creatures this turn." (509.1a: block_extra)
+    m = re.fullmatch(r"(?P<o>.+?) (?P<r>can block (?:an additional creature|an additional \w+ creatures|up to \w+ additional creatures"
+                     r"|any number of creatures)) this turn", text)
+    if m and not _PUMP.fullmatch(text):
+        from app.rules.statics import _rule
+
+        kind, key, group = ref(m["o"])
+        rules = _rule(m["r"])
+        if kind == "players" or not rules:
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": rules}], _one(group)
     # -- token & pump wordings (wave 6C) -- "This creature can attack this turn as though it didn't have defender." (702.3b:
     # the defender's restriction doesn't apply to it this turn; read by combat.attack_problem)
     m = re.fullmatch(r"(?P<o>.+?) can attack this turn as though (?:it|they) didn't have defender", text)
@@ -1520,7 +1531,9 @@ _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P
                    rf"(?: and (?:gains?|has|have) (?P<kw>{_KW_LIST}))? until end of turn"
                    r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn"
                    r"| and (?P<d>can attack this turn as though it didn't have defender)"  # (d: wave 6C)
-                   r"| and (?P<mb>must be blocked this turn if able))?")  # (mb: wave 6E, 509.1c)
+                   r"| and (?P<mb>must be blocked this turn if able)"  # (mb: wave 6E, 509.1c)
+                   r"| and can (?P<bx>block (?:an additional creature|an additional \w+ creatures|up to \w+ additional creatures"
+                   r"|any number of creatures)) this turn)?")  # (bx: wave 13B, 509.1a)
 _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
 _GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
                         rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
@@ -1711,6 +1724,13 @@ def _pump(m: re.Match[str], rider: Any) -> tuple[Effects, Any]:
         out.append({"do": "restrict", "who": who, "rules": RESTRICTIONS[m["r"]]})
     if m["d"]:  # -- token & pump wordings (wave 6C) -- 702.3b
         out.append({"do": "restrict", "who": who, "rules": ["attack_despite_defender"]})
+    if m["bx"]:  # -- multiple blocks (wave 13B) -- 509.1a
+        from app.rules.statics import _rule
+
+        rules = _rule("can " + m["bx"])
+        if not rules:
+            raise _Fail
+        out.append({"do": "restrict", "who": who, "rules": rules})
     if m["mb"]:  # -- static wordings (wave 6E) -- a blocking requirement for this turn (509.1c: combat.block_requirements)
         out.append({"do": "restrict", "who": who, "rules": ["must_be_blocked"]})
     return out, _one(group)
