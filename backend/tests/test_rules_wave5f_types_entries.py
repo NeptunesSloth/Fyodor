@@ -1,6 +1,11 @@
 """Type-setting statics, entering as a copy and entry forms (wave 5F), researched against CR 2026-09-25.
 
-* Group statics that add types (613.1d, 205.1b, 205.3m, 305.6, 305.7, 613.8): app/rules/type_statics.py.
+* Group statics that add types (613.1d, 205.1b, 205.3m, 305.6, 305.7, 613.8): app/rules/type_statics.py; Mistform
+  Ultimus's characteristic-defining ability (604.3).
+* "enters untapped" / "enters tapped" triggers, the Thriving lands, the Enduring cycle (611.2e) and land-play triggers
+  (305.1): app/rules/entry_forms.py.
+* Entering as a copy (707.5, 707.9, 614.12a, 303.4f): Vesuva, Cursed Mirror, Mirrormade, Clever Impersonator, Mockingbird;
+  "except it has this ability" (707.9a): app/rules/copying.py.
 
 Every scenario uses real Commander-legal cards with their current Oracle text (data/cards.sqlite), checks that
 replaying the recorded history reproduces the table, and that a save/load round trip keeps it.
@@ -93,6 +98,9 @@ EXTRA = [
          oracle_text='When you play another land, sacrifice this land.\n{T}: Add {C}{C}.'),
     card('Horn of Greed', set_code="tst", number="5F702", mana_cost='{3}', cmc=3.0, type_line='Artifact',
          oracle_text='Whenever a player plays a land, that player draws a card.'),
+    card('Mistform Ultimus', set_code="tst", number="5F801", mana_cost='{3}{U}', cmc=4.0, type_line='Legendary Creature — Illusion',
+         oracle_text="Mistform Ultimus is every creature type (even if this card isn't on the battlefield).", power='3',
+         toughness='3', colors=['U'], color_identity=['U']),
     card('Reanimate', set_code="tst", number="5F301", mana_cost='{B}', cmc=1.0, type_line='Sorcery',
          oracle_text="Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that "
                      "card's mana value.", colors=['B'], color_identity=['B']),
@@ -237,6 +245,18 @@ def test_maskwood_nexus_every_creature_type_everywhere(cards):
     assert s.state.cards[elves.id].zone == "stack"
     assert ch(s, elves).subtypes >= CREATURE_TYPES  # a creature spell you control
     pass_until_stack_empty(s)
+    roundtrip(s)
+
+
+def test_mistform_ultimus_is_every_creature_type_in_every_zone(cards):
+    """604.3: a characteristic-defining ability works in every zone."""
+    s = build(cards, [(1, "Mistform Ultimus")])
+    mist = put(s, "Mistform Ultimus", "hand")
+    assert ch(s, mist).subtypes >= CREATURE_TYPES
+    mist = put(s, "Mistform Ultimus", "battlefield")
+    assert ch(s, mist).subtypes >= CREATURE_TYPES
+    assert ok("Mistform Ultimus is every creature type.", "Mistform Ultimus", "Legendary Creature — Illusion")
+    assert not ok("Mistform Ultimus is every creature type.", "Some Other Card")  # (another object's name: not read)
     roundtrip(s)
 
 

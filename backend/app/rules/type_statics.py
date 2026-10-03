@@ -60,6 +60,8 @@ def parse(text: str) -> dict[str, Any] | None:
         return _definition(m["s"], {"add_subtypes": list(BASIC)})
     if (m := _ARE_LANDS.fullmatch(text)) is not None:
         return _definition(m["s"], {"add_types": ["Land"], "add_subtypes": [m["t"]]})
+    if text == "~ is every creature type.":  # (Mistform Ultimus: a characteristic-defining ability, 604.3 —
+        return {"kind": "static", "static": "cda", "effects": []}  # characteristics.changeling applies it in every zone)
     if text == MASKWOOD:
         return _definition("creatures you control", {"all_creature_types": True}, everywhere=True)
     return None

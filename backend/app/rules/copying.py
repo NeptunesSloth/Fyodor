@@ -178,7 +178,7 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
     else:
         abilities = ch.abilities
     return replace(ch, name=ex.name if ex.name is not None else ch.name, supertypes=supertypes, types=types,
-                   subtypes=chars.changeling(subtypes, abilities),
+                   subtypes=chars.changeling(subtypes, abilities, ex.name if ex.name is not None else ch.name),
                    power=ex.power if ex.power is not None else ch.power,
                    toughness=ex.toughness if ex.toughness is not None else ch.toughness,
                    colors=(frozenset(ex.set_colors) if ex.set_colors is not None else ch.colors) | frozenset(ex.add_colors),
