@@ -610,15 +610,34 @@ def create_token_batch(plan: Plan, requests: list[tuple[str, dict[str, Any], int
         raise
     left_to_players(plan, planner)
     made: list[str] = []
+    started: dict[str, int] = {}  # -- review (wave 5R) -- each player's first batch
     for before, out in finals:
         note_applied(plan, before, out, actor=before["player"])
+        start = started.setdefault(before["player"], plan.rules.batch)
         for ev in out:
             made += _make_tokens(plan, ev)
+        _one_batch(plan, start)
     if bind and ctx is not None:
         from app.rules import context
 
         context.bind_objects(plan, ctx, bind, made)  # the tokens, as the new objects they are
     return made
+
+
+# -- review (wave 5R) --
+def _one_batch(plan: Plan, start: int) -> None:
+    """One instruction creating several kinds of token ("a 3/3 … token with deathtouch and a 3/3 … token with
+    lifelink", Wurmcoil Engine), or more than one table step of them, is one event (701.7a, 603.2c): the steps since
+    batch ``start`` become one batch, so a "whenever one or more tokens enter" ability triggers once. (Each table
+    step is its own batch: app/game/rules_state.track.)"""
+    r = plan.rules
+    if r.batch <= start + 1 or r.trigger_batch > start:
+        return
+    for e in r.events:
+        if e.batch > start:
+            e.batch = start + 1
+    r.batch = start + 1
+# -- end review (wave 5R) --
 
 
 def _make_tokens(plan: Plan, ev: Event) -> list[str]:

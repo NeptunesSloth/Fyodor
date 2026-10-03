@@ -57,6 +57,15 @@ _CAUSES = (
 # Not multiplied: the ids of the abilities _add creates that aren't "triggered abilities the object has" (603.2d)
 DELAYED, REFLEXIVE, MADNESS = 7000, 7300, 8000
 LOOK_BACK = ("die", "leave", "sacrifice", "leave_graveyard")  # 603.10a
+# -- review (wave 5R) -- "If [a permanent] entering causes a triggered ability … to trigger" (Panharmonicon, Yarok,
+# Ancient Greenwarden, Virtue of Knowledge, Naban) is refused: whether a "Whenever you create a token" / "one or more
+# tokens" ability is triggered by the token *entering* (701.7a: creating a token puts it onto the battlefield) isn't
+# settled by the CR (603.2d, 603.6a) nor by any official ruling of these cards (checked 2026-10: their rulings speak of
+# "enters" abilities only; Teysa's "an ability that triggers on an event that causes a creature to die" ruling is an
+# analogy, not a ruling about creating tokens). Wrong automation is worse than manual: the cards stay manual until it
+# is. ENTERING turns the reading below back on (the tests of the machinery do).
+ENTERING = False
+# -- end review (wave 5R) --
 
 
 def static_definition(text: str) -> dict[str, Any] | None:
@@ -69,6 +78,8 @@ def static_definition(text: str) -> dict[str, Any] | None:
             c = rx.match(m["cause"])
             if c is None:
                 continue
+            if cause == "enter" and not ENTERING:  # -- review (wave 5R) --
+                return None
             sel = selectors.parse(c["sel"]) if "sel" in rx.groupindex else selectors.Selector()
             if sel is None or sel.player is not None:
                 return None

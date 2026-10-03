@@ -22,6 +22,9 @@ EXTRA = [
     card('Hypothesizzle', set_code="tst", number="R2", mana_cost='{3}{U}{R}', cmc=5.0, type_line='Instant',
          oracle_text='Draw two cards. Then you may discard a nonland card. When you do, Hypothesizzle deals 4 damage to target creature.',
          colors=['R', 'U'], color_identity=['R', 'U']),
+    card('Forbidden Friendship', set_code="tst", number="RA1", mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text='Create a 1/1 red Dinosaur creature token with haste and a 1/1 white Human Soldier creature token.', colors=['R'], color_identity=['R']),
+    card('Woodland Champion', set_code="tst", number="RA2", mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Elf Scout', oracle_text='Whenever one or more tokens you control enter, put that many +1/+1 counters on this creature.', power='2', toughness='2', colors=['G'], color_identity=['G']),
+    card('Mister Fantastic, Reed Richards', set_code="tst", number="RA3", mana_cost='{3}{U}', cmc=4.0, type_line='Legendary Creature — Human Scientist Hero', oracle_text='Reach\nWhenever one or more tokens you control enter, you may draw a card.', power='2', toughness='4', colors=['U'], color_identity=['U'], keywords=['Reach']),
 ]
 
 
@@ -96,4 +99,37 @@ def test_reflexive_spell_declined_deals_no_damage(cards):
     pick(s, "decline")
     settle(s)
     assert s.state.cards[mine.id].zone == "p1:battlefield" and s.state.cards[theirs.id].zone == "p2:battlefield"
+    roundtrip(s)
+
+
+# -- 5D: "If [a permanent] entering causes a triggered ability … to trigger" is refused (603.2d, 701.7a) -----------
+@pytest.mark.parametrize("text", [
+    "If an artifact or creature entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+    "If a permanent entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+    "If a land entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+    "If a Wizard you control entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+])
+def test_entering_multipliers_stay_manual(text):
+    """Whether "Whenever you create a token" triggers on the token entering isn't settled by the CR or a ruling."""
+    from app.rules import trigger_multipliers
+
+    assert trigger_multipliers.static_definition(text) is None
+    # (the settled causes are still read)
+    assert trigger_multipliers.static_definition(
+        "If a creature dying causes a triggered ability of a permanent you control to trigger, that ability triggers an "
+        "additional time.") is not None
+
+
+# -- 5D: several kinds of token in one instruction are one event (701.7a, 603.2c) --------------------------------------
+def test_two_token_kinds_in_one_instruction_trigger_one_or_more_once(cards):
+    s = build(cards, p1=("Forbidden Friendship", "Woodland Champion", "Mister Fantastic, Reed Richards"))
+    champion = on_field(s, "Woodland Champion")
+    on_field(s, "Mister Fantastic, Reed Richards")
+    spell = to_hand(s, "Forbidden Friendship")
+    hand_before = len(zone(s.state, "p1", "hand"))
+    mana(s, "p1", R=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    settle(s)
+    assert s.state.cards[champion.id].counters.get("+1/+1", 0) == 2  # ("that many": both tokens, one trigger)
+    assert len(zone(s.state, "p1", "hand")) == hand_before - 1 + 1  # (Mister Fantastic: one draw, not two)
     roundtrip(s)

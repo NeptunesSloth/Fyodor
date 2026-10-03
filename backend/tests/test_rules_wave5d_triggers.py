@@ -132,9 +132,12 @@ def triggered(s):
 
 # -- the wording -----------------------------------------------------------------------------------------------
 @pytest.mark.parametrize(("name", "level"), [
-    ("Panharmonicon", "FULL"), ("Teysa Karlov", "FULL"), ("Harmonic Prodigy", "FULL"), ("Veyran, Voice of Duality", "FULL"),
-    ("Delney, Streetwise Lookout", "FULL"), ("Ancient Greenwarden", "FULL"), ("Yarok, the Desecrated", "FULL"),
-    ("Krang, the All-Powerful", "FULL"), ("Annie Joins Up", "FULL"), ("Naban, Dean of Iteration", "FULL"),
+    ("Teysa Karlov", "FULL"), ("Harmonic Prodigy", "FULL"), ("Veyran, Voice of Duality", "FULL"),
+    ("Delney, Streetwise Lookout", "FULL"),
+    ("Krang, the All-Powerful", "FULL"), ("Annie Joins Up", "FULL"),
+    # -- review (wave 5R) -- an entering cause: refused until "whenever you create a token" is settled
+    ("Panharmonicon", "PARTIAL"), ("Ancient Greenwarden", "PARTIAL"), ("Yarok, the Desecrated", "PARTIAL"),
+    ("Naban, Dean of Iteration", "PARTIAL"),
     # refused: an attack's cause ("attacks and isn't blocked"?), spells' abilities, a condition on the multiplier
     ("Isshin, Two Heavens as One", "PARTIAL"), ("Echoes of Eternity", "PARTIAL"), ("Sanctum of All", "PARTIAL"),
 ])
@@ -154,7 +157,20 @@ def test_multiplier_wordings():
 
 
 # -- entering (Panharmonicon, Yarok, Greenwarden, Naban) -----------------------------------------------------------
-def test_panharmonicon_doubles_enters_triggers(cards):
+@pytest.fixture()
+def entering():
+    """-- review (wave 5R) -- the entering cause is refused (trigger_multipliers.ENTERING); its machinery is still
+    tested with it switched on."""
+    from app.rules import scripts
+
+    trigger_multipliers.ENTERING = True
+    scripts._cached.cache_clear()
+    yield
+    trigger_multipliers.ENTERING = False
+    scripts._cached.cache_clear()
+
+
+def test_panharmonicon_doubles_enters_triggers(cards, entering):
     """Its own enters ability and Soul Warden's "another creature enters" each trigger twice (rulings)."""
     s = build(cards, "Panharmonicon", "Elvish Visionary", "Soul Warden")
     put(s, "Panharmonicon")
@@ -170,7 +186,7 @@ def test_panharmonicon_doubles_enters_triggers(cards):
     replay_matches(s)
 
 
-def test_two_panharmonicons_three_times_and_not_for_an_opponent(cards):
+def test_two_panharmonicons_three_times_and_not_for_an_opponent(cards, entering):
     """Two multipliers: three times, not four (rulings). An opponent's Panharmonicon doesn't count for your
     abilities (603.2d: "a permanent you control")."""
     s = build(cards, "Panharmonicon", "Panharmonicon", "Grizzly Bears", "Soul Warden", p2=("Panharmonicon",))
@@ -186,7 +202,7 @@ def test_two_panharmonicons_three_times_and_not_for_an_opponent(cards):
     replay_matches(s)
 
 
-def test_each_instance_has_its_own_target(cards):
+def test_each_instance_has_its_own_target(cards, entering):
     """Rulings: the instances are separate abilities — each target is chosen as it's put on the stack (603.3d)."""
     s = build(cards, "Panharmonicon", "Flametongue Kavu", p2=("Grizzly Bears", "Soul Warden"))
     put(s, "Panharmonicon")
@@ -212,7 +228,7 @@ def test_each_instance_has_its_own_target(cards):
     replay_matches(s)
 
 
-def test_greenwarden_lands_and_panharmonicon_not(cards):
+def test_greenwarden_lands_and_panharmonicon_not(cards, entering):
     """A land entering: Ancient Greenwarden adds an instance of a landfall ability; Panharmonicon doesn't (not an
     artifact or creature)."""
     for multiplier, expected in (("Ancient Greenwarden", 2), ("Panharmonicon", 1), ("Yarok, the Desecrated", 2)):
@@ -596,7 +612,7 @@ def test_mirkwood_bats_create_or_sacrifice_a_token(cards):
     replay_matches(s)
 
 
-def test_panharmonicon_each_token_entering(cards):
+def test_panharmonicon_each_token_entering(cards, entering):
     """Raise the Alarm: two creatures entering, each one an event Soul Warden triggers on — twice each."""
     s = build(cards, "Panharmonicon", "Soul Warden", "Raise the Alarm")
     put(s, "Panharmonicon")
