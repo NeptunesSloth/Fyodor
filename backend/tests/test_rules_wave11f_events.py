@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.game.state import GameState
 from app.game.session import GameSession
+from app.game.state import GameState
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
