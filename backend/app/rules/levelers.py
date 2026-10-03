@@ -14,6 +14,7 @@ power/toughness box and ability lines (every leveler printed so far) leaves the 
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 _LEVEL_UP = re.compile(r"^Level up ((?:\{[^}]+\})+)$")
 _SYMBOL = re.compile(r"^LEVEL (\d+)(?:-(\d+)|(\+))$")
@@ -27,7 +28,7 @@ def condition(lo: int, hi: int | None) -> str:
     return text + (f" but no more than {hi} level counters on it" if hi is not None else "")
 
 
-def rewrite(lines: list[str], is_keyword: "callable[[str], bool]") -> list[str]:  # type: ignore[valid-type]
+def rewrite(lines: list[str], is_keyword: Callable[[str], bool]) -> list[str]:
     """The card's lines with the level up cost and the level sections written out as CR 702.87a / 711.2 sentences."""
     first = next((i for i, line in enumerate(lines) if _SYMBOL.match(line)), None)
     ups = [i for i, line in enumerate(lines) if line.startswith("Level up")]

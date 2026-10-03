@@ -374,10 +374,6 @@ def _keyword_supported(kw: str, line: str) -> bool:
         keyword_triggers,  # -- static wordings (wave 6E) -- battle cry, ingest … (their CR meaning)
     )
 
-    if kw == "dredge":  # -- keyword mechanics (wave 9D) -- app/rules/dredge.py (one instance)
-        from app.rules import dredge
-
-        return dredge.supported(line)
     if kw == "devour":  # -- keyword mechanics (wave 9D) -- app/rules/devour.py (one instance)
         from app.rules import devour
 

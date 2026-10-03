@@ -229,13 +229,17 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
 
                     for piece in keyword_triggers.pieces(kw, ab.text):
                         counters["+1/+1"] = counters.get("+1/+1", 0) + int(piece.split()[1])
-        from app.rules import devour  # -- keyword mechanics (wave 9D) -- 702.82a: N for each permanent sacrificed as it entered
+        from app.rules import (
+            devour,  # -- keyword mechanics (wave 9D) -- 702.82a: N for each permanent sacrificed as it entered
+        )
 
         if devour.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + devour.counters(ch, choices)
         for ab in ch.abilities:  # -- keyword mechanics (wave 9D) -- 702.44a sunburst: a +1/+1 counter (a creature, ignoring
             if ab.kind == "keywords" and "sunburst" in ab.keywords:  # type-changing effects) or a charge counter for each
-                from app.rules import keyword_triggers  # color of mana spent to cast it; only from the stack (702.44b: no payment, none)
+                from app.rules import (
+                    keyword_triggers,  # color of mana spent to cast it; only from the stack (702.44b: no payment, none)
+                )
 
                 kind = "+1/+1" if "Creature" in ch.types else "charge"
                 for _ in keyword_triggers.pieces("sunburst", ab.text):
@@ -577,7 +581,9 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
                 chosen.record(plan, card_id, value)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with, through the counter
     # choke point (122.6, 614.16), in the order its controller chose before it entered (614.12a) --
-    from app.rules import devour  # -- keyword mechanics (wave 9D) -- 702.82b: what it devoured, for "for each creature it devoured"
+    from app.rules import (
+        devour,  # -- keyword mechanics (wave 9D) -- 702.82b: what it devoured, for "for each creature it devoured"
+    )
 
     if choices and devour.picked(choices.get(devour.WHAT)):
         plan.rules.devoured[plan.oid(card)] = len(devour.picked(choices.get(devour.WHAT)))

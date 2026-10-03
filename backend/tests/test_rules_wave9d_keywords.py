@@ -12,7 +12,7 @@ from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_conditionals import build, counters, on_field, to_hand, to_turn, token_of, until
+from tests.test_rules_conditionals import build, counters, on_field, to_hand, to_turn, token_of
 from tests.test_rules_effects import mana, replay_matches
 
 

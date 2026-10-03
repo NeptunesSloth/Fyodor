@@ -109,7 +109,6 @@ class Candidate:
     label: str
     self_repl: bool = False  # 614.15
     legacy: dict[str, Any] | None = None  # a stage-1 "prevent all" record / static (replacements._applies)
-    optional: bool = False  # -- keyword mechanics (wave 9D) -- "you may instead" (dredge, 702.52a): its player decides
 
     @property
     def prevention(self) -> bool:
@@ -181,12 +180,7 @@ def record_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidat
 
 
 def candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidate]:
-    out = static_candidates(plan, event) + record_candidates(plan, event)
-    if "draw" in ((event,) if isinstance(event, str) else event):  # -- keyword mechanics (wave 9D) -- dredge (702.52a)
-        from app.rules import dredge
-
-        out += dredge.candidates(plan)
-    return out
+    return static_candidates(plan, event) + record_candidates(plan, event)
 
 
 def add_record(plan: Plan, *, event: str, match: dict[str, Any], op: dict[str, Any], controller: str,
@@ -207,11 +201,9 @@ def add_record(plan: Plan, *, event: str, match: dict[str, Any], op: dict[str, A
 class Ask(Exception):
     """A choice the affected player has to make before the event can happen."""
 
-    def __init__(self, chooser: str, fp: str, ev: Event, applicable: list[Candidate], outcomes: dict[str, str],
-                 optional: bool = False) -> None:
+    def __init__(self, chooser: str, fp: str, ev: Event, applicable: list[Candidate], outcomes: dict[str, str]) -> None:
         super().__init__(fp)
         self.chooser, self.fp, self.ev, self.applicable, self.outcomes = chooser, fp, ev, applicable, outcomes
-        self.optional = optional  # (wave 9D) some applicable effect is a "may": the player may also apply none of them
 
 
 class _TooMany(Exception):
@@ -260,8 +252,8 @@ class Planner:
         if fn is not None:
             fn(self.plan, ev, sim)
 
-    def applicable(self, ev: Event, sim: Sim, optional: bool = False) -> list[Candidate]:
-        found = [c for c in self.cands if (optional or not c.optional) and self.applies(c, ev, sim)]
+    def applicable(self, ev: Event, sim: Sim) -> list[Candidate]:
+        found = [c for c in self.cands if self.applies(c, ev, sim)]
         selfs = [c for c in found if c.self_repl]  # 616.1a: a self-replacement effect first
         return sorted(selfs or found, key=lambda c: c.seq)
 
@@ -270,14 +262,7 @@ class Planner:
         """616.1: apply one effect at a time until none applies; each final event is performed in
         ``sim`` and handed to ``on_final`` in order (614.11a / 121.6b: a replacement's events
         complete before the sequence goes on)."""
-        found = self.applicable(ev, sim, optional=True)
-        if any(c.optional for c in found):  # -- keyword mechanics (wave 9D) -- 616.1: their player picks (or declines the "may")
-            picked = self.choose_optional(ev, found)
-            if picked is not None:
-                for nxt in self.apply(picked, ev, sim):
-                    self.settle(nxt, sim, on_final)
-                return
-            found = [c for c in found if not c.optional]
+        found = self.applicable(ev, sim)
         if not found:
             self.perform(ev, sim)
             on_final(ev)
@@ -329,19 +314,6 @@ class Planner:
         for c in found:
             s2 = copy.deepcopy(sim)
             self._walk([*self.apply(c, ev, s2), *rest], s2, done, results, budget)
-
-    def choose_optional(self, ev: Event, found: list[Candidate]) -> Candidate | None:
-        """-- keyword mechanics (wave 9D) -- the effect the affected player applies first, None to apply no optional one (only
-        when no mandatory effect applies too). A site that can't ask applies none."""
-        fp = _fingerprint(ev, found)
-        picked = self.answers.get(fp)
-        hit = next((c for c in found if c.id == picked), None)
-        if hit is not None:
-            return hit
-        chooser = affected(self.plan, ev)
-        if picked is None and self.ask and chooser:
-            raise Ask(chooser, fp, ev, found, {}, optional=True)
-        return None
 
     def choose(self, ev: Event, found: list[Candidate], sim: Sim, outcomes: dict[str, set[str]] | None) -> Candidate | None:
         fp = _fingerprint(ev, found)
@@ -418,8 +390,6 @@ def describe(plan: Plan, ev: Event) -> str:
         return f"{plan.name(ev['player'])} draws a card"
     if kind == "win":
         return f"{plan.name(ev['player'])} wins the game"
-    if kind == "dredge":  # -- keyword mechanics (wave 9D) --
-        return f"{plan.name(ev['player'])} mills {ev['n']} cards and returns {plan.state.cards[ev['card']].name} to their hand"
     if kind == "life":
         return f"{plan.name(ev['player'])} gains {ev['n']} life"
     if kind == "life_loss":
@@ -463,16 +433,6 @@ def ask(plan: Plan, q: Ask, answers: dict[str, str], resume: dict[str, Any]) -> 
     if base.get("ctx") is not None:
         base["order"] = list(base["ctx"].pop(SHIELDS, None) or base.get("order") or [])
         base["ctx"].pop(ANSWERS, None)
-    if q.optional:  # -- keyword mechanics (wave 9D) -- "you may instead" (dredge): any of them, or none if none is mandatory
-        options = [DecisionOption(id=f"o{i}", label=(f"{c.label}: mill {c.op['n']}, return it to your hand" if c.optional
-                                                      else option_label(c, q.outcomes))) for i, c in enumerate(q.applicable)]
-        mapping = {f"o{i}": c.id for i, c in enumerate(q.applicable)}
-        if all(c.optional for c in q.applicable):
-            options.append(DecisionOption(id="none", label="Don't replace it"))
-            mapping["none"] = "none"
-        decide(plan, player=q.chooser, kind="choose_one", prompt=f"{what}: apply a replacement effect? (616.1)",
-               options=options, resume={**base, "map": mapping})
-        return
     if len(q.applicable) == 2:
         a, b = pair_order(q.applicable)
         key, context = memory([a, b], q.ev)
@@ -917,7 +877,7 @@ def draws_this_step(plan: Plan, pid: str) -> int:
 
 
 def _draw_sim(plan: Plan, players: list[str]) -> Sim:
-    return {"library": {p: len(plan.state.zones.get(zone_key(p, "library"), [])) for p in plan.state.players}, "dredged": [],
+    return {"library": {p: len(plan.state.zones.get(zone_key(p, "library"), [])) for p in plan.state.players},
             "step": {p: draws_this_step(plan, p) for p in plan.state.players}}
 
 
@@ -925,10 +885,6 @@ def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     pid = ev["player"]
     if pid not in plan.live():
         return False
-    if c.op["do"] == "dredge":  # -- keyword mechanics (wave 9D) -- 702.52a
-        from app.rules import dredge
-
-        return dredge.applies(plan, c, ev, sim)
     m = c.match
     who = m.get("who")
     if who == "you" and pid != c.controller or who == "opponent" and pid == c.controller:
@@ -947,10 +903,6 @@ def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
 
 def _draw_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     op = c.op["do"]
-    if op == "dredge":  # -- keyword mechanics (wave 9D) --
-        from app.rules import dredge
-
-        return dredge.apply(c, ev)
     if op == "win":
         return [{"kind": "win", "player": ev["player"]}]
     if op == "skip":
@@ -960,12 +912,6 @@ def _draw_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     if op == "draw":
         return [{"kind": "draw", "player": ev["player"]} for _ in range(int(c.op["n"]))]
     return [ev]
-
-
-def _dredge_perform(plan: Plan, ev: Event, sim: Sim) -> None:  # -- keyword mechanics (wave 9D) --
-    from app.rules import dredge
-
-    dredge.perform_sim(ev, sim)
 
 
 def _draw_perform(plan: Plan, ev: Event, sim: Sim) -> None:
@@ -1039,11 +985,6 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]]) -> None:
             elif f["kind"] == "win":
                 flush()
                 _win(plan, f["player"])
-            elif f["kind"] == "dredge":  # -- keyword mechanics (wave 9D) -- 702.52a: mill N, return the card
-                flush()
-                from app.rules import dredge
-
-                dredge.do(plan, f)
     flush()
 
 
@@ -1577,5 +1518,5 @@ _APPLIES: dict[str, Any] = {"tokens": _tokens_applies, "counters": _counters_app
                             "draw": _draw_applies, "life": _life_applies, "damage": _damage_applies}
 _APPLY: dict[str, Any] = {"tokens": _tokens_apply, "counters": _counters_apply, "player_counters": _counters_apply,
                           "draw": _draw_apply, "life": _life_apply, "damage": _damage_apply}
-_PERFORM: dict[str, Any] = {"draw": _draw_perform, "dredge": _dredge_perform}
+_PERFORM: dict[str, Any] = {"draw": _draw_perform}
 SITES: dict[str, Any] = {"tokens": _run_tokens, "counters": _run_counters, "draw": _run_draw, "life": _run_life}
