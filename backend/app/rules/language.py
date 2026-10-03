@@ -1197,6 +1197,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": ["must_be_blocked"]}], _one(group)
+    # -- lure (wave 12B) -- "All creatures able to block target creature this turn do so." (509.1c: rule "lure" on it)
+    m = re.fullmatch(r"all creatures able to block (?P<o>target creature|it|this creature|~)(?: this turn)? do so", text)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": ["lure"]}], _one(group)
     m = re.fullmatch(r"(?P<o>.+?) can't (?P<r>attack or block|block|attack|be blocked) this turn", text)
     if m and not _PUMP.fullmatch(text):  # (agent G: "… gets +2/+2 until end of turn and can't be blocked …" is a pump's rider)
         kind, key, group = ref(m["o"])

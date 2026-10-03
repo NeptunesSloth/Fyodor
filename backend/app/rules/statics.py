@@ -143,6 +143,12 @@ def parse(text: str) -> Definition | None:
     m = re.fullmatch(r"Creatures with power (?P<dir>less|greater) than ~'s power can't block it", body)
     if m:
         return _definition("self", None, [], rules=[f"cant_be_blocked_by_power:{m['dir']}"])
+    # -- lure (wave 12B) -- "All creatures able to block ~ do so." / "…, and all creatures able to block it do so." (Lure,
+    # Nemesis Mask): every creature able to block it must (509.1c) — the rule "lure" on the attacker
+    body = re.sub(r"^All creatures able to block (?P<o>~|this creature|enchanted creature|equipped creature) do so$",
+                  lambda m: f"{'~' if m['o'] in ('~', 'this creature') else m['o'].capitalize()} must be blocked by all creatures able",
+                  body)
+    body = re.sub(r"(?P<sep>, and| and|,) all creatures able to block it do so$", r"\g<sep> must be blocked by all creatures able", body)
     conds: list[dict[str, Any]] = []
     names_source = False  # -- conditional statics (wave 4B) -- the condition names the source as "~", not "it"
     defender_sel: str | None = None  # "… as long as defending player controls an artifact"
@@ -685,6 +691,7 @@ RULES: dict[str, tuple[str, ...]] = {
     "attacks or blocks each combat if able": ("must_attack", "must_block"),
     "attack or block each combat if able": ("must_attack", "must_block"),
     "must be blocked if able": ("must_be_blocked",),
+    "must be blocked by all creatures able": ("lure",),  # -- lure (wave 12B) -- 509.1c: combat.block_requirements
     "doesn't untap during your untap step": ("doesnt_untap",),
     "doesn't untap during its controller's untap step": ("doesnt_untap",),
     "don't untap during your untap step": ("doesnt_untap",),
