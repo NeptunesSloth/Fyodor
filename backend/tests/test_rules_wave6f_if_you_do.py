@@ -62,12 +62,19 @@ EXTRA = [
          oracle_text='When this enchantment enters, you may blight 1. If you do, create two 1/1 black and red Goblin creature tokens. (To blight 1, put a -1/-1 counter on a creature you control.)\nWhenever a Goblin creature you control dies, each opponent loses 1 life and you gain 1 life.', colors=['B'], color_identity=['B'], keywords=['Blight']),
     card('Book Devourer', set_code='tst', number='F15', mana_cost='{5}{R}', cmc=6.0, type_line='Creature — Beast',
          oracle_text='Trample\nWhenever this creature deals combat damage to a player, you may discard all the cards in your hand. If you do, draw that many cards.', power='4', toughness='5', colors=['R'], color_identity=['R'], keywords=['Trample']),
+    card('Braids, Arisen Nightmare', set_code='tst', number='F17', mana_cost='{1}{B}{B}', cmc=3.0, type_line='Legendary Creature — Nightmare',
+         oracle_text="At the beginning of your end step, you may sacrifice an artifact, creature, enchantment, land, or planeswalker. If you do, each opponent may sacrifice a permanent of their choice that shares a card type with it. For each opponent who doesn't, that player loses 2 life and you draw a card.", power='3', toughness='3', colors=['B'], color_identity=['B'], keywords=[]),
+    card('Fandaniel, Telophoroi Ascian', set_code='tst', number='F18', mana_cost='{4}{B}', cmc=5.0, type_line='Legendary Creature — Elder Wizard',
+         oracle_text="Whenever you cast an instant or sorcery spell, surveil 1.\nAt the beginning of your end step, each opponent may sacrifice a nontoken creature of their choice. Each opponent who doesn't loses 2 life for each instant and sorcery card in your graveyard.", power='4', toughness='5', colors=['B'], color_identity=['B'], keywords=['Surveil']),
+    card('Impulsive Destruction', set_code='tst', number='F19', mana_cost='', cmc=0.0, type_line='Sorcery',
+         oracle_text="Each player may sacrifice an artifact or enchantment. Impulsive Destruction deals 3 damage to each player who didn't sacrifice a permanent this way.", colors=[], color_identity=[], keywords=[]),
     card('Sol Ring', set_code='tst', number='F16', mana_cost='{1}', cmc=1.0, type_line='Artifact',
          oracle_text='{T}: Add {C}{C}.', colors=[], color_identity=[], keywords=[]),
 ]
 FULL = ["Sourbread Auntie", "Gutsplitter Gang", "Mage-Ring Network", "Blue Mana Battery", "Forgotten Creation",
         "Narset, Jeskai Waymaster", "Vision of Love", "K'un-Lun Warrior", "Dromar, the Banisher", "Rith, the Awakener",
-        "Dwarven Hammer", "Ancestral Blade", "Dream Seizer", "Boggart Mischief", "Book Devourer"]
+        "Dwarven Hammer", "Ancestral Blade", "Dream Seizer", "Boggart Mischief", "Book Devourer", "Braids, Arisen Nightmare",
+        "Fandaniel, Telophoroi Ascian", "Impulsive Destruction"]
 
 
 @pytest.fixture()
@@ -431,4 +438,92 @@ def test_ancestral_blade_attaches_to_its_soldier(cards):
     settle(s)
     soldier = next(c for c in s.state.cards.values() if c.name == "Soldier")
     assert s.state.cards[blade.id].attached_to == soldier.id
+    roundtrip(s)
+
+
+# -- each opponent may … each opponent who doesn't … ---------------------------------------------------
+def _asked(s, pid):
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.player == pid
+          and [o.id for o in s.state.rules.decision.options] == ["pay", "decline"])
+    return s.state.rules.decision
+
+
+@pytest.mark.parametrize("bob_pays", [True, False])
+def test_braids_each_opponent_may_sacrifice_a_permanent_sharing_a_type(cards, bob_pays):
+    s = build(cards, p1=("Braids, Arisen Nightmare",))
+    braids = on_field(s, "Braids, Arisen Nightmare")
+    bear = creature(s, "p1", "Bear")
+    wolf = creature(s, "p2", "Wolf")
+    _asked(s, "p1")
+    pick(s, "pay")
+    d = s.state.rules.decision
+    assert d.kind == "choose_cards" and {o.id for o in d.options} == {braids.id, bear.id}
+    pick(s, bear.id)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and [o.id for o in d.options] == ["pay", "decline"]
+    assert "options" not in s.view("p1")["rules"]["decision"]  # (Bob's choice, privately)
+    bob, cards_in_hand = life(s, "p2"), len(hand(s))
+    pick(s, "pay" if bob_pays else "decline")
+    settle(s)
+    assert (wolf.id in s.state.cards and s.state.cards[wolf.id].zone.endswith("battlefield")) == (not bob_pays)
+    assert life(s, "p2") == bob - (0 if bob_pays else 2)
+    assert len(hand(s)) == cards_in_hand + (0 if bob_pays else 1)
+    roundtrip(s)
+
+
+def test_braids_an_opponent_with_nothing_sharing_a_type_is_not_asked(cards):
+    """118.3: Bob controls no creature, so he can't pay — he loses 2 life and Alice draws."""
+    s = build(cards, p1=("Braids, Arisen Nightmare",))
+    on_field(s, "Braids, Arisen Nightmare")
+    bear = creature(s, "p1", "Bear")
+    act(s, "p2", type="move", card_ids=[next(c for c in zone(s.state, "p2", "library"))], to={"player": "p2", "zone": "battlefield"})
+    _asked(s, "p1")
+    bob, cards_in_hand = life(s, "p2"), len(hand(s))
+    pick(s, "pay")
+    pick(s, bear.id)
+    assert s.state.rules.decision is None or s.state.rules.decision.player != "p2"
+    settle(s)
+    assert life(s, "p2") == bob - 2 and len(hand(s)) == cards_in_hand + 1
+    roundtrip(s)
+
+
+def test_braids_declined_nothing_happens(cards):
+    s = build(cards, p1=("Braids, Arisen Nightmare",))
+    on_field(s, "Braids, Arisen Nightmare")
+    creature(s, "p2", "Wolf")
+    bob = life(s, "p2")
+    _asked(s, "p1")
+    pick(s, "decline")
+    settle(s)
+    assert life(s, "p2") == bob
+    roundtrip(s)
+
+
+def test_fandaniel_each_opponent_who_doesnt(cards):
+    s = build(cards, p1=("Fandaniel, Telophoroi Ascian", "Lightning Bolt"))
+    on_field(s, "Fandaniel, Telophoroi Ascian")
+    bolt = next(c for c in s.state.cards.values() if c.name == "Lightning Bolt" and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[bolt.id], to={"zone": "graveyard"})
+    bob = life(s, "p2")
+    creature(s, "p2", "Wolf")  # (a token: not a nontoken creature — Bob can't pay)
+    until(s, lambda s: s.state.turn.number == 2)
+    settle(s)
+    assert life(s, "p2") == bob - 2  # one instant in Alice's graveyard
+    roundtrip(s)
+
+
+def test_impulsive_destruction_each_player_in_turn_order(cards):
+    s = build(cards, p1=("Impulsive Destruction", "Sol Ring"), p2=("Sol Ring",))
+    on_field(s, "Sol Ring")
+    on_field(s, "Sol Ring", "p2")
+    spell = to_hand(s, "Impulsive Destruction")
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    d = until_asked(s)
+    assert d.player == "p1"  # 101.4: the active player first
+    pick(s, "decline")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"
+    pick(s, "pay")
+    settle(s)
+    assert life(s, "p1") == 37 and life(s, "p2") == 40
     roundtrip(s)

@@ -69,6 +69,12 @@ def cost_text(phrase: str) -> str | None:
     another creature", "pay 2 life", "pay {1} and discard a card"), as the comma-separated cost
     text the cost parser reads — or None when the engine couldn't pay every part by itself."""
     parts = []
+    # -- if you do (wave 6F) -- "sacrifice an artifact, creature, enchantment, land, or planeswalker" (Braids): one
+    # permanent of any of those types — the cost parser's "a creature or artifact or land"
+    listed = re.fullmatch(r"(?P<verb>sacrifice) (?P<a>an?) (?P<items>(?:[a-z]+, )+)or (?P<last>[a-z]+)", phrase.strip())
+    if listed is not None:
+        words = [w.strip() for w in listed["items"].split(",") if w.strip()] + [listed["last"]]
+        phrase = f"{listed['verb']} {'an' if words[0][0] in 'aeiou' else 'a'} {' or '.join(words)}"
     for raw in re.split(r", | and ", phrase.strip()):
         part = raw.strip()
         if part.startswith("pay ") and _MANA_ONLY.match(part[4:]) and not re.fullmatch(r"(?:\{E\})+", part[4:]):  # ({E}: wave 3E)

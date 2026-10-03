@@ -3270,3 +3270,9 @@ from app.rules import put_from_hand as _put_from_hand  # noqa: E402, I001
 PRIMITIVES.update(_put_from_hand.PRIMITIVES)
 RESUME.update(_put_from_hand.RESUME)
 # -- end token copies & attach on entry (wave 5J) --
+
+# -- if you do (wave 6F) -- "Each opponent may [cost]. Each opponent who doesn't …" (app/rules/each_may.py)
+from app.rules import each_may as _each_may  # noqa: E402, I001
+
+PRIMITIVES.update(_each_may.PRIMITIVES)
+# -- end if you do (wave 6F) --
