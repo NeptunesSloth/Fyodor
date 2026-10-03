@@ -117,7 +117,7 @@ def test_target_forms_are_parsed(text, effects_, target):
     "Exile all creature cards from target player's graveyard.",  # (a target player's zone as the objects: not modelled)
     "Exile it until ~ leaves the battlefield.",
     "Target player shuffles up to four target cards from their graveyard into their library.",
-    "Tap up to X target creatures.",
+    # ("Tap up to X target creatures.": read since wave 4K, tests/test_rules_wave4k_x_sized.py)
 ])
 def test_refused_forms(text):
     assert parse_effects(text) is None
@@ -129,7 +129,6 @@ def test_refusals_are_registered():
         ("This spell costs {1}{U} more to cast for each target beyond the first.", "extra target"),
         ("Exile all creature cards from target player's graveyard.", "zone"),  # (the whole graveyard: wave 4J)
         ("Destroy target creature that player controls.", "named earlier"),
-        ("Destroy up to X target artifacts.", "variable number"),
         ("Target player shuffles up to four target cards from their graveyard into their library.", "earlier target"),
         ("Switch target creature's power and toughness until end of turn.", "P/T"),
     ]:

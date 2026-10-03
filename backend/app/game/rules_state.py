@@ -713,6 +713,7 @@ class CostModifier(BaseModel):
     turn: int = 0  # the turn it was created
     source: str | None = None
     label: str = Field(default="", max_length=120)
+    mana: str = Field(default="", max_length=1)  # -- cost changers (wave 4I) -- a colored change ("{W} more"): its color
 
 
 class TopReveal(BaseModel):

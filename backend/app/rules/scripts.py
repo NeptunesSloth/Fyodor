@@ -575,6 +575,11 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if "n" in e:
                 e["n"] = _bind_stats(e["n"], lambda at=index: stat_ref(at),
                                      (lambda: "event") if antecedent == "event_spell" else None)  # (wave 3R3)
+            # -- X sized by a count (wave 4K) -- an "X/X" token's P/T: the same placeholders as an amount
+            if isinstance(e.get("token"), dict) and any(isinstance(e["token"].get(k), dict) for k in ("power", "toughness")):
+                e["token"] = {**e["token"], **{k: _bind_stats(e["token"][k], lambda at=index: stat_ref(at),
+                                                               (lambda: "event") if antecedent == "event_spell" else None)
+                                               for k in ("power", "toughness")}}
             if this_way.unbound(e):  # -- "this way" outcomes (wave 4A) -- the instruction a count names
                 try:
                     e = out[index] = this_way.bind(e, lambda kinds, at=index: _this_way_binding(kinds, at, find, bound))
@@ -1062,6 +1067,23 @@ def _investigate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
              "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
 
 
+def _x_amount(xdef: str | None) -> Any:
+    """-- X sized by a count (wave 4K) -- X as a cost announced it (107.3a), or as "where X is …" defines it (107.3c)."""
+    if xdef is None:
+        return {"x": 1}
+    from app.rules import language
+
+    v = language.x_definition(xdef)
+    if v is None:
+        raise _NoMatch
+    return v
+
+
+@effect(r"(?P<verb>scry|surveil) X(?:, where X is (?P<xdef>[^\"]+))?")
+def _scry_x(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": m["verb"], "who": "you", "n": _x_amount(m["xdef"])}], None  # (wave 4K: 701.22, 701.25)
+
+
 @effect(r"(?P<src>~|it) explores")
 def _explore(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "explore", **_it_source(m["src"])}], None
@@ -1132,11 +1154,11 @@ def _first(fn):  # type: ignore[no-untyped-def]
 
 
 @_first
-@effect(r"create (?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X) (?:tapped )?"
-        r"(?:\d+/\d+ (?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) "
-        r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)* (?:enchantment )?(?:artifact )?creature tokens?|[A-Z][a-z]+ tokens?)"
+@effect(r"create (?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|twice X|half X) (?:tapped )?"  # (half/twice, X/X: wave 4K)
+        r"(?:(?:\d+|X)/(?:\d+|X) (?:colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|blue|black|red|green))*) "
+        r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)* (?:enchantment )?(?:artifact )?(?:land )?creature tokens?|[A-Z][a-z]+ tokens?)"
         r"(?: named [A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*)?(?: with (?:(?!, then )[^\"])*(?:\"[^\"]+\")?)?"
-        r"(?: that(?:'s| are) tapped and attacking)?(?: for each [^\"]+|, where [xX] is [^\"]+)?")
+        r"(?: that(?:'s| are) tapped and attacking)?(?: for each [^\"]+|, where [xX] is [^\"]+|, rounded (?:up|down))?")
 def _create_tokens(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """"Create [N] [tapped] [P/T colors Subtypes [artifact] creature | Predefined] token(s) [named …]
     [with …] [that's tapped and attacking] [for each … | , where X is …]" (701.7, 111.10, 508.4).
@@ -1422,6 +1444,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         text = _lower_first(sentence.rstrip(".").strip())
         if (i > 0 or effects) and text.startswith("then ") and not text.startswith(("then shuffle", "then you may ")):
             text = text[5:]  # -- waves 3D/3L/3C -- "Then that creature deals …" / "Then draw a card.": "then" only orders (608.2c)
+        # -- X sized by a count (wave 4K) -- "If X is 10 or more, also create X 4/4 … tokens" (Finale of Glory): in addition
+        # to what came before (not instead of it): the plain conditional instruction
+        text = re.sub(r"^(if x is \w+ or (?:more|greater), )also (?=create |draw |you gain |put )", r"\1", text, flags=re.I)
         prev_start, start = start, len(effects)
         prev_groups, groups_at = groups_at, len(groups)  # -- kicked / instead (wave 4G) -- each sentence's own target groups
         sentences.append(start)
@@ -2022,6 +2047,17 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     if d is not None and not _chosen.chosen_value_ok(d, ch):  # -- chosen type (wave 4J) -- "of the chosen type / color"
         return None
+    # -- X sized by a count (wave 4K) -- a bare X left in an ability whose text defines X ("Create an X/X … token, where X
+    # is half your life total, rounded up. It deals X damage to you."): one X for the whole ability (107.3c) that a later
+    # sentence would read as 0 — manual. And a triggered ability's bare X other than an enters trigger's (107.3m, the
+    # cast X: triggers.py) is some cost's X the trigger isn't given ("When you cycle this card, create an X/X …": the
+    # cycling cost's): manual too.
+    if d is not None and '{"x": 1}' in json.dumps(d.get("effects") or [], default=str) and (
+            re.search(r"\bwhere X is\b", ability.text)
+            or (d.get("kind") == "triggered" and d.get("trigger") != "enters_self")):
+        return None
+    if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str):
+        return None  # ("up to X target …" in a trigger: its targets are chosen before any X is known to it)
     return d
 
 
@@ -2060,6 +2096,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import permissions  # permissions, cost modifiers, "play with the top card revealed"
 
         granted = permissions.define_static(text, ability.kind, tuple(self_text(ab.text, ch.name) for ab in ch.abilities))
+        if granted is not None and granted.get("static") in ("alt_cost", "cost_modifier") and "Room" in ch.subtypes:
+            return None  # -- cost changers (wave 4I) -- a Room door's ability works only while it's unlocked: not modelled
         if granted is not None:
             return granted
     if ability.kind == "triggered":
@@ -2164,6 +2202,14 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         parsed_restriction = restrictions.parse(text) if restriction is not None else []
         if parsed_restriction is None:
             return None
+        # -- cost changers (wave 4I) -- "This ability costs {1} less to activate for each …" is part of its total cost
+        # (602.2b → 601.2f; casting.ability_cost reads it), not of what it does
+        from app.rules import cost_changes
+
+        body, own_cost = cost_changes.split_ability(body)
+        if own_cost is not None and (not cost_changes.ability_change(text) or "{X}" in (ability.cost or "") or not cost.mana):
+            return None
+        # -- end cost changers (wave 4I) --
         # -- sized amounts (wave 3D) -- "Sacrifice this creature: It deals damage equal to its power": "it" is the source
         # the cost put into a graveyard (its last known information: 608.2h)
         gone = cost.sacrifice_self or re.search(r"\b(?:[Dd]iscard|[Ee]xile) (?:this card|~)", ability.cost or "") is not None
@@ -2450,7 +2496,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
     lines = [ab for ab in ch.abilities if ab.kind != "keywords"
-             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost")
+             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost")  # (alt_cost: wave 4I)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self") and defs[ab.index].get("free"))]
     if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):
         return None
@@ -2472,16 +2518,22 @@ def spell_definition(ch: Characteristics) -> Definition | None:
             effects += rename_bindings(_renumber(defs[ab.index]["effects"], index), f"l{ab.index}_")
         except _NoMatch:
             return None
-    # -- recursion & tutors (wave 4M) -- "Exile ~." / "Shuffle ~ into its owner's library." / "Put ~ on the bottom of its
-    # owner's library.": the spell card itself, moved where the instruction stands (608.2m/n: app/rules/recursion.py)
-    from app.rules import recursion as _recursion
+    # -- X sized by a count (wave 4K) -- the Zenith cycle's "Shuffle ~ into its owner's library."
+    from app.rules import x_spells
 
-    effects = [{"do": "spell_self_move", "to": to} if (to := _recursion.self_move_of(e)) is not None else e for e in effects]
-    if sum(e["do"] == "spell_self_move" for e in effects) > 1:
-        return None
+    shuffled = x_spells.spell_effects(effects)
+    # -- recursion & tutors (wave 4M) -- otherwise "Exile ~." / "Put ~ on the bottom of its owner's library." (and a
+    # shuffle that isn't last): the spell card itself, moved where the instruction stands (608.2m/n: app/rules/recursion.py)
+    if shuffled is None:
+        from app.rules import recursion as _recursion
+
+        shuffled = [{"do": "spell_self_move", "to": to} if (to := _recursion.self_move_of(e)) is not None else e for e in effects]
+        if sum(e["do"] == "spell_self_move" for e in shuffled) > 1 or any(e.get("who") == "self" for e in shuffled):
+            shuffled = None
     # -- end recursion & tutors (wave 4M) --
-    if any(e.get("who") == "self" for e in effects):
+    if shuffled is None:
         return None  # ("Exile ~." on an instant or sorcery: the spell itself, which effects don't move)
+    effects = shuffled
     effects, target = _finish_targets(effects, groups)
     return {"kind": "spell", "effects": effects, **target_fields(target)}
 
@@ -2493,8 +2545,8 @@ def spell_definition(ch: Characteristics) -> Definition | None:
 SHOCK = re.compile(r"^As ~ enters, you may pay (?P<n>\d+) life\. If you don't, it enters tapped\.$")
 # "~ enters [tapped] with N … counters on it [for each …]" (614.1c); "If ~ was kicked, it enters with …" (702.33e)
 ENTERS_WITH = re.compile(r"^(?:(?P<kicked>If ~ was kicked, it)|~) enters (?P<tapped>tapped )?with "
-                         r"(?P<n>X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "
-                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it(?: for each (?P<each>.+?))?\.$")
+                         r"(?P<n>twice X|X|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) "  # (twice X: wave 4K)
+                         r"(?P<kind>\+1/\+1|-1/-1|[a-z]+) counters? on it(?: for each (?P<each>.+?)|, where X is (?P<xdef>.+?))?\.$")
 ENTERS_TAPPED_UNLESS = re.compile(r"^~ enters tapped unless (?P<cond>.+)\.$")
 _A_THING = r"(?:a|an) (?P<{name}>[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*|legendary(?: [a-z]+)? creature|basic land|planeswalker)"
 _UNLESS_ONE_OR_TWO = re.compile(r"^you control " + _A_THING.format(name="a") + r"(?: or " + _A_THING.format(name="b") + r")?$")
@@ -2704,6 +2756,21 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
             return None
         text = "~ enters with " + text[lead.end():]
     m = ENTERS_WITH.match(text)
+    if m and (m["xdef"] or m["n"] == "twice X"):  # -- X sized by a count (wave 4K) -- "~ enters with X +1/+1 counters on it,
+        # where X is the greatest power among other creatures you control" (read as it enters, 614.1c, 608.2h); "twice X":
+        # the X its spell was cast with, doubled (107.3m)
+        if cast_if is not None or m["kicked"] or m["each"] or m["kind"] in UNMODELED_COUNTERS:
+            return None
+        if m["xdef"]:
+            from app.rules import values
+
+            xv = values.parse_count(m["xdef"]) if m["n"] == "X" else None
+            if xv is None:
+                return None
+        else:
+            xv = {"times": [2, {"x": 1}]}
+        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": m["kind"], "n": xv, "effects": [],
+                **({"tapped": True} if m["tapped"] else {})}
     if m and cast_if is not None and (m["kicked"] or m["each"] or m["n"] == "X"):
         return None
     if m and m["kind"] not in UNMODELED_COUNTERS and cast_if is not None:
@@ -2990,7 +3057,11 @@ _CHOSEN.update({"edict": "n", "player_chooses": "n", "choose_from_hand": "n"})
 # second half's group is the first's. Both halves must parse, or the sentence stays manual.
 @effect(_language.COMPOUND)
 def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    left, right = _clause(f"{m['s']} {m['l']}"), _clause(f"{m['s']} {m['r']}")
+    # -- X sized by a count (wave 4K) -- "Target player draws X cards and loses X life, where X is …": the trailing
+    # definition of X is the whole sentence's (107.3c), so the left half reads it too
+    rider = re.search(r", where X is [^\"]+$", m["r"])
+    lead = f"{m['l']}{rider[0]}" if rider is not None and re.search(r"\bX\b", m["l"]) else m["l"]
+    left, right = _clause(f"{m['s']} {lead}"), _clause(f"{m['s']} {m['r']}")
     if left is None or right is None:
         raise _NoMatch
     lgroups, rgroups = _as_groups(left[1]), _as_groups(right[1])

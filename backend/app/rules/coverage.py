@@ -248,7 +248,7 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
      "effects can't reach the chosen player from a selector"),
     (re.compile(r"\btarget \w+(?: \w+)* that player controls\b", re.I),
      "a selector relative to a player named earlier (\"target creature that player controls\"): not modelled"),
-    (re.compile(r"\bup to x target\b", re.I), "a variable number of targets announced as X (601.2c): not modelled"),
+    # ("up to X target …": read now, the number of targets announced with X, 601.2c — wave 4K)
     # (copy system, wave 2F / 3R3: "copy target spell", and "copy it / that spell" for the spell a cast trigger
     # was about, are read now: app/rules/copying.py)
     (re.compile(r"\bshuffles? up to \w+ target cards? from their graveyard\b", re.I),

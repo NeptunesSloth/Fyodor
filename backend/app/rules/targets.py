@@ -173,6 +173,11 @@ def group_limits(spec: dict[str, Any], x: int | None) -> tuple[int, int]:
     """(min, max) targets of a group; a divided group needs at most as many targets as there is
     to divide, and at least one (601.2d: each gets at least one)."""
     lo, hi = int(spec.get("min", 1)), int(spec.get("max", 1))
+    if spec.get("x_count"):  # -- X sized by a count (wave 4K) -- "X target …" / "up to X target …" (601.2c: the number is
+        hi = min(hi, max(0, int(x or 0)))  # determined with X, 601.2b, and doesn't change after)
+        lo = hi if spec["x_count"] == "exact" else 0
+        if hi == 0:
+            return 0, 0  # (X is 0: no targets, nothing to divide among them)
     total = divide_total(spec, x)
     if total is not None:
         lo, hi = max(lo, 1), min(hi, total)
