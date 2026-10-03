@@ -49,7 +49,11 @@ PREDEFINED_TOKENS = {
     "Junk": ("Token Artifact — Junk", "{T}, Sacrifice this token: Exile the top card of your library. You may play that card this turn. Activate only as a sorcery."),
     "Lander": ("Token Artifact — Lander", "{2}, {T}, Sacrifice this token: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."),
     "Mutagen": ("Token Artifact — Mutagen", "{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target creature. Activate only as a sorcery."),
+    # -- token & pump wordings (wave 6C) -- 111.10w
+    "Vibranium": ("Token Artifact — Vibranium", "Indestructible\n{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."),
 }
+# -- token & pump wordings (wave 6C) -- 111.10d: "A Walker token is a 2/2 black Zombie creature token named Walker."
+PREDEFINED_CREATURES = {"Walker": {"power": "2", "toughness": "2", "colors": ["B"], "type_line": "Token Creature — Zombie", "text": ""}}
 
 # -- token & pump wordings (wave 6C) -- numbers past ten ("Create thirteen tapped 2/2 black Zombie creature tokens.")
 NUMBERS.update({"eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
@@ -190,12 +194,16 @@ def parse(sentence: str) -> list[Effect] | None:
         if m["with"] or m["name"] or m["name2"] or m["thats"] or m["attacking"]:
             return None
         found = PREDEFINED_TOKENS.get(m["pre"]) or scripts.PREDEFINED_TOKENS.get(m["pre"])
-        if found is None:
+        creature = PREDEFINED_CREATURES.get(m["pre"])  # (wave 6C)
+        if found is None and creature is None:
             return None
-        type_line, ability = found
-        token: dict[str, Any] = {"name": m["pre"], "power": None, "toughness": None,
-                                 "colors": list(scripts.PREDEFINED_COLORS.get(m["pre"], ())), "type_line": type_line,
-                                 "text": ability}
+        if creature is not None or found is None:
+            assert creature is not None
+            token: dict[str, Any] = {"name": m["pre"], **creature, "colors": list(creature["colors"])}
+        else:
+            type_line, ability = found
+            token = {"name": m["pre"], "power": None, "toughness": None,
+                     "colors": list(scripts.PREDEFINED_COLORS.get(m["pre"], ())), "type_line": type_line, "text": ability}
     else:
         extra = (ARTIFACT_TYPES if m["art"] else frozenset()) | (ENCHANTMENT_TYPES if m["ench"] else frozenset()) \
             | (LAND_TYPES if m["land"] else frozenset())  # (wave 4K: "Forest Dryad land creature tokens", 205.3i)

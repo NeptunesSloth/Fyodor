@@ -215,6 +215,17 @@ def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, colors=(*s.colors, *found))
 
 
+# -- token & pump wordings (wave 6C) -- "each other creature you control that's a Fungus or Saproling", "each creature that's
+# a Barbarian, a Warrior, or a Berserker": any of these creature types (205.3m)
+@_suffix(r"that['’]s (?P<list>an? [A-Z][\w'’-]*(?:(?:,|,? or|,? and/or) (?:an? )?[A-Z][\w'’-]*)*)")
+def _thats_types(s: Selector, m: re.Match[str]) -> Selector:
+    words = [w for w in re.split(r",? (?:or|and/or) |, ", m["list"]) if w]
+    subs = [_core(re.sub(r"^an? ", "", w)) for w in words]
+    if not subs or any(c is None or c[0] != "sub" for c in subs):
+        raise ValueError("not a list of creature types")
+    return replace(s, extras=(*s.extras, "subtype_any:" + "|".join(c[1] for c in subs if c is not None)))
+
+
 @_suffix(r"that['’]s one or more colors")
 def _thats_colors(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, colorless=False)
@@ -451,6 +462,8 @@ def _singular(word: str) -> str:
         return low[:-3] + "y"
     if low.endswith("es") and low[:-2] in ("sorceri", "wolv"):
         return low[:-2]
+    if low.endswith("us"):  # -- token & pump wordings (wave 6C) -- "Fungus", "Octopus" (singular nouns)
+        return word
     if low.endswith("s") and not low.endswith("ss"):
         return word[:-1]
     return word
@@ -935,6 +948,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
             return False
         if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
+            return False
+        if extra.startswith("subtype_any:") and not set(extra[12:].split("|")) & ch.subtypes:  # (wave 6C)
             return False
     # -- chosen type (wave 4J) --
     return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source)

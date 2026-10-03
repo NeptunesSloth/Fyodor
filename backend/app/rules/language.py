@@ -1132,6 +1132,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], _one(group)
+    # -- token & pump wordings (wave 6C) -- "This creature can attack this turn as though it didn't have defender." (702.3b:
+    # the defender's restriction doesn't apply to it this turn; read by combat.attack_problem)
+    m = re.fullmatch(r"(?P<o>.+?) can attack this turn as though (?:it|they) didn't have defender", text)
+    if m and not _PUMP.fullmatch(text):
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": ["attack_despite_defender"]}], _one(group)
     # -- recursion & tutors (wave 4M) -- "Return all artifact and enchantment cards from your graveyard to the battlefield"
     # (Brilliant Restoration): every card that is any of the types named (the "and" lists the kinds, as "or" would)
     text = re.sub(r"^return all ((?:[a-z]+, )*[a-z]+),? and ([a-z]+) cards (?=(?:with [^,]+ )?from your graveyard to )",
@@ -1403,7 +1411,8 @@ _GRANT_ITEM = rf"(?:{GRANT_KEYWORDS}|⟦\d+⟧)"  # (a keyword, or -- wave 2D --
 _KW_LIST = rf"{_GRANT_ITEM}(?:(?:, and |, | and ){_GRANT_ITEM})*"
 _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX]))"
                    rf"(?: and gains? (?P<kw>{_KW_LIST}))? until end of turn"
-                   r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn)?")
+                   r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn"
+                   r"| and (?P<d>can attack this turn as though it didn't have defender))?")  # (d: wave 6C)
 _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
 _GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
                         rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
@@ -1592,6 +1601,8 @@ def _pump(m: re.Match[str], rider: Any) -> tuple[Effects, Any]:
         out.append(_grant_effect(who, m["kw"]))
     if m["r"]:
         out.append({"do": "restrict", "who": who, "rules": RESTRICTIONS[m["r"]]})
+    if m["d"]:  # -- token & pump wordings (wave 6C) -- 702.3b
+        out.append({"do": "restrict", "who": who, "rules": ["attack_despite_defender"]})
     return out, _one(group)
 
 

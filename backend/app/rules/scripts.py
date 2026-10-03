@@ -1343,6 +1343,12 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
 
     if (role_found := roles.clause(text)) is not None:
         return role_found
+    # (wave 6C) "[you may] have target creature get -1/-1 until end of turn": the same instruction as "target creature
+    # gets -1/-1 until end of turn" (the "you may" is read before this)
+    had = re.fullmatch(r"have (?P<o>target [^,\"]+?) (?P<v>get|gain) (?P<rest>[^\"]+ until end of turn)", text)
+    if had is not None:
+        rest = re.sub(r" and (get|gain) ", r" and \1s ", had["rest"])
+        return _one_clause(f"{had['o']} {had['v']}s {rest}")
     from app.rules import language  # the generic grammar (a leaf module)
 
     for pattern, build in EFFECTS:

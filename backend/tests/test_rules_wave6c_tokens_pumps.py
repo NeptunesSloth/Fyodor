@@ -60,11 +60,18 @@ EXTRA = [
     card('Kher Keep', set_code='tst', number='W21', mana_cost='', cmc=0.0, type_line='Legendary Land', oracle_text='{T}: Add {C}.\n{1}{R}, {T}: Create a 0/1 red Kobold creature token named Kobolds of Kher Keep.', colors=[], color_identity=['R'], keywords=[]),  # noqa: E501
     card("Ezuri's Predation", set_code='tst', number='W22', mana_cost='{5}{G}{G}{G}', cmc=8.0, type_line='Sorcery', oracle_text='For each creature your opponents control, create a 4/4 green Phyrexian Beast creature token. Each of those tokens fights a different one of those creatures.', colors=['G'], color_identity=['G'], keywords=['Fight']),  # noqa: E501
     card('Become Brutes', set_code='tst', number='W23', mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text='One or two target creatures each gain haste until end of turn. For each of those creatures, create a Monster Role token attached to it. (If you control another Role on it, put that one into the graveyard. Enchanted creature gets +1/+1 and has trample.)', colors=['R'], color_identity=['R'], keywords=['Role token']),  # noqa: E501
+    card('The Great Mound', set_code='tst', number='W31', mana_cost='', cmc=0.0, type_line='Land', oracle_text='{T}: Add {C}.\n{3}, {T}: Create a tapped Vibranium token. (It\'s an artifact with indestructible and "{T}: Add {C}. This mana can\'t be spent to cast a nonartifact spell.")\n{6}, {T}: Draw a card.', colors=[], color_identity=[], keywords=[]),  # noqa: E501
+    card('Hansk, Slayer Zealot', set_code='tst', number='W32', mana_cost='{2}{R}{G}', cmc=4.0, type_line='Legendary Creature — Human Archer', oracle_text="At the beginning of your upkeep, target opponent creates three Walker tokens. (They're 2/2 black Zombie creatures.)\n{T}: Hansk, Slayer Zealot deals 2 damage to target creature.\nWhenever a Zombie an opponent controls dies, draw a card.", power='4', toughness='4', colors=['G', 'R'], color_identity=['G', 'R'], keywords=[]),  # noqa: E501
+    card('Mobile Fort', set_code='tst', number='W33', mana_cost='{4}', cmc=4.0, type_line='Artifact Creature — Wall', oracle_text="Defender (This creature can't attack.)\n{3}: This creature gets +3/-1 until end of turn and can attack this turn as though it didn't have defender. Activate only once each turn.", power='0', toughness='6', colors=[], color_identity=[], keywords=['Defender']),  # noqa: E501
+    card('Sporecrown Thallid', set_code='tst', number='W34', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Fungus', oracle_text="Each other creature you control that's a Fungus or Saproling gets +1/+1.", power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
+    card('Lovisa Coldeyes', set_code='tst', number='W35', mana_cost='{3}{R}{R}', cmc=5.0, type_line='Legendary Creature — Human', oracle_text="Each creature that's a Barbarian, a Warrior, or a Berserker gets +2/+2 and has haste.", power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
+    card('Painsmith', set_code='tst', number='W41', mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Human Artificer', oracle_text='Whenever you cast an artifact spell, you may have target creature get +2/+0 and gain deathtouch until end of turn.', power='2', toughness='1', colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
 ]
 FULL = ["Tainted Strike", "Shadow Rift", "Monstrous Rage", "Royal Treatment", "Shatter the Oath", "Rotten Reunion",
         "Jadar, Ghoulcaller of Nephalia", "Tolsimir Wolfblood", "Army of the Damned", "Moogles' Valor", "Godsire",
         "Crib Swap", "The Hive", "Field of the Dead", "Vodalian Hexcatcher", "Nightpack Ambusher", "Kor Spiritdancer",
-        "Coat of Arms", "Firedrinker Satyr", "Champion of the Flame"]
+        "Coat of Arms", "Firedrinker Satyr", "Champion of the Flame", "The Great Mound", "Hansk, Slayer Zealot",
+        "Mobile Fort", "Sporecrown Thallid", "Lovisa Coldeyes", "Painsmith"]
 STILL_MANUAL = {
     "Kher Keep": "Kobolds of",  # (the token's name holds the card's own name: not read)
     "Ezuri's Predation": "fights a different one",  # (pairing each token with a different creature: refused)
@@ -493,3 +500,77 @@ def test_firedrinker_satyr_pumps_and_deals_damage_to_you(cards):
     # 1 damage to Alice; the Satyr wasn't dealt damage (no trigger)
     assert s.state.players["p1"].life == 39
     replay_matches(s)
+
+
+def test_the_great_mound_vibranium_token(cards):
+    """111.10w: a colorless Vibranium artifact token with indestructible and a restricted {C} mana ability."""
+    s = build(cards, "The Great Mound")
+    mound = put(s, "The Great Mound")
+    mana(s, C=3)
+    act(s, "p1", type="activate_ability", card_id=mound.id, ability=1)
+    settle(s)
+    [vib] = tokens(s)
+    vch = chars(s, vib)
+    assert vib.name == "Vibranium" and vib.tapped and "Artifact" in vch.types and "indestructible" in vch.keywords
+    replay_matches(s)
+
+
+def test_hansk_gives_the_opponent_walkers(cards):
+    """111.10d: "A Walker token is a 2/2 black Zombie creature token named Walker."; the target opponent creates them."""
+    s = build(cards, "Hansk, Slayer Zealot")
+    put(s, "Hansk, Slayer Zealot")
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and not s.state.zones.get("stack"))
+    walkers = tokens(s, "p2")
+    assert [w.name for w in walkers] == ["Walker"] * 3 and not tokens(s)
+    assert all(pt(s, w) == (2, 2) and "Zombie" in chars(s, w).subtypes and chars(s, w).colors == frozenset({"B"})
+               for w in walkers)
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_mobile_fort_attacks_despite_defender_this_turn(cards):
+    """702.3b: "can attack this turn as though it didn't have defender" (a rule on it until end of turn)."""
+    from app.rules.combat import attack_problem
+
+    s = build(cards, "Mobile Fort")
+    fort = put(s, "Mobile Fort")
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and not s.state.zones.get("stack"))
+    assert "defender" in (attack_problem(s.state, s.state.cards[fort.id], chars(s, fort)) or "")
+    mana(s, C=3)
+    act(s, "p1", type="activate_ability", card_id=fort.id, ability=1)
+    settle(s)
+    assert pt(s, fort) == (3, 5) and attack_problem(s.state, s.state.cards[fort.id], chars(s, fort)) is None
+    to_attack(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": fort.id, "target": "p2"}])
+    through_combat(s)
+    assert s.state.players["p2"].life == 37
+    replay_matches(s)
+    until(s, lambda s: s.state.turn.number == 5 and s.state.turn.phase == "main1")
+    assert "defender" in (attack_problem(s.state, s.state.cards[fort.id], chars(s, fort)) or "")
+
+
+def test_thats_a_type_or_type_anthems(cards):
+    s = build(cards, "Sporecrown Thallid", "Lovisa Coldeyes")
+    put(s, "Sporecrown Thallid")
+    put(s, "Lovisa Coldeyes")
+    fungus = token_of(s, "p1", "Spore", "Token Creature — Fungus", "1/1")
+    sap = token_of(s, "p1", "Sap", "Token Creature — Saproling", "1/1")
+    warrior = token_of(s, "p2", "Brute", "Token Creature — Human Warrior", "1/1")
+    goat = token_of(s, "p1", "Goat", "Token Creature — Goat", "1/1")
+    assert pt(s, fungus) == (2, 2) and pt(s, sap) == (2, 2) and pt(s, goat) == (1, 1)
+    assert pt(s, warrior) == (3, 3) and "haste" in chars(s, warrior).keywords  # (Lovisa: each creature, any controller)
+    assert pt(s, card_named(s, "Sporecrown Thallid")) == (2, 2)  # ("each other")
+    replay_matches(s)
+
+
+def test_you_may_have_target_creature_get():
+    """"you may have target creature get +2/+0 and gain deathtouch until end of turn": an optional targeted pump."""
+    from app.rules import scripts
+    from tests.test_rules_scripts import ch as characteristics
+
+    c = next(c for c in EXTRA if c["name"] == "Painsmith")
+    chs = characteristics(c["name"], c["type_line"], c["oracle_text"])
+    [d] = scripts.definitions(chs).values()
+    assert d["optional"] and d["target"] == {"what": "creature"}
+    assert d["effects"] == [{"do": "pump", "who": "target", "p": 2, "t": 0},
+                            {"do": "grant", "who": "target", "keywords": ["deathtouch"]}]

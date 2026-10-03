@@ -68,13 +68,13 @@ def test_parse_token_forms(text, expected):
 
 
 @pytest.mark.parametrize("text", [
-    "Create a 2/2 black Zombie creature token with decayed.",  # a keyword the engine doesn't implement
+    "Create a 1/1 white Knight creature token with banding.",  # a keyword the engine doesn't implement (wave 6C: decayed now is)
     "Create a 1/1 blue Faerie creature token with flying for each spell you cast this turn.",  # (no such count)
     'Create a 1/1 white Human creature token with "{2}: Transform this token."',  # an ability the engine can't run
     "Create a 1/1 green Foo creature token.",  # not a creature type
     "Create a token that's a copy of it.",  # copies: not this grammar
     "Create an Incubator token.",  # 111.10i: a double-faced token that transforms
-    "Create a Wicked Role token attached to up to one target creature you control.",  # Roles attach as Auras
+    "Create a Young Hero Role token attached to target creature you control.",  # (wave 6C: a Role whose ability isn't run)
     "Create a Treasure token with flying.",
 ])
 def test_unknown_token_wordings_stay_manual(text):
