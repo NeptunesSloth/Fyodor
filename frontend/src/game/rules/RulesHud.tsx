@@ -474,7 +474,7 @@ function Divide({ d, view }: { d: DecisionView; view: GameView }) {
   const least = Number(d.display?.least ?? 1); // 510.1d: a blocker may assign 0 to some of the attackers it blocks
   const lethal = (d.display?.lethal as number[] | undefined) ?? []; // 702.19b: a trampler starts at lethal on each blocker, the rest on its target
   const [amounts, setAmounts] = useState<number[]>(() =>
-    lethal.length ? options.map((_, i) => (i < lethal.length ? lethal[i] : total - lethal.reduce((a, b) => a + b, 0)))
+    lethal.length ? options.map((_, i) => (i < lethal.length ? (lethal[i] ?? 0) : total - lethal.reduce((a, b) => a + b, 0)))
       : options.map((_, i) => (i === 0 ? total - (options.length - 1) * least : least)));
   const sum = amounts.reduce((a, b) => a + b, 0);
   const set = (i: number, v: number) => setAmounts((xs) => xs.map((x, k) => (k === i ? Math.max(least, v) : x)));
