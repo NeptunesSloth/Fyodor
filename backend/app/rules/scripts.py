@@ -2414,6 +2414,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     if d is not None and not _chosen.chosen_value_ok(d, ch):  # -- chosen type (wave 4J) -- "of the chosen type / color"
         return None
+    # -- discover (wave 9A) -- the free cast ends the resolution (effects.resume_suspend_cast): nothing may follow it
+    if d is not None and any(e.get("do") == "discover" for e in (d.get("effects") or [])[:-1]):
+        return None
     # -- X sized by a count (wave 4K) -- a bare X left in an ability whose text defines X ("Create an X/X … token, where X
     # is half your life total, rounded up. It deals X damage to you."): one X for the whole ability (107.3c) that a later
     # sentence would read as 0 — manual. And a triggered ability's bare X other than an enters trigger's (107.3m, the
@@ -4761,3 +4764,11 @@ EFFECTS[:0] = _coin_flips.TEMPLATES
 from app.rules import block_effects as _block_effects  # noqa: E402, I001
 
 EFFECTS[:0] = _block_effects.TEMPLATES
+# -- discover (wave 9A) -- "Discover 4." / "discover X, where X is …" (701.57: app/rules/discover.py)
+from app.rules import discover as _discover  # noqa: E402, I001
+
+EFFECTS[:0] = _discover.TEMPLATES
+# -- X actions (wave 9A) -- "bolster X, where X is …", "amass Orcs X, where X is …" (app/rules/x_actions.py)
+from app.rules import x_actions as _x_actions  # noqa: E402, I001
+
+EFFECTS[:0] = _x_actions.templates(_SEL)

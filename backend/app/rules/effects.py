@@ -1020,6 +1020,11 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "graveyard"}},
                     actor=d.player)
             return
+        if d.resume.get("decline") == "hand" and cid in plan.state.cards:  # -- discover (wave 9A) -- 701.57a
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "hand"}},
+                    actor=d.player)
+            plan.note(f"{plan.name(d.player)} puts it into their hand")
+            return
         if d.resume.get("decline") == "bottom" and cid in plan.state.cards:  # cascade: it joins the others
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
                      "position": "bottom"}, actor=d.player)
@@ -3270,6 +3275,12 @@ from app.rules import x_spells as _x_spells  # noqa: E402, I001
 
 PRIMITIVES.update(_x_spells.PRIMITIVES)
 # -- end X sized by a count (wave 4K) --
+
+# -- discover (wave 9A) -- 701.57: app/rules/discover.py
+from app.rules import discover as _discover  # noqa: E402, I001
+
+PRIMITIVES.update(_discover.PRIMITIVES)
+# -- end discover (wave 9A) --
 
 # -- recursion & tutors (wave 4M) -- a spell moving itself (608.2m/n) and the rest: app/rules/recursion.py
 from app.rules import recursion as _recursion  # noqa: E402, I001

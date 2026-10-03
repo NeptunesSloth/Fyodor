@@ -113,6 +113,12 @@ _TYPE_WORDS = "|".join(selectors.CARD_TYPES)
 _COLORS_SPENT = re.compile(r"colors? of mana spent to cast (?:this spell|it|~|this creature|this permanent)")
 
 
+# -- X actions (wave 9A) -- 700.14-style "mana spent": the total amount of mana paid for the spell (601.2h), from its payment
+# record; "that spell" is the cast event's spell, "her" / "this spell" / "~" the source (the permanent remembers its spell's
+# record). A bare "it" is not read: it could be either.
+_MANA_SPENT = re.compile(r"(?:the )?amount of mana spent to cast (?P<o>that spell|this spell|her|him|~|this creature)")
+
+
 def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     """See ``_parse_count``. -- damage wordings (wave 6B) -- a count of what "that player" controls is a different
     number for each player it could name (the target player's, the recipient's: app/rules/sized_damage.py): never read
@@ -170,6 +176,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"kicked": 1}
     if _COLORS_SPENT.fullmatch(what):  # -- ability words (wave 4F) -- converge
         return {"colors_spent": 1}
+    m = _MANA_SPENT.fullmatch(what)  # -- X actions (wave 9A) -- "the amount of mana spent to cast that spell / her"
+    if m:
+        return {"mana_spent": "event" if m["o"] == "that spell" else "self"}
     if what == "your life total":
         return {"life": "you"}
     if what in ("target player's life total", "target opponent's life total"):
@@ -257,7 +266,7 @@ def _sized(what: str, it: str | None) -> Value | None:
 _TURN_LIFE = re.compile(r"^(?:the )?(?:amount of )?life you(?:'ve| have)? (?P<k>gained|lost) this turn$")
 _TURN_SPELL = re.compile(r"^spell you(?:'ve| have) cast this turn$")
 _TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
-_TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?) that died this turn$")
+_TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?) that died(?P<mine> under your control)? this turn$")
 _OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? who (?:(?P<drew>drew (?P<n>\w+) or more cards)|"
                             r"(?P<lost>lost life)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
                             r"this turn$")
@@ -274,7 +283,10 @@ def _turn_amount(what: str) -> Value | None:
     m = _TURN_DIED.match(what)
     if m:  # 700.4; as they last existed on the battlefield (608.2i)
         sel = selectors.parse(m["sel"])
-        return {"turn_history": "died", "sel": sel.key()} if sel is not None else None
+        if sel is None:
+            return None
+        # -- X actions (wave 9A) -- "that died under your control this turn": the ones you controlled as they died (700.4)
+        return {"turn_history": "died", "sel": sel.key(), **({"who": "you"} if m["mine"] else {})}
     m = _OPPONENTS_WHO.match(what)
     if m:  # each opponent whose history this turn says so (one per opponent)
         word = m["n"] or m["m"]
@@ -340,6 +352,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                       "adjust by hand", [record.card] if record.card in plan.state.cards else ())
             return 0
         return sum(1 for c in "WUBRG" if record.mana_spent.get(c, 0) > 0)
+    if "mana_spent" in v:  # -- X actions (wave 9A) -- a spell cast by hand: no mana known, 0 (and said so)
+        return _mana_spent(plan, ctx, v["mana_spent"])
     if "named_self_in_graveyards" in v:  # -- mana riders (wave 5A) -- cards with the source's name in every graveyard
         from app.rules import characteristics as chars
 
@@ -586,6 +600,22 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
 
             return _snapshot_card(plan, snap)
     return None
+
+
+def _mana_spent(plan: Plan, ctx: dict[str, Any], which: str) -> int:
+    from app.rules import context
+
+    if which == "event":  # (the spell as cast: its record is kept under the object that was on the stack)
+        refs = context._object_refs(ctx, context.EVENT)
+        oid = refs[0].object_id if len(refs) == 1 else ""
+    else:
+        oid = ctx.get("source_object") or ""
+    record = plan.rules.payments.get(oid)
+    if record is None or not record.mana_known:
+        plan.note("The mana spent to cast the spell isn't known (read as 0) — adjust by hand",
+                  [record.card] if record is not None and record.card in plan.state.cards else ())
+        return 0
+    return sum(record.mana_spent.values())
 
 
 # -- refused modal/conditional (wave 3R1) --

@@ -43,10 +43,11 @@ def _carry_out(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], half: dict[st
 
 def endure(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.game.rules_state import DecisionOption
+    from app.rules import values
     from app.rules.effects import _cards
     from app.rules.plan import decide
 
-    n = int(e.get("n") or 0)
+    n = values.evaluate(plan, ctx, e.get("n") or 0)  # (-- X actions (wave 9A) -- "endures X, where X is …": worked out now)
     if n <= 0:
         return True  # 701.63b
     found = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
@@ -59,7 +60,7 @@ def endure(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     decide(plan, player=card.controller, kind="choose_one", prompt=f"{name} endures {n}: +1/+1 counters or a Spirit token?",
            options=[DecisionOption(id="counters", label=f"Put {n} +1/+1 counter{'s' if n > 1 else ''} on {name}"),
                     DecisionOption(id="token", label=f"Create a {n}/{n} white Spirit token")],
-           resume={"step": "endure", "ctx": ctx, "e": e, "card": card.id, "object": plan.oid(card)}, source=card)
+           resume={"step": "endure", "ctx": ctx, "e": {**e, "n": n}, "card": card.id, "object": plan.oid(card)}, source=card)
     return False
 
 

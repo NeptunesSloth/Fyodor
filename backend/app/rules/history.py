@@ -476,6 +476,7 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return log.drew.get(me, 0)
     if kind == "died":
         return sum(1 for d in log.left if d.to == "graveyard" and (snap := plan.rules.lki.get(d.object_id)) is not None
+                   and (v.get("who") != "you" or d.controller == me)  # (-- X actions (wave 9A) -- "under your control")
                    and _departed_matches(plan, selectors.from_key(v["sel"]), d, snap))
     if kind == "opponents_who":
         n = int(v.get("n", 1))
