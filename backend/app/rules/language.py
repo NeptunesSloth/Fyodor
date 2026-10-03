@@ -960,9 +960,17 @@ def _one(group: dict[str, Any] | None) -> Any:
     return _out([group] if group is not None else [])
 
 
+_ALL_AND_ALL = re.compile(r"^(?P<v>destroy|exile) (?P<q>all|each) (?P<a>creature|artifact|enchantment|land|planeswalker|battle)s?"
+                          r"(?P<c>(?: you control| you don't control| your opponents control)?) and (?P=q) "
+                          r"(?P<b>creature|artifact|enchantment|land|planeswalker|battle)s?(?P=c)$")
+
+
 def _parse(text: str) -> tuple[Effects, Any]:
     if (emblem := _emblem(text)) is not None:  # -- emblems (wave 13A) --
         return emblem
+    # -- static grants & selectors (wave 15A) -- "Destroy all creatures you don't control and all planeswalkers you don't control":
+    # one group of the two kinds under one qualifier (the "or" the selectors already read), all at once (701.8)
+    text = _ALL_AND_ALL.sub(lambda m: f"{m['v']} {m['q']} {m['a']}s or {m['b']}s{m['c']}", text)
     if '"' in text:  # -- quoted grants (wave 2D) -- the quoted abilities are read on their own
         return _quoted(text)
     lead = _EOT_LEAD.match(text)  # -- quoted grants (wave 2D) -- "Until end of turn, target creature gets +1/+0."
@@ -1070,6 +1078,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if greatest:
             sel = replace(sel, extras=(*sel.extras, "greatest_power_own"))
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
+    # -- static grants & selectors (wave 15A) -- "Each player sacrifices all permanents they control that are one or more colors"
+    # (701.21a: a player sacrifices only what they control; every match goes at once, 101.4: sacrifice_choice with no choice left)
+    m = re.fullmatch(_SUBJ + r"sacrifices? all (?P<sel>.+?)(?: (?:they|you) control)?(?P<tail> that .+)?", text)
+    if m and rider is None and not (m["tail"] and re.search(r"\b(?:they|you) control\b", m["tail"])):
+        who, target = _subject(m)
+        sel = selectors.parse(m["sel"] + (m["tail"] or ""))
+        if sel is None or sel.player is not None or sel.controller is not None or sel.zones != ("battlefield",):
+            raise _Fail
+        return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": 10**6}], target
     # -- grammar (wave 11C) -- "that player loses the game", "you lose the game", "target player loses the game" (104.3e)
     m = re.fullmatch(_SUBJ + r"loses? the game", text)
     if m and rider is None:

@@ -252,7 +252,7 @@ def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
 
 
-@_suffix(r"that['’]s (?P<c1>" + "|".join(COLORS) + r")(?: or (?P<c2>" + "|".join(COLORS) + r"))?")
+@_suffix(r"that(?:['’]s| is| are) (?P<c1>" + "|".join(COLORS) + r")(?: or (?P<c2>" + "|".join(COLORS) + r"))?")
 def _thats_colored(s: Selector, m: re.Match[str]) -> Selector:
     found = tuple(COLORS[c] for c in (m["c1"], m["c2"]) if c)
     return replace(s, colors=(*s.colors, *found))
@@ -269,9 +269,24 @@ def _thats_types(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "subtype_any:" + "|".join(c[1] for c in subs if c is not None)))
 
 
-@_suffix(r"that['’]s one or more colors")
+@_suffix(r"that(?:['’]s| is| are) one or more colors")  # (wave 15A: "permanents they control that are one or more colors")
 def _thats_colors(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, colorless=False)
+
+
+# -- static grants & selectors (wave 15A) -- "creatures that aren't enchanted", "nonland permanents that aren't legendary / that's
+# not historic" (a negated quality: 700.6 historic, 303.4 / 301.5 enchanted / equipped, 205.4 supertypes, 105 colors)
+_NOT_EXTRAS = ("not_enchanted", "not_equipped", "not_historic")
+
+
+@_suffix(r"that(?:['’]s not| isn['’]t| aren['’]t| is not| are not) (?P<w>enchanted|equipped|historic|legendary|snow|basic|" + "|".join(COLORS) + ")")
+def _thats_not(s: Selector, m: re.Match[str]) -> Selector:
+    w = m["w"]
+    if w in COLORS:
+        return replace(s, not_colors=(*s.not_colors, COLORS[w]))
+    if w in SUPERTYPES:
+        return replace(s, not_supertypes=(*s.not_supertypes, SUPERTYPES[w]))
+    return replace(s, extras=(*s.extras, "not_" + w))
 
 
 @_suffix(r"you own")
@@ -331,6 +346,15 @@ def _compare(s: Selector, m: re.Match[str]) -> Selector:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
     return replace(s, compare=(*s.compare, (what, "<=" if m["dir"] == "less" else ">=", n)))
+
+
+@_suffix(r"with (?P<what>mana value|power|toughness) (?P<dir>greater|less) than " + _NUM)  # (wave 15A: strictly, 107.1)
+def _compare_strict(s: Selector, m: re.Match[str]) -> Selector:
+    n = _n(m.group(3))
+    if n is None or m.group(3) == "x":
+        raise ValueError("X comparisons need a value")
+    what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
+    return replace(s, compare=(*s.compare, (what, ">" if m["dir"] == "greater" else "<", n)))
 
 
 @_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM.replace("|x)", "|[xX])"))
@@ -1064,6 +1088,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 c.attached_to == card.id and "Aura" in plan.ch(c).subtypes and c.controller == card.controller
                 for c in plan.state.cards.values())):
             return False
+        if extra in _NOT_EXTRAS and matches(plan, Selector(zones=sel.zones, card=sel.card, extras=(extra[4:],)), card, ch, you, source):
+            return False  # (wave 15A)
         # (700.6; set only by the look-and-distribute grammar: "a historic card from among them")
         if extra == "historic" and not ("Artifact" in ch.types or "Legendary" in ch.supertypes or "Saga" in ch.subtypes):
             return False
