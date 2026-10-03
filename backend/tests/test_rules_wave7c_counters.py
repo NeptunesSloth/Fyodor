@@ -67,6 +67,8 @@ EXTRA = [
     card('Roc Hatchling', set_code='tst', number='T7C44', mana_cost='{R}', cmc=1.0, type_line='Creature — Bird', oracle_text='This creature enters with four shell counters on it.\nAt the beginning of your upkeep, remove a shell counter from this creature.\nAs long as this creature has no shell counters on it, it gets +3/+2 and has flying.', power='0', toughness='1', colors=['R'], color_identity=['R']),
     card('Simic Ascendancy', set_code='tst', number='T7C45', mana_cost='{G}{U}', cmc=2.0, type_line='Enchantment', oracle_text='{1}{G}{U}: Put a +1/+1 counter on target creature you control.\nWhenever one or more +1/+1 counters are put on a creature you control, put that many growth counters on this enchantment.\nAt the beginning of your upkeep, if this enchantment has twenty or more growth counters on it, you win the game.', colors=['G', 'U'], color_identity=['G', 'U']),
     card('Contagion', set_code='tst', number='T7C46', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Instant', oracle_text="You may pay 1 life and exile a black card from your hand rather than pay this spell's mana cost.\nDistribute two -2/-1 counters among one or two target creatures.", colors=['B'], color_identity=['B']),
+    card("Noble's Purse", set_code='tst', number='T7C47', mana_cost='{2}', cmc=2.0, type_line='Artifact', oracle_text='This artifact enters tapped and with three coin counters on it.\n{T}, Remove a coin counter from this artifact: Create a Treasure token. (It\'s an artifact with "{T}, Sacrifice this token: Add one mana of any color.")', keywords=['Treasure']),
+    card('Sphere of the Suns', set_code='tst', number='T7C48', mana_cost='{2}', cmc=2.0, type_line='Artifact', oracle_text='This artifact enters tapped and with three charge counters on it.\n{T}, Remove a charge counter from this artifact: Add one mana of any color.'),
 ]
 
 
@@ -601,4 +603,19 @@ def test_contagion_distributes_minus_two_minus_one_counters(cards):
 
 @pytest.mark.parametrize("name", ["Roc Hatchling", "Simic Ascendancy", "Contagion"])
 def test_counter_state_coverage(name):
+    assert cov(name) == "FULL"
+
+
+# -- "This artifact enters tapped and with three coin counters on it." (614.1c, 614.1d) -----------------------------------
+def test_nobles_purse_enters_tapped_with_three_coin_counters(cards):
+    s = build(cards, "Noble's Purse")
+    purse = cast(s, "Noble's Purse", C=3)
+    settle(s)
+    assert zone(s, purse) == "p1:battlefield" and counters(s, purse) == {"coin": 3} and s.state.cards[purse.id].tapped
+    replay_matches(s)
+    replay_matches(saved(s))
+
+
+@pytest.mark.parametrize("name", ["Noble's Purse", "Sphere of the Suns"])
+def test_enters_tapped_with_counters_coverage(name):
     assert cov(name) == "FULL"
