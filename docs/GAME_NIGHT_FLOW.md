@@ -115,5 +115,68 @@ Player 4 — REMATCH
 
 ## 7. Spectator rejoin
 
-*The request was cut off at this heading; confirm the details before building.* It presumably covers a
-spectator (or an eliminated player, `ELIMINATION_HUB.md`) rejoining the pod for the next game.
+An eliminated player may leave the live-table view for the side activities of `ELIMINATION_HUB.md`
+(Practice Table, Opening Hand Simulator, Deck Lab and the others). They always have **RETURN TO LIVE
+GAME**, which puts them straight back into spectator mode.
+
+- They see **public information only**: never opponents' hands, hidden library cards, private choices,
+  searches, face-down identities or hidden WebSocket payloads. Eliminated players are spectators, not
+  omniscient judges.
+- While away from the table they get small public notifications for major events only ("Player 3
+  eliminated.", "Final two players remain.", "Player 4 wins."). No constant notifications.
+- When the match ends, the result / rematch flow appears even if they are in Practice Table or Deck Lab.
+
+## The complete game-night loop
+
+```
+PERSISTENT LOBBY
+  → players select decks / ready
+  → PRE-GAME COMMANDER INTRO
+  → RANDOM / ROTATING FIRST PLAYER
+  → MULLIGANS
+  → COMMANDER GAME
+      → players may be eliminated
+      → eliminated players spectate or use side activities, RETURN TO LIVE GAME at any time
+  → normal victory OR agreed group concession
+  → WINNER SPOTLIGHT
+  → REMATCH VOTE
+      → SAME DECKS: an immediate fresh game
+      → RETURN TO LOBBY: players change or keep decks → ready → next game
+```
+
+## Pod session and game are different objects
+
+One **pod session** links several **games** (Game 1, Game 2, Game 3 …). Each game keeps its own:
+
+- result and winner (and whether it was an agreed result);
+- decks and commanders used;
+- first player;
+- elimination order;
+- duration and turn count;
+- a final board snapshot, if supported.
+
+The pod session holds what persists (section 1). No match-local state carries into the next game.
+
+## Tests
+
+- persistent lobby after a completed game;
+- same-deck rematch (every item of match-local state reset, new game id);
+- returning to the lobby and changing one player's deck;
+- authoritative random first player (server-chosen, clients can't influence it);
+- rotating first player;
+- skipping the pre-game intro;
+- a successful unanimous agreed ending, recorded as an agreed result;
+- a declined group concession (the game continues);
+- winner spotlight state;
+- an all-rematch vote;
+- a vote where one player returns to the lobby;
+- a player disconnecting during the vote (the host can still return the pod to the lobby);
+- an eliminated player leaving the spectator view;
+- an eliminated player rejoining the spectator view;
+- spectator privacy (leak tests on an eliminated seat's connection);
+- the match ending while an eliminated player is in Practice Table;
+- several games recorded under one pod session.
+
+## Out of scope for this milestone
+
+Plane-themed environments.

@@ -69,6 +69,10 @@ example:
 [VIEW FINAL BOARD]** (`3D_DIRECTION.md` §7a, post-game flow). Nobody misses the end of the pod game
 because they were practicing. A player who wants another deck changes it after returning to the lobby.
 
+The game-night milestone (`GAME_NIGHT_FLOW.md` §7) builds the return-to-live-game path, the major-event
+notifications ("Player 3 eliminated.", "Final two players remain.", "Player 4 wins.") and the result
+flow reaching players in a side activity.
+
 ## Privacy (extremely important)
 
 Elimination does not grant judge or spectator omniscience. An eliminated player must **not** gain
