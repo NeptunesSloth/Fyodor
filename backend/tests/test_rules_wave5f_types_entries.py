@@ -58,6 +58,27 @@ EXTRA = [
     card("Valgavoth's Lair", set_code="tst", number="5F107", type_line='Enchantment Land',
          oracle_text='Hexproof\nThis land enters tapped. As it enters, choose a color.\n{T}: Add one mana of the chosen color.',
          keywords=['Hexproof']),
+    card('Cursed Mirror', set_code="tst", number="5F201", mana_cost='{2}{R}', cmc=3.0, type_line='Artifact',
+         oracle_text='{T}: Add {R}.\nAs this artifact enters, you may have it become a copy of any creature on the battlefield until '
+                     'end of turn, except it has haste.', colors=['R'], color_identity=['R']),
+    card('Vesuva', set_code="tst", number="5F202", type_line='Land',
+         oracle_text='You may have this land enter tapped as a copy of any land on the battlefield.'),
+    card('Mirrormade', set_code="tst", number="5F203", mana_cost='{1}{U}{U}', cmc=3.0, type_line='Enchantment',
+         oracle_text='You may have this enchantment enter as a copy of any artifact or enchantment on the battlefield.', colors=['U'],
+         color_identity=['U']),
+    card('Clever Impersonator', set_code="tst", number="5F204", mana_cost='{2}{U}{U}', cmc=4.0, type_line='Creature — Shapeshifter',
+         oracle_text='You may have this creature enter as a copy of any nonland permanent on the battlefield.', power='0',
+         toughness='0', colors=['U'], color_identity=['U']),
+    card('Masterwork of Ingenuity', set_code="tst", number="5F205", mana_cost='{1}', cmc=1.0, type_line='Artifact — Equipment',
+         oracle_text='You may have this Equipment enter as a copy of any Equipment on the battlefield.'),
+    card('Synth Infiltrator', set_code="tst", number="5F206", mana_cost='{3}{U}{U}', cmc=5.0, type_line='Artifact Creature — Synth',
+         oracle_text="Improvise (Your artifacts can help cast this spell. Each artifact you tap after you're done activating mana "
+                     "abilities pays for {1}.)\nYou may have this creature enter as a copy of any creature on the battlefield, except "
+                     "it's a Synth artifact creature in addition to its other types.", power='0', toughness='0', colors=['U'],
+         color_identity=['U'], keywords=['Improvise']),
+    card('Reanimate', set_code="tst", number="5F301", mana_cost='{B}', cmc=1.0, type_line='Sorcery',
+         oracle_text="Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that "
+                     "card's mana value.", colors=['B'], color_identity=['B']),
 ]
 
 
@@ -318,4 +339,155 @@ def test_amulet_ignores_what_enters_untapped(cards):
     put(s, "Amulet of Vigor", "battlefield")
     play(s, "Forest")
     assert not s.state.zones.get("stack") and rules(s).decision is None
+    roundtrip(s)
+
+
+# -- entering as a copy (707.5, 614.1c, 614.12a, 707.9) -----------------------------------------------------------------
+def copy_pick(target_id):
+    """Answer the "… to copy" choice with ``target_id`` ("none": copy nothing); anything else: the first option."""
+    def choose(d):
+        if d.prompt.endswith("to copy"):
+            return [target_id]
+        return [d.options[0].id]
+    return choose
+
+
+def cast(s, name, pick, **pool):
+    spell = put(s, name, "hand")
+    act(s, "p1", type="add_mana", player="p1", mana=pool)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    drive(s, copy_pick(pick))
+    return s.state.cards[spell.id]
+
+
+def test_clone_variant_wordings_are_covered():
+    assert ok("You may have this land enter tapped as a copy of any land on the battlefield.", "Vesuva", "Land")
+    assert ok("You may have this creature enter as a copy of any nonland permanent on the battlefield.", "Clever Impersonator")
+    assert ok("You may have this enchantment enter as a copy of any artifact or enchantment on the battlefield.", "Mirrormade",
+              "Enchantment")
+    assert ok("As this artifact enters, you may have it become a copy of any creature on the battlefield until end of turn, "
+              "except it has haste.", "Cursed Mirror", "Artifact")
+    assert ok("You may have this creature enter as a copy of any creature on the battlefield, except it's a Synth artifact "
+              "creature in addition to its other types.", "Synth Infiltrator", "Artifact Creature — Synth")
+    # still refused: a mana value sized by the mana spent (Mockingbird), a card in a graveyard (Body Double)
+    assert not ok("You may have this creature enter as a copy of any creature on the battlefield with mana value less than or "
+                  "equal to the amount of mana spent to cast this creature, except it's a Bird in addition to its other types "
+                  "and it has flying.", "Mockingbird")
+    assert not ok("You may have this creature enter as a copy of any creature card in a graveyard.", "Body Double")
+
+
+def test_vesuva_enters_tapped_as_a_copy_of_a_land(cards):
+    s = build(cards, [(1, "Vesuva"), (1, "Urborg, Tomb of Yawgmoth"), (1, "Forest")], [(1, "Island"), (9, "Island")])
+    urborg = put(s, "Urborg, Tomb of Yawgmoth", "battlefield")
+    island = put(s, "Island", "battlefield", pid="p2")  # any land: an opponent's too
+    vesuva = put(s, "Vesuva", "hand")
+    act(s, "p1", type="play_land", card_id=vesuva.id)
+    d = rules(s).decision
+    assert d.prompt.endswith("to copy") and {urborg.id, island.id, "none"} <= {o.id for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[urborg.id])
+    drive(s)
+    v = s.state.cards[vesuva.id]
+    assert v.zone == "p1:battlefield" and v.tapped  # tapped because it entered as a copy
+    assert ch(s, v).name == "Urborg, Tomb of Yawgmoth" and "Legendary" in ch(s, v).supertypes
+    roundtrip(s)
+
+
+def test_vesuva_copying_nothing_enters_untapped(cards):
+    s = build(cards, [(1, "Vesuva"), (1, "Forest")])
+    put(s, "Forest", "battlefield")
+    vesuva = put(s, "Vesuva", "hand")
+    act(s, "p1", type="play_land", card_id=vesuva.id)
+    act(s, "p1", type="choose", decision_id=rules(s).decision.id, option_ids=["none"])
+    v = s.state.cards[vesuva.id]
+    assert v.zone == "p1:battlefield" and not v.tapped and ch(s, v).name == "Vesuva"
+    roundtrip(s)
+
+
+def test_cursed_mirror_is_a_hasty_copy_until_end_of_turn(cards):
+    s = build(cards, [(1, "Cursed Mirror"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    mirror = cast(s, "Cursed Mirror", bears.id, R=1, C=2)
+    got = ch(s, mirror)
+    assert mirror.zone == "p1:battlefield" and got.name == "Grizzly Bears" and got.pt == (2, 2) and "haste" in got.keywords
+    assert "{T}: Add {R}." not in [a.text for a in got.abilities]
+    roundtrip(s)
+    for _ in range(12):  # 514.2: "until end of turn" ends in the cleanup step
+        if s.state.turn.active_player != "p1":
+            break
+        d = rules(s).decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        else:
+            act(s, rules(s).priority, type="pass_priority")
+    assert s.state.turn.active_player == "p2"
+    got = ch(s, s.state.cards[mirror.id])
+    assert got.name == "Cursed Mirror" and not got.is_creature and "{T}: Add {R}." in [a.text for a in got.abilities]
+    roundtrip(s)
+
+
+def test_mirrormade_copies_an_artifact(cards):
+    s = build(cards, [(1, "Mirrormade"), (1, "Sol Ring")])
+    ring = put(s, "Sol Ring", "battlefield")
+    mirror = cast(s, "Mirrormade", ring.id, U=2, C=1)
+    got = ch(s, mirror)
+    assert got.name == "Sol Ring" and "Artifact" in got.types and "Enchantment" not in got.types
+    roundtrip(s)
+
+
+def test_masterwork_copies_an_equipment(cards):
+    s = build(cards, [(1, "Masterwork of Ingenuity"), (1, "Bonesplitter")])
+    splitter = put(s, "Bonesplitter", "battlefield")
+    work = cast(s, "Masterwork of Ingenuity", splitter.id, C=1)
+    assert ch(s, work).name == "Bonesplitter" and work.attached_to is None
+    roundtrip(s)
+
+
+def test_synth_infiltrator_is_a_synth_artifact_creature_copy(cards):
+    s = build(cards, [(1, "Synth Infiltrator"), (1, "Grizzly Bears")])
+    bears = put(s, "Grizzly Bears", "battlefield")
+    synth = cast(s, "Synth Infiltrator", bears.id, U=2, C=3)
+    got = ch(s, synth)
+    assert got.name == "Grizzly Bears" and {"Artifact", "Creature"} <= got.types and {"Bear", "Synth"} <= got.subtypes
+    roundtrip(s)
+
+
+def test_clever_impersonator_reanimated_as_an_aura_chooses_what_it_enchants(cards):
+    """303.4f: an Aura put onto the battlefield without being cast chooses what it enchants (no targeting)."""
+    s = build(cards, [(1, "Clever Impersonator"), (1, "Reanimate"), (1, "Pacifism")], [(1, "Grizzly Bears"), (9, "Island")])
+    ox = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    pacifism = put(s, "Pacifism", "battlefield")
+    act(s, "p1", type="attach", card_ids=[pacifism.id], to=ox.id)
+    imp = put(s, "Clever Impersonator", "graveyard")
+    reanimate = put(s, "Reanimate", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"B": 1})
+    act(s, "p1", type="cast_spell", card_id=reanimate.id, targets=[imp.id])
+    drive(s, lambda d: [pacifism.id] if d.prompt.endswith("to copy") else [ox.id] if any(o.id == ox.id for o in d.options)
+          else [d.options[0].id])
+    got = s.state.cards[imp.id]
+    assert got.zone == "p1:battlefield" and ch(s, got).name == "Pacifism" and got.attached_to == ox.id
+    roundtrip(s)
+
+
+def test_clever_impersonator_cast_as_an_aura_copy_is_attached_by_hand(cards):
+    """Cast, it wasn't an Aura spell (no target): the engine asks for the attaching to be done by hand."""
+    s = build(cards, [(1, "Clever Impersonator"), (1, "Pacifism")], [(1, "Grizzly Bears"), (9, "Island")])
+    ox = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    pacifism = put(s, "Pacifism", "battlefield")
+    act(s, "p1", type="attach", card_ids=[pacifism.id], to=ox.id)
+    imp = put(s, "Clever Impersonator", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"U": 2, "C": 2})
+    act(s, "p1", type="cast_spell", card_id=imp.id)
+    for _ in range(10):
+        d = rules(s).decision
+        if d is not None and d.prompt.endswith("to copy"):
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[pacifism.id])
+        elif d is None and s.state.zones.get("stack"):
+            act(s, rules(s).priority, type="pass_priority")
+        else:
+            break
+    d = rules(s).decision
+    assert d is not None and d.kind == "manual_resolution"
+    assert ch(s, s.state.cards[imp.id]).name == "Pacifism"
     roundtrip(s)

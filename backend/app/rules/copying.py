@@ -248,6 +248,8 @@ def supported_source(plan: Plan, card: CardInstance, *, token: bool = False) -> 
     layout = (data or {}).get("layout")
     if layout == "meld" and card.face:
         return "a melded permanent (707.8)"
+    if card.zone.endswith(":battlefield") and "Room" in plan.ch(card).subtypes:  # -- enter as copy (wave 5F) --
+        return "a Room (709.5: its doors aren't modelled)"
     if token and layout in DOUBLE_FACED and layout not in TWO_FACED_TOKENS:
         return "a double-faced object (707.8a)"
     return None
@@ -799,7 +801,9 @@ def enter_definition(plan: Plan, card: CardInstance) -> dict[str, Any] | None:
 def entry_candidates(plan: Plan, controller: str, what: str) -> list[str]:
     """What an entering permanent may copy ("any creature on the battlefield", "a creature or
     planeswalker you control"): objects on the battlefield (public), never a hidden one. Face-down
-    ones (707.2) and Auras (they'd have to attach as they enter) aren't offered."""
+    ones (707.2) and Rooms (709.5d) aren't offered. -- enter as copy (wave 5F) -- an Aura is: put onto the battlefield by
+    an effect, the copy chooses what it enchants as it enters (303.4f, attachments.enter); resolving as a spell (it wasn't
+    cast as an Aura spell, so it has no target), it is attached by hand (engine: manual resolution)."""
     from app.rules import selectors
 
     sel = selectors.parse(what[: -len(TO_COPY)] if what.endswith(TO_COPY) else what)
@@ -808,7 +812,7 @@ def entry_candidates(plan: Plan, controller: str, what: str) -> list[str]:
     out = []
     for cid in selectors.candidates(plan, sel, controller):
         card = plan.state.cards[cid]
-        if card.zone.endswith(":battlefield") and supported_source(plan, card) is None and "Aura" not in plan.ch(card).subtypes:
+        if card.zone.endswith(":battlefield") and supported_source(plan, card) is None:
             out.append(cid)
     return out
 
@@ -821,6 +825,12 @@ def entry_options(plan: Plan, controller: str, what: str) -> list[DecisionOption
     options = [DecisionOption(id=cid, label=f"{plan.ch(plan.state.cards[cid]).name or 'A permanent'} "
                                             f"({plan.name(plan.state.cards[cid].controller)})"[:200], card_id=cid) for cid in ids]
     return [*options, DecisionOption(id=NONE, label="Don't copy anything (it enters as itself)")]
+
+
+def entering_as_copy(plan: Plan, card: CardInstance) -> bool:
+    """-- enter as copy (wave 5F) -- Is this card about to enter as a copy (its entering choice made)?"""
+    oid = plan.oid(card)
+    return any(e.layer == "1" and (e.source or "") == ENTERING + card.id and oid in e.affected for e in plan.rules.effects)
 
 
 def _drop_entering(plan: Plan, card: CardInstance) -> None:
@@ -859,7 +869,10 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     recipe = with_excepts(recipe_of(plan, source), excepts)
     # (on the object as it is now; it follows the card to the object it becomes as it enters,
     # whatever its number: rules_state._diff — never a predicted id, 400.7)
-    add_copy_effect(plan, [plan.oid(card)], recipe, controller, source=ENTERING + card.id)
+    duration: Literal["end_of_turn", "permanent"] = "end_of_turn" if d.get("duration") == "end_of_turn" else "permanent"
+    add_copy_effect(plan, [plan.oid(card)], recipe, controller, source=ENTERING + card.id, duration=duration)
+    if d.get("tapped"):  # -- enter as copy (wave 5F) -- "enter tapped as a copy" (Vesuva)
+        out["tapped"] = True
     return False
 
 
@@ -993,6 +1006,13 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         ex.add_subtypes = sorted({*ex.add_subtypes, *subs})
         ex.add_text = [*ex.add_text, *(k.capitalize() for k in with_kws[0])]
         return True
+    # -- enter as copy (wave 5F) -- "it's a Synth artifact creature in addition to its other types" (707.9b, 707.9d)
+    m = re.fullmatch(_SUBJECT + r"(?:is|are) an? (?P<subs>(?:[A-Z][A-Za-z'-]* )+)(?P<t>artifact creature|artifact|creature)s? "
+                                r"in addition to (?:its|their) other types", c)
+    if m and all(s in CREATURE_TYPES for s in m["subs"].split()):
+        ex.add_types = sorted({*ex.add_types, *(w.capitalize() for w in m["t"].split())})
+        ex.add_subtypes = sorted({*ex.add_subtypes, *m["subs"].split()})
+        return True
     m = re.fullmatch(_SUBJECT + r"(?:is|are) (?:an? )?(?P<t>artifact|enchantment)s? in addition to (?:its|their) other types", c)
     if m:
         ex.add_types = sorted({*ex.add_types, m["t"].capitalize()})
@@ -1089,7 +1109,12 @@ def parse_become(what: str, until: bool, exc: str | None) -> tuple[list[dict[str
     return [effect], group["what"]
 
 
-_CLONE = re.compile(r"^You may have ~ enter as a copy of (?:any|a|an) (?P<rest>.+)$")
+_CLONE = re.compile(r"^You may have ~ enter (?P<tapped>tapped )?as a copy of (?:any|a|an) (?P<rest>.+)$")
+# -- enter as copy (wave 5F) -- "As ~ enters, you may have it become a copy of any creature on the battlefield until end
+# of turn, except it has haste." (Cursed Mirror): an "as enters" replacement (614.1c) — it enters as the copy (707.5),
+# and the copy effect ends at the cleanup step (514.2)
+_AS_ENTERS = re.compile(r"^As ~ enters, you may have it become a copy of (?:any|a|an) (?P<rest>.+?) until end of turn"
+                        r"(?P<tail>(?:, except .+)?\.)$")
 
 
 def define_static(text: str) -> dict[str, Any] | None:
@@ -1100,9 +1125,13 @@ def define_static(text: str) -> dict[str, Any] | None:
     from app.rules import selectors
 
     m = _CLONE.match(text)
-    if m is None:
-        return None
-    rest = m["rest"]
+    until_eot = False
+    if m is None:  # -- enter as copy (wave 5F) -- Cursed Mirror
+        m = _AS_ENTERS.match(text)
+        if m is None:
+            return None
+        until_eot = True
+    rest = m["rest"] + (m["tail"] if until_eot else "")
     if rest.endswith("."):
         rest = rest[:-1]
     elif not rest.endswith('."'):  # (a quoted ability can end the sentence: its period is inside the quotes)
@@ -1112,13 +1141,19 @@ def define_static(text: str) -> dict[str, Any] | None:
     sel = selectors.parse(what)
     if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.other:
         return None
-    if not sel.types or "Enchantment" in sel.types:
-        return None  # (it could copy an Aura, which would have to attach as it enters, 303.4f: not modelled)
+    # -- enter as copy (wave 5F) -- any permanent ("nonland permanent", "artifact or enchantment", "Equipment"): an Aura
+    # would have to attach as it enters (303.4f) and a Room's doors (709.5d) aren't modelled — neither is offered as
+    # something to copy (``entry_candidates`` / ``supported_source``)
     ex = parse_excepts(exc or None)
     if ex is None:
         return None
-    return {"kind": "replacement", "replacement": "enter_as_copy", "optional": True, "what": what + TO_COPY,
-            "effects": [], **_dump(ex)}
+    out = {"kind": "replacement", "replacement": "enter_as_copy", "optional": True, "what": what + TO_COPY,
+           "effects": [], **_dump(ex)}
+    if not until_eot and m["tapped"]:
+        out["tapped"] = True  # (Vesuva: tapped only if it enters as a copy)
+    if until_eot:
+        out["duration"] = "end_of_turn"
+    return out
 
 
 PRIMITIVES = {"copy_spell": copy_stack_object, "copy_ability": copy_stack_object, "copy_new_targets": new_targets_marker,
