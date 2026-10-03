@@ -676,7 +676,9 @@ def _own_layer4(state: GameState, card: CardInstance, info: CardInfo | None) -> 
     view = _view(state, info)
     _L4_VISITING.add(card.id)
     try:
-        return [(st.seq, st.definition) for st in table
+        # (wave 11E: "is the chosen type in addition to its other types" adds the type chosen as it entered, 614.12a)
+        return [(st.seq, {**st.definition, "add_subtypes": [t for t in [card.choices.get("Chosen creature type", "").strip()] if t]}
+                 if st.definition.get("chosen_type") else st.definition) for st in table
                 if grammar.conditions_hold(view, st.definition, source=card, controller=st.controller)]
     finally:
         _L4_VISITING.discard(card.id)

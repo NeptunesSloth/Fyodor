@@ -346,6 +346,13 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 "cond": "commander", "play": False, "cast": True, "filter": None, "effects": []}
     if kind != "static":
         return None
+    # -- small wordings (wave 11E) -- "Creature spells you control can't be countered." (101.2, 701.6)
+    m = re.fullmatch(r"(?:(?P<sel>[\w ,'-]+?) )?spells you control can't be countered", t)
+    if m:
+        key = spell_filter(m["sel"]) if m["sel"] else None
+        if m["sel"] and key is None:
+            return None
+        return {"kind": "static", "static": "spells_uncounterable", "filter": key, "effects": []}
     m = STATIC_FREE.fullmatch(t)
     if m:
         key = spell_filter(m["sel"]) if m["sel"] else None
@@ -384,8 +391,6 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                     or sel.extras or sel.attacking or sel.blocking:
                 return None
             key = sel.key()
-        if m["dir"] == "less" and not m["floor"]:
-            return None  # (only the printed wording with its floor is known; never guess a bare reduction)
         return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
                 "filter": key, "who": "you" if m["yours"] or (m["sel"] and "you control" in m["sel"]) else "any",
                 "floor": bool(m["floor"]), "effects": []}
@@ -568,6 +573,13 @@ def spell_matches(state: GameState, player: str, card: CardInstance, ch: Charact
     permanent whose "chosen type" the selector reads, wave 5I)"""
     probe = card.model_copy(update={"zone": STACK, "controller": player})
     return selectors.matches(_view(state, player, info), selectors.from_key(key), probe, ch, player, source)
+
+
+def spell_uncounterable(state: GameState, info: CardInfo, card: CardInstance, ch: Characteristics) -> bool:
+    """-- small wordings (wave 11E) -- does a static on the table say this spell, controlled by its caster, can't be
+    countered (101.2, 701.6)?"""
+    return any(src.controller == card.controller and (not d["filter"] or spell_matches(state, card.controller, card, ch, d["filter"], info))
+               for src, _, d in _table_statics(state, info, {"spells_uncounterable"}))
 
 
 def _table_statics(state: GameState, info: CardInfo, kinds: set[str]) -> list[tuple[CardInstance, int, Definition]]:

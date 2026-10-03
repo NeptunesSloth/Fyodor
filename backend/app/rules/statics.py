@@ -122,6 +122,10 @@ def parse(text: str) -> Definition | None:
     cda = parse_cda(body)
     if cda is not None:
         return cda
+    # -- small wordings (wave 11E) -- "This creature is the chosen type in addition to its other types." (Metallic Mimic):
+    # layer 4 (613.1d, 205.1b), the creature type chosen as it entered (layers._own_layer4 reads it, chosen.chosen_value_ok)
+    if body == "~ is the chosen type in addition to its other types":
+        return {**_definition("self", None, []), "remove_types": [], "add_subtypes": [], "chosen_type": True}
     # -- untap choice (wave 7F) -- 502.3: asked in the untap step (app/rules/untap_choice.py)
     if body == "You may choose not to untap ~ during your untap step":
         return _definition("self", None, [], rules=["may_stay_tapped"])
