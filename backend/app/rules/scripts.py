@@ -2654,16 +2654,19 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # creature's toughness" / "… deals damage to a creature, …": the event's object (app/rules/other_side.py)
                 from app.rules import other_side
 
+                if other_side.wanted(cond) and cond.get("subject") == "host" and "that creature" not in body:
+                    body = body.replace("the other creature", "that creature")  # (wave 11E: Venom, Mammoth Harness)
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
                 parsed = parse_effects(body, it=ante, event_player=has_player)
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
-                if parsed is None and cond is not None and cond.get("other") and cond.get("subject", "self") == "self" and (
+                if parsed is None and cond is not None and cond.get("other") and cond.get("subject", "self") in ("self", "host") and (
                         cond["event"] in ("block", "blocked")
                         or (cond["event"] == "multi" and set(cond["events"]) <= {"block", "blocked"})):
                     from app.rules.language import OTHER_SIDE
 
-                    body = re.sub(r"^it deals ", "~ deals ", body)
+                    if cond.get("subject", "self") == "self":
+                        body = re.sub(r"^it deals ", "~ deals ", body)
                     body = body.replace("that creature's controller", OTHER_SIDE + "'s controller")
                     body = body.replace("that creature", OTHER_SIDE)
                     ante = _trigger_antecedent(name, cond)
