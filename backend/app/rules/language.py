@@ -432,7 +432,7 @@ _MV_X = re.compile(r"(?P<rest>.+?),? with mana value [xX](?P<less> or less)?")
 _NAMED = re.compile(r"(?P<rest>card|cards) named (?P<name>.+)")
 _MV_EQUAL = re.compile(r"(?P<rest>.+?),? with mana value equal to (?:(?P<n>\d+|one|two) plus )?(?P<v>the sacrificed \w+'s mana value)"
                        r"(?: plus (?P<n2>\d+|one|two))?")  # (wave 3R4)
-_MV_CMP = re.compile(r"(?P<rest>.+? cards?),? with mana value (?P<op>less than or equal to|less than|equal to) "
+_MV_CMP = re.compile(r"(?P<rest>(?:.+? )?cards?),? with mana value (?P<op>less than or equal to|less than|equal to) "
                      r"(?P<v>the number of .+|your devotion to .+|~'s power|the greatest .+)")  # (wave 4M)
 _MV_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "=="}  # (wave 4M)
 
