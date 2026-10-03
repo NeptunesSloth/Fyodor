@@ -1603,6 +1603,8 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
             continue
         cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free,
                           targets=_hint_targets(ch))  # -- review (Codex) --
+        if grant is not None and grant.spend:  # -- as long as (wave 9B) -- 118.14
+            cost = M.spend_as(cost, grant.spend)
         if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
             return True
     return False
@@ -1803,6 +1805,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.optional_costs and plan.manual(card):
         raise ActionError("That card is played by hand: pay its costs with the table tools")
     cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional))  # ("reduces only the amount of green mana")
+    cost = M.spend_as(cost, grant.spend) if grant is not None and grant.spend else cost  # -- as long as (wave 9B) -- 118.14
     cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for
     # -- costs (wave 3$) -- 601.2b: an additional cost ("sacrifice a creature", "discard a card", "pay 2 life") is
     # announced with the rest; 601.2h pays it all at once, so nothing moves until every part is chosen and payable

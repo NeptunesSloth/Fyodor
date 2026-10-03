@@ -277,6 +277,12 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
+    if (m := re.fullmatch(r"the discarded card's (?P<stat>power|toughness|mana value)|the (?P<stat2>mana value) of the discarded card",
+                          phrase)) is not None:  # -- as long as (wave 9B) -- the card a discard (instruction or cost) put into the graveyard
+        return {_STATS[m["stat"] or m["stat2"]]: "it:discarded"}
+    if (m := re.fullmatch(r"(?P<n>\d+) plus (?P<v>the (?:discarded card's|sacrificed (?:creature|artifact|permanent|land|enchantment)'s) "
+                          r"(?:power|toughness|mana value))", phrase)) is not None:  # "2 plus the sacrificed permanent's mana value"
+        return {"plus": [_stat(m["v"], its), int(m["n"])]}
     if (m := re.fullmatch(r"the exiled card's (?P<stat>power|toughness|mana value)", phrase)) is not None:
         return {_STATS[m["stat"]]: "cost:exiled"}  # -- if you do (wave 8C) -- bound to the payment (pay_objects.bind)
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
@@ -394,7 +400,7 @@ def _rider_value(phrase: str) -> Any:
     """A rider's quantity: "its power" / "that creature's toughness" / "~'s power" (app: _stat),
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
     if re.fullmatch(r"(?:its|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|that spell's|~'s|this creature's|"
-                    r"the sacrificed (?:creature|artifact|permanent|land)'s) (?:power|toughness|mana value)", phrase):
+                    r"the sacrificed (?:creature|artifact|permanent|land)'s|the discarded card's) (?:power|toughness|mana value)", phrase):
         return _stat(phrase)
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
         return tw
@@ -864,7 +870,9 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     if kinds is not None:
         return kinds
     m = _PICK.fullmatch(text)
-    if m and (m["exile"] and (m["to"] or not m["q"]) or not m["exile"] and (m["to"] is None or m["fd"])):
+    # -- as long as (wave 9B) -- "look at the top card of that player's library, then exile it face down" (Edward Kenway): the
+    # one card looked at is exiled face down (the validation in scripts.py refuses a pick with nothing looked at)
+    if m and (m["exile"] and (m["to"] or not m["q"] and not m["fd"]) or not m["exile"] and (m["to"] is None or m["fd"])):
         m = None  # ("exile it" alone is the plain exile instruction, whatever "it" is: not a pick from among the cards looked at)
     if m:
         optional = bool(m["may"] or m["mayput"] or (m["exile"] or "").startswith("you may"))
@@ -1143,6 +1151,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
             joined["with_next"] = True
         _check_per_player(effects, groups)  # -- damage sized by a count (wave 4E) --
         return effects, _out(groups)
+    found = _bite_many(text)  # -- as long as (wave 9B) --
+    if found is not None:
+        return found
     found = _bite(text)  # -- temporary grants & riders (agent G) --  "target creature you control deals damage equal to its power to …"
     if found is not None:
         if rider is not None:
@@ -1672,6 +1683,39 @@ def _shift(who: str, by: int) -> str:
     if who.startswith("target:"):
         return f"target:{int(who[7:]) + by}"
     return who
+
+
+_BITES = re.compile(r"(?P<s>.+?) each deal damage equal to their power to (?P<o>.+)")
+
+
+def _bite_many(text: str) -> tuple[Effects, Any] | None:
+    """-- as long as (wave 9B) -- "Up to two target creatures you control each deal damage equal to their power to another target
+    creature" (Band Together), "They each deal damage equal to their power to target creature an opponent controls" (Coordinated
+    Clobbering): every creature of the group is a damage source (120.3: its own lifelink and deathtouch count), each dealing its own
+    power, all at once (608.2h). ``src_many``: ``src`` names a target group (or "them": resolve_it binds it to the group)."""
+    m = _BITES.fullmatch(text)
+    if m is None:
+        return None
+    groups: list[dict[str, Any]] = []
+    src = "them"
+    if m["s"] != "they":
+        # "Target creature you control and up to one other target legendary creature you control each deal …" (Friendly Rivalry):
+        # two groups, both sources
+        subjects = re.split(r" and (?=up to \w+ other target )", m["s"])
+        if len(subjects) > 2:
+            raise _Fail
+        for subject in subjects:
+            kind, key, group = ref(subject)
+            if kind != "target" or group is None or selectors.from_key(key).player is not None:
+                raise _Fail
+            groups.append(group)
+        src = "target"
+    whos, parts = _bite_recipients(m["o"])
+    effects: Effects = [{"do": "damage", "who": _shift(w, len(groups)), "n": {"power": "each"}, "src": src, "src_many": True,
+                         **({"src2": "target:1"} if len(groups) == 2 else {})} for w in whos]
+    for joined in effects[:-1]:
+        joined["with_next"] = True
+    return effects, _out(groups + parts)
 
 
 def _bite(text: str) -> tuple[Effects, Any] | None:

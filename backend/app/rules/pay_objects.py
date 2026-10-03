@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import replace
 from typing import Any
 
 from app.rules import costs as C
@@ -25,15 +26,21 @@ PLACEHOLDER = "pay_exiled"  # (a copy source "the exiled card": bound to the pay
 
 
 def kind(pay: dict[str, Any]) -> str | None:
-    """"sacrificed" / "exiled" when the payment is exactly one chosen permanent sacrificed or one card exiled."""
+    """"sacrificed" / "exiled" / "discarded" when the payment is exactly one chosen permanent sacrificed, card exiled or card discarded."""
     cost = optional_payment.parse(str(pay.get("cost") or "")) if not pay.get("alts") else None
-    if cost is None or len(cost.components) != 1:
+    if cost is None:
+        return None
+    if len(cost.components) == 2 and cost.components[0].kind == C.MANA and cost.components[1].kind == C.DISCARD:
+        cost = replace(cost, components=cost.components[1:])  # -- as long as (wave 9B) -- "pay {1}{R} and discard a card"
+    if len(cost.components) != 1:
         return None
     comp = cost.components[0]
     if comp.selector is None or comp.amount != 1 or comp.alt is not None:
         return None
     if comp.kind == C.SACRIFICE:
         return "sacrificed"
+    if comp.kind == C.DISCARD:  # -- as long as (wave 9B) -- "you may pay {1}{R} and discard a card. If you do, … the discarded card's mana value"
+        return "discarded"
     return "exiled" if comp.kind in (C.EXILE_FROM_GRAVEYARD, "EXILE_FROM_HAND") else None
 
 
@@ -64,6 +71,9 @@ def bind(inner: tuple[list[dict[str, Any]], Any], pay: dict[str, Any]) -> tuple[
     if what is None:
         return None if "cost:exiled" in raw or PLACEHOLDER in raw else inner
     name = f"ref:{pay['bind']}"
+    if what == "discarded":  # -- as long as (wave 9B) -- language._stat's "it:discarded": the card the payment discarded
+        raw = raw.replace('"it:discarded"', json.dumps(name))
+        return (found := json.loads(raw))[0], found[1]
     raw = raw.replace('"cost:sacrificed"' if what == "sacrificed" else '"cost:exiled"', json.dumps(name))
     if what == "exiled":
         raw = raw.replace(json.dumps(PLACEHOLDER), json.dumps(name))

@@ -224,6 +224,11 @@ _DAMAGE_OPS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^(?:it|that source) deals (?P<m>double|triple) that damage" + _BACK + r" instead$"), "mul"),
     (re.compile(r"^(?:it|that source) deals twice that much damage" + _BACK + r" instead$"), "mul2"),
     (re.compile(r"^(?:it|that source) deals that much damage plus (?P<n>\d+|one|two|three)" + _BACK + r" instead$"), "add"),
+    # -- as long as (wave 9B) -- "instead it deals that much damage plus X, where X is Hawkeye's power" / "… plus an amount of
+    # damage equal to the number of fire counters on this enchantment instead": the amount is read as the damage is dealt
+    (re.compile(r"^(?:instead )?(?:it|that source) deals that much damage plus (?P<x>X, where X is (?:~'s|this creature's) power|"
+                r"an amount of damage equal to the number of (?P<k>[a-z+/-]+) counters on (?:~|this \w+))" + _BACK + r"(?: instead)?$"),
+     "add_value"),
     (re.compile(r"^(?:it|that source) deals that much damage minus (?P<n>\d+|one|two)" + _BACK + r" instead$"), "sub"),
     (re.compile(r"^(?:it|that source) deals half that damage, rounded down," + _BACK + r" instead$"), "half"),
     (re.compile(r"^prevent (?P<n>\d+|one|two|three) of that damage$"), "prevent"),
@@ -231,7 +236,8 @@ _DAMAGE_OPS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^prevent that damage$"), "prevent_all"),
     (re.compile(r"^prevent half that damage, rounded up$"), "prevent_half_up"),  # -- damage wordings (wave 6B) --
 )
-_SOURCE = re.compile(r"^(?P<det>a|an|any|another) (?:(?P<words>[A-Za-z ]+?) )?(?P<noun>source|spell|creature|artifact)"
+_SUBTYPE_LIST = re.compile(r"^(?:a|an) (?P<list>[A-Z][a-z]+(?:, [A-Z][a-z]+)*,? or [A-Z][a-z]+)(?P<ctrl> you control| an opponent controls)$")
+_SOURCE = re.compile(r"^(?P<det>a|an|any|another) (?:(?P<words>[A-Za-z ]+?) )?(?P<noun>source|spell|creature|artifact|planeswalker)"
                      r"(?P<ctrl> you control| an opponent controls)?$")
 
 
@@ -243,9 +249,25 @@ def _source(phrase: str) -> dict[str, Any] | None:
         return {"self": True}
     if phrase in ("equipped creature", "enchanted creature"):
         return {"attached": True}
+    # -- as long as (wave 9B) -- "a Lizard, Mouse, Otter, or Raccoon you control" (Valley Flamecaller): sources of any of the
+    # creature types; "a red instant or sorcery spell you control or a red planeswalker you control" (Pyromancer's Gauntlet):
+    # either description (609.7c), each with its own controller
+    kinds = _SUBTYPE_LIST.fullmatch(phrase)
+    if kinds is not None:
+        return {"controller": "you" if kinds["ctrl"] == " you control" else "opponent",
+                "subtypes": re.split(r",? or |, ", kinds["list"])}
+    halves = re.split(r" or (?=an? )", phrase)
+    if len(halves) > 1:
+        alts = [_source(h) for h in halves]
+        return {"alts": alts} if all(a is not None and "alts" not in a for a in alts) else None
     m = _SOURCE.match(phrase)
     if m is None:
         return None
+    colorful = (m["words"] or "").split(" or ")
+    if len(colorful) > 1 and not re.fullmatch(r"(?:[a-z]+ )?instant or sorcery", m["words"] or ""):
+        # "a red or artifact source you control" (Mechanized Warfare): either property
+        alts = [_source(f"{m['det']} {w} {m['noun']}{m['ctrl'] or ''}") for w in colorful]
+        return {"alts": alts} if all(a is not None and "alts" not in a for a in alts) else None
     out: dict[str, Any] = {}
     if m["det"] == "another":
         out["other"] = True
@@ -255,6 +277,8 @@ def _source(phrase: str) -> dict[str, Any] | None:
         out["spell"] = True
     elif m["noun"] == "creature":
         out["types"] = ["Creature"]
+    elif m["noun"] == "planeswalker":  # -- as long as (wave 9B) -- a planeswalker's loyalty ability is its source (609.7c)
+        out["types"] = ["Planeswalker"]
     elif m["noun"] == "artifact":  # -- damage wordings (wave 6B) -- "If an artifact would deal damage to you" (609.7c)
         if m["words"]:
             return None
@@ -343,6 +367,9 @@ def _damage(text: str) -> Definition | None:
             return _static("damage", match, {"do": "half"})
         if kind in ("prevent_all", "prevent_half_up"):
             return _static("damage", match, {"do": kind, "prevention": True})
+        if kind == "add_value":
+            value: dict[str, Any] = {"counters": m2["k"], "on": "self"} if m2["k"] else {"power": "self"}
+            return _static("damage", match, {"do": "add", "n": 0, "value": value})
         n = _num(m2["n"])
         if not n:
             return None

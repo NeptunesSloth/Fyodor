@@ -50,7 +50,7 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
     return body
 
 
-_NUMBER_OF = re.compile(r"\bcreate a number of (?P<what>[^.]+? tokens?(?: with [^.]+?)?) equal to (?P<v>[^.]+)\.")
+_NUMBER_OF = re.compile(r"\b(?P<c>[Cc])reate a number of (?P<what>[^.]+? tokens?(?: with [^.]+?)?) equal to (?P<v>[^.]+)\.")
 _GAIN_AND_DRAW = re.compile(r"^you gain life and draw cards equal to (?P<v>[^.]+)\.$")
 
 
@@ -59,7 +59,7 @@ def plain_amounts(body: str) -> str:
     power" (Goldvein Hydra; 107.3c: one X for the instruction); "you gain life and draw cards equal to its power" →
     both amounts spelled out (Lifeblood Hydra: the same value, read once per instruction from the object as it last
     existed, 608.2h)."""
-    body = _NUMBER_OF.sub(lambda m: f"create X {m['what']}, where X is {m['v']}.", body)
+    body = _NUMBER_OF.sub(lambda m: f"{m['c']}reate X {m['what']}, where X is {m['v']}.", body)
     m = _GAIN_AND_DRAW.match(body.strip())
     if m is not None:
         body = f"you gain life equal to {m['v']}. Draw cards equal to {m['v']}."

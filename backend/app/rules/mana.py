@@ -83,6 +83,24 @@ def parse_cost(text: str | None) -> ManaCost:
     return ManaCost(generic, tuple(colored), tuple(hybrid), tuple(phyrexian), x, tuple(unsupported))
 
 
+# -- as long as (wave 9B) -- 118.14 / 609.4b: "mana of any type can be spent" and "spend mana as though it were mana of any
+# color" change only how the cost may be paid. Any type: every symbol made of mana types is paid by one mana of any type
+# (a generic requirement; {S} still needs a snow source, a Phyrexian symbol keeps its own way: the choice is only wider
+# there). Any color: a colored or all-color hybrid symbol is paid by one mana of any color (colorless can't be spent as a
+# color); {C} and {2/B}-style symbols are untouched. (Any type: {2/B} becomes one generic.)
+def spend_as(cost: ManaCost, mode: str) -> ManaCost:
+    if mode == "type":
+        return ManaCost(cost.generic + sum(1 for c in cost.colored if c != SNOW) + len(cost.hybrid),  # ({2/B}: one mana pays {B})
+                        tuple(c for c in cost.colored if c == SNOW), (), cost.phyrexian, cost.x, cost.unsupported)
+    if mode == "color":
+        any_color = tuple(COLORS)
+        hybrid = tuple(any_color if all(x in COLORS for x in h) else h for h in cost.hybrid)
+        return ManaCost(cost.generic, tuple(c for c in cost.colored if c not in COLORS),
+                        hybrid + tuple(any_color for c in cost.colored if c in COLORS),
+                        cost.phyrexian, cost.x, cost.unsupported)
+    return cost
+
+
 @dataclass(frozen=True)
 class ManaAbility:
     """A mana ability the engine understands (CR 605).

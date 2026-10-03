@@ -37,7 +37,8 @@ if TYPE_CHECKING:
 Condition = dict[str, Any]
 
 _COLORS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
-_ADJECTIVES = frozenset({"legendary", "white", "blue", "black", "red", "green", "colorless", "multicolored", "snow"})
+_ADJECTIVES = frozenset({"legendary", "white", "blue", "black", "red", "green", "colorless", "multicolored", "snow",
+                         "attacking", "blocking", "tapped", "untapped"})  # (wave 9B: "enchanted creature is attacking")
 _ATTACHED = re.compile(r"(?P<who>equipped|enchanted) (?P<noun>creature|permanent|land|artifact) is (?P<desc>.+)")
 _DESIGNATION = re.compile(r"(?:~ is|it's|it is) (?P<is>monstrous|renowned)")
 _MODIFIED = re.compile(r"(?:~ is|it's|it is) modified")
