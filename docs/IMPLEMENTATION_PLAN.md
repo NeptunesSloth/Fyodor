@@ -385,6 +385,18 @@ reconnect, connection states with pending actions, graceful shutdown, pre-migrat
 BACKUP FYODOR / restore, a DB recovery mode, an offline E2E and a long-session test. Still to
 do: a multi-hour device soak on real game-night hardware.
 
+### Later: elimination activity hub — planned (`ELIMINATION_HUB.md`)
+
+A player eliminated early gets a compact hub instead of only spectating: Spectate (public
+information only), a private Practice Table, an Opening Hand Simulator and a Deck Lab working on a
+copy of the deck, all isolated from the live game, with a small live-game indicator. Not started.
+
+### Later: post-game flow — planned (`3D_DIRECTION.md` §7a)
+
+After a result: **Rematch — same decks** (a fresh game, same seats/decks/settings, new result record),
+**Return to lobby** (the whole pod stays connected; previous decks preselected; deck changes only
+there) or **View final board**. Not started.
+
 ## Deliberately out of scope
 
 - **Other formats:** Standard, Modern, Pioneer, Legacy, Vintage, Pauper, Brawl, Oathbreaker,
