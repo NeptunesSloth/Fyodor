@@ -16,7 +16,16 @@ from app.rules import coverage, scripts
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_attachments import ch
-from tests.test_rules_conditionals import attack, creature, on_field, pick, settle, to_hand, to_turn, until_asked
+from tests.test_rules_conditionals import (
+    attack,
+    creature,
+    on_field,
+    pick,
+    settle,
+    to_hand,
+    to_turn,
+    until_asked,
+)
 from tests.test_rules_effects import mana
 from tests.test_rules_wave4h_activation_costs import build, roundtrip
 
@@ -39,14 +48,21 @@ EXTRA = [
     card('Whelming Wave', set_code="tst", number="B06", mana_cost='{2}{U}{U}', cmc=4.0, type_line='Sorcery', oracle_text="Return all creatures to their owners' hands except for Krakens, Leviathans, Octopuses, and Serpents.", colors=['U'], color_identity=['U']),  # noqa: E501
     card('Hill Giant', set_code="tst", number="B07", mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Giant', oracle_text='', power='3', toughness='3', colors=['R'], color_identity=['R']),  # noqa: E501
     card('Ornithopter', set_code="tst", number="B08", mana_cost='{0}', cmc=0.0, type_line='Artifact Creature — Thopter', oracle_text='Flying', power='0', toughness='2', keywords=['Flying']),  # noqa: E501
+    card('Gingerbrute', set_code="tst", number="C01", mana_cost='{1}', cmc=1.0, type_line='Artifact Creature — Food Golem', oracle_text="Haste (This creature can attack and {T} as soon as it comes under your control.)\n{1}: This creature can't be blocked this turn except by creatures with haste.\n{2}, {T}, Sacrifice this creature: You gain 3 life.", power='1', toughness='1', keywords=['Haste']),  # noqa: E501
+    card('Tower of Coireall', set_code="tst", number="C02", mana_cost='{2}', cmc=2.0, type_line='Artifact', oracle_text="{T}: Target creature can't be blocked by Walls this turn."),  # noqa: E501
+    card('Pym Particles', set_code="tst", number="C03", mana_cost='{U}', cmc=1.0, type_line='Sorcery', oracle_text="Target creature gains vigilance until end of turn and can't be blocked this turn.\nDraw a card.", colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Water Wings', set_code="tst", number="C04", mana_cost='{1}{U}', cmc=2.0, type_line='Instant', oracle_text="Until end of turn, target creature you control has base power and toughness 4/4 and gains flying and hexproof. (It can't be the target of spells or abilities your opponents control.)", colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Doorman', set_code="tst", number="C05", mana_cost='{1}{U}', cmc=2.0, type_line='Creature — Human Advisor', oracle_text='{T}: Until end of turn, target creature can\'t be blocked by creatures with power 2 or less and/or Walls.', power='1', toughness='2', colors=['U'], color_identity=['U']),  # noqa: E501
     card('Grizzly Bears', set_code="tst", number="A08", mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Bear', oracle_text='', power='2', toughness='2', colors=['G'], color_identity=['G']),  # noqa: E501
 ]
 FULL = ["Frost Breath", "Kefnet's Monument", "Arbalest Elite", "Apes of Rath", "Ojutai's Breath", "Sneak Attack", "Arms Race",
-        "Kor Skyfisher", "Ambush Krotiq", "Curfew", "Peel from Reality", "Reduce to Dreams"]
+        "Kor Skyfisher", "Ambush Krotiq", "Curfew", "Peel from Reality", "Reduce to Dreams",
+        "Gingerbrute", "Tower of Coireall", "Pym Particles", "Water Wings"]
 STILL_MANUAL = {  # (card, the line that stays manual)
     "Sleep": "that player's next untap step",  # (that player's, not its controller's: not read)
     "Bontu's Last Reckoning": "Lands you control don't untap",  # 611.2c: a rules effect on whatever matches then
     "Whelming Wave": "except for Krakens",  # (an exception list: not read)
+    "Doorman": "Until end of turn, target creature can't be blocked by",  # (a leading duration on a restriction: not read)
 }
 
 
@@ -261,4 +277,96 @@ def test_reduce_to_dreams_returns_artifacts_and_enchantments(cards):
     act(s, "p1", type="cast_spell", card_id=dreams.id)
     settle(s)
     assert zone_of(s, thopter) == "p1:hand" and zone_of(s, sneak) == "p1:hand" and zone_of(s, bears) == "p1:battlefield"
+    roundtrip(s)
+
+
+# -- turn grants ------------------------------------------------------------------------------------------------------
+def imposed(s, c):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id]).imposed
+
+
+def characteristics(s, c):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])
+
+
+def test_turn_grants_parse():
+    from app.rules import selectors
+
+    walls = selectors.parse("Walls").key()
+    assert scripts.parse_effects("Target creature can't be blocked by Walls this turn.") == (
+        [{"do": "restrict", "who": "target", "rules": [f"cant_be_blocked_by:{walls}"]}], "sel:{\"types\":[\"Creature\"]}", False)
+    assert scripts.parse_effects("Target creature can't be blocked this turn.")[0] == [
+        {"do": "restrict", "who": "target", "rules": ["cant_be_blocked"]}]  # (as before)
+    for text in ("Target creature gains flying and can't be blocked this turn.",  # (a grant with no duration)
+                 "Target creature can't be blocked this combat."):
+        assert scripts.parse_effects(text) is None, text
+
+
+def test_gingerbrute_can_be_blocked_only_by_creatures_with_haste(cards):
+    from app.game.errors import ActionError
+    from tests.test_rules_combat import block
+
+    s = build(cards, p1=("Gingerbrute",))
+    ginger = on_field(s, "Gingerbrute")
+    slow = creature(s, "p2", "Slowpoke")
+    fast = creature(s, "p2", "Speedy", text="Haste")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=ginger.id, ability=1)
+    settle(s)
+    assert any(r.startswith("cant_be_blocked_except_by:") for r in imposed(s, ginger))
+    act(s, "p1", type="pass_priority")  # → combat
+    attack(s, (ginger, "p2"))
+    to_blockers_after_attack(s)
+    with pytest.raises(ActionError):
+        block(s, "p2", (slow, ginger))
+    block(s, "p2", (fast, ginger))
+    roundtrip(s)
+    to_turn(s, 2)  # (it ends with the turn, 514.2)
+    assert not any(r.startswith("cant_be_blocked") for r in imposed(s, ginger))
+
+
+def to_blockers_after_attack(s):
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            return d
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+            continue
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no blockers step")
+
+
+def test_tower_of_coireall_walls_cant_block_it(cards):
+    s = build(cards, p1=("Tower of Coireall",))
+    tower = on_field(s, "Tower of Coireall")
+    bear = creature(s, "p1", "Bear")
+    act(s, "p1", type="activate_ability", card_id=tower.id, ability=0, targets=[bear.id])
+    settle(s)
+    from app.rules import selectors
+
+    assert f"cant_be_blocked_by:{selectors.parse('Walls').key()}" in imposed(s, bear)
+    roundtrip(s)
+
+
+def test_pym_particles_and_water_wings_one_subject_two_grants(cards):
+    s = build(cards, p1=("Pym Particles", "Water Wings"))
+    bear = creature(s, "p1", "Bear")
+    pym, wings = to_hand(s, "Pym Particles"), to_hand(s, "Water Wings")
+    mana(s, U=3)
+    act(s, "p1", type="cast_spell", card_id=pym.id, targets=[bear.id])
+    settle(s)
+    act(s, "p1", type="cast_spell", card_id=wings.id, targets=[bear.id])
+    settle(s)
+    ch_ = characteristics(s, bear)
+    assert "cant_be_blocked" in ch_.imposed and {"vigilance", "flying", "hexproof"} <= set(ch_.keywords)
+    assert ch_.pt == (4, 4)  # 613.4b: base 4/4
+    roundtrip(s)
+    to_turn(s, 2)
+    ch_ = characteristics(s, bear)
+    assert ch_.pt == (2, 2) and "flying" not in ch_.keywords and "cant_be_blocked" not in ch_.imposed
     roundtrip(s)
