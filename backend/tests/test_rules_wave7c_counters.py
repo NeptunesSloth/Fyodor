@@ -64,6 +64,9 @@ EXTRA = [
     card('Iron-Heart Chimera', set_code='tst', number='T7C41', mana_cost='{4}', cmc=4.0, type_line='Artifact Creature — Chimera', oracle_text='Vigilance\nSacrifice this creature: Put a +2/+2 counter on target Chimera creature. It gains vigilance. (This effect lasts indefinitely.)', power='2', toughness='2', keywords=['Vigilance']),
     card('Shield Sphere', set_code='tst', number='T7C42', mana_cost='{0}', cmc=0.0, type_line='Artifact Creature — Wall', oracle_text='Defender\nWhenever this creature blocks, put a -0/-1 counter on it.', power='0', toughness='6', keywords=['Defender']),
     card('Fabled Hero', set_code='tst', number='T7C43', mana_cost='{1}{W}{W}', cmc=3.0, type_line='Creature — Human Soldier', oracle_text='Double strike\nHeroic — Whenever you cast a spell that targets this creature, put a +1/+1 counter on it.', power='2', toughness='2', colors=['W'], color_identity=['W'], keywords=['Heroic', 'Double strike']),
+    card('Roc Hatchling', set_code='tst', number='T7C44', mana_cost='{R}', cmc=1.0, type_line='Creature — Bird', oracle_text='This creature enters with four shell counters on it.\nAt the beginning of your upkeep, remove a shell counter from this creature.\nAs long as this creature has no shell counters on it, it gets +3/+2 and has flying.', power='0', toughness='1', colors=['R'], color_identity=['R']),
+    card('Simic Ascendancy', set_code='tst', number='T7C45', mana_cost='{G}{U}', cmc=2.0, type_line='Enchantment', oracle_text='{1}{G}{U}: Put a +1/+1 counter on target creature you control.\nWhenever one or more +1/+1 counters are put on a creature you control, put that many growth counters on this enchantment.\nAt the beginning of your upkeep, if this enchantment has twenty or more growth counters on it, you win the game.', colors=['G', 'U'], color_identity=['G', 'U']),
+    card('Contagion', set_code='tst', number='T7C46', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Instant', oracle_text="You may pay 1 life and exile a black card from your hand rather than pay this spell's mana cost.\nDistribute two -2/-1 counters among one or two target creatures.", colors=['B'], color_identity=['B']),
 ]
 
 
@@ -546,4 +549,56 @@ def test_fabled_hero_grows_only_when_it_is_targeted(cards):
 
 @pytest.mark.parametrize("name", ["Fabled Hero"])
 def test_heroic_counter_coverage(name):
+    assert cov(name) == "FULL"
+
+
+# -- "as long as this creature has no shell counters on it" / "if this enchantment has twenty or more growth counters" ----
+def test_roc_hatchling_gets_its_bonus_when_the_last_shell_counter_goes(cards):
+    from app.rules.plan import Plan
+
+    s = build(cards, "Roc Hatchling")
+    roc = put(s, "Roc Hatchling")
+    add(s, roc, 4, "shell")
+
+    def view():
+        return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[roc.id])
+
+    assert view().pt == (0, 1) and "flying" not in view().keywords
+    add(s, roc, -3, "shell")
+    assert view().pt == (0, 1)
+    s = saved(s)
+    add(s, roc, -1, "shell")
+    assert view().pt == (3, 3) and "flying" in view().keywords
+    replay_matches(s)
+
+
+def test_simic_ascendancy_wins_at_twenty_growth_counters(cards):
+    s = build(cards, "Simic Ascendancy", "Forest", "Forest", "Forest")
+    sim = put(s, "Simic Ascendancy")
+    add(s, sim, 19, "growth")
+    until(s, lambda s: s.state.rules.winner is not None or s.state.turn.number >= 3, limit=600)
+    assert s.state.rules.winner is None  # nineteen is not enough
+    add(s, sim, 1, "growth")
+    until(s, lambda s: s.state.rules.winner is not None or s.state.turn.number >= 6, limit=900)
+    assert s.state.rules.winner == "p1"
+    replay_matches(saved(s))
+
+
+def test_contagion_distributes_minus_two_minus_one_counters(cards):
+    from app.rules.plan import Plan
+
+    s = build(cards, "Contagion", "Grizzly Bears", "Llanowar Elves")
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    c = to_hand(s, "Contagion")
+    mana(s, B=2, C=3)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[bears.id, elves.id], target_counts=[2], division=[1, 1])
+    settle(s)
+    assert counters(s, bears) == {"-2/-1": 1}
+    assert zone(s, elves) == "p1:graveyard"  # a 1/1 with a -2/-1 counter has toughness 0
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[bears.id]).pt == (0, 1)
+    replay_matches(saved(s))
+
+
+@pytest.mark.parametrize("name", ["Roc Hatchling", "Simic Ascendancy", "Contagion"])
+def test_counter_state_coverage(name):
     assert cov(name) == "FULL"
