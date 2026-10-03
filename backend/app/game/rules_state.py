@@ -200,6 +200,9 @@ class CopyExcept(BaseModel):
     set_colors: list[str] | None = None
     add_text: list[str] = Field(default_factory=list)
     add_colors: list[str] = Field(default_factory=list)  # "in addition to its other colors"
+    # -- token copies & attach on entry (wave 5J) -- "except it's a 4/4 black Zombie": its creature types are these
+    # (205.1a: they replace the copied ones; other subtypes stay), changeling isn't copied (707.9d)
+    set_creature_types: list[str] | None = None
 
 
 class CopyRecipe(BaseModel):
