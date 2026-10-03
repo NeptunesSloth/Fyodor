@@ -534,6 +534,19 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     return selectors.matches(plan, selectors.from_key(cond["sel"]), obj, och, you, watcher.id)
 
 
+def _damaged_by(plan: Plan, watcher: CardInstance, victim: str | None) -> bool:
+    """-- counters (wave 7C) -- did the watcher (the object it is now, or as it last existed if it left) deal damage this
+    turn to the object that died? (the turn's log: history.note_events)"""
+    log = plan.rules.turn_log
+    if victim is None or log.turn != plan.state.turn.number:
+        return False
+    if plan.state.cards.get(watcher.id) is watcher:
+        mine = {plan.oid(watcher)}
+    else:  # it left in the same batch: the object it was (603.10a)
+        mine = {o for o, s in plan.rules.lki.items() if s.card == watcher.id}
+    return any(f.kind == "damaged" and f.object_id == victim and f.source_object in mine for f in log.facts)
+
+
 def _other_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, info: dict[str, Any]) -> bool:
     """"blocks a creature with flying" / "becomes blocked by a Wall": the creature on the other side."""
     from app.rules import selectors
@@ -571,6 +584,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             if not conditions.holds(plan, {"controller": you, "source_card": watcher.id}, cond["while"]):
                 return False
     if event == "dealt_damage" and cond.get("combat") is not None and bool(info.get("combat")) != cond["combat"]:
+        return False
+    if event == "die" and cond.get("damaged_by_self") and not _damaged_by(plan, watcher, info.get("oid")):  # (wave 7C)
         return False
     n = cond.get("min_attackers")
     if n:

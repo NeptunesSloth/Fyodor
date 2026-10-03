@@ -409,6 +409,7 @@ class TurnFact(BaseModel):
     amount: int = 1
     combat: bool = False
     counter: str | None = Field(default=None, max_length=40)
+    source_object: str | None = Field(default=None, max_length=80)  # -- counters (wave 7C) -- "damaged": what dealt the damage
     source_types: list[str] = Field(default_factory=list)
     source_supertypes: list[str] = Field(default_factory=list)
 # -- end this-turn history (wave 4D) --

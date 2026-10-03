@@ -151,6 +151,14 @@ def _count(word: str) -> int:
 
 
 def _parse(c: str) -> Condition | None:
+    # -- counters (wave 7C) -- "Whenever a creature dealt damage by ~ this turn dies" (Sengir Vampire): it dies, and ~ dealt
+    # it damage earlier this turn (the turn's log, history.note_events; 700.4, 120.3)
+    m = re.fullmatch(r"(?P<s>an? .+?) dealt damage by ~ this turn dies", c)
+    if m:
+        inner = _parse(f"{m['s']} dies")
+        if inner is None or inner.get("event") != "die" or inner.get("subject") != "sel" or inner.get("aggregate"):
+            return None
+        return {**inner, "damaged_by_self": True}
     # "When ~ enters or dies", "Whenever ~ attacks or blocks": one ability, each event (603.2)
     m = re.fullmatch(rf"~ (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m:

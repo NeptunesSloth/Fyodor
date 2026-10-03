@@ -56,6 +56,9 @@ EXTRA = [
     card('Flycatcher Giraffid', set_code='tst', number='T7C33', mana_cost='{4}{G}', cmc=5.0, type_line='Creature — Antelope Lizard', oracle_text='This creature enters with your choice of a reach counter or a vigilance counter on it.', power='3', toughness='5', colors=['G'], color_identity=['G']),
     card('Serpent Specialist', set_code='tst', number='T7C34', mana_cost='{G}', cmc=1.0, type_line='Creature — Human Snake Villain', oracle_text='Deathtouch\nPower-up — {3}{G}: Put two +1/+1 counters on this creature. (Activate each power-up ability only once. Reduce the cost by its mana cost if it entered this turn.)', power='1', toughness='1', colors=['G'], color_identity=['G'], keywords=['Power-up', 'Deathtouch']),
     card("Captain Marvel, Earth's Protector", set_code='tst', number='T7C35', mana_cost='{3}{W}{W}', cmc=5.0, type_line='Legendary Creature — Human Kree Hero', oracle_text='Flash\nFlying, lifelink\nPower-up — {5}{W}{W}: Put a +1/+1 counter and an indestructible counter on Captain Marvel. (Activate each power-up ability only once. Reduce the cost by her mana cost if she entered this turn.)', power='5', toughness='4', colors=['W'], color_identity=['W'], keywords=['Flying', 'Power-up', 'Lifelink', 'Flash']),
+    card('Blood Cultist', set_code='tst', number='T7C36', mana_cost='{1}{B}{R}', cmc=3.0, type_line='Creature — Human Wizard', oracle_text='{T}: This creature deals 1 damage to target creature.\nWhenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature.', power='1', toughness='1', colors=['B', 'R'], color_identity=['B', 'R']),
+    card('Vampiric Sliver', set_code='tst', number='T7C37', mana_cost='{3}{B}', cmc=4.0, type_line='Creature — Sliver', oracle_text='All Sliver creatures have "Whenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature."', power='3', toughness='3', colors=['B'], color_identity=['B']),
+    card('Sengir Vampire', set_code='tst', number='T7C38', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Creature — Vampire', oracle_text="Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature.", power='4', toughness='4', colors=['B'], color_identity=['B'], keywords=['Flying']),
 ]
 
 
@@ -421,4 +424,44 @@ def test_power_up_costs_full_price_on_a_later_turn(cards):
 
 @pytest.mark.parametrize("name", ["Serpent Specialist", "Captain Marvel, Earth's Protector"])
 def test_power_up_coverage(name):
+    assert cov(name) == "FULL"
+
+
+# -- "Whenever a creature dealt damage by this creature this turn dies" (700.4, 120.3) ----------------------------------
+def _cultist_turn(cards, *opp):
+    s = build(cards, "Blood Cultist", "Lightning Bolt", p2=opp)
+    cultist = put(s, "Blood Cultist")
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and not s.state.zones.get("stack")
+          and s.state.rules.decision is None, limit=600)
+    return s, cultist
+
+
+def test_blood_cultist_grows_when_a_creature_it_damaged_dies(cards):
+    s, cultist = _cultist_turn(cards, "Llanowar Elves")
+    elves = put(s, "Llanowar Elves", "p2")
+    act(s, "p1", type="activate_ability", card_id=cultist.id, ability=0, targets=[elves.id])
+    settle(s)
+    assert zone(s, elves) == "p2:graveyard" and counters(s, cultist) == {"+1/+1": 1}
+    s = saved(s)
+    replay_matches(s)
+
+
+def test_blood_cultist_ignores_other_deaths_and_survivors_damaged_earlier(cards):
+    s, cultist = _cultist_turn(cards, "Grizzly Bears", "Llanowar Elves")
+    bears, elves = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+    cast(s, "Lightning Bolt", targets=[elves.id], R=1)  # not dealt damage by the Cultist
+    settle(s)
+    assert zone(s, elves) == "p2:graveyard" and not counters(s, cultist)
+    act(s, "p1", type="activate_ability", card_id=cultist.id, ability=0, targets=[bears.id])
+    settle(s)
+    assert zone(s, bears) == "p2:battlefield" and not counters(s, cultist)  # 1 damage: it survives
+    until(s, lambda s: s.state.turn.number == 5 and s.state.turn.phase == "main1" and not s.state.zones.get("stack")
+          and s.state.rules.decision is None, limit=800)
+    cast(s, "Lightning Bolt", targets=[bears.id], R=1)  # damaged by the Cultist on an earlier turn: no
+    settle(s)
+    assert zone(s, bears) == "p2:graveyard" and not counters(s, cultist)
+
+
+@pytest.mark.parametrize("name", ["Blood Cultist", "Vampiric Sliver", "Sengir Vampire"])
+def test_damaged_by_this_turn_dies_coverage(name):
     assert cov(name) == "FULL"

@@ -201,6 +201,10 @@ def note_events(plan: Plan, events: list[Any]) -> None:
             elif kind == "dealt_damage" and obj is None and info.get("recipient"):  # a player was dealt damage (120.3)
                 log.facts.append(TurnFact(kind="damage", player=info["recipient"], amount=int(info.get("amount") or 0),
                                           combat=bool(info.get("combat")), object_id=info.get("source_oid")))
+            elif kind == "dealt_damage" and obj is not None and int(info.get("amount") or 0) > 0:
+                # -- counters (wave 7C) -- a permanent was dealt damage by this object (its oid as it dealt it)
+                log.facts.append(TurnFact(kind="damaged", player=obj.controller, object_id=info.get("oid"),
+                                          amount=int(info.get("amount") or 0), source_object=info.get("source_oid")))
             elif kind == "deal_damage" and info.get("recipient") and log.facts and log.facts[-1].kind == "damage":
                 # its source, as it was as it dealt that damage (608.2i)
                 log.facts[-1].source_types, log.facts[-1].source_supertypes = what["types"], what["supertypes"]
