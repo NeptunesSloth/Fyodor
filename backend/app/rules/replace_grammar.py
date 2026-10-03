@@ -353,7 +353,9 @@ def _damage(text: str) -> Definition | None:
 
 
 # -- "[Objects] enter tapped" (614.1d, 614.12) ------------------------------------------------------
-_ENTER_TAPPED = re.compile(r"^(?P<what>[A-Z][a-z]+(?:, [a-z ]+)*,? (?:and [a-z ]+ )?|[A-Z][a-z ]+? )"
+# (-- review (wave 6R) -- lazy items: greedy ones swallowed "your opponents control" into the last item, so in "Creatures
+# and nonbasic lands your opponents control enter tapped." (Thalia, Heretic Cathar) only the lands were the opponents')
+_ENTER_TAPPED = re.compile(r"^(?P<what>[A-Z][a-z]+?(?:, [a-z ]+?)*,? (?:and [a-z ]+? )?|[A-Z][a-z ]+? )"
                            r"(?P<ctrl>your opponents control |you control |an opponent controls )?enter tapped\.$")
 
 

@@ -32,11 +32,34 @@ _HAND = re.compile(rf"^return {_THE} to (?:its|their) owner(?:'s|s') hands?$")
 _REFERS = re.compile(r"\bthe exiled cards?\b|\bcards? exiled with (?:it|~)\b")
 
 
+# -- review (wave 6R) -- "Exile target creature. Return the exiled card to the battlefield under its owner's control at the
+# beginning of the next end step." (Voyager Staff, Hide on the Ceiling): "the exiled card" there is what the same
+# ability's own instruction exiled (608.2c), not a linked ability's (607.2a). Such an ability is read again without
+# these templates (the pronoun reading it had before wave 6).
+_OFF = False
+
+
+def _off(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
+    if not _OFF:
+        return None
+    from app.rules import language
+    from app.rules.scripts import _NoMatch
+
+    found = language.parse_sentence(m.group(0))  # ("the exiled card": the generic grammar's pronoun, language.ref)
+    if found is None:
+        raise _NoMatch
+    return found
+
+
 def _battlefield(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    if (own := _off(m)) is not None:
+        return own
     return [{"do": "return_card", "who": WHO, "to": "battlefield", "tapped": bool(m["tapped"]), "under": "owner"}], None
 
 
 def _hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    if (own := _off(m)) is not None:
+        return own
     return [{"do": "return_card", "who": WHO, "to": "hand"}], None
 
 
@@ -55,6 +78,13 @@ def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | No
         return None
     refers = WHO in json.dumps(d, default=str)
     others = [ab for ab in ch.abilities if ab.index != ability.index and ab.kind in ("triggered", "activated")]
+    if refers and _exiles(d):  # -- review (wave 6R) -- its own exiled card (see _OFF)
+        global _OFF
+        _OFF = True
+        try:
+            return scripts.define(ability, ch)
+        finally:
+            _OFF = False
     if refers:
         exiling = [ab for ab in others if re.search(r"\bexile\b", ab.text, re.IGNORECASE)]
         if len(exiling) != 1 or not _exiles(scripts.define(exiling[0], ch)):
