@@ -1893,8 +1893,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     # for "whenever you cast"; amount: the Nth spell its caster cast this turn ("your second spell each turn")
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
          amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)
-    if "cascade" in ch.keywords and not a.face_down and not plan.manual(card):
-        _cascade_triggers(plan, card, ch)
+    extra = 0 if a.face_down or plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
+    if extra or ("cascade" in ch.keywords and not a.face_down and not plan.manual(card)):
+        _cascade_triggers(plan, card, ch, extra)
     if "storm" in ch.keywords and not a.face_down and not plan.manual(card):
         _storm_trigger(plan, card, ch)
     if definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
@@ -2170,11 +2171,19 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
     _stacked(plan, card, oid, ch, ability_id, [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}])
 
 
-def _cascade_triggers(plan: Plan, card: CardInstance, ch: Characteristics) -> None:
-    """702.85a: "When you cast this spell, …" — one trigger per instance of cascade."""
+# -- static statics (wave 10B) -- cascade a permanent gives the spell as it's cast (cast_limits.granted_cascade)
+def _granted_cascade(plan: Plan, card: CardInstance, ch: Characteristics, cast_from: str | None) -> int:
+    from app.rules import cast_limits
+
+    return cast_limits.granted_cascade(plan, card.id, ch, cast_from)
+
+
+def _cascade_triggers(plan: Plan, card: CardInstance, ch: Characteristics, extra: int = 0) -> None:
+    """702.85a: "When you cast this spell, …" — one trigger per instance of cascade (``extra``: those a static ability
+    gave the spell, 10B)."""
     from app.rules.triggers import _add
 
-    n = sum(1 for ab in ch.abilities if ab.kind == "keywords" for kw in ab.keywords if kw == "cascade")
+    n = extra + sum(1 for ab in ch.abilities if ab.kind == "keywords" for kw in ab.keywords if kw == "cascade")
     for k in range(n):
         _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name,
              index=6000 + k, definition={"kind": "triggered", "trigger": "cascade", "optional": False, "target": None,
@@ -2310,8 +2319,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         r.rebound_cast.append(plan.oid(card))
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
          amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)  # (the Nth spell this turn)
-    if "cascade" in ch.keywords and not plan.manual(card):
-        _cascade_triggers(plan, card, ch)
+    extra = 0 if plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
+    if extra or ("cascade" in ch.keywords and not plan.manual(card)):
+        _cascade_triggers(plan, card, ch, extra)
     if "storm" in ch.keywords and not plan.manual(card):
         _storm_trigger(plan, card, ch)
     if definition is not None and picked:
