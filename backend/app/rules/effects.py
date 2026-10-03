@@ -1268,8 +1268,9 @@ def prevent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """615.7: "Prevent the next N damage that would be dealt to … this turn" — a shield."""
     r = plan.rules
     keys = [plan.oid(c) for c in _cards(plan, ctx, e["who"])] + _players(plan, ctx, e["who"])
+    n = _amount(plan, ctx, e["n"])  # (wave 12C: "prevent the next X damage, where X is …": the amount as it resolves, 608.2h)
     for key in keys:
-        r.prevention[key] = r.prevention.get(key, 0) + e["n"]
+        r.prevention[key] = r.prevention.get(key, 0) + n
     return True
 
 

@@ -1575,6 +1575,17 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
 
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
+    from app.rules import per_opponent  # -- per-opponent targets (wave 12C) --
+
+    if (each_opp := per_opponent.parse(body, lambda b: parse_effects(b, it, event_player=event_player))) is not None:
+        return each_opp
+    found = _parse_effects_checked(body, it, event_player)
+    if found is not None and '{"x": 1}' not in json.dumps(found[0]):
+        return found
+    return _where_x(body, it, event_player) or found  # (X left as a cast X by the sentence grammar: read as the text defines it, if it can be)
+
+
+def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
     try:
         # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
         from app.rules import top_library
@@ -1584,6 +1595,53 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
             it))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
     except _NoMatch:
         return None
+
+
+# -- X defined by text (wave 12C) -- "Each opponent loses X life and you scry X, where X is the number of Zombies you control."
+# (107.3c: the text defines X; 608.2h: read as the effect is carried out). The sentence is read with a stand-in number for X, which
+# is then swapped for the value; only in amount fields that evaluate values (a target count or a selector bound would not).
+_WHERE_X = re.compile(r",? where X is (?P<def>[^.\"]+?)(?=\.(?: |$)|$)")
+_X_SENTINEL = 7919
+_X_KEYS = frozenset({"n", "p", "t"})
+
+
+def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import language
+
+    found = list(_WHERE_X.finditer(body))
+    if len(found) != 1 or "{X}" in body:
+        return None
+    m = found[0]
+    value = language.x_definition(m["def"])
+    start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
+    head, rest = body[start: m.start()], body[:start] + "\0" + body[m.end():]
+    # (a pronoun placeholder in the value — "its power", "that spell's mana value" — is bound by resolve_it, which has already
+    # run on the stand-in sentence: such a value is left to the sentence grammars that bind it)
+    # (likewise what the wrappers around the sentence grammar bind afterwards: "this way" counts, the target player's hand)
+    if value is None or re.search(r'"(?:it|that_spell|that_player|ref_amount|ref_count)"|"this_way"|"it:|"cost:exiled"', json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):
+        return None
+    got = _parse_effects_checked(rest.replace("\0", re.sub(r"\bX\b", str(_X_SENTINEL), head)), it, event_player)
+    if got is None or str(_X_SENTINEL) in json.dumps(got[1]):
+        return None
+    hit = [False]
+
+    def swap(v: Any, key: str | None) -> Any:
+        if isinstance(v, list):
+            return [swap(x, key) for x in v]
+        if isinstance(v, dict):
+            return {k: swap(x, k) for k, x in v.items()}
+        if isinstance(v, bool) or v not in (_X_SENTINEL, -_X_SENTINEL):
+            return v
+        if key not in _X_KEYS or (v < 0 and key == "n"):
+            raise _NoMatch
+        hit[0] = True
+        return value if v > 0 else {"neg": value}
+
+    try:
+        effects = swap(got[0], None)
+    except _NoMatch:
+        return None
+    return (effects, got[1], got[2]) if hit[0] else None
 
 
 _EXCESS = re.compile(r"(?P<trample>if the creature you control has trample, )?excess damage is dealt to that "
@@ -2493,6 +2551,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if d is not None and d.get("kind") != "spell" and '"spell_self_move"' in json.dumps(d, default=str):
         return None  # -- counters (wave 7C) -- only a spell moves itself off the stack
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
+        return None
+    from app.rules import (
+        per_opponent,  # -- per-opponent targets (wave 12C) -- only a triggered ability's own group
+    )
+
+    if d is not None and not per_opponent.allowed(d):
         return None
     # -- defending player (wave 6D) -- only an attacking creature's trigger names one (508.5: app/rules/defending.py)
     from app.rules import defending
@@ -4723,6 +4787,13 @@ def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 @_mana_effect(rf"add an amount of (?P<sym>{_SYM}) equal to (?:this creature|~)'s power")
 def _add_own_power(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "add_mana", "sym": m["sym"][1], "n": {"power": "self"}}], None
+
+
+# -- amounts (wave 12C) -- Sacrifice: "Add an amount of {B} equal to the sacrificed creature's mana value": what the spell's
+# additional cost sacrificed, as it last existed (608.2h; define() checks the cost sacrificed exactly one object)
+@_mana_effect(rf"add an amount of (?P<sym>{_SYM}) equal to the sacrificed (?:creature|artifact|permanent|land|enchantment)'s mana value")
+def _add_sacrificed_mv(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "add_mana", "sym": m["sym"][1], "n": {"mana_value": "cost:sacrificed"}}], None
 
 
 # -- stack interaction (wave 5B) -- Mana Drain: "… add an amount of {C} equal to that spell's mana value": the spell an

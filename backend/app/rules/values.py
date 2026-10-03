@@ -232,12 +232,18 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if m:
         key = _selector_key(m["sel"])
         return {"distinct": _DISTINCT[m["kind"]], "among": key} if key else None
+    if what == "the greatest mana value of a commander you own on the battlefield or in the command zone":  # -- amounts (wave 12C) --
+        return {"max": "mana_value", "of": selectors.Selector(commander=True, owner="you", zones=("battlefield", "command")).key()}  # 903.3
     m = _AGGREGATE.match(what)
     if m:
         key = _selector_key(m["sel"])
         if key is None or selectors.from_key(key).player is not None:
             return None
         return {"max" if m["max"] else "sum": _STATS[m["stat"]], "of": key}
+    m = re.fullmatch(r"differently named (?P<sel>.+)", what)  # -- amounts (wave 12C) -- 201.2: how many different names
+    if m:
+        key = _selector_key(m["sel"])
+        return {"distinct": "names", "among": key} if key else None
     if what.startswith(("the ", "a ", "an ")):
         return None
     sel = selectors.parse(_normalise(what))

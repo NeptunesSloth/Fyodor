@@ -586,13 +586,14 @@ def test_rite_of_flame_counts_the_others_in_every_graveyard(cards):
     roundtrip(s)
 
 
-def test_named_counts_elsewhere_stay_manual():
-    """Only Rite of Flame's "add" instruction reads its own name in the graveyards; other uses aren't guessed."""
+def test_named_counts_elsewhere_read_the_source_name():
+    """-- amounts (wave 12C) -- "cards named ~" (selectors) counts the source's own name; the spell on the stack isn't one of them
+    (tests/test_rules_wave12c_amounts.py plays Kindle)."""
     from tests.test_rules_scripts import ch as characteristics
 
     ak = next(c for c in EXTRA if c["name"] == "Accumulated Knowledge")
     level = coverage.of_characteristics(characteristics(ak["name"], ak["type_line"], ak["oracle_text"]))
-    assert level.level != "FULL"
+    assert level.level == "FULL"
 
 
 def test_spirit_guide_while_paying_for_a_spell(cards):

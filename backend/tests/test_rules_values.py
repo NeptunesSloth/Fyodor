@@ -62,7 +62,6 @@ def test_parse_count(phrase, value):
 @pytest.mark.parametrize("phrase", [
     "+1/+1 counters on it",  # a pronoun the caller can't bind
     "counters on target creature",  # (a target the value would have to declare)
-    "cards named ~ in all graveyards",
     "Auras attached to it",
     "creatures that were exiled this turn",  # ("… that died this turn": read since wave 4D)
     "the amount of mana spent to cast it",
@@ -161,7 +160,6 @@ def test_parse_cda(text, p, t):
     "~ gets +X/+X.",  # no X defined
     "~ gets +1/+1, where X is your life total.",  # no X in the sentence
     "~'s power and toughness are each equal to the life paid as it entered.",
-    "~'s power is equal to the number of cards named ~ in all graveyards.",
     "~'s power and toughness are each equal to the number of creatures you control as long as it's your turn.",
 ])
 def test_unknown_statics_stay_manual(text):

@@ -47,7 +47,7 @@ OTHER_SUBTYPES = {"Equipment", "Aura", "Vehicle", "Food", "Clue", "Treasure", "B
                   "Curse", "Plains", "Island", "Swamp", "Mountain", "Forest", "Desert", "Gate", "Cave", "Town",
                   "Sphere", "Lesson", "Adventure", "Arcane", "Trap", "Room", "Class", "Case", "Background",
                   "Fortification", "Attraction", "Contraption", "Powerstone", "Map", "Incubator", "Junk",
-                  "Lair"}  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
+                  "Lair", "Bobblehead"}  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
 # -- kicked / instead (wave 4G) -- 205.3j: the planeswalker types ("If you control a Jace planeswalker, …"), read only
 # when written capitalized (a word like "will" is never one)
 PLANESWALKER_TYPES = frozenset({
@@ -440,6 +440,12 @@ def _source_counters(plan: Plan, source: str | None, kind: str) -> int | None:
         return None
     last = max(snaps, key=lambda s: int(s.object_id.rsplit(".", 1)[-1]))
     return last.counters.get(kind, 0)
+
+
+# -- amounts (wave 12C) -- "cards named ~ in all graveyards" (Kindle): the source's name (201.2), read with the source in play
+@_suffix(r"named ~")
+def _named_self(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "named_self"))
 
 
 # "each creature that entered this turn", "target non-Human creature that entered this turn", "each creature that
@@ -1052,6 +1058,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # (wave 5H)
         if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
             return False
+        if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
+            return False  # (wave 12C)
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --

@@ -282,9 +282,9 @@ def _stat(phrase: str, its: str = "it") -> Any:
     if (m := re.fullmatch(r"the discarded card's (?P<stat>power|toughness|mana value)|the (?P<stat2>mana value) of the discarded card",
                           phrase)) is not None:  # -- as long as (wave 9B) -- the card a discard (instruction or cost) put into the graveyard
         return {_STATS[m["stat"] or m["stat2"]]: "it:discarded"}
-    if (m := re.fullmatch(r"(?P<n>\d+) plus (?P<v>the (?:discarded card's|sacrificed (?:creature|artifact|permanent|land|enchantment)'s) "
+    if (m := re.fullmatch(r"(?P<n>\d+|one|two|three) plus (?P<v>the (?:discarded card's|sacrificed (?:creature|artifact|permanent|land|enchantment)'s) "
                           r"(?:power|toughness|mana value))", phrase)) is not None:  # "2 plus the sacrificed permanent's mana value"
-        return {"plus": [_stat(m["v"], its), int(m["n"])]}
+        return {"plus": [_stat(m["v"], its), values.parse_amount(m["n"])]}
     if (m := re.fullmatch(r"the exiled card's (?P<stat>power|toughness|mana value)", phrase)) is not None:
         return {_STATS[m["stat"]]: "cost:exiled"}  # -- if you do (wave 8C) -- bound to the payment (pay_objects.bind)
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
@@ -401,6 +401,9 @@ def _with_rider(text: str) -> tuple[str, Any]:
 def _rider_value(phrase: str) -> Any:
     """A rider's quantity: "its power" / "that creature's toughness" / "~'s power" (app: _stat),
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
+    if re.fullmatch(r"(?:(?:\d+|one|two|three) plus )?the sacrificed (?:creature|artifact|permanent|land|enchantment)'s "
+                    r"(?:power|toughness|mana value)", phrase):  # -- amounts (wave 12C) --
+        return _stat(phrase)
     if re.fullmatch(r"(?:its|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|that spell's|~'s|this creature's|"
                     r"the sacrificed (?:creature|artifact|permanent|land)'s|the discarded card's) (?:power|toughness|mana value)", phrase):
         return _stat(phrase)

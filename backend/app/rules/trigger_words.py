@@ -51,6 +51,9 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
 
 
 _NUMBER_OF = re.compile(r"\b(?P<c>[Cc])reate a number of (?P<what>[^.]+? tokens?(?: with [^.]+?)?) equal to (?P<v>[^.]+)\.")
+_SAC_OF = re.compile(r"\bthe (power|toughness|mana value) of the sacrificed (creature|artifact|permanent|land|enchantment)\b")
+_SAC_ITS = re.compile(r"(\bthe sacrificed (creature|artifact|permanent|land|enchantment)'s (?:power|toughness|mana value)\b[^.]*? equal to )"
+                      r"its (power|toughness|mana value)")
 _GAIN_AND_DRAW = re.compile(r"^you gain life and draw cards equal to (?P<v>[^.]+)\.$")
 
 
@@ -59,6 +62,10 @@ def plain_amounts(body: str) -> str:
     power" (Goldvein Hydra; 107.3c: one X for the instruction); "you gain life and draw cards equal to its power" →
     both amounts spelled out (Lifeblood Hydra: the same value, read once per instruction from the object as it last
     existed, 608.2h)."""
+    # -- amounts (wave 12C) -- the sacrificed object's statistics, worded the way the value grammar reads them (608.2h):
+    # "the mana value of the sacrificed permanent" / "…equal to the sacrificed creature's power, then … equal to its toughness"
+    body = _SAC_OF.sub(r"the sacrificed \2's \1", body)
+    body = _SAC_ITS.sub(r"\1the sacrificed \2's \3", body)
     body = _NUMBER_OF.sub(lambda m: f"{m['c']}reate X {m['what']}, where X is {m['v']}.", body)
     m = _GAIN_AND_DRAW.match(body.strip())
     if m is not None:
