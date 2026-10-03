@@ -477,6 +477,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     event, obj, och, player, info = fact
     you = watcher.controller
     want = cond["event"]
+    if want == "either":  # -- triggers (wave 5D) -- "Whenever you create or sacrifice a token": each event (603.2c)
+        return any(_cond_matches(plan, sub, watcher, fact) for sub in cond["conds"])
     if want == "multi":  # "Whenever ~ attacks or blocks" (this object; each event, 603.2)
         wanted = [(_PAIRED[x] if cond.get("other") else x) for x in cond["events"]]
         if cond.get("subject") == "host":  # -- attached events (wave 4L) -- what the source is attached to
@@ -719,6 +721,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             nth = cond.get("nth") if cond["event"] == "draw" else None
             if nth and plan.rules.draws_this_turn.get(fact[3] or "", 0) != nth:
                 continue
+            if cond.get("not_first_in_draw_step") and fact[4].get("first_in_draw_step"):  # -- triggers (wave 5D) --
+                continue
             event = _event(plan, fact, batch)
             info = fact[4]
             # One damage event to several recipients at once is one "deals damage" (and several
@@ -797,6 +801,13 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
         if e.kind == "drew" and e.player:
             r.draws_this_turn[e.player] = r.draws_this_turn.get(e.player, 0) + 1
         facts = _facts(plan, e, window)
+        if e.kind == "drew" and e.player and facts:  # -- triggers (wave 5D) -- the first card a player draws in
+            # their own draw step (504.1), kept per player per turn (they have one draw step a turn)
+            first = plan.state.turn.phase == "draw" and e.player == plan.active and \
+                r.once_per_turn.get(f"drawstep:{e.player}") != plan.state.turn.number
+            if first:
+                r.once_per_turn[f"drawstep:{e.player}"] = plan.state.turn.number
+            facts[0][4]["first_in_draw_step"] = first
         if facts:
             _fire_generic(plan, facts, e.batch, fired, watchers, left)
 

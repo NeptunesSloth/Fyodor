@@ -58,6 +58,8 @@ EXTRA = [
     card('Conch Horn', set_code='tst', number='T5D34', mana_cost='{2}', cmc=2.0, type_line='Artifact', oracle_text='{1}, {T}, Sacrifice this artifact: Draw two cards, then put a card from your hand on top of your library.'),
     card('Fecundity', set_code='tst', number='T5D36', mana_cost='{2}{G}', cmc=3.0, type_line='Enchantment', oracle_text="Whenever a creature dies, that creature's controller may draw a card.", colors=['G'], color_identity=['G']),
     card('Dark Revenant', set_code='tst', number='T5D43', mana_cost='{3}{B}', cmc=4.0, type_line='Creature — Spirit', oracle_text="Flying\nWhen this creature dies, put it on top of its owner's library.", power='2', toughness='2', colors=['B'], color_identity=['B'], keywords=['Flying']),
+    card('Orcish Bowmasters', set_code='tst', number='T5D44', mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Orc Archer', oracle_text='Flash\nWhen this creature enters and whenever an opponent draws a card except the first one they draw in each of their draw steps, this creature deals 1 damage to any target. Then amass Orcs 1.', power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=['Amass', 'Flash']),
+    card('Mirkwood Bats', set_code='tst', number='T5D45', mana_cost='{3}{B}', cmc=4.0, type_line='Creature — Bat', oracle_text='Flying\nWhenever you create or sacrifice a token, each opponent loses 1 life.', power='2', toughness='3', colors=['B'], color_identity=['B'], keywords=['Flying']),
     card('Shatter', set_code='tst', number='T5D40', mana_cost='{1}{R}', cmc=2.0, type_line='Instant', oracle_text='Destroy target artifact.', colors=['R'], color_identity=['R']),
     card('Triplicate Titan', set_code='tst', number='T5D42', mana_cost='{9}', cmc=9.0, type_line='Artifact Creature — Golem', oracle_text='Flying, vigilance, trample\nWhen this creature dies, create a 3/3 colorless Golem artifact creature token with flying, a 3/3 colorless Golem artifact creature token with vigilance, and a 3/3 colorless Golem artifact creature token with trample.', power='9', toughness='9', keywords=['Flying', 'Vigilance', 'Trample']),
 ]
@@ -312,7 +314,8 @@ def test_krang_draw_cause(cards):
     ("Loran of the Third Path", "FULL"), ("Secret Rendezvous", "FULL"), ("Goldvein Hydra", "FULL"),
     ("Lifeblood Hydra", "FULL"), ("Murderous Rider // Swift End", "FULL"), ("Ichor Wellspring", "FULL"),
     ("Wurmcoil Engine", "FULL"), ("Brainstorm", "FULL"), ("Kederekt Parasite", "FULL"), ("Disciple of the Vault", "FULL"),
-    ("Suture Priest", "FULL"), ("Conch Horn", "FULL"), ("Triplicate Titan", "FULL"),
+    ("Suture Priest", "FULL"), ("Conch Horn", "FULL"), ("Triplicate Titan", "FULL"), ("Orcish Bowmasters", "FULL"),
+    ("Mirkwood Bats", "FULL"),
     # refused: "that creature's controller may draw" (another player's "may" on someone else's trigger)
     ("Fecundity", "PARTIAL"),
 ])
@@ -540,4 +543,68 @@ def test_conch_horn_one_card_back_without_an_order(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[chosen])
     settle(s)
     assert hand_size(s) == before + 2 - 1 and s.state.zones["p1:library"][0] == chosen
+    replay_matches(s)
+
+
+# -- Orcish Bowmasters: "When ~ enters and whenever an opponent draws a card except the first one they draw in each of
+# their draw steps" (one ability, two trigger conditions, 603.2) -----------------------------------------------------------
+def test_orcish_bowmasters(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, "Orcish Bowmasters", "Secret Rendezvous", "Howling Mine")
+    bow, spell = to_hand(s, "Orcish Bowmasters"), to_hand(s, "Secret Rendezvous")
+    put(s, "Howling Mine")
+
+    def army():
+        found = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name.startswith("Orc Army")]
+        return found[0].counters.get("+1/+1", 0) if found else 0
+
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=bow.id)
+    settle(s)
+    assert army() == 1  # (it entered)
+    mana(s, W=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"])
+    settle(s)
+    assert army() == 1 + 3  # (Bob drew three; Alice's own draws don't count)
+    s = saved(s)
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    settle(s)
+    assert army() == 4 + 1  # (Bob's draw step: his first card doesn't count, Howling Mine's does)
+    replay_matches(s)
+
+
+def test_mirkwood_bats_create_or_sacrifice_a_token(cards):
+    """Either action, each token its own event (603.2c, 111.2): two Soldiers made, then a Treasure sacrificed for
+    mana (701.21a, a cost) — three triggers. A token made by hand triggers nothing (the table handles it)."""
+    s = build(cards, "Mirkwood Bats", "Raise the Alarm")
+    put(s, "Mirkwood Bats")
+    alarm = to_hand(s, "Raise the Alarm")
+    from tests.test_rules_conditionals import token_of
+
+    treasure = token_of(s, "p1", "Treasure", "Token Artifact — Treasure", pt="0/0",
+                        text="{T}, Sacrifice this token: Add one mana of any color.")
+    before = life(s, "p2")
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=alarm.id)
+    settle(s)
+    assert life(s, "p2") == before - 2
+    s = saved(s)
+    act(s, "p1", type="activate_ability", card_id=treasure.id, ability=0, mana_choice="B")
+    settle(s)
+    assert life(s, "p2") == before - 3
+    replay_matches(s)
+
+
+def test_panharmonicon_each_token_entering(cards):
+    """Raise the Alarm: two creatures entering, each one an event Soul Warden triggers on — twice each."""
+    s = build(cards, "Panharmonicon", "Soul Warden", "Raise the Alarm")
+    put(s, "Panharmonicon")
+    put(s, "Soul Warden")
+    alarm = to_hand(s, "Raise the Alarm")
+    before = life(s)
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=alarm.id)
+    settle(s)
+    assert life(s) == before + 4
     replay_matches(s)

@@ -766,7 +766,8 @@ def resolve_top_of_stack(plan: Plan) -> None:
         plan.rules.evoked = [c for c in plan.rules.evoked if c != top_id]
         entered_now = plan.state.cards.get(top_id)
         if entered_now is not None and entered_now.zone.endswith(":battlefield"):
-            from app.rules import trigger_multipliers  # -- trigger multipliers (wave 5D) -- an enters trigger (603.2d)
+            # -- trigger multipliers (wave 5D) -- an enters trigger (603.2d)
+            from app.rules import trigger_multipliers
 
             triggers._add(plan, controller=controller, source_card=top_id, source_object=plan.oid(top_id),
                           name=entered_now.name, index=7100,

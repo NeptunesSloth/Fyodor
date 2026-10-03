@@ -1653,7 +1653,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 effects += _add_groups(groups, own[0], own[1])
                 continue
             optional, text = True, text[len("you may "):]
-            from app.rules import trigger_words  # -- triggers (wave 5D) -- "you may have ~ deal 1 damage …" (603.5)
+            # -- triggers (wave 5D) -- "you may have ~ deal 1 damage …" (603.5)
+            from app.rules import trigger_words
 
             text = trigger_words.have_subject(text)
         if effects and (bare := _language.bare_pronoun_grant(text)) is not None:  # -- recursion & tutors (wave 4M) --
@@ -2169,10 +2170,13 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if trigger == "event":
                     from app.rules import events as event_grammar  # (a leaf module)
 
-                    cond = event_grammar.parse_condition(m["cond"])
-                    if cond is None:
+                    # -- triggers (wave 5D) -- "When ~ enters and whenever an opponent draws a card …" (Orcish
+                    # Bowmasters): one ability, two trigger conditions — it triggers on each (603.2)
+                    both = re.fullmatch(r"~ enters and whenever (?P<rest>.+)", m["cond"])
+                    cond = event_grammar.parse_condition(both["rest"] if both else m["cond"])
+                    if cond is None or (both and (_legacy_trigger(cond) or cond["event"] == "multi")):
                         return None
-                    name = _legacy_trigger(cond) or "event"
+                    name = "multi:enters_self+event" if both else (_legacy_trigger(cond) or "event")
                 # (a trigger about a player, or damage to one, names them: "that player")
                 has_player = cond is not None and _has_player(cond)
                 # -- sagas & attached-object triggers (wave 3S) -- "When enchanted creature dies, return
@@ -2189,7 +2193,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import attached_players
 
                 same, body = attached_players.split_same(body, cond)
-                from app.rules import trigger_words  # -- triggers (wave 5D) -- "they lose 2 life", "an additional card"
+                # -- triggers (wave 5D) -- "they lose 2 life", "an additional card"
+                from app.rules import trigger_words
 
                 body = trigger_words.rewrite_body(body, name, cond, has_player)
                 parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
@@ -2220,7 +2225,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     return None  # ("other" than the object the event happened to, not ~: not modeled)
                 out = {"kind": "triggered", "trigger": name,
                        "effects": effects, "optional": optional, **target_fields(target)}
-                if cond is not None and name == "event":
+                if cond is not None and name in ("event", "multi:enters_self+event"):  # (wave 5D: the second)
                     out["cond"] = cond
                 if intervening is not None:
                     out["if"] = intervening

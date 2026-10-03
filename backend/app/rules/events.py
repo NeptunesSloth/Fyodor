@@ -179,12 +179,25 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(rf"{_P} draws? (?:their|your) (?P<nth>first|second|third) card each turn", c)
     if m:
         return {"event": "draw", "subject": "player", "player": _PLAYERS[m["p"]], "nth": _NTH[m["nth"]]}
+    # -- triggers (wave 5D) -- "an opponent draws a card except the first one they draw in each of their draw steps"
+    # (Orcish Bowmasters): not the first card that player draws during their own draw step (504.1's draw, usually)
+    m = re.fullmatch(rf"{_P} draws a card except the first one they draw in each of their draw steps", c)
+    if m:
+        return {"event": "draw", "subject": "player", "player": _PLAYERS[m["p"]], "not_first_in_draw_step": True}
     found = _cast(c)
     if found is not None:
         return found
     found = _player_action(c)
     if found is not None:
         return found
+    # -- triggers (wave 5D) -- "Whenever you create or sacrifice a token" (Mirkwood Bats): either action, each one its
+    # own event (603.2c) — both halves must read on their own
+    m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<a>[a-z]+) or (?P<b>[a-z]+) (?P<o>(?:an?) .+)", c)
+    if m:
+        a, b = _player_action(f"{m['p']} {m['a']} {m['o']}"), _player_action(f"{m['p']} {m['b']} {m['o']}")
+        if a is None or b is None or a.get("aggregate") or b.get("aggregate") or a["event"] == b["event"]:
+            return None
+        return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
     m = _GETS_COUNTERS.fullmatch(c)  # -- counters & designations (wave 3E): "whenever you get one or more {E}" (122.6) --
     if m:
         return {"event": "player_counters", "subject": "player", "player": _PLAYERS[m["p"]],
