@@ -56,8 +56,8 @@ AMOUNT = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|t
 # 122.1d stun, 122.1h finality, 122.1i rad, 122.1j hone, 714 lore): an effect putting one of these
 # stays manual rather than placing an inert marker.
 UNMODELED_COUNTERS = frozenset({
-    "flying", "first strike", "double strike", "deathtouch", "decayed", "exalted", "haste", "hexproof",
-    "indestructible", "lifelink", "menace", "reach", "shadow", "trample", "vigilance",
+    "decayed", "exalted",  # (-- counters (wave 5H) -- the other keyword counters give their keyword in layer 6:
+    # app/rules/layers.keyword_counters, 122.1b, 613.1f, 613.7c)
     "shield", "rad", "hone", "lore"})  # (stun: 122.1d, wave 3F — keyword_actions.untap_stunned; finality: 122.1h, wave 3R4 — replacements.replace_move)
 
 BASIC_LAND_TYPES = ("Plains", "Island", "Swamp", "Mountain", "Forest")  # 205.3i

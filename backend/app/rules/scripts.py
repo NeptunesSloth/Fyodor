@@ -328,6 +328,7 @@ _RECORDING: dict[str, str | None] = {
     "add_counters": None, "remove_counters": None, "regenerate": None, "damage": None,
     "edict": "sacrificed",  # -- "this way" outcomes (wave 4A) -- "each opponent sacrifices a creature …" (effects._choose_next)
     "tap_choice": "tapped",  # (wave 4A) "tap any number of untapped creatures you control" (this_way.tap_choice)
+    "double_counters": None, "lki_counters": None, "move_counters": None,  # -- counters (wave 5H) --
 }
 # Effects that introduce objects by themselves — by moving, choosing or creating them — rather than
 # by naming a target: a pronoun after them binds to their recorded objects (the object may be in
@@ -410,6 +411,21 @@ def _bind_stats(v: Any, bind: Any, spell: Any = None) -> Any:
             x = _bind_stats(x, bind, spell)
         out[k] = x
     return out
+
+
+# -- counters (wave 5H) --
+def _counted_group(e: dict[str, Any]) -> str | None:
+    """The permanents an instruction's amount counts ("draw a card for each creature you control with …"): a
+    selector over the battlefield, or None."""
+    from app.rules import selectors  # (a leaf module)
+
+    n = e.get("n")
+    key = n.get("count") if isinstance(n, dict) and set(n) == {"count"} else None
+    if not isinstance(key, str) or not key.startswith(selectors.PREFIX):
+        return None
+    sel = selectors.from_key(key)
+    return key if sel.zones == ("battlefield",) and sel.player is None and not sel.card else None
+# -- end counters (wave 5H) --
 
 
 def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: list[dict[str, Any]] | None = None,
@@ -543,6 +559,14 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e["who"] = "event.new"
                 elif pronoun == "them" and not verb and antecedent == "event_all":
                     e["who"] = "event"  # "they get +1/+0": every object of the "one or more" event (603.2c)
+                elif pronoun == "them" and not verb and index > 0 and _counted_group(out[index - 1]) is not None \
+                        and sentence_of(index - 1) == sentence_of(index) - 1:
+                    # -- counters (wave 5H) -- "Draw a card for each creature you control with a +1/+1 counter on
+                    # it. Those creatures gain indestructible …" (Inspiring Call): the permanents the count read,
+                    # recorded as it was read (608.2h: objects, not the group read again)
+                    name = f"g{index - 1}"
+                    out[index - 1]["note_group"] = {"who": _counted_group(out[index - 1]), "as": name}
+                    e["who"] = "ref:" + name
                 else:
                     return None
             elif who in ("it.controller", "it.owner"):
@@ -593,6 +617,12 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e = out[index] = this_way.bind(e, lambda kinds, at=index: _this_way_binding(kinds, at, find, bound))
                 except LookupError:
                     return None
+            if e.get("do") == "lki_counters" and e.get("from") in ("it", "self_named"):  # -- counters (wave 5H) --
+                # 122.8: the object that left (as it last existed); "its" after another instruction: manual
+                if any(i.index < index for i in intros) or antecedent not in ("self_gone", "event_gone") \
+                        or (e["from"] == "self_named" and antecedent != "self_gone"):
+                    return None
+                e = out[index] = {**e, "from": "self" if antecedent == "self_gone" else "event"}
             if e.get("src") == "it":
                 if any(i.index < index and out[i.index].get("who") == "host" for i in intros):
                     return None  # ("tap enchanted creature. It deals …": the host, not the source)
@@ -2882,6 +2912,33 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     m = SHOCK.match(text)
     if m:  # shock lands: "As ~ enters, you may pay 2 life. If you don't, it enters tapped."
         return {"kind": "replacement", "replacement": "pay_life_or_tapped", "life": int(m["n"]), "effects": []}
+    # -- counters (wave 5H) -- "~ enters with an indestructible counter on her", "… on it if you cast it from your hand"
+    # (Myojin: the cast condition as "If you cast it from your hand, ~ enters with …"), "~ enters with a number of +1/+1
+    # counters on it equal to the number of creatures that died this turn" (a count read as it enters, 614.1c)
+    text = re.sub(r"^(~ enters (?:tapped )?with .+? counters? on) (?:him|her)( |\.)", r"\1 it\2", text)
+    tail = re.fullmatch(r"(?P<body>~ enters with .+? counters? on it) (?P<c>if you cast it(?: from your hand)?)\.", text)
+    if tail is not None:
+        text = f"If {tail['c'][3:].replace(' it', ' ~', 1)}, {tail['body']}."
+    eq = re.fullmatch(r"~ enters with a number of (?P<kind>\+1/\+1|[a-z]+) counters on it equal to (?P<v>.+)\.", text)
+    if eq is not None:
+        from app.rules import values
+
+        ev = values.parse_count(eq["v"])
+        if ev is None or eq["kind"] in UNMODELED_COUNTERS or '"it"' in json.dumps(ev):
+            return None
+        # (a count of permanents that could include itself is read before it enters, 614.12; it's counted after the
+        # move here: only "other …" counts and counts outside the battlefield are read)
+        from app.rules import selectors
+
+        def sels(v: Any) -> list[str]:
+            if isinstance(v, dict):
+                return [x for k, w in v.items() for x in ([w] if k in ("count", "of") and isinstance(w, str) else sels(w))]
+            return [x for w in v for x in sels(w)] if isinstance(v, list) else []
+
+        if any(selectors.from_key(k).zones == ("battlefield",) and not selectors.from_key(k).other for k in sels(ev)):
+            return None
+        return {"kind": "replacement", "replacement": "enters_with_counters", "counter": eq["kind"], "n": ev, "effects": []}
+    # -- end counters (wave 5H) --
     cast_if = None  # -- refused modal/conditional (wave 3R1) -- adamant: "If at least three white mana was spent to
     lead = re.match(r"^If (?P<c>[^,]+), ~ enters with ", text)  # cast this spell, ~ enters with a +1/+1 counter on it."
     if lead is not None:

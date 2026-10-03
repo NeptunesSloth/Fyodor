@@ -212,7 +212,7 @@ class _TooMany(Exception):
 
 def _canon(ev: Event) -> str:
     # (an entering permanent's counters are the same event before and after it moves: 614.12a)
-    skip = ("applied", "why", "oid") if ev.get("entering") else ("applied", "why")
+    skip = ("applied", "why", "oid", "newcomers") if ev.get("entering") else ("applied", "why")  # (newcomers: wave 5H)
     return json.dumps({k: v for k, v in ev.items() if k not in skip}, sort_keys=True, default=str)
 
 
@@ -641,7 +641,7 @@ def _make_tokens(plan: Plan, ev: Event) -> list[str]:
             from app.rules import copying
 
             copying.add_copy_effect(plan, [plan.oid(tid)], copying.CopyRecipe.model_validate(recipe), pid)
-        replacements.after_entry(plan, tid, pid)  # 616.1g: created first, then it enters (its "enters with" counters)
+        replacements.after_entry(plan, tid, pid, newcomers=made)  # 616.1g: created first, then it enters (its "enters with" counters)
     return made
 
 
@@ -691,7 +691,10 @@ def _counter_object(plan: Plan, ev: Event) -> tuple[CardInstance | None, Any]:
 
 
 def _counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
-    if ev["n"] <= 0:
+    if c.match.get("entering_only"):  # -- counters (wave 5H) -- "… enters with an additional … counter" (614.1c)
+        if not ev.get("entering") or ev["n"] < 0 or c.source_card in (ev.get("newcomers") or ()):
+            return False  # (614.12: a permanent entering at the same time doesn't apply it)
+    elif ev["n"] <= 0:
         return False
     if ev.get("entering") and c.source_card == ev["card"]:
         # 614.12: an entering permanent's own static applies to it only if it affects only it;
@@ -711,6 +714,8 @@ def _counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
 
 def _counters_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     op = c.op
+    if op.get("entering"):  # -- counters (wave 5H) --
+        return [{**ev, "n": max(0, ev["n"] + int(op["n"]) * _entering_times(plan, c, ev))}]
     n = ev["n"] * int(op["n"]) if op["do"] == "mul" else ev["n"] + int(op["n"]) if op["do"] == "add" else ev["n"]
     return [{**ev, "n": max(0, n)}]
 
@@ -722,16 +727,43 @@ def _player_counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> b
     return not (who == "you" and ev["player"] != c.controller)
 
 
+# -- counters (wave 5H) --
+def _entering_times(plan: Plan, c: Candidate, ev: Event) -> int:
+    """How many times an "enters with an additional …" static adds its counters: once, "equal to ~'s toughness" (the
+    source as it is now), "for each …" (values), "for each Angel you already control" (not the permanents entering
+    now, 614.12)."""
+    times = c.op.get("times")
+    if times is None:
+        return 1
+    ctx = {"controller": c.controller, "source_card": c.source_card, "source_object": c.source_oid}
+    if "already" in times:
+        fresh = {ev["card"], *(ev.get("newcomers") or ())}
+        return sum(1 for cid in selectors.candidates(plan, selectors.from_key(times["already"]), c.controller, c.source_card)
+                   if cid not in fresh)
+    from app.rules import values
+
+    return max(0, values.evaluate(plan, ctx, times))
+
+
+def entering_kinds(plan: Plan, cands: list[Candidate]) -> set[str]:
+    """The counter kinds an "enters with an additional …" static could add (a zero event of each is planned)."""
+    return {str(c.match["counter"]) for c in cands if c.match.get("entering_only") and c.match.get("counter")}
+# -- end counters (wave 5H) --
+
+
 def put_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effect: bool = True,
                  then: dict[str, Any] | None = None, entering: dict[str, str] | None = None,
-                 answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None) -> bool:
+                 answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None,
+                 newcomers: list[str] | None = None) -> bool:
     """THE counter choke point (see the module docstring). Removing counters (negative ``n``)
     isn't a replaceable "put" and passes straight through. False while a choice is open (the
     continuation ``then`` runs after the answer)."""
     answers = answers if answers is not None else _ctx_answers(ctx)
-    planned = plan_counters(plan, puts, by=by, effect=effect, entering=entering, answers=answers, ask=then is not None)
+    planned = plan_counters(plan, puts, by=by, effect=effect, entering=entering, answers=answers, ask=then is not None,
+                            newcomers=newcomers)
     if isinstance(planned, Ask):
-        request = {"puts": [list(p) for p in puts], "by": by, "effect": effect, "entering": entering}
+        request = {"puts": [list(p) for p in puts], "by": by, "effect": effect, "entering": entering,
+                   **({"newcomers": newcomers} if newcomers else {})}
         if _pause(plan, planned, answers, _resume_for(then, "counters", request)):
             return False
         raise planned
@@ -747,10 +779,15 @@ class CounterPlan:
 
 def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effect: bool,
                   entering: dict[str, str] | None, answers: dict[str, str], ask: bool,
-                  cands: list[Candidate] | None = None) -> CounterPlan | Ask:
+                  cands: list[Candidate] | None = None, newcomers: list[str] | None = None) -> CounterPlan | Ask:
     planner = Planner(plan, cands if cands is not None else candidates(plan, ("counters", "player_counters")), answers, ask=ask)
     finals: list[tuple[Event, list[Event]]] = []
     events: list[Event] = []
+    # -- counters (wave 5H) -- an entering permanent given none of a kind an "enters with an additional" static adds:
+    # a zero event of that kind, for the static to modify (614.1c, 122.6)
+    extra_kinds = entering_kinds(plan, planner.cands) if entering else set()
+    puts = list(puts) + [(cid, kind, 0) for cid in (entering or {}) for kind in sorted(extra_kinds)
+                         if not any(p[0] == cid and p[1] == kind for p in puts)]
     for target, kind, n in puts:
         if target in plan.state.players:
             events.append({"kind": "player_counters", "player": target, "counter": kind, "n": int(n), "applied": []})
@@ -759,13 +796,15 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
                          "by": by, "effect": bool(effect), "applied": []}
             if entering and target in entering:  # given counters as it enters (122.6): asked before it enters (614.12a)
                 ev.update(controller=entering[target], entering=True, oid=None)
+                if newcomers:  # -- counters (wave 5H) -- the permanents entering with it (614.12)
+                    ev["newcomers"] = sorted(newcomers)
             events.append(ev)
     order = plan.apnap()
     events.sort(key=lambda e: order.index(affected(plan, e) or "") if affected(plan, e) in order else len(order))  # 616.1: APNAP
     try:
         for ev in events:
             out: list[Event] = []
-            if ev["n"] > 0:
+            if ev["n"] > 0 or (ev.get("entering") and extra_kinds):  # (wave 5H: a zero entering event too)
                 planner.settle(ev, {}, out.append)
             else:
                 out = [ev]  # (removing counters: nothing replaces it)
@@ -797,7 +836,7 @@ def do_counters(plan: Plan, planned: CounterPlan, *, by: str) -> None:
 def _run_counters(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     puts = [(p[0], p[1], int(p[2])) for p in request["puts"]]
     if put_counters(plan, puts, by=request["by"], effect=bool(request.get("effect", True)), then=then,
-                    entering=request.get("entering"), answers=answers):
+                    entering=request.get("entering"), answers=answers, newcomers=request.get("newcomers")):
         run_then(plan, then)
 
 
