@@ -2903,11 +2903,21 @@ def _word_num(word: str) -> int | None:
 
 def _unless_condition(text: str) -> Definition | None:
     """"~ enters tapped unless <condition>" → a condition (app/rules/conditions.py shape; ``{"any":
-    [...]}`` for "a Plains or an Island"). Reveal-or-tapped wordings and "unless a player has 13 or less
-    life" stay manual."""
+    [...]}`` for "a Plains or an Island"). Reveal-or-tapped wordings stay manual."""
     from app.rules import selectors  # (a leaf module)
 
     t = text.strip()
+    # -- static wordings (wave 6E) -- "unless a player has 13 or less life" (the Slow lands of Duskmourn), "unless your
+    # opponents control eight or more lands" (the Turbulent lands): read as the land enters (614.1c, 614.12)
+    m = re.fullmatch(r"a player has (?P<n>\w+) or less life", t)
+    if m:
+        n = _word_num(m["n"])
+        return {"value": {"life": "player_min"}, "op": "<=", "n": n} if n is not None else None
+    m = re.fullmatch(r"your opponents control (?P<n>\w+) or more (?P<what>[a-z]+)", t)
+    if m:
+        n = _word_num(m["n"])
+        key = _selector_key(m["what"] + " your opponents control")
+        return {"value": {"count": key}, "op": ">=", "n": n} if n is not None and key is not None else None
     m = _UNLESS_OPPONENTS.fullmatch(t)
     if m:
         n = _word_num(m["n"])

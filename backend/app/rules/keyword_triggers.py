@@ -3,7 +3,7 @@
 A triggered keyword means a sentence the rules spell out (702.1); where the engine's trigger grammar already reads that
 sentence, the keyword is carried out as it: battle cry (702.91a: "Whenever this creature attacks, each other attacking
 creature gets +1/+0 until end of turn."), ingest (702.115a: "Whenever this creature deals combat damage to a player, that
-player exiles the top card of their library."), poisonous N (702.70a), frenzy N (702.68a). Each instance triggers
+player exiles the top card of their library."), poisonous N (702.70a), frenzy N (702.68a), afterlife N (702.135a). Each instance triggers
 separately (702.91b, 702.115b, 702.70b, 702.68b): one definition per keyword piece of a line.
 """
 
@@ -22,8 +22,11 @@ MEANINGS: dict[str, str] = {
     "ingest": "Whenever this creature deals combat damage to a player, that player exiles the top card of their library.",  # 702.115a
     "poisonous": "Whenever this creature deals combat damage to a player, that player gets {n} poison counters.",  # 702.70a
     "frenzy": "Whenever this creature attacks and isn't blocked, it gets +{n}/+0 until end of turn.",  # 702.68a
+    # 702.135a
+    "afterlife": "When this permanent is put into a graveyard from the battlefield, create {n} 1/1 white and black Spirit "
+                 "creature tokens with flying.",
 }
-_NUMBERED = frozenset({"poisonous", "frenzy"})
+_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife"})
 
 
 def pieces(kw: str, line: str) -> list[str]:

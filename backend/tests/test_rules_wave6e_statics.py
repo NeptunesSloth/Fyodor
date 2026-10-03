@@ -16,6 +16,9 @@
 * Triggered keywords read through their CR meaning: battle cry (702.91a), ingest (702.115a), poisonous N (702.70a),
   frenzy N (702.68a): Hero of Oxid Ridge, Mist Intruder.
 * "Target creature becomes red [and gains haste] until end of turn." (layer 5, 613.1e; 105.3): the Wisps.
+* Afterlife N (702.135a) through its meaning: Orzhov Racketeers.
+* "This land enters tapped unless a player has 13 or less life." / "… unless your opponents control eight or more lands."
+  (614.1c, 614.12): Neglected Manor, Turbulent Moor.
 * Anthems over two groups ("Skeletons you control and other Zombies you control"): Death Baron, Caterwauling Boggart,
   Timber Protector.
 
@@ -72,13 +75,17 @@ EXTRA = [
     card('Crimson Wisps', set_code='tst', number='E30', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Target creature becomes red and gains haste until end of turn. (It can attack and {T} this turn.)\nDraw a card.', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
     card('Aphotic Wisps', set_code='tst', number='E31', mana_cost='{B}', cmc=1.0, type_line='Instant', oracle_text="Target creature becomes black and gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)\nDraw a card.", colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
     card('Cerulean Wisps', set_code='tst', number='E32', mana_cost='{U}', cmc=1.0, type_line='Instant', oracle_text='Target creature becomes blue until end of turn. Untap that creature.\nDraw a card.', colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
+    card('Neglected Manor', set_code='tst', number='E33', mana_cost='', cmc=0.0, type_line='Land', oracle_text='This land enters tapped unless a player has 13 or less life.\n{T}: Add {W} or {B}.', colors=[], color_identity=['B', 'W'], keywords=[]),  # noqa: E501
+    card('Turbulent Moor', set_code='tst', number='E34', mana_cost='', cmc=0.0, type_line='Land — Plains Swamp', oracle_text='({T}: Add {W} or {B}.)\nThis land enters tapped unless your opponents control eight or more lands.', colors=[], color_identity=['B', 'W'], keywords=[]),  # noqa: E501
+    card('Orzhov Racketeers', set_code='tst', number='E35', mana_cost='{4}{B}', cmc=5.0, type_line='Creature — Human Rogue', oracle_text='Whenever this creature deals combat damage to a player, that player discards a card.\nAfterlife 2 (When this creature dies, create two 1/1 white and black Spirit creature tokens with flying.)', power='3', toughness='2', colors=['B'], color_identity=['B'], keywords=['Afterlife']),  # noqa: E501
 ]
 FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime Archangel", "Bria, Riptide Rogue",
         "Caterwauling Boggart", "Timber Protector", "Demand Answers", "Bitter Triumph", "Eaten Alive",
         "Annihilating Glare", "Golgari Charm", "Wrap in Vigor", "Hooded Brawler", "Glorybringer", "Tah-Crop Elite",
         "Bloodcrusher of Khorne", "Inquisitor Greyfax", "Ghost, Spectral Saboteur", "Company Commander",
         "Bruse Tarl, Roving Rancher", "Arms of Hadar", "How to Start a Riot", "Neutralize the Guards",
-        "Hero of Oxid Ridge", "Mist Intruder", "Crimson Wisps", "Aphotic Wisps", "Cerulean Wisps"]
+        "Hero of Oxid Ridge", "Mist Intruder", "Crimson Wisps", "Aphotic Wisps", "Cerulean Wisps", "Neglected Manor",
+        "Turbulent Moor", "Orzhov Racketeers"]
 STILL_MANUAL = {
     "Sedgemoor Witch": "Ward",  # (ward—Pay 3 life: a cost the ward trigger doesn't read)
     "Silvergill Adept": "reveal a Merfolk card",
@@ -587,4 +594,55 @@ def test_aphotic_wisps_black_with_fear_and_a_card(cards):
     settle(s)
     c = chars(s, bear)
     assert set(c.colors) == {"B"} and "fear" in c.keywords and len(s.state.zones["p1:hand"]) == hand  # (-1 cast, +1 drawn)
+    replay_matches(s)
+
+
+# -- afterlife (702.135a) ---------------------------------------------------------------------------------------------
+def test_orzhov_racketeers_afterlife_makes_two_spirits(cards):
+    s = build(cards, "Orzhov Racketeers", "Murder")
+    rack = put(s, "Orzhov Racketeers")
+    murder = to_hand(s, "Murder")
+    mana(s, B=3)
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[rack.id])
+    settle(s)
+    spirits = [c for c in s.state.cards.values() if c.name == "Spirit" and c.zone == "p1:battlefield"]
+    assert len(spirits) == 2 and all("flying" in chars(s, c).keywords and chars(s, c).pt == (1, 1) for c in spirits)
+    assert set(chars(s, spirits[0]).colors) == {"W", "B"}
+    replay_matches(reloaded(s))
+
+
+# -- lands entering tapped unless … (614.1c) --------------------------------------------------------------------------
+def test_neglected_manor_enters_tapped_while_every_player_is_above_13_life(cards):
+    s = build(cards, "Neglected Manor")
+    manor = to_hand(s, "Neglected Manor")
+    act(s, "p1", type="play_land", card_id=manor.id)
+    settle(s)
+    assert s.state.cards[manor.id].tapped
+    replay_matches(s)
+
+
+def test_neglected_manor_enters_untapped_when_a_player_has_13_life(cards):
+    s = build(cards, "Neglected Manor")
+    act(s, "p1", type="set_life", player="p2", value=13)
+    manor = to_hand(s, "Neglected Manor")
+    act(s, "p1", type="play_land", card_id=manor.id)
+    settle(s)
+    assert not s.state.cards[manor.id].tapped
+    replay_matches(reloaded(s))
+
+
+def test_turbulent_moor_counts_the_opponents_lands(cards):
+    s = build(cards, "Turbulent Moor")
+    islands = [c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2"][:8]
+    for c in islands[:7]:
+        act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "battlefield"})
+    moor = to_hand(s, "Turbulent Moor")
+    act(s, "p1", type="play_land", card_id=moor.id)
+    settle(s)
+    assert s.state.cards[moor.id].tapped  # (seven lands: not enough)
+    act(s, "p1", type="move", card_ids=[moor.id], to={"zone": "hand"})
+    act(s, "p2", type="move", card_ids=[islands[7].id], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p1", type="move", card_ids=[moor.id], to={"player": "p1", "zone": "battlefield"})
+    settle(s)
+    assert not s.state.cards[moor.id].tapped  # (614.1c: also when put onto the battlefield)
     replay_matches(s)
