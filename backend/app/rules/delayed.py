@@ -175,12 +175,17 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             plan.note(f"{ctx.get('name') or 'The ability'}: nothing to watch (it already left)")
             return True
         context.bind_objects(plan, {"refs": refs}, "watch", watched)
+    if when["kind"] == "watch":  # -- turn watches (wave 7D) -- events after this resolution step only (603.7a)
+        when["since"] = plan.rules.batch
+        from app.rules import watches
+
+        deferred = watches.bind_x(deferred, int(ctx.get("x") or 0))  # (the X the creating spell was cast with)
     turn = plan.state.turn.number
     trigger = DelayedTrigger(
         id=secrets.token_hex(4), controller=ctx["controller"], source_card=ctx.get("source_card"),
         source_object=ctx.get("source_object"), name=ctx.get("name") or "", when=when,
         effects=_bind_now(plan, ctx, deferred, refs), refs=refs, event=ctx.get("event"), turn=turn,
-        step=plan.state.turn.phase, until_turn=turn if e.get("this_turn") else None)
+        step=plan.state.turn.phase, until_turn=turn if e.get("this_turn") else None, once=bool(e.get("once", True)))
     plan.rules.delayed.append(trigger)
     plan.note(f"{trigger.name or 'A delayed ability'} will trigger {describe_when(when)}")
     return True
@@ -199,6 +204,8 @@ def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, na
 def describe_when(when: dict[str, Any]) -> str:
     if when["kind"] == "designation":  # (wave 3E: app/rules/designations.py fires these)
         return "when an opponent becomes the monarch"
+    if when["kind"] == "watch":  # -- turn watches (wave 7D) --
+        return f"when {when['text']} this turn"
     if when["kind"] == "event":
         if when["event"] == "die_or_exile":  # -- wave 3F -- (earthbend: no "this turn")
             return "when it dies or is put into exile"

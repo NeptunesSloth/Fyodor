@@ -826,6 +826,9 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             facts[0][4]["first_in_draw_step"] = first
         if facts:
             _fire_generic(plan, facts, e.batch, fired, watchers, left)
+            from app.rules import watches  # -- turn watches (wave 7D) -- "whenever … this turn" delayed triggers
+
+            watches.on_facts(plan, facts, e.batch)
 
 
 def generic_combat(plan: Plan, event: str, cards: list[CardInstance],

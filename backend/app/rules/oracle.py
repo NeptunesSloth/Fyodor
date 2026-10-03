@@ -141,6 +141,9 @@ def word_prefix(line: str) -> tuple[str, str] | None:
     return None
 
 
+_WATCH_LINE = re.compile(r"^(?:Whenever .+? this turn, |When you next cast .+? this turn, )")  # -- turn watches (wave 7D) --
+
+
 def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], str | None]:
     if _MANA_ABILITY.match(line):
         return "mana", (), "{T}"
@@ -161,7 +164,9 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
     if _LOYALTY.match(line):
         return "loyalty", (), line.split(":", 1)[0]
     if _TRIGGER.match(line):
-        return "triggered", (), None
+        # -- turn watches (wave 7D) -- an instant's or sorcery's "Whenever … this turn, …" is a spell ability that
+        # creates a delayed triggered ability (603.7), not a triggered ability of the spell
+        return ("spell" if spell and _WATCH_LINE.match(line) else "triggered"), (), None
     worded = word_prefix(line) if ":" in line else None  # -- refused zones/sized (wave 3R4) -- 207.2c/207.2d
     if line.startswith("Exhaust — ") and ":" in line:  # -- ability words (wave 4F) -- 702.177a: an activated ability
         worded = ("Exhaust", line[len("Exhaust — "):])  # (its "Activate only once": restrictions.parse)
