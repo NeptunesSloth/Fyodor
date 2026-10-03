@@ -10,7 +10,7 @@ from app.game.session import GameSession
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_conditionals import counters, life, settle
+from tests.test_rules_conditionals import counters, life, settle, token_of
 from tests.test_rules_effects import mana, replay_matches
 from tests.wave9c_kit import build, card_named, put, to_hand
 
@@ -31,6 +31,12 @@ EXTRA = [
     real("Retaliator Griffin", "{3}{W}", 4, "Creature — Griffin",
          "Flying\nWhenever a source an opponent controls deals damage to you, you may put that many +1/+1 counters on this "
          "creature.", ("3", "3"), "W"),
+    real("Harsh Mentor", "{1}{R}", 2, "Creature — Goblin Rogue",
+         "Whenever an opponent activates an ability of an artifact, creature, or land on the battlefield, if it isn't a mana "
+         "ability, this creature deals 2 damage to that player.", ("2", "2"), "R"),
+    real("Runic Armasaur", "{3}{G}", 4, "Creature — Dinosaur",
+         "Whenever an opponent activates an ability of a creature or land that isn't a mana ability, you may draw a card.",
+         ("3", "4"), "G"),
     real("Belltower Sphinx", "{4}{U}", 5, "Creature — Sphinx",
          "Flying\nWhenever a source deals damage to this creature, that source's controller mills that many cards.", ("4", "4"),
          "U"),
@@ -101,4 +107,44 @@ def test_a_source_an_opponent_controls_deals_damage_to_you(cards):
     griffin = put(s, "Retaliator Griffin", "p2")
     bolt(s, "p2")
     assert counters(s, griffin) == 3
+    roundtrip(s)
+
+
+# -- activates an ability (602.2) --------------------------------------------------------------------------
+@pytest.mark.parametrize("name", ["Harsh Mentor", "Runic Armasaur"])
+def test_activation_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def pump(s, pid="p1"):
+    t = token_of(s, pid, "Pumper", "Token Creature — Test", "2/2", "{R}: This creature gets +1/+0 until end of turn.")
+    mana(s, pid, R=1)
+    act(s, pid, type="activate_ability", card_id=t.id, ability=0)
+    settle(s)
+    return t
+
+
+def test_an_opponent_activating_a_non_mana_ability_triggers_it(cards):
+    s = build(cards, (), ("Harsh Mentor",))
+    put(s, "Harsh Mentor", "p2")
+    pump(s)
+    assert life(s, "p1") == 38  # "that player" is the player who activated it
+    roundtrip(s)
+
+
+def test_your_own_ability_and_a_spell_do_not_trigger_it(cards):
+    s = build(cards, ("Harsh Mentor", "Lightning Bolt"))
+    put(s, "Harsh Mentor")
+    pump(s)
+    bolt(s, "p2")  # casting a spell is not activating an ability
+    assert life(s, "p1") == 40
+    roundtrip(s)
+
+
+def test_an_optional_reaction_to_an_opponents_activation(cards):
+    s = build(cards, (), ("Runic Armasaur",))
+    put(s, "Runic Armasaur", "p2")
+    hand = len(s.state.zones["p2:hand"])
+    pump(s)  # (settle answers the optional draw with its first option: yes)
+    assert len(s.state.zones["p2:hand"]) == hand + 1
     roundtrip(s)

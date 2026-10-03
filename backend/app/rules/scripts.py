@@ -2623,6 +2623,14 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     if cond is None or (both and (_legacy_trigger(cond) or cond["event"] == "multi")):
                         return None
                     name = "multi:enters_self+event" if both else (_legacy_trigger(cond) or "event")
+                if cond is not None and cond.get("event") == "activate" and not cond["loyalty"]:
+                    # -- activation (wave 11F) -- only non-mana abilities use the stack (605.3b): "if it isn't a mana ability"
+                    # (Harsh Mentor) is the same as "that isn't a mana ability"; without either, mana abilities would trigger it
+                    nm = re.match(r"^if it isn't a mana ability, ", body)
+                    if nm:
+                        body = body[nm.end():]
+                    elif not cond["nonmana"]:
+                        return None
                 # (a trigger about a player, or damage to one, names them: "that player")
                 has_player = cond is not None and _has_player(cond)
                 if cond is not None and cond.get("event") == "cast" and cond.get("player") == "you":

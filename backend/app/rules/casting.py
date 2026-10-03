@@ -2040,6 +2040,9 @@ def _stacked(plan: Plan, card: CardInstance, oid: str, ch: Characteristics, abil
     if ability_id:
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
                                          name=ch.name, effects=effects, targets=[], target_spec=None)
+        from app.rules.triggers import activated  # -- activation (wave 11F) --
+
+        activated(plan, card, oid)
     r.passed = []
     r.priority = plan.actor
     if r.prefs_for(plan.actor).hold_priority:
@@ -2720,6 +2723,10 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         from app.rules.triggers import targeted
 
         targeted(plan, ability_id, plan.actor, chosen)
+    if ability_id:  # -- activation (wave 11F) -- 602.2: "Whenever a player activates an ability …"
+        from app.rules.triggers import activated
+
+        activated(plan, card, oid, loyalty=ability.kind == "loyalty")
     if ability.kind == "loyalty":
         r.loyalty_used[oid] = plan.state.turn.number
     if restrictions.limited(restrictions.parse(_own_text(ability.text, ch.name)) or []):  # "Activate only once each turn" / "… only once"

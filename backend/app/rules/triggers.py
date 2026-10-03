@@ -610,6 +610,9 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 return False
     if event == "dealt_damage" and cond.get("combat") is not None and bool(info.get("combat")) != cond["combat"]:
         return False
+    if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
+            cond.get("own") and (obj is None or obj.controller != player))):  # -- activation (wave 11F) --
+        return False
     if event in ("scry", "surveil") and cond.get("nth") and info.get("nth") != cond["nth"]:  # -- looks (wave 8B) --
         return False
     if event == "die" and cond.get("damaged_by_self") and not _damaged_by(plan, watcher, info.get("oid")):  # (wave 7C)
@@ -1363,6 +1366,16 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=9000 + k, definition={"kind": "triggered", "trigger": "ward", "optional": False, "target": None,
                                          "effects": [{"do": "counter_unless", "cost": cost, "object": stack_id}]})
+
+
+def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False) -> None:
+    """-- activation (wave 11F) -- 602.2: an activated ability (not a mana ability) was put on the stack by ``plan.actor``:
+    "Whenever an opponent activates an ability of a creature …" (603.2). The source is the object that activated it,
+    as it last existed if paying the cost moved it (603.10a, 608.2h)."""
+    snap = None if plan.oid(card) == oid else plan.rules.lki.get(oid)
+    obj, och = _snapshot_card(plan, snap) if snap is not None else (card, plan.ch(card))
+    _fire_generic(plan, [("activate", obj, och, plan.actor,
+                          {"oid": oid, "snap": snap, "actor": plan.actor, "amount": 1, "loyalty": loyalty})], -1, {})
 
 
 def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -> None:

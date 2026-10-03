@@ -211,6 +211,9 @@ def _parse(c: str) -> Condition | None:
     found = _player_action(c)
     if found is not None:
         return found
+    found = _activate(c)  # -- activation (wave 11F) --
+    if found is not None:
+        return found
     # -- mana riders (wave 5A) -- "you tap ~ for mana", "a player taps a land for mana"
     from app.rules import tap_mana
 
@@ -540,6 +543,24 @@ def _player_action(c: str) -> Condition | None:
     card = event in ("discard", "cycle")
     return {"event": event, "subject": "player", "player": _PLAYERS[m["p"]], "obj": _object_sel(o, card=card),
             "aggregate": aggregate}
+
+
+# -- activation (wave 11F) -- 602.2: "Whenever an opponent activates an ability of an artifact, creature, or land that
+# isn't a mana ability", "Whenever you activate a loyalty ability". Mana abilities never use the stack (605.3b), so only
+# "that isn't a mana ability" (or a loyalty ability, 606.1: never a mana ability, 605.1a) is read: ``nonmana``
+_ACTIVATE = re.compile(rf"{_P} activates? (?:(?P<loyalty>a loyalty ability)|an ability)(?: of (?P<o>an? .+?)(?P<own> they control)?"
+                       r"(?: on the battlefield)?)?(?P<nonmana> that isn't a mana ability)?")
+
+
+def _activate(c: str) -> Condition | None:
+    m = _ACTIVATE.fullmatch(c)
+    if m is None:
+        return None
+    sel = selectors.parse(re.sub(r"^an? ", "", m["o"])) if m["o"] else None
+    if m["o"] and (sel is None or sel.player is not None or sel.card or (m["own"] and (sel.controller or sel.owner))):
+        raise _Refuse
+    return {"event": "activate", "subject": "player", "player": _PLAYERS[m["p"]], "nonmana": bool(m["nonmana"]),
+            "loyalty": bool(m["loyalty"]), **({"obj": sel.key()} if sel is not None else {}), **({"own": True} if m["own"] else {})}
 
 
 _PLAIN_COUNTERS = frozenset({"lore", "loyalty", "charge", "oil", "time", "quest", "stun", "flying", "shield"})
