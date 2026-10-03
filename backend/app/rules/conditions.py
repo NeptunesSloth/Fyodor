@@ -741,6 +741,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return _object_holds(plan, ctx, cond)
     if "versus" in cond:
         return _versus(plan, ctx, cond["versus"])
+    if "attacked_now" in cond:  # -- cast timing (wave 7A) -- 506.3: creatures attacking you (not your planeswalkers)
+        return any(c.attacking is not None and c.attacking.kind == "player" and c.attacking.id == ctx["controller"]
+                   for c in plan.state.cards.values())
     if "combat_phase" in cond:  # -- combat (wave 5C) --
         from app.game.state import COMBAT_PHASES
 
@@ -778,8 +781,9 @@ def _versus(plan: Plan, ctx: dict[str, Any], spec: dict[str, Any]) -> bool:
     """Some one opponent's quantity compared with yours ("an opponent controls more lands than you"):
     the same quantity read for each of them (as "you" of that quantity)."""
     mine = values.evaluate(plan, ctx, spec["value"])
-    return any(_OPS[spec["op"]](values.evaluate(plan, {**ctx, "controller": p}, spec["value"]), mine)
-               for p in plan.live() if p != ctx["controller"])
+    each = any if not spec.get("every") else all  # (wave 7A: "fewer creatures than each opponent")
+    return each(_OPS[spec["op"]](values.evaluate(plan, {**ctx, "controller": p}, spec["value"]), mine)
+                for p in plan.live() if p != ctx["controller"])
 
 
 def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:

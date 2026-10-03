@@ -1463,6 +1463,10 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     limited = cast_limits.cast_problem(state, player, card, ch, info)
     if limited:
         return limited
+    from app.rules import cast_timing  # -- cast timing (wave 7A) -- "Cast this spell only during …" (601.3)
+
+    if (timed := cast_timing.problem(state, player, card, ch, info)) is not None:
+        return timed
     if "Instant" in ch.types or ch.has_flash or grant.flash:  # (601.3b: as though it had flash)
         return None
     if state.turn.active_player != player:
