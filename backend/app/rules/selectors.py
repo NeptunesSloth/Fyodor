@@ -199,6 +199,8 @@ def _thats_status(s: Selector, m: re.Match[str]) -> Selector:
 
 @_suffix(r"that attacked this turn")  # -- combat (wave 5C) -- declared as attackers this turn (508.1; 508.4: not put)
 def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    if not m.string[: m.start()].endswith("creatures"):
+        raise ValueError("only \"creatures that attacked this turn\" (a group on the battlefield)")
     return replace(s, extras=(*s.extras, "attacked_this_turn"))
 
 
