@@ -4370,3 +4370,7 @@ EFFECTS[:0] = _stack_interaction.TEMPLATES
 # -- turn grants (wave 6A) -- one subject for two grants ("… gains vigilance until end of turn and can't be blocked this
 # turn"): after every other template (it defers to the generic grammar first: app/rules/turn_grants.py)
 EFFECTS.extend(_turn_grants.LAST)
+# -- activation wordings (wave 7B) -- "Adapt N." (app/rules/activation_words.py)
+from app.rules import activation_words as _activation_words  # noqa: E402, I001
+
+EFFECTS[:0] = _activation_words.TEMPLATES

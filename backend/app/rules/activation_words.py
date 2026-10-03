@@ -97,11 +97,11 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
                 names[plan.ch(card).name] = names.get(plan.ch(card).name, 0) + 1
         return max(names.values(), default=0) >= cond["n"]
     if kind == "self_combat":
-        card = plan.state.cards.get(ctx.get("source_card") or "")
-        if card is None or not card.zone.endswith(":battlefield"):
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        if src is None or not src.zone.endswith(":battlefield"):
             return False
-        states = {"attacking": card.attacking is not None, "blocking": bool(card.blocking),
-                  "blocked": card.attacking is not None and card.id in plan.rules.blocked}  # (509.1h: stays blocked)
+        states = {"attacking": src.attacking is not None, "blocking": bool(src.blocking),
+                  "blocked": src.attacking is not None and src.id in plan.rules.blocked}  # (509.1h: stays blocked)
         return any(states[s] for s in cond["any"])
     raise ValueError(f"unknown activation condition {cond!r}")
 
@@ -121,3 +121,22 @@ def step_clause(clause: str) -> dict[str, Any] | None:
         return {"kind": "step", "phases": ["untap", "upkeep", "draw", "main1", *_BEFORE_DAMAGE, "combat_damage"],
                 "whose": None, "text": "before the end of combat step"}
     return None
+
+
+# -- Adapt (701.46) --
+# "Adapt N." means "If this permanent has no +1/+1 counters on it, put N +1/+1 counters on it."
+_ADAPT = re.compile(r"^adapt (?P<n>\w+)$")
+
+
+def _adapt(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import conditions
+    from app.rules.scripts import _NoMatch
+
+    n = conditions._num(m["n"])
+    if n is None:
+        raise _NoMatch()
+    return [{"do": "only_if", "cond": {"not": {"object": "self", "counters": "+1/+1"}}, "skip": 1},
+            {"do": "add_counters", "who": "self", "kind": "+1/+1", "n": n}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_ADAPT, _adapt)]
