@@ -2654,7 +2654,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # creature's toughness" / "… deals damage to a creature, …": the event's object (app/rules/other_side.py)
                 from app.rules import other_side
 
-                if other_side.wanted(cond) and cond.get("subject") == "host" and "that creature" not in body:
+                if cond is not None and other_side.wanted(cond) and cond.get("subject") == "host" and "that creature" not in body:
                     body = body.replace("the other creature", "that creature")  # (wave 11E: Venom, Mammoth Harness)
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
                 parsed = parse_effects(body, it=ante, event_player=has_player)

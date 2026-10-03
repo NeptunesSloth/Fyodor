@@ -32,6 +32,7 @@ from tests.test_rules_wave5c_combat import build, declare, old, put, to_attack
 from tests.test_rules_wave6d_trigger_bodies import bob_attacks_into, gone
 
 EXTRA = [
+    card('Charisma', set_code="tst", number="Q09", mana_cost='{U}{U}{U}', cmc=3.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nWhenever enchanted creature deals damage to a creature, gain control of the other creature for as long as this Aura remains on the battlefield.', colors=['U'], color_identity=['U'], keywords=['Enchant']),  # noqa: E501
     card('Lure', set_code="tst", number="Q07", mana_cost='{1}{G}{G}', cmc=3.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nAll creatures able to block enchanted creature do so.', colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
     card('Sam, Loyal Attendant', set_code="tst", number="Q08", mana_cost='{1}{G}{W}', cmc=3.0, type_line='Legendary Creature — Halfling Peasant', oracle_text='Partner with Frodo, Adventurous Hobbit (When this creature enters, target player may put Frodo into their hand from their library, then shuffle.)\nAt the beginning of combat on your turn, create a Food token. (It\'s an artifact with "{2}, {T}, Sacrifice this token: You gain 3 life.")\nActivated abilities of Foods you control cost {1} less to activate.', power='3', toughness='3', colors=['G', 'W'], color_identity=['G', 'W'], keywords=['Partner with']),  # noqa: E501
     card('Adaptive Automaton', set_code="tst", number="Q06", mana_cost='{3}', cmc=3.0, type_line='Artifact Creature — Construct', oracle_text="As this creature enters, choose a creature type.\nThis creature is the chosen type in addition to its other types.\nOther creatures you control of the chosen type get +1/+1.", power='2', toughness='2', colors=[], color_identity=[]),  # noqa: E501
@@ -146,4 +147,17 @@ def test_sam_foods_cost_one_less_to_activate(cards):
     assert cost() == "{2}"
     put(s, "Sam, Loyal Attendant")
     assert cost() == "{1}"  # (601.2f: the generic part, no floor printed)
+    roundtrip(s)
+
+
+def test_charisma_takes_the_creature_it_dealt_damage_to(cards):
+    s = build(cards, "Charisma")
+    bear = token(s, "p1", "Bear", "2/5")
+    charisma = to_hand(s, "Charisma")
+    mana(s, U=3)
+    act(s, "p1", type="cast_spell", card_id=charisma.id, targets=[bear.id])
+    settle(s)
+    raider = bob_attacks_into(s, bear, "2/5")
+    until(s, lambda s: s.state.turn.phase == "combat_damage" and not s.state.zones.get("stack"))
+    assert s.state.cards[raider.id].controller == "p1"  # (the creature the bear dealt damage to: 613.1b)
     roundtrip(s)
