@@ -228,9 +228,13 @@ def _without_ability_word(text: str) -> str:
 def _general_condition(text: str) -> str | None:
     import json
 
-    from app.rules import conditions
+    from app.rules import (
+        activation_words,  # -- activation wordings (wave 7B) --
+        conditions,
+    )
 
-    cond = conditions.parse(text)
+    cond = conditions.parse(text) or activation_words.condition(
+        re.sub(r"\bthis (?:creature|land|permanent|artifact|enchantment)\b", "~", text))
     if cond is None or conditions.is_cast_condition(cond):
         return None
     return "cond:" + json.dumps(cond, sort_keys=True)
