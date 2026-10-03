@@ -785,8 +785,9 @@ def _renumber(value: Any, index: list[int] | None) -> Any:
         if k in _TARGET_REFS and isinstance(v, str) and (v == "target" or v.startswith("target:")):
             local = 0 if v == "target" else int(v[7:])
             v = "target" if index is None else f"target:{index[local]}"
-        elif k in _TARGET_REFS and isinstance(v, str) and v.startswith("controlled:target"):
+        elif k in _TARGET_REFS and isinstance(v, str) and re.match(r"controlled:target(?::\d+)?\|", v):
             # -- static wordings (wave 6E) -- "creatures target player controls": the player is the clause's target too
+            # (only "target" / "target:<k>": "controlled:target_player_or_controller|…" is 6B's player reference)
             players, _, key = v[len("controlled:"):].partition("|")
             local = 0 if players == "target" else int(players[7:])
             v = f"controlled:{'target' if index is None else f'target:{index[local]}'}|{key}"
