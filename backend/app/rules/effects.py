@@ -2274,6 +2274,9 @@ PRIMITIVES.update({"only_if": only_if})
 from app.rules import kinship as _kinship  # noqa: E402
 
 PRIMITIVES["kinship"] = _kinship.run
+from app.rules import parley as _parley  # noqa: E402  -- parley (wave 9C) --
+
+PRIMITIVES.update({"parley_reveal": _parley.reveal, "parley_repeat": _parley.repeat})
 # "You may pay {2}. If you do, …" / "… unless that player pays {1}" (118.12): app/rules/optional_payment.py
 PRIMITIVES["optional_payment"] = optional_payment.optional_payment
 

@@ -1654,6 +1654,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     if (kin := kinship.split(body)) is not None:
         return kinship.bind(_parse_effects(kin, it, event_player))
+    from app.rules import parley  # -- parley (wave 9C) --
+
+    if (parts := parley.split(body)) is not None:
+        return parley.bind(parts, lambda t: _parse_effects(t, it, event_player))
     optional = False
     effects: list[dict[str, Any]] = []
     groups: list[dict[str, Any]] = []
@@ -2464,7 +2468,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import attached_mana
 
         return attached_mana.definition(text)
-    if ability.kind == "triggered" and text.startswith(("Whenever you tap ", "Whenever a player taps ")):
+    if ability.kind == "triggered" and (text.startswith(("Whenever you tap ", "Whenever a player taps "))
+                                        or re.match(r"Whenever an? [^,]+ is tapped for mana, its controller adds ", text)):
         from app.rules import tap_mana  # -- mana riders (wave 5A) -- a triggered mana ability (605.1b)
 
         if (tapped := tap_mana.definition(text)) is not None:
@@ -2473,6 +2478,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import exert
 
         return exert.definition(text, ch, ability.index)
+    if ability.kind == "static" and text.startswith("If ") and "mana, it produces" in text:
+        from app.rules import mana_replace  # -- mana replacements (wave 9C) -- 106.12b
+
+        if (replaced := mana_replace.definition(text)) is not None:
+            return replaced
     if ability.kind == "static" and (untaps := _untap_riders.static_definition(text)) is not None:
         return untaps  # -- mana riders (wave 5A) -- "Untap all … you control during each other player's untap step."
     if ability.kind == "static":
