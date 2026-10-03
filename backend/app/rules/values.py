@@ -375,7 +375,11 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             got = _object(plan, ctx, v[stat])
             if got is None:
                 return 0
-            _, ch = got
+            obj, ch = got
+            if stat == "mana_value":  # -- stack interaction (wave 5B) -- X on the stack counts (202.3e)
+                from app.rules.stack_interaction import mana_value
+
+                return max(0, mana_value(obj, ch))
             return max(0, _stat_of(ch, stat) or 0)
     if "counters" in v:
         got = _object(plan, ctx, v.get("on", "self"))

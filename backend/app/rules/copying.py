@@ -1032,8 +1032,9 @@ def parse_copy_target(what: str, exc: str | None) -> tuple[list[dict[str, Any]],
     if group is None or (group["min"], group["max"]) != (1, 1) or "another" in group:
         return None
     sel = selectors.from_key(group["what"]) if group["what"].startswith(selectors.PREFIX) else None
-    if sel is None or sel.zones != ("stack",):
-        return None
+    if sel is None or sel.zones != ("stack",) or sel.ability == selectors.SPELL_OR_ABILITY \
+            or "single_target" in sel.extras:
+        return None  # (-- stack interaction (wave 5B) -- "spell or ability", "with a single target": not read here)
     ex = parse_excepts(exc)
     if ex is None or (sel.ability is not None and exc):
         return None  # (an ability has no characteristics to except)

@@ -1053,8 +1053,11 @@ def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
 
 
 def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    for sid in _stack_targets(plan, ctx, e):
+    sids = _stack_targets(plan, ctx, e)
+    before = _remember(plan, ctx, e, sids)  # -- stack interaction (wave 5B) -- "its controller": 608.2h
+    for sid in sids:
         counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")))  # (exile: 4C; to: 4A)
+    _moved(plan, ctx, e, before)  # (wave 5B)
     return True
 
 
@@ -3127,3 +3130,10 @@ from app.rules import put_back as _put_back  # noqa: E402, I001
 PRIMITIVES.update(_put_back.PRIMITIVES)
 RESUME.update(_put_back.RESUME)
 # -- end triggers (wave 5D) --
+
+# -- stack interaction (wave 5B) -- changing the target of a spell or ability (115.7): app/rules/stack_interaction.py
+from app.rules import stack_interaction as _stack_interaction  # noqa: E402, I001
+
+PRIMITIVES.update(_stack_interaction.PRIMITIVES)
+RESUME.update(_stack_interaction.RESUME)
+# -- end stack interaction (wave 5B) --
