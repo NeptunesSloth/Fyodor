@@ -554,7 +554,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     hits: list[Static] = []
     kwc = keyword_counters(state, card)  # -- counters (wave 5H) --
     on_field = card.zone.endswith(":battlefield") and state.rules is not None
-    if on_field and state.rules.object_id(card.id) in state.rules.suspected:  # -- suspect (wave 12A) -- 701.60c
+    if state.rules is not None and on_field and state.rules.object_id(card.id) in state.rules.suspected:  # -- suspect (wave 12A) -- 701.60c
         kwc = [*kwc, ((timestamp(state, card.id), 0, 0), "menace")]
         imposed.add("cant_block")
     if info is not None and on_field and _depth == 0:

@@ -142,7 +142,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     what = m["what"] if m else p
     if what.lower() == "x":
         return {"x": 1}
-    from app.rules import dice  # -- rolling dice (wave 12A) -- "the result", "that result", "the other result" (706.4)
+    from app.rules import (
+        dice,  # -- rolling dice (wave 12A) -- "the result", "that result", "the other result" (706.4)
+    )
 
     if (rolled := dice.amount(p)) is not None:
         return rolled
