@@ -124,6 +124,12 @@ def _with_chosen_type(spend: str, creature_type: str) -> str:
 def _land_mana(state: GameState, players: list[str], info: CardInfo, *, skip: str) -> set[str]:
     """Types of mana lands these players control could produce (Reflecting Pool, Exotic Orchard)."""
     out: set[str] = set()
+    from app.rules import (
+        mana_replace,  # -- mana replacements (wave 9C) -- 106.7: replacement effects change what lands produce
+    )
+
+    if mana_replace.in_play(state, info):
+        return out
     for p in players:
         for cid in state.zones.get(zone_key(p, "battlefield"), []):
             if cid == skip:
@@ -338,8 +344,9 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         if options:
             out.append((ab.index, replace(parsed, options=options)))
     # -- attached events (wave 4L) -- "Whenever enchanted land is tapped for mana"
-    from app.rules import attached_mana, tap_mana
+    from app.rules import attached_mana, mana_replace, tap_mana
 
+    out = mana_replace.extend(state, card, info, out)  # -- mana replacements (wave 9C) -- 106.12b: first, then the triggers' extras
     out = tap_mana.extend(state, card, info, out)  # -- mana riders (wave 5A) -- "Whenever you tap a land for mana, …"
     return attached_mana.extend(state, card, info, ch.is_land, out)
 
@@ -1409,8 +1416,13 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
     paying its mana cost" permission (118.9) — an alternative cost, which is optional (118.9b), so
     it is never applied to a plain cast: without the opt-in only paid ways count, and a card that
     only a free permission lets them cast isn't castable that way."""
+    from app.rules import keyword_actions
+
     how = "hand" if card.zone == zone_key(player, "hand") else "command" if from_command_zone(card, player) else \
         "flashback" if from_graveyard(card, player, ch, state) else None
+    if how is None and card.is_token and (perm := keyword_actions.prepared_permanent(state, card.id)) is not None \
+            and perm.controller == player:
+        how = "prepared"  # -- prepared (wave 13C) -- 722.3c: its controller may cast the copy in exile
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
     flash = any(g.flash for g in found)
     if how is None and info is not None and card.zone == zone_key(player, "graveyard") and not free \
@@ -1603,6 +1615,8 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
             continue
         cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free,
                           targets=_hint_targets(ch))  # -- review (Codex) --
+        if grant is not None and grant.spend:  # -- as long as (wave 9B) -- 118.14
+            cost = M.spend_as(cost, grant.spend)
         if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
             return True
     return False
@@ -1803,6 +1817,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.optional_costs and plan.manual(card):
         raise ActionError("That card is played by hand: pay its costs with the table tools")
     cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional))  # ("reduces only the amount of green mana")
+    cost = M.spend_as(cost, grant.spend) if grant is not None and grant.spend else cost  # -- as long as (wave 9B) -- 118.14
     cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for
     # -- costs (wave 3$) -- 601.2b: an additional cost ("sacrifice a creature", "discard a card", "pay 2 life") is
     # announced with the rest; 601.2h pays it all at once, so nothing moves until every part is chosen and payable
@@ -1838,6 +1853,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}, "face_down": True, "face_down_kind": face_down_kind})
     else:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
+    if grant is not None and grant.how == "prepared":  # -- prepared (wave 13C) -- 722.3c, 601.2i: it loses the designation as the copy is cast
+        plan.rules.prepared = {o: c for o, c in plan.rules.prepared.items() if c != card.id}
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
     record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name or 'a face-down spell'}", not_mana=not_mana)
@@ -1893,8 +1910,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     # for "whenever you cast"; amount: the Nth spell its caster cast this turn ("your second spell each turn")
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
          amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)
-    if "cascade" in ch.keywords and not a.face_down and not plan.manual(card):
-        _cascade_triggers(plan, card, ch)
+    more_cascade = 0 if a.face_down or plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
+    if more_cascade or ("cascade" in ch.keywords and not a.face_down and not plan.manual(card)):
+        _cascade_triggers(plan, card, ch, more_cascade)
     if "storm" in ch.keywords and not a.face_down and not plan.manual(card):
         _storm_trigger(plan, card, ch)
     if definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
@@ -2030,6 +2048,9 @@ def _stacked(plan: Plan, card: CardInstance, oid: str, ch: Characteristics, abil
     if ability_id:
         r.stack[ability_id] = StackEntry(kind="activated", controller=plan.actor, source_card=card.id, source_object=oid,
                                          name=ch.name, effects=effects, targets=[], target_spec=None)
+        from app.rules.triggers import activated  # -- activation (wave 11F) --
+
+        activated(plan, card, oid)
     r.passed = []
     r.priority = plan.actor
     if r.prefs_for(plan.actor).hold_priority:
@@ -2170,11 +2191,19 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
     _stacked(plan, card, oid, ch, ability_id, [{"do": "animate", "who": "self", "types": ["Artifact", "Creature"], "crewed": True}])
 
 
-def _cascade_triggers(plan: Plan, card: CardInstance, ch: Characteristics) -> None:
-    """702.85a: "When you cast this spell, …" — one trigger per instance of cascade."""
+# -- static statics (wave 10B) -- cascade a permanent gives the spell as it's cast (cast_limits.granted_cascade)
+def _granted_cascade(plan: Plan, card: CardInstance, ch: Characteristics, cast_from: str | None) -> int:
+    from app.rules import cast_limits
+
+    return cast_limits.granted_cascade(plan, card.id, ch, cast_from)
+
+
+def _cascade_triggers(plan: Plan, card: CardInstance, ch: Characteristics, extra: int = 0) -> None:
+    """702.85a: "When you cast this spell, …" — one trigger per instance of cascade (``extra``: those a static ability
+    gave the spell, 10B)."""
     from app.rules.triggers import _add
 
-    n = sum(1 for ab in ch.abilities if ab.kind == "keywords" for kw in ab.keywords if kw == "cascade")
+    n = extra + sum(1 for ab in ch.abilities if ab.kind == "keywords" for kw in ab.keywords if kw == "cascade")
     for k in range(n):
         _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name,
              index=6000 + k, definition={"kind": "triggered", "trigger": "cascade", "optional": False, "target": None,
@@ -2310,8 +2339,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         r.rebound_cast.append(plan.oid(card))
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
          amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)  # (the Nth spell this turn)
-    if "cascade" in ch.keywords and not plan.manual(card):
-        _cascade_triggers(plan, card, ch)
+    extra = 0 if plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
+    if extra or ("cascade" in ch.keywords and not plan.manual(card)):
+        _cascade_triggers(plan, card, ch, extra)
     if "storm" in ch.keywords and not plan.manual(card):
         _storm_trigger(plan, card, ch)
     if definition is not None and picked:
@@ -2710,6 +2740,10 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         from app.rules.triggers import targeted
 
         targeted(plan, ability_id, plan.actor, chosen)
+    if ability_id:  # -- activation (wave 11F) -- 602.2: "Whenever a player activates an ability …"
+        from app.rules.triggers import activated
+
+        activated(plan, card, oid, loyalty=ability.kind == "loyalty")
     if ability.kind == "loyalty":
         r.loyalty_used[oid] = plan.state.turn.number
     if restrictions.limited(restrictions.parse(_own_text(ability.text, ch.name)) or []):  # "Activate only once each turn" / "… only once"

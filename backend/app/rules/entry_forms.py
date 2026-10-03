@@ -47,6 +47,20 @@ def tapped_choice(text: str) -> dict[str, Any] | None:
             "effects": [{"do": "choose_value", "who": "you", "what": what, "remember": True}]}
 
 
+# -- static statics (wave 10B) -- "As this land enters, choose a color other than green." on a line of its own (Manor Gate and
+# the other Gates, with "This land enters tapped." as another line): the same choice (614.1c, 614.12a), no tapped part —
+# "enters tapped" is its own replacement (614.1d) that applies to the same entering.
+_STANDALONE = re.compile(r"^As (?:it|~) enters, choose a color other than (?P<c>white|blue|black|red|green)\.$")
+
+
+def standalone_choice(text: str) -> dict[str, Any] | None:
+    m = _STANDALONE.fullmatch(text)
+    if m is None:
+        return None
+    return {"kind": "replacement", "replacement": "enters_choice",
+            "effects": [{"do": "choose_value", "who": "you", "what": OTHER_THAN + m["c"], "remember": True}]}
+
+
 # -- "When Enduring Curiosity dies, if it was a creature, return it to the battlefield under its owner's control. It's an
 # enchantment." (the Enduring cycle): 611.2e — a resolving ability that puts a nontoken permanent onto the battlefield and
 # says it "is [characteristic]" has that effect apply simultaneously with its entering: it never enters as a creature

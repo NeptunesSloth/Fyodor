@@ -196,6 +196,8 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
     entries = [dict(e) for e in entries]
     for i, entry in enumerate(entries):
         card = plan.state.cards.get(entry["card"])
+        if card is not None and entry.get("transformed") and not chars.transformable(card, plan.info):
+            entry["stays"] = True  # -- transform (wave 11A) -- 712.14a: a card that isn't a double-faced card stays where it is
         if card is None or entry.get("stays"):
             continue
         # -- entering for a cost (wave 5G) -- what it may pay with: not one entering with it, nor one another of them

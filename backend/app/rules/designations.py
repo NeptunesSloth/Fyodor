@@ -43,7 +43,7 @@ from functools import cache
 from typing import Any
 
 from app.game.rules_state import DecisionOption, DungeonMark, Event, emit
-from app.game.state import CardInstance, zone_key
+from app.game.state import CardInstance, TokenDef, zone_key
 from app.rules.plan import Plan, decide
 
 Context = dict[str, Any]
@@ -210,6 +210,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("complete_dungeon", None, None, e.player, {})]
     if e.counter in ("scry", "surveil") and e.player:  # -- looks (wave 8B) -- 701.22b, 701.25c (history.note_look)
         return [(e.counter, None, None, e.player, {"nth": e.amount})]
+    if e.counter == "roll" and e.player:  # -- rolling dice (wave 13E) -- "Whenever you roll one or more dice" (app/rules/dice.py)
+        return [("roll", None, None, e.player, {"high": e.amount})]
     if e.counter == "crime" and e.player:  # -- crimes (wave 6D) -- 700.13
         return [("commit_crime", None, None, e.player, {})]
     if e.counter in ("monstrous", "renowned") and e.card in plan.state.cards:  # -- becomes monstrous (wave 6D) --
@@ -877,7 +879,52 @@ def _walk(value: Any) -> list[dict[str, Any]]:
     return out
 
 
-PRIMITIVES: dict[str, Any] = {"rad": rad, "initiative": take_initiative, "venture": venture, "room_by_hand": room_by_hand,
+# -- emblems (wave 13A) -----------------------------------------------------------------------------------
+# 114: "You get an emblem with "…"" puts an object in its owner's command zone (114.1) — a card instance whose type line is
+# "Emblem" and whose text is the quoted abilities (114.2: no characteristics besides them), owned and controlled by the
+# player who got it (114.3); it stays (114.4). Its abilities are read by the ordinary static and trigger grammar, only
+# those the engine runs from the command zone: static grants and anthems (app/rules/layers.py ``statics``), and triggered
+# abilities the watchers read (app/rules/triggers.py ``_watchers``, ``at_step``). Anything else is not a template match.
+# Not a token (111.7 doesn't apply: app/game/handlers/cards.py), and no replacement doubles it (it isn't a token creation).
+_EMBLEM_TRIGGERS = ("event", "landfall", "enters_other", "cast_you", "upkeep_you", "end_step_you")
+
+
+def emblem_card(card: CardInstance) -> bool:
+    return card.zone.endswith(":command") and card.token is not None and card.token.type_line == "Emblem"
+
+
+def emblem_text_ok(text: str) -> bool:
+    """Is every ability of this emblem text one the engine runs from the command zone?"""
+    from app.rules import characteristics as chars
+    from app.rules import coverage, scripts
+    from app.rules.statics import zone_static
+
+    ch = chars.of(CardInstance(id="probe", owner="", controller="", zone="p:command",
+                               token=TokenDef(name="Emblem", type_line="Emblem", text=text)), {})
+    if not ch.abilities or coverage.of_characteristics(ch).level != "FULL":
+        return False
+    for d in scripts.definitions(ch).values():
+        if d.get("kind") == "static":
+            if d.get("static") != "grant" or zone_static(d) or d.get("also"):
+                return False
+        elif d.get("kind") != "triggered" or not (d.get("trigger") in _EMBLEM_TRIGGERS or str(d.get("trigger")).startswith("step:")):
+            return False
+    return True
+
+
+def emblem(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """114.1: each player named gets an emblem with the quoted abilities."""
+    from app.rules import effects
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    name = f"{src.name} Emblem" if src is not None and src.name and not src.ability else "Emblem"
+    for pid in effects._players(plan, ctx, e["who"]):
+        plan.do({"type": "create_token", "player": pid, "count": 1, "stacked": False,
+                 "token": {"name": name, "type_line": "Emblem", "text": e["text"]}}, actor=pid)
+    return True
+
+
+PRIMITIVES: dict[str, Any] = {"emblem": emblem, "rad": rad, "initiative": take_initiative, "venture": venture, "room_by_hand": room_by_hand,
                               "each_unless": each_unless, "ring_tempts": ring_tempts, "ring_blocker": ring_blocker,
                               "sacrifice_object": sacrifice_object, "day_night": day_night, "hand_mark": hand_mark,
                               "reveal_drawn": reveal_drawn, "sacrifice_types": sacrifice_types, "pay_energy_any": pay_energy_any}

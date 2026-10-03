@@ -189,10 +189,10 @@ def test_chapter_lines_are_triggered_abilities():
 
 
 def test_a_chapter_line_not_read_stays_manual():
-    """Fable of the Mirror-Breaker: III (exile it, return it transformed) is refused: the card is PARTIAL."""
+    """A chapter III this engine doesn't read ("transformed" is read since wave 11A, so: a made-up wording) is refused: PARTIAL."""
     fable = characteristics("Fable of the Mirror-Breaker", "Enchantment — Saga",
                             "I — Create a 2/2 red Goblin Shaman creature token.\n"
-                            "III — Exile this Saga, then return it to the battlefield transformed under your control.")
+                            "III — Exile this Saga, then return it to the battlefield transformed and attached to a creature.")
     defs = scripts.definitions(fable)
     assert list(defs) == [0] and coverage.of_characteristics(fable).level == "PARTIAL"
     # (a chapter line on a card that isn't a Saga is no chapter ability)

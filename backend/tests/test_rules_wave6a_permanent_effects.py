@@ -57,13 +57,11 @@ EXTRA = [
     card('Wizard Mentor', set_code="tst", number="D02", mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Human Wizard', oracle_text="{T}: Return this creature and target creature you control to their owner's hand.", power='2', toughness='2', colors=['U'], color_identity=['U']),  # noqa: E501
     card('Grizzly Bears', set_code="tst", number="A08", mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Bear', oracle_text='', power='2', toughness='2', colors=['G'], color_identity=['G']),  # noqa: E501
 ]
-FULL = ["Frost Breath", "Kefnet's Monument", "Arbalest Elite", "Apes of Rath", "Ojutai's Breath", "Sneak Attack", "Arms Race",
+FULL = ["Sleep", "Bontu's Last Reckoning", "Frost Breath", "Kefnet's Monument", "Arbalest Elite", "Apes of Rath", "Ojutai's Breath", "Sneak Attack", "Arms Race",
         "Kor Skyfisher", "Ambush Krotiq", "Curfew", "Peel from Reality", "Reduce to Dreams",
         "Gingerbrute", "Tower of Coireall", "Pym Particles", "Water Wings",
         "Cloudcrest Lake", "Wizard Mentor"]
 STILL_MANUAL = {  # (card, the line that stays manual)
-    "Sleep": "that player's next untap step",  # (that player's, not its controller's: not read)
-    "Bontu's Last Reckoning": "Lands you control don't untap",  # 611.2c: a rules effect on whatever matches then
     "Whelming Wave": "except for Krakens",  # (an exception list: not read)
     "Doorman": "Until end of turn, target creature can't be blocked by",  # (a leading duration on a restriction: not read)
 }
@@ -98,7 +96,6 @@ def test_untap_rider_parses_named_objects_only():
     assert scripts.parse_effects("Tap target creature. It doesn't untap during its controller's next untap step.") == (
         [{"do": "tap", "who": "target"}, {"do": "stay_tapped", "who": "target", "during": "controller"}], "creature", False)
     for text in ("Each attacking creature doesn't untap during its controller's next untap step.",
-                 "Lands you control don't untap during your next untap step.",
                  "Creatures target player controls don't untap during that player's next untap step.",
                  "Tap target creature. It doesn't untap during its controller's next two untap steps."):
         assert scripts.parse_effects(text) is None, text

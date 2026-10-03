@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 Context = dict[str, Any]
 
 _FLIP = re.compile(r"^flip a coin$")
-_COND = re.compile(r"^(?:you (?P<w>win|lose) the flip|(?:it|the coin) comes up (?P<f>heads|tails))$")
+_COND = re.compile(r"^(?:you (?P<w>win|lose) the flip|(?:it|the coin) comes up (?P<f>heads|tails)|(?P<c>you win))$")
 
 
 def _build(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -40,11 +40,13 @@ def condition(text: str) -> dict[str, Any] | None:
     m = _COND.fullmatch(text)
     if m is None:
         return None
+    if m["c"]:  # -- clash (wave 12A) -- "If you win" (701.30d), judged from this resolution's own clash (app/rules/clash.py)
+        return {"coin": "win", "of": "clash"}
     return {"coin": "win" if (m["w"] == "win" or m["f"] == "heads") else "lose"}
 
 
 def holds(ctx: Context, cond: dict[str, Any]) -> bool:
-    flipped = ctx.get("coin")
+    flipped = ctx.get("clash" if cond.get("of") else "coin")
     return flipped is not None and bool(flipped) == (cond["coin"] == "win")
 
 
@@ -61,10 +63,11 @@ def coin_flip(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def refs_ok(effects: list[dict[str, Any]]) -> bool:
     """A condition about a flip only after a flip of the same ability."""
     flipped = False
-    for e in effects:
-        if e["do"] == "coin_flip":
+    for e in effects:  # (-- review (wave 7R) -- any nesting: a condition read before any flip would be false both ways)
+        text = str(e)
+        if "'coin_flip'" in text or "'do': 'clash'" in text:
             flipped = True
-        elif e["do"] == "only_if" and "coin" in str(e.get("cond")) and not flipped:
+        elif "'coin':" in text and not flipped:
             return False
     return True
 

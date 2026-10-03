@@ -58,6 +58,7 @@ SUPPORTED_REPLACEMENTS.add("enter_as_copy")
 # -- "this way" outcomes (wave 4A) -- "As ~ enters, you may reveal an X or Y card from your hand. If you don't, ~
 # enters tapped." (614.1c, 614.12a, 701.20a; app/rules/reveal_lands.py, tests/test_rules_wave4a_this_way.py)
 SUPPORTED_REPLACEMENTS.add("reveal_or_tapped")
+SUPPORTED_REPLACEMENTS.add("enters_prepared")  # -- prepared (wave 13C) -- "~ enters prepared." (722.3a; replacements.after_entry)
 # -- entering for a cost (wave 5G) -- "If ~ would enter, you may discard a land card / sacrifice a Swamp instead. If you
 # do, put ~ onto the battlefield. If you don't, put it into its owner's graveyard." (614.1a, 614.12a, 614.13, 118.12;
 # app/rules/enter_cost.py, tests/test_rules_wave5g_if_you_do.py)
@@ -199,6 +200,7 @@ SUPPORTED_KEYWORDS: set[str] = {
     "flash", "hexproof", "shroud",
     # evasion (test_rules_combat.py::test_evasion, landwalk tests)
     "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "desertwalk",
+    "snow landwalk", "nonbasic landwalk", "legendary landwalk", "artifact landwalk", "snow plainswalk", "snow islandwalk", "snow swampwalk", "snow mountainwalk", "snow forestwalk",  # (wave 12B: 702.14c variants)
     "shadow", "horsemanship", "fear", "intimidate", "skulk",
     # triggered keywords (app/rules/scripts.py KEYWORD_TRIGGERS)
     "prowess",
@@ -222,6 +224,7 @@ SUPPORTED_KEYWORDS: set[str] = {
 # precombat main phase, chapter abilities (a chapter line is automated when its effect parses: it is a
 # template), the 714.4 sacrifice; read ahead (702.155): the number chosen as it enters, skipped chapters.
 SUPPORTED_KEYWORDS.add("read ahead")
+SUPPORTED_KEYWORDS.add("phasing")  # -- phasing (wave 13D) -- 702.26 (app/rules/phasing.py)
 SUPPORTED_KEYWORDS.add("split second")  # -- split second (wave 8A) -- 702.61 (app/rules/split_second.py, cast_limits)
 # -- end sagas & attached-object triggers (wave 3S) --
 
@@ -241,6 +244,7 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
     # -- keyword actions & face-down (wave 3F) -- test_rules_keywords3f.py
     "goad", "manifest", "manifest dread", "cloak", "earthbend", "incubate",
 }
+SUPPORTED_KEYWORD_ACTIONS.update({"clash", "detain", "suspect"})  # -- clash, detain, suspect (wave 12A) -- app/rules/clash.py, test_rules_wave12a_counters_keywords.py
 SUPPORTED_KEYWORD_ACTIONS.add("populate")  # -- token copies & attach on entry (wave 5J) -- test_rules_wave5j_token_copies.py
 
 
@@ -374,6 +378,13 @@ def _keyword_supported(kw: str, line: str) -> bool:
         keyword_triggers,  # -- static wordings (wave 6E) -- battle cry, ingest … (their CR meaning)
     )
 
+    if kw == "devour":  # -- keyword mechanics (wave 9D) -- app/rules/devour.py (one instance)
+        from app.rules import devour
+
+        return devour.supported(line)
+    if kw == "sunburst":  # -- keyword mechanics (wave 9D) -- 702.44a: replacements.entering_counters (not "Modular—Sunburst")
+        return bool(keyword_triggers.pieces(kw, line)) and re.fullmatch(r"(?:sunburst)(?:, sunburst)*", re.sub(
+            r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()) is not None
     if kw in keyword_triggers.MEANINGS:
         return keyword_triggers.supported(kw, line)
     if kw == "ward":  # -- static wordings (wave 6E) -- every ward piece of the line has a mana cost (triggers.ward_costs)
@@ -432,10 +443,10 @@ class Coverage:
 
 def features_of(ch: Characteristics) -> list[Feature]:
     script = scripts.trusted(ch.oracle_id, ch.oracle_text)
-    templated = {i for i, d in templates.definitions(ch).items() if definition_supported(d)}
+    templated = {i for i, d in templates.definitions(ch).items() if definition_supported(d) and x_selector_ok(ch, d)}
     if ch.is_instant_or_sorcery:
         whole = templates.spell_definition(ch)
-        if whole is None or not definition_supported(whole):
+        if whole is None or not definition_supported(whole) or not x_selector_ok(ch, whole):
             templated = set()  # a spell is automated as a whole or resolved by hand
         elif whole.get("modes"):
             templated = {ab.index for ab in ch.abilities if ab.kind != "keywords"}  # a modal spell (700.2)
@@ -522,6 +533,20 @@ def ability_supported(ch: Characteristics, index: int) -> bool:
         return "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None
     if ch.is_instant_or_sorcery:
         whole = templates.spell_definition(ch)
-        return whole is not None and definition_supported(whole)
+        return whole is not None and definition_supported(whole) and x_selector_ok(ch, whole)
     d = templates.definitions(ch).get(index)
-    return d is not None and definition_supported(d)
+    return d is not None and definition_supported(d) and x_selector_ok(ch, d)
+
+
+_X_SELECTOR = re.compile(r'\["mv","==",-1\]')  # (selectors.X_VALUE; "or less" wordings predate this check)
+
+
+def x_selector_ok(ch: Characteristics, d: dict[str, Any]) -> bool:
+    """-- reanimation (wave 10A) -- a selector reading "mana value X" (107.3f) needs an X the player announces: the {X} of
+    the spell's mana cost or of the activated ability's cost. An X chosen elsewhere (energy or counters paid, "you may pay
+    {X}" on resolution after the target was chosen) is not known when the target is, so those stay manual."""
+    if not _X_SELECTOR.search(json.dumps(d, default=str).replace('\\"', '"')):
+        return True
+    if d.get("kind") == "activated":
+        return "{X}" in str(d.get("cost") or "")
+    return d.get("kind") == "spell" and "{X}" in (ch.mana_cost or "")

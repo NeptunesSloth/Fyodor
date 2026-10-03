@@ -24,9 +24,12 @@ from typing import Any
 
 Definition = dict[str, Any]
 
-_UNDER_YOU = re.compile(r"If one or more tokens would be created under your control, those tokens plus "
-                        r"(?P<what>an additional [A-Z][a-z]+ token|a [^.]+? token|that many [^.]+? tokens) are created instead\.")
-_YOU_CREATE = re.compile(r"If you would create one or more tokens, instead create those tokens plus "
+# -- ability words (wave 9C) -- of one kind: "creature tokens" (Queen Allenal), "artifact tokens" (Stridehangar Automaton,
+# Worldwalker Helm): the replacement applies to a creation event of tokens that are (also) of that card type
+_UNDER_YOU = re.compile(r"If one or more (?P<kind>creature |artifact )?tokens would be created under your control, those tokens plus "
+                        r"(?P<what>(?:an additional|a) [^.]+? token(?: with [a-z]+)?|that many [^.]+? tokens) "
+                        r"are created instead\.")
+_YOU_CREATE = re.compile(r"If you would create one or more (?P<kind>artifact )?tokens, instead create those tokens plus "
                          r"(?P<what>an additional [A-Z][a-z]+ token)\.")
 
 
@@ -45,16 +48,31 @@ def static_definition(text: str) -> Definition | None:
     e = found[0]
     if set(e) - {"do", "who", "n", "token"} or any(isinstance(e["token"].get(k), dict) for k in ("power", "toughness")):  # (X/X: wave 4K)
         return None  # (a token "for each …", "where X is …", tapped or attacking: not this template)
-    return {"kind": "static", "static": "replace", "event": "tokens", "match": {"who": "you"},
+    match: dict[str, Any] = {"who": "you"}
+    if m["kind"]:
+        match["types"] = [m["kind"].strip().capitalize()]
+    return {"kind": "static", "static": "replace", "event": "tokens", "match": match,
             "op": {"do": "extra", "token": e["token"], "n": "same" if same else 1}, "effects": []}
 
 
-def applies(c: Any, ev: dict[str, Any]) -> bool:
-    """A fixed number of added tokens is added once to the event (not to its added parts)."""
-    return not (c.op.get("n") != "same" and ev.get("satellite"))
+def applies(c: Any, ev: dict[str, Any], sim: dict[str, Any] | None = None, matches: Any = None) -> bool:
+    """A fixed number of added tokens is added once to the event, not once per part of it. A satellite (a part another
+    effect added) can take a fixed addition only if this effect did not match the event's own tokens (it applies there
+    instead, 614.5) and has not been applied to another added part yet: "creature tokens plus a Soldier" (Queen Allenal)
+    after "artifact tokens plus a Thopter" (Stridehangar Automaton) on a Treasure, where the Thopter is what makes the
+    event one of creature tokens (616.1: an effect applies once the modified event is one it applies to)."""
+    if c.op.get("n") == "same" or not ev.get("satellite"):
+        return True
+    if sim is None or matches is None or c.id in (sim.get("sat_done") or ()):
+        return False
+    root = ev.get("root")
+    return root is not None and not matches(c, root)
 
 
-def apply(c: Any, ev: dict[str, Any]) -> list[dict[str, Any]]:
+def apply(c: Any, ev: dict[str, Any], sim: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     n = int(ev["count"]) if c.op.get("n") == "same" else int(c.op.get("n") or 1)
-    extra = {**ev, "token": dict(c.op["token"]), "count": n, "tapped": False, "satellite": True}
-    return [dict(ev), extra]
+    root = ev.get("root") or dict(ev["token"])
+    if ev.get("satellite") and sim is not None and c.op.get("n") != "same":
+        sim.setdefault("sat_done", []).append(c.id)
+    extra = {**ev, "token": dict(c.op["token"]), "count": n, "tapped": False, "satellite": True, "root": root}
+    return [{**ev, "root": root}, extra]

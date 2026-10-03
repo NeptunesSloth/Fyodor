@@ -38,12 +38,14 @@ from app.rules import (
     effects,
     exert,  # -- static wordings (wave 6E) --
     extra_turns,  # -- extra turns (wave 8A) --
+    kinship,  # -- kinship (wave 9C) --
     layers,
     looking,
     modal_abilities,
     next_untap,  # -- next untap step (wave 6A) --
     optional_payment,
     permissions,
+    phasing,  # -- phasing (wave 13D) --
     reconcile,
     replacements,
     sba,
@@ -57,7 +59,6 @@ from app.rules.plan import Plan, decide, require_no_decision, require_priority
 from app.rules.targets import still_legal
 
 MAIN_PHASES = ("main1", "main2")
-MAX_HAND_SIZE = 7
 
 NOT_YET: dict[str, str] = {}
 
@@ -513,13 +514,18 @@ def start_next_turn(plan: Plan) -> None:
     if skip_to is None and upcoming != plan.after(plan.active):  # (leaving an extra turn)
         skip_to = upcoming
     stay = effects.skips.untap_skipped(plan, skip_to or upcoming)
+    if stay is None:  # -- phasing (wave 13D) -- 702.26a/m: before the untap step, unless it is skipped
+        phasing.untap_step(plan, skip_to or upcoming)
+        keep += [c for c in _keep_tapped(plan) if c not in keep]  # (the ones that just phased in)
     if stay is not None:
         keep = list(dict.fromkeys([*keep, *stay]))[:250]
     keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or upcoming)]))[:250]  # (wave 4H)
     keep = list(dict.fromkeys([*keep, *next_untap.kept(plan, skip_to or upcoming)]))[:250]  # (wave 6A)
     # -- untap choice (wave 7F) -- 502.3: "You may choose not to untap ~": asked below, after the turn changes
     asked = untap_choice.candidates(plan, skip_to or upcoming, keep) if stay is None else []
-    keep = [*keep, *asked]
+    # -- untap restrictions (wave 13E) -- 502.3: "Players can't untap more than one creature": held back until chosen below
+    limited = untap_choice.limited(plan, skip_to or upcoming, [*keep, *asked]) if stay is None else []
+    keep = [*keep, *asked, *dict.fromkeys(c for g in limited for c in g[0])]
     # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
     # (wave 7F: after every other reason to stay tapped, so a permanent that isn't untapping keeps its counter)
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
@@ -536,7 +542,7 @@ def start_next_turn(plan: Plan) -> None:
         skipped.append((plan.active, plan.state.turn.number))
     plan.rules.turn_base = base if extra else plan.active  # -- extra turns (wave 8A) -- 500.7
     if untap_choice.ask(plan, asked, {"stunned": stunned, "previous": list(previous), "skipped": [list(s) for s in skipped],
-                                      "plain": stay is None, "keep": keep}):  # (wave 7F) the untap step waits for the choice
+                                      "plain": stay is None, "keep": keep}, limited):  # (wave 7F) the untap step waits for the choice
         return
     finish_turn_start(plan, stunned, previous, skipped, stay is None, keep)
 
@@ -632,6 +638,8 @@ def on_step_start(plan: Plan) -> None:
 def combat_damage(plan: Plan, rnd: str, then: str) -> None:
     """Deal a round of combat damage, or with AUTO COMBAT DAMAGE off (ASSISTED), ask first."""
     plan.rules.combat_round = then  # type: ignore[assignment]
+    if combat.attackers_on(plan.state) and combat.ask_split(plan, rnd, then):  # type: ignore[arg-type]
+        return  # (-- multiple blocks (wave 13B) -- 510.1d: a blocker's damage is divided first)
     if plan.options.auto_combat_damage or not combat.attackers_on(plan.state) or not plan.has_active_player():
         combat.deal_combat_damage(plan, rnd)  # type: ignore[arg-type]
         return
@@ -639,6 +647,14 @@ def combat_damage(plan: Plan, rnd: str, then: str) -> None:
     decide(plan, player=plan.active, kind="confirm", prompt=f"Combat damage: {preview}",
            options=[DecisionOption(id="yes", label="Deal damage"), DecisionOption(id="no", label="By hand")],
            resume={"step": "combat_damage", "round": rnd})
+
+
+def _resume_block_split(plan: Plan, d: Decision, chosen: list[str]) -> None:
+    assert d.resume is not None
+    plan.rules.block_split[d.resume["creature"]] = {o.id: int(n) for o, n in zip(d.options, chosen, strict=True)}
+    combat_damage(plan, d.resume["round"], d.resume["then"])
+    if plan.rules.decision is None:
+        _after_resolution(plan)
 
 
 def _resume_combat_damage(plan: Plan, d: Decision, chosen: list[str]) -> None:
@@ -659,15 +675,14 @@ def cleanup_step(plan: Plan) -> None:
                options=[DecisionOption(id="done", label="Done")], resume={"step": "cleanup_manual"})
         return
     hand = plan.state.zones.get(zone_key(ap, "hand"), [])
-    excess = len(hand) - MAX_HAND_SIZE
     from app.rules import hand_size  # -- hand size (wave 4J) -- "You have no maximum hand size." (402.2)
 
-    if excess > 0 and hand_size.no_maximum(plan, ap):
-        excess = 0
+    limit = hand_size.maximum(plan, ap)  # -- static statics (wave 10B) -- (changed by statics; None: no maximum)
+    excess = 0 if limit is None else len(hand) - limit
     if excess > 0:
         decide(
             plan, player=ap, kind="choose_cards",
-            prompt=f"Discard {excess} card{'s' if excess != 1 else ''} down to your maximum hand size ({MAX_HAND_SIZE})",
+            prompt=f"Discard {excess} card{'s' if excess != 1 else ''} down to your maximum hand size ({limit})",
             options=[DecisionOption(id=cid, label=plan.state.cards[cid].name or "Card", card_id=cid) for cid in hand],
             min_choices=excess, max_choices=excess, resume={"step": "cleanup_discard"},
         )
@@ -810,6 +825,9 @@ def resolve_top_of_stack(plan: Plan) -> None:
         _after_resolution(plan)
         return
     # -- end entering for a cost (wave 5G) --
+    from app.rules import devour  # -- keyword mechanics (wave 9D) -- 702.82a
+
+    devour.sacrifice(plan, ep, controller)
     leave_stack(plan, top_id, controller, tapped=bool(ep["tapped"]))
     if aura_target is not None and not manual and plan.state.cards[top_id].zone.endswith(":battlefield"):
         attachments.attach(plan, top_id, aura_target.id, controller)  # 303.4f: it enters attached to its target
@@ -990,8 +1008,12 @@ def choose(plan: Plan, a: A.Choose) -> None:
     valid = {o.id for o in d.options}
     if d.kind == "divide":  # 601.2d: an amount per option (target), at least 1 each, adding up to the total
         total = int((d.resume or {}).get("total", 0))
-        if chosen or len(a.amounts) != len(d.options) or any(n < 1 for n in a.amounts) or sum(a.amounts) != total:
-            raise ActionError(f"Divide {total} among the {len(d.options)} targets: at least 1 each, {total} in all")
+        least = int((d.resume or {}).get("least", 1))  # (-- multiple blocks (wave 13B) -- 510.1d: a share may be 0)
+        if chosen or len(a.amounts) != len(d.options) or any(n < least for n in a.amounts) or sum(a.amounts) != total:
+            raise ActionError(f"Divide {total} among the {len(d.options)} targets: at least {least} each, {total} in all")
+        need, free = (d.resume or {}).get("lethal") or [], (d.resume or {}).get("free")
+        if free is not None and a.amounts[free] > 0 and any(a.amounts[i] < k for i, k in enumerate(need)):
+            raise ActionError("Assign lethal damage to every blocker before assigning any to what it attacks (702.19b)")
         chosen = [str(n) for n in a.amounts]
     elif a.amounts:
         raise ActionError("Amounts only answer a division")
@@ -1045,7 +1067,11 @@ def concede(plan: Plan, _: A.Action) -> None:
     pending = r.decision
     leave_game(plan, plan.actor)
     left = plan.live()
-    if len(left) == 1:
+    from app.rules import (
+        game_result,  # -- game result statics (wave 10B) -- 104.2a: a player who can't win doesn't
+    )
+
+    if len(left) == 1 and not game_result.cannot_win(plan, left[0]):
         plan.note(f"{plan.name(left[0])} is the last player standing")
         r.decision = None
         r.winner = left[0]
@@ -1208,8 +1234,10 @@ INTENTS: dict[str, Callable[[Plan, Any], None]] = {
 RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "manual_done": _resume_manual_done,
     "combat_damage": _resume_combat_damage,
+    "block_split": _resume_block_split,
     "cleanup_manual": lambda plan, d, chosen: start_next_turn(plan),
     "untap_keep": untap_choice.resume,  # -- untap choice (wave 7F) --
+    "untap_limit": untap_choice.resume_limit,  # -- untap restrictions (wave 13E) --
     "sba_confirm": sba.resume_confirm,
     "reconcile": reconcile.resume_reconcile,
     "payment": casting.resume_payment,
@@ -1233,6 +1261,9 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "tap_choice": effects._this_way.resume_tap_choice,  # -- "this way" outcomes (wave 4A) --
     "untap_choice": effects._untap_riders.resume_untap_choice,  # -- mana riders (wave 5A) -- "Untap up to three lands."
     "pick_looked": effects.resume_pick_looked,
+    "kinship_look": kinship.resume_look,  # -- kinship (wave 9C) --
+    "kinship_reveal": kinship.resume_reveal,
+    "reveal_hand_cards": effects._reveal_hand.resume,  # -- if you do (wave 10C) --
     "library_place": effects.resume_library_place,
     "shuffle_library": effects.resume_shuffle_library,
     "cast_modes": casting.resume_cast_modes,

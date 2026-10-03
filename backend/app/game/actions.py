@@ -20,7 +20,7 @@ from app.textutil import clean_text
 Id = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9:_\-]+$")]
 IdList = Annotated[list[Id], Field(min_length=1, max_length=250)]
 ZoneName = Literal[
-    "library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside",
+    "library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside", "phased",
     "stack",
 ]
 Coord = Annotated[float, Field(ge=-100000, le=100000)]
@@ -85,6 +85,8 @@ class Move(Base):
     # differ: the ones among them that enter tapped, and whose battlefield each enters (default: ``to``)
     tapped_ids: list[Id] | None = Field(default=None, max_length=250)
     controllers: dict[Id, Id] | None = None
+    # -- transform (wave 11A) -- 712.14a: the double-faced cards among them that enter the battlefield transformed (back face up)
+    back_ids: list[Id] | None = Field(default=None, max_length=250)
     r: MoveData | None = None
 
 
@@ -212,6 +214,14 @@ class UntapAll(Base):
     keep_tapped: list[Id] = Field(default_factory=list, max_length=250)  # see NextTurn
 
 
+class PhaseShift(Base):
+    """-- phasing (wave 13D) -- 702.26: permanents phase out (``out``) or in; attachments follow their host (702.26g)."""
+
+    type: Literal["phase_shift"] = "phase_shift"
+    card_ids: IdList
+    out: bool = True
+
+
 class Counter(Base):
     type: Literal["counter"] = "counter"
     card_ids: IdList
@@ -281,6 +291,10 @@ class CopyCard(Base):
     player: Id | None = None  # controller of the copy (default: actor)
     count: int = Field(default=1, ge=1, le=50)
     modifications: str = Field(default="", max_length=300)
+    # -- cast a copy (wave 13C) -- 707.12: the copy is made in the card's own zone (exile / graveyard); 722.3c: a prepared
+    # permanent's copy is made in exile with the face of its prepare spell
+    zone: Literal["exile", "graveyard"] | None = None
+    face: int | None = None
     x: Coord | None = None
     y: Coord | None = None
     r: NewIds | None = None
@@ -671,6 +685,7 @@ class Block(Base):
     type: Literal["block"] = "block"
     card_id: Id
     attacker_id: Id | None = None  # None = stop blocking
+    also: bool = False  # -- multiple blocks (wave 13B) -- 509.1a: block this attacker as well as the ones already blocked
 
 
 class ClearCombat(Base):
@@ -1192,6 +1207,7 @@ Action = Annotated[
     | EndView
     | Tap
     | UntapAll
+    | PhaseShift
     | Counter
     | SetCounter
     | CreateToken

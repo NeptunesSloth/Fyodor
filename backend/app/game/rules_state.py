@@ -499,6 +499,9 @@ class ContinuousEffect(BaseModel):
     add_supertypes: list[str] = Field(default_factory=list)
     set_creature_types: list[str] | None = None
     all_creature_types: bool = False
+    # -- land types set (wave 12D) -- 305.7: "target land becomes an Island": its land types are replaced by these basic
+    # land types, it loses the abilities of its rules text (and any copiable effects) and gains the types' mana abilities.
+    set_land_types: list[str] | None = None
     # Layer 5 (613.1e, 105.3): ``set_colors`` replaces its colors ([]: colorless) — None: unchanged;
     # ``add_colors``: "in addition to its other colors".
     set_colors: list[str] | None = None
@@ -715,6 +718,9 @@ class Permission(BaseModel):
     turn: int = 0  # the turn it was granted (for end_of_next_turn)
     source: str | None = None  # the granting object
     label: str = Field(default="", max_length=120)
+    # -- as long as (wave 9B) -- "mana of any type can be spent to cast that spell" ("type") / "you may spend mana as though it
+    # were mana of any color to cast it" ("color"): applies only to mana spent casting with this permission (118.14, 609.4b)
+    spend: Literal["", "type", "color"] = ""
 
 
 class CostModifier(BaseModel):
@@ -853,6 +859,7 @@ class RulesState(BaseModel):
     # "As ~ enters, choose …" answers given while a permanent spell / land is about to enter (card
     # id -> {"color": "Blue"}), consumed by the entry (614.12a)
     entry_choices: dict[str, dict[str, str]] = Field(default_factory=dict)
+    devoured: dict[str, int] = Field(default_factory=dict)  # -- keyword mechanics (wave 9D) -- object -> permanents it devoured (702.82b)
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
     dashed: list[str] = Field(default_factory=list)
     evoked: list[str] = Field(default_factory=list)  # evoked spells: sacrificed as they enter (702.74)
@@ -864,6 +871,8 @@ class RulesState(BaseModel):
     suspend_haste: list[str] = Field(default_factory=list)  # suspended creature spells: haste when they enter
     renowned: list[str] = Field(default_factory=list)  # rules objects that became renowned (702.112)
     monstrous: list[str] = Field(default_factory=list)  # rules objects that became monstrous (701.37b)
+    suspected: list[str] = Field(default_factory=list)  # rules objects that are suspected (701.60: -- suspect (wave 12A) --)
+    prepared: dict[str, str] = Field(default_factory=dict)  # -- prepared (wave 13C, 722.3) -- permanent's rules object -> its copy in exile
     damaged: dict[str, int] = Field(default_factory=dict)  # player -> last turn they were dealt damage (bloodthirst)
     echo_done: list[str] = Field(default_factory=list)  # "<object>:<controller>" whose echo upkeep came
     flashback: list[str] = Field(default_factory=list)  # stack objects cast with flashback (exiled as they leave)
@@ -872,6 +881,9 @@ class RulesState(BaseModel):
     no_attackers: bool = False  # nobody attacked: skip blockers and damage (rule 508.8)
     blockers_pending: list[str] = Field(default_factory=list)  # defending players still to declare
     combat_round: Literal["", "first", "done"] = ""
+    # -- multiple blocks (wave 13B, 14A) -- 510.1c-d: how a creature divides its combat damage among the creatures it is
+    # blocked by / blocks (creature card -> target card or player -> damage), answered before the round is dealt and dropped once it is
+    block_split: dict[str, dict[str, int]] = Field(default_factory=dict)
     # -- combat (wave 5C) -- 500.8: the phases still to come after the current one when effects added some (the
     # last is the phase that would have come next), and how many combat phases began this turn
     extra_phases: list[str] = Field(default_factory=list)
@@ -894,6 +906,10 @@ class RulesState(BaseModel):
     # objects' entry timestamps and resolved effects' ``object_seq``. The object's identity
     # (``objects``) is untouched. Read by ``app.rules.layers.timestamp``.
     restamped: dict[str, int] = Field(default_factory=dict)
+    # -- transform (wave 11A) -- 701.27f: card id -> the ``next_object`` number when that double-faced permanent last
+    # transformed (a ``face`` change on the battlefield); an ability put on the stack earlier (its own object number is
+    # lower) no longer transforms it. Cleared when it becomes a new object (400.7).
+    transformed: dict[str, int] = Field(default_factory=dict)
     lki: dict[str, ObjectSnapshot] = Field(default_factory=dict)  # object id -> last known information
     batch: int = 0  # last event batch number
     events: list[Event] = Field(default_factory=list)  # events since the engine last acted (this intent's, or manual ones)
@@ -1176,6 +1192,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         new_name = _zone_name(new_zone) if new_zone else None
         if card is not None and old_name == new_name and old_name != "battlefield":
             continue  # e.g. a hand passed between players' libraries is still a library card
+        if {old_name, new_name} == {"battlefield", "phased"}:
+            continue  # -- phasing (wave 13D) -- 702.26d: phasing is no zone change: same object, no leave / enter triggers
         if old_name == new_name == "battlefield":
             continue  # a control change is not a zone change: same object (rule 400.7 doesn't apply)
         old_oid = rules.object_id(card_id)
@@ -1187,6 +1205,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             rules.lki[old_oid].attached = [c for c, s in before.snaps.items() if s.attached_to == card_id]
         new_oid = None
         rules.restamped.pop(card_id, None)  # a new object gets its own timestamp as it enters (613.7d)
+        rules.transformed.pop(card_id, None)
         rules.counter_stamps.pop(card_id, None)  # (wave 5H: its counters are gone, 122.2)
         if card is not None:
             rules.next_object += 1
@@ -1258,6 +1277,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                 or card.face != snap.face or card.face_down != snap.face_down):
             rules.next_object += 1
             rules.restamped[card_id] = rules.next_object
+            if card.face != snap.face:
+                rules.transformed[card_id] = rules.next_object
     for pid, old in before.resources.items():
         p = state.players.get(pid)
         if p is None:

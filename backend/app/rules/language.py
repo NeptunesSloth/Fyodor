@@ -175,7 +175,9 @@ def _divided(phrase: str, what: str, total: Any) -> dict[str, Any]:
     counters among …": each target gets at least one, so at least one target and at most
     ``total`` of them."""
     group = target_group(phrase)
-    if group is None or "another" in group or not (isinstance(total, int) or total == {"x": 1}):
+    # (-- distribute (wave 12A) -- "any number of other target creatures you control": other than the source, 115.3)
+    if group is None or group.get("another") == "any" or group["max"] < 2 and "another" in group \
+            or not (isinstance(total, int) or total == {"x": 1}):
         raise _Fail
     group = {**group, "min": max(1, group["min"]), "divide": {"what": what, "total": total}}
     if isinstance(total, int):
@@ -211,7 +213,7 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
     key, None) | ("self", "", None) | ("players", "you" / "each_player" / "each_opponent", None) |
     a pronoun ("it" / "them", with the verb it names for "… exiled this way")."""
     p = phrase.strip()
-    if p in ("~", "this creature", "this permanent"):
+    if p in ("~", "this creature", "this permanent", "this saga"):  # (-- transform, wave 11A -- "Exile this Saga, then …")
         return "self", "", None
     if p in ("it", "that creature", "that permanent", "that card", "that token"):
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
@@ -277,6 +279,12 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
+    if (m := re.fullmatch(r"the discarded card's (?P<stat>power|toughness|mana value)|the (?P<stat2>mana value) of the discarded card",
+                          phrase)) is not None:  # -- as long as (wave 9B) -- the card a discard (instruction or cost) put into the graveyard
+        return {_STATS[m["stat"] or m["stat2"]]: "it:discarded"}
+    if (m := re.fullmatch(r"(?P<n>\d+|one|two|three) plus (?P<v>the (?:discarded card's|sacrificed (?:creature|artifact|permanent|land|enchantment)'s) "
+                          r"(?:power|toughness|mana value))", phrase)) is not None:  # "2 plus the sacrificed permanent's mana value"
+        return {"plus": [_stat(m["v"], its), values.parse_amount(m["n"])]}
     if (m := re.fullmatch(r"the exiled card's (?P<stat>power|toughness|mana value)", phrase)) is not None:
         return {_STATS[m["stat"]]: "cost:exiled"}  # -- if you do (wave 8C) -- bound to the payment (pay_objects.bind)
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
@@ -393,8 +401,11 @@ def _with_rider(text: str) -> tuple[str, Any]:
 def _rider_value(phrase: str) -> Any:
     """A rider's quantity: "its power" / "that creature's toughness" / "~'s power" (app: _stat),
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
+    if re.fullmatch(r"(?:(?:\d+|one|two|three) plus )?the sacrificed (?:creature|artifact|permanent|land|enchantment)'s "
+                    r"(?:power|toughness|mana value)", phrase):  # -- amounts (wave 12C) --
+        return _stat(phrase)
     if re.fullmatch(r"(?:its|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|that spell's|~'s|this creature's|"
-                    r"the sacrificed (?:creature|artifact|permanent|land)'s) (?:power|toughness|mana value)", phrase):
+                    r"the sacrificed (?:creature|artifact|permanent|land)'s|the discarded card's) (?:power|toughness|mana value)", phrase):
         return _stat(phrase)
     if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
         return tw
@@ -451,7 +462,10 @@ _PLACE = r"(?:into your hand|onto the battlefield tapped|onto the battlefield|in
 _SEARCHERS = {**{k: v for k, v in PLAYER_GROUPS.items() if k in ("its controller", "that player", "that creature's controller",
                                                                    "that permanent's controller")},
               "that land's controller": "it.controller", "that artifact's controller": "it.controller",
-              "that enchantment's controller": "it.controller"}
+              "that enchantment's controller": "it.controller",
+              # -- other players' choices (wave 12D) -- "Each opponent may search their library …" (effects.search: one search
+              # per player, in turn order, 101.4)
+              "each opponent": "each_opponent", "each other player": "each_opponent", "each player": "each_player"}
 _SEARCH = re.compile(
     rf"(?:(?P<who>{'|'.join(sorted(_SEARCHERS, key=len, reverse=True))}) may )?"
     rf"search (?P<lib>your|their) library for (?:(?P<upto>up to) )?(?P<n>any number of|{AMT}) (?P<sel>.+?)(?:,? and |, )"
@@ -700,7 +714,7 @@ _PICK_DESTS = {**_DESTS, "onto the battlefield tapped and attacking": "battlefie
                "on the bottom of that library": "bottom", "on top of that library": "top"}
 _PICK = re.compile(
     rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |(?P<exile>(?:you may )?exile) |put )"
-    rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among them|revealed this way))"
+    rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among (?:them|the cards milled this way|those cards)|revealed this way|milled this way))"
     r"|(?= (?:into|on|onto) )| them(?= (?:into|on|onto) ))"
     r"|(?P<that>that card|it|the revealed card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
     r"(?: and put (?:it|them|the revealed cards|that card|those cards))?"
@@ -864,7 +878,9 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     if kinds is not None:
         return kinds
     m = _PICK.fullmatch(text)
-    if m and (m["exile"] and (m["to"] or not m["q"]) or not m["exile"] and (m["to"] is None or m["fd"])):
+    # -- as long as (wave 9B) -- "look at the top card of that player's library, then exile it face down" (Edward Kenway): the
+    # one card looked at is exiled face down (the validation in scripts.py refuses a pick with nothing looked at)
+    if m and (m["exile"] and (m["to"] or not m["q"] and not m["fd"]) or not m["exile"] and (m["to"] is None or m["fd"])):
         m = None  # ("exile it" alone is the plain exile instruction, whatever "it" is: not a pick from among the cards looked at)
     if m:
         optional = bool(m["may"] or m["mayput"] or (m["exile"] or "").startswith("you may"))
@@ -945,6 +961,8 @@ def _one(group: dict[str, Any] | None) -> Any:
 
 
 def _parse(text: str) -> tuple[Effects, Any]:
+    if (emblem := _emblem(text)) is not None:  # -- emblems (wave 13A) --
+        return emblem
     if '"' in text:  # -- quoted grants (wave 2D) -- the quoted abilities are read on their own
         return _quoted(text)
     lead = _EOT_LEAD.match(text)  # -- quoted grants (wave 2D) -- "Until end of turn, target creature gets +1/+0."
@@ -1052,6 +1070,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if greatest:
             sel = replace(sel, extras=(*sel.extras, "greatest_power_own"))
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
+    # -- grammar (wave 11C) -- "that player loses the game", "you lose the game", "target player loses the game" (104.3e)
+    m = re.fullmatch(_SUBJ + r"loses? the game", text)
+    if m and rider is None:
+        who, target = _subject(m)
+        return [{"do": "lose_game", "who": who}], target
     found = player_counters(text, rider) or (designation_instruction(text) if rider is None else None)  # (wave 3E)
     if found is not None:
         return found
@@ -1143,6 +1166,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
             joined["with_next"] = True
         _check_per_player(effects, groups)  # -- damage sized by a count (wave 4E) --
         return effects, _out(groups)
+    found = _bite_many(text)  # -- as long as (wave 9B) --
+    if found is not None:
+        return found
     found = _bite(text)  # -- temporary grants & riders (agent G) --  "target creature you control deals damage equal to its power to …"
     if found is not None:
         if rider is not None:
@@ -1161,6 +1187,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if isinstance(n, int):
             return [{"do": "spell_self_move", "to": "exile", "counters": {"time": n}}], None
     # -- end counters (wave 7C) --
+    m = re.fullmatch(r"(?P<o>.+?) phases? out", text)  # -- phasing (wave 13D) -- 702.26b: "Target creature phases out."
+    if m and not re.search(r"\b(?:until|unless|if|when|whenever|at|and|then|can't|for as long as)\b", m["o"]):
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "phase_out", "who": _who(kind, key)}], _one(group)
     m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap) (?P<o>.+)", text)
     if m:
         whos, groups = _objects(m["o"])
@@ -1181,12 +1213,30 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": ["must_be_blocked"]}], _one(group)
+    # -- lure (wave 12B) -- "All creatures able to block target creature this turn do so." (509.1c: rule "lure" on it)
+    m = re.fullmatch(r"all creatures able to block (?P<o>target creature|it|this creature|~)(?: this turn)? do so", text)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": ["lure"]}], _one(group)
     m = re.fullmatch(r"(?P<o>.+?) can't (?P<r>attack or block|block|attack|be blocked) this turn", text)
     if m and not _PUMP.fullmatch(text):  # (agent G: "… gets +2/+2 until end of turn and can't be blocked …" is a pump's rider)
         kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], _one(group)
+    # -- multiple blocks (wave 13B) -- "Target creature can block any number of creatures this turn." (509.1a: block_extra)
+    m = re.fullmatch(r"(?P<o>.+?) (?P<r>can block (?:an additional creature|an additional \w+ creatures|up to \w+ additional creatures"
+                     r"|any number of creatures)) this turn", text)
+    if m and not _PUMP.fullmatch(text):
+        from app.rules.statics import _rule
+
+        kind, key, group = ref(m["o"])
+        rules = _rule(m["r"])
+        if kind == "players" or not rules:
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": rules}], _one(group)
     # -- token & pump wordings (wave 6C) -- "This creature can attack this turn as though it didn't have defender." (702.3b:
     # the defender's restriction doesn't apply to it this turn; read by combat.attack_problem)
     m = re.fullmatch(r"(?P<o>.+?) can attack this turn as though (?:it|they) didn't have defender", text)
@@ -1234,7 +1284,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
                      **({"counter": m["ck"]} if m["ck"] else {})}], target
         if from_zone and kind not in ("it", "them"):
             return [{"do": "return_card", "who": who, "to": "hand", "under": "you" if m["d"] == "your hand" else "owner"}], target
-        if m["d"] == "your hand":
+        if m["d"] == "your hand" and kind not in ("it", "them"):  # (wave 13E: 400.3 a card goes to its owner's hand, "your" or not)
             raise _Fail
         return [{"do": "bounce", "who": who}], target
     m = re.fullmatch(rf"distribute (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters among (?P<o>.+)", text)
@@ -1260,13 +1310,27 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": _who(k1, key1), "kind": m["k"], "n": _amount(m["n"]),
                  "also": [{"kind": m["k2"], "n": _amount(m["n2"]), "who": _who(k2, key2)}]}], None
-    # "move all counters from ~ onto target creature" (The Ozolith): removed from it and put on the other (122.5)
-    m = re.fullmatch(r"move all counters from ~ onto (?P<o>.+)", text)
-    if m and rider is None:
-        kind, key, group = ref(m["o"])
-        if kind in ("players", "self"):
+    # -- moving counters (wave 12A) -- "move all counters from ~ onto target creature" (The Ozolith), graft's "move a +1/+1
+    # counter from ~ onto that creature" (702.58a), "move a counter from target permanent you control onto a second target
+    # permanent" (Nesting Grounds), "move any number of +1/+1 counters from ~ onto another target creature" (122.5:
+    # app/rules/counter_moves.py); "a second target" is another word "target" (115.3)
+    m = re.fullmatch(r"move (?P<n>a|one|all|any number of) (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) )?counters? from (?P<s>.+?) onto (?P<o>.+)", text)
+    if m and rider is None and (m["k"] is None) <= (m["n"] != "any number of") and m["k"] not in values.UNMODELED_COUNTERS:
+        s_kind, s_key, s_group = ref(m["s"])
+        d_kind, d_key, d_group = ref(re.sub(r"^an? second target ", "target ", m["o"]))
+        if s_kind not in ("self", "target", "each") or d_kind not in ("self", "it", "target") or (s_kind, d_kind) == ("self", "self") \
+                or (s_kind == "each" and m["n"] != "all"):  # (a number from several: which ones? the player's choice, not read)
             raise _Fail
-        return [{"do": "move_counters", "who": _who(kind, key)}], _one(group)
+        if any(g is not None and not on_battlefield_only(g["what"]) for g in (s_group, d_group)) \
+                or (s_kind == "each" and not on_battlefield_only(s_key)):
+            raise _Fail
+        move: dict[str, Any] = {"do": "move_counters", "n": {"a": 1, "one": 1, "all": "all", "any number of": "any"}[m["n"]],
+                                "who": "target:1" if s_group is not None and d_group is not None else _who(d_kind, d_key)}
+        if s_kind != "self":
+            move["from"] = "target" if s_group is not None else _who(s_kind, s_key)
+        if m["k"]:
+            move["kind"] = m["k"]
+        return [move], _out([g for g in (s_group, d_group) if g is not None])
     m = re.fullmatch(r"put (?P<whose>its|those|~'s|this creature's) counters on (?P<o>.+)", text)
     if m and rider is None:
         kind, key, group = ref(m["o"])
@@ -1469,7 +1533,9 @@ _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P
                    rf"(?: and (?:gains?|has|have) (?P<kw>{_KW_LIST}))? until end of turn"
                    r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn"
                    r"| and (?P<d>can attack this turn as though it didn't have defender)"  # (d: wave 6C)
-                   r"| and (?P<mb>must be blocked this turn if able))?")  # (mb: wave 6E, 509.1c)
+                   r"| and (?P<mb>must be blocked this turn if able)"  # (mb: wave 6E, 509.1c)
+                   r"| and can (?P<bx>block (?:an additional creature|an additional \w+ creatures|up to \w+ additional creatures"
+                   r"|any number of creatures)) this turn)?")  # (bx: wave 13B, 509.1a)
 _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
 _GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
                         rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
@@ -1660,6 +1726,13 @@ def _pump(m: re.Match[str], rider: Any) -> tuple[Effects, Any]:
         out.append({"do": "restrict", "who": who, "rules": RESTRICTIONS[m["r"]]})
     if m["d"]:  # -- token & pump wordings (wave 6C) -- 702.3b
         out.append({"do": "restrict", "who": who, "rules": ["attack_despite_defender"]})
+    if m["bx"]:  # -- multiple blocks (wave 13B) -- 509.1a
+        from app.rules.statics import _rule
+
+        rules = _rule("can " + m["bx"])
+        if not rules:
+            raise _Fail
+        out.append({"do": "restrict", "who": who, "rules": rules})
     if m["mb"]:  # -- static wordings (wave 6E) -- a blocking requirement for this turn (509.1c: combat.block_requirements)
         out.append({"do": "restrict", "who": who, "rules": ["must_be_blocked"]})
     return out, _one(group)
@@ -1672,6 +1745,39 @@ def _shift(who: str, by: int) -> str:
     if who.startswith("target:"):
         return f"target:{int(who[7:]) + by}"
     return who
+
+
+_BITES = re.compile(r"(?P<s>.+?) each deal damage equal to their power to (?P<o>.+)")
+
+
+def _bite_many(text: str) -> tuple[Effects, Any] | None:
+    """-- as long as (wave 9B) -- "Up to two target creatures you control each deal damage equal to their power to another target
+    creature" (Band Together), "They each deal damage equal to their power to target creature an opponent controls" (Coordinated
+    Clobbering): every creature of the group is a damage source (120.3: its own lifelink and deathtouch count), each dealing its own
+    power, all at once (608.2h). ``src_many``: ``src`` names a target group (or "them": resolve_it binds it to the group)."""
+    m = _BITES.fullmatch(text)
+    if m is None:
+        return None
+    groups: list[dict[str, Any]] = []
+    src = "them"
+    if m["s"] != "they":
+        # "Target creature you control and up to one other target legendary creature you control each deal …" (Friendly Rivalry):
+        # two groups, both sources
+        subjects = re.split(r" and (?=up to \w+ other target )", m["s"])
+        if len(subjects) > 2:
+            raise _Fail
+        for subject in subjects:
+            kind, key, group = ref(subject)
+            if kind != "target" or group is None or selectors.from_key(key).player is not None:
+                raise _Fail
+            groups.append(group)
+        src = "target"
+    whos, parts = _bite_recipients(m["o"])
+    effects: Effects = [{"do": "damage", "who": _shift(w, len(groups)), "n": {"power": "each"}, "src": src, "src_many": True,
+                         **({"src2": "target:1"} if len(groups) == 2 else {})} for w in whos]
+    for joined in effects[:-1]:
+        joined["with_next"] = True
+    return effects, _out(groups + parts)
 
 
 def _bite(text: str) -> tuple[Effects, Any] | None:
@@ -1865,10 +1971,19 @@ CHOOSER = "|".join(re.escape(c) for c in sorted(_CHOOSERS, key=len, reverse=True
 # (patterns are format()-ed by scripts.effect: no literal braces)
 EDICT = rf"(?P<s>{CHOOSER}) sacrifices (?P<n>{AMT}) (?P<sel>.+?) of their choice"
 EDICT_OTHERS = rf"each other player sacrifices (?P<n>{AMT}) (?P<sel>.+?)(?: of their choice)?"
-PLAYER_CHOOSES = rf"(?P<s>{CHOOSER}) chooses (?P<n>{AMT}) (?P<sel>.+?) they control"
+PLAYER_CHOOSES = (rf"(?P<s>{CHOOSER}) chooses (?:(?P<upto>up to )?(?P<n>{AMT})) (?P<sel>.+?) they control"
+                  r"(?:, then (?:(?P<sac>sacrifices the rest)|(?P<des>the rest are destroyed)))?")  # (wave 11D: "… then sacrifices the rest")
 REVEAL_HAND = rf"(?P<s>{CHOOSER}) reveals their hand"
 CHOOSE_FROM_HAND = (rf"you (?P<may>may )?choose (?:(?P<upto>up to )?(?P<n>{AMT})|(?P<any>any number of)) (?P<sel>.+?) "
-                    r"from (?:it|among them|that hand)")
+                    r"from (?:it|among them|that hand)(?P<tail> with mana value \d+ or (?:less|greater))?")
+# -- hand disruption (wave 11D) -- "You choose a nonland card from it or a card from their graveyard." (Agonizing Remorse), "You
+# choose a nonland card from that player's graveyard or hand." (Memory Leak): the revealed hand and that player's graveyard
+CHOOSE_FROM_HAND_GY = (r"you choose (?:a|an) (?P<sel>.+?) from (?:it or (?:a|an) (?P<sel2>.+?) from their graveyard"
+                       r"|that player's graveyard or hand)")
+# "Look at target player's hand." (Gitaxian Probe, Peek): a private look (701.20e: only the looking player sees it)
+LOOK_HAND = rf"look at (?P<s>{CHOOSER})'s hand(?: and (?P<ch>choose .+))?"  # (Painful Memories, Extortion: "… and choose a card from it")
+# "Target player reveals their hand and discards all nonland cards." (Amnesia, Trapfinder's Trick)
+DISCARD_ALL_REVEALED = rf"(?P<s>{CHOOSER}) reveals their hand and discards all (?P<sel>.+?) cards?"
 DISCARD_NAMED = r"(?:that player|they|its owner) discards? (?P<o>that card|those cards|it|them)"
 CHOICE_KINDS = ("color", "creature type", "basic land type", "opponent", "player")
 CHOOSE_VALUE = r"choose (?:a|an) (?P<what>color|creature type|basic land type|opponent|player)"
@@ -1902,8 +2017,12 @@ def edict(m: re.Match[str]) -> tuple[Effects, Any]:
 
 def player_chooses(m: re.Match[str]) -> tuple[Effects, Any]:
     who, group = _chooser(m["s"])
-    return [{"do": "player_chooses", "who": who, "sel": _permanent_sel(m["sel"]), "n": _amount(m["n"]), "label": m["sel"]}], \
-        _one(group)
+    out: dict[str, Any] = {"do": "player_chooses", "who": who, "sel": _permanent_sel(m["sel"]), "n": _amount(m["n"]), "label": m["sel"]}
+    if m["upto"]:
+        out["upto"] = True
+    if m["sac"] or m["des"]:  # -- choose the rest (wave 11D) -- the choice is simultaneous (101.4); what wasn't chosen is sacrificed / destroyed
+        out["rest"] = "sacrifice" if m["sac"] else "destroy"
+    return [out], _one(group)
 
 
 def reveal_hand(m: re.Match[str]) -> tuple[Effects, Any]:
@@ -1913,8 +2032,49 @@ def reveal_hand(m: re.Match[str]) -> tuple[Effects, Any]:
     return [{"do": "reveal_hand", "who": who}], _one(group)
 
 
+def choose_from_hand_gy(m: re.Match[str]) -> tuple[Effects, Any]:
+    sel, sel2 = selectors.parse(m["sel"]), selectors.parse(m["sel2"] or m["sel"])
+    if sel is None or sel2 is None or sel.player is not None or sel2.player is not None or not sel.card or not sel2.card \
+            or sel.zones or sel2.zones:
+        raise _Fail
+    return [{"do": "choose_from_hand", "who": "you", "sel": sel.key(), "n": 1, "label": m["sel"], "optional": False,
+             "gy_sel": selectors.replace(sel2, zones=("graveyard",)).key()}], None
+
+
+def look_hand(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"])
+    if who in ("each_player", "each_opponent"):
+        raise _Fail  # (a private look at several hands: not read)
+    chosen: Effects = []
+    if m["ch"]:
+        pick = re.fullmatch(CHOOSE_FROM_HAND, "you " + m["ch"])
+        if pick is None:
+            raise _Fail
+        chosen = choose_from_hand(pick)[0]
+    return [{"do": "reveal_hand", "who": who, "private": True}, *chosen], _one(group)
+
+
+EXILE_FROM_HAND = rf"(?P<s>{CHOOSER}) exiles (?P<n>{AMT}) cards? from their hand"  # (Aim for the Head, Witness the End)
+
+
+def exile_from_hand(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"])
+    n = _amount(m["n"])
+    if not isinstance(n, int):
+        raise _Fail
+    return [{"do": "discard", "who": who, "n": n, "to": "exile"}], _one(group)
+
+
+def discard_all_revealed(m: re.Match[str]) -> tuple[Effects, Any]:
+    who, group = _chooser(m["s"])
+    sel = selectors.parse(m["sel"] + " cards")
+    if who in ("each_player", "each_opponent") or sel is None or sel.player is not None or not sel.card or sel.zones:
+        raise _Fail
+    return [{"do": "reveal_hand", "who": who}, {"do": "discard_named", "who": "revealed", "sel": sel.key()}], _one(group)
+
+
 def choose_from_hand(m: re.Match[str]) -> tuple[Effects, Any]:
-    sel = selectors.parse(m["sel"])
+    sel = selectors.parse(m["sel"] + (m["tail"] or ""))
     if sel is None or sel.player is not None or not sel.card or sel.zones:
         raise _Fail  # (a card in the hand: "a nonland card", "an instant or sorcery card" — nothing else)
     n = 99 if m["any"] else _amount(m["n"])
@@ -2036,10 +2196,37 @@ def parse_become(text: str) -> tuple[Effects, Any] | None:
         return None
 
 
+# -- land types set (wave 12D) -- "Target land becomes an Island until end of turn." (Tidal Warrior), "… becomes the basic land
+# type of your choice …" (Reef Shaman), "… becomes a Plains or an Island …" (Tundra Kavu), "… becomes an Island in addition to
+# its other types" (Sealock Monster). 305.7: setting a land's subtype to basic land types takes away its old land types and
+# the abilities of its rules text and gives the new types' mana abilities (a layer 4 effect, 613.1d); "in addition" keeps
+# them (205.1b). Only a target land is read (a group's choice, "Choose a basic land type. Each land … that type", is not).
+_BASICS = "Plains|Island|Swamp|Mountain|Forest"
+_BECOME_LAND = re.compile(
+    rf"^(?:(?P<lead>until end of turn, ))?(?P<o>target .+?) becomes? (?:(?:an? )?(?P<a>{_BASICS})(?: or an? (?P<b>{_BASICS}))?|"
+    rf"(?P<pick>the basic land type of your choice))(?P<add> in addition to its other types)?(?P<trail> until end of turn)?$")
+
+
+def _become_land(m: re.Match[str]) -> tuple[Effects, Any]:
+    kind, key, group = ref(m["o"])
+    if kind != "target" or group is None or '"types":["Land"]' not in key or (m["lead"] and m["trail"]):
+        raise _Fail
+    e: dict[str, Any] = {"do": "become", "who": "target", "types": [], "duration": "end_of_turn" if m["lead"] or m["trail"] else "permanent"}
+    if m["pick"] or m["b"]:
+        e["land_pick"] = list(_BASICS.split("|")) if m["pick"] else [m["a"], m["b"]]
+    else:
+        e["land_types"] = [m["a"]]
+    if m["add"]:
+        e["retain"] = True  # 205.1b
+    return [e], _one(group)
+
+
 def _become(text: str) -> tuple[Effects, Any]:
     from app.rules.creature_types import CREATURE_TYPES
 
     text, rider = _with_rider(text)
+    if rider is None and (land := _BECOME_LAND.fullmatch(text)) is not None:
+        return _become_land(land)
     m = _BECOME.fullmatch(text)
     if m is None and rider is None and (c := _BECOME_COLOR.fullmatch(text)) is not None:
         return _become_color(c)  # -- static wordings (wave 6E) --
@@ -2218,6 +2405,46 @@ def gy_to_library(text: str) -> tuple[Effects, Any] | None:
              "label": words, **({"optional": True} if may else {})}], None
 
 
+def _reanimation_compound(obj: str, effect: dict[str, Any]) -> tuple[Effects, Any] | None:
+    """-- reanimation (wave 10A) -- see reanimation_forms: "X card and Y card from your graveyard" → one instruction per kind
+    (``effect`` is the shared destination: to hand / battlefield). None for anything not exactly that shape."""
+    zone = " from your graveyard"
+    if not obj.endswith(zone):
+        return None
+    body = obj[: -len(zone)]
+    if re.search(r"\btargets?\b", body):
+        parts = re.split(_AND_TARGET, body)
+        if len(parts) < 2:
+            return None
+        whos: list[str] = []
+        groups: list[dict[str, Any]] = []
+        for part in parts:
+            try:
+                kind, key, group = ref(part + zone)
+            except _Fail:
+                return None
+            if kind != "target" or group is None or not _graveyard_cards(key) or group.get("another"):
+                return None
+            whos.append("target" if not groups else f"target:{len(groups)}")
+            groups.append(group)
+        return [{**effect, "who": w} for w in whos], _out(groups)
+    parts = re.split(r" and (?=(?:an?|up to \w+) )", body)
+    if len(parts) < 2:
+        return None
+    out: list[dict[str, Any]] = []
+    for part in parts:
+        c = _RA_CHOICE.fullmatch(part + zone)
+        if c is None or c["n"] or c["any"] or c["rand"] or c["z"] != "your graveyard" or (c["upto"] and c["upto"] != "one"):
+            return None
+        words = re.sub(r"\bcards\b", "card", c["what"])
+        sel = selectors.parse(f"{words} from {c['z']}")
+        if sel is None or not _graveyard_cards(sel.key()) or "card" not in words.split():
+            return None
+        out.append({**effect, "do": "return_choice", "sel": sel.key(), "n": 1, "upto": bool(c["upto"]), "random": False,
+                    "label": words})
+    return out, None
+
+
 def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     """The graveyard-return wordings above; None when the sentence is not one of them (the older
     grammar then reads it, or it stays manual)."""
@@ -2254,6 +2481,14 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         return None  # (only a choice models its own "may": choosing none)
     if _RA_SELF.fullmatch(obj):  # works from the graveyard (113.6m): coverage keeps it to activated abilities
         return [{**effect, "who": "self_gy"}], None
+    # -- reanimation (wave 10A) -- one instruction, several cards of different kinds: "Return up to one target instant card
+    # and up to one target sorcery card from your graveyard to your hand." (one target group each, 115.1, 601.2c; the zone
+    # is stated once) and "return a creature card and a land card from your graveyard to your hand." (nothing targeted: each
+    # card is chosen on resolution, 608.2d). Only your own graveyard, and no "may" (a choice models its own).
+    if not may and not _RA_SELF.search(obj) and not obj.startswith("all "):
+        compound = _reanimation_compound(obj, effect)
+        if compound is not None:
+            return compound
     c = _RA_CHOICE.fullmatch(obj)
     if c is not None:
         what, different = c["what"], None
@@ -2290,9 +2525,10 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
 # "until the end of your next turn" and the rest are not read (the sentence stays manual).
 _CT_END = r"(?P<d> until end of turn)?"
 _CT_PRONOUN = r"(?:it|them|that creature|those creatures|that permanent|those permanents)"
-_CT_GAIN = re.compile(rf"gain control of (?P<o>.+?){_CT_END}")
+_CT_GAIN = re.compile(rf"(?:you )?gain control of (?P<o>.+?){_CT_END}")
 _CT_UNTAP = re.compile(rf"untap (?P<o>.+?) and gain control of {_CT_PRONOUN}{_CT_END}")
-_CT_GIVE = re.compile(rf"(?P<p>target opponent|target player) gains control of (?P<o>.+?){_CT_END}")
+_CT_GIVE = re.compile(rf"(?P<p>target opponent|target player|an opponent) gains control of (?P<o>.+?){_CT_END}")
+_CT_OWN = re.compile(r"each player gains control of all (?P<o>(?:nontoken )?(?:creatures|permanents)) they own")  # (wave 12D)
 _CT_EXCHANGE = re.compile(r"exchange control of (?P<o>.+)")
 
 
@@ -2302,7 +2538,7 @@ def _control_object(phrase: str) -> tuple[str, str, dict[str, Any] | None] | Non
         kind, key, group = ref(phrase)
     except _Fail:
         return None
-    if kind in ("it", "them"):
+    if kind in ("it", "them", "self"):  # ("self": wave 12D, "Target opponent gains control of this creature")
         return kind, key, group
     if kind not in ("target", "each") or not on_battlefield_only(key):
         return None
@@ -2329,13 +2565,28 @@ def control_forms(text: str) -> tuple[Effects, Any] | None:
     m = _CT_GIVE.fullmatch(text)
     if m:
         found = _control_object(m["o"])
-        if found is None or found[0] != "target":
+        if found is None:
             return None
-        pgroup, group = target_group(m["p"]), found[2]
-        if pgroup is None or group is None or not simple(group):
+        kind, key, group = found
+        dur = {"duration": "end_of_turn"} if m["d"] else {}
+        # -- other players' choices (wave 12D) -- "An opponent gains control of it / this creature / that permanent": not a
+        # target, so the effect's controller chooses which opponent on resolution (608.2d; effects.gain_control)
+        if m["p"] == "an opponent":
+            return [{"do": "gain_control", "who": _who(kind, key), "to": "choose_opponent", **dur}], _one(group)
+        pgroup = target_group(m["p"])
+        if pgroup is None:
             return None
-        return [{"do": "gain_control", "who": "target:1", "to": "target:0",
-                 **({"duration": "end_of_turn"} if m["d"] else {})}], [pgroup, group]
+        if kind != "target":  # "Target opponent gains control of this creature / of all other permanents you control"
+            return [{"do": "gain_control", "who": _who(kind, key), "to": "target", **dur}], pgroup
+        if group is None or not simple(group):
+            return None
+        return [{"do": "gain_control", "who": "target:1", "to": "target:0", **dur}], [pgroup, group]
+    m = _CT_OWN.fullmatch(text)  # -- other players' choices (wave 12D) -- "Each player gains control of all creatures they own."
+    if m:
+        found = _control_object("all " + m["o"])
+        if found is None or found[0] != "each":
+            return None
+        return [{"do": "gain_control", "who": found[1], "to": "owner"}], None
     m = _CT_EXCHANGE.fullmatch(text)
     if m:
         return _exchange(m["o"])
@@ -2410,6 +2661,21 @@ _MONARCH = re.compile(_SUBJ + r"becomes? the monarch")
 _INITIATIVE = re.compile(_SUBJ + r"takes? the initiative")
 _VENTURE = re.compile(r"(?:you )?venture into (?P<into>the dungeon|Undercity)")
 _RING = re.compile(r"the Ring tempts you")
+_EMBLEM = re.compile(_SUBJ + r'gets? an emblem with "(?P<t>[^"]+)"')  # (nested quotes: not read)
+
+
+def _emblem(text: str) -> tuple[Effects, Any] | None:
+    """114.1: "You get an emblem with "…"" — only when every quoted ability is one the engine runs from the command zone;
+    a quote it can't read is no template match (the card stays manual)."""
+    m = _EMBLEM.fullmatch(text)
+    if m is None:
+        return None
+    from app.rules.designations import emblem_text_ok
+
+    if not emblem_text_ok(m["t"]):
+        raise _Fail
+    who, target = _subject(m)
+    return [{"do": "emblem", "who": who, "text": m["t"]}], target
 
 
 def designation_instruction(text: str) -> tuple[Effects, Any] | None:
@@ -2483,14 +2749,39 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
     m = re.fullmatch(r"(?:you )?incubate (?P<n>\d+|[xX])", text)
     if m and has_primitive("incubate"):  # 701.53a
         return [{"do": "incubate", "n": _amount(m["n"])}], None
-    if text == "transform this token" and has_primitive("transform"):  # (not "transform ~": DFC cards stay manual)
-        return [{"do": "transform", "who": "self"}], None  # (701.27: only a double-faced token turns over)
+    # -- transform (wave 11A) -- 701.27a: "transform ~" / "transform this creature"; the source only (an ability putting
+    # "it" or another object through is not read), once per object since the ability was put on the stack (701.27f)
+    if re.fullmatch(r"transform (?:this token|~|this (?:creature|artifact|land|enchantment|permanent|saga|vehicle))", text) \
+            and has_primitive("transform"):
+        return [{"do": "transform", "who": "self"}], None  # (701.27c: anything that isn't double-faced doesn't turn over)
+    m = re.fullmatch(r"return (?:it|him|her) to the battlefield(?P<t> tapped)?(?: and)? transformed under "
+                     r"(?P<u>your|(?:its|his|her) owner's) control", text)
+    if m:
+        found = parse_sentence(f"return it to the battlefield{m['t'] or ''} under {'your' if m['u'] == 'your' else 'its owner' + chr(39) + 's'} control")
+        if found is not None and len(found[0]) == 1 and found[0][0].get("do") == "return_card":
+            return [{**found[0][0], "transformed": True}], found[1]
     m = re.fullmatch(r"(?:you )?earthbend (?P<n>\d+|[xX]|one|two|three|four|five|six|seven|eight)", text)
     if m and has_primitive("earthbend"):  # 701.66a: "Target land you control …" is part of the action
         land = selectors.parse("land you control")
         if land is None:
             return None
         return [{"do": "earthbend", "who": "target", "n": _amount(m["n"])}], land.key()
+    if text.startswith("detain ") and has_primitive("detain"):  # -- detain (wave 12A) -- 701.35a: permanents, not players
+        try:
+            kind, key, group = ref(text[len("detain "):])
+        except _Fail:
+            return None
+        if kind not in ("target", "each", "it", "them", "host") or (kind in ("target", "each") and not on_battlefield_only(key)):
+            return None
+        return [{"do": "detain", "who": _who(kind, key)}], _one(group)
+    if text.startswith("suspect ") and has_primitive("suspect"):  # -- suspect (wave 12A) -- 701.60a: a creature
+        try:
+            kind, key, group = ref(text[len("suspect "):])
+        except _Fail:
+            return None
+        if kind not in ("target", "it", "host", "self") or (kind == "target" and not on_battlefield_only(key)):
+            return None
+        return [{"do": "suspect", "who": _who(kind, key)}], _one(group)
     if not text.startswith("goad ") or not has_primitive("goad"):
         return None
     m = _GOAD_PLAYER.fullmatch(text)

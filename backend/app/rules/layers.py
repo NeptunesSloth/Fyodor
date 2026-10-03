@@ -118,9 +118,12 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     gy_modes = tuple(r.card_mode(cid) for _, ids in graveyards for cid in ids) if r else ()
     hosts = tuple(sorted((cid, c.attached_to or "") for cid, c in state.cards.items()
                          if c.zone.endswith(":battlefield") and c.attached_to))
-    key_all: tuple = (key, graveyards, gy_modes, hosts, tuple(sorted(live)),
+    # -- emblems (wave 13A) -- 114: the emblems in the command zones (their text is part of the key)
+    emblems = tuple(sorted((cid, c.owner, c.token.text) for cid, c in state.cards.items()
+                           if c.token is not None and c.zone.endswith(":command") and c.token.type_line == "Emblem"))
+    key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)),
                       # -- attached events (wave 4L) -- "loses all abilities" effects: their objects' statics are gone
-                      tuple(e.id for e in r.effects if e.remove_abilities) if r else ())
+                      tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else ())
     hit = _STATIC_CACHE.get(key_all)
     if hit is not None:
         if memo is not None and memo[0] is state and memo[1] is info:
@@ -137,6 +140,8 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
         for d in scripts.definitions(copiable(state, c, info)).values():
             if d["kind"] == "static" and d.get("static") in ("grant", "attached_rule") and not grammar.zone_static(d):
                 out.append(Static(cid, c.controller, d, timestamp(state, cid)))
+                # -- as long as (wave 9B) -- the other sentences of one ability (static_pairs.py): statics of the same permanent
+                out += [Static(cid, c.controller, extra, timestamp(state, cid)) for extra in d.get("also", ())]
     # -- conditional statics (wave 4B) -- "As long as this card is in your graveyard and you control a Mountain,
     # creatures you control have haste." (Anger): an ability that states the zone it functions in functions only
     # from there (113.6b); "you" is its owner (108.4a). Its timestamp: the object number it got as it went there.
@@ -153,6 +158,11 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
             for d in scripts.definitions(printed).values():
                 if d["kind"] == "static" and d.get("static") == "grant" and grammar.zone_static(d):
                     out.append(Static(cid, p, d, timestamp(state, cid)))
+    # -- emblems (wave 13A) -- 114.4: an emblem's static abilities apply as long as it exists; its owner controls it (114.3)
+    for cid, owner, _ in emblems:
+        if owner in live:
+            out += [Static(cid, owner, d, timestamp(state, cid)) for d in scripts.definitions(copiable(state, state.cards[cid], info)).values()
+                    if d["kind"] == "static" and d.get("static") == "grant"]
     # -- attached events (wave 4L) -- a permanent that lost all abilities (613.1f: by a resolved effect, or by an
     # Aura's "Enchanted creature loses all abilities") has none of its static abilities: they don't apply
     from app.rules import attached_types
@@ -230,7 +240,7 @@ def _table_key(state: GameState) -> tuple:
                # -- this-turn history (wave 4D) -- spells cast, facts, attackers, lands played
                len(log.casts), len(log.facts), tuple(sorted((p, len(a)) for p, a in log.attackers.items())),
                tuple(sorted((p, (c.turn, c.count)) for p, c in r.lands_played.items()))) if log is not None and r else ()
-    designations = (tuple(r.monstrous), tuple(r.renowned)) if r else ()  # -- conditional statics (wave 4B) --
+    designations = (tuple(r.monstrous), tuple(r.renowned), tuple(r.suspected)) if r else ()  # -- conditional statics (wave 4B) --
     return (state.seq, state.turn.number, state.turn.active_player, players, field,
             r.timestamp if r else 0, len(r.effects) if r else 0, history, designations)
 
@@ -360,6 +370,10 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
             granted -= set(item.remove_keywords)
             lost |= set(item.remove_keywords)
             lost -= set(item.add_keywords)
+    for st in hits:  # -- static statics (wave 10B) -- "can't have or gain flying": whatever the timestamps, it ends up gone
+        deny = set(st.definition.get("deny_keywords") or ())
+        granted -= deny
+        lost |= deny
     return replace(ch, granted=frozenset(granted), lost=frozenset(lost), abilities=abilities)
 
 
@@ -426,6 +440,8 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
                 if l4.get("set_creature_types") is not None:
                     known = LAND_TYPES | ARTIFACT_TYPES | ENCHANTMENT_TYPES | SPELL_TYPES | BATTLE_TYPES
                     subtypes = frozenset(s for s in subtypes if s in known) | frozenset(l4["set_creature_types"])
+                if l4.get("set_land_types") is not None:  # -- land types set (wave 12D) -- 305.7
+                    subtypes = (subtypes - LAND_TYPES) | frozenset(l4["set_land_types"])
                 subtypes = subtypes | frozenset(l4.get("add_subtypes") or ())
                 if l4.get("all_creature_types"):
                     from app.rules.creature_types import CREATURE_TYPES as _ALL
@@ -451,6 +467,8 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
             subtypes = kept | frozenset(e.set_creature_types)
         if e.all_creature_types:
             subtypes = subtypes | CREATURE_TYPES
+        if e.set_land_types is not None:  # -- land types set (wave 12D) -- 305.7, 205.1a: the old land types are gone
+            subtypes = (subtypes - LAND_TYPES) | frozenset(e.set_land_types)
         if e.add_subtypes:
             subtypes = subtypes | frozenset(e.add_subtypes)
         subtypes = frozenset(s for s in subtypes if _subtype_fits(s, types))
@@ -540,14 +558,18 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     before4 = ch
     group4 = type_statics.layer4_entries(state, card, ch, info, lambda extra: _layer4(before4, effects, own4 + extra))
     ch = _layer4(ch, effects, own4 + group4)  # layer 4: type-changing (animation, agent A2: also layer 5 below)
-    ch = type_statics.with_gained_mana(before4, ch)
+    ch = type_statics.with_gained_mana(before4, ch, any(e.layer == "4" and e.set_land_types is not None for e in effects)
+                                       or any((d.get("layer4") or {}).get("set_land_types") for _, d in attached45))
     # -- end type statics (wave 5F) --
-    ch = _layer5(ch, effects, attached45)
+    ch = _layer5(ch, effects, attached45 + _own_layer5(state, card, info))  # -- ability words (wave 9C) --
     imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …
     imposed |= _group_imposed(state, card, ch, info)
     hits: list[Static] = []
     kwc = keyword_counters(state, card)  # -- counters (wave 5H) --
     on_field = card.zone.endswith(":battlefield") and state.rules is not None
+    if state.rules is not None and on_field and state.rules.object_id(card.id) in state.rules.suspected:  # -- suspect (wave 12A) -- 701.60c
+        kwc = [*kwc, ((timestamp(state, card.id), 0, 0), "menace")]
+        imposed.add("cant_block")
     if info is not None and on_field and _depth == 0:
         view = _view(state, info)
         table = statics(state, info)
@@ -667,6 +689,34 @@ def _own_layer4(state: GameState, card: CardInstance, info: CardInfo | None) -> 
     view = _view(state, info)
     _L4_VISITING.add(card.id)
     try:
+        # (wave 11E: "is the chosen type in addition to its other types" adds the type chosen as it entered, 614.12a)
+        return [(st.seq, {**st.definition, "add_subtypes": [t for t in [card.choices.get("Chosen creature type", "").strip()] if t]}
+                 if st.definition.get("chosen_type") else st.definition) for st in table
+                if grammar.conditions_hold(view, st.definition, source=card, controller=st.controller)]
+    finally:
+        _L4_VISITING.discard(card.id)
+
+
+def _own_layer5(state: GameState, card: CardInstance, info: CardInfo | None) -> list[tuple[int, dict[str, Any]]]:
+    """-- ability words (wave 9C) -- the object's own color statics whose conditions hold now ("As long as there are seven or
+    more cards in your graveyard, this creature gets +1/+1, is black, …"; statics ``_color_safe``: conditions that never
+    read the colors being derived)."""
+    if info is None or state.rules is None or not card.zone.endswith(":battlefield") or card.id in _L4_VISITING:
+        return []
+    from app.rules import scripts
+
+    if not any(d["kind"] == "static" and d.get("who") == "self" and "set_colors" in d
+               for d in scripts.definitions(copiable(state, card, info)).values()):
+        return []
+    table = [st for st in statics(state, info) if st.source == card.id and st.gate is None
+             and st.definition.get("who") == "self" and "set_colors" in st.definition]
+    if not table:
+        return []
+    from app.rules import statics as grammar
+
+    view = _view(state, info)
+    _L4_VISITING.add(card.id)
+    try:
         return [(st.seq, st.definition) for st in table
                 if grammar.conditions_hold(view, st.definition, source=card, controller=st.controller)]
     finally:
@@ -677,7 +727,7 @@ def _grants(d: dict[str, Any]) -> bool:
     """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
     opponents control can't block.") is applied by ``_with_rules`` instead."""
     return bool(d["p"] or d["t"] or d.get("base") or d["keywords"] or d["grants"] or d.get("each")
-                or d.get("lose_keywords") or d.get("lose_all"))  # -- attached events (wave 4L) --
+                or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords"))  # -- attached events (wave 4L) --
 
 
 def _attached45(state: GameState, card: CardInstance, info: CardInfo | None) -> list[tuple[int, dict[str, Any]]]:

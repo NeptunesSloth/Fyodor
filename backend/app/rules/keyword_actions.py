@@ -20,8 +20,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.game.rules_state import DecisionOption
-from app.game.state import zone_key
+from app.game.rules_state import DecisionOption, copy_recipe_of
+from app.game.state import CardInstance, GameState, zone_key
 from app.rules import effects, facedown, replace, selectors, token_grammar
 from app.rules.plan import Plan, decide
 
@@ -288,8 +288,6 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     goaded." 701.15d: the same player goading it again has no effect (no second requirement).
     ``controlled``: "goad each creature target player / that player controls" (``who`` names the
     player(s))."""
-    from app.rules import delayed, layers
-
     pid = ctx["controller"]
     if e.get("controlled"):
         players = set(effects._players(plan, ctx, e["who"]))
@@ -300,17 +298,92 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     effects._remember(plan, ctx, e, cards)
     fresh = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")
              and pid not in goaded_by(plan.ch(plan.state.cards[c]))]
-    if not fresh:
-        return True
+    if fresh:
+        _until_next_turn(plan, ctx, fresh, (GOADED + pid,), "Goaded", "goads")
+    return True
+
+
+def _until_next_turn(plan: Plan, ctx: Context, fresh: list[str], imposes: tuple[str, ...], word: str, verb: str) -> None:
+    """A layer-6 effect on these objects lasting until the controller's next turn (701.15a goad, 701.35a detain)."""
+    from app.rules import delayed, layers
+
+    pid = ctx["controller"]
     effect = layers.add_effect(plan, affected=[plan.oid(c) for c in fresh], layer="6", source=ctx.get("source_object"),
-                               controller=pid, imposes=(GOADED + pid,), label=f"goaded by {plan.name(pid)}")
+                               controller=pid, imposes=imposes, label=f"{word.lower()} by {plan.name(pid)}")
     effect.duration, effect.until_player, effect.turn = "next_turn", pid, plan.state.turn.number
     markers: list[str] = []
     for cid in fresh:
-        markers += delayed.marker_ids(plan.do({"type": "add_effect", "card_ids": [cid], "name": f"Goaded by {plan.name(pid)}"[:60],
-                                               "value": "Goaded", "text": delayed.LABELS["next_turn"]}))
+        markers += delayed.marker_ids(plan.do({"type": "add_effect", "card_ids": [cid], "name": f"{word} by {plan.name(pid)}"[:60],
+                                               "value": word, "text": delayed.LABELS["next_turn"]}))
     effect.markers = markers
-    plan.note(f"{plan.name(pid)} goads {effects._labels(plan, fresh)}", fresh, actor=pid)
+    plan.note(f"{plan.name(pid)} {verb} {effects._labels(plan, fresh)}", fresh, actor=pid)
+
+
+def suspect(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.60a: the creature becomes suspected until it leaves the battlefield (the designation is kept by rules object, as
+    monstrous is); 701.60c: it has menace and can't block while it is (app/rules/layers.py); 701.60d: it can't become
+    suspected again."""
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")
+             and plan.ch(plan.state.cards[c]).is_creature]
+    effects._remember(plan, ctx, e, cards)
+    for cid in cards:
+        oid = plan.oid(cid)
+        if oid not in plan.rules.suspected:
+            plan.rules.suspected.append(oid)
+            plan.do({"type": "add_effect", "card_ids": [cid], "name": "Suspected", "value": "Suspected",
+                     "text": "until it leaves the battlefield"})
+            plan.note(f"{plan.name(ctx['controller'])} suspects {plan.state.cards[cid].name}", [cid], actor=ctx["controller"])
+    return True
+
+
+# -- prepared (wave 13C) -- 722.3: the designation is kept by rules object (``rules.prepared``: object -> its copy)
+def prepared_permanent(state: GameState, copy_id: str) -> CardInstance | None:
+    """The permanent this exiled copy belongs to while it is still that prepared object on the battlefield (722.3c)."""
+    r = state.rules
+    if r is None:
+        return None
+    for oid, cid in r.prepared.items():
+        perm = state.cards.get(oid.rsplit(".", 1)[0])
+        if cid == copy_id and perm is not None and perm.zone.endswith(":battlefield") and r.object_id(perm.id) == oid:
+            return perm
+    return None
+
+
+def become_prepared(plan: Plan, card: CardInstance) -> None:
+    """722.3a / 722.3c: a permanent with a prepare spell gains the designation (once), and its controller creates a copy
+    of it in exile with only the prepare spell's characteristics (the card's second face, 722.2), which stays there while
+    it remains prepared on the battlefield (an exception to 704.5e: sba.py) and may be cast (casting.cast_grant)."""
+    oid = plan.oid(card)
+    if oid in plan.rules.prepared or not card.zone.endswith(":battlefield"):
+        return
+    data = plan.info.get(card.card_id) if card.card_id else None
+    if (data or {}).get("layout") != "prepare" or card.is_token or card.face_down or copy_recipe_of(plan.rules, oid) is not None:
+        return  # (no prepare spell, 722.3a — or a copy of a permanent, whose copiable values aren't tracked here: not made)
+    created = plan.do({"type": "copy_card", "card_id": card.id, "player": card.controller, "count": 1, "zone": "exile", "face": 1},
+                      actor=card.controller)
+    made = getattr(getattr(created, "r", None), "ids", [])
+    if made:
+        plan.rules.prepared[oid] = made[0]
+    plan.note(f"{card.name} becomes prepared", [card.id], actor=card.controller)
+
+
+def prepare(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"~ becomes prepared" (722.3a)."""
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    effects._remember(plan, ctx, e, cards)
+    for cid in cards:
+        become_prepared(plan, plan.state.cards[cid])
+    return True
+
+
+def detain(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.35a: "Until the next turn of the controller of that spell or ability, that permanent can't attack or block and
+    its activated abilities can't be activated." (Mana abilities too: ``cant_activate``.) Detaining it again just extends
+    the same restrictions, so one effect per resolution is enough."""
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    effects._remember(plan, ctx, e, cards)
+    if cards:
+        _until_next_turn(plan, ctx, cards, ("cant_attack_or_block", "cant_activate"), "Detained", "detains")
     return True
 
 
@@ -412,13 +485,25 @@ def incubate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """701.27a, "Transform this token.": a double-faced token turns over; 701.27c: anything else that isn't a
-    double-faced permanent doesn't (nothing happens)."""
+    """701.27a, "Transform this token / ~.": a double-faced token or nonmodal double-faced card turns over (712.18: the
+    same object); 701.27c / 712.10: anything else, or one whose other face is an instant or sorcery, doesn't (nothing
+    happens); 701.27f: not if it transformed since this ability was put onto the stack (-- transform, wave 11A --)."""
+    from app.rules import attachments
+    from app.rules import characteristics as chars
+
+    r = plan.rules
     for cid in effects._cards(plan, ctx, e.get("who", "self")):
         card = plan.state.cards[cid]
-        if card.token is None or card.token.back is None or not card.zone.endswith(":battlefield"):
+        if not card.zone.endswith(":battlefield") or card.face_down:
             continue
+        if (card.token is None or card.token.back is None) and not chars.transformable(card, plan.info):
+            continue
+        if r.transformed.get(cid, 0) > r.objects.get(ctx.get("stack_id") or "", 1 << 60):
+            continue  # (an ability not on the stack has no number: never ignored)
         plan.do({"type": "set_face", "card_id": cid, "face": 1 - min(card.face, 1)}, actor=ctx["controller"])
+        now = plan.state.cards[cid]
+        if (now.attached_to or now.attached_player) and attachments.attach_kind(plan.ch(now)) is None:
+            plan.do({"type": "detach", "card_ids": [cid]}, actor=ctx["controller"])  # 704.5n: no longer an Equipment (or Aura …)
     return True
 
 
@@ -445,7 +530,7 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
 
 
 PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
-              "goad": goad, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform,
+              "goad": goad, "detain": detain, "suspect": suspect, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform,
               **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
 RESUME = {"amass_choose": resume_amass, "bolster_choose": resume_bolster, "connive_discard": resume_connive,

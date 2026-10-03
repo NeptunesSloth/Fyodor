@@ -81,7 +81,10 @@ _EVENT_VERBS = [
 _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature", " to an opponent": "opponent",
               " to you": "you", " to a player or planeswalker": "player_or_pw", " to a planeswalker": "planeswalker",
               " to one of your opponents": "opponent", " to enchanted player": "enchanted_player",
-              " to a player or battle": "player_or_battle"}
+              " to a player or battle": "player_or_battle",
+              # -- source damage (wave 11F) -- 603.2c: "to one or more players" is one trigger for the whole batch
+              " to one or more players": "players", " to your opponents": "opponents",
+              " to one or more of your opponents": "opponents", " to ~": "self", " to one or more creatures": "creatures"}
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
 _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
@@ -127,9 +130,47 @@ _SELF_OR_HOST = ("~ or equipped creature", "~ or enchanted creature")
 def parse_condition(cond: str) -> Condition | None:
     """The part between "When/Whenever" and the comma → a condition, or None."""
     try:
-        return _parse(cond.strip())
+        try:
+            found = _parse(cond.strip())
+        except _Refuse:  # (a trailing qualifier can be what the plain reading refused: "… a permanent during your turn")
+            found = None
+        found = found or _qualified(cond.strip())
     except _Refuse:
         return None
+    # -- grammar (wave 11C) -- 700.9: "a modified creature you control dies / leaves" would read its Auras and Equipment after
+    # they let go of it (704.5n): not modelled, so the ability stays manual (counters alone are kept in its last known info)
+    if found is not None and found.get("event") in ("die", "leave", "either", "multi") and re.search(r"modified|enchanted_or_equipped",
+                                                                                                   str(found)):
+        return None
+    return found
+
+
+def _qualified(c: str) -> Condition | None:
+    """-- trigger qualifiers (wave 11C) -- "… during your turn" / "during an opponent's turn" / "during their turn" (the acting
+    player's own): the turn it happens in is part of the trigger event (603.2), read as it happens (triggers._cond_matches);
+    "you gain / lose life", "you create one or more tokens" "for the first time each turn" (also "during each of your
+    turns"): the first such event of that player this turn, kept per player per turn whoever is watching, so an object that
+    entered later this turn still sees the earlier ones (triggers._generic_events)."""
+    during = first = None
+    m = re.fullmatch(r"(?P<c>.+?) during (?P<t>your|an opponent's|their) turn", c)
+    if m:
+        c, during = m["c"], {"your": "you", "an opponent's": "opponent", "their": "their"}[m["t"]]
+    m = re.fullmatch(r"(?P<c>.+?) for the first time (?P<w>each turn|during each of your turns)", c)
+    if m:
+        c, first = m["c"], True
+        if m["w"] != "each turn":
+            during = "you"
+    if during is None and first is None:
+        return None
+    inner = _parse(c)
+    if inner is None and during and re.search(r" (?:second|third|fourth|fifth) ", c):
+        inner = _parse(f"{c} each turn")  # ("their second card during their turn": the Nth this turn, as "… each turn")
+    if inner is not None and during == "their" and inner.get("subject") != "player":
+        return None  # ("their" is the acting player's: only a player subject has one)
+    if inner is None or (first and (inner.get("event") not in ("gain_life", "lose_life", "create_token")
+                                    or inner.get("subject") != "player" or inner.get("player") != "you")):
+        return None
+    return {**inner, **({"during": during} if during else {}), **({"first_each_turn": True} if first else {})}
 
 
 def _object_sel(phrase: str, *, card: bool = False) -> str:
@@ -153,6 +194,12 @@ def _count(word: str) -> int:
 
 
 def _parse(c: str) -> Condition | None:
+    # -- entry forms (wave 11F) -- "Whenever a creature enters [the battlefield] under your control" is "a creature you control
+    # enters" (603.6a: an object entering the battlefield, under that player's control); "under an opponent's control":
+    # "an opponent controls". (A permanent "an opponent owns" is another thing: not read.)
+    m = re.fullmatch(r"(?P<s>.+?) (?P<v>enters?) (?:the battlefield )?under (?P<w>your|an opponent's) control", c)
+    if m and not re.search(r"\b(?:controls?|owns?)\b", m["s"]):
+        return _parse(f"{m['s']} {'you control' if m['w'] == 'your' else 'an opponent controls'} {m['v']}")
     # -- counters (wave 7C) -- "Whenever a creature dealt damage by ~ this turn dies" (Sengir Vampire): it dies, and ~ dealt
     # it damage earlier this turn (the turn's log, history.note_events; 700.4, 120.3)
     m = re.fullmatch(r"(?P<s>an? .+?) dealt damage by ~ this turn dies", c)
@@ -170,14 +217,17 @@ def _parse(c: str) -> Condition | None:
     if m and {_MULTI[m["a"]], _MULTI[m["b"]]} <= {"attack", "block", "blocked"}:
         return {"event": "multi", "events": [_MULTI[m["a"]], _MULTI[m["b"]]], "subject": "host"}
     # 509.3b / 509.3d: "~ blocks or becomes blocked by a creature" — once per creature on the other side
-    m = re.fullmatch(r"~ (?P<v>blocks or becomes blocked by|blocks|becomes blocked by) (?P<o>an? .+|another .+)", c)
+    # (wave 11E: also "enchanted / equipped creature …", the permanent the source is attached to)
+    m = re.fullmatch(r"(?P<s>~|enchanted creature|equipped creature) (?P<v>blocks or becomes blocked by|blocks|becomes blocked by)"
+                     r" (?P<o>an? .+|another .+)", c)
     if m:
         other = _object_sel(m["o"])
         events = {"blocks or becomes blocked by": ["block", "blocked"], "blocks": ["block"],
                   "becomes blocked by": ["blocked"]}[m["v"]]
+        subject = "self" if m["s"] == "~" else "host"
         if len(events) == 1:
-            return {"event": events[0], "subject": "self", "other": other}
-        return {"event": "multi", "events": events, "other": other}
+            return {"event": events[0], "subject": subject, "other": other}
+        return {"event": "multi", "events": events, "other": other, **({"subject": "host"} if subject == "host" else {})}
     # -- entry forms (wave 5F) -- "When this land enters untapped", "Whenever a permanent you control enters tapped":
     # how it entered is part of the trigger event (603.2; triggers._details_ok reads the turn log's Entry)
     m = re.fullmatch(r"(?P<s>.+?) enters (?P<t>tapped|untapped)", c)
@@ -190,9 +240,18 @@ def _parse(c: str) -> Condition | None:
     if found is not None:
         return found
     # battalion: "~ and at least two other creatures attack" (the creatures declared as attackers)
-    m = re.fullmatch(r"~ and at least (?P<n>\w+) other creatures attack", c)
+    m = re.fullmatch(r"~ and at least (?P<n>\w+) other creatures? attack", c)
     if m:
         return {"event": "attack", "subject": "self", "min_attackers": _count(m["n"]) + 1}
+    # -- trigger qualifiers (wave 11C) -- "~ and at least one other Warrior attack" (attackers other than ~ that are Warriors),
+    # "~ and at least two Zombies attack" (Zombies among all the attackers, ~ counting if it is one)
+    m = re.fullmatch(r"~ and at least (?P<n>\w+) (?P<o>other )?(?P<w>[A-Z][\w-]*?)s? attack", c)
+    if m:
+        sel = _token_or_sel(m["w"])
+        if sel is None or sel.player is not None or sel.card or sel.types not in ((), ("Creature",)) and not sel.subtypes:
+            return None
+        return {"event": "attack", "subject": "self", "min_attackers": _count(m["n"]), "sel": sel.key(),
+                **({"others_only": True} if m["o"] else {})}
     # "you draw your second card each turn"
     m = re.fullmatch(rf"{_P} draws? (?:their|your) (?P<nth>first|second|third) card each turn", c)
     if m:
@@ -206,6 +265,9 @@ def _parse(c: str) -> Condition | None:
     if found is not None:
         return found
     found = _player_action(c)
+    if found is not None:
+        return found
+    found = _activate(c)  # -- activation (wave 11F) --
     if found is not None:
         return found
     # -- mana riders (wave 5A) -- "you tap ~ for mana", "a player taps a land for mana"
@@ -245,6 +307,8 @@ def _parse(c: str) -> Condition | None:
             return None  # (the first scry or surveil, or the first of each? the wording doesn't say: manual)
         conds = [{"event": k, "subject": "player", "player": "you", **({"nth": 1} if m["first"] else {})} for k in kinds]
         return conds[0] if len(conds) == 1 else {"event": "either", "subject": "player", "player": "you", "conds": conds}
+    if c == "you roll one or more dice":  # -- rolling dice (wave 13E) -- 706: once per roll, however many dice (rules/dice.py)
+        return {"event": "roll", "subject": "player", "player": "you"}
     for rx, event in _DESIGNATION_EVENTS:  # -- counters & designations (wave 3E) --
         m = rx.fullmatch(c)
         if m:
@@ -286,6 +350,10 @@ def _parse(c: str) -> Condition | None:
         if inner is None or inner.get("event") != "die" or inner.get("subject") not in ("self", "sel"):
             return None
         return {**inner, "gy_owner": "you" if m["g"] == "your" else "opponent"}
+    m = re.fullmatch(r"(?P<p>you|an opponent|a player|each opponent) gains? or loses? life", c)  # (wave 11C) each event: 603.2
+    if m:
+        return {"event": "either", "subject": "player", "player": _PLAYERS[m["p"]],
+                "conds": [{"event": e, "subject": "player", "player": _PLAYERS[m["p"]]} for e in ("gain_life", "lose_life")]}
     for pattern, event in _PLAYER_VERBS:
         m = re.fullmatch(rf"(?P<p>you|an opponent|a player|each opponent) (?:{pattern})", c)
         if m:
@@ -539,6 +607,24 @@ def _player_action(c: str) -> Condition | None:
             "aggregate": aggregate}
 
 
+# -- activation (wave 11F) -- 602.2: "Whenever an opponent activates an ability of an artifact, creature, or land that
+# isn't a mana ability", "Whenever you activate a loyalty ability". Mana abilities never use the stack (605.3b), so only
+# "that isn't a mana ability" (or a loyalty ability, 606.1: never a mana ability, 605.1a) is read: ``nonmana``
+_ACTIVATE = re.compile(rf"{_P} activates? (?:(?P<loyalty>a loyalty ability)|an ability)(?: of (?P<o>an? .+?)(?P<own> they control)?"
+                       r"(?: on the battlefield)?)?(?P<nonmana> that isn't a mana ability)?")
+
+
+def _activate(c: str) -> Condition | None:
+    m = _ACTIVATE.fullmatch(c)
+    if m is None:
+        return None
+    sel = selectors.parse(re.sub(r"^an? ", "", m["o"])) if m["o"] else None
+    if m["o"] and (sel is None or sel.player is not None or sel.card or (m["own"] and (sel.controller or sel.owner))):
+        raise _Refuse
+    return {"event": "activate", "subject": "player", "player": _PLAYERS[m["p"]], "nonmana": bool(m["nonmana"]),
+            "loyalty": bool(m["loyalty"]), **({"obj": sel.key()} if sel is not None else {}), **({"own": True} if m["own"] else {})}
+
+
 _PLAIN_COUNTERS = frozenset({"lore", "loyalty", "charge", "oil", "time", "quest", "stun", "flying", "shield"})
 
 
@@ -580,7 +666,7 @@ def _object_event(c: str) -> Condition | None:
     m = re.fullmatch(r"(?P<s>.+?) becomes the target of (?P<what>a spell or ability|a spell)"
                      r"(?: (?P<by>an opponent controls|you control))?(?P<first> for the first time each turn)?", c)
     if m:
-        base = _subject(m["s"])
+        base = _subject(m["s"], host=True)
         if base is None:
             raise _Refuse
         return {**base, "event": "targeted", "by": {"an opponent controls": "opponent", "you control": "you"}.get(m["by"] or "", "any"),
@@ -599,14 +685,27 @@ def _object_event(c: str) -> Condition | None:
     # "~ deals damage", "~ deals combat damage to a creature", "~ deals noncombat damage to a player",
     # "~ deals combat damage to a player or planeswalker" (510.2; 120.1), "a creature deals combat
     # damage to one of your opponents", "one or more creatures deal combat damage to one of your opponents"
-    m = re.fullmatch(rf"(?P<s>.+?) deals? (?P<c>combat |noncombat )?damage(?P<to>{_DAMAGE_TO_RE}|)", c)
+    # -- source damage (wave 11F) -- "a source [you control | an opponent controls] deals [noncombat] damage [to …]": any
+    # source of damage (120.1: a permanent, or a spell), once per source and recipient (603.2); ``ctl``: its controller
+    m = re.fullmatch(rf"a source(?P<ctl> you control| an opponent controls)? deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?"
+                     rf"damage(?P<to>{_DAMAGE_TO_RE}|)", c)
+    if m and m["to"] not in (" to one or more players", " to your opponents", " to one or more of your opponents",
+                             " to one or more creatures") and (m["to"] or not m["min"]):
+        return {"event": "deal_damage", "subject": "source", "to": _DAMAGE_TO[m["to"]],
+                **({"min": _count(m["min"])} if m["min"] else {}),
+                "ctl": {" you control": "you", " an opponent controls": "opponent"}.get(m["ctl"] or "", "any"),
+                "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}
+    m = re.fullmatch(rf"(?P<s>.+?) deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?damage(?P<to>{_DAMAGE_TO_RE}|)", c)
     # (combat damage to a player / an opponent and damage to an opponent: the verbs below)
     if m and not (m["to"] == " to an opponent" and m["c"] != "noncombat ") and \
-            not (m["to"] == " to a player" and m["c"] == "combat "):
+            not (m["to"] == " to a player" and m["c"] == "combat ") and (m["to"] or not m["min"]):
         to = _DAMAGE_TO[m["to"]]
-        who = _subject(m["s"], host=True, many=to in ("opponent", "player", "player_or_pw", "player_or_battle"))
+        who = _subject(m["s"], host=True, many=to in ("opponent", "player", "player_or_pw", "player_or_battle", "players",
+                                                      "opponents", "you"))
         if who is None:
             return None
-        return {**who, "event": "deal_damage", "to": to,
+        # (a "min" is the damage one source dealt one recipient in one event: 120.3; "to one or more creatures": 603.2c)
+        return {**who, "event": "deal_damage", "to": to, **({"min": _count(m["min"])} if m["min"] else {}),
+                **({"aggregate": True} if to == "creatures" else {}),
                 "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}
     return None

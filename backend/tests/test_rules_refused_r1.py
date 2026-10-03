@@ -81,6 +81,8 @@ def on_field_names(s, pid="p1"):
     ("at least three white mana was spent to cast this spell", {"object": "self", "cast": {"spent": {"W": 3}}}),  # Ardenvale Paladin
     ("at least three mana of the same color was spent to cast it", {"object": "it", "cast": {"same_color": 3}}),  # Clockwork Servant
     ("five or more mana was spent to cast it", {"object": "it", "cast": {"total": 5}}),
+    # opus (wave 9C): a cast trigger's spell is still on the stack while the trigger resolves, so its record is read
+    ("five or more mana was spent to cast that spell", {"object": "it", "cast": {"total": 5, "event_spell": True}}),
 ])
 def test_cast_wordings(text, expected):
     assert conditions.parse(text, objects=True) == expected
@@ -90,7 +92,6 @@ def test_cast_wordings(text, expected):
 @pytest.mark.parametrize("text", [
     "{S} was spent to cast it",  # Berg Strider: what made the mana (snow) isn't recorded
     "mana from a Treasure was spent to cast it",  # Hired Hexblade
-    "five or more mana was spent to cast that spell",  # Elemental Mascot: another spell's record is gone once it resolved
     "it was cast during your main phase",
 ])
 def test_cast_wordings_refused(text):

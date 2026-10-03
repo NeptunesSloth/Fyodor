@@ -22,7 +22,10 @@ from app.rules.plan import Plan, decide
 
 # "Tap target creature. It doesn't untap during its controller's untap step for as long as ~ remains tapped." (611.2b):
 # a rule-modifying restriction (``doesnt_untap``, read by engine._keep_tapped) that lasts while the source stays tapped.
-_HOLD = re.compile(r"^(?P<o>.+?) doesn't untap during its controller's untap step for as long as ~ remains tapped$")
+_HOLD = re.compile(r"^(?P<o>.+?) doesn't untap during its controller's untap step for as long as (?P<d>~ remains tapped|you control ~)$")
+# -- as long as (wave 9B) -- "… for as long as you control ~" (Ty Lee, Icefall Regent, Dungeon Geists): 611.2b, ends when
+# the source leaves the battlefield or another player controls it (delayed.py "source_controlled")
+_DURATION = {"~ remains tapped": "source_tapped", "you control ~": "source_controlled"}
 
 
 def _hold(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -34,11 +37,80 @@ def _hold(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         raise scripts._NoMatch from None
     if kind not in ("it", "them", "target", "self"):  # (a named object: 611.2c, a mass wording would be a set)
         raise scripts._NoMatch
-    return [{"do": "until", "duration": "source_tapped", "n": 1},
+    return [{"do": "until", "duration": _DURATION[m["d"]], "n": 1},
             {"do": "restrict", "who": language._who(kind, key), "rules": ["doesnt_untap"]}], language._one(group)
 
 
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_HOLD, _hold)]
+
+# -- untap restrictions (wave 13E) -- 502.3: "Players can't untap more than one creature during their untap steps." (Smoke,
+# Stoic Angel, Winter Orb, Static Orb, Imi Statue, Winter Moon): each player (the active one) chooses which of their tapped
+# permanents of that kind untap, up to the limit; the rest stay tapped. With several such statics the lowest limit of each
+# kind rules, and kinds are asked one after another (a permanent of two kinds counts for the first it is asked about).
+_LIMIT = re.compile(r"^(?:As long as (?:~|this artifact) is untapped, )?[Pp]layers can't untap more than (?P<n>one|two|three) "
+                    r"(?P<w>[a-z ]+?)s? during their untap steps\.?$")
+_NUMBERS = {"one": 1, "two": 2, "three": 3}
+
+
+def static_definition(text: str) -> dict[str, Any] | None:
+    from app.rules import selectors
+
+    m = _LIMIT.match(text.strip())
+    sel = selectors.parse(f"{m['w']}s") if m else None
+    if m is None or sel is None:
+        return None
+    return {"kind": "static", "static": "untap_limit", "sel": sel.key(), "n": _NUMBERS[m["n"]], "effects": [],
+            "conditions": [{"static": "self", "test": "untapped"}] if text.startswith("As long as") else []}
+
+
+def limited(plan: Plan, player: str, keep: list[str]) -> list[list[Any]]:
+    """The kinds of permanent ``player``'s untap step limits where more of them would untap: [[their ids, the limit], ...]."""
+    from app.rules import permissions, selectors, statics
+
+    limits: dict[str, int] = {}
+    for src, _, d in permissions._table_statics(plan.state, plan.info, {"untap_limit"}):
+        if statics.conditions_hold(plan, d, source=src, controller=src.controller):
+            limits[d["sel"]] = min(d["n"], limits.get(d["sel"], 99))
+    out = []
+    for key, n in sorted(limits.items()):
+        sel = selectors.from_key(key)
+        ids = [c.id for c in plan.state.cards.values()
+               if c.tapped and c.controller == player and c.zone.endswith(":battlefield") and c.id not in keep
+               and not plan.manual(c) and selectors.matches(plan, sel, c, plan.ch(c), player)][:250]
+        if len(ids) > n:
+            out.append([ids, n])
+    return out
+
+
+def _limits(plan: Plan, r: dict[str, Any]) -> None:
+    """Ask the next kind that still has too many; when none is left, finish the untap step (the held-back ones are
+    ``r["denied"]``, the others untap; a stunned one loses its counter instead, 122.1d)."""
+    from app.rules import effects, engine
+
+    while r["groups"]:
+        cands, n = r["groups"][0]
+        r = {**r, "groups": r["groups"][1:]}
+        live = [c for c in cands if c in plan.state.cards and c not in r["denied"]]
+        if len(live) > n:
+            decide(plan, player=plan.active, kind="choose_cards",
+                   prompt=f"Untap step: choose {n} of these to untap (the others stay tapped)",
+                   options=[DecisionOption(id=c, label=f"Untap {plan.state.cards[c].name or 'permanent'}", card_id=c) for c in live],
+                   min_choices=n, max_choices=n, resume={**r, "step": "untap_limit", "live": live})
+            return
+    free = [c for c in r["held"] if c in plan.state.cards and c not in r["denied"]]
+    stuck = effects.keyword_actions.stunned(plan, free)
+    if plan.state.settings.auto_untap and (let_go := [c for c in free if c not in stuck]):
+        plan.do({"type": "tap", "card_ids": let_go, "tapped": False}, actor=plan.active)
+    f = r["fin"]
+    engine.finish_turn_start(plan, [*f["stunned"], *stuck], (f["previous"][0], f["previous"][1]),
+                             [(p, n) for p, n in f["skipped"]], f["plain"], [*r["keep"], *r["denied"], *stuck])
+
+
+def resume_limit(plan: Plan, d: object, chosen: list[str]) -> None:
+    r = d.resume  # type: ignore[attr-defined]
+    for c in chosen:
+        plan.note(f"{plan.state.cards[c].name or 'It'} untaps (the untap step lets only some untap)", [c], actor=plan.active)
+    _limits(plan, {**r, "denied": [*r["denied"], *[c for c in r["live"] if c not in chosen]]})
 
 
 def candidates(plan: Plan, player: str, keep: list[str]) -> list[str]:
@@ -48,16 +120,22 @@ def candidates(plan: Plan, player: str, keep: list[str]) -> list[str]:
             and not plan.manual(c) and "may_stay_tapped" in scripts.statics(plan.ch(c))][:50]
 
 
-def ask(plan: Plan, asked: list[str], then: dict[str, object]) -> bool:
-    """Ask the active player which of ``asked`` stay tapped; True when the untap step waits for the answer."""
+def ask(plan: Plan, asked: list[str], then: dict[str, Any], groups: list[list[Any]] | None = None) -> bool:
+    """Ask the active player which of ``asked`` stay tapped, then which of each limited kind untap (``groups``: the ids
+    ``limited`` named are in ``then["keep"]`` for now); True when the untap step is handled here (waiting, or finished)."""
     asked = [c for c in asked if plan.state.cards[c].controller == plan.active]
+    held = [c for g in groups or [] for c in g[0]]
     if not asked:
-        return False
+        if not held:
+            return False
+        keep = [c for c in then["keep"] if c not in held]
+        _limits(plan, {"keep": keep, "held": held, "groups": groups, "denied": [], "fin": then})
+        return True
     decide(plan, player=plan.active, kind="choose_cards",
            prompt="Untap step: choose the permanents to keep tapped (the others untap)",
            options=[DecisionOption(id=c, label=f"Keep {plan.state.cards[c].name or 'permanent'} tapped", card_id=c)
                     for c in asked],
-           min_choices=0, max_choices=len(asked), resume={"step": "untap_keep", "asked": asked, **then})
+           min_choices=0, max_choices=len(asked), resume={"step": "untap_keep", "asked": asked, "groups": groups or [], **then})
     return True
 
 
@@ -68,12 +146,17 @@ def resume(plan: Plan, d: object, chosen: list[str]) -> None:
     asked: list[str] = r["asked"]
     let_go = [c for c in asked if c not in chosen and c in plan.state.cards]
     stuck = effects.keyword_actions.stunned(plan, let_go)  # 122.1d (the counter comes off in finish_turn_start)
-    keep = [c for c in r["keep"] if c not in asked] + [c for c in chosen if c not in r["keep"]] + stuck
+    held = [c for g in r.get("groups", []) for c in g[0]]
+    keep = [c for c in r["keep"] if c not in asked and c not in held] + [c for c in chosen if c not in r["keep"]] + stuck
     if plan.state.settings.auto_untap:
         free = [c for c in let_go if c not in stuck]
         if free:
             plan.do({"type": "tap", "card_ids": free, "tapped": False}, actor=plan.active)
     for c in chosen:
         plan.note(f"{plan.state.cards[c].name or 'It'} stays tapped (it isn't untapped during the untap step)", [c], actor=plan.active)
-    engine.finish_turn_start(plan, [*r["stunned"], *stuck], (r["previous"][0], r["previous"][1]),
+    fin = {k: r[k] for k in ("previous", "skipped", "plain")} | {"stunned": [*r["stunned"], *stuck]}
+    if held:  # -- untap restrictions (wave 13E) -- then the limited kinds
+        _limits(plan, {"keep": keep, "held": held, "groups": r["groups"], "denied": [], "fin": fin})
+        return
+    engine.finish_turn_start(plan, fin["stunned"], (r["previous"][0], r["previous"][1]),
                              [(p, n) for p, n in r["skipped"]], r["plain"], keep)

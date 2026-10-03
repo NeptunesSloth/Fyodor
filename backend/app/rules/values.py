@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 
 Value = int | dict[str, Any]
 NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
-           "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "twenty": 20}
+           "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "twenty": 20}
 AMOUNT = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x|X|that much|that many)"
 
 # Counters that carry rules the engine doesn't model yet (122.1b keyword counters, 122.1c shield,
@@ -102,6 +102,9 @@ _PLAYER_COUNTERS = re.compile(r"^(?P<kind>[a-z]+) counters? you have$")
 # "{E} you have" / "the amount of {E} you have" (107.14: each {E} is an energy counter)
 _PLAYER_COUNTERS_3E = re.compile(r"^(?:the amount of )?(?:(?P<kind>poison|experience|rad|energy) counters?|(?P<e>\{E\})) "
                                  r"(?P<who>you have|your opponents have)$")
+# -- as long as (wave 9B) -- "the amount of excess damage dealt to that creature this way" (Goblin Negotiation), "the excess damage
+# dealt this way", "that excess damage" (after "If excess damage was dealt this way, …, where X is that excess damage")
+_EXCESS_DEALT = re.compile(r"(?:the amount of |the )?excess damage dealt (?:to (?:that|a) (?:creature|permanent) )?this way|that excess damage")
 _HALF = re.compile(r"^half (?P<v>.+?), rounded (?P<round>up|down)$")
 _PLUS = re.compile(r"^(?P<v>.+?) plus (?P<n>\d+|one|two|three|four|five)$")
 _TYPE_WORDS = "|".join(selectors.CARD_TYPES)
@@ -139,6 +142,12 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     what = m["what"] if m else p
     if what.lower() == "x":
         return {"x": 1}
+    from app.rules import (
+        dice,  # -- rolling dice (wave 12A) -- "the result", "that result", "the other result" (706.4)
+    )
+
+    if (rolled := dice.amount(p)) is not None:
+        return rolled
     # -- refused zones/sized (wave 3R4) -- "the number of cards in their hand minus 4", "3 minus the number of …",
     # "… minus the number of cards in your hand": never below 0 (107.1b)
     minus = re.match(r"^(?P<a>.+?) minus (?P<b>\d+|one|two|three|four|five|the number of .+)$", what)
@@ -174,6 +183,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"opponents": 1}
     if what in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
         return {"kicked": 1}
+    if what in ("creature it devoured", "creature ~ devoured"):  # -- keyword mechanics (wave 9D) -- 702.82b
+        return {"devoured": 1}
     if _COLORS_SPENT.fullmatch(what):  # -- ability words (wave 4F) -- converge
         return {"colors_spent": 1}
     m = _MANA_SPENT.fullmatch(what)  # -- X actions (wave 9A) -- "the amount of mana spent to cast that spell / her"
@@ -191,6 +202,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     m = _PLAYER_COUNTERS.match(what)
     if m:
         return {"player_counters": m["kind"]}
+    if _EXCESS_DEALT.fullmatch(what):  # -- as long as (wave 9B) -- 120.10: scripts bind it to the damage just before (this_way.excess_dealt)
+        return {"ref_amount": "excess_dealt"}
     if what == "the damage dealt this way":  # -- if you do (wave 5G) -- what the damage just before dealt (this_way)
         return {"ref_amount": "damage_dealt"}
     if what == "the life lost this way":  # -- refused zones/sized (wave 3R4) -- what the lose_life just before lost
@@ -219,12 +232,18 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if m:
         key = _selector_key(m["sel"])
         return {"distinct": _DISTINCT[m["kind"]], "among": key} if key else None
+    if what == "the greatest mana value of a commander you own on the battlefield or in the command zone":  # -- amounts (wave 12C) --
+        return {"max": "mana_value", "of": selectors.Selector(commander=True, owner="you", zones=("battlefield", "command")).key()}  # 903.3
     m = _AGGREGATE.match(what)
     if m:
         key = _selector_key(m["sel"])
         if key is None or selectors.from_key(key).player is not None:
             return None
         return {"max" if m["max"] else "sum": _STATS[m["stat"]], "of": key}
+    m = re.fullmatch(r"differently named (?P<sel>.+)", what)  # -- amounts (wave 12C) -- 201.2: how many different names
+    if m:
+        key = _selector_key(m["sel"])
+        return {"distinct": "names", "among": key} if key else None
     if what.startswith(("the ", "a ", "an ")):
         return None
     sel = selectors.parse(_normalise(what))
@@ -326,6 +345,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sized_damage.evaluate(plan, ctx, v)
     if "x" in v:
         return max(0, int(ctx.get("x") or 0))
+    if "die" in v:  # -- rolling dice (wave 12A) -- this resolution's own roll (app/rules/dice.py)
+        from app.rules import dice
+
+        return dice.evaluate(ctx, v["die"])
     if "paid_x" in v:  # -- sized payments (wave 5G) -- the X an optional payment of this resolution paid
         from app.rules import paid_x
 
@@ -342,6 +365,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return 0  # a negative result of an effect is zero (107.1b); the sign is evaluate_signed's
     if "kicked" in v:
         return kicked_count(plan, ctx)
+    if "devoured" in v:  # -- keyword mechanics (wave 9D) -- 702.82b: sacrificed as a result of its devour as it entered
+        return plan.rules.devoured.get(ctx.get("source_object") or "", 0)
     if "colors_spent" in v:  # -- ability words (wave 4F) -- converge (a spell cast by hand: no mana known, 0)
         record = plan.rules.payments.get(ctx.get("source_object") or "")
         if record is None:
@@ -578,6 +603,12 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
     if who == "each":  # -- sized amounts (wave 3D) -- "each creature you control deals damage equal to its power": the one being read
         card = plan.state.cards.get(ctx.get("each_source") or "")
         return (card, plan.ch(card)) if card is not None else None
+    if who == "cost:discarded":  # -- as long as (wave 9B) -- "the discarded card's mana value": the one card a cost discarded
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        ids = record.discarded if record is not None else []
+        card = plan.state.cards.get(ids[0]) if len(ids) == 1 else None
+        return (card, plan.ch(card)) if card is not None else None
     if who == "cost:sacrificed":  # -- sized amounts (wave 3D) -- "the sacrificed creature's power": what a cost sacrificed, as it last existed
         from app.rules.triggers import _snapshot_card
 
@@ -599,6 +630,10 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
             from app.rules.triggers import _snapshot_card  # (triggers imports this module's users)
 
             return _snapshot_card(plan, snap)
+        if who == "self" and card is not None and card.zone.endswith(":exile"):
+            # -- scavenge (wave 12B) -- 702.97a: "the power of the card you exiled" as a cost from the graveyard. No last-known
+            # snapshot is kept of a graveyard card, and in the graveyard and in exile it has its printed characteristics
+            return card, plan.ch(card)
     return None
 
 

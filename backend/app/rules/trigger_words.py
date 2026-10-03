@@ -39,6 +39,14 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         body = _THEY.sub(lambda m: f"that player {_VERBS[m['v']]}", body)
         # -- damage wordings (wave 6B) -- "At the beginning of each player's upkeep, ~ deals 1 damage to them."
         body = re.sub(r"\b(deals? (?:\d+|X) damage) to them\b", r"\1 to that player", body)
+    # -- intervening ifs (wave 11F) -- "if you have fewer than seven cards in hand, draw cards equal to the difference": the
+    # difference between that number and the cards in hand as it resolves (608.2h; the "if" holds again then, 603.4)
+    body = re.sub(r"^(if you have fewer than (\w+) cards in hand, draw cards equal to) the difference\.$",
+                  r"\1 \2 minus the number of cards in your hand.", body)
+    if (cond or {}).get("event") == "cast":  # "…, if at least four mana was spent to cast it": the spell cast
+        body = re.sub(r"^(if (?:at least \w+|\w+ or more) mana was spent to cast) it,", r"\1 that spell,", body)
+    if cond is not None and cond.get("subject") == "source":  # -- source damage (wave 11F) -- 609.7: its controller
+        body = re.sub(r"\bthat source's controller\b", "that player", body)
     if name.startswith("step:draw:") and name.rsplit(":", 1)[-1] in ("each", "opponent"):
         # 504.1: the active player draws in the draw step; "an additional card" is one more card
         body = re.sub(r"\bthat player draws an additional card\.$", "that player draws a card.", body)
@@ -50,7 +58,10 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
     return body
 
 
-_NUMBER_OF = re.compile(r"\bcreate a number of (?P<what>[^.]+? tokens?(?: with [^.]+?)?) equal to (?P<v>[^.]+)\.")
+_NUMBER_OF = re.compile(r"\b(?P<c>[Cc])reate a number of (?P<what>[^.]+? tokens?(?: with [^.]+?)?) equal to (?P<v>[^.]+)\.")
+_SAC_OF = re.compile(r"\bthe (power|toughness|mana value) of the sacrificed (creature|artifact|permanent|land|enchantment)\b")
+_SAC_ITS = re.compile(r"(\bthe sacrificed (creature|artifact|permanent|land|enchantment)'s (?:power|toughness|mana value)\b[^.]*? equal to )"
+                      r"its (power|toughness|mana value)")
 _GAIN_AND_DRAW = re.compile(r"^you gain life and draw cards equal to (?P<v>[^.]+)\.$")
 
 
@@ -59,7 +70,11 @@ def plain_amounts(body: str) -> str:
     power" (Goldvein Hydra; 107.3c: one X for the instruction); "you gain life and draw cards equal to its power" →
     both amounts spelled out (Lifeblood Hydra: the same value, read once per instruction from the object as it last
     existed, 608.2h)."""
-    body = _NUMBER_OF.sub(lambda m: f"create X {m['what']}, where X is {m['v']}.", body)
+    # -- amounts (wave 12C) -- the sacrificed object's statistics, worded the way the value grammar reads them (608.2h):
+    # "the mana value of the sacrificed permanent" / "…equal to the sacrificed creature's power, then … equal to its toughness"
+    body = _SAC_OF.sub(r"the sacrificed \2's \1", body)
+    body = _SAC_ITS.sub(r"\1the sacrificed \2's \3", body)
+    body = _NUMBER_OF.sub(lambda m: f"{m['c']}reate X {m['what']}, where X is {m['v']}.", body)
     m = _GAIN_AND_DRAW.match(body.strip())
     if m is not None:
         body = f"you gain life equal to {m['v']}. Draw cards equal to {m['v']}."
@@ -96,4 +111,6 @@ def comma_condition(text: str, m: re.Match[str]) -> re.Match[str]:
 
 def have_subject(text: str) -> str:
     """"have ~ deal 1 damage to any target" → "~ deals 1 damage to any target" (after "you may")."""
+    # -- grammar (wave 11C) -- "you may have Ally creatures you control gain flying …": a group, so no third-person -s
+    text = re.sub(r"^have (?P<s>[A-Z][\w-]* creatures you control|[A-Z][\w-]+s you control) (?P<v>gain|get)\b", r"\g<s> \g<v>", text)
     return _HAVE.sub(lambda m: f"{m['s']} {_VERBS[m['v']]}", text)

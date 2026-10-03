@@ -93,12 +93,21 @@ def find(plan: Plan) -> Found:
         elif pid in r.drew_from_empty:
             reason = "drew from an empty library"
         if reason:
+            from app.rules import (
+                game_result,  # -- game result statics (wave 10B) -- "You can't lose the game" (104.3)
+            )
+
+            if game_result.cannot_lose(plan, pid):
+                r.drew_from_empty = [p_ for p_ in r.drew_from_empty if p_ != pid]  # (704.5b: checked, nothing happened)
+                continue
             out.losers.append((pid, reason))
+    from app.rules import keyword_actions
     from app.rules.copying import ceases_to_exist
 
     for card in list(state.cards.values()):
-        if card.is_token and not card.zone.endswith(":battlefield") and card.zone != "stack":
-            out.vanishing.append(card)
+        if card.is_token and not card.zone.endswith((":battlefield", ":phased")) and card.zone != "stack":  # (702.26d: tokens persist phased out)
+            if keyword_actions.prepared_permanent(state, card.id) is None:  # -- prepared (wave 13C) -- 722.3c: an exception to 704.5e
+                out.vanishing.append(card)
             continue
         if ceases_to_exist(plan, card):  # -- copy system (wave 2F): 704.5d (a token on the stack), 704.5e --
             out.vanishing.append(card)
@@ -227,9 +236,19 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         for pid, _ in found.losers:
             leave_game(plan, pid)
         left = live_players(state)
-        if len(left) == 1 and r.winner is None:
+        from app.rules import game_result
+
+        if len(left) == 1 and r.winner is None and not game_result.cannot_win(plan, left[0]):  # 104.2a, 10B
             r.winner = left[0]
             plan.note(f"{state.players[left[0]].name} wins the game")
+    elif r.winner is None and (r.lost or r.conceded):  # -- game result statics (wave 10B) --
+        from app.rules import game_result  # a last player who couldn't win (104.2) wins once nothing stops it
+
+        left = live_players(state)
+        if len(left) == 1 and not game_result.cannot_win(plan, left[0]):
+            r.winner = left[0]
+            plan.note(f"{state.players[left[0]].name} wins the game")
+            happened = True
     # -- counters & designations (wave 3E): 309.6 dungeons, 701.54a Ring-bearers --
     from app.rules import designations
 
@@ -255,6 +274,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
             if "Legendary" in ch.supertypes and ch.name:
                 legends.setdefault((card.controller, ch.name), []).append(card)
     for (controller, name), group in legends.items():
+        if len(group) > 1:  # -- legend rule (wave 10B) -- permanents the rule doesn't apply to aren't counted
+            from app.rules import legend_rule
+
+            skipped = legend_rule.exempt_cards(plan, group)
+            group = [c for c in group if c.id not in skipped]
         if len(group) > 1:
             decide(plan, player=controller, kind="choose_one",
                    prompt=f"Legend rule: choose which {name} to keep (the others go to the graveyard)",

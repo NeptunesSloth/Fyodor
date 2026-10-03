@@ -42,6 +42,43 @@ def tap(state: GameState, a: A.Tap) -> None:
         log(state, a.actor, a.ts, [pname(state, a.actor), text(" untapped "), group(state, changed_off)])
 
 
+def phase_shift(state: GameState, a: A.PhaseShift) -> None:
+    """-- phasing (wave 13D) -- 702.26b-g: a permanent phases out into its controller's "phased" zone (not a zone change,
+    702.26d: counters, damage, tapped state and tokens stay) and leaves combat (506.4); Auras, Equipment and Fortifications
+    attached to it phase out with it (702.26g; 702.26h: indirectly if also named). Phasing in puts each back on its
+    controller's battlefield, indirect ones along with their host; a directly phased attachment whose host isn't on the
+    battlefield any more phases in unattached (702.26i)."""
+    here, there = ("battlefield", "phased") if a.out else ("phased", "battlefield")
+    moving = {c.id: c for c in ops.cards(state, a.card_ids) if c.zone == zone_key(c.controller, here) and (a.out or not c.phased_indirect)}
+    indirect: set[str] = set()
+    grew = True
+    while grew:  # (attachments of attachments: an Aura on an Equipment)
+        grew = False
+        for c in state.cards.values():
+            if c.id not in indirect and c.attached_to in moving and c.zone == zone_key(c.controller, here) and (a.out or c.phased_indirect):
+                moving[c.id] = c
+                indirect.add(c.id)
+                grew = True
+    for c in moving.values():
+        ops.remove_from_zone(state, c)
+        ops.insert(state, c, zone_key(c.controller, there))
+        c.phased_indirect = a.out and c.id in indirect
+        if a.out:  # 506.4
+            c.attacking = None
+            c.blocking = None
+            for other in state.cards.values():
+                if other.blocking == c.id:
+                    other.blocking = None
+                if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
+                    other.attacking = None
+    for c in moving.values():
+        if not a.out and c.attached_to and ((host := state.cards.get(c.attached_to)) is None or not host.zone.endswith(":battlefield")):
+            c.attached_to = None  # 702.26i (state-based actions apply as appropriate)
+            c.attach_offset = None
+    if moving:
+        log(state, a.actor, a.ts, [group(state, list(moving.values())), text(f" phase{'' if len(moving) > 1 else 's'} {'out' if a.out else 'in'}")])
+
+
 def untap_all(state: GameState, a: A.UntapAll) -> None:
     pid = ops.player(state, a.player, a.actor)
     count = untap_permanents(state, pid, set(a.keep_tapped))
@@ -101,7 +138,8 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
         text=a.token.text,
         back=_token_back(a.token.back),  # -- keyword actions & face-down (wave 3F) -- 111.10i
     )
-    key = zone_key(pid, "battlefield")
+    emblem = spec.type_line == "Emblem"  # -- emblems (wave 13A) -- 114.1: an object in the command zone, not a token (111.7 doesn't apply)
+    key = zone_key(pid, "command" if emblem else "battlefield")
     source = None
     if a.source_id:
         src = ops.card(state, a.source_id)
@@ -122,7 +160,7 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
             x=base_x + (i % 10) * 16,
             y=base_y + (i // 10) * 16 + (i % 10) * 4,
             tapped=a.tapped,
-            is_token=True,
+            is_token=not emblem,
             token=spec.model_copy(),
             quantity=a.count if stacked else 1,
             token_source=source,
@@ -130,6 +168,8 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
         state.cards[new_id] = c
         state.zone(key).append(new_id)
     what = f"{a.count} {spec.name} token{'s' if a.count != 1 else ''}" if a.count != 1 else f"a {spec.name} token"
+    if emblem:
+        what = f"the {spec.name}"
     if stacked and a.count > 1:
         what += f" (stack ×{a.count})"
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" created {what}" + (f" (from {source.name})" if source else ""))])
@@ -144,6 +184,8 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
     pid = ops.player(state, a.player, a.actor)
     on_stack = src.zone == STACK
     key = STACK if on_stack else zone_key(pid, "battlefield")
+    if a.zone:  # -- cast a copy (wave 13C) -- 707.12: "created in the same zone the object is in"; 722.3c: in exile
+        key = zone_key(pid, a.zone)
     for i, new_id in enumerate(a.r.ids):
         if new_id in state.cards:
             raise ActionError("id collision")
@@ -156,7 +198,7 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
             zone=key,
             x=(a.x if a.x is not None else src.x + 24) + i * 18,
             y=(a.y if a.y is not None else src.y + 24) + i * 18,
-            face=src.face,
+            face=src.face if a.face is None else a.face,
             is_token=True,
             token=src.token.model_copy() if src.token else None,
             ability=src.ability.model_copy() if src.ability else None,
@@ -255,7 +297,7 @@ def set_controller(state: GameState, a: A.SetController) -> None:
         ops.insert(state, c, dest)
         c.controller = pid
         c.attacking = None
-        c.blocking = None
+        c.unblock()
     log(state, a.actor, a.ts, [pname(state, pid), text(" gained control of "), group(state, targets)])
 
 
@@ -274,7 +316,7 @@ def return_to_owner(state: GameState, a: A.ReturnToOwner) -> None:
             ops.insert(state, c, dest)
             c.controller = c.owner
             c.attacking = None
-            c.blocking = None
+            c.unblock()
         else:
             ops.move_card(state, c, dest)
         moved.append(c)

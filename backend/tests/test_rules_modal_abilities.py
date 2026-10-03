@@ -1175,7 +1175,7 @@ def test_the_lines_of_the_modes_belong_to_the_ability():
     "Whenever this creature attacks, choose two at random —\n• Draw a card.\n• You gain 1 life.",  # (only "one at random" is read)
     "When this creature dies, choose one or more. Each mode must target a different player.\n• Target player loses 1 life.\n"
     "• You gain 1 life.",  # (a different player per mode: every mode must target a player)
-    "When this creature enters, choose one. If you have exactly 13 life, you may choose both instead.\n• Draw a card.\n"
+    "When this creature enters, choose one. If you have exactly 13 poison counters, you may choose both instead.\n• Draw a card.\n"
     "• You gain 1 life.",  # Disciple of Perdition: "choose both instead"
     "{T}: Choose one. X is the number of spells you've cast this turn.\n• Draw a card.\n• You gain 1 life.",  # Gnostro
     "When this creature enters, choose up to X, where X is the number of Lesson cards in your graveyard —\n• Draw a card.\n"

@@ -557,9 +557,13 @@ def _tokens_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     if c.op["do"] == "extra":  # -- refused grants/replacements (wave 3R2) -- app/rules/extra_tokens.py
         from app.rules import extra_tokens
 
-        if not extra_tokens.applies(c, ev):
+        if not extra_tokens.applies(c, ev, sim, lambda cand, token: _token_matches(cand.match, token)):
             return False
-    types, subtypes = _token_types(ev["token"])
+    return _token_matches(m, ev["token"])
+
+
+def _token_matches(m: dict[str, Any], token: dict[str, Any]) -> bool:
+    types, subtypes = _token_types(token)
     if m.get("types") and not set(m["types"]) & types:
         return False
     return not (m.get("subtypes") and not set(m["subtypes"]) & subtypes)
@@ -570,7 +574,7 @@ def _tokens_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     if op["do"] == "extra":  # -- refused grants/replacements (wave 3R2) -- "those tokens plus a Food token" (614.16)
         from app.rules import extra_tokens
 
-        return extra_tokens.apply(c, ev)
+        return extra_tokens.apply(c, ev, sim)
     n = ev["count"] * int(op["n"]) if op["do"] == "mul" else ev["count"] + int(op["n"]) if op["do"] == "add" else ev["count"]
     return [{**ev, "count": max(0, n)}]
 
@@ -995,6 +999,13 @@ def _win(plan: Plan, pid: str) -> None:
     r = plan.rules
     if r.winner is not None or pid not in plan.live():
         return
+    from app.rules import (
+        game_result,  # -- game result statics (wave 10B) -- "You can't win the game" (104.2b)
+    )
+
+    if game_result.cannot_win(plan, pid):
+        plan.note(f"{plan.name(pid)} would win the game, but can't")
+        return
     for other in plan.live():
         if other != pid:
             r.lost[other] = f"{plan.name(pid)} won the game"
@@ -1098,6 +1109,8 @@ def source_info(plan: Plan, card_id: str | None, oid: str | None, ch: Any, contr
 
 def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -> bool:
     src = ev.get("src") or {}
+    if spec.get("alts"):  # -- as long as (wave 9B) -- "a red or artifact source you control": either description (609.7c)
+        return any(_source_matches(plan, alt, c, ev) for alt in spec["alts"])
     # -- refused grants/replacements (wave 3R2) -- a source of a player's choice (609.7a: the object chosen; its
     # property, if any, is checked again below: 609.7b)
     if spec.get("oids") is not None and ev.get("source_oid") not in spec["oids"]:
@@ -1173,6 +1186,14 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     return _source_matches(plan, m.get("source") or {}, c, ev) and _recipient_matches(plan, m.get("to") or {}, c, ev)
 
 
+def _added_value(plan: Plan, c: Candidate, value: Any) -> int:
+    """-- as long as (wave 9B) -- "plus X, where X is Hawkeye's power" / "plus … the number of fire counters on this enchantment":
+    read from the permanent with the effect as the damage is dealt (608.2h)."""
+    from app.rules import values
+
+    return values.evaluate(plan, {"controller": c.controller, "source_card": c.source_card, "source_object": c.source_oid}, value)
+
+
 def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     op = c.op
     if op["do"] == "redirect":  # -- refused grants/replacements (wave 3R2) -- 614.9 (app/rules/source_shields.py)
@@ -1184,7 +1205,7 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     if kind == "mul":
         n *= int(op["n"])
     elif kind == "add":
-        n += int(op["n"])
+        n += int(op["n"]) + (_added_value(plan, c, op["value"]) if op.get("value") else 0)
     elif kind == "sub":
         n = max(0, n - int(op["n"]))
     elif kind == "half":

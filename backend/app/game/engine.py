@@ -39,6 +39,7 @@ HANDLERS: dict[str, Handler] = {
     "end_view": zones.end_view,
     "tap": cards.tap,
     "untap_all": cards.untap_all,
+    "phase_shift": cards.phase_shift,
     "counter": cards.counter,
     "set_counter": cards.set_counter,
     "create_token": cards.create_token,

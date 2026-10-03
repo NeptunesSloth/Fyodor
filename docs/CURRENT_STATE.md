@@ -95,8 +95,8 @@ phrases shared inside the catch-all families.
 | 6 | attached_events | 458 | 343 | 8 | Trailblazer's Boots, Blade of Selves |
 | 7 | this_turn_state | 469 | 340 | 63 | Sylvan Library, Veil of Summer |
 | 8 | x_value | 581 | 331 | 65 | Torment of Hailfire, Crackle with Power |
-| 9 | damage_sized | 423 | 277 | 33 | Descent into Avernus, Myr Battlesphere (9B in progress) |
-| 10 | as_long_as_static | 425 | 269 | 36 | Promise of Loyalty, Conqueror's Flail (9B in progress) |
+| 9 | damage_sized | 423 | 277 | 33 | Descent into Avernus, Myr Battlesphere |
+| 10 | as_long_as_static | 425 | 269 | 36 | Promise of Loyalty, Conqueror's Flail |
 | 11 | instead | 390 | 235 | 44 | Academy Manufactor, Bloodletter of Aclazotz (9C in progress) |
 | 12 | ability_word | 352 | 211 | 31 | Tireless Provisioner, Puresteel Paladin (9C in progress) |
 | 13 | reanimation | 361 | 177 | 26 | Sevinne's Reclamation, Haven of the Spirit Dragon |
@@ -120,7 +120,12 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   a trigger whose source left the battlefield matches nothing for "the chosen type".
 - **Sylvan Library** (per-card "drawn this turn" is hidden information), Lim-Dûl's Vault, Djinn of
   Wishes, Protean Hulk.
-- **Copies**: cast-a-copy (707.12), "each other object it could target" (Zada), Garth One-Eye / Magar,
+- **Copies**: cast-a-copy only as "[exile a card and] copy it / that card [N times]. You may cast the copy without paying its
+  mana cost" (wave 13C, 707.12: `copying.copy_cards` + `permissions.FREE_COPY`; the copy is made in the card's own zone;
+  a non-free "You may cast the copy", "cast the copy by paying …" and copies of imprinted / "exiled with" cards stay manual),
+  Prepared (wave 13C, 722): `rules.prepared` (object -> its exiled copy, face 1), "enters prepared" / "becomes prepared" /
+  "isn't prepared", the copy is cast for its normal cost (cast_grant "prepared") and unprepares the permanent; a prepared
+  token or copy of a permanent is not prepared (no tracked prepare spell). Also left: "each other object it could target" (Zada), Garth One-Eye / Magar,
   linked abilities (707.7), melded and reversible sources.
 - **Mana**: restricted mana added by spells (Geosurge, Karn), "that spell can't be countered" riders,
   restrictions on costs rather than spells, Mana Drain, exhaust mana abilities. Snow mana `{S}` (wave 7E) is paid only by tapping a snow
@@ -145,6 +150,10 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
 - **X**: Torment of Hailfire (repeated per-opponent choices), "investigate X times", "up to X target"
   in triggers, delayed triggers (107.3n) don't receive X.
 - **Battles**: a defeated Siege is cast transformed by hand.
+- **Transform** (wave 11A, 701.27 / 712): "transform ~ / this creature" (the source only), "exile ~, then return it to the battlefield
+  transformed", "return it … [tapped and] transformed" and Saga III turn the face over (`keyword_actions.transform`,
+  `RulesState.transformed` for 701.27f, `Move.back_ids` for 712.14a). Not read: "transform it / target …", delayed "transform",
+  "transforms into" triggers (701.27e), disturb, craft, modal and meld cards, casting a card transformed, copies of a back face (MV 0).
 - **Ability-word flavor prefixes**: the deny list of rules-bearing "Name —" prefixes in
   `oracle.word_prefix` is maintained by hand; add new mechanics to it.
 

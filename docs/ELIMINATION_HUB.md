@@ -1,6 +1,8 @@
 # Plan: the elimination activity hub (not started)
 
-Requested 2026-10-03, for later. Nothing here is built yet.
+Requested 2026-10-03, for later. Nothing here is built yet. Spectator side activities (PiP Practice Table,
+next-game queue, reactions, damage sandbox, fake-point predictions) extend this hub later:
+`SPECTATOR_ACTIVITIES_MILESTONE.md`.
 
 **Goal:** a player knocked out early in a Commander game still has something fun or useful to do
 while their friends finish. Elimination must **not** mean "you lost, sit in spectator mode until

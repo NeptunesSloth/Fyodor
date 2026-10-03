@@ -362,8 +362,8 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(MILL, amount=_n(m["n"]) if m["n"] else 1, text=part) if m["n"] != "another" else None
     if m := _EXILE_TOP.match(part):
         return CostComponent(EXILE_LIBRARY, amount=_n(m["n"]) if m["n"] else 1, text=part) if m["n"] != "another" else None
-    if (m := _EXILE_CHOSEN.match(part)) and m["n"] != "another":
-        key = _selector(m["what"], zone="battlefield")
+    if m := _EXILE_CHOSEN.match(part):  # (-- champion (wave 12B) -- "another": not the source itself)
+        key = _selector(m["what"], zone="battlefield", other=m["n"] == "another")
         return CostComponent(EXILE, amount=_n(m["n"]), selector=key, text=part) if key else None
     if m := _EVIDENCE.match(part):  # 701.59a
         key = _selector("cards from your graveyard", zone="graveyard")

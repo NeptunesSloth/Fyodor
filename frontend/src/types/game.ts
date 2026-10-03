@@ -42,6 +42,7 @@ export type ZoneName =
   | "companion"
   | "foretell"
   | "setaside"
+  | "phased"
   | "stack";
 
 export const OMNISCIENT = "__omniscient__";
@@ -87,6 +88,7 @@ interface CardBase {
   counters?: Record<string, number>;
   attacking?: AttackTarget;
   blocking?: string;
+  blocking_more?: string[]; // 509.1a: further attackers a creature that can block several blocks
   /** Manual table markers (public on the battlefield / stack, even when face down). */
   effects?: CardEffect[];
   damage?: number;

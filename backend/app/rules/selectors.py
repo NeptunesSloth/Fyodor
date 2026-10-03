@@ -47,7 +47,7 @@ OTHER_SUBTYPES = {"Equipment", "Aura", "Vehicle", "Food", "Clue", "Treasure", "B
                   "Curse", "Plains", "Island", "Swamp", "Mountain", "Forest", "Desert", "Gate", "Cave", "Town",
                   "Sphere", "Lesson", "Adventure", "Arcane", "Trap", "Room", "Class", "Case", "Background",
                   "Fortification", "Attraction", "Contraption", "Powerstone", "Map", "Incubator", "Junk",
-                  "Lair"}  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
+                  "Lair", "Bobblehead"}  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
 # -- kicked / instead (wave 4G) -- 205.3j: the planeswalker types ("If you control a Jace planeswalker, …"), read only
 # when written capitalized (a word like "will" is never one)
 PLANESWALKER_TYPES = frozenset({
@@ -120,7 +120,7 @@ _DEFAULT = Selector()
 def is_plural(phrase: str) -> bool:
     """Does the phrase name a group ("creatures you control", "other Elves")? (its head noun is plural)"""
     for word in phrase.replace(",", " ").split():
-        if _core(word) is not None and _singular(word) != word:
+        if (_core(word) is not None and _singular(word) != word) or word == "outlaws":  # (outlaws: wave 11F)
             return True
     return False
 
@@ -184,6 +184,11 @@ def _defending_controls(s: Selector, m: re.Match[str]) -> Selector:
     # 508.5: the defending player an attacking creature's ability refers to is the player (or
     # the controller of the planeswalker) it's attacking; 508.5a: one specific defending player.
     return replace(s, controller="defending")
+
+
+@_suffix(r"that['’]s enchanted or equipped")  # -- grammar (wave 11C) -- an Aura or an Equipment on it (303.4, 301.5)
+def _enchanted_or_equipped(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "enchanted_or_equipped"))
 
 
 @_suffix(r"other than ~")
@@ -328,13 +333,51 @@ def _compare(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, (what, "<=" if m["dir"] == "less" else ">=", n)))
 
 
-@_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM)
+@_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM.replace("|x)", "|[xX])"))
 def _equal(s: Selector, m: re.Match[str]) -> Selector:
     n = _n(m.group(2))
+    if n is None and m["what"] == "mana value" and m.group(2).lower() == "x":
+        n = X_VALUE  # -- reanimation (wave 10A) -- "target creature card with mana value X" (Postmortem Lunge): the spell's X
     if n is None:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
     return replace(s, compare=(*s.compare, (what, "==", n)))
+
+
+# -- reanimation (wave 10A) -- "target creature card with mana value less than or equal to ~'s power from your graveyard"
+# (Carmen, Cruel Skymarcher; Fiendish Panda), "… with power less than ~'s" (Mirko): a comparison with a characteristic of
+# the ability's source, as it is or (once it has left the battlefield: "When this creature dies") as it last existed
+# (608.2h). Only a card in a graveyard is read this way (_parse refuses the others: a spell or permanent selector has no
+# such users), and a source with no such value (no power: not a creature) matches nothing.
+SOURCE_STAT = "src:"
+_REF_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "==", "greater than or equal to": ">=",
+            "greater than": ">"}
+_REF_STAT = {"mana value": "mv", "power": "power", "toughness": "toughness"}
+
+
+@_suffix(r"with (?P<what>mana value|power|toughness) (?P<op>less than or equal to|less than|equal to|greater than or equal to|"
+         r"greater than) (?:~|this creature)'s(?: (?P<ref>mana value|power|toughness))?")
+def _compare_source(s: Selector, m: re.Match[str]) -> Selector:
+    if m["ref"] is None and m["what"] == "mana value":
+        raise ValueError("incomplete reference")  # ("mana value less than ~'s": which characteristic?)
+    ref = m["ref"] or m["what"]  # ("power less than Mirko's": the same characteristic)
+    return replace(s, compare=(*s.compare, (_REF_STAT[m["what"]], _REF_OPS[m["op"]], SOURCE_STAT + _REF_STAT[ref])))
+
+
+def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
+    """The source's mana value / power / toughness: on the battlefield as it is, else as it last existed there."""
+    card = plan.state.cards.get(source or "")
+    if card is None:
+        return None
+    if card.zone.endswith(":battlefield"):
+        return _stat(plan.ch(card), what)
+    snaps = [x for x in plan.rules.lki.values() if x.card == card.id and x.zone.endswith(":battlefield")]
+    if not snaps:
+        return None
+    from app.rules.triggers import _lki_characteristics
+
+    return _stat(_lki_characteristics(plan, max(snaps, key=lambda x: int(x.object_id.rsplit(".", 1)[-1]))), what)
+# -- end reanimation (wave 10A) --
 
 
 # -- token & pump wordings (wave 6C) -- keywords a selector may ask about but a grant doesn't give ("if you control no
@@ -397,6 +440,12 @@ def _source_counters(plan: Plan, source: str | None, kind: str) -> int | None:
         return None
     last = max(snaps, key=lambda s: int(s.object_id.rsplit(".", 1)[-1]))
     return last.counters.get(kind, 0)
+
+
+# -- amounts (wave 12C) -- "cards named ~ in all graveyards" (Kindle): the source's name (201.2), read with the source in play
+@_suffix(r"named ~")
+def _named_self(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "named_self"))
 
 
 # "each creature that entered this turn", "target non-Human creature that entered this turn", "each creature that
@@ -568,7 +617,7 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, multicolored=False, colorless=False)
     if low == "commander":
         return replace(s, commander=True)
-    if low in ("enchanted", "equipped"):
+    if low in ("enchanted", "equipped", "modified", "historic"):  # (wave 11C: modified 700.9, historic 700.6)
         return replace(s, extras=(*s.extras, low))
     if low in ("face-down", "face-up"):  # -- keyword actions & face-down (wave 3F) -- 708: "face-down creatures you control"
         return replace(s, extras=(*s.extras, low.replace("-", "_")))
@@ -662,8 +711,25 @@ def parse(phrase: str) -> Selector | None:
     return _parse(phrase.strip())
 
 
+# -- outlaws (wave 11F) -- 700.12: an object with the Assassin, Mercenary, Pirate, Rogue and/or Warlock creature types
+_OUTLAW = re.compile(r"(?P<pre>(?:another |other )?)outlaw(?P<pl>s?)(?P<post>(?: .*)?)")
+OUTLAW_TYPES = "Assassin|Mercenary|Pirate|Rogue|Warlock"
+
+
+def _outlaws(phrase: str) -> Selector | None:
+    """"another outlaw", "outlaws you control", "outlaw spell": any permanent (or spell) with one of those types (700.12a)."""
+    m = _OUTLAW.fullmatch(phrase)
+    if m is None:
+        return None
+    noun = re.match(r"\s*(?:spells?|cards?|creatures?|permanents?|tokens?)\b", m["post"]) is not None  # "outlaw spell", "outlaw cards"
+    base = _parse((m["pre"] + ("" if noun else "permanent" + m["pl"]) + m["post"]).strip())
+    return replace(base, extras=(*base.extras, "subtype_any:" + OUTLAW_TYPES)) if base is not None else None
+
+
 @lru_cache(maxsize=8192)
 def _parse(phrase: str) -> Selector | None:
+    if "outlaw" in phrase:
+        return _outlaws(phrase)
     s = Selector()
     text = phrase
     qualified = False  # a "with …" / "without …" qualifier
@@ -681,6 +747,10 @@ def _parse(phrase: str) -> Selector | None:
                     break
     except ValueError:
         return None
+    if any(isinstance(c[2], str) and c[2].startswith(SOURCE_STAT) for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
+        return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source)
+    if any(c[1] == "==" and c[2] == X_VALUE for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
+        return None  # -- reanimation (wave 10A) -- ("mana value X" exactly: read only for a card in a graveyard)
     if qualified and re.search(r", or \S+$", text):
         # "artifact, enchantment, or creature with flying": the qualifier is the last item's
         # only (any artifact; a creature with flying), which a selector can't say: not a guess
@@ -960,7 +1030,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if set(sel.without_keywords) & ch.keywords:
         return False
     for what, op, n in sel.compare:
-        if isinstance(n, str) and n.startswith(SOURCE_COUNTERS):  # -- counters (wave 5H) --
+        if isinstance(n, str) and n.startswith(SOURCE_STAT):  # -- reanimation (wave 10A) --
+            ref_value = source_stat(plan, source, n[len(SOURCE_STAT):])
+            if ref_value is None:
+                return False
+            n = ref_value
+        elif isinstance(n, str) and n.startswith(SOURCE_COUNTERS):  # -- counters (wave 5H) --
             have = _source_counters(plan, source, n[len(SOURCE_COUNTERS):])
             if have is None:
                 return False
@@ -975,12 +1050,19 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         value = _stat(ch, what)
         if what == "mv" and value is not None and zone == "stack" and card.stack_info is not None and card.stack_info.x:
             value += card.stack_info.x * ch.mana_cost.count("{X}")  # 202.3e: X on the stack is the value chosen
-        if value is None or not isinstance(n, int) or not {"<=": value <= n, ">=": value >= n, "==": value == n}[op]:
+        if value is None or not isinstance(n, int) or not {"<=": value <= n, ">=": value >= n, "==": value == n, "<": value < n, ">": value > n}[op]:
             return False
     for extra in sel.extras:
         if extra == "enchanted" and not _has_attached(plan, card, "Aura"):
             return False
         if extra == "equipped" and not _has_attached(plan, card, "Equipment"):
+            return False
+        if extra == "enchanted_or_equipped" and not (_has_attached(plan, card, "Aura") or _has_attached(plan, card, "Equipment")):
+            return False
+        # -- grammar (wave 11C) -- 700.9:a counter on it, equipped, or enchanted by an Aura its own controller controls
+        if extra == "modified" and not (_has_counter(card, COUNTER_ANY) or _has_attached(plan, card, "Equipment") or any(
+                c.attached_to == card.id and "Aura" in plan.ch(c).subtypes and c.controller == card.controller
+                for c in plan.state.cards.values())):
             return False
         # (700.6; set only by the look-and-distribute grammar: "a historic card from among them")
         if extra == "historic" and not ("Artifact" in ch.types or "Legendary" in ch.supertypes or "Saga" in ch.subtypes):
@@ -993,6 +1075,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False  # (wave 5H)
         if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
             return False
+        if extra == "named_self" and ((src := plan.state.cards.get(source or "")) is None or plan.ch(src).name != ch.name):
+            return False  # (wave 12C)
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
@@ -1008,7 +1092,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             src = plan.state.cards.get(source or "")
             if src is None or not src.zone.endswith(":battlefield") or not card.zone.endswith(":battlefield"):
                 return False
-            if (card.blocking != src.id) if extra == "blocking_source" else (src.blocking != card.id):
+            if (not card.blocks(src.id)) if extra == "blocking_source" else (not src.blocks(card.id)):
                 return False
         if extra == "greatest_power_own":  # -- damage wordings (wave 6B) -- the greatest power among creatures its
             # controller controls (Crackling Doom: what the sacrificing player may choose; ties all qualify)

@@ -29,6 +29,8 @@ def self_move_of(e: dict[str, Any]) -> str | None:
         return None
     if e.get("do") == "exile" and set(e) <= {"do", "who"}:
         return "exile"
+    if e.get("do") == "bounce" and set(e) <= {"do", "who"}:  # -- clash (wave 12A) -- "return ~ to its owner's hand" (Research the Deep)
+        return "hand"
     if e.get("do") == "to_library" and set(e) <= {"do", "who", "place"} and e.get("place") in ("shuffle", "bottom", "top"):
         return str(e["place"])
     return None
@@ -55,6 +57,8 @@ def spell_self_move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": n}, actor=controller)
             if kind == "time" and "suspend" in plan.ch(card).keywords and card.id not in r.suspended:
                 r.suspended.append(card.id)
+    elif to == "hand":
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "hand"}}, actor=controller)
     elif to == "shuffle":  # 701.24
         plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "library"}}, actor=controller)
         plan.do({"type": "shuffle", "player": card.owner, "zone": "library"}, actor=card.owner)
