@@ -3312,7 +3312,7 @@ def _prevent_scope(kind: str | None, to: str | None, by: str | None) -> tuple[De
     # creature with power 5 or greater": the creatures chosen as the spell or ability is put on the stack (115.1); the
     # damage a creature would be dealt this turn (615.1)
     elif by is None and to.startswith(("target ", "up to ", "another target ")) and _prevent_group(to) is not None:
-        target, role = _prevent_group(to), "to"  # type: ignore[assignment]
+        target, role = _prevent_group(to), "to"
     else:
         key = _selector_key(to)
         if key is None:

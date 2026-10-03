@@ -17,7 +17,6 @@ from tests.test_rules_effects import replay_matches
 from tests.test_rules_wave6c_tokens_pumps import build, card_named, mana, reloaded
 from tests.test_rules_wave7e_activated import combat_table
 
-
 EXTRA = [
     card('Deadbridge Goliath', set_code='tst', number='Y01', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Creature — Insect Skeleton', oracle_text="Scavenge {4}{G}{G} ({4}{G}{G}, Exile this card from your graveyard: Put a number of +1/+1 counters equal to this card's power on target creature. Scavenge only as a sorcery.)", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Scavenge']),  # noqa: E501
     card('Redeem', set_code='tst', number='Y02', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text='Prevent all damage that would be dealt this turn to up to two target creatures.', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
@@ -96,6 +95,23 @@ def test_champion_exiles_a_creature_and_returns_it_when_the_champion_leaves(card
         settle(s)
         assert s.state.cards[merfolk.id].zone == "p1:battlefield"  # the exiled card returns when the champion leaves
         check(s)
+
+
+def test_exerted_avengers_prevention_shield_covers_the_combat_damage_to_it(cards):
+    from tests.test_rules_combat_triggers import through_combat
+    from tests.test_rules_conditionals import token_of
+    from tests.test_rules_wave6e_statics import attack_with
+
+    s = build(cards)
+    text = ("You may exert this creature as it attacks. When you do, prevent all combat damage that would be dealt to it this turn. "
+            "(An exerted creature won't untap during your next untap step.)")
+    avenger = token_of(s, "p1", "Avenger", "Token Creature — Human Warrior", "3/1", "Haste\n" + text)
+    guard = token_of(s, "p2", "Guard", "Token Creature — Bear", "3/3")
+    attack_with(s, avenger)
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=[avenger.id])
+    through_combat(s, {"p2": [(guard, avenger)]})
+    assert s.state.cards[avenger.id].zone == "p1:battlefield" and guard.id not in s.state.cards  # 615.1: it takes none, deals 3
+    check(s)
 
 
 def check(s):
