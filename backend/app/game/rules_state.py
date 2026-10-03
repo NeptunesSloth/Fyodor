@@ -894,6 +894,10 @@ class RulesState(BaseModel):
     # objects' entry timestamps and resolved effects' ``object_seq``. The object's identity
     # (``objects``) is untouched. Read by ``app.rules.layers.timestamp``.
     restamped: dict[str, int] = Field(default_factory=dict)
+    # -- transform (wave 11A) -- 701.27f: card id -> the ``next_object`` number when that double-faced permanent last
+    # transformed (a ``face`` change on the battlefield); an ability put on the stack earlier (its own object number is
+    # lower) no longer transforms it. Cleared when it becomes a new object (400.7).
+    transformed: dict[str, int] = Field(default_factory=dict)
     lki: dict[str, ObjectSnapshot] = Field(default_factory=dict)  # object id -> last known information
     batch: int = 0  # last event batch number
     events: list[Event] = Field(default_factory=list)  # events since the engine last acted (this intent's, or manual ones)
@@ -1187,6 +1191,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             rules.lki[old_oid].attached = [c for c, s in before.snaps.items() if s.attached_to == card_id]
         new_oid = None
         rules.restamped.pop(card_id, None)  # a new object gets its own timestamp as it enters (613.7d)
+        rules.transformed.pop(card_id, None)
         rules.counter_stamps.pop(card_id, None)  # (wave 5H: its counters are gone, 122.2)
         if card is not None:
             rules.next_object += 1
@@ -1258,6 +1263,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                 or card.face != snap.face or card.face_down != snap.face_down):
             rules.next_object += 1
             rules.restamped[card_id] = rules.next_object
+            if card.face != snap.face:
+                rules.transformed[card_id] = rules.next_object
     for pid, old in before.resources.items():
         p = state.players.get(pid)
         if p is None:

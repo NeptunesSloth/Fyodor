@@ -412,13 +412,25 @@ def incubate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """701.27a, "Transform this token.": a double-faced token turns over; 701.27c: anything else that isn't a
-    double-faced permanent doesn't (nothing happens)."""
+    """701.27a, "Transform this token / ~.": a double-faced token or nonmodal double-faced card turns over (712.18: the
+    same object); 701.27c / 712.10: anything else, or one whose other face is an instant or sorcery, doesn't (nothing
+    happens); 701.27f: not if it transformed since this ability was put onto the stack (-- transform, wave 11A --)."""
+    from app.rules import attachments
+    from app.rules import characteristics as chars
+
+    r = plan.rules
     for cid in effects._cards(plan, ctx, e.get("who", "self")):
         card = plan.state.cards[cid]
-        if card.token is None or card.token.back is None or not card.zone.endswith(":battlefield"):
+        if not card.zone.endswith(":battlefield") or card.face_down:
             continue
+        if (card.token is None or card.token.back is None) and not chars.transformable(card, plan.info):
+            continue
+        if r.transformed.get(cid, 0) > r.objects.get(ctx.get("stack_id") or "", 1 << 60):
+            continue  # (an ability not on the stack has no number: never ignored)
         plan.do({"type": "set_face", "card_id": cid, "face": 1 - min(card.face, 1)}, actor=ctx["controller"])
+        now = plan.state.cards[cid]
+        if (now.attached_to or now.attached_player) and attachments.attach_kind(plan.ch(now)) is None:
+            plan.do({"type": "detach", "card_ids": [cid]}, actor=ctx["controller"])  # 704.5n: no longer an Equipment (or Aura …)
     return True
 
 

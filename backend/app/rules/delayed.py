@@ -108,6 +108,8 @@ def wrap_when(effects: list[dict[str, Any]], when: dict[str, Any], *, who: str |
 
 
 DEFERRED = "deferred:"
+# effects a delayed trigger doesn't defer; "transform": 701.27f counts from the delayed trigger's creation (not modeled)
+UNDEFERRABLE = ("delayed", "until", "optional_payment", "transform")
 
 
 _MOVES = {"bounce", "return_card", "exile", "destroy", "sacrifice"}

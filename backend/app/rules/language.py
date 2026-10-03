@@ -211,7 +211,7 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
     key, None) | ("self", "", None) | ("players", "you" / "each_player" / "each_opponent", None) |
     a pronoun ("it" / "them", with the verb it names for "… exiled this way")."""
     p = phrase.strip()
-    if p in ("~", "this creature", "this permanent"):
+    if p in ("~", "this creature", "this permanent", "this saga"):  # (-- transform, wave 11A -- "Exile this Saga, then …")
         return "self", "", None
     if p in ("it", "that creature", "that permanent", "that card", "that token"):
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
@@ -2483,8 +2483,17 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
     m = re.fullmatch(r"(?:you )?incubate (?P<n>\d+|[xX])", text)
     if m and has_primitive("incubate"):  # 701.53a
         return [{"do": "incubate", "n": _amount(m["n"])}], None
-    if text == "transform this token" and has_primitive("transform"):  # (not "transform ~": DFC cards stay manual)
-        return [{"do": "transform", "who": "self"}], None  # (701.27: only a double-faced token turns over)
+    # -- transform (wave 11A) -- 701.27a: "transform ~" / "transform this creature"; the source only (an ability putting
+    # "it" or another object through is not read), once per object since the ability was put on the stack (701.27f)
+    if re.fullmatch(r"transform (?:this token|~|this (?:creature|artifact|land|enchantment|permanent|saga|vehicle))", text) \
+            and has_primitive("transform"):
+        return [{"do": "transform", "who": "self"}], None  # (701.27c: anything that isn't double-faced doesn't turn over)
+    m = re.fullmatch(r"return (?:it|him|her) to the battlefield(?P<t> tapped)?(?: and)? transformed under "
+                     r"(?P<u>your|(?:its|his|her) owner's) control", text)
+    if m:
+        found = parse_sentence(f"return it to the battlefield{m['t'] or ''} under {'your' if m['u'] == 'your' else 'its owner' + chr(39) + 's'} control")
+        if found is not None and len(found[0]) == 1 and found[0][0].get("do") == "return_card":
+            return [{**found[0][0], "transformed": True}], found[1]
     m = re.fullmatch(r"(?:you )?earthbend (?P<n>\d+|[xX]|one|two|three|four|five|six|seven|eight)", text)
     if m and has_primitive("earthbend"):  # 701.66a: "Target land you control …" is part of the action
         land = selectors.parse("land you control")

@@ -9,7 +9,7 @@ system) arrive with milestone 16 and are applied on top of this in one place.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
 from app.game.state import CardInstance
@@ -145,6 +145,8 @@ def _from_card_data(data: dict[str, Any], face: int, *, half: bool = False) -> C
     if faces and layout in ("transform", "modal_dfc", "flip", "meld", "reversible_card", "prepare"):
         src = faces[min(face, len(faces) - 1)]
         text = str(src.get("oracle_text") or "")
+        if layout == "transform" and face > 0:  # -- transform (wave 11A) -- 712.8e: its mana value is its front face's
+            return replace(_build(data, src, text), mana_value=mana_value(str(faces[0].get("mana_cost") or "")))
     elif faces and layout in ("split", "adventure", "aftermath"):
         src = faces[min(face, len(faces) - 1)] if face else data
         text = str(src.get("oracle_text") or data.get("oracle_text") or "")
@@ -216,6 +218,16 @@ def printed_from_data(data: dict[str, Any], face: int = 0) -> Characteristics:
             _printed_cache.clear()
         hit = _printed_cache[key] = _from_card_data(data, face)
     return hit
+
+
+def transformable(card: CardInstance, info: CardInfo) -> bool:
+    """-- transform (wave 11A) -- 701.27a, 712.9: a card that can transform or convert: a nonmodal double-faced card
+    (modal and meld cards, 712.4c, and the other layouts are left out), whose other face is a permanent face (712.10)."""
+    data = info.get(card.card_id) if card.card_id and card.token is None and not card.is_token else None
+    faces = (data or {}).get("faces") or []
+    if data is None or data.get("layout") != "transform" or len(faces) < 2:
+        return False
+    return not {"Instant", "Sorcery"} & set(parse_type_line(str(faces[0 if card.face else 1].get("type_line") or ""))[1])
 
 
 def half_from_data(data: dict[str, Any], face: int) -> Characteristics:

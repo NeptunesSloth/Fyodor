@@ -1750,6 +1750,7 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
         return True
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
                 "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
+                **({"transformed": True} if e.get("transformed") else {}),  # (-- transform, wave 11A -- 712.14a)
                 **({"counter": e["counter"]} if e.get("counter") else {}),
                 **({"counter_n": e["counter_n"]} if e.get("counter_n") else {})} for cid in cards]  # (counters it enters with, 122.6; n: wave 4M)
     if e.get("host"):  # -- refused zones/sized (wave 3R4) -- "attached to this creature / that creature"

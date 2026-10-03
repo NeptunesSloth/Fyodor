@@ -423,7 +423,9 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         card = plan.state.cards.get(entry["card"])
         if card is None or any(card.id == c.id for _, c, _ in planned):
             continue
-        planned.append((entry, card, entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"),
+        # (-- transform, wave 11A -- 712.14a: it enters with its back face up, so that face's replacement effects apply)
+        planned.append((entry, card, entry_plan(plan, card.model_copy(update={"face": 1}) if entry.get("transformed") else card,
+                                                 entry["player"], pay_life=entry.get("pay_life"),
                                                  tapped=bool(entry.get("tapped")), answers=entry.get("choices"),
                                                  x=entry.get("x"), extra=_extra(entry),
                                                  reserved=set(entry.get("reserved") or ()))))  # (reserved: wave 5G)
@@ -451,6 +453,9 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
     tapped = [c.id for _, c, ep in planned if ep["tapped"]]
     if tapped:
         payload["tapped_ids"] = tapped
+    back = [c.id for e, c, _ in planned if e.get("transformed")]
+    if back:
+        payload["back_ids"] = back
     if any(e["player"] != first["player"] for e, _, _ in planned):
         payload["controllers"] = {c.id: e["player"] for e, c, _ in planned}
     plan.do(payload, actor=first["actor"])

@@ -3535,7 +3535,7 @@ _MOVES.add("to_library")
 
 def _deferred(clause: str, when: dict[str, Any]) -> tuple[list[dict[str, Any]], Any]:
     inner = _clause(clause)
-    if inner is None or any(e.get("do") in ("delayed", "until", "optional_payment") for e in inner[0]):
+    if inner is None or any(e.get("do") in _delayed.UNDEFERRABLE for e in inner[0]):
         raise _NoMatch
     return _delayed.wrap_when(inner[0], when), inner[1]
 
@@ -3560,6 +3560,14 @@ def _delayed_end_combat_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]],
 @effect(r"(?P<clause>.+?) at end of combat")
 def _delayed_end_combat_trailing(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return _deferred(m["clause"], _delayed.END_OF_COMBAT)
+
+
+# -- transform (wave 11A) -- Conqueror's Galleon: the delayed trigger holds both halves ("then return it" is deferred too)
+@effect(r"exile (?:it|~) at end of combat, then return it to the battlefield transformed under (?P<u>your|its owner's) control")
+def _delayed_exile_return_transformed(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    back = {"do": "return_card", "who": "ref:e0", "to": "battlefield", "tapped": False,
+            "under": "you" if m["u"] == "your" else "owner", "transformed": True}
+    return _delayed.wrap_when([{"do": "exile", "who": "self", "as": "e0"}, back], _delayed.END_OF_COMBAT), None
 # -- end other side (wave 6D) --
 
 
@@ -3569,7 +3577,7 @@ def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if inner is None or inner[1] is not None:  # (the deferred effect's own target: not modeled)
         raise _NoMatch
     effects = _delayed.inner_for_event(inner[0])
-    if effects is None or any(e.get("do") in ("delayed", "until", "optional_payment") for e in effects):
+    if effects is None or any(e.get("do") in _delayed.UNDEFERRABLE for e in effects):
         raise _NoMatch
     when, who = _delayed.event_when(m)
     sel = None

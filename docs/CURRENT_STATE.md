@@ -145,6 +145,10 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
 - **X**: Torment of Hailfire (repeated per-opponent choices), "investigate X times", "up to X target"
   in triggers, delayed triggers (107.3n) don't receive X.
 - **Battles**: a defeated Siege is cast transformed by hand.
+- **Transform** (wave 11A, 701.27 / 712): "transform ~ / this creature" (the source only), "exile ~, then return it to the battlefield
+  transformed", "return it … [tapped and] transformed" and Saga III turn the face over (`keyword_actions.transform`,
+  `RulesState.transformed` for 701.27f, `Move.back_ids` for 712.14a). Not read: "transform it / target …", delayed "transform",
+  "transforms into" triggers (701.27e), disturb, craft, modal and meld cards, casting a card transformed, copies of a back face (MV 0).
 - **Ability-word flavor prefixes**: the deny list of rules-bearing "Name —" prefixes in
   `oracle.word_prefix` is maintained by hand; add new mechanics to it.
 

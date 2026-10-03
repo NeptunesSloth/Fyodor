@@ -75,6 +75,8 @@ def move(state: GameState, a: A.Move) -> None:
             c.controller = a.actor  # -- refused look/cast-free (wave 3R5) -- 601.2a: the player who casts a spell controls it
         if (a.tapped or c.id in tapped) and ops.zone_name(dest) == "battlefield" and c.id in state.cards:
             c.tapped = True
+        if a.back_ids and c.id in a.back_ids and ops.zone_name(dest) == "battlefield" and c.id in state.cards:
+            c.face = 1  # -- transform (wave 11A) -- 712.14a
         if c.face_down and a.face_down:
             c.face_down_kind = a.face_down_kind or ("exile" if ops.zone_name(dest) == "exile" else "generic")
 
