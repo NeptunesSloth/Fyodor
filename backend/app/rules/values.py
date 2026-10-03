@@ -293,6 +293,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sized_damage.evaluate(plan, ctx, v)
     if "x" in v:
         return max(0, int(ctx.get("x") or 0))
+    if "paid_x" in v:  # -- sized payments (wave 5G) -- the X an optional payment of this resolution paid
+        from app.rules import paid_x
+
+        return paid_x.amount(ctx, v["paid_x"])
     if "times" in v:
         a, b = v["times"]
         return evaluate(plan, ctx, a) * evaluate(plan, ctx, b)

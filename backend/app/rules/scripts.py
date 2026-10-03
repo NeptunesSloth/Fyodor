@@ -582,6 +582,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if "n" in e:
                 e["n"] = _bind_stats(e["n"], lambda at=index: stat_ref(at),
                                      (lambda: "event") if antecedent == "event_spell" else None)  # (wave 3R3)
+            if "life_x" in e:  # -- sized payments (wave 5G) -- "pay X life, where X is its power"
+                e["life_x"] = _bind_stats(e["life_x"], lambda at=index: stat_ref(at),
+                                          (lambda: "event") if antecedent == "event_spell" else None)
             # -- X sized by a count (wave 4K) -- an "X/X" token's P/T: the same placeholders as an amount
             if isinstance(e.get("token"), dict) and any(isinstance(e["token"].get(k), dict) for k in ("power", "toughness")):
                 e["token"] = {**e["token"], **{k: _bind_stats(e["token"][k], lambda at=index: stat_ref(at),
@@ -1575,6 +1578,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         # "You may pay {2}. If you do, …" (118.12): the cost is an effect that records whether it
         # was paid; "If you do" / "If you don't" then gates the sentence on that payment
+        from app.rules import paid_x as _paid_x  # -- sized payments (wave 5G) -- "X can't be greater than …"
+
+        if _paid_x.cap_sentence(text, effects):
+            continue
         if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:
             effects.append(paid)
             continue
@@ -1627,9 +1634,25 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                     added = [{"do": "only_if", "cond": did_gate, "skip": len(added)}, *added]
                 effects += added
                 continue
-            inner = _clause(if_do["rest"]) if not if_do["rest"].startswith("you may ") else None
+            # -- sized payments (wave 5G) -- the X the payment paid (app/rules/paid_x.py)
+            pay_e = next(e for e in reversed(effects) if e["do"] == "optional_payment")
+            rest_text = if_do["rest"]
+            sized_pay = "choose_x" in pay_e or "life_x" in pay_e
+            if pay_e.get("that_many") and not if_do["neg"]:
+                rest_text = re.sub(r"\bthat many\b", "X", rest_text)
+            if sized_pay and (if_do["neg"] or not re.search(r"\bX\b", rest_text)) and not (
+                    pay_e.get("life_x") == {"event_amount": 1} and not if_do["neg"]):  # (Niv-Mizzet: "that many" = that much)
+                return None
+            inner = _clause(rest_text) if not rest_text.startswith("you may ") else None
             if inner is None:
                 return None
+            if sized_pay:
+                from app.rules import paid_x
+
+                if re.search(r'"x"|\bX\b', json.dumps(inner[1], default=str)):
+                    return None  # (an X in a target's definition: the target is chosen before X is, 603.3d)
+                inner = (paid_x.bind_x(inner[0], bind), inner[1])
+            # -- end sized payments (wave 5G) --
             added = _add_groups(groups, *inner)
             gate: dict[str, Any] = {"succeeded": bind, **({"negate": True} if if_do["neg"] else {})}
             effects += [{"do": "only_if", "cond": gate, "skip": len(added)}, *added]
@@ -1840,10 +1863,16 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     if re.search(r"\bit\b", phrase) and it != "self":
         return None
     cost = optional_payment.cost_text(phrase)
-    if cost is None:
-        return None
+    sized: dict[str, Any] = {}
+    if cost is None:  # -- sized payments (wave 5G) -- "pay {X}" / "pay X life, where X is …" (app/rules/paid_x.py)
+        from app.rules import paid_x
+
+        found = paid_x.payment(phrase) if following[0].startswith("If you do, ") else None
+        if found is None:
+            return None
+        cost, sized = found.pop("cost"), found
     bind = f"pay{sum(1 for e in effects if e['do'] == 'optional_payment')}"
-    return {"do": "optional_payment", "who": "you", "cost": cost, "bind": bind}
+    return {"do": "optional_payment", "who": "you", "cost": cost, "bind": bind, **sized}
 
 
 def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False,
