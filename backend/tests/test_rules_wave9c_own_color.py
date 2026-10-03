@@ -24,8 +24,8 @@ from tests.game_helpers import act
 from tests.wave9c_kit import build, card_named, check, pt, put
 
 EXTRA = [
-    card('Possessed Aven', set_code='tst', number='E01', mana_cost='{2}{U}{U}', cmc=4.0, type_line='Creature — Bird Soldier Horror', oracle_text='Flying\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1, is black, and has "{2}{B}, {T}: Destroy target blue creature."', colors=['U'], color_identity=['B', 'U'], keywords=['Flying', 'Threshold'], power='3', toughness='3'),  # noqa: E501
-    card('Wayward Angel', set_code='tst', number='E02', mana_cost='{4}{W}{W}', cmc=6.0, type_line='Creature — Angel Horror', oracle_text='Flying, vigilance\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +3/+3, is black, has trample, and has "At the beginning of your upkeep, sacrifice a creature."', colors=['W'], color_identity=['W'], keywords=['Flying', 'Vigilance', 'Threshold'], power='4', toughness='4'),  # noqa: E501
+    card('Possessed Aven', set_code='wc', number='E01', mana_cost='{2}{U}{U}', cmc=4.0, type_line='Creature — Bird Soldier Horror', oracle_text='Flying\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1, is black, and has "{2}{B}, {T}: Destroy target blue creature."', colors=['U'], color_identity=['B', 'U'], keywords=['Flying', 'Threshold'], power='3', toughness='3'),  # noqa: E501
+    card('Wayward Angel', set_code='wc', number='E02', mana_cost='{4}{W}{W}', cmc=6.0, type_line='Creature — Angel Horror', oracle_text='Flying, vigilance\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +3/+3, is black, has trample, and has "At the beginning of your upkeep, sacrifice a creature."', colors=['W'], color_identity=['W'], keywords=['Flying', 'Vigilance', 'Threshold'], power='4', toughness='4'),  # noqa: E501
 ]
 
 

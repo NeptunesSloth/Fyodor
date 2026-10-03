@@ -14,29 +14,29 @@ import pytest
 
 from app.cards.importer import build_database
 from app.config import Settings
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
-from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
 from tests.wave9c_kit import build, cast, check, life, mana, pt, put, to_hand, zone_of
 
 EXTRA = [
-    card('Cleansing Beam', set_code='tst', number='E01', mana_cost='{4}{R}', cmc=5.0, type_line='Instant', oracle_text='Radiance — Cleansing Beam deals 2 damage to target creature and each other creature that shares a color with it.', colors=['R'], color_identity=['R'], keywords=['Radiance']),  # noqa: E501
-    card('Wojek Siren', set_code='tst', number='E02', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text='Radiance — Target creature and each other creature that shares a color with it get +1/+1 until end of turn.', colors=['W'], color_identity=['W'], keywords=['Radiance']),  # noqa: E501
-    card('Brightflame', set_code='tst', number='E03', mana_cost='{X}{R}{R}{W}{W}', cmc=4.0, type_line='Sorcery', oracle_text='Radiance — Brightflame deals X damage to target creature and each other creature that shares a color with it. You gain life equal to the damage dealt this way.', colors=['R', 'W'], color_identity=['R', 'W'], keywords=['Radiance']),  # noqa: E501
-    card('Leave No Trace', set_code='tst', number='E04', mana_cost='{1}{W}', cmc=2.0, type_line='Instant', oracle_text='Radiance — Destroy target enchantment and each other enchantment that shares a color with it.', colors=['W'], color_identity=['W'], keywords=['Radiance']),  # noqa: E501
-    card('Wojek Embermage', set_code='tst', number='E05', mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Human Wizard', oracle_text='Radiance — {T}: This creature deals 1 damage to target creature and each other creature that shares a color with it.', colors=['R'], color_identity=['R'], keywords=['Radiance'], power='1', toughness='2'),  # noqa: E501
-    card('Incite Hysteria', set_code='tst', number='E06', mana_cost='{2}{R}', cmc=3.0, type_line='Sorcery', oracle_text='Radiance — Until end of turn, target creature and each other creature that shares a color with it gain "This creature can\'t block."', colors=['R'], color_identity=['R'], keywords=['Radiance']),  # noqa: E501
-    card('Rally the Righteous', set_code='tst', number='E07', mana_cost='{1}{R}{W}', cmc=3.0, type_line='Instant', oracle_text='Radiance — Untap target creature and each other creature that shares a color with it. Those creatures get +2/+0 until end of turn.', colors=['R', 'W'], color_identity=['R', 'W'], keywords=['Radiance']),  # noqa: E501
-    card('Green Bear', set_code='tst', number='E10', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', oracle_text='', power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
-    card('Red Imp', set_code='tst', number='E11', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Imp', oracle_text='', power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
-    card('Gruul Pair', set_code='tst', number='E12', mana_cost='{R}{G}', cmc=2.0, type_line='Creature — Elemental', oracle_text='', power='3', toughness='3', colors=['R', 'G'], color_identity=['R', 'G'], keywords=[]),  # noqa: E501
-    card('Steel Golem', set_code='tst', number='E13', mana_cost='{3}', cmc=3.0, type_line='Artifact Creature — Golem', oracle_text='', power='3', toughness='3', colors=[], color_identity=[], keywords=[]),  # noqa: E501
-    card('Second Golem', set_code='tst', number='E14', mana_cost='{3}', cmc=3.0, type_line='Artifact Creature — Golem', oracle_text='', power='3', toughness='3', colors=[], color_identity=[], keywords=[]),  # noqa: E501
-    card('White Omen', set_code='tst', number='E15', mana_cost='{1}{W}', cmc=2.0, type_line='Enchantment', oracle_text='', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
-    card('Second White Omen', set_code='tst', number='E16', mana_cost='{1}{W}', cmc=2.0, type_line='Enchantment', oracle_text='', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
-    card('Blue Omen', set_code='tst', number='E17', mana_cost='{1}{U}', cmc=2.0, type_line='Enchantment', oracle_text='', colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
+    card('Cleansing Beam', set_code='wr', number='E01', mana_cost='{4}{R}', cmc=5.0, type_line='Instant', oracle_text='Radiance — Cleansing Beam deals 2 damage to target creature and each other creature that shares a color with it.', colors=['R'], color_identity=['R'], keywords=['Radiance']),  # noqa: E501
+    card('Wojek Siren', set_code='wr', number='E02', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text='Radiance — Target creature and each other creature that shares a color with it get +1/+1 until end of turn.', colors=['W'], color_identity=['W'], keywords=['Radiance']),  # noqa: E501
+    card('Brightflame', set_code='wr', number='E03', mana_cost='{X}{R}{R}{W}{W}', cmc=4.0, type_line='Sorcery', oracle_text='Radiance — Brightflame deals X damage to target creature and each other creature that shares a color with it. You gain life equal to the damage dealt this way.', colors=['R', 'W'], color_identity=['R', 'W'], keywords=['Radiance']),  # noqa: E501
+    card('Leave No Trace', set_code='wr', number='E04', mana_cost='{1}{W}', cmc=2.0, type_line='Instant', oracle_text='Radiance — Destroy target enchantment and each other enchantment that shares a color with it.', colors=['W'], color_identity=['W'], keywords=['Radiance']),  # noqa: E501
+    card('Wojek Embermage', set_code='wr', number='E05', mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Human Wizard', oracle_text='Radiance — {T}: This creature deals 1 damage to target creature and each other creature that shares a color with it.', colors=['R'], color_identity=['R'], keywords=['Radiance'], power='1', toughness='2'),  # noqa: E501
+    card('Incite Hysteria', set_code='wr', number='E06', mana_cost='{2}{R}', cmc=3.0, type_line='Sorcery', oracle_text='Radiance — Until end of turn, target creature and each other creature that shares a color with it gain "This creature can\'t block."', colors=['R'], color_identity=['R'], keywords=['Radiance']),  # noqa: E501
+    card('Rally the Righteous', set_code='wr', number='E07', mana_cost='{1}{R}{W}', cmc=3.0, type_line='Instant', oracle_text='Radiance — Untap target creature and each other creature that shares a color with it. Those creatures get +2/+0 until end of turn.', colors=['R', 'W'], color_identity=['R', 'W'], keywords=['Radiance']),  # noqa: E501
+    card('Green Bear', set_code='wr', number='E10', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Bear', oracle_text='', power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
+    card('Red Imp', set_code='wr', number='E11', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Imp', oracle_text='', power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
+    card('Gruul Pair', set_code='wr', number='E12', mana_cost='{R}{G}', cmc=2.0, type_line='Creature — Elemental', oracle_text='', power='3', toughness='3', colors=['R', 'G'], color_identity=['R', 'G'], keywords=[]),  # noqa: E501
+    card('Steel Golem', set_code='wr', number='E13', mana_cost='{3}', cmc=3.0, type_line='Artifact Creature — Golem', oracle_text='', power='3', toughness='3', colors=[], color_identity=[], keywords=[]),  # noqa: E501
+    card('Second Golem', set_code='wr', number='E14', mana_cost='{3}', cmc=3.0, type_line='Artifact Creature — Golem', oracle_text='', power='3', toughness='3', colors=[], color_identity=[], keywords=[]),  # noqa: E501
+    card('White Omen', set_code='wr', number='E15', mana_cost='{1}{W}', cmc=2.0, type_line='Enchantment', oracle_text='', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
+    card('Second White Omen', set_code='wr', number='E16', mana_cost='{1}{W}', cmc=2.0, type_line='Enchantment', oracle_text='', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
+    card('Blue Omen', set_code='wr', number='E17', mana_cost='{1}{U}', cmc=2.0, type_line='Enchantment', oracle_text='', colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
 ]
 FULL = ["Cleansing Beam", "Wojek Siren", "Brightflame", "Leave No Trace", "Wojek Embermage", "Incite Hysteria",
         "Rally the Righteous"]

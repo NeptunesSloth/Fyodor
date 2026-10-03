@@ -1661,7 +1661,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     if (rad := radiance.split(body)) is not None:
         return radiance.bind(_parse_effects(rad[0], it, event_player), rad[1])
-    from app.rules import pump_each  # -- ability words (wave 9C) -- "Until end of turn, … gets +1/+1 for each …"
+    from app.rules import (
+        pump_each,  # -- ability words (wave 9C) -- "Until end of turn, … gets +1/+1 for each …"
+    )
 
     body = pump_each.rewrite(body)
     from app.rules import kinship  # -- kinship (wave 9C) --
@@ -3898,7 +3900,9 @@ def _conditional_inner(rest: str, cond: dict[str, Any] | None = None) -> tuple[l
     groups; "you may …" only when the clause models its own choice (else the gate would make the whole
     effect optional, or ask nothing). ``cond``: the condition it belongs to, whose subject "it" names
     when that is the source ("If this enchantment isn't a creature, it becomes …")."""
-    from app.rules import kicked_instead  # -- ability words (wave 9C) -- "If C, ~ also gains double strike" (an addition)
+    from app.rules import (
+        kicked_instead,  # -- ability words (wave 9C) -- "If C, ~ also gains double strike" (an addition)
+    )
 
     rest = kicked_instead.plain_addition(rest)
     found = _clause(rest)

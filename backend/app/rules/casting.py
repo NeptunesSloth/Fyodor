@@ -124,7 +124,9 @@ def _with_chosen_type(spend: str, creature_type: str) -> str:
 def _land_mana(state: GameState, players: list[str], info: CardInfo, *, skip: str) -> set[str]:
     """Types of mana lands these players control could produce (Reflecting Pool, Exotic Orchard)."""
     out: set[str] = set()
-    from app.rules import mana_replace  # -- mana replacements (wave 9C) -- 106.7: replacement effects change what lands produce
+    from app.rules import (
+        mana_replace,  # -- mana replacements (wave 9C) -- 106.7: replacement effects change what lands produce
+    )
 
     if mana_replace.in_play(state, info):
         return out
