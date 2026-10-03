@@ -1045,13 +1045,19 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m and rider is None and (m["s"] in (None, "you")) == (text.endswith("your life, rounded " + m["r"])):
         who, target = _subject(m)
         return [{"do": "lose_life", "who": who, "n": 0, "half": m["r"]}], target
+    # -- static grants (wave 15A) -- "Target opponent mills half their library, rounded down." (107.1a: half of the cards in the
+    # library as the instruction is carried out; the player whose library it is: the one milled)
+    m = re.fullmatch(_SUBJ + r"mills? half (?P<own>their|your) library, rounded (?P<r>up|down)", text)
+    if m and rider is None and (m["own"] == "your") == (m["s"] in (None, "you")):
+        who, target = _subject(m)
+        return [{"do": "mill", "who": who, "n": {"half": {"library": "you" if m["own"] == "your" else "that_player"}, "round": m["r"]}}], target
     m = re.fullmatch(_SUBJ + rf"discards? (?P<n>{AMT}) cards? at random", text)  # -- refused zones/sized (wave 3R4) --
     if m:  # 701.9b: the cards are chosen at random (effects.discard: the table picks; the move records which)
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": _apply(_amount(m["n"]), rider), "random": True}], target
     # -- "this way" outcomes (wave 4A) -- "discard your hand" / "each player discards their hand" (701.9a: every card in
     # it; one choice-free discard, all at once, 101.4)
-    m = re.fullmatch(_SUBJ + r"discards? (?:(?P<your>your)|their) hand", text)
+    m = re.fullmatch(_SUBJ + r"discards? (?:all the cards in )?(?:(?P<your>your)|their) hand", text)
     if m and rider is None and (m["your"] is not None) == (m["s"] in (None, "you")):
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": 0, "all": True}], target

@@ -309,7 +309,7 @@ def _any_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", None)
 
 
-@_suffix(r"(?:from|in) an opponent's graveyard")
+@_suffix(r"(?:from|in) (?:an opponent's|your opponents') graveyards?")
 def _opp_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", "opponent")
 
@@ -346,6 +346,11 @@ def _compare(s: Selector, m: re.Match[str]) -> Selector:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
     return replace(s, compare=(*s.compare, (what, "<=" if m["dir"] == "less" else ">=", n)))
+
+
+@_suffix(r"with power or toughness (?P<n>\d+) or (?P<dir>less|greater)")  # (wave 15A: Tetsuko Umezawa — either one)
+def _power_or_toughness(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, f"pot:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))
 
 
 @_suffix(r"with (?P<what>mana value|power|toughness) (?P<dir>greater|less) than " + _NUM)  # (wave 15A: strictly, 107.1)
@@ -1093,6 +1098,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         # (700.6; set only by the look-and-distribute grammar: "a historic card from among them")
         if extra == "historic" and not ("Artifact" in ch.types or "Legendary" in ch.supertypes or "Saga" in ch.subtypes):
             return False
+        if extra.startswith("pot:"):  # (wave 15A) power or toughness (either) at most / at least n
+            op, n = ("<=", int(extra[6:])) if extra[4:6] == "<=" else (">=", int(extra[6:]))
+            vals = [v for v in (_stat(ch, "power"), _stat(ch, "toughness")) if v is not None]
+            if not any(v <= n if op == "<=" else v >= n for v in vals):
+                return False
         if extra.startswith("counter:") and not _has_counter(card, extra[8:]):  # (wave 5H: any kind, "*")
             return False
         if extra.startswith("nocounter:") and _has_counter(card, extra[10:]):  # -- counters (wave 5H) --

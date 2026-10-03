@@ -11,8 +11,9 @@ Researched against CR 2026-09-25.
   "You may play up to three additional lands this turn." (Summer Bloom): a continuous effect from a resolving spell or
   ability, lasting this turn (611.2a), for the player it names ("you"). Several add up. "Up to" is no obligation: the
   extra plays are only permission (305.2).
-* Refused (manual): "on each of your turns" with a condition, "each player may play an additional land on each of their
-  turns" (Rites of Flourishing) and anything granting land plays to other players.
+* -- static grants (wave 15A) -- "Each player may play an additional land on each of their turns." (Rites of Flourishing,
+  Ghirapur Orrery): the same for every player, from whoever controls the permanent (305.2).
+* Refused (manual): "on each of your turns" with a condition and anything granting land plays to some other players.
 
 Read by app/rules/engine.land_play_problem.
 """
@@ -27,7 +28,8 @@ if TYPE_CHECKING:
     from app.rules.characteristics import CardInfo
 
 EXTRA_LANDS = "extra_land_plays"
-_LINE = re.compile(r"^You may play (?:an additional land|(?P<n>two|three) additional lands) on each of your turns\.$")
+_LINE = re.compile(r"^(?:You may|(?P<each>Each player may)) play (?:an additional land|(?P<n>two|three) additional lands) on each of "
+                   r"(?(each)their|your) turns\.$")  # (wave 15A: Rites of Flourishing, Ghirapur Orrery: every player, 305.2)
 _N = {"two": 2, "three": 3}
 
 
@@ -35,7 +37,8 @@ def static_definition(text: str) -> dict[str, Any] | None:
     m = _LINE.match(text.strip())
     if m is None:
         return None
-    return {"kind": "static", "static": EXTRA_LANDS, "n": _N[m["n"]] if m["n"] else 1, "effects": []}
+    return {"kind": "static", "static": EXTRA_LANDS, "n": _N[m["n"]] if m["n"] else 1, "all": bool(m["each"]),
+            "effects": []}
 
 
 _ONE_SHOT = re.compile(r"^you may play (?:an additional land|(?:up to )?(?P<n>two|three) additional lands) this turn$")
@@ -76,11 +79,10 @@ def allowed(state: GameState, player: str, info: CardInfo | None) -> int:
     from app.rules.layers import derive
 
     n = 1 + one_shot(state, player)  # (-- one-shot extra land plays (wave 8A) --)
-    for cid in state.zones.get(f"{player}:battlefield", []):
-        c = state.cards.get(cid)
-        if c is None or c.controller != player or c.face_down or state.rules.card_mode(c.id) == "manual":
+    for c in list(state.cards.values()):  # (wave 15A: "each player may …" works from anyone's battlefield)
+        if not c.zone.endswith(":battlefield") or c.face_down or state.rules.card_mode(c.id) == "manual":
             continue
         ch = derive(state, c, chars.of(c, info), info)
         n += sum(int(d.get("n") or 0) for d in scripts.definitions(ch).values()
-                 if d.get("kind") == "static" and d.get("static") == EXTRA_LANDS)
+                 if d.get("kind") == "static" and d.get("static") == EXTRA_LANDS and (c.controller == player or d.get("all")))
     return n

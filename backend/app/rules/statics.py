@@ -121,6 +121,8 @@ def parse(text: str) -> Definition | None:
     if t.count(". ") or "\n" in t:
         return None  # two sentences: one of them says something we'd silently drop
     body = t[:-1] if t.endswith(".") else t
+    if re.fullmatch(r"A deck can have (?:any number of|up to \w+) cards named ~", body):
+        return {"kind": "static", "static": "deck_rule", "effects": []}  # -- static grants (wave 15A) -- 100.2a / 903.5b: deck building only
     cda = parse_cda(body)
     if cda is not None:
         return cda
@@ -161,6 +163,7 @@ def parse(text: str) -> Definition | None:
     rule_cond = False  # "unless …" / "if …": conditions only restrictions are worded with
     # "During your turn, …" / "As long as <condition>, …" / "… as long as <condition>"
     m = re.match(r"^(?:During your turn|As long as it's your turn), (?P<rest>.+)$", body)
+    m = m or re.match(r"^(?P<rest>.+? (?:has|have|gets?) .+) during your turn$", body)  # (wave 15A: "~ has first strike during your turn")
     if m:
         conds.append({"static": "your_turn"})
         body = m["rest"]
@@ -548,6 +551,7 @@ def _pieces(predicate: str) -> list[str]:
     i = 0
     predicate = predicate.replace("power and toughness", "power_and_toughness")
     predicate = predicate.replace("Aura and Equipment", "Aura_and_Equipment")  # (wave 6C: one count, values._ATTACHED_TO)
+    predicate = re.sub(r"(for each [^,\"]*?) and each ", r"\1 and_each ", predicate)  # (wave 15A: one sum, values._parse_count)
     while i < len(predicate):
         c = predicate[i]
         if c == '"':
@@ -567,7 +571,7 @@ def _pieces(predicate: str) -> list[str]:
         i += 1
     out.append(buf.strip())
     return [p.replace("power_and_toughness", "power and toughness").replace("Aura_and_Equipment", "Aura and Equipment")
-            for p in out if p]
+            .replace(" and_each ", " and each ") for p in out if p]
 
 
 def _predicate(predicate: str, x_value: values.Value | None = None, it: str | None = None) -> dict[str, Any] | None:

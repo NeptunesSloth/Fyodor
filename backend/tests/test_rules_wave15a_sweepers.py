@@ -107,7 +107,8 @@ def test_desynchronization_keeps_historic_permanents(cards):
 
 def test_winds_of_rath_spares_enchanted_creatures(cards):
     s = build(cards, p1=("Winds of Rath", "Test Big", "Test Small"))
-    big, small = put(s, "Test Big", "battlefield"), put(s, "Test Small", "battlefield")
+    big = put(s, "Test Big", "battlefield")
+    put(s, "Test Small", "battlefield")
     act(s, "p1", type="create_token", player="p1", token={"name": "Aura", "type_line": "Token Enchantment — Aura", "text": ""})
     aura = next(c for c in s.state.cards.values() if c.name == "Aura")
     act(s, "p1", type="attach", card_ids=[aura.id], to=big.id)
