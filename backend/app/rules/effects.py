@@ -685,8 +685,12 @@ def _can_regenerate(ctx: Context) -> bool:
 def destroy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # The binding is every object the instruction was about ("Destroy target creature. Its
     # controller …" means the target's controller even if it was indestructible or regenerated)
-    before = _remember(plan, ctx, e, _cards(plan, ctx, e["who"]))
-    doomed = [c for c in _cards(plan, ctx, e["who"]) if "indestructible" not in plan.ch(plan.state.cards[c]).keywords]
+    return _destroy_cards(plan, ctx, e, _cards(plan, ctx, e["who"]))
+
+
+def _destroy_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
+    before = _remember(plan, ctx, e, cards)
+    doomed = [c for c in cards if "indestructible" not in plan.ch(plan.state.cards[c]).keywords]
     doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx), actor=ctx["controller"])
     if doomed:
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
@@ -2595,11 +2599,19 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str]
             prompt += f" — already chosen: {_labels(plan, picked)}"  # 101.4b: the earlier choices are known
         decide(plan, player=pid, kind="choose_cards", prompt=prompt,
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
-               min_choices=n, max_choices=n,
+               min_choices=0 if e.get("upto") else n, max_choices=n,  # (wave 11D: "chooses up to two creatures they control")
                resume={"step": step, "ctx": ctx, "e": e, "rest": players[i + 1:], "picked": picked})
         return False
     if step == "edict":  # 101.4: after every choice, all sacrificed at once (one move, one event batch)
         _sacrifice_cards(plan, picked, ctx["controller"], ctx, e.get("as"))
+    elif e.get("rest"):  # -- choose the rest (wave 11D) -- "Each player chooses a creature they control, then sacrifices the rest."
+        # Everything those players control that fits and wasn't chosen, all at once after every choice was made (101.4).
+        rest = [c for pid in _players(plan, ctx, e["who"]) for c in _controlled(plan, e["sel"], pid, ctx.get("source_card"))
+                if c not in picked]
+        if e["rest"] == "sacrifice":
+            _sacrifice_cards(plan, rest, ctx["controller"], ctx, e.get("as"))
+        else:  # "Destroy the rest" (701.8): indestructible ones stay, regeneration may save the others
+            _destroy_cards(plan, ctx, e, rest)
     else:
         _remember(plan, ctx, e, picked)  # "that creature", "it": the chosen objects (they stay where they are)
     return True
@@ -2655,8 +2667,9 @@ def reveal_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not ctx.get("hide_queued"):  # (appended in place: the resolver walks the same list)
         ctx["hide_queued"] = True
         ctx["effects"].append({"do": "hide_revealed"})
-    if e.get("private") and revealed and not any(x["do"] == "choose_from_hand" for x in ctx["effects"][ctx["next"]:]):
-        # a look with nothing chosen from it: the looker sees the hand until they say they're done, then it is hidden again
+    pick = next((x for x in ctx["effects"][ctx["next"]:] if x["do"] == "choose_from_hand"), None)
+    if e.get("private") and revealed and (pick is None or not _hand_options(plan, ctx, pick)[1]):
+        # a look with nothing (left) to choose from it: the looker sees the hand until they say they're done, then it is hidden again
         decide(plan, player=me, kind="confirm", prompt=f"{ctx.get('name') or 'Look'}: you look at the hand",
                options=[DecisionOption(id="ok", label="Done looking")], resume={"step": "look_hand", "ctx": ctx})
         return False
@@ -2680,10 +2693,9 @@ def hide_revealed(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-def choose_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """"You choose a [nonland] card from it" after a hand was revealed: the controller chooses
-    among the revealed cards matching the selector, then the unchosen ones stop being revealed.
-    "You may choose" / "up to N" may choose fewer (or none)."""
+def _hand_options(plan: Plan, ctx: Context, e: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """(the revealed cards still in a hand, those of them — and, for "or a card from their graveyard", of that player's
+    graveyard — that the choice may name)."""
     from app.rules import characteristics as chars
 
     pid = ctx["controller"]
@@ -2695,6 +2707,15 @@ def choose_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         owners = sorted({plan.state.cards[c].owner for c in pool})
         options += [c for o in owners for c in plan.state.zones.get(zone_key(o, "graveyard"), [])
                     if selectors.matches(plan, gsel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+    return pool, options
+
+
+def choose_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"You choose a [nonland] card from it" after a hand was revealed: the controller chooses
+    among the revealed cards matching the selector, then the unchosen ones stop being revealed.
+    "You may choose" / "up to N" may choose fewer (or none)."""
+    pid = ctx["controller"]
+    pool, options = _hand_options(plan, ctx, e)
     most = min(_amount(plan, ctx, e["n"]), len(options))
     least = 0 if e.get("optional") else most
     if most == 0:

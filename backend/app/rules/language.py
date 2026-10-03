@@ -1916,7 +1916,8 @@ CHOOSER = "|".join(re.escape(c) for c in sorted(_CHOOSERS, key=len, reverse=True
 # (patterns are format()-ed by scripts.effect: no literal braces)
 EDICT = rf"(?P<s>{CHOOSER}) sacrifices (?P<n>{AMT}) (?P<sel>.+?) of their choice"
 EDICT_OTHERS = rf"each other player sacrifices (?P<n>{AMT}) (?P<sel>.+?)(?: of their choice)?"
-PLAYER_CHOOSES = rf"(?P<s>{CHOOSER}) chooses (?P<n>{AMT}) (?P<sel>.+?) they control"
+PLAYER_CHOOSES = (rf"(?P<s>{CHOOSER}) chooses (?:(?P<upto>up to )?(?P<n>{AMT})) (?P<sel>.+?) they control"
+                  r"(?:, then (?:(?P<sac>sacrifices the rest)|(?P<des>the rest are destroyed)))?")  # (wave 11D: "… then sacrifices the rest")
 REVEAL_HAND = rf"(?P<s>{CHOOSER}) reveals their hand"
 CHOOSE_FROM_HAND = (rf"you (?P<may>may )?choose (?:(?P<upto>up to )?(?P<n>{AMT})|(?P<any>any number of)) (?P<sel>.+?) "
                     r"from (?:it|among them|that hand)(?P<tail> with mana value \d+ or (?:less|greater))?")
@@ -1961,8 +1962,12 @@ def edict(m: re.Match[str]) -> tuple[Effects, Any]:
 
 def player_chooses(m: re.Match[str]) -> tuple[Effects, Any]:
     who, group = _chooser(m["s"])
-    return [{"do": "player_chooses", "who": who, "sel": _permanent_sel(m["sel"]), "n": _amount(m["n"]), "label": m["sel"]}], \
-        _one(group)
+    out: dict[str, Any] = {"do": "player_chooses", "who": who, "sel": _permanent_sel(m["sel"]), "n": _amount(m["n"]), "label": m["sel"]}
+    if m["upto"]:
+        out["upto"] = True
+    if m["sac"] or m["des"]:  # -- choose the rest (wave 11D) -- the choice is simultaneous (101.4); what wasn't chosen is sacrificed / destroyed
+        out["rest"] = "sacrifice" if m["sac"] else "destroy"
+    return [out], _one(group)
 
 
 def reveal_hand(m: re.Match[str]) -> tuple[Effects, Any]:

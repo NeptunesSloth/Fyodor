@@ -150,6 +150,33 @@ def test_extortion_looks_privately_then_makes_the_chosen_cards_be_discarded(card
     replay_matches(s)
 
 
+def test_a_look_before_a_choice_still_shows_the_hand_when_nothing_can_be_chosen(cards):
+    """Cracked Skull: "look at target player's hand. You may choose a nonland card from it": an all-land hand is still looked at."""
+    s = build(cards)
+    act(s, "p2", type="draw", player="p2", count=2)  # two Islands
+    hand = bobs_hand(s)
+    src = token(s, "p1", "Skull", "1/1", text="{1}: Look at target player's hand. You may choose a nonland card from it. "
+                                                "That player discards that card.")
+    activate(s, src, targets=["p2"])
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "confirm" and seen_by(s, "p1", hand) == hand
+    choose(s, ["ok"])
+    assert s.state.rules.decision is None and seen_by(s, "p1", hand) == [] and set(bobs_hand(s)) == set(hand)
+    replay_matches(s)
+
+
+def test_a_card_exiled_from_a_hand_can_be_played_by_the_one_who_may(cards):
+    """Fiend of the Shadows: "that player exiles a card from their hand. You may play that card for as long as it remains exiled"."""
+    s, viper, islands = bob_with_viper(cards)
+    src = token(s, "p1", "Fiend", "1/1", text="{1}: Target opponent exiles a card from their hand. You may play that card for as long "
+                                                "as it remains exiled.")
+    activate(s, src, targets=["p2"])
+    choose(s, [viper.id])
+    assert s.state.cards[viper.id].zone == "p2:exile" and s.state.cards[viper.id].revealed_to in (["*"], [])
+    assert [(p.card, p.player) for p in s.state.rules.permissions] == [(viper.id, "p1")]
+    replay_matches(s)
+
+
 # -- same name sweeps ---------------------------------------------------------------------------------------------
 def land_on_battlefield(s, pid, name):
     card = next(c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone.endswith(":library"))
