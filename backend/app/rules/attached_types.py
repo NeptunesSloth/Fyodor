@@ -26,8 +26,9 @@ The parts, by layer (613.1):
 
 Definition keys on a grant static (app/rules/statics.py; applied by app/rules/layers.py): ``lose_keywords``,
 ``lose_all``, ``layer4`` ({set_types, add_types, set_creature_types, add_subtypes, add_supertypes}), ``set_colors``.
-Only an unconditional Aura's or Equipment's static carries them; anything else stays manual. A land type
-("Enchanted land is an Island": 305.7 takes away its rules-text abilities), a name or a chosen color isn't read.
+Only an unconditional Aura's or Equipment's static carries them; anything else stays manual. A name or a chosen color
+isn't read. A land type ("Enchanted land is an Island", wave 12D: ``layer4.set_land_types``) is set in layer 4 and, by
+305.7, takes away the land's rules-text abilities (layers._derive, ``wipes``); it gains the types' mana abilities.
 """
 
 from __future__ import annotations
@@ -41,6 +42,7 @@ if TYPE_CHECKING:
 import re
 
 _COLORS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
+_BASICS = "Plains|Island|Swamp|Mountain|Forest"
 _LOSE_TYPES = "\u0002lose-all-types"
 _IS = re.compile(r"^is (?:a|an) (?P<desc>.+?)(?: with base power and toughness (?P<p>\d+)/(?P<t>\d+))?"
                  r"(?P<add> in addition to its other (?P<also>colors_and_)?types)?$")
@@ -70,6 +72,13 @@ def piece(text: str, extra: dict[str, Any]) -> bool | list[int] | None:
         if m["kw"] not in GRANTABLE_KEYWORDS:
             return False
         extra.setdefault("lose_keywords", []).append(m["kw"])
+        return True
+    # -- land types set (wave 12D) -- "Enchanted land is a Swamp." / "is a Mountain, Forest, and Plains." (305.7, 613.1d)
+    m = re.fullmatch(rf"is an? (?P<t>{_BASICS}(?:(?:, | and |, and ){_BASICS})*)", text)
+    if m:
+        if "set_land_types" in _layer4(extra):
+            return False
+        _layer4(extra)["set_land_types"] = re.findall(_BASICS, m["t"])
         return True
     if text == "is legendary":
         _layer4(extra).setdefault("add_supertypes", []).append("Legendary")
@@ -145,6 +154,8 @@ def consistent(extra: dict[str, Any], kind: str | None) -> bool:
     """The parts make one effect the engine applies (and the private notes are resolved)."""
     lose_types = extra.pop("_lose_types", False)
     layer4 = extra.get("layer4") or {}
+    if "set_land_types" in layer4:  # -- land types set (wave 12D) -- only an Aura's "Enchanted land is a Swamp." on its own
+        return kind == "land" and set(extra) == {"layer4"} and set(layer4) == {"set_land_types"} and not lose_types
     artifact = layer4.pop("_artifact", False)
     if lose_types and layer4.get("set_types") is None:
         return False  # ("loses all other card types" with no type it is)
@@ -193,6 +204,10 @@ def wipes(state: GameState, table: list[Static]) -> dict[str, tuple[int, int, in
                 if cid is not None:
                     out.setdefault(cid, (-1, 0, 0))
     for st in table:
+        if (st.definition.get("layer4") or {}).get("set_land_types") and st.gate is None:  # -- land types set (wave 12D) --
+            host = state.cards[st.source].attached_to  # 305.7: the enchanted land's own abilities are gone
+            if host is not None and host in state.cards:
+                out.setdefault(host, (-1, 0, 0))
         if st.definition.get("lose_all") and st.gate is None:
             host = state.cards[st.source].attached_to
             if host is not None and host in state.cards:

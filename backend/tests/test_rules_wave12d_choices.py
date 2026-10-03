@@ -19,7 +19,7 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
-from tests.test_rules_control import answer, cast, chars, check, put
+from tests.test_rules_control import answer, cast, chars, check, look, put
 from tests.test_rules_delayed import next_end_step
 from tests.test_rules_effects import mana, pass_until_stack_empty
 
@@ -54,11 +54,13 @@ REAL = [
          oracle_text="{T}: Add one mana of any color in your commander's color identity."),
     card("Urborg, Tomb of Yawgmoth", set_code="tst", number="D12", type_line="Legendary Land",
          oracle_text="Each land is a Swamp in addition to its other land types."),
+    card("Evil Presence", set_code="tst", number="D13", mana_cost="{B}", cmc=1.0, type_line="Enchantment — Aura",
+         oracle_text="Enchant land\nEnchanted land is a Swamp.", colors=["B"], color_identity=["B"], keywords=["Enchant"]),
     card("Wrong Turn Test", set_code="tst", number="D5", mana_cost="{2}{U}", cmc=3.0, type_line="Instant",
          oracle_text="Target opponent gains control of target creature.", colors=["U"], color_identity=["U"]),
 ]
 NAMES = ["Akroan Horse", "Humble Defector", "Sky Swallower", "Trostani Discordant", "Wrong Turn Test", "Eladamri's Vineyard", "Tangleroot",
-         "The Warring Triad", "Tidal Warrior", "Reef Shaman", "Command Tower", "Urborg, Tomb of Yawgmoth"]
+         "The Warring Triad", "Tidal Warrior", "Reef Shaman", "Command Tower", "Urborg, Tomb of Yawgmoth", "Evil Presence"]
 
 
 @pytest.fixture()
@@ -228,6 +230,18 @@ def test_the_basic_land_type_of_your_choice_is_chosen_as_it_resolves(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["Mountain"])
     pass_until_stack_empty(s)
     assert chars(s, forest).subtypes == {"Mountain"} and abilities(s, forest) == ["{T}: Add {R}."]
+    check(s)
+
+
+def test_an_aura_that_makes_the_enchanted_land_a_swamp(cards):
+    s = build(cards)
+    tower = put(s, "Command Tower")
+    aura = cast(s, "Evil Presence", [tower.id], B=1)
+    assert s.state.cards[aura.id].attached_to == tower.id
+    assert chars(s, tower).subtypes == {"Swamp"} and abilities(s, tower) == ["{T}: Add {B}."]
+    act(s, "p1", type="move", card_ids=[aura.id], to={"zone": "graveyard", "player": "p1"})
+    look(s)
+    assert chars(s, tower).subtypes == frozenset() and len(abilities(s, tower)) == 1  # the land is itself again
     check(s)
 
 

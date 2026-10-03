@@ -432,6 +432,8 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
                 if l4.get("set_creature_types") is not None:
                     known = LAND_TYPES | ARTIFACT_TYPES | ENCHANTMENT_TYPES | SPELL_TYPES | BATTLE_TYPES
                     subtypes = frozenset(s for s in subtypes if s in known) | frozenset(l4["set_creature_types"])
+                if l4.get("set_land_types") is not None:  # -- land types set (wave 12D) -- 305.7
+                    subtypes = (subtypes - LAND_TYPES) | frozenset(l4["set_land_types"])
                 subtypes = subtypes | frozenset(l4.get("add_subtypes") or ())
                 if l4.get("all_creature_types"):
                     from app.rules.creature_types import CREATURE_TYPES as _ALL
@@ -548,7 +550,8 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     before4 = ch
     group4 = type_statics.layer4_entries(state, card, ch, info, lambda extra: _layer4(before4, effects, own4 + extra))
     ch = _layer4(ch, effects, own4 + group4)  # layer 4: type-changing (animation, agent A2: also layer 5 below)
-    ch = type_statics.with_gained_mana(before4, ch, any(e.layer == "4" and e.set_land_types is not None for e in effects))
+    ch = type_statics.with_gained_mana(before4, ch, any(e.layer == "4" and e.set_land_types is not None for e in effects)
+                                       or any((d.get("layer4") or {}).get("set_land_types") for _, d in attached45))
     # -- end type statics (wave 5F) --
     ch = _layer5(ch, effects, attached45 + _own_layer5(state, card, info))  # -- ability words (wave 9C) --
     imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …
