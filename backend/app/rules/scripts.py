@@ -1660,6 +1660,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     if (rad := radiance.split(body)) is not None:
         return radiance.bind(_parse_effects(rad[0], it, event_player), rad[1])
+    from app.rules import pump_each  # -- ability words (wave 9C) -- "Until end of turn, … gets +1/+1 for each …"
+
+    body = pump_each.rewrite(body)
     from app.rules import kinship  # -- kinship (wave 9C) --
 
     if (kin := kinship.split(body)) is not None:
