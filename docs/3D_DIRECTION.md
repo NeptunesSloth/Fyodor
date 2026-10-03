@@ -319,7 +319,7 @@ Turn 11
 
 Optional smaller actions: game log, pod stats.
 
-**Post-game flow (requested 2026-10-03).** Deck changes happen **only in the existing lobby**. There is no
+**Post-game flow (requested 2026-10-03; the game-night milestone in `GAME_NIGHT_FLOW.md` turns Rematch into a pod vote).** Deck changes happen **only in the existing lobby**. There is no
 separate "Change decks" screen after the match, and the result panel never duplicates lobby functions.
 
 ```
