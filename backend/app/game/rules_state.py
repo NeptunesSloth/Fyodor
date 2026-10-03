@@ -268,6 +268,9 @@ class ObjectSnapshot(BaseModel):
     # -- copy system (wave 2F): its copiable values if a copy effect applied to it (613.2), so its
     # last known information has the copied abilities (a dying Clone's "dies" trigger, 603.10a)
     copy_recipe: CopyRecipe | None = None
+    # -- stack interaction (wave 5B) -- the X a spell on the stack had (202.3e: its mana value counts it),
+    # so "that spell's mana value" after it was countered reads it as it last existed (608.2h)
+    x: int | None = None
 
 
 EventKind = Literal[
@@ -977,6 +980,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         effects=[e.value or e.name for e in c.effects], attacking=c.attacking is not None,
         blocking=c.blocking is not None, attached_to=c.attached_to, text=token.text if token else "",
         attached_player=c.attached_player,  # -- attached events (wave 4L) --
+        x=c.stack_info.x if c.zone == "stack" and c.stack_info is not None else None,  # (wave 5B)
     )
 
 
