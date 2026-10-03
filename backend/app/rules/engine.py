@@ -651,7 +651,7 @@ def combat_damage(plan: Plan, rnd: str, then: str) -> None:
 
 def _resume_block_split(plan: Plan, d: Decision, chosen: list[str]) -> None:
     assert d.resume is not None
-    plan.rules.block_split[d.resume["blocker"]] = {o.id: int(n) for o, n in zip(d.options, chosen, strict=True)}
+    plan.rules.block_split[d.resume["creature"]] = {o.id: int(n) for o, n in zip(d.options, chosen, strict=True)}
     combat_damage(plan, d.resume["round"], d.resume["then"])
     if plan.rules.decision is None:
         _after_resolution(plan)
@@ -1011,6 +1011,9 @@ def choose(plan: Plan, a: A.Choose) -> None:
         least = int((d.resume or {}).get("least", 1))  # (-- multiple blocks (wave 13B) -- 510.1d: a share may be 0)
         if chosen or len(a.amounts) != len(d.options) or any(n < least for n in a.amounts) or sum(a.amounts) != total:
             raise ActionError(f"Divide {total} among the {len(d.options)} targets: at least {least} each, {total} in all")
+        need, free = (d.resume or {}).get("lethal") or [], (d.resume or {}).get("free")
+        if free is not None and a.amounts[free] > 0 and any(a.amounts[i] < k for i, k in enumerate(need)):
+            raise ActionError("Assign lethal damage to every blocker before assigning any to what it attacks (702.19b)")
         chosen = [str(n) for n in a.amounts]
     elif a.amounts:
         raise ActionError("Amounts only answer a division")

@@ -1924,6 +1924,7 @@ def test_threshold_creatures_cant_block_this_turn(cards, in_graveyard, can_block
     block = [{"blocker_id": b.id, "attacker_id": bear.id} for b in blockers]  # (two together: menace is met)
     if can_block:
         act(s, "p2", type="declare_blockers", blocks=block)
+        act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, amounts=[2, 0])  # (wave 14A: 510.1c)
         assert s.state.cards[bear.id].damage == 4
     else:
         with pytest.raises(ActionError, match="can't block"):

@@ -558,6 +558,7 @@ def test_volatile_rig_sacrifices_itself_and_then_blows_up(cards, monkeypatch):
     combat_step(s)
     attack(s, (rig, "p2"))
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": guard.id, "attacker_id": rig.id}])
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, amounts=[1, 3])  # (wave 14A: 702.19b)
     settle(s)
     assert not alive(s, rig) and not alive(s, bystander)
     assert s.state.players["p1"].life == 36 and s.state.players["p2"].life == 33  # (3 trampled over, then 4)

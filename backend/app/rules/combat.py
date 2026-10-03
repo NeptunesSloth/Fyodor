@@ -695,7 +695,10 @@ def _assigns(card: CardInstance, ch: Characteristics) -> int | None:
 # -- end damage wordings (wave 6B) --
 
 
-def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
+def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstance, list[CardInstance], list[int]]] | None = None
+                          ) -> CombatDamage:
+    """``pending`` (if given) collects the attackers whose division is still to be chosen (510.1c): (attacker, its blockers,
+    the lethal damage for each), in order, each with the damage the earlier attackers assign already counted."""
     state = plan.state
     r = plan.rules
     out = CombatDamage()
@@ -754,6 +757,13 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
             return 0
         return n
 
+    def lethal(b: CardInstance, source: Characteristics, cap: int) -> int:
+        """702.2c / 702.19b: the damage that is lethal to ``b``, counting damage already marked and what is assigned so far."""
+        t = toughness(b, plan.ch(b))
+        if "deathtouch" in source.keywords:
+            return 1
+        return cap if t is None else max(0, t - b.damage - out.creatures.get(b.id, 0) - out.wither.get(b.id, 0))
+
     blockers_all = [c for c in state.cards.values() if c.blocking and c.zone.endswith(":battlefield")]
     for att in attackers_on(state):
         ach = plan.ch(att)
@@ -763,23 +773,25 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
         blockers = [b for b in blockers_all if b.blocks(att.id)]
         dealt = 0
         if att.id in r.blocked:
-            remaining = p
-            for i, b in enumerate(blockers):
-                bch = plan.ch(b)
-                t = toughness(b, bch)
-                if "deathtouch" in ach.keywords:
-                    lethal = 1
-                elif t is None:
-                    lethal = remaining
-                else:
-                    lethal = max(0, t - b.damage - out.creatures.get(b.id, 0) - out.wither.get(b.id, 0))
-                last = i == len(blockers) - 1
-                amount = remaining if last and "trample" not in ach.keywords else min(remaining, lethal)
-                if amount > 0:
-                    dealt += hit_creature(att, ach, b, amount)
-                    remaining -= amount
-            if remaining > 0 and "trample" in ach.keywords:
-                dealt += hit_target(att, ach, remaining)
+            trample = "trample" in ach.keywords
+            need = [lethal(b, ach, p) for b in blockers]
+            shares = r.block_split.get(att.id)
+            if shares is None and pending is not None and (len(blockers) > 1 or trample and p > sum(need)):
+                pending.append((att, blockers, need))  # 510.1c / 702.19b: its controller divides it (asked: ``ask_split``)
+            if shares is not None:  # as its controller chose; 702.19b: the rest of a trampler's goes to what it attacks
+                for b in blockers:
+                    dealt += hit_creature(att, ach, b, shares[b.id]) if shares.get(b.id, 0) > 0 else 0
+                if trample and att.attacking is not None:
+                    dealt += hit_target(att, ach, shares.get(att.attacking.id, 0))
+            else:  # nothing to choose: lethal to each blocker in order, the rest to the last (or, trampling, what it attacks)
+                remaining = p
+                for i, (b, lethal_b) in enumerate(zip(blockers, need, strict=True)):
+                    amount = remaining if i == len(blockers) - 1 and not trample else min(remaining, lethal_b)
+                    if amount > 0:
+                        dealt += hit_creature(att, ach, b, amount)
+                        remaining -= amount
+                if remaining > 0 and trample:
+                    dealt += hit_target(att, ach, remaining)
         else:
             dealt = hit_target(att, ach, p)
         gain(att, ach, dealt)
@@ -803,20 +815,40 @@ def blocked_by(state: GameState, b: CardInstance) -> list[CardInstance]:
 
 
 def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
-    """510.1d: a blocker blocking two or more attackers assigns its combat damage divided as its controller chooses
-    (any share may be 0). Asks the first such blocker whose division isn't known yet; False: none is missing."""
+    """510.1c-d: an attacker blocked by two or more creatures — or a trampler with damage beyond lethal (702.19b) — and a
+    blocker blocking two or more attackers assign their combat damage divided as their controller chooses (any share may be
+    0; a trampler's damage may go to what it attacks only once every blocker has lethal). Asks the first creature (attackers
+    first, 510.1) whose division isn't known yet; False: none is missing."""
     r = plan.rules
+    todo: list[tuple[CardInstance, list[CardInstance], list[int]]] = []
+    compute_combat_damage(plan, rnd, todo)
+    if todo:
+        a, blockers, need = todo[0]
+        tgt, free = a.attacking, None
+        options = [DecisionOption(id=t.id, label=t.name or "Blocker", card_id=t.id) for t in blockers]
+        if "trample" in plan.ch(a).keywords and tgt is not None and (tgt.id in plan.state.players or tgt.id in plan.state.cards):
+            free = len(options)
+            options.append(DecisionOption(id=tgt.id, label=plan.state.players[tgt.id].name if tgt.id in plan.state.players
+                                          else plan.state.cards[tgt.id].name or "Planeswalker"))
+        p = _assigns(a, plan.ch(a)) or 0
+        lethal = need if free is not None else []
+        decide(plan, player=a.controller, kind="divide", prompt=f"Divide {a.name}'s {p} combat damage among the creatures blocking it"
+               + (" and what it attacks" if free is not None else ""), options=options, min_choices=len(options), max_choices=len(options),
+               display={"kind": "divide", "total": p, "what": "damage", "least": 0, "lethal": lethal},
+               resume={"step": "block_split", "round": rnd, "then": then, "creature": a.id, "total": p, "least": 0,
+                       "lethal": lethal, "free": free})
+        return True
     for b in plan.state.cards.values():
         if not (b.blocking and b.blocking_more) or b.id in r.block_split or not b.zone.endswith(":battlefield"):
             continue
-        bch, p = plan.ch(b), _assigns(b, plan.ch(b))
+        bch, bp = plan.ch(b), _assigns(b, plan.ch(b))
         targets = blocked_by(plan.state, b)
-        if len(targets) < 2 or p is None or p <= 0 or not _deals(bch, rnd):
+        if len(targets) < 2 or bp is None or bp <= 0 or not _deals(bch, rnd):
             continue
-        decide(plan, player=b.controller, kind="divide", prompt=f"Divide {b.name}'s {p} combat damage among the creatures it blocks",
+        decide(plan, player=b.controller, kind="divide", prompt=f"Divide {b.name}'s {bp} combat damage among the creatures it blocks",
                options=[DecisionOption(id=t.id, label=t.name or "Attacker", card_id=t.id) for t in targets],
-               min_choices=len(targets), max_choices=len(targets), display={"kind": "divide", "total": p, "what": "damage", "least": 0},
-               resume={"step": "block_split", "round": rnd, "then": then, "blocker": b.id, "total": p, "least": 0})
+               min_choices=len(targets), max_choices=len(targets), display={"kind": "divide", "total": bp, "what": "damage", "least": 0},
+               resume={"step": "block_split", "round": rnd, "then": then, "creature": b.id, "total": bp, "least": 0})
         return True
     return False
 
