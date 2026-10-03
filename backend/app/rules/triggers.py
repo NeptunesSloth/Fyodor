@@ -427,7 +427,9 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
         out.append(("leave", card, ch, snap.controller, info))
         if to == "graveyard" or (e.to_zone is None and snap.is_token):  # 700.4
             out.append(("die", card, ch, snap.controller, info))
+        out += _to_graveyard(plan, e, frm)  # -- into a graveyard (wave 6D) --
         return out
+    out += _to_graveyard(plan, e, frm)  # -- into a graveyard (wave 6D) --
     if frm == "hand" and to == "graveyard" and e.card:
         # 701.9a: "To discard a card, move it from its owner's hand to that player's graveyard" —
         # the rules engine moves a card that way only by discarding it (an effect, a cost, cycling)
@@ -443,6 +445,18 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
             out.append(("leave_graveyard", got[0], got[1], got[0].owner,
                         {"oid": e.object_id, "new_oid": e.new_object_id, "to": e.to_zone, "amount": 1}))
     return out
+
+
+def _to_graveyard(plan: Plan, e: Event, frm: str) -> list[Fact]:
+    """-- into a graveyard (wave 6D) -- a card put into a graveyard from any zone: the new object there (603.6c: "from
+    anywhere" doesn't look back), with the zone it came from. (A token never is a card there: 111.7, 111.8.)"""
+    if _zone(e.to_zone) != "graveyard" or frm == "graveyard" or not e.card or not e.new_object_id:
+        return []
+    got = _card_in(plan, e.card, e.to_zone)
+    if got is None or got[0].is_token or plan.oid(got[0]) != e.new_object_id:
+        return []
+    return [("to_graveyard", got[0], got[1], got[0].owner,
+             {"oid": e.new_object_id, "from": frm, "amount": 1, "to": e.to_zone})]
 
 
 def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
@@ -618,6 +632,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         if entry_forms.entered_tapped(plan, info) != cond["entered_tapped"]:
             return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
+        return False
+    if event == "to_graveyard" and cond.get("from") and info.get("from") != cond["from"]:  # -- into a graveyard (wave 6D)
         return False
     # -- graveyard owner (wave 6D) -- "put into your / an opponent's graveyard": its owner's graveyard (400.3)
     if event == "die" and cond.get("gy_owner") and (obj is None or (obj.owner == you) != (cond["gy_owner"] == "you")):

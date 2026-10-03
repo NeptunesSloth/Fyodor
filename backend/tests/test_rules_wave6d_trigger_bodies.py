@@ -628,3 +628,45 @@ def test_felidar_sovereign_wins_at_forty_life(cards, life, wins):
     until(s, lambda s: s.state.rules.winner is not None or (s.state.turn.number == 3 and s.state.turn.phase == "main1"))
     assert (s.state.rules.winner == "p1") == wins
     roundtrip(s)
+
+
+
+# -- fifth batch: cards put into a graveyard from anywhere / from your library (603.6c) -------------------------------
+EXTRA += [
+    card('Sidisi, Brood Tyrant', set_code="tst", number="I01", mana_cost='{1}{B}{G}{U}', cmc=4.0, type_line='Legendary Creature — Snake Shaman', oracle_text='Whenever Sidisi enters or attacks, mill three cards.\nWhenever one or more creature cards are put into your graveyard from your library, create a 2/2 black Zombie creature token.', power='3', toughness='3', colors=['B', 'G', 'U'], color_identity=['B', 'G', 'U'], keywords=['Mill']),  # noqa: E501
+    card('Profane Memento', set_code="tst", number="I02", mana_cost='{1}', cmc=1.0, type_line='Artifact', oracle_text="Whenever a creature card is put into an opponent's graveyard from anywhere, you gain 1 life."),  # noqa: E501
+]
+FULL += ["Sidisi, Brood Tyrant", "Profane Memento"]
+
+
+def test_sidisi_one_zombie_for_creature_cards_milled_together(cards):
+    s = build(cards, "Sidisi, Brood Tyrant", "Grizzly Bears", "Llanowar Elves", "Elvish Visionary")
+    lib = [c for c in s.state.zones["p1:library"]]
+    creatures = [c for c in lib if s.state.cards[c].name in ("Grizzly Bears", "Llanowar Elves", "Elvish Visionary")]
+    # (the three creature cards on top: one mill of three puts them all there at once, 603.2c)
+    act(s, "p1", type="move", card_ids=creatures, to={"player": "p1", "zone": "library"}, position="top")
+    cast_from_hand(s, "Sidisi, Brood Tyrant", B=1, G=1, U=1, C=1)
+    resolve(s)
+    milled = [c for c in s.state.zones.get("p1:graveyard", [])]
+    zombies = [c for c in s.state.cards.values() if c.name == "Zombie" and c.zone == "p1:battlefield"]
+    assert sorted(milled) == sorted(creatures) and len(zombies) == 1
+    roundtrip(s)
+
+
+def test_profane_memento_counts_an_opponents_creature_card(cards):
+    s = build(cards, "Profane Memento", "Murder", "Grizzly Bears", bob=("Grizzly Bears",))
+    put(s, "Profane Memento")
+    mine = put(s, "Grizzly Bears")
+    theirs = put(s, "Grizzly Bears", "p2")
+    life = s.state.players["p1"].life
+    murder(s, mine)
+    resolve(s)
+    assert s.state.players["p1"].life == life  # (Alice's own graveyard)
+    murder(s, theirs)
+    resolve(s)
+    assert s.state.players["p1"].life == life + 1
+    token = old(s, "p2", "Token")
+    murder(s, token)  # a token isn't a card (111.1): nothing
+    resolve(s)
+    assert s.state.players["p1"].life == life + 1
+    roundtrip(s)

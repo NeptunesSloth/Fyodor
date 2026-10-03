@@ -243,6 +243,23 @@ def _parse(c: str) -> Condition | None:
         if base is None or base.get("aggregate"):
             return None
         return {**base, "event": f"become_{m['d']}"}
+    # -- into a graveyard (wave 6D) -- "one or more land cards are put into your graveyard from anywhere" (The Gitrog
+    # Monster), "… from your library" (Hedge Shredder): a card put there, as it is there (603.6c: "from anywhere" is never
+    # a leaves-the-battlefield ability, so it doesn't look back), whatever zone it came from (or only the library)
+    m = re.fullmatch(r"(?P<o>one or more .+? cards|an? .+? card|a card) (?:is|are) put into (?P<g>your|an opponent's|a) "
+                     r"graveyard from (?P<f>anywhere|your library)", c)
+    if m:
+        gsel = selectors.from_key(_object_sel(m["o"], card=True))
+        owner = {"your": "you", "an opponent's": "opponent"}.get(m["g"])
+        if gsel.zones or gsel.zone_owner:
+            return None
+        out: Condition = {"event": "to_graveyard", "subject": "sel", "aggregate": m["o"].startswith("one or more "),
+                          "sel": selectors.replace(gsel, zone_owner=owner).key()}
+        if m["f"] == "your library":
+            if owner != "you":
+                return None
+            out["from"] = "library"
+        return out
     # -- graveyard owner (wave 6D) -- "a creature is put into an opponent's graveyard from the battlefield", "a nontoken
     # creature is put into your graveyard from the battlefield", "~ is put into your graveyard from the battlefield": it
     # died (700.4), and a card goes to its OWNER's graveyard (400.3; a token too, 111.7) — whose graveyard is the owner's
