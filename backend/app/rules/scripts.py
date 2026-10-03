@@ -2752,6 +2752,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (extra_lands := land_plays.static_definition(text)) is not None:
         return extra_lands
+    from app.rules import trigger_multipliers  # -- trigger multipliers (wave 5D) -- 603.2d
+
+    if (multiplier := trigger_multipliers.static_definition(text)) is not None:
+        return multiplier
     # -- end refused grants/replacements (wave 3R2) --
     if text == "~ enters tapped.":
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
