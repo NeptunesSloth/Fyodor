@@ -3240,6 +3240,14 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (no_max := hand_size.static_definition(text)) is not None:
         return no_max
+    from app.rules import game_result  # -- game result statics (wave 10B) -- 104.2, 104.3
+
+    if (result := game_result.static_definition(text)) is not None:
+        return result
+    from app.rules import legend_rule  # -- legend rule (wave 10B) -- 704.5j
+
+    if (no_legend := legend_rule.static_definition(text)) is not None:
+        return no_legend
     from app.rules import land_plays  # -- additional land plays (wave 4J) -- (305.2)
 
     if (extra_lands := land_plays.static_definition(text)) is not None:

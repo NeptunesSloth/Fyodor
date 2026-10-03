@@ -1043,7 +1043,9 @@ def concede(plan: Plan, _: A.Action) -> None:
     pending = r.decision
     leave_game(plan, plan.actor)
     left = plan.live()
-    if len(left) == 1:
+    from app.rules import game_result  # -- game result statics (wave 10B) -- 104.2a: a player who can't win doesn't
+
+    if len(left) == 1 and not game_result.cannot_win(plan, left[0]):
         plan.note(f"{plan.name(left[0])} is the last player standing")
         r.decision = None
         r.winner = left[0]

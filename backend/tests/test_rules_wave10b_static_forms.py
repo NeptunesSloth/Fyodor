@@ -41,6 +41,12 @@ EXTRA += [
     card('Gnat Miser', set_code="tst", number="10B122", mana_cost='{B}', cmc=1.0, type_line='Creature — Rat Shaman', oracle_text="Each opponent's maximum hand size is reduced by one.", power='1', toughness='1', colors=['B'], color_identity=['B']),  # noqa: E501
     card('Price of Knowledge', set_code="tst", number="10B123", mana_cost='{6}{B}', cmc=7.0, type_line='Enchantment', oracle_text="Players have no maximum hand size.\nAt the beginning of each opponent's upkeep, this enchantment deals damage to that player equal to the number of cards in that player's hand.", colors=['B'], color_identity=['B']),  # noqa: E501
 ]
+EXTRA += [
+    card('Mirror Box', set_code="tst", number="10B130", mana_cost='{3}', cmc=3.0, type_line='Artifact', oracle_text='The "legend rule" doesn\'t apply to permanents you control.\nEach legendary creature you control gets +1/+1.\nEach nontoken creature you control gets +1/+1 for each other creature you control with the same name as that creature.'),  # noqa: E501
+    card('Cadric, Soul Kindler', set_code="tst", number="10B131", mana_cost='{2}{R}{W}', cmc=4.0, type_line='Legendary Creature — Dwarf Wizard', oracle_text='The "legend rule" doesn\'t apply to tokens you control.\nWhenever another nontoken legendary permanent you control enters, you may pay {1}. If you do, create a token that\'s a copy of it. That token gains haste. Sacrifice it at the beginning of the next end step.', power='4', toughness='3', colors=['R', 'W'], color_identity=['R', 'W']),  # noqa: E501
+    card('Mirror Gallery', set_code="tst", number="10B132", mana_cost='{5}', cmc=5.0, type_line='Artifact', oracle_text='The "legend rule" doesn\'t apply.'),  # noqa: E501
+]
+LEGEND = ["Mirror Box", "Cadric, Soul Kindler", "Mirror Gallery"]
 GATES = ["Manor Gate", "Sea Gate"]
 HAND_SIZE = ["Thought Devourer", "Trusted Advisor", "Gnat Miser", "Price of Knowledge"]
 ARCHETYPES = ["Archetype of Imagination", "Archetype of Courage"]
@@ -109,6 +115,74 @@ def test_the_denial_beats_a_later_grant_whatever_the_timestamps(cards):
     theirs = put(s, "Archetype of Imagination", "battlefield", pid="p2")
     for c in (mine, theirs):
         assert "flying" not in keywords(s, cards, c)
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("name", LEGEND)
+def test_legend_rule_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def legends(s, pid, name, n, kind="Legendary Creature — Test"):
+    for _ in range(n):
+        act(s, pid, type="create_token", player=pid, token={"name": name, "type_line": f"Token {kind}", "power": "1",
+                                                            "toughness": "1", "text": ""})
+    return [c for c in s.state.cards.values() if c.name == name and c.owner == pid]
+
+
+def settle_legends(s):
+    """Answer the legend rule decisions (keep the first); return how many of them were asked."""
+    asked = 0
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        assert "Legend rule" in d.prompt
+        asked += 1
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    return asked
+
+
+def on_table(s, cards_):
+    return [c for c in cards_ if c.id in s.state.cards and s.state.cards[c.id].zone.endswith(":battlefield")]
+
+
+def test_without_an_exemption_the_legend_rule_applies(cards):
+    s = build(cards, [(1, "Grizzly Bears")], [(1, "Grizzly Bears")])
+    mine = legends(s, "p1", "Hero", 2)
+    act(s, "p1", type="pass_priority")
+    assert settle_legends(s) == 1 and len(on_table(s, mine)) == 1
+
+
+def test_mirror_box_exempts_only_its_controllers_permanents(cards):
+    s = build(cards, [(1, "Mirror Box")], [(1, "Grizzly Bears")])
+    put(s, "Mirror Box", "battlefield")
+    mine = legends(s, "p1", "Hero", 3)
+    theirs = legends(s, "p2", "Villain", 2)
+    act(s, "p1", type="pass_priority")
+    assert settle_legends(s) == 1  # Bob's two Villains only
+    assert len(on_table(s, mine)) == 3 and len(on_table(s, theirs)) == 1
+    roundtrip(s)
+
+
+def test_cadric_exempts_tokens_you_control_not_other_legends(cards):
+    s = build(cards, [(1, "Cadric, Soul Kindler")], [(1, "Grizzly Bears")])
+    put(s, "Cadric, Soul Kindler", "battlefield")
+    tokens = legends(s, "p1", "Hero", 2)
+    theirs = legends(s, "p2", "Hero", 2)  # (Bob's tokens: Cadric says "you")
+    act(s, "p1", type="pass_priority")
+    assert settle_legends(s) == 1
+    assert len(on_table(s, tokens)) == 2 and len(on_table(s, theirs)) == 1
+    roundtrip(s)
+
+
+def test_mirror_gallery_turns_the_rule_off_for_everyone(cards):
+    s = build(cards, [(1, "Mirror Gallery")], [(1, "Grizzly Bears")])
+    put(s, "Mirror Gallery", "battlefield")
+    mine = legends(s, "p1", "Hero", 2)
+    theirs = legends(s, "p2", "Villain", 2)
+    act(s, "p1", type="pass_priority")
+    assert settle_legends(s) == 0 and len(on_table(s, mine)) == 2 and len(on_table(s, theirs)) == 2
     roundtrip(s)
 
 
