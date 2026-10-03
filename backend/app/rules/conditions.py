@@ -376,6 +376,13 @@ def _lost(m: re.Match[str]) -> Condition | None:
     return None if n is None else {"history": "lost", "who": who, "n": n, **_when(m)}
 
 
+# -- this-turn conditions (wave 8D) -- "if you didn't lose life this turn" (Luminarch Ascension): none was lost (119.3)
+@_history_pattern(r"you(?: haven't| didn't|'ve not| have not| did not) (?P<k>lose|lost|gain|gained) life this turn")
+def _no_life_change(m: re.Match[str]) -> Condition:
+    gained = m["k"].startswith("gain")
+    return {"not": {"history": "gained", "n": 1} if gained else {"history": "lost", "who": "you", "n": 1, **_when(m)}}
+
+
 @_history_pattern(r"you(?:'ve)? drawn (?P<n>\w+) or more cards this turn")
 def _drew(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"])

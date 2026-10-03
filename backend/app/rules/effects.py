@@ -262,6 +262,9 @@ def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for pid in _players(plan, ctx, e["who"]):
         if each is not None:
             n = each[pid]
+        if e.get("half"):  # -- attached events (wave 8D) -- "loses half their life, rounded up": of the life total now (a
+            half_of = max(0, plan.state.players[pid].life)  # negative total is 0, 107.1b)
+            n = half_of // 2 + (half_of % 2 if e["half"] == "up" else 0)
         if n:
             before = plan.state.players[pid].life
             plan.do({"type": "life", "player": pid, "delta": -n}, actor=ctx["controller"])

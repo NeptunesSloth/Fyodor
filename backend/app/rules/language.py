@@ -1013,6 +1013,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
             n = _stat(m["stat"])
             return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
+    # -- attached events (wave 8D) -- "that player loses half their life, rounded up" (119.3; half of the life total as it is
+    # when the instruction is carried out, 107.1a; effects.lose_life)
+    m = re.fullmatch(_SUBJ + r"loses? half (?:their|your) life, rounded (?P<r>up|down)", text)
+    if m and rider is None and (m["s"] in (None, "you")) == (text.endswith("your life, rounded " + m["r"])):
+        who, target = _subject(m)
+        return [{"do": "lose_life", "who": who, "n": 0, "half": m["r"]}], target
     m = re.fullmatch(_SUBJ + rf"discards? (?P<n>{AMT}) cards? at random", text)  # -- refused zones/sized (wave 3R4) --
     if m:  # 701.9b: the cards are chosen at random (effects.discard: the table picks; the move records which)
         who, target = _subject(m)
