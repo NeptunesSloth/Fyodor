@@ -116,6 +116,9 @@ class AbilityCost:
     components: tuple[CostComponent, ...] = ()
     graveyard_only: bool = False  # -- reanimation (wave 3R) -- its effect moves this card out of your graveyard (113.6m)
     life_x: bool = False  # -- X sized by a count (wave 4K) -- a spell's "pay X life" (107.3a: X announced as it's cast)
+    # -- static wordings (wave 6E) -- "As an additional cost to cast this spell, discard a card or pay 3 life.": the
+    # costs to choose between (601.2b), each a cost of its own (a mana one: ``mana`` only); no components of its own
+    either: tuple[AbilityCost, ...] = ()
 
     @property
     def basic(self) -> bool:
@@ -465,12 +468,24 @@ def spell_additional_cost(abilities: Iterable[AbilityText]) -> AbilityCost | Non
     .define_static returns no definition), so it is never read here."""
     parts: list[CostComponent] = []
     life_x = False
+    either: list[AbilityCost] = []
     for ab in abilities:
         text = additional_cost_text(ab.text) if ab.kind != "keywords" else None
         found = parse_additional_cost(text) if text is not None else None
-        if found is not None:
+        if found is not None and found.either:  # -- static wordings (wave 6E) --
+            if either or life_x:
+                return AbilityCost(unsupported=(text or "",))  # (two choices of cost: never cast without them)
+            either = list(found.either)
+        elif found is not None:
             parts += found.components
             life_x = life_x or found.life_x
+    if either:  # -- static wordings (wave 6E) -- the fixed parts are paid with whichever is chosen (601.2f)
+        if life_x:
+            return AbilityCost(unsupported=("pay X life",))
+        branches = tuple(AbilityCost(mana=b.mana, components=b.components + tuple(parts),
+                                     life=sum(c.amount for c in b.components + tuple(parts) if c.kind == PAY_LIFE))
+                         for b in either)
+        return AbilityCost(either=branches)
     if life_x:  # (wave 4K: "pay X life" alone)
         return AbilityCost(components=tuple(parts), life=sum(c.amount for c in parts if c.kind == PAY_LIFE), life_x=True)
     return AbilityCost(components=tuple(parts), life=sum(c.amount for c in parts if c.kind == PAY_LIFE)) if parts else None
@@ -482,6 +497,9 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
     when the engine can't pay it by itself ("you may …", "… or …" alternatives, X, a cost with no
     chosen object): the spell then stays manual rather than being cast without its cost (601.2b)."""
     text = text.strip()
+    either = _either(text)  # -- static wordings (wave 6E) --
+    if either is not None:
+        return either if either.either else None
     if text == "pay X life":  # -- X sized by a count (wave 4K) -- Toxic Deluge: X announced as it's cast (601.2b,
         return AbilityCost(life_x=True)  # 107.3a), paid with the rest (601.2h), at most your life (119.4, 118.3)
     if text.lower().startswith("you may") or re.search(r"\bx\b", text, re.IGNORECASE) or "," in text:
@@ -496,3 +514,38 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
             return None
         components.append(found)
     return AbilityCost(components=tuple(components), life=sum(c.amount for c in components if c.kind == PAY_LIFE))
+
+
+# -- static wordings (wave 6E) -- a choice between additional costs (601.2b: announced as the spell is cast; 601.2f: the
+# chosen one is part of the total cost): "sacrifice an artifact or discard a card", "discard a card or pay 3 life",
+# "sacrifice a creature or pay {3}{B}" (a mana branch is paid with the mana cost). Each side must be a cost the grammar
+# pays by itself; "reveal …", "behold …", "blight …", "forage" sides stay manual.
+_EITHER_SPLIT = re.compile(r" or (?=(?:sacrifice|discard|pay|exile|return|tap) )")
+_PAY_MANA = re.compile(r"^pay (?P<mana>(?:\{(?:\d+|[WUBRGC]|[WUBRG2]/[WUBRGP])\})+)$")
+EITHER_SLOT = 20  # (the cost choice that names the chosen side: "either:<i>", A.CostChoice.component's last index)
+
+
+def _either(text: str) -> AbilityCost | None:
+    """None: not a choice; AbilityCost(either=()) a choice the grammar can't pay; else the sides."""
+    sides = _EITHER_SPLIT.split(text)
+    if len(sides) < 2:
+        return None
+    out: list[AbilityCost] = []
+    for side in sides:
+        m = _PAY_MANA.match(side.strip())
+        if m is not None:
+            out.append(AbilityCost(mana=m["mana"]))
+            continue
+        found = parse_additional_cost(side)
+        if found is None or found.either or found.life_x or found.unsupported:
+            return AbilityCost()
+        out.append(found)
+    return AbilityCost(either=tuple(out))
+
+
+def either_label(cost: AbilityCost) -> str:
+    """How one side of a choice reads ("Pay {3}", "Sacrifice a creature and pay 2 life")."""
+    if cost.mana and not cost.components:
+        return f"Pay {cost.mana}"
+    text = " and ".join(c.text for c in cost.components)
+    return (text[:1].upper() + text[1:]) if text else "No additional cost"

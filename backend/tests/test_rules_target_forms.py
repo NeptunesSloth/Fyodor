@@ -134,7 +134,9 @@ def test_refusals_are_registered():
     ]:
         reason = coverage.refusal(text)
         assert reason is not None and piece in reason, text
-        assert parse_effects(text) is None or language.has_primitive(piece), text
+        # (wave 6B: "… that player controls" parses as a selector bound only in a trigger about a player; a spell's
+        # definition refuses it — scripts._event_refs_ok)
+        assert parse_effects(text) is None or language.has_primitive(piece) or "that_player" in str(parse_effects(text)), text
     assert coverage.refusal("Destroy target creature.") is None
     # (read since: fight, "choose … target", "copy that spell", target groups with a total mana value)
     for text in ("Target creature you control fights another target creature.", "You may copy that spell.",

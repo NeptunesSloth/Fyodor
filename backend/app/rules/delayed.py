@@ -63,6 +63,7 @@ WHEN = {
     # yours to begin; a later one this turn if you're in your precombat main phase or combat now (engine: main1 / main2)
     "your next main phase": {"kind": "step", "step": "main", "whose": "you"},
 }
+END_OF_COMBAT = {"kind": "step", "step": "end_combat", "whose": "next"}  # -- other side (wave 6D) -- "at end of combat" (511.2)
 WHEN_RE = "|".join(re.escape(k) for k in sorted(WHEN, key=len, reverse=True))
 # "when that creature dies / leaves the battlefield this turn": the object an earlier part named
 EVENT_SUBJECTS = ("it", "that creature", "that permanent", "that token", "that card", "~", "this creature",
@@ -210,6 +211,8 @@ def describe_when(when: dict[str, Any]) -> str:
         if when["event"] == "die_or_exile":  # -- wave 3F -- (earthbend: no "this turn")
             return "when it dies or is put into exile"
         return "when it " + ("dies" if when["event"] == "die" else "leaves the battlefield") + " this turn"
+    if when.get("step") == "end_combat":  # -- other side (wave 6D) --
+        return "at end of combat"
     whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's"}[when["whose"]]
     step = {"end": "end step", "main": "main phase"}.get(when["step"], "upkeep")  # (main: wave 5B)
     return f"at the beginning of {whose} {step}"

@@ -88,6 +88,20 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if p != me]
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.players and t["id"] in plan.live()]
+    if who == "target_player_or_controller":  # -- damage wordings (wave 6B) -- "that player or that planeswalker's
+        # controller": the target player, or the target permanent's controller (as it last existed: 608.2h)
+        out: list[str] = []
+        for t in target_refs(ctx, "target"):
+            pid: str | None = t["id"] if t["id"] in plan.state.players else None
+            if pid is None:
+                card = plan.state.cards.get(t["id"])
+                if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == t.get("object_id"):
+                    pid = card.controller
+                elif (snap := plan.rules.lki.get(t.get("object_id") or "")) is not None:
+                    pid = snap.controller
+            if pid is not None and pid in plan.live() and pid not in out:
+                out.append(pid)
+        return out
     if who == "each_other_opponent":  # -- sized amounts (wave 3D) -- the opponents besides the player the trigger event was about
         named = set(context.players(plan, ctx, context.EVENT))
         return [p for p in plan.live() if p != me and p not in named]
@@ -99,6 +113,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return attached_players.attacking_opponents(plan, ctx)
     if who.startswith(context.PREFIX):  # a binding: "that player", "its controller", "its owner" (app/rules/context.py)
         return context.players(plan, ctx, who[len(context.PREFIX):])
+    if who == "defending_player":  # -- defending player (wave 6D) -- 508.5 (app/rules/defending.py)
+        from app.rules import defending
+
+        return defending.players(plan, ctx)
     if who == "chosen_player":  # -- chosen player (wave 4J) -- the player the source chose as it entered (614.12a)
         from app.rules import chosen
 
@@ -146,6 +164,10 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
             snap = plan.rules.lki.get(ctx.get("source_object") or "")
             host = plan.state.cards.get(snap.attached_to or "") if snap is not None else None
         return [host.id] if host is not None and host.zone.endswith(":battlefield") else []
+    if who == "exiled_with":  # -- exiled with (wave 6D) -- 607.2a (app/rules/exiled_with.py)
+        from app.rules import exiled_with
+
+        return exiled_with.cards(plan, ctx)
     if who == "event":  # "it" / "that creature": the object(s) the trigger event happened to — only while
         # each is still that object where it was (400.7: after a zone change it's a new object)
         return context.objects(plan, ctx, context.EVENT)
@@ -652,6 +674,10 @@ def exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
+    if e.get("link"):  # -- exiled with (wave 6D) -- 607.2a: what the linked ability will refer to
+        from app.rules import exiled_with
+
+        exiled_with.record(plan, ctx, cards)
     _moved(plan, ctx, e, before)
     return True
 
@@ -910,6 +936,10 @@ def renown(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             return False
         plan.rules.renowned.append(oid)
         _mark(plan, [cid], "Renowned")
+        # -- becomes monstrous (wave 6D) -- "Whenever a creature you control becomes renowned" (702.112b)
+        from app.game.rules_state import emit
+
+        emit(plan.state, "designation", counter="renowned", card=cid, object_id=oid, player=plan.state.cards[cid].controller)
     return True
 
 
@@ -3270,3 +3300,27 @@ from app.rules import put_from_hand as _put_from_hand  # noqa: E402, I001
 PRIMITIVES.update(_put_from_hand.PRIMITIVES)
 RESUME.update(_put_from_hand.RESUME)
 # -- end token copies & attach on entry (wave 5J) --
+# -- tap or untap (wave 6D) -- "You may tap or untap target permanent." (app/rules/tap_or_untap.py)
+from app.rules import tap_or_untap as _tap_or_untap  # noqa: E402
+
+PRIMITIVES.update(_tap_or_untap.PRIMITIVES)
+RESUME["tap_or_untap"] = _tap_or_untap.resume
+# -- state triggers (wave 6D) -- the marker effect of a state trigger (603.8: app/rules/state_triggers.py)
+from app.rules import state_triggers as _state_triggers  # noqa: E402
+
+PRIMITIVES.update(_state_triggers.PRIMITIVES)
+# -- endure (wave 6D) -- "it endures 2" (701.63: app/rules/endure.py)
+from app.rules import endure as _endure  # noqa: E402
+
+PRIMITIVES.update(_endure.PRIMITIVES)
+RESUME["endure"] = _endure.resume
+# -- win the game (wave 6D) -- "you win the game" (104.2b: app/rules/win_game.py)
+from app.rules import win_game as _win_game  # noqa: E402
+
+PRIMITIVES.update(_win_game.PRIMITIVES)
+
+# -- if you do (wave 6F) -- "Each opponent may [cost]. Each opponent who doesn't …" (app/rules/each_may.py)
+from app.rules import each_may as _each_may  # noqa: E402, I001
+
+PRIMITIVES.update(_each_may.PRIMITIVES)
+# -- end if you do (wave 6F) --

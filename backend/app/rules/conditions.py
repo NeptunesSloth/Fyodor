@@ -189,6 +189,14 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         if life is None:
             return None
         return {"value": {"life": "you"}, "op": "<=" if m["cmp"] in ("less", "fewer") else ">=", "n": life}
+    # -- damage wordings (wave 6B) -- "if that player has two or fewer cards in hand" (Lavaborn Muse): the hand of the
+    # player "that player" names (scripts._that_players_hand binds it: the target player, or the trigger's)
+    m = re.fullmatch(r"that player has (?P<n>\w+) or (?P<cmp>more|fewer|less) cards in (?:their )?hand", t)
+    if m:
+        n_cards = _num(m["n"])
+        if n_cards is None:
+            return None
+        return {"value": {"hand": "that_player"}, "op": ">=" if m["cmp"] == "more" else "<=", "n": n_cards}
     # "you have no cards in hand", "you have N or more cards in hand"
     m = _HAND.fullmatch(t)
     if m:
@@ -644,6 +652,8 @@ def _object(t: str) -> Condition | None:
         det = re.match(r"(?:a|an) (?P<rest>.+)", what)
         if det is None and re.fullmatch(r"(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*", what):
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "it's blue": a color test, on whatever it is
+        if det is None and re.fullmatch(r"(?:non)?(?:basic|legendary|snow)", what):  # -- damage wordings (wave 6B) --
+            det = re.match(r"(?P<rest>.+)", what + " permanent")  # "If that land was nonbasic": a supertype (205.4)
         sel = selectors.parse(det["rest"]) if det else None
         if (sel is None or sel.player is not None or sel.zone_owner is not None or sel.controller is not None
                 or sel.owner is not None or sel.zones not in (("battlefield",), ())):
@@ -733,7 +743,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         per = [sum(1 for c in found if plan.state.cards[c].controller == p) for p in plan.live() if p != ctx["controller"]]
         # "an opponent controls two or more …" / "… controls no …": some one opponent does
         return any({">=": x >= n, "<=": x <= n, "==": x == n}[cond["op"]] for x in per)
-    got = plan.state.players[ctx["controller"]].life if "life" in v else values.evaluate(plan, ctx, v)
+    got = plan.state.players[ctx["controller"]].life if "life" in v and v["life"] != "player_min" \
+        else values.evaluate(plan, ctx, v)  # (player_min: "a player has 13 or less life", wave 6E)
     return {">=": got >= n, "<=": got <= n, "==": got == n}[cond["op"]]
 
 

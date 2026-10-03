@@ -225,6 +225,10 @@ def monstrosity(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         plan.rules.monstrous.append(oid)
         plan.do({"type": "add_effect", "card_ids": [cid], "name": "Monstrous", "value": "Monstrous",
                  "text": "until it leaves the battlefield"})
+        # -- becomes monstrous (wave 6D) -- "When ~ becomes monstrous, …" (701.37b: a trigger event)
+        from app.game.rules_state import emit
+
+        emit(plan.state, "designation", counter="monstrous", card=cid, object_id=oid, player=plan.state.cards[cid].controller)
     return True
 
 

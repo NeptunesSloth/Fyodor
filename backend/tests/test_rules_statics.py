@@ -82,7 +82,7 @@ def test_parse(text, who, parts):
 @pytest.mark.parametrize("text", [
     "Creatures you control get +1/+1 until end of turn.",  # a duration: an effect, not a static
     "Enchanted creature gets +1/+1 and has protection from the chosen color.",  # a quality chosen as it entered (wave 4L reads the rest)
-    "Other creatures you control have exalted.",  # a triggered keyword
+    "Other creatures you control have cascade.",  # a keyword of spells (wave 6E reads granted exalted)
     "You have hexproof.",  # a player's characteristic (613.10): not modelled
     "Instant and sorcery spells you control have lifelink.",  # spells, not permanents
     "Creatures you control get +1/+1. As long as you have the city's blessing, they also have vigilance.",
@@ -92,7 +92,7 @@ def test_parse(text, who, parts):
     "Creature you control gets +1/+1.",  # not Oracle wording
     "~ has flying.",  # unconditional self grant: that's a keyword line
     "Each creature you control has trample as long as it's attacking.",  # "it" would be each creature, not the source
-    'Enchanted creature has "Whenever ~ attacks, you may tap or untap target permanent."',  # an ability the engine can't run
+    'Enchanted creature has "Whenever ~ attacks, you may draw a card for each foo."',  # an ability the engine can't run
     "As long as an opponent has 10 or less life, ~ gets +2/+1 and has annihilator 2.",  # (wave 4B reads the condition)
     "Creature spells you cast have convoke.",
 ])

@@ -409,6 +409,12 @@ After the rules engine and the 3D table are stable: 17 table aids built in order
 (private choice drawer, pending decision indicator, token piles, owner/controller colors, X/mode badges,
 commander damage hover, quick undo request, then readability and social features). Not started.
 
+### Later: full UI / 3D tabletop redesign — brief (`UI_REDESIGN_BRIEF.md`)
+
+The instruction set for the redesign: `frontend-design` drives creation, `impeccable` critiques each
+implemented pass, verified in the running app; phases A–E (design system and table shell, core
+tabletop, rules UX, 3D/camera, game flow). Not started.
+
 ## Deliberately out of scope
 
 - **Other formats:** Standard, Modern, Pioneer, Legacy, Vintage, Pauper, Brawl, Oathbreaker,

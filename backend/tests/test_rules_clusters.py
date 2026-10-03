@@ -14,8 +14,8 @@ def card(name, type_line, *, text="", cost="{1}", layout="normal", faces=None, p
 
 def test_categories():
     assert K.classify("keyword:banding", "Banding", "keyword", "X") == (K.MECHANIC, "banding")
-    assert K.classify("text:0", "Whenever you commit a crime, draw a card.", "triggered", "X") == \
-        (K.TRIGGER, "Whenever you commit a crime")
+    assert K.classify("text:0", "Whenever you expend 4, draw a card.", "triggered", "X") == \
+        (K.TRIGGER, "Whenever you expend N")
     cat, key = K.classify("text:0", "When Foo enters, destroy target creature with flying.", "triggered", "Foo")
     assert cat == K.SELECTOR and key.startswith("target creature with flying")
     cat, _ = K.classify("text:0", "When Foo enters, you draw two cards and lose 2 life.", "triggered", "Foo")
@@ -34,9 +34,9 @@ def test_supported_selectors_are_not_missing():
 
 def test_report_clusters_and_quality():
     rep = pool.analyse([
-        card("Combat A", "Creature — Test", text="Whenever you commit a crime, put a +1/+1 counter on "
+        card("Combat A", "Creature — Test", text="Whenever you expend 4, put a +1/+1 counter on "
              "target creature you control.", power="1", toughness="1"),
-        card("Combat B", "Creature — Test", text="Whenever you commit a crime, draw a card.", power="1",
+        card("Combat B", "Creature — Test", text="Whenever you expend 4, draw a card.", power="1",
              toughness="1"),
         card("Bear", "Creature — Bear", power="2", toughness="2"),
     ])
