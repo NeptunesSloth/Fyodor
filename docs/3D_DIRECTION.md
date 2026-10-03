@@ -314,10 +314,31 @@ VICTORY
 Player 1
 Atraxa, Praetors' Voice
 Turn 11
-[VIEW FINAL BOARD]  [RETURN TO LOBBY]
+[REMATCH — SAME DECKS]  [RETURN TO LOBBY]  [VIEW FINAL BOARD]
 ```
 
-Optional smaller actions: game log, pod stats, new game.
+Optional smaller actions: game log, pod stats.
+
+**Post-game flow (requested 2026-10-03).** Deck changes happen **only in the existing lobby**. There is no
+separate "Change decks" screen after the match, and the result panel never duplicates lobby functions.
+
+```
+Lobby → Game → Result → Rematch — same decks
+Lobby → Game → Result → Return to lobby → change decks / ready up → Start next game
+```
+
+- **Rematch — same decks** starts a completely fresh Commander game with the same players, seats,
+  decks, commanders, lobby configuration, mulligan policy and the appropriate automation/player
+  settings. All match state is reset, and it gets a new game/result record.
+- **Return to lobby** takes the whole pod back to the existing lobby, with everyone still connected to
+  the room (nobody leaves and rejoins). Each player's previous deck is selected by default, for example
+  "Player 1 — Atraxa — not ready". Players who keep their deck do nothing. Others use the normal lobby
+  controls: keep the deck, choose another saved deck, import/paste a deck, choose another commander,
+  change deck privacy, ready/unready, and any pre-game setting the lobby allows. When everyone is
+  ready: **Start next game**.
+- **View final board** keeps the finished table inspectable.
+- Eliminated players who are in another activity when the game ends get the same three choices
+  (`ELIMINATION_HUB.md`); they change decks after returning to the lobby.
 
 **Visual style.** Match Fyodor: dark tabletop, warm brass/gold, blackened metal, dark wood/felt,
 restrained typography, a physical card-room feeling. Avoid neon UI, rainbow gradients, giant glowing

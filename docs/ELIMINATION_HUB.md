@@ -48,7 +48,8 @@ ongoing match.
 ### Deck Lab
 
 Inspect and modify a **copy** of the deck for the next game. It never changes the deck tied to the
-running match. Actions: view the deck list, search cards, change the next-game version, save as a new
+running match. Deck Lab only edits and saves deck revisions; **choosing** the deck for the next game
+still happens in the lobby, like everyone else's (no separate deck-change screen after the match). Actions: view the deck list, search cards, change the next-game version, save as a new
 revision, inspect the mana curve and card types, compare changes.
 
 ## Staying connected to the live game
@@ -63,8 +64,9 @@ example:
 - "Final two players remain"
 
 **When the main game ends** while the player is in another activity, show the normal final result
-("PLAYER 3 WINS") with **[NEW GAME] [RETURN TO LOBBY] [VIEW FINAL BOARD]**. Nobody misses the end of
-the pod game because they were practicing.
+("PLAYER 3 WINS") with the normal post-game choices: **[REMATCH — SAME DECKS] [RETURN TO LOBBY]
+[VIEW FINAL BOARD]** (`3D_DIRECTION.md` §7a, post-game flow). Nobody misses the end of the pod game
+because they were practicing. A player who wants another deck changes it after returning to the lobby.
 
 ## Privacy (extremely important)
 

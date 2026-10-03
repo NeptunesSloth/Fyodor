@@ -391,6 +391,12 @@ A player eliminated early gets a compact hub instead of only spectating: Spectat
 information only), a private Practice Table, an Opening Hand Simulator and a Deck Lab working on a
 copy of the deck, all isolated from the live game, with a small live-game indicator. Not started.
 
+### Later: post-game flow — planned (`3D_DIRECTION.md` §7a)
+
+After a result: **Rematch — same decks** (a fresh game, same seats/decks/settings, new result record),
+**Return to lobby** (the whole pod stays connected; previous decks preselected; deck changes only
+there) or **View final board**. Not started.
+
 ## Deliberately out of scope
 
 - **Other formats:** Standard, Modern, Pioneer, Legacy, Vintage, Pauper, Brawl, Oathbreaker,
