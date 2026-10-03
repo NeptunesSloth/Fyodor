@@ -775,6 +775,11 @@ def _renumber(value: Any, index: list[int] | None) -> Any:
         if k in _TARGET_REFS and isinstance(v, str) and (v == "target" or v.startswith("target:")):
             local = 0 if v == "target" else int(v[7:])
             v = "target" if index is None else f"target:{index[local]}"
+        elif k in _TARGET_REFS and isinstance(v, str) and v.startswith("controlled:target"):
+            # -- static wordings (wave 6E) -- "creatures target player controls": the player is the clause's target too
+            players, _, key = v[len("controlled:"):].partition("|")
+            local = 0 if players == "target" else int(players[7:])
+            v = f"controlled:{'target' if index is None else f'target:{index[local]}'}|{key}"
         elif k == "divided" and isinstance(v, int):
             if index is None:
                 raise _NoMatch
@@ -1194,6 +1199,15 @@ def _regenerate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if m["who"] in ("~", "it"):
         return [{"do": "regenerate", "who": _self_or_it(m["who"])}], None
     return [{"do": "regenerate", "who": "target"}], SELECTORS[m["who"]]
+
+
+# -- static wordings (wave 6E) -- "Creatures target player controls get +2/+0 until end of turn." (How to Start a Riot,
+# Arms of Hadar): the creatures that player controls as it resolves (608.2c), each until end of turn (611.2c: locked in)
+@effect(r"creatures target (?P<pl>player|opponent) controls get (?P<p>[+−-]\d+)/(?P<t>[+−-]\d+) until end of turn")
+def _pump_their_team(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    creatures = 'sel:{"types":["Creature"]}'
+    return [{"do": "pump", "who": f"controlled:target|{creatures}", "p": _signed(m["p"]), "t": _signed(m["t"])}], \
+        SELECTORS[f"target {m['pl']}"]
 
 
 # -- static wordings (wave 6E) -- "Regenerate each creature you control." (Golgari Charm, Wrap in Vigor): a shield on each

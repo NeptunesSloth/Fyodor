@@ -9,6 +9,10 @@
 * "Regenerate each creature you control." (701.19a, the group read as it resolves, 608.2c): Golgari Charm, Wrap in Vigor.
 * "You may exert this creature as it attacks. When you do, …" (701.43d: an optional cost to attack, 508.1g, linked to
   its reflexive trigger, 607.2h, 603.12; 701.43a: no untap next untap step): Hooded Brawler, Glorybringer, Tah-Crop Elite.
+* Flavor words (207.2d) before a static ability or a trigger written with "!", "?" or "-" ("Devastating Charge — …",
+  "Bring it Down! — Whenever …"): Bloodcrusher of Khorne, Inquisitor Greyfax, Ghost, Company Commander.
+* "Creatures target player controls get +N/+N until end of turn." (608.2c, 611.2c): Arms of Hadar, How to Start a Riot,
+  Neutralize the Guards. Irregular plurals in anthems ("Oxen you control"): Bruse Tarl.
 * Anthems over two groups ("Skeletons you control and other Zombies you control"): Death Baron, Caterwauling Boggart,
   Timber Protector.
 
@@ -23,6 +27,7 @@ import pytest
 
 from app.cards.importer import build_database
 from app.config import Settings
+from app.game.errors import ActionError
 from app.rules import coverage, statics
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -51,10 +56,20 @@ EXTRA = [
     card('Glorybringer', set_code='tst', number='E17', mana_cost='{3}{R}{R}', cmc=5.0, type_line='Creature — Dragon', oracle_text="Flying, haste\nYou may exert this creature as it attacks. When you do, it deals 4 damage to target non-Dragon creature an opponent controls. (An exerted creature won't untap during your next untap step.)", power='4', toughness='4', colors=['R'], color_identity=['R'], keywords=['Flying', 'Haste', 'Exert']),  # noqa: E501
     card('Tah-Crop Elite', set_code='tst', number='E18', mana_cost='{3}{W}', cmc=4.0, type_line='Creature — Bird Warrior', oracle_text="Flying\nYou may exert this creature as it attacks. When you do, creatures you control get +1/+1 until end of turn. (An exerted creature won't untap during your next untap step.)", power='2', toughness='2', colors=['W'], color_identity=['W'], keywords=['Flying', 'Exert']),  # noqa: E501
     card("Oketra's Avenger", set_code='tst', number='E19', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Human Warrior', oracle_text="You may exert this creature as it attacks. When you do, prevent all combat damage that would be dealt to it this turn. (An exerted creature won't untap during your next untap step.)", power='3', toughness='1', colors=['W'], color_identity=['W'], keywords=['Exert']),  # noqa: E501
+    card('Bloodcrusher of Khorne', set_code='tst', number='E20', mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Demon Knight', oracle_text='Trample\nDevastating Charge — Other creatures you control have trample.', power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=['Devastating Charge', 'Trample']),  # noqa: E501
+    card('Inquisitor Greyfax', set_code='tst', number='E21', mana_cost='{1}{W}{U}{B}', cmc=4.0, type_line='Legendary Creature — Human Inquisitor', oracle_text='Vigilance\nUnquestionable Wisdom — Other creatures you control get +1/+0 and have vigilance.\nHunt for Heresy — {1}, {T}: Tap target creature an opponent controls. Investigate. (Create a Clue token. It\'s an artifact with "{2}, Sacrifice this token: Draw a card.")', power='3', toughness='3', colors=['B', 'U', 'W'], color_identity=['B', 'U', 'W'], keywords=['Investigate', 'Vigilance', 'Unquestionable Wisdom', 'Hunt for Heresy']),  # noqa: E501
+    card('Ghost, Spectral Saboteur', set_code='tst', number='E22', mana_cost='{2}{U/B}', cmc=3.0, type_line='Legendary Creature — Human Rogue Villain', oracle_text="Flash\nIntangibility — Ghost can't be blocked.", power='2', toughness='2', colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Intangibility', 'Flash']),  # noqa: E501
+    card('Company Commander', set_code='tst', number='E23', mana_cost='{2}{W}{B}', cmc=4.0, type_line='Creature — Human Soldier', oracle_text='Command Section — When this creature enters, create a number of 1/1 white Soldier creature tokens equal to the number of opponents you have.\nBring it Down! — Whenever this creature attacks, creatures you control gain deathtouch until end of turn.', power='2', toughness='4', colors=['B', 'W'], color_identity=['B', 'W'], keywords=['Command Section', 'Bring it Down!']),  # noqa: E501
+    card('Bruse Tarl, Roving Rancher', set_code='tst', number='E24', mana_cost='{2}{R}{W}', cmc=4.0, type_line='Legendary Creature — Human Warrior', oracle_text="Oxen you control have double strike.\nWhenever Bruse Tarl enters or attacks, exile the top card of your library. If it's a land card, create a 2/2 white Ox creature token. Otherwise, you may cast it until the end of your next turn.", power='4', toughness='3', colors=['R', 'W'], color_identity=['R', 'W'], keywords=[]),  # noqa: E501
+    card('Arms of Hadar', set_code='tst', number='E25', mana_cost='{3}{B}', cmc=4.0, type_line='Sorcery', oracle_text='Creatures target player controls get -2/-2 until end of turn.', colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
+    card('How to Start a Riot', set_code='tst', number='E26', mana_cost='{2}{R}', cmc=3.0, type_line='Instant — Lesson', oracle_text="Target creature gains menace until end of turn. (It can't be blocked except by two or more creatures.)\nCreatures target player controls get +2/+0 until end of turn.", colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
+    card('Neutralize the Guards', set_code='tst', number='E27', mana_cost='{2}{B}', cmc=3.0, type_line='Instant', oracle_text='Creatures target opponent controls get -1/-1 until end of turn. Surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)', colors=['B'], color_identity=['B'], keywords=['Surveil']),  # noqa: E501
 ]
 FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime Archangel", "Bria, Riptide Rogue",
         "Caterwauling Boggart", "Timber Protector", "Demand Answers", "Bitter Triumph", "Eaten Alive",
-        "Annihilating Glare", "Golgari Charm", "Wrap in Vigor", "Hooded Brawler", "Glorybringer", "Tah-Crop Elite"]
+        "Annihilating Glare", "Golgari Charm", "Wrap in Vigor", "Hooded Brawler", "Glorybringer", "Tah-Crop Elite",
+        "Bloodcrusher of Khorne", "Inquisitor Greyfax", "Ghost, Spectral Saboteur", "Company Commander",
+        "Bruse Tarl, Roving Rancher", "Arms of Hadar", "How to Start a Riot", "Neutralize the Guards"]
 STILL_MANUAL = {
     "Sedgemoor Witch": "Ward",  # (ward—Pay 3 life: a cost the ward trigger doesn't read)
     "Silvergill Adept": "reveal a Merfolk card",
@@ -306,7 +321,7 @@ def test_eaten_alive_without_a_creature_pays_the_extra_mana(cards):
     victim = token_of(s, "p2", "Victim", "Token Creature — Bear", "2/2")
     eaten = to_hand(s, "Eaten Alive")
     mana(s, B=2)
-    with pytest.raises(Exception):  # ({B} plus {3}{B}: two black mana aren't enough)
+    with pytest.raises(ActionError):  # ({B} plus {3}{B}: two black mana aren't enough)
         act(s, "p1", type="cast_spell", card_id=eaten.id, targets=[victim.id])
     if s.state.rules.decision is not None:  # (asked for the mana payment: cancelled)
         act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=[])
@@ -436,3 +451,71 @@ def test_tah_crop_elite_pumps_the_team_when_exerted(cards):
     settle(s)
     assert pt(s, elite) == (3, 3) and pt(s, other) == (3, 3)
     replay_matches(s)
+
+
+# -- flavor words (207.2d) --------------------------------------------------------------------------------------------
+def test_flavor_words_are_read_past():
+    from app.rules import oracle
+
+    assert oracle.word_prefix("Devastating Charge — Other creatures you control have trample.") is not None
+    assert oracle.word_prefix("Visit — Draw a card.") is None  # (an Attraction's visit ability: a rule, 702.159)
+    assert oracle.word_prefix("Max speed — This creature has flying.") is None  # (702.178)
+    assert oracle.word_prefix("Companion — Each creature card in your starting deck is a Cat.") is None
+
+
+def test_bloodcrusher_gives_other_creatures_trample(cards):
+    s = build(cards, "Bloodcrusher of Khorne")
+    put(s, "Bloodcrusher of Khorne")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    theirs = token_of(s, "p2", "Theirs", "Token Creature — Bear", "2/2")
+    assert "trample" in chars(s, bear).keywords and "trample" not in chars(s, theirs).keywords
+    replay_matches(s)
+
+
+def test_company_commander_bring_it_down_on_attack(cards):
+    s = build(cards, "Company Commander")
+    cmd = token_of(s, "p1", "Commander", "Token Creature — Human Soldier", "3/3",
+                   "Haste\nBring it Down! — Whenever this creature attacks, creatures you control gain deathtouch until end "
+                   "of turn.")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    attack_with(s, cmd)
+    settle(s)
+    assert "deathtouch" in chars(s, cmd).keywords and "deathtouch" in chars(s, bear).keywords
+    replay_matches(reloaded(s))
+
+
+def test_bruse_tarl_oxen_have_double_strike(cards):
+    s = build(cards, "Bruse Tarl, Roving Rancher")
+    put(s, "Bruse Tarl, Roving Rancher")
+    ox = token_of(s, "p1", "Ox", "Token Creature — Ox", "2/2")
+    assert "double strike" in chars(s, ox).keywords
+    replay_matches(s)
+
+
+# -- the creatures a target player controls (608.2c, 611.2c) ---------------------------------------------------------
+def test_arms_of_hadar_shrinks_the_target_players_creatures(cards):
+    s = build(cards, "Arms of Hadar")
+    small = token_of(s, "p2", "Small", "Token Creature — Bear", "2/2")
+    big = token_of(s, "p2", "Big", "Token Creature — Bear", "4/4")
+    mine = token_of(s, "p1", "Mine", "Token Creature — Bear", "2/2")
+    arms = to_hand(s, "Arms of Hadar")
+    mana(s, B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=arms.id, targets=["p2"])
+    settle(s)
+    assert gone(s, small) and pt(s, big) == (2, 2) and pt(s, mine) == (2, 2)
+    late = token_of(s, "p2", "Late", "Token Creature — Bear", "2/2")
+    assert pt(s, late) == (2, 2)  # (611.2c: the creatures it affected were locked in as it resolved)
+    replay_matches(reloaded(s))
+
+
+def test_how_to_start_a_riot_menace_on_one_target_and_pump_on_the_players(cards):
+    s = build(cards, "How to Start a Riot")
+    mine = token_of(s, "p1", "Mine", "Token Creature — Bear", "2/2")
+    theirs = token_of(s, "p2", "Theirs", "Token Creature — Bear", "2/2")
+    riot = to_hand(s, "How to Start a Riot")
+    mana(s, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=riot.id, targets=[theirs.id, "p1"], target_counts=[1, 1])
+    settle(s)
+    assert "menace" in chars(s, theirs).keywords and pt(s, theirs) == (2, 2)
+    assert pt(s, mine) == (4, 2) and "menace" not in chars(s, mine).keywords
+    replay_matches(reloaded(s))

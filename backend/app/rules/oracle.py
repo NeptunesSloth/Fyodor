@@ -20,7 +20,7 @@ _MANA_ABILITY = re.compile(
     rf"^\{{T\}}: Add (?:{_MANA_SYMBOL}(?:{_MANA_SYMBOL})*(?:(?:, | or |, or ){_MANA_SYMBOL})*|one mana of any color)\.$"
 )
 _LOYALTY = re.compile(r"^[+−-]?\d+: |^[+−-]X: ")
-_TRIGGER = re.compile(r"^(?:[A-Z][A-Za-z0-9' ]+ — )?(When|Whenever|At) ")  # an ability word ("Landfall — ") may lead
+_TRIGGER = re.compile(r"^(?:[A-Z][A-Za-z0-9'’!?,\- ]+ — )?(When|Whenever|At) ")  # (wave 6E: "Exterminate! — When …")  # an ability word ("Landfall — ") may lead
 # (-- ability words (wave 4F) -- digits too: "Descend 4 — Whenever …", 207.2c)
 # (-- attached events (wave 4L) -- "Equipped creature has "{T}: …"" is a static granting an ability, not a cost)
 _COST_START = re.compile(
@@ -137,6 +137,10 @@ def word_prefix(line: str) -> tuple[str, str] | None:
     if re.match(r"(?:When|Whenever|At) ", rest):
         return m["w"], rest
     if ":" in rest and _COST_START.match(rest.split(":", 1)[0]) and len(rest.split(":", 1)[0]) < 120:
+        return m["w"], rest
+    # -- static wordings (wave 6E) -- a flavor word before a static ability or a spell's instruction ("Devastating Charge
+    # — Other creatures you control have trample."): no rules meaning either (207.2d)
+    if ":" not in rest and not rest.startswith(("•", "(", "{")):
         return m["w"], rest
     return None
 
