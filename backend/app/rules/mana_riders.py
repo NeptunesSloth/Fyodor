@@ -164,7 +164,14 @@ def rider(sentence: str) -> tuple[str, int] | None:
         return f"counter:{m['k']}", 1
     if m := _SAC_IF_NONE.fullmatch(sentence):
         return f"sac_if_none:{m['k']}", 0
+    # -- next untap step (wave 6A) -- "This land doesn't untap during your next untap step." (Cloudcrest Lake; 502.3,
+    # app/rules/next_untap.py): weighed by the payer like a small cost
+    if _STAYS_TAPPED.fullmatch(sentence):
+        return "stay_tapped", 2
     return None
+
+
+_STAYS_TAPPED = re.compile(r"^(?:This (?:land|artifact|creature|permanent)|~) doesn't untap during your next untap step\.?$")
 
 
 # -- as the ability is activated (605.3b) ------------------------------------------------------------------------
@@ -201,7 +208,7 @@ def resolve(state: GameState, card: CardInstance, ab: M.ManaAbility, info: CardI
 
 def penalty(riders: tuple[tuple[str, int], ...]) -> int:
     """What the payer weighs against an option (an opponent's life gain: a small cost)."""
-    return sum(n for kind, n in riders if kind == "opp_gain")
+    return sum(n for kind, n in riders if kind in ("opp_gain", "stay_tapped"))  # (stay_tapped: wave 6A)
 
 
 def after(plan: Plan, card: CardInstance, kind: str, n: int) -> None:
@@ -216,6 +223,9 @@ def after(plan: Plan, card: CardInstance, kind: str, n: int) -> None:
 
         if card.zone.endswith(":battlefield") and card.counters.get(kind.split(":", 1)[1], 0) == 0:
             _sacrifice_cards(plan, [card.id], card.controller)
+    elif kind == "stay_tapped":  # -- next untap step (wave 6A) --
+        if card.zone.endswith(":battlefield"):
+            plan.rules.stay_tapped.append({"oid": plan.oid(card.id), "player": card.controller})
     elif kind == "gain":
         replace.gain_life(plan, [(card.controller, n)], actor=card.controller)
     elif kind == "opp_gain":

@@ -95,6 +95,8 @@ _STATUS = {"you're the monarch": "monarch", "you are the monarch": "monarch", "y
            "you have the city's blessing": "city_blessing"}
 _THIS_TURN = r"(?P<when>this|last) turn"
 _DIFFERENT_POWERS = re.compile(r"you control (?P<n>\w+) or more creatures with different powers")
+# -- token & pump wordings (wave 6C) -- "if you control seven or more lands with different names" (Field of the Dead)
+_DIFFERENT_NAMES = re.compile(r"you control (?P<n>\w+) or more (?P<what>lands|creatures|artifacts|permanents) with different names")
 _TOTAL_POWER = re.compile(r"creatures you control have total power (?P<n>\w+) or greater")
 _GRAVEYARD = re.compile(r"there(?:'s| is| are) (?:(?P<a>a|an)|(?P<n>\w+) or more) (?P<sel>.+? in your graveyard)")
 _GRAVEYARD_ARE = re.compile(r"(?P<n>\w+) or more (?P<sel>.+?) (?:are|is) in your graveyard")  # "seven or more cards are in your graveyard"
@@ -144,6 +146,13 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         if n is None or key is None:
             return None
         return {"value": {"distinct": "powers", "among": key}, "op": ">=", "n": n}
+    m = _DIFFERENT_NAMES.fullmatch(t)  # -- token & pump wordings (wave 6C) --
+    if m:  # how many different names among them (201.2; a face-down permanent has none, 708.2a)
+        n = _num(m["n"])
+        key = _count(m["what"], "you control")
+        if n is None or key is None:
+            return None
+        return {"value": {"distinct": "names", "among": key}, "op": ">=", "n": n}
     m = _COMMANDER.fullmatch(t)
     if m:  # "you control your commander" (Lieutenant): a commander you own (903.3), on the battlefield under your control
         commanders = selectors.Selector(commander=True, controller="you", owner="you" if m["which"] == "your commander" else None)
@@ -837,6 +846,8 @@ _NO_MANA = re.compile(r"no mana was spent to cast (?:it|that spell)")  # -- if y
 
 def _cast_how(t: str) -> Condition | None:
     """A condition about how the source was cast, or None."""
+    if t in ("it escaped", "~ escaped"):  # -- escape (wave 5I) -- 702.138b
+        return {"object": _cast_who(t.split()[0]), "cast": {"escaped": True}}
     if _NO_MANA.fullmatch(t):  # -- if you do (wave 5G) -- "if no mana was spent to cast it" (a cast trigger's spell)
         return {"object": "it", "cast": {"no_mana": True}}
     m = _CAST.fullmatch(t)
@@ -896,6 +907,8 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if how.get("by_you") and record.controller != ctx["controller"]:
         return False
     if how.get("kicked") and not record.kicked:  # 702.33d (a modal header's "If it was kicked, choose both instead")
+        return False
+    if how.get("escaped") and record.alternative != "escape":  # -- escape (wave 5I) -- 702.138b
         return False
     zone = how.get("from")
     if zone is not None and (record.cast_from == zone[1:] if zone.startswith("!") else record.cast_from != zone):

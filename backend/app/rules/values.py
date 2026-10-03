@@ -192,6 +192,12 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if m:
         kind = "energy" if m["e"] else m["kind"]
         return {"player_counters": kind, "of": "opponents"} if m["who"] == "your opponents have" else {"player_counters": kind}
+    m = _ATTACHED_TO.fullmatch(what)  # -- token & pump wordings (wave 6C) --
+    if m:
+        on = "self" if m["on"] == "~" else it
+        if on != "self":
+            return None
+        return {"attached": sorted(set(re.findall(r"Aura|Equipment", m["kinds"]))), "on": on}
     m = _COUNTERS_ON.match(what)
     if m:
         on = _ON.get(m["on"].lower())
@@ -216,6 +222,11 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     if sel is None:
         return None
     return {"count": sel.key()}
+
+
+# -- token & pump wordings (wave 6C) -- "+2/+2 for each Aura attached to it", "… for each Aura and Equipment attached to
+# ~": the Auras / Equipment attached to the source now (301.5, 303.4; read whenever its characteristics are, 611.3a)
+_ATTACHED_TO = re.compile(r"(?P<kinds>Aura|Equipment|Aura (?:and|or|and/or) Equipment) attached to (?P<on>it|~)")
 
 
 # -- sized amounts (wave 3D) -- ------------------------------------------------------------------
@@ -403,6 +414,16 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 
                 return max(0, mana_value(obj, ch))
             return max(0, _stat_of(ch, stat) or 0)
+    if "relative" in v:  # -- token & pump wordings (wave 6C) -- statics._relative_count: about the object modified
+        return _relative(plan, ctx, v)
+    if "attached" in v:  # -- token & pump wordings (wave 6C) --
+        got = _object(plan, ctx, v.get("on", "self"))
+        if got is None or not getattr(got[0], "zone", "").endswith(":battlefield"):
+            return 0
+        host = got[0].id
+        kinds = set(v["attached"])
+        return sum(1 for c in plan.state.cards.values() if c.attached_to == host and c.zone.endswith(":battlefield")
+                   and plan.in_game(c) and kinds & plan.ch(c).subtypes)
     if "counters" in v:
         got = _object(plan, ctx, v.get("on", "self"))
         if got is None:
@@ -453,6 +474,9 @@ def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:
             found |= set(ch.colors)
         elif kind == "basic_land_types":
             found |= ch.subtypes & set(BASIC_LAND_TYPES)
+        elif kind == "names":  # -- token & pump wordings (wave 6C) -- "lands with different names" (201.2, 708.2a)
+            if ch.name and not ch.face_down:
+                found.add(ch.name)
         elif kind == "powers":  # "creatures with different powers" (conditions.py): how many distinct values
             power = _stat_of(ch, "power")
             if power is not None:
@@ -462,6 +486,29 @@ def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:
 
             found |= ch.subtypes & CREATURE_TYPES
     return len(found)
+
+
+def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
+    """-- token & pump wordings (wave 6C) -- the others (``among``, never the object itself) that share a creature type
+    (205.3m) / have the same name (201.2) as the object a static modifies (layers: ``other_than``). A face-down
+    permanent has no name (708.2a): it shares one with nothing."""
+    from app.rules.creature_types import CREATURE_TYPES
+
+    card = plan.state.cards.get(ctx.get("other_than") or "")
+    if card is None:
+        return 0
+    mine = plan.ch(card)
+    if v["relative"] == "creature_type":
+        want = mine.subtypes & CREATURE_TYPES
+        if not want:
+            return 0
+        ok = lambda ch: bool(ch.subtypes & want)  # noqa: E731
+    else:
+        if not mine.name or mine.face_down:
+            return 0
+        ok = lambda ch: ch.name == mine.name and not ch.face_down  # noqa: E731
+    found = selectors.candidates(plan, selectors.from_key(v["among"]), ctx["controller"], card.id)
+    return sum(1 for cid in found if cid != card.id and ok(plan.ch(plan.state.cards[cid])))
 
 
 def _devotion(plan: Plan, you: str, colors: list[str]) -> int:

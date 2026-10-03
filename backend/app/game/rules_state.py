@@ -200,6 +200,9 @@ class CopyExcept(BaseModel):
     set_colors: list[str] | None = None
     add_text: list[str] = Field(default_factory=list)
     add_colors: list[str] = Field(default_factory=list)  # "in addition to its other colors"
+    # -- token copies & attach on entry (wave 5J) -- "except it's a 4/4 black Zombie": its creature types are these
+    # (205.1a: they replace the copied ones; other subtypes stay), changeling isn't copied (707.9d)
+    set_creature_types: list[str] | None = None
 
 
 class CopyRecipe(BaseModel):
@@ -776,6 +779,9 @@ class RulesState(BaseModel):
     # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't
     # untap during that player's next untap step (app/rules/engine.start_next_turn)
     exerted: dict[str, str] = Field(default_factory=dict)
+    # -- next untap step (wave 6A) -- "doesn't untap during its controller's / your next untap step" (502.3;
+    # app/rules/next_untap.py): {"oid": object id, "player": a player id, or "controller" (read at the untap step)}
+    stay_tapped: list[dict[str, str]] = Field(default_factory=list)
     once_per_turn: dict[str, int] = Field(default_factory=dict)  # "<card>:<ability>" -> turn it was activated
     # Activation restrictions and trigger limits (app/rules/restrictions.py): how many times an
     # object's ability was activated / triggered — "<object id>:<ability index>:t<turn>" -> count this

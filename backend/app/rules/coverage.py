@@ -214,6 +214,8 @@ SUPPORTED_KEYWORDS: set[str] = {
     "undaunted",
     # -- counters & designations (wave 3E) -- 702.145 day and night (app/rules/designations.py day_night_sync)
     "daybound", "nightbound",
+    # -- token & pump wordings (wave 6C) -- 702.147 decayed (app/rules/decayed.py, test_rules_wave6c_tokens_pumps.py)
+    "decayed",
 }
 # -- sagas & attached-object triggers (wave 3S) --------------------------------------------------------
 # Sagas (714, app/rules/sagas.py; tests/test_rules_sagas.py): lore counters as it enters and at the
@@ -238,6 +240,7 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
     # -- keyword actions & face-down (wave 3F) -- test_rules_keywords3f.py
     "goad", "manifest", "manifest dread", "cloak", "earthbend", "incubate",
 }
+SUPPORTED_KEYWORD_ACTIONS.add("populate")  # -- token copies & attach on entry (wave 5J) -- test_rules_wave5j_token_copies.py
 
 
 # -- refusals (agent T) ------------------------------------------------------------------------------

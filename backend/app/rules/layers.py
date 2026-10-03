@@ -95,6 +95,9 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     abilities and from abilities other statics grant; cached by what is on the battlefield, in
     timestamp order. Whether each applies to a given object, and its conditions, are evaluated
     by ``derive``."""
+    memo = _DERIVE_MEMO  # -- review (wave 5R) -- one derive reads the table up to four times: its key once
+    if memo is not None and memo[0] is state and memo[1] is info and memo[2] is not None:
+        return memo[2]
     r = state.rules
     live = {p for p in state.seat_order if not state.players[p].left} - (set(r.conceded) | set(r.lost) if r else set())
     # -- copy system (wave 2F): statics are read from copiable values (613.2c: a Clone of an anthem
@@ -120,6 +123,8 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                       tuple(e.id for e in r.effects if e.remove_abilities) if r else ())
     hit = _STATIC_CACHE.get(key_all)
     if hit is not None:
+        if memo is not None and memo[0] is state and memo[1] is info:
+            memo[2] = hit
         return hit
     from app.rules import scripts
     from app.rules import statics as grammar
@@ -174,6 +179,8 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     if len(_STATIC_CACHE) > 256:
         _STATIC_CACHE.clear()
     _STATIC_CACHE[key_all] = out
+    if memo is not None and memo[0] is state and memo[1] is info:
+        memo[2] = out
     return out
 
 
@@ -496,7 +503,25 @@ def _granted_by_effects(ch: Characteristics, effects: list[ContinuousEffect],
     return granted.layer6(ch, effects, wipe)
 
 
+# -- review (wave 5R) -- [state, info, table]: the statics table of the table state one top-level ``derive`` reads
+# (the table doesn't change while characteristics are derived; nested derives of other objects share it)
+_DERIVE_MEMO: list[Any] | None = None
+
+
 def derive(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> Characteristics:
+    """Current characteristics (``_derive``), the statics table read once for the whole derivation."""
+    global _DERIVE_MEMO
+    if _DERIVE_MEMO is not None or info is None:
+        return _derive(state, card, ch, info)
+    _DERIVE_MEMO = [state, info, None]
+    try:
+        return _derive(state, card, ch, info)
+    finally:
+        _DERIVE_MEMO = None
+# -- end review (wave 5R) --
+
+
+def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> Characteristics:
     """Current characteristics: printed + continuous effects in layer order + counters. With
     ``info``, static abilities of permanents apply too (layers 6, 7b, 7c and rules imposed on the
     object it's attached to), and the object's own characteristic-defining P/T (7a, every zone)."""
@@ -686,7 +711,7 @@ def _each_amount(view: Plan, st: Static, tkey: tuple, card: CardInstance) -> int
     from app.rules import values
 
     each = st.definition["each"]
-    other = '"other":true' in repr(each["value"])
+    other = '"other":true' in repr(each["value"]) or "'relative'" in repr(each["value"])  # (wave 6C: about ``card``)
     key = (tkey, st.source, st.controller, repr(each["value"]), card.id if other else "")
     hit = _EACH_CACHE.get(key) if tkey else None
     if hit is None:

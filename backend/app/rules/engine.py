@@ -39,6 +39,7 @@ from app.rules import (
     layers,
     looking,
     modal_abilities,
+    next_untap,  # -- next untap step (wave 6A) --
     optional_payment,
     permissions,
     reconcile,
@@ -494,6 +495,8 @@ def start_next_turn(plan: Plan) -> None:
     combat_rules.new_turn(plan)  # -- combat (wave 5C) -- added phases belong to the turn that ends
     keep = _keep_tapped(plan)
     keep += [c for c in _exerted(plan, plan.after(plan.active)) if c not in keep]  # (wave 4H: an exerted one isn't stunned, 122.1d)
+    # -- next untap step (wave 6A) -- 502.3: kept tapped by "doesn't untap during … next untap step" (not stunned either)
+    keep += [c for c in next_untap.kept(plan, plan.after(plan.active)) if c not in keep]
     # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
     keep = [*keep, *stunned]
@@ -506,6 +509,7 @@ def start_next_turn(plan: Plan) -> None:
     if stay is not None:
         keep = list(dict.fromkeys([*keep, *stay]))[:250]
     keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or plan.after(plan.active))]))[:250]  # (wave 4H)
+    keep = list(dict.fromkeys([*keep, *next_untap.kept(plan, skip_to or plan.after(plan.active))]))[:250]  # (wave 6A)
     if skip_to is not None:
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep, "player": skip_to}, actor=plan.active)
     # -- end refused grants/replacements (wave 3R2) --
@@ -522,6 +526,8 @@ def start_next_turn(plan: Plan) -> None:
     if stay is None:  # -- activation costs (wave 4H) -- 701.43a: that untap step happened; 614.10a: a skipped one doesn't count
         plan.rules.exerted = {k: p for k, p in plan.rules.exerted.items()
                               if p != plan.active and plan.rules.object_id(k.rsplit(".", 1)[0]) == k}
+    if stay is None:  # -- next untap step (wave 6A) -- that untap step happened (614.10a: a skipped one doesn't count)
+        next_untap.untap_step_done(plan, plan.active)
     if stay is None:  # (wave 3R2: not in a skipped untap step)
         effects.designations.untap_day_night(plan, *previous)  # -- (wave 3E) 502.2: day / night --
     if not plan.state.settings.auto_untap and stay is None:

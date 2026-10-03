@@ -1985,8 +1985,9 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     owner, looked = _looked(plan, ctx)
     ctx["looked"] = looked
     sel = selectors.from_key(e["sel"]) if e.get("sel") else None
-    options = [c for c in looked if sel is None
-               or selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+    options = [c for c in looked if sel is None  # (the source: "of the chosen type", wave 5I)
+               or selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid,
+                                    ctx.get("source_card"))]
     if e.get("sels"):  # -- refused look/cast-free (wave 3R5) -- "a creature card and/or a land card": any listed kind
         from app.rules import looking
 
@@ -3171,6 +3172,13 @@ from app.rules import cant_gain, graveyard_grants, skips, source_shields  # noqa
 
 PRIMITIVES.update(source_shields.PRIMITIVES)
 PRIMITIVES.update(skips.PRIMITIVES)  # 614.10 "skips their next …" (app/rules/skips.py)
+# -- next untap step (wave 6A) --
+from app.rules import next_untap as _next_untap  # noqa: E402
+
+PRIMITIVES.update(_next_untap.PRIMITIVES)  # 502.3 "doesn't untap during its controller's next untap step"
+from app.rules import bounce_forms as _bounce_forms  # noqa: E402
+
+PRIMITIVES.update(_bounce_forms.PRIMITIVES)  # "return target A and target B to their owners' hands" (one move)
 PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
 PRIMITIVES.update(graveyard_grants.PRIMITIVES)  # "gains flashback until end of turn" (app/rules/graveyard_grants.py)
 RESUME.update(graveyard_grants.RESUME)  # ("Choose one of them.")
@@ -3252,3 +3260,27 @@ from app.rules import stack_interaction as _stack_interaction  # noqa: E402, I00
 PRIMITIVES.update(_stack_interaction.PRIMITIVES)
 RESUME.update(_stack_interaction.RESUME)
 # -- end stack interaction (wave 5B) --
+
+# -- token & pump wordings (wave 6C) -- Role tokens created attached to a creature (app/rules/roles.py)
+from app.rules import roles as _roles  # noqa: E402, I001
+
+PRIMITIVES.update(_roles.PRIMITIVES)
+from app.rules import decayed as _decayed  # noqa: E402, I001  (702.147: decayed's sacrifice at end of combat)
+
+PRIMITIVES.update(_decayed.PRIMITIVES)
+# -- end token & pump wordings (wave 6C) --
+
+# -- token copies & attach on entry (wave 5J) -- "attach it to target creature you control" (app/rules/attach_entry.py),
+# populate and "for each …, create a token that's a copy of that …" (app/rules/populate.py)
+from app.rules import attach_entry as _attach_entry  # noqa: E402, I001
+
+PRIMITIVES.update(_attach_entry.PRIMITIVES)
+from app.rules import populate as _populate  # noqa: E402, I001
+
+PRIMITIVES.update(_populate.PRIMITIVES)
+RESUME.update(_populate.RESUME)
+from app.rules import put_from_hand as _put_from_hand  # noqa: E402, I001
+
+PRIMITIVES.update(_put_from_hand.PRIMITIVES)
+RESUME.update(_put_from_hand.RESUME)
+# -- end token copies & attach on entry (wave 5J) --

@@ -134,6 +134,12 @@ def find(plan: Plan) -> Found:
 
             if sagas.must_sacrifice(plan, card, ch):
                 out.dying.append((card, sagas.SACRIFICE_REASON))
+    # -- token & pump wordings (wave 6C) -- 704.5z: of one player's Roles on a permanent, only the newest stays
+    from app.rules import roles
+
+    dying = {c.id for c, _ in out.dying}
+    out.dying += [(c, "a newer Role of its controller is attached to the same permanent (704.5z)")
+                  for c in roles.stale_roles(plan) if c.id not in dying]
     return out
 
 

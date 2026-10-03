@@ -1164,6 +1164,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], _one(group)
+    # -- token & pump wordings (wave 6C) -- "This creature can attack this turn as though it didn't have defender." (702.3b:
+    # the defender's restriction doesn't apply to it this turn; read by combat.attack_problem)
+    m = re.fullmatch(r"(?P<o>.+?) can attack this turn as though (?:it|they) didn't have defender", text)
+    if m and not _PUMP.fullmatch(text):
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": ["attack_despite_defender"]}], _one(group)
     # -- recursion & tutors (wave 4M) -- "Return all artifact and enchantment cards from your graveyard to the battlefield"
     # (Brilliant Restoration): every card that is any of the types named (the "and" lists the kinds, as "or" would)
     text = re.sub(r"^return all ((?:[a-z]+, )*[a-z]+),? and ([a-z]+) cards (?=(?:with [^,]+ )?from your graveyard to )",
@@ -1425,16 +1433,23 @@ def _target_forms(text: str) -> tuple[Effects, Any] | None:
 # duration (the resolved-effect layer model carries keywords only), "gains flashback until end of
 # turn" (a casting permission from the graveyard), "where X is" a quantity the value grammar
 # doesn't read, "its power" for a pronoun subject the pump can't bind itself.
-_GRANT_ITEM = rf"(?:{KEYWORDS}|⟦\d+⟧)"  # (a keyword, or -- wave 2D -- a quoted ability set aside as ⟦n⟧)
+# -- token & pump wordings (wave 6C) -- the evasion and damage keywords the engine reads from a creature's keywords
+# wherever they come from (combat.py: 702.14c landwalk, 702.28b shadow, 702.31b horsemanship, 702.36b fear, 702.13b
+# intimidate, 702.118b skulk; 702.80 wither, 702.90 infect): a resolved grant carries them like any other (613.1f)
+GRANT_KEYWORDS = KEYWORDS + "|" + "|".join(("fear", "shadow", "horsemanship", "intimidate", "skulk", "wither", "infect",
+                                             "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk",
+                                             "desertwalk"))
+_GRANT_ITEM = rf"(?:{GRANT_KEYWORDS}|⟦\d+⟧)"  # (a keyword, or -- wave 2D -- a quoted ability set aside as ⟦n⟧)
 _KW_LIST = rf"{_GRANT_ITEM}(?:(?:, and |, | and ){_GRANT_ITEM})*"
 _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX]))"
                    rf"(?: and gains? (?P<kw>{_KW_LIST}))? until end of turn"
-                   r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn)?")
+                   r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn"
+                   r"| and (?P<d>can attack this turn as though it didn't have defender))?")  # (d: wave 6C)
 _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
 _GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
                         rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
 _GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? (?:gains?|has|have) (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
-_KW_ONLY = rf"(?:{KEYWORDS})(?:(?:, and |, | and )(?:{KEYWORDS}))*"
+_KW_ONLY = rf"(?:{GRANT_KEYWORDS})(?:(?:, and |, | and )(?:{GRANT_KEYWORDS}))*"  # (wave 6C)
 _LOSE_GAIN = re.compile(rf"(?P<o>.+?) loses? (?P<rm>{_KW_ONLY}) and gains? (?P<kw>{_KW_LIST})(?P<eot> until end of turn)?")
 _DOUBLE = re.compile(r"double (?P<o>target creature|~|this creature)'s power(?P<both> and toughness)? until end of turn")  # (wave 3D)
 _BITE = re.compile(r"(?P<s>.+?) deals damage equal to (?P<stat>its power|its toughness|twice its power|that creature's power) to (?P<o>.+)")
@@ -1475,11 +1490,11 @@ def bare_pronoun_grant(text: str) -> Effects | None:
     and haste." after an instruction that put the object onto the battlefield (Puppeteer Clique, Sneak Attack): no
     duration is stated, so the grant lasts as long as that object exists (611.2a, 400.7). Read for a whole sentence
     only (scripts._parse_effects): inside "Until end of turn, … and it gains first strike" the lead's duration rules."""
-    m = re.fullmatch(rf"(?P<o>it|that creature|that token|they|those creatures|those tokens) gains? (?P<kw>{_KW_ONLY})", text)
+    m = re.fullmatch(rf"(?P<o>it|that creature|that token|they|those creatures|those tokens|that artifact) gains? (?P<kw>{_KW_ONLY})", text)  # (that artifact: wave 6A)
     if m is None:
         return None
     try:
-        kind, _key, _group = ref(m["o"])
+        kind, _key, _group = ref("it" if m["o"] == "that artifact" else m["o"])  # (wave 6A: Arms Race)
         e = _grant_effect(_who(kind, _key), m["kw"])
     except _Fail:
         return None
@@ -1618,6 +1633,8 @@ def _pump(m: re.Match[str], rider: Any) -> tuple[Effects, Any]:
         out.append(_grant_effect(who, m["kw"]))
     if m["r"]:
         out.append({"do": "restrict", "who": who, "rules": RESTRICTIONS[m["r"]]})
+    if m["d"]:  # -- token & pump wordings (wave 6C) -- 702.3b
+        out.append({"do": "restrict", "who": who, "rules": ["attack_despite_defender"]})
     return out, _one(group)
 
 
@@ -1751,6 +1768,7 @@ COMPOUND = (rf"(?P<s>target player|target opponent|each player|each opponent|eac
 _PRONOUN_SACRIFICE = {"them": "them", "those tokens": "them", "those creatures": "them", "the tokens": "them",
                       "those permanents": "them", "that creature": "it", "that token": "it", "the token": "it",
                       "that permanent": "it", "that card": "it"}
+_PRONOUN_SACRIFICE.update({"the creature": "it", "that artifact": "it"})  # -- permanent effects (wave 6A) -- Sneak Attack, Arms Race
 _OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)? under (?:their|its) owner's control$")
 
 
