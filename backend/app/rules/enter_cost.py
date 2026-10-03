@@ -146,5 +146,8 @@ def divert(plan: Plan, card_id: str, actor: str) -> None:
 
 def chosen_objects(entries: list[dict[str, Any]], skip: int) -> set[str]:
     """The objects other entries entering together already chose (614.13b)."""
+    from app.rules import devour  # -- keyword mechanics (wave 9D) -- what another entering devourer picked
+
     return {str(e["choices"][WHAT]) for i, e in enumerate(entries)
-            if i != skip and (e.get("choices") or {}).get(WHAT) not in (None, NONE)}
+            if i != skip and (e.get("choices") or {}).get(WHAT) not in (None, NONE)} | {
+        c for i, e in enumerate(entries) if i != skip for c in devour.picked((e.get("choices") or {}).get(devour.WHAT))}

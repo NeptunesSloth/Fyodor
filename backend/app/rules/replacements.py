@@ -149,6 +149,10 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
     if out.get("divert"):  # (it won't enter: nothing else about its entering is asked)
         out.pop("choice", None)
         return out
+    # -- keyword mechanics (wave 9D) -- devour N (702.82a): which permanents to sacrifice as it enters (app/rules/devour.py)
+    from app.rules import devour
+
+    devour.plan_entry(plan, card, controller, answers, out, set(reserved or ()))
     if out.get("choice", {}).get("what") == enter_cost.WHAT and reserved:
         out["choice"]["reserved"] = sorted(reserved)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with (122.6) --
@@ -225,6 +229,10 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
 
                     for piece in keyword_triggers.pieces(kw, ab.text):
                         counters["+1/+1"] = counters.get("+1/+1", 0) + int(piece.split()[1])
+        from app.rules import devour  # -- keyword mechanics (wave 9D) -- 702.82a: N for each permanent sacrificed as it entered
+
+        if devour.counters(ch, choices):
+            counters["+1/+1"] = counters.get("+1/+1", 0) + devour.counters(ch, choices)
         for ab in ch.abilities:  # -- keyword mechanics (wave 9D) -- 702.44a sunburst: a +1/+1 counter (a creature, ignoring
             if ab.kind == "keywords" and "sunburst" in ab.keywords:  # type-changing effects) or a charge counter for each
                 from app.rules import keyword_triggers  # color of mana spent to cast it; only from the stack (702.44b: no payment, none)
@@ -313,6 +321,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
 
     if enter_cost.is_choice(what):  # -- entering for a cost (wave 5G) -- private: the cards in their hand
         return enter_cost.prompt(plan, card, controller, set(choice.get("reserved") or ()))
+    from app.rules import devour  # -- keyword mechanics (wave 9D) --
+
+    if devour.is_choice(what):
+        return devour.prompt(plan, card, controller, choice)
 
     if what == battles.PROTECTOR:  # 310.9a / 310.12a
         return f"{card.name}: as it enters, choose its protector", battles.choice_options(plan, controller, card)
@@ -325,6 +337,10 @@ def _answer(entry_or_answers: dict[str, Any], choice: dict[str, Any], chosen: st
     """Record an answer: a shock land's ``pay_life``, or a named choice under ``choices``."""
     if "life" in choice:
         return {**entry_or_answers, "pay_life": chosen == "pay"}
+    from app.rules import devour  # -- keyword mechanics (wave 9D) -- devour's picks pile up
+
+    if devour.is_choice(choice["what"]):
+        chosen = devour.merge((entry_or_answers.get("choices") or {}).get(choice["what"]), chosen)
     return {**entry_or_answers, "choices": {**(entry_or_answers.get("choices") or {}), choice["what"]: chosen}}
 
 
@@ -398,10 +414,18 @@ def stack_entry_choice(plan: Plan, card: CardInstance, controller: str) -> bool:
     return True
 
 
+def _picked(plan: Plan, d: Any, chosen: str) -> str:
+    from app.rules import devour  # -- keyword mechanics (wave 9D) --
+
+    if not devour.is_choice(d.resume["what"]):
+        return chosen
+    return devour.merge(plan.rules.entry_choices.get(d.resume["card"], {}).get(devour.WHAT), chosen)
+
+
 def resume_stack_enter_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules.engine import resolve_top_of_stack
 
-    plan.rules.entry_choices.setdefault(d.resume["card"], {})[d.resume["what"]] = chosen[0]
+    plan.rules.entry_choices.setdefault(d.resume["card"], {})[d.resume["what"]] = _picked(plan, d, chosen[0])
     resolve_top_of_stack(plan)
 
 
@@ -409,7 +433,7 @@ def resume_land_enter_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.game import actions as A
     from app.rules.engine import play_land
 
-    plan.rules.entry_choices.setdefault(d.resume["card"], {})[d.resume["what"]] = chosen[0]
+    plan.rules.entry_choices.setdefault(d.resume["card"], {})[d.resume["what"]] = _picked(plan, d, chosen[0])
     plan.rules.priority = d.player
     play_land(plan, A.parse_action(d.resume["intent"]))  # type: ignore[arg-type]
 
@@ -449,6 +473,10 @@ def move_together(plan: Plan, entries: list[Entry]) -> None:
         else:
             kept.append((entry, card, ep))
     planned = kept
+    for entry, _card, ep in planned:  # -- keyword mechanics (wave 9D) -- devour: sacrificed as it enters (702.82a)
+        from app.rules import devour
+
+        devour.sacrifice(plan, ep, entry["player"])
     # -- end entering for a cost (wave 5G) --
     if not planned:
         return
@@ -549,6 +577,10 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
                 chosen.record(plan, card_id, value)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with, through the counter
     # choke point (122.6, 614.16), in the order its controller chose before it entered (614.12a) --
+    from app.rules import devour  # -- keyword mechanics (wave 9D) -- 702.82b: what it devoured, for "for each creature it devoured"
+
+    if choices and devour.picked(choices.get(devour.WHAT)):
+        plan.rules.devoured[plan.oid(card)] = len(devour.picked(choices.get(devour.WHAT)))
     counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices)
     puts = [(card_id, kind, n) for kind, n in counters.items() if n > 0]
     from app.rules import replace

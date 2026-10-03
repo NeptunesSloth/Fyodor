@@ -10,7 +10,7 @@ from app.game.state import GameState
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_conditionals import build, counters, on_field, to_hand, to_turn
+from tests.test_rules_conditionals import build, counters, on_field, to_hand, to_turn, token_of
 from tests.test_rules_effects import mana, replay_matches
 
 
@@ -43,6 +43,36 @@ EXTRA = [
     real("Heliophial", "{5}", 5, "Artifact",
          "Sunburst (This artifact enters with a charge counter on it for each color of mana spent to cast it.)\n{2}, Sacrifice "
          "this artifact: It deals damage equal to the number of charge counters on it to any target.", None, "", ["Sunburst"]),
+    real("Gorger Wurm", "{3}{R}{G}", 5, "Creature — Wurm",
+         "Devour 1 (As this creature enters, you may sacrifice any number of creatures. It enters with that many +1/+1 "
+         "counters on it.)", ("5", "5"), "GR", ["Devour"]),
+    real("Mycoloth", "{3}{G}{G}", 5, "Creature — Fungus",
+         "Devour 2 (As this creature enters, you may sacrifice any number of creatures. It enters with twice that many +1/+1 "
+         "counters on it.)\nAt the beginning of your upkeep, create a 1/1 green Saproling creature token for each +1/+1 "
+         "counter on this creature.", ("4", "4"), "G", ["Devour"]),
+    real("Famished Worldsire", "{5}{G}{G}{G}", 8, "Creature — Leviathan",
+         "Ward {3}\nDevour land 3 (As this creature enters, you may sacrifice any number of lands. It enters with three times "
+         "that many +1/+1 counters on it.)\nWhen this creature enters, look at the top X cards of your library, where X is this "
+         "creature's power. Put any number of land cards from among them onto the battlefield tapped, then shuffle.",
+         ("0", "0"), "G", ["Ward", "Devour"]),
+    real("Feasting Hobbit", "{1}{G}", 2, "Creature — Halfling Citizen",
+         "Devour Food 3 (As this creature enters, you may sacrifice any number of Foods. It enters with three times that many "
+         "+1/+1 counters on it.)\nCreatures with power less than this creature's power can't block it.", ("2", "2"), "G",
+         ["Devour"]),
+    real("Zombify", "{3}{B}", 4, "Sorcery", "Return target creature card from your graveyard to the battlefield.", None, "B"),
+    real("Skullmulcher", "{4}{G}", 5, "Creature — Elemental",
+         "Devour 1 (As this creature enters, you may sacrifice any number of creatures. It enters with that many +1/+1 "
+         "counters on it.)\nWhen this creature enters, draw a card for each creature it devoured.", ("3", "3"), "G", ["Devour"]),
+    real("Marrow Chomper", "{3}{B}{G}", 5, "Creature — Zombie Lizard",
+         "Devour 2 (As this creature enters, you may sacrifice any number of creatures. It enters with twice that many "
+         "+1/+1 counters on it.)\nWhen this creature enters, you gain 2 life for each creature it devoured.", ("3", "3"),
+         "BG", ["Devour"]),
+    real("Devour in Flames", "{3}{R}", 4, "Sorcery",
+         "As an additional cost to cast this spell, return a land you control to its owner's hand.\nDevour in Flames deals 5 "
+         "damage to target creature or planeswalker."),
+    real("Caprichrome", "{3}{W}", 4, "Artifact Creature — Goat",
+         "Flash\nVigilance\nDevour artifact 1 (As this creature enters, you may sacrifice any number of artifacts. It enters "
+         "with that many +1/+1 counters on it.)", ("2", "2"), "W", ["Vigilance", "Flash", "Devour"]),
 ]
 
 
@@ -196,4 +226,157 @@ def test_sunburst_charge_counters_count_as_it_is_sacrificed(cards):
     act(s, "p1", type="activate_ability", card_id=hel.id, ability=ability(s, hel, "{2}"), targets=["p2"])
     answer(s)
     assert s.state.players["p2"].life == 40 - 5
+    roundtrip(s)
+
+
+# -- devour (702.82a, 702.82c) ------------------------------------------------------------------------------
+def devour_answers(s, *picks, limit=40):
+    """Resolve the stack; devour's questions are answered with ``picks`` (card ids, in order), then "done"."""
+    picks = list(picks)
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            if "done" in ids:
+                pick = picks.pop(0) if picks else "done"
+                assert pick in ids, (pick, ids)
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+            else:
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=ids[: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("the stack never emptied")
+
+
+def cast_devour(s, name, picks, **m):
+    c = to_hand(s, name)
+    mana(s, "p1", **m)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    devour_answers(s, *picks)
+    return s.state.cards[c.id]
+
+
+DEVOUR = ["Gorger Wurm", "Mycoloth", "Famished Worldsire", "Feasting Hobbit", "Caprichrome"]
+
+
+@pytest.mark.parametrize("name", DEVOUR)
+def test_devour_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_devour_sacrifices_any_number_of_creatures_for_counters_each(cards):
+    s = build(cards, "Mycoloth", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears")
+    bears = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    for b in bears:
+        act(s, "p1", type="move", card_ids=[b.id], to={"player": "p1", "zone": "battlefield"})
+    myc = cast_devour(s, "Mycoloth", [bears[0].id, bears[1].id], G=2, C=3)
+    assert counters(s, myc) == 4  # devour 2: twice that many for two creatures
+    assert [s.state.cards[b.id].zone for b in bears] == ["p1:graveyard", "p1:graveyard", "p1:battlefield"]
+    roundtrip(s)
+
+
+def test_devour_can_be_declined(cards):
+    s = build(cards, "Gorger Wurm", "Grizzly Bears")
+    bears = on_field(s, "Grizzly Bears")
+    wurm = cast_devour(s, "Gorger Wurm", [], R=1, G=1, C=3)
+    assert counters(s, wurm) == 0 and s.state.cards[bears.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_devour_is_not_asked_without_anything_to_sacrifice(cards):
+    s = build(cards, "Gorger Wurm")
+    wurm = to_hand(s, "Gorger Wurm")
+    mana(s, "p1", R=1, G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=wurm.id)
+    for _ in range(6):
+        assert s.state.rules.decision is None  # nothing to devour: no question
+        if not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[wurm.id].zone == "p1:battlefield" and counters(s, wurm) == 0
+
+
+def test_devour_sacrifices_only_your_own_creatures(cards):
+    s = build(cards, "Gorger Wurm", p2=("Grizzly Bears",))
+    theirs = on_field(s, "Grizzly Bears", "p2")
+    wurm = to_hand(s, "Gorger Wurm")
+    mana(s, "p1", R=1, G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=wurm.id)
+    for _ in range(6):
+        assert s.state.rules.decision is None  # the opponent's creature isn't offered
+        if not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[theirs.id].zone == "p2:battlefield"
+
+
+def test_devour_land_three_times(cards):
+    s = build(cards, "Famished Worldsire", "Grizzly Bears")
+    bears = on_field(s, "Grizzly Bears")
+    forests = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:3]
+    for f in forests:
+        act(s, "p1", type="move", card_ids=[f.id], to={"player": "p1", "zone": "battlefield"})
+    sire = to_hand(s, "Famished Worldsire")
+    mana(s, "p1", G=3, C=5)
+    act(s, "p1", type="cast_spell", card_id=sire.id)
+    d = s.state.rules.decision
+    assert d is not None and bears.id not in [o.id for o in d.options] and forests[0].id in [o.id for o in d.options]
+    devour_answers(s, forests[0].id, forests[1].id)
+    assert counters(s, sire) == 6  # devour land 3: two lands
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
+    assert [s.state.cards[f.id].zone for f in forests] == ["p1:graveyard", "p1:graveyard", "p1:battlefield"]
+    roundtrip(s)
+
+
+def test_devour_food_and_artifact(cards):
+    s = build(cards, "Feasting Hobbit", "Caprichrome")
+    food = token_of(s, "p1", "Food", "Token Artifact — Food", pt="0/0")
+    hobbit = cast_devour(s, "Feasting Hobbit", [food.id], G=1, C=1)
+    assert counters(s, hobbit) == 3 and food.id not in s.state.zones.get("p1:battlefield", [])
+    gem = token_of(s, "p1", "Gem", "Token Artifact — Gem", pt="0/0")
+    goat = cast_devour(s, "Caprichrome", [gem.id], W=1, C=3)
+    assert counters(s, goat) == 1
+    roundtrip(s)
+
+
+def test_devour_when_put_onto_the_battlefield_by_an_effect(cards):
+    s = build(cards, "Gorger Wurm", "Zombify", "Grizzly Bears")
+    bears = on_field(s, "Grizzly Bears")
+    wurm = next(c for c in s.state.cards.values() if c.name == "Gorger Wurm")
+    act(s, "p1", type="move", card_ids=[wurm.id], to={"player": "p1", "zone": "graveyard"})
+    zombify = to_hand(s, "Zombify")
+    mana(s, "p1", B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=zombify.id, targets=[wurm.id])
+    devour_answers(s, bears.id)
+    assert s.state.cards[wurm.id].zone == "p1:battlefield" and counters(s, wurm) == 1  # as it enters (702.82a)
+    assert s.state.cards[bears.id].zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_a_card_named_devour_is_not_the_keyword(cards):
+    assert coverage.of_card_data(cards.resolve("Devour in Flames")).level == "FULL"
+
+
+def test_devoured_creatures_count_for_the_enters_trigger(cards):
+    s = build(cards, "Skullmulcher", "Marrow Chomper", "Grizzly Bears", "Grizzly Bears", "Forest", "Forest")
+    bears = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
+    for b in bears:
+        act(s, "p1", type="move", card_ids=[b.id], to={"player": "p1", "zone": "battlefield"})
+    hand = len(s.state.zones["p1:hand"])
+    cast_devour(s, "Skullmulcher", [bears[0].id], G=1, C=4)
+    assert len(s.state.zones["p1:hand"]) == hand + 1  # one creature devoured: one card (the Skullmulcher itself left the hand)
+    life = s.state.players["p1"].life
+    cast_devour(s, "Marrow Chomper", [bears[1].id], B=1, G=1, C=3)
+    assert s.state.players["p1"].life == life + 2  # 2 life for each creature it devoured
+    roundtrip(s)
+
+
+def test_nothing_devoured_nothing_drawn(cards):
+    s = build(cards, "Skullmulcher", "Grizzly Bears")
+    on_field(s, "Grizzly Bears")
+    hand = len(s.state.zones["p1:hand"])
+    cast_devour(s, "Skullmulcher", [], G=1, C=4)
+    assert len(s.state.zones["p1:hand"]) == hand
     roundtrip(s)

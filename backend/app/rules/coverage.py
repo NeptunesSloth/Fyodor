@@ -374,6 +374,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         keyword_triggers,  # -- static wordings (wave 6E) -- battle cry, ingest … (their CR meaning)
     )
 
+    if kw == "devour":  # -- keyword mechanics (wave 9D) -- app/rules/devour.py (one instance)
+        from app.rules import devour
+
+        return devour.supported(line)
     if kw == "sunburst":  # -- keyword mechanics (wave 9D) -- 702.44a: replacements.entering_counters (not "Modular—Sunburst")
         return bool(keyword_triggers.pieces(kw, line)) and re.fullmatch(r"(?:sunburst)(?:, sunburst)*", re.sub(
             r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()) is not None

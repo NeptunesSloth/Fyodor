@@ -810,6 +810,9 @@ def resolve_top_of_stack(plan: Plan) -> None:
         _after_resolution(plan)
         return
     # -- end entering for a cost (wave 5G) --
+    from app.rules import devour  # -- keyword mechanics (wave 9D) -- 702.82a
+
+    devour.sacrifice(plan, ep, controller)
     leave_stack(plan, top_id, controller, tapped=bool(ep["tapped"]))
     if aura_target is not None and not manual and plan.state.cards[top_id].zone.endswith(":battlefield"):
         attachments.attach(plan, top_id, aura_target.id, controller)  # 303.4f: it enters attached to its target
