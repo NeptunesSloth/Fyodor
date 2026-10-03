@@ -354,7 +354,7 @@ def _each_part(rest: str, x_value: values.Value | None, it: str | None) -> dict[
 # 611.3a): "Each creature gets +1/+1 for each other creature on the battlefield that shares at least one creature type
 # with it" (Coat of Arms: 205.3m creature types, a changeling has them all, 702.73a), "Each nontoken creature you control
 # gets +1/+1 for each other creature you control with the same name as that creature" (Mirror Box; 201.2)
-_SHARING = re.compile(r"^(?P<sel>other .+?) that shares? at least one creature type with it$")
+_SHARING = re.compile(r"^(?P<sel>other .+?) that shares? (?:at least one|a) creature type with it$")  # (wave 8D: "a")
 _SAME_NAME = re.compile(r"^(?P<sel>other .+?) with the same name as that creature$")
 
 

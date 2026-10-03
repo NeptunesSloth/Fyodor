@@ -46,6 +46,8 @@ EXTRA = [
     card('Raving Dead', set_code='tst', number='E12', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Creature — Zombie', oracle_text='Deathtouch\nWhenever this creature deals combat damage to a player, that player loses half their life, rounded down.', power='3', toughness='3', colors=['B'], color_identity=['B'], keywords=['Deathtouch']),  # noqa: E501
     card('Havoc Festival', set_code='tst', number='E13', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Enchantment', oracle_text="Players can't gain life.\nAt the beginning of each player's upkeep, that player loses half their life, rounded up.", colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
     card('Shard of the Nightbringer', set_code='tst', number='E14', mana_cost='{5}{B}', cmc=6.0, type_line='Creature — C\'tan', oracle_text='Flying\nDrain Life — When this creature enters, if you cast it, target opponent loses half their life, rounded up. You gain life equal to the life lost this way.', power='4', toughness='4', colors=['B'], color_identity=['B'], keywords=['Flying']),  # noqa: E501
+    card('Stoneforge Masterwork', set_code='tst', number='E16', mana_cost='{1}', cmc=1.0, type_line='Artifact — Equipment', oracle_text='Equipped creature gets +1/+1 for each other creature you control that shares a creature type with it.\nEquip {2}', colors=[], color_identity=[], keywords=['Equip']),  # noqa: E501
+    card('Alpha Status', set_code='tst', number='E17', mana_cost='{2}{G}', cmc=3.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature gets +2/+2 for each other creature on the battlefield that shares a creature type with it.', colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
     card('Runeclaw Bear', set_code='tst', number='E15', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Bear', oracle_text='', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA if c["name"] != "Runeclaw Bear"]
@@ -317,4 +319,20 @@ def test_quietus_spike_halves_the_life_of_the_player_the_creature_hit(cards):
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
     through_combat(s)
     assert life(s, "p2") == 38 - 19  # (2 combat damage: 40 → 38, then half of 38 is 19)
+    check(s)
+
+
+def test_shared_creature_types_are_counted_for_the_modified_creature(cards):
+    """"Each other creature you control that shares a creature type with it" (205.3m): not itself, not another type,
+    and Alpha Status counts every other creature on the battlefield, an opponent's too."""
+    s = build(cards, "Stoneforge Masterwork", "Alpha Status", "Runeclaw Bear", "Grizzly Bears")
+    bear = put(s, "Runeclaw Bear")
+    put(s, "Grizzly Bears")
+    put(s, "Krenko, Mob Boss")  # (a Goblin Warrior: shares nothing with a Bear)
+    put(s, "Stoneforge Masterwork")
+    act(s, "p1", type="attach", card_ids=[card_named(s, "Stoneforge Masterwork").id], to=bear.id)
+    assert pt(s, "Runeclaw Bear") == (3, 3)
+    put(s, "Alpha Status")
+    act(s, "p1", type="attach", card_ids=[card_named(s, "Alpha Status").id], to=bear.id)
+    assert pt(s, "Runeclaw Bear") == (5, 5)  # (Grizzly Bears is the one other Bear)
     check(s)
