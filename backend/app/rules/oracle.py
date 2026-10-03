@@ -233,10 +233,12 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
     if not oracle_text:
         return []
     out: list[AbilityText] = []
-    for raw in strip_reminders(oracle_text).split("\n"):
-        line = raw.strip()
-        if not line:
-            continue
+    lines = [raw.strip() for raw in strip_reminders(oracle_text).split("\n") if raw.strip()]
+    if not spell and "LEVEL " in oracle_text:  # -- keyword mechanics (wave 9D) -- a leveler's text as 702.87a / 711.2 say it
+        from app.rules import levelers
+
+        lines = levelers.rewrite(lines, lambda t: _keywords_line(t) is not None)
+    for line in lines:
         kind, kws, cost = classify(line, spell=spell)
         out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost))
     return out

@@ -761,6 +761,9 @@ def _condition(text: str) -> dict[str, Any] | None:
         return {"static": "self", "test": m["test"].replace(" ", "_")}
     if c in ("it entered this turn", "~ entered this turn"):  # -- refused modal/conditional (wave 3R1) -- (Crew Captain)
         return {"history": "entered_self"}
+    m = re.fullmatch(r"(?:it|this creature|~) has (?P<n>\d+) or more level counters on it but no more than (?P<m>\d+) level counters on it", c)
+    if m:  # -- keyword mechanics (wave 9D) -- 711.2a: a leveler's level symbol with a range
+        return {"static": "self_counter", "counter": "level", "op": ">=", "n": int(m["n"]), "max": int(m["m"])}
     m = re.fullmatch(r"(?:it|~) has (?:(?P<one>a|an)|(?P<n>\w+) or more) "  # (wave 4B: "+1/+1 counters", "on him")
                      r"(?P<kind>(?:\+1/\+1|-1/-1|[a-z]+) )?counters? on (?:it|him|her)", c)
     if m:
@@ -815,7 +818,8 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
                    for c in plan.state.cards.values())
     if kind == "self_counter":
         kinds = [cond["counter"]] if cond["counter"] else list(source.counters)
-        return sum(source.counters.get(k, 0) for k in kinds) >= cond["n"]
+        total = sum(source.counters.get(k, 0) for k in kinds)
+        return total >= cond["n"] and (cond.get("max") is None or total <= cond["max"])  # (max: wave 9D, 711.2a)
     if kind == "graveyard":
         return len(plan.state.zones.get(f"{controller}:graveyard", [])) >= cond["n"]
     from app.rules import static_conditions  # -- conditional statics (wave 4B) --

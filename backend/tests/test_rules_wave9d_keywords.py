@@ -5,12 +5,14 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import coverage
+from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_conditionals import build, counters, on_field, to_hand, to_turn, token_of
+from tests.test_rules_conditionals import build, counters, on_field, to_hand, to_turn, token_of, until
 from tests.test_rules_effects import mana, replay_matches
 
 
@@ -70,6 +72,30 @@ EXTRA = [
     real("Devour in Flames", "{3}{R}", 4, "Sorcery",
          "As an additional cost to cast this spell, return a land you control to its owner's hand.\nDevour in Flames deals 5 "
          "damage to target creature or planeswalker."),
+    real('Student of Warfare', '{W}', 1, 'Creature — Human Knight',
+         'Level up {W} ({W}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 2-6\n3/3\nFirst strike\nLEVEL 7+\n4/4\nDouble strike',
+         ('1', '1'), 'W', ['First strike', 'Level Up', 'Double strike']),
+    real('Brimstone Mage', '{2}{R}', 3, 'Creature — Human Shaman',
+         'Level up {3}{R} ({3}{R}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 1-2\n2/3\n{T}: This creature deals 1 damage to any target.\nLEVEL 3+\n2/4\n{T}: This creature deals 3 damage to any target.',
+         ('2', '2'), 'R', ['Level Up']),
+    real('Kazandu Tuskcaller', '{1}{G}', 2, 'Creature — Human Shaman',
+         'Level up {1}{G} ({1}{G}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 2-5\n1/1\n{T}: Create a 3/3 green Elephant creature token.\nLEVEL 6+\n1/1\n{T}: Create two 3/3 green Elephant creature tokens.',
+         ('1', '1'), 'G', ['Level Up']),
+    real('Coralhelm Commander', '{U}{U}', 2, 'Creature — Merfolk Soldier',
+         'Level up {1} ({1}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 2-3\n3/3\nFlying\nLEVEL 4+\n4/4\nFlying\nOther Merfolk creatures you control get +1/+1.',
+         ('2', '2'), 'U', ['Flying', 'Level Up']),
+    real('Hexdrinker', '{G}', 1, 'Creature — Snake',
+         'Level up {1} ({1}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 3-7\n4/4\nProtection from instants\nLEVEL 8+\n6/6\nProtection from everything',
+         ('2', '1'), 'G', ['Level Up', 'Protection']),
+    real('Hada Spy Patrol', '{1}{U}', 2, 'Creature — Human Rogue',
+         "Level up {2}{U} ({2}{U}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 1-2\n2/2\nThis creature can't be blocked.\nLEVEL 3+\n3/3\nShroud (This creature can't be the target of spells or abilities.)\nThis creature can't be blocked.",
+         ('1', '1'), 'U', ['Shroud', 'Level Up']),
+    real('Lighthouse Chronologist', '{1}{U}', 2, 'Creature — Human Wizard',
+         "Level up {U} ({U}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 4-6\n2/4\nLEVEL 7+\n3/5\nAt the beginning of each end step, if it's not your turn, take an extra turn after this one.",
+         ('1', '3'), 'U', ['Level Up']),
+    real('Merfolk Looter', '{1}{U}', 2, 'Creature — Merfolk Rogue',
+         '{T}: Draw a card, then discard a card.',
+         ('1', '1'), 'U', []),
     real("Caprichrome", "{3}{W}", 4, "Artifact Creature — Goat",
          "Flash\nVigilance\nDevour artifact 1 (As this creature enters, you may sacrifice any number of artifacts. It enters "
          "with that many +1/+1 counters on it.)", ("2", "2"), "W", ["Vigilance", "Flash", "Devour"]),
@@ -379,4 +405,165 @@ def test_nothing_devoured_nothing_drawn(cards):
     hand = len(s.state.zones["p1:hand"])
     cast_devour(s, "Skullmulcher", [], G=1, C=4)
     assert len(s.state.zones["p1:hand"]) == hand
+    roundtrip(s)
+
+
+# -- level up and level symbols (702.87a, 711.2) ------------------------------------------------------------
+LEVELERS = ["Student of Warfare", "Brimstone Mage", "Kazandu Tuskcaller", "Coralhelm Commander", "Hexdrinker", "Hada Spy Patrol",
+            "Lighthouse Chronologist"]
+
+
+def derived(s, c):
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])
+
+
+def pt(s, c):
+    ch = derived(s, c)
+    return ch.pt
+
+
+def level(s, c, n):
+    act(s, "p1", type="set_counter", card_id=c.id, kind="level", value=n)
+
+
+def activate(s, c, needle, **kw):
+    ch = derived(s, c)
+    act(s, "p1", type="activate_ability", card_id=c.id,
+        ability=next(a.index for a in ch.abilities if needle in a.text and a.kind != "static"), **kw)
+
+
+@pytest.mark.parametrize("name", LEVELERS)
+def test_levelers_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_level_up_is_a_sorcery_speed_ability_that_adds_a_level_counter(cards):
+    s = build(cards, "Student of Warfare")
+    student = cast_with(s, "Student of Warfare", W=1)
+    assert pt(s, student) == (1, 1) and counters(s, student, "level") == 0  # 711.5: the top box below level 2
+    mana(s, "p1", W=2)
+    activate(s, student, "Put a level counter")
+    answer(s)
+    assert counters(s, student, "level") == 1 and pt(s, student) == (1, 1)
+    activate(s, student, "Put a level counter")
+    answer(s)
+    assert counters(s, student, "level") == 2
+    assert pt(s, student) == (3, 3) and "first strike" in derived(s, student).keywords  # LEVEL 2-6: 3/3 first strike
+    roundtrip(s)
+
+
+def test_level_up_works_only_as_a_sorcery(cards):
+    from app.rules import restrictions, scripts
+
+    s = build(cards, "Student of Warfare")
+    student = cast_with(s, "Student of Warfare", W=1)
+    d = scripts.definitions(derived(s, student))[0]
+    assert d["restriction"] == [{"kind": "sorcery"}] and d["cost"] == "{W}"  # 702.87a
+    to_turn(s, 2)
+    assert restrictions.problem(s.state, "p1", s.state.cards[student.id], 0, d["restriction"]) is not None  # 307.5
+    roundtrip(s)
+
+
+def test_the_level_ranges_set_base_power_toughness_and_abilities(cards):
+    s = build(cards, "Student of Warfare")
+    student = cast_with(s, "Student of Warfare", W=1)
+    for n, expect, kw, absent in [(1, (1, 1), None, "first strike"), (2, (3, 3), "first strike", "double strike"),
+                                  (6, (3, 3), "first strike", "double strike"), (7, (4, 4), "double strike", "first strike")]:
+        level(s, student, n)
+        assert pt(s, student) == expect, n
+        if kw:
+            assert kw in derived(s, student).keywords, n
+        assert absent not in derived(s, student).keywords, n
+    roundtrip(s)
+
+
+def test_a_leveler_outside_the_battlefield_has_the_printed_box(cards):
+    s = build(cards, "Student of Warfare")
+    student = to_hand(s, "Student of Warfare")
+    assert pt(s, student) == (1, 1)
+
+
+def test_brimstone_mage_has_the_tap_ability_of_its_level_only(cards):
+    s = build(cards, "Brimstone Mage")
+    mage = cast_with(s, "Brimstone Mage", R=1, C=2)
+    level(s, mage, 0)
+    assert not [a for a in derived(s, mage).abilities if a.kind == "activated" and a.text.startswith("{T}")]  # none below level 1
+    level(s, mage, 1)
+    assert pt(s, mage) == (2, 3)
+    to_turn(s, 3)
+    activate(s, mage, "{T}", targets=["p2"])
+    answer(s)
+    assert s.state.players["p2"].life == 39  # LEVEL 1-2: 1 damage
+    roundtrip(s)
+
+
+def test_brimstone_mage_level_three_deals_three(cards):
+    s = build(cards, "Brimstone Mage")
+    mage = cast_with(s, "Brimstone Mage", R=1, C=2)
+    level(s, mage, 3)
+    assert pt(s, mage) == (2, 4)
+    to_turn(s, 3)
+    activate(s, mage, "{T}", targets=["p2"])
+    answer(s)
+    assert s.state.players["p2"].life == 37  # LEVEL 3+: 3 damage
+    roundtrip(s)
+
+
+def test_kazandu_makes_an_elephant_at_level_two(cards):
+    s = build(cards, "Kazandu Tuskcaller")
+    kaz = cast_with(s, "Kazandu Tuskcaller", G=1, C=1)
+    level(s, kaz, 1)
+    assert not [a for a in derived(s, kaz).abilities if a.kind == "activated" and a.text.startswith("{T}")]  # LEVEL 2-5 only
+    level(s, kaz, 2)
+    to_turn(s, 3)
+    activate(s, kaz, "{T}")
+    answer(s)
+    elephants = [c for c in s.state.cards.values() if c.name == "Elephant" and c.zone == "p1:battlefield"]
+    assert len(elephants) == 1
+    roundtrip(s)
+
+
+def test_coralhelm_commander_pumps_other_merfolk_from_level_four(cards):
+    s = build(cards, "Coralhelm Commander", "Merfolk Looter")
+    looter = on_field(s, "Merfolk Looter")
+    cmdr = cast_with(s, "Coralhelm Commander", U=2)
+    level(s, cmdr, 3)
+    assert pt(s, cmdr) == (3, 3) and pt(s, looter) == (1, 1) and "flying" in derived(s, cmdr).keywords
+    level(s, cmdr, 4)
+    assert pt(s, cmdr) == (4, 4) and pt(s, looter) == (2, 2)  # LEVEL 4+: other Merfolk get +1/+1
+    roundtrip(s)
+
+
+def test_hexdrinker_gains_protection_by_level(cards):
+    s = build(cards, "Hexdrinker", "Lightning Bolt")
+    hex_ = cast_with(s, "Hexdrinker", G=1)
+    level(s, hex_, 2)
+    assert "protection" not in " ".join(derived(s, hex_).keywords) and pt(s, hex_) == (2, 1)
+    level(s, hex_, 3)
+    assert pt(s, hex_) == (4, 4)
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, "p1", R=1)
+    with pytest.raises(ActionError, match="legal target"):
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[hex_.id])  # protection from instants (702.16)
+    roundtrip(s)
+
+
+def test_a_level_up_creature_that_leaves_loses_its_level(cards):
+    s = build(cards, "Student of Warfare")
+    student = cast_with(s, "Student of Warfare", W=1)
+    level(s, student, 7)
+    act(s, "p1", type="move", card_ids=[student.id], to={"zone": "hand"})
+    assert counters(s, student, "level") == 0 and pt(s, student) == (1, 1)  # a new object (400.7): the printed box (711.6)
+    roundtrip(s)
+
+
+def test_lighthouse_chronologist_takes_extra_turns_only_from_level_seven(cards):
+    s = build(cards, "Lighthouse Chronologist")
+    chron = cast_with(s, "Lighthouse Chronologist", U=1, C=1)
+    level(s, chron, 6)
+    assert pt(s, chron) == (2, 4) and not [a for a in derived(s, chron).abilities if a.kind == "triggered"]
+    level(s, chron, 7)
+    assert pt(s, chron) == (3, 5)
+    to_turn(s, 4)
+    assert s.state.turn.active_player == "p1"  # Alice took the extra turn after Bob's: turns 3 and 4 are hers
     roundtrip(s)
