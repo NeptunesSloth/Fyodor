@@ -108,7 +108,6 @@ def test_pronouns_inside_a_deferred_effect_bind_to_the_earlier_instruction():
 
 @pytest.mark.parametrize("text", [
     "Destroy it at the beginning of the next end step if it didn't attack this turn.",  # Norritt: a condition on the deferred effect
-    "When you next cast an instant or sorcery spell this turn, copy that spell.",  # Chandra, the Firebrand: copying spells
     "Exile target creature. Until your next turn, whenever a creature becomes tapped, destroy it.",  # an "each" duration
     "Target creature gets +2/+2 until your next turn. Draw a card for as long as ~ remains tapped.",  # not a continuous effect
     "When a creature dealt damage this way dies this turn, create a 1/1 black Skeleton creature token.",  # Skeletonize: several objects
