@@ -1827,10 +1827,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import name_search  # -- name search (wave 11D) --
 
     body = name_search.rewrite(body)
-    from app.rules import reveal_until  # -- reveal until (wave 13E) --
-
-    body = reveal_until.rewrite(body)
     body = re.sub(r"(chooses [^.]*? they control)\. Destroy the rest\.", r"\1, then the rest are destroyed.", body)  # (wave 11D)
+    # -- reveal until (wave 13E) -- 701.20b: the revealed cards stay in the library, so "shuffle the rest into your library" is a
+    # shuffle of it ("…, then shuffle"); "you may reveal … until … If you do, put that card …": the reveal is the optional action
+    if "until you reveal " in body:
+        body = re.sub(r"(until you reveal [^.]*?)\. If you do, put ", r"\1. Put ", body) if "ou may reveal cards" in body else body
+        body = re.sub(r"(?:, then| and) shuffle (?:the rest|all other cards revealed this way) into your library", ", then shuffle", body)
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     body = watches.join_retarget(body)
@@ -2683,8 +2685,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
         if (replaced := mana_replace.definition(text)) is not None:
             return replaced
-    if ability.kind == "static" and (limit := _untap_choice.static_definition(text)) is not None:
-        return limit  # -- untap restrictions (wave 13E) -- "Players can't untap more than one creature during their untap steps."
+    if ability.kind == "static" and (untap_limit := _untap_choice.static_definition(text)) is not None:
+        return untap_limit  # -- untap restrictions (wave 13E) -- "Players can't untap more than one creature during their untap steps."
     if ability.kind == "static" and (untaps := _untap_riders.static_definition(text)) is not None:
         return untaps  # -- mana riders (wave 5A) -- "Untap all … you control during each other player's untap step."
     if ability.kind == "static":
@@ -5159,10 +5161,6 @@ EFFECTS[:0] = _block_effects.TEMPLATES
 from app.rules import discover as _discover  # noqa: E402, I001
 
 EFFECTS[:0] = _discover.TEMPLATES
-# -- reveal until (wave 13E) -- "Reveal cards from the top of your library until you reveal a creature card. Put that card …"
-from app.rules import reveal_until as _reveal_until  # noqa: E402, I001
-
-EFFECTS[:0] = _reveal_until.TEMPLATES
 # -- X actions (wave 9A) -- "bolster X, where X is …", "amass Orcs X, where X is …" (app/rules/x_actions.py)
 from app.rules import x_actions as _x_actions  # noqa: E402, I001
 
