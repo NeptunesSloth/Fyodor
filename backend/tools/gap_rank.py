@@ -101,6 +101,27 @@ def _card(data: dict[str, Any]) -> tuple[str, int, str, bool, list[tuple[str, st
     return name, rank, cov.level, commander.can_be_commander(data), missing
 
 
+def _ngrams(detail: list[tuple[int, str, list[str]]], limit: int) -> list[tuple[str, int, list[str]]]:
+    """The 3- and 4-word phrases most sole-blocker cards share (numbers → N, mana symbols → {m}, reminder text
+    dropped), each with a few example cards by EDHREC rank."""
+    count: Counter[str] = Counter()
+    where: dict[str, list[tuple[int, str]]] = defaultdict(list)
+    for rank, name, labs in detail:
+        seen: set[str] = set()
+        for lab in labs:
+            text = re.sub(r"\([^)]*\)", "", lab.lower())
+            words = re.findall(r"[a-z~'/+-]+|\{[^}]+\}|\d+", text)
+            words = ["N" if w.isdigit() else "{m}" if w.startswith("{") else w for w in words]
+            for n in (3, 4):
+                for i in range(len(words) - n + 1):
+                    g = " ".join(words[i:i + n])
+                    if g not in seen:
+                        seen.add(g)
+                        count[g] += 1
+                        where[g].append((rank, name))
+    return [(g, n, [x for _, x in sorted(where[g])[:4]]) for g, n in count.most_common(limit)]
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", type=Path)
@@ -109,6 +130,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--family", action="append", default=[])
     ap.add_argument("--limit", type=int, default=60)
     ap.add_argument("-j", type=int, default=8)
+    ap.add_argument("--ngrams", action="append", default=[],
+                    help="list the most common 3-4 word phrases in this family's sole-blocker lines (repeatable)")
     args = ap.parse_args(argv)
     cards, _ = rows(args.db or load_settings().cards_db_path)
     with ProcessPoolExecutor(args.j) as pool:
@@ -150,6 +173,9 @@ def main(argv: list[str] | None = None) -> int:
         out += ["", f"## {fam} (sole blockers)", ""]
         for rank, name, labs in sorted(detail[fam])[: args.limit]:
             out.append(f"- **{name}** ({rank}): " + " / ".join(lab.replace("\n", " ") for lab in labs))
+    for fam in args.ngrams:  # -- wave 6 -- what the lines of a (catch-all) family have in common
+        out += ["", f"## {fam}: common phrases in sole-blocker lines (cards / example cards)", ""]
+        out += [f"- {n} `{g}`: {', '.join(x)}" for g, n, x in _ngrams(detail[fam], args.limit)]
     text = "\n".join(out) + "\n"
     if args.out:
         args.out.write_text(text, "utf-8")
