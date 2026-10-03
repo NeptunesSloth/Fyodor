@@ -1582,7 +1582,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     found = _parse_effects_checked(body, it, event_player)
     if found is not None and '{"x": 1}' not in json.dumps(found[0]):
         return found
-    return _where_x(body, it, event_player) or found  # (X left as a cast X by the sentence grammar: read it as defined)
+    # (X left as a cast X by the sentence grammar although the text defines it (107.3c): read it as defined, or not at all)
+    return _where_x(body, it, event_player) or (None if found is not None and _WHERE_X.search(body) else found)
 
 
 def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
