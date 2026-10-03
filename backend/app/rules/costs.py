@@ -57,6 +57,9 @@ TAP_OTHER, REVEAL, LOYALTY, OTHER = "TAP_OTHER", "REVEAL", "LOYALTY", "OTHER"
 # top of your library, exert the source (701.43a); ANY_COUNTER: "Remove a counter from …" (the payer picks the kind)
 PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT = "PUT_COUNTER", "DISCARD_HAND", "MILL", "EXILE_LIBRARY", "EXERT"
 COLLECT_EVIDENCE, FORAGE = "COLLECT_EVIDENCE", "FORAGE"  # 701.59a, 701.61a: the payer picks how many / which way
+# -- if you do (wave 15C) -- the Eldrazi processors: "Put a card an opponent owns from exile into that player's graveyard"
+# (a cost like any other: 118.1; the cards are chosen from the exile zones of the opponents and go to their owners', 400.3)
+EXILE_TO_GY = "EXILE_TO_GY"
 WAVE_4H_KINDS = frozenset({PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE})
 ANY_COUNTER = "*"
 
@@ -318,6 +321,8 @@ _EXILE_GY_X = re.compile(r"^Exile X (?P<what>(?:[\w\-]+ )*cards from your gravey
 _MILL = re.compile(rf"^Mill (?:a card|{_N} cards)$")
 _EXILE_TOP = re.compile(rf"^Exile the top (?:card|{_N} cards) of your library$")
 _EXILE_CHOSEN = re.compile(rf"^Exile {_N} (?P<what>[^,]+ you control)$")
+_EXILE_TO_GY = re.compile(r"^Put (?:(?P<one>a) card an opponent owns from exile into that player's graveyard"
+                          r"|(?P<n>two|three) cards your opponents own from exile into their owners' graveyards)$")  # (wave 15C)
 _EVIDENCE = re.compile(r"^Collect evidence (?P<n>\d+)$")
 _SAC_OR = re.compile(r"^Sacrifice (?P<a>a|an|another) (?P<w1>[\w\-]+) or (?P<b>a|an|another) (?P<w2>[\w\-]+)$")  # (no article: refused)
 _GRANDEUR = re.compile(r"^Discard another card named ~$")  # (grandeur, an ability word: 207.2c)
@@ -330,6 +335,17 @@ _VERB = re.compile(r"^(?P<verb>Sacrifice|Exile|Return|Remove|Discard|Tap|Put|Pay
 def _x_part(kind: str, what: str, zone: str, text: str) -> CostComponent | None:
     key = _selector(what, zone=zone)
     return CostComponent(kind, amount=0, selector=key, x=True, text=text) if key else None
+
+
+def _exile_to_gy(part: str) -> CostComponent | None:
+    """-- if you do (wave 15C) -- the processors' cost; only cards a player can look at: face-up exile (406.3)."""
+    from app.rules import selectors
+
+    m = _EXILE_TO_GY.match(part)
+    if m is None:
+        return None
+    key = selectors.Selector(card=True, zones=("exile",), zone_owner="opponent").key()
+    return CostComponent(EXILE_TO_GY, amount=1 if m["one"] else _n(m["n"]), selector=key, text=part)
 
 
 def _one_4h(part: str, card_name: str) -> CostComponent | None:
@@ -365,6 +381,8 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
     if m := _EXILE_CHOSEN.match(part):  # (-- champion (wave 12B) -- "another": not the source itself)
         key = _selector(m["what"], zone="battlefield", other=m["n"] == "another")
         return CostComponent(EXILE, amount=_n(m["n"]), selector=key, text=part) if key else None
+    if (processed := _exile_to_gy(part)) is not None:  # (wave 15C)
+        return processed
     if m := _EVIDENCE.match(part):  # 701.59a
         key = _selector("cards from your graveyard", zone="graveyard")
         return CostComponent(COLLECT_EVIDENCE, amount=int(m["n"]), selector=key, text=part) if key and int(m["n"]) > 0 else None
@@ -453,7 +471,8 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
 _ADDITIONAL = re.compile(r"^as an additional cost to cast (?:this spell|~), (?P<cost>[^.]+)\.?$", re.IGNORECASE)
 # What a spell's additional cost may be made of: parts with chosen objects (or life / energy). Never the
 # source itself (a spell isn't on the battlefield to be sacrificed), tapping it, mana or counters on it.
-_ADDITIONAL_KINDS = frozenset({SACRIFICE, DISCARD, PAY_LIFE, PAY_ENERGY, EXILE_FROM_GRAVEYARD, RETURN_PERMANENT, TAP_OTHER})
+_ADDITIONAL_KINDS = frozenset({SACRIFICE, DISCARD, PAY_LIFE, PAY_ENERGY, EXILE_FROM_GRAVEYARD, RETURN_PERMANENT, TAP_OTHER,
+                               EXILE_TO_GY})  # (EXILE_TO_GY: wave 15C)
 
 
 def additional_cost_text(line: str) -> str | None:
@@ -507,7 +526,7 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
     parts = [p.strip() for p in re.split(r" and (?=(?:sacrifice|discard|pay|exile|return|tap) )", text)]
     components: list[CostComponent] = []
     for part in parts:
-        found = _component(part[:1].upper() + part[1:], "")
+        found = _component(part[:1].upper() + part[1:], "") or _exile_to_gy(part[:1].upper() + part[1:])
         if found is None or found.kind not in _ADDITIONAL_KINDS:
             return None
         if found.selector is None and found.kind not in (PAY_LIFE, PAY_ENERGY):

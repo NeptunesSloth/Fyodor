@@ -33,6 +33,7 @@ from app.rules.plan import Plan, decide
 _VERBS = {C.SACRIFICE: "sacrifice", C.DISCARD: "discard", C.EXILE_FROM_GRAVEYARD: "exile",
           C.RETURN_PERMANENT: "return to its owner's hand", C.TAP_OTHER: "tap", C.REMOVE_COUNTER: "remove counters from"}
 _VERBS["EXILE_FROM_HAND"] = "exile"
+_VERBS[C.EXILE_TO_GY] = "put into its owner's graveyard"  # (wave 15C)
 _VERBS["HAND_TO_BOTTOM"] = "put on the bottom of your library"  # -- if you do (wave 6F) --  # -- cost changers (wave 4I) -- "exile a blue card from your hand" (alt_costs.py)
 
 
@@ -59,6 +60,10 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
     else:
         zone = zone_key(player, "battlefield")
     out = []
+    if comp.kind == C.EXILE_TO_GY:  # -- if you do (wave 15C) -- a card an opponent owns, face up in exile (406.3), in a stable order
+        pool = [c for pid in plan.state.players if pid != player for c in plan.state.zones.get(zone_key(pid, "exile"), [])]
+        return [c for c in pool if (x := plan.state.cards.get(c)) is not None and not x.face_down and x.owner != player
+                and selectors.matches(plan, sel, x, plan.ch(x), player, source.id)]
     for cid in plan.state.zones.get(zone, []):
         card = plan.state.cards.get(cid)
         if card is None or (zone.endswith(":battlefield") and (card.controller != player or not plan.in_game(card))):
@@ -323,6 +328,8 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
                 ids = [card.id]
             plan.do({"type": "move", "card_ids": ids, "to": {"zone": "graveyard"}})  # 701.9a
             record.discarded += ids
+        elif comp.kind == C.EXILE_TO_GY:  # -- if you do (wave 15C) -- each to its owner's graveyard (400.3)
+            plan.do({"type": "move", "card_ids": ids, "to": {"zone": "graveyard"}})
         elif comp.kind in (C.EXILE, C.EXILE_FROM_GRAVEYARD, "EXILE_FROM_HAND"):  # (wave 4I: from the hand, public in exile, 406.3)
             ids = ids if comp.selector is not None else [card.id]
             plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})

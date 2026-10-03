@@ -50,7 +50,7 @@ STEP = "pay_or_sacrifice"
 PAY, DECLINE = "pay", "decline"
 SUPPORTED = frozenset({C.MANA, C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.DISCARD, C.EXILE, C.EXILE_FROM_GRAVEYARD,
                        C.REMOVE_COUNTER, C.RETURN_PERMANENT, C.TAP_OTHER, C.PUT_COUNTER, C.DISCARD_HAND,
-                       C.MILL, "EXILE_FROM_HAND"})  # (MILL, EXILE_FROM_HAND: wave 8C)  # (PUT_COUNTER: wave 6F, blight)
+                       C.MILL, "EXILE_FROM_HAND", C.EXILE_TO_GY})  # (MILL, EXILE_FROM_HAND: wave 8C; EXILE_TO_GY: wave 15C)  # (PUT_COUNTER: wave 6F, blight)
 _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 
 

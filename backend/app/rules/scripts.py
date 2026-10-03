@@ -2087,7 +2087,13 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (extra_land := _land_plays.sentence(text)) is not None:  # -- one-shot extra land plays (wave 8A) -- 305.2 (a permission)
             effects += extra_land
             continue
+        if effects and text.startswith("then you may ") and _may_then_if_you_do(text[5:], texts[i + 1:], effects, probe=False) is not None:
+            text = text[5:]  # (-- if you do (wave 15C) -- "then" only orders, 608.2c)
         if text.startswith("you may "):
+            if effects and (mid := _may_then_if_you_do(text, texts[i + 1:], effects)) is not None:
+                effects += _add_groups(groups, *mid)  # -- if you do (wave 15C) -- "…. You may draw a card. If you do, discard a card."
+                skip_to = i + 2
+                continue
             if effects:
                 # "…. You may reveal … from among them …": a clause that models its own choice
                 own = _clause(text)
@@ -4389,6 +4395,31 @@ def _if_you_do_after_may(if_do: re.Match[str], effects: list[dict[str, Any]], op
     if found is None or not found[0]:
         return None
     return found[0], found[1]
+
+
+def _may_then_if_you_do(text: str, following: list[str], effects: list[dict[str, Any]], probe: bool = True) -> tuple[list[dict[str, Any]], Any] | None:
+    """-- if you do (wave 15C) -- "[A]. You may draw a card. If you do, discard a card." as the last two sentences of an ability
+    that did something first (The Celestus, Gate to the Afterlife): the player is asked once as the resolution reaches it
+    (608.2d, unless_pays.may_rest: "no" ends the resolution), and "if you do" reads what the draw actually did (a draw
+    replaced or impossible is not "done", 608.2c) — the same certainty rule as the whole-ability form above."""
+    m = _IF_YOU_DO.match(_lower_first(following[0].rstrip(".").strip())) if len(following) == 1 else None
+    if m is None or m["neg"] or m["rest"].startswith("you may "):
+        return None
+    a, b = _clause(text[len("you may "):]), _clause(m["rest"])
+    if a is None or b is None or a[1] is not None or not a[0] or not b[0]:
+        return None
+    if not all(_certain_when_chosen(e) or _probed_move(e) for e in a[0]):
+        return None
+    taken = sum(1 for e in effects if str(e.get("did") or "").startswith("midid"))
+    probes = [f"midid{taken + k}" for k, e in enumerate(e for e in a[0] if e["do"] in _PROBED)]
+    for e, name in zip((e for e in a[0] if e["do"] in _PROBED), probes, strict=True):
+        if probe:  # (probe=False: only asking whether the sentence is read; nothing is marked)
+            e["did"] = name
+    gate: list[dict[str, Any]] = []
+    if probes:
+        cond: dict[str, Any] = {"succeeded": probes[0]} if len(probes) == 1 else {"all": [{"succeeded": n} for n in probes]}
+        gate = [{"do": "only_if", "cond": cond, "skip": len(b[0])}]
+    return [{"do": "may_rest"}, *a[0], *gate, *b[0]], b[1]
 
 
 def _refs_in(value: Any) -> Iterator[str]:

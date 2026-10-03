@@ -17,6 +17,7 @@ controller", "its toughness" (608.2h: as they were), "return it" (400.7j: where 
 
 from __future__ import annotations
 
+import itertools
 from typing import Any
 
 from app.game.rules_state import DecisionOption, ObjectRef, StackEntry
@@ -1497,6 +1498,9 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("graveyard") and "zones" not in e:  # -- refused zones/sized (wave 3R4) -- "your library and/or graveyard"
         options = [DecisionOption(id="both", label="Search your library and graveyard"),
                    DecisionOption(id="graveyard", label="Search your graveyard only")]
+        if e.get("search_zones"):  # -- if you do (wave 15C) -- "your graveyard, hand, and/or library": any of the zones named (701.23a)
+            subsets = [c for n in range(len(e["search_zones"]), 0, -1) for c in itertools.combinations(e["search_zones"], n)]
+            options = [DecisionOption(id="+".join(c), label="Search your " + " and ".join(c)) for c in subsets]
         if e.get("may"):
             options.append(DecisionOption(id="none", label="Don't search"))
         decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: search for a {e.get('label') or 'card'}",
@@ -1529,7 +1533,8 @@ def resume_search_zones(plan: Plan, d: Any, chosen: list[str]) -> None:
         plan.note(f"{plan.name(d.player)} chose not to search (no shuffle)", actor=d.player)
         continue_effects(plan, ctx)
         return
-    _ask_search(plan, ctx, {**e, "zones": ["library", "graveyard"] if chosen[0] == "both" else ["graveyard"]}, d.player, 0, [])
+    zones = {"both": ["library", "graveyard"], "graveyard": ["graveyard"]}.get(chosen[0]) or chosen[0].split("+")
+    _ask_search(plan, ctx, {**e, "zones": zones}, d.player, 0, [])
 
 
 def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int, picked: list[str]) -> bool:
@@ -1542,7 +1547,11 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
             graveyard = [c for c in plan.state.zones.get(zone_key(pid, "graveyard"), []) if c not in picked]
             keys = [selectors.replace(selectors.from_key(k), zones=("graveyard",)).key() for k in (e.get("alts") or [e["sel"]])]
             matching += _search_matches(plan, ctx, {**e, "alts": keys}, pid, None, graveyard)
-        what = e.get("label") or "cards"
+        if "hand" in zones:  # -- if you do (wave 15C) -- the searcher's own hand: private to them, as is this decision
+            hand = [c for c in plan.state.zones.get(zone_key(pid, "hand"), []) if c not in picked]
+            keys = [selectors.replace(selectors.from_key(k), zones=("hand",)).key() for k in (e.get("alts") or [e["sel"]])]
+            matching += _search_matches(plan, ctx, {**e, "alts": keys}, pid, None, hand)
+        what =e.get("label") or "cards"
     else:
         matching = [c for c in library if _matches(plan, c, e["filter"])]
         what = e["filter"].replace("_", " ")
