@@ -459,6 +459,73 @@ def _prefix(s: Selector, word: str) -> Selector | None:
 
 
 _ABILITY = re.compile(r"(?P<kind>activated or triggered|activated|triggered) abilit(?:y|ies)")
+# -- stack interaction (wave 5B) -- "spell or ability" / "spell, activated ability, or triggered ability": any object on
+# the stack (a mana ability never is one, 605.3a), ``ability`` "spell_or_ability"; "… with a single target": a spell or
+# ability that has exactly one target (its stack entry's target positions: Shunt, Imp's Mischief — the rulings: one
+# that targets several things, or one thing several times, isn't one)
+SPELL_OR_ABILITY = "spell_or_ability"
+_SPELL_OR_ABILITY = re.compile(r"spell or ability|spell, activated ability, or triggered ability")
+
+
+@_suffix(r"with a single target")
+def _single_target(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "single_target"))
+
+
+def _targets_suffix(s: Selector, m: re.Match[str]) -> Selector:
+    """"… that targets you / a permanent you control / you or a creature you control / this creature": a spell or
+    ability one of whose targets is that (Rebuff the Wicked's and Siren Stormtamer's rulings: one of several is enough;
+    a targeted permanent must still be on the battlefield and match now, whether or not it's still a legal target for
+    that spell). Encoded as the extra "targets:<you>|<selector key or self>"."""
+    what = m["w"].strip()
+    you = what == "you" or what.startswith("you or ")
+    rest = what[len("you or "):] if what.startswith("you or ") else ("" if what == "you" else what)
+    if rest in ("this creature", "~"):
+        key = "self"
+    elif rest:
+        art = re.fullmatch(r"(?:a|an) (?P<p>.+)", rest)
+        sub = parse(art["p"]) if art is not None else None
+        if sub is None or sub.zones != ("battlefield",) or sub.player is not None or sub.extras or sub.ability is not None:
+            if art is not None and art["p"] == "player" and not you:
+                return replace(s, extras=(*s.extras, "targets:player|"))
+            raise ValueError("unread target condition")
+        key = sub.key()
+    else:
+        key = ""
+    return replace(s, extras=(*s.extras, f"targets:{'you' if you else ''}|{key}"))
+
+
+_SUFFIXES.insert(0, (re.compile(r" that targets (?P<w>(?!only\b).+)$"), _targets_suffix))
+
+
+def targets_match(plan: Plan, card: CardInstance, extra: str, you: str, source: str | None) -> bool:
+    """Does this spell or ability on the stack target what the "targets:" extra names?"""
+    entry = plan.rules.stack.get(card.id) if plan.rules is not None else None
+    if entry is None:
+        return False
+    players, _, key = extra[len("targets:"):].partition("|")
+    for t in entry.targets:
+        if t.id in plan.state.players:
+            if (players == "you" and t.id == you) or players == "player":
+                return True
+            continue
+        target = plan.state.cards.get(t.id)
+        if not key or target is None or not target.zone.endswith(":battlefield") or plan.oid(target) != t.object_id:
+            continue  # (one that left isn't "a permanent you control" any more: 400.7)
+        if key == "self":
+            if target.id == source:
+                return True
+        elif matches(plan, from_key(key), target, plan.ch(target), you, source):
+            return True
+    return False
+
+
+def single_target(plan: Plan, card: CardInstance) -> bool:
+    from app.rules import copying  # (copying imports this module)
+
+    entry = plan.rules.stack.get(card.id) if plan.rules is not None else None
+    return entry is not None and len(copying.positions(entry)) == 1
+# -- end stack interaction (wave 5B) --
 
 
 def parse(phrase: str) -> Selector | None:
@@ -512,6 +579,10 @@ def _parse(phrase: str) -> Selector | None:
             return None  # ("ability from an artifact source": its source's qualities aren't read)
         kind = {"activated or triggered": "any", "activated": "activated", "triggered": "triggered"}[ability["kind"]]
         return replace(s, zones=("stack",), ability=kind)
+    if _SPELL_OR_ABILITY.fullmatch(text.strip()):  # -- stack interaction (wave 5B) --
+        if s.zones != _DEFAULT.zones or s.owner is not None or s.controller not in (None, "you", "opponent"):
+            return None
+        return replace(s, zones=("stack",), ability=SPELL_OR_ABILITY)
     # The core: the trailing nouns. Joined by "or" / "," they're alternatives ("artifact or
     # enchantment"); side by side they narrow each other ("artifact creature", "Goblin creature").
     nouns: list[tuple[str, str]] = []
@@ -680,10 +751,18 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.zone_owner == "opponent" and card.owner == you:
         return False
-    if zone == "stack" and (card.ability is not None) != (sel.ability is not None):
+    any_stack = sel.ability == SPELL_OR_ABILITY  # -- stack interaction (wave 5B) --
+    if zone == "stack" and not any_stack and (card.ability is not None) != (sel.ability is not None):
         return False  # a spell isn't an ability, and an ability isn't a spell (115.2b)
-    if sel.ability is not None and not _ability_kind(plan, card, sel.ability):
+    if sel.ability is not None and not any_stack and not _ability_kind(plan, card, sel.ability):
         return False
+    if any_stack and card.ability is not None and not _ability_kind(plan, card, "any"):
+        return False
+    if "single_target" in sel.extras and (zone != "stack" or not single_target(plan, card)):  # (wave 5B)
+        return False
+    for extra in sel.extras:  # (wave 5B) "… that targets you or a creature you control"
+        if extra.startswith("targets:") and (zone != "stack" or not targets_match(plan, card, extra, you, source)):
+            return False
     if sel.union:  # "creature or Vehicle": either the type or the subtype (-- target forms (agent T) --)
         if not (set(sel.types) & ch.types or set(sel.subtypes) & ch.subtypes):
             return False

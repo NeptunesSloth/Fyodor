@@ -61,7 +61,7 @@ from app.game.rules_state import (
     emit,
     track,
 )
-from app.game.state import CardInstance, TokenDef
+from app.game.state import CardInstance, StackInfo, TokenDef
 from app.rules import characteristics as chars
 from app.rules import delayed, layers, scripts, selectors
 from app.rules.characteristics import Characteristics
@@ -292,6 +292,8 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, is_token=snap.is_token,
                         attached_to=snap.attached_to,
                         counters=dict(snap.counters))  # (wave 3S: "each page counter on this Aura", 608.2h)
+    if snap.x is not None:  # -- stack interaction (wave 5B) -- a spell's X as it last existed on the stack (202.3e)
+        card.stack_info = StackInfo(x=snap.x)
     return card, ch
 
 
@@ -1179,7 +1181,7 @@ def ward_costs(ch: Any) -> list[str]:
     return out
 
 
-def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[Any]) -> None:
+def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[Any], *, crime: bool = True) -> None:
     """702.21a ward: "Whenever this permanent becomes the target of a spell or ability an opponent
     controls, counter it unless that player pays [cost]." """
     if not stack_id:
@@ -1189,7 +1191,8 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
     targets = list({(t.id if hasattr(t, "id") else t): t for t in targets}.values())
     from app.rules import history  # -- this-turn history (wave 4D) -- 700.13: committing a crime
 
-    history.note_crime(plan, stack_id, controller, targets)
+    if crime:  # (-- stack interaction (wave 5B) -- a changed target is no crime: 700.13 is about casting / activating)
+        history.note_crime(plan, stack_id, controller, targets)
     for t in targets:  # "When ~ becomes the target of a spell or ability, …" (any controller)
         card = plan.state.cards.get(t.id if hasattr(t, "id") else t)
         if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):
