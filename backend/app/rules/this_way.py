@@ -269,6 +269,65 @@ def damage_dealt(found: Any) -> Any:
     return effects, found[1], found[2]
 
 
+# -- as long as (wave 9B) -- "Create a number of Treasure tokens equal to the amount of excess damage dealt to that creature this way."
+EXCESS_DEALT = "excess_dealt"
+_SINGLE = re.compile(r"^(?:target(?::\d+)?|it)$")
+
+
+def excess_dealt(found: Any) -> Any:
+    """120.10: the excess damage the damage instruction just before dealt (the damage actually dealt, after prevention and
+    replacement, above lethal damage — a planeswalker's loyalty, a battle's defense — to the permanent it was dealt to, as it was
+    before the damage). Bound to the nearest plain damage instruction before the first thing that reads it; that instruction
+    must name one target (several recipients: "to that creature" would be ambiguous). Anything else leaves the line manual."""
+    import json
+
+    if found is None or f'"{EXCESS_DEALT}"' not in json.dumps(found[0]):
+        return found
+    effects = list(found[0])
+    first = next(i for i, e in enumerate(effects) if f'"{EXCESS_DEALT}"' in json.dumps(e))
+    prev = next((i for i in range(first - 1, -1, -1) if effects[i].get("do") == "damage"), None)
+    if prev is None:
+        return None
+    d = effects[prev]
+    if d.get("with_next") or d.get("bind_excess") or d.get("dealt_as") or not _SINGLE.match(str(d.get("who"))) \
+            or (prev > 0 and effects[prev - 1].get("with_next")) or d.get("excess"):
+        return None
+    effects[prev] = {**d, "bind_excess": EXCESS_DEALT}
+    return effects, found[1], found[2]
+
+
+def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
+    """120.10: the damage dealt by these events to permanents, in excess of what was lethal (a creature: its toughness less the
+    damage marked before this damage; a planeswalker: its loyalty; a battle: its defense; several of those types: the greatest),
+    all sources together, summed over the permanents. Read before the damage is recorded. (A deathtouch source's "any amount
+    beyond 1" is 120.4a's, about modifying the event, and 702.2c's, about combat damage: neither is part of 120.10.)"""
+    total: dict[str, int] = {}
+    odd: list[str] = []
+    for ev in events:
+        if ev["target"] in plan.state.cards and int(ev["amount"]) > 0:
+            total[ev["target"]] = total.get(ev["target"], 0) + int(ev["amount"])
+            if {"deathtouch", "wither", "infect"} & set(ev.get("kw") or ()):  # (120.4a / 702.2c count deathtouch's excess differently)
+                odd.append(ev["target"])
+    if odd:
+        plan.note("The damage came from a deathtouch, wither or infect source: the excess is counted as the damage beyond the "
+                  "creature's toughness — adjust by hand if it should differ", odd)
+    excess = 0
+    for cid, n in total.items():
+        card = plan.state.cards[cid]
+        if not card.zone.endswith(":battlefield"):
+            continue
+        ch = plan.ch(card)
+        over = []
+        if ch.is_creature and ch.pt is not None:
+            over.append(n - max(0, ch.pt[1] - card.damage))
+        if "Planeswalker" in ch.types:
+            over.append(n - card.counters.get("loyalty", 0))
+        if "Battle" in ch.types:
+            over.append(n - card.counters.get("defense", 0))
+        excess += max(0, max(over, default=0))
+    return excess
+
+
 _SWAP = re.compile(r"^each player exiles all (?P<cards>creature) cards from their graveyard, then sacrifices all (?P<perms>creatures) "
                    r"they control, then puts all cards they exiled this way onto the battlefield$")
 

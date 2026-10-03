@@ -37,7 +37,7 @@ from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wa
 from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules import restrictions, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
-from app.rules.costs import SACRIFICE, parse_ability_cost, spell_additional_cost
+from app.rules.costs import DISCARD, SACRIFICE, parse_ability_cost, spell_additional_cost
 from app.rules.oracle import AbilityText, parse_abilities, split_sentences, word_prefix
 from app.rules.values import UNMODELED_COUNTERS
 
@@ -415,8 +415,8 @@ def _bind_stats(v: Any, bind: Any, spell: Any = None) -> Any:
         return v
     out = {}
     for k, x in v.items():
-        if k in _STAT_KEYS and x in ("it", "that_spell"):
-            x = (spell or bind)() if x == "that_spell" else bind()
+        if k in _STAT_KEYS and (x in ("it", "that_spell") or (isinstance(x, str) and x.startswith("it:"))):
+            x = (spell or bind)() if x == "that_spell" else bind(x[3:]) if x.startswith("it:") else bind()
             if x is None:
                 raise _NoMatch
         else:
@@ -512,8 +512,10 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             return i.number is None or number is None or i.number == number
         return find(ok, index)
 
-    def stat_ref(index: int) -> Any:
-        intro = objects(index, 1, None)
+    def stat_ref(index: int, verb: str | None = None) -> Any:
+        intro = objects(index, 1, verb)
+        if verb is not None and intro is None:
+            return "cost:" + verb  # -- as long as (wave 9B) -- "the discarded card's mana value" of a cost (scripts.define checks it is one)
         if intro is not None:
             if not intro.recording and intro.do not in _MOVERS and _group_of(out[intro.index]) is not None:
                 # -- sized amounts (wave 3D) -- a plain target ("Put a +1/+1 counter on target creature you control.
@@ -633,14 +635,17 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     return None
                 e["cond"] = _bind_cond(e["cond"], ref)
             if "n" in e:
-                e["n"] = _bind_stats(e["n"], lambda at=index: stat_ref(at),
+                e["n"] = _bind_stats(e["n"], lambda verb=None, at=index: stat_ref(at, verb),
                                      (lambda: "event") if antecedent == "event_spell" else None)  # (wave 3R3)
             if "life_x" in e:  # -- sized payments (wave 5G) -- "pay X life, where X is its power"
-                e["life_x"] = _bind_stats(e["life_x"], lambda at=index: stat_ref(at),
+                e["life_x"] = _bind_stats(e["life_x"], lambda verb=None, at=index: stat_ref(at, verb),
                                           (lambda: "event") if antecedent == "event_spell" else None)
+            for pk in ("p", "t"):  # -- as long as (wave 9B) -- "gets +X/+X …, where X is the discarded card's mana value" (a pump / become)
+                if e.get("do") in ("pump", "become") and "it:discarded" in json.dumps(e.get(pk), default=str):
+                    e[pk] = _bind_stats(e[pk], lambda verb=None, at=index: stat_ref(at, verb), None)
             # -- X sized by a count (wave 4K) -- an "X/X" token's P/T: the same placeholders as an amount
             if isinstance(e.get("token"), dict) and any(isinstance(e["token"].get(k), dict) for k in ("power", "toughness")):
-                e["token"] = {**e["token"], **{k: _bind_stats(e["token"][k], lambda at=index: stat_ref(at),
+                e["token"] = {**e["token"], **{k: _bind_stats(e["token"][k], lambda verb=None, at=index: stat_ref(at, verb),
                                                                (lambda: "event") if antecedent == "event_spell" else None)
                                                for k in ("power", "toughness")}}
             if this_way.unbound(e):  # -- "this way" outcomes (wave 4A) -- the instruction a count names
@@ -679,6 +684,12 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e["src"] = "event"  # ("Whenever an Equipment you control enters, you may attach it to …")
                 else:
                     return None
+            if e.get("src") == "them":  # -- as long as (wave 9B) -- "Tap two target creatures. They each deal damage equal to their power …"
+                found = objects(index, 2, None) if e.get("do") == "damage" else None
+                if found is None or found.do in _MOVERS or _group_of(out[found.index]) is None:
+                    return None
+                g = _group_of(out[found.index])
+                e["src"] = "target" if groups is None else f"target:{g}"
             if e.get("do") in _RECORDING or _group_of(e) is not None:
                 intros.append(_Introducer(index, e, groups))
     except _NoMatch:
@@ -760,7 +771,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "to", "power", "toughness", "mana_value", "on", "with", "src", "object")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
+_TARGET_REFS = ("who", "to", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -774,7 +785,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
     out = {}
     for k, v in value.items():
         if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount", "ref_count",
-                 "bind_dealt", "paid_x") and isinstance(v, str):  # (bind_dealt, paid_x: wave 5G)  # ("bind": the library primitives' recorder;
+                 "bind_dealt", "bind_excess", "paid_x") and isinstance(v, str):  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -1528,7 +1539,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         from app.rules import top_library
 
         return top_library.private_gate(_excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(
-            this_way.damage_dealt(_energy_paid(_parse_effects(body, it, event_player))))), it))))  # (damage_dealt: wave 5G)
+            this_way.excess_dealt(this_way.damage_dealt(_energy_paid(_parse_effects(body, it, event_player)))))),
+            it))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B)
     except _NoMatch:
         return None
 
@@ -2369,6 +2381,13 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         d = json.loads(json.dumps(d, default=str).replace('{"event_amount": 1}', '{"event_count": 1}'))
     # -- sized amounts (wave 3D) -- "the sacrificed creature's power" reads what a *cost* sacrificed (the payment record):
     # in any other ability (an effect sacrificed it, a spell's additional cost) it isn't read
+    if d is not None and '"cost:discarded"' in json.dumps(d, default=str):  # -- as long as (wave 9B) -- one card discarded to pay
+        cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
+        if cost is None and d.get("kind") == "spell":
+            cost = spell_additional_cost(ch.abilities)
+        if cost is None or [c.kind for c in cost.components].count(DISCARD) != 1 or not any(
+                c.kind == DISCARD and c.selector is not None and c.amount == 1 for c in cost.components):
+            return None
     if d is not None and "cost:sacrificed" in json.dumps(d, default=str):
         cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
         if cost is None and d.get("kind") == "spell":  # -- costs (wave 3$) -- a spell's additional cost ("sacrifice a creature")
@@ -2495,6 +2514,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return typed
     if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
         return anthem
+    if ability.kind == "static":  # -- as long as (wave 9B) -- "… as long as it's black. Otherwise, it gets -1/-2." (app/rules/static_pairs.py)
+        from app.rules import static_pairs
+
+        if (paired := static_pairs.definition(text)) is not None:
+            return paired
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
         return rule
     if ability.kind == "static" and re.fullmatch(r"You control enchanted (?:creature|permanent|land|artifact)\.", text):

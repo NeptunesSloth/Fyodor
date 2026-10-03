@@ -102,6 +102,9 @@ _PLAYER_COUNTERS = re.compile(r"^(?P<kind>[a-z]+) counters? you have$")
 # "{E} you have" / "the amount of {E} you have" (107.14: each {E} is an energy counter)
 _PLAYER_COUNTERS_3E = re.compile(r"^(?:the amount of )?(?:(?P<kind>poison|experience|rad|energy) counters?|(?P<e>\{E\})) "
                                  r"(?P<who>you have|your opponents have)$")
+# -- as long as (wave 9B) -- "the amount of excess damage dealt to that creature this way" (Goblin Negotiation), "the excess damage
+# dealt this way", "that excess damage" (after "If excess damage was dealt this way, …, where X is that excess damage")
+_EXCESS_DEALT = re.compile(r"(?:the amount of |the )?excess damage dealt (?:to (?:that|a) (?:creature|permanent) )?this way|that excess damage")
 _HALF = re.compile(r"^half (?P<v>.+?), rounded (?P<round>up|down)$")
 _PLUS = re.compile(r"^(?P<v>.+?) plus (?P<n>\d+|one|two|three|four|five)$")
 _TYPE_WORDS = "|".join(selectors.CARD_TYPES)
@@ -193,6 +196,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     m = _PLAYER_COUNTERS.match(what)
     if m:
         return {"player_counters": m["kind"]}
+    if _EXCESS_DEALT.fullmatch(what):  # -- as long as (wave 9B) -- 120.10: scripts bind it to the damage just before (this_way.excess_dealt)
+        return {"ref_amount": "excess_dealt"}
     if what == "the damage dealt this way":  # -- if you do (wave 5G) -- what the damage just before dealt (this_way)
         return {"ref_amount": "damage_dealt"}
     if what == "the life lost this way":  # -- refused zones/sized (wave 3R4) -- what the lose_life just before lost
@@ -581,6 +586,12 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         refs = [(c, plan.oid(c)) for c in _cards(plan, ctx, "host")]
     if who == "each":  # -- sized amounts (wave 3D) -- "each creature you control deals damage equal to its power": the one being read
         card = plan.state.cards.get(ctx.get("each_source") or "")
+        return (card, plan.ch(card)) if card is not None else None
+    if who == "cost:discarded":  # -- as long as (wave 9B) -- "the discarded card's mana value": the one card a cost discarded
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        ids = record.discarded if record is not None else []
+        card = plan.state.cards.get(ids[0]) if len(ids) == 1 else None
         return (card, plan.ch(card)) if card is not None else None
     if who == "cost:sacrificed":  # -- sized amounts (wave 3D) -- "the sacrificed creature's power": what a cost sacrificed, as it last existed
         from app.rules.triggers import _snapshot_card
