@@ -1238,6 +1238,7 @@ class DamagePlan:
     notes: list[str]
     shields: dict[str, int]
     planner: Planner
+    shield_counters: list[str] = field(default_factory=list)  # -- counters (wave 7C) -- shield counters used up (122.1c)
 
 
 class ShieldAsk(Exception):
@@ -1317,6 +1318,9 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
     except ShieldAsk as s:
         return s
     result = [finals.get(i, ev) for i, ev in enumerate(events)]
+    from app.rules import shield_counters  # -- counters (wave 7C) -- 122.1c: what the other effects left, prevented
+
+    used = shield_counters.prevent_damage(plan, result)
     notes = []
     for before, after in zip(events, result, strict=True):
         if after.get("why"):
@@ -1326,7 +1330,7 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
                 notes.append(f"{before['amount']} damage to {who} prevented ({why})")
             else:
                 notes.append(f"{why}: {after['amount']} damage to {who} instead of {before['amount']}")
-    return DamagePlan(result, notes, sim["shields"], planner)
+    return DamagePlan(result, notes, sim["shields"], planner, used)
 
 
 @dataclass
@@ -1348,6 +1352,7 @@ class DamageOutcome:
     left: list[Planner] = field(default_factory=list)
     counter_finals: list[tuple[Event, list[Event]]] = field(default_factory=list)
     life_finals: list[tuple[Event, list[Event]]] = field(default_factory=list)
+    shield_counters: list[str] = field(default_factory=list)  # (wave 7C) 122.1c
 
 
 def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], order: list[str] | None,
@@ -1363,7 +1368,8 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
     if not isinstance(planned, DamagePlan):
         return planned
     out = DamageOutcome(events=[ev for ev in planned.events if ev["amount"] > 0], notes=list(planned.notes),
-                        shields=planned.shields, left=[planned.planner])
+                        shields=planned.shields, left=[planned.planner],
+                        shield_counters=planned.shield_counters)
     counters: list[tuple[str, str, int, str]] = []  # (target, kind, n, by)
     gains: dict[str, int] = {}
     for ev in out.events:
@@ -1443,6 +1449,9 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
     for before, finals in [*out.counter_finals, *out.life_finals]:
         note_applied(plan, before, finals, actor=actor)
     commit_shields(plan, out.shields)
+    from app.rules import shield_counters  # -- counters (wave 7C) --
+
+    shield_counters.remove(plan, out.shield_counters, actor)
     if not out.events:
         return
     dealt = [{"source": ev["source_oid"], "target": ev["target"], "amount": int(ev["amount"]),

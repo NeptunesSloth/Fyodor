@@ -640,7 +640,7 @@ def destroy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # controller …" means the target's controller even if it was indestructible or regenerated)
     before = _remember(plan, ctx, e, _cards(plan, ctx, e["who"]))
     doomed = [c for c in _cards(plan, ctx, e["who"]) if "indestructible" not in plan.ch(plan.state.cards[c]).keywords]
-    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx))
+    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx), actor=ctx["controller"])
     if doomed:
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
     _moved(plan, ctx, e, before)
@@ -1351,7 +1351,7 @@ def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         hit = (not ch.is_land) if wanted == ["*nonland"] else bool(ch.types & set(wanted))
         if hit and "indestructible" not in ch.keywords:
             doomed.append(c.id)
-    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx))
+    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx), actor=ctx["controller"])
     before = _remember(plan, ctx, e, doomed)  # "creatures destroyed this way": the ones it destroys
     if doomed:
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
