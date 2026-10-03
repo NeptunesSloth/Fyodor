@@ -413,6 +413,21 @@ def _bind_stats(v: Any, bind: Any, spell: Any = None) -> Any:
     return out
 
 
+# -- counters (wave 5H) --
+def _counted_group(e: dict[str, Any]) -> str | None:
+    """The permanents an instruction's amount counts ("draw a card for each creature you control with …"): a
+    selector over the battlefield, or None."""
+    from app.rules import selectors  # (a leaf module)
+
+    n = e.get("n")
+    key = n.get("count") if isinstance(n, dict) and set(n) == {"count"} else None
+    if not isinstance(key, str) or not key.startswith(selectors.PREFIX):
+        return None
+    sel = selectors.from_key(key)
+    return key if sel.zones == ("battlefield",) and sel.player is None and not sel.card else None
+# -- end counters (wave 5H) --
+
+
 def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: list[dict[str, Any]] | None = None,
                *, sentences: list[int] | None = None, event_player: bool = False) -> list[dict[str, Any]] | None:
     """Resolve the pronouns in parsed effects — the placeholders "who": "it" / "them" (with a verb:
@@ -544,6 +559,14 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e["who"] = "event.new"
                 elif pronoun == "them" and not verb and antecedent == "event_all":
                     e["who"] = "event"  # "they get +1/+0": every object of the "one or more" event (603.2c)
+                elif pronoun == "them" and not verb and index > 0 and _counted_group(out[index - 1]) is not None \
+                        and sentence_of(index - 1) == sentence_of(index) - 1:
+                    # -- counters (wave 5H) -- "Draw a card for each creature you control with a +1/+1 counter on
+                    # it. Those creatures gain indestructible …" (Inspiring Call): the permanents the count read,
+                    # recorded as it was read (608.2h: objects, not the group read again)
+                    name = f"g{index - 1}"
+                    out[index - 1]["note_group"] = {"who": _counted_group(out[index - 1]), "as": name}
+                    e["who"] = "ref:" + name
                 else:
                     return None
             elif who in ("it.controller", "it.owner"):

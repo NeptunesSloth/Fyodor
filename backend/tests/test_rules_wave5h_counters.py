@@ -126,8 +126,9 @@ def cov(name):
     ("Luminous Broodmoth", "FULL"), ("Unexpected Fangs", "FULL"), ("Iron Apprentice", "FULL"), ("The Ozolith", "FULL"),
     ("Grakmaw, Skyclave Ravager", "FULL"), ("Blowfly Infestation", "FULL"), ("Essence Channeler", "FULL"),
     ("Oran-Rief, the Vastwood", "FULL"), ("Brokers Ascendancy", "FULL"), ("Ratchet Bomb", "FULL"), ("Blast Zone", "FULL"),
-    ("Myojin of Blooming Dawn", "FULL"), ("Boss's Chauffeur", "PARTIAL"),  # (its tokens "for each": not read)
-    # refused: a type change with the counters (layer 4 as it enters), a keyword counter, "those creatures"
+    ("Myojin of Blooming Dawn", "FULL"), ("Inspiring Call", "FULL"),
+    ("Boss's Chauffeur", "PARTIAL"),  # (its tokens "for each": not read)
+    # refused: a type change with the counters (layer 4 as it enters); counters removed "from among" creatures as a cost
     ("Master Biomancer", "PARTIAL"), ("Tayam, Luminous Enigma", "PARTIAL"),
 ])
 def test_counter_wordings_coverage(name, level):
@@ -671,5 +672,21 @@ def test_myojin_enters_with_its_counter_only_if_cast_from_hand(cards):
     cast(s, "Wrath of God", W=2, C=2)
     settle(s)
     assert zone(s, myojin) == "p1:battlefield"
+    replay_matches(s)
+
+
+# -- "those creatures": the permanents a count read (608.2h) ---------------------------------------------------------
+def test_inspiring_call_draws_and_protects_the_counted_creatures(cards):
+    s = build(cards, "Inspiring Call", "Grizzly Bears", "Llanowar Elves", "Kitchen Finks")
+    bears, elves, finks = put(s, "Grizzly Bears"), put(s, "Llanowar Elves"), put(s, "Kitchen Finks")
+    add(s, bears, 1)
+    add(s, elves, 1)
+    s = saved(s)
+    hand = len(s.state.zones["p1:hand"])
+    cast(s, "Inspiring Call", G=1, C=2)
+    settle(s)
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + 1 + 2  # (it was put in hand to be cast)
+    assert "indestructible" in kws(s, bears) and "indestructible" in kws(s, elves)
+    assert "indestructible" not in kws(s, finks)
     replay_matches(s)
 

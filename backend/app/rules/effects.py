@@ -2419,6 +2419,8 @@ def continue_effects(plan: Plan, ctx: Context) -> None:
         if replacements.ask_903_9b_first(plan, ctx, e):
             return  # 903.9b: a commander's owner chooses before it would be put into a hand or library
         ctx["next"] += 1
+        if e.get("note_group"):  # -- counters (wave 5H) -- the permanents a count reads, for a later "those creatures"
+            context.bind_objects(plan, ctx, e["note_group"]["as"], _cards(plan, ctx, e["note_group"]["who"]))
         if not PRIMITIVES[e["do"]](plan, ctx, e):
             return  # waiting for a choice; the decision's resume continues from ctx["next"]
     finish(plan, ctx)
