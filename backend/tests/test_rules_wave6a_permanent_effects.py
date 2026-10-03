@@ -16,7 +16,7 @@ from app.rules import coverage, scripts
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_attachments import ch
-from tests.test_rules_conditionals import attack, creature, on_field, settle, to_hand, to_turn
+from tests.test_rules_conditionals import attack, creature, on_field, pick, settle, to_hand, to_turn, until_asked
 from tests.test_rules_effects import mana
 from tests.test_rules_wave4h_activation_costs import build, roundtrip
 
@@ -31,12 +31,22 @@ EXTRA = [
     card("Bontu's Last Reckoning", set_code="tst", number="A07", mana_cost='{1}{B}{B}', cmc=3.0, type_line='Sorcery', oracle_text="Destroy all creatures. Lands you control don't untap during your next untap step.", colors=['B'], color_identity=['B']),  # noqa: E501
     card('Sneak Attack', set_code="tst", number="A09", mana_cost='{3}{R}', cmc=4.0, type_line='Enchantment', oracle_text='{R}: You may put a creature card from your hand onto the battlefield. That creature gains haste. Sacrifice the creature at the beginning of the next end step.', colors=['R'], color_identity=['R']),  # noqa: E501
     card('Arms Race', set_code="tst", number="A10", mana_cost='{3}{R}', cmc=4.0, type_line='Enchantment', oracle_text='{3}{R}: You may put an artifact card from your hand onto the battlefield. That artifact gains haste. Sacrifice it at the beginning of the next end step.', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('Kor Skyfisher', set_code="tst", number="B01", mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Kor Soldier', oracle_text="Flying\nWhen this creature enters, return a permanent you control to its owner's hand.", power='2', toughness='3', colors=['W'], color_identity=['W'], keywords=['Flying']),  # noqa: E501
+    card('Ambush Krotiq', set_code="tst", number="B02", mana_cost='{5}{G}', cmc=6.0, type_line='Creature — Insect', oracle_text="Trample\nWhen this creature enters, return another creature you control to its owner's hand.", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Trample']),  # noqa: E501
+    card('Curfew', set_code="tst", number="B03", mana_cost='{U}', cmc=1.0, type_line='Instant', oracle_text="Each player returns a creature they control to its owner's hand.", colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Peel from Reality', set_code="tst", number="B04", mana_cost='{1}{U}', cmc=2.0, type_line='Instant', oracle_text="Return target creature you control and target creature you don't control to their owners' hands.", colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Reduce to Dreams', set_code="tst", number="B05", mana_cost='{3}{U}{U}', cmc=5.0, type_line='Sorcery', oracle_text="Return all artifacts and enchantments to their owners' hands.", colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Whelming Wave', set_code="tst", number="B06", mana_cost='{2}{U}{U}', cmc=4.0, type_line='Sorcery', oracle_text="Return all creatures to their owners' hands except for Krakens, Leviathans, Octopuses, and Serpents.", colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Hill Giant', set_code="tst", number="B07", mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Giant', oracle_text='', power='3', toughness='3', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('Ornithopter', set_code="tst", number="B08", mana_cost='{0}', cmc=0.0, type_line='Artifact Creature — Thopter', oracle_text='Flying', power='0', toughness='2', keywords=['Flying']),  # noqa: E501
     card('Grizzly Bears', set_code="tst", number="A08", mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Bear', oracle_text='', power='2', toughness='2', colors=['G'], color_identity=['G']),  # noqa: E501
 ]
-FULL = ["Frost Breath", "Kefnet's Monument", "Arbalest Elite", "Apes of Rath", "Ojutai's Breath", "Sneak Attack", "Arms Race"]
+FULL = ["Frost Breath", "Kefnet's Monument", "Arbalest Elite", "Apes of Rath", "Ojutai's Breath", "Sneak Attack", "Arms Race",
+        "Kor Skyfisher", "Ambush Krotiq", "Curfew", "Peel from Reality", "Reduce to Dreams"]
 STILL_MANUAL = {  # (card, the line that stays manual)
     "Sleep": "that player's next untap step",  # (that player's, not its controller's: not read)
     "Bontu's Last Reckoning": "Lands you control don't untap",  # 611.2c: a rules effect on whatever matches then
+    "Whelming Wave": "except for Krakens",  # (an exception list: not read)
 }
 
 
@@ -178,4 +188,77 @@ def test_sneak_attack_haste_then_sacrifice_at_the_next_end_step(cards):
     roundtrip(s)
     to_turn(s, 2)
     assert s.state.cards[bears.id].zone == "p1:graveyard"
+    roundtrip(s)
+
+
+# -- bounce forms ---------------------------------------------------------------------------------------------------
+def zone_of(s, c):
+    return s.state.cards[c.id].zone if c.id in s.state.cards else None
+
+
+def test_kor_skyfisher_returns_a_permanent_you_control_chosen_on_resolution(cards):
+    """Not a target (608.2d): the choice is among what Alice controls as it resolves — Bob's permanents aren't offered."""
+    s = build(cards, p1=("Kor Skyfisher", "Grizzly Bears"), p2=("Hill Giant",))
+    bears = on_field(s, "Grizzly Bears")
+    on_field(s, "Hill Giant", pid="p2")
+    fisher = to_hand(s, "Kor Skyfisher")
+    mana(s, W=2)
+    act(s, "p1", type="cast_spell", card_id=fisher.id)
+    d = until_asked(s)
+    assert d is not None and d.player == "p1"
+    offered = {o.id for o in d.options}
+    assert bears.id in offered and fisher.id in offered
+    assert all(s.state.cards[c].controller == "p1" for c in offered)
+    pick(s, bears.id)
+    settle(s)
+    assert zone_of(s, bears) == "p1:hand" and zone_of(s, fisher) == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_ambush_krotiq_returns_another_creature_not_itself(cards):
+    s = build(cards, p1=("Ambush Krotiq", "Grizzly Bears"))
+    bears = on_field(s, "Grizzly Bears")
+    krotiq = to_hand(s, "Ambush Krotiq")
+    mana(s, G=6)
+    act(s, "p1", type="cast_spell", card_id=krotiq.id)
+    settle(s)  # (the Bears are the only other creature: no choice)
+    assert zone_of(s, bears) == "p1:hand" and zone_of(s, krotiq) == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_curfew_each_player_returns_one_of_theirs(cards):
+    s = build(cards, p1=("Curfew", "Grizzly Bears", "Hill Giant"), p2=("Hill Giant",))
+    bears, giant = on_field(s, "Grizzly Bears"), on_field(s, "Hill Giant")
+    theirs = on_field(s, "Hill Giant", pid="p2")
+    curfew = to_hand(s, "Curfew")
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=curfew.id)
+    d = until_asked(s)
+    assert d is not None and d.player == "p1" and {o.id for o in d.options} == {bears.id, giant.id}
+    pick(s, giant.id)
+    settle(s)  # (Bob has one: it's chosen without a question)
+    assert zone_of(s, giant) == "p1:hand" and zone_of(s, bears) == "p1:battlefield" and zone_of(s, theirs) == "p2:hand"
+    roundtrip(s)
+
+
+def test_peel_from_reality_two_targets_together(cards):
+    s = build(cards, p1=("Peel from Reality", "Grizzly Bears"), p2=("Hill Giant",))
+    bears = on_field(s, "Grizzly Bears")
+    theirs = on_field(s, "Hill Giant", pid="p2")
+    peel = to_hand(s, "Peel from Reality")
+    mana(s, U=2)
+    act(s, "p1", type="cast_spell", card_id=peel.id, targets=[bears.id, theirs.id], target_counts=[1, 1])
+    settle(s)
+    assert zone_of(s, bears) == "p1:hand" and zone_of(s, theirs) == "p2:hand"
+    roundtrip(s)
+
+
+def test_reduce_to_dreams_returns_artifacts_and_enchantments(cards):
+    s = build(cards, p1=("Reduce to Dreams", "Ornithopter", "Sneak Attack", "Grizzly Bears"))
+    thopter, sneak, bears = on_field(s, "Ornithopter"), on_field(s, "Sneak Attack"), on_field(s, "Grizzly Bears")
+    dreams = to_hand(s, "Reduce to Dreams")
+    mana(s, U=5)
+    act(s, "p1", type="cast_spell", card_id=dreams.id)
+    settle(s)
+    assert zone_of(s, thopter) == "p1:hand" and zone_of(s, sneak) == "p1:hand" and zone_of(s, bears) == "p1:battlefield"
     roundtrip(s)

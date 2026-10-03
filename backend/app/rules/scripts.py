@@ -4171,6 +4171,13 @@ EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLA
 from app.rules import next_untap as _next_untap  # noqa: E402
 
 EFFECTS[:0] = _next_untap.TEMPLATES
+# -- bounce forms (wave 6A) -- "Return a permanent you control to its owner's hand." … (app/rules/bounce_forms.py):
+# after the older literal templates ("return a land you control …": effects.return_yours)
+from app.rules import bounce_forms as _bounce_forms  # noqa: E402
+
+EFFECTS.extend(_bounce_forms.TEMPLATES)
+_RECORDING["bounce_together"] = "returned"
+_MOVERS.add("bounce_together")
 from app.rules import graveyard_exile as _graveyard_exile  # noqa: E402, I001  -- graveyard exile (wave 4J) --
 
 EFFECTS[:0] = _graveyard_exile.TEMPLATES  # "Exile target player's graveyard." (app/rules/graveyard_exile.py)
