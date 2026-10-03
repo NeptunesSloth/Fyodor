@@ -33,8 +33,12 @@ MEANINGS: dict[str, str] = {
     # counters", is replacements.entering_counters). The counters are those the permanent had as it left (113.6, LKI)
     "modular": "When this permanent is put into a graveyard from the battlefield, you may put a +1/+1 counter on target "
                "artifact creature for each +1/+1 counter on this permanent.",
+    # -- keyword mechanics (wave 9D) -- 702.58a: the triggered half of graft N (the static half, "enters with N +1/+1 counters",
+    # is replacements.entering_counters). 122.5: if either object has left the battlefield nothing is moved.
+    "graft": "Whenever another creature enters, if this creature has a +1/+1 counter on it, you may move a +1/+1 counter "
+             "from this creature onto that creature.",
 }
-_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular"})
+_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft"})
 
 
 def pieces(kw: str, line: str) -> list[str]:

@@ -51,7 +51,7 @@ KEYWORDS = frozenset({
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",
     "transmute",  # (wave 3R4: casting.transmute)
-    "ingest", "poisonous", "frenzy", "afterlife", "modular", "split second",  # -- static wordings (wave 6E) -- (app/rules/keyword_triggers.py)
+    "ingest", "poisonous", "frenzy", "afterlife", "modular", "split second", "graft", "sunburst", "devour", "dredge",  # -- static wordings (wave 6E) -- (app/rules/keyword_triggers.py)
 })
 
 _PARAM = re.compile(r"(\{[^}]*\}|\d+|—.*$|\bfrom\b.*$| with .*$|walk$)")
@@ -91,6 +91,8 @@ def keyword_name(piece: str) -> str | None:
     if first_two in KEYWORDS:
         return first_two
     first = raw.split()[0]
+    if first == "devour" and not re.match(r"devour (?:(?:land|artifact|food) )?(?:\d+|x)\b", raw):  # -- keyword mechanics (wave 9D) --
+        return None  # ("Devour in Flames deals 5 damage …" is a card's name, not the keyword)
     if first in KEYWORDS:
         return first
     typecycling = _TYPECYCLING.match(raw)  # "Swampcycling {2}", "Basic landcycling {1}{G}", "Wizardcycling {3}"
@@ -231,10 +233,12 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
     if not oracle_text:
         return []
     out: list[AbilityText] = []
-    for raw in strip_reminders(oracle_text).split("\n"):
-        line = raw.strip()
-        if not line:
-            continue
+    lines = [raw.strip() for raw in strip_reminders(oracle_text).split("\n") if raw.strip()]
+    if not spell and "LEVEL " in oracle_text:  # -- keyword mechanics (wave 9D) -- a leveler's text as 702.87a / 711.2 say it
+        from app.rules import levelers
+
+        lines = levelers.rewrite(lines, lambda t: _keywords_line(t) is not None)
+    for line in lines:
         kind, kws, cost = classify(line, spell=spell)
         out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost))
     return out

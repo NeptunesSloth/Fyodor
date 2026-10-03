@@ -174,6 +174,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"opponents": 1}
     if what in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
         return {"kicked": 1}
+    if what in ("creature it devoured", "creature ~ devoured"):  # -- keyword mechanics (wave 9D) -- 702.82b
+        return {"devoured": 1}
     if _COLORS_SPENT.fullmatch(what):  # -- ability words (wave 4F) -- converge
         return {"colors_spent": 1}
     m = _MANA_SPENT.fullmatch(what)  # -- X actions (wave 9A) -- "the amount of mana spent to cast that spell / her"
@@ -342,6 +344,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return 0  # a negative result of an effect is zero (107.1b); the sign is evaluate_signed's
     if "kicked" in v:
         return kicked_count(plan, ctx)
+    if "devoured" in v:  # -- keyword mechanics (wave 9D) -- 702.82b: sacrificed as a result of its devour as it entered
+        return plan.rules.devoured.get(ctx.get("source_object") or "", 0)
     if "colors_spent" in v:  # -- ability words (wave 4F) -- converge (a spell cast by hand: no mana known, 0)
         record = plan.rules.payments.get(ctx.get("source_object") or "")
         if record is None:
