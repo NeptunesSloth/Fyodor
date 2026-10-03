@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.game.state import GameState
@@ -428,7 +429,7 @@ def test_lake_of_the_dead_without_a_swamp_is_still_the_land_played(cards):
     assert s.state.rules.decision is None
     assert where(s, lake) == "p1:graveyard"
     assert s.state.rules.lands_this_turn("p1", s.state.turn.number) == 1  # (305.1: it was played)
-    with pytest.raises(Exception):
+    with pytest.raises(ActionError, match="already played"):
         act(s, "p1", type="play_land", card_id=forest.id)
     roundtrip(s)
 

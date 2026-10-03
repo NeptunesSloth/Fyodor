@@ -102,12 +102,12 @@ def is_choice(what: str) -> bool:
     return what == WHAT
 
 
-def prompt(plan: Plan, card: CardInstance, controller: str, reserved: set[str] = frozenset()) -> tuple[str, list[DecisionOption]]:
+def prompt(plan: Plan, card: CardInstance, controller: str, reserved: set[str] | None = None) -> tuple[str, list[DecisionOption]]:
     """The private question: what to pay with, or nothing (it goes to the graveyard)."""
     from app.rules import scripts
 
     d = next(x for x in scripts.definitions(plan.ch(card)).values() if x.get("replacement") == KIND)
-    found = candidates(plan, card, controller, d, set(reserved))
+    found = candidates(plan, card, controller, d, set(reserved or ()))
     verb = "Discard" if _is_discard(d) else "Sacrifice"
     options = [DecisionOption(id=c, label=f"{verb} {plan.state.cards[c].name or 'card'}", card_id=c) for c in found]
     if d["may"] or not found:
