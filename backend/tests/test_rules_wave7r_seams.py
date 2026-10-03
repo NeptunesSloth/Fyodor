@@ -70,3 +70,13 @@ def test_a_shield_counter_protects_only_its_own_permanent(cards):
     assert mine.id not in s.state.cards  # (a token ceases to exist) the unshielded one took its 2 damage and died
     assert s.state.cards[bear.id].zone == "p2:battlefield" and not s.state.cards[bear.id].counters.get("shield")
     replay_matches(s)
+
+
+# -- Event.group (wave 7C): old saves have none ---------------------------------------------------------------------------
+def test_an_event_from_an_old_save_has_no_group_and_a_new_one_keeps_its_group():
+    from app.game.rules_state import Event
+
+    old = Event.model_validate({"batch": 3, "kind": "counters", "turn": 1, "counter": "reach", "amount": 1})
+    assert old.group == 0
+    new = Event(batch=4, kind="counters", turn=1, counter="reach", amount=1, group=7)
+    assert Event.model_validate_json(new.model_dump_json()).group == 7

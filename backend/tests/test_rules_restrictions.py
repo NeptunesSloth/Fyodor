@@ -32,7 +32,7 @@ from tests.test_rules_trigger_context import resolve_all
      [{"kind": "step", "phases": ["begin_combat", "declare_attackers", "declare_blockers", "combat_damage", "end_combat"], "whose": None}]),
     ("{1}: Foo. Activate only during the declare blockers step.", [{"kind": "step", "phases": ["declare_blockers"], "whose": None}]),
     ("{1}: Foo. Activate only during your turn, before attackers are declared.",
-     [{"kind": "step", "phases": ["untap", "upkeep", "draw", "main1", "begin_combat"], "whose": "you"}]),
+     [{"kind": "step", "phases": ["untap", "upkeep", "draw", "main1", "begin_combat"], "whose": "you", "first_combat": True}]),
     ("{1}: Foo. Activate only as a sorcery and only once each turn.", [{"kind": "sorcery"}, {"kind": "per_turn", "n": 1}]),
     ("{1}: Foo. Activate only during your turn and only once each turn.", [{"kind": "your_turn"}, {"kind": "per_turn", "n": 1}]),
     ("{1}: Foo. Activate only if you control a Swamp.",

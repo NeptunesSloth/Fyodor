@@ -14,8 +14,16 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_conditionals import attack, combat_step, creature, sandbox, settle, through_combat, until
-from tests.test_rules_wave6c_tokens_pumps import card_named, mana, pt, put
+from tests.test_rules_conditionals import (
+    attack,
+    combat_step,
+    creature,
+    sandbox,
+    settle,
+    through_combat,
+    until,
+)
+from tests.test_rules_wave6c_tokens_pumps import mana, pt, put
 from tests.test_rules_wave7r_review import alive, build, check, to_hand, tok
 
 # name -> (mana cost, mana value, type line, text, power, toughness, colors)
@@ -183,6 +191,7 @@ ORACLE = {
         'Alliance — Whenever another creature you control enters, Wingnut gains your choice of flying, menace, or haste until end of turn.\nWhenever Wingnut attacks, each other attacking creature gets +1/+0 until end of turn.',
         '1', '2', ['R']),
 }
+
 
 
 
@@ -724,4 +733,100 @@ def test_immortus_adds_blue_per_card_drawn_for_noncreature_spells_only(cards):
     act(s, "p1", type="cast_spell", card_id=opt.id)
     settle(s)
     assert s.state.cards[im.id].tapped and s.state.cards[opt.id].zone == "p1:graveyard"
+    check(s)
+
+
+# -- control for as long as the source is controlled and stays tapped (611.2b), tap-an-Ally costs, restricted flips -------
+@pytest.mark.parametrize("keep", [True, False])
+def test_hivis_keeps_a_dragon_only_while_it_stays_tapped_and_controlled(cards, keep):
+    from tests.test_rules_wave7f_untap_choice import play_to
+
+    s = sandbox(cards, "Hivis of the Scale")
+    hivis = put(s, "Hivis of the Scale")
+    dragon = creature(s, "p2", "Whelp", "2/2", "Token Creature — Dragon")
+    to_main1(s)
+    s.state.rules.controlled_since[hivis.id].turn = 0
+    activate(s, hivis, "Gain control", targets=[dragon.id])
+    assert s.state.cards[dragon.id].controller == "p1"
+    play_to(s, 3, keep=(hivis.id,) if keep else ())  # (Alice's next untap step: she may keep Hivis tapped)
+    assert s.state.cards[dragon.id].controller == ("p1" if keep else "p2")
+    check(s)
+
+
+def test_veteran_warleader_taps_another_ally_for_a_choice(cards):
+    s = sandbox(cards, "Veteran Warleader")
+    leader = put(s, "Veteran Warleader")
+    ally = creature(s, "p1", "Friend", "1/1", "Token Creature — Human Ally")
+    other = creature(s, "p1", "Stranger", "1/1")
+    to_main1(s)
+    idx = ability_of(s, leader, "your choice")
+    assert pt(s, leader) == (3, 3)  # (itself, the Ally and the Stranger)
+    act(s, "p1", type="activate_ability", card_id=leader.id, ability=idx)
+    decide_first(s, index=2)  # trample
+    settle(s)
+    assert s.state.cards[ally.id].tapped and not s.state.cards[other.id].tapped
+    assert "trample" in chars(s, leader).keywords
+    check(s)
+
+
+def test_flitterwing_nuisance_draws_when_a_creature_connects(cards):
+    s = sandbox(cards, "Flitterwing Nuisance")
+    fn = to_hand(s, "Flitterwing Nuisance")
+    hero = creature(s, "p1", "Hero", "2/2")
+    to_main1(s)
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=fn.id)
+    settle(s)
+    assert s.state.cards[fn.id].counters.get("-1/-1") == 1
+    mana(s, U=1, C=2)
+    activate(s, fn, "Remove a counter")
+    assert not s.state.cards[fn.id].counters.get("-1/-1")
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="pass_priority")
+    attack(s, (hero, "p2"))
+    settle(s)
+    through_combat(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1
+    check(s)
+
+
+@pytest.mark.parametrize("heads", [True, False])
+def test_aleatory_pumps_on_a_win_and_always_draws_next_upkeep(cards, monkeypatch, heads):
+    flips(monkeypatch, heads)
+    s = sandbox(cards, "Aleatory")
+    hero = creature(s, "p1", "Hero", "2/2")
+    creature(s, "p2", "Guard", "2/2")
+    spell = to_hand(s, "Aleatory")
+    combat_step(s)
+    act(s, "p1", type="set_prefs", full_control=True)
+    attack(s, (hero, "p2"))
+    for _ in range(6):  # (priority is passed round the declare attackers step; then Bob declares no blockers)
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, "p2", type="declare_blockers", blocks=[])
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[hero.id])
+    settle(s)
+    assert pt(s, hero) == ((3, 3) if heads else (2, 2))
+    hand = len(s.state.zones["p1:hand"])
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "draw")
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")
+    assert len(s.state.zones["p1:hand"]) == hand + 1  # (Alice drew at the next turn's upkeep, Bob's)
+    check(s)
+
+
+def test_blizzard_needs_a_snow_land_to_be_cast(cards):
+    s = sandbox(cards, "Blizzard")
+    blizzard = to_hand(s, "Blizzard")
+    to_main1(s)
+    mana(s, G=2)
+    with pytest.raises(ActionError, match="snow"):
+        act(s, "p1", type="cast_spell", card_id=blizzard.id)
+    act(s, "p1", type="create_token", player="p1", token={
+        "name": "Snow-Covered Forest", "type_line": "Basic Snow Land — Forest", "power": None, "toughness": None, "text": "({T}: Add {G}.)"})
+    act(s, "p1", type="cast_spell", card_id=blizzard.id)
+    settle(s)
+    assert s.state.cards[blizzard.id].zone == "p1:battlefield"
     check(s)
