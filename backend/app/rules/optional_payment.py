@@ -49,7 +49,8 @@ Context = dict[str, Any]
 STEP = "pay_or_sacrifice"
 PAY, DECLINE = "pay", "decline"
 SUPPORTED = frozenset({C.MANA, C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.DISCARD, C.EXILE, C.EXILE_FROM_GRAVEYARD,
-                       C.REMOVE_COUNTER, C.RETURN_PERMANENT, C.TAP_OTHER, C.PUT_COUNTER, C.DISCARD_HAND})  # (PUT_COUNTER: wave 6F, blight)
+                       C.REMOVE_COUNTER, C.RETURN_PERMANENT, C.TAP_OTHER, C.PUT_COUNTER, C.DISCARD_HAND,
+                       C.MILL, "EXILE_FROM_HAND"})  # (MILL, EXILE_FROM_HAND: wave 8C)  # (PUT_COUNTER: wave 6F, blight)
 _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 
 
@@ -60,7 +61,8 @@ def _blight_like(comp: C.CostComponent) -> bool:
     """A "put N counters on a creature you control" part (blight): one chosen permanent of the payer's — or "discard
     your hand" (every card in it; ``paid_x`` records how many, for "draw that many cards")."""
     return (comp.kind == C.PUT_COUNTER and comp.selector is not None and comp.alt is None and not comp.x) \
-        or comp.kind == C.DISCARD_HAND
+        or comp.kind == C.DISCARD_HAND or comp.kind == C.MILL \
+        or (comp.kind == C.SACRIFICE and comp.alt is not None and comp.selector is not None)  # (wave 8C: mill 701.17b; "another creature or an artifact")
 
 
 # -- grammar helpers (app/rules/scripts.py) --------------------------------------------------------
@@ -122,10 +124,18 @@ def _hand_to_bottom() -> AbilityCost | None:
     return AbilityCost(components=(C.CostComponent(HAND_TO_BOTTOM, selector=key, text=_HAND_TO_BOTTOM_TEXT),)) if key else None
 
 
+_EXILE_FROM_HAND = re.compile(r"^Exile (?:a|an|one) (?:[\w\-]+ )*card from your hand$")
+
+
 def parse(text: str) -> AbilityCost | None:
     """The cost text as components, or None if any part isn't one the engine pays here."""
     if text == _HAND_TO_BOTTOM_TEXT:  # -- if you do (wave 6F) --
         return _hand_to_bottom()
+    if (m := _EXILE_FROM_HAND.match(text)) is not None:  # -- if you do (wave 8C) -- "Exile a creature card from your hand"
+        from app.rules import alt_costs
+
+        part = alt_costs._part(text)
+        return AbilityCost(components=(part,)) if isinstance(part, C.CostComponent) and m else None
     cost = C.parse_ability_cost(text)
     if cost.unsupported or not cost.components or "{X}" in cost.mana.upper() or cost.energy_x:
         return None
@@ -465,4 +475,4 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
     if any(c.kind == C.DISCARD_HAND for c in cost.components):  # -- if you do (wave 6F) -- "draw that many cards"
         ctx.setdefault("paid_x", {})[name] = len(record.discarded)
     plan.note(f"{plan.name(payer)} paid {_label(cost)} for {label}", [c for c in paid if c in plan.state.cards])
-    context.bind_payment(ctx, name, True, refs)
+    context.bind_payment(ctx, name, True, refs, context.moved_objects(plan, refs))  # (moved: wave 8C)
