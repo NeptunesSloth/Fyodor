@@ -130,7 +130,7 @@ def test_refusals_are_registered():
         ("Exile all creature cards from target player's graveyard.", "zone"),  # (the whole graveyard: wave 4J)
         ("Destroy target creature that player controls.", "named earlier"),
         ("Target player shuffles up to four target cards from their graveyard into their library.", "earlier target"),
-        ("Switch target creature's power and toughness until end of turn.", "P/T"),
+        ("Exchange target creature's power and toughness with its mana value.", "P/T"),  # (switching: wave 7E)
     ]:
         reason = coverage.refusal(text)
         assert reason is not None and piece in reason, text

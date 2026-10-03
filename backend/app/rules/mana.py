@@ -21,6 +21,10 @@ from app.rules import removed_mana as _removed_mana  # -- if you do (wave 6F) --
 
 COLORS = ("W", "U", "B", "R", "G")
 ALL_MANA = (*COLORS, "C")
+# -- snow mana (wave 7E) -- 107.4h: {S} is paid with one mana of any type produced by a snow source (106.3 / 205.4g: a snow
+# permanent). The pool is one plain count per type and doesn't record where its mana came from, so {S} is paid only by
+# tapping a snow source as the cost is paid (``Source.snow``); mana already in the pool never pays it.
+SNOW = "S"
 _SYMBOL = re.compile(r"\{([^}]+)\}")
 _COST_AND_EFFECT = re.compile(r"^(?P<cost>[^:]+): (?P<effect>(?:Choose a color\. )?Add .+)$")
 
@@ -68,7 +72,7 @@ def parse_cost(text: str | None) -> ManaCost:
             generic += int(sym)
         elif sym == "X":
             x += 1
-        elif sym in ALL_MANA:
+        elif sym in ALL_MANA or sym == SNOW:  # -- snow mana (wave 7E) -- {S} is a colored requirement of its own (107.4h)
             colored.append(sym)
         elif sym.endswith("/P") and sym[0] in COLORS:
             phyrexian.append(sym[0])
@@ -395,6 +399,7 @@ class Source:
     # Parallel to ``options``: which of the permanent's abilities gives it (for riders and costs).
     abilities: tuple[int, ...] = ()
     activation: ManaCost | None = None  # a mana cost to activate (a filter), paid by other sources
+    snow: bool = False  # -- snow mana (wave 7E) -- a snow permanent: its mana can pay {S} (107.4h)
 
     @property
     def flexibility(self) -> int:
@@ -478,7 +483,8 @@ def _pay_one(units: dict[str, int], remaining: list[Source], chosen: Chosen, req
             yield new, remaining, chosen
     for j, src in enumerate(remaining):
         for opt in src.options:
-            wanted = next((c for c in req if c in opt), None)
+            # (-- snow mana (wave 7E) -- {S}: any mana of a snow source, 107.4h)
+            wanted = opt[0] if req == (SNOW,) and src.snow and opt else next((c for c in req if c in opt), None)
             if wanted is None:
                 continue
             new = dict(units)
