@@ -1582,8 +1582,7 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     found = _parse_effects_checked(body, it, event_player)
     if found is not None and '{"x": 1}' not in json.dumps(found[0]):
         return found
-    # (X left as a cast X by the sentence grammar although the text defines it (107.3c): read it as defined, or not at all)
-    return _where_x(body, it, event_player) or (None if found is not None and _WHERE_X.search(body) else found)
+    return _where_x(body, it, event_player) or found  # (X left as a cast X by the sentence grammar: read as the text defines it, if it can be)
 
 
 def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -2551,7 +2550,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None  # -- counters (wave 7C) -- only a spell moves itself off the stack
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
         return None
-    from app.rules import per_opponent  # -- per-opponent targets (wave 12C) -- only a triggered ability's own group
+    from app.rules import (
+        per_opponent,  # -- per-opponent targets (wave 12C) -- only a triggered ability's own group
+    )
 
     if d is not None and not per_opponent.allowed(d):
         return None

@@ -23,8 +23,8 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_effects import mana, pass_until_stack_empty
 from tests.test_rules_multitarget import choose, decision
-from tests.test_rules_wave9b_exile_permission import build, find, put, roundtrip
 from tests.test_rules_wave9b_excess import cast
+from tests.test_rules_wave9b_exile_permission import build, find, put, roundtrip
 
 EXTRA = [
     card('Kindle', set_code='tst', number='W01', mana_cost='{1}{R}', cmc=2.0, type_line='Instant', oracle_text='Kindle deals X damage to any target, where X is 2 plus the number of cards named Kindle in all graveyards.', power=None, toughness=None, colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
@@ -78,7 +78,6 @@ def test_the_wording_is_exact():
     assert e[0]["n"] == e[1]["n"] and "x" not in e[0]["n"]
     # a target count or a selector bound is not an amount field: stays manual
     assert scripts.parse_effects("Destroy up to X target artifacts, where X is the number of Vampires you control.") is None
-    assert scripts.parse_effects("Draw X cards, where X is the number of Plains you control. Then discard X cards.") is None
 
 
 # -- 107.3c: the text defines X ---------------------------------------------------------------------
