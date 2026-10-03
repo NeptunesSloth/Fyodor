@@ -274,6 +274,8 @@ so Undo takes back the whole play.
    per-viewer privacy as libraries). Their results are resolved on the server and recorded,
    and the visual physics is cosmetic.
 
+> The full redesign brief that pulls these plans together is `UI_REDESIGN_BRIEF.md`.
+
 ## 7a. Planned: end-of-game scenes (late-stage, not started)
 
 Requested 2026-10-03 for the 3D redesign. It is late-stage presentation work, like the other polish
