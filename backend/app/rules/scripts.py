@@ -1611,7 +1611,7 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     value = language.x_definition(m["def"])
     start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
     head, rest = body[start: m.start()], body[:start] + "\0" + body[m.end():]
-    if value is None or '"it"' in json.dumps(value) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):
+    if value is None or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):
         return None
     got = _parse_effects_checked(rest.replace("\0", re.sub(r"\bX\b", str(_X_SENTINEL), head)), it, event_player)
     if got is None or str(_X_SENTINEL) in json.dumps(got[1]):
@@ -4737,6 +4737,13 @@ def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 @_mana_effect(rf"add an amount of (?P<sym>{_SYM}) equal to (?:this creature|~)'s power")
 def _add_own_power(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "add_mana", "sym": m["sym"][1], "n": {"power": "self"}}], None
+
+
+# -- amounts (wave 12C) -- Sacrifice: "Add an amount of {B} equal to the sacrificed creature's mana value": what the spell's
+# additional cost sacrificed, as it last existed (608.2h; define() checks the cost sacrificed exactly one object)
+@_mana_effect(rf"add an amount of (?P<sym>{_SYM}) equal to the sacrificed (?:creature|artifact|permanent|land|enchantment)'s mana value")
+def _add_sacrificed_mv(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "add_mana", "sym": m["sym"][1], "n": {"mana_value": "cost:sacrificed"}}], None
 
 
 # -- stack interaction (wave 5B) -- Mana Drain: "… add an amount of {C} equal to that spell's mana value": the spell an
