@@ -3248,9 +3248,31 @@ def _control_effect(plan: Plan, ctx: Context, cards: list[str], player: str, dur
 
 
 def gain_control(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """See above. ``e``: who (the permanents); to ("you", or a target player "target:N"); duration; untap."""
+    """See above. ``e``: who (the permanents); to ("you", a target player "target:N", or -- wave 12D -- "choose_opponent":
+    "An opponent gains control of it", not a target, so its controller chooses one as it resolves (608.2d); "owner":
+    "Each player gains control of all creatures they own"); duration; untap."""
     cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")
              and plan.in_game(plan.state.cards[c])]
+    if e.get("to") == "choose_opponent":
+        opponents = [p for p in plan.live() if p != ctx["controller"]]
+        if len(opponents) > 1 and cards:
+            decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose an opponent to gain control",
+                   options=[DecisionOption(id=p, label=plan.name(p)) for p in opponents], resume={"step": "gain_control", "ctx": ctx, "e": e})
+            return False
+        e = {**e, "to": f"player:{opponents[0]}" if opponents else "you"}
+        cards = cards if opponents else []
+    if e.get("to") == "owner":  # 613.1b: a control effect of its own for each owner (it overrides the earlier ones, 613.7); a permanent
+        # its owner already controls changes nothing unless an earlier control effect is on it
+        r = plan.rules
+        held = {o for x in r.effects if x.layer == "2" and x.new_controller for o in x.affected}
+        for owner in dict.fromkeys(plan.state.cards[c].owner for c in cards):
+            mine = [c for c in cards if plan.state.cards[c].owner == owner
+                    and (plan.state.cards[c].controller != owner or plan.oid(c) in held)]
+            if owner in plan.live():
+                _control_effect(plan, ctx, mine, owner, "permanent")
+        _remember(plan, ctx, e, cards)
+        layers.control_sync(plan)
+        return True
     _remember(plan, ctx, e, cards)
     if e.get("untap"):  # "Untap target creature and gain control of it": the same objects, untapped first
         tapped = [c for c in cards if plan.state.cards[c].tapped]
@@ -3287,7 +3309,17 @@ def exchange_control(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def resume_gain_control(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen[0] not in plan.live() or chosen[0] == ctx["controller"]:
+        raise ValueError("not an opponent")
+    plan.note(f"{plan.name(d.player)} chooses {plan.name(chosen[0])}")
+    if gain_control(plan, ctx, {**e, "to": f"player:{chosen[0]}"}):
+        continue_effects(plan, ctx)
+
+
 PRIMITIVES.update({"gain_control": gain_control, "exchange_control": exchange_control})
+RESUME["gain_control"] = resume_gain_control
 # -- end control (wave 3K) --
 
 RESUME["search_may"] = resume_search_may

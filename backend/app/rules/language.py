@@ -2448,9 +2448,10 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
 # "until the end of your next turn" and the rest are not read (the sentence stays manual).
 _CT_END = r"(?P<d> until end of turn)?"
 _CT_PRONOUN = r"(?:it|them|that creature|those creatures|that permanent|those permanents)"
-_CT_GAIN = re.compile(rf"gain control of (?P<o>.+?){_CT_END}")
+_CT_GAIN = re.compile(rf"(?:you )?gain control of (?P<o>.+?){_CT_END}")
 _CT_UNTAP = re.compile(rf"untap (?P<o>.+?) and gain control of {_CT_PRONOUN}{_CT_END}")
-_CT_GIVE = re.compile(rf"(?P<p>target opponent|target player) gains control of (?P<o>.+?){_CT_END}")
+_CT_GIVE = re.compile(rf"(?P<p>target opponent|target player|an opponent) gains control of (?P<o>.+?){_CT_END}")
+_CT_OWN = re.compile(r"each player gains control of all (?P<o>(?:nontoken )?(?:creatures|permanents)) they own")  # (wave 12D)
 _CT_EXCHANGE = re.compile(r"exchange control of (?P<o>.+)")
 
 
@@ -2460,7 +2461,7 @@ def _control_object(phrase: str) -> tuple[str, str, dict[str, Any] | None] | Non
         kind, key, group = ref(phrase)
     except _Fail:
         return None
-    if kind in ("it", "them"):
+    if kind in ("it", "them", "self"):  # ("self": wave 12D, "Target opponent gains control of this creature")
         return kind, key, group
     if kind not in ("target", "each") or not on_battlefield_only(key):
         return None
@@ -2487,13 +2488,28 @@ def control_forms(text: str) -> tuple[Effects, Any] | None:
     m = _CT_GIVE.fullmatch(text)
     if m:
         found = _control_object(m["o"])
-        if found is None or found[0] != "target":
+        if found is None:
             return None
-        pgroup, group = target_group(m["p"]), found[2]
-        if pgroup is None or group is None or not simple(group):
+        kind, key, group = found
+        dur = {"duration": "end_of_turn"} if m["d"] else {}
+        # -- other players' choices (wave 12D) -- "An opponent gains control of it / this creature / that permanent": not a
+        # target, so the effect's controller chooses which opponent on resolution (608.2d; effects.gain_control)
+        if m["p"] == "an opponent":
+            return [{"do": "gain_control", "who": _who(kind, key), "to": "choose_opponent", **dur}], _one(group)
+        pgroup = target_group(m["p"])
+        if pgroup is None:
             return None
-        return [{"do": "gain_control", "who": "target:1", "to": "target:0",
-                 **({"duration": "end_of_turn"} if m["d"] else {})}], [pgroup, group]
+        if kind != "target":  # "Target opponent gains control of this creature / of all other permanents you control"
+            return [{"do": "gain_control", "who": _who(kind, key), "to": "target", **dur}], pgroup
+        if group is None or not simple(group):
+            return None
+        return [{"do": "gain_control", "who": "target:1", "to": "target:0", **dur}], [pgroup, group]
+    m = _CT_OWN.fullmatch(text)  # -- other players' choices (wave 12D) -- "Each player gains control of all creatures they own."
+    if m:
+        found = _control_object("all " + m["o"])
+        if found is None or found[0] != "each":
+            return None
+        return [{"do": "gain_control", "who": found[1], "to": "owner"}], None
     m = _CT_EXCHANGE.fullmatch(text)
     if m:
         return _exchange(m["o"])
