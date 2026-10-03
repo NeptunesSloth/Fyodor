@@ -1681,7 +1681,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import radiance  # -- radiance (wave 9C) --
 
     if (rad := radiance.split(body)) is not None:
-        return radiance.bind(_parse_effects(rad[0], it, event_player), rad[1])
+        return radiance.bind(_parse_effects(rad[0], it, event_player), rad[1], rad[2])  # (wave 11D: or "the same name")
     from app.rules import (
         pump_each,  # -- ability words (wave 9C) -- "Until end of turn, … gets +1/+1 for each …"
     )
@@ -1705,6 +1705,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import recursion as _recursion  # -- recursion & tutors (wave 4M) --
 
     body = _recursion.join_sized_search(body)
+    from app.rules import name_search  # -- name search (wave 11D) --
+
+    body = name_search.rewrite(body)
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     body = watches.join_retarget(body)
@@ -3743,8 +3746,14 @@ from app.rules import language as _language  # noqa: E402  (a leaf module)
 for _pattern, _build in ((_language.EDICT, _language.edict), (_language.EDICT_OTHERS, _language.edict),
                          (_language.PLAYER_CHOOSES, _language.player_chooses), (_language.REVEAL_HAND, _language.reveal_hand),
                          (_language.CHOOSE_FROM_HAND, _language.choose_from_hand), (_language.DISCARD_NAMED, _language.discard_named),
-                         (_language.CHOOSE_VALUE, _language.choose_value)):
+                         (_language.CHOOSE_VALUE, _language.choose_value),
+                         (_language.CHOOSE_FROM_HAND_GY, _language.choose_from_hand_gy), (_language.LOOK_HAND, _language.look_hand),  # (wave 11D)
+                         (_language.DISCARD_ALL_REVEALED, _language.discard_all_revealed),
+                         (_language.EXILE_FROM_HAND, _language.exile_from_hand)):
     _choice_template(_pattern, _build)
+from app.rules import name_search as _name_search  # noqa: E402  (a leaf module)
+
+_choice_template(_name_search.PATTERN, _name_search.build)  # (wave 11D)
 _RECORDING.update({"edict": "sacrificed", "player_chooses": None, "choose_from_hand": None, "discard_named": "discarded",
                    "reveal_hand": None, "choose_value": None})
 _MOVERS.update({"edict", "player_chooses", "choose_from_hand", "discard_named"})
