@@ -609,6 +609,10 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
                     and _counter_amount(plan, card.id, controller, d, x) > 0:
                 layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
                                   add_keywords=tuple(d["grant"]), duration="permanent", label=f"Enters with {d['grant'][0]}")
+            elif d["kind"] == "replacement" and d.get("replacement") == "enters_prepared":  # -- prepared (wave 13C) -- 722.3a
+                from app.rules import keyword_actions
+
+                keyword_actions.become_prepared(plan, card)
     if puts or replace.entering_kinds(plan, replace.candidates(plan, "counters")):
         orders = {k[len(ORDER):]: v for k, v in (choices or {}).items() if k.startswith(ORDER)}
         replace.put_counters(plan, puts, by=controller, effect=True, entering={card_id: controller}, answers=orders,

@@ -3529,6 +3529,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     # -- end refused grants/replacements (wave 3R2) --
     if text == "~ enters tapped.":
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
+    if text == "~ enters prepared.":  # -- prepared (wave 13C) -- 722.3a: applied as it enters (replacements.after_entry)
+        return {"kind": "replacement", "replacement": "enters_prepared", "effects": []}
     from app.rules import language  # (a leaf module)
 
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
@@ -5020,6 +5022,12 @@ def _copy_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # -- cast a copy (wave 13C) -- "Copy that card [three times]." / "Copy those cards." (707.12): copies of the card(s) an
 # earlier instruction exiled, made in exile (copying.copy_cards) for "You may cast the copy without paying its mana cost"
 # ("copy it" is read above as a cast trigger's spell; resolve_it turns it into this after a moved card).
+@effect(r"(?P<w>~|it) becomes prepared")
+def _becomes_prepared(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """-- prepared (wave 13C) -- "This creature becomes prepared." (722.3a, keyword_actions.prepare)."""
+    return [{"do": "prepare", "who": "self" if m["w"] == "~" else "it"}], None
+
+
 @_first
 @effect(r"copy (?P<w>that card|those cards|them)(?: (?P<k>twice|three times))?")
 def _copy_cards(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:

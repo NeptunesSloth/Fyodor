@@ -668,8 +668,8 @@ def copy_cards(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                 by_hand.append(plan.ch(card).name or "it")
             continue
         for _ in range(n):
-            created = plan.do({"type": "copy_card", "card_id": cid, "player": pid, "count": 1, "in_place": True}, actor=pid)
-            made.extend(created.r.ids)  # type: ignore[attr-defined]
+            created = plan.do({"type": "copy_card", "card_id": cid, "player": pid, "count": 1, "zone": card.zone.rsplit(":", 1)[-1]}, actor=pid)
+            made.extend(getattr(getattr(created, "r", None), "ids", []))
     effects._remember(plan, ctx, e, made)
     if by_hand:
         job = new_job(ctx, controller=pid, objects=[], retarget=False, label=ctx.get("name") or "Copy")

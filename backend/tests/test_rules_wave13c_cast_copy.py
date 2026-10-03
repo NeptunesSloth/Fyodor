@@ -1,9 +1,13 @@
-"""Casting a copy of a card (wave 13C), against the stored Comprehensive Rules (2026-09-25): 707.12 (an effect that
+"""Casting a copy of a card and prepared (wave 13C), against the stored Comprehensive Rules (2026-09-25): 707.12 (an effect that
 instructs a player to cast a copy of an object follows 601.2a-h, the copy created in the zone the object is in and cast
 while another ability is resolving; once cast it is a spell that can resolve or be countered), 707.12a (several copies:
 each one is cast or not individually), 704.5e (a copy of a card outside the stack and battlefield ceases to exist),
 608.3f / 707.10f (a copy of a permanent spell becomes a token as it resolves), 118.9 / 107.3b (without paying its mana
-cost). Real Oracle text of Mnemonic Deluge, Renegade Bull and Shiko, Paragon of the Way."""
+cost). Prepared: 722.3a (the designation, only for a permanent with a prepare spell, once), 722.3c (its controller creates a
+copy of it in exile with only the prepare spell's characteristics; it stays there while the permanent remains prepared on
+the battlefield, an exception to 704.5e; its controller may cast it; the permanent loses the designation as the copy is
+cast, 601.2i), 722.4 (in every other zone only its normal characteristics). Real Oracle text of Mnemonic Deluge, Renegade
+Bull, Shiko, Paragon of the Way, Studious First-Year and Woodwork Prodigy."""
 
 from __future__ import annotations
 
@@ -17,10 +21,9 @@ from app.cards.repository import CardRepository
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.rules import coverage
-from app.rules.characteristics import printed_from_data
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
-from tests.test_rules_effects import mana, pass_until_stack_empty, replay_matches
+from tests.test_rules_effects import mana, pass_until_stack_empty, replay_matches, run_until
 
 REAL = [
     card("Mnemonic Deluge", set_code="tst", number="R1301", mana_cost="{6}{U}{U}{U}", cmc=9.0, type_line="Sorcery", colors=["U"],
@@ -35,7 +38,23 @@ REAL = [
          type_line="Legendary Creature — Spirit Dragon", colors=["R", "U", "W"], color_identity=["R", "U", "W"], power="4",
          toughness="5", keywords=["Flying", "Vigilance"], oracle_text="Flying, vigilance\nWhen Shiko enters, exile target nonland card "
          "with mana value 3 or less from your graveyard. Copy it, then you may cast the copy without paying its mana cost. (A copy "
-         "of a permanent spell becomes a token.)"),
+         "of a permanent spell becomes a token.)"),    card("Studious First-Year // Rampant Growth", set_code="tst", number="R1304", layout="prepare", mana_cost="{G} // {1}{G}", cmc=1.0,
+         type_line="Creature — Bear Wizard // Sorcery", colors=["G"], color_identity=["G"], power="1", toughness="1",
+         oracle_text="This creature enters prepared. (While it's prepared, you may cast a copy of its spell. Doing so unprepares "
+         "it.)\n//\nSearch your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+         keywords=["Prepared"], card_faces=[
+             {"name": "Studious First-Year", "mana_cost": "{G}", "type_line": "Creature — Bear Wizard", "power": "1", "toughness": "1",
+              "oracle_text": "This creature enters prepared. (While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)"},
+             {"name": "Rampant Growth", "mana_cost": "{1}{G}", "type_line": "Sorcery",
+              "oracle_text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."}]),
+    card("Woodwork Prodigy // Soul Tether", set_code="tst", number="R1305", layout="prepare", mana_cost="{2}{R/G} // {2}{R/G}", cmc=3.0,
+         type_line="Creature — Cat Druid // Sorcery", colors=["G", "R"], color_identity=["G", "R"], power="3", toughness="3",
+         oracle_text="At the beginning of your upkeep, if this creature isn't prepared, it becomes prepared. (While it's prepared, "
+         "you may cast a copy of its spell. Doing so unprepares it.)\n//\nDraw a card.", keywords=["Prepared"], card_faces=[
+             {"name": "Woodwork Prodigy", "mana_cost": "{2}{R/G}", "type_line": "Creature — Cat Druid", "power": "3", "toughness": "3",
+              "oracle_text": "At the beginning of your upkeep, if this creature isn't prepared, it becomes prepared. (While it's "
+              "prepared, you may cast a copy of its spell. Doing so unprepares it.)"},
+             {"name": "Soul Tether", "mana_cost": "{2}{R/G}", "type_line": "Sorcery", "oracle_text": "Draw a card."}]),
 ]
 
 
@@ -73,10 +92,10 @@ def step(s):
     return (d.resume or {}).get("step") if d is not None else None
 
 
-def test_wordings_are_full():
+def test_wordings_are_full(cards):
     for c in REAL:
-        feats = coverage.features_of(printed_from_data(c, 0))
-        assert all(f.supported for f in feats), (c["name"], [f.label for f in feats if not f.supported])
+        cov = coverage.of_card_data(cards.resolve(c["name"]))
+        assert cov.level == "FULL", (c["name"], cov.manual_parts)
 
 
 def test_mnemonic_deluge_casts_each_copy_individually_and_the_copies_cease_to_exist(cards):
@@ -139,3 +158,70 @@ def test_a_copy_not_cast_ceases_to_exist(cards):
     assert not [c for c in s.state.cards.values() if c.copy_of is not None]
     assert s.state.players["p2"].life == 40
     replay_matches(s)
+
+
+FIRST_YEAR = "Studious First-Year // Rampant Growth"
+PRODIGY = "Woodwork Prodigy // Soul Tether"
+
+
+def name_of(s, card):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(card).name
+
+
+def copy_in_exile(s):
+    return next(c for c in s.state.cards.values() if c.is_token and c.copy_of is not None and c.zone == "p1:exile")
+
+
+def test_prepared_enters_prepared_then_cast_the_copy_and_it_unprepares(cards):
+    s = build(cards)
+    first = put(s, FIRST_YEAR, "hand")
+    mana(s, G=3)
+    act(s, "p1", type="cast_spell", card_id=first.id)
+    pass_until_stack_empty(s)
+    assert s.state.cards[first.id].zone == "p1:battlefield" and len(s.state.rules.prepared) == 1  # 722.3a
+    copy = copy_in_exile(s)
+    assert name_of(s, copy) == "Rampant Growth" and copy.face == 1  # 722.3c: the prepare spell's characteristics only
+    assert name_of(s, s.state.cards[first.id]) == "Studious First-Year"  # 722.4 / 722.2c: the card itself is unchanged
+    forests = sum(1 for c in s.state.cards.values() if c.owner == "p1" and c.zone == "p1:battlefield" and c.name == "Forest")
+    act(s, "p1", type="cast_spell", card_id=copy.id)  # sorcery speed, for {1}{G}
+    assert s.state.cards[copy.id].zone == "stack"
+    assert s.state.rules.prepared == {}  # 722.3c / 601.2i: no longer prepared once the copy is cast
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    if d is not None:
+        choose(s, [d.options[0].id])
+    pass_until_stack_empty(s)
+    assert sum(1 for c in s.state.cards.values() if c.owner == "p1" and c.zone == "p1:battlefield" and c.name == "Forest") == forests + 1
+    assert copy.id not in s.state.cards  # 704.5e: the resolved copy is gone
+    assert s.state.cards[first.id].zone == "p1:battlefield"
+    replay_matches(s)
+    replay_matches(GameSession(s.history.rebuild(), cards=s.cards))
+
+
+def test_prepared_copy_ceases_to_exist_when_the_permanent_leaves(cards):
+    s = build(cards)
+    first = put(s, FIRST_YEAR, "hand")
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=first.id)
+    pass_until_stack_empty(s)
+    copy = copy_in_exile(s)
+    put(s, FIRST_YEAR, "graveyard")
+    act(s, "p1", type="pass_priority")  # state-based actions
+    assert copy.id not in s.state.cards  # 722.3c: it remained only while the permanent stayed prepared on the battlefield
+    assert name_of(s, s.state.cards[first.id]) == "Studious First-Year"
+    replay_matches(s)
+
+
+def test_woodwork_prodigy_becomes_prepared_at_upkeep_only_if_it_isnt(cards):
+    s = build(cards)
+    prodigy = put(s, PRODIGY, "battlefield")
+    assert s.state.rules.prepared == {}
+    run_until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    assert len(s.state.rules.prepared) == 1 and name_of(s, copy_in_exile(s)) == "Soul Tether"  # 722.3a, 722.3c
+    run_until(s, lambda s: s.state.turn.number == 5 and s.state.turn.phase == "main1")
+    assert len(s.state.rules.prepared) == 1 and s.state.cards[prodigy.id].zone == "p1:battlefield"  # still prepared: nothing happens
+    assert sum(1 for c in s.state.cards.values() if c.is_token and c.copy_of is not None) == 1
+    replay_matches(s)
+    replay_matches(GameSession(s.history.rebuild(), cards=s.cards))
