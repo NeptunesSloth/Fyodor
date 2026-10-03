@@ -158,6 +158,10 @@ def absorb_manual_events(plan: Plan) -> None:
             from app.rules import history  # -- this-turn history (wave 4D) --
 
             history.note_cast(plan, card)
+            # -- review (wave 4R) -- "their first noncreature spell each turn" counts a spell cast by hand too (601.2i)
+            from app.rules import unless_pays
+
+            unless_pays.mark_cast(plan, card.controller, plan.ch(card).types)
 
 
 def settle(plan: Plan) -> None:

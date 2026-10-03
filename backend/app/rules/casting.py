@@ -1806,6 +1806,7 @@ def transmute(plan: Plan, card: CardInstance, ch: Characteristics, a: A.Activate
     if turn.active_player != plan.actor or turn.phase not in ("main1", "main2") or plan.state.zones.get("stack"):
         raise ActionError("Transmute only as a sorcery: in your main phase while the stack is empty")  # 702.53a, 307.5
     mana = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, cost_text, plan.info))
+    mana = _locked(plan, mana)  # -- review (wave 4R) -- 602.2b → 601.2f: locked in, as for other activations
     if payment_step(plan, a, mana, f"transmuting {ch.name}", purpose=Purpose(ability_of=ch)):
         return
     mv = int(ch.mana_value)  # the discarded card's (608.2h: as it last existed in the hand; a mana value doesn't change there)
@@ -1833,6 +1834,7 @@ def cycle(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbil
     # 702.29a: cycling is an activated ability — "Abilities you activate that aren't mana abilities cost {1} less"
     # applies to it (602.2b -> 601.2f; app/rules/permissions.py ability_mana)
     mana = M.parse_cost(permissions.ability_mana(plan.state, plan.actor, card, ch, mana_text, plan.info))
+    mana = _locked(plan, mana)  # -- review (wave 4R) -- 602.2b → 601.2f: locked in, as for other activations
     if payment_step(plan, a, mana, f"cycling {ch.name}", purpose=Purpose(ability_of=ch)):
         return
     if kind:
