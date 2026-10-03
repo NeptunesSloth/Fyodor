@@ -22,6 +22,9 @@ EXTRA = [
     card('Deadbridge Goliath', set_code='tst', number='Y01', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Creature — Insect Skeleton', oracle_text="Scavenge {4}{G}{G} ({4}{G}{G}, Exile this card from your graveyard: Put a number of +1/+1 counters equal to this card's power on target creature. Scavenge only as a sorcery.)", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Scavenge']),  # noqa: E501
     card('Redeem', set_code='tst', number='Y02', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text='Prevent all damage that would be dealt this turn to up to two target creatures.', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
     card("Djeru's Resolve", set_code='tst', number='Y03', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text='Untap target creature. Prevent all damage that would be dealt to it this turn.', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
+    card('Murder', set_code='tst', number='Y06', mana_cost='{1}{B}{B}', cmc=3.0, type_line='Instant', oracle_text='Destroy target creature.', colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
+    card('Test Merfolk', set_code='tst', number='Y04', mana_cost='{U}', cmc=1.0, type_line='Creature — Merfolk', oracle_text='', power='1', toughness='1', colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
+    card('Wanderwine Test', set_code='tst', number='Y05', mana_cost='{G}', cmc=1.0, type_line='Creature — Merfolk Wizard', oracle_text='Champion a Merfolk (When this enters, sacrifice it unless you exile another Merfolk you control. When this leaves the battlefield, that card returns to the battlefield.)', power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Champion']),  # noqa: E501
 ]
 
 
@@ -64,6 +67,35 @@ def test_prevention_to_targets_and_to_it(cards):
     ping(s, a, c.id)
     assert zone(s, c) == "p1:battlefield" and not named(s, "C").tapped
     roundtrip(s)
+
+
+def test_champion_exiles_a_creature_and_returns_it_when_the_champion_leaves(cards):
+    from tests.test_rules_attachments import to_hand
+    from tests.test_rules_conditionals import pick, until_asked
+    from tests.test_rules_wave6c_tokens_pumps import put
+
+    for answer in ("pay", "decline"):
+        s = build(cards, "Wanderwine Test", "Test Merfolk", "Murder")
+        merfolk = put(s, "Test Merfolk")
+        champion = to_hand(s, "Wanderwine Test")
+        mana(s, G=1)
+        act(s, "p1", type="cast_spell", card_id=champion.id)
+        d = until_asked(s)
+        assert d.kind == "choose_one" and [o.id for o in d.options] == ["pay", "decline"]
+        pick(s, answer)
+        if answer == "pay" and s.state.rules.decision is not None:  # (the one Merfolk is chosen on its own otherwise)
+            pick(s, merfolk.id)
+        settle(s)
+        if answer == "decline":  # 702.72a: sacrificed unless a creature was exiled
+            assert s.state.cards[champion.id].zone == "p1:graveyard" and s.state.cards[merfolk.id].zone == "p1:battlefield"
+            continue
+        assert s.state.cards[champion.id].zone == "p1:battlefield" and s.state.cards[merfolk.id].zone == "p1:exile"
+        murder = to_hand(s, "Murder")
+        mana(s, B=2, C=1)
+        act(s, "p1", type="cast_spell", card_id=murder.id, targets=[champion.id])
+        settle(s)
+        assert s.state.cards[merfolk.id].zone == "p1:battlefield"  # the exiled card returns when the champion leaves
+        check(s)
 
 
 def check(s):

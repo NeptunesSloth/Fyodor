@@ -59,9 +59,11 @@ _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 # (cost_payment._pay_new_part: one creature, all N counters on it); 701.68b: with no creature the option isn't offered.
 def _blight_like(comp: C.CostComponent) -> bool:
     """A "put N counters on a creature you control" part (blight): one chosen permanent of the payer's — or "discard
-    your hand" (every card in it; ``paid_x`` records how many, for "draw that many cards")."""
+    your hand" (every card in it; ``paid_x`` records how many, for "draw that many cards"); -- champion (wave 12B) -- or one chosen
+    permanent exiled (702.72a)."""
     return (comp.kind == C.PUT_COUNTER and comp.selector is not None and comp.alt is None and not comp.x) \
         or comp.kind == C.DISCARD_HAND or comp.kind == C.MILL \
+        or (comp.kind == C.EXILE and comp.selector is not None and comp.amount == 1) \
         or (comp.kind == C.SACRIFICE and comp.alt is not None and comp.selector is not None)  # (wave 8C: mill 701.17b; "another creature or an artifact")
 
 
@@ -474,5 +476,9 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
                         actor=payer)
     if any(c.kind == C.DISCARD_HAND for c in cost.components):  # -- if you do (wave 6F) -- "draw that many cards"
         ctx.setdefault("paid_x", {})[name] = len(record.discarded)
+    if any(c.kind == C.EXILE and c.selector is not None for c in cost.components):  # -- champion (wave 12B) -- 607.2a
+        from app.rules import exiled_with
+
+        exiled_with.record(plan, ctx, [c for c in paid if c != source.id])
     plan.note(f"{plan.name(payer)} paid {_label(cost)} for {label}", [c for c in paid if c in plan.state.cards])
     context.bind_payment(ctx, name, True, refs, context.moved_objects(plan, refs))  # (moved: wave 8C)

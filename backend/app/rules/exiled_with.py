@@ -67,7 +67,10 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_
 
 
 def _exiles(d: dict[str, Any] | None) -> bool:
-    return d is not None and any(e.get("do") == "exile" for e in d.get("effects") or [])
+    # (-- champion (wave 12B) -- also a payment: "sacrifice it unless you exile another Merfolk you control", recorded by
+    # optional_payment._pay)
+    return d is not None and any(e.get("do") == "exile" or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile "))
+                                 for e in d.get("effects") or [])
 
 
 def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | None:

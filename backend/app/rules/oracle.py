@@ -43,7 +43,7 @@ KEYWORDS = frozenset({
     "bargain", "craft", "disguise", "offspring", "saddle", "crew", "ninjutsu", "morph", "megamorph", "suspend",
     "rebound", "overload", "surge", "emerge", "madness", "miracle", "dash", "evoke", "bestow", "outlast", "dethrone",
     "fabricate", "improvise", "ascend", "mentor", "jump-start", "spectacle", "encore", "boast", "sneak",
-    "horsemanship", "shadow", "banding", "rampage", "flanking", "bushido", "provoke", "fading", "vanishing", "echo",
+    "champion", "horsemanship", "shadow", "banding", "rampage", "flanking", "bushido", "provoke", "fading", "vanishing", "echo",
     "cumulative upkeep", "buyback", "entwine", "splice", "retrace", "replicate", "soulbond", "unleash", "battle cry",
     "living weapon", "totem armor", "umbra armor", "fortify", "reconfigure", "for mirrodin!", "prototype",
     "read ahead", "ravenous", "squad", "enlist", "decayed", "cleave", "compleated", "demonstrate", "hideaway",
@@ -238,6 +238,12 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         from app.rules import levelers
 
         lines = levelers.rewrite(lines, lambda t: _keywords_line(t) is not None)
+    # -- keyword meanings (wave 12B) -- 702.72a: "Champion an [object]" represents two linked triggered abilities (607.2a)
+    for i, line in enumerate(lines):
+        if m := re.fullmatch(r"Champion an? ([A-Za-z]+(?: or [A-Za-z]+)?)", line):
+            lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
+                              "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
+                              "its owner's control."]
     for line in lines:
         # -- keyword meanings (wave 11B) -- 702.107a: "Outlast [cost]" means "[Cost], {T}: Put a +1/+1 counter on this
         # creature. Activate only as a sorcery." (read as that activated ability)
