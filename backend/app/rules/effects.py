@@ -2276,6 +2276,9 @@ from app.rules import looking as _looking  # noqa: E402, I001  -- refused look/c
 
 PRIMITIVES["piles"] = _looking.piles
 PRIMITIVES["win_if_library"] = _looking.win_if_library  # -- refused look/cast-free (wave 3R5) --
+from app.rules import reveal_hand as _reveal_hand  # noqa: E402, I001  -- if you do (wave 10C) -- (a leaf module)
+
+PRIMITIVES["reveal_hand_cards"] = _reveal_hand.reveal_hand_cards
 
 
 def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

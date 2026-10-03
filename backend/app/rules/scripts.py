@@ -3526,6 +3526,17 @@ def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[
 # -- end replacement effects stage 2 (wave 2E) --
 
 
+# -- if you do (wave 10C) -- "Reveal any number of green cards in your hand." (reveal_hand.py): the cards shown are "revealed this way"
+@effect(r"reveal any number of (?P<what>[\w ]+?) cards? in your hand")
+def _reveal_any_in_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors  # (a leaf module)
+
+    sel = selectors.parse(f"{m['what']} cards in your hand")
+    if sel is None or sel.zones != ("hand",) or sel.zone_owner != "you" or not sel.card or sel.other:
+        raise _NoMatch
+    return [{"do": "reveal_hand_cards", "sel": sel.key(), "n": 99}], None
+
+
 @effect(r"(?P<text>prevent all (?:combat |noncombat )?damage that would be dealt.*)")
 def _prevent_all_this_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     got = parse_prevent_all(m["text"])
@@ -3546,9 +3557,10 @@ def _prevent_all_this_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str 
 # "Exile the top card of your library. …that card" / "cards exiled this way"; "reveal cards from the
 # top of your library until you reveal a creature card. …that card's mana value" (the card found);
 # "put target creature on top of its owner's library" (moved: a new object there, 400.7).
-_RECORDING.update({"exile_top": "exiled", "look_top": None, "to_library": None})
+_RECORDING.update({"exile_top": "exiled", "look_top": None, "to_library": None,
+                   "reveal_hand_cards": "revealed"})  # (wave 10C: "Reveal any number of green cards in your hand")
 _MOVERS.update({"exile_top", "to_library"})
-_CHOSEN.update({"exile_top": "n", "look_top": "n"})
+_CHOSEN.update({"exile_top": "n", "look_top": "n", "reveal_hand_cards": "n"})
 
 
 # -- delayed triggers & durations (app/rules/delayed.py, agent J) ----------------------------------

@@ -41,10 +41,11 @@ if TYPE_CHECKING:
 _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled",), "sacrificed": ("sacrificed",),
           "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned",), "your_hand": ("returned",),
           "graveyard": ("destroyed", "sacrificed", "milled", "discarded"), "your_graveyard": ("milled", "discarded"),
-          "died": ("destroyed", "sacrificed"), "tapped": ("tapped",)}
+          "died": ("destroyed", "sacrificed"), "tapped": ("tapped",),
+          "revealed": ("revealed",)}  # (wave 10C: reveal_hand.py)
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
-    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|returned to (?:your|its owner's|their owner's|their owners') hands?"
+    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?"
     r"|put into (?P<gy>a|your|their|its owner's|that player's|their owners') graveyards?|died|that died) this way$")
 _NOUN_ONLY = re.compile(r"^(?:cards?)$")
 _GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discarded|milled) this way$")
@@ -75,6 +76,8 @@ def parse(phrase: str) -> dict[str, Any] | None:
         kind = "died"
     else:
         kind = verb
+    if kind == "revealed" and (not _NOUN_ONLY.match(m["what"].strip()) or m["ctl"]):
+        return None  # (-- if you do (wave 10C) -- only "cards revealed this way": a revealed card isn't a permanent or a moved object)
     of: str | None = None
     if not _NOUN_ONLY.match(what):
         if m["ctl"] == "you controlled":
@@ -208,7 +211,7 @@ def unbound(v: Any) -> bool:
 
 
 def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], you: str) -> bool:
-    if kind == "tapped":  # (tap_choice binds exactly the permanents it tapped)
+    if kind in ("tapped", "revealed"):  # (tap_choice binds exactly the permanents it tapped; reveal_hand: the cards it showed, which stay put)
         return True
     old_card = plan.state.cards.get(was["card"])
     moved = old_card is None or plan.oid(old_card) != was["object_id"] or new["object_id"] != was["object_id"]
