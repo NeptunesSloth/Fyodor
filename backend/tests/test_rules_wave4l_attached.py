@@ -497,7 +497,7 @@ def test_equipment_granting_a_quoted_tap_ability(cards):
     bear = token(s, "p1", "Bear")
     equip(s, "Viridian Longbow", bear)
     granted = [a for a in ch(s, bear).abilities if a.index >= 100]
-    assert [a.text for a in granted] == ["{T}: This creature deals 1 damage to any target."]
+    assert [a.text for a in granted] == ["{T}: ~ deals 1 damage to any target."]  # ("This creature": the creature)
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=bear.id, ability=granted[0].index, targets=["p2"])
     elf = token(s, "p1", "Elf", "1/1")
