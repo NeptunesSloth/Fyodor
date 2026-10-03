@@ -48,6 +48,18 @@ OTHER_SUBTYPES = {"Equipment", "Aura", "Vehicle", "Food", "Clue", "Treasure", "B
                   "Sphere", "Lesson", "Adventure", "Arcane", "Trap", "Room", "Class", "Case", "Background",
                   "Fortification", "Attraction", "Contraption", "Powerstone", "Map", "Incubator", "Junk",
                   "Lair"}  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
+# -- kicked / instead (wave 4G) -- 205.3j: the planeswalker types ("If you control a Jace planeswalker, …"), read only
+# when written capitalized (a word like "will" is never one)
+PLANESWALKER_TYPES = frozenset({
+    "Ajani", "Aminatou", "Angrath", "Arlinn", "Ashiok", "Bahamut", "Basri", "Bolas", "Calix", "Chandra", "Comet",
+    "Dack", "Dakkon", "Daretti", "Davriel", "Dellian", "Dihada", "Domri", "Dovin", "Ellywick", "Elminster",
+    "Elspeth", "Estrid", "Freyalise", "Garruk", "Gideon", "Grist", "Guff", "Huatli", "Jace", "Jared", "Jaya",
+    "Jeska", "Kaito", "Karn", "Kasmina", "Kaya", "Kiora", "Koth", "Liliana", "Lolth", "Lukka", "Minsc",
+    "Mordenkainen", "Nahiri", "Narset", "Niko", "Nissa", "Nixilis", "Oko", "Quintorius", "Ral", "Rowan", "Saheeli",
+    "Samut", "Sarkhan", "Serra", "Sivitri", "Sorin", "Szat", "Tamiyo", "Tasha", "Teferi", "Teyo", "Tezzeret",
+    "Tibalt", "Tyvar", "Ugin", "Urza", "Venser", "Vivien", "Vraska", "Vronos", "Will", "Windgrace", "Wrenn",
+    "Xenagos", "Yanggu", "Yanling", "Zariel"
+})
 _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves": "Werewolf", "thieves": "Thief",
               "mice": "Mouse", "fungi": "Fungus", "sphinxes": "Sphinx", "foxes": "Fox", "djinn": "Djinn",
               "allies": "Ally", "fairies": "Faerie", "zombies": "Zombie", "sorceries": "Sorcery", "mercenaries": "Mercenary",
@@ -284,6 +296,75 @@ def _with_counter(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"counter:{m['c']}"))
 
 
+# -- chosen type (wave 4J) ------------------------------------------------------------------------------------------
+# "creatures you control of the chosen type", "a spell of the chosen color", "creatures that aren't of the chosen
+# type": the creature type (205.3m) / color (105.1) chosen for the source — as it entered ("As ~ enters, choose a
+# creature type": its public "Chosen creature type" record, 614.12a), or earlier in the same resolution ("Choose a
+# creature type. Destroy all creatures that aren't of the chosen type": bind_chosen substitutes that answer).
+# ``matches`` reads the source's record; without a source or a valid record nothing matches (never a guess).
+CHOSEN_EXTRAS = {"chosen_type": "creature type", "chosen_color": "color", "not_chosen_type": "creature type",
+                 "not_chosen_color": "color"}
+
+
+@_suffix(r"(?P<neg>that (?:aren't|isn't|are not|is not) )?of the chosen (?P<what>type|color)")
+def _of_chosen(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, ("not_" if m["neg"] else "") + f"chosen_{m['what']}"))
+
+
+def chosen_what(sel: Selector) -> str | None:
+    """"creature type" / "color" when the selector reads a chosen value, else None."""
+    found = {CHOSEN_EXTRAS[e] for e in sel.extras if e in CHOSEN_EXTRAS}
+    return found.pop() if len(found) == 1 else None
+
+
+def bind_chosen(sel: Selector, value: str) -> Selector | None:
+    """The selector with the chosen value put in place (``value``: "Elf", "Blue"); None if the value isn't one."""
+    rest = tuple(e for e in sel.extras if e not in CHOSEN_EXTRAS)
+    what = chosen_what(sel)
+    neg = any(e.startswith("not_") for e in sel.extras if e in CHOSEN_EXTRAS)
+    if what == "creature type" and value in CREATURE_TYPES:
+        if sel.subtypes or sel.not_subtypes or sel.union:
+            return None
+        if neg:
+            return replace(sel, extras=rest, not_subtypes=(value,))
+        return replace(sel, extras=rest, subtypes=(value,))
+    color = COLORS.get(value.strip().lower())
+    if what == "color" and color is not None:
+        if sel.colors or sel.not_colors:
+            return None
+        if neg:
+            return replace(sel, extras=rest, not_colors=(color,))
+        return replace(sel, extras=rest, colors=(color,))
+    return None
+
+
+def source_choice(plan: Plan, source: str | None, what: str) -> str | None:
+    """The source permanent's recorded "As ~ enters, choose a creature type / a color" answer (its public
+    ``choices`` entry), or None."""
+    card = plan.state.cards.get(source or "")
+    if card is None:
+        return None
+    label = {"creature type": "Chosen creature type", "color": "Chosen color"}[what]
+    value = card.choices.get(label)
+    return value.strip() if value else None
+
+
+def _chosen_ok(plan: Plan, sel: Selector, ch: Characteristics, source: str | None) -> bool:
+    what = chosen_what(sel)
+    value = source_choice(plan, source, what) if what is not None else None
+    bound = bind_chosen(sel, value) if value is not None else None
+    if bound is None:
+        return False
+    if bound.subtypes and not set(bound.subtypes) & ch.subtypes:
+        return False
+    if set(bound.not_subtypes) & ch.subtypes:
+        return False
+    if bound.colors and not set(bound.colors) & ch.colors:
+        return False
+    return not set(bound.not_colors) & ch.colors
+# -- end chosen type (wave 4J) --------------------------------------------------------------------------------------
+
+
 def _singular(word: str) -> str:
     low = word.lower()
     if low in _IRREGULAR:
@@ -318,6 +399,8 @@ def _core(word: str) -> tuple[str, str] | None:
     cap = w[:1].upper() + w[1:]
     if cap in CREATURE_TYPES or cap in OTHER_SUBTYPES:
         return "sub", cap
+    if word[:1].isupper() and word in PLANESWALKER_TYPES:  # -- kicked / instead (wave 4G) -- 205.3j
+        return "sub", word
     return None
 
 
@@ -406,10 +489,24 @@ def _parse(phrase: str) -> Selector | None:
         # "artifact, enchantment, or creature with flying": the qualifier is the last item's
         # only (any artifact; a creature with flying), which a selector can't say: not a guess
         return None
+    # -- recursion & tutors (wave 4M) -- "Angel or Human creature card" (Bruna, the Fading Light): subtypes any of which
+    # matches, narrowing one card type (205.3); "historic card" (700.6: legendary, artifact or Saga)
+    if text.strip() in ("historic card", "historic cards") and not qualified:
+        return replace(s, card=True, zones=() if s.zones == ("battlefield",) else s.zones, extras=(*s.extras, "historic"))
+    alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker) cards?)",
+                            text.strip())
+    if alt_subs is not None:
+        subs = [_core(w) for w in re.split(r",? or ", alt_subs["subs"])]
+        base = _parse(alt_subs["rest"]) if all(c is not None and c[0] == "sub" for c in subs) else None
+        if base is None or base.subtypes or base.union or len(base.types) != 1 or not base.card:
+            return None
+        return replace(s, card=True, zones=() if s.zones == ("battlefield",) else s.zones, types=base.types,
+                       subtypes=tuple(dict.fromkeys(c[1] for c in subs if c is not None)))
+    # -- end recursion & tutors (wave 4M) --
     words = text.replace(",", " ,").split()
     if not words:
         return None
-    ability = _ABILITY.fullmatch(text.strip())
+    ability =_ABILITY.fullmatch(text.strip())
     if ability is not None:  # -- target forms (agent T) --
         if s.zones != _DEFAULT.zones or s.owner is not None or s.controller not in (None, "you", "opponent"):
             return None  # ("ability from an artifact source": its source's qualities aren't read)
@@ -671,7 +768,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
             return False
-    return True
+    # -- chosen type (wave 4J) --
+    return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source)
 
 
 def _ability_kind(plan: Plan, card: CardInstance, kind: str) -> bool:

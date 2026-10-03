@@ -37,6 +37,8 @@ COLOR_WORDS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"
 ARTIFACT_TYPES = frozenset({"Attraction", "Blood", "Bobblehead", "Book", "Clue", "Contraption", "Equipment", "Food",
                             "Fortification", "Gold", "Heartwood", "Incubator", "Infinity", "Junk", "Lander", "Map",
                             "Mutagen", "Powerstone", "Spacecraft", "Stone", "Treasure", "Vehicle", "Vibranium"})
+LAND_TYPES = frozenset({"Plains", "Island", "Swamp", "Mountain", "Forest", "Desert", "Cave", "Gate", "Lair", "Locus", "Sphere",
+                        "Town", "Urza's", "Mine", "Power-Plant", "Tower"})  # 205.3i (wave 4K: a land creature token)
 ENCHANTMENT_TYPES = frozenset({"Aura", "Background", "Cartouche", "Case", "Class", "Curse", "Plan", "Role", "Room",
                                "Rune", "Saga", "Shard", "Shrine"})
 
@@ -54,7 +56,7 @@ _COLORS = r"colorless|(?:white|blue|black|red|green)(?:(?:,)? (?:and )?(?:white|
 _CAPS = r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*"
 _SENTENCE = re.compile(
     rf"^create (?P<n>{_QTY}) (?P<tapped>tapped )?"
-    rf"(?:(?P<pt>\d+/\d+) (?P<colors>{_COLORS}) (?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?creature tokens?"
+    rf"(?:(?P<pt>(?:\d+|X)/(?:\d+|X)) (?P<colors>{_COLORS}) (?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?(?P<land>land )?creature tokens?"
     r"|(?P<pre>[A-Z][a-z]+) tokens?)"
     rf"(?: named (?P<name>{_CAPS}))?"
     r"(?: with (?P<with>.+?))?"
@@ -134,23 +136,32 @@ def parse(sentence: str) -> list[Effect] | None:
     from app.rules import scripts  # (scripts calls this module from its templates)
 
     text, each, xdef = sentence, None, None
+    # -- X sized by a count (wave 4K) -- "create twice X …", "create half X Food tokens, rounded up" (107.1a: the text
+    # says which way to round)
+    half = re.match(r"^create (?:(?P<twice>twice X)|half X) (?P<rest>.+?)(?:, rounded (?P<round>up|down))?$", sentence)
+    if half is not None and (half["twice"] is None) != (half["round"] is None):  # (half: rounded as the text says)
+        sentence = f"create X {half['rest']}"
+    else:
+        half = None
     r = _RIDER.match(sentence)
     if r:
         text, each, xdef = r["head"], r["each"], r["xdef"]
+    else:
+        text = sentence
     m = _SENTENCE.match(text)
     if not m:
         return None
     n = _qty(m["n"])
+    if half is not None:
+        n = {"times": [2, n]} if half["twice"] else {"half": n, "round": half["round"]}
     if each is not None:
-        v = values.parse_count(each)
+        # -- "this way" outcomes (wave 4A) -- "for each creature card milled this way"
+        from app.rules import this_way
+
+        v = this_way.parse(each) or values.parse_count(each)
         if v is None:
             return None
         n = v if n == 1 else {"times": [n, v]}
-    if xdef is not None:
-        v = values.parse_count(xdef)
-        if v is None or n != {"x": 1}:
-            return None
-        n = v
     if m["pre"]:
         if m["with"] or m["name"] or m["attacking"]:
             return None
@@ -162,18 +173,31 @@ def parse(sentence: str) -> list[Effect] | None:
                                  "colors": list(scripts.PREDEFINED_COLORS.get(m["pre"], ())), "type_line": type_line,
                                  "text": ability}
     else:
-        extra = (ARTIFACT_TYPES if m["art"] else frozenset()) | (ENCHANTMENT_TYPES if m["ench"] else frozenset())
+        extra = (ARTIFACT_TYPES if m["art"] else frozenset()) | (ENCHANTMENT_TYPES if m["ench"] else frozenset()) \
+            | (LAND_TYPES if m["land"] else frozenset())  # (wave 4K: "Forest Dryad land creature tokens", 205.3i)
+        if m["land"] and (m["ench"] or m["art"]):
+            return None
         subtypes = _subtypes(m["sub"], extra)
         parsed_with = _with(m["with"])
         if subtypes is None or parsed_with is None:
             return None
         kws, quoted = parsed_with
-        p, t = m["pt"].split("/")
+        # -- X sized by a count (wave 4K) -- "an X/X … token": the value of X as the token is created is its printed P/T
+        # (111.3: its copiable values; fixed then, 608.2h), evaluated by effects.create_token
+        p, t = (_qty(s) if s == "X" else s for s in m["pt"].split("/"))
         colors = [] if m["colors"] == "colorless" else [COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", m["colors"])]
-        type_line = f"Token {'Enchantment ' if m['ench'] else ''}{'Artifact ' if m['art'] else ''}Creature — {' '.join(subtypes)}"
+        type_line = (f"Token {'Enchantment ' if m['ench'] else ''}{'Artifact ' if m['art'] else ''}{'Land ' if m['land'] else ''}"
+                     f"Creature — {' '.join(subtypes)}")
         lines = [k.capitalize() for k in kws] + ([quoted] if quoted else [])
         token = {"name": m["name"] or " ".join(subtypes), "power": p, "toughness": t, "colors": colors,
                  "type_line": type_line, "text": "\n".join(lines)}
+    if xdef is not None:  # -- X sized by a count (wave 4K) -- one X for the number and the P/T alike (107.3c)
+        from app.rules import language
+
+        v = language.x_definition(xdef)
+        if v is None or not language._has_x([n, token["power"], token["toughness"]]):
+            return None
+        n, token = language._bind_x(n, v), language._bind_x(token, v)
     effect: Effect = {"do": "create_attacking" if m["attacking"] else "create_token", "who": "you", "n": n, "token": token}
     if m["tapped"] or m["attacking"]:
         effect["tapped"] = True

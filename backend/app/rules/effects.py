@@ -32,8 +32,10 @@ from app.rules import (
     replace,  # -- replacement effects stage 2 (wave 2E): the choke points --
     replacements,
     selectors,
+    sized_damage,  # -- damage sized by a count (wave 4E) --
     values,
 )
+from app.rules import this_way as _this_way  # -- "this way" outcomes (wave 4A) --
 from app.rules.plan import Plan, decide
 from app.rules.targets import source_of, still_legal
 
@@ -90,14 +92,27 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if p != me and p not in named]
     if who == "event_player":  # "that player": the one the trigger event was about (who drew, was dealt damage …)
         return context.players(plan, ctx, context.EVENT)
+    if who == "attacking_opponents":  # -- attached events (wave 4L) -- "Each opponent attacking that player"
+        from app.rules import attached_players
+
+        return attached_players.attacking_opponents(plan, ctx)
     if who.startswith(context.PREFIX):  # a binding: "that player", "its controller", "its owner" (app/rules/context.py)
         return context.players(plan, ctx, who[len(context.PREFIX):])
+    if who == "chosen_player":  # -- chosen player (wave 4J) -- the player the source chose as it entered (614.12a)
+        from app.rules import chosen
+
+        pid = chosen.player_of(plan, ctx.get("source_card") or "", ctx.get("source_object"))
+        return [pid] if pid is not None and pid in plan.live() else []
     if who.startswith("player:"):  # (older saves: a player bound into the effect when it triggered)
         return [who[7:]] if who[7:] in plan.live() else []
     return []
 
 
 def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
+    if who.startswith("controlled:"):  # -- damage sized by a count (wave 4E) -- "each creature that player controls"
+        return _controlled_by(plan, ctx, who)
+    if who.startswith("graveyard_of:"):  # -- graveyard exile (wave 4J) -- "target player's graveyard": every card in it
+        return [c for p in _players(plan, ctx, who[len("graveyard_of:"):]) for c in plan.state.zones.get(f"{p}:graveyard", [])]
     if who.startswith("except:"):  # -- refused modal/conditional (wave 3R1) -- "all other creatures" after "Create X
         name, _, key = who[len("except:"):].partition("|")  # … tokens" (Martial Coup): other than what it made
         made = set(context.objects(plan, ctx, name))
@@ -374,11 +389,17 @@ def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Sou
     control": the biting creature's lifelink and deathtouch count, 120.3f, 702.2b; nothing is
     dealt if it's gone and has no last known information)."""
     shares = divided(ctx, e)  # 601.2d: each target's share, as divided when it was put on the stack
-    n = 0 if shares is not None else _amount(plan, ctx, e["n"])
+    # -- damage sized by a count (wave 4E) -- an amount read for each player dealt damage (app/rules/sized_damage.py):
+    # every player's number determined at once, as the effect is applied (608.2h)
+    per_player = shares is None and sized_damage.has_per_player(e["n"])
+    n = 0 if shares is not None or per_player else _amount(plan, ctx, e["n"])
+    players = _players(plan, ctx, e["who"])
+    each_player = {p: _amount(plan, {**ctx, "recipient": p}, e["n"]) for p in players} if per_player else {}
 
     def amount(key: str) -> int:
+        if per_player:
+            return each_player.get(key, 0)
         return shares.get(key, 0) if shares is not None else n
-    players = _players(plan, ctx, e["who"])
     cards = _cards(plan, ctx, e["who"])
     _remember(plan, ctx, e, cards)
     if str(e.get("src") or "").startswith("each:"):
@@ -388,22 +409,49 @@ def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Sou
         for sid in selectors.candidates(plan, selectors.from_key(e["src"][5:]), ctx["controller"], ctx.get("source_card")):
             each = _amount(plan, {**ctx, "each_source": sid}, e["n"])
             if each > 0:
-                hits += [(_card_source(plan, sid), key, each) for key in [*cards, *players]]
+                # (wave 4E: "Each creature deals damage to itself equal to its power": its own damage, to itself;
+                # "… to each other creature": other than the creature dealing it)
+                keys = [sid] if e["who"] == "itself" else [*_other_than(plan, ctx, e, cards, sid), *players]
+                hits += [(_card_source(plan, sid), key, each) for key in keys]
         return hits
     if e.get("src"):
         src = _named_source(plan, ctx, e["src"])
         if src is None:
             plan.note(f"{ctx.get('name') or 'It'}: the creature that would deal the damage is gone", actor=ctx["controller"])
             return []
+        if src.card is not None:  # (wave 4E: "target creature deals damage … to each other creature": other than it)
+            cards = _other_than(plan, ctx, e, cards, src.card)
     else:
         src = _ability_source(plan, ctx)
-    if shares is None and n <= 0:
+    if shares is None and not per_player and n <= 0:
         return []
     if e.get("dealt_as"):  # -- replacement effects stage 2 (wave 2E): "dealt damage this way" --
         ctx.setdefault(DEALT_KEY, {})[e["dealt_as"]] = []
     if e.get("excess"):  # -- refused zones/sized (wave 3R4) -- "excess damage is dealt to that creature's controller instead"
         return _excess_hits(plan, src, [(src, key, amount(key)) for key in [*cards, *players]], e["excess"])
     return [(src, key, amount(key)) for key in [*cards, *players]]
+
+
+# -- damage sized by a count (wave 4E) --
+def _other_than(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str], source_card: str) -> list[str]:
+    """"Each other creature" when a named object deals the damage (a bite, "each creature … deals damage equal
+    to its power to each other creature"): the creatures other than the one dealing it, not other than the
+    spell or ability's own source."""
+    who = str(e.get("who") or "")
+    if not who.startswith(selectors.PREFIX) or not selectors.from_key(who).other:
+        return cards
+    return selectors.candidates(plan, selectors.from_key(who), ctx["controller"], source_card)
+
+
+def _controlled_by(plan: Plan, ctx: Context, who: str) -> list[str]:
+    """"each creature that player controls": "controlled:<player reference>|<selector key>"."""
+    players, _, key = who[len("controlled:"):].partition("|")
+    if players == "target:0" and not ctx.get("groups"):
+        players = "target"  # (one target group: the spell's plain target)
+    owners = set(_players(plan, ctx, players))
+    return [c for c in selectors.candidates(plan, selectors.from_key(key), ctx["controller"], ctx.get("source_card"))
+            if plan.state.cards[c].controller in owners]
+# -- end damage sized by a count (wave 4E) --
 
 
 def _excess_hits(plan: Plan, src: _Source, hits: list[tuple[_Source, str, int]], when: str) -> list[tuple[_Source, str, int]]:
@@ -646,7 +694,12 @@ def surveil(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 def _look(plan: Plan, ctx: Context, e: dict[str, Any], where: str) -> bool:
     pid = ctx["controller"]
-    top = plan.state.zones.get(zone_key(pid, "library"), [])[: _amount(plan, ctx, e["n"])]
+    n = _amount(plan, ctx, e["n"])
+    if n > 0:  # -- this-turn history (wave 4D) -- 701.22b/d, 701.25c/d: N > 0 scries / surveils, even an empty library
+        from app.rules import history
+
+        history.note_look(plan, pid, "scry" if where == "bottom" else "surveil")
+    top = plan.state.zones.get(zone_key(pid, "library"), [])[:n]
     if not top:
         return True
     options = [DecisionOption(id=cid, label=plan.state.cards[cid].name or "Card", card_id=cid) for cid in top]
@@ -670,13 +723,24 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
         return True
     requests: list[tuple[str, dict[str, Any], int, str | None, bool]] = []
     source = ctx.get("source_card") if ctx.get("source_card") in plan.state.cards else None
-    for pid in _players(plan, ctx, e["who"]):
-        spec = {"name": t["name"], "power": t.get("power"), "toughness": t.get("toughness"),
+    # -- "this way" outcomes (wave 4A) -- "For each permanent destroyed this way, its controller creates …": each
+    # player creates as many as they controlled, all in one batch (one simultaneous instruction, 101.4 / 616.1 APNAP)
+    each: dict[str, int] | None = None
+    if e.get("per_controller"):
+        from app.rules import this_way
+
+        each = this_way.by_controller(plan, ctx, e["per_controller"])
+    # -- X sized by a count (wave 4K) -- "an X/X … token": X as the token is created, its printed P/T from then on (111.3)
+    pt = {k: str(values.evaluate(plan, ctx, t[k])) if isinstance(t.get(k), dict) else t.get(k) for k in ("power", "toughness")}
+    for pid in (list(each) if each is not None else _players(plan, ctx, e["who"])):
+        if each is not None and pid not in plan.live():
+            continue
+        spec = {"name": t["name"], "power": pt["power"], "toughness": pt["toughness"],
                 "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
         # a token enters tapped when its creator says so ("create a tapped …") or its own text does
         # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
         tapped = bool(e.get("tapped")) or replacements.token_enters_tapped(plan, pid, spec)
-        requests.append((pid, spec, count, source, tapped))
+        requests.append((pid, spec, count * each[pid] if each is not None else count, source, tapped))
     # (the tokens are recorded as binding "as", the new objects they are: "they gain haste")
     made = replace.create_token_batch(plan, requests, ctx=ctx, bind=e.get("as"), then=then or _then(ctx, e))
     return made is not None  # (None: the creating player chooses an order first, 616.1)
@@ -938,9 +1002,13 @@ def madness_offer(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
-def counter_object(plan: Plan, stack_id: str, actor: str) -> None:
+def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None, *, exile: bool = False) -> None:
     """701.6: a countered spell goes to its owner's graveyard (a flashback spell into exile); a
-    countered ability simply stops existing."""
+    countered ability simply stops existing. ``exile``: "If that spell is countered this way, exile
+    it instead of putting it into its owner's graveyard" (608.2c; wave 4C).
+    -- "this way" outcomes (wave 4A) -- ``to``: "exile it / put it on top of / on the bottom of its owner's
+    library instead of into that player's graveyard" (608.2c: the counter's own destination; a flashback spell
+    is still exiled, 702.34a: that replacement applies to the spell leaving the stack whatever its destination)."""
     card = plan.state.cards.get(stack_id)
     if card is None or card.zone != "stack":
         return
@@ -954,9 +1022,14 @@ def counter_object(plan: Plan, stack_id: str, actor: str) -> None:
     oid = plan.oid(stack_id)
     r.buyback = [o for o in r.buyback if o != oid]
     plan.note(f"{card.name or 'It'} is countered", [stack_id])
-    if oid in r.flashback:
+    if oid in r.flashback or exile:
         r.flashback = [o for o in r.flashback if o != oid]
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
+    elif to == "exile":  # (wave 4A)
+        plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
+    elif to in ("top", "bottom"):  # (wave 4A)
+        plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "library"}, "position": to},
+                actor=actor)
     else:
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "graveyard"}}, actor=actor)
 
@@ -964,13 +1037,15 @@ def counter_object(plan: Plan, stack_id: str, actor: str) -> None:
 def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
     if e.get("object"):
         return [e["object"]] if e["object"] in plan.state.cards and plan.state.cards[e["object"]].zone == "stack" else []
+    if e.get("who") == "event_spell":  # -- unless pays (wave 4C) -- a cast trigger's spell, while it's still that object (400.7)
+        return [c for c in context.objects(plan, ctx, context.EVENT) if plan.state.cards[c].zone == "stack"]
     return [t["id"] for t in target_refs(ctx, e.get("who") or "target") if t["id"] in plan.state.cards
             and plan.state.cards[t["id"]].zone == "stack" and plan.oid(t["id"]) == t.get("object_id")]
 
 
 def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for sid in _stack_targets(plan, ctx, e):
-        counter_object(plan, sid, ctx["controller"])
+        counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")))  # (exile: 4C; to: 4A)
     return True
 
 
@@ -985,6 +1060,14 @@ def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     sid = targets[0]
     payer = plan.state.cards[sid].controller
     cost = mana.parse_cost(e["cost"])
+    # -- review (wave 4R) -- 118.3: PAY is offered only while the payer can pay all of it (as optional_payment)
+    from app.rules import casting  # casting imports this module
+
+    if not cost.is_free and not casting.can_pay(plan.state, payer, cost, plan.info):
+        plan.note(f"{plan.name(payer)} can't pay {cost.text()}")
+        counter_object(plan, sid, payer)
+        return True
+    # -- end review (wave 4R) --
     options = [DecisionOption(id="pay", label=f"Pay {cost.text()}"),  # (tap your mana first)
                DecisionOption(id="decline", label="Don't pay (it's countered)")]
     decide(plan, player=payer, kind="choose_one",
@@ -1245,7 +1328,8 @@ def _search_matches(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, key: 
     if e.get("mv"):
         op, value = e["mv"][0], _amount(plan, ctx, e["mv"][1])
         mvs = {c: chars.of(plan.state.cards[c], plan.info).mana_value for c in matching}
-        matching = [c for c in matching if (mvs[c] <= value if op == "<=" else mvs[c] == value)]
+        matching = [c for c in matching if (mvs[c] <= value if op == "<=" else mvs[c] < value if op == "<"  # ("<": wave 4M)
+                                            else mvs[c] == value)]
     return matching
 
 
@@ -1335,6 +1419,7 @@ def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
             from app.game.errors import ActionError
 
             raise ActionError("The cards you find must have different names")
+    _recursion.check_found(plan, e, chosen)  # -- recursion & tutors (wave 4M) -- "… that share a land type"
     if e.get("parts"):  # the next kind of card, or all the cards found
         chosen = [*d.resume.get("picked", []), *chosen]
         if d.resume.get("part", 0) + 1 < len(e["parts"]):
@@ -1418,6 +1503,9 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         picked = [c for pid in order for c in rng.sample(sorted(plan.state.zones.get(zone_key(pid, "hand"), [])),
                                                            min(want, len(plan.state.zones.get(zone_key(pid, "hand"), []))))]
         return _discard_next(plan, ctx, want, [], picked, e.get("as"))
+    if e.get("all"):  # -- "this way" outcomes (wave 4A) -- "discard your hand": every card, no choice (701.9a)
+        picked = [c for pid in order for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
+        return _discard_next(plan, ctx, 0, [], picked, e.get("as"))
     return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"))
 
 
@@ -1535,7 +1623,8 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
         return True
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
                 "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
-                **({"counter": e["counter"]} if e.get("counter") else {})} for cid in cards]  # (a counter it enters with, 122.6)
+                **({"counter": e["counter"]} if e.get("counter") else {}),
+                **({"counter_n": e["counter_n"]} if e.get("counter_n") else {})} for cid in cards]  # (counters it enters with, 122.6; n: wave 4M)
     if e.get("host"):  # -- refused zones/sized (wave 3R4) -- "attached to this creature / that creature"
         entries = _attached_entries(plan, ctx, e["host"], entries)
         cards = [x["card"] for x in entries]
@@ -2120,12 +2209,29 @@ def reflexive(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.triggers import _add  # (triggers imports this module)
 
     if conditions.holds(plan, ctx, e["cond"]):
+        event = _reflexive_event(plan, ctx, e["lki"]) if e.get("lki") else None  # -- reflexive LKI (wave 4J) --
         _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
-             name=str(ctx.get("name") or ""), index=7300, definition=e["ability"])
+             name=str(ctx.get("name") or ""), index=7300, definition=e["ability"], event=event)
     return True
 
 
+# -- reflexive LKI (wave 4J) --
+def _reflexive_event(plan: Plan, ctx: Context, name: str) -> Any:
+    """The object the payment a reflexive trigger waited for sacrificed (its binding), with its last known
+    information (608.2h, 113.7a): the trigger's event object, which "that creature's power" in its body reads
+    (scripts._reflexive_lki)."""
+    from app.game.rules_state import TriggerEvent
+
+    b = context.refs(ctx).get(name) or {}
+    before = [ObjectRef.model_validate(r) for r in b.get("objects") or []] if b.get("kind") == "payment" else []
+    objects = [r.model_copy(update={"snapshot": context.snapshot(plan, r)}) for r in before]
+    return TriggerEvent(kind="reflexive", objects=objects, count=len(objects))
+# -- end reflexive LKI (wave 4J) --
+
+
 PRIMITIVES["reflexive"] = reflexive
+# -- "this way" outcomes (wave 4A) -- "Tap any number of untapped creatures you control." (app/rules/this_way.py)
+PRIMITIVES["tap_choice"] = _this_way.tap_choice
 # -- end refused modal/conditional (wave 3R1) --
 
 
@@ -2191,6 +2297,16 @@ def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
             finish(plan, ctx, countered=True)
             return
         ctx["targets"] = [t.model_dump() for t in legal]
+    gate = entry.effects[0] if entry.optional and entry.effects else None
+    if gate is not None and gate["do"] == "only_if" and not gate.get("bind") and int(gate.get("skip", 0)) >= len(entry.effects) - 1:
+        # -- this-turn history (wave 4D) -- 603.4: an intervening "if" that no longer holds: the ability does
+        # nothing — there's nothing to ask (603.5)
+        from app.rules import conditions
+
+        if not conditions.holds(plan, ctx, gate["cond"]):
+            plan.note(f"{entry.name or 'It'} does nothing: its condition no longer holds")
+            finish(plan, ctx)
+            return
     if entry.optional:
         from app.rules.engine import remembered  # engine imports this module
 
@@ -2267,7 +2383,7 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "monarch": "become the monarch", "discard": "discard {n}", "search": "search your library"}
     # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
     parts = [words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if")]
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution")]
     return (", ".join(parts) or "do it").capitalize()
 
 
@@ -2495,9 +2611,17 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.note(f"{plan.name(d.player)} chooses {shown} ({e['what']})", actor=d.player)
     if e.get("as"):
         context.refs(ctx)[e["as"]] = {"kind": "choice", "what": e["what"], "value": value}
+    if not e.get("remember") and e["what"] in ("creature type", "color"):  # -- chosen type (wave 4J) --
+        from app.rules import chosen as picked
+
+        ctx["effects"] = ctx["effects"][: ctx["next"]] + picked.bind_effects(ctx["effects"][ctx["next"]:], e["what"], value)
     src = plan.state.cards.get(ctx.get("source_card") or "")
     if e.get("remember") and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
         plan.do({"type": "set_choice", "card_id": src.id, "key": CHOICE_LABELS[e["what"]], "value": shown}, actor=d.player)
+        if e["what"] in ("opponent", "player"):  # -- chosen player (wave 4J) --
+            from app.rules import chosen as picked
+
+            picked.record(plan, src.id, value)
     continue_effects(plan, ctx)
 
 
@@ -2955,3 +3079,35 @@ from app.rules import kept_mana as _kept_mana  # noqa: E402, I001
 
 PRIMITIVES["keep_mana"] = _kept_mana.keep
 # -- end refused copy/mana (wave 3R3) --
+
+# -- unless pays (wave 4C) -- "you may [effect] unless that player pays …" (118.12a): app/rules/unless_pays.py
+from app.rules import unless_pays as _unless_pays  # noqa: E402, I001
+
+PRIMITIVES.update(_unless_pays.PRIMITIVES)
+# -- end unless pays (wave 4C) --
+
+
+# -- this-turn history (wave 4D) -- "If this is the second time this ability has resolved this turn": the resolution
+# is counted as it begins (app/rules/history.py), the count kept for this resolution's condition
+def _note_resolution(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import history
+
+    context.refs(ctx)["resolution"] = {"kind": "amount", "n": history.note_resolution(plan, str(e["key"]))}
+    return True
+
+
+PRIMITIVES["note_resolution"] = _note_resolution
+# -- end this-turn history (wave 4D) --
+
+# -- X sized by a count (wave 4K) -- "Shuffle ~ into its owner's library." as a spell's last instruction (the Zenith
+# cycle): app/rules/x_spells.py (a leaf module over this one)
+from app.rules import x_spells as _x_spells  # noqa: E402, I001
+
+PRIMITIVES.update(_x_spells.PRIMITIVES)
+# -- end X sized by a count (wave 4K) --
+
+# -- recursion & tutors (wave 4M) -- a spell moving itself (608.2m/n) and the rest: app/rules/recursion.py
+from app.rules import recursion as _recursion  # noqa: E402, I001
+
+PRIMITIVES.update(_recursion.PRIMITIVES)
+# -- end recursion & tutors (wave 4M) --

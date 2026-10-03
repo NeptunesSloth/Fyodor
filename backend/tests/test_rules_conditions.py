@@ -29,7 +29,7 @@ def test_parse(text, expected):
     assert conditions.parse(text) == expected
 
 
-@pytest.mark.parametrize("text", ["you do", "it was kicked", "you sacrificed a creature this turn", "you control a foo"])
+@pytest.mark.parametrize("text", ["you do", "it was kicked", "you sacrificed a tapped creature this turn", "you control a foo"])
 def test_unknown_conditions(text):
     assert conditions.parse(text) is None
 

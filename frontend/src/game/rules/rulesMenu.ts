@@ -35,6 +35,19 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   if (mine && hints.free_castable?.includes(card.id) && !isLand(card.id, view)) {
     items.push({ label: "Cast without paying its mana cost", onClick: () => void send({ type: "cast_spell", card_id: card.id, free: true }) });
   }
+  // Alternative costs written on cards (118.9): Force of Will's own, Jodah's for every spell. The server lists the
+  // ones usable now; targets and the cards to exile or sacrifice are asked for as usual.
+  if (mine && !isLand(card.id, view)) {
+    for (const alt of hints.alt_castable?.[card.id] ?? []) {
+      const what = alt.label.length > 60 ? alt.label.slice(0, 57) + "…" : alt.label;
+      items.push({ label: `Cast for alternative cost (${what})`, onClick: () => void send({ type: "cast_spell", card_id: card.id, alt_cost: alt.id }) });
+    }
+    // Optional additional costs other permanents offer (Defiler of Vigor: "you may pay 2 life … cost {G} less").
+    for (const opt of hints.optional_costs?.[card.id] ?? []) {
+      items.push({ label: `Cast and ${opt.label.replace(/^[^:]*: /, "")} (${opt.label.split(":")[0]})`,
+        onClick: () => void send({ type: "cast_spell", card_id: card.id, optional_costs: [opt.id] }) });
+    }
+  }
   const morph = abilityLines(oracle).find((l) => /^(mega)?morph \{/i.test(l));
   const evoke = abilityLines(oracle).find((l) => /^evoke \{/i.test(l));
   if (mine && zone === "hand" && evoke) {

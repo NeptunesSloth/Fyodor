@@ -64,7 +64,7 @@ def test_parse_count(phrase, value):
     "counters on target creature",  # (a target the value would have to declare)
     "cards named ~ in all graveyards",
     "Auras attached to it",
-    "creatures that died this turn",
+    "creatures that were exiled this turn",  # ("… that died this turn": read since wave 4D)
     "the amount of mana spent to cast it",
     "shield counters on ~",  # a counter kind the engine doesn't model
     "the number of foo you control",

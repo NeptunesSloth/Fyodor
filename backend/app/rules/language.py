@@ -23,7 +23,7 @@ import re
 from dataclasses import replace
 from typing import Any
 
-from app.rules import selectors, values
+from app.rules import selectors, sized_damage, this_way, values  # (this_way: wave 4A; sized_damage: wave 4E)
 
 Effects = list[dict[str, Any]]
 AMT = values.AMOUNT
@@ -43,7 +43,8 @@ PLAYER_GROUPS = {"you": "you", "each player": "each_player", "each opponent": "e
                   "each of your opponents": "each_opponent", "that player": "that_player",
                   "its controller": "it.controller", "its owner": "it.owner",
                   "that creature's controller": "it.controller", "that permanent's controller": "it.controller",
-                  "that card's owner": "it.owner", "that creature's owner": "it.owner"}
+                  "that card's owner": "it.owner", "that creature's owner": "it.owner",
+                  "the chosen player": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
 PLAYER_PHRASES = "|".join(sorted(PLAYER_GROUPS, key=len, reverse=True))
 
 
@@ -55,8 +56,8 @@ MAX_TARGETS = 20  # "any number of target …": at most this many (the intents' 
 _QTY = r"one|two|three|four|five|six|seven|eight|nine|ten|\d+"
 # -- target forms (agent T) --  "up to one other target creature", "each of up to two other targets",
 # "any number of other target nonland permanents you control": "other" inside a counted group
-_GROUP = re.compile(rf"^(?:each of )?(?:up to (?P<upto>{_QTY})|(?P<range>one or two|one, two, or three)|"
-                    rf"(?P<any>any number of)|(?P<n>{_QTY})) (?P<other>(?:an)?other )?(?P<rest>targets|target .+)$")
+_GROUP = re.compile(rf"^(?:each of )?(?:up to (?P<upto>{_QTY}|X)|(?P<range>one or two|one, two, or three)|"  # (X: wave 4K)
+                    rf"(?P<any>any number of)|(?P<n>{_QTY}|X)) (?P<other>(?:an)?other )?(?P<rest>targets|target .+)$")
 
 
 def _qty(word: str) -> int:
@@ -65,7 +66,8 @@ def _qty(word: str) -> int:
 
 def simple(group: dict[str, Any]) -> bool:
     """One "target [something]" with exactly one target: what definitions write as "target"."""
-    return (group["min"], group["max"]) == (1, 1) and not ({"divide", "another", "distinct_from", "same_graveyard", "total", "different"} & set(group))
+    return (group["min"], group["max"]) == (1, 1) and not ({"divide", "another", "distinct_from", "same_graveyard", "total", "different",
+                                                            "kicked"} & set(group))  # -- kicked / instead (wave 4G) -- ("kicked")
 
 
 def target_group(phrase: str) -> dict[str, Any] | None:
@@ -106,7 +108,11 @@ def target_group(phrase: str) -> dict[str, Any] | None:
         else:
             constraints = {**constraints, "another": what}
             what = _group_constraints(_target_key("another " + rest))[0]
-    if m["upto"]:
+    if "X" in (m["upto"], m["n"]):  # -- X sized by a count (wave 4K) -- "X target creatures", "up to X target …": the
+        # number of targets is the X announced as it's cast (601.2b, before 601.2c); targets.group_limits reads it
+        lo, hi = 0, MAX_TARGETS
+        constraints = {**constraints, "x_count": "upto" if m["upto"] else "exact"}
+    elif m["upto"]:
         lo, hi = 0, _qty(m["upto"])
     elif m["range"]:
         lo, hi = 1, 2 if m["range"] == "one or two" else 3
@@ -196,8 +202,12 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return "self", "", None
     if p in ("it", "that creature", "that permanent", "that card", "that token"):
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
+    if p == "that land":  # -- recursion & tutors (wave 4M) -- "… put it onto the battlefield tapped, then shuffle. Then if
+        return "it", "", None  # you control four or more lands, untap that land." (Fabled Passage): the land found
     if p in _THEM:
         return "them", "", None  # the objects just named (scripts.resolve_it)
+    if p in ("the chosen cards", "the chosen card"):  # -- "this way" outcomes (wave 4A) -- a "Choose target …" sentence's
+        return ("them" if p.endswith("s") else "it"), "chosen", None
     m = _THIS_WAY.match(p) or _THE_VERBED.match(p)
     if m:
         plural = "what" not in m.groupdict() or m["what"].endswith("s")
@@ -252,8 +262,9 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
-    m = re.fullmatch(r"(?:(?P<its>its)|that creature's|that permanent's|that card's|(?P<spell>that spell's)|(?P<self>~'s)) "
-                     r"(?P<stat>power|toughness|mana value)", phrase)
+    # (wave 4K: "this creature's power" is the source's own, like "~'s")
+    m = re.fullmatch(r"(?:(?P<its>its)|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
+                     r"(?P<spell>that spell's)|(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
     if m:
         # -- refused copy/mana (wave 3R3) -- "that spell's": a cast/copy trigger's spell even after an instruction
         # named another object (Deekah: "create a … token. Put X +1/+1 counters on it, where X is that spell's mana
@@ -262,7 +273,11 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"twice (?P<v>.+)", phrase)
     if m:
         return {"times": [2, _stat(m["v"], its)]}
-    v = values.parse_count(phrase)
+    if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
+        return tw
+    # -- damage sized by a count (wave 4E) -- "the number of charge counters on it": "it" is the sentence's subject when it
+    # has one (``its``: "~ deals damage equal to the number of … counters on it"), else a placeholder bound by resolve_it
+    v = values.parse_count(phrase, it=its)
     if v is None:
         raise _Fail
     return v
@@ -271,7 +286,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
 # The instruction joiners scripts._clause splits a sentence on (mirrored here, so a sentence with
 # one "where X is …" for two instructions is read whole before it would be split)
 _JOINER = (r", then | and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|destroy|tap|untap|"
-           r"create|sacrifice|discard|mill|scry|surveil|get)\b)")
+           r"create|sacrifice|discard|mill|scry|surveil|get)\b)"
+           r"| and (?=~ deals )")  # -- damage sized by a count (wave 4E) -- ("\b" never follows "~")
 
 
 def _has_x(v: Any) -> bool:
@@ -360,13 +376,28 @@ def _with_rider(text: str) -> tuple[str, Any]:
 def _rider_value(phrase: str) -> Any:
     """A rider's quantity: "its power" / "that creature's toughness" / "~'s power" (app: _stat),
     else any counted phrase (values.parse_count; "counters on it" with "it" as a placeholder)."""
-    if re.fullmatch(r"(?:its|that creature's|that permanent's|that card's|that spell's|~'s|the sacrificed (?:creature|artifact|permanent|land)'s) "
-                    r"(?:power|toughness|mana value)", phrase):
+    if re.fullmatch(r"(?:its|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|that spell's|~'s|this creature's|"
+                    r"the sacrificed (?:creature|artifact|permanent|land)'s) (?:power|toughness|mana value)", phrase):
         return _stat(phrase)
+    if (tw := this_way.parse(phrase)) is not None:  # -- "this way" outcomes (wave 4A) --
+        return tw
     v = values.parse_count(phrase, it="it")
+    if v is None:
+        v = sized_damage.per_player(phrase)  # -- damage sized by a count (wave 4E) -- (damage only: parse_sentence checks)
     if v is None:
         raise _Fail
     return v
+
+
+def x_definition(phrase: str) -> Any | None:
+    """-- X sized by a count (wave 4K) -- what "where X is <phrase>" defines X as, for a grammar outside this module
+    (token creation): any rider quantity but one read per recipient player (damage only), else None. A pronoun's
+    stat stays the placeholder "it" for scripts.resolve_it to bind (or refuse)."""
+    try:
+        v = _rider_value(phrase.strip())
+    except _Fail:
+        return None
+    return None if sized_damage.has_per_player({"n": v}) else v
 
 
 def _apply(n: Any, rider: Any) -> Any:
@@ -417,6 +448,9 @@ _MV_X = re.compile(r"(?P<rest>.+?),? with mana value [xX](?P<less> or less)?")
 _NAMED = re.compile(r"(?P<rest>card|cards) named (?P<name>.+)")
 _MV_EQUAL = re.compile(r"(?P<rest>.+?),? with mana value equal to (?:(?P<n>\d+|one|two) plus )?(?P<v>the sacrificed \w+'s mana value)"
                        r"(?: plus (?P<n2>\d+|one|two))?")  # (wave 3R4)
+_MV_CMP = re.compile(r"(?P<rest>(?:.+? )?cards?),? with mana value (?P<op>less than or equal to|less than|equal to) "
+                     r"(?P<v>the number of .+|your devotion to .+|~'s power|the greatest .+)")  # (wave 4M)
+_MV_OPS = {"less than or equal to": "<=", "less than": "<", "equal to": "=="}  # (wave 4M)
 
 
 def _card_selector(text: str) -> str | None:
@@ -435,8 +469,32 @@ def _search_selectors(text: str, one: bool) -> dict[str, Any]:
     whole = _card_selector(text)
     if whole is not None:
         return {"sel": whole}
-    if " with " in text or "and/or" in text:
+    # -- recursion & tutors (wave 4M) -- "up to two basic land cards and/or Gate cards" (Circuitous Route): each card
+    # found is either; "an Aura card and/or an Equipment card" (Axgard Armory): a card of each kind, each optional
+    # (701.23b: a stated quality); "an instant card or a card with flash" (Mystical Teachings): alternatives, each a
+    # whole card phrase of its own (no qualifier shared across them)
+    if " and/or " in text:
+        halves = text.split(" and/or ")
+        if len(halves) == 2 and re.fullmatch(r"(?!an? )\S.* card", halves[0]) and re.fullmatch(r"an? \S.* card", halves[1]) and one:
+            keys = [_card_selector(re.sub(r"^an? ", "", h)) for h in halves]
+            if None in keys:
+                raise _Fail
+            return {"sel": keys[0], "parts": keys}
+        if len(halves) == 2 and all(re.fullmatch(r"(?!an? )\S.* cards", h) for h in halves) and not one:
+            keys = [_card_selector(h[: -len("s")]) for h in halves]
+            if None in keys:
+                raise _Fail
+            return {"sel": keys[0], "alts": keys}
         raise _Fail
+    if " with " in text:
+        alts = re.split(r",? or (?=an? )", text)
+        if len(alts) < 2 or not all(re.fullmatch(r"(?:an? )?(?:\S+ )*?card(?: with .+)?", a) for a in alts):
+            raise _Fail
+        keys = [_card_selector(re.sub(r"^an? ", "", a)) for a in alts]
+        if None in keys:
+            raise _Fail
+        return {"sel": keys[0], "alts": keys}
+    # -- end recursion & tutors (wave 4M) --
     parts = re.split(r"(?:, and |, | and )(?=an? )", text)
     if len(parts) > 1 and one:
         keys = [_card_selector(re.sub(r"^an? ", "", x)) for x in parts]
@@ -459,6 +517,25 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     "put one onto the battlefield and the other into your hand"). A card "named …", or with "mana
     value X or less" (the X the spell or ability has), is searched for too. Without "then shuffle"
     the library is not shuffled (701.24 shuffles only when told to)."""
+    # -- recursion & tutors (wave 4M) -- "… then shuffle. You may search your library for a basic land card, put it onto the
+    # battlefield, then shuffle." (Demolition Field, mid-ability): searching is the controller's choice, asked first; one
+    # who doesn't search doesn't shuffle (effects.search, as for "Its controller may search …")
+    if text.startswith("you may search your library for "):
+        found = _search(text[len("you may "):])
+        if found is None or found[0][0].get("who", "you") != "you" or found[0][0].get("may"):
+            raise _Fail
+        return [{**found[0][0], "may": True, "optional": True}], None
+    # -- recursion & tutors (wave 4M) -- "Search your library for up to X basic land cards, where X is the number of
+    # lands you control, put them onto the battlefield tapped, then shuffle." (Boundless Realms): how many cards may be
+    # found is the count, read as the search begins (107.3c: X defined by the ability's text)
+    sized = re.fullmatch(r"(?P<a>search your library for up to [xX] (?!.*\bwith mana value [xX]\b).+?),? where [xX] is (?P<v>.+?), "
+                         r"(?P<b>(?:put|reveal) .+)", text)
+    if sized:
+        found = _search(f"{sized['a']}, {sized['b']}")
+        if found is None or found[0][0].get("max") != {"x": 1}:
+            raise _Fail
+        return [{**found[0][0], "max": _rider_value(sized["v"])}], None
+    # -- end recursion & tutors (wave 4M) --
     m = _SEARCH.fullmatch(text)
     if not m:
         return None
@@ -468,6 +545,15 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
     sel_text = m["sel"]
     # -- refused zones/sized (wave 3R4) -- "up to three Aura cards with different names": the cards found must
     # all have different names (checked as the searcher chooses: effects.resume_search)
+    # -- recursion & tutors (wave 4M) -- "up to two basic land cards that share a land type" (Myriad Landscape): the
+    # cards found must have a land type in common (205.3i; checked as the searcher chooses: recursion.check_found)
+    share = re.fullmatch(r"(?P<rest>.+? land cards) that share a land type", sel_text)
+    if share:
+        if m["n"] in ("a", "an", "one"):
+            raise _Fail
+        sel_text = share["rest"]
+        extra["share_land_type"] = True
+    # -- end recursion & tutors (wave 4M) --
     distinct = re.fullmatch(r"(?P<rest>.+?) (?:with|that each have) different names(?P<tail>(?: that .+)?)", sel_text)
     if distinct:
         if m["n"] in ("a", "an", "one"):
@@ -495,6 +581,15 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         extra["mv"] = ["==", {"plus": [base, int(k) if k.isdigit() else values.NUMBERS[k]]} if k else base]
         sel_text = pod["rest"]
         mv = pod
+    # -- recursion & tutors (wave 4M) -- "a card with mana value less than or equal to the number of lands you control"
+    # (Beseech the Queen), "… less than Sisay's power", "… equal to the number of verse counters on Yisan": the count
+    # is read as the search is made (608.2h)
+    cmp = None if mv else _MV_CMP.fullmatch(sel_text)
+    if cmp:
+        extra["mv"] = [_MV_OPS[cmp["op"]], _rider_value(cmp["v"])]
+        sel_text = cmp["rest"]
+        mv = cmp
+    # -- end recursion & tutors (wave 4M) --
     anything = m["n"] == "any number of"
     n = 999 if anything else _amount(m["n"])
     single = m["n"] in ("a", "an", "one")
@@ -818,9 +913,14 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
 
 def parse_sentence(text: str) -> tuple[Effects, Any] | None:
     try:
-        return _parse(text.strip())
+        found = _parse(text.strip())
     except _Fail:
         return None
+    # -- damage sized by a count (wave 4E) -- an amount read per recipient player is a damage instruction's only
+    # ("each player creates X tokens, where X is the number of lands they control": not read)
+    if any(e.get("do") != "damage" and sized_damage.has_per_player(e) for e in found[0]):
+        return None
+    return found
 
 
 def _one(group: dict[str, Any] | None) -> Any:
@@ -848,8 +948,19 @@ def _parse(text: str) -> tuple[Effects, Any]:
         # (107.3c: X is defined by the text of the ability for the whole ability), so the halves
         # are read here, each with the rider, rather than split upstream with X unbound in one
         halves = re.split(_JOINER, text, maxsplit=1)
-        if len(halves) == 2:
+        if len(halves) != 2 and re.match(r"(?:target player|target opponent|each player|each opponent|that player) ", text):
+            # (wave 4K: "target player draws X cards and loses X life": one player subject for both halves)
+            halves = re.split(r" and (?=(?:draws|loses|gains|mills|discards) )", text, maxsplit=1)
+        if len(halves) == 2 and not _GAIN_PUMP.fullmatch(text):  # (wave 4K: "gain trample and get +X/+X" is one instruction)
+            # -- X sized by a count (wave 4K) -- "Target player draws X cards and loses X life, where X is …": the right
+            # half's subject is the left's (one word "target": the same target player, 115.1)
+            subj = re.match(r"^(target player|target opponent|each player|each opponent|that player) ", halves[0])
+            same = subj is not None and re.match(r"^(?:draws|loses|gains|mills|discards)\b", halves[1]) is not None
+            if same and subj is not None:
+                halves[1] = f"{subj[1]} {halves[1]}"
             left, right = _parse(halves[0]), _parse(halves[1])
+            if same and left[1] is not None and left[1] == right[1]:
+                right = (right[0], None)
             if left[1] is not None and right[1] is not None:
                 raise _Fail  # (two targets: not read here)
             if not all(_has_x(e) for e in (*left[0], *right[0])):
@@ -879,6 +990,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m:  # 701.9b: the cards are chosen at random (effects.discard: the table picks; the move records which)
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": _apply(_amount(m["n"]), rider), "random": True}], target
+    # -- "this way" outcomes (wave 4A) -- "discard your hand" / "each player discards their hand" (701.9a: every card in
+    # it; one choice-free discard, all at once, 101.4)
+    m = re.fullmatch(_SUBJ + r"discards? (?:(?P<your>your)|their) hand", text)
+    if m and rider is None and (m["your"] is not None) == (m["s"] in (None, "you")):
+        who, target = _subject(m)
+        return [{"do": "discard", "who": who, "n": 0, "all": True}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)
@@ -902,6 +1019,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # -- damage ---------------------------------------------------------------------------------
     # -- sized amounts (wave 3D) -- "that creature deals damage equal to its power": the pronoun's creature (as "it")
     text = re.sub(r"^that creature deals ", "it deals ", text)
+    # -- damage sized by a count (wave 4E) -- "Whenever Smaug attacks, he deals …": a named character's pronoun is the
+    # card itself (its power: "his power"); "this enchantment deals … equal to the number of verse counters on it"
+    text = re.sub(r"^(?:he|she) deals ", "~ deals ", text)
+    if text.startswith("~ deals "):
+        text = re.sub(r"\b(?:his|her) (power|toughness)\b", r"~'s \1", text)
+    found = _sized_damage_forms(text, rider)
+    if found is not None:
+        return found
+    # -- end damage sized by a count (wave 4E) --
     src: dict[str, Any] = {"src": "it"} if text.startswith("it ") else {}
     m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage divided as you choose among (?P<o>.+)", text)
     if m:  # 601.2d: the division is announced as the spell is cast (each target gets at least 1)
@@ -909,17 +1035,20 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "damage", "who": "target", "n": {"divided": 0}, **src}], _divided(m["o"], "damage", _amount(m["n"]))
     m = re.fullmatch(rf"(?P<src>~|it) deals (?P<n>{AMT}) damage to (?P<o1>.+?) and (?P<m>{AMT}) damage to (?P<o2>.+)", text)
-    if m and rider is None:  # "… 2 damage to any target and 1 damage to another target" (two groups)
+    # -- damage sized by a count (wave 4E) -- "~ deals X damage to target creature and X damage to you, where X is …" (one X for
+    # both: 107.3c), "… and X damage to itself" (~ itself: the source)
+    if m and (rider is None or (rider[0] == "x" and m["n"].lower() == "x" == m["m"].lower())):
         effects: Effects = []
         groups: list[dict[str, Any]] = []
         for o, n in ((m["o1"], m["n"]), (m["o2"], m["m"])):
-            whos, parts = _objects(o)
+            whos, parts = _objects("~" if o == "itself" and m["src"] == "~" else o)
             if len(whos) != 1:
                 raise _Fail
             effects.append({"do": "damage", "who": whos[0] if not parts else ("target" if not groups else f"target:{len(groups)}"),
-                            "n": _amount(n), **src})
+                            "n": _apply(_amount(n), rider), **src})
             groups += parts
         effects[0]["with_next"] = True  # (dealt at once: one damage event)
+        _check_per_player(effects, groups)  # -- damage sized by a count (wave 4E) --
         return effects, _out(groups)
     m = re.fullmatch(rf"(?P<src>~|it) deals (?:(?P<n>{AMT}) damage|damage equal to (?P<stat>.+?)) to (?P<o>.+)", text)
     if m is None:  # "~ deals damage to target creature equal to the number of lands you control" (the same, worded after)
@@ -928,7 +1057,18 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["stat"] and rider is not None:
             raise _Fail
         # "~ deals damage equal to its power": its own (the subject's); "it deals … its power": it's
-        n = _stat(m["stat"], "self" if m["src"] == "~" else "it") if m["stat"] else _apply(_amount(m["n"]), rider)
+        # -- damage sized by a count (wave 4E) -- or an amount read for each player dealt damage ("… to each player equal to
+        # the number of lands that player controls"): app/rules/sized_damage.py
+        per_player = sized_damage.per_player(m["stat"]) if m["stat"] else None
+        try:
+            n = _stat(m["stat"], "self" if m["src"] == "~" else "it") if m["stat"] else _apply(_amount(m["n"]), rider)
+        except _Fail:
+            if per_player is None:
+                raise
+            n = per_player
+        if per_player is not None and re.search(r"\beach (?:player|opponent)\b|\beach of your opponents\b", m["o"]):
+            n = per_player  # (each recipient's own count, not one player's)
+        # -- end damage sized by a count (wave 4E) --
         if _wants_target_player(n):
             raise _Fail  # (a second target the damage sentence would have to declare: not read)
         effects = []
@@ -936,12 +1076,21 @@ def _parse(text: str) -> tuple[Effects, Any]:
         # -- sized amounts (wave 3D) -- "each opponent and each creature and planeswalker they control": the opponents'
         # (selectors read "or" for a list of types), and "each other player" is every opponent (102.2)
         recipients = m["o"].replace("each other player", "each opponent")
+        if recipients == "itself" and m["src"] == "~":  # -- chosen player (wave 4J) -- "~ deals 1 damage to itself" (Stuffy Doll)
+            recipients = "~"
         recipients = re.sub(r"^(each opponent and each .+?) they control$", r"\1 your opponents control", recipients)
         recipients = re.sub(r"(creatures?) and (planeswalkers?|battles?) (?=you control|your opponents control|an opponent controls)",
+                            r"\1 or \2 ", recipients)
+        # -- damage sized by a count (wave 4E) -- "each creature and planeswalker you don't control / that player controls"
+        recipients = re.sub(r"(creatures?) and (planeswalkers?|battles?) (?=you don't control|that player controls)",
                             r"\1 or \2 ", recipients)
         for part in re.split(r" and (?=each |you$)|" + _AND_TARGET, recipients):
             if part == "each other opponent":  # -- sized amounts (wave 3D) -- the opponents besides the one the event named
                 effects.append({"do": "damage", "who": "each_other_opponent", "n": n, **src})
+                continue
+            controlled = _that_player_controls(part)  # -- damage sized by a count (wave 4E) --
+            if controlled is not None:
+                effects.append({"do": "damage", "who": controlled, "n": n, **src})
                 continue
             kind, key, group = ref(part)
             who = _who(kind, key)
@@ -951,6 +1100,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
             effects.append({"do": "damage", "who": who, "n": n, **src})
         for joined in effects[:-1]:  # one sentence: one simultaneous damage event (app/rules/effects.damage)
             joined["with_next"] = True
+        _check_per_player(effects, groups)  # -- damage sized by a count (wave 4E) --
         return effects, _out(groups)
     found = _bite(text)  # -- temporary grants & riders (agent G) --  "target creature you control deals damage equal to its power to …"
     if found is not None:
@@ -982,6 +1132,10 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], _one(group)
+    # -- recursion & tutors (wave 4M) -- "Return all artifact and enchantment cards from your graveyard to the battlefield"
+    # (Brilliant Restoration): every card that is any of the types named (the "and" lists the kinds, as "or" would)
+    text = re.sub(r"^return all ((?:[a-z]+, )*[a-z]+),? and ([a-z]+) cards (?=(?:with [^,]+ )?from your graveyard to )",
+                  lambda m: "return all " + " or ".join([*m[1].split(", "), m[2]]) + " cards ", text)
     found = reanimation_forms(text)  # -- reanimation (wave 3R) --
     if found is not None:
         return found
@@ -1050,6 +1204,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
             _one(group)
     # -- temporary grants & riders (agent G) --  "+X/+0", "+1/+1 … for each …", "-X/-X … where X is …",
     # "gets +2/+2 and gains flying and first strike", "… and can't be blocked this turn", "loses flying"
+    # -- X sized by a count (wave 4K) -- "creatures you control gain trample and get +X/+X until end of turn" (Craterhoof
+    # Behemoth): the grant, then the pump, as printed; X (or "where X is …") read once as the pump begins (608.2h, 611.2c)
+    m = _GAIN_PUMP.fullmatch(text)
+    if m:
+        swapped = _PUMP.fullmatch(f"{m['o']} {m['g']} {m['p']}/{m['t']} and {m['v']} {m['kw']} until end of turn")
+        if swapped is None:
+            raise _Fail
+        effects, target = _pump(swapped, rider)
+        return [*effects[1:], effects[0]], target
     m = _PUMP.fullmatch(text)
     if m:
         return _pump(m, rider)
@@ -1171,6 +1334,8 @@ _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P
                    rf"(?: and gains? (?P<kw>{_KW_LIST}))? until end of turn"
                    r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn)?")
 _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
+_GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
+                        rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
 _GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? (?:gains?|has|have) (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
 _KW_ONLY = rf"(?:{KEYWORDS})(?:(?:, and |, | and )(?:{KEYWORDS}))*"
 _LOSE_GAIN = re.compile(rf"(?P<o>.+?) loses? (?P<rm>{_KW_ONLY}) and gains? (?P<kw>{_KW_LIST})(?P<eot> until end of turn)?")
@@ -1208,10 +1373,34 @@ def _grant_effect(who: str, items: str) -> dict[str, Any]:
     return e
 
 
+def bare_pronoun_grant(text: str) -> Effects | None:
+    """-- recursion & tutors (wave 4M) -- a whole sentence "It gains haste." / "That creature gains menace, deathtouch,
+    and haste." after an instruction that put the object onto the battlefield (Puppeteer Clique, Sneak Attack): no
+    duration is stated, so the grant lasts as long as that object exists (611.2a, 400.7). Read for a whole sentence
+    only (scripts._parse_effects): inside "Until end of turn, … and it gains first strike" the lead's duration rules."""
+    m = re.fullmatch(rf"(?P<o>it|that creature|that token|they|those creatures|those tokens) gains? (?P<kw>{_KW_ONLY})", text)
+    if m is None:
+        return None
+    try:
+        kind, _key, _group = ref(m["o"])
+        e = _grant_effect(_who(kind, _key), m["kw"])
+    except _Fail:
+        return None
+    if kind not in ("it", "them") or "quotes" in e or not e["keywords"]:
+        return None
+    return [{**e, "duration": "permanent"}]
+
+
 def _end_of_turn_first(rest: str) -> tuple[Effects, Any]:
     """"Until end of turn, <clause>": the clause with the duration after it, if that is a continuous
     effect (only a pump, a grant or a restriction has one: delayed.wrap_duration's rule)."""
-    effects, target = _parse(rest + (" this turn" if _RESTRICT_TAIL.fullmatch(rest) else " until end of turn"))
+    # -- X sized by a count (wave 4K) -- "Until end of turn, creatures you control gain trample and get +X/+X, where X is …":
+    # the duration goes before the rider (which defines X for the whole sentence, 107.3c)
+    head, sep, tail = rest.partition(", where X is ")
+    if sep and not _RESTRICT_TAIL.fullmatch(head):
+        effects, target = _parse(f"{head} until end of turn{sep}{tail}")
+    else:
+        effects, target = _parse(rest + (" this turn" if _RESTRICT_TAIL.fullmatch(rest) else " until end of turn"))
     if not effects or any(e["do"] not in ("pump", "grant", "restrict", "gain_control") for e in effects):
         raise _Fail
     return effects, target
@@ -1365,10 +1554,86 @@ def _bite(text: str) -> tuple[Effects, Any] | None:
         raise _Fail  # (a pronoun subject: which creature deals it isn't read here)
     src = "target" if group is not None else "host"
     groups = [group] if group is not None else []
-    whos, parts = _objects(m["o"])
+    whos, parts = _bite_recipients(m["o"])  # (wave 4E: "… to each other creature and each opponent")
     n: Any = {stat: src} if not m["stat"].startswith("twice ") else {"times": [2, {stat: src}]}  # (sized amounts, wave 3D)
     effects: Effects = [{"do": "damage", "who": _shift(w, len(groups)), "n": n, "src": src} for w in whos]
+    for joined in effects[:-1]:  # -- damage sized by a count (wave 4E) -- one sentence: one damage event (120.3, 608.2)
+        joined["with_next"] = True
     return effects, _out(groups + parts)
+
+
+# -- damage sized by a count (wave 4E): app/rules/sized_damage.py ------------------------------------
+
+def _bite_recipients(o: str) -> tuple[list[str], list[dict[str, Any]]]:
+    """A bite's recipients: "target creature you don't control", "each other creature and each opponent"
+    (several "each" parts; at most one of them a target group)."""
+    parts = re.split(r" and (?=each )", o)
+    if len(parts) == 1:
+        return _objects(o)
+    whos: list[str] = []
+    groups: list[dict[str, Any]] = []
+    for part in parts:
+        w, g = _objects(part)
+        if g:
+            raise _Fail  # (a target among "each" recipients: not read)
+        whos += w
+    return whos, groups
+
+
+_THAT_PLAYER_CONTROLS = re.compile(r"^each (?P<sel>.+?) that player controls$")
+
+
+def _that_player_controls(part: str) -> str | None:
+    """"each creature that player controls" (Balefire Dragon): the permanents of the player "that player"
+    names (resolved by scripts.resolve_it like any "that player": the trigger event's player, or a target
+    player) → "controlled:that_player|<selector>" (app/rules/effects._cards)."""
+    m = _THAT_PLAYER_CONTROLS.fullmatch(part)
+    if m is None:
+        return None
+    sel = selectors.parse(m["sel"])
+    if sel is None or sel.player is not None or sel.controller is not None:
+        raise _Fail
+    return f"controlled:that_player|{sel.key()}"
+
+
+_PLAYER_RECIPIENTS = ("each_player", "each_opponent", "that_player", "event_player", "you")
+
+
+def _check_per_player(effects: Effects, groups: list[dict[str, Any]]) -> None:
+    """An amount read per recipient player is dealt to players only ("… to each player equal to the
+    number of lands that player controls"); any other recipient leaves the sentence unread."""
+    if not any(sized_damage.has_per_player(e.get("n")) for e in effects):
+        return
+    for e in effects:
+        who = str(e.get("who"))
+        if who in _PLAYER_RECIPIENTS:
+            continue
+        if who == "target" or who.startswith("target:"):
+            g = 0 if who == "target" else int(who[7:])
+            if g < len(groups) and groups[g].get("what") in ("player", "opponent"):
+                continue
+        raise _Fail
+
+
+def _sized_damage_forms(text: str, rider: Any) -> tuple[Effects, Any] | None:
+    """"Target creature deals damage to itself equal to its power" / "Each creature deals damage to
+    itself equal to its power" (the creature is the source: 120.3; its power as it is or as it last
+    existed: 608.2h)."""
+    m = sized_damage.SELF_DAMAGE.fullmatch(text)
+    if m is None:
+        return None
+    if rider is not None:
+        raise _Fail
+    stat = "toughness" if "toughness" in (m["a"] or m["b"]) else "power"
+    kind, key, group = ref(m["s"])
+    if kind == "each":
+        if selectors.from_key(key).player is not None:
+            raise _Fail
+        return [{"do": "damage", "who": "itself", "n": {stat: "each"}, "src": "each:" + key}], None
+    if kind != "target" or group is None or group.get("max", 1) != 1:
+        raise _Fail
+    return [{"do": "damage", "who": "target", "n": {stat: "target"}, "src": "target"}], _one(group)
+# -- end damage sized by a count (wave 4E) --
 
 
 # Compound sentences whose subject is one player, read as two instructions ("Target player draws
@@ -1682,7 +1947,8 @@ def _become(text: str) -> tuple[Effects, Any]:
 
 
 BASE_PT = (r"(?:(?P<lead>until end of turn|until your next turn), )?(?P<o>.+?) (?:has|have) base power and toughness "
-           r"(?P<p>\d+)/(?P<t>\d+)(?: (?P<trail>until end of turn|until your next turn))?")
+           r"(?P<p>\d+|X)/(?P<t>\d+|X)(?P<all> and gain all creature types)?(?:, where X is (?P<xdef>[^\"]+?))?"  # (X: wave 4K)
+           r"(?: (?P<trail>until end of turn|until your next turn))?")
 
 
 def parse_base_pt(m: re.Match[str]) -> tuple[Effects, Any]:
@@ -1695,8 +1961,22 @@ def parse_base_pt(m: re.Match[str]) -> tuple[Effects, Any]:
         raise _Fail
     when = m["lead"] or m["trail"] or ""
     duration = {"until end of turn": "end_of_turn", "until your next turn": "next_turn"}.get(when, "permanent")
-    return [{"do": "become", "who": _who(kind, key), "types": [], "p": int(m["p"]), "t": int(m["t"]),
-             "duration": duration}], _one(group)
+    # -- X sized by a count (wave 4K) -- "have base power and toughness X/X [and gain all creature types][, where X is …]"
+    # (Mirror Entity, Jolrael): X read once as the effect begins (608.2h), for the objects then (611.2c); 613.4b
+    x: Any = {"x": 1}
+    if m["xdef"]:
+        import json
+
+        x = x_definition(m["xdef"])
+        if x is None or "X" not in (m["p"], m["t"]) or '"it"' in json.dumps(x):
+            raise _Fail
+    if (m["all"] or m["xdef"]) and duration == "permanent":
+        raise _Fail
+    out: dict[str, Any] = {"do": "become", "who": _who(kind, key), "types": [],
+                           "p": x if m["p"] == "X" else int(m["p"]), "t": x if m["t"] == "X" else int(m["t"]), "duration": duration}
+    if m["all"]:
+        out["all_creature_types"] = True
+    return [out], _one(group)
 
 
 def parse_still(m: re.Match[str]) -> tuple[Effects, Any]:
@@ -1712,7 +1992,10 @@ def parse_still(m: re.Match[str]) -> tuple[Effects, Any]:
 # returns to its OWNER's hand (400.3).
 _RA_UNDER = r"(?: under (?P<u>your|its owner's|their owner's|their owners') control)?"
 # -- refused zones/sized (wave 3R4) -- "… with a finality counter on it": it enters with it (122.6, 122.1h)
-_RA_WITH = r"(?: with (?:an?|one) (?P<ck>\+1/\+1|-1/-1|[a-z]+) counter on it)?"
+_RA_WITH = (r"(?: with (?:(?:an?|one) (?P<add1>additional )?(?P<ck>\+1/\+1|-1/-1|[a-z]+) counter|"
+            # -- recursion & tutors (wave 4M) -- "… with two additional +1/+1 counters on it" (Rakdos Joins Up): they
+            # enter with them (122.6; "additional": besides any it would enter with, 614.1c)
+            r"(?P<cn>two|three|four|five) (?P<add2>additional )?(?P<ck2>\+1/\+1|-1/-1) counters) on it)?")
 # "… attached to this creature / that creature" (303.4f, 303.4i, 301.5e): app/rules/effects._return_cards
 _RA_HOST = r"(?: attached to (?P<host>this creature|~|that creature))?"
 _RA_RETURN = re.compile(rf"return (?P<o>.+?) to (?:(?P<h>your hand|its owner's hand|their owner's hand|their owners' hands|their hand)|"
@@ -1756,6 +2039,10 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     """The graveyard-return wordings above; None when the sentence is not one of them (the older
     grammar then reads it, or it stays manual)."""
     text = text[len("then "):] if text.startswith("then you may ") else text  # (wave 3R4: "Then you may return …")
+    # -- recursion & tutors (wave 4M) -- "Then you return up to two creature cards …" (Unseal the Necropolis), "Then you put
+    # a creature card from a graveyard onto the battlefield under your control" (Extract from Darkness): the subject
+    # is the one instructed anyway (110.2a)
+    text = re.sub(r"^you (return|put) (?=(?:an?|one|up to \w+|\w+) [^,]*?cards? from )", r"\1 ", text)
     may = text.startswith("you may ")  # (mid-ability: "Mill three cards, then you may return a creature card …")
     if may:
         text = text[len("you may "):]
@@ -1771,6 +2058,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
             if m["ck"] in values.UNMODELED_COUNTERS:
                 return None
             effect["counter"] = m["ck"]
+        if m["ck2"]:  # -- recursion & tutors (wave 4M) --
+            effect.update(counter=m["ck2"], counter_n=values.NUMBERS[m["cn"]])
         if m["atk"]:  # -- refused zones/sized (wave 3R4) -- 508.4 (effects._return_cards → refused_zones.enter_attacking)
             if m["u"] and m["u"] != "your":
                 return None  # (under its owner's control: 506.3b, not read)
@@ -1798,7 +2087,7 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
         return [{**effect, "do": "return_choice", "sel": sel.key(), "n": n, "upto": bool(c["upto"] or c["any"] or may),
                  "random": bool(c["rand"]), "label": words, **({"optional": True} if may else {}),
                  **({"different": different} if different else {})}], None
-    if not put and not (not hand and (m["atk"] or m["host"])):  # (wave 3R4: "… tapped and attacking", "… attached to" read here)
+    if not put and not (not hand and (m["atk"] or m["host"] or m["ck2"] or m["add1"])):  # (ck2/add1: wave 4M)  # (wave 3R4: "… tapped and attacking", "… attached to" read here)
         return None  # ("return target …" / "return all …": the grammar below)
     try:
         kind, key, group = ref(obj)

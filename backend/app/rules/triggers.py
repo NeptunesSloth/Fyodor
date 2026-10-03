@@ -44,6 +44,7 @@ stack like any other pending trigger. Not yet: copies of spells
 
 from __future__ import annotations
 
+import json
 import re
 import secrets
 from dataclasses import replace
@@ -140,6 +141,11 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         mark = {"object": source_object, "index": index}
         definition = {**definition, "effects": [{"do": "action_gate", **mark}, *definition["effects"],
                                                 {"do": "record_action", **mark}]}
+    # -- this-turn history (wave 4D) -- "if this is the second time this ability has resolved this turn"
+    from app.rules import history
+
+    if "effects" in definition:
+        definition = {**definition, "effects": history.counting_resolutions(definition["effects"], f"{source_object}:{index}")}
     pending = PendingTrigger(id=secrets.token_hex(4), controller=controller, source_card=source_card,
                              source_object=source_object, name=name, ability=definition, key=f"{name}:{index}",
                              event=event)
@@ -199,6 +205,9 @@ def collect(plan: Plan) -> None:
         return
     r.trigger_batch = max(e.batch for e in new)
     returning: dict[int, list[dict[str, Any]]] = {}  # batch -> the cards returning "until ~ leaves" (610.3c)
+    from app.rules import history  # -- this-turn history (wave 4D) -- before any trigger checks a condition
+
+    history.note_events(plan, new)
     _generic_events(plan, new)
     delayed.on_events(plan, new)  # "when that creature dies this turn" (603.7; app/rules/delayed.py)
     # -- sagas & attached-object triggers (wave 3S): chapter abilities (714.2b) --
@@ -330,6 +339,10 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),
                 "opponent_turn": plan.active != e.player, "kicked": bool(entry is not None and entry.kicked),
                 "targets": [(t.id, t.object_id) for t in (entry.targets if entry is not None else [])]}
+        # -- unless pays (wave 4C) -- "their first noncreature spell each turn"
+        from app.rules import unless_pays
+
+        info["kinds_before"] = unless_pays.mark_cast(plan, e.player or "", plan.ch(spell).types)
         return [("cast", spell, plan.ch(spell), e.player, info)]
     if e.kind == "spell_copied":  # -- refused copy/mana (wave 3R3) -- 707.10: a copy put on the stack, not cast
         spell = plan.state.cards.get(e.card or "")
@@ -458,6 +471,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     want = cond["event"]
     if want == "multi":  # "Whenever ~ attacks or blocks" (this object; each event, 603.2)
         wanted = [(_PAIRED[x] if cond.get("other") else x) for x in cond["events"]]
+        if cond.get("subject") == "host":  # -- attached events (wave 4L) -- what the source is attached to
+            return event in wanted and obj is not None and watcher.attached_to is not None and obj.id == watcher.attached_to
         return event in wanted and obj is not None and obj.id == watcher.id and _other_ok(plan, cond, watcher, info)
     if want in _PAIRED and cond.get("other"):
         want = _PAIRED[want]  # 509.3b / 509.3d: once per creature on the other side
@@ -552,6 +567,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if event == "cast":
         if cond.get("nth") and info.get("nth") != cond["nth"]:
             return False
+        if cond.get("first_kind"):  # -- unless pays (wave 4C) --
+            from app.rules import unless_pays
+
+            if not unless_pays.first_of_kind(cond["spell"], info.get("kinds_before") or []):
+                return False
         if cond.get("turn") == "opponent" and not info.get("opponent_turn"):
             return False
         if cond.get("kicked") and not info.get("kicked"):
@@ -1035,6 +1055,10 @@ def _whose_step(plan: Plan, card: CardInstance, whose: str, ap: str) -> bool:
         return card.controller != ap
     if whose == "enchanted_player":
         return card.attached_player == ap
+    if whose == "chosen_player":  # -- chosen player (wave 4J) -- the player this permanent chose as it entered
+        from app.rules import chosen
+
+        return chosen.player_of(plan, card.id) == ap
     if whose == "host_controller":  # "the upkeep of enchanted creature's controller"
         host = plan.state.cards.get(card.attached_to or "")
         return host is not None and host.controller == ap
@@ -1139,11 +1163,20 @@ WARD = re.compile(r"^ward (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 
 
 def ward_cost(ch: Any) -> str | None:
+    costs = ward_costs(ch)
+    return costs[0] if costs else None
+
+
+def ward_costs(ch: Any) -> list[str]:
+    """-- attached events (wave 4L) -- the cost of each ward ability the object has, printed or granted ("Equipped
+    creature has ward {1}"): each instance is its own triggered ability (702.21a) and triggers on its own."""
+    out = []
     for ab in ch.abilities:
         if ab.kind == "keywords" and "ward" in ab.keywords:
             m = WARD.fullmatch(ab.text.strip().rstrip("."))
-            return m["cost"] if m else None
-    return None
+            if m:
+                out.append(m["cost"])
+    return out
 
 
 def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[Any]) -> None:
@@ -1154,6 +1187,9 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
     # An object chosen for several words "target" (115.3) becomes the target of that spell or
     # ability once: one event, one trigger.
     targets = list({(t.id if hasattr(t, "id") else t): t for t in targets}.values())
+    from app.rules import history  # -- this-turn history (wave 4D) -- 700.13: committing a crime
+
+    history.note_crime(plan, stack_id, controller, targets)
     for t in targets:  # "When ~ becomes the target of a spell or ability, …" (any controller)
         card = plan.state.cards.get(t.id if hasattr(t, "id") else t)
         if card is None or not card.zone.endswith(":battlefield") or plan.manual(card):
@@ -1173,12 +1209,10 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
         if card is None or not card.zone.endswith(":battlefield") or card.controller == controller or plan.manual(card):
             continue
         ch = plan.ch(card)
-        cost = ward_cost(ch)
-        if cost is None:
-            continue
-        _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
-             index=9000, definition={"kind": "triggered", "trigger": "ward", "optional": False, "target": None,
-                                     "effects": [{"do": "counter_unless", "cost": cost, "object": stack_id}]})
+        for k, cost in enumerate(ward_costs(ch)):  # -- attached events (wave 4L) -- each instance (702.21a)
+            _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
+                 index=9000 + k, definition={"kind": "triggered", "trigger": "ward", "optional": False, "target": None,
+                                         "effects": [{"do": "counter_unless", "cost": cost, "object": stack_id}]})
 
 
 def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -> None:
@@ -1406,12 +1440,27 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
     r.stack[ability_id] = StackEntry(kind="trigger", controller=t.controller, source_card=t.source_card,
                                      source_object=t.source_object, name=t.name, effects=list(t.ability["effects"]),
                                      targets=targets, target_spec=spec, optional=bool(t.ability.get("optional")),
-                                     event=t.event, **extra)
+                                     event=t.event, x=cast_x(plan, t), **extra)  # (x: wave 4J, 107.3m)
     if targets:
         plan.do({"type": "create_arrow", "source": ability_id, "targets": [x.id for x in targets], "kind": "target"},
                 actor=t.controller)
         targeted(plan, ability_id, t.controller, targets)
     return True
+
+
+# -- cast X (wave 4J) --
+def cast_x(plan: Plan, t: PendingTrigger) -> int | None:
+    """107.3m: an object's enters-the-battlefield triggered ability that refers to X uses the X of the spell that
+    became that object as it resolved (its payment record, which follows it onto the battlefield); for any other
+    triggered ability — or an object that wasn't cast with X — X is undefined here (0, 107.3i)."""
+    if t.event is None or t.event.kind != "enter" or not any(o.object_id == t.source_object for o in t.event.objects):
+        return None
+    record = plan.rules.payments.get(t.source_object)
+    if record is not None and not record.mana_known and '"x"' in json.dumps(t.ability.get("effects") or []):
+        # -- review (wave 4R) -- cast by hand: its X isn't known (read as 0, as for the permanent's counters)
+        plan.note(f"{t.name or 'It'} was cast by hand: its X isn't known (read as 0) — adjust by hand")
+    return record.x if record is not None else None
+# -- end cast X (wave 4J) --
 
 
 def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:

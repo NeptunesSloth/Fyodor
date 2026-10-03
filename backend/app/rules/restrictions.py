@@ -104,13 +104,34 @@ def split_trigger_limit(body: str) -> tuple[str, str | None]:
     return body, None
 
 
+EXHAUST = "Exhaust — "  # -- ability words (wave 4F) -- 702.177
+# -- activation costs (wave 4H) -- 702.142a: "Boast — [Cost]: [Effect]" means "[Cost]: [Effect]. Activate only if this
+# creature attacked this turn and only once each turn." (Birgi, God of Storytelling: twice during each of your turns)
+BOAST = "Boast — "
+_BOAST_TWICE = frozenset({"Birgi, God of Storytelling"})
+
+
+def _face_name(card: CardInstance) -> str:
+    """-- review (wave 4R) -- the name of the face a permanent shows: a modal double-faced card's instance carries
+    both names ("Birgi, God of Storytelling // Harnfel, Horn of Bounty"); face down, it has none (708.2)."""
+    if card.face_down:
+        return ""
+    names = card.name.split(" // ")
+    return names[card.face] if 0 <= card.face < len(names) else names[0]
+
+
 def parse(text: str) -> list[Restriction] | None:
     """The restrictions in an ability's text (an empty list: none), or None when a restriction
     sentence isn't one this module reads (the ability then stays manual)."""
     _, found = split(text.split(":", 1)[1] if ":" in text else text)
+    # -- ability words (wave 4F) -- 702.177a: "Exhaust — [Cost]: [Effect]" means "[Cost]: [Effect]. Activate only once."
+    exhaust: list[Restriction] = [{"kind": "per_game", "n": 1, "exhaust": True}] if text.startswith(EXHAUST) else []
+    if text.startswith(BOAST):  # -- activation costs (wave 4H) -- 702.142a
+        exhaust = [{"kind": "if", "cond": {"history": "self_attacked", "object": "self"}, "text": "this creature attacked this turn"},
+                   {"kind": "per_turn", "n": 1, "boast": True}]
     if found is None:
-        return []
-    out: list[Restriction] = []
+        return exhaust
+    out: list[Restriction] = list(exhaust)
     for sentence in _sentences(found):
         m = _RESTRICTION_SENTENCE.match(sentence)
         assert m is not None  # (split only keeps matching sentences)
@@ -217,10 +238,16 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
             if turn.phase not in x["phases"]:
                 return f"That can only be activated {_when(x)}"
         elif kind == "per_turn":
-            if uses(r, r.object_id(card.id), index, turn.number) >= x["n"]:
+            n = x["n"]
+            if x.get("boast") and turn.active_player == player and any(  # (wave 4H) Birgi: "can boast twice during each of your turns"
+                    (c := state.cards.get(cid)) is not None and _face_name(c) in _BOAST_TWICE for cid in state.zones.get(f"{player}:battlefield", [])):
+                n = 2
+            if uses(r, r.object_id(card.id), index, turn.number) >= n:
                 return "That can only be activated once each turn" if x["n"] == 1 else \
                     f"That can be activated only {_times(x['n'])} each turn"
         elif kind == "per_game":
+            if x.get("exhaust") and _exhaust_again(state, player):
+                continue  # (wave 4F) 702.177b: an effect lets exhaust abilities be activated again: the player decides
             if uses(r, r.object_id(card.id), index, None) >= x["n"]:
                 return "That can only be activated once"
         elif kind == "if":
@@ -231,6 +258,17 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
             if not conditions.holds(plan, {"controller": player, "source_card": card.id}, x["cond"]):
                 return f"That can only be activated if {x['text']}"
     return None
+
+
+def _exhaust_again(state: GameState, player: str) -> bool:
+    """-- ability words (wave 4F) -- does a permanent let exhaust abilities be activated "as though they haven't been
+    activated" (Elvish Refueler, 702.177b: the only such card)? That permission isn't modelled, so the engine doesn't
+    refuse the activation."""
+    return any((c := state.cards.get(cid)) is not None and _face_name(c) in _EXHAUST_AGAIN
+               for cid in state.zones.get(f"{player}:battlefield", []))
+
+
+_EXHAUST_AGAIN = frozenset({"Elvish Refueler"})
 
 
 def _times(n: int) -> str:

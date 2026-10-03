@@ -20,9 +20,11 @@ _MANA_ABILITY = re.compile(
     rf"^\{{T\}}: Add (?:{_MANA_SYMBOL}(?:{_MANA_SYMBOL})*(?:(?:, | or |, or ){_MANA_SYMBOL})*|one mana of any color)\.$"
 )
 _LOYALTY = re.compile(r"^[+−-]?\d+: |^[+−-]X: ")
-_TRIGGER = re.compile(r"^(?:[A-Z][A-Za-z' ]+ — )?(When|Whenever|At) ")  # an ability word ("Landfall — ") may lead
+_TRIGGER = re.compile(r"^(?:[A-Z][A-Za-z0-9' ]+ — )?(When|Whenever|At) ")  # an ability word ("Landfall — ") may lead
+# (-- ability words (wave 4F) -- digits too: "Descend 4 — Whenever …", 207.2c)
+# (-- attached events (wave 4L) -- "Equipped creature has "{T}: …"" is a static granting an ability, not a cost)
 _COST_START = re.compile(
-    r"^(\{[^}]+\}|Sacrifice|Tap|Untap|Discard|Pay|Remove|Exile|Return|Put|Reveal|Mill|Collect|Forage|[Ee]quip|Crew|"
+    r"^(\{[^}]+\}|Sacrifice|Tap|Untap|Discard|Pay|Remove|Exile|Return|Put|Reveal|Mill|Collect|Forage|[Ee]quip(?!ped)|Crew|"
     r"Channel|Cycling|Ninjutsu|Boast|Exhaust)"
 )
 
@@ -111,11 +113,11 @@ _ADD_MANA = re.compile(r"^(?P<cost>[^:]+): (?:Choose a color\. )?Add ")
 # A prefix that IS a rule is never one of them: keywords written "Name — " (702.142 boast, 702.177
 # exhaust, 702.178 max speed, 702.193 power-up, 702.57 forecast, 702.159 visit, 702.139 companion,
 # 702.160 prototype), Case conditions (719.3 "To solve —", "Solved —"), Saga chapters (714.2b),
-# "Corrupted —" (not a 207.2c word: kept out to be safe). Anything else is a flavor word only when
-# what follows is a trigger or a cost-led activated ability; other lines are left as they were.
+# "Corrupted —" (-- ability words (wave 4F) -- read like an ability word: scripts.ABILITY_WORDS).
+# Anything else is a flavor word only when what follows is a trigger or a cost-led activated ability; other lines are left as they were.
 _WORD_PREFIX = re.compile(r"^(?P<w>[A-Z][A-Za-z0-9'’!?,\- ]{0,48}?) — (?P<rest>\S.*)$")
 _NOT_FLAVOR = frozenset({"max speed", "power-up", "exhaust", "boast", "forecast", "visit", "companion", "prototype",
-                         "solved", "to solve", "corrupted", "jump", "station", "level up"})
+                         "solved", "to solve", "jump", "station", "level up"})
 _ROMAN = re.compile(r"^[IVX]+(?:, [IVX]+)*$")
 
 
@@ -154,7 +156,11 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
     if _TRIGGER.match(line):
         return "triggered", (), None
     worded = word_prefix(line) if ":" in line else None  # -- refused zones/sized (wave 3R4) -- 207.2c/207.2d
-    if worded is not None and not line.startswith(("Channel — ", "Boast — ", "Exhaust — ")):
+    if line.startswith("Exhaust — ") and ":" in line:  # -- ability words (wave 4F) -- 702.177a: an activated ability
+        worded = ("Exhaust", line[len("Exhaust — "):])  # (its "Activate only once": restrictions.parse)
+    if line.startswith("Boast — ") and ":" in line:  # -- activation costs (wave 4H) -- 702.142a (restrictions.parse)
+        worded = ("Boast", line[len("Boast — "):])
+    if worded is not None:  # (wave 4F: channel is read, 113.6m)
         cost = worded[1].split(":", 1)[0]
         if _COST_START.match(cost) and len(cost) < 120:
             return "activated", (), cost

@@ -15,7 +15,7 @@ from app.game.rules_state import preset_name
 from app.game.state import GameState, zone_key
 from app.game.visibility import OMNISCIENT, can_see, mask_face_down
 from app.rules import characteristics as chars
-from app.rules.casting import activatable, castable, free_castable
+from app.rules.casting import activatable, alt_castable, castable, free_castable, optional_castable
 from app.rules.characteristics import CardInfo
 from app.rules.engine import land_play_problem
 from app.rules.plan import live_players
@@ -170,4 +170,11 @@ def hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     out["castable"] = [cid for cid in candidates if castable(state, viewer, state.cards[cid], info)]
     # (wave 3C) cards a permission lets you cast without paying their mana costs
     out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info)]
+    # -- cost changers (wave 4I) -- alternative costs written on cards (118.9): card id → [{"id", "label"}]
+    alt = {cid: found for cid in candidates if (found := alt_castable(state, viewer, state.cards[cid], info))}
+    if alt:
+        out["alt_castable"] = alt
+    optional = {cid: found for cid in candidates if (found := optional_castable(state, viewer, state.cards[cid], info))}
+    if optional:
+        out["optional_costs"] = optional  # (Defiler of Vigor: card id → [{"id": source, "label"}])
     return out

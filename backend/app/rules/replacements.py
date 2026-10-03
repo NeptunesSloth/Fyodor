@@ -137,6 +137,10 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
             out["life"] = out.get("life", 0) + life
         else:
             out["tapped"] = True
+    # -- "this way" outcomes (wave 4A) -- "you may reveal an Island or Swamp card … If you don't, it enters tapped"
+    from app.rules import reveal_lands
+
+    reveal_lands.plan_entry(plan, card, controller, defs, answers, out)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with (122.6) --
     orders = {k: v for k, v in answers.items() if k.startswith(ORDER)}
     if orders:
@@ -269,7 +273,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
     from app.rules.effects import _choice_options
 
     what = choice["what"]
-    from app.rules import battles
+    from app.rules import battles, reveal_lands
+
+    if reveal_lands.is_choice(what):  # -- "this way" outcomes (wave 4A) -- private: the cards in their hand
+        return reveal_lands.prompt(plan, card, controller, what)
 
     if what == battles.PROTECTOR:  # 310.9a / 310.12a
         return f"{card.name}: as it enters, choose its protector", battles.choice_options(plan, controller, card)
@@ -435,9 +442,18 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
     if n == "X":  # the X its spell was cast with (107.3); 0 when it wasn't cast (put onto the battlefield)
         amount = int(x or 0)
     elif isinstance(n, dict):  # "for each creature card in your graveyard": the values grammar
-        amount = values.evaluate(plan, {"controller": controller, "source_card": card_id}, n)
+        amount = values.evaluate(plan, {"controller": controller, "source_card": card_id,  # (wave 4F: converge's record)
+                                        "source_object": plan.oid(card_id), "x": x}, n)  # (x: "twice X", wave 4K)
     else:
         amount = int(n)
+    # -- review (wave 4R) -- a spell cast by hand has no payment known (engine.absorb_manual_events): X, converge's
+    # kicks read 0 (converge's colors: values.evaluate says so) — say so; its controller adds the counters by hand.
+    manual = plan.rules.payments.get(plan.oid(card_id))
+    if manual is not None and not manual.mana_known and (n == "X" or "'x'" in str(n) or d.get("per_kick")
+                                                          or d.get("if_kicked")):
+        plan.note(f"{plan.state.cards[card_id].name or 'It'} was cast by hand: what was paid for it isn't known — "
+                  "put its counters on by hand", [card_id])
+    # -- end review (wave 4R) --
     if d.get("if_kicked") or d.get("per_kick"):  # 702.33e: how its spell was cast (the payment record)
         record = plan.rules.payments.get(plan.oid(card_id))
         kicked = record.kicked if record is not None else 0
@@ -461,6 +477,10 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     from app.rules import battles
 
     battles.entered(plan, card_id, choices)  # 310.9a: the protector chosen as it entered
+    # -- "this way" outcomes (wave 4A) -- the card revealed as it entered (701.20a)
+    from app.rules import reveal_lands
+
+    reveal_lands.after_entry(plan, controller, choices)
     if choices:
         from app.rules.effects import CHOICE_LABELS
 
@@ -469,6 +489,10 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
                 continue
             shown = plan.name(value) if what in ("opponent", "player") and value in plan.state.players else value
             plan.do({"type": "set_choice", "card_id": card_id, "key": CHOICE_LABELS[what], "value": shown}, actor=controller)
+            if what in ("opponent", "player") and value in plan.state.players:  # -- chosen player (wave 4J) --
+                from app.rules import chosen
+
+                chosen.record(plan, card_id, value)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with, through the counter
     # choke point (122.6, 614.16), in the order its controller chose before it entered (614.12a) --
     counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices)
@@ -640,6 +664,11 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
                 r.pending_903_9b[cid] = dest  # asked right after the move (sba → offer_903_9b)
     if not replaced and not madness:
         return payload
+    if dest == "graveyard":  # -- this-turn history (wave 4D) -- a discard put elsewhere instead is still a discard (701.9a)
+        from app.rules import history
+
+        history.note_discards(plan, [cid for cid in [c for c, _, _ in replaced] + [c for c, _ in madness]
+                                     if _from_zone(plan.state.cards[cid]) == "hand"])
     for cid, zone, _why in replaced:
         owner = plan.state.cards[cid].owner
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": zone}}, actor=actor)

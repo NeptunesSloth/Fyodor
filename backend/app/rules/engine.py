@@ -119,6 +119,10 @@ def begin(plan: Plan) -> None:
     layers.control_sync(plan)  # -- control (wave 3K) -- an Aura or effect source moved by hand: control follows (613.1b)
     # (keep what hasn't been looked at for triggers yet: a resolution that stopped for a
     # decision may have left events its triggers still have to see, 603.2)
+    # -- this-turn history (wave 4D) -- what was done by hand still happened (608.2i)
+    from app.rules import history
+
+    history.note_events(plan, [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch and e.manual])
     plan.rules.events = [e for e in plan.rules.events if e.batch > plan.rules.trigger_batch and not e.manual]
     turn = plan.state.turn.number
     for prefs in plan.rules.prefs.values():
@@ -151,6 +155,13 @@ def absorb_manual_events(plan: Plan) -> None:
                                                 mana_known=False, alternative="manual",
                                                 cast_main=plan.state.turn.active_player == card.controller
                                                 and plan.state.turn.phase in MAIN_PHASES)
+            from app.rules import history  # -- this-turn history (wave 4D) --
+
+            history.note_cast(plan, card)
+            # -- review (wave 4R) -- "their first noncreature spell each turn" counts a spell cast by hand too (601.2i)
+            from app.rules import unless_pays
+
+            unless_pays.mark_cast(plan, card.controller, plan.ch(card).types)
 
 
 def settle(plan: Plan) -> None:
@@ -463,8 +474,21 @@ def _keep_tapped(plan: Plan) -> list[str]:
             and not plan.manual(c) and "doesnt_untap" in scripts.statics(plan.ch(c))][:250]
 
 
+def _exerted(plan: Plan, player: str) -> list[str]:
+    """-- activation costs (wave 4H) -- 701.43a: tapped permanents ``player`` exerted (still the same objects, 400.7)
+    that they control: they don't untap during ``player``'s next untap step."""
+    out = []
+    for oid, who in plan.rules.exerted.items():
+        card = plan.state.cards.get(oid.rsplit(".", 1)[0])
+        if who == player and card is not None and plan.oid(card) == oid and card.zone.endswith(":battlefield") \
+                and card.tapped and card.controller == player:
+            out.append(card.id)
+    return out
+
+
 def start_next_turn(plan: Plan) -> None:
     keep = _keep_tapped(plan)
+    keep += [c for c in _exerted(plan, plan.after(plan.active)) if c not in keep]  # (wave 4H: an exerted one isn't stunned, 122.1d)
     # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
     keep = [*keep, *stunned]
@@ -476,6 +500,7 @@ def start_next_turn(plan: Plan) -> None:
     stay = effects.skips.untap_skipped(plan, skip_to or plan.after(plan.active))
     if stay is not None:
         keep = list(dict.fromkeys([*keep, *stay]))[:250]
+    keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or plan.after(plan.active))]))[:250]  # (wave 4H)
     if skip_to is not None:
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep, "player": skip_to}, actor=plan.active)
     # -- end refused grants/replacements (wave 3R2) --
@@ -489,6 +514,9 @@ def start_next_turn(plan: Plan) -> None:
     effects.keyword_actions.lose_stun(plan, [c for c in stunned if c in plan.state.cards and plan.state.cards[c].controller == plan.active],
                                       plan.active)
     delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
+    if stay is None:  # -- activation costs (wave 4H) -- 701.43a: that untap step happened; 614.10a: a skipped one doesn't count
+        plan.rules.exerted = {k: p for k, p in plan.rules.exerted.items()
+                              if p != plan.active and plan.rules.object_id(k.rsplit(".", 1)[0]) == k}
     if stay is None:  # (wave 3R2: not in a skipped untap step)
         effects.designations.untap_day_night(plan, *previous)  # -- (wave 3E) 502.2: day / night --
     if not plan.state.settings.auto_untap and stay is None:
@@ -590,6 +618,10 @@ def cleanup_step(plan: Plan) -> None:
         return
     hand = plan.state.zones.get(zone_key(ap, "hand"), [])
     excess = len(hand) - MAX_HAND_SIZE
+    from app.rules import hand_size  # -- hand size (wave 4J) -- "You have no maximum hand size." (402.2)
+
+    if excess > 0 and hand_size.no_maximum(plan, ap):
+        excess = 0
     if excess > 0:
         decide(
             plan, player=ap, kind="choose_cards",
@@ -641,7 +673,12 @@ def needs_manual_resolution(ch: Characteristics) -> bool:
 def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = False, countered: bool = False) -> None:
     """A resolved spell leaves the stack: to the battlefield or its owner's graveyard, or into exile
     if it was cast with flashback (702.34a), or back to its owner's hand with buyback (702.27a)."""
+    # -- X sized by a count (wave 4K) -- it shuffled itself into its library (608.2n)
+    from app.rules import x_spells
+
     oid = plan.oid(card_id)
+    if not countered and x_spells.left_stack_itself(plan, card_id):
+        return
     if oid in plan.rules.rebound_cast:  # 702.88a rebound: exiled as it resolves, cast again next upkeep
         plan.rules.rebound_cast = [o for o in plan.rules.rebound_cast if o != oid]
         if not countered:
@@ -675,6 +712,10 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
+        if card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
+            from app.rules import history  # -- this-turn history (wave 4D) --
+
+            history.note_became(plan, oid, plan.oid(card_id))
         copying.resolved(plan, card_id, oid)  # -- copy system (wave 2F): a permanent spell's copy became a token (608.3f)
     else:  # (defensive: resolution never adds to the stack today)
         plan.do({"type": "move", "card_ids": [card_id], "to": {"zone": "graveyard"}}, actor=controller)
@@ -797,8 +838,11 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
         return "You can only play a land while the stack is empty"
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
-    if r.lands_this_turn(player, state.turn.number) >= 1:
-        return "You've already played a land this turn"
+    from app.rules import land_plays  # -- additional land plays (wave 4J) -- 305.2a
+
+    played = r.lands_this_turn(player, state.turn.number)
+    if played >= 1 and played >= (allowed := land_plays.allowed(state, player, info)):  # (counted only when it matters)
+        return "You've already played a land this turn" if allowed == 1 else "You've already played all the lands you can this turn"
     return None
 
 
@@ -1107,6 +1151,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "battle_protector": battles.resume_protector,  # 310.11
     "siege_cast": battles.resume_siege_cast,  # 310.12b
     "sacrifice_choice": effects.resume_sacrifice_choice,
+    "tap_choice": effects._this_way.resume_tap_choice,  # -- "this way" outcomes (wave 4A) --
     "pick_looked": effects.resume_pick_looked,
     "library_place": effects.resume_library_place,
     "shuffle_library": effects.resume_shuffle_library,

@@ -477,7 +477,7 @@ def put_trigger(plan: Plan, t: PendingTrigger, picks: dict[str, Any] | None = No
 
 
 def _on_the_stack(plan: Plan, t: PendingTrigger, chosen: list[int], picked: list[str]) -> bool:
-    from app.rules.triggers import targeted
+    from app.rules.triggers import cast_x, targeted
 
     r, d = plan.rules, t.ability
     specs = [d["modes"][i]["target"] for i in chosen]
@@ -495,7 +495,7 @@ def _on_the_stack(plan: Plan, t: PendingTrigger, chosen: list[int], picked: list
     r.stack[ability_id] = StackEntry(kind="trigger", controller=t.controller, source_card=t.source_card,
                                      source_object=t.source_object, name=t.name, effects=mode_effects(d, chosen),
                                      targets=flat, target_spec=None, event=t.event, modes=chosen, slots=slots,
-                                     slot_specs=specs)
+                                     slot_specs=specs, x=cast_x(plan, t))  # (x: wave 4J, 107.3m)
     remember(r, t.source_object, d["modal"]["index"], d["modal"]["memory"], plan.state.turn.number, chosen, _face(plan, t))
     plan.do({"type": "set_stack_info", "card_id": ability_id, "modes": _public_texts(plan, t.source_card, d, chosen)},
             actor=t.controller)

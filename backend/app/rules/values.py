@@ -29,6 +29,7 @@ A value is an int (a literal) or a dict:
 * ``{"event_amount": 1}`` — "that much" / "that many": the trigger event's amount, read from the
   context the ability carries from when it triggered (app.game.rules_state.TriggerEvent).
 * ``{"spells_cast": "you"}`` — the spells you've cast this turn (wave 3D);
+* ``{"colors_spent": 1}`` — converge: the colors of mana spent to cast the spell (wave 4F);
 * ``{"kicked": 1}`` — the number of times the spell (or the permanent it became) was kicked
   (702.33d; "for each time it was kicked").
 
@@ -106,6 +107,12 @@ _PLUS = re.compile(r"^(?P<v>.+?) plus (?P<n>\d+|one|two|three|four|five)$")
 _TYPE_WORDS = "|".join(selectors.CARD_TYPES)
 
 
+# -- ability words (wave 4F) -- converge: "the number of colors of mana spent to cast this spell", "for each color of
+# mana spent to cast it": the colors (105.1) among the mana actually spent on its total cost (601.2h), from the
+# spell's payment record (the same record for the permanent it became; a copy wasn't cast: none, 707.10)
+_COLORS_SPENT = re.compile(r"colors? of mana spent to cast (?:this spell|it|~|this creature|this permanent)")
+
+
 def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     """A quantity phrase → value: "the number of creatures you control" / "cards in your hand" /
     "opponents you have" / "+1/+1 counters on ~" / "card types among cards in all graveyards" /
@@ -153,6 +160,8 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"opponents": 1}
     if what in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
         return {"kicked": 1}
+    if _COLORS_SPENT.fullmatch(what):  # -- ability words (wave 4F) -- converge
+        return {"colors_spent": 1}
     if what == "your life total":
         return {"life": "you"}
     if what in ("target player's life total", "target opponent's life total"):
@@ -218,7 +227,42 @@ def _sized(what: str, it: str | None) -> Value | None:
         return {"plus": [a, b]} if a is not None and b is not None else None
     if _SPELLS_CAST.match(what):
         return {"spells_cast": "you"}
+    return _turn_amount(what)
+
+
+# -- this-turn history (wave 4D) -- amounts of this turn's history (app/rules/history.py: TurnLog), read as the effect
+# is carried out (608.2h): "the amount of life you gained this turn", "spell you've cast this turn" ("for each …"),
+# "cards you've drawn this turn", "creatures that died this turn", "opponent who drew two or more cards this turn".
+_TURN_LIFE = re.compile(r"^(?:the )?(?:amount of )?life you(?:'ve| have)? (?P<k>gained|lost) this turn$")
+_TURN_SPELL = re.compile(r"^spell you(?:'ve| have) cast this turn$")
+_TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
+_TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?) that died this turn$")
+_OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? who (?:(?P<drew>drew (?P<n>\w+) or more cards)|"
+                            r"(?P<lost>lost life)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
+                            r"this turn$")
+
+
+def _turn_amount(what: str) -> Value | None:
+    m = _TURN_LIFE.match(what)
+    if m:
+        return {"turn_history": "gained" if m["k"] == "gained" else "lost"}
+    if _TURN_SPELL.match(what):
+        return {"spells_cast": "you"}
+    if _TURN_DREW.match(what):
+        return {"turn_history": "drew"}
+    m = _TURN_DIED.match(what)
+    if m:  # 700.4; as they last existed on the battlefield (608.2i)
+        sel = selectors.parse(m["sel"])
+        return {"turn_history": "died", "sel": sel.key()} if sel is not None else None
+    m = _OPPONENTS_WHO.match(what)
+    if m:  # each opponent whose history this turn says so (one per opponent)
+        word = m["n"] or m["m"]
+        n = 1 if word is None else int(word) if word.isdigit() else NUMBERS.get(word)
+        if n is None:
+            return None
+        return {"turn_history": "opponents_who", "what": "drew" if m["drew"] else "lost" if m["lost"] else "lands", "n": n}
     return None
+# -- end this-turn history (wave 4D) --
 
 
 def _normalise(what: str) -> str:
@@ -239,6 +283,14 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if isinstance(v, int):
         return max(0, v)
     you = ctx["controller"]
+    if "ref_count" in v:  # -- "this way" outcomes (wave 4A) -- what an earlier instruction actually did
+        from app.rules import this_way
+
+        return this_way.count(plan, ctx, v)
+    if "per_player" in v:  # -- damage sized by a count (wave 4E) -- read for the recipient player (app/rules/sized_damage.py)
+        from app.rules import sized_damage
+
+        return sized_damage.evaluate(plan, ctx, v)
     if "x" in v:
         return max(0, int(ctx.get("x") or 0))
     if "times" in v:
@@ -253,6 +305,16 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return 0  # a negative result of an effect is zero (107.1b); the sign is evaluate_signed's
     if "kicked" in v:
         return kicked_count(plan, ctx)
+    if "colors_spent" in v:  # -- ability words (wave 4F) -- converge (a spell cast by hand: no mana known, 0)
+        record = plan.rules.payments.get(ctx.get("source_object") or "")
+        if record is None:
+            return 0
+        if not record.mana_known:  # -- review (wave 4R) -- cast by hand: say the 0 isn't the colors spent
+            name = plan.state.cards[record.card].name if record.card in plan.state.cards else ''
+            plan.note(f"{name or 'It'} was cast by hand: the colors of mana spent to cast it aren't known (read as 0) — "
+                      "adjust by hand", [record.card] if record.card in plan.state.cards else ())
+            return 0
+        return sum(1 for c in "WUBRG" if record.mana_spent.get(c, 0) > 0)
     if "count" in v:
         sel = selectors.from_key(v["count"])
         if sel.player is not None:
@@ -260,6 +322,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return len(selectors.candidates(plan, sel, you, _other_than(ctx)))
     if "spells_cast" in v:  # -- sized amounts (wave 3D) -- "the number of spells you've cast this turn"
         return plan.rules.spells_this_turn(you, plan.state.turn.number)
+    if "turn_history" in v:  # -- this-turn history (wave 4D) --
+        from app.rules import history
+
+        return history.amount(plan, ctx, v)
     if "event_amount" in v:  # "that much" / "that many": the trigger event's amount (608.2k)
         from app.rules import context  # (context → triggers → … → values)
 
@@ -376,12 +442,16 @@ def _devotion(plan: Plan, you: str, colors: list[str]) -> int:
     """700.5: the number of mana symbols of those colors among the mana costs of permanents you
     control (a hybrid symbol of two of them counts once; a Phyrexian or twobrid symbol is a symbol
     of its color, 107.4e-f)."""
+    # -- conditional statics (wave 4B) -- 700.5a: after copy (and control) effects only — mana costs as layer 1
+    # leaves them, so a god's own "isn't a creature" never recurses here
+    from app.rules.layers import copiable
+
     wanted = set(colors)
     total = 0
     for card in plan.state.cards.values():
         if not card.zone.endswith(":battlefield") or card.controller != you or not plan.in_game(card):
             continue
-        for sym in _MANA_SYMBOL.findall(plan.ch(card).mana_cost):
+        for sym in _MANA_SYMBOL.findall(copiable(plan.state, card, plan.info).mana_cost):
             if set(sym.split("/")) & wanted:
                 total += 1
     return total

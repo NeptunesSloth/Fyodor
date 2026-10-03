@@ -55,6 +55,9 @@ SUPPORTED_REPLACEMENTS: set[str] = {
 # app/rules/copying.py, tests/test_rules_copy.py). Copies of spells and abilities, token copies and
 # "becomes a copy" are templates (their definitions parse only in the wording the engine carries out).
 SUPPORTED_REPLACEMENTS.add("enter_as_copy")
+# -- "this way" outcomes (wave 4A) -- "As ~ enters, you may reveal an X or Y card from your hand. If you don't, ~
+# enters tapped." (614.1c, 614.12a, 701.20a; app/rules/reveal_lands.py, tests/test_rules_wave4a_this_way.py)
+SUPPORTED_REPLACEMENTS.add("reveal_or_tapped")
 
 
 # -- modal triggered/activated abilities (wave 1A) ---------------------------------------------------
@@ -239,12 +242,13 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     # (fight (701.14) and "choose … target" are read now: effects.fight, effects.choose_targets)
     (re.compile(r"\bfor each target beyond the first\b", re.I),
      "a cost per extra target (601.2b/601.2c): the cost grammar doesn't read it"),
-    (re.compile(r"\btarget (?:player|opponent)'s (?:graveyard|hand|library)\b", re.I),
-     "a target player's zone as the object set (\"exile target player's graveyard\"): the effects can't "
-     "reach the chosen player from a selector"),
+    # (-- graveyard exile (wave 4J) -- "exile target player's graveyard" itself is read: app/rules/graveyard_exile.py)
+    (re.compile(r"(?<!exile )\btarget (?:player|opponent)'s (?:graveyard|hand|library)\b", re.I),
+     "a target player's zone as the object set (\"exile all creature cards from target player's graveyard\"): the "
+     "effects can't reach the chosen player from a selector"),
     (re.compile(r"\btarget \w+(?: \w+)* that player controls\b", re.I),
      "a selector relative to a player named earlier (\"target creature that player controls\"): not modelled"),
-    (re.compile(r"\bup to x target\b", re.I), "a variable number of targets announced as X (601.2c): not modelled"),
+    # ("up to X target …": read now, the number of targets announced with X, 601.2c — wave 4K)
     # (copy system, wave 2F / 3R3: "copy target spell", and "copy it / that spell" for the spell a cast trigger
     # was about, are read now: app/rules/copying.py)
     (re.compile(r"\bshuffles? up to \w+ target cards? from their graveyard\b", re.I),
@@ -260,8 +264,8 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\b(?:\{S\}|mana from [^.,]+) (?:of [^.,]+ )?was spent to (?:cast|activate)\b|\bwas spent to activate\b", re.I),
      "snow mana, the source of the mana spent, and mana spent on an ability aren't recorded (601.2h): not modelled"),
     # (wave 3E: "you've completed a dungeon" and "it's day / night" are read now: app/rules/designations.py)
-    (re.compile(r"\bthis is the \w+ time this ability has resolved this turn\b", re.I),
-     "how often an ability resolved this turn: not tracked as state a condition can read"),
+    # (-- this-turn history (wave 4D) -- "this is the second time this ability has resolved this turn" is read now:
+    # app/rules/history.py counts each object's ability resolutions per turn)
 )
 
 

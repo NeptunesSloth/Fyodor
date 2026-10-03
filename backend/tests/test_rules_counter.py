@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from tests.game_helpers import act, deck, enable, zone
-from tests.test_rules_effects import mana
+from tests.test_rules_effects import mana, replay_matches
 from tests.test_rules_suspend import until
 
 
@@ -41,10 +41,10 @@ def test_counterspell(cards):
 
 def test_mana_leak_paid(cards):
     s, bolt, leak = build(cards, "Mana Leak")
+    mana(s, C=3)  # (review 4R: she can pay, so she's asked — 118.3)
     bolt_then_answer(s, bolt, leak, U=1, C=1)
     until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.player == "p1")
     d = s.state.rules.decision
-    mana(s, C=3)
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
     until(s, lambda s: not s.state.zones.get("stack"))
     assert s.state.players["p2"].life == 37
@@ -52,6 +52,7 @@ def test_mana_leak_paid(cards):
 
 def test_mana_leak_declined(cards):
     s, bolt, leak = build(cards, "Mana Leak")
+    mana(s, C=3)  # (review 4R: she can pay, so she's asked — 118.3)
     bolt_then_answer(s, bolt, leak, U=1, C=1)
     until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.player == "p1")
     d = s.state.rules.decision
@@ -65,7 +66,7 @@ def test_ward_counters_unless_paid(cards):
     act(s, "p2", type="create_token", player="p2", token={"name": "Warden", "type_line": "Token Creature — Test",
                                                          "power": "2", "toughness": "2", "text": "Ward {2}"})
     warden = next(c for c in s.state.cards.values() if c.name == "Warden")
-    mana(s, R=1)
+    mana(s, R=1, C=2)  # (review 4R: she can pay the ward cost, so she's asked — 118.3)
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[warden.id])
     until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.player == "p1")
     d = s.state.rules.decision
@@ -74,3 +75,25 @@ def test_ward_counters_unless_paid(cards):
     until(s, lambda s: not s.state.zones.get("stack"))
     assert s.state.cards[warden.id].zone == "p2:battlefield" and s.state.cards[warden.id].damage == 0
     assert zone(s.state, "p1", "graveyard") == [bolt.id]
+
+
+# -- review (wave 4R) -- 118.3: "counter ... unless its controller pays" / ward don't offer PAY to a player who can't pay
+def test_mana_leak_a_player_who_cant_pay_isnt_asked(cards):
+    s, bolt, leak = build(cards, "Mana Leak")
+    bolt_then_answer(s, bolt, leak, U=1, C=1)
+    until(s, lambda s: not s.state.zones.get("stack"))
+    assert s.state.players["p2"].life == 40 and s.state.cards[bolt.id].zone == "p1:graveyard"
+    replay_matches(s)
+
+
+def test_ward_a_player_who_cant_pay_isnt_asked(cards):
+    s, bolt, _ = build(cards, "Counterspell")
+    act(s, "p2", type="create_token", player="p2", token={"name": "Warden", "type_line": "Token Creature — Test",
+                                                         "power": "2", "toughness": "2", "text": "Ward {2}"})
+    warden = next(c for c in s.state.cards.values() if c.name == "Warden")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[warden.id])
+    until(s, lambda s: not s.state.zones.get("stack"))
+    assert s.state.cards[warden.id].zone == "p2:battlefield" and s.state.cards[warden.id].damage == 0
+    assert zone(s.state, "p1", "graveyard") == [bolt.id]
+    replay_matches(s)

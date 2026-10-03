@@ -175,8 +175,22 @@ _FOR_EACH = re.compile(r"^Add \{(?P<sym>[WUBRGC])\} for each (?P<what>creature|a
 _COUNT_TYPES = {"creature": "Creature", "artifact": "Artifact", "enchantment": "Enchantment", "land": "Land"}
 _POWER_OF = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?:this creature|[A-Z][^.]{0,60}?)'s power$")
 _X_POWER = re.compile(r"^Add X mana of any one color, where X is (?:this creature|[A-Z][^.]{0,60}?)'s power$")
+# -- X sized by a count (wave 4K) -- "Add X mana of any one color, where X is the number of enchantments you control."
+# (Sanctum Weaver): counted as the ability resolves (605.3a: at once), like "Add {G} for each …"
+_X_COUNT = re.compile(r"^Add X mana of any one color, where X is the number of (?P<what>creatures|artifacts|enchantments|lands) "
+                      r"you control$")
 _URZA = re.compile(r"^If you control an? (?P<what>[A-Z][\w'-]*(?: [A-Z][\w'-]*)*(?: and an? [A-Z][\w'-]*(?: [A-Z][\w'-]*)*)*), "
                    r"add (?P<add>(?:\{[WUBRGC]\})+) instead$")  # (wave 3R3: the Urza lands)
+# -- this-turn history (wave 4D) -- "If you played a land this turn, add {B} instead." (River of Tears; 305.1, 701.18a:
+# played, not put onto the battlefield): ``instead_if`` holds this marker instead of permanents to control
+_PLAYED_LAND = re.compile(r"^If you played a land this turn, add (?P<add>(?:\{[WUBRGC]\})+) instead$")
+PLAYED_LAND = ("@played_land",)
+# -- kicked / instead (wave 4G) -- "If you control four or more creatures, add {G}{G} instead." (Leafkin Druid); "If you
+# control a creature with power 4 or greater, add two mana of any one color instead." (Ilysian Caryatid). 605.3a: a mana
+# ability resolves as it's activated, so the condition is checked then (608.2c: the "instead" replaces the first "Add").
+# ``instead_if`` holds one marker: ("@count", <card type>, n) or ("@power", n) — creatures with that power or more.
+_CONTROL_INSTEAD = re.compile(rf"^If you control (?:{_N} or more (?P<what>creatures|artifacts|enchantments|lands)|"
+                              r"a creature with power (?P<p>\d+) or greater), (?P<add>add .+) instead$")
 _CHOSEN_COLOR: dict[str, str | None] = {  # (wave 3R3) "Choose a color. <this>": how many of that color
     "Add one mana of that color": None,
     "Add an amount of mana of that color equal to your devotion to that color": "devotion",  # 700.5 (Nykthos)
@@ -188,13 +202,41 @@ _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it)$")
 _EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one|two|three|four|five|six|seven|eight) \{E\}$|^Remove (a|an|one|two|three) [a-z]+ counters? from (this \w+|it)$")
 
 
+# -- ability words (wave 4F) ---------------------------------------------------------------------------
+# "Metalcraft — {T}: Add one mana of any color. Activate only if you control three or more artifacts." (Mox
+# Opal): the ability word has no rules meaning (207.2c), so the line is read without it; a flavor word the
+# same (207.2d; oracle.word_prefix: never a keyword written "Name —" such as exhaust, 702.177). Any other
+# "Activate only if [condition]" the condition grammar reads (app/rules/conditions.py) is kept as
+# ``"cond:<json>"`` and checked as the ability would be activated (602.5: a mana ability too, 605.3a).
+_ACTIVATE_IF = re.compile(r"^Activate only if (?P<cond>.+)$")
+
+
+def _without_ability_word(text: str) -> str:
+    from app.rules.oracle import word_prefix
+
+    worded = word_prefix(text)
+    return worded[1] if worded is not None else text
+
+
+def _general_condition(text: str) -> str | None:
+    import json
+
+    from app.rules import conditions
+
+    cond = conditions.parse(text)
+    if cond is None or conditions.is_cast_condition(cond):
+        return None
+    return "cond:" + json.dumps(cond, sort_keys=True)
+# -- end ability words (wave 4F) --
+
+
 def _choice_part(part: str) -> bool:
     """-- refused copy/mana (wave 3R3) -- a cost part the payer pays with objects they choose (601.2h via
     602.2b): sacrificing, discarding, tapping an untapped permanent, exiling from the graveyard."""
     from app.rules import costs as C
 
     found = C.parse_ability_cost(part, card_name="~")
-    return not found.unsupported and bool(found.components) and all(
+    return not found.unsupported and not found.activation_only and bool(found.components) and all(  # (activation_only: wave 4H)
         c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random
         for c in found.components)
 
@@ -202,7 +244,8 @@ def _choice_part(part: str) -> bool:
 def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbility | None:
     """Understand a mana ability. ``identity`` is the controller's commander color identity (for
     Command Tower-style wording). Returns None for wordings the engine doesn't carry out."""
-    m = _COST_AND_EFFECT.match(text.strip())
+    text = _without_ability_word(text.strip())  # -- ability words (wave 4F) --
+    m = _COST_AND_EFFECT.match(text)
     if not m:
         return None
     cost = [c.strip() for c in m.group("cost").split(",")]
@@ -250,6 +293,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         count, options = "power", ((c.group("sym"),),)
     elif _X_POWER.fullmatch(first):
         count, options = "power", tuple((col,) for col in COLORS)
+    elif c := _X_COUNT.fullmatch(first):  # (wave 4K)
+        count, options = f"control:{_COUNT_TYPES[c.group('what')[:-1]]}", tuple((col,) for col in COLORS)
     else:
         options = _effect_options(sentences[0], identity)
     if options is None:
@@ -272,12 +317,29 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             condition = f"control:{c.group('what')}" + (f"|{c.group('or')}" if c.group("or") else "")
         elif c := _CONTROL_COUNT.fullmatch(s):
             condition = f"count:{_COUNT_TYPES[c.group('what').rstrip('s')]}:{_NUM[c.group(1)]}"
+        elif (g := _ACTIVATE_IF.fullmatch(s)) and condition is None:  # -- ability words (wave 4F) --
+            general = _general_condition(g["cond"])
+            if general is None:
+                return None
+            condition = general
         elif (u := _URZA.fullmatch(s)) and not instead and len(options) == 1:  # -- refused copy/mana (wave 3R3) --
             needs = tuple(tuple(x.split()) for x in re.split(r" and an? ", u.group("what")))
             more = _effect_options("Add " + u.group("add"), identity)
             if more is None or len(more) != 1 or not all(needs):
                 return None
             instead_if, instead = needs, more
+        elif (ci := _CONTROL_INSTEAD.fullmatch(s)) and not instead and count is None:  # -- kicked / instead (wave 4G) --
+            more = _effect_options("A" + ci.group("add")[1:], identity)
+            if more is None or not all(more) or any(x not in ALL_MANA for opt in (*options, *more) for x in opt):
+                return None  # (plain mana only: no chosen color, no "a land could produce")
+            marker = ("@power", ci.group("p")) if ci.group("p") else \
+                ("@count", _COUNT_TYPES[ci.group("what").rstrip("s")], str(_NUM[ci.group(1)]))
+            instead_if, instead = (marker,), more
+        elif (pl := _PLAYED_LAND.fullmatch(s)) and not instead and len(options) == 1:  # -- this-turn history (wave 4D) --
+            more = _effect_options("Add " + pl.group("add"), identity)
+            if more is None or len(more) != 1:
+                return None
+            instead_if, instead = (PLAYED_LAND,), more
         else:
             for pattern, kind in _SPEND:
                 if sm := pattern.fullmatch(s):
