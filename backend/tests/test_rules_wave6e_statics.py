@@ -16,7 +16,7 @@
 * Triggered keywords read through their CR meaning: battle cry (702.91a), ingest (702.115a), poisonous N (702.70a),
   frenzy N (702.68a): Hero of Oxid Ridge, Mist Intruder.
 * "Target creature becomes red [and gains haste] until end of turn." (layer 5, 613.1e; 105.3): the Wisps.
-* Afterlife N (702.135a) through its meaning: Orzhov Racketeers.
+* Afterlife N (702.135a) and extort (702.101a) through their meaning: Orzhov Racketeers, Blind Obedience.
 * "This land enters tapped unless a player has 13 or less life." / "… unless your opponents control eight or more lands."
   (614.1c, 614.12): Neglected Manor, Turbulent Moor.
 * "Each creature [you control] assigns combat damage equal to its toughness rather than its power." (510.1a's amount):
@@ -82,6 +82,7 @@ EXTRA = [
     card('Orzhov Racketeers', set_code='tst', number='E35', mana_cost='{4}{B}', cmc=5.0, type_line='Creature — Human Rogue', oracle_text='Whenever this creature deals combat damage to a player, that player discards a card.\nAfterlife 2 (When this creature dies, create two 1/1 white and black Spirit creature tokens with flying.)', power='3', toughness='2', colors=['B'], color_identity=['B'], keywords=['Afterlife']),  # noqa: E501
     card('Doran, the Siege Tower', set_code='tst', number='E36', mana_cost='{W}{B}{G}', cmc=3.0, type_line='Legendary Creature — Treefolk Shaman', oracle_text='Each creature assigns combat damage equal to its toughness rather than its power.', power='0', toughness='5', colors=['B', 'G', 'W'], color_identity=['B', 'G', 'W'], keywords=[]),  # noqa: E501
     card('Belligerent Brontodon', set_code='tst', number='E37', mana_cost='{5}{G}{W}', cmc=7.0, type_line='Creature — Dinosaur', oracle_text='Each creature you control assigns combat damage equal to its toughness rather than its power.', power='4', toughness='6', colors=['G', 'W'], color_identity=['G', 'W'], keywords=[]),  # noqa: E501
+    card('Blind Obedience', set_code='tst', number='E38', mana_cost='{1}{W}', cmc=2.0, type_line='Enchantment', oracle_text='Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nArtifacts and creatures your opponents control enter tapped.', colors=['W'], color_identity=['W'], keywords=['Extort']),  # noqa: E501
 ]
 FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime Archangel", "Bria, Riptide Rogue",
         "Caterwauling Boggart", "Timber Protector", "Demand Answers", "Bitter Triumph", "Eaten Alive",
@@ -89,7 +90,8 @@ FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime A
         "Bloodcrusher of Khorne", "Inquisitor Greyfax", "Ghost, Spectral Saboteur", "Company Commander",
         "Bruse Tarl, Roving Rancher", "Arms of Hadar", "How to Start a Riot", "Neutralize the Guards",
         "Hero of Oxid Ridge", "Mist Intruder", "Crimson Wisps", "Aphotic Wisps", "Cerulean Wisps", "Neglected Manor",
-        "Turbulent Moor", "Orzhov Racketeers", "Doran, the Siege Tower", "Belligerent Brontodon"]
+        "Turbulent Moor", "Orzhov Racketeers", "Doran, the Siege Tower", "Belligerent Brontodon",
+        "Blind Obedience"]
 STILL_MANUAL = {
     "Sedgemoor Witch": "Ward",  # (ward—Pay 3 life: a cost the ward trigger doesn't read)
     "Silvergill Adept": "reveal a Merfolk card",
@@ -682,4 +684,33 @@ def test_doran_applies_to_every_creature(cards):
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": blocker.id, "attacker_id": attacker.id}])
     through_combat(s)
     assert gone(s, blocker) and gone(s, attacker)  # (each deals 3: its toughness)
+    replay_matches(s)
+
+
+# -- extort (702.101a) ------------------------------------------------------------------------------------------------
+def test_blind_obedience_extorts_when_paid(cards):
+    s = build(cards, "Blind Obedience", "Opt")
+    put(s, "Blind Obedience")
+    opt = to_hand(s, "Opt")
+    mana(s, U=1, W=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    until(s, lambda s: s.state.rules.decision is not None and any(o.id == "pay" for o in s.state.rules.decision.options))
+    d = s.state.rules.decision
+    assert d.player == "p1"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+    settle(s)
+    assert s.state.players["p2"].life == 39 and s.state.players["p1"].life == 41
+    replay_matches(reloaded(s))
+
+
+def test_extort_declined_does_nothing(cards):
+    s = build(cards, "Blind Obedience", "Opt")
+    put(s, "Blind Obedience")
+    opt = to_hand(s, "Opt")
+    mana(s, U=1, W=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    until(s, lambda s: s.state.rules.decision is not None and any(o.id == "decline" for o in s.state.rules.decision.options))
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["decline"])
+    settle(s)
+    assert s.state.players["p2"].life == 40 and s.state.players["p1"].life == 40
     replay_matches(s)

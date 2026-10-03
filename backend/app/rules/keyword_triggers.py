@@ -22,6 +22,10 @@ MEANINGS: dict[str, str] = {
     "ingest": "Whenever this creature deals combat damage to a player, that player exiles the top card of their library.",  # 702.115a
     "poisonous": "Whenever this creature deals combat damage to a player, that player gets {n} poison counters.",  # 702.70a
     "frenzy": "Whenever this creature attacks and isn't blocked, it gets +{n}/+0 until end of turn.",  # 702.68a
+    # 702.101a ("you gain life equal to the total life lost this way": the grammar's "the life lost this way" is that
+    # total, 119.3 — effects.lose_life binds what was actually lost)
+    "extort": "Whenever you cast a spell, you may pay {{W/B}}. If you do, each opponent loses 1 life and you gain life equal "
+              "to the life lost this way.",
     # 702.135a
     "afterlife": "When this permanent is put into a graveyard from the battlefield, create {n} 1/1 white and black Spirit "
                  "creature tokens with flying.",
