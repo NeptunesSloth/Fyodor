@@ -122,6 +122,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
 
         pid = chosen.player_of(plan, ctx.get("source_card") or "", ctx.get("source_object"))
         return [pid] if pid is not None and pid in plan.live() else []
+    if who == "active_player":  # -- other players' choices (wave 12D) -- "the active player adds {C}{C}" (102.1)
+        return [plan.active] if plan.active in plan.live() else []
     if who.startswith("player:"):  # (older saves: a player bound into the effect when it triggered)
         return [who[7:]] if who[7:] in plan.live() else []
     return []
@@ -3125,6 +3127,15 @@ def add_mana(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     ctx.pop("_mana_added", None)  # (wave 3R3)
+    if "who" in e:  # -- other players' choices (wave 12D) -- "That player adds {G}{G}": 106.3, into their pool; their colour choice
+        # ("any color they choose"); a group only with fixed mana (101.4)
+        who = [p for p in plan.apnap() if p in _players(plan, ctx, e["who"])]
+        if not who:
+            return True
+        if len(who) > 1:
+            return all([_put_mana(plan, ctx, p, list(e["mana"]) if "mana" in e else [e["sym"]] * _amount(plan, ctx, e["n"]))
+                        for p in who])
+        pid = who[0]
     if "mana" in e:
         return _put_mana(plan, ctx, pid, list(e["mana"]))
     if "sym" in e:

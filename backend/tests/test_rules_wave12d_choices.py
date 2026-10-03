@@ -37,10 +37,19 @@ REAL = [
          oracle_text="Other creatures you control get +1/+1.\nWhen Trostani enters, create two 1/1 white Soldier creature tokens with "
                      "lifelink.\nAt the beginning of your end step, each player gains control of all creatures they own.",
          power="1", toughness="4", colors=["G", "W"], color_identity=["G", "W"]),
+    card("Eladamri's Vineyard", set_code="tst", number="D6", mana_cost="{G}", cmc=1.0, type_line="Enchantment",
+         oracle_text="At the beginning of each player's first main phase, that player adds {G}{G}.", colors=["G"], color_identity=["G"]),
+    card("Tangleroot", set_code="tst", number="D7", mana_cost="{3}", cmc=3.0, type_line="Artifact",
+         oracle_text="Whenever a player casts a creature spell, that player adds {G}.", color_identity=["G"]),
+    card("The Warring Triad", set_code="tst", number="D8", mana_cost="{3}", cmc=3.0, type_line="Legendary Artifact Creature — God",
+         oracle_text="Flying, trample, haste\nAs long as there are fewer than eight cards in your graveyard, The Warring Triad isn't a "
+                     "creature.\n{T}, Mill a card: Target player adds one mana of any color. (Activate only as an instant.)",
+         power="5", toughness="5", keywords=["Flying", "Haste", "Trample", "Mill"]),
     card("Wrong Turn Test", set_code="tst", number="D5", mana_cost="{2}{U}", cmc=3.0, type_line="Instant",
          oracle_text="Target opponent gains control of target creature.", colors=["U"], color_identity=["U"]),
 ]
-NAMES = ["Akroan Horse", "Humble Defector", "Sky Swallower", "Trostani Discordant", "Wrong Turn Test"]
+NAMES = ["Akroan Horse", "Humble Defector", "Sky Swallower", "Trostani Discordant", "Wrong Turn Test", "Eladamri's Vineyard", "Tangleroot",
+         "The Warring Triad"]
 
 
 @pytest.fixture()
@@ -117,4 +126,48 @@ def test_trostani_gives_every_creature_back_to_its_owner(cards):
     trostani = put(s, "Trostani Discordant")
     next_end_step(s)  # Alice's end step: each player gains control of all creatures they own
     assert s.state.cards[stolen[0].id].controller == "p1" and s.state.cards[trostani.id].controller == "p1"
+    check(s)
+
+
+# -- mana for another player (106.3, 106.4) ----------------------------------------------------------------------
+def to_turn(s, number, phase="main1"):
+    from tests.test_rules_conditionals import to_turn as go
+
+    go(s, number, phase)
+
+
+def test_eladamris_vineyard_adds_mana_for_whoever_s_main_phase_it_is(cards):
+    s = build(cards)
+    put(s, "Eladamri's Vineyard")
+    next_end_step(s)
+    to_turn(s, 2)
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].mana == {"G": 2} and s.state.players["p1"].mana == {}  # Bob's pool, not Alice's
+    check(s)
+
+
+def test_tangleroot_adds_mana_for_the_player_who_cast(cards):
+    s = build(cards)
+    put(s, "Tangleroot")
+    next_end_step(s)
+    to_turn(s, 2)
+    bear = put(s, "Grizzly Bears", "hand", "p2")
+    mana(s, "p2", G=1, U=1)
+    act(s, "p2", type="cast_spell", card_id=bear.id)
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].mana == {"G": 1} and s.state.players["p1"].mana == {}
+    check(s)
+
+
+def test_the_warring_triad_lets_a_target_player_choose_the_color(cards):
+    s = build(cards)
+    triad = put(s, "The Warring Triad")
+    s.state.rules.controlled_since[triad.id].turn = 0
+    act(s, "p1", type="activate_ability", card_id=triad.id, ability=2, targets=["p2"])
+    pass_until_stack_empty(s)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"  # 106.4: it is Bob who adds the mana, so Bob chooses
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["R"])
+    pass_until_stack_empty(s)
+    assert s.state.players["p2"].mana == {"R": 1} and s.state.players["p1"].mana == {}
     check(s)

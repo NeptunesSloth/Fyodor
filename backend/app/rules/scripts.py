@@ -2512,6 +2512,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if d is not None and _tm.adds_mana(d):
         return None
+    # -- other players' choices (wave 12D) -- "{1}, {T}: Each player adds {B}{R}{G}." has no target, so it is a mana ability
+    # (605.1a): no stack, which the engine doesn't do for another player's pool -- manual. (With a target it is not one.)
+    if d is not None and d.get("kind") == "activated" and any(
+            e.get("do") == "add_mana" and e.get("who") not in (None, "target") for e in d.get("effects") or []):
+        return None
     # -- chosen player (wave 4J) -- "the chosen player" is the one this permanent chose as it entered (app/rules/chosen.py):
     # only on a card with exactly one "As ~ enters, choose an opponent / a player." ("Choose target opponent. … the chosen
     # player" in one resolution — Haunt the Network — is another choice: not read as this)
@@ -4818,6 +4823,24 @@ def _keep_mana(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 @_mana_effect(r"add (?P<n>two|three|four|five|six|seven|eight|nine|ten|that much) (?P<sym>\{[WUBRGC]\})")
 def _add_n_of(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "add_mana", "sym": m["sym"][1], "n": _mana_n(m["n"])}], None
+
+
+# -- other players' choices (wave 12D) -- "That player adds {G}{G}." (Eladamri's Vineyard), "Target player adds one mana of any
+# color." (The Warring Triad), "Each player adds {B}{R}{G}." (Yurlok): 106.3-106.4, the mana goes into that player's pool and
+# any choice in it (a color) is theirs. "Each player" with a choice in the mana is not read (101.4: choices in turn order).
+_ADDERS = {"that player": "that_player", "the active player": "active_player", "each player": "each_player",
+           "each opponent": "each_opponent", "target player": "target", "target opponent": "target"}
+
+
+@effect(r"(?P<who>that player|the active player|each player|each opponent|target player|target opponent) adds (?P<rest>.+)")
+def _other_adds(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    found = _one_clause("add " + m["rest"])
+    if found is None or found[1] is not None or len(found[0]) != 1 or found[0][0].get("do") != "add_mana":
+        raise _NoMatch
+    e = found[0][0]
+    if m["who"].startswith("each") and len(e.get("of", ())) > 1:
+        raise _NoMatch
+    return [{**e, "who": _ADDERS[m["who"]]}], SELECTORS[m["who"]] if m["who"].startswith("target") else None
 
 
 # "Whenever you cast …, copy that spell [, except …]. You may choose new targets for the copy." / "…, copy it." (707.10):
