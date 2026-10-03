@@ -241,6 +241,7 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
     # -- keyword actions & face-down (wave 3F) -- test_rules_keywords3f.py
     "goad", "manifest", "manifest dread", "cloak", "earthbend", "incubate",
 }
+SUPPORTED_KEYWORD_ACTIONS.add("clash")  # -- clash (wave 12A) -- app/rules/clash.py, test_rules_wave12a_counters_keywords.py
 SUPPORTED_KEYWORD_ACTIONS.add("populate")  # -- token copies & attach on entry (wave 5J) -- test_rules_wave5j_token_copies.py
 
 

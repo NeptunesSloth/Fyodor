@@ -3466,4 +3466,8 @@ PRIMITIVES.update(_choice_grants.PRIMITIVES)
 from app.rules import coin_flips as _coin_flips  # noqa: E402, I001  -- coin flips (wave 7E)
 
 PRIMITIVES.update(_coin_flips.PRIMITIVES)
+from app.rules import clash as _clash  # noqa: E402, I001  -- clash (wave 12A)
+
+PRIMITIVES.update(_clash.PRIMITIVES)
+RESUME[_clash.STEP] = _clash.resume
 RESUME.update(_choice_grants.RESUME)
