@@ -263,7 +263,8 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bshuffles? up to \w+ target cards? from their graveyard\b", re.I),
      "cards from a target player's graveyard (a zone bound to an earlier target): not modelled"),
     (re.compile(r"\btarget creature with the greatest\b", re.I), "\"the greatest … among\" (a computed extreme): not modelled"),
-    (re.compile(r"\btarget creature's power and toughness\b", re.I), "switching or reading a target's P/T pair: not modelled"),
+    (re.compile(r"(?<!switch )\btarget creature's power and toughness\b", re.I),  # (switching: wave 7E, choice_grants.switch_pt)
+     "switching or reading a target's P/T pair: not modelled"),
     # -- conditional / instead clauses (wave 1B) --------------------------------------------------------
     # Conditions app/rules/conditions.py deliberately doesn't read: the clause (or the whole ability) stays manual.
     # -- refused modal/conditional (wave 3R1) -- how a spell was cast (the zone, the caster's main phase, the mana of

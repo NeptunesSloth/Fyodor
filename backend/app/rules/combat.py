@@ -80,6 +80,9 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
             return f"{bch.name} can't block {_phrase(arg)}"
         if name == "cant_block_power" and _power(ach) > _power(bch):
             return f"{bch.name} can't block creatures with greater power"
+        # -- block effects (wave 7E) -- "Target creature can't block this creature this turn" (app/rules/block_effects.py)
+        if name == "cant_block_obj" and state.rules is not None and arg == state.rules.object_id(attacker.id):
+            return f"{bch.name} can't block {ach.name} this turn"
     from app.rules import combat_rules  # -- combat (wave 5C) -- "can't block creatures you control"
 
     found = combat_rules.block_problem(state, blocker, bch, attacker, info)
@@ -595,6 +598,17 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
     for b in idle:
         if "must_block" in scripts.statics(plan.ch(b)) and any(could(b, x, joined=1 + per_attacker.get(x.id, 0)) for x in att):
             return f"{b.name} blocks each combat if able"
+    # -- block effects (wave 7E) -- "blocks this creature this turn if able": judged for the creatures that block nothing, and
+    # for those blocking another attacker unless that block meets a requirement of its own (509.1c)
+    blocking = {d.blocker_id: d.attacker_id for d in a.blocks}
+    for b in (state.cards[i] for i in blockers):
+        wanted = [arg for name, arg in map(rule_arg, scripts.statics(plan.ch(b))) if name == "must_block_obj"]
+        for x in (y for y in att if plan.oid(y) in wanted):
+            other = state.cards.get(blocking.get(b.id, ""))
+            if other is not None and (other.id == x.id or len(wanted) > 1 or "must_be_blocked" in scripts.statics(plan.ch(other))):
+                continue
+            if could(b, x, joined=1 + per_attacker.get(x.id, 0)):
+                return f"{b.name} blocks {x.name} this turn if able"
     for x in att:
         if x.id in per_attacker or "must_be_blocked" not in scripts.statics(plan.ch(x)):
             continue

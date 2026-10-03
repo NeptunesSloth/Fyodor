@@ -145,6 +145,12 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         n = 0 if m["no"] else _num(m["n"])
         if n is not None:
             return {"value": {"counters": m["k"], "on": "self"}, "op": "==" if m["no"] else _cmp(m["cmp"]), "n": n}
+    from app.rules import (
+        coin_flips,  # -- coin flips (wave 7E) -- "If you win the flip" (705.2: app/rules/coin_flips.py)
+    )
+
+    if (flip := coin_flips.condition(t)) is not None:
+        return flip
     # -- combat (wave 5C) -- "it's the first combat phase of the turn" (500.8: additional ones may follow), "it's your
     # main phase" (505.1)
     if t in ("it's the first combat phase of the turn", "it is the first combat phase of the turn"):
@@ -711,6 +717,10 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "coin" in cond:  # -- coin flips (wave 7E) -- this resolution's own flip (app/rules/coin_flips.py)
+        from app.rules import coin_flips
+
+        return coin_flips.holds(ctx, cond)
     if "act7b" in cond:  # -- activation wordings (wave 7B) -- app/rules/activation_words.py
         from app.rules import activation_words
 
