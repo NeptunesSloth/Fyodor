@@ -291,6 +291,10 @@ class CopyCard(Base):
     player: Id | None = None  # controller of the copy (default: actor)
     count: int = Field(default=1, ge=1, le=50)
     modifications: str = Field(default="", max_length=300)
+    # -- cast a copy (wave 13C) -- 707.12: the copy is made in the card's own zone (exile / graveyard); 722.3c: a prepared
+    # permanent's copy is made in exile with the face of its prepare spell
+    zone: Literal["exile", "graveyard"] | None = None
+    face: int | None = None
     x: Coord | None = None
     y: Coord | None = None
     r: NewIds | None = None

@@ -101,6 +101,8 @@ _TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|thos
 # "Until end of turn, you may play lands and cast spells from your graveyard." (Yawgmoth's Will)
 GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>play lands and cast spells|play lands|cast spells)"
                         r" from your graveyard(?P<this_turn> this turn)?$")
+# -- cast a copy (wave 13C) -- "You may cast the copy without paying its mana cost." (707.12; each copy is its own choice, 707.12a)
+FREE_COPY = re.compile(r"^you may cast (?P<w>the copy|the copies|any number of the copies) without paying (?:its|their) mana costs?$")
 # -- cast without paying (wave 3C) --
 # "You may cast a spell with mana value 5 or less from your hand without paying its mana cost." (cast now,
 # as this resolves: 608.2g) / "You may cast an instant or sorcery spell from your hand with mana value X
@@ -487,6 +489,11 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             return None
         return [{"do": "cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1), "filter": key,
                  "until": "next_turn" if m["until"] else "end_of_turn"}], None
+    m = FREE_COPY.fullmatch(text)  # -- cast a copy (wave 13C) --
+    if m:
+        many = m["w"] != "the copy"
+        return [{"do": "free_cast", "zone": "that", "who": "them:copy" if many else "it:copy", "filter": None, "optional": True,
+                 "mv": None, "n": 99 if many else 1}], None
     among = _free_among(text)  # -- refused look/cast-free (wave 3R5) --
     if among is not None:
         return among, None

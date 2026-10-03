@@ -101,11 +101,13 @@ def find(plan: Plan) -> Found:
                 r.drew_from_empty = [p_ for p_ in r.drew_from_empty if p_ != pid]  # (704.5b: checked, nothing happened)
                 continue
             out.losers.append((pid, reason))
+    from app.rules import keyword_actions
     from app.rules.copying import ceases_to_exist
 
     for card in list(state.cards.values()):
         if card.is_token and not card.zone.endswith((":battlefield", ":phased")) and card.zone != "stack":  # (702.26d: tokens persist phased out)
-            out.vanishing.append(card)
+            if keyword_actions.prepared_permanent(state, card.id) is None:  # -- prepared (wave 13C) -- 722.3c: an exception to 704.5e
+                out.vanishing.append(card)
             continue
         if ceases_to_exist(plan, card):  # -- copy system (wave 2F): 704.5d (a token on the stack), 704.5e --
             out.vanishing.append(card)

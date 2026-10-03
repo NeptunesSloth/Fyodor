@@ -127,7 +127,7 @@ _BEATS_SELF = re.compile(r"(?P<who>it|that creature) has greater (?P<a>power|tou
                          r"(?P<who2>its|that creature's) power is greater than ~'s(?: power)?"
                          r"(?: or (?:its|that creature's) toughness is greater than ~'s toughness)?")
 _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking", "blocking": "blocking",
-           "suspected": "suspected"}  # (suspected: wave 12A, 701.60 — a designation of the source, like its other states)
+           "suspected": "suspected", "prepared": "prepared"}  # (prepared: wave 13C, 722.3; suspected: wave 12A, 701.60 — a designation of the source, like its other states)
 # -- counters (wave 5H) -- "if it had counters on it", "if it had a +1/+1 counter on it", "if ~ has counters on it",
 # "if it doesn't have an indestructible counter on it": the object's counters as it is, or as it last existed
 # (603.10a, 122.2: they cease to exist as it leaves)
@@ -1043,12 +1043,14 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
         tapped, attacking, blocking = card.tapped, card.attacking is not None, bool(card.blocking)
         if test == "suspected":
             return plan.oid(card) in plan.rules.suspected
+        if test == "prepared":  # -- prepared (wave 13C) -- 722.3a
+            return plan.oid(card) in plan.rules.prepared
     else:
         snap = plan.rules.lki.get(ctx.get("source_object") or "")
         if snap is None:
             return False
         tapped, attacking, blocking = snap.tapped, snap.attacking, snap.blocking
-        if test == "suspected":
+        if test in ("suspected", "prepared"):
             return False
     return {"tapped": tapped, "untapped": not tapped, "attacking": attacking, "blocking": blocking}[test]
 

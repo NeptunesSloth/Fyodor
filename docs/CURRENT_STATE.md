@@ -120,7 +120,12 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   a trigger whose source left the battlefield matches nothing for "the chosen type".
 - **Sylvan Library** (per-card "drawn this turn" is hidden information), Lim-Dûl's Vault, Djinn of
   Wishes, Protean Hulk.
-- **Copies**: cast-a-copy (707.12), "each other object it could target" (Zada), Garth One-Eye / Magar,
+- **Copies**: cast-a-copy only as "[exile a card and] copy it / that card [N times]. You may cast the copy without paying its
+  mana cost" (wave 13C, 707.12: `copying.copy_cards` + `permissions.FREE_COPY`; the copy is made in the card's own zone;
+  a non-free "You may cast the copy", "cast the copy by paying …" and copies of imprinted / "exiled with" cards stay manual),
+  Prepared (wave 13C, 722): `rules.prepared` (object -> its exiled copy, face 1), "enters prepared" / "becomes prepared" /
+  "isn't prepared", the copy is cast for its normal cost (cast_grant "prepared") and unprepares the permanent; a prepared
+  token or copy of a permanent is not prepared (no tracked prepare spell). Also left: "each other object it could target" (Zada), Garth One-Eye / Magar,
   linked abilities (707.7), melded and reversible sources.
 - **Mana**: restricted mana added by spells (Geosurge, Karn), "that spell can't be countered" riders,
   restrictions on costs rather than spells, Mana Drain, exhaust mana abilities. Snow mana `{S}` (wave 7E) is paid only by tapping a snow

@@ -643,6 +643,43 @@ def copy_stack_object(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return run(plan, job)
 
 
+# -- cast a copy (wave 13C) -- 707.12: "Copy it. You may cast the copy without paying its mana cost."
+def copy_cards(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Copy it / that card / those cards [three times]" of a card in exile or a graveyard (707.12): each copy is
+    made in the card's own zone and may then be cast while this resolves (permissions.free_cast); one not cast
+    ceases to exist (704.5e). Recorded as the instruction's objects ("the copy"). A card in a hidden zone, a
+    face-down or double-faced one (707.8, 707.8a) is copied by hand."""
+    from app.rules import effects, values
+
+    n = values.evaluate(plan, ctx, e.get("n", 1))
+    pid = ctx["controller"]
+    made: list[str] = []
+    by_hand: list[str] = []
+    for cid in effects._cards(plan, ctx, e["who"]):
+        card = plan.state.cards[cid]
+        if card.zone.rsplit(":", 1)[-1] not in ("exile", "graveyard") or card.is_token:
+            continue  # (nothing to copy there: a hidden zone, or the card left)
+        data = plan.info.get(card.card_id) if card.card_id else None
+        if card.face_down or (data or {}).get("layout") != "normal":
+            by_hand.append(plan.ch(card).name or "it")
+            continue
+        if (why := uncopyable(plan, card)) is not None:  # "" = 113.6g "can't be copied" (noted); else (an Aura) by hand
+            if why:
+                by_hand.append(plan.ch(card).name or "it")
+            continue
+        for _ in range(n):
+            created = plan.do({"type": "copy_card", "card_id": cid, "player": pid, "count": 1, "zone": card.zone.rsplit(":", 1)[-1]}, actor=pid)
+            made.extend(getattr(getattr(created, "r", None), "ids", []))
+    effects._remember(plan, ctx, e, made)
+    if by_hand:
+        job = new_job(ctx, controller=pid, objects=[], retarget=False, label=ctx.get("name") or "Copy")
+        plan_decide(plan, player=pid, kind="manual_resolution", options=[DecisionOption(id="done", label="Done")],
+                    prompt=f"Copying {', '.join(by_hand)} isn't automated (707.8): make the copy by hand, then press Done"[:300],
+                    resume={"step": "copy_manual", "job": job})
+        return False
+    return True
+
+
 def new_targets_marker(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True  # read by the copy before it (``_retarget_follows``)
 
@@ -1255,5 +1292,5 @@ def define_static(text: str) -> dict[str, Any] | None:
 
 
 PRIMITIVES = {"copy_spell": copy_stack_object, "copy_ability": copy_stack_object, "copy_new_targets": new_targets_marker,
-              "token_copy": token_copy, "become_copy": become_copy}
+              "token_copy": token_copy, "become_copy": become_copy, "copy_cards": copy_cards}
 RESUME = {"copy_mode": resume_mode, "copy_target": resume_target, "copy_manual": resume_manual}

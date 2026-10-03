@@ -20,8 +20,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.game.rules_state import DecisionOption
-from app.game.state import zone_key
+from app.game.rules_state import DecisionOption, copy_recipe_of
+from app.game.state import CardInstance, GameState, zone_key
 from app.rules import effects, facedown, replace, selectors, token_grammar
 from app.rules.plan import Plan, decide
 
@@ -336,6 +336,46 @@ def suspect(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+# -- prepared (wave 13C) -- 722.3: the designation is kept by rules object (``rules.prepared``: object -> its copy)
+def prepared_permanent(state: GameState, copy_id: str) -> CardInstance | None:
+    """The permanent this exiled copy belongs to while it is still that prepared object on the battlefield (722.3c)."""
+    r = state.rules
+    if r is None:
+        return None
+    for oid, cid in r.prepared.items():
+        perm = state.cards.get(oid.rsplit(".", 1)[0])
+        if cid == copy_id and perm is not None and perm.zone.endswith(":battlefield") and r.object_id(perm.id) == oid:
+            return perm
+    return None
+
+
+def become_prepared(plan: Plan, card: CardInstance) -> None:
+    """722.3a / 722.3c: a permanent with a prepare spell gains the designation (once), and its controller creates a copy
+    of it in exile with only the prepare spell's characteristics (the card's second face, 722.2), which stays there while
+    it remains prepared on the battlefield (an exception to 704.5e: sba.py) and may be cast (casting.cast_grant)."""
+    oid = plan.oid(card)
+    if oid in plan.rules.prepared or not card.zone.endswith(":battlefield"):
+        return
+    data = plan.info.get(card.card_id) if card.card_id else None
+    if (data or {}).get("layout") != "prepare" or card.is_token or card.face_down or copy_recipe_of(plan.rules, oid) is not None:
+        return  # (no prepare spell, 722.3a — or a copy of a permanent, whose copiable values aren't tracked here: not made)
+    created = plan.do({"type": "copy_card", "card_id": card.id, "player": card.controller, "count": 1, "zone": "exile", "face": 1},
+                      actor=card.controller)
+    made = getattr(getattr(created, "r", None), "ids", [])
+    if made:
+        plan.rules.prepared[oid] = made[0]
+    plan.note(f"{card.name} becomes prepared", [card.id], actor=card.controller)
+
+
+def prepare(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"~ becomes prepared" (722.3a)."""
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    effects._remember(plan, ctx, e, cards)
+    for cid in cards:
+        become_prepared(plan, plan.state.cards[cid])
+    return True
+
+
 def detain(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.35a: "Until the next turn of the controller of that spell or ability, that permanent can't attack or block and
     its activated abilities can't be activated." (Mana abilities too: ``cant_activate``.) Detaining it again just extends
@@ -490,7 +530,7 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
 
 
 PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
-              "goad": goad, "detain": detain, "suspect": suspect, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform,
+              "goad": goad, "detain": detain, "suspect": suspect, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform,
               **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
 RESUME = {"amass_choose": resume_amass, "bolster_choose": resume_bolster, "connive_discard": resume_connive,

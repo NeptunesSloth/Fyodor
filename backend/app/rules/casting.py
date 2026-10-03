@@ -1416,8 +1416,13 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
     paying its mana cost" permission (118.9) — an alternative cost, which is optional (118.9b), so
     it is never applied to a plain cast: without the opt-in only paid ways count, and a card that
     only a free permission lets them cast isn't castable that way."""
+    from app.rules import keyword_actions
+
     how = "hand" if card.zone == zone_key(player, "hand") else "command" if from_command_zone(card, player) else \
         "flashback" if from_graveyard(card, player, ch, state) else None
+    if how is None and card.is_token and (perm := keyword_actions.prepared_permanent(state, card.id)) is not None \
+            and perm.controller == player:
+        how = "prepared"  # -- prepared (wave 13C) -- 722.3c: its controller may cast the copy in exile
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
     flash = any(g.flash for g in found)
     if how is None and info is not None and card.zone == zone_key(player, "graveyard") and not free \
@@ -1848,6 +1853,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}, "face_down": True, "face_down_kind": face_down_kind})
     else:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
+    if grant is not None and grant.how == "prepared":  # -- prepared (wave 13C) -- 722.3c, 601.2i: it loses the designation as the copy is cast
+        plan.rules.prepared = {o: c for o, c in plan.rules.prepared.items() if c != card.id}
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
     record = pay_spell(plan, a, card, ch, cost, f"paid {cost.text()} for {ch.name or 'a face-down spell'}", not_mana=not_mana)
