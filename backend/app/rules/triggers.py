@@ -63,7 +63,7 @@ from app.game.rules_state import (
 )
 from app.game.state import CardInstance, StackInfo, TokenDef
 from app.rules import characteristics as chars
-from app.rules import delayed, layers, scripts, selectors
+from app.rules import delayed, designations, layers, scripts, selectors
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan, decide
 from app.rules.targets import choose_groups, label, legal_targets, ref, source_of
@@ -1004,8 +1004,8 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
         if card.zone.endswith(":graveyard"):  # -- refused zones/sized (wave 3R4) --
             out += graveyard_abilities(plan, card, trigger)
             continue
-        if not card.zone.endswith(":battlefield") or not plan.in_game(card) or plan.manual(card):
-            continue
+        if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or not plan.in_game(card) or plan.manual(card):
+            continue  # (-- emblems (wave 13A) -- 114.4: an emblem's triggered abilities work from the command zone)
         ch = plan.ch(card)
         out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger) if not graveyard_ability(d)]
     return out
@@ -1143,7 +1143,7 @@ def at_step(plan: Plan, trigger: str) -> None:
                 _add(plan, controller=card.owner, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i,
                      definition=d)
             continue
-        if not card.zone.endswith(":battlefield") or card.controller != plan.active or plan.manual(card):
+        if not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or card.controller != plan.active or plan.manual(card):
             continue
         ch = plan.ch(card)
         for i, d in abilities(plan, ch, trigger):
@@ -1163,7 +1163,7 @@ def at_step_generic(plan: Plan) -> None:
         gy = card.zone.endswith(":graveyard")  # -- refused zones/sized (wave 3R4) -- (113.6m)
         if gy and card.owner in plan.live() and not plan.manual(card) and "graveyard" in (plan.ch(card).oracle_text or ""):
             pass
-        elif not card.zone.endswith(":battlefield") or plan.manual(card) or card.controller not in plan.live():
+        elif not (card.zone.endswith(":battlefield") or designations.emblem_card(card)) or plan.manual(card) or card.controller not in plan.live():
             continue
         ch = plan.ch(card)
         for i, d in scripts.definitions(ch).items():

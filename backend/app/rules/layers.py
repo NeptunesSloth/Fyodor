@@ -118,7 +118,10 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     gy_modes = tuple(r.card_mode(cid) for _, ids in graveyards for cid in ids) if r else ()
     hosts = tuple(sorted((cid, c.attached_to or "") for cid, c in state.cards.items()
                          if c.zone.endswith(":battlefield") and c.attached_to))
-    key_all: tuple = (key, graveyards, gy_modes, hosts, tuple(sorted(live)),
+    # -- emblems (wave 13A) -- 114: the emblems in the command zones (their text is part of the key)
+    emblems = tuple(sorted((cid, c.owner, c.token.text) for cid, c in state.cards.items()
+                           if c.token is not None and c.zone.endswith(":command") and c.token.type_line == "Emblem"))
+    key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)),
                       # -- attached events (wave 4L) -- "loses all abilities" effects: their objects' statics are gone
                       tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else ())
     hit = _STATIC_CACHE.get(key_all)
@@ -155,6 +158,11 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
             for d in scripts.definitions(printed).values():
                 if d["kind"] == "static" and d.get("static") == "grant" and grammar.zone_static(d):
                     out.append(Static(cid, p, d, timestamp(state, cid)))
+    # -- emblems (wave 13A) -- 114.4: an emblem's static abilities apply as long as it exists; its owner controls it (114.3)
+    for cid, owner, _ in emblems:
+        if owner in live:
+            out += [Static(cid, owner, d, timestamp(state, cid)) for d in scripts.definitions(copiable(state, state.cards[cid], info)).values()
+                    if d["kind"] == "static" and d.get("static") == "grant"]
     # -- attached events (wave 4L) -- a permanent that lost all abilities (613.1f: by a resolved effect, or by an
     # Aura's "Enchanted creature loses all abilities") has none of its static abilities: they don't apply
     from app.rules import attached_types
