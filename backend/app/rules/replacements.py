@@ -224,6 +224,8 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
 
                 for piece in keyword_triggers.pieces("modular", ab.text):
                     counters["+1/+1"] = counters.get("+1/+1", 0) + int(piece.split()[1])
+        if x and any(ab.kind == "keywords" and "ravenous" in ab.keywords for ab in ch.abilities):  # -- keyword meanings (wave 11B) -- 702.156a
+            counters["+1/+1"] = counters.get("+1/+1", 0) + x
         for d in scripts.definitions(ch).values():
             if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
                 n = _counter_amount(plan, card.id, controller, d, x)

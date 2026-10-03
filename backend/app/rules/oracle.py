@@ -235,6 +235,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         line = raw.strip()
         if not line:
             continue
+        # -- keyword meanings (wave 11B) -- 702.107a: "Outlast [cost]" means "[Cost], {T}: Put a +1/+1 counter on this
+        # creature. Activate only as a sorcery." (read as that activated ability)
+        if m := re.fullmatch(r"Outlast ((?:\{[^}]+\})+)", line):
+            line = f"{m[1]}, {{T}}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
         kind, kws, cost = classify(line, spell=spell)
         out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost))
     return out
