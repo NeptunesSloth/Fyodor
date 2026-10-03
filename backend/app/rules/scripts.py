@@ -2118,6 +2118,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str):
         return None  # ("up to X target …" in a trigger: its targets are chosen before any X is known to it)
+    from app.rules import entry_forms  # -- entry forms (wave 5F) -- "It's an enchantment." only right after a return
+
+    if d is not None and not entry_forms.enters_as_bound(d.get("effects") or []):
+        return None
     return d
 
 
@@ -3224,6 +3228,16 @@ def _is_in_addition(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if found is None or any(e["do"] != "become" or e.get("abilities") or e.get("lose_abilities") for e in found[0]):
         raise _NoMatch
     return found
+
+
+# -- entry forms (wave 5F) -- "It's an enchantment." after "return it to the battlefield" (the Enduring cycle): the card
+# types are set as it enters (611.2e; app/rules/entry_forms.py) — read only right after such a return (``define``)
+@effect(r"it's an enchantment(?: \(it's not a creature\.?\))?")
+def _enters_as_enchantment(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "enters_as", "who": "it", "types": ["Enchantment"]}], None
+
+
+_RECORDING["enters_as"] = None
 
 
 @_first  # (before agent J's "until your next turn" wrapper, which only wraps pumps, grants and restrictions)

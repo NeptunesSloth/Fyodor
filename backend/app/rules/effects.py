@@ -1763,6 +1763,7 @@ PRIMITIVES = {
 from app.rules import copying  # noqa: E402
 
 PRIMITIVES.update(copying.PRIMITIVES)
+PRIMITIVES.update(entry_forms.PRIMITIVES)  # -- entry forms (wave 5F) -- "It's an enchantment." (611.2e)
 
 
 def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:

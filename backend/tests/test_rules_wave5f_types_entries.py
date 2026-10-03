@@ -76,6 +76,13 @@ EXTRA = [
                      "abilities pays for {1}.)\nYou may have this creature enter as a copy of any creature on the battlefield, except "
                      "it's a Synth artifact creature in addition to its other types.", power='0', toughness='0', colors=['U'],
          color_identity=['U'], keywords=['Improvise']),
+    card('Enduring Curiosity', set_code="tst", number="5F401", mana_cost='{2}{U}{U}', cmc=4.0,
+         type_line='Enchantment Creature — Cat Glimmer',
+         oracle_text="Flash\nWhenever a creature you control deals combat damage to a player, draw a card.\nWhen Enduring Curiosity "
+                     "dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment. (It's "
+                     "not a creature.)", power='4', toughness='3', colors=['U'], color_identity=['U'], keywords=['Flash']),
+    card('Disenchant', set_code="tst", number="5F501", mana_cost='{1}{W}', cmc=2.0, type_line='Instant',
+         oracle_text='Destroy target artifact or enchantment.', colors=['W'], color_identity=['W']),
     card('Reanimate', set_code="tst", number="5F301", mana_cost='{B}', cmc=1.0, type_line='Sorcery',
          oracle_text="Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that "
                      "card's mana value.", colors=['B'], color_identity=['B']),
@@ -490,4 +497,38 @@ def test_clever_impersonator_cast_as_an_aura_copy_is_attached_by_hand(cards):
     d = rules(s).decision
     assert d is not None and d.kind == "manual_resolution"
     assert ch(s, s.state.cards[imp.id]).name == "Pacifism"
+    roundtrip(s)
+
+
+# -- the Enduring cycle: "It's an enchantment." (611.2e, 603.4, 608.2h) ----------------------------------------------------
+def test_enduring_wording_is_covered_only_after_a_return():
+    text = ("When Enduring Curiosity dies, if it was a creature, return it to the battlefield under its owner's control. "
+            "It's an enchantment. (It's not a creature.)")
+    assert ok(text, "Enduring Curiosity", "Enchantment Creature — Cat Glimmer")
+    assert not ok("When this creature dies, draw a card. It's an enchantment.")
+
+
+def test_enduring_curiosity_returns_as_an_enchantment_then_stays_dead(cards):
+    s = build(cards, [(1, "Enduring Curiosity"), (1, "Soul Warden"), (1, "Disenchant")])
+    put(s, "Soul Warden", "battlefield")
+    curiosity = put(s, "Enduring Curiosity", "battlefield")
+    life = s.state.players["p1"].life
+    act(s, "p1", type="set_damage", card_ids=[curiosity.id], delta=3)  # lethal: it dies (704.5g)
+    act(s, "p1", type="pass_priority")
+    drive(s)
+    c = s.state.cards[curiosity.id]
+    got = ch(s, c)
+    assert c.zone == "p1:battlefield" and got.types == frozenset({"Enchantment"}) and not got.is_creature
+    assert "Glimmer" not in got.subtypes and "Cat" not in got.subtypes  # (205.1a: no creature types without the type)
+    # 611.2e: it was never a creature on the battlefield — Soul Warden's "another creature enters" didn't trigger
+    assert s.state.players["p1"].life == life
+    entry = [e for e in rules(s).turn_log.entered if e.card == c.id][-1]
+    assert entry.types == ["Enchantment"]
+    roundtrip(s)
+    # destroyed as an enchantment, it wasn't a creature as it last existed: it stays in the graveyard (603.4)
+    disenchant = put(s, "Disenchant", "hand")
+    act(s, "p1", type="add_mana", player="p1", mana={"W": 1, "C": 1})
+    act(s, "p1", type="cast_spell", card_id=disenchant.id, targets=[c.id])
+    drive(s)
+    assert s.state.cards[c.id].zone == "p1:graveyard"
     roundtrip(s)
