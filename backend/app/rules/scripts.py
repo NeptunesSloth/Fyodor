@@ -439,6 +439,15 @@ def _counted_group(e: dict[str, Any]) -> str | None:
 # -- end counters (wave 5H) --
 
 
+def _cast_trigger_spell_cond(cond: dict[str, Any]) -> bool:
+    """-- ability words (wave 9C) -- is a condition (or a part of one, under "not" / "all" / "any" as an "instead" clause
+    makes it) about the mana spent to cast a cast trigger's spell ("if no mana was spent to cast it", opus)?"""
+    cast = cond.get("cast") or {}
+    return bool(cast.get("no_mana") or cast.get("event_spell")) or any(
+        _cast_trigger_spell_cond(c) for k in ("all", "any") for c in cond.get(k, ())) or (
+        "not" in cond and _cast_trigger_spell_cond(cond["not"]))
+
+
 def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: list[dict[str, Any]] | None = None,
                *, sentences: list[int] | None = None, event_player: bool = False) -> list[dict[str, Any]] | None:
     """Resolve the pronouns in parsed effects — the placeholders "who": "it" / "them" (with a verb:
@@ -624,7 +633,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             # -- conditional / instead clauses (wave 1B) --  "If it's a land card, …": the object the pronoun
             # names, read as it is (or as it last existed, 608.2h): a plain target stays "target"
             if e.get("do") == "only_if" and _cond_has_it(e["cond"]) and antecedent == "event_spell" \
-                    and e["cond"].get("cast", {}).get("no_mana"):  # -- if you do (wave 5G) -- the cast spell
+                    and _cast_trigger_spell_cond(e["cond"]):
+                # (-- if you do (wave 5G) -- the cast spell; -- ability words (wave 9C) -- opus: "five or more mana was spent")
                 e["cond"] = _bind_cond(e["cond"], "event")
             if e.get("do") == "only_if" and _cond_has_it(e["cond"]):
                 ref = cond_ref(index)
@@ -2559,6 +2569,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     name = "multi:enters_self+event" if both else (_legacy_trigger(cond) or "event")
                 # (a trigger about a player, or damage to one, names them: "that player")
                 has_player = cond is not None and _has_player(cond)
+                if cond is not None and cond.get("event") == "cast" and cond.get("player") == "you":
+                    has_player = False  # -- ability words (wave 9C) -- "Whenever you cast …, target player mills …. … that player
+                    # mills ten cards instead" (Exhibition Tidecaller): the caster is "you", never "that player"
                 # -- sagas & attached-object triggers (wave 3S) -- "When enchanted creature dies, return
                 # this card to its owner's hand": the Aura's new object in its owner's graveyard (400.7f)
                 aura_card = cond is not None and cond.get("subject") == "host" and cond["event"] in _GONE \
@@ -3873,6 +3886,9 @@ def _conditional_inner(rest: str, cond: dict[str, Any] | None = None) -> tuple[l
     groups; "you may …" only when the clause models its own choice (else the gate would make the whole
     effect optional, or ask nothing). ``cond``: the condition it belongs to, whose subject "it" names
     when that is the source ("If this enchantment isn't a creature, it becomes …")."""
+    from app.rules import kicked_instead  # -- ability words (wave 9C) -- "If C, ~ also gains double strike" (an addition)
+
+    rest = kicked_instead.plain_addition(rest)
     found = _clause(rest)
     if found is None or not found[0]:
         return None
@@ -3955,14 +3971,15 @@ def _instead_or_otherwise(text: str, effects: list[dict[str, Any]], prev_start: 
             prev_start += 1
         rest = kicked_instead.plain_pronoun(rest)
         restated = kicked_instead.restate(rest, base)
-        if restated is not None and it is not None and _cond_has_it(cond):
+        spell_cond = _cast_trigger_spell_cond(cond)  # -- ability words (wave 9C) -- opus: the cast trigger's spell, never a target
+        if restated is not None and it is not None and _cond_has_it(cond) and not spell_cond:
             return False  # ("If that land is a Mountain, ~ deals 2 damage instead": the trigger's land, not the target)
         if rest.startswith("it deals ") and base[0]["do"] == "damage" and not base[0].get("src"):
             rest = "~ deals " + rest[len("it deals "):]  # (the source of the damage the sentence before it dealt)
         alt = (restated, None) if restated is not None else _bind_subject(cond, _clause(rest))
         if alt is None or alt[1] is not None or not _replaceable(base, alt[0]):
             return False
-        if _cond_has_it(cond):  # "it": what the replaced sentence is about — its one target (else an earlier object)
+        if _cond_has_it(cond) and not spell_cond:  # "it": what the replaced sentence is about — its one target (else an earlier object)
             whos = {str(e["who"]) for e in base if str(e.get("who") or "").startswith("target")}
             if len(whos) > 1:
                 return False
@@ -4527,6 +4544,13 @@ def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if isinstance(count, dict) and count.get("hand") == "target":
         raise _NoMatch  # ("cards in target opponent's hand": a player amount the pronoun binder can't carry yet: manual)
     return [{"do": "add_mana", "sym": (m["sym"] or m["sym2"])[1], "n": count}], None
+
+
+# -- ability words (wave 9C) -- opus: "add an amount of {R} equal to this creature's power" (Molten-Core Maestro): the source's
+# power as the instruction is carried out (a triggered ability that adds mana still uses the stack: 605.1b)
+@_mana_effect(rf"add an amount of (?P<sym>{_SYM}) equal to (?:this creature|~)'s power")
+def _add_own_power(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "add_mana", "sym": m["sym"][1], "n": {"power": "self"}}], None
 
 
 # -- stack interaction (wave 5B) -- Mana Drain: "… add an amount of {C} equal to that spell's mana value": the spell an
