@@ -733,7 +733,7 @@ _SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
 _OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that permanent's) owner shuffles it into their library")
 _OWNER_CHOICE = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it on their choice of the top or bottom of their library")
 _SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)?|shuffle your (?P<z>graveyard|hand and graveyard) into your library"
-                      rf"|{_SUBJECTS} shuffles(?: their (?P<z2>graveyard|hand and graveyard) into their library)?)")
+                      rf"|{_SUBJECTS} shuffles(?: their library| their (?P<z2>graveyard|hand and graveyard) into their library)?)")
 
 
 # -- refused look/cast-free (wave 3R5) -- one card of each listed kind, each a different card: "You may put a
@@ -2054,7 +2054,7 @@ def look_hand(m: re.Match[str]) -> tuple[Effects, Any]:
     return [{"do": "reveal_hand", "who": who, "private": True}, *chosen], _one(group)
 
 
-EXILE_FROM_HAND = rf"(?P<s>{CHOOSER}) exiles (?P<n>{AMT}) cards? from their hand"  # (Aim for the Head, Witness the End)
+EXILE_FROM_HAND = rf"(?P<s>{CHOOSER}) exiles (?P<n>{AMT}) cards? from their (?P<z>hand|graveyard)"  # (Aim for the Head, Witness the End; wave 15D: Relic of Progenitus)
 
 
 def exile_from_hand(m: re.Match[str]) -> tuple[Effects, Any]:
@@ -2062,7 +2062,7 @@ def exile_from_hand(m: re.Match[str]) -> tuple[Effects, Any]:
     n = _amount(m["n"])
     if not isinstance(n, int):
         raise _Fail
-    return [{"do": "discard", "who": who, "n": n, "to": "exile"}], _one(group)
+    return [{"do": "discard", "who": who, "n": n, "to": "exile", **({"zone": "graveyard"} if m["z"] == "graveyard" else {})}], _one(group)
 
 
 def discard_all_revealed(m: re.Match[str]) -> tuple[Effects, Any]:
@@ -2207,6 +2207,12 @@ _BECOME_LAND = re.compile(
     rf"(?P<pick>the basic land type of your choice))(?P<add> in addition to its other types)?(?P<trail> until end of turn)?$")
 
 
+# -- activated wordings (wave 15D) -- "This creature becomes the creature type of your choice until end of turn." (Mistform
+# Dreamer), "Target creature becomes the color of your choice until end of turn.": a public choice made as it resolves (608.2),
+# then the same layer 4 / 5 effect as "becomes a Frog" / "becomes red" (205.1a: the chosen type replaces its creature types)
+_BECOME_PICK = re.compile(r"^(?:until end of turn, )?(?P<o>.+?) becomes? the (?P<what>creature type|color) of your choice until end of turn$")
+
+
 def _become_land(m: re.Match[str]) -> tuple[Effects, Any]:
     kind, key, group = ref(m["o"])
     if kind != "target" or group is None or '"types":["Land"]' not in key or (m["lead"] and m["trail"]):
@@ -2227,6 +2233,11 @@ def _become(text: str) -> tuple[Effects, Any]:
     text, rider = _with_rider(text)
     if rider is None and (land := _BECOME_LAND.fullmatch(text)) is not None:
         return _become_land(land)
+    if rider is None and (pick := _BECOME_PICK.fullmatch(text)) is not None:  # -- activated wordings (wave 15D) --
+        kind, key, group = ref(pick["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "become", "who": _who(kind, key), "types": [], "pick": pick["what"], "duration": "end_of_turn"}], _one(group)
     m = _BECOME.fullmatch(text)
     if m is None and rider is None and (c := _BECOME_COLOR.fullmatch(text)) is not None:
         return _become_color(c)  # -- static wordings (wave 6E) --
