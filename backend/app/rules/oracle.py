@@ -243,6 +243,11 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         # creature. Activate only as a sorcery." (read as that activated ability)
         if m := re.fullmatch(r"Outlast ((?:\{[^}]+\})+)", line):
             line = f"{m[1]}, {{T}}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
+        # -- keyword meanings (wave 12B) -- 702.97a: "Scavenge [cost]" means "[Cost], Exile this card from your graveyard: Put a
+        # number of +1/+1 counters equal to the power of the card you exiled on target creature. Activate only as a sorcery."
+        if m := re.fullmatch(r"Scavenge ((?:\{[^}]+\})+)", line):
+            line = (f"{m[1]}, Exile this card from your graveyard: Put X +1/+1 counters on target creature, where X is this "
+                    "creature's power. Activate only as a sorcery.")  # (X: the exiled card's power, as it last existed)
         kind, kws, cost = classify(line, spell=spell)
         out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost))
     return out

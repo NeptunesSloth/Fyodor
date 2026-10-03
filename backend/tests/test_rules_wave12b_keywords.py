@@ -2,14 +2,45 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from app.cards.importer import build_database
+from app.config import Settings
 from app.game.errors import ActionError
+from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
+from tests.test_rules_combat import creature
 from tests.test_rules_conditionals import settle
 from tests.test_rules_effects import replay_matches
-from tests.test_rules_wave6c_tokens_pumps import mana, reloaded
+from tests.test_rules_wave6c_tokens_pumps import build, card_named, mana, reloaded
 from tests.test_rules_wave7e_activated import combat_table
+
+
+EXTRA = [
+    card('Deadbridge Goliath', set_code='tst', number='Y01', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Creature — Insect Skeleton', oracle_text="Scavenge {4}{G}{G} ({4}{G}{G}, Exile this card from your graveyard: Put a number of +1/+1 counters equal to this card's power on target creature. Scavenge only as a sorcery.)", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Scavenge']),  # noqa: E501
+]
+
+
+@pytest.fixture()
+def card_db(settings: Settings) -> Path:
+    settings.ensure_dirs()
+    build_database(fixture_cards() + EXTRA, settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
+def test_scavenge_puts_counters_equal_to_the_exiled_cards_power(cards):
+    s = build(cards, "Deadbridge Goliath", forests=12)
+    goliath = card_named(s, "Deadbridge Goliath")
+    bear = creature(s, "p1", "Bear", "2/2")
+    act(s, "p1", type="move", card_ids=[goliath.id], to={"zone": "graveyard"})
+    mana(s, G=2, C=4)
+    act(s, "p1", type="activate_ability", card_id=goliath.id, ability=0, targets=[bear.id])
+    settle(s)
+    assert s.state.cards[bear.id].counters == {"+1/+1": 5}  # 702.97a: the power of the card exiled
+    assert s.state.cards[goliath.id].zone == "p1:exile"
+    check(s)
 
 
 def check(s):
