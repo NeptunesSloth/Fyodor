@@ -1612,6 +1612,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
         return None
+    # -- review (wave 7R) -- "Create a tapped 2/2 black Zombie creature token and exile that card." (Wight): "that card" is
+    # the card the trigger is about, never the token just created (a token is no card), and the pronoun reader would bind it
+    # to the token: not read
+    if re.search(r"\bcreates? [^.]*\btokens?\b[^.]* and (?:exile|return|put|destroy|sacrifice|tap|untap) (?:that|the) cards?\b",
+                 body, re.IGNORECASE):
+        return None
     optional = False
     effects: list[dict[str, Any]] = []
     groups: list[dict[str, Any]] = []

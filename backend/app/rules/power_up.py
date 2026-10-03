@@ -48,4 +48,4 @@ def reduced(state: GameState, card: CardInstance, ch: Characteristics, mana: str
             colored.remove(c)
         else:
             generic = max(0, generic - 1)
-    return M.ManaCost(generic, tuple(colored)).text()
+    return M.ManaCost(generic, tuple(colored), x=cost.x).text()  # (-- review (wave 7R) -- X is kept: {X}{U}{U}, Stature)
