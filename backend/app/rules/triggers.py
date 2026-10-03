@@ -1441,8 +1441,8 @@ def blocked(plan: Plan, blockers: list[CardInstance], attackers: list[CardInstan
     """702.45 bushido N: "Whenever this creature blocks or becomes blocked, it gets +N/+N until
     end of turn." (Once per creature per combat, however many creatures it blocks or is blocked by.)"""
     # (each blocker and the attacker it blocks: CardInstance.blocking, 509.1)
-    pairs = [(b, plan.state.cards[b.blocking]) for b in {c.id: c for c in blockers}.values()
-             if b.blocking in plan.state.cards]
+    pairs = [(b, plan.state.cards[x]) for b in {c.id: c for c in blockers}.values()  # (wave 13B: every attacker it blocks)
+             for x in [b.blocking, *b.blocking_more] if x in plan.state.cards]
     generic_combat(plan, "block", list({c.id: c for c in blockers}.values()), pairs)
     generic_combat(plan, "blocked", list({c.id: c for c in attackers}.values()), [(a, b) for b, a in pairs])
     # -- counters & designations (wave 3E): the Ring's third ability (701.54c) --

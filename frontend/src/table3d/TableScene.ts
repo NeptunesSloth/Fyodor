@@ -587,7 +587,7 @@ export class TableScene {
     };
     for (const c of Object.values(view.cards)) {
       if (c.attacking) add(c.id, c.attacking.id, "#e0463c");
-      if (c.blocking) add(c.id, c.blocking, "#5fa8ff");
+      if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff");
     }
     for (const ar of view.arrows ?? []) {
       const color = ar.kind === "attack" ? "#e0463c" : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;

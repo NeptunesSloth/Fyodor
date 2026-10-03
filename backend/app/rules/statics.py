@@ -52,6 +52,7 @@ the untap step. The vocabulary (``RULES`` plus parameterised ones, ``name:value`
     cant_block_sel:<sel>[|…]                "can't block creatures with power 3 or greater"
     cant_block_power:greater                "can't block creatures with power greater than ~'s power"
     block_only:<sel>[|…]                    "can block only creatures with flying"
+    block_extra:N:<source>                  "can block an additional creature [each combat]" (wave 13B; 509.1a)
 
 A ``<sel>`` is a selector key; ``|`` joins alternatives ("flying or reach"). The selector is
 evaluated against the *other* creature in the block, with "you" the rule's source's controller.
@@ -731,6 +732,13 @@ def _rule(piece: str) -> list[str] | None:
     if m:
         sels = _sels(m["sel"])
         return [f"lure:{sels}"] if sels else None
+    # -- multiple blocks (wave 13B) -- 509.1a: "can block an additional creature [each combat]" is block_extra:1:@src (the number of
+    # extra attackers; one entry per source so that several of them add up), "any number of creatures" a huge number
+    m = re.fullmatch(r"can block (?:(?P<one>an additional creature)|an additional (?P<a>\w+) creatures|up to (?P<b>\w+) additional "
+                     r"creatures|(?P<any>any number of creatures))(?: each combat)?", piece)
+    if m:
+        n = 1 if m["one"] else 999 if m["any"] else _num(m["a"] or m["b"])
+        return [f"block_extra:{n}:@src"] if n else None
     m = re.fullmatch(r"can't be blocked except by (?P<n>\w+) or more creatures", piece)
     if m:
         n = _num(m["n"])

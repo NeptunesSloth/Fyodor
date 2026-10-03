@@ -32,7 +32,7 @@ def clear_combat_markers(state: GameState) -> int:
     for c in state.cards.values():
         if c.attacking or c.blocking:
             c.attacking = None
-            c.blocking = None
+            c.unblock()
             n += 1
     return n
 
@@ -95,8 +95,8 @@ def attack(state: GameState, a: A.Attack) -> None:
         c.attacking = a.target.model_copy() if a.target else None
         if a.target is None:
             for other in state.cards.values():
-                if other.blocking == c.id:
-                    other.blocking = None
+                if other.blocks(c.id):
+                    other.unblock(c.id)
     if a.target is None:
         log(state, a.actor, a.ts, [ops.group(state, targets), text(" stopped attacking")])
         return
@@ -109,11 +109,16 @@ def block(state: GameState, a: A.Block) -> None:
     if ops.zone_name(c.zone) != "battlefield":
         raise ActionError("Blockers must be on the battlefield")
     if a.attacker_id is None:
-        c.blocking = None
+        c.unblock()
         log(state, a.actor, a.ts, [ops.card_part(state, c), text(" stopped blocking")])
         return
     attacker = ops.card(state, a.attacker_id)
-    c.blocking = attacker.id
+    if a.also and c.blocking is not None:
+        if not c.blocks(attacker.id):
+            c.blocking_more.append(attacker.id)
+    else:
+        c.unblock()
+        c.blocking = attacker.id
     log(state, a.actor, a.ts, [ops.card_part(state, c), text(" blocks "), ops.card_part(state, attacker)])
 
 

@@ -65,11 +65,14 @@ export function CombatArrows() {
       for (const c of Object.values(cards)) {
         if (!c.blocking) continue;
         const a = locate(c.id);
-        const b = locate(c.blocking);
-        if (!a || !b) continue;
-        const p = center(a);
-        const q = center(b);
-        out.push({ key: `blk-${c.id}`, x1: p.x, y1: p.y, x2: q.x, y2: q.y, kind: "block" });
+        if (!a) continue;
+        for (const target of [c.blocking, ...(c.blocking_more ?? [])]) {
+          const b = locate(target);
+          if (!b) continue;
+          const p = center(a);
+          const q = center(b);
+          out.push({ key: `blk-${c.id}-${target}`, x1: p.x, y1: p.y, x2: q.x, y2: q.y, kind: "block" });
+        }
       }
       for (const ar of arrows ?? []) {
         const a = locate(ar.source);

@@ -673,6 +673,7 @@ class Block(Base):
     type: Literal["block"] = "block"
     card_id: Id
     attacker_id: Id | None = None  # None = stop blocking
+    also: bool = False  # -- multiple blocks (wave 13B) -- 509.1a: block this attacker as well as the ones already blocked
 
 
 class ClearCombat(Base):

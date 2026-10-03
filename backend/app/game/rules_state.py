@@ -880,6 +880,9 @@ class RulesState(BaseModel):
     no_attackers: bool = False  # nobody attacked: skip blockers and damage (rule 508.8)
     blockers_pending: list[str] = Field(default_factory=list)  # defending players still to declare
     combat_round: Literal["", "first", "done"] = ""
+    # -- multiple blocks (wave 13B) -- 510.1d: how a blocker divides its combat damage among the attackers it blocks (blocker
+    # card -> attacker card -> damage), answered before the round is dealt and dropped once it is
+    block_split: dict[str, dict[str, int]] = Field(default_factory=dict)
     # -- combat (wave 5C) -- 500.8: the phases still to come after the current one when effects added some (the
     # last is the phase that would have come next), and how many combat phases began this turn
     extra_phases: list[str] = Field(default_factory=list)

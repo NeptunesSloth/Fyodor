@@ -165,6 +165,15 @@ class CardInstance(BaseModel):
     revealed_to: list[str] = Field(default_factory=list)
     attacking: AttackTarget | None = None
     blocking: str | None = None  # attacker instance id
+    blocking_more: list[str] = Field(default_factory=list)  # -- multiple blocks (wave 13B) -- 509.1a: the other attackers it blocks
+
+    def blocks(self, attacker_id: str) -> bool:
+        return self.blocking == attacker_id or attacker_id in self.blocking_more
+
+    def unblock(self, attacker_id: str | None = None) -> None:
+        """Stop blocking ``attacker_id`` (506.4: it left combat), or everything (None)."""
+        rest = [] if attacker_id is None else [x for x in (self.blocking, *self.blocking_more) if x and x != attacker_id]
+        self.blocking, self.blocking_more = (rest[0] if rest else None), rest[1:]
     # --- tabletop object behaviour (see docs/3D_DIRECTION.md §5) ---
     rotation: float = 0.0  # free rotation in degrees, independent of tapping
     locked: bool = False  # cannot be moved until unlocked
