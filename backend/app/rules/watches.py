@@ -54,9 +54,8 @@ def refs_ok(cond: dict[str, Any], effects: list[dict[str, Any]]) -> bool:
         return False
     if wants_amount and cond["event"] not in scripts._AMOUNT_EVENTS:
         return False
-    if re.search(r'"(?:ref:)?event(?:\.\w+)?"', text) and cond["subject"] != "sel":
-        return False  # (the object the event happened to: only an event about objects has one)
-    return True
+    # (the object the event happened to: only an event about objects has one)
+    return not (re.search(r'"(?:ref:)?event(?:\.\w+)?"', text) and cond["subject"] != "sel")
 
 
 def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str) -> tuple[list[dict[str, Any]], Any] | None:
@@ -91,7 +90,7 @@ def deferred_event_effects(effects: list[dict[str, Any]]) -> set[int]:
 def on_facts(plan: Plan, facts: list[Any], batch: int) -> None:
     """One event's facts: the watches created before it that it matches trigger (603.7)."""
     r = plan.rules
-    mine = [t for t in r.delayed if t.when.get("kind") == "watch" and batch > int(t.when.get("since", 0))]
+    mine = [t for t in r.delayed if t.when.get("kind") == "watch" and (batch < 0 or batch > int(t.when.get("since", 0)))]  # (batch -1: as it happens)
     if not mine:
         return
     from app.rules import triggers

@@ -31,8 +31,8 @@ one that has no such counter any more drops out, and the effect ends with the la
 doesn't change what an effect applies to: a characteristic-changing effect stays locked to the
 objects it began on (611.2c), so a "this turn" pump keeps going when the creature changes controllers.
 
-Not modelled here (the wording stays manual, never guessed): "whenever … this turn" (an "each"
-duration), "when you next cast … this turn, copy that spell", conditions on the deferred effect
+Not modelled here (the wording stays manual, never guessed; turn watches: app/rules/watches.py): (an "each"
+duration), conditions on the deferred effect
 ("… if it didn't attack this turn"), several watched objects ("when a creature dealt damage this
 way dies"), and linked leaves-the-battlefield abilities of a *second* ability line (607).
 """

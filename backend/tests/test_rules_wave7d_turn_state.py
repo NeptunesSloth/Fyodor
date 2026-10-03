@@ -21,7 +21,8 @@ from app.game.session import GameSession
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
-from tests.test_rules_conditionals import settle, until
+from tests.test_rules_attachments import token
+from tests.test_rules_conditionals import settle, through_combat, until
 from tests.test_rules_effects import replay_matches
 
 # Real Oracle wording (the local card database, current).
@@ -34,8 +35,11 @@ EXTRA = [
     card('Rite of Harmony', set_code='tst', number='D06', mana_cost='{G}{W}', cmc=2.0, type_line='Instant', oracle_text='Whenever a creature or enchantment you control enters this turn, draw a card.\nFlashback {2}{G}{W} (You may cast this card from your graveyard for its flashback cost. Then exile it.)', colors=['G', 'W'], color_identity=['G', 'W'], keywords=['Flashback']),  # noqa: E501
     card("Storm King's Thunder", set_code='tst', number='D07', mana_cost='{X}{R}{R}{R}', cmc=3.0, type_line='Instant', oracle_text='When you next cast an instant or sorcery spell this turn, copy that spell X times. You may choose new targets for the copies.', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
     card('Massacre Girl', set_code='tst', number='D08', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Legendary Creature — Human Assassin', oracle_text='Menace\nWhen Massacre Girl enters, each other creature gets -1/-1 until end of turn. Whenever a creature dies this turn, each creature other than Massacre Girl gets -1/-1 until end of turn.', power='4', toughness='4', colors=['B'], color_identity=['B'], keywords=['Menace']),  # noqa: E501
+    card('Noxious Assault', set_code='tst', number='D09', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Sorcery', oracle_text='Creatures you control get +2/+2 until end of turn. Whenever a creature blocks this turn, its controller gets a poison counter.', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
+    card('Ambush Viper', set_code='tst', number='D11', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Snake', oracle_text='Flash\nDeathtouch', power='2', toughness='1', colors=['G'], color_identity=['G'], keywords=['Flash', 'Deathtouch']),  # noqa: E501
+    card('Theoretical Duplication', set_code='tst', number='D10', mana_cost='{2}{U}', cmc=3.0, type_line='Instant', oracle_text="Whenever a nontoken creature an opponent controls enters this turn, create a token that's a copy of that creature.", colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
 ]
-FULL = ["Glimpse of Nature", "Galvanic Iteration", "Vizkopa Guildmage", "Rite of Harmony", "Storm King's Thunder",
+FULL = ["Noxious Assault", "Theoretical Duplication", "Glimpse of Nature", "Galvanic Iteration", "Vizkopa Guildmage", "Rite of Harmony", "Storm King's Thunder",
         "Massacre Girl"]
 STILL_MANUAL: dict[str, str] = {}
 
@@ -55,7 +59,7 @@ def reloaded(s):
 def build(cards, *names, forests=9):
     alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in names), (forests, "Forest")])
     seats = [PlayerSetup("Alice", cards=alice),
-             PlayerSetup("Bob", cards=deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")]))]
+             PlayerSetup("Bob", cards=deck(cards, "Atraxa, Praetors' Voice", [(1, "Ambush Viper"), (10, "Island")]))]
     state = enable(new_game(seats, shuffle=False))
     s = GameSession(state, cards=cards)
     act(s, "p1", type="pass_priority")  # → Alice's main phase
@@ -112,7 +116,6 @@ def test_glimpse_of_nature_draws_for_each_creature_spell_this_turn_only(cards):
     s = build(cards, "Glimpse of Nature", "Runeclaw Bear", "Revitalize")
     for n in ("Glimpse of Nature", "Runeclaw Bear", "Revitalize"):
         to_hand(s, n)
-    bear = card_named(s, "Runeclaw Bear")
     mana(s, G=1)
     cast(s, "Glimpse of Nature")
     assert len(watches(s)) == 1 and watches(s)[0].once is False
@@ -220,5 +223,60 @@ def test_storm_kings_thunder_copies_the_next_spell_x_times(cards):
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=["p2"], target_counts=[1])
     settle(s)
     assert s.state.players["p2"].life == 40 - 9  # (the Bolt and two copies)
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_noxious_assault_poisons_the_controller_of_each_blocker(cards):
+    """Whenever a creature blocks this turn, its controller (the event's creature's: 603.10) gets a poison counter."""
+    s = build(cards, "Noxious Assault")
+    bear = token(s, "p1", "Bear", "2/2", "Haste")
+    wall = token(s, "p2", "Wall", "0/4")
+    to_hand(s, "Noxious Assault")
+    mana(s, G=5)
+    cast(s, "Noxious Assault")
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": bear.id}])
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    settle(s)
+    assert s.state.players["p2"].resources.get("poison") == 1 and not s.state.players["p1"].resources.get("poison")
+    through_combat(s)
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_theoretical_duplication_copies_only_nontoken_creatures_opponents_control(cards):
+    s = build(cards, "Theoretical Duplication", "Runeclaw Bear")
+    to_hand(s, "Theoretical Duplication")
+    mana(s, U=3)
+    cast(s, "Theoretical Duplication")
+    bear = card_named(s, "Runeclaw Bear")
+    act(s, "p1", type="move", card_ids=[bear.id], to={"zone": "hand"})
+    settle(s)
+    assert [c.name for c in s.state.cards.values() if c.is_token] == []  # (a creature of mine: no copy)
+    replay_matches(s)
+
+
+def test_theoretical_duplication_copies_a_nontoken_creature_an_opponent_casts(cards):
+    s = build(cards, "Theoretical Duplication", "Revitalize")
+    to_hand(s, "Theoretical Duplication")
+    to_hand(s, "Revitalize")
+    mana(s, "p1", U=3, W=2)
+    cast(s, "Theoretical Duplication")
+    act(s, "p2", type="set_stops", others=["main1"], smart_pass=False)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Revitalize").id)  # (Bob responds with his flash creature)
+    viper = card_named(s, "Ambush Viper", "p2")
+    act(s, "p2", type="move", card_ids=[viper.id], to={"zone": "hand"})
+    mana(s, "p2", G=2)
+    act(s, "p2", type="cast_spell", card_id=viper.id)
+    settle(s)
+    vipers = [c for c in s.state.cards.values() if c.name == "Ambush Viper" and c.zone.endswith(":battlefield")]
+    assert sorted(c.is_token for c in vipers) == [False, True]
+    assert all(c.controller == "p1" for c in vipers if c.is_token)  # (the token is Alice's: she controls the watch)
     replay_matches(s)
     replay_matches(reloaded(s))
