@@ -5,6 +5,8 @@
   and all creature types" (Faceless Haven), "… and can't be blocked this turn" (Dimir Keyrune).
 * Coin flips (705): "Flip a coin. If you win the flip, create a Treasure token." (The Gold Saucer), "… If you lose the flip,
   sacrifice this creature." (Viashino Sandswimmer), a spell with both branches (Winter Sky). Heads is a win (705.2).
+* Block effects (509.1b-c): "Target creature can't block this creature this turn." (Duct Crawler), "Target creature blocks this
+  creature this turn if able." (Tangle Angler), "Target creature blocks this turn if able." (Courtly Provocateur).
 * Snow mana (107.4h, 106.3): {S} is paid with mana from a snow source, by tapping one as the cost is paid.
 * "You may tap or untap target creature." as an activated ability (701.26a): Puppeteer.
 * "Attach this Equipment to target creature you control." / "Attach target Equipment you control to target creature you
@@ -59,6 +61,9 @@ EXTRA = [
     card('Viashino Sandswimmer', set_code='tst', number='X32', mana_cost='{2}{R}{R}', cmc=4.0, type_line='Creature — Lizard', oracle_text="{R}: Flip a coin. If you win the flip, return this creature to its owner's hand. If you lose the flip, sacrifice this creature.", power='3', toughness='2', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
     card('Winter Sky', set_code='tst', number='X33', mana_cost='{R}', cmc=1.0, type_line='Sorcery', oracle_text='Flip a coin. If you win the flip, Winter Sky deals 1 damage to each creature and each player. If you lose the flip, each player draws a card.', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
     card('Scoria Wurm', set_code='tst', number='X34', mana_cost='{4}{R}', cmc=5.0, type_line='Creature — Wurm', oracle_text="At the beginning of your upkeep, flip a coin. If you lose the flip, return this creature to its owner's hand.", power='7', toughness='7', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
+    card('Duct Crawler', set_code='tst', number='X41', mana_cost='{R}', cmc=1.0, type_line='Creature — Insect', oracle_text="{1}{R}: Target creature can't block this creature this turn.", power='1', toughness='1', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
+    card('Tangle Angler', set_code='tst', number='X42', mana_cost='{3}{G}', cmc=4.0, type_line='Creature — Phyrexian Horror', oracle_text='Infect (This creature deals damage to creatures in the form of -1/-1 counters and to players in the form of poison counters.)\n{G}: Target creature blocks this creature this turn if able.', power='1', toughness='5', colors=['G'], color_identity=['G'], keywords=['Infect']),  # noqa: E501
+    card('Courtly Provocateur', set_code='tst', number='X43', mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Human Wizard', oracle_text='{T}: Target creature attacks this turn if able.\n{T}: Target creature blocks this turn if able.', power='1', toughness='1', colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
 ]
 
 
@@ -354,3 +359,63 @@ def test_a_flip_condition_needs_a_flip():
     assert scripts.parse_effects("If you win the flip, draw a card.") is None
     assert scripts.parse_effects("Flip two coins. If you win the flip, draw a card.") is None
     assert scripts.parse_effects("Flip a coin. If you win the flip, draw a card.") is not None
+
+
+def combat_table(cards, text, other=""):
+    """Alice's token with the ability ``text`` and Bob's two tokens, automation on, in Alice's first main phase."""
+    from tests.game_helpers import turn_on
+    from tests.test_rules_combat import creature, table
+
+    s = table(cards)
+    attacker = creature(s, "p1", "Attacker", "2/2", text)
+    guard = creature(s, "p2", "Guard", "2/2")
+    spare = creature(s, "p2", "Spare", "2/2")
+    creature(s, "p1", "Axe", "3/3")
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # → Alice's main 1
+    return s, attacker, guard, spare
+
+
+def test_cant_block_this_creature_stops_that_block_only(cards):
+    from tests.test_rules_combat import attack, block
+
+    s, axe, guard, spare = combat_table(cards, "{1}{R}: Target creature can't block this creature this turn.")
+    mana(s, R=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=axe.id, ability=0, targets=[guard.id])
+    settle(s)
+    act(s, "p1", type="pass_priority")  # → combat
+    attack(s, (axe, "p2"))
+    with pytest.raises(ActionError, match="can't block"):
+        block(s, "p2", (guard, axe))
+    block(s, "p2", (spare, axe))  # (any other creature may block it)
+    check(s)
+
+
+def test_blocks_this_creature_if_able_is_required(cards):
+    from tests.test_rules_combat import attack, block
+
+    s, axe, guard, spare = combat_table(cards, "{G}: Target creature blocks this creature this turn if able.")
+    mana(s, G=1)
+    act(s, "p1", type="activate_ability", card_id=axe.id, ability=0, targets=[guard.id])
+    settle(s)
+    act(s, "p1", type="pass_priority")
+    attack(s, (axe, "p2"))
+    with pytest.raises(ActionError, match="if able"):
+        block(s, "p2")
+    block(s, "p2", (guard, axe))
+    check(s)
+
+
+def test_blocks_this_turn_if_able_is_required(cards):
+    from tests.test_rules_combat import attack, block
+
+    s, provocateur, guard, spare = combat_table(cards, "{T}: Target creature blocks this turn if able.")
+    axe = next(c for c in s.state.cards.values() if c.name == "Axe")
+    act(s, "p1", type="activate_ability", card_id=provocateur.id, ability=0, targets=[guard.id])
+    settle(s)
+    act(s, "p1", type="pass_priority")
+    attack(s, (axe, "p2"))
+    with pytest.raises(ActionError, match="blocks each combat if able"):
+        block(s, "p2")
+    block(s, "p2", (guard, axe))
+    check(s)

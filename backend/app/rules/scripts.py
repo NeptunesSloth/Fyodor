@@ -4623,3 +4623,7 @@ EFFECTS[:0] = _choice_grants.TEMPLATES
 from app.rules import coin_flips as _coin_flips  # noqa: E402, I001
 
 EFFECTS[:0] = _coin_flips.TEMPLATES
+# -- block effects (wave 7E) -- "Target creature can't block this creature this turn." (app/rules/block_effects.py)
+from app.rules import block_effects as _block_effects  # noqa: E402, I001
+
+EFFECTS[:0] = _block_effects.TEMPLATES
