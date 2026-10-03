@@ -602,6 +602,8 @@ def on_step_start(plan: Plan) -> None:
             if empty and ap in plan.rules.drew_from_empty:
                 plan.note(f"{plan.name(ap)} can't draw: their library is empty")
     elif phase in ("upkeep", "end"):
+        if phase == "end":
+            permissions.expire_end_step(plan)  # -- trigger tail (wave 15B) -- "until your next end step" ends as it begins
         triggers.at_step(plan, "upkeep_you" if phase == "upkeep" else "end_step_you")
         if phase == "end":
             triggers.monarch_end_step(plan)

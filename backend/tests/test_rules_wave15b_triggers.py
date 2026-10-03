@@ -50,6 +50,9 @@ EXTRA += [
     real("Kozilek, Butcher of Truth", "{8}{C}{C}", 10, "Legendary Creature — Eldrazi",
          "When you cast this spell, draw four cards.\nAnnihilator 4\nWhen Kozilek is put into a graveyard from anywhere, its owner "
          "shuffles their graveyard into their library.", ("12", "12")),
+    real("Wiccan, Young Avenger", "{1}{U}{R}", 3, "Legendary Creature — Human Wizard",
+         "Whenever you cast a noncreature spell, exile the top card of your library. Until your next end step, you may play that card.",
+         ("2", "2"), "UR"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -114,6 +117,29 @@ def test_shuffle_it_into_its_owners_library_after_dying(cards):
     act(s, s.state.rules.priority or "p1", type="pass_priority")
     answer(s)
     assert card_named(s, "Serra Avatar").zone == "p1:library"
+    check(s)
+
+
+def test_until_your_next_end_step_ends_as_that_end_step_begins(cards):
+    # 611.2a: Wiccan exiles the top card; it may be played until the beginning of the controller's next end step
+    s = build(cards, ["Wiccan, Young Avenger", "Opt"], [])
+    put(s, "Wiccan, Young Avenger")
+    opt = to_hand(s, "Opt")
+    top = s.state.zones["p1:library"][0]
+    mana(s, "p1", U=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    answer(s)
+    assert s.state.cards[top].zone == "p1:exile" and [p.until for p in s.state.rules.permissions] == ["next_end_step"]
+    for _ in range(40):
+        if s.state.turn.number == 2:
+            break
+        assert [p.until for p in s.state.rules.permissions] == ["next_end_step"]  # until the end step begins
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="declare_attackers", attackers=[])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.rules.permissions == []  # it ended as the end step began (the engine does not stop there)
     check(s)
 
 

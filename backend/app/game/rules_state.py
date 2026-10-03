@@ -714,7 +714,7 @@ class Permission(BaseModel):
     flash: bool = False  # "as though it had flash" (601.3b)
     once: bool = False  # "once during each of your turns"
     used_turn: int = 0  # (once) the turn it was used
-    until: Literal["end_of_turn", "end_of_next_turn", "permanent"] = "end_of_turn"
+    until: Literal["end_of_turn", "end_of_next_turn", "next_end_step", "permanent"] = "end_of_turn"
     turn: int = 0  # the turn it was granted (for end_of_next_turn)
     source: str | None = None  # the granting object
     label: str = Field(default="", max_length=120)
