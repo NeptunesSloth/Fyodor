@@ -204,6 +204,13 @@ def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "attacked_this_turn"))
 
 
+# -- blocking it (wave 6D) -- "for each creature blocking it", "each creature blocking it" (509.1g): blocking the
+# ability's source (only read in a trigger about the source itself: scripts.define checks "it" is the source)
+@_suffix(r"blocking (?:it|~)")
+def _blocking_source(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, blocking=True, extras=(*s.extras, "blocking_source"))
+
+
 @_suffix(r"that['’]s attacking you")
 def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
@@ -950,6 +957,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra.startswith("entered_this_turn") and not _entered_now(plan, card, you if extra.endswith("_you") else None):
             return False  # (wave 5H)
+        if extra == "blocking_source" and (source is None or card.blocking != source):  # -- blocking it (wave 6D) --
+            return False
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --

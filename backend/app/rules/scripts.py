@@ -100,6 +100,9 @@ TRIGGERS = [
                 r"(?P<body>.+)$"), "step"),
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
                 r"an artifact spell|an enchantment spell), (?P<body>.+)$"), "cast_you"),
+    # -- state triggers (wave 6D) -- "When you control no Islands, …" (603.8: app/rules/state_triggers.py)
+    (re.compile(r"^When (?P<state>you control (?:no|a|an|\w+ or more) [^,]+|there are no [^,]+ on the battlefield|"
+                r"you have \w+ or (?:more|less) life), (?P<body>.+)$"), "state"),
     # Anything else "When/Whenever [subject] [event], …": the generic condition grammar (app/rules/events.py)
     (re.compile(r"^(?:When|Whenever) (?P<cond>[^,]+), (?P<body>.+)$"), "event"),
 ]
@@ -218,6 +221,7 @@ def _it_source(word: str) -> dict[str, str]:
 # that's a new object in another zone, 400.7)
 _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
             "deal_combat_damage_player", "deal_damage", "counters_put", "targeted", "create_token"}
+_STAYING.update({"become_monstrous", "become_renowned"})  # -- becomes monstrous (wave 6D) --
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 # Zone-change events after which "it" is the new object the card became where it went — found
 # only there (400.7e, 603.6, 603.6c): "When ~ dies, return it to its owner's hand"
@@ -2215,6 +2219,10 @@ def parse_anthem(text: str) -> Definition | None:
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     d = _define(ability, ch)
+    # -- exiled with (wave 6D) -- 607.2a linked abilities (app/rules/exiled_with.py)
+    from app.rules import exiled_with
+
+    d = exiled_with.link(d, ability, ch)
     from app.rules import kicked_instead  # -- kicked / instead (wave 4G) -- 702.33g: a spell's targets only
 
     if d is not None and d.get("kind") != "spell" and kicked_instead.has_kicked_groups(d):
@@ -2249,6 +2257,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     from app.rules import defending
 
     if d is not None and not defending.allowed(d):
+        return None
+    # -- blocking it (wave 6D) -- "each creature blocking it": "it" must be the source (a trigger about this object)
+    if d is not None and "blocking_source" in json.dumps(d, default=str) and not (
+            d.get("kind") == "triggered" and (str(d.get("trigger", "")).endswith("_self")
+                                              or (d.get("cond") or {}).get("subject") == "self")):
         return None
     # -- combat (wave 5C) -- "attacks each combat if able" needs its duration
     from app.rules import combat_rules
@@ -2446,6 +2459,13 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     out["limit"] = restrictions.limit_kind(limit)
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
+                if trigger == "state":  # -- state triggers (wave 6D) -- 603.8
+                    from app.rules import state_triggers
+
+                    state = state_triggers.condition(m["state"])
+                    if state is None or intervening is not None or limit is not None:
+                        return None
+                    out["state"] = state
                 return out
         return None
     if ability.kind == "spell":
@@ -4402,3 +4422,7 @@ EFFECTS.extend(_turn_grants.LAST)
 from app.rules import tap_or_untap as _tap_or_untap  # noqa: E402
 
 EFFECTS[:0] = _tap_or_untap.TEMPLATES
+# -- exiled with (wave 6D) -- "return the exiled card to the battlefield under its owner's control" (607.2a)
+from app.rules import exiled_with as _exiled_with  # noqa: E402
+
+EFFECTS[:0] = _exiled_with.TEMPLATES

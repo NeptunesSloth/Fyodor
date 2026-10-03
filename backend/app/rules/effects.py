@@ -150,6 +150,10 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
             snap = plan.rules.lki.get(ctx.get("source_object") or "")
             host = plan.state.cards.get(snap.attached_to or "") if snap is not None else None
         return [host.id] if host is not None and host.zone.endswith(":battlefield") else []
+    if who == "exiled_with":  # -- exiled with (wave 6D) -- 607.2a (app/rules/exiled_with.py)
+        from app.rules import exiled_with
+
+        return exiled_with.cards(plan, ctx)
     if who == "event":  # "it" / "that creature": the object(s) the trigger event happened to — only while
         # each is still that object where it was (400.7: after a zone change it's a new object)
         return context.objects(plan, ctx, context.EVENT)
@@ -656,6 +660,10 @@ def exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
+    if e.get("link"):  # -- exiled with (wave 6D) -- 607.2a: what the linked ability will refer to
+        from app.rules import exiled_with
+
+        exiled_with.record(plan, ctx, cards)
     _moved(plan, ctx, e, before)
     return True
 
@@ -914,6 +922,10 @@ def renown(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             return False
         plan.rules.renowned.append(oid)
         _mark(plan, [cid], "Renowned")
+        # -- becomes monstrous (wave 6D) -- "Whenever a creature you control becomes renowned" (702.112b)
+        from app.game.rules_state import emit
+
+        emit(plan.state, "designation", counter="renowned", card=cid, object_id=oid, player=plan.state.cards[cid].controller)
     return True
 
 
@@ -3279,3 +3291,7 @@ from app.rules import tap_or_untap as _tap_or_untap  # noqa: E402
 
 PRIMITIVES.update(_tap_or_untap.PRIMITIVES)
 RESUME["tap_or_untap"] = _tap_or_untap.resume
+# -- state triggers (wave 6D) -- the marker effect of a state trigger (603.8: app/rules/state_triggers.py)
+from app.rules import state_triggers as _state_triggers  # noqa: E402
+
+PRIMITIVES.update(_state_triggers.PRIMITIVES)

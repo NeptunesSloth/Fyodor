@@ -233,6 +233,23 @@ def _parse(c: str) -> Condition | None:
     found = _object_event(c)
     if found is not None:
         return found
+    # -- becomes monstrous (wave 6D) -- "When ~ becomes monstrous" (701.37b), "Whenever a creature you control becomes
+    # renowned" (702.112b): the permanent got the designation
+    m = re.fullmatch(r"(?P<s>.+?) becomes (?P<d>monstrous|renowned)", c)
+    if m:
+        base = _subject(m["s"])
+        if base is None or base.get("aggregate"):
+            return None
+        return {**base, "event": f"become_{m['d']}"}
+    # -- graveyard owner (wave 6D) -- "a creature is put into an opponent's graveyard from the battlefield", "a nontoken
+    # creature is put into your graveyard from the battlefield", "~ is put into your graveyard from the battlefield": it
+    # died (700.4), and a card goes to its OWNER's graveyard (400.3; a token too, 111.7) — whose graveyard is the owner's
+    m = re.fullmatch(r"(?P<s>.+?) (?P<v>is|are) put into (?P<g>your|an opponent's) graveyard from the battlefield", c)
+    if m:
+        inner = _parse(f"{m['s']} {'dies' if m['v'] == 'is' else 'die'}")
+        if inner is None or inner.get("event") != "die" or inner.get("subject") not in ("self", "sel"):
+            return None
+        return {**inner, "gy_owner": "you" if m["g"] == "your" else "opponent"}
     for pattern, event in _PLAYER_VERBS:
         m = re.fullmatch(rf"(?P<p>you|an opponent|a player|each opponent) (?:{pattern})", c)
         if m:

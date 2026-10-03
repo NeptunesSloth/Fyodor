@@ -208,6 +208,11 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return out
     if e.counter == "dungeon" and e.player:
         return [("complete_dungeon", None, None, e.player, {})]
+    if e.counter in ("monstrous", "renowned") and e.card in plan.state.cards:  # -- becomes monstrous (wave 6D) --
+        card = plan.state.cards[e.card]  # (701.37b / 702.112b: the permanent that became monstrous / renowned)
+        if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:
+            return [(f"become_{e.counter}", card, plan.ch(card), card.controller, {"oid": e.object_id})]
+        return []
     if e.counter in ("day", "night") and e.from_zone:  # 731.1a: "day becomes night" / "night becomes day"
         return [("day_night", None, None, plan.active, {})]
     return []

@@ -211,6 +211,9 @@ def collect(plan: Plan) -> None:
     new =[e for e in r.events if r.trigger_batch < e.batch <= r.batch]  # finished batches only
     if not new:
         return
+    from app.rules import state_triggers  # -- state triggers (wave 6D) -- 603.8, after the table changed
+
+    state_triggers.check(plan)
     r.trigger_batch = max(e.batch for e in new)
     returning: dict[int, list[dict[str, Any]]] = {}  # batch -> the cards returning "until ~ leaves" (610.3c)
     from app.rules import history  # -- this-turn history (wave 4D) -- before any trigger checks a condition
@@ -615,6 +618,9 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         if entry_forms.entered_tapped(plan, info) != cond["entered_tapped"]:
             return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
+        return False
+    # -- graveyard owner (wave 6D) -- "put into your / an opponent's graveyard": its owner's graveyard (400.3)
+    if event == "die" and cond.get("gy_owner") and (obj is None or (obj.owner == you) != (cond["gy_owner"] == "you")):
         return False
     if event == "counters_put" and cond.get("by") == "you" and info.get("actor") != you:  # -- counters (wave 5H) --
         return False  # ("Whenever you put one or more +1/+1 counters on …": the player who put them, 122.6a)

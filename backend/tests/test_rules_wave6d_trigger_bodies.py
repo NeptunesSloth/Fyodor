@@ -320,3 +320,186 @@ def test_pestermite_taps_or_untaps_target_permanent(cards, choice):
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
     assert s.state.cards[land.id].tapped == (choice == "tap")
     roundtrip(s)
+
+
+
+# -- second batch: exiled with (607.2a), blocking it, graveyard owner, monstrous / renowned, state triggers (603.8) ----
+EXTRA += [
+    card('Oblivion Ring', set_code="tst", number="E01", mana_cost='{2}{W}', cmc=3.0, type_line='Enchantment', oracle_text="When this enchantment enters, exile another target nonland permanent.\nWhen this enchantment leaves the battlefield, return the exiled card to the battlefield under its owner's control.", colors=['W'], color_identity=['W']),  # noqa: E501
+    card('Tidehollow Sculler', set_code="tst", number="E02", mana_cost='{W}{B}', cmc=2.0, type_line='Artifact Creature — Zombie', oracle_text="When this creature enters, target opponent reveals their hand and you choose a nonland card from it. Exile that card.\nWhen this creature leaves the battlefield, return the exiled card to its owner's hand.", power='2', toughness='2', colors=['B', 'W'], color_identity=['B', 'W']),  # noqa: E501
+    card('Elvish Berserker', set_code="tst", number="E03", mana_cost='{G}', cmc=1.0, type_line='Creature — Elf Berserker', oracle_text='Whenever this creature becomes blocked, it gets +1/+1 until end of turn for each creature blocking it.', power='1', toughness='1', colors=['G'], color_identity=['G']),  # noqa: E501
+    card('Plague Wight', set_code="tst", number="E04", mana_cost='{1}{B}', cmc=2.0, type_line='Creature — Zombie', oracle_text='Whenever this creature becomes blocked, each creature blocking it gets -1/-1 until end of turn.', power='2', toughness='1', colors=['B'], color_identity=['B']),  # noqa: E501
+    card('Spined Sliver', set_code="tst", number="E05", mana_cost='{R}{G}', cmc=2.0, type_line='Creature — Sliver', oracle_text='Whenever a Sliver becomes blocked, that Sliver gets +1/+1 until end of turn for each creature blocking it.', power='2', toughness='2', colors=['G', 'R'], color_identity=['G', 'R']),  # noqa: E501
+    card('Field of Souls', set_code="tst", number="E07", mana_cost='{2}{W}{W}', cmc=4.0, type_line='Enchantment', oracle_text='Whenever a nontoken creature is put into your graveyard from the battlefield, create a 1/1 white Spirit creature token with flying.', colors=['W'], color_identity=['W']),  # noqa: E501
+    card('Grim Feast', set_code="tst", number="E08", mana_cost='{1}{B}{G}', cmc=3.0, type_line='Enchantment', oracle_text="At the beginning of your upkeep, this enchantment deals 1 damage to you.\nWhenever a creature is put into an opponent's graveyard from the battlefield, you gain life equal to its toughness.", colors=['B', 'G'], color_identity=['B', 'G']),  # noqa: E501
+    card('Keepsake Gorgon', set_code="tst", number="E09", mana_cost='{3}{B}{B}', cmc=5.0, type_line='Creature — Gorgon', oracle_text="Deathtouch\n{5}{B}{B}: Monstrosity 1. (If this creature isn't monstrous, put a +1/+1 counter on it and it becomes monstrous.)\nWhen this creature becomes monstrous, destroy target non-Gorgon creature an opponent controls.", power='2', toughness='5', colors=['B'], color_identity=['B'], keywords=['Monstrosity', 'Deathtouch']),  # noqa: E501
+    card('Emperor Crocodile', set_code="tst", number="E12", mana_cost='{3}{G}', cmc=4.0, type_line='Creature — Crocodile', oracle_text='When you control no other creatures, sacrifice this creature.', power='5', toughness='5', colors=['G'], color_identity=['G']),  # noqa: E501
+    card('Covetous Dragon', set_code="tst", number="E13", mana_cost='{4}{R}', cmc=5.0, type_line='Creature — Dragon', oracle_text='Flying\nWhen you control no artifacts, sacrifice this creature.', power='6', toughness='5', colors=['R'], color_identity=['R'], keywords=['Flying']),  # noqa: E501
+    card('Fiend Hunter', set_code="tst", number="F01", mana_cost='{1}{W}{W}', cmc=3.0, type_line='Creature — Human Cleric', oracle_text="When this creature enters, you may exile another target creature.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.", power='1', toughness='3', colors=['W'], color_identity=['W']),  # noqa: E501
+]
+FULL += ["Oblivion Ring", "Tidehollow Sculler", "Elvish Berserker", "Plague Wight", "Field of Souls", "Grim Feast",
+         "Keepsake Gorgon", "Emperor Crocodile", "Covetous Dragon", "Fiend Hunter"]
+STILL_MANUAL["Spined Sliver"] = "that Sliver gets +1/+1"  # ("blocking it": it isn't the source there)
+
+
+def resolve(s, *picks, limit=40):
+    """Resolve the stack: a decision offering one of ``picks`` gets it, a "you may" gets yes, the rest the first options."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                return
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        ids = [o.id for o in d.options]
+        chosen = [p for p in picks if p in ids]
+        if chosen:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=chosen[:1])
+        elif d.kind == "confirm":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids[: max(1, d.min_choices)])
+    raise AssertionError("never settled")
+
+
+def cast_from_hand(s, name, pid="p1", **mana_):
+    c = named(s, name)
+    act(s, pid, type="move", card_ids=[c.id], to={"zone": "hand"})
+    act(s, pid, type="add_mana", player=pid, mana=mana_)
+    act(s, pid, type="cast_spell", card_id=c.id)
+    return c
+
+
+def murder(s, victim):
+    m = next(c for c in s.state.cards.values() if c.name == "Murder" and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[m.id], to={"zone": "hand"})
+    act(s, "p1", type="add_mana", player="p1", mana={"B": 2, "C": 1})
+    act(s, "p1", type="cast_spell", card_id=m.id, targets=[victim.id])
+
+
+def test_fiend_hunter_returns_the_exiled_creature_when_it_leaves(cards):
+    s = build(cards, "Fiend Hunter", "Murder", bob=("Grizzly Bears",))
+    bears = put(s, "Grizzly Bears", "p2")
+    hunter = cast_from_hand(s, "Fiend Hunter", W=2, G=1)
+    resolve(s, bears.id)
+    assert s.state.cards[bears.id].zone.endswith("exile")
+    assert s.state.rules.exiled_with  # (recorded under Fiend Hunter, 607.2a)
+    roundtrip(s)
+    murder(s, hunter)
+    resolve(s)
+    assert zone_of(s, bears) == "p2:battlefield" and s.state.cards[bears.id].controller == "p2"
+    roundtrip(s)
+
+
+def test_fiend_hunter_leaving_before_its_enters_trigger_resolves_exiles_for_good(cards):
+    """607.2a + 603.10a: the leaves ability resolves first and returns nothing; the exile that follows is for good."""
+    s = build(cards, "Fiend Hunter", "Murder", bob=("Grizzly Bears",))
+    act(s, "p1", type="set_stops", own=["main1"], others=[], smart_pass=False)
+    bears = put(s, "Grizzly Bears", "p2")
+    hunter = cast_from_hand(s, "Fiend Hunter", W=2, G=1)
+    for _ in range(20):  # the creature spell resolves; its enters trigger goes on the stack with its target
+        d = s.state.rules.decision
+        if d is not None and bears.id in [o.id for o in d.options]:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[bears.id])
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+            continue
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.zones.get("stack") and zone_of(s, hunter) == "p1:battlefield"
+    murder(s, hunter)  # in response
+    resolve(s)
+    assert s.state.cards[bears.id].zone.endswith("exile")
+    roundtrip(s)
+
+
+def test_tidehollow_sculler_returns_the_card_to_its_owners_hand(cards):
+    s = build(cards, "Tidehollow Sculler", "Murder", bob=("Grizzly Bears",))
+    bears = named(s, "Grizzly Bears")
+    bears = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[bears.id], to={"zone": "hand"})
+    sculler = cast_from_hand(s, "Tidehollow Sculler", W=1, B=1)
+    resolve(s, "p2", bears.id)
+    assert s.state.cards[bears.id].zone.endswith("exile")
+    murder(s, sculler)
+    resolve(s)
+    assert s.state.cards[bears.id].zone == "p2:hand"
+    roundtrip(s)
+
+
+def test_blocking_it_counts_the_creatures_blocking_the_source(cards):
+    from tests.test_rules_attachments import ch as chars
+
+    s = build(cards, "Elvish Berserker", "Plague Wight")
+    berserker, wight = put(s, "Elvish Berserker"), put(s, "Plague Wight")
+    a, b = old(s, "p2", "A", "0/5"), old(s, "p2", "B", "0/5")
+    c = old(s, "p2", "C", "0/5")
+    stops(s)
+    to_attack(s, 3)
+    declare(s, (berserker, "p2"), (wight, "p2"))
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": a.id, "attacker_id": berserker.id},
+                                                  {"blocker_id": b.id, "attacker_id": berserker.id},
+                                                  {"blocker_id": c.id, "attacker_id": wight.id}])
+    until(s, lambda s: s.state.turn.phase == "combat_damage" and not s.state.zones.get("stack"))
+    assert s.state.cards[berserker.id].zone == "p1:battlefield" and chars(s, berserker).pt == (3, 3)  # (two blockers)
+    assert chars(s, a).pt == (0, 5) and chars(s, c).pt == (-1, 4)  # (only the Wight's blocker: -1/-1)
+    roundtrip(s)
+
+
+def test_put_into_your_graveyard_is_the_owners_graveyard(cards):
+    s = build(cards, "Field of Souls", "Grim Feast", "Murder", "Grizzly Bears", bob=("Grizzly Bears",))
+    put(s, "Field of Souls")
+    put(s, "Grim Feast")
+    mine = put(s, "Grizzly Bears")
+    theirs = put(s, "Grizzly Bears", "p2")
+    life = s.state.players["p1"].life
+    murder(s, mine)
+    resolve(s)
+    spirits = [c for c in s.state.cards.values() if c.name == "Spirit" and c.zone == "p1:battlefield"]
+    assert len(spirits) == 1 and s.state.players["p1"].life == life
+    murder(s, theirs)
+    resolve(s)
+    assert len([c for c in s.state.cards.values() if c.name == "Spirit"]) == 1  # (Bob's graveyard: not Field of Souls)
+    assert s.state.players["p1"].life == life + 2  # (Grim Feast: its toughness)
+    roundtrip(s)
+
+
+def test_keepsake_gorgon_becoming_monstrous_destroys_a_creature(cards):
+    s = build(cards, "Keepsake Gorgon")
+    gorgon = put(s, "Keepsake Gorgon")
+    victim = old(s, "p2", "Victim")
+    act(s, "p1", type="add_mana", player="p1", mana={"B": 2, "C": 5})
+    act(s, "p1", type="activate_ability", card_id=gorgon.id, ability=1)
+    resolve(s, victim.id)
+    assert victim.id not in s.state.cards or s.state.cards[victim.id].zone != "p2:battlefield"
+    assert s.state.cards[gorgon.id].counters.get("+1/+1") == 1
+    roundtrip(s)
+
+
+def test_emperor_crocodile_is_sacrificed_once_it_is_alone(cards):
+    s = build(cards, "Emperor Crocodile", "Murder")
+    croc = put(s, "Emperor Crocodile")
+    friend = old(s, "p1", "Friend")
+    resolve(s)
+    assert zone_of(s, croc) == "p1:battlefield"
+    murder(s, friend)
+    resolve(s)
+    assert zone_of(s, croc) == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_a_state_trigger_doesnt_trigger_again_while_it_waits(cards):
+    """603.8: it triggers as the state matches after the table changes, and once until it has left the stack."""
+    s = build(cards, "Covetous Dragon", "Grizzly Bears", "Murder")
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_stops", own=["main1"], others=["main1"], smart_pass=False)
+    dragon = put(s, "Covetous Dragon")  # (a hand-made move: no automation runs for it)
+    victim = old(s, "p2", "Victim")
+    cast_from_hand(s, "Grizzly Bears", G=2)  # the table changes: no artifacts, so it triggers
+    assert len(s.state.rules.pending_triggers) + sum(e.kind == "trigger" for e in s.state.rules.stack.values()) == 1
+    murder(s, victim)  # another change while it waits: no second instance
+    assert len(s.state.rules.pending_triggers) + sum(e.kind == "trigger" for e in s.state.rules.stack.values()) == 1
+    roundtrip(s)
+    resolve(s)
+    assert zone_of(s, dragon) == "p1:graveyard"
+    roundtrip(s)
