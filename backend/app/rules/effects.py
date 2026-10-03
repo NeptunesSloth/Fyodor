@@ -801,6 +801,37 @@ def double_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not puts:
         return True
     return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
+
+
+def lki_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """122.8: "put its counters on …" after the object left: the same number of each kind it had as it last
+    existed (603.10a) are put — not moved — through the choke point (614.16 applies). Nothing to read: nothing put."""
+    got = values._object(plan, ctx, e["from"])
+    cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
+    had = {k: n for k, n in sorted(got[0].counters.items()) if n > 0} if got is not None else {}
+    puts = [(cid, k, n) for cid in cards for k, n in had.items()]
+    if not puts:
+        return True
+    return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
+
+
+def move_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """122.5: "move all counters from ~ onto target creature": each counter is removed from the source and put on
+    the other permanent (a put: 614.16 applies, Nesting Grounds ruling). If the source is gone (no longer that object
+    on the battlefield) or the other is the source itself, nothing is moved."""
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    cards = [c for c in _cards(plan, ctx, e["who"]) if src is None or c != src.id]
+    _remember(plan, ctx, e, cards)
+    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object") or len(cards) != 1:
+        return True
+    have = {k: n for k, n in sorted(src.counters.items()) if n > 0}
+    if not have or not plan.state.cards[cards[0]].zone.endswith(":battlefield"):
+        return True
+    for k, n in have.items():
+        plan.do({"type": "counter", "card_ids": [src.id], "kind": k, "delta": -n}, actor=ctx["controller"])
+    return replace.put_counters(plan, [(cards[0], k, n) for k, n in have.items()], by=ctx["controller"],
+                                then=_then(ctx, e), ctx=ctx)
 # -- end counters (wave 5H) --
 
 
@@ -1777,7 +1808,7 @@ PRIMITIVES = {
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
     "fabricate": fabricate, "storm": storm,
     "fight": fight, "choose_targets": choose_targets,
-    "double_counters": double_counters,  # -- counters (wave 5H) --
+    "double_counters": double_counters, "lki_counters": lki_counters, "move_counters": move_counters,  # (wave 5H)
 }
 # -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py,
 # which imports this module lazily) --

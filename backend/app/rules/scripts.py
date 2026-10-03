@@ -328,7 +328,7 @@ _RECORDING: dict[str, str | None] = {
     "add_counters": None, "remove_counters": None, "regenerate": None, "damage": None,
     "edict": "sacrificed",  # -- "this way" outcomes (wave 4A) -- "each opponent sacrifices a creature …" (effects._choose_next)
     "tap_choice": "tapped",  # (wave 4A) "tap any number of untapped creatures you control" (this_way.tap_choice)
-    "double_counters": None,  # -- counters (wave 5H) --
+    "double_counters": None, "lki_counters": None, "move_counters": None,  # -- counters (wave 5H) --
 }
 # Effects that introduce objects by themselves — by moving, choosing or creating them — rather than
 # by naming a target: a pronoun after them binds to their recorded objects (the object may be in
@@ -594,6 +594,12 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     e = out[index] = this_way.bind(e, lambda kinds, at=index: _this_way_binding(kinds, at, find, bound))
                 except LookupError:
                     return None
+            if e.get("do") == "lki_counters" and e.get("from") in ("it", "self_named"):  # -- counters (wave 5H) --
+                # 122.8: the object that left (as it last existed); "its" after another instruction: manual
+                if any(i.index < index for i in intros) or antecedent not in ("self_gone", "event_gone") \
+                        or (e["from"] == "self_named" and antecedent != "self_gone"):
+                    return None
+                e = out[index] = {**e, "from": "self" if antecedent == "self_gone" else "event"}
             if e.get("src") == "it":
                 if any(i.index < index and out[i.index].get("who") == "host" for i in intros):
                     return None  # ("tap enchanted creature. It deals …": the host, not the source)

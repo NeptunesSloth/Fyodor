@@ -54,6 +54,11 @@ EXTRA = [
     card('Vraska Joins Up', set_code='tst', number='T5H23', mana_cost='{B}{G}', cmc=2.0, type_line='Legendary Enchantment', oracle_text='When Vraska Joins Up enters, put a deathtouch counter on each creature you control.\nWhenever a legendary creature you control deals combat damage to a player, draw a card.', colors=['B', 'G'], color_identity=['B', 'G']),
     card('Luminous Broodmoth', set_code='tst', number='T5H24', mana_cost='{2}{W}{W}', cmc=4.0, type_line='Creature — Insect', oracle_text="Flying\nWhenever a creature you control without flying dies, return it to the battlefield under its owner's control with a flying counter on it.", power='3', toughness='4', colors=['W'], color_identity=['W'], keywords=['Flying']),
     card('Unexpected Fangs', set_code='tst', number='T5H25', mana_cost='{1}{B}', cmc=2.0, type_line='Instant', oracle_text='Put a +1/+1 counter and a lifelink counter on target creature.', colors=['B'], color_identity=['B']),
+    card('Iron Apprentice', set_code='tst', number='T5H26', mana_cost='{1}', cmc=1.0, type_line='Artifact Creature — Construct', oracle_text='This creature enters with a +1/+1 counter on it.\nWhen this creature dies, if it had counters on it, put those counters on target creature you control.', power='0', toughness='0'),
+    card('The Ozolith', set_code='tst', number='T5H27', mana_cost='{1}', cmc=1.0, type_line='Legendary Artifact', oracle_text='Whenever a creature you control leaves the battlefield, if it had counters on it, put those counters on The Ozolith.\nAt the beginning of combat on your turn, if The Ozolith has counters on it, you may move all counters from The Ozolith onto target creature.'),
+    card('Grakmaw, Skyclave Ravager', set_code='tst', number='T5H28', mana_cost='{1}{B}{G}', cmc=3.0, type_line='Legendary Creature — Hydra Horror', oracle_text='Grakmaw enters with three +1/+1 counters on it.\nWhenever another creature you control dies, if it had a +1/+1 counter on it, put a +1/+1 counter on Grakmaw.\nWhen Grakmaw dies, create an X/X black and green Hydra creature token, where X is the number of +1/+1 counters on Grakmaw.', power='0', toughness='0', colors=['B', 'G'], color_identity=['B', 'G']),
+    card('Blowfly Infestation', set_code='tst', number='T5H29', mana_cost='{2}{B}', cmc=3.0, type_line='Enchantment', oracle_text='Whenever a creature dies, if it had a -1/-1 counter on it, put a -1/-1 counter on target creature.', colors=['B'], color_identity=['B']),
+    card('Essence Channeler', set_code='tst', number='T5H30', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Bat Cleric', oracle_text="As long as you've lost life this turn, this creature has flying and vigilance.\nWhenever you gain life, put a +1/+1 counter on this creature.\nWhen this creature dies, put its counters on target creature you control.", power='2', toughness='1', colors=['W'], color_identity=['W']),
 ]
 
 
@@ -112,7 +117,8 @@ def cov(name):
     ("Kalonian Hydra", "FULL"), ("Invigorating Surge", "FULL"), ("Vorel of the Hull Clade", "FULL"),
     ("Renata, Called to the Hunt", "FULL"), ("Giada, Font of Hope", "FULL"), ("Arwen, Weaver of Hope", "FULL"),
     ("Oath of Gideon", "FULL"), ("Gift of the Viper", "FULL"), ("Vraska Joins Up", "FULL"),
-    ("Luminous Broodmoth", "FULL"), ("Unexpected Fangs", "FULL"),
+    ("Luminous Broodmoth", "FULL"), ("Unexpected Fangs", "FULL"), ("Iron Apprentice", "FULL"), ("The Ozolith", "FULL"),
+    ("Grakmaw, Skyclave Ravager", "FULL"), ("Blowfly Infestation", "FULL"), ("Essence Channeler", "FULL"),
     # refused: a type change with the counters (layer 4 as it enters), a keyword counter, "those creatures"
     ("Master Biomancer", "PARTIAL"), ("Tayam, Luminous Enigma", "PARTIAL"),
 ])
@@ -445,4 +451,118 @@ def test_keyword_counters_and_losing_all_abilities_by_timestamp(cards):
     assert counters(s, bears).get("lifelink") == 2 and "lifelink" in kws(s, bears)
     replay_matches(s)
 
+
+# -- counters an object had (122.8, 603.10a) and moving counters (122.5) ------------------------------------------
+def test_iron_apprentice_puts_the_counters_it_had(cards):
+    """Rulings: all kinds, not moved — the same number put (Hardened Scales applies to the put)."""
+    s = build(cards, "Iron Apprentice", "Hardened Scales", "Grizzly Bears", "Lightning Bolt")
+    apprentice = cast(s, "Iron Apprentice", C=1)
+    settle(s)
+    assert counters(s, apprentice) == {"+1/+1": 1}
+    add(s, s.state.cards[apprentice.id], 1, "flying")
+    bears = put(s, "Grizzly Bears")
+    put(s, "Hardened Scales")
+    s = saved(s)
+    cast(s, "Lightning Bolt", targets=[apprentice.id], R=1)
+    for _ in range(20):  # the dies trigger's target: the Bears
+        d = s.state.rules.decision
+        if d is not None and any(o.id == bears.id for o in d.options):
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[bears.id])
+            continue
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert zone(s, apprentice) == "p1:graveyard"
+    assert counters(s, bears) == {"+1/+1": 2, "flying": 1} and "flying" in kws(s, bears)
+    replay_matches(s)
+
+
+def test_iron_apprentice_without_counters_doesnt_trigger(cards):
+    s = build(cards, "Iron Apprentice", "Grizzly Bears")
+    apprentice = cast(s, "Iron Apprentice", C=1)
+    settle(s)
+    bears = put(s, "Grizzly Bears")
+    add(s, s.state.cards[apprentice.id], -1)  # a 0/0 with no counters: it dies (704.5f) with none
+    act(s, "p1", type="pass_priority")
+    settle(s)
+    assert zone(s, apprentice) == "p1:graveyard" and not counters(s, bears)
+    replay_matches(s)
+
+
+def test_the_ozolith_collects_and_moves_counters(cards):
+    s = build(cards, "The Ozolith", "Hardened Scales", "Grizzly Bears", "Llanowar Elves", "Lightning Bolt")
+    ozolith = put(s, "The Ozolith")
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    add(s, bears, 1)
+    add(s, bears, 1, "trample")
+    cast(s, "Lightning Bolt", targets=[bears.id], R=1)
+    settle(s)
+    assert zone(s, bears) == "p1:graveyard" and counters(s, ozolith) == {"+1/+1": 1, "trample": 1}
+    put(s, "Hardened Scales")
+    s = saved(s)
+    for _ in range(300):  # to Alice's next beginning of combat (Bob's turn: no attack)
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers" and d.player == "p1" and s.state.turn.number >= 3:
+            break
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif any(o.id == elves.id for o in d.options):
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[elves.id])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"] if any(o.id == "yes" for o in d.options)
+                else [o.id for o in d.options][: max(1, d.min_choices)])
+    assert not counters(s, ozolith)
+    assert counters(s, elves) == {"+1/+1": 2, "trample": 1}  # moved: a put (Hardened Scales, Nesting Grounds ruling)
+    replay_matches(s)
+
+
+def test_grakmaw_grows_only_for_a_creature_that_had_a_plus_counter(cards):
+    s = build(cards, "Grakmaw, Skyclave Ravager", "Grizzly Bears", "Llanowar Elves", "Lightning Bolt", "Lightning Bolt")
+    grakmaw = cast(s, "Grakmaw, Skyclave Ravager", B=1, G=1, C=1)
+    settle(s)
+    assert counters(s, grakmaw) == {"+1/+1": 3}
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    add(s, bears, 1)
+    s = saved(s)
+    bolts = [c for c in s.state.cards.values() if c.name == "Lightning Bolt"]
+    for bolt, victim in zip(bolts, (elves, bears), strict=True):
+        act(s, "p1", type="move", card_ids=[bolt.id], to={"zone": "hand"})
+        mana(s, R=1)
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[victim.id])
+        settle(s)
+    assert zone(s, elves) == "p1:graveyard" and zone(s, bears) == "p1:graveyard"
+    assert counters(s, grakmaw) == {"+1/+1": 4}  # the Bears had one; the Elves none
+    replay_matches(s)
+
+
+def test_blowfly_infestation_after_persist(cards):
+    """Kitchen Finks dies with no -1/-1 counter (nothing), returns with one (persist), dies again: Blowfly triggers."""
+    s = build(cards, "Blowfly Infestation", "Kitchen Finks", "Lightning Bolt", "Lightning Bolt", p2=("Grizzly Bears",))
+    put(s, "Blowfly Infestation")
+    finks, theirs = put(s, "Kitchen Finks"), put(s, "Grizzly Bears", "p2")
+    s = saved(s)
+    bolts = [c for c in s.state.cards.values() if c.name == "Lightning Bolt"]
+    for bolt in bolts:
+        act(s, "p1", type="move", card_ids=[bolt.id], to={"zone": "hand"})
+        mana(s, R=1)
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[finks.id])
+        for _ in range(20):
+            d = s.state.rules.decision
+            if d is not None and any(o.id == theirs.id for o in d.options):
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=[theirs.id])
+            elif d is not None:
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+            elif s.state.zones.get("stack"):
+                act(s, s.state.rules.priority, type="pass_priority")
+            else:
+                break
+        if bolt is bolts[0]:
+            assert zone(s, finks) == "p1:battlefield" and counters(s, finks) == {"-1/-1": 1} and not counters(s, theirs)
+    assert zone(s, finks) == "p1:graveyard" and counters(s, theirs) == {"-1/-1": 1}
+    replay_matches(s)
 
