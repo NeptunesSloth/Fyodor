@@ -121,7 +121,9 @@ def move_card(
                 c.face_down_kind = None
         return True
 
-    if is_ephemeral(c) and dst_zone not in ("battlefield", STACK):
+    # (-- review (wave 14R) -- a phased-out permanent changing controller, 702.26d: the same object, as on the battlefield)
+    same_object = src_zone == dst_zone and src_zone in ("battlefield", "phased")
+    if is_ephemeral(c) and dst_zone not in ("battlefield", "phased", STACK):
         state.departures()[c.id] = dest  # it went there, then ceased to exist (rules tracking)
         delete(state, c)
         return False
@@ -145,7 +147,7 @@ def move_card(
             c.attached_to = None
             c.attach_offset = None
 
-    if src_zone == dst_zone == "battlefield":
+    if same_object:
         # A control change (another player's battlefield) is not a zone change: the permanent
         # stays the same object with its damage, counters and tapped state. It leaves combat.
         c.attacking = None
@@ -181,7 +183,7 @@ def move_card(
     c.revealed_to = []  # a reveal ends when the card changes zones
     if face_down is not None:
         c.face_down = bool(face_down)
-    elif not src_zone == dst_zone == "battlefield":
+    elif not same_object:
         c.face_down = False  # (a control change keeps a face-down permanent face down)
     if not c.face_down:
         c.face_down_kind = None

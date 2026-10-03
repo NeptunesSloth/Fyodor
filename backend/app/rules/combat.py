@@ -610,8 +610,15 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
             return False
         return min_blockers(ach) <= joined
 
+    def joined(b: CardInstance, x: CardInstance) -> int:
+        """How many creatures could block ``x`` together with ``b``: those blocking it, and (-- review (wave 14R) -- 509.1c: the
+        most requirements that could be obeyed counts any legal declaration) every other one with a block to spare that may."""
+        return 1 + per_attacker.get(x.id, 0) + sum(
+            1 for i in blockers if i != b.id and x.id not in used.get(i, []) and len(used.get(i, [])) < block_limit(plan.ch(state.cards[i]))
+            and block_problem(state, state.cards[i], plan.ch(state.cards[i]), x, plan.ch(x), plan.info) is None)
+
     for b in idle:
-        if "must_block" in scripts.statics(plan.ch(b)) and any(could(b, x, joined=1 + per_attacker.get(x.id, 0)) for x in att):
+        if "must_block" in scripts.statics(plan.ch(b)) and any(could(b, x, joined=joined(b, x)) for x in att):
             return f"{b.name} blocks each combat if able"
     # -- block effects (wave 7E) -- "blocks this creature this turn if able": judged for the creatures that block nothing, and
     # for those blocking another attacker unless that block meets a requirement of its own (509.1c)
@@ -623,10 +630,12 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
                                                 if not arg or _any_selector(state, plan.info, arg, b, plan.ch(b), y))]))
         for x in (y for y in att if plan.oid(y) in wanted):
             blocks = used.get(b.id, [])  # (-- multiple blocks (wave 13B) -- a blocker with a block to spare could add this one)
-            if x.id in blocks or (blocks and len(blocks) >= block_limit(plan.ch(b)) and (
-                    len(wanted) > 1 or any("must_be_blocked" in scripts.statics(plan.ch(state.cards[i])) for i in blocks))):
+            # (at its limit, a block that obeys a requirement of its own isn't traded for this one: -- review (wave 14R) -- one
+            # that obeys none is no excuse)
+            if x.id in blocks or (blocks and len(blocks) >= block_limit(plan.ch(b)) and any(
+                    plan.oid(state.cards[i]) in wanted or "must_be_blocked" in scripts.statics(plan.ch(state.cards[i])) for i in blocks)):
                 continue
-            if could(b, x, joined=1 + per_attacker.get(x.id, 0)):
+            if could(b, x, joined=joined(b, x)):
                 return f"{b.name} blocks {x.name} this turn if able"
     for x in att:
         if x.id in per_attacker or "must_be_blocked" not in scripts.statics(plan.ch(x)):
@@ -776,7 +785,8 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
             trample = "trample" in ach.keywords
             need = [lethal(b, ach, p) for b in blockers]
             shares = r.block_split.get(att.id)
-            if shares is None and pending is not None and (len(blockers) > 1 or trample and p > sum(need)):
+            if shares is None and pending is not None and (len(blockers) > 1 or trample and blockers and p > sum(need)):
+                # (-- review (wave 14R) -- 702.19d: with no blocker left, a trampler's damage all goes where it attacks: no choice)
                 pending.append((att, blockers, need))  # 510.1c / 702.19b: its controller divides it (asked: ``ask_split``)
             if shares is not None:  # as its controller chose; 702.19b: the rest of a trampler's goes to what it attacks
                 for b in blockers:
