@@ -88,8 +88,18 @@ def _all_and(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "bounce", "who": sel.key()}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_YOURS, _yours), (_THEIRS, _theirs), (_TWO_TARGETS, _two_targets),
-                                                (_ALL_AND, _all_and)]
+def _deferring(build: Any) -> Any:
+    """What the generic grammar already reads stays its reading (these templates run before it)."""
+    def template(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+        from app.rules import language
+
+        found = language.parse_sentence(m.group(0))
+        return found if found is not None else build(m)
+    return template
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_YOURS, _deferring(_yours)), (_THEIRS, _deferring(_theirs)),
+                                                (_TWO_TARGETS, _deferring(_two_targets)), (_ALL_AND, _deferring(_all_and))]
 
 
 def bounce_together(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

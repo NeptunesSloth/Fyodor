@@ -202,10 +202,6 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return "self", "", None
     if p in ("it", "that creature", "that permanent", "that card", "that token"):
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
-    # -- permanent effects (wave 6A) -- "That artifact gains haste. Sacrifice it …" (Arms Race), "Sacrifice the creature
-    # at the beginning of the next end step." (Sneak Attack): the object the earlier instruction named
-    if p in ("that artifact", "that enchantment", "that planeswalker", "the creature"):
-        return "it", "", None
     if p == "that land":  # -- recursion & tutors (wave 4M) -- "… put it onto the battlefield tapped, then shuffle. Then if
         return "it", "", None  # you control four or more lands, untap that land." (Fabled Passage): the land found
     if p in _THEM:
@@ -1451,7 +1447,7 @@ def bare_pronoun_grant(text: str) -> Effects | None:
     if m is None:
         return None
     try:
-        kind, _key, _group = ref(m["o"])
+        kind, _key, _group = ref("it" if m["o"] == "that artifact" else m["o"])  # (wave 6A: Arms Race)
         e = _grant_effect(_who(kind, _key), m["kw"])
     except _Fail:
         return None

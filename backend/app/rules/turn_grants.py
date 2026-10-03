@@ -20,10 +20,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-_UNBLOCKED = re.compile(r"^(?P<o>.+?) can't be blocked (?P<by>by .+?) this turn$")
-_UNBLOCKED_EXCEPT = re.compile(r"^(?P<o>.+?) can't be blocked this turn except by (?P<ex>.+)$")
-_UNBLOCKED_LEAD = re.compile(r"^until end of turn, (?P<o>.+?) can't be blocked (?P<by>by .+)$")
-_SHARED = re.compile(r"^(?P<lead>until end of turn, )?(?P<o>(?:target|another target|this|that|~|it\b)[^,]*?) "
+_UNBLOCKED = re.compile(r"^(?!.*\")(?P<o>.+?) can't be blocked (?P<by>by .+?) this turn$")
+_UNBLOCKED_EXCEPT = re.compile(r"^(?!.*\")(?P<o>.+?) can't be blocked this turn except by (?P<ex>.+)$")
+_UNBLOCKED_LEAD = re.compile(r"^(?!.*\")until end of turn, (?P<o>.+?) can't be blocked (?P<by>by .+)$")
+_SHARED = re.compile(r"^(?!.*\")(?P<lead>until end of turn, )?(?P<o>(?:target|another target|this|that|~|it\b)[^,]*?) "
                      r"(?P<a>(?:gains?|gets|has|have) .+?) and (?P<b>(?:gains?|can't be blocked) .+)$")
 _EOT = " until end of turn"
 
@@ -37,6 +37,9 @@ def _fail() -> Exception:
 def _unblocked(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language, statics
 
+    whole = language.parse_sentence(m.group(0))
+    if whole is not None:
+        return whole  # (what the generic grammar reads stays its reading: a pump's rider, …)
     by, ex = m.groupdict().get("by"), m.groupdict().get("ex")
     rules = statics._rule(f"can't be blocked except by {ex}" if ex else f"can't be blocked {by}")
     if not rules:
