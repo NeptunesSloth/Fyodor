@@ -193,6 +193,11 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
         card = plan.state.cards.get(entry["card"])
         if card is None or entry.get("stays"):
             continue
+        # -- entering for a cost (wave 5G) -- what it may pay with: not one entering with it, nor one another of them
+        # chose (614.13a-b)
+        from app.rules import enter_cost
+
+        entry["reserved"] = sorted({str(e["card"]) for e in entries if e is not entry} | enter_cost.chosen_objects(entries, i))
         if replacements.choice_needed(plan, card, entry) is not None:
             # a shock land: "As ~ enters, you may pay 2 life" is decided before it enters (614.12a)
             replacements.ask_entry_choice(plan, entries, i, ctx, shuffle)

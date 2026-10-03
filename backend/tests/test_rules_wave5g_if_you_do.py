@@ -49,6 +49,20 @@ EXTRA = [
     card("Stark's Ingenuity", set_code="tst", number="G12", mana_cost='{2}{U}', cmc=3.0, type_line='Enchantment — Aura',
          oracle_text='Enchant creature you control\nWhen this Aura enters, you may pay {X}. If you do, draw X cards.\nWhenever you draw a card, put a +1/+1 counter on enchanted creature.', colors=['U'], color_identity=['U'], keywords=['Enchant']),
 ]
+ENTER = [
+    card('Mox Diamond', set_code="tst", number="G20", mana_cost='{0}', cmc=0.0, type_line='Artifact',
+         oracle_text="If this artifact would enter, you may discard a land card instead. If you do, put this artifact onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add one mana of any color.", colors=[], color_identity=[]),
+    card('Lake of the Dead', set_code="tst", number="G21", mana_cost='', cmc=0.0, type_line='Land',
+         oracle_text="If this land would enter, sacrifice a Swamp instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {B}.\n{T}, Sacrifice a Swamp: Add {B}{B}{B}{B}.", colors=[], color_identity=['B']),
+    card('Splendid Reclamation', set_code="tst", number="G22", mana_cost='{3}{G}', cmc=4.0, type_line='Sorcery',
+         oracle_text='Return all land cards from your graveyard to the battlefield tapped.', colors=['G'], color_identity=['G']),
+    card('Soldevi Excavations', set_code="tst", number="G23", mana_cost='', cmc=0.0, type_line='Land',
+         oracle_text="If this land would enter, sacrifice an untapped Island instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {C}{U}.\n{1}, {T}: Scry 1.", colors=[], color_identity=['U'], keywords=['Scry']),
+    card('Scorched Ruins', set_code="tst", number="G24", mana_cost='', cmc=0.0, type_line='Land',
+         oracle_text="If this land would enter, sacrifice two untapped lands instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {C}{C}{C}{C}.", colors=[], color_identity=[]),
+    card('Swamp', set_code="tst", number="G25", type_line='Basic Land — Swamp', oracle_text='({T}: Add {B}.)', color_identity=['B']),
+]
+EXTRA += ENTER
 SIZED = ["Vigil for the Lost", "Hero of Leina Tower", "Squealing Devil", "Well of Lost Dreams", "Shanna, Purifying Blade",
          "Mask of Griselbrand", "Niv-Mizzet, Ghost Counsel", "Madame Null, Power Broker", "Taj-Nar Swordsmith",
          "Mortarion, Daemon Primarch", "Stark's Ingenuity"]
@@ -298,4 +312,131 @@ def test_a_life_payment_too_large_isnt_offered(cards):
     bolt(s, bear)
     assert until_asked(s) is None
     assert len(hand(s)) == drawn and life(s) == 2
+    roundtrip(s)
+
+
+# -- entering for a cost (Mox Diamond, Lake of the Dead) -----------------------------------------------------------
+def build_enter(cards, p1=(), forests=12):
+    alice = deck(cards, "Krenko, Mob Boss", [*((1, n) for n in p1), (forests, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(12, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)),
+                    cards=cards)
+    act(s, "p1", type="pass_priority")  # → Alice's main phase
+    for c in list(hand(s)):  # (an empty hand: each scenario puts in it what it needs)
+        act(s, "p1", type="move", card_ids=[c], to={"zone": "library"})
+    return s
+
+
+def nth(s, name, i=0, pid="p1"):
+    return [c for c in s.state.cards.values() if c.name == name and c.owner == pid][i]
+
+
+def where(s, c):
+    return s.state.cards[c.id].zone
+
+
+def test_enter_cost_coverage(cards):
+    for name in ("Mox Diamond", "Lake of the Dead", "Soldevi Excavations"):
+        assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
+    assert coverage.of_card_data(cards.resolve("Scorched Ruins")).level != "FULL"  # (two objects: not read)
+
+
+@pytest.mark.parametrize("discard", [True, False])
+def test_mox_diamond_discards_a_land_or_goes_to_the_graveyard(cards, discard):
+    s = build_enter(cards, p1=("Mox Diamond", "Lightning Bolt"))
+    mox, forest, bolt_card = to_hand(s, "Mox Diamond"), to_hand(s, "Forest"), to_hand(s, "Lightning Bolt")
+    act(s, "p1", type="cast_spell", card_id=mox.id)
+    d = until_asked(s)
+    assert d.player == "p1" and [o.id for o in d.options] == [forest.id, "none"]  # (the land cards: not the Bolt)
+    assert "options" not in s.view("p2")["rules"]["decision"]  # (her hand: hidden, 400.2)
+    roundtrip(s)
+    pick(s, forest.id if discard else "none")
+    settle(s)
+    assert where(s, mox) == ("p1:battlefield" if discard else "p1:graveyard")
+    assert where(s, forest) == ("p1:graveyard" if discard else "p1:hand")
+    assert where(s, bolt_card) == "p1:hand"
+    roundtrip(s)
+
+
+def test_mox_diamond_asked_even_with_no_land_in_hand(cards):
+    """The question is asked whenever the hand holds another card (skipping it would tell the table there's no land)."""
+    s = build_enter(cards, p1=("Mox Diamond", "Lightning Bolt"))
+    mox = to_hand(s, "Mox Diamond")
+    to_hand(s, "Lightning Bolt")
+    act(s, "p1", type="cast_spell", card_id=mox.id)
+    d = until_asked(s)
+    assert [o.id for o in d.options] == ["none"]
+    pick(s, "none")
+    settle(s)
+    assert where(s, mox) == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_mox_diamond_with_an_empty_hand_goes_to_the_graveyard(cards):
+    s = build_enter(cards, p1=("Mox Diamond",))
+    mox = to_hand(s, "Mox Diamond")
+    act(s, "p1", type="cast_spell", card_id=mox.id)
+    assert until_asked(s) is None
+    assert where(s, mox) == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_lake_of_the_dead_sacrifices_a_swamp_as_it_is_played(cards):
+    s = build_enter(cards, p1=("Lake of the Dead", "Swamp"))
+    swamp = on_field(s, "Swamp")
+    lake = to_hand(s, "Lake of the Dead")
+    act(s, "p1", type="play_land", card_id=lake.id)
+    d = s.state.rules.decision
+    assert d is not None and [o.id for o in d.options] == [swamp.id]  # (no "don't": the plain wording is paid when it can be)
+    pick(s, swamp.id)
+    assert where(s, lake) == "p1:battlefield" and where(s, swamp) == "p1:graveyard"
+    assert s.state.rules.lands_this_turn("p1", s.state.turn.number) == 1
+    roundtrip(s)
+
+
+def test_lake_of_the_dead_without_a_swamp_is_still_the_land_played(cards):
+    s = build_enter(cards, p1=("Lake of the Dead",))
+    lake = to_hand(s, "Lake of the Dead")
+    forest = to_hand(s, "Forest")
+    act(s, "p1", type="play_land", card_id=lake.id)
+    assert s.state.rules.decision is None
+    assert where(s, lake) == "p1:graveyard"
+    assert s.state.rules.lands_this_turn("p1", s.state.turn.number) == 1  # (305.1: it was played)
+    with pytest.raises(Exception):
+        act(s, "p1", type="play_land", card_id=forest.id)
+    roundtrip(s)
+
+
+def test_soldevi_excavations_needs_an_untapped_island(cards):
+    s = build_enter(cards, p1=("Soldevi Excavations",))
+    island = next(c for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[island.id], to={"player": "p2", "zone": "battlefield"})  # (Bob's: not hers)
+    excavations = to_hand(s, "Soldevi Excavations")
+    act(s, "p1", type="play_land", card_id=excavations.id)
+    assert s.state.rules.decision is None and where(s, excavations) == "p1:graveyard"
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("swamp_out", [True, False])
+def test_entering_together_can_not_pay_with_one_entering_with_it(cards, swamp_out):
+    """614.13a: Splendid Reclamation returns Lake of the Dead and a Swamp together — the Lake can't sacrifice that
+    Swamp; with another Swamp already on the battlefield it sacrifices that one."""
+    s = build_enter(cards, p1=("Lake of the Dead", "Swamp", "Swamp", "Splendid Reclamation"))
+    lake, gy_swamp, field_swamp = nth(s, "Lake of the Dead"), nth(s, "Swamp", 0), nth(s, "Swamp", 1)
+    act(s, "p1", type="move", card_ids=[lake.id, gy_swamp.id], to={"player": "p1", "zone": "graveyard"})
+    if swamp_out:
+        act(s, "p1", type="move", card_ids=[field_swamp.id], to={"player": "p1", "zone": "battlefield"})
+    spell = to_hand(s, "Splendid Reclamation")
+    mana(s, "p1", G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    d = until_asked(s)
+    if swamp_out:
+        assert d is not None and [o.id for o in d.options] == [field_swamp.id]
+        pick(s, field_swamp.id)
+        settle(s)
+        assert where(s, lake) == "p1:battlefield" and where(s, field_swamp) == "p1:graveyard"
+    else:
+        assert d is None
+        assert where(s, lake) == "p1:graveyard"
+    assert where(s, gy_swamp) == "p1:battlefield"
     roundtrip(s)

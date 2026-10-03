@@ -58,6 +58,10 @@ SUPPORTED_REPLACEMENTS.add("enter_as_copy")
 # -- "this way" outcomes (wave 4A) -- "As ~ enters, you may reveal an X or Y card from your hand. If you don't, ~
 # enters tapped." (614.1c, 614.12a, 701.20a; app/rules/reveal_lands.py, tests/test_rules_wave4a_this_way.py)
 SUPPORTED_REPLACEMENTS.add("reveal_or_tapped")
+# -- entering for a cost (wave 5G) -- "If ~ would enter, you may discard a land card / sacrifice a Swamp instead. If you
+# do, put ~ onto the battlefield. If you don't, put it into its owner's graveyard." (614.1a, 614.12a, 614.13, 118.12;
+# app/rules/enter_cost.py, tests/test_rules_wave5g_if_you_do.py)
+SUPPORTED_REPLACEMENTS.add("enter_cost")
 
 
 # -- modal triggered/activated abilities (wave 1A) ---------------------------------------------------

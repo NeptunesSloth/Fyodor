@@ -2863,6 +2863,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (revealed := reveal_lands.definition(text)) is not None:
         return revealed
+    from app.rules import enter_cost  # -- entering for a cost (wave 5G) -- Mox Diamond, Lake of the Dead
+
+    if (entering_cost := enter_cost.definition(text)) is not None:
+        return entering_cost
     # -- conditional statics (wave 4B) -- "If you control two or more other lands, this land enters tapped." (Den of
     # the Bugbear; 614.1d, checked as it enters, 614.12): "enters tapped unless" the condition is false
     m = re.fullmatch(r"If (?P<cond>you control .+), ~ enters tapped\.", text)

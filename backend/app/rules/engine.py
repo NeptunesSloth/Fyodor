@@ -766,6 +766,17 @@ def resolve_top_of_stack(plan: Plan) -> None:
     x = top.stack_info.x if top.stack_info else None
     if ep.get("life"):
         plan.do({"type": "life", "player": controller, "delta": -int(ep["life"])}, actor=controller)
+    # -- entering for a cost (wave 5G) -- paid as it would enter, or it goes to its owner's graveyard instead (614.6)
+    from app.rules import enter_cost
+
+    if ep.get("pay") and not enter_cost.pay(plan, top, controller, ep["pay"], controller):
+        ep["divert"] = True
+    if ep.get("divert"):
+        plan.rules.payments.pop(plan.oid(top_id), None)
+        enter_cost.divert(plan, top_id, controller)
+        _after_resolution(plan)
+        return
+    # -- end entering for a cost (wave 5G) --
     leave_stack(plan, top_id, controller, tapped=bool(ep["tapped"]))
     if aura_target is not None and not manual and plan.state.cards[top_id].zone.endswith(":battlefield"):
         attachments.attach(plan, top_id, aura_target.id, controller)  # 303.4f: it enters attached to its target
@@ -889,6 +900,22 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     if ep.get("life"):
         plan.do({"type": "life", "player": plan.actor, "delta": -int(ep["life"])})
+    # -- entering for a cost (wave 5G) -- the land was played (305.1); its entering is what the payment replaces
+    from app.rules import enter_cost
+
+    if ep.get("pay") and not enter_cost.pay(plan, card, plan.actor, ep["pay"], plan.actor):
+        ep["divert"] = True
+    if ep.get("divert"):
+        enter_cost.divert(plan, card.id, plan.actor)
+        plan.rules.entry_choices.pop(card.id, None)
+        if grant is not None and grant.how == "permission":
+            permissions.consume(plan, grant)
+        r = plan.rules
+        r.lands_played[plan.actor] = TurnCount(turn=plan.state.turn.number, count=r.lands_this_turn(plan.actor, plan.state.turn.number) + 1)
+        r.passed = []
+        r.priority = plan.actor
+        return
+    # -- end entering for a cost (wave 5G) --
     payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"}, "tapped": bool(ep["tapped"])}
     if a.x is not None and a.y is not None:
         payload.update(x=a.x, y=a.y)
