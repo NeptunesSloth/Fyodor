@@ -1581,6 +1581,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         # "other" may be relative to the event's player — not read there
         # (not where the grammar reads it already: an edict, language.EDICT_OTHERS; "during each other player's …")
         body = re.sub(r"\b([Ee])ach other player\b(?! sacrifices)(?!'s)", lambda m: f"{m[1]}ach opponent", body)
+    body = _choose_then(body)  # -- if you do (wave 6F) --
     texts =[s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     skip_to = 0  # -- refused look/cast-free (wave 3R5) -- sentences read together with an earlier one (piles)
@@ -1750,13 +1751,20 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             sized_pay = "choose_x" in pay_e or "life_x" in pay_e
             if pay_e.get("that_many") and not if_do["neg"]:
                 rest_text = re.sub(r"\bthat many\b", "X", rest_text)
+            # -- if you do (wave 6F) -- "you may discard your hand. If you do, draw that many cards": the cards discarded
+            # (optional_payment records them as the payment's X), never a trigger event's amount
+            hand_pay = pay_e.get("cost") == "Discard your hand" and re.search(r"\bthat many\b", rest_text) is not None
+            if hand_pay and (if_do["neg"] or re.search(r"\bX\b", rest_text)):
+                return None
+            if hand_pay:
+                rest_text = re.sub(r"\bthat many\b", "X", rest_text)
             if sized_pay and (if_do["neg"] or not re.search(r"\bX\b", rest_text)) and not (
                     pay_e.get("life_x") == {"event_amount": 1} and not if_do["neg"]):  # (Niv-Mizzet: "that many" = that much)
                 return None
             inner = _clause(rest_text) if not rest_text.startswith("you may ") else None
             if inner is None:
                 return None
-            if sized_pay:
+            if sized_pay or hand_pay:  # (hand_pay: wave 6F)
                 from app.rules import paid_x
 
                 if re.search(r'"x"|\bX\b', json.dumps(inner[1], default=str)):
@@ -1882,6 +1890,25 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     return resolved, target, optional
 
 
+# -- if you do (wave 6F) -- "If you do, choose a color, then return all creatures of that color to their owners' hands."
+# (Dromar, Rith, Treva, Crosis): the choice is made as the instruction is reached (608.2c), then the rest reads it — the
+# same as "Choose a color. Return all creatures of the chosen color …" (effects.choose_value, chosen.bind_effects).
+_CHOOSE_THEN = re.compile(r"(?:^|(?<=\. ))(?P<if>If you do, )?(?P<c>[Cc])hoose a (?P<what>color|creature type), then "
+                          r"(?P<rest>[^.]+)\.")
+
+
+def _choose_then(body: str) -> str:
+    def sub(m: re.Match[str]) -> str:
+        rest = m["rest"]
+        if f"of that {m['what']}" not in rest or "chosen" in rest:
+            return m[0]
+        rest = rest.replace(f"of that {m['what']}", f"of the chosen {m['what']}")
+        if m["if"]:  # (both instructions hinge on the same payment: "If you do" names the latest one)
+            return f"If you do, choose a {m['what']}. If you do, {rest}."
+        return f"{m['c']}hoose a {m['what']}. {rest[:1].upper()}{rest[1:]}."
+    return _CHOOSE_THEN.sub(sub, body)
+
+
 def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """-- refused look/cast-free (wave 3R5) -- A spell or activated ability that is all "You may cast …
     without paying its mana cost": the "may" is the cast's own choice (choosing no card), not a
@@ -1984,6 +2011,8 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
         return None
     cost = optional_payment.cost_text(phrase)
     sized: dict[str, Any] = {}
+    if cost is None and (alts := optional_payment.alternatives(phrase)) is not None:  # -- if you do (wave 6F) -- A or B
+        cost, sized = alts[0], {"alts": alts}
     if cost is None:  # -- sized payments (wave 5G) -- "pay {X}" / "pay X life, where X is …" (app/rules/paid_x.py)
         from app.rules import paid_x
 
@@ -4034,6 +4063,15 @@ def _attach_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if found is None:
         raise _NoMatch
     return found
+
+
+# -- if you do (wave 6F) -- "create a 2/1 red Dwarf Berserker creature token, then attach this Equipment to it." (Dwarven
+# Hammer, Elven Bow, Valkyrie's Sword): this object (400.7: still the one that entered) attached to the token just made,
+# if it could be attached there (701.3a-b, attachments.host_problem); otherwise nothing moves.
+@_first
+@effect(r"attach ~ to it")
+def _attach_self_to_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "attach_to", "src": "self", "who": "it"}], None
 
 
 @_first

@@ -49,8 +49,18 @@ Context = dict[str, Any]
 STEP = "pay_or_sacrifice"
 PAY, DECLINE = "pay", "decline"
 SUPPORTED = frozenset({C.MANA, C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.DISCARD, C.EXILE, C.EXILE_FROM_GRAVEYARD,
-                       C.REMOVE_COUNTER, C.RETURN_PERMANENT, C.TAP_OTHER})
+                       C.REMOVE_COUNTER, C.RETURN_PERMANENT, C.TAP_OTHER, C.PUT_COUNTER, C.DISCARD_HAND})  # (PUT_COUNTER: wave 6F, blight)
 _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
+
+
+# -- if you do (wave 6F) -- "You may blight 1. If you do, …" (Scuzzback Scrounger, Sourbread Auntie): 701.68a, to blight N
+# is to put N -1/-1 counters on a creature you control — paid as it resolves (118.12) through the activation-cost part
+# (cost_payment._pay_new_part: one creature, all N counters on it); 701.68b: with no creature the option isn't offered.
+def _blight_like(comp: C.CostComponent) -> bool:
+    """A "put N counters on a creature you control" part (blight): one chosen permanent of the payer's — or "discard
+    your hand" (every card in it; ``paid_x`` records how many, for "draw that many cards")."""
+    return (comp.kind == C.PUT_COUNTER and comp.selector is not None and comp.alt is None and not comp.x) \
+        or comp.kind == C.DISCARD_HAND
 
 
 # -- grammar helpers (app/rules/scripts.py) --------------------------------------------------------
@@ -65,6 +75,9 @@ def cost_text(phrase: str) -> str | None:
             part = part[4:]
         elif re.fullmatch(r"\d+ life", part):  # "… unless that player pays 3 life"
             part = "pay " + part
+        elif part in ("discard your hand", "discard all the cards in your hand"):  # -- if you do (wave 6F) --
+            part = "discard your hand"  # (701.9a; with no card in hand it may still be chosen: Wizards rulings on
+            # Narset, Jeskai Waymaster 2025-04-04 and Jackdaw 2024-07-05 — "If you do" is then true, 118.12)
         if not part:
             return None
         parts.append(part[0].upper() + part[1:])
@@ -72,10 +85,28 @@ def cost_text(phrase: str) -> str | None:
     return text if parse(text) is not None else None
 
 
+# -- if you do (wave 6F) -- "You may sacrifice an artifact or discard a card. If you do, …" (Reckless Detective, Vision of
+# Love): one cost or the other, the payer's pick among those they can pay in full (118.3); "If you do" is true when
+# either was paid (118.12).
+_ALT_VERB = re.compile(r" or (?=(?:sacrifice|discard|pay|exile|return|tap|remove|put) )")
+
+
+def alternatives(phrase: str) -> list[str] | None:
+    """"sacrifice an artifact or discard a card" → ["Sacrifice an artifact", "Discard a card"], or None (not two
+    costs each read alone)."""
+    pieces = _ALT_VERB.split(phrase.strip())
+    if len(pieces) != 2:
+        return None
+    found = [cost_text(p) for p in pieces]
+    return [f for f in found if f is not None] if all(found) else None
+
+
 def parse(text: str) -> AbilityCost | None:
     """The cost text as components, or None if any part isn't one the engine pays here."""
     cost = C.parse_ability_cost(text)
-    if cost.unsupported or not cost.components or "{X}" in cost.mana.upper() or cost.energy_x or cost.activation_only:  # (wave 4H)
+    if cost.unsupported or not cost.components or "{X}" in cost.mana.upper() or cost.energy_x:
+        return None
+    if any(c.activation_only and not _blight_like(c) for c in cost.components):  # (wave 4H; wave 6F: blight)
         return None
     if any(c.kind not in SUPPORTED for c in cost.components):
         return None
@@ -148,7 +179,7 @@ def problem(plan: Plan, ctx: Context, cost: AbilityCost, payer: str, chosen: dic
             usable = [c for c in cost_payment.candidates(plan, comp, payer, source)
                       if c not in cost_payment._reserved(cost, comp, source) and c not in used]
             picks = chosen.get(i, [])
-            if len(picks) != comp.amount or len(set(picks)) != len(picks) or any(c not in usable for c in picks):
+            if len(picks) != comp.objects or len(set(picks)) != len(picks) or any(c not in usable for c in picks):
                 return f"Those can't pay “{comp.text}”"
             used |= set(picks)
     if cost.mana:
@@ -172,6 +203,8 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             e = {**e, "cost": started}
         else:
             return bool(started)
+    if e.get("alts"):  # -- if you do (wave 6F) -- one cost or the other
+        return _offer_alternatives(plan, ctx, e)
     text = unless_pays.concrete_cost(plan, ctx, e)
     cost = parse(text)
     # -- end unless pays (wave 4C) --
@@ -192,6 +225,25 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
            options=[DecisionOption(id=PAY, label=f"Pay {_label(cost)}"), DecisionOption(id=DECLINE, label="Don't pay")],
            resume=_resume(ctx, opt, cost), source=source,
            display={"kind": "optional_cost", "cost": _label(cost), "pool": dict(plan.state.players[payer].mana)} if cost.mana else None)
+    return False
+
+
+def _offer_alternatives(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- if you do (wave 6F) -- PAY one of ``alts`` (each offered only while payable in full, 118.3) or DECLINE."""
+    name = str(e.get("bind") or "pay0")
+    payer = payer_of(plan, ctx, e.get("who", "you"))
+    payable = [(i, text, cost) for i, text in enumerate(e["alts"])
+               if (cost := parse(text)) is not None and payer is not None and problem(plan, ctx, cost, payer) is None]
+    if payer is None or not payable:
+        if payer is not None:
+            plan.note(f"{plan.name(payer)} can't pay {' or '.join(e['alts'])} for {ctx.get('name') or 'it'}")
+        context.bind_payment(ctx, name, False)
+        return True
+    opt = {"alts": list(e["alts"]), "bind": name, "payer": payer, "chosen": {}, "cost": payable[0][1]}
+    decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {' or '.join(e['alts'])}?",
+           options=[*(DecisionOption(id=f"{PAY}:{i}", label=f"Pay {_label(cost)}") for i, _, cost in payable),
+                    DecisionOption(id=DECLINE, label="Don't pay")],
+           resume=_resume(ctx, opt, payable[0][2]), source=plan.state.cards.get(ctx.get("source_card") or ""))
     return False
 
 
@@ -231,6 +283,14 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
         if len(chosen) != r["amount"]:
             raise ActionError(f"Choose {r['amount']}")
         opt = {**opt, "chosen": {**opt["chosen"], str(r["component"]): list(chosen)}}
+    elif opt.get("alts") and chosen[0].startswith(f"{PAY}:"):  # -- if you do (wave 6F) -- the cost picked
+        k = chosen[0].split(":", 1)[1]
+        if not k.isdigit() or int(k) >= len(opt["alts"]):
+            raise ActionError("Choose one of the offered costs")
+        opt = {**opt, "cost": opt["alts"][int(k)], "alts": None}
+        picked = parse(opt["cost"])
+        assert picked is not None
+        cost = picked
     elif chosen[0] != PAY:
         plan.note(f"{plan.name(d.player)} didn't pay {_label(cost)} for {ctx.get('name') or 'it'}")
         context.bind_payment(ctx, opt["bind"], False)
@@ -253,19 +313,19 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
             continue
         usable = [c for c in cost_payment.candidates(plan, comp, payer, source)
                   if c not in cost_payment._reserved(cost, comp, source) and c not in used]
-        if len(usable) < comp.amount:
+        if len(usable) < comp.objects:  # (objects: one permanent for its counters, wave 6F)
             return True  # (validated again in _pay: it can't be paid any more)
-        if len(usable) == comp.amount:
+        if len(usable) == comp.objects:
             picked[i] = usable
             used |= set(usable)
             opt["chosen"][str(i)] = usable
             continue
         verb = cost_payment._VERBS.get(comp.kind, "use")
         decide(plan, player=payer, kind="choose_cards",
-               prompt=f"{ctx.get('name') or 'It'}: choose {comp.amount} to {verb} (“{comp.text}”)",
+               prompt=f"{ctx.get('name') or 'It'}: choose {comp.objects} to {verb} (“{comp.text}”)",
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
-               min_choices=comp.amount, max_choices=comp.amount,
-               resume=_resume(ctx, opt, cost, component=i, amount=comp.amount), source=plan.state.cards.get(ctx.get("source_card") or ""))
+               min_choices=comp.objects, max_choices=comp.objects,
+               resume=_resume(ctx, opt, cost, component=i, amount=comp.objects), source=plan.state.cards.get(ctx.get("source_card") or ""))
         return False
     return True
 
@@ -301,6 +361,12 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
     for kind, n in cost.remove_counters:
         plan.do({"type": "counter", "card_ids": [source.id], "kind": kind, "delta": -n}, actor=payer)
     record = PaymentRecord(card=source.id, controller=payer, total_cost=_label(cost))
-    cost_payment.pay(plan, cost, source, chosen, record)
+    actor, plan.actor = plan.actor, payer  # -- if you do (wave 6F) -- the parts cost_payment pays as "the actor" are the payer's
+    try:
+        cost_payment.pay(plan, cost, source, chosen, record)
+    finally:
+        plan.actor = actor
+    if any(c.kind == C.DISCARD_HAND for c in cost.components):  # -- if you do (wave 6F) -- "draw that many cards"
+        ctx.setdefault("paid_x", {})[name] = len(record.discarded)
     plan.note(f"{plan.name(payer)} paid {_label(cost)} for {label}", [c for c in paid if c in plan.state.cards])
     context.bind_payment(ctx, name, True, refs)

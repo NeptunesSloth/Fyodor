@@ -29,6 +29,7 @@ from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
 from app.rules import payment as P
+from app.rules import removed_mana  # -- if you do (wave 6F) --
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.costs import AbilityCost, kicker_cost, parse_ability_cost
 from app.rules.oracle import AbilityText
@@ -187,6 +188,8 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         return ab.instead if _controls_for_instead(state, card.controller, ab.instead_if[0], info) else ab.options
     if ab.instead_if and all(_controls_subtypes(state, card.controller, need, info) for need in ab.instead_if):
         return ab.instead  # -- refused copy/mana (wave 3R3): Urza's Tower with the Mine and the Power-Plant --
+    if (removed := removed_mana.parts(ab.count)) is not None:  # -- if you do (wave 6F) -- one option per number removed
+        return removed_mana.options(card.counters.get(removed[0], 0), ab.count or "", ab.options[0])
     if ab.count == "devotion":  # -- refused copy/mana (wave 3R3): Nykthos, per chosen color (700.5) --
         found = [opt * n for opt in ab.options if (n := _devotion(state, card.controller, opt[0], info)) > 0]
         return tuple(found)
@@ -418,6 +421,7 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
         abilities = [(i, ab) for i, ab in mana_abilities(state, card, info)
                      if (usable_tap or not ab.tap) and spend_allowed(ab.spend_only, purpose)
                      and not ab.chooses and ab.self_counter is None  # (wave 3R3: the payer's choice: by hand)
+                     and removed_mana.parts(ab.count) is None  # -- if you do (wave 6F) -- how many: by hand
                      and not (ab.extra_cost and parse_ability_cost(ab.extra_cost, card_name=ch.name).energy)
                      and not (taxes and mana_ability_taxed(state, card, ch, ab, info))]  # (review 4R: by hand)
         rank = 0 if ch.is_land else 2 if ch.is_creature else 1
@@ -2764,6 +2768,12 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
         from app.rules import replace as replace_  # (the counter choke point; a cost, not an effect)
 
         replace_.put_counters(plan, [(card.id, ability.self_counter, 1)], by=card.controller, effect=False)
+    if (removed := removed_mana.parts(ability.count)) is not None:  # -- if you do (wave 6F) -- the cost: n counters
+        kind, n = removed_mana.removed(ability.count or "", option)
+        if n < 0 or card.counters.get(kind, 0) < n:  # 118.3
+            raise ActionError(f"{plan.ch(card).name} doesn't have {n} {kind} counters")
+        if n:
+            plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n}, actor=card.controller)
     mana = _count(option)
     oid = plan.oid(card)  # (wave 5A: the object as it was tapped)
     plan.do({"type": "rules_mana", "player": card.controller, "tap": [card.id] if ability.tap else [],
