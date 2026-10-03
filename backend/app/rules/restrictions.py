@@ -36,6 +36,8 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from app.game.state import COMBAT_PHASES, PHASES, STACK
+from app.rules import activation_words
+from app.rules.activation_words import ANY_PLAYER
 
 if TYPE_CHECKING:
     from app.game.rules_state import RulesState
@@ -89,7 +91,7 @@ def split(body: str) -> tuple[str, str | None]:
     None). The restriction sentences are the trailing ones that start with "Activate only …"."""
     sentences = _sentences(body)
     found: list[str] = []
-    while sentences and _RESTRICTION_SENTENCE.match(sentences[-1]):
+    while sentences and (_RESTRICTION_SENTENCE.match(sentences[-1]) or sentences[-1] == ANY_PLAYER):  # (ANY_PLAYER: wave 7B)
         found.insert(0, sentences.pop())
     if not found:
         return body, None
@@ -135,6 +137,9 @@ def parse(text: str) -> list[Restriction] | None:
         return exhaust
     out: list[Restriction] = list(exhaust)
     for sentence in _sentences(found):
+        if sentence == ANY_PLAYER:  # -- activation wordings (wave 7B) -- 602.2
+            out.append({"kind": "any_player"})
+            continue
         m = _RESTRICTION_SENTENCE.match(sentence)
         assert m is not None  # (split only keeps matching sentences)
         rest = m["rest"]
@@ -165,6 +170,8 @@ def _clause(clause: str) -> Restriction | None:
     m = re.fullmatch(r"(?:during your turn, )?before attackers are declared", clause)
     if m:
         return {"kind": "step", "phases": list(_BEFORE_ATTACKERS), "whose": "you" if clause.startswith("during your turn") else None}
+    if (stepped := activation_words.step_clause(clause)) is not None:  # -- activation wordings (wave 7B) --
+        return stepped
     m = re.fullmatch(r"during (?P<step>.+)", clause)
     if m and m["step"] in _STEPS:
         phases, whose = _STEPS[m["step"]]
@@ -179,7 +186,7 @@ def _clause(clause: str) -> Restriction | None:
 def _condition(text: str) -> dict[str, Any] | None:
     from app.rules import conditions, selectors
 
-    cond = conditions.parse(text)
+    cond = conditions.parse(text) or activation_words.condition(text)  # (wave 7B)
     if cond is not None:
         return cond
     # "there are seven or more cards in your graveyard" (a count the selector grammar reads)
@@ -257,7 +264,8 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
                 return f"That can only be activated if {x['text']}"
             from app.rules import conditions
 
-            if not conditions.holds(plan, {"controller": player, "source_card": card.id}, x["cond"]):
+            if not conditions.holds(plan, {"controller": player, "source_card": card.id, "source_object": r.object_id(card.id)},
+                                    x["cond"]):  # (source_object: wave 7B, the source as it is now)
                 return f"That can only be activated if {x['text']}"
     return None
 
@@ -288,6 +296,8 @@ def _phase_words(phases: list[str]) -> str:
 
 
 def _when(x: Restriction) -> str:
+    if x.get("text"):  # (wave 7B)
+        return str(x["text"])
     if x["phases"] == list(_BEFORE_ATTACKERS):
         return "before attackers are declared"
     if set(x["phases"]) == COMBAT_PHASES:

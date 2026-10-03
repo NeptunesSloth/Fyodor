@@ -708,6 +708,10 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "act7b" in cond:  # -- activation wordings (wave 7B) -- app/rules/activation_words.py
+        from app.rules import activation_words
+
+        return activation_words.holds(plan, ctx, cond)
     if "all" in cond:
         return all(holds(plan, ctx, c) for c in cond["all"])
     if "any" in cond:

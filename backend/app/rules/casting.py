@@ -29,6 +29,7 @@ from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
 from app.rules import payment as P
+from app.rules.activation_words import any_player  # -- activation wordings (wave 7B) --
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.costs import AbilityCost, kicker_cost, parse_ability_cost
 from app.rules.oracle import AbilityText
@@ -2387,9 +2388,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
         unearth(plan, card, ch, a, unearth_cost)
         return
-    if card.controller != plan.actor or not card.zone.endswith(":battlefield"):
-        raise ActionError("You can only activate abilities of permanents you control")
     ch = plan.ch(card)
+    # -- activation wordings (wave 7B) -- 602.2: "Any player may activate this ability."
+    ab = next((x for x in ch.abilities if x.index == a.ability), None)
+    if not card.zone.endswith(":battlefield") or (card.controller != plan.actor and not (
+            ab is not None and any_player(ab, ability_cost(ch, ab, state=plan.state, card=card, info=plan.info)))):
+        raise ActionError("You can only activate abilities of permanents you control")
     if "cant_activate" in ch.imposed:  # an Aura: "its activated abilities can't be activated" (crew, equip too)
         raise ActionError(f"{ch.name}’s activated abilities can't be activated")
     ability = _find_ability(ch, a.ability)
@@ -2537,6 +2541,13 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
 _GRAVEYARD_SELF = re.compile(r"(?:return|put) (?:this card|this creature|this artifact|this land|~) from your graveyard\b", re.I)
 
 
+def _own_text(text: str, name: str) -> str:
+    """-- activation wordings (wave 7B) -- the ability with its own name / "this creature" as ~ in the effect and restriction
+    (what scripts reads), the cost and any "Exhaust — " / "Boast — " prefix left as written."""
+    head, colon, body = text.partition(":")
+    return head + colon + scripts.self_text(body, name) if colon else text
+
+
 def ability_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, ability: AbilityText,
                     cost: AbilityCost, *, check_priority: bool = True, x: int = 0,
                     info: CardInfo | None = None, plan: Plan | None = None) -> str | None:
@@ -2551,7 +2562,7 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     elif cost.from_graveyard:  # 113.6m: its cost moves it out of your graveyard, so it works only there
         if card.zone != zone_key(player, "graveyard") or card.owner != player:
             return "That ability can only be activated from your graveyard"
-    elif card.controller != player or not card.zone.endswith(":battlefield"):
+    elif not card.zone.endswith(":battlefield") or (card.controller != player and not any_player(ability, cost)):  # (wave 7B)
         return "You can only activate abilities of permanents you control"
     if cost.unsupported:
         return f"Pay “{', '.join(cost.unsupported)}” by hand with the table tools"
@@ -2574,7 +2585,7 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
             return f"{ch.name} doesn't have enough loyalty"
     # -- activation restrictions (602.5; app/rules/restrictions.py): "Activate only as a sorcery",
     # "… only once each turn" (per object, 602.5b / 400.7), "… only during your turn", "… only if …"
-    limits = restrictions.parse(ability.text) or []  # (a wording it doesn't read: the ability is manual anyway)
+    limits = restrictions.parse(_own_text(ability.text, ch.name)) or []  # (a wording it doesn't read: the ability is manual anyway)
     if limits:
         view = plan or (Plan.view(state, player, info) if info is not None else None)
         why = restrictions.problem(state, player, card, ability.index, limits, view, ch.name)
@@ -2697,7 +2708,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         targeted(plan, ability_id, plan.actor, chosen)
     if ability.kind == "loyalty":
         r.loyalty_used[oid] = plan.state.turn.number
-    if restrictions.limited(restrictions.parse(ability.text) or []):  # "Activate only once each turn" / "… only once"
+    if restrictions.limited(restrictions.parse(_own_text(ability.text, ch.name)) or []):  # "Activate only once each turn" / "… only once"
         restrictions.record_use(r, oid, ability.index, plan.state.turn.number)
     r.passed = []
     r.priority = plan.actor

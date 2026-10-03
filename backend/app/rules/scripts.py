@@ -1622,6 +1622,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import recursion as _recursion  # -- recursion & tutors (wave 4M) --
 
     body = _recursion.join_sized_search(body)
+    from app.rules import watches  # -- turn watches (wave 7D) --
+
+    body = watches.join_retarget(body)
     if it is None and not event_player:  # -- if you do (wave 5G) -- a spell's or an activated ability's "each other
         # player": every other player than its controller is an opponent in a free-for-all (102.2, 806.2); in a trigger
         # "other" may be relative to the event's player — not read there
@@ -2605,6 +2608,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         parsed_restriction = restrictions.parse(text) if restriction is not None else []
         if parsed_restriction is None:
             return None
+        if any(x["kind"] == "any_player" for x in parsed_restriction) and (  # -- activation wordings (wave 7B) --
+                cost.tap or cost.sacrifice_self or cost.untap):  # (only the controller can pay {T} or sacrifice it)
+            return None
         # -- cost changers (wave 4I) -- "This ability costs {1} less to activate for each …" is part of its total cost
         # (602.2b → 601.2f; casting.ability_cost reads it), not of what it does
         from app.rules import cost_changes
@@ -2701,6 +2707,10 @@ def _event_refs_ok(d: Definition) -> bool:
         if not about_player or any(str(s.get("what")) in ("player", "opponent", "any", "player_or_planeswalker",
                                                          "opponent_or_planeswalker") for s in specs):
             return False
+    from app.rules import watches  # -- turn watches (wave 7D) -- their deferred effects name their own event
+
+    skip = watches.deferred_event_effects(effects)
+    effects = [e for i, e in enumerate(effects) if i not in skip]
     wants_player = any(e.get("who") in ("event_player", "each_other_opponent")
                        or str(e.get("who")).startswith("controlled:event_player|") for e in effects) \
         or any(e.get("player") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E)
@@ -3499,6 +3509,27 @@ def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
             raise _NoMatch
         sel = group["what"]
     return _delayed.wrap_when(effects, when, who=who, this_turn=True), sel
+
+
+# -- turn watches (wave 7D; app/rules/watches.py) -- "Whenever you cast a spell this turn, draw a card." / "When you next
+# cast an instant or sorcery spell this turn, copy that spell." (603.7: a delayed trigger on an ordinary event)
+@effect(r"whenever (?P<cond>.+?) this turn, (?P<clause>.+)")
+def _watch_whenever(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import events, watches
+
+    found = watches.build(events.parse_condition(m["cond"]), m["clause"], once=False, text=m["cond"])
+    return _from_language(found)
+
+
+@effect(r"when you next cast (?P<spell>.+?) this turn, (?P<clause>.+)")
+def _watch_next_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import events, watches
+
+    cond = events.parse_condition(f"you cast {m['spell']}")
+    if cond is None or set(cond) - {"event", "subject", "player", "spell"}:
+        raise _NoMatch
+    return _from_language(watches.build(cond, m["clause"], once=True, text=f"you next cast {m['spell']}"))
+# -- end turn watches (wave 7D) --
 
 
 def _with_duration(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -4520,7 +4551,7 @@ def _add_n_of(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 # trigger (``_event_spell_ok``); "copy it" only as the ability's first instruction (an "it" after another instruction
 # names that instruction's object, never guessed).
 @_first
-@effect(r"copy (?P<w>that spell|it)(?:, except (?P<exc>.+))?")
+@effect(r"copy (?P<w>that spell|it)(?: (?P<k>twice|three times|[xX] times))?(?:, except (?P<exc>.+))?")  # (k: wave 7D)
 def _copy_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import copying
 
@@ -4528,6 +4559,8 @@ def _copy_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if ex is None:
         raise _NoMatch
     out: dict[str, Any] = {"do": "copy_spell", "who": "event_spell", **copying._dump(ex)}
+    if m["k"]:
+        out["n"] = {"twice": 2, "three times": 3, "x times": {"x": 1}}[m["k"].lower()]
     if m["w"] == "it":
         out["first"] = True
     return [out], None
@@ -4544,7 +4577,10 @@ def _counter_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 def _event_spell_ok(d: Definition) -> bool:
     """A copy of "that spell" belongs to a trigger on casting a spell (603.2: the event names it)."""
     effects = list(d.get("effects") or [])
-    uses = [k for k, e in enumerate(effects) if e.get("who") == "event_spell"]
+    from app.rules import watches  # -- turn watches (wave 7D) --
+
+    watched = watches.deferred_event_effects(effects)
+    uses = [k for k, e in enumerate(effects) if e.get("who") == "event_spell" and k not in watched]
     if not uses:
         return True
     cond = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
@@ -4622,3 +4658,7 @@ EFFECTS[:0] = _endure.TEMPLATES
 from app.rules import win_game as _win_game  # noqa: E402
 
 EFFECTS[:0] = _win_game.TEMPLATES
+# -- activation wordings (wave 7B) -- "Adapt N." (app/rules/activation_words.py)
+from app.rules import activation_words as _activation_words  # noqa: E402, I001
+
+EFFECTS[:0] = _activation_words.TEMPLATES

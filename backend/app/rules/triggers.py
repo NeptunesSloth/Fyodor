@@ -782,6 +782,11 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
     """Each watcher (with the batches it was on the battlefield for: it sees events from when it
     entered, 603.6a, until it left, 603.10a) against each fact of one event. What the ability
     triggered on is captured now, as a TriggerEvent it carries to resolution (603.2, 608.2k)."""
+    from app.rules import (
+        watches,  # -- turn watches (wave 7D) -- "whenever … this turn" delayed triggers (also combat events)
+    )
+
+    watches.on_facts(plan, facts, batch)
     for (watcher, ch, i, d), lo, hi in (watchers if watchers is not None else [(w, -1, -1) for w in _event_watchers(plan)]):
         if batch >= 0 and not (lo <= batch <= hi or (lo, hi) == (-1, -1)):
             continue
