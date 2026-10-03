@@ -97,6 +97,35 @@ REAL = [
          oracle_text='Flying\nDeathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nLifelink '
                      '(Damage dealt by this creature also causes you to gain that much life.)', power='2', toughness='3',
          colors=['B'], color_identity=['B'], keywords=['Deathtouch', 'Flying', 'Lifelink']),
+    card('Beseech the Queen', set_code="tst", number="M23", mana_cost='{2/B}{2/B}{2/B}', cmc=6.0, type_line='Sorcery',
+         oracle_text="({2/B} can be paid with any two mana or with {B}. This card's mana value is 6.)\nSearch your library for "
+                     "a card with mana value less than or equal to the number of lands you control, reveal it, put it into "
+                     "your hand, then shuffle.", colors=['B'], color_identity=['B']),
+    card('Sisay, Weatherlight Captain', set_code="tst", number="M24", mana_cost='{2}{W}', cmc=3.0,
+         type_line='Legendary Creature — Human Soldier',
+         oracle_text="Sisay gets +1/+1 for each color among other legendary permanents you control.\n{W}{U}{B}{R}{G}: Search "
+                     "your library for a legendary permanent card with mana value less than Sisay's power, put that card onto "
+                     "the battlefield, then shuffle.", power='2', toughness='2', colors=['W'],
+         color_identity=['B', 'G', 'R', 'U', 'W']),
+    card('Grim Servant', set_code="tst", number="M25", mana_cost='{3}{B}', cmc=4.0, type_line='Creature — Zombie Warlock',
+         oracle_text='Menace\nWhen this creature enters, search your library for a card with mana value less than or equal to '
+                     'your devotion to black, reveal it, put it into your hand, then shuffle. You lose 3 life. (Each {B} in '
+                     'the mana costs of permanents you control counts toward your devotion to black.)', power='3',
+         toughness='2', colors=['B'], color_identity=['B'], keywords=['Menace']),
+    card('Oversold Cemetery', set_code="tst", number="M26", mana_cost='{1}{B}', cmc=2.0, type_line='Enchantment',
+         oracle_text='At the beginning of your upkeep, if you have four or more creature cards in your graveyard, you may '
+                     'return target creature card from your graveyard to your hand.', colors=['B'], color_identity=['B']),
+    card('Unseal the Necropolis', set_code="tst", number="M27", mana_cost='{2}{B}', cmc=3.0, type_line='Instant',
+         oracle_text='Each player mills three cards. Then you return up to two creature cards from your graveyard to your '
+                     'hand. (To mill three cards, a player puts the top three cards of their library into their graveyard.)',
+         colors=['B'], color_identity=['B'], keywords=['Mill']),
+    card('Extract from Darkness', set_code="tst", number="M28", mana_cost='{3}{U}{B}', cmc=5.0, type_line='Sorcery',
+         oracle_text='Each player mills two cards. Then you put a creature card from a graveyard onto the battlefield under your '
+                     'control.', colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Mill']),
+    card('Demolition Field', set_code="tst", number="M29", type_line='Land',
+         oracle_text="{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Destroy target nonbasic land an opponent controls. That "
+                     "land's controller may search their library for a basic land card, put it onto the battlefield, then "
+                     "shuffle. You may search your library for a basic land card, put it onto the battlefield, then shuffle."),
     card('Plains', set_code="tst", number="M21", type_line='Basic Land — Plains', oracle_text='({T}: Add {W}.)'),
     card('Abstergo Entertainment', set_code="tst", number="M22", type_line='Legendary Land',
          oracle_text='{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{3}, {T}, Exile Abstergo Entertainment: Return up to '
@@ -120,7 +149,7 @@ def build(cards):
     alice = deck(cards, "Krenko, Mob Boss", [(1, n) for n in NAMES] + [
         (1, "Llanowar Elves"), (1, "Grizzly Bears"), (1, "Ambush Viper"), (1, "Lightning Bolt"), (1, "Counterspell"), (1, "Sol Ring"),
         (1, "Pacifism"), (1, "Bonesplitter"), (1, "Test Guildgate"), (4, "Forest"), (3, "Island"), (2, "Swamp")])
-    bob = deck(cards, "Atraxa, Praetors' Voice", [(2, "Grizzly Bears"), (1, "Lightning Bolt"), (10, "Island")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(2, "Grizzly Bears"), (1, "Lightning Bolt"), (1, "Test Guildgate"), (10, "Island")])
     s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
     act(s, "p1", type="pass_priority")  # → Alice's first main phase
     return s
@@ -133,7 +162,7 @@ def named(s, name, pid="p1", zone_name=None):
 
 def put(s, name, where, pid="p1"):
     c = next(c for c in s.state.cards.values() if c.name == name and c.owner == pid and not c.zone.endswith(where))
-    act(s, "p1", type="move", card_ids=[c.id], to={"zone": where, "player": pid} if where != "battlefield" else {"zone": where})
+    act(s, "p1", type="move", card_ids=[c.id], to={"zone": where, "player": pid})
     return s.state.cards[c.id]
 
 
@@ -211,7 +240,9 @@ def test_the_wave_4m_cards_are_full(cards):
     for name in ("Green Sun's Zenith", "Rally the Ancestors", "Beacon of Unrest", "Seasons Past", "Myriad Landscape",
                  "Fabled Passage", "Mystical Teachings", "Circuitous Route", "Axgard Armory", "Boundless Realms",
                  "Traverse the Outlands", "Brilliant Restoration", "Puppeteer Clique", "Liliana, Death's Majesty",
-                 "Rakdos Joins Up", "Bloodline Necromancer", "Rampant Rejuvenator", "Spell Crumple", "Abstergo Entertainment"):
+                 "Rakdos Joins Up", "Bloodline Necromancer", "Rampant Rejuvenator", "Spell Crumple", "Abstergo Entertainment",
+                 "Beseech the Queen", "Sisay, Weatherlight Captain", "Grim Servant", "Oversold Cemetery", "Unseal the Necropolis",
+                 "Extract from Darkness", "Demolition Field"):
         assert level(s, name) == "FULL", name
 
 
@@ -361,7 +392,8 @@ def test_mystical_teachings_finds_an_instant_or_a_card_with_flash_and_reveals_it
     s = build(cards)
     mana(s, U=1, C=3)
     cast(s, "Mystical Teachings")
-    assert options(s) == ["Ambush Viper", "Counterspell", "Lightning Bolt", "Rally the Ancestors", "Spell Crumple"]
+    assert options(s) == ["Ambush Viper", "Counterspell", "Lightning Bolt", "Rally the Ancestors", "Spell Crumple",
+                          "Unseal the Necropolis"]
     private(s, [o.id for o in decision(s).options])
     [viper] = choose(s, "Ambush Viper")
     assert s.state.cards[viper].zone == "p1:hand"
@@ -535,3 +567,110 @@ def test_a_bare_grant_needs_a_whole_sentence_about_an_earlier_object():
     assert found is not None and found[0][1] == {"do": "grant", "who": "ref:e0", "keywords": ["haste"], "duration": "permanent"}
     assert parse_effects("Until end of turn, double target creature's power and it gains first strike.") is None
     assert parse_effects("Target creature gains haste.") is None  # (no pronoun: not read)
+
+
+# -- mana value compared with a count (608.2h: read as the search is made) ----------------------------------
+def test_beseech_the_queen_finds_a_card_no_bigger_than_your_land_count(cards):
+    s = build(cards)
+    put(s, "Swamp", "battlefield")
+    put(s, "Island", "battlefield")
+    mana(s, B=3)
+    cast(s, "Beseech the Queen")
+    found = options(s)
+    assert "Green Sun's Zenith" in found and "Grizzly Bears" in found  # (mana values 1 and 2)
+    assert "Vampire Nighthawk" not in found and "Seasons Past" not in found  # (3 and 6: more than two lands)
+    private(s, [o.id for o in decision(s).options])
+    [bears] = choose(s, "Grizzly Bears")
+    assert s.state.cards[bears].zone == "p1:hand" and "Grizzly Bears" in json.dumps(s.view("p2"))  # (revealed)
+    replay_matches(s)
+
+
+def test_sisay_finds_a_legendary_permanent_with_mana_value_less_than_her_power(cards):
+    s = build(cards)
+    sisay = put(s, "Sisay, Weatherlight Captain", "battlefield")
+    mana(s, W=1, U=1, B=1, R=1, G=1)
+    act(s, "p1", type="activate_ability", card_id=sisay.id, ability=1)
+    pass_until_stack_empty(s)
+    assert options(s) == ["Abstergo Entertainment"]  # (power 2: mana value 0 or 1; Rakdos Joins Up, Liliana: more)
+    [land] = choose(s, "Abstergo Entertainment")
+    assert s.state.cards[land].zone == "p1:battlefield"
+    replay_matches(s)
+
+
+def test_grim_servants_search_reads_devotion_to_black(cards):
+    found = parse_sentence("search your library for a card with mana value less than or equal to your devotion to black, "
+                           "reveal it, put it into your hand, then shuffle")
+    assert found is not None and found[0][0]["mv"][0] == "<=" and found[0][0]["reveal"]
+    s = build(cards)
+    mana(s, B=1, C=3)
+    cast(s, "Grim Servant")
+    triggers(s)
+    found = options(s)  # (devotion to black 1: Grim Servant's own {B})
+    assert "Llanowar Elves" in found and "Grizzly Bears" not in found
+    choose(s, "Llanowar Elves")
+    assert s.state.players["p1"].life == 37
+    replay_matches(s)
+
+
+# -- "you have N or more creature cards in your graveyard"; "you return" / "you put" ------------------------
+@pytest.mark.parametrize(("creatures", "returned"), [(3, False), (4, True)])
+def test_oversold_cemetery_counts_creature_cards_in_your_graveyard(cards, creatures, returned):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards)
+    put(s, "Oversold Cemetery", "battlefield")
+    for name in ("Grizzly Bears", "Llanowar Elves", "Ambush Viper", "Vampire Nighthawk")[:creatures]:
+        put(s, name, "graveyard")
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and not s.state.zones.get("stack"))
+    in_hand = [c for c in zone(s.state, "p1", "hand") if s.state.cards[c].name in
+               ("Grizzly Bears", "Llanowar Elves", "Ambush Viper", "Vampire Nighthawk")]
+    assert bool(in_hand) is returned  # (603.4: the "if" is checked as it triggers and as it resolves)
+    replay_matches(s)
+
+
+def test_unseal_the_necropolis_returns_up_to_two_creature_cards(cards):
+    s = build(cards)
+    bears = put(s, "Grizzly Bears", "graveyard")
+    mana(s, B=1, C=2)
+    cast(s, "Unseal the Necropolis")
+    assert options(s) == ["Grizzly Bears"] and decision(s).resume["e"]["n"] == 2  # (up to two: one is there)
+    choose(s, "Grizzly Bears")
+    assert s.state.cards[bears.id].zone == "p1:hand"
+    assert len(zone(s.state, "p2", "graveyard")) == 3  # (each player milled three)
+    replay_matches(s)
+
+
+def test_extract_from_darkness_takes_a_creature_from_any_graveyard(cards):
+    s = build(cards)
+    bears = put(s, "Grizzly Bears", "graveyard", pid="p2")
+    mana(s, U=1, B=1, C=3)
+    cast(s, "Extract from Darkness")
+    d = decision(s)
+    assert d.min_choices == 1 and bears.id in {o.id for o in d.options}  # (a creature card: one must be put if any)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+    pass_until_stack_empty(s)
+    got = s.state.cards[bears.id]
+    assert got.zone == "p1:battlefield" and got.controller == "p1" and got.owner == "p2"
+    replay_matches(s)
+
+
+def test_demolition_field_lets_both_players_search_and_each_may_decline(cards):
+    s = build(cards)
+    gate = put(s, "Test Guildgate", "battlefield", pid="p2")
+    field = put(s, "Demolition Field", "battlefield")
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=field.id, ability=1, targets=[gate.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[gate.id].zone == "p2:graveyard"
+    d = decision(s, "confirm")
+    assert d.player == "p2"  # that land's controller may search (their own library: private)
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["yes"])
+    island = choose(s, "Island", player="p2")[0]
+    assert s.state.cards[island].zone == "p2:battlefield"
+    d = decision(s, "confirm")
+    assert d.player == "p1"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["no"])  # (no search: no shuffle either)
+    pass_until_stack_empty(s)
+    assert s.state.rules.decision is None and not s.state.zones.get("stack")
+    replay_matches(s)
+    assert reloaded(s).state.model_dump(mode="json") == s.state.model_dump(mode="json")
