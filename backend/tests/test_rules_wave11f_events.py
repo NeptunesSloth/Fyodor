@@ -37,6 +37,9 @@ EXTRA = [
     real("Runic Armasaur", "{3}{G}", 4, "Creature — Dinosaur",
          "Whenever an opponent activates an ability of a creature or land that isn't a mana ability, you may draw a card.",
          ("3", "4"), "G"),
+    real("Dragonborn Champion", "{2}{R}{G}", 4, "Creature — Dragon Warrior",
+         "Trample\nWhenever a source you control deals 5 or more damage to a player, draw a card.", ("5", "3"), "RG"),
+    real("Lava Axe", "{4}{R}", 5, "Sorcery", "Lava Axe deals 5 damage to target player or planeswalker.", None, "R"),
     real("Belltower Sphinx", "{4}{U}", 5, "Creature — Sphinx",
          "Flying\nWhenever a source deals damage to this creature, that source's controller mills that many cards.", ("4", "4"),
          "U"),
@@ -147,4 +150,18 @@ def test_an_optional_reaction_to_an_opponents_activation(cards):
     hand = len(s.state.zones["p2:hand"])
     pump(s)  # (settle answers the optional draw with its first option: yes)
     assert len(s.state.zones["p2:hand"]) == hand + 1
+    roundtrip(s)
+
+
+def test_a_damage_threshold_is_what_one_source_dealt_in_one_event(cards):
+    s = build(cards, ("Dragonborn Champion", "Lightning Bolt", "Lava Axe"))
+    put(s, "Dragonborn Champion")
+    hand = len(s.state.zones["p1:hand"])
+    bolt(s, "p2")  # 3 damage: under the threshold
+    assert len(s.state.zones["p1:hand"]) == hand
+    axe = to_hand(s, "Lava Axe")
+    mana(s, "p1", R=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=axe.id, targets=["p2"])
+    settle(s)
+    assert life(s, "p2") == 32 and len(s.state.zones["p1:hand"]) == hand + 1  # 5 damage: drew a card
     roundtrip(s)

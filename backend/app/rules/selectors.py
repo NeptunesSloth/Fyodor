@@ -120,7 +120,7 @@ _DEFAULT = Selector()
 def is_plural(phrase: str) -> bool:
     """Does the phrase name a group ("creatures you control", "other Elves")? (its head noun is plural)"""
     for word in phrase.replace(",", " ").split():
-        if _core(word) is not None and _singular(word) != word:
+        if (_core(word) is not None and _singular(word) != word) or word == "outlaws":  # (outlaws: wave 11F)
             return True
     return False
 
@@ -700,8 +700,25 @@ def parse(phrase: str) -> Selector | None:
     return _parse(phrase.strip())
 
 
+# -- outlaws (wave 11F) -- 700.12: an object with the Assassin, Mercenary, Pirate, Rogue and/or Warlock creature types
+_OUTLAW = re.compile(r"(?P<pre>(?:another |other )?)outlaw(?P<pl>s?)(?P<post>(?: .*)?)")
+OUTLAW_TYPES = "Assassin|Mercenary|Pirate|Rogue|Warlock"
+
+
+def _outlaws(phrase: str) -> Selector | None:
+    """"another outlaw", "outlaws you control", "outlaw spell": any permanent (or spell) with one of those types (700.12a)."""
+    m = _OUTLAW.fullmatch(phrase)
+    if m is None:
+        return None
+    spell = m["post"].strip().startswith("spell")
+    base = _parse((m["pre"] + ("" if spell else "permanent" + m["pl"]) + m["post"]).strip())
+    return replace(base, extras=(*base.extras, "subtype_any:" + OUTLAW_TYPES)) if base is not None else None
+
+
 @lru_cache(maxsize=8192)
 def _parse(phrase: str) -> Selector | None:
+    if "outlaw" in phrase:
+        return _outlaws(phrase)
     s = Selector()
     text = phrase
     qualified = False  # a "with …" / "without …" qualifier

@@ -84,7 +84,7 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
               " to a player or battle": "player_or_battle",
               # -- source damage (wave 11F) -- 603.2c: "to one or more players" is one trigger for the whole batch
               " to one or more players": "players", " to your opponents": "opponents",
-              " to one or more of your opponents": "opponents", " to ~": "self"}
+              " to one or more of your opponents": "opponents", " to ~": "self", " to one or more creatures": "creatures"}
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
 _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
@@ -625,21 +625,25 @@ def _object_event(c: str) -> Condition | None:
     # damage to one of your opponents", "one or more creatures deal combat damage to one of your opponents"
     # -- source damage (wave 11F) -- "a source [you control | an opponent controls] deals [noncombat] damage [to …]": any
     # source of damage (120.1: a permanent, or a spell), once per source and recipient (603.2); ``ctl``: its controller
-    m = re.fullmatch(rf"a source(?P<ctl> you control| an opponent controls)? deals? (?P<c>combat |noncombat )?damage"
-                     rf"(?P<to>{_DAMAGE_TO_RE}|)", c)
-    if m and m["to"] not in (" to one or more players", " to your opponents", " to one or more of your opponents"):
+    m = re.fullmatch(rf"a source(?P<ctl> you control| an opponent controls)? deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?"
+                     rf"damage(?P<to>{_DAMAGE_TO_RE}|)", c)
+    if m and m["to"] not in (" to one or more players", " to your opponents", " to one or more of your opponents",
+                             " to one or more creatures") and (m["to"] or not m["min"]):
         return {"event": "deal_damage", "subject": "source", "to": _DAMAGE_TO[m["to"]],
+                **({"min": _count(m["min"])} if m["min"] else {}),
                 "ctl": {" you control": "you", " an opponent controls": "opponent"}.get(m["ctl"] or "", "any"),
                 "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}
-    m = re.fullmatch(rf"(?P<s>.+?) deals? (?P<c>combat |noncombat )?damage(?P<to>{_DAMAGE_TO_RE}|)", c)
+    m = re.fullmatch(rf"(?P<s>.+?) deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?damage(?P<to>{_DAMAGE_TO_RE}|)", c)
     # (combat damage to a player / an opponent and damage to an opponent: the verbs below)
     if m and not (m["to"] == " to an opponent" and m["c"] != "noncombat ") and \
-            not (m["to"] == " to a player" and m["c"] == "combat "):
+            not (m["to"] == " to a player" and m["c"] == "combat ") and (m["to"] or not m["min"]):
         to = _DAMAGE_TO[m["to"]]
         who = _subject(m["s"], host=True, many=to in ("opponent", "player", "player_or_pw", "player_or_battle", "players",
                                                       "opponents"))
         if who is None:
             return None
-        return {**who, "event": "deal_damage", "to": to,
+        # (a "min" is the damage one source dealt one recipient in one event: 120.3; "to one or more creatures": 603.2c)
+        return {**who, "event": "deal_damage", "to": to, **({"min": _count(m["min"])} if m["min"] else {}),
+                **({"aggregate": True} if to == "creatures" else {}),
                 "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}
     return None

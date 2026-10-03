@@ -218,3 +218,68 @@ def test_a_spell_dealing_damage_to_this_creature(cards):
     settle(s)
     assert life(s, "p1") == 37  # "that spell's controller" took that much
     roundtrip(s)
+
+
+# -- "defending player …" (508.5): the player the attacking creature attacks ---------------------------------
+REAPER = ("Whenever this creature attacks, if defending player has two or fewer cards in hand, it gains flying until end of "
+          "turn.")
+BEARS = "Whenever this creature attacks, if defending player controls no black nontoken permanents, it doesn't untap during your next untap step."
+
+
+def attacker(s, text):
+    from tests.test_rules_conditionals import token_of
+
+    return token_of(s, "p1", "Specter", "Token Creature — Specter", "3/3", "Haste\n" + text)
+
+
+def declare(s, creature):
+    from tests.test_rules_wave6e_statics import attack_with
+
+    attack_with(s, creature)
+    d = s.state.rules.decision
+    while d is not None and d.kind == "declare_blockers":  # (no blocks)
+        act(s, d.player, type="declare_blockers", blocks=[])
+        d = s.state.rules.decision
+    settle(s)
+
+
+def keywords(s, c):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id]).keywords
+
+
+def test_defending_player_with_few_cards_in_hand(cards):
+    s = build(cards, forests=30, islands=30)
+    c = attacker(s, REAPER)
+    declare(s, c)
+    assert "flying" in {k.lower() for k in keywords(s, c)}  # Bob holds no cards
+    roundtrip(s)
+
+
+def test_defending_player_with_many_cards_in_hand(cards):
+    s = build(cards, forests=30, islands=30)
+    act(s, "p2", type="draw", count=3)
+    c = attacker(s, REAPER)
+    declare(s, c)
+    assert "flying" not in {k.lower() for k in keywords(s, c)}
+    roundtrip(s)
+
+
+def test_defending_player_controls_no_black_nontoken_permanents(cards):
+    s = build(cards, (), ("Phyrexian Obliterator",), forests=30, islands=30)
+    c = attacker(s, BEARS)
+    declare(s, c)
+    to_turn(s, 3)
+    assert s.state.cards[c.id].tapped  # it didn't untap during its controller's next untap step
+    roundtrip(s)
+
+
+def test_defending_player_controls_a_black_nontoken_permanent(cards):
+    s = build(cards, (), ("Phyrexian Obliterator",), forests=30, islands=30)
+    put(s, "Phyrexian Obliterator", "p2")
+    c = attacker(s, BEARS)
+    declare(s, c)
+    to_turn(s, 3)
+    assert not s.state.cards[c.id].tapped
+    roundtrip(s)

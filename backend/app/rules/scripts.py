@@ -2700,7 +2700,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # ability doesn't trigger, or does nothing as it resolves
                     intervening = effects[0]["cond"]
                     effects = [{**effects[0], "skip": len(effects) - 1}, *effects[1:]]
-                if _trigger_antecedent(name, cond) != "self" and any(
+                # (-- intervening ifs (wave 11F) -- a step, or an event about a player, has no other object: "another" is
+                # "other than ~", 603.4)
+                alone = _trigger_antecedent(name, cond) is None and (cond is None or cond.get("subject") == "player")
+                if _trigger_antecedent(name, cond) != "self" and not alone and any(
                         e["do"] == "only_if" and _condition_says_other(e["cond"]) for e in effects):
                     return None  # ("other" than the object the event happened to, not ~: not modeled)
                 out = {"kind": "triggered", "trigger": name,
@@ -2855,7 +2858,8 @@ def _event_refs_ok(d: Definition) -> bool:
     if '"as": "event"' in raw and not (d.get("kind") == "triggered" and (step_names_player(d) or (
             ev is not None and ev["event"] != "multi" and _has_player(ev)))):
         return False
-    if '"as": "defended"' in raw and not (ev is not None and ev["event"] in ("attack", "unblocked", "blocked", "you_attack")):
+    if '"as": "defended"' in raw and not (d.get("trigger") == "attacks_self" or (
+            ev is not None and ev["event"] in ("attack", "unblocked", "blocked", "you_attack"))):
         return False
     # -- damage wordings (wave 6B) -- "target artifact that player controls": the one player a trigger is about, bound
     # as it's put on the stack (triggers.bind_that_player) — never in a spell, nor beside a target player (which one?)

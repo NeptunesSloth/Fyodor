@@ -686,6 +686,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "player_or_battle" and recipient is None and not info.get("recipient_battle")) or \
                 (to == "self" and info.get("other") != watcher.id) or \
                 (to == "players" and recipient is None) or (to == "opponents" and (recipient is None or recipient == you)) or \
+                (to == "creatures" and not info.get("recipient_creature")) or \
+                (cond.get("min") and int(info.get("amount") or 0) < cond["min"]) or \
                 (to == "enchanted_player" and (recipient is None or recipient != watcher.attached_player)):
             return False
     return True
@@ -828,7 +830,7 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             # ("one or more creatures you control attack a player": once for each player attacked, 508.3e)
             per = (info.get("oid") or info.get("recipient") or "") if one_event else \
                 info.get("recipient") or info.get("actor") or (info.get("defended") if cond.get("defender") else "") or ""
-            if cond.get("to") in ("players", "opponents"):  # -- source damage (wave 11F) -- 603.2c: one for the whole batch
+            if cond.get("to") in ("players", "opponents", "creatures"):  # -- source damage (wave 11F) -- 603.2c: one per batch
                 per = ""
             if cond.get("subject") == "source":  # "that source's controller" is the event's player
                 event.players = [fact[3]] if fact[3] else []

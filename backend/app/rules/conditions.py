@@ -325,6 +325,7 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
 # -- intervening ifs (wave 11F) -- 603.4, researched against CR 2026-09-25 ------------------------------------------------
 _WHO = re.compile(r"(?P<who>that player|defending player|a player) (?P<verb>has|controls|cast) (?P<rest>.+)")
 _VERBS = {"has": "have", "controls": "control", "cast": "cast"}
+_MOST = re.compile(r"(?P<who>a player|that player) (?:(?P<controls>controls)|has) more (?P<what>.+?) than each other player")
 
 
 def _as_cond(t: str) -> Condition | None:
@@ -332,6 +333,17 @@ def _as_cond(t: str) -> Condition | None:
     hand": the same condition as for "you", read for the player the trigger event names, the one attacked, or some player.
     A comparison ("than") is read by the versus forms; whether the ability's event names the player is checked where it
     is defined (scripts._event_refs_ok)."""
+    most = _MOST.fullmatch(t)  # "a player has more life than each other player": every other player has less
+    if most:
+        what = most["what"]
+        if most["controls"]:
+            key = _count(what, "you control")
+            quantity: Any = {"count": key} if key else None
+        else:
+            quantity = {"life": "you"} if what == "life" else {"hand": "you"} if what == "cards in hand" else None
+        if quantity is None:
+            return None
+        return {"as": _AS[most["who"]], "cond": {"versus": {"value": quantity, "op": "<", "every": True}}}
     m = _WHO.fullmatch(t)
     if m is None or " than " in m["rest"]:
         return None
@@ -349,6 +361,7 @@ _DEVOTION = re.compile(r"your devotion to (?P<a>white|blue|black|red|green)(?: a
                        r"is (?P<n>\w+) or greater")
 _COLORS_AMONG = re.compile(r"there are (?P<n>\w+) colors among permanents you control")
 _EXACT_LIFE = re.compile(r"you have exactly (?P<n>\w+) life")
+_OPPONENTS_NONE = re.compile(r"your opponents control no (?P<sel>.+)")
 _CTRL_EXACT = re.compile(r"you control exactly (?P<n>\w+) (?P<sel>.+)")
 _COLOR_SYMBOL = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 
@@ -357,6 +370,10 @@ def _more_ifs(t: str) -> Condition | None:
     """Hand sizes ("you have exactly thirteen cards in your hand", "a card in hand"), "there are four or more creatures
     on the battlefield", "fewer than" for counters and cards, "you control exactly one creature", total toughness,
     devotion, five colors, an exact life total."""
+    m = _OPPONENTS_NONE.fullmatch(t)
+    if m:  # none of them together: no opponent controls one
+        key = _count(m["sel"], "an opponent controls")
+        return {"value": {"count": key}, "op": "==", "n": 0} if key else None
     m = _HAND_N.fullmatch(t)
     if m:
         n = 1 if m["a"] else _num(next(g for g in (m["e"], m["f"], m["m"], m["l"]) if g))
