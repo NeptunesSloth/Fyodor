@@ -24,8 +24,8 @@ if TYPE_CHECKING:
     from app.rules.oracle import AbilityText
 
 # 107.4: mana symbols, including multi-digit generic mana ({10}, {12}) and hybrid / Phyrexian
-# ({S} snow mana isn't modeled: it stays unsupported).
-_MANA_ONLY = re.compile(r"^(\{(?:\d+|[WUBRGCX]|[WUBRG2]/[WUBRGP]|[WUBRG]/[WUBRG]/P)\})+$")
+# ({S} snow mana: wave 7E, app/rules/mana.py SNOW).
+_MANA_ONLY = re.compile(r"^(\{(?:\d+|[WUBRGCXS]|[WUBRG2]/[WUBRGP]|[WUBRG]/[WUBRG]/P)\})+$")
 _SELF = r"(?:this \w+|it|~)"
 _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it|~|(?P<name>.+))$")
 _LIFE = re.compile(r"^Pay (?P<n>\d+) life$")

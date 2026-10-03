@@ -23,15 +23,15 @@ def to_main(s):
 
 def test_tap_ability_goes_on_the_stack_and_resolves_by_hand(cards):
     s = table(cards)
-    # (Krenko's token ability is automated now — test_rules_tokens.py; a coin flip isn't)
-    gambler = token(s, "p1", "Gambler", "Token Creature — Human", "{T}: Flip a coin. If you win the flip, draw a card.")
+    # (Krenko's token ability is automated now — test_rules_tokens.py; a coin flip is since wave 7E; a die roll isn't)
+    gambler = token(s, "p1", "Gambler", "Token Creature — Human", "{T}: Roll a d6. You gain life equal to the result.")
     to_main(s)
     hints = s.view("p1")["rules"]["hints"]
     assert {"card_id": gambler.id, "ability": 0} in hints["activatable"]
     act(s, "p1", type="activate_ability", card_id=gambler.id, ability=0)
     d = s.state.rules.decision
     assert s.state.cards[gambler.id].tapped
-    assert d and d.kind == "manual_resolution" and "Flip a coin" in d.prompt and "Gambler" in d.prompt
+    assert d and d.kind == "manual_resolution" and "Roll a d6" in d.prompt and "Gambler" in d.prompt
     assert not s.state.zones["stack"]  # the ability object is gone once it resolved
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["done"])
     with pytest.raises(ActionError, match="tapped"):
@@ -72,7 +72,7 @@ def test_mana_and_sacrifice_costs(cards):
 def test_costs_and_timing_the_engine_cannot_handle_are_refused(cards):
     s = table(cards)
     odd = token(s, "p1", "Oddity", "Token Artifact",
-                "{S}: Scry 1.\n{T}: Draw a card. Activate only as a sorcery.")  # (snow mana; wave 4H reads library exiles)
+                "Sacrifice another creature or token: Scry 1.\n{T}: Draw a card. Activate only as a sorcery.")  # (wave 4H)
     to_main(s)
     with pytest.raises(ActionError, match="by hand"):
         act(s, "p1", type="activate_ability", card_id=odd.id, ability=0)

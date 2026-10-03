@@ -1964,7 +1964,8 @@ _BECOME = re.compile(
     r"(?P<addition> in addition to its other (?P<addcolors>colors and )?types)?"
     r"(?P<still> that's still an? (?:land|artifact|enchantment|planeswalker|creature))?"
     r"(?: and gains? (?:(?P<gain>[a-z ]+)|(?P<gainq>\"[^\"]*\"(?:,? and \"[^\"]*\")*)))?"
-    r"(?:(?P<trail> until end of turn)|(?P<ntrail> until your next turn))?$")
+    r"(?:(?P<trail> until end of turn)|(?P<ntrail> until your next turn))?"
+    r"(?P<cbb> and can't be blocked this turn)?$")  # (cbb: wave 7E, Dimir Keyrune)
 _DESC = re.compile(  # (each part optional, space-separated: "legendary 8/12 green Spirit artifact creature with …")
     r"^(?P<leg>legendary)?(?: ?(?P<p>X|\d+)/(?P<t>X|\d+))?(?: ?(?P<colors>colorless|" + _COLOR_LIST + r"))?"
     r"(?: ?(?P<subs>[A-Z][\w’'-]+(?: [A-Z][\w’'-]+)*))?(?: ?(?P<kinds>(?:artifact |enchantment )?(?:creature|artifact|enchantment)))?"
@@ -1977,8 +1978,12 @@ _STAT_WORDS = {"power": "power", "toughness": "toughness", "mana value": "mana_v
 def _animation_keywords(text: str) -> list[str]:
     """"flying", "trample and haste", "vigilance, indestructible, and haste" → the keywords."""
     parts = [p.strip() for p in re.split(r",? and |, ", text) if p.strip()]
+    from app.rules.statics import (
+        GRANTABLE_KEYWORDS,  # -- animation keywords (wave 7E) -- infect, wither, landwalk … too
+    )
+
     for p in parts:
-        if p not in selectors.KEYWORDS or p == "protection":
+        if (p not in selectors.KEYWORDS and p not in GRANTABLE_KEYWORDS) or p == "protection":
             raise _Fail
     return parts
 
@@ -2003,6 +2008,12 @@ def _with_list(text: str, out: dict[str, Any]) -> None:
         out["all_creature_types"] = True
         rest = re.sub(r"(?:,? and |, )?all creature types$", "", rest)
     rest = re.sub(r"(?:,? and |, )\s*$", "", rest.strip())
+    # -- animation keywords (wave 7E) -- "with ward {3}": a parameterised keyword is granted as its keyword line
+    # (statics.keyword_line; the engine checks it as a quoted grant, scripts._become)
+    for w in re.findall(r"(?:^|,? and |, )(ward \{[^}]+\})", rest):
+        abilities.append(w[0].upper() + w[1:] + ".")
+        rest = rest.replace(w, "", 1)
+        rest = re.sub(r"^(?:,? and |, )|(?:,? and |, )$", "", rest.strip())
     if rest:
         out["keywords"] = _animation_keywords(rest)
     if abilities:
@@ -2078,6 +2089,10 @@ def _become(text: str) -> tuple[Effects, Any]:
         if e["duration"] != "end_of_turn":
             raise _Fail
         out.append({"do": "grant", "who": who, "keywords": _animation_keywords(m["gain"])})
+    if m["cbb"]:  # -- animation keywords (wave 7E) -- "… artifact creature until end of turn and can't be blocked this turn"
+        if not m["trail"] and not m["lead"]:
+            raise _Fail
+        out.append({"do": "restrict", "who": who, "rules": ["cant_be_blocked"]})
     if m["gainq"]:  # -- quoted grants (wave 2D) -- "… becomes a Bear creature in addition to its other types and gains "…""
         e["abilities"] = [*e.get("abilities", []), *_QUOTED.findall(m["gainq"])]  # (the same layer-6 effect, 613.6)
     return out, _one(group)

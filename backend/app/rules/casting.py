@@ -437,12 +437,12 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
                     pairs.setdefault(opt, (i, ab.penalty))
             opts = tuple(pairs)
             out.append(M.Source(card.id, opts, sacrifice=not plain, rank=rank + (5 if not plain else 0),
-                                abilities=tuple(pairs[o][0] for o in opts)))
+                                abilities=tuple(pairs[o][0] for o in opts), snow="Snow" in ch.supertypes))  # (wave 7E)
         for i, ab in abilities:
             mana_cost = parse_ability_cost(ab.extra_cost, card_name=ch.name).mana
             if mana_cost and ab.tap and not ab.sacrifice_self:
                 out.append(M.Source(card.id, ab.options, rank=rank + 3, abilities=(i,) * len(ab.options),
-                                    activation=M.parse_cost(mana_cost)))
+                                    activation=M.parse_cost(mana_cost), snow="Snow" in ch.supertypes))  # (wave 7E)
     return out
 
 
@@ -532,7 +532,7 @@ def _helper_sources(state: GameState, player: str, info: CardInfo, spell: Charac
             abilities = src.abilities or (0,) * len(src.options)
             out[by_card[h.card]] = M.Source(h.card, src.options + extra, sacrifice=src.sacrifice, rank=src.rank,
                                             preferred=src.preferred, abilities=abilities + (idx,) * len(extra),
-                                            activation=src.activation)
+                                            activation=src.activation, snow=src.snow)
         else:
             by_card[h.card] = len(out)
             out.append(M.Source(h.card, opts, rank=6, abilities=(idx,) * len(opts)))
