@@ -1351,8 +1351,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     body = trigger_words.plain_amounts(body)
     try:
-        return _excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(_energy_paid(
-            _parse_effects(body, it, event_player)))), it)))
+        from app.rules import top_library  # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
+
+        return top_library.private_gate(_excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(_energy_paid(
+            _parse_effects(body, it, event_player)))), it))))
     except _NoMatch:
         return None
 
