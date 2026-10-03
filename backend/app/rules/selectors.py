@@ -64,6 +64,7 @@ _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves"
               "mice": "Mouse", "fungi": "Fungus", "sphinxes": "Sphinx", "foxes": "Fox", "djinn": "Djinn",
               "allies": "Ally", "fairies": "Faerie", "zombies": "Zombie", "sorceries": "Sorcery", "mercenaries": "Mercenary",
               "plains": "Plains", "pegasi": "Pegasus", "octopi": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
+_IRREGULAR.update({"oxen": "Ox", "armies": "Army", "spies": "Spy", "cyclopes": "Cyclops"})  # -- static wordings (wave 6E) --
 _MARKERS = {"card", "spell", "perm", "token", "commander"}  # nouns that mark what kind of object, not its type
 ZONES = ("battlefield", "graveyard", "hand", "exile", "library", "stack", "command")
 
@@ -202,6 +203,43 @@ def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     if not m.string[: m.start()].endswith("creatures"):
         raise ValueError("only \"creatures that attacked this turn\" (a group on the battlefield)")
     return replace(s, extras=(*s.extras, "attacked_this_turn"))
+
+
+# -- both colors (wave 6D) -- "a spell that's both red and white" (the Mimics): each of the colors (105.2)
+@_suffix(r"that['’]s both (?P<c1>" + "|".join(COLORS) + r") and (?P<c2>" + "|".join(COLORS) + r")")
+def _thats_both(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "all_colors:" + COLORS[m["c1"]] + COLORS[m["c2"]]))
+
+
+THAT_PLAYER = "that_player"  # -- damage wordings (wave 6B) -- a controller the trigger event's player binds
+
+
+# -- damage history (wave 6B) -- "creature that was dealt damage this turn", "each creature dealt damage this turn",
+# "creature that dealt damage [to you] this turn" (app/rules/damage_history.py)
+@_suffix(r"that dealt damage (?P<you>to you )?this turn")
+def _dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "dealt_damage_you" if m["you"] else "dealt_damage"))
+
+
+@_suffix(r"(?:that (?:was|were) )?dealt damage this turn")
+def _was_dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "was_dealt_damage"))
+
+
+@_suffix(r"that player controls")  # "destroy target artifact that player controls" in a trigger about a player: bound
+def _that_player_controls(s: Selector, m: re.Match[str]) -> Selector:  # to it as the trigger is put on the stack
+    return replace(s, controller=THAT_PLAYER)  # (triggers.bind_that_player: "player:<id>"; unbound, nothing matches)
+
+
+@_suffix(r"(?P<b>blocking it|it['’]s blocking)")  # "target creature blocking it" / "… it's blocking": the source's
+def _blocking_source(s: Selector, m: re.Match[str]) -> Selector:  # blocks (509.1; scripts._event_refs_ok: "it" is ~)
+    return replace(s, extras=(*s.extras, "blocking_source" if m["b"] == "blocking it" else "blocked_by_source"))
+
+
+@_suffix(r"with toughness greater than (?:its|their) power")  # (Ghalta the Immovable, Bedrock Tortoise)
+def _toughness_over_power(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "toughness_gt_power"))
+# -- end damage history (wave 6B) --
 
 
 @_suffix(r"that['’]s attacking you")
@@ -651,6 +689,13 @@ def _parse(phrase: str) -> Selector | None:
     # matches, narrowing one card type (205.3); "historic card" (700.6: legendary, artifact or Saga)
     if text.strip() in ("historic card", "historic cards") and not qualified:
         return replace(s, card=True, zones=() if s.zones == ("battlefield",) else s.zones, extras=(*s.extras, "historic"))
+    # -- historic (wave 6D) -- "a historic spell" (Jhoira), "another nontoken historic permanent" (700.6)
+    hist = re.fullmatch(r"(?P<pre>(?:nontoken )?)historic (?P<rest>spells?|permanents?)", text.strip())
+    if hist is not None and not qualified:
+        base = _parse(hist["pre"] + hist["rest"])
+        if base is None or base.types or base.subtypes or base.card:
+            return None
+        return replace(s, zones=base.zones, token=base.token, extras=(*s.extras, "historic"))
     alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker) cards?)",
                             text.strip())
     if alt_subs is not None:
@@ -879,6 +924,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.controller == "opponent" and card.controller == you:
         return False
+    if sel.controller is not None and (sel.controller == THAT_PLAYER or (  # -- damage wordings (wave 6B) --
+            sel.controller.startswith("player:") and card.controller != sel.controller[7:])):
+        return False
     if sel.controller == "defending" and card.controller not in defending_players(plan, source, attacker):
         return False
     if sel.owner == "you" and card.owner != you:
@@ -943,12 +991,36 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra.startswith("entered_this_turn") and not _entered_now(plan, card, you if extra.endswith("_you") else None):
             return False  # (wave 5H)
+        if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
+            return False
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
             return False
         if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
             return False
+        if extra in ("was_dealt_damage", "dealt_damage", "dealt_damage_you"):  # -- damage history (wave 6B) --
+            from app.rules import damage_history
+
+            if not damage_history.matches(plan, card, extra, you):
+                return False
+        if extra in ("blocking_source", "blocked_by_source"):  # -- damage wordings (wave 6B) -- the source's block now
+            src = plan.state.cards.get(source or "")
+            if src is None or not src.zone.endswith(":battlefield") or not card.zone.endswith(":battlefield"):
+                return False
+            if (card.blocking != src.id) if extra == "blocking_source" else (src.blocking != card.id):
+                return False
+        if extra == "greatest_power_own":  # -- damage wordings (wave 6B) -- the greatest power among creatures its
+            # controller controls (Crackling Doom: what the sacrificing player may choose; ties all qualify)
+            mine = _stat(ch, "power")
+            others = [_stat(plan.ch(c), "power") for c in plan.state.cards.values()
+                      if c.controller == card.controller and c.zone.endswith(":battlefield") and plan.ch(c).is_creature]
+            if mine is None or any(p is None or p > mine for p in others):
+                return False
+        if extra == "toughness_gt_power":  # -- damage wordings (wave 6B) -- as it is now (611.3a for a static)
+            p, t = _stat(ch, "power"), _stat(ch, "toughness")
+            if p is None or t is None or t <= p:
+                return False
         if extra.startswith("subtype_any:") and not set(extra[12:].split("|")) & ch.subtypes:  # (wave 6C)
             return False
     # -- chosen type (wave 4J) --

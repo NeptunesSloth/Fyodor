@@ -84,7 +84,7 @@ def test_parse_player_choice_wordings(text, effects_, target):
 
 
 @pytest.mark.parametrize("text", [
-    "Defending player sacrifices a creature of their choice.",  # which defending player (508.5)? not read
+    # ("Defending player sacrifices …": read since wave 6D, only in an attacking creature's trigger: app/rules/defending.py)
     "Each opponent reveals their hand. You choose a card from it. That player discards that card.",  # whose hand?
     "Target opponent chooses a creature.",  # any creature, not one they control: not read
     "Target opponent sacrifices a creature they control of their choice.",

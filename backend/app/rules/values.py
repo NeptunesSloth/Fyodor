@@ -114,6 +114,14 @@ _COLORS_SPENT = re.compile(r"colors? of mana spent to cast (?:this spell|it|~|th
 
 
 def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
+    """See ``_parse_count``. -- damage wordings (wave 6B) -- a count of what "that player" controls is a different
+    number for each player it could name (the target player's, the recipient's: app/rules/sized_damage.py): never read
+    through the selectors' trigger-bound "that player" (selectors.THAT_PLAYER)."""
+    v = _parse_count(phrase, it=it)
+    return None if v is not None and f'"controller":"{selectors.THAT_PLAYER}"' in str(v) else v
+
+
+def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     """A quantity phrase → value: "the number of creatures you control" / "cards in your hand" /
     "opponents you have" / "+1/+1 counters on ~" / "card types among cards in all graveyards" /
     "your devotion to green" / "your life total" / "twice …" / "half …, rounded up" / "X".
@@ -378,6 +386,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             return max(0, plan.state.players[you].life)
         if v["life"] == "opponent_max":
             return max([plan.state.players[p].life for p in plan.live() if p != you] or [0])
+        if v["life"] == "player_min":  # -- static wordings (wave 6E) -- "a player has 13 or less life": the lowest life total
+            return min([plan.state.players[p].life for p in plan.live()] or [0])
         return max([plan.state.players[p].life for p in _target_players(plan, ctx)] or [0])
     if "player_counters" in v:
         if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together

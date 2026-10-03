@@ -187,6 +187,10 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         return ab.instead if _controls_for_instead(state, card.controller, ab.instead_if[0], info) else ab.options
     if ab.instead_if and all(_controls_subtypes(state, card.controller, need, info) for need in ab.instead_if):
         return ab.instead  # -- refused copy/mana (wave 3R3): Urza's Tower with the Mine and the Power-Plant --
+    from app.rules import removed_mana  # -- if you do (wave 6F) -- one option per number removed
+
+    if (removed := removed_mana.parts(ab.count)) is not None:
+        return removed_mana.options(card.counters.get(removed[0], 0), ab.count or "", ab.options[0])
     if ab.count == "devotion":  # -- refused copy/mana (wave 3R3): Nykthos, per chosen color (700.5) --
         found = [opt * n for opt in ab.options if (n := _devotion(state, card.controller, opt[0], info)) > 0]
         return tuple(found)
@@ -418,6 +422,7 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
         abilities = [(i, ab) for i, ab in mana_abilities(state, card, info)
                      if (usable_tap or not ab.tap) and spend_allowed(ab.spend_only, purpose)
                      and not ab.chooses and ab.self_counter is None  # (wave 3R3: the payer's choice: by hand)
+                     and not (ab.count or "").startswith("removed:")  # -- if you do (wave 6F) -- how many: by hand
                      and not (ab.extra_cost and parse_ability_cost(ab.extra_cost, card_name=ch.name).energy)
                      and not (taxes and mana_ability_taxed(state, card, ch, ab, info))]  # (review 4R: by hand)
         rank = 0 if ch.is_land else 2 if ch.is_creature else 1
@@ -1555,6 +1560,10 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
 
 def additional_problem(plan: Plan, extra: AbilityCost, card: CardInstance, player: str) -> str | None:
     """(wave 3$) Why a spell's additional cost can't be paid now (118.3: no partial payments; 119.4: life), or None."""
+    if extra.either:  # -- static wordings (wave 6E) -- a choice: payable when one side is (app/rules/either_costs.py)
+        from app.rules import either_costs
+
+        return either_costs.problem(plan, extra, card, player)
     if extra.life and plan.state.players[player].life < extra.life:
         return f"You can't pay {extra.life} life"
     return cost_payment.problem(plan, extra, card, player)
@@ -1744,6 +1753,14 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if base.x and a.x_value:
             raise ActionError("X is 0 when the spell is cast for an alternative cost without X (107.3b)")
     # -- end cost changers (wave 4I) --
+    # -- static wordings (wave 6E) -- 601.2b: which of its additional costs the caster pays, announced before targets
+    from app.rules import either_costs
+
+    either = None if plan.manual(card) or a.face_down else either_costs.announce(plan, a, card, ch)
+    if either is either_costs.WAITING:
+        return
+    if either is not None and either.mana:  # (601.2f: a mana side is added to the total cost like kicker, 118.8)
+        additional.append(M.parse_cost(either.mana))
     for target in a.targets:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
@@ -1785,6 +1802,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     # -- costs (wave 3$) -- 601.2b: an additional cost ("sacrifice a creature", "discard a card", "pay 2 life") is
     # announced with the rest; 601.2h pays it all at once, so nothing moves until every part is chosen and payable
     add_cost = None if plan.manual(card) or a.face_down else costs.spell_additional_cost(ch.abilities)
+    if either is not None:  # -- static wordings (wave 6E) -- the announced side's non-mana parts
+        add_cost = either if either.components else None
     if alt_offer is not None:  # -- cost changers (wave 4I) -- its other parts are paid with the rest (601.2h)
         add_cost = alt_costs.merged(add_cost, alt_offer.alt.cost)
     if optional:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
@@ -2190,6 +2209,12 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     limited = cast_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, resolving=True)
     if limited:
         raise ActionError(limited)
+    # -- static wordings (wave 6E) -- 118.9d: a choice of additional costs is still announced (601.2b) and paid
+    from app.rules import either_costs
+
+    either = None if plan.manual(card) else either_costs.announce(plan, a, card, ch)
+    if either is either_costs.WAITING:
+        return
     definition = None if plan.manual(card) else scripts.spell_definition(ch)
     aura = None if plan.manual(card) else attachments.enchant_selector(ch)
     slots: list[list[TargetRef]] = []
@@ -2219,6 +2244,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     # 118.9d / 601.2b: a spell's own additional cost ("As an additional cost to cast this spell,
     # sacrifice a creature": Fling cast by cascade) is still paid — chosen now, paid with the rest
     add_cost = None if plan.manual(card) else costs.spell_additional_cost(ch.abilities)
+    if either is not None:  # -- static wordings (wave 6E) --
+        add_cost = either if either.components else None
     add_objects: dict[int, list[str]] = {}
     if add_cost is not None:
         problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
@@ -2233,7 +2260,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     # alternative cost — {0}, or the madness cost
     cost = spell_cost(plan.state, card, ch, 0, plan.info, player=plan.actor, free=alt is None,
                       alternative=M.parse_cost(alt) if alt is not None else None, kicker=a.kicker,
-                      targets=tuple(t.id for t in chosen))  # (wave 4I: "spells that target …")
+                      targets=tuple(t.id for t in chosen),  # (wave 4I: "spells that target …")
+                      additional=(M.parse_cost(either.mana),) if either is not None and either.mana else ())  # (wave 6E)
     cost = _locked(plan, cost)  # (wave 4I: 601.2f)
     if alt is not None or not cost.is_free:
         if payment_step(plan, a, cost, ch.name or "it", exclude=not_mana, purpose=Purpose(spell=ch)):
@@ -2768,6 +2796,14 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
         from app.rules import replace as replace_  # (the counter choke point; a cost, not an effect)
 
         replace_.put_counters(plan, [(card.id, ability.self_counter, 1)], by=card.controller, effect=False)
+    from app.rules import removed_mana  # -- if you do (wave 6F) -- the cost: n counters removed
+
+    if removed_mana.parts(ability.count) is not None:
+        kind, n = removed_mana.removed(ability.count or "", option)
+        if n < 0 or card.counters.get(kind, 0) < n:  # 118.3
+            raise ActionError(f"{plan.ch(card).name} doesn't have {n} {kind} counters")
+        if n:
+            plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n}, actor=card.controller)
     mana = _count(option)
     oid = plan.oid(card)  # (wave 5A: the object as it was tapped)
     plan.do({"type": "rules_mana", "player": card.controller, "tap": [card.id] if ability.tap else [],

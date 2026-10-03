@@ -99,7 +99,8 @@ _COUNT = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven
 _MULTI = {"enters": "enter", "dies": "die", "attacks": "attack", "leaves the battlefield": "leave", "blocks": "block",
           "becomes blocked": "blocked", "becomes tapped": "tapped", "becomes untapped": "untapped",
           "is dealt damage": "dealt_damage",
-          "is put into a graveyard from the battlefield": "die"}  # (700.4; wave 5D: Ichor Wellspring)
+          "is put into a graveyard from the battlefield": "die",  # (700.4; wave 5D: Ichor Wellspring)
+          "is turned face up": "turned_face_up"}  # -- face up (wave 6D) -- "~ enters or is turned face up" (702.37e)
 _MULTI_RE = "|".join(sorted((re.escape(k) for k in _MULTI), key=len, reverse=True))
 _P = r"(?P<p>you|an opponent|a player)"
 # -- counters & designations (wave 3E) -- a player getting counters (122.6; one event per player per instruction)
@@ -115,6 +116,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"the ring tempts (?P<p>you)", re.IGNORECASE), "ring_tempts"),
     (re.compile(r"(?P<p>you) choose a creature as your ring-bearer", re.IGNORECASE), "ring_bearer"),
     (re.compile(r"(?P<p>you) complete a dungeon"), "complete_dungeon"),
+    (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
 ]
 # "enchanted creature", "equipped creature" …: the permanent the source is attached to (303.4, 301.5)
@@ -241,6 +243,40 @@ def _parse(c: str) -> Condition | None:
     found = _object_event(c)
     if found is not None:
         return found
+    # -- becomes monstrous (wave 6D) -- "When ~ becomes monstrous" (701.37b), "Whenever a creature you control becomes
+    # renowned" (702.112b): the permanent got the designation
+    m = re.fullmatch(r"(?P<s>.+?) becomes (?P<d>monstrous|renowned)", c)
+    if m:
+        base = _subject(m["s"])
+        if base is None or base.get("aggregate"):
+            return None
+        return {**base, "event": f"become_{m['d']}"}
+    # -- into a graveyard (wave 6D) -- "one or more land cards are put into your graveyard from anywhere" (The Gitrog
+    # Monster), "… from your library" (Hedge Shredder): a card put there, as it is there (603.6c: "from anywhere" is never
+    # a leaves-the-battlefield ability, so it doesn't look back), whatever zone it came from (or only the library)
+    m = re.fullmatch(r"(?P<o>one or more .+? cards|an? .+? card|a card) (?:is|are) put into (?P<g>your|an opponent's|a) "
+                     r"graveyard from (?P<f>anywhere|your library)", c)
+    if m:
+        gsel = selectors.from_key(_object_sel(m["o"], card=True))
+        owner = {"your": "you", "an opponent's": "opponent"}.get(m["g"])
+        if gsel.zones or gsel.zone_owner:
+            return None
+        out: Condition = {"event": "to_graveyard", "subject": "sel", "aggregate": m["o"].startswith("one or more "),
+                          "sel": selectors.replace(gsel, zone_owner=owner).key()}
+        if m["f"] == "your library":
+            if owner != "you":
+                return None
+            out["from"] = "library"
+        return out
+    # -- graveyard owner (wave 6D) -- "a creature is put into an opponent's graveyard from the battlefield", "a nontoken
+    # creature is put into your graveyard from the battlefield", "~ is put into your graveyard from the battlefield": it
+    # died (700.4), and a card goes to its OWNER's graveyard (400.3; a token too, 111.7) — whose graveyard is the owner's
+    m = re.fullmatch(r"(?P<s>.+?) (?P<v>is|are) put into (?P<g>your|an opponent's) graveyard from the battlefield", c)
+    if m:
+        inner = _parse(f"{m['s']} {'dies' if m['v'] == 'is' else 'die'}")
+        if inner is None or inner.get("event") != "die" or inner.get("subject") not in ("self", "sel"):
+            return None
+        return {**inner, "gy_owner": "you" if m["g"] == "your" else "opponent"}
     for pattern, event in _PLAYER_VERBS:
         m = re.fullmatch(rf"(?P<p>you|an opponent|a player|each opponent) (?:{pattern})", c)
         if m:

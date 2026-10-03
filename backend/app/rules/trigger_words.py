@@ -37,6 +37,8 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
     """The body of a triggered ability with these wordings replaced by the plainer ones (else unchanged)."""
     if they_names_event_player(name, cond, has_player):
         body = _THEY.sub(lambda m: f"that player {_VERBS[m['v']]}", body)
+        # -- damage wordings (wave 6B) -- "At the beginning of each player's upkeep, ~ deals 1 damage to them."
+        body = re.sub(r"\b(deals? (?:\d+|X) damage) to them\b", r"\1 to that player", body)
     if name.startswith("step:draw:") and name.rsplit(":", 1)[-1] in ("each", "opponent"):
         # 504.1: the active player draws in the draw step; "an additional card" is one more card
         body = re.sub(r"\bthat player draws an additional card\.$", "that player draws a card.", body)

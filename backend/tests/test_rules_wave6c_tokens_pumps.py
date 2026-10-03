@@ -194,7 +194,7 @@ def test_anthem_subjects():
     wolves = statics.parse("Other Wolves and Werewolves you control get +1/+1.")
     assert wolves is not None and sorted(json.loads(wolves["who"][4:])["subtypes"]) == ["Werewolf", "Wolf"]
     assert statics.parse("Other Merfolk you control gets +1/+1.") is None  # (a singular verb: not a group)
-    assert statics.parse("Skeletons you control and other Zombies you control get +1/+1.") is None
+    assert statics.parse("Skeletons you control and other Zombies you control get +1/+1.")["who"].startswith("any:")  # (wave 6E: a union)
 
 
 # -- temporary grants of the evasion and damage keywords ---------------------------------------------------------

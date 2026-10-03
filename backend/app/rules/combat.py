@@ -357,6 +357,11 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
 
         note_attack(plan.state, plan.actor,  # (wave 4D: the attacking objects)
                     [plan.oid(plan.state.cards[x.card_id]) for x in a.attackers])  # 508.1: "if you attacked this turn" (conditional clauses, wave 1B)
+        # -- static wordings (wave 6E) -- 508.1g / 701.43d: "You may exert this creature as it attacks" (app/rules/exert.py)
+        from app.rules import exert
+
+        if exert.ask(plan, [plan.state.cards[x.card_id] for x in a.attackers]):
+            return
         triggers.attacked(plan, [plan.state.cards[x.card_id] for x in a.attackers])
     r.priority = plan.active
     r.passed = []
@@ -640,6 +645,14 @@ class CombatDamage:
         return not (self.creatures or self.players or self.walkers or self.wither or self.poison)
 
 
+# -- damage wordings (wave 6B) --
+def _assigns(card: CardInstance, ch: Characteristics) -> int | None:
+    """510.1a: the combat damage a creature assigns is its power — or its toughness while a static says so ("Each
+    creature assigns combat damage equal to its toughness rather than its power", Doran: the rule assign_toughness)."""
+    return toughness(card, ch) if "assign_toughness" in ch.imposed else power(card, ch)
+# -- end damage wordings (wave 6B) --
+
+
 def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
     state = plan.state
     r = plan.rules
@@ -702,7 +715,7 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
     blockers_all = [c for c in state.cards.values() if c.blocking and c.zone.endswith(":battlefield")]
     for att in attackers_on(state):
         ach = plan.ch(att)
-        p = power(att, ach)
+        p = _assigns(att, ach)  # (wave 6B: 510.1a)
         if not _deals(ach, rnd) or p is None or p <= 0:
             continue
         blockers = [b for b in blockers_all if b.blocking == att.id]
@@ -730,7 +743,7 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
         gain(att, ach, dealt)
     for b in blockers_all:
         bch = plan.ch(b)
-        p = power(b, bch)
+        p = _assigns(b, bch)  # (wave 6B: 510.1a)
         blocked = state.cards.get(b.blocking or "")
         if blocked is None or blocked.attacking is None or not _deals(bch, rnd) or p is None or p <= 0:
             continue
