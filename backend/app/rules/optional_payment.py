@@ -81,6 +81,8 @@ def cost_text(phrase: str) -> str | None:
             part = part[4:]
         elif re.fullmatch(r"\d+ life", part):  # "… unless that player pays 3 life"
             part = "pay " + part
+        elif part == "put a card from your hand on the bottom of your library":  # -- if you do (wave 6F) --
+            return _HAND_TO_BOTTOM_TEXT if len(re.split(r", | and ", phrase.strip())) == 1 else None
         elif part in ("discard your hand", "discard all the cards in your hand"):  # -- if you do (wave 6F) --
             part = "discard your hand"  # (701.9a; with no card in hand it may still be chosen: Wizards rulings on
             # Narset, Jeskai Waymaster 2025-04-04 and Jackdaw 2024-07-05 — "If you do" is then true, 118.12)
@@ -107,8 +109,23 @@ def alternatives(phrase: str) -> list[str] | None:
     return [f for f in found if f is not None] if all(found) else None
 
 
+# -- if you do (wave 6F) -- "You may put a card from your hand on the bottom of your library. If you do, draw a card."
+# (Fire Prophecy, Manhole Missile, Volcanic Spite): a card of the payer's choice from their hand (chosen privately,
+# 400.2), moved to the bottom of their library (400.2: a hidden zone, the card is never revealed); payable with any card in
+# hand (118.3).
+HAND_TO_BOTTOM = "HAND_TO_BOTTOM"
+_HAND_TO_BOTTOM_TEXT = "Put a card from your hand on the bottom of your library"
+
+
+def _hand_to_bottom() -> AbilityCost | None:
+    key = C._selector("card", zone="hand")
+    return AbilityCost(components=(C.CostComponent(HAND_TO_BOTTOM, selector=key, text=_HAND_TO_BOTTOM_TEXT),)) if key else None
+
+
 def parse(text: str) -> AbilityCost | None:
     """The cost text as components, or None if any part isn't one the engine pays here."""
+    if text == _HAND_TO_BOTTOM_TEXT:  # -- if you do (wave 6F) --
+        return _hand_to_bottom()
     cost = C.parse_ability_cost(text)
     if cost.unsupported or not cost.components or "{X}" in cost.mana.upper() or cost.energy_x:
         return None
@@ -372,6 +389,11 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
         cost_payment.pay(plan, cost, source, chosen, record)
     finally:
         plan.actor = actor
+    for i, comp in enumerate(cost.components):  # -- if you do (wave 6F) -- to the bottom of the payer's library
+        if comp.kind == HAND_TO_BOTTOM:
+            for cid in chosen.get(i, []):
+                plan.do({"type": "move", "card_ids": [cid], "to": {"player": payer, "zone": "library"}, "position": "bottom"},
+                        actor=payer)
     if any(c.kind == C.DISCARD_HAND for c in cost.components):  # -- if you do (wave 6F) -- "draw that many cards"
         ctx.setdefault("paid_x", {})[name] = len(record.discarded)
     plan.note(f"{plan.name(payer)} paid {_label(cost)} for {label}", [c for c in paid if c in plan.state.cards])

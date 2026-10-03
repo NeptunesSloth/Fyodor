@@ -68,13 +68,15 @@ EXTRA = [
          oracle_text="Whenever you cast an instant or sorcery spell, surveil 1.\nAt the beginning of your end step, each opponent may sacrifice a nontoken creature of their choice. Each opponent who doesn't loses 2 life for each instant and sorcery card in your graveyard.", power='4', toughness='5', colors=['B'], color_identity=['B'], keywords=['Surveil']),
     card('Impulsive Destruction', set_code='tst', number='F19', mana_cost='', cmc=0.0, type_line='Sorcery',
          oracle_text="Each player may sacrifice an artifact or enchantment. Impulsive Destruction deals 3 damage to each player who didn't sacrifice a permanent this way.", colors=[], color_identity=[], keywords=[]),
+    card('Fire Prophecy', set_code='tst', number='F20', mana_cost='{1}{R}', cmc=2.0, type_line='Instant',
+         oracle_text='Fire Prophecy deals 3 damage to target creature. You may put a card from your hand on the bottom of your library. If you do, draw a card.', colors=['R'], color_identity=['R'], keywords=[]),
     card('Sol Ring', set_code='tst', number='F16', mana_cost='{1}', cmc=1.0, type_line='Artifact',
          oracle_text='{T}: Add {C}{C}.', colors=[], color_identity=[], keywords=[]),
 ]
 FULL = ["Sourbread Auntie", "Gutsplitter Gang", "Mage-Ring Network", "Blue Mana Battery", "Forgotten Creation",
         "Narset, Jeskai Waymaster", "Vision of Love", "K'un-Lun Warrior", "Dromar, the Banisher", "Rith, the Awakener",
         "Dwarven Hammer", "Ancestral Blade", "Dream Seizer", "Boggart Mischief", "Book Devourer", "Braids, Arisen Nightmare",
-        "Fandaniel, Telophoroi Ascian", "Impulsive Destruction"]
+        "Fandaniel, Telophoroi Ascian", "Impulsive Destruction", "Fire Prophecy"]
 
 
 @pytest.fixture()
@@ -526,4 +528,42 @@ def test_impulsive_destruction_each_player_in_turn_order(cards):
     pick(s, "pay")
     settle(s)
     assert life(s, "p1") == 37 and life(s, "p2") == 40
+    roundtrip(s)
+
+
+# -- a card from your hand on the bottom of your library ------------------------------------------------
+def test_fire_prophecy_bottoms_a_card_privately_then_draws(cards):
+    import json
+
+    s = build(cards, p1=("Fire Prophecy", "Sol Ring"))
+    bear = creature(s, "p2", "Bear")
+    ring = to_hand(s, "Sol Ring")
+    deal(s, "p1", 1, "Forest")
+    spell = to_hand(s, "Fire Prophecy")
+    add_mana(s, "p1", R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bear.id])
+    d = until_asked(s)
+    assert [o.id for o in d.options] == ["pay", "decline"]
+    pick(s, "pay")
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards" and d.player == "p1"
+    assert "options" not in s.view("p2")["rules"]["decision"]
+    pick(s, ring.id)
+    settle(s)
+    assert zone(s.state, "p1", "library")[-1] == ring.id  # (its bottom)
+    assert len(hand(s)) == 2  # the Forest and the card drawn
+    assert bear.id not in zone(s.state, "p2", "battlefield")
+    assert "Sol Ring" not in json.dumps(s.view("p2"))  # (never revealed: 400.2)
+    roundtrip(s)
+
+
+def test_fire_prophecy_with_an_empty_hand_is_not_offered(cards):
+    s = build(cards, p1=("Fire Prophecy",))
+    bear = creature(s, "p2", "Bear")
+    spell = to_hand(s, "Fire Prophecy")
+    add_mana(s, "p1", R=1, C=1)
+    library = len(zone(s.state, "p1", "library"))
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bear.id])
+    assert until_asked(s) is None  # (her hand is empty — public: its size may be counted, 402.3)
+    assert len(zone(s.state, "p1", "library")) == library and hand(s) == []
     roundtrip(s)
