@@ -768,7 +768,8 @@ def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         puts = [(cid, e["kind"], n) for cid in cards] if n else []
         for more in e.get("also") or ():  # -- counters (wave 5H) -- several kinds at once (one event, 122.6)
             k = _amount(plan, ctx, more["n"])
-            puts += [(cid, more["kind"], k) for cid in cards] if k else []
+            more_cards = _cards(plan, ctx, more["who"]) if more.get("who") else cards
+            puts += [(cid, more["kind"], k) for cid in more_cards] if k else []
     if not puts:
         return True
     return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)

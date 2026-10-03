@@ -1184,6 +1184,19 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # control leaves the battlefield, if it had counters on it, put those counters on ~": the same number of each kind
     # the object had as it last existed (122.8) — a placeholder "it" bound by scripts.resolve_it only to an object that
     # left (otherwise it would be a move, 122.5: refused)
+    # "put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control"
+    # (Brokers Ascendancy): one instruction, all at once (122.6)
+    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o>each [^,]+?) and "
+                     rf"(?P<n2>{AMT}) (?P<k2>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o2>each .+)", text)
+    if m and rider is None and "target" not in text:
+        if m["k"] in values.UNMODELED_COUNTERS or m["k2"] in values.UNMODELED_COUNTERS:
+            raise _Fail
+        k1, key1, _g1 = ref(m["o"])
+        k2, key2, _g2 = ref(m["o2"])
+        if "players" in (k1, k2):
+            raise _Fail
+        return [{"do": "add_counters", "who": _who(k1, key1), "kind": m["k"], "n": _amount(m["n"]),
+                 "also": [{"kind": m["k2"], "n": _amount(m["n2"]), "who": _who(k2, key2)}]}], None
     # "move all counters from ~ onto target creature" (The Ozolith): removed from it and put on the other (122.5)
     m = re.fullmatch(r"move all counters from ~ onto (?P<o>.+)", text)
     if m and rider is None:

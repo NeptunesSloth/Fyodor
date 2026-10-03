@@ -58,6 +58,10 @@ EXTRA = [
     card('The Ozolith', set_code='tst', number='T5H27', mana_cost='{1}', cmc=1.0, type_line='Legendary Artifact', oracle_text='Whenever a creature you control leaves the battlefield, if it had counters on it, put those counters on The Ozolith.\nAt the beginning of combat on your turn, if The Ozolith has counters on it, you may move all counters from The Ozolith onto target creature.'),
     card('Grakmaw, Skyclave Ravager', set_code='tst', number='T5H28', mana_cost='{1}{B}{G}', cmc=3.0, type_line='Legendary Creature — Hydra Horror', oracle_text='Grakmaw enters with three +1/+1 counters on it.\nWhenever another creature you control dies, if it had a +1/+1 counter on it, put a +1/+1 counter on Grakmaw.\nWhen Grakmaw dies, create an X/X black and green Hydra creature token, where X is the number of +1/+1 counters on Grakmaw.', power='0', toughness='0', colors=['B', 'G'], color_identity=['B', 'G']),
     card('Blowfly Infestation', set_code='tst', number='T5H29', mana_cost='{2}{B}', cmc=3.0, type_line='Enchantment', oracle_text='Whenever a creature dies, if it had a -1/-1 counter on it, put a -1/-1 counter on target creature.', colors=['B'], color_identity=['B']),
+    card('Oran-Rief, the Vastwood', set_code='tst', number='T5H31', mana_cost='', cmc=0.0, type_line='Land', oracle_text='This land enters tapped.\n{T}: Add {G}.\n{T}: Put a +1/+1 counter on each green creature that entered this turn.', color_identity=['G']),
+    card('Brokers Ascendancy', set_code='tst', number='T5H32', mana_cost='{G}{W}{U}', cmc=3.0, type_line='Enchantment', oracle_text='At the beginning of your end step, put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control.', colors=['G', 'U', 'W'], color_identity=['G', 'U', 'W']),
+    card('Ratchet Bomb', set_code='tst', number='T5H33', mana_cost='{2}', cmc=2.0, type_line='Artifact', oracle_text='{T}: Put a charge counter on this artifact.\n{T}, Sacrifice this artifact: Destroy each nonland permanent with mana value equal to the number of charge counters on this artifact.'),
+    card('Blast Zone', set_code='tst', number='T5H34', mana_cost='', cmc=0.0, type_line='Land', oracle_text='This land enters with a charge counter on it.\n{T}: Add {C}.\n{X}{X}, {T}: Put X charge counters on this land.\n{3}, {T}, Sacrifice this land: Destroy each nonland permanent with mana value equal to the number of charge counters on this land.'),
     card('Essence Channeler', set_code='tst', number='T5H30', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Bat Cleric', oracle_text="As long as you've lost life this turn, this creature has flying and vigilance.\nWhenever you gain life, put a +1/+1 counter on this creature.\nWhen this creature dies, put its counters on target creature you control.", power='2', toughness='1', colors=['W'], color_identity=['W']),
 ]
 
@@ -119,6 +123,7 @@ def cov(name):
     ("Oath of Gideon", "FULL"), ("Gift of the Viper", "FULL"), ("Vraska Joins Up", "FULL"),
     ("Luminous Broodmoth", "FULL"), ("Unexpected Fangs", "FULL"), ("Iron Apprentice", "FULL"), ("The Ozolith", "FULL"),
     ("Grakmaw, Skyclave Ravager", "FULL"), ("Blowfly Infestation", "FULL"), ("Essence Channeler", "FULL"),
+    ("Oran-Rief, the Vastwood", "FULL"), ("Brokers Ascendancy", "FULL"), ("Ratchet Bomb", "FULL"), ("Blast Zone", "FULL"),
     # refused: a type change with the counters (layer 4 as it enters), a keyword counter, "those creatures"
     ("Master Biomancer", "PARTIAL"), ("Tayam, Luminous Enigma", "PARTIAL"),
 ])
@@ -564,5 +569,80 @@ def test_blowfly_infestation_after_persist(cards):
         if bolt is bolts[0]:
             assert zone(s, finks) == "p1:battlefield" and counters(s, finks) == {"-1/-1": 1} and not counters(s, theirs)
     assert zone(s, finks) == "p1:graveyard" and counters(s, theirs) == {"-1/-1": 1}
+    replay_matches(s)
+
+
+def play_on(s, done, limit=400):
+    """Play on (no attacks or blocks, decisions answered with their first options) until ``done``."""
+    for _ in range(limit):
+        if done(s):
+            return
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never got there")
+
+
+def main_phase(n):
+    return lambda s: (s.state.turn.number == n and s.state.turn.phase == "main1" and s.state.rules.decision is None
+                      and s.state.rules.priority == "p1" and not s.state.zones.get("stack"))
+
+
+# -- "that entered this turn" (400.7), two kinds on two groups at once, the source's counters as it last existed ------
+def test_oran_rief_counts_only_creatures_that_entered_this_turn(cards):
+    s = build(cards, "Oran-Rief, the Vastwood", "Llanowar Elves", "Grizzly Bears", "Kitchen Finks")
+    oran = put(s, "Oran-Rief, the Vastwood")
+    elves = put(s, "Llanowar Elves")
+    play_on(s, main_phase(3))
+    bears = cast(s, "Grizzly Bears", G=1, C=1)
+    settle(s)
+    finks = cast(s, "Kitchen Finks", G=1, W=1, C=1)  # (green and white)
+    settle(s)
+    s = saved(s)
+    act(s, "p1", type="activate_ability", card_id=oran.id, ability=2)
+    settle(s)
+    assert counters(s, bears) == {"+1/+1": 1} and counters(s, finks) == {"+1/+1": 1} and not counters(s, elves)
+    replay_matches(s)
+
+
+def test_brokers_ascendancy_counters_on_creatures_and_planeswalkers(cards):
+    s = build(cards, "Brokers Ascendancy", "Grizzly Bears", "Gideon Jura")
+    put(s, "Brokers Ascendancy")
+    bears = put(s, "Grizzly Bears")
+    gideon = cast(s, "Gideon Jura", W=2, C=3)
+    settle(s)
+    s = saved(s)
+    play_on(s, lambda s: s.state.turn.number == 2)
+    assert counters(s, bears) == {"+1/+1": 1} and counters(s, gideon) == {"loyalty": 7}
+    replay_matches(s)
+
+
+def test_ratchet_bomb_reads_its_counters_as_it_was_sacrificed(cards):
+    s = build(cards, "Ratchet Bomb", "Grizzly Bears", "Llanowar Elves", p2=("Grizzly Bears",))
+    bomb = put(s, "Ratchet Bomb")
+    add(s, bomb, 2, "charge")
+    bears, elves, theirs = put(s, "Grizzly Bears"), put(s, "Llanowar Elves"), put(s, "Grizzly Bears", "p2")
+    s = saved(s)
+    act(s, "p1", type="activate_ability", card_id=bomb.id, ability=1)
+    settle(s)
+    assert zone(s, bomb) == "p1:graveyard"
+    assert zone(s, bears) == "p1:graveyard" and zone(s, theirs) == "p2:graveyard" and zone(s, elves) == "p1:battlefield"
+    replay_matches(s)
+
+
+def test_blast_zone_spares_lands_and_other_mana_values(cards):
+    s = build(cards, "Blast Zone", "Grizzly Bears", "Llanowar Elves", "Forest")
+    zone_land = put(s, "Blast Zone")
+    add(s, zone_land, 1, "charge")
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    s = saved(s)
+    mana(s, C=3)
+    act(s, "p1", type="activate_ability", card_id=zone_land.id, ability=3)
+    settle(s)
+    assert zone(s, elves) == "p1:graveyard" and zone(s, bears) == "p1:battlefield" and zone(s, zone_land) == "p1:graveyard"
     replay_matches(s)
 
