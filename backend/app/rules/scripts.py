@@ -1491,7 +1491,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     if it is None and not event_player:  # -- if you do (wave 5G) -- a spell's or an activated ability's "each other
         # player": every other player than its controller is an opponent in a free-for-all (102.2, 806.2); in a trigger
         # "other" may be relative to the event's player — not read there
-        body = re.sub(r"\b([Ee])ach other player\b", lambda m: f"{m[1]}ach opponent", body)
+        # (not where the grammar reads it already: an edict, language.EDICT_OTHERS; "during each other player's …")
+        body = re.sub(r"\b([Ee])ach other player\b(?! sacrifices)(?!'s)", lambda m: f"{m[1]}ach opponent", body)
     texts =[s for s in split_sentences(body) if s]  # ("You may pay …" looks ahead at "If you do"; quote-aware: wave 2D)
     sentences: list[int] = []  # where each sentence's effects start (resolve_it: the pronouns' reach)
     skip_to = 0  # -- refused look/cast-free (wave 3R5) -- sentences read together with an earlier one (piles)
