@@ -20,7 +20,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.game.rules_state import DecisionOption, ObjectRef, StackEntry
-from app.game.state import zone_key
+from app.game.state import ALL, zone_key
 from app.rules import (
     context,
     delayed,
@@ -136,7 +136,7 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         name, _, key = who[len("except:"):].partition("|")  # … tokens" (Martial Coup): other than what it made
         made = set(context.objects(plan, ctx, name))
         return [c for c in _cards(plan, ctx, key) if c not in made]
-    if who.startswith("radiance:"):  # -- radiance (wave 9C) -- the target and each other object sharing a color with it
+    if who.startswith(("radiance:", "samename:")):  # -- radiance (wave 9C) -- the target and each other object sharing a color with it
         from app.rules import radiance
 
         return radiance.cards(plan, ctx, who)
@@ -687,8 +687,12 @@ def _can_regenerate(ctx: Context) -> bool:
 def destroy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # The binding is every object the instruction was about ("Destroy target creature. Its
     # controller …" means the target's controller even if it was indestructible or regenerated)
-    before = _remember(plan, ctx, e, _cards(plan, ctx, e["who"]))
-    doomed = [c for c in _cards(plan, ctx, e["who"]) if "indestructible" not in plan.ch(plan.state.cards[c]).keywords]
+    return _destroy_cards(plan, ctx, e, _cards(plan, ctx, e["who"]))
+
+
+def _destroy_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
+    before = _remember(plan, ctx, e, cards)
+    doomed = [c for c in cards if "indestructible" not in plan.ch(plan.state.cards[c]).keywords]
     doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx), actor=ctx["controller"])
     if doomed:
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
@@ -1660,11 +1664,11 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("all"):  # -- "this way" outcomes (wave 4A) -- "discard your hand": every card, no choice (701.9a)
         picked = [c for pid in order for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
         return _discard_next(plan, ctx, 0, [], picked, e.get("as"))
-    return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"))
+    return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("to", "graveyard"))
 
 
 def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picked: list[str],
-                  binding: str | None = None) -> bool:
+                  binding: str | None = None, dest: str = "graveyard") -> bool:
     for i, pid in enumerate(players):
         hand = plan.state.zones.get(zone_key(pid, "hand"), [])
         n = min(want, len(hand))
@@ -1673,17 +1677,19 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
         if n == len(hand):
             picked = [*picked, *hand]
             continue
-        decide(plan, player=pid, kind="choose_cards", prompt=f"Discard {n} card{'s' if n != 1 else ''}",
+        decide(plan, player=pid, kind="choose_cards",
+               prompt=f"{'Exile' if dest == 'exile' else 'Discard'} {n} card{'s' if n != 1 else ''}"  # (wave 11D: "exiles two cards from their hand")
+               + (" from your hand" if dest == "exile" else ""),
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
                min_choices=n, max_choices=n,
                resume={"step": "discard", "ctx": ctx, "want": want, "rest": players[i + 1:], "picked": picked,
-                       "as": binding})
+                       "as": binding, "to": dest})
         return False
     cards = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(":hand")]
     e = {"as": binding}
     before = _remember(plan, ctx, e, cards)
-    if cards:  # each to its owner's graveyard (701.9a)
-        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+    if cards:  # each to its owner's graveyard (701.9a); -- hand disruption (wave 11D) -- or exiled, which is no discard (701.9a)
+        plan.do({"type": "move", "card_ids": cards, "to": {"zone": dest}}, actor=ctx["controller"])
     _moved(plan, ctx, e, before)  # "cards discarded this way": found in the graveyards (400.7j)
     return True
 
@@ -1691,7 +1697,8 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
 def resume_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx = d.resume["ctx"]
     picked = [*(d.resume.get("picked") or []), *chosen]
-    if _discard_next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or [], picked, d.resume.get("as")):
+    if _discard_next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or [], picked, d.resume.get("as"),
+                     d.resume.get("to", "graveyard")):
         continue_effects(plan, ctx)
 
 
@@ -2607,11 +2614,19 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[str]
             prompt += f" — already chosen: {_labels(plan, picked)}"  # 101.4b: the earlier choices are known
         decide(plan, player=pid, kind="choose_cards", prompt=prompt,
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
-               min_choices=n, max_choices=n,
+               min_choices=0 if e.get("upto") else n, max_choices=n,  # (wave 11D: "chooses up to two creatures they control")
                resume={"step": step, "ctx": ctx, "e": e, "rest": players[i + 1:], "picked": picked})
         return False
     if step == "edict":  # 101.4: after every choice, all sacrificed at once (one move, one event batch)
         _sacrifice_cards(plan, picked, ctx["controller"], ctx, e.get("as"))
+    elif e.get("rest"):  # -- choose the rest (wave 11D) -- "Each player chooses a creature they control, then sacrifices the rest."
+        # Everything those players control that fits and wasn't chosen, all at once after every choice was made (101.4).
+        rest = [c for pid in _players(plan, ctx, e["who"]) for c in _controlled(plan, e["sel"], pid, ctx.get("source_card"))
+                if c not in picked]
+        if e["rest"] == "sacrifice":
+            _sacrifice_cards(plan, rest, ctx["controller"], ctx, e.get("as"))
+        else:  # "Destroy the rest" (701.8): indestructible ones stay, regeneration may save the others
+            _destroy_cards(plan, ctx, e, rest)
     else:
         _remember(plan, ctx, e, picked)  # "that creature", "it": the chosen objects (they stay where they are)
     return True
@@ -2651,9 +2666,14 @@ def reveal_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     as the effect needs it: a following choice hides what it didn't pick; the end of this
     resolution hides the rest — a ``hide_revealed`` step is queued after the last instruction)."""
     revealed: list[str] = []
+    me = ctx["controller"]
     for pid in _players(plan, ctx, e["who"]):
         hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
-        if hand:
+        if e.get("private"):  # -- hand disruption (wave 11D) -- "Look at target player's hand": shown to the looker alone (701.20e)
+            hand = [c for c in hand if ALL not in plan.state.cards[c].revealed_to and me not in plan.state.cards[c].revealed_to]
+            if hand:
+                plan.do({"type": "reveal", "card_ids": hand, "to": [me]}, actor=me)
+        elif hand:
             plan.do({"type": "reveal", "card_ids": hand}, actor=pid)
         else:
             plan.note(f"{plan.name(pid)} reveals an empty hand", actor=pid)
@@ -2662,7 +2682,19 @@ def reveal_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not ctx.get("hide_queued"):  # (appended in place: the resolver walks the same list)
         ctx["hide_queued"] = True
         ctx["effects"].append({"do": "hide_revealed"})
+    pick = next((x for x in ctx["effects"][ctx["next"]:] if x["do"] == "choose_from_hand"), None)
+    if e.get("private") and revealed and (pick is None or not _hand_options(plan, ctx, pick)[1]):
+        # a look with nothing (left) to choose from it: the looker sees the hand until they say they're done, then it is hidden again
+        decide(plan, player=me, kind="confirm", prompt=f"{ctx.get('name') or 'Look'}: you look at the hand",
+               options=[DecisionOption(id="ok", label="Done looking")], resume={"step": "look_hand", "ctx": ctx})
+        return False
     return True
+
+
+def resume_look_hand(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx = d.resume["ctx"]
+    hide_revealed(plan, ctx, {})
+    continue_effects(plan, ctx)
 
 
 def hide_revealed(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -2676,16 +2708,29 @@ def hide_revealed(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-def choose_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """"You choose a [nonland] card from it" after a hand was revealed: the controller chooses
-    among the revealed cards matching the selector, then the unchosen ones stop being revealed.
-    "You may choose" / "up to N" may choose fewer (or none)."""
+def _hand_options(plan: Plan, ctx: Context, e: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """(the revealed cards still in a hand, those of them — and, for "or a card from their graveyard", of that player's
+    graveyard — that the choice may name)."""
     from app.rules import characteristics as chars
 
     pid = ctx["controller"]
     sel = selectors.from_key(e["sel"])
     pool = [c for c in ctx.get("revealed") or [] if c in plan.state.cards and plan.state.cards[c].zone.endswith(":hand")]
     options = [c for c in pool if selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+    if e.get("gy_sel"):  # -- hand disruption (wave 11D) -- and the graveyard of the player whose hand it is (public: 404.2)
+        gsel = selectors.from_key(e["gy_sel"])
+        owners = sorted({plan.state.cards[c].owner for c in pool})
+        options += [c for o in owners for c in plan.state.zones.get(zone_key(o, "graveyard"), [])
+                    if selectors.matches(plan, gsel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+    return pool, options
+
+
+def choose_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"You choose a [nonland] card from it" after a hand was revealed: the controller chooses
+    among the revealed cards matching the selector, then the unchosen ones stop being revealed.
+    "You may choose" / "up to N" may choose fewer (or none)."""
+    pid = ctx["controller"]
+    pool, options = _hand_options(plan, ctx, e)
     most = min(_amount(plan, ctx, e["n"]), len(options))
     least = 0 if e.get("optional") else most
     if most == 0:
@@ -2711,7 +2756,7 @@ def _after_hand_choice(plan: Plan, ctx: Context, chosen: list[str]) -> bool:
 
 def resume_choose_from_hand(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
-    chosen = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone.endswith(":hand")]
+    chosen = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].zone.endswith((":hand", ":graveyard"))]
     if chosen:
         plan.note(f"{plan.name(d.player)} chooses {_labels(plan, chosen)}", chosen, actor=d.player)
     _remember(plan, ctx, e, chosen)  # "that card" / "those cards": the chosen cards, in that hand
@@ -2723,7 +2768,15 @@ def discard_named(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"That player discards that card / those cards": 701.9a — the named cards, each from its
     owner's hand to that player's graveyard, all at once (only while each is still that object
     in that hand, 400.7)."""
-    cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":hand")]
+    if e.get("sel"):  # -- hand disruption (wave 11D) -- "reveals their hand and discards all nonland cards": the revealed ones that fit
+        from app.rules import characteristics as chars
+
+        sel = selectors.from_key(e["sel"])
+        named = [c for c in ctx.get("revealed") or [] if c in plan.state.cards and selectors.matches(
+            plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), ctx["controller"])]
+    else:
+        named = _cards(plan, ctx, e["who"])
+    cards = [c for c in named if plan.state.cards[c].zone.endswith(":hand")]
     before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
@@ -2807,12 +2860,17 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
 PRIMITIVES.update({"edict": edict, "player_chooses": player_chooses, "reveal_hand": reveal_hand, "hide_revealed": hide_revealed,
                    "choose_from_hand": choose_from_hand, "discard_named": discard_named, "choose_value": choose_value})
 RESUME = {"edict": resume_edict, "player_chooses": resume_player_chooses, "choose_from_hand": resume_choose_from_hand,
-          "choose_value": resume_choose_value}
+          "choose_value": resume_choose_value, "look_hand": resume_look_hand}
 # -- if you do (wave 8C) -- "put your choice of a +1/+1, first strike, or trample counter on it" (app/rules/counter_pick.py)
 from app.rules import counter_pick as _counter_pick  # noqa: E402, I001
 
 PRIMITIVES["pick_counter"] = _counter_pick.pick_counter
 RESUME["pick_counter"] = _counter_pick.resume
+# -- name search (wave 11D) -- "Search its controller's graveyard, hand, and library for all cards with the same name …"
+from app.rules import name_search as _name_search  # noqa: E402, I001
+
+PRIMITIVES["name_search"] = _name_search.search
+RESUME["name_search"] = _name_search.resume
 # -- end if you do (wave 8C) --
 
 

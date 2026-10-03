@@ -17,41 +17,50 @@ _CLAUSE = re.compile(r"(?P<t>\b[Tt]arget (?P<noun>creature|enchantment|artifact)
                      r"with it(?P<verb> get| gain)?(?=[ .,\"])", re.IGNORECASE)
 _THOSE = re.compile(r"\b(?:Those|those) creatures (?P<v>get|gain)\b")
 PREFIX = "radiance:"
+# -- same name (wave 11D) -- "Destroy target nonland permanent and all other permanents with the same name as that
+# permanent." (201.2: names in common; a nameless face-down object has none). The others are not targets: only the one
+# target is chosen and checked on resolution (608.2b), the rest are whatever bears that name as the instruction is carried out.
+_SAME_NAME = re.compile(r"\b(?P<t>[Tt]arget (?:[a-z]+ )*?(?P<tn>[a-z]+)) and (?:all|each) other (?P<noun>permanents|creatures|lands|artifacts|enchantments"
+                        r"|creature|land|artifact|enchantment) with the same name as that (?P=tn)(?P<verb> get| gain)?(?=[ .,\"])")
+SAME_NAME = "samename:"
 
 
-def split(body: str) -> tuple[str, str] | None:
-    """(the body read as an instruction on the one target, the noun's selector key), or None (no such clause, or
-    more than one: not read)."""
+def split(body: str) -> tuple[str, str, str] | None:
+    """(the body read as an instruction on the one target, the noun's selector key, the binding's prefix), or None (no
+    such clause, or more than one: not read)."""
     from app.rules import selectors
 
-    found = list(_CLAUSE.finditer(body))
+    found = list(_CLAUSE.finditer(body)) or list(_SAME_NAME.finditer(body))
     if len(found) != 1 or "target" in body[found[0].end():]:
         return None
     m = found[0]
+    prefix = PREFIX if m.re is _CLAUSE else SAME_NAME
     sel = selectors.parse(m["noun"])
     if sel is None:
         return None
     text = body[:m.start()] + m["t"] + (m["verb"] + "s" if m["verb"] else "") + body[m.end():]
+    if prefix == SAME_NAME:  # (Echoing Truth: "… to their owners' hands" → the one target's owner's hand)
+        text = text.replace(" to their owners' hands", " to its owner's hand")
     if m["noun"] == "creature":  # "Untap target creature and each other …. Those creatures get +2/+0": the same ones
         text = _THOSE.sub(lambda g: "That creature " + g["v"] + "s", text)
-    return text, sel.key()
+    return text, sel.key(), prefix
 
 
-def _bind(node: Any, ref: str, sel: str) -> Any | None:
+def _bind(node: Any, ref: str, sel: str, prefix: str) -> Any | None:
     if isinstance(node, dict):
         out = {}
         for k, v in node.items():
             if k == "who" and v == ref:
-                out[k] = f"{PREFIX}{ref}|{sel}"
+                out[k] = f"{prefix}{ref}|{sel}"
                 continue
-            if (r := _bind(v, ref, sel)) is None:
+            if (r := _bind(v, ref, sel, prefix)) is None:
                 return None
             out[k] = r
         return out
     if isinstance(node, list):
         out_l = []
         for v in node:
-            if (r := _bind(v, ref, sel)) is None:
+            if (r := _bind(v, ref, sel, prefix)) is None:
                 return None
             out_l.append(r)
         return out_l
@@ -60,26 +69,32 @@ def _bind(node: Any, ref: str, sel: str) -> Any | None:
     return node
 
 
-def bind(found: tuple[list[dict[str, Any]], Any, bool] | None, sel: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+def bind(found: tuple[list[dict[str, Any]], Any, bool] | None, sel: str, prefix: str = PREFIX) -> tuple[list[dict[str, Any]], Any, bool] | None:
     if found is None:
         return None
     effects, groups, optional = found
     if optional or not groups or (isinstance(groups, list) and len(groups) != 1) or not effects:
         return None
-    bound = _bind(effects, "target", sel)
-    if bound is None or not any(PREFIX in str(e) for e in bound):
+    bound = _bind(effects, "target", sel, prefix)
+    if bound is None or not any(prefix in str(e) for e in bound):
         return None
     return bound, groups, optional
 
 
 def cards(plan: Any, ctx: dict[str, Any], who: str) -> list[str]:
-    """The target and each other object of the selector sharing a color with it (105.4)."""
+    """The target and each other object of the selector sharing a color with it (105.4), or bearing its name (201.2)."""
     from app.rules import effects, selectors
 
-    ref, _, key = who[len(PREFIX):].partition("|")
+    prefix = SAME_NAME if who.startswith(SAME_NAME) else PREFIX
+    ref, _, key = who[len(prefix):].partition("|")
     out = effects._cards(plan, ctx, ref)
     if len(out) != 1:
         return []
+    if prefix == SAME_NAME:
+        name = plan.ch(plan.state.cards[out[0]]).name
+        sel = selectors.from_key(key)
+        return [*out, *(c for c in selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
+                        if name and c != out[0] and plan.ch(plan.state.cards[c]).name == name)]
     colors = plan.ch(plan.state.cards[out[0]]).colors
     if not colors:
         return out
