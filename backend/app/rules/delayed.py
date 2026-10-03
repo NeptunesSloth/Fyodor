@@ -397,6 +397,9 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     seats of departed players passed on the way here, with the turn number each would have had)."""
     r = plan.rules
     turn, active = plan.state.turn.number, plan.active
+    from app.rules import cast_limits  # -- cast limits (wave 5E) -- "until your next turn, … can't cast …"
+
+    cast_limits.turn_began(plan, skipped)
     ended = [e for e in r.effects if e.duration == "next_turn" and (
         (e.until_player == active and turn > e.turn)
         or any(e.until_player == p and n > e.turn for p, n in skipped or ()))]

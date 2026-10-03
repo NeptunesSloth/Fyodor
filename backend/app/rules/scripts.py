@@ -1655,6 +1655,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 and (paid_may := _unless_sentence(text[len("you may "):], effects, may=True, it=it)) is not None:
             effects += _add_groups(groups, *paid_may)
             continue
+        # -- cast limits (wave 5E) -- "You may cast spells this turn as though they had flash."
+        from app.rules import cast_limits
+
+        if (flash := cast_limits.flash_sentence(text)) is not None:  # (a permission, not a choice made on resolution)
+            effects += flash
+            continue
         if text.startswith("you may "):
             if effects:
                 # "…. You may reveal … from among them …": a clause that models its own choice
@@ -2049,7 +2055,8 @@ def granted_ability(text: str) -> AbilityText | None:
         # -- attached events (wave 4L) -- "Protection from red", "Ward {2}", "Toxic 1"
         from app.rules import statics
 
-        return ab if statics.keyword_line(ab.text[0].lower() + ab.text[1:]) == ab.text else None
+        line = ab.text.rstrip(".")  # -- protection grants (wave 5E) -- (a resolved grant's text ends with a period)
+        return ab if statics.keyword_line(line[0].lower() + line[1:]) == line else None
     probe = Characteristics(name="\u0000", abilities=(ab,))
     return ab if define(ab, probe) is not None else None
 
@@ -3981,6 +3988,12 @@ EFFECTS[:0] = _tap_mana.TEMPLATES  # "Until end of turn, whenever a player taps 
 from app.rules import untap_riders as _untap_riders  # noqa: E402, I001
 
 EFFECTS[:0] = _untap_riders.TEMPLATES  # "Untap up to three lands." (app/rules/untap_riders.py)
+# -- cast limits (wave 5E) -- "Your opponents can't cast spells this turn." / "You may cast spells this turn as though they
+# had flash." (app/rules/cast_limits.py)
+from app.rules import cast_limits as _cast_limits  # noqa: E402, I001
+
+EFFECTS[:0] = _cast_limits.TEMPLATES
+# -- end cast limits (wave 5E) --
 # "Choose one of them." chooses among what the instruction before moved; "that card" is then the chosen one
 _RECORDING["choose_one_of"] = None
 _MOVERS.add("choose_one_of")

@@ -1,0 +1,98 @@
+"""-- protection grants (wave 5E) -- "… gains protection from <quality> until end of turn", including a quality
+chosen as the effect resolves. Researched against the Comprehensive Rules of 2026-09-25.
+
+* 702.16a-f: protection from a quality — DEBT (damage, enchanting/equipping, blocking, targeting), enforced by
+  app/rules/protection.py wherever the object's keyword lines are read. The grant is a layer-6 ability-adding
+  effect (613.1f) on the objects named now (611.2c), ending at cleanup (514.2): the existing ``grant`` effect with
+  the keyword line as a granted ability, so protection.qualities reads it like a printed one.
+* 702.16g: "protection from A and from B" is two protection abilities (one granted line, as printed).
+* "of your choice": the choice is made as the effect resolves (608.2: instructions are followed in order;
+  nothing is chosen on casting), by the effect's controller, and is public. "protection from colorless or from
+  the color of your choice" (Giver of Runes) / "from artifacts or from the color of your choice" (Apostle's
+  Blessing) is one choice among those qualities: the object gains protection from one of them.
+* 105.1-105.2: the five colors; "colorless" is not a color, so it's offered only where the text names it.
+
+Refused (manual): "the card type of your choice" (Pippin: which card types are offered isn't settled here),
+"the chosen color" after "Choose a color." (the binding isn't read), a player gaining protection (that's
+app/rules/player_shields.py), a duration other than "until end of turn".
+"""
+
+from __future__ import annotations
+
+import re
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.rules.plan import Plan
+
+Context = dict[str, Any]
+
+_GAIN = re.compile(r"^(?P<o>.+?) gains? protection from (?P<q>.+?) until end of turn$")
+COLORS = ["White", "Blue", "Black", "Red", "Green"]
+CHOICES: dict[str, list[str]] = {
+    "the color of your choice": COLORS,
+    "colorless or from the color of your choice": ["Colorless", *COLORS],
+    "artifacts or from the color of your choice": ["Artifacts", *COLORS],
+}
+
+
+def fixed_line(quality: str) -> str | None:
+    """"red" / "black and from green" / "creatures" → the keyword line "Protection from …" if protection.py enforces it."""
+    from app.rules import protection
+
+    line = f"Protection from {quality}"
+    return line if "your choice" not in quality and "chosen" not in quality and protection.supported(line) else None
+
+
+def clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
+    """The effect sentence "<object> gains protection from <quality> until end of turn", or None when it isn't one
+    (``language._Fail`` when it is one this grammar refuses)."""
+    m = _GAIN.fullmatch(text)
+    if m is None:
+        return None
+    from app.rules import language as L
+
+    kind, key, group = L.ref(m["o"])
+    if kind == "players":
+        raise L._Fail  # (a player gaining protection: app/rules/player_shields.py)
+    who = L._who(kind, key)
+    q = m["q"]
+    if q in CHOICES:
+        return [{"do": "protection_choice", "who": who, "options": list(CHOICES[q])}], L._one(group)
+    line = fixed_line(q)
+    if line is None:
+        raise L._Fail
+    return [{"do": "grant", "who": who, "keywords": [], "abilities": [line]}], L._one(group)
+
+
+def protection_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Ask the effect's controller which quality (608.2), then grant protection from it (``resume``)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.effects import _cards
+    from app.rules.plan import decide
+
+    if not [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]:
+        return True  # (nothing left to gain it: 611.2e)
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    decide(plan, player=ctx["controller"], kind="choose_one",
+           prompt=f"{ctx.get('name') or 'Protection'}: protection from which {'color' if e['options'] == COLORS else 'quality'}?",
+           options=[DecisionOption(id=o, label=o) for o in e["options"]],
+           resume={"step": "protection_choice", "ctx": ctx, "e": e}, source=src)
+    return False
+
+
+def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules.effects import continue_effects, grant
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    value = chosen[0] if chosen else ""
+    if value not in e["options"]:
+        raise ActionError("Choose one of the offered qualities")
+    plan.note(f"{plan.name(d.player)} chooses {value.lower()}", actor=d.player)
+    grant(plan, ctx, {"do": "grant", "who": e["who"], "keywords": [], "abilities": [f"Protection from {value.lower()}"]})
+    continue_effects(plan, ctx)
+
+
+PRIMITIVES = {"protection_choice": protection_choice}
+RESUME = {"protection_choice": resume}
