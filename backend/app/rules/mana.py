@@ -229,7 +229,10 @@ def _general_condition(text: str) -> str | None:
 
     from app.rules import conditions
 
-    cond = conditions.parse(text)
+    from app.rules import activation_words  # -- activation wordings (wave 7B) --
+
+    cond = conditions.parse(text) or activation_words.condition(
+        re.sub(r"\bthis (?:creature|land|permanent|artifact|enchantment)\b", "~", text))
     if cond is None or conditions.is_cast_condition(cond):
         return None
     return "cond:" + json.dumps(cond, sort_keys=True)

@@ -29,6 +29,7 @@ from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
 from app.rules import payment as P
+from app.rules.activation_words import any_player  # -- activation wordings (wave 7B) --
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.costs import AbilityCost, kicker_cost, parse_ability_cost
 from app.rules.oracle import AbilityText
@@ -2359,9 +2360,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
         unearth(plan, card, ch, a, unearth_cost)
         return
-    if card.controller != plan.actor or not card.zone.endswith(":battlefield"):
-        raise ActionError("You can only activate abilities of permanents you control")
     ch = plan.ch(card)
+    # -- activation wordings (wave 7B) -- 602.2: "Any player may activate this ability."
+    ab = next((x for x in ch.abilities if x.index == a.ability), None)
+    if not card.zone.endswith(":battlefield") or (card.controller != plan.actor and not (
+            ab is not None and any_player(ab, ability_cost(ch, ab, state=plan.state, card=card, info=plan.info)))):
+        raise ActionError("You can only activate abilities of permanents you control")
     if "cant_activate" in ch.imposed:  # an Aura: "its activated abilities can't be activated" (crew, equip too)
         raise ActionError(f"{ch.name}’s activated abilities can't be activated")
     ability = _find_ability(ch, a.ability)
@@ -2519,7 +2523,7 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     elif cost.from_graveyard:  # 113.6m: its cost moves it out of your graveyard, so it works only there
         if card.zone != zone_key(player, "graveyard") or card.owner != player:
             return "That ability can only be activated from your graveyard"
-    elif card.controller != player or not card.zone.endswith(":battlefield"):
+    elif not card.zone.endswith(":battlefield") or (card.controller != player and not any_player(ability, cost)):  # (wave 7B)
         return "You can only activate abilities of permanents you control"
     if cost.unsupported:
         return f"Pay “{', '.join(cost.unsupported)}” by hand with the table tools"

@@ -2468,6 +2468,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         parsed_restriction = restrictions.parse(text) if restriction is not None else []
         if parsed_restriction is None:
             return None
+        if any(x["kind"] == "any_player" for x in parsed_restriction) and (  # -- activation wordings (wave 7B) --
+                cost.tap or cost.sacrifice_self or cost.untap):  # (only the controller can pay {T} or sacrifice it)
+            return None
         # -- cost changers (wave 4I) -- "This ability costs {1} less to activate for each …" is part of its total cost
         # (602.2b → 601.2f; casting.ability_cost reads it), not of what it does
         from app.rules import cost_changes
