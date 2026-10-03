@@ -919,6 +919,10 @@ class RulesState(BaseModel):
     # "If that spell would be put into your graveyard, exile it instead" applies (614.1a)
     free_cast_then: dict[str, Any] | None = None
     exile_if_graveyard: list[str] = Field(default_factory=list)
+    # -- counters (wave 5H) -- keyword counters (122.1b) on permanents: card id -> kind -> [next_object, timestamp]
+    # as the last counter of that kind was put on it (613.7c: all counters of a kind share the newest timestamp), so
+    # layer 6 orders them against effects that add or remove abilities (613.1f, 613.7; app/rules/layers.py)
+    counter_stamps: dict[str, dict[str, list[int]]] = Field(default_factory=dict)
 
     def lands_this_turn(self, player: str, turn: int) -> int:
         entry = self.lands_played.get(player)
@@ -1119,6 +1123,12 @@ def _entry_order(state: GameState, before: Capture) -> list[tuple[str, str]]:
     return [item for _, item in sorted(enumerate(changed), key=key)]
 
 
+# -- counters (wave 5H) -- the keyword counters whose keyword the engine gives the object (122.1b, 613.1f): static
+# keywords it already carries out ("exalted" and "decayed" counters are left to the players)
+KEYWORD_COUNTERS = frozenset({"flying", "first strike", "double strike", "deathtouch", "haste", "hexproof",
+                              "indestructible", "lifelink", "menace", "reach", "shadow", "trample", "vigilance"})
+
+
 def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) -> None:
     departures = state.departures()
     for card_id, old_zone in _entry_order(state, before):
@@ -1141,6 +1151,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
             rules.lki[old_oid].attached = [c for c, s in before.snaps.items() if s.attached_to == card_id]
         new_oid = None
         rules.restamped.pop(card_id, None)  # a new object gets its own timestamp as it enters (613.7d)
+        rules.counter_stamps.pop(card_id, None)  # (wave 5H: its counters are gone, 122.2)
         if card is not None:
             rules.next_object += 1
             rules.objects[card_id] = rules.next_object
@@ -1188,10 +1199,16 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
         if card is None or card.zone != snap.zone:
             continue
         oid = rules.object_id(card_id)
-        for kind in set(snap.counters) | set(card.counters):
+        for kind in sorted(set(snap.counters) | set(card.counters)):  # (sorted: wave 5H, 613.7c stamps)
             delta = card.counters.get(kind, 0) - snap.counters.get(kind, 0)
             if delta:
                 emit(state, "counters", object_id=oid, card=card_id, counter=kind, amount=delta)
+            if kind in KEYWORD_COUNTERS:  # -- counters (wave 5H) -- 613.7c
+                if card.counters.get(kind, 0) <= 0:
+                    rules.counter_stamps.get(card_id, {}).pop(kind, None)
+                elif delta > 0:
+                    rules.timestamp += 1
+                    rules.counter_stamps.setdefault(card_id, {})[kind] = [rules.next_object, rules.timestamp]
         if card.tapped != snap.tapped:
             emit(state, "tapped" if card.tapped else "untapped", object_id=oid, card=card_id)
         # 613.7e: an attachment gets a new timestamp each time it becomes attached; 613.7f: a

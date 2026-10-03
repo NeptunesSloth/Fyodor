@@ -286,11 +286,32 @@ def _hits(view: Plan, table: list[Static], card: CardInstance, ch: Characteristi
     return hits, imposed
 
 
-def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEffect]) -> Characteristics:
+# -- counters (wave 5H) --
+def keyword_counters(state: GameState, card: CardInstance) -> list[tuple[tuple[int, int, int], str]]:
+    """122.1b, 613.1f: the keywords the permanent's keyword counters give it, each with its layer-6 ordering key
+    (613.7c: the timestamp the newest counter of that kind got, ``RulesState.counter_stamps``; a counter it was
+    created with has the permanent's own timestamp)."""
+    from app.game.rules_state import KEYWORD_COUNTERS
+
+    if not card.counters or not card.zone.endswith(":battlefield"):
+        return []
+    stamps = state.rules.counter_stamps.get(card.id, {}) if state.rules is not None else {}
+    out = []
+    for kind, n in sorted(card.counters.items()):
+        if n > 0 and kind in KEYWORD_COUNTERS:
+            stamp = stamps.get(kind)
+            out.append(((stamp[0], 1, stamp[1]) if stamp else (timestamp(state, card.id), 0, 0), kind))
+    return out
+# -- end counters (wave 5H) --
+
+
+def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEffect],
+            counters: list[tuple[tuple[int, int, int], str]] | None = None) -> Characteristics:
     """613.1f in timestamp order (613.7): static keyword grants and resolved effects that add or
     remove keywords interleave — a "loses flying" resolved after a static's source entered beats
-    it; a static whose source enters later grants it again."""
+    it; a static whose source enters later grants it again. (wave 5H) ``counters``: keyword counters (122.1b)."""
     ordered: list[tuple[tuple[int, int, int], Static | ContinuousEffect | str]] = []
+    ordered += [(key, "kw:" + kw) for key, kw in counters or ()]  # -- counters (wave 5H) --
     for st in hits:
         if st.definition["keywords"] or st.definition.get("lose_keywords"):
             ordered.append(((st.seq, 0, 0), st))
@@ -314,6 +335,9 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
             abilities = ()
             lost |= {k for a in printed if a.kind == "keywords" for k in a.keywords} | granted
             granted = set()
+        elif isinstance(item, str) and item.startswith("kw:"):  # -- counters (wave 5H) -- a keyword counter
+            granted.add(item[3:])
+            lost.discard(item[3:])
         elif isinstance(item, Static):
             granted |= set(item.definition["keywords"])
             lost -= set(item.definition["keywords"])
@@ -489,6 +513,7 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …
     imposed |= _group_imposed(state, card, ch, info)
     hits: list[Static] = []
+    kwc = keyword_counters(state, card)  # -- counters (wave 5H) --
     on_field = card.zone.endswith(":battlefield") and state.rules is not None
     if info is not None and on_field and _depth == 0:
         view = _view(state, info)
@@ -498,9 +523,9 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
         _depth += 1
         try:
             # a static's subject is read from the object after layer 4 and the resolved layer-6 effects
-            hits, rules = _hits(view, table, card, _layer6(ch, [], effects), tkey)
+            hits, rules = _hits(view, table, card, _layer6(ch, [], effects, kwc), tkey)
             imposed |= rules
-            ch = _layer6(ch, hits, effects)
+            ch = _layer6(ch, hits, effects, kwc)
             if any(_keyword_subject(st.definition) for st in table):
                 # 613.8: "creatures with flying …" depends on layer-6 grants of flying: read again with
                 # layer 6 applied, until nothing changes (a dependency loop ends in timestamp order)
@@ -511,14 +536,14 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
                     if merged == hits:
                         break
                     hits = merged
-                    ch = _layer6(ch, hits, effects)
+                    ch = _layer6(ch, hits, effects, kwc)
             # "… gets +1/+1 for each Elf you control": the count, read now (611.3a), while other
             # objects' characteristics are read without statics (as a condition's are)
             each_amounts = {id(st): _each_amount(view, st, tkey, card) for st in hits if st.definition.get("each")}
         finally:
             _depth -= 1
-    elif effects:
-        ch = _layer6(ch, [], effects)
+    elif effects or kwc:
+        ch = _layer6(ch, [], effects, kwc)
     wipe = _wipe_key(effects)  # (animation, agent A2: "loses all abilities" beats earlier grants, 613.7)
     # -- attached events (wave 4L) -- an Aura's "loses all abilities"
     from app.rules.attached_types import wipe_key

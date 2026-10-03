@@ -9,6 +9,9 @@
   how a permanent enters — also one that would enter with none (Renata's ruling); a permanent entering at the same
   time doesn't apply it (ruling); ordered against Hardened Scales / Doubling Season by the entering permanent's
   controller.
+* 122.1b, 613.1f, 613.7c: a keyword counter gives its keyword in layer 6, ordered by the timestamp the newest
+  counter of that kind got (a later "loses all abilities" removes it; a new counter of that kind gives it again).
+  Exalted and decayed counters stay manual.
 
 Every scenario uses real Oracle text and checks the replay and a save/load round trip.
 """
@@ -47,6 +50,10 @@ EXTRA = [
     card('Inspiring Call', set_code='tst', number='T5H19', mana_cost='{2}{G}', cmc=3.0, type_line='Instant', oracle_text='Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain indestructible until end of turn. (Damage and effects that say "destroy" don\'t destroy them.)', colors=['G'], color_identity=['G']),
     card('Replenish', set_code='tst', number='T5H20', mana_cost='{3}{W}', cmc=4.0, type_line='Sorcery', oracle_text='Return all enchantment cards from your graveyard to the battlefield. (Auras with nothing to enchant remain in your graveyard.)', colors=['W'], color_identity=['W']),
     card('Nyxborn Brute', set_code='tst', number='T5H21', mana_cost='{3}{R}{R}', cmc=5.0, type_line='Enchantment Creature — Cyclops', oracle_text='', power='7', toughness='3', colors=['R'], color_identity=['R']),
+    card('Gift of the Viper', set_code='tst', number='T5H22', mana_cost='{G}', cmc=1.0, type_line='Instant', oracle_text='Put a +1/+1 counter, a reach counter, and a deathtouch counter on target creature. Untap it.', colors=['G'], color_identity=['G']),
+    card('Vraska Joins Up', set_code='tst', number='T5H23', mana_cost='{B}{G}', cmc=2.0, type_line='Legendary Enchantment', oracle_text='When Vraska Joins Up enters, put a deathtouch counter on each creature you control.\nWhenever a legendary creature you control deals combat damage to a player, draw a card.', colors=['B', 'G'], color_identity=['B', 'G']),
+    card('Luminous Broodmoth', set_code='tst', number='T5H24', mana_cost='{2}{W}{W}', cmc=4.0, type_line='Creature — Insect', oracle_text="Flying\nWhenever a creature you control without flying dies, return it to the battlefield under its owner's control with a flying counter on it.", power='3', toughness='4', colors=['W'], color_identity=['W'], keywords=['Flying']),
+    card('Unexpected Fangs', set_code='tst', number='T5H25', mana_cost='{1}{B}', cmc=2.0, type_line='Instant', oracle_text='Put a +1/+1 counter and a lifelink counter on target creature.', colors=['B'], color_identity=['B']),
 ]
 
 
@@ -104,7 +111,8 @@ def cov(name):
     ("Village Pillagers", "FULL"), ("Rishkar, Peema Renegade", "FULL"), ("Hidden Hideout", "FULL"),
     ("Kalonian Hydra", "FULL"), ("Invigorating Surge", "FULL"), ("Vorel of the Hull Clade", "FULL"),
     ("Renata, Called to the Hunt", "FULL"), ("Giada, Font of Hope", "FULL"), ("Arwen, Weaver of Hope", "FULL"),
-    ("Oath of Gideon", "FULL"),
+    ("Oath of Gideon", "FULL"), ("Gift of the Viper", "FULL"), ("Vraska Joins Up", "FULL"),
+    ("Luminous Broodmoth", "FULL"), ("Unexpected Fangs", "FULL"),
     # refused: a type change with the counters (layer 4 as it enters), a keyword counter, "those creatures"
     ("Master Biomancer", "PARTIAL"), ("Tayam, Luminous Enigma", "PARTIAL"),
 ])
@@ -365,6 +373,76 @@ def test_oath_of_gideon_adds_loyalty(cards):
     gideon = cast(s, "Gideon Jura", W=2, C=3)
     settle(s)
     assert counters(s, gideon) == {"loyalty": 7}
+    replay_matches(s)
+
+
+# -- keyword counters (122.1b, 613.1f, 613.7c) ----------------------------------------------------------------------
+def kws(s, c):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id]).keywords
+
+
+def test_gift_of_the_viper_puts_three_kinds_at_once(cards):
+    s = build(cards, "Gift of the Viper", "Hardened Scales", "Grizzly Bears")
+    put(s, "Hardened Scales")
+    bears = put(s, "Grizzly Bears")
+    act(s, "p1", type="tap", card_ids=[bears.id])
+    s = saved(s)
+    cast(s, "Gift of the Viper", targets=[bears.id], G=1)
+    settle(s)
+    assert counters(s, bears) == {"+1/+1": 2, "reach": 1, "deathtouch": 1}  # (Hardened Scales: +1/+1 only)
+    assert {"reach", "deathtouch"} <= kws(s, bears) and not s.state.cards[bears.id].tapped
+    replay_matches(s)
+
+
+def test_vraska_joins_up_gives_deathtouch_counters(cards):
+    s = build(cards, "Vraska Joins Up", "Grizzly Bears", p2=("Grizzly Bears",))
+    bears, theirs = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2")
+    s = saved(s)
+    cast(s, "Vraska Joins Up", B=1, G=1)
+    settle(s)
+    assert counters(s, bears) == {"deathtouch": 1} and "deathtouch" in kws(s, bears)
+    assert not counters(s, theirs) and "deathtouch" not in kws(s, theirs)
+    replay_matches(s)
+
+
+def test_luminous_broodmoth_returns_with_flying(cards):
+    s = build(cards, "Luminous Broodmoth", "Grizzly Bears", "Lightning Bolt")
+    put(s, "Luminous Broodmoth")
+    bears = put(s, "Grizzly Bears")
+    s = saved(s)
+    cast(s, "Lightning Bolt", targets=[bears.id], R=1)
+    settle(s)
+    assert zone(s, bears) == "p1:battlefield" and counters(s, bears) == {"flying": 1}
+    assert "flying" in kws(s, bears)
+    cast_again = to_hand(s, "Lightning Bolt") if zone(s, named(s, "Lightning Bolt")) != "p1:hand" else None
+    assert cast_again is not None
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=cast_again.id, targets=[bears.id])
+    settle(s)
+    assert zone(s, bears) == "p1:graveyard"  # it had flying (its counter): Broodmoth doesn't return it again
+    replay_matches(s)
+
+
+def test_keyword_counters_and_losing_all_abilities_by_timestamp(cards):
+    """613.7c: a keyword counter has the timestamp it was put on with. Turn to Frog after the counter: no flying;
+    a new counter of that kind after the Frog: all counters of that kind get the new timestamp — flying again."""
+    s = build(cards, "Gift of the Viper", "Turn to Frog", "Unexpected Fangs", "Grizzly Bears")
+    bears = put(s, "Grizzly Bears")
+    cast(s, "Unexpected Fangs", targets=[bears.id], B=1, C=1)
+    settle(s)
+    assert "lifelink" in kws(s, bears)
+    cast(s, "Turn to Frog", targets=[bears.id], U=1, C=1)
+    settle(s)
+    assert "lifelink" not in kws(s, bears) and counters(s, bears).get("lifelink") == 1
+    s = saved(s)
+    fangs = named(s, "Unexpected Fangs")
+    act(s, "p1", type="move", card_ids=[fangs.id], to={"zone": "hand"})
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=fangs.id, targets=[bears.id])
+    settle(s)
+    assert counters(s, bears).get("lifelink") == 2 and "lifelink" in kws(s, bears)
     replay_matches(s)
 
 

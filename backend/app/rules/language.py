@@ -1180,6 +1180,25 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": "target", "kind": m["k"], "n": {"divided": 0}}], \
             _divided(m["o"], "counters", _amount(m["n"]))
+    # -- counters (wave 5H) -- "put a +1/+1 counter, a reach counter, and a deathtouch counter on target creature",
+    # "put two +1/+1 counters and a flying counter on …": counters of several kinds put at once (one event, 122.6)
+    m = re.fullmatch(rf"put (?P<list>(?:(?:{AMT}) (?:\+1/\+1|-1/-1|[a-z]+(?: [a-z]+)?) counters?,? )+and "
+                     rf"(?:{AMT}) (?:\+1/\+1|-1/-1|[a-z]+(?: [a-z]+)?) counters?) on (?P<o>.+)", text)
+    if m and rider is None:
+        parts = [re.fullmatch(rf"(?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+(?: [a-z]+)?) counters?", p.strip())
+                 for p in re.split(r",? and |, ", m["list"])]
+        if any(p is None or p["k"] in values.UNMODELED_COUNTERS
+               or (" " in p["k"] and p["k"] not in ("first strike", "double strike")) for p in parts):
+            raise _Fail
+        kinds = [(p["k"], _amount(p["n"])) for p in parts if p is not None]
+        if len({k for k, _ in kinds}) != len(kinds):
+            raise _Fail
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "add_counters", "who": _who(kind, key), "kind": kinds[0][0], "n": kinds[0][1],
+                 "also": [{"kind": k, "n": n} for k, n in kinds[1:]]}], _one(group)
+    # -- end counters (wave 5H) --
     m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o>.+)", text)
     if m:
         if m["k"] in values.UNMODELED_COUNTERS:
