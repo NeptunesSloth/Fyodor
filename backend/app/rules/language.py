@@ -1456,8 +1456,9 @@ GRANT_KEYWORDS = KEYWORDS + "|" + "|".join(("fear", "shadow", "horsemanship", "i
                                              "desertwalk"))
 _GRANT_ITEM = rf"(?:{GRANT_KEYWORDS}|⟦\d+⟧)"  # (a keyword, or -- wave 2D -- a quoted ability set aside as ⟦n⟧)
 _KW_LIST = rf"{_GRANT_ITEM}(?:(?:, and |, | and ){_GRANT_ITEM})*"
+# -- untap choice (wave 7F) -- "gets +2/+2 and has trample" (Everglove Courier): "has" reads like "gains"
 _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX]))"
-                   rf"(?: and gains? (?P<kw>{_KW_LIST}))? until end of turn"
+                   rf"(?: and (?:gains?|has|have) (?P<kw>{_KW_LIST}))? until end of turn"
                    r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn"
                    r"| and (?P<d>can attack this turn as though it didn't have defender)"  # (d: wave 6C)
                    r"| and (?P<mb>must be blocked this turn if able))?")  # (mb: wave 6E, 509.1c)
