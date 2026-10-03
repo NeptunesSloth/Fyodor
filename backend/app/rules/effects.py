@@ -400,6 +400,8 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
         ctx[DEALT_KEY][e["dealt_as"]] = [ev["target_oid"] for ev in out.events if ev.get("target_oid")]
     if e is not None and e.get("bind_excess"):  # -- as long as (wave 9B) -- 120.10 (read before the damage is recorded)
         context.bind_amount(ctx, e["bind_excess"], _this_way.excess_of(plan, out.events))
+    if e is not None and e.get("bind_hit"):  # -- if you do (wave 10C) -- "If a Dragon is dealt damage this way" (this_way.hits)
+        context.bind_amount(ctx, e["bind_hit"], _this_way.hits(plan, ctx, out.events, e["hit_is"]))
     replace.do_damage(plan, out, actor=ctx["controller"], combat=False)
     if e is not None and e.get("bind_dealt"):  # -- if you do (wave 5G) -- "the damage dealt this way" (this_way.damage_dealt)
         context.bind_amount(ctx, e["bind_dealt"], sum(max(0, int(ev["amount"])) for ev in out.events))
@@ -1294,6 +1296,14 @@ def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if n:
             plan.do({"type": "mill", "player": pid, "count": n}, actor=pid)
     _moved(plan, ctx, e, before)  # "cards milled this way": the new objects in the graveyards (400.7j)
+    if e.get("look"):  # -- if you do (wave 10C) -- "Mill three cards. You may put a land card from among them into your hand."
+        # (701.17a: the cards are put into the graveyard; "them" are the ones this mill put there — a card a replacement sent
+        # elsewhere isn't "milled" — and they are public, so the pick that follows works on them like a look's)
+        pid = _players(plan, ctx, e["who"])[0]
+        gone = {r.card for r in before}
+        grave = plan.state.zones.get(zone_key(pid, "graveyard"), [])
+        ctx["looked"] = [c for c in grave if c in gone]
+        ctx["looked_zone"], ctx["looked_owner"], ctx["found"] = "graveyard", pid, None
     return True
 
 
@@ -1991,6 +2001,7 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     (ctx["found"]), the others "the rest". With ``player``: another player's library."""
     owners = _library_owner(plan, ctx, e)
     ctx["looked"], ctx["found"] = [], None
+    ctx.pop("looked_zone", None)  # (wave 10C: a look is at a library; a mill's cards are in a graveyard)
     ctx["looked_owner"] = owners[0] if len(owners) == 1 else None
     cards: list[str] = []
     for pid in owners:
@@ -2017,7 +2028,7 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def _looked(plan: Plan, ctx: Context) -> tuple[str, list[str]]:
     """(the library's owner, the set-aside cards still in that library)."""
     pid = ctx.get("looked_owner") or ctx["controller"]
-    library = _library(plan, pid)
+    library = plan.state.zones.get(zone_key(pid, ctx.get("looked_zone") or "library"), [])  # (wave 10C: milled cards, in the graveyard)
     return pid, [c for c in ctx.get("looked") or [] if c in library]
 
 
@@ -2269,6 +2280,9 @@ from app.rules import looking as _looking  # noqa: E402, I001  -- refused look/c
 
 PRIMITIVES["piles"] = _looking.piles
 PRIMITIVES["win_if_library"] = _looking.win_if_library  # -- refused look/cast-free (wave 3R5) --
+from app.rules import reveal_hand as _reveal_hand  # noqa: E402, I001  -- if you do (wave 10C) -- (a leaf module)
+
+PRIMITIVES["reveal_hand_cards"] = _reveal_hand.reveal_hand_cards
 
 
 def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

@@ -795,7 +795,7 @@ def rename_bindings(value: Any, prefix: str) -> Any:
     out = {}
     for k, v in value.items():
         if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount", "ref_count",
-                 "bind_dealt", "bind_excess", "paid_x") and isinstance(v, str):  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
+                 "bind_dealt", "bind_excess", "bind_hit", "paid_x") and isinstance(v, str):  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
             # "flag": the verdict an "instead" / "Otherwise" clause reads)
         elif isinstance(v, str) and v.startswith("ref:") and not v.startswith("ref:event"):
@@ -1549,8 +1549,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         from app.rules import top_library
 
         return top_library.private_gate(_excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(
-            this_way.excess_dealt(this_way.damage_dealt(_energy_paid(_parse_effects(body, it, event_player)))))),
-            it))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B)
+            this_way.dealt_to(this_way.excess_dealt(this_way.damage_dealt(_energy_paid(_parse_effects(body, it, event_player))))))),
+            it))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
     except _NoMatch:
         return None
 
@@ -1849,10 +1849,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += gated
             continue
         text = _PICK_NEG.sub(r"if you \1, ", text)  # -- look and distribute (wave 3L) -- "If you don't put the card into your hand, …"
+        if _PICK_DIDNT.match(text) and any(x["do"] == "pick_looked" and x["to"] == "hand" for x in effects):
+            text = _PICK_DIDNT.sub("if you don't, ", text)  # -- if you do (wave 10C) -- "If you didn't put a card into your hand this way, …"
         if (if_do := _IF_YOU_DO.match(text)) is not None:
             bind = _last_payment(effects)
             pick = next((e for e in reversed(effects) if e["do"] == "pick_looked"), None)
-            if bind is None and pick is not None and pick.get("optional"):
+            if bind is None and pick is not None and (pick.get("optional") or (pick.get("sel") and not pick.get("which"))):  # (wave 10C: "Put a land card from among them into your hand. If you didn't …")
                 # -- look and distribute (wave 3L) -- "You may put a land card from among them onto the
                 # battlefield. If you don't, put a card from among them into your hand.": the pick records
                 # whether it moved a card (effects._picked)
@@ -2010,6 +2012,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     resolved, target = _finish_targets(resolved, groups)
     looked = False
     exiled_at, cast_from_exile = None, False  # -- refused look/cast-free (wave 3R5) --
+    mill_k: int | None = None  # (wave 10C)
     for k, e in enumerate(resolved):  # "… from among them" needs the cards a look put aside (not milled ones)
         looked = looked or e["do"] == "look_top"
         if e["do"] == "exile_top":
@@ -2025,8 +2028,15 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             src.setdefault("as", f"x{exiled_at}")
             resolved[k] = {"do": "rest_exiled", "who": f"ref:{src['as']}", "to": e["to"]}
             continue
+        if e["do"] == "mill":
+            mill_k = k
         if e["do"] in ("pick_looked", "rest_looked") and not looked:
-            return None
+            # -- if you do (wave 10C) -- "Mill three cards. You may put a land card from among them into your hand.": the pick
+            # is from the cards that mill put into the graveyard (the controller's own mill, a choice among chosen-by-kind cards)
+            if mill_k is None or e["do"] != "pick_looked" or resolved[mill_k].get("who") != "you" or e.get("which") \
+                    or e.get("sels") or e.get("reveal") or e["to"] not in ("hand", "battlefield", "battlefield_tapped"):
+                return None
+            resolved[mill_k]["look"] = True
     # -- cast without paying (wave 3C) -- (wave 3R5: the cast is made during the resolution, 608.2g, and the
     # instructions after it follow it — permissions.free_cast; "from among them" was bound by resolve_it)
     if any(e["do"] == "free_cast" and e.get("zone") == "among" for e in resolved):
@@ -2146,6 +2156,7 @@ def _free_dont(rest: str, effects: list[dict[str, Any]]) -> list[dict[str, Any]]
 # -- optional payments (118.12 / 118.12a): app/rules/optional_payment.py ------------------------------
 _PICK_NEG = re.compile(r"^if you (don't|do) put (?:the card|that card|it|them) (?:into your (?:hand|graveyard)|onto the battlefield(?: tapped)?"
                        r"|on (?:top of|the bottom of) your library), ")
+_PICK_DIDNT = re.compile(r"^if you didn't put (?:a|the|that) card into your hand this way, ")
 _IF_YOU_DO = re.compile(r"^if you (?:(?P<neg>don't)|do), (?P<rest>.+)$")
 _UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller) "
                      r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?) .+)$")  # (wave 1B: any cost the engine pays)
@@ -2788,7 +2799,11 @@ def _intervening_may(body: str, it: str | None, event_player: bool) -> tuple[lis
     cond = conditions.parse(m["c"], objects=True)
     if cond is None or set(conditions.objects_in(cond)) - {"self"}:
         return None
-    parsed = parse_effects(m["rest"][0].upper() + m["rest"][1:], it=it, event_player=event_player)
+    # -- if you do (wave 10C) -- "At the beginning of your upkeep, if this creature has a +1/+1 counter on it, you may remove a
+    # +1/+1 counter from it. If you do, draw a card." (Ingenious Prodigy): the only object the condition names is the source, so
+    # the "it" of the sentence after it is that object (the pronoun's nearest antecedent, 608.2c)
+    about_self = it is None and "self" in str(cond)  # ({"object": "self", …} or {"value": {"on": "self"}, …})
+    parsed = parse_effects(m["rest"][0].upper() + m["rest"][1:], it="self" if about_self else it, event_player=event_player)
     if parsed is None or not parsed[0]:
         return None
     effects, target, optional = parsed
@@ -3560,6 +3575,17 @@ def replacement_sentence(text: str, effects: list[dict[str, Any]], groups: list[
 # -- end replacement effects stage 2 (wave 2E) --
 
 
+# -- if you do (wave 10C) -- "Reveal any number of green cards in your hand." (reveal_hand.py): the cards shown are "revealed this way"
+@effect(r"reveal any number of (?P<what>[\w ]+?) cards? in your hand")
+def _reveal_any_in_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors  # (a leaf module)
+
+    sel = selectors.parse(f"{m['what']} cards in your hand")
+    if sel is None or sel.zones != ("hand",) or sel.zone_owner != "you" or not sel.card or sel.other:
+        raise _NoMatch
+    return [{"do": "reveal_hand_cards", "sel": sel.key(), "n": 99}], None
+
+
 @effect(r"(?P<text>prevent all (?:combat |noncombat )?damage that would be dealt.*)")
 def _prevent_all_this_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     got = parse_prevent_all(m["text"])
@@ -3580,9 +3606,10 @@ def _prevent_all_this_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str 
 # "Exile the top card of your library. …that card" / "cards exiled this way"; "reveal cards from the
 # top of your library until you reveal a creature card. …that card's mana value" (the card found);
 # "put target creature on top of its owner's library" (moved: a new object there, 400.7).
-_RECORDING.update({"exile_top": "exiled", "look_top": None, "to_library": None})
+_RECORDING.update({"exile_top": "exiled", "look_top": None, "to_library": None,
+                   "reveal_hand_cards": "revealed"})  # (wave 10C: "Reveal any number of green cards in your hand")
 _MOVERS.update({"exile_top", "to_library"})
-_CHOSEN.update({"exile_top": "n", "look_top": "n"})
+_CHOSEN.update({"exile_top": "n", "look_top": "n", "reveal_hand_cards": "n"})
 
 
 # -- delayed triggers & durations (app/rules/delayed.py, agent J) ----------------------------------

@@ -41,10 +41,11 @@ if TYPE_CHECKING:
 _VERBS = {"destroyed": ("destroyed",), "exiled": ("exiled",), "sacrificed": ("sacrificed",),
           "discarded": ("discarded",), "milled": ("milled",), "returned": ("returned",), "your_hand": ("returned",),
           "graveyard": ("destroyed", "sacrificed", "milled", "discarded"), "your_graveyard": ("milled", "discarded"),
-          "died": ("destroyed", "sacrificed"), "tapped": ("tapped",)}
+          "died": ("destroyed", "sacrificed"), "tapped": ("tapped",),
+          "revealed": ("revealed",)}  # (wave 10C: reveal_hand.py)
 _PHRASE = re.compile(
     r"^(?P<what>.+?) (?:(?P<ctl>you controlled|they controlled) )?(?:that (?:was|were) |who )?"
-    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|returned to (?:your|its owner's|their owner's|their owners') hands?"
+    r"(?P<verb>destroyed|exiled|sacrificed|discarded|milled|tapped|revealed|returned to (?:your|its owner's|their owner's|their owners') hands?"
     r"|put into (?P<gy>a|your|their|its owner's|that player's|their owners') graveyards?|died|that died) this way$")
 _NOUN_ONLY = re.compile(r"^(?:cards?)$")
 _GREATEST = re.compile(r"^the greatest number of cards a player (?P<verb>discarded|milled) this way$")
@@ -75,6 +76,8 @@ def parse(phrase: str) -> dict[str, Any] | None:
         kind = "died"
     else:
         kind = verb
+    if kind == "revealed" and (not _NOUN_ONLY.match(m["what"].strip()) or m["ctl"]):
+        return None  # (-- if you do (wave 10C) -- only "cards revealed this way": a revealed card isn't a permanent or a moved object)
     of: str | None = None
     if not _NOUN_ONLY.match(what):
         if m["ctl"] == "you controlled":
@@ -91,6 +94,68 @@ def parse(phrase: str) -> dict[str, Any] | None:
 _IF_PASSIVE = re.compile(r"^(?:a|an|at least one|one or more|any) (?P<what>.+?) (?:is|was|were|are) (?P<rest>.+ this way)$")
 _IF_THAT = re.compile(r"^that (?:creature|permanent) (?:(?:was|is) (?P<verb>destroyed|sacrificed|exiled)|(?P<dies>dies|died)) this way$")
 _IF_YOU = re.compile(r"^you (?P<verb>sacrificed|exiled|discarded|milled|destroyed) (?:a|an|one or more) (?P<what>.+?) this way$")
+
+
+# -- if you do (wave 10C) -- "If a player / a Dragon / a nonred permanent is dealt damage this way, …" (Play with Fire, The Black Arrow,
+# Redcap Melee): the damage instruction just before, read after prevention and replacement (120.3, 615): a recipient is "dealt
+# damage" when some damage was actually dealt to it (damage that was all prevented dealt none, 615.1), and what it is is judged as
+# it was when the damage was dealt (608.2h).
+HIT = "dealt_hit"
+_HIT_WHO = re.compile(r"^(?:target(?::\d+)?|it|event)$")  # (one recipient: the trigger event's object is one)
+_DEALT_THIS_WAY = re.compile(r"^(?:a|an) (?P<what>.+?) (?:is|was) dealt damage this way$")
+
+
+def hit_condition(text: str) -> dict[str, Any] | None:
+    m = _DEALT_THIS_WAY.match(text.strip())
+    if m is None:
+        return None
+    sel = selectors.parse(m["what"])
+    if sel is None or sel.other or sel.zones != ("battlefield",) or sel.card or sel.controller is not None or sel.owner is not None:
+        return None
+    if sel.player is not None and sel.player != "any":
+        return None  # ("an opponent is dealt damage this way": whose, relative to what? not read)
+    return {"value": {"ref_amount": HIT}, "op": ">=", "n": 1, "hit_is": sel.key()}
+
+
+def dealt_to(found: Any) -> Any:
+    """Bind every "dealt damage this way" condition of the ability to the one plain damage instruction before it: that
+    instruction counts, as it is dealt, the recipients that match (effects._deal). Anything else — no such instruction, two
+    of them, a damage chain (several recipients in one sentence), another reader of that damage — leaves the ability manual."""
+    import json
+
+    if found is None or '"hit_is"' not in json.dumps(found[0]):
+        return found
+    effects = list(found[0])
+    gates = [e for e in effects if e.get("do") == "only_if" and "hit_is" in e["cond"]]
+    if len(gates) != json.dumps(effects).count('"hit_is"') or len({g["cond"]["hit_is"] for g in gates}) != 1:
+        return None  # (the condition inside an "and" / "or", or two different questions about it)
+    dmg = [i for i, e in enumerate(effects) if e.get("do") == "damage"]
+    if len(dmg) != 1 or any(effects.index(g) < dmg[0] for g in gates):
+        return None
+    d = effects[dmg[0]]
+    if d.get("with_next") or any(d.get(k) for k in ("dealt_as", "bind_hit", "bind_dealt", "bind_excess", "excess")) \
+            or not _HIT_WHO.match(str(d.get("who"))) or (dmg[0] > 0 and effects[dmg[0] - 1].get("with_next")):
+        return None
+    effects[dmg[0]] = {**d, "bind_hit": HIT, "hit_is": gates[0]["cond"]["hit_is"]}
+    return effects, found[1], found[2]
+
+
+def hits(plan: Plan, ctx: dict[str, Any], events: list[dict[str, Any]], key: str) -> int:
+    """How many of the damage events (after prevention and replacement) dealt damage to a recipient the selector names,
+    judged before the damage is recorded."""
+    sel = selectors.from_key(key)
+    n = 0
+    for ev in events:
+        if int(ev["amount"]) <= 0:
+            continue
+        if ev["target"] in plan.state.players:
+            n += sel.player == "any"
+            continue
+        card = plan.state.cards.get(ev["target"])
+        if sel.player is None and card is not None and card.zone.endswith(":battlefield") and selectors.matches(
+                plan, sel, card, plan.ch(card), ctx["controller"], ctx.get("source_card")):
+            n += 1
+    return n
 
 
 def condition(text: str) -> dict[str, Any] | None:
@@ -110,6 +175,8 @@ def condition(text: str) -> dict[str, Any] | None:
         ctl = " you controlled" if m["verb"] == "sacrificed" else ""
         phrase = f"{m['what']}{ctl} {m['verb']} this way"
     v = parse(phrase) if phrase is not None else None
+    if v is None:
+        return hit_condition(text)  # -- if you do (wave 10C) --
     return {"value": v, "op": ">=", "n": 1} if v is not None else None
 
 
@@ -144,7 +211,7 @@ def unbound(v: Any) -> bool:
 
 
 def _happened(plan: Plan, kind: str, new: dict[str, Any], was: dict[str, Any], you: str) -> bool:
-    if kind == "tapped":  # (tap_choice binds exactly the permanents it tapped)
+    if kind in ("tapped", "revealed"):  # (tap_choice binds exactly the permanents it tapped; reveal_hand: the cards it showed, which stay put)
         return True
     old_card = plan.state.cards.get(was["card"])
     moved = old_card is None or plan.oid(old_card) != was["object_id"] or new["object_id"] != was["object_id"]
@@ -299,18 +366,25 @@ def excess_dealt(found: Any) -> Any:
 def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
     """120.10: the damage dealt by these events to permanents, in excess of what was lethal (a creature: its toughness less the
     damage marked before this damage; a planeswalker: its loyalty; a battle: its defense; several of those types: the greatest),
-    all sources together, summed over the permanents. Read before the damage is recorded. (A deathtouch source's "any amount
-    beyond 1" is 120.4a's, about modifying the event, and 702.2c's, about combat damage: neither is part of 120.10.)"""
+    all sources together, summed over the permanents. Read before the damage is recorded. -- review (wave 10C) -- 120.4a: "Any
+    amount of damage greater than 1 is excess damage if the source dealing that damage to a creature has deathtouch" (702.2c: any
+    nonzero deathtouch damage is lethal for excess): a deathtouch source's damage beyond 1 is excess (all of it once the creature
+    has already been dealt lethal). Wither and infect (120.3d) deal the same damage, as counters: lethal damage is unchanged.
+    Deathtouch mixed with other sources on one creature: how the lethal share splits is unsettled (noted)."""
     total: dict[str, int] = {}
-    odd: list[str] = []
+    dt: dict[str, int] = {}  # damage to a target from deathtouch sources, and how many such hits
+    dt_hits: dict[str, int] = {}
     for ev in events:
         if ev["target"] in plan.state.cards and int(ev["amount"]) > 0:
-            total[ev["target"]] = total.get(ev["target"], 0) + int(ev["amount"])
-            if {"deathtouch", "wither", "infect"} & set(ev.get("kw") or ()):  # (120.4a / 702.2c count deathtouch's excess differently)
-                odd.append(ev["target"])
-    if odd:
-        plan.note("The damage came from a deathtouch, wither or infect source: the excess is counted as the damage beyond the "
-                  "creature's toughness — adjust by hand if it should differ", odd)
+            n = int(ev["amount"])
+            total[ev["target"]] = total.get(ev["target"], 0) + n
+            if "deathtouch" in set(ev.get("kw") or ()):
+                dt[ev["target"]] = dt.get(ev["target"], 0) + n
+                dt_hits[ev["target"]] = dt_hits.get(ev["target"], 0) + 1
+    mixed = [cid for cid in dt if dt[cid] != total[cid] and plan.ch(plan.state.cards[cid]).is_creature]
+    if mixed:
+        plan.note("Damage from a deathtouch source and from other sources was dealt to the same creature together: the excess is "
+                  "counted as the damage beyond its toughness — adjust by hand if it should differ", mixed)
     excess = 0
     for cid, n in total.items():
         card = plan.state.cards[cid]
@@ -319,7 +393,9 @@ def excess_of(plan: Plan, events: list[dict[str, Any]]) -> int:
         ch = plan.ch(card)
         over = []
         if ch.is_creature and ch.pt is not None:
-            over.append(n - max(0, ch.pt[1] - card.damage))
+            left = max(0, ch.pt[1] - card.damage)
+            # only deathtouch sources: 120.4a, each source's damage beyond 1 (all of it if lethal damage is already marked)
+            over.append((n if left == 0 else n - dt_hits[cid]) if dt.get(cid) == n else n - left)
         if "Planeswalker" in ch.types:
             over.append(n - card.counters.get("loyalty", 0))
         if "Battle" in ch.types:

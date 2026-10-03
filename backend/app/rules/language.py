@@ -706,7 +706,7 @@ _PICK_DESTS = {**_DESTS, "onto the battlefield tapped and attacking": "battlefie
                "on the bottom of that library": "bottom", "on top of that library": "top"}
 _PICK = re.compile(
     rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |(?P<exile>(?:you may )?exile) |put )"
-    rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among them|revealed this way))"
+    rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among (?:them|the cards milled this way|those cards)|revealed this way|milled this way))"
     r"|(?= (?:into|on|onto) )| them(?= (?:into|on|onto) ))"
     r"|(?P<that>that card|it|the revealed card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
     r"(?: and put (?:it|them|the revealed cards|that card|those cards))?"
