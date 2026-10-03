@@ -32,6 +32,9 @@ EXTRA = [
     card('Renata, Called to the Hunt', set_code="tst", number="RC8", mana_cost='{2}{G}{G}', cmc=4.0, type_line='Legendary Enchantment Creature — Demigod', oracle_text="Renata's power is equal to your devotion to green. (Each {G} in the mana costs of permanents you control counts toward your devotion to green.)\nEach other creature you control enters with an additional +1/+1 counter on it.", power='*', toughness='3', colors=['G'], color_identity=['G']),
     card('Woe Strider', set_code="tst", number="RD1", mana_cost='{2}{B}', cmc=3.0, type_line='Creature — Horror', oracle_text='When this creature enters, create a 0/1 white Goat creature token.\nSacrifice another creature: Scry 1.\nEscape—{3}{B}{B}, Exile four other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)\nThis creature escapes with two +1/+1 counters on it.', power='3', toughness='2', colors=['B'], color_identity=['B'], keywords=['Escape', 'Scry']),
     card('Memnite', set_code="tst", number="RD2", mana_cost='{0}', cmc=0.0, type_line='Artifact Creature — Construct', power='1', toughness='1'),
+    card('Brainstorm', set_code="tst", number="RE1", mana_cost='{U}', cmc=1.0, type_line='Instant', oracle_text='Draw three cards, then put two cards from your hand on top of your library in any order.', colors=['U'], color_identity=['U']),
+    card('Growth Spiral', set_code="tst", number="RE2", mana_cost='{G}{U}', cmc=2.0, type_line='Instant', oracle_text='Draw a card. You may put a land card from your hand onto the battlefield.', colors=['G', 'U'], color_identity=['G', 'U']),
+    card('Mystic Forge', set_code="tst", number="RF1", mana_cost='{4}', cmc=4.0, type_line='Artifact', oracle_text='You may look at the top card of your library any time.\nYou may cast artifact spells and colorless spells from the top of your library.\n{T}, Pay 1 life: Exile the top card of your library.'),
     card('Blaze', set_code="tst", number="RB2", mana_cost='{X}{R}', cmc=1.0, type_line='Sorcery', oracle_text='Blaze deals X damage to any target.', colors=['R'], color_identity=['R']),
     card('Forbidden Friendship', set_code="tst", number="RA1", mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text='Create a 1/1 red Dinosaur creature token with haste and a 1/1 white Human Soldier creature token.', colors=['R'], color_identity=['R']),
     card('Woodland Champion', set_code="tst", number="RA2", mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Elf Scout', oracle_text='Whenever one or more tokens you control enter, put that many +1/+1 counters on this creature.', power='2', toughness='2', colors=['G'], color_identity=['G']),
@@ -247,4 +250,86 @@ def test_propaganda_paid_with_mirraris_wake_extra_mana(cards):
     act(s, "p1", type="activate_ability", card_id=forest, ability=0)
     assert attacking(s, a) == "p2"
     assert s.state.players["p1"].mana == {}
+    roundtrip(s)
+
+
+# -- hidden information in wave-5 prompts (400.2, 401.4) -------------------------------------------------------------
+SECRET = ("Woe Strider", "Memnite", "Drannith Magistrate")
+
+
+def _leaks(s):
+    import json
+
+    out = []
+    for viewer in ("p2", "__spectator__"):
+        text = json.dumps(s.view(viewer))
+        out += [(viewer, n) for n in SECRET if n in text]
+    return out
+
+
+def _on_top(s, *names):
+    for name in reversed(names):
+        c = next(c for c in s.state.cards.values() if c.name == name and c.owner == "p1")
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "library"}, position="top")
+
+
+def test_brainstorm_put_back_stays_private(cards):
+    s = build(cards, p1=("Brainstorm", *SECRET))
+    _on_top(s, *SECRET)
+    spell = to_hand(s, "Brainstorm")
+    mana(s, "p1", U=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    d = until_asked(s)
+    assert d is not None and d.player == "p1" and d.kind == "choose_cards"
+    assert not _leaks(s)
+    import json
+
+    assert "Woe Strider" in json.dumps(s.view("p1"))  # (the check would see a leak)
+    chosen = [c for c in zone(s.state, "p1", "hand") if s.state.cards[c].name in ("Woe Strider", "Memnite")]
+    pick(s, *chosen)
+    while s.state.rules.decision is not None:  # (their order on top: also private)
+        assert not _leaks(s)
+        d = s.state.rules.decision
+        pick(s, *[o.id for o in d.options][: max(1, d.min_choices)])
+    settle(s)
+    assert not _leaks(s)
+    assert {s.state.cards[c].name for c in zone(s.state, "p1", "library")[:2]} == {"Woe Strider", "Memnite"}
+    roundtrip(s)
+
+
+def test_growth_spiral_choice_is_private_until_the_land_enters(cards):
+    s = build(cards, p1=("Growth Spiral", *SECRET))
+    _on_top(s, *SECRET)
+    spell = to_hand(s, "Growth Spiral")
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "hand"})
+    mana(s, "p1", G=1, U=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    d = until_asked(s)
+    assert d is not None and d.player == "p1"
+    assert not _leaks(s)
+    import json
+
+    assert forest.id not in json.dumps(s.view("p2")["rules"].get("decision") or {})
+    ids = [o.id for o in d.options]
+    pick(s, forest.id if forest.id in ids else ids[0])
+    settle(s)
+    assert not _leaks(s)
+    roundtrip(s)
+
+
+def test_mystic_forge_top_card_and_its_cast_hint_only_for_its_owner(cards):
+    """401.5 / 5I: "look at the top card of your library any time" lets its owner see it; the cast-from-top hint
+    (Memnite: colorless) is the owner's too."""
+    import json
+
+    s = build(cards, p1=("Mystic Forge", *SECRET))
+    on_field(s, "Mystic Forge")
+    _on_top(s, "Memnite")
+    assert "Memnite" in json.dumps(s.view("p1"))
+    assert not _leaks(s)
+    memnite = next(c for c in s.state.cards.values() if c.name == "Memnite")
+    act(s, "p1", type="cast_spell", card_id=memnite.id)
+    settle(s)
+    assert s.state.cards[memnite.id].zone == "p1:battlefield"
     roundtrip(s)
