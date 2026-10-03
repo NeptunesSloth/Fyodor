@@ -775,6 +775,7 @@ class RulesState(BaseModel):
     # the engine asks their controller to resolve them by hand and doesn't enforce their timing.
     card_modes: dict[str, Literal["manual", "assisted"]] = Field(default_factory=dict)
     lands_played: dict[str, TurnCount] = Field(default_factory=dict)
+    extra_land_plays: dict[str, TurnCount] = Field(default_factory=dict)  # -- wave 8A -- "You may play an additional land this turn."
     spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
     loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
     # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't

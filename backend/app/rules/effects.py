@@ -3200,6 +3200,9 @@ PRIMITIVES.update(_next_untap.PRIMITIVES)  # 502.3 "doesn't untap during its con
 from app.rules import extra_turns as _extra_turns  # noqa: E402  -- extra turns (wave 8A) --
 
 PRIMITIVES.update(_extra_turns.PRIMITIVES)  # 500.7 "Take an extra turn after this one."
+from app.rules import land_plays as _land_plays  # noqa: E402  -- one-shot extra land plays (wave 8A) --
+
+PRIMITIVES.update(_land_plays.PRIMITIVES)  # 305.2 "You may play an additional land this turn."
 from app.rules import bounce_forms as _bounce_forms  # noqa: E402
 
 PRIMITIVES.update(_bounce_forms.PRIMITIVES)  # "return target A and target B to their owners' hands" (one move)

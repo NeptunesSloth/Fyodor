@@ -34,6 +34,7 @@ from typing import Any, Literal
 
 from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
 from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
+from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules import restrictions, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
 from app.rules.costs import SACRIFICE, parse_ability_cost, spell_additional_cost
@@ -1856,6 +1857,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
         if (flash := cast_limits.flash_sentence(text)) is not None:  # (a permission, not a choice made on resolution)
             effects += flash
+            continue
+        if (extra_land := _land_plays.sentence(text)) is not None:  # -- one-shot extra land plays (wave 8A) -- 305.2 (a permission)
+            effects += extra_land
             continue
         if text.startswith("you may "):
             if effects:
