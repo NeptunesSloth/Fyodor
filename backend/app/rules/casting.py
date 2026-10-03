@@ -59,10 +59,19 @@ def summoning_sick(state: GameState, card: CardInstance) -> bool:
     return mark.turn >= started
 
 
-def can_use_tap_abilities(state: GameState, card: CardInstance, ch: Characteristics) -> bool:
+def can_use_tap_abilities(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> bool:
     if card.tapped or not card.zone.endswith(":battlefield"):
         return False
-    return not (ch.is_creature and "haste" not in ch.keywords and summoning_sick(state, card))
+    return not (ch.is_creature and "haste" not in ch.keywords and summoning_sick(state, card)
+                and not _as_though_haste(state, card, info))
+
+
+def _as_though_haste(state: GameState, card: CardInstance, info: CardInfo | None) -> bool:
+    """-- cast limits (wave 5E) -- "You may activate abilities of creatures you control as though those creatures had
+    haste" (302.6, 602.5a: their {T} / {Q} abilities only; app/rules/cast_limits.py)."""
+    from app.rules import cast_limits
+
+    return cast_limits.as_though_haste(state, card, info)
 
 
 COLOR_NAMES = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
@@ -275,6 +284,12 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
     ch = derive(state, card, chars.of(card, info), info)  # (granted mana abilities: Cryptolith Rite …)
     if "cant_activate" in ch.imposed:  # "its activated abilities can't be activated" (mana abilities too)
         return []
+    # -- cast limits (wave 5E) -- Grand Abolisher, Collector Ouphe (602.5, 605.1a)
+    from app.rules import cast_limits
+
+    if cast_limits.any_activation_limits(state, info) and \
+            cast_limits.activation_problem(state, card.controller, card, ch, info, mana=True) is not None:
+        return []
     identity = commander_identity(state, card.controller, info)
     r = state.rules
     out = []
@@ -389,7 +404,7 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
         if card.controller != player:
             continue
         ch = chars.of(card, info)
-        usable_tap = can_use_tap_abilities(state, card, ch)
+        usable_tap = can_use_tap_abilities(state, card, ch, info)
         # (wave 3E) an ability paying energy is activated by hand only: several sources sharing one
         # energy total aren't something the solver can split (118.3: no partial payment)
         abilities = [(i, ab) for i, ab in mana_abilities(state, card, info)
@@ -1387,6 +1402,12 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     if "Legendary" in ch.supertypes and ch.is_instant_or_sorcery and not _controls_legendary(state, player, info):
         # 205.4e: a legendary instant or sorcery needs a legendary creature or planeswalker
         return f"{ch.name} needs you to control a legendary creature or planeswalker"
+    # -- cast limits (wave 5E) -- 601.3: no rule or effect prohibits it
+    from app.rules import cast_limits
+
+    limited = cast_limits.cast_problem(state, player, card, ch, info)
+    if limited:
+        return limited
     if "Instant" in ch.types or ch.has_flash or grant.flash:  # (601.3b: as though it had flash)
         return None
     if state.turn.active_player != player:
@@ -2095,6 +2116,12 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         raise ActionError("You can't cast that without paying its mana cost now")
     if "Legendary" in ch.supertypes and ch.is_instant_or_sorcery and not _controls_legendary(plan.state, plan.actor, plan.info):
         raise ActionError(f"{ch.name} needs you to control a legendary creature or planeswalker")  # 205.4e
+    # -- cast limits (wave 5E) -- 601.3 applies to a cast as something resolves too
+    from app.rules import cast_limits
+
+    limited = cast_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info)
+    if limited:
+        raise ActionError(limited)
     definition = None if plan.manual(card) else scripts.spell_definition(ch)
     aura = None if plan.manual(card) else attachments.enchant_selector(ch)
     slots: list[list[TargetRef]] = []
@@ -2233,6 +2260,8 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if card.zone == zone_key(plan.actor, "hand"):
         ch = plan.ch(card)
         ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
+        if suspend_info(ch, a.ability) is None:  # -- cast limits (wave 5E) -- (suspend is a special action, 116.2f)
+            _activation_limit(plan, card, ch)
         if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).from_hand:
             activate_to_stack(plan, card, ch, ability, a)  # -- ability words (wave 4F) -- channel (113.6m)
             return
@@ -2248,10 +2277,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
         if unearth_cost is None and ability is not None and ability.kind == "activated" and \
                 ability_cost(ch, ability).from_graveyard:  # 113.6m: "Exile this card from your graveyard: …"
+            _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
             activate_to_stack(plan, card, ch, ability, a)
             return
         if unearth_cost is None:
             raise ActionError("That card has no ability to use from your graveyard")
+        _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
         unearth(plan, card, ch, a, unearth_cost)
         return
     if card.controller != plan.actor or not card.zone.endswith(":battlefield"):
@@ -2260,6 +2291,7 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if "cant_activate" in ch.imposed:  # an Aura: "its activated abilities can't be activated" (crew, equip too)
         raise ActionError(f"{ch.name}’s activated abilities can't be activated")
     ability = _find_ability(ch, a.ability)
+    _activation_limit(plan, card, ch, mana=ability.kind == "mana", loyalty=ability.kind == "loyalty")  # -- cast limits (wave 5E) --
     n = crew_power(ch, a.ability) if not plan.manual(card) else None
     if n is not None:
         crew(plan, card, ch, a, n)
@@ -2282,7 +2314,7 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         raise ActionError(f"{ch.name}’s mana can only pay for certain things: Fyodor taps it when you cast or activate them")
     if ability_taxes(plan.state, plan.info) and mana_ability_taxed(plan.state, card, ch, parsed, plan.info):  # (review 4R)
         raise ActionError(f"Another effect changes the cost of {ch.name}’s mana ability: activate it by hand with the table tools")
-    if parsed.tap and not can_use_tap_abilities(plan.state, card, ch):
+    if parsed.tap and not can_use_tap_abilities(plan.state, card, ch, plan.info):
         raise ActionError(f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness")
     if parsed.chooses:  # -- refused copy/mana (wave 3R3) --
         _activate_choosing(plan, card, ch, parsed, a)
@@ -2301,6 +2333,15 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
                resume={"step": "mana_ability", "card": card.id, "ability": a.ability}, source=card)
         return
     plan.rules.passed = []
+
+
+def _activation_limit(plan: Plan, card: CardInstance, ch: Characteristics, *, mana: bool = False, loyalty: bool = False) -> None:
+    """-- cast limits (wave 5E) -- 602.5: an ability a rule or effect prohibits can't begin to be activated."""
+    from app.rules import cast_limits
+
+    why = cast_limits.activation_problem(plan.state, plan.actor, card, ch, plan.info, mana=mana, loyalty=loyalty)
+    if why:
+        raise ActionError(why)
 
 
 def _commit_helper(plan: Plan, card: CardInstance | None, kind: P.Kind) -> None:
@@ -2348,7 +2389,7 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
         raise ActionError("While paying you can only tap for mana")
     if ability_taxes(plan.state, plan.info) and mana_ability_taxed(plan.state, card, ch, parsed, plan.info):  # (review 4R)
         raise ActionError(f"Another effect changes the cost of {ch.name}’s mana ability: activate it by hand with the table tools")
-    if parsed.tap and not can_use_tap_abilities(plan.state, card, ch):
+    if parsed.tap and not can_use_tap_abilities(plan.state, card, ch, plan.info):
         raise ActionError(f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness")
     options = parsed.options
     chosen = next((o for o in options if o == (a.mana_choice,)), None) if a.mana_choice else None
@@ -2401,6 +2442,12 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         return f"Pay “{', '.join(cost.unsupported)}” by hand with the table tools"
     if "cant_activate" in ch.imposed:
         return f"{ch.name}’s activated abilities can't be activated"
+    # -- cast limits (wave 5E) -- (602.5)
+    from app.rules import cast_limits
+
+    limited = cast_limits.activation_problem(state, player, card, ch, info, loyalty=ability.kind == "loyalty")
+    if limited:
+        return limited
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
     if ability.kind == "loyalty":  # 606.3: as a sorcery, once per permanent each turn
@@ -2418,7 +2465,7 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         why = restrictions.problem(state, player, card, ability.index, limits, view, ch.name)
         if why:
             return why
-    if cost.tap and not can_use_tap_abilities(state, card, ch):
+    if cost.tap and not can_use_tap_abilities(state, card, ch, info):
         return f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness"
     for kind, n in cost.remove_counters:
         if card.counters.get(kind, 0) < n:
@@ -2592,6 +2639,11 @@ def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteris
     r = state.rules
     if n is None or r is None or (check_priority and (r.priority != player or r.decision is not None)):
         return False
+    # -- cast limits (wave 5E) -- crew is an activated ability (702.122a)
+    from app.rules import cast_limits
+
+    if cast_limits.activation_problem(state, player, card, ch, info) is not None:
+        return False
     from app.rules.combat import power
     from app.rules.layers import derive
 
@@ -2715,7 +2767,7 @@ def resume_mana_ability(plan: Plan, d: Any, chosen: list[str]) -> None:
         return
     index = int(d.resume["ability"])
     parsed = dict(mana_abilities(plan.state, card, plan.info)).get(index)
-    if parsed is None or (parsed.tap and not can_use_tap_abilities(plan.state, card, plan.ch(card))):
+    if parsed is None or (parsed.tap and not can_use_tap_abilities(plan.state, card, plan.ch(card), plan.info)):
         raise ActionError("That mana ability can't be activated any more")
     produce(plan, card, parsed, parsed.options[int(chosen[0])], index)
     plan.rules.priority = plan.actor

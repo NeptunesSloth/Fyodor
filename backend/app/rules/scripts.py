@@ -1654,6 +1654,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 and (paid_may := _unless_sentence(text[len("you may "):], effects, may=True, it=it)) is not None:
             effects += _add_groups(groups, *paid_may)
             continue
+        # -- cast limits (wave 5E) -- "You may cast spells this turn as though they had flash."
+        from app.rules import cast_limits
+
+        if (flash := cast_limits.flash_sentence(text)) is not None:  # (a permission, not a choice made on resolution)
+            effects += flash
+            continue
         if text.startswith("you may "):
             if effects:
                 # "…. You may reveal … from among them …": a clause that models its own choice
@@ -3930,6 +3936,12 @@ EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLA
 from app.rules import graveyard_exile as _graveyard_exile  # noqa: E402, I001  -- graveyard exile (wave 4J) --
 
 EFFECTS[:0] = _graveyard_exile.TEMPLATES  # "Exile target player's graveyard." (app/rules/graveyard_exile.py)
+# -- cast limits (wave 5E) -- "Your opponents can't cast spells this turn." / "You may cast spells this turn as though they
+# had flash." (app/rules/cast_limits.py)
+from app.rules import cast_limits as _cast_limits  # noqa: E402, I001
+
+EFFECTS[:0] = _cast_limits.TEMPLATES
+# -- end cast limits (wave 5E) --
 # "Choose one of them." chooses among what the instruction before moved; "that card" is then the chosen one
 _RECORDING["choose_one_of"] = None
 _MOVERS.add("choose_one_of")

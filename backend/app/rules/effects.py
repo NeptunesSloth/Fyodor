@@ -903,6 +903,12 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     cid = d.resume["card"]
     finish(plan, d.resume["ctx"])
     r = plan.rules
+    # -- cast limits (wave 5E) -- a prohibited cast (601.3) can't begin: as if declined
+    from app.rules import cast_limits
+
+    if chosen[0] == "yes" and (limited := cast_limits.free_cast_blocked(plan, d.player, cid)) is not None:
+        plan.note(limited, actor=d.player)
+        chosen = ["no"]
     if chosen[0] != "yes":
         r.free_casts = [c for c in r.free_casts if c != cid]
         r.suspended = [c for c in r.suspended if c != cid]
@@ -3098,6 +3104,12 @@ from app.rules import unless_pays as _unless_pays  # noqa: E402, I001
 
 PRIMITIVES.update(_unless_pays.PRIMITIVES)
 # -- end unless pays (wave 4C) --
+
+# -- cast limits (wave 5E) -- "… can't cast spells this turn" / flash for a turn (app/rules/cast_limits.py)
+from app.rules import cast_limits as _cast_limits  # noqa: E402, I001
+
+PRIMITIVES.update(_cast_limits.PRIMITIVES)
+# -- end cast limits (wave 5E) --
 
 
 # -- this-turn history (wave 4D) -- "If this is the second time this ability has resolved this turn": the resolution

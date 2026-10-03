@@ -427,7 +427,11 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return {"kind": "static", "static": "top_reveal", "to": "all", "effects": []}
     if t == TOP_LOOK:
         return {"kind": "static", "static": "top_reveal", "to": "owner", "effects": []}
-    return None
+    # -- cast limits (wave 5E) -- "Your opponents can't cast spells during your turn.", "Any player may cast spells as though
+    # they had flash.", "You may activate abilities of creatures you control as though those creatures had haste."
+    from app.rules import cast_limits
+
+    return cast_limits.static_definition(text)
 
 
 def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
@@ -601,8 +605,14 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                     and (d.get("cond") != "commander" or _controls_commander(state, player)):
                 out.append(Grant("permission", f"{ch.name}: cast it without paying its mana cost", free=True))
     for src, index, d in _table_statics(state, info, {"permission"}):
-        if src.controller != player or d.get("self") or not d[verb]:
+        # -- cast limits (wave 5E) -- "Any player may cast …" / "During each opponent's end step, you may cast …"
+        if (src.controller != player and not d.get("any_player")) or d.get("self") or not d[verb]:
             continue
+        if d.get("during"):
+            from app.rules import cast_limits
+
+            if not cast_limits.permission_during_ok(state, d, player):
+                continue
         if d["zone"] != "any" and d["zone"] != where:
             continue
         if d["filter"] and verb == "cast" and not spell_matches(state, player, card, ch, d["filter"], info):
@@ -925,6 +935,11 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         if e.get("parity") and ch.mana_value % 2 != (1 if e["parity"] == "odd" else 0):
             continue
         if e.get("filter") and not spell_matches(plan.state, pid, card, ch, e["filter"], plan.info):
+            continue
+        # -- cast limits (wave 5E) -- a cast no rule or effect prohibits (601.3)
+        from app.rules import cast_limits
+
+        if cast_limits.free_cast_blocked(plan, pid, cid) is not None:
             continue
         options.append(DecisionOption(id=cid, label=card.name or "Card", card_id=cid))
     # (cards in a hand or a library are hidden: whether a choice appears mustn't tell the other
