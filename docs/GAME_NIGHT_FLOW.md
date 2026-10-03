@@ -7,7 +7,7 @@ are mature.** Nothing here is built yet.
 systems together:
 
 1. Persistent pod lobby
-2. Random first player
+2. Turn order: the pod rule (d20 for game 1, then the previous winner goes last)
 3. Pre-game intro
 4. Group concession / end game
 5. Winner spotlight
@@ -41,15 +41,54 @@ After a game the choices are **Rematch — same decks** or **Return to lobby** (
 vote, 6). Returning to the lobby keeps each player's previous deck selected; players change decks with
 the **existing** lobby deck-selection flow. There is no second deck-selection interface.
 
-## 2. Random first player
+## 2. Turn order: the pod rule (d20, then winner goes last)
 
-Lobby setting **First player:** Random / Rotate from previous game / Host chooses. A new pod defaults to
-Random.
+Our pod's convention is the **preferred default** for this setup. It becomes a configurable lobby rule
+later (other options such as plain random, rotating or host-chosen can sit beside it). While the pod
+rule is on, the generic random-first-player logic is **not** used.
 
-- Random uses the server's authoritative RNG; clients never determine it themselves.
-- Before the game starts, reveal "PLAYER 3 GOES FIRST" with a very short presentation.
-- Store the starting player in the game record.
-- Rematches can rotate the first player so everyone gets to start across a game night.
+**Game 1 of a pod session**
+
+- Every player rolls a **server-authoritative d20**; clients never roll or decide anything themselves.
+- The rolls are shown visibly on the table.
+- Highest roll goes first; the order follows the rolls from highest to lowest.
+- Ties reroll **only among the tied players** (as often as needed) to settle their places.
+- The resulting order is the turn order for the first game.
+
+**Every later game**
+
+- The **winner of the previous game goes last** in turn order.
+- The other players keep their relative order, unless the host changes it.
+- The final order is recorded in the new game's metadata.
+
+Example:
+
+```
+Game 1:  A → B → C → D     C wins
+Game 2:  A → B → D → C     D wins
+Game 3:  A → B → C → D
+```
+
+(A game with no winner — a draw or no result — keeps the previous order unless the host changes it;
+confirm this before building.)
+
+**UI.** Before each new game, show a compact turn-order preview:
+
+```
+TURN ORDER
+1. Player A
+2. Player B
+3. Player D
+4. Player C — Previous winner
+```
+
+For Game 1, the preview shows the d20 rolls (and any tie rerolls) that set the order.
+
+**Records.** Each game stores its turn order, and for Game 1 the rolls, in its metadata.
+
+**What exists today:** a server-side random first player (`secrets.randbelow`) and a seat-index option.
+The pod rule replaces it when enabled; the engine's turn order must follow the recorded order, not
+just the seats.
 
 ## 3. Pre-game intro
 
@@ -60,7 +99,7 @@ PLAYER 1  Atraxa, Praetors' Voice
 PLAYER 2  Krenko, Mob Boss
 PLAYER 3  Muldrotha, the Gravetide
 PLAYER 4  Yuriko, the Tiger's Shadow
-PLAYER 3 GOES FIRST
+TURN ORDER  (the preview from section 2)
 ```
 
 The four commanders are shown around the table, with the real commander art when it is cached
@@ -132,7 +171,7 @@ GAME**, which puts them straight back into spectator mode.
 PERSISTENT LOBBY
   → players select decks / ready
   → PRE-GAME COMMANDER INTRO
-  → RANDOM / ROTATING FIRST PLAYER
+  → TURN ORDER: d20 rolls (game 1) or the previous winner goes last
   → MULLIGANS
   → COMMANDER GAME
       → players may be eliminated
@@ -150,7 +189,7 @@ One **pod session** links several **games** (Game 1, Game 2, Game 3 …). Each g
 
 - result and winner (and whether it was an agreed result);
 - decks and commanders used;
-- first player;
+- turn order (and, for game 1, the d20 rolls);
 - elimination order;
 - duration and turn count;
 - a final board snapshot, if supported.
@@ -162,8 +201,11 @@ The pod session holds what persists (section 1). No match-local state carries in
 - persistent lobby after a completed game;
 - same-deck rematch (every item of match-local state reset, new game id);
 - returning to the lobby and changing one player's deck;
-- authoritative random first player (server-chosen, clients can't influence it);
-- rotating first player;
+- game 1 turn order from server-authoritative d20 rolls (clients can't influence them), shown to everyone;
+- d20 ties rerolled only among the tied players;
+- later games: the previous winner goes last and the others keep their relative order (the A/B/C/D
+  example above);
+- a host change to the order, and the order recorded in each game's metadata;
 - skipping the pre-game intro;
 - a successful unanimous agreed ending, recorded as an agreed result;
 - a declined group concession (the game continues);

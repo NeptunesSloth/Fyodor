@@ -399,8 +399,8 @@ there) or **View final board**. Not started.
 
 ### Later: game night / match flow milestone — planned (`GAME_NIGHT_FLOW.md`)
 
-After the rules engine and the tabletop are mature: a persistent pod lobby, first-player options
-(random / rotate / host), a 2–4 s pre-game commander intro, group concession with an agreed result,
+After the rules engine and the tabletop are mature: a persistent pod lobby, the pod turn-order rule
+(d20 rolls for game 1, then the previous winner goes last), a 2–4 s pre-game commander intro, group concession with an agreed result,
 a winner spotlight, a rematch vote and spectator rejoin. Not started.
 
 ## Deliberately out of scope
