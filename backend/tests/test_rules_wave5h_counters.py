@@ -64,6 +64,9 @@ EXTRA = [
     card('Blast Zone', set_code='tst', number='T5H34', mana_cost='', cmc=0.0, type_line='Land', oracle_text='This land enters with a charge counter on it.\n{T}: Add {C}.\n{X}{X}, {T}: Put X charge counters on this land.\n{3}, {T}, Sacrifice this land: Destroy each nonland permanent with mana value equal to the number of charge counters on this land.'),
     card("Boss's Chauffeur", set_code='tst', number='T5H35', mana_cost='{4}{W}', cmc=5.0, type_line='Creature — Elf Citizen', oracle_text='This creature enters with a number of +1/+1 counters on it equal to one plus the number of other creatures you control.\nAlliance — Whenever another creature you control enters, put a +1/+1 counter on this creature.\nWhen this creature dies, create a 1/1 green and white Citizen creature token for each +1/+1 counter on it.', power='0', toughness='0', colors=['W'], color_identity=['W'], keywords=['Alliance']),
     card('Myojin of Blooming Dawn', set_code='tst', number='T5H36', mana_cost='{5}{W}{W}{W}', cmc=8.0, type_line='Legendary Creature — Spirit', oracle_text='Myojin of Blooming Dawn enters with an indestructible counter on it if you cast it from your hand.\nRemove an indestructible counter from Myojin of Blooming Dawn: Create a 1/1 colorless Spirit creature token for each permanent you control.', power='4', toughness='6', colors=['W'], color_identity=['W']),
+    card('Stocking the Pantry', set_code='tst', number='T5H37', mana_cost='{G}', cmc=1.0, type_line='Enchantment', oracle_text='Whenever you put one or more +1/+1 counters on a creature you control, put a supply counter on this enchantment.\n{2}, Remove a supply counter from this enchantment: Draw a card.', colors=['G'], color_identity=['G']),
+    card('Terrasymbiosis', set_code='tst', number='T5H38', mana_cost='{2}{G}', cmc=3.0, type_line='Enchantment', oracle_text='Whenever you put one or more +1/+1 counters on a creature you control, you may draw that many cards. Do this only once each turn.', colors=['G'], color_identity=['G']),
+    card('Hapatra, Vizier of Poisons', set_code='tst', number='T5H39', mana_cost='{B}{G}', cmc=2.0, type_line='Legendary Creature — Human Cleric', oracle_text='Whenever Hapatra deals combat damage to a player, you may put a -1/-1 counter on target creature.\nWhenever you put one or more -1/-1 counters on a creature, create a 1/1 green Snake creature token with deathtouch.', power='2', toughness='2', colors=['B', 'G'], color_identity=['B', 'G']),
     card('Essence Channeler', set_code='tst', number='T5H30', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Bat Cleric', oracle_text="As long as you've lost life this turn, this creature has flying and vigilance.\nWhenever you gain life, put a +1/+1 counter on this creature.\nWhen this creature dies, put its counters on target creature you control.", power='2', toughness='1', colors=['W'], color_identity=['W']),
 ]
 
@@ -126,7 +129,8 @@ def cov(name):
     ("Luminous Broodmoth", "FULL"), ("Unexpected Fangs", "FULL"), ("Iron Apprentice", "FULL"), ("The Ozolith", "FULL"),
     ("Grakmaw, Skyclave Ravager", "FULL"), ("Blowfly Infestation", "FULL"), ("Essence Channeler", "FULL"),
     ("Oran-Rief, the Vastwood", "FULL"), ("Brokers Ascendancy", "FULL"), ("Ratchet Bomb", "FULL"), ("Blast Zone", "FULL"),
-    ("Myojin of Blooming Dawn", "FULL"), ("Inspiring Call", "FULL"),
+    ("Myojin of Blooming Dawn", "FULL"), ("Inspiring Call", "FULL"), ("Stocking the Pantry", "FULL"), ("Terrasymbiosis", "FULL"),
+    ("Hapatra, Vizier of Poisons", "PARTIAL"),  # (-1/-1 counters a damage step puts: who put each is not recorded)
     ("Boss's Chauffeur", "PARTIAL"),  # (its tokens "for each": not read)
     # refused: a type change with the counters (layer 4 as it enters); counters removed "from among" creatures as a cost
     ("Master Biomancer", "PARTIAL"), ("Tayam, Luminous Enigma", "PARTIAL"),
@@ -688,5 +692,47 @@ def test_inspiring_call_draws_and_protects_the_counted_creatures(cards):
     assert len(s.state.zones["p1:hand"]) == hand - 1 + 1 + 2  # (it was put in hand to be cast)
     assert "indestructible" in kws(s, bears) and "indestructible" in kws(s, elves)
     assert "indestructible" not in kws(s, finks)
+    replay_matches(s)
+
+
+# -- "Whenever you put one or more +1/+1 counters on …" (122.6, 122.6a: who put them) -----------------------------------
+def test_stocking_the_pantry_counts_each_put_by_you(cards):
+    """A creature entering with counters had them put on it (122.6) by its controller (122.6a); Invigorating Surge puts
+    twice (701.10e: the doubling is a put); counters put on an opponent's creature don't count."""
+    s = build(cards, "Stocking the Pantry", "Spike Feeder", "Invigorating Surge", "Gift of the Viper", "Grizzly Bears",
+              p2=("Grizzly Bears",))
+    pantry = put(s, "Stocking the Pantry")
+    bears, theirs = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2")
+    s = saved(s)
+    cast(s, "Spike Feeder", G=2, C=1)
+    settle(s)
+    assert counters(s, pantry) == {"supply": 1}
+    cast(s, "Invigorating Surge", targets=[bears.id], G=1, C=2)
+    settle(s)
+    assert counters(s, bears) == {"+1/+1": 2} and counters(s, pantry) == {"supply": 3}
+    cast(s, "Gift of the Viper", targets=[theirs.id], G=1)
+    settle(s)
+    assert counters(s, theirs).get("+1/+1") == 1 and counters(s, pantry) == {"supply": 3}
+    replay_matches(s)
+
+
+def test_terrasymbiosis_draws_that_many_once_each_turn(cards):
+    s = build(cards, "Terrasymbiosis", "Spike Feeder", "Invigorating Surge", "Grizzly Bears")
+    put(s, "Terrasymbiosis")
+    bears = put(s, "Grizzly Bears")
+    feeder, surge = to_hand(s, "Spike Feeder"), to_hand(s, "Invigorating Surge")
+    s = saved(s)
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, G=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=feeder.id)
+    settle(s)  # (the "you may": settle answers with the first option)
+    drawn = len(s.state.zones["p1:hand"]) - (hand - 1)
+    assert drawn in (0, 2)
+    mana(s, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=surge.id, targets=[bears.id])
+    settle(s)
+    after = len(s.state.zones["p1:hand"]) - (hand - 2)
+    # once each turn: a second draw only if it didn't draw for the first put (then 1 for the first of Surge's puts)
+    assert after == drawn + (1 if drawn == 0 else 0)
     replay_matches(s)
 

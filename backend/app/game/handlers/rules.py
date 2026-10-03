@@ -37,7 +37,7 @@ def replay_steps(state: GameState, steps: list[dict[str, Any]]) -> None:
             raise ActionError("Invalid rules step")
         before = capture(state)
         HANDLERS[step.type](state, step)
-        track(state, before)
+        track(state, before, actor=step.actor or None)  # (actor: wave 5H, counters put)
 
 
 def rules_sync(state: GameState, a: A.RulesSync) -> None:

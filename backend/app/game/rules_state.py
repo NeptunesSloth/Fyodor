@@ -318,6 +318,8 @@ class Event(BaseModel):
     counter: str | None = None
     combat: bool = False
     manual: bool = False  # caused by a sandbox action, not by the rules engine
+    # -- counters (wave 5H) -- counters put on an object: the player who put them (the step's actor: 122.6, 122.6a)
+    actor: str | None = None
 
 
 MAX_EVENTS = 500  # unconsumed events kept (a trigger collector consumes them; M16)
@@ -1063,7 +1065,7 @@ def note_attack(state: GameState, player: str, attackers: list[str] | None = Non
         seen += [a for a in attackers if a not in seen]
 
 
-def track(state: GameState, before: Capture | None = None, *, manual: bool = False) -> None:
+def track(state: GameState, before: Capture | None = None, *, manual: bool = False, actor: str | None = None) -> None:
     """Deterministic bookkeeping after every applied step (sandbox or rules): whose turn started
     when, when each permanent came under its controller's control, which physical card is which
     rules object, last known information, and the step's events as one simultaneous batch.
@@ -1086,7 +1088,7 @@ def track(state: GameState, before: Capture | None = None, *, manual: bool = Fal
     for card_id in [c for c in rules.controlled_since if c not in on_battlefield]:
         del rules.controlled_since[card_id]
     if before is not None:
-        _diff(state, rules, before, manual)
+        _diff(state, rules, before, manual, actor)  # (actor: wave 5H)
     pending = [e for e in rules.events if e.batch > rules.batch]
     if pending:
         rules.batch += 1
@@ -1129,7 +1131,7 @@ KEYWORD_COUNTERS = frozenset({"flying", "first strike", "double strike", "deatht
                               "indestructible", "lifelink", "menace", "reach", "shadow", "trample", "vigilance"})
 
 
-def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) -> None:
+def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, actor: str | None = None) -> None:
     departures = state.departures()
     for card_id, old_zone in _entry_order(state, before):
         card = state.cards.get(card_id)
@@ -1202,7 +1204,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool) ->
         for kind in sorted(set(snap.counters) | set(card.counters)):  # (sorted: wave 5H, 613.7c stamps)
             delta = card.counters.get(kind, 0) - snap.counters.get(kind, 0)
             if delta:
-                emit(state, "counters", object_id=oid, card=card_id, counter=kind, amount=delta)
+                emit(state, "counters", object_id=oid, card=card_id, counter=kind, amount=delta,
+                     **({"actor": actor} if actor and delta > 0 else {}))  # (actor: wave 5H)
             if kind in KEYWORD_COUNTERS:  # -- counters (wave 5H) -- 613.7c
                 if card.counters.get(kind, 0) <= 0:
                     rules.counter_stamps.get(card_id, {}).pop(kind, None)
