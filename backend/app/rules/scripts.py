@@ -345,6 +345,9 @@ def _group_of(e: dict[str, Any]) -> int | None:
         return 0
     if isinstance(who, str) and who.startswith("target:"):
         return int(who[7:])
+    if isinstance(who, str) and who.startswith("controlled:target"):  # (wave 13E) "all creatures target player controls"
+        head = who[11:].partition("|")[0]
+        return 0 if head == "target" else int(head[7:])
     return None
 
 
@@ -413,13 +416,15 @@ class _Introducer:
         if g is not None and groups is not None and g < len(groups):
             if _is_player_group(groups[g]):
                 self.player = groups[g]["max"] == 1
-                self.objects = self.objects and self.do in _CHOSEN  # ("target player sacrifices a creature")
+                self.objects = self.objects and (self.do in _CHOSEN or who.startswith("controlled:"))  # ("target player sacrifices a creature")
             else:
                 self.objects = True  # (a targeted object: "it" is that target, whatever the effect)
             self.number = 1 if groups[g]["max"] == 1 else 2
         elif who.startswith(selectors.PREFIX) or who in ("creatures_you_control", "each_creature", "all",
                                                         "each_player", "each_opponent"):
             self.number = 2  # ("exile all creatures", "each opponent sacrifices …")
+        if who.startswith("controlled:"):  # (wave 13E: "Tap all creatures target player controls. Those creatures …")
+            self.number = 2
         if self.do in _CHOSEN:  # ("sacrifice a creature", "create two … tokens"): as many as it says
             n = e.get(_CHOSEN[self.do], 1)
             self.number = 1 if n == 1 else (2 if isinstance(n, int) else None)
@@ -605,7 +610,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                     # card. You may play it": the hand is hidden, 400.7 — manual)
                     return None
                 if intro is not None:
-                    if intro.do in _MOVERS or _group_of(out[intro.index]) is None:
+                    if intro.do in _MOVERS or _group_of(out[intro.index]) is None \
+                            or str(out[intro.index].get("who")).startswith("controlled:"):  # (wave 13E: the objects, not the player)
                         e["who"] = "ref:" + bound(intro)
                     else:
                         g = _group_of(out[intro.index])
@@ -804,7 +810,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "to", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
+_TARGET_REFS = ("who", "to", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -1308,6 +1314,18 @@ def _pump_their_team(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
     creatures = 'sel:{"types":["Creature"]}'
     return [{"do": "pump", "who": f"controlled:target|{creatures}", "p": _signed(m["p"]), "t": _signed(m["t"])}], \
         SELECTORS[f"target {m['pl']}"]
+
+
+# -- untap restrictions (wave 13E) -- "Tap all creatures target player controls." (Sleep, Kiora Bests the Sea God): the
+# permanents that player controls as it resolves (608.2c)
+@effect(r"(?P<v>tap|untap) all (?P<what>creatures|nonland permanents|lands|artifacts|permanents) target (?P<pl>player|opponent) controls")
+def _tap_their_all(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors
+
+    sel = selectors.parse(m["what"])
+    if sel is None:
+        raise _NoMatch
+    return [{"do": m["v"], "who": f"controlled:target|{sel.key()}"}], SELECTORS[f"target {m['pl']}"]
 
 
 # -- static wordings (wave 6E) -- "Regenerate each creature you control." (Golgari Charm, Wrap in Vigor): a shield on each
@@ -2662,6 +2680,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
         if (replaced := mana_replace.definition(text)) is not None:
             return replaced
+    if ability.kind == "static" and (limit := _untap_choice.static_definition(text)) is not None:
+        return limit  # -- untap restrictions (wave 13E) -- "Players can't untap more than one creature during their untap steps."
     if ability.kind == "static" and (untaps := _untap_riders.static_definition(text)) is not None:
         return untaps  # -- mana riders (wave 5A) -- "Untap all … you control during each other player's untap step."
     if ability.kind == "static":
