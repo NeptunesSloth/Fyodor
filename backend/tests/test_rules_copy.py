@@ -865,8 +865,6 @@ def test_copy_cards_are_fully_automated(name):
     "You may have this creature enter as a copy of a creature or planeswalker you control, except it enters with an "
     "additional +1/+1 counter on it if it's a creature, it enters with an additional loyalty counter on it if it's a "
     "planeswalker, and it isn't legendary.",
-    # it could copy an Aura, which would have to attach as it enters (303.4f): Copy Enchantment
-    "You may have this enchantment enter as a copy of any enchantment on the battlefield.",
     # "except its name is …" (Sakashima the Impostor)
     "You may have Sakashima the Impostor enter as a copy of any creature on the battlefield, except its name is "
     "Sakashima the Impostor, it's legendary in addition to its other types, and it has \"{2}{U}{U}: Return Sakashima "

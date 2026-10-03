@@ -928,6 +928,11 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         permissions.consume(plan, grant)  # ("once during each of your turns")
         plan.note(f"{plan.name(plan.actor)} plays {card.name} from their {from_where} ({grant.label})", [card.id])
     replacements.after_entry(plan, card.id, plan.actor, choices=ep.get("choices"))
+    # -- entry forms (wave 5F) -- 305.1: the land was played ("When you play another land", City of Traitors)
+    from app.game.rules_state import emit
+
+    if plan.state.cards[card.id].zone.endswith(":battlefield"):
+        emit(plan.state, "land_played", object_id=plan.oid(card.id), card=card.id, player=plan.actor)
     r = plan.rules
     turn = plan.state.turn.number
     r.lands_played[plan.actor] = TurnCount(turn=turn, count=r.lands_this_turn(plan.actor, turn) + 1)
