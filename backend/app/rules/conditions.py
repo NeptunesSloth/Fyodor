@@ -888,6 +888,8 @@ def _cast_who(word: str) -> str:
 
 
 _NO_MANA = re.compile(r"no mana was spent to cast (?:it|that spell)")  # -- if you do (wave 5G) --
+# -- ability words (wave 9C) -- opus: "If five or more mana was spent to cast that spell, …" (a cast trigger's spell)
+_SPENT_TOTAL_THAT = re.compile(r"(?P<n>\w+) or more mana was spent to cast that spell")
 
 
 def _cast_how(t: str) -> Condition | None:
@@ -896,6 +898,8 @@ def _cast_how(t: str) -> Condition | None:
         return {"object": _cast_who(t.split()[0]), "cast": {"escaped": True}}
     if _NO_MANA.fullmatch(t):  # -- if you do (wave 5G) -- "if no mana was spent to cast it" (a cast trigger's spell)
         return {"object": "it", "cast": {"no_mana": True}}
+    if (m := _SPENT_TOTAL_THAT.fullmatch(t)) is not None and (n := _num(m["n"])):  # -- ability words (wave 9C) -- opus
+        return {"object": "it", "cast": {"total": n, "event_spell": True}}
     m = _CAST.fullmatch(t)
     if m:
         how: dict[str, Any] = {"by_you": bool(m["you"])}
@@ -927,7 +931,8 @@ def cast_conditions_on_source(cond: Condition) -> bool:
     """Is every condition about how a spell was cast in ``cond`` about the source itself (the spell, or the
     permanent it became)? (Not another object's: its record isn't kept once it resolved.)"""
     if "cast" in cond:  # (wave 5G: "no mana was spent to cast it" of a cast trigger's spell, still on the stack)
-        return cond.get("object") == "self" or (cond.get("object") == "event" and bool(cond["cast"].get("no_mana")))
+        return cond.get("object") == "self" or (cond.get("object") == "event" and bool(
+            cond["cast"].get("no_mana") or cond["cast"].get("event_spell")))
     return all(cast_conditions_on_source(c) for k in ("all", "any") for c in cond.get(k, ())) and (
         "not" not in cond or cast_conditions_on_source(cond["not"]))
 
@@ -945,6 +950,8 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     how = cond["cast"]
     if cond.get("object") == "event" and how.get("no_mana"):  # -- if you do (wave 5G) --
         return _no_mana_spent(plan, ctx)
+    if cond.get("object") == "event" and how.get("event_spell"):  # -- ability words (wave 9C) -- opus
+        return _total_mana_spent(plan, ctx, int(how["total"]))
     if cond.get("object") != "self":
         return False
     record = plan.rules.payments.get(ctx.get("source_object") or "")
@@ -970,6 +977,24 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return False
     return "total" not in how or sum(spent.values()) >= how["total"]
 # -- end refused modal/conditional (wave 3R1) --
+
+
+# -- ability words (wave 9C) --
+def _total_mana_spent(plan: Plan, ctx: dict[str, Any], need: int) -> bool:
+    """Opus: "If five or more mana was spent to cast that spell, …": the total mana that paid the cast spell's cost
+    (601.2h; its X counts, a cost reduction doesn't), from its payment record, read while the spell is still on the
+    stack (the trigger resolves above it). If the spell is already gone, or was cast by hand (what paid for it unknown),
+    the condition can't be judged: it doesn't hold and the log says to apply the ability by hand."""
+    from app.rules import context
+
+    refs = context._object_refs(ctx, context.EVENT)
+    record = plan.rules.payments.get(refs[0].object_id) if refs else None
+    if record is None or record.cast_from is None or not record.mana_known:
+        name = plan.state.cards[record.card].name if record is not None and record.card in plan.state.cards else "That spell"
+        plan.note(f"{name}: how much mana was spent to cast it isn't known — apply the ability by hand",
+                  [record.card] if record is not None and record.card in plan.state.cards else ())
+        return False
+    return sum(record.mana_spent.values()) >= need
 
 
 # -- if you do (wave 5G) --

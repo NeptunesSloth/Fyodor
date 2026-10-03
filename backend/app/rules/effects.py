@@ -136,6 +136,10 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         name, _, key = who[len("except:"):].partition("|")  # … tokens" (Martial Coup): other than what it made
         made = set(context.objects(plan, ctx, name))
         return [c for c in _cards(plan, ctx, key) if c not in made]
+    if who.startswith("radiance:"):  # -- radiance (wave 9C) -- the target and each other object sharing a color with it
+        from app.rules import radiance
+
+        return radiance.cards(plan, ctx, who)
     if who.startswith(selectors.PREFIX):  # "each creature you control", "all other Goblins" …
         sel = selectors.from_key(who)
         return [] if sel.player else selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card"))
@@ -2284,6 +2288,13 @@ def only_if(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES.update({"only_if": only_if})
+# -- kinship (wave 9C) -- the look-and-reveal step of a kinship ability (app/rules/kinship.py)
+from app.rules import kinship as _kinship  # noqa: E402
+
+PRIMITIVES["kinship"] = _kinship.run
+from app.rules import parley as _parley  # noqa: E402  -- parley (wave 9C) --
+
+PRIMITIVES.update({"parley_reveal": _parley.reveal, "parley_repeat": _parley.repeat})
 # "You may pay {2}. If you do, …" / "… unless that player pays {1}" (118.12): app/rules/optional_payment.py
 PRIMITIVES["optional_payment"] = optional_payment.optional_payment
 

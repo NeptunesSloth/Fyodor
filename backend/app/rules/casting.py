@@ -124,6 +124,12 @@ def _with_chosen_type(spend: str, creature_type: str) -> str:
 def _land_mana(state: GameState, players: list[str], info: CardInfo, *, skip: str) -> set[str]:
     """Types of mana lands these players control could produce (Reflecting Pool, Exotic Orchard)."""
     out: set[str] = set()
+    from app.rules import (
+        mana_replace,  # -- mana replacements (wave 9C) -- 106.7: replacement effects change what lands produce
+    )
+
+    if mana_replace.in_play(state, info):
+        return out
     for p in players:
         for cid in state.zones.get(zone_key(p, "battlefield"), []):
             if cid == skip:
@@ -338,8 +344,9 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         if options:
             out.append((ab.index, replace(parsed, options=options)))
     # -- attached events (wave 4L) -- "Whenever enchanted land is tapped for mana"
-    from app.rules import attached_mana, tap_mana
+    from app.rules import attached_mana, mana_replace, tap_mana
 
+    out = mana_replace.extend(state, card, info, out)  # -- mana replacements (wave 9C) -- 106.12b: first, then the triggers' extras
     out = tap_mana.extend(state, card, info, out)  # -- mana riders (wave 5A) -- "Whenever you tap a land for mana, …"
     return attached_mana.extend(state, card, info, ch.is_land, out)
 

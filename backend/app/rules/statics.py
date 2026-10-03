@@ -180,6 +180,10 @@ def parse(text: str) -> Definition | None:
     # (Jetmir: "also" only says the effect adds to the line before it)
     body = re.sub(r"^(?P<s>[A-Z][\w' ]*?) also (?P<v>gets?|ha(?:s|ve)) ", r"\g<s> \g<v> ", body)
     body = re.sub(r"^(?P<s>it|~) gets an additional (?P<pt>[+−-]\d+/[+−-]\d+)$", r"\g<s> gets \g<pt>", body)  # (Bladed Pinions-style)
+    # -- ability words (wave 9C) -- "Enchanted creature gets an additional +2/+2 as long as …" (Strange Augmentation, Divine
+    # Sacrament, Taste for Mayhem): "additional" only says the modification adds to the line before it; a P/T bonus of
+    # layer 7c adds to the others either way (613.4c)
+    body = re.sub(r"\b(?P<v>gets?) an additional (?=[+−-]\d+/[+−-]\d+)", r"\g<v> ", body)
     # layer 4 (613.1d) on the source itself: "~ isn't a creature" (Theros gods), "… and is a Knight in addition to
     # its other types" (205.1b)
     # -- attached events (wave 4L) -- "Enchanted creature … is an Angel in addition to its other types": the attached
@@ -231,9 +235,14 @@ def parse(text: str) -> Definition | None:
     from app.rules import attached_types
 
     extra = parts.pop("extra")
-    if extra and (who != "attached" or conds or x_value is not None or defender_sel or rule_cond):
+    # -- ability words (wave 9C) -- "As long as there are seven or more cards in your graveyard, this creature gets +1/+1, is
+    # black, and has "…"" (Possessed Aven): its own color (layer 5, 613.1e) under a condition about the graveyard or the
+    # players, which never reads the colors of what it modifies (layers._own_layer5)
+    own_colors = bool(extra) and who == "self" and set(extra) == {"set_colors"} and bool(conds) \
+        and all(_color_safe(c) for c in conds) and x_value is None and not defender_sel and not rule_cond
+    if extra and not own_colors and (who != "attached" or conds or x_value is not None or defender_sel or rule_cond):
         return None  # (layers 4-6 parts of a static: only an Aura's or Equipment's, unconditional)
-    if extra and not attached_types.consistent(extra, kind):
+    if extra and not own_colors and not attached_types.consistent(extra, kind):
         return None
     if x_value is not None and parts["each"] is None:
         return None  # ("where X is …" with no X in the sentence)
@@ -292,6 +301,20 @@ def _layer4_safe(cond: dict[str, Any]) -> bool:
         return True
     value = cond.get("value")
     return cond.get("static") is None and isinstance(value, dict) and set(value) == {"devotion"}
+
+
+def _color_safe(cond: dict[str, Any]) -> bool:
+    """-- ability words (wave 9C) -- may a condition gate the source's own color change? It is read while the source's colors
+    are being derived, so it must not read colors (613.8): cards in graveyards (their own characteristics, not the
+    battlefield's), counts of card types among them, player counters, life, whose turn it is."""
+    if cond.get("static") in ("graveyard", "your_turn", "life_vs_start", "opp_life", "opp_graveyard", "self_counter"):
+        return True
+    value = cond.get("value")
+    if cond.get("static") is None and isinstance(value, dict):
+        if set(value) == {"player_counters"}:
+            return True
+        return value.get("distinct") == "types" and "graveyard" in str(value.get("among"))
+    return False
 
 
 def _zone_of(cond: dict[str, Any]) -> bool:

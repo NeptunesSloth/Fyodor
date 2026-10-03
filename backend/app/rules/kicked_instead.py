@@ -37,7 +37,7 @@ _THOSE_TOKENS = re.compile(r"^create (?P<n>\d+|[a-z]+) of those tokens$")
 _INVESTIGATE = re.compile(r"^investigate (?P<t>twice|three times|four times|five times)$")
 
 
-_ALSO = re.compile(r"^(?P<who>that creature|those creatures|it|they) also (?P<verb>gains?|gets?) ")
+_ALSO = re.compile(r"^(?P<who>that creature|those creatures|it|they|~|this creature) also (?P<verb>gains?|gets?) ")
 _ADDITIONAL = re.compile(r"^(?P<lead>.+? gets?) an additional (?P<pt>[+-]\d+/[+-]\d+ until end of turn)$")
 
 

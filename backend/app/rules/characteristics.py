@@ -145,7 +145,13 @@ def _from_card_data(data: dict[str, Any], face: int, *, half: bool = False) -> C
     if faces and layout in ("transform", "modal_dfc", "flip", "meld", "reversible_card", "prepare"):
         src = faces[min(face, len(faces) - 1)]
         text = str(src.get("oracle_text") or "")
-    elif faces and layout in ("split", "adventure", "aftermath"):
+    elif faces and layout == "adventure":
+        # -- ability words (wave 9C) -- 715.4: outside the stack (and on it not as an Adventure) an adventurer card has only
+        # its normal characteristics: its Adventure's text and types are not the permanent's (a static of a permanent
+        # Adventure card, Virtue of Strength, would otherwise be read as a spell line)
+        src = faces[min(face, len(faces) - 1)]
+        text = str(src.get("oracle_text") or "")
+    elif faces and layout in ("split", "aftermath"):
         src = faces[min(face, len(faces) - 1)] if face else data
         text = str(src.get("oracle_text") or data.get("oracle_text") or "")
         if layout == "adventure" and not face:  # -- as long as (wave 9B) -- 715.4: off the stack an adventurer has only its normal
