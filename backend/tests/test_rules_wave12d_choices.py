@@ -65,12 +65,15 @@ REAL = [
     card("Old-Growth Dryads", set_code="tst", number="D16", mana_cost="{G}", cmc=1.0, type_line="Creature — Dryad",
          oracle_text="When this creature enters, each opponent may search their library for a basic land card, put it onto the "
                      "battlefield tapped, then shuffle.", power="3", toughness="3", colors=["G"], color_identity=["G"]),
+    card("Braids, Conjurer Adept", set_code="tst", number="D17", mana_cost="{2}{U}{U}", cmc=4.0, type_line="Legendary Creature — Human Wizard",
+         oracle_text="At the beginning of each player's upkeep, that player may put an artifact, creature, or land card from their hand "
+                     "onto the battlefield.", power="2", toughness="2", colors=["U"], color_identity=["U"]),
     card("Wrong Turn Test", set_code="tst", number="D5", mana_cost="{2}{U}", cmc=3.0, type_line="Instant",
          oracle_text="Target opponent gains control of target creature.", colors=["U"], color_identity=["U"]),
 ]
 NAMES = ["Akroan Horse", "Humble Defector", "Sky Swallower", "Trostani Discordant", "Wrong Turn Test", "Eladamri's Vineyard", "Tangleroot",
          "The Warring Triad", "Tidal Warrior", "Reef Shaman", "Command Tower", "Urborg, Tomb of Yawgmoth", "Evil Presence", "Show and Tell",
-         "Hunted Wumpus", "Old-Growth Dryads"]
+         "Hunted Wumpus", "Old-Growth Dryads", "Braids, Conjurer Adept"]
 
 
 @pytest.fixture()
@@ -223,6 +226,22 @@ def test_a_player_with_nothing_to_put_is_asked_all_the_same(cards):
     act(s, "p2", type="choose", decision_id=d.id, option_ids=[])
     pass_until_stack_empty(s)
     assert s.state.cards[wumpus.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_braids_lets_the_player_whose_upkeep_it_is_put_a_card_in(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards)
+    put(s, "Braids, Conjurer Adept")
+    bear = put(s, "Grizzly Bears", "hand", "p2")
+    next_end_step(s)
+    until(s, lambda s: s.state.turn.number == 2 and s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    assert d.player == "p2" and bear.id in {o.id for o in d.options}  # "that player": Bob, not Braids' controller
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[bear.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[bear.id].zone == "p2:battlefield" and s.state.cards[bear.id].controller == "p2"
     check(s)
 
 
