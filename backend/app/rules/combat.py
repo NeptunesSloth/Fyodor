@@ -267,6 +267,8 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
             raise ActionError(problem)
         if decl.target not in targets:
             raise ActionError(f"{card.name} can't attack that")
+        if attack_forbidden(plan, plan.ch(card), decl.target):  # -- attached events (wave 4L) -- (508.1c)
+            raise ActionError(f"{card.name} can't attack {_label(plan.state, decl.target)}")
         if "attack_needs_island" in scripts.statics(plan.ch(card)):
             defender = decl.target if decl.target in plan.state.players else \
                 defender_of(plan.state, A.AttackTarget(kind="card", id=decl.target))
@@ -281,7 +283,8 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     for cid in eligible - seen:
         card = plan.state.cards.get(cid)
         if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
-                attack_problem(plan.state, card, plan.ch(card)) is None and targets:
+                attack_problem(plan.state, card, plan.ch(card)) is None and \
+                any(not attack_forbidden(plan, plan.ch(card), t) for t in targets):  # (wave 4L: 508.1d)
             raise ActionError(f"{card.name} attacks each combat if able")
     goad_problem = goad_requirements(plan, eligible, targets, {x.card_id: x.target for x in a.attackers})
     if goad_problem:  # -- keyword actions & face-down (wave 3F) --
@@ -333,9 +336,9 @@ def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declare
         st = scripts.statics(ch)
         if "cant_attack_alone" in st and len(eligible) == 1:
             continue  # (it can't attack at all: alone is the only way it could)
-        places = [t for t in targets if "attack_needs_island" not in st
+        places = [t for t in targets if ("attack_needs_island" not in st
                   or _controls_land(plan.state, t if t in plan.state.players else plan.state.cards[t].controller,
-                                    "Island", plan.info)]
+                                    "Island", plan.info)) and not attack_forbidden(plan, ch, t)]  # (wave 4L)
         if not places:
             continue
 
@@ -351,6 +354,21 @@ def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declare
                 return f"{card.name} is goaded: it attacks each combat if able"
             return f"{card.name} is goaded: it attacks a player other than {who} if able"
     return None
+
+
+def attack_forbidden(plan: Plan, ch: Characteristics, target: str) -> bool:
+    """-- attached events (wave 4L) -- 508.1c: "can't attack you [or planeswalkers you control]" (rules
+    ``cant_attack_player:<player>`` / ``cant_attack_player_pw:<player>``, "you" being the static's controller)."""
+    for rule in ch.imposed:
+        name, _, who = rule.partition(":")
+        if name not in ("cant_attack_player", "cant_attack_player_pw"):
+            continue
+        if target == who:
+            return True
+        card = plan.state.cards.get(target)
+        if name == "cant_attack_player_pw" and card is not None and card.controller == who                 and "Planeswalker" in plan.ch(card).types:
+            return True
+    return False
 
 
 # -- declare blockers -------------------------------------------------------------------

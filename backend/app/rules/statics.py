@@ -173,7 +173,10 @@ def parse(text: str) -> Definition | None:
     body = re.sub(r"^(?P<s>it|~) gets an additional (?P<pt>[+−-]\d+/[+−-]\d+)$", r"\g<s> gets \g<pt>", body)  # (Bladed Pinions-style)
     # layer 4 (613.1d) on the source itself: "~ isn't a creature" (Theros gods), "… and is a Knight in addition to
     # its other types" (205.1b)
-    layer4 = _layer4_parts(body)
+    # -- attached events (wave 4L) -- "Enchanted creature … is an Angel in addition to its other types": the attached
+    # object's own types (app/rules/attached_types.py), not the source's
+    attached_body = re.match(r"(?:enchanted|equipped) (?:creature|permanent|land) ", body, re.I) is not None
+    layer4 = None if attached_body else _layer4_parts(body)
     if layer4 is not None:
         if defender_sel or rule_cond or x_phrase is not None or not conds or not all(_layer4_safe(c) for c in conds):
             return None
@@ -185,6 +188,10 @@ def parse(text: str) -> Definition | None:
         # "As long as equipped creature is legendary, it has hexproof.": "it" is the object the condition names
         body = f"{attached_cond['who'].capitalize()} {attached_cond['noun']}{body[2:]}"
     subject, predicate = _split_subject(body)
+    # -- attached events (wave 4L) -- "Enchanted creature loses all abilities and is a …" (verbs the split doesn't know)
+    m = re.match(r"(?P<s>(?:Enchanted|Equipped) (?:creature|permanent|land)) (?P<p>(?:loses|is) .+)$", body)
+    if m is not None:
+        subject, predicate = m["s"], m["p"]
     if subject is None or predicate is None:
         return None
     who, kind = _subject(subject)
@@ -205,6 +212,14 @@ def parse(text: str) -> Definition | None:
     parts = _predicate(predicate, x_value, it)
     if parts is None:
         return None
+    # -- attached events (wave 4L) --
+    from app.rules import attached_types
+
+    extra = parts.pop("extra")
+    if extra and (who != "attached" or conds or x_value is not None or defender_sel or rule_cond):
+        return None  # (layers 4-6 parts of a static: only an Aura's or Equipment's, unconditional)
+    if extra and not attached_types.consistent(extra, kind):
+        return None
     if x_value is not None and parts["each"] is None:
         return None  # ("where X is …" with no X in the sentence)
     if who == "self" and not conds and not parts["rules"] and parts["each"] is None:
@@ -222,6 +237,8 @@ def parse(text: str) -> Definition | None:
         return None  # -- conditional statics (wave 4B) -- a card in a graveyard is no permanent to grant to
     if layer4 is not None:
         return {**_definition(who, kind, conds, **parts), **layer4[1]}
+    if extra:  # -- attached events (wave 4L) --
+        return {**_definition(who, kind, conds, **parts), **extra}
     return _definition(who, kind, conds, **parts)
 
 
@@ -418,15 +435,35 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
     rules: list[str] = []
     each: dict[str, Any] | None = None
     verb: str | None = None
+    # -- attached events (wave 4L) -- "protection from black and from green" is one keyword (702.16g): not split
+    if "protection from " in predicate and '"' not in predicate:
+        predicate = re.sub(r"(?:,| and|, and) from ", _FROM_JOIN, predicate)
+    # -- attached events (wave 4L) --
+    from app.rules import attached_types
+
+    extra: dict[str, Any] = {}
+    predicate = attached_types.protect(predicate)
     for piece in _pieces(predicate):
         rule = _rule(piece)
         if rule is not None:
             rules.extend(r for r in rule if r not in rules)
             continue
+        # -- attached events (wave 4L) -- "loses flying", "loses all abilities", "is a green Elk creature with base
+        # power and toughness 3/3", "is legendary": layers 4-6 (app/rules/attached_types.py)
+        found = attached_types.piece(piece, extra)
+        if found is not None:
+            if found is False:
+                return None
+            if isinstance(found, list):
+                if base is not None:
+                    return None
+                base = found
+            verb = "is"
+            continue
         m = re.match(r"^(?P<verb>gets?|ha(?:s|ve)) (?P<rest>.+)$", piece)
         if m:
             verb, rest = ("get" if m["verb"].startswith("get") else "have"), m["rest"]
-        elif verb is None:
+        elif verb is None or verb == "is":
             return None
         else:
             rest = piece  # "has flying and vigilance": the verb carries over
@@ -457,10 +494,37 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         if rest in GRANTABLE_KEYWORDS:
             keywords.append(rest)
             continue
+        line = keyword_line(rest.replace(_FROM_JOIN, " and from "))  # -- attached events (wave 4L) --
+        if line is not None:
+            grants.append(line)
+            continue
         return None
-    if not (p or t or base or keywords or grants or rules or each):
+    if not (p or t or base or keywords or grants or rules or each or extra):
         return None
-    return {"p": p, "t": t, "base": base, "keywords": keywords, "grants": grants, "rules": rules, "each": each}
+    return {"p": p, "t": t, "base": base, "keywords": keywords, "grants": grants, "rules": rules, "each": each,
+            "extra": extra}
+
+
+# -- attached events (wave 4L) ---------------------------------------------------------------------------------
+# Keyword abilities with a parameter a static may grant ("Equipped creature gets +2/+2 and has protection from black
+# and from green.", "… has lifelink and ward {2}.", "… has toxic 2."): granted as the keyword line itself (layer 6,
+# 613.1f), which the engine reads wherever it reads printed ones: protection (702.16, app/rules/protection.py:
+# targeting, blocking, damage, attachments), ward (702.21a: each instance triggers, triggers.ward_costs), toxic
+# (702.164: combat.py). Only qualities and costs the engine enforces (coverage._keyword_supported).
+_FROM_JOIN = "\u0001from "
+_PARAM_KEYWORDS = ("protection", "ward", "toxic")
+
+
+def keyword_line(rest: str) -> str | None:
+    """"protection from creatures" / "ward {2}" / "toxic 1" → the keyword line to grant ("Protection from
+    creatures"), or None."""
+    from app.rules.coverage import _keyword_supported  # (coverage imports this module through scripts)
+
+    word = rest.split(" ", 1)[0]
+    if word not in _PARAM_KEYWORDS or not re.fullmatch(r"[a-z]+ [\w{}, ]+", rest):
+        return None
+    line = rest[0].upper() + rest[1:]
+    return line if _keyword_supported(word, line) else None
 
 
 # -- rules (restrictions and requirements) ----------------------------------------------------
@@ -495,6 +559,10 @@ RULES: dict[str, tuple[str, ...]] = {
 # opponents control with power less than ~'s power are goaded." (701.15b: goaded by the controller of the
 # permanent that caused it — "@you" becomes the static's controller where app/rules/layers.py applies it)
 RULES.update({"is goaded": ("goaded:@you",), "are goaded": ("goaded:@you",)})
+# -- attached events (wave 4L) -- "Enchanted creature … can't attack you or planeswalkers you control." (Vow of Duty;
+# 508.1c: a restriction on where it attacks — "you" is the Aura's controller, app/rules/combat.py ``attack_forbidden``)
+RULES.update({"can't attack you or planeswalkers you control": ("cant_attack_player_pw:@you",),
+              "can't attack you": ("cant_attack_player:@you",)})
 # -- conditional statics (wave 4B) -- 702.3b: a creature with defender can't attack; this lets it (app/rules/combat.py)
 RULES.update({"can attack as though it didn't have defender": ("attack_despite_defender",),
               "can attack as though they didn't have defender": ("attack_despite_defender",)})

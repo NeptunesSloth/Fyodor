@@ -132,7 +132,7 @@ def _legacy_trigger(cond: dict[str, Any]) -> str | None:
     """Plain self conditions the engine already fires by name ("When ~ dies" → dies_self); one with
     more to it ("~ attacks alone", "~ attacks or blocks") is matched generically."""
     if cond.get("event") == "multi":
-        if cond.get("other") or not all(e in _LEGACY_SELF for e in cond["events"]):
+        if cond.get("other") or cond.get("subject") == "host" or not all(e in _LEGACY_SELF for e in cond["events"]):
             return None
         return "multi:" + "+".join(_LEGACY_SELF[e] for e in cond["events"])
     if cond.get("subject") == "self" and cond["event"] in _LEGACY_SELF and set(cond) == {"event", "subject"}:
@@ -255,6 +255,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         # exile that creature": the creature on the other side, which the event doesn't name
         return None
     if event == "multi":
+        if cond.get("subject") == "host":  # -- attached events (wave 4L) -- the attacking / blocking creature
+            return "event" if all(x in _STAYING for x in cond["events"]) else None
         return "self" if all(x in _STAYING for x in cond["events"]) else None
     if name.endswith("_self") or cond.get("subject") == "self":
         if event in _GONE or event == "sacrifice":
@@ -1104,8 +1106,10 @@ def _no_regeneration(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
     return [{"do": "no_regen"}], None  # the destruction of this spell/ability ignores regeneration shields
 
 
-@effect(r"regenerate (?P<who>~|it|target creature|target creature you control)")
+@effect(r"regenerate (?P<who>~|it|target creature|target creature you control|enchanted creature|equipped creature)")
 def _regenerate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if m["who"] in ("enchanted creature", "equipped creature"):  # -- attached events (wave 4L) -- (701.19a)
+        return [{"do": "regenerate", "who": "host"}], None
     if m["who"] in ("~", "it"):
         return [{"do": "regenerate", "who": _self_or_it(m["who"])}], None
     return [{"do": "regenerate", "who": "target"}], SELECTORS[m["who"]]
@@ -1256,7 +1260,18 @@ def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     granted = permissions.parse_clause(text)
     if granted is not None:
         return granted
-    return language.parse_sentence(text)
+    found_sentence = language.parse_sentence(text)
+    # -- attached events (wave 4L) -- "you untap all lands you control" / "you create a Treasure token": an
+    # instruction with "you" spelled out is the imperative one (the controller does it either way), read as such
+    # when it isn't read with the subject ("… that player discards a card and you untap all lands you control")
+    if found_sentence is None and (m := _YOU_IMPERATIVE.match(text)) is not None:
+        return _one_clause(text[m.end():])
+    return found_sentence
+
+
+# -- attached events (wave 4L) --
+_YOU_IMPERATIVE = re.compile(r"you (?=(?:create|untap|tap|put|return|exile|destroy|scry|surveil|proliferate|"
+                             r"investigate|sacrifice|discard|mill|shuffle)\b)")
 
 
 def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
@@ -1987,7 +2002,12 @@ def granted_ability(text: str) -> AbilityText | None:
     if ab.kind == "keywords":
         from app.rules.coverage import SUPPORTED_KEYWORDS
 
-        return ab if set(ab.keywords) <= SUPPORTED_KEYWORDS else None
+        if set(ab.keywords) <= SUPPORTED_KEYWORDS:
+            return ab
+        # -- attached events (wave 4L) -- "Protection from red", "Ward {2}", "Toxic 1"
+        from app.rules import statics
+
+        return ab if statics.keyword_line(ab.text[0].lower() + ab.text[1:]) == ab.text else None
     probe = Characteristics(name="\u0000", abilities=(ab,))
     return ab if define(ab, probe) is not None else None
 
@@ -2065,6 +2085,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             return sagas.chapter_definition(ability, ch)
         if ability.kind == "keywords":
             return sagas.read_ahead_definition(ability, ch)
+    if ability.kind == "triggered" and text.startswith("Whenever enchanted land is tapped for mana"):
+        # -- attached events (wave 4L) -- a triggered mana ability (605.1b)
+        from app.rules import attached_mana
+
+        return attached_mana.definition(text)
     if ability.kind == "static":
         # replacement / prevention effects of the permanent itself (the block at the end of this
         # module): "~ enters tapped [unless …]", shock lands, "~ enters with … counters", "If ~ would
@@ -2129,7 +2154,14 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if _trigger_antecedent(name, cond) is None:  # -- step triggers (wave 4J) -- "At the beginning of your draw
                     # step, if this artifact is tapped, it deals 1 damage to you." (Mana Vault): the only object named is ~
                     body = re.sub(r"^(if ~ is (?:tapped|untapped)), it deals ", r"\1, ~ deals ", body)
+                # -- attached events (wave 4L) -- "Whenever enchanted player is attacked, create a Gold token. Each
+                # opponent attacking that player does the same." (app/rules/attached_players.py)
+                from app.rules import attached_players
+
+                same, body = attached_players.split_same(body, cond)
                 parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
+                if same and parsed is not None:
+                    parsed = attached_players.does_the_same(parsed)
                 if parsed is None:  # -- this-turn history (wave 4D) -- "…, if [condition], you may …" (603.4 + 603.5)
                     parsed = _intervening_may(body, _trigger_antecedent(name, cond), has_player)
                 if parsed is None:
