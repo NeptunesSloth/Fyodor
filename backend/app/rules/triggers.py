@@ -743,7 +743,10 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         source=info.get("source_ref") or (
                             _source_ref(plan, info.get("source_oid")) if kind == "dealt_damage" else None),
                         amount=int(info.get("amount") or 0), count=1,
-                        defended=info.get("defended") if kind == "you_attack" else _attack_defended(plan, kind, obj))
+                        defended=info.get("defended") if kind == "you_attack" else _attack_defended(plan, kind, obj),
+                        # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
+                        other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
+                        if kind in _PAIRED.values() and info.get("other") in plan.state.cards else None)
 
 
 def _attack_defended(plan: Plan, kind: str, obj: CardInstance | None) -> str | None:
@@ -1483,9 +1486,25 @@ def _identical(plan: Plan, player: str, mine: list[PendingTrigger]) -> bool:
         and not any(t.ability.get("target") or t.ability.get("targets") for t in mine)
 
 
+# -- damage wordings (wave 6B) --
+def bind_that_player(t: PendingTrigger) -> None:
+    """"Whenever ~ deals combat damage to a player, destroy target artifact that player controls": the selectors' "that
+    player" (controller "that_player") becomes the one player the trigger event is about, as the ability is put on the
+    stack and its targets are chosen (603.3d, 608.2k) — "player:<id>", kept for the 608.2b check. An event with no
+    single player leaves it unbound (nothing matches: no legal target)."""
+    marker = '\\"controller\\":\\"that_player\\"'
+    raw = json.dumps(t.ability)
+    players = list(t.event.players) if t.event is not None else []
+    if marker not in raw or len(players) != 1:
+        return
+    t.ability = json.loads(raw.replace(marker, f'\\"controller\\":\\"player:{players[0]}\\"'))
+# -- end damage wordings (wave 6B) --
+
+
 def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
     """Put one trigger on the stack. False if it waits for its controller's target choice.
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
+    bind_that_player(t)  # -- damage wordings (wave 6B) --
     if t.ability.get("modes"):  # -- modal triggered abilities (wave 1A): the modes first (603.3c, 700.2b) --
         from app.rules import modal_abilities
 

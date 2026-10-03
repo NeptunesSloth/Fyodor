@@ -793,8 +793,9 @@ def _renumber(value: Any, index: list[int] | None) -> Any:
         if k in _TARGET_REFS and isinstance(v, str) and (v == "target" or v.startswith("target:")):
             local = 0 if v == "target" else int(v[7:])
             v = "target" if index is None else f"target:{index[local]}"
-        elif k in _TARGET_REFS and isinstance(v, str) and v.startswith("controlled:target"):
+        elif k in _TARGET_REFS and isinstance(v, str) and re.match(r"controlled:target(?::\d+)?\|", v):
             # -- static wordings (wave 6E) -- "creatures target player controls": the player is the clause's target too
+            # (only "target" / "target:<k>": "controlled:target_player_or_controller|…" is 6B's player reference)
             players, _, key = v[len("controlled:"):].partition("|")
             local = 0 if players == "target" else int(players[7:])
             v = f"controlled:{'target' if index is None else f'target:{index[local]}'}|{key}"
@@ -2500,11 +2501,24 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # additional card.": a triggered ability that draws, after the draw of 504.1 (504.2)
                     body = re.sub(r"^draw (an|two|three) additional (cards?)\.$",
                                   lambda m: f"draw {'a' if m[1] == 'an' else m[1]} {m[2]}.", body)
-                # -- other side (wave 6D) -- "… blocks a creature, destroy that creature" (app/rules/other_side.py)
+                # -- other side (wave 6D) -- "… blocks a creature, destroy that creature. You gain life equal to that
+                # creature's toughness" / "… deals damage to a creature, …": the event's object (app/rules/other_side.py)
                 from app.rules import other_side
 
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
                 parsed = parse_effects(body, it=ante, event_player=has_player)
+                # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
+                # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
+                if parsed is None and cond is not None and cond.get("other") and cond.get("subject", "self") == "self" and (
+                        cond["event"] in ("block", "blocked")
+                        or (cond["event"] == "multi" and set(cond["events"]) <= {"block", "blocked"})):
+                    from app.rules.language import OTHER_SIDE
+
+                    body = re.sub(r"^it deals ", "~ deals ", body)
+                    body = body.replace("that creature's controller", OTHER_SIDE + "'s controller")
+                    body = body.replace("that creature", OTHER_SIDE)
+                    ante = _trigger_antecedent(name, cond)
+                    parsed = parse_effects(body, it=ante, event_player=has_player)
                 if same and parsed is not None:
                     parsed = attached_players.does_the_same(parsed)
                 if parsed is None:  # -- this-turn history (wave 4D) -- "…, if [condition], you may …" (603.4 + 603.5)
@@ -2662,6 +2676,22 @@ def _event_refs_ok(d: Definition) -> bool:
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
     if not _event_spell_ok(d):  # -- refused copy/mana (wave 3R3) --
         return False
+    # -- damage wordings (wave 6B) -- "target artifact that player controls": the one player a trigger is about, bound
+    # as it's put on the stack (triggers.bind_that_player) — never in a spell, nor beside a target player (which one?)
+    # "target creature blocking it" / "it's blocking": "it" must be the source itself, still there to be read (a cost that
+    # sacrifices it — Tinder Wall — leaves only its last known block, which isn't kept)
+    if "blocking_source" in json.dumps(d) or "blocked_by_source" in json.dumps(d):
+        self_trigger = d.get("kind") == "triggered" and _trigger_antecedent(str(d.get("trigger")), d.get("cond")) == "self"
+        mine = d.get("kind") == "activated" and not re.search(r"\b[Ss]acrifice (?:this|~)", str(d.get("cost")))
+        if not (self_trigger or mine):
+            return False
+    if '\\"controller\\":\\"that_player\\"' in json.dumps(d):
+        cond = d.get("cond") if d.get("trigger") == "event" else None
+        about_player = step_names_player(d) or (cond is not None and cond["event"] != "multi" and _has_player(cond))
+        specs = [d.get("target") or {}, *(d.get("targets") or [])]
+        if not about_player or any(str(s.get("what")) in ("player", "opponent", "any", "player_or_planeswalker",
+                                                         "opponent_or_planeswalker") for s in specs):
+            return False
     wants_player = any(e.get("who") in ("event_player", "each_other_opponent")
                        or str(e.get("who")).startswith("controlled:event_player|") for e in effects) \
         or any(e.get("player") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E)
@@ -2959,6 +2989,9 @@ _PREVENT_TARGETS = {  # what the damage would be dealt to → (players, objects)
     "you": ("you", None), "players": ("all", None), "each player": ("all", None), "~": (None, "self"),
     "enchanted creature": (None, "attached"), "equipped creature": (None, "attached"),
     "you and creatures you control": ("you", "creatures you control"),
+    # -- damage wordings (wave 6B) -- The Wanderer ("other": not itself), Endure
+    "you and other permanents you control": ("you", "other permanents you control"),
+    "you and permanents you control": ("you", "permanents you control"),
 }
 _PREVENT_SOURCES = {"~": "self", "enchanted creature": "attached", "equipped creature": "attached"}
 
@@ -3079,6 +3112,11 @@ def _prevent_scope(kind: str | None, to: str | None, by: str | None) -> tuple[De
 def parse_prevent_all(text: str) -> tuple[Definition, bool, str | None, str | None] | None:
     """"Prevent all …" (one sentence, no trailing period, first letter lower-cased) → (scope, this
     turn?, target selector, role)."""
+    # -- damage wordings (wave 6B) -- "… dealt to and dealt by creatures you control" (Statecraft): either side in the group
+    g = re.fullmatch(r"prevent all (?P<kind>combat |noncombat )?damage that would be dealt to and dealt by (?P<g>creatures .+)", text)
+    if g and (key := _selector_key(g["g"])) is not None:
+        return ({"combat": {"combat ": True, "noncombat ": False}.get(g["kind"] or ""), "to_objects": key, "by_objects": key,
+                 "to_or_by": True}, False, None, None)
     m = PREVENT_TO_AND_BY.fullmatch(text)
     if m:
         what = _PREVENT_SOURCES[m["x"]]

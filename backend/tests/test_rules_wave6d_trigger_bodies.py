@@ -38,11 +38,10 @@ EXTRA = [
     card('Ancestral Blade', set_code="tst", number="D13", mana_cost='{1}{W}', cmc=2.0, type_line='Artifact — Equipment', oracle_text='When this Equipment enters, create a 1/1 white Soldier creature token, then attach this Equipment to it.\nEquipped creature gets +1/+1.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)', colors=['W'], color_identity=['W'], keywords=['Equip']),  # noqa: E501
     card('Pestermite', set_code="tst", number="D14", mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Faerie Rogue', oracle_text='Flash\nFlying\nWhen this creature enters, you may tap or untap target permanent.', power='2', toughness='1', colors=['U'], color_identity=['U'], keywords=['Flying', 'Flash']),  # noqa: E501
 ]
-FULL = ["Gorgon Recluse", "Engulfing Slagwurm", "Ohran Viper", "Kashi-Tribe Reaver", "Wall of Junk", "Shrieking Specter",
+FULL = ["Acolyte of the Inferno", "Gorgon Recluse", "Engulfing Slagwurm", "Ohran Viper", "Kashi-Tribe Reaver", "Wall of Junk", "Shrieking Specter",
         "Thraximundar", "Slate Street Ruffian", "Jhoira, Weatherlight Captain", "Hero's Blade", "Ancestral Blade",
         "Pestermite"]
 STILL_MANUAL = {
-    "Acolyte of the Inferno": "it deals 2 damage to that creature",  # ("it" before "that creature": the source)
     "Brutal Hordechief": "Creatures your opponents control block this turn if able",  # (its trigger is read)
 }
 
@@ -79,7 +78,7 @@ def defined(text, type_line="Creature — Test"):
     "{T}: Defending player loses 1 life.",
     "Whenever this creature blocks, defending player loses 1 life.",  # a blocker has no defending player of its own
     "Whenever this creature attacks or blocks, defending player loses 1 life.",
-    "Whenever this creature becomes blocked by a creature, it deals 2 damage to that creature.",
+    "Whenever this creature deals damage to a creature, it deals 2 damage to that creature.",  # (a block: wave 6B)
 ])
 def test_wordings_that_stay_manual(text):
     assert not defined(text), text
