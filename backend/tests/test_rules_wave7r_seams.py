@@ -7,6 +7,7 @@ import pytest
 
 from app.game.errors import ActionError
 from app.rules import mana as M
+from tests.game_helpers import act
 from tests.test_rules_combat import attack, automate, block, creature, table
 from tests.test_rules_effects import replay_matches
 
@@ -37,3 +38,35 @@ def test_power_up_with_snow_is_not_read():
     assert not power_up.readable(ch("{1}{G}"), "{S}{G}")
     assert power_up.readable(ch("{1}{G}"), "{2}{G}")
     assert M.parse_cost("{S}").colored == ("S",)
+
+
+# -- 122.1c: shield counters in combat -----------------------------------------------------------------------------------
+def _shield(s, c, n=1):
+    act(s, c.controller, type="counter", card_ids=[c.id], kind="shield", delta=n)
+
+
+def test_two_blockers_use_up_one_shield_counter_and_deathtouch_does_not_kill(cards):
+    s = table(cards)
+    rhino = creature(s, "p1", "Rhino", "6/3", "Trample")
+    _shield(s, rhino)
+    a = creature(s, "p2", "Viper", "1/1", "Deathtouch")
+    b = creature(s, "p2", "Wall", "0/4")
+    automate(s)
+    attack(s, (rhino, "p2"))
+    block(s, "p2", (a, rhino), (b, rhino))
+    r = s.state.cards[rhino.id]
+    assert r.zone == "p1:battlefield" and not r.counters.get("shield") and r.damage == 0  # all prevented, one counter
+    replay_matches(s)
+
+
+def test_a_shield_counter_protects_only_its_own_permanent(cards):
+    s = table(cards)
+    bear = creature(s, "p2", "Bear", "2/2")
+    mine = creature(s, "p1", "Mine", "2/2")
+    _shield(s, bear)
+    automate(s)
+    attack(s, (mine, "p2"))
+    block(s, "p2", (bear, mine))
+    assert mine.id not in s.state.cards  # (a token ceases to exist) the unshielded one took its 2 damage and died
+    assert s.state.cards[bear.id].zone == "p2:battlefield" and not s.state.cards[bear.id].counters.get("shield")
+    replay_matches(s)

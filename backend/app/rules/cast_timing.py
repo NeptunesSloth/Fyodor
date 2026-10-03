@@ -25,7 +25,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from app.game.state import COMBAT_PHASES, PHASES
+from app.game.state import PHASES
 
 if TYPE_CHECKING:
     from app.game.state import CardInstance, GameState
@@ -62,10 +62,7 @@ def _clause(clause: str) -> dict[str, Any] | None:
     if m:
         return {"kind": "if", "text": clause, "cond": {"versus": {"value": {"count": 'sel:{"controller":"you","types":["Creature"]}'},
                                                                 "op": ">", "every": True}}}
-    found = restrictions._clause(clause)
-    if found is not None and re.fullmatch(r"before (?:attackers|blockers) are declared|before the combat damage step", clause):
-        found = {**found, "first_combat": True}  # -- review (wave 7R) -- 506.8d (see problem)
-    return found
+    return restrictions._clause(clause)
 
 
 def definition(text: str) -> dict[str, Any] | None:
@@ -94,9 +91,4 @@ def problem(state: GameState, player: str, card: CardInstance, ch: Characteristi
             why = restrictions.problem(state, player, card, index, d["restrictions"], Plan.view(state, player, info))
             if why:
                 return why.replace("activated", "cast")
-            # -- review (wave 7R) -- 506.8d: "only before [a point in combat]" (without "during combat") counts the turn's
-            # first combat phase only: in an additional combat phase the point has long passed
-            if any(x.get("first_combat") for x in d["restrictions"]) and state.turn.phase in COMBAT_PHASES \
-                    and state.rules.combats > 1:
-                return "That can only be cast before the first combat phase's point it names (506.8d)"
     return None

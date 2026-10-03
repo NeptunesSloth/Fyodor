@@ -40,6 +40,9 @@ ORACLE = {
     'Massacre Girl': ('{3}{B}{B}', 5.0, 'Legendary Creature — Human Assassin',
         'Menace\nWhen Massacre Girl enters, each other creature gets -1/-1 until end of turn. Whenever a creature dies this turn, each creature other than Massacre Girl gets -1/-1 until end of turn.',
         '4', '4', ['B']),
+    'Angus Mackenzie': ('{G}{W}{U}', 3.0, 'Legendary Creature — Human Cleric',
+        '{G}{W}{U}, {T}: Prevent all combat damage that would be dealt this turn. Activate only before the combat damage step.',
+        '2', '2', ['G', 'W', 'U']),
     'Heavy Fog': ('{1}{G}', 2.0, 'Instant',
         "Cast this spell only during the declare attackers step and only if you've been attacked this step.\nPrevent all damage that would be dealt to you this turn by attacking creatures.",
         None, None, ['G']),
@@ -623,3 +626,27 @@ def test_any_player_activation_taps_the_activators_lands_not_the_controllers(car
     settle(s)
     assert pt(s, soldier) == (3, 3)
     check(s)
+
+
+def test_an_activation_only_before_the_combat_damage_step_is_the_first_combat_only(cards):
+    """506.8d / 506.8g: "Activate only before the combat damage step" (Angus Mackenzie) in an additional combat phase has
+    long passed that point of the turn's first combat."""
+    from app.rules import casting
+
+    s = build(cards, "Angus Mackenzie")
+    angus = put(s, "Angus Mackenzie")
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[angus.id])
+    ab = next(a for a in ch.abilities if "Prevent all combat damage" in a.text)
+
+    def problem():
+        plan = Plan(s.state, "p1", s.cards, None)
+        return casting.ability_problem(s.state, "p1", s.state.cards[angus.id], ch, ab, casting.ability_cost(ch, ab),
+                                       check_priority=False, info=plan.info, plan=plan)
+
+    s.state.turn.phase = "declare_blockers"
+    s.state.rules.combats = 1
+    assert "506.8d" not in (problem() or "")
+    s.state.rules.combats = 2
+    assert "506.8d" in (problem() or "")
+    s.state.turn.phase = "main2"
+    assert "506.8d" not in (problem() or "") and problem() is not None  # (no longer a step before the damage step)
