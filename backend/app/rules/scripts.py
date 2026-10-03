@@ -3276,7 +3276,7 @@ def _from_language(found: tuple[list[dict[str, Any]], Any] | None) -> tuple[list
 
 
 @effect(r"sacrifice (?P<o>them|those tokens|those creatures|the tokens|those permanents|that creature|that token|"
-        r"the token|that permanent|that card)")
+        r"the token|that permanent|that card|the creature|that artifact)")  # (the creature / that artifact: wave 6A)
 def _sacrifice_pronoun(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
@@ -4173,6 +4173,21 @@ from app.rules import source_shields as _source_shields  # noqa: E402
 # (and 614.10 skips: app/rules/skips.py; 614.17 "can't gain life": app/rules/cant_gain.py; flashback and "you may play
 # this card" granted to graveyard cards: app/rules/graveyard_grants.py)
 EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLATES, *_graveyard_grants.TEMPLATES]
+# -- next untap step (wave 6A) -- "… doesn't untap during its controller's next untap step" (app/rules/next_untap.py)
+from app.rules import next_untap as _next_untap  # noqa: E402
+
+EFFECTS[:0] = _next_untap.TEMPLATES
+# -- bounce forms (wave 6A) -- "Return a permanent you control to its owner's hand." … (app/rules/bounce_forms.py):
+# after the older literal templates ("return a land you control …": effects.return_yours)
+from app.rules import bounce_forms as _bounce_forms  # noqa: E402
+
+EFFECTS.extend(_bounce_forms.TEMPLATES)
+# -- turn grants (wave 6A) -- "can't be blocked by Walls this turn", one subject for two grants (app/rules/turn_grants.py)
+from app.rules import turn_grants as _turn_grants  # noqa: E402
+
+EFFECTS[:0] = _turn_grants.TEMPLATES
+_RECORDING["bounce_together"] = "returned"
+_MOVERS.add("bounce_together")
 from app.rules import graveyard_exile as _graveyard_exile  # noqa: E402, I001  -- graveyard exile (wave 4J) --
 
 EFFECTS[:0] = _graveyard_exile.TEMPLATES  # "Exile target player's graveyard." (app/rules/graveyard_exile.py)
@@ -4297,3 +4312,7 @@ from app.rules import stack_interaction as _stack_interaction  # noqa: E402, I00
 
 EFFECTS[:0] = _stack_interaction.TEMPLATES
 # -- end stack interaction (wave 5B) --
+
+# -- turn grants (wave 6A) -- one subject for two grants ("… gains vigilance until end of turn and can't be blocked this
+# turn"): after every other template (it defers to the generic grammar first: app/rules/turn_grants.py)
+EFFECTS.extend(_turn_grants.LAST)

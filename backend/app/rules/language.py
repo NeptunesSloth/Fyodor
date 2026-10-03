@@ -1443,11 +1443,11 @@ def bare_pronoun_grant(text: str) -> Effects | None:
     and haste." after an instruction that put the object onto the battlefield (Puppeteer Clique, Sneak Attack): no
     duration is stated, so the grant lasts as long as that object exists (611.2a, 400.7). Read for a whole sentence
     only (scripts._parse_effects): inside "Until end of turn, … and it gains first strike" the lead's duration rules."""
-    m = re.fullmatch(rf"(?P<o>it|that creature|that token|they|those creatures|those tokens) gains? (?P<kw>{_KW_ONLY})", text)
+    m = re.fullmatch(rf"(?P<o>it|that creature|that token|they|those creatures|those tokens|that artifact) gains? (?P<kw>{_KW_ONLY})", text)  # (that artifact: wave 6A)
     if m is None:
         return None
     try:
-        kind, _key, _group = ref(m["o"])
+        kind, _key, _group = ref("it" if m["o"] == "that artifact" else m["o"])  # (wave 6A: Arms Race)
         e = _grant_effect(_who(kind, _key), m["kw"])
     except _Fail:
         return None
@@ -1717,6 +1717,7 @@ COMPOUND = (rf"(?P<s>target player|target opponent|each player|each opponent|eac
 _PRONOUN_SACRIFICE = {"them": "them", "those tokens": "them", "those creatures": "them", "the tokens": "them",
                       "those permanents": "them", "that creature": "it", "that token": "it", "the token": "it",
                       "that permanent": "it", "that card": "it"}
+_PRONOUN_SACRIFICE.update({"the creature": "it", "that artifact": "it"})  # -- permanent effects (wave 6A) -- Sneak Attack, Arms Race
 _OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)? under (?:their|its) owner's control$")
 
 

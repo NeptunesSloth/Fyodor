@@ -774,6 +774,9 @@ class RulesState(BaseModel):
     # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't
     # untap during that player's next untap step (app/rules/engine.start_next_turn)
     exerted: dict[str, str] = Field(default_factory=dict)
+    # -- next untap step (wave 6A) -- "doesn't untap during its controller's / your next untap step" (502.3;
+    # app/rules/next_untap.py): {"oid": object id, "player": a player id, or "controller" (read at the untap step)}
+    stay_tapped: list[dict[str, str]] = Field(default_factory=list)
     once_per_turn: dict[str, int] = Field(default_factory=dict)  # "<card>:<ability>" -> turn it was activated
     # Activation restrictions and trigger limits (app/rules/restrictions.py): how many times an
     # object's ability was activated / triggered — "<object id>:<ability index>:t<turn>" -> count this
