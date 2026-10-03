@@ -167,6 +167,8 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
         worded = ("Exhaust", line[len("Exhaust — "):])  # (its "Activate only once": restrictions.parse)
     if line.startswith("Boast — ") and ":" in line:  # -- activation costs (wave 4H) -- 702.142a (restrictions.parse)
         worded = ("Boast", line[len("Boast — "):])
+    if line.startswith("Power-up — ") and ":" in line:  # -- counters (wave 7C) -- 702.193a (restrictions.parse, power_up.py)
+        worded = ("Power-up", line[len("Power-up — "):])
     if worded is not None:  # (wave 4F: channel is read, 113.6m)
         cost = worded[1].split(":", 1)[0]
         if _COST_START.match(cost) and len(cost) < 120:

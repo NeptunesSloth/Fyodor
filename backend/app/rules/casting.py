@@ -2490,6 +2490,10 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
         # -- cost changers (wave 4I) -- and the ability's own "This ability costs {1} less to activate for each …" (602.2b)
         from app.rules import cost_changes  # (a leaf over this module)
 
+        if ability.text.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193a: reduced by its mana cost this turn
+            from app.rules import power_up
+
+            cost = replace(cost, mana=power_up.reduced(state, card, ch, cost.mana))
         own = cost_changes.ability_delta(state, card.controller, card, ch, ability.text, info) \
             if "This ability costs " in ability.text else 0
         reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own)

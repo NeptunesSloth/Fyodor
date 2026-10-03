@@ -54,6 +54,8 @@ EXTRA = [
     card('Wingfold Pteron', set_code='tst', number='T7C31', mana_cost='{5}{U}', cmc=6.0, type_line='Creature — Dinosaur', oracle_text="This creature enters with your choice of a flying counter or a hexproof counter on it. (A creature with hexproof can't be the target of spells or abilities your opponents control.)", power='3', toughness='6', colors=['U'], color_identity=['U']),
     card('Helica Glider', set_code='tst', number='T7C32', mana_cost='{2}{W}', cmc=3.0, type_line='Creature — Nightmare Squirrel', oracle_text='This creature enters with your choice of a flying counter or a first strike counter on it.', power='2', toughness='2', colors=['W'], color_identity=['W']),
     card('Flycatcher Giraffid', set_code='tst', number='T7C33', mana_cost='{4}{G}', cmc=5.0, type_line='Creature — Antelope Lizard', oracle_text='This creature enters with your choice of a reach counter or a vigilance counter on it.', power='3', toughness='5', colors=['G'], color_identity=['G']),
+    card('Serpent Specialist', set_code='tst', number='T7C34', mana_cost='{G}', cmc=1.0, type_line='Creature — Human Snake Villain', oracle_text='Deathtouch\nPower-up — {3}{G}: Put two +1/+1 counters on this creature. (Activate each power-up ability only once. Reduce the cost by its mana cost if it entered this turn.)', power='1', toughness='1', colors=['G'], color_identity=['G'], keywords=['Power-up', 'Deathtouch']),
+    card("Captain Marvel, Earth's Protector", set_code='tst', number='T7C35', mana_cost='{3}{W}{W}', cmc=5.0, type_line='Legendary Creature — Human Kree Hero', oracle_text='Flash\nFlying, lifelink\nPower-up — {5}{W}{W}: Put a +1/+1 counter and an indestructible counter on Captain Marvel. (Activate each power-up ability only once. Reduce the cost by her mana cost if she entered this turn.)', power='5', toughness='4', colors=['W'], color_identity=['W'], keywords=['Flying', 'Power-up', 'Lifelink', 'Flash']),
 ]
 
 
@@ -374,4 +376,49 @@ def test_ferocious_tigorilla_enters_with_the_chosen_keyword_counter(cards):
 
 @pytest.mark.parametrize("name", ["Ferocious Tigorilla", "Boot Nipper", "Wingfold Pteron", "Helica Glider", "Flycatcher Giraffid"])
 def test_choice_of_counter_coverage(name):
+    assert cov(name) == "FULL"
+
+
+# -- power-up (702.193) --------------------------------------------------------------------------------------------
+def test_power_up_costs_less_the_turn_it_enters_and_only_once(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, "Serpent Specialist")
+    snake = cast(s, "Serpent Specialist", G=1)
+    settle(s)
+    assert zone(s, snake) == "p1:battlefield"
+    mana(s, C=2)
+    with pytest.raises(ActionError):  # {3}{G} less {G}: {3}
+        act(s, "p1", type="activate_ability", card_id=snake.id, ability=1)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=snake.id, ability=1)
+    settle(s)
+    assert counters(s, snake) == {"+1/+1": 2}
+    s = saved(s)
+    mana(s, C=3, G=1)
+    with pytest.raises(ActionError):  # activate this ability only once
+        act(s, "p1", type="activate_ability", card_id=snake.id, ability=1)
+    replay_matches(s)
+
+
+def test_power_up_costs_full_price_on_a_later_turn(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, "Serpent Specialist")
+    snake = cast(s, "Serpent Specialist", G=1)
+    settle(s)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and not s.state.zones.get("stack")
+          and s.state.rules.decision is None, limit=600)
+    mana(s, C=3)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=snake.id, ability=1)
+    mana(s, G=1)
+    act(s, "p1", type="activate_ability", card_id=snake.id, ability=1)
+    settle(s)
+    assert counters(s, snake) == {"+1/+1": 2}
+    replay_matches(saved(s))
+
+
+@pytest.mark.parametrize("name", ["Serpent Specialist", "Captain Marvel, Earth's Protector"])
+def test_power_up_coverage(name):
     assert cov(name) == "FULL"

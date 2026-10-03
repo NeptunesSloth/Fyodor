@@ -183,6 +183,8 @@ def self_text(text: str, name: str) -> str:
         out = out[len("Exhaust — "):]
     if out.startswith("Boast — "):  # -- activation costs (wave 4H) -- 702.142a (the restriction: restrictions.parse)
         out = out[len("Boast — "):]
+    if out.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193a (restrictions.parse, power_up.py)
+        out = out[len("Power-up — "):]
     if out == text and (worded := word_prefix(text)) is not None:  # -- refused zones/sized (wave 3R4) -- 207.2d
         out = worded[1]
     short = _short_name(name)
@@ -2466,6 +2468,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         # -- activation restrictions (app/rules/restrictions.py): the trailing "Activate only …"
         # sentences are split off the effect and enforced as it's activated (casting.ability_problem);
         # a restriction the engine doesn't read leaves the ability manual
+        if ability.text.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193: the reduction must be readable
+            from app.rules import power_up
+
+            if not power_up.readable(ch, cost.mana):
+                return None
         body, restriction = restrictions.split(text.split(":", 1)[1])
         parsed_restriction = restrictions.parse(text) if restriction is not None else []
         if parsed_restriction is None:

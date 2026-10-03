@@ -126,6 +126,8 @@ def parse(text: str) -> list[Restriction] | None:
     _, found = split(text.split(":", 1)[1] if ":" in text else text)
     # -- ability words (wave 4F) -- 702.177a: "Exhaust — [Cost]: [Effect]" means "[Cost]: [Effect]. Activate only once."
     exhaust: list[Restriction] = [{"kind": "per_game", "n": 1, "exhaust": True}] if text.startswith(EXHAUST) else []
+    if text.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193a: "Activate this ability only once."
+        exhaust = [{"kind": "per_game", "n": 1, "power_up": True}]
     if text.startswith(BOAST):  # -- activation costs (wave 4H) -- 702.142a
         exhaust = [{"kind": "if", "cond": {"history": "self_attacked", "object": "self"}, "text": "this creature attacked this turn"},
                    {"kind": "per_turn", "n": 1, "boast": True}]
