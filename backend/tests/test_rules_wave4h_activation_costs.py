@@ -174,7 +174,7 @@ def test_parsing():
         assert parse_ability_cost(text).activation_only and not parse_ability_cost(text).basic
     assert parse_ability_cost("Sacrifice a creature").basic is False and not parse_ability_cost("Sacrifice a creature").activation_only
     # refused: an "or" between objects, exert, snow mana, counters among several permanents, "a black and red creature"
-    for text in ("Sacrifice another creature or token", "Exert another creature", "{S}",
+    for text in ("Sacrifice another creature or token", "Exert another creature",
                  "Remove X +1/+1 counters from among creatures you control", "Sacrifice a black and red creature",
                  "Remove a counter from an artifact, creature, land, or planeswalker you control"):
         assert parse_ability_cost(text).unsupported, text

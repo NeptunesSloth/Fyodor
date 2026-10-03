@@ -630,7 +630,8 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
     _remember(plan, ctx, e, cards)
-    e = {**e, "rules": [r.replace("@you", ctx["controller"]) for r in e["rules"]]}  # -- combat (wave 5C) -- (Kardur)
+    e = {**e, "rules": [r.replace("@you", ctx["controller"]).replace("@src", ctx.get("source_object") or "")  # (@src: wave 7E)
+                        for r in e["rules"]]}  # -- combat (wave 5C) -- (Kardur)
     group = who.startswith(selectors.PREFIX) and not e.get("locked")
     duration = e.get("duration", "end_of_turn")
     if cards or group:
@@ -3335,3 +3336,11 @@ from app.rules import each_may as _each_may  # noqa: E402, I001
 
 PRIMITIVES.update(_each_may.PRIMITIVES)
 # -- end if you do (wave 6F) --
+# -- choice grants and switches (wave 7E) -- app/rules/choice_grants.py
+from app.rules import choice_grants as _choice_grants  # noqa: E402, I001
+
+PRIMITIVES.update(_choice_grants.PRIMITIVES)
+from app.rules import coin_flips as _coin_flips  # noqa: E402, I001  -- coin flips (wave 7E)
+
+PRIMITIVES.update(_coin_flips.PRIMITIVES)
+RESUME.update(_choice_grants.RESUME)
