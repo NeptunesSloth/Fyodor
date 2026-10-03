@@ -137,6 +137,11 @@ def test_step_triggers_of_an_emblem(cards):
     to_turn(s, 2, "main1")  # (Alice's end step passed)
     assert bf(s, "p1").count("Cat") == 3
     check(s)
+    s = build(cards)
+    get_emblem(s, 'You get an emblem with "At the beginning of your end step, create X 2/2 black Zombie creature tokens, where X is two plus the number of Zombies you control."')  # Liliana, the Last Hope
+    to_turn(s, 2, "main1")
+    assert bf(s, "p1").count("Zombie") == 2
+    check(s)
 
 
 def test_an_upkeep_trigger_of_an_emblem_is_its_controllers(cards):
