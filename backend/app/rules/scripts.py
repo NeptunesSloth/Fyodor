@@ -1892,6 +1892,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         return None
     if not _cast_conditions_ok(resolved) or not _did_refs_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
         return None
+    if not _coin_flips.refs_ok(resolved):  # -- coin flips (wave 7E) -- "If you win the flip" only after a flip
+        return None
     # -- "this way" outcomes (wave 4A) -- "discard your hand, then draw that many cards": "that many" is the
     # cards discarded, not a trigger event's amount (not read)
     for k, e in enumerate(resolved):
@@ -4617,3 +4619,7 @@ EFFECTS[:0] = _activation_words.TEMPLATES
 from app.rules import choice_grants as _choice_grants  # noqa: E402, I001
 
 EFFECTS[:0] = _choice_grants.TEMPLATES
+# -- coin flips (wave 7E) -- "Flip a coin." (app/rules/coin_flips.py; the conditions are in conditions.py)
+from app.rules import coin_flips as _coin_flips  # noqa: E402, I001
+
+EFFECTS[:0] = _coin_flips.TEMPLATES

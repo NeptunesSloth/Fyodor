@@ -3,6 +3,8 @@
 * Creature lands (613.1d-f, 613.4b, 205.1b): "{1}: This land becomes a 1/1 Phyrexian Blinkmoth artifact creature with flying and
   infect until end of turn. It's still a land." (Inkmoth Nexus), "… with ward {3}" (Hall of Storm Giants), "… with vigilance
   and all creature types" (Faceless Haven), "… and can't be blocked this turn" (Dimir Keyrune).
+* Coin flips (705): "Flip a coin. If you win the flip, create a Treasure token." (The Gold Saucer), "… If you lose the flip,
+  sacrifice this creature." (Viashino Sandswimmer), a spell with both branches (Winter Sky). Heads is a win (705.2).
 * Snow mana (107.4h, 106.3): {S} is paid with mana from a snow source, by tapping one as the cost is paid.
 * "You may tap or untap target creature." as an activated ability (701.26a): Puppeteer.
 * "Attach this Equipment to target creature you control." / "Attach target Equipment you control to target creature you
@@ -53,6 +55,10 @@ EXTRA = [
     card('Windreaver', set_code='tst', number='X02', mana_cost='{3}{W}{U}', cmc=5.0, type_line='Creature — Elemental', oracle_text="Flying\n{W}: This creature gains vigilance until end of turn.\n{W}: This creature gets +0/+1 until end of turn.\n{U}: Switch this creature's power and toughness until end of turn.\n{U}: Return this creature to its owner's hand.", power='1', toughness='3', colors=['U', 'W'], color_identity=['U', 'W'], keywords=['Flying']),  # noqa: E501
     card('Ezuri, Renegade Leader', set_code='tst', number='X03', mana_cost='{1}{G}{G}', cmc=3.0, type_line='Legendary Creature — Elf Warrior', oracle_text='{G}: Regenerate another target Elf.\n{2}{G}{G}{G}: Elf creatures you control get +3/+3 and gain trample until end of turn.', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Regenerate']),  # noqa: E501
     card('Silvercoat Lion', set_code='tst', number='X20', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Cat', oracle_text='', power='2', toughness='2', colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
+    card('The Gold Saucer', set_code='tst', number='X31', mana_cost='', cmc=0.0, type_line='Land — Town', oracle_text='{T}: Add {C}.\n{2}, {T}: Flip a coin. If you win the flip, create a Treasure token.\n{3}, {T}, Sacrifice two artifacts: Draw a card.', colors=[], color_identity=[], keywords=['Treasure']),  # noqa: E501
+    card('Viashino Sandswimmer', set_code='tst', number='X32', mana_cost='{2}{R}{R}', cmc=4.0, type_line='Creature — Lizard', oracle_text="{R}: Flip a coin. If you win the flip, return this creature to its owner's hand. If you lose the flip, sacrifice this creature.", power='3', toughness='2', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
+    card('Winter Sky', set_code='tst', number='X33', mana_cost='{R}', cmc=1.0, type_line='Sorcery', oracle_text='Flip a coin. If you win the flip, Winter Sky deals 1 damage to each creature and each player. If you lose the flip, each player draws a card.', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
+    card('Scoria Wurm', set_code='tst', number='X34', mana_cost='{4}{R}', cmc=5.0, type_line='Creature — Wurm', oracle_text="At the beginning of your upkeep, flip a coin. If you lose the flip, return this creature to its owner's hand.", power='7', toughness='7', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
 ]
 
 
@@ -296,3 +302,55 @@ def test_wandering_fumarole_grants_a_switch_ability(cards):
     settle(s)
     assert pt(s, land) == (4, 1)
     check(s)
+
+
+def flips(monkeypatch, heads):
+    """Every coin comes up as asked (the result is recorded on the step: a replay doesn't flip again)."""
+    monkeypatch.setattr("app.game.resolve._rng_int", lambda rng, lo, hi: 1 if heads else 0)
+
+
+@pytest.mark.parametrize("heads", [True, False])
+def test_gold_saucer_makes_a_treasure_only_on_a_win(cards, monkeypatch, heads):
+    flips(monkeypatch, heads)
+    s = build(cards, "The Gold Saucer")
+    saucer = put(s, "The Gold Saucer")
+    mana(s, C=2)
+    activate(s, saucer, "Flip a coin")
+    made = [c for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield"]
+    assert len(made) == (1 if heads else 0)
+    assert "flipped a coin" in str(s.view("p1")["log"])
+    check(s)
+
+
+@pytest.mark.parametrize("heads", [True, False])
+def test_viashino_sandswimmer_returns_or_is_sacrificed(cards, monkeypatch, heads):
+    flips(monkeypatch, heads)
+    s = build(cards, "Viashino Sandswimmer")
+    c = put(s, "Viashino Sandswimmer")
+    mana(s, R=1)
+    activate(s, c, "Flip a coin")
+    assert s.state.cards[c.id].zone == ("p1:hand" if heads else "p1:graveyard")
+    check(s)
+
+
+@pytest.mark.parametrize("heads", [True, False])
+def test_winter_sky_has_both_branches(cards, monkeypatch, heads):
+    flips(monkeypatch, heads)
+    s = build(cards, "Winter Sky")
+    sky = card_named(s, "Winter Sky")
+    act(s, "p1", type="move", card_ids=[sky.id], to={"zone": "hand"})
+    mana(s, R=1)
+    hand = len(s.state.zones["p2:hand"])
+    act(s, "p1", type="cast_spell", card_id=sky.id)
+    settle(s)
+    assert s.state.players["p2"].life == (39 if heads else 40) and s.state.players["p1"].life == (39 if heads else 40)
+    assert len(s.state.zones["p2:hand"]) == hand + (0 if heads else 1)
+    check(s)
+
+
+def test_a_flip_condition_needs_a_flip():
+    from app.rules import scripts
+
+    assert scripts.parse_effects("If you win the flip, draw a card.") is None
+    assert scripts.parse_effects("Flip two coins. If you win the flip, draw a card.") is None
+    assert scripts.parse_effects("Flip a coin. If you win the flip, draw a card.") is not None

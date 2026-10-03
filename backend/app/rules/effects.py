@@ -3328,4 +3328,7 @@ PRIMITIVES.update(_each_may.PRIMITIVES)
 from app.rules import choice_grants as _choice_grants  # noqa: E402, I001
 
 PRIMITIVES.update(_choice_grants.PRIMITIVES)
+from app.rules import coin_flips as _coin_flips  # noqa: E402, I001  -- coin flips (wave 7E)
+
+PRIMITIVES.update(_coin_flips.PRIMITIVES)
 RESUME.update(_choice_grants.RESUME)
