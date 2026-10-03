@@ -53,6 +53,29 @@ FAMILIES: list[tuple[str, str]] = [
     ("chosen_type", r"chosen (?:type|name|color|player)|of the chosen"),
     ("x_value", r"\bx\b"),
     ("counters", r"counters? on"),
+    # -- wave 5: families split out of the catch-alls below --
+    ("trigger_multiplier", r"triggers an additional time"),
+    ("untap_rider", r"\buntap (?:up to (?:one|two|three|four|five|x) )?(?:target )?lands?\b|during each other player's untap step"),
+    ("mana_rider", r"\badd \{[^}]+\}[^.]*\. you gain|for each color among|\badd \{[^}]+\} for each|"
+                   r"tap (?:a|an|this) [^.]* for mana|taps? an? [^.]* for mana, [^.]*adds? an additional|"
+                   r"exile this card from your hand: add|among legendary|commander's color identity"),
+    ("counter_rider", r"^counter target [^.]*\. (?:its controller|you|untap|at the beginning)|"
+                      r"change (?:the|a) target of target"),
+    ("attack_restriction", r"can't attack you unless|no more than \w+ creatures can attack|attacks? (?:this turn|each combat) if able|"
+                           r"additional combat phase|tapped and attacking that player|can't block creatures you control"),
+    ("draw_trigger", r"whenever an (?:opponent|player) draws|each draw(?:s)? (?:an )?additional|"
+                     r"put (?:two|three|\w+) cards? from your hand on top|you and target opponent each draw|"
+                     r"can't draw more than|whenever an opponent searches"),
+    ("cast_restriction", r"can't cast (?:spells|noncreature spells)|as though (?:they|it) had flash|"
+                         r"as though those creatures had haste|have improvise|has escape"),
+    ("protection_choice", r"protection from (?:the color of your choice|everything|colorless or from)|"
+                          r"\byou(?:, [^.]*)? (?:have|has) hexproof"),
+    ("type_setting_static", r"is (?:a|an|every) (?:swamp|forest|island|mountain|plains|basic land type|creature type)|"
+                            r"are every (?:basic land type|creature type)|are \w+ lands in addition"),
+    ("enter_as_copy_other", r"enter (?:tapped )?as a copy of|become a copy of|becomes a copy of"),
+    ("enters_untapped_or_tapped", r"enters untapped|enters tapped,? untap|this land enters tapped\. as it enters, choose|"
+                                  r"in your opening hand|it's an enchantment"),
+    ("death_trigger", r"\bdies\b|put into a graveyard from the battlefield"),
     ("trigger_other", r"^(?:when|whenever|at)\b"),
     ("activated_other", r"^[^\"]*\{[^}]+\}[^\"]*:"),
     ("static_other", r"."),
