@@ -23,8 +23,8 @@ def to_main(s):
 
 def test_tap_ability_goes_on_the_stack_and_resolves_by_hand(cards):
     s = table(cards)
-    # (Krenko's token ability is automated now — test_rules_tokens.py; a coin flip is since wave 7E; a die roll isn't)
-    gambler = token(s, "p1", "Gambler", "Token Creature — Human", "{T}: Roll a d6. You gain life equal to the result.")
+    # (Krenko's token ability is automated now — test_rules_tokens.py; a coin flip is since wave 7E; a die roll is since wave 12A, rerolls (706.2b) are not)
+    gambler = token(s, "p1", "Gambler", "Token Creature — Human", "{T}: Roll a d6. If the result is odd, reroll it.")
     to_main(s)
     hints = s.view("p1")["rules"]["hints"]
     assert {"card_id": gambler.id, "ability": 0} in hints["activatable"]
