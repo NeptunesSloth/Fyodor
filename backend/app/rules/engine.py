@@ -775,10 +775,14 @@ def resolve_top_of_stack(plan: Plan) -> None:
         plan.rules.evoked = [c for c in plan.rules.evoked if c != top_id]
         entered_now = plan.state.cards.get(top_id)
         if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            # -- trigger multipliers (wave 5D) -- an enters trigger (603.2d)
+            from app.rules import trigger_multipliers
+
             triggers._add(plan, controller=controller, source_card=top_id, source_object=plan.oid(top_id),
                           name=entered_now.name, index=7100,
                           definition={"kind": "triggered", "trigger": "evoke", "optional": False, "target": None,
-                                      "effects": [{"do": "sacrifice", "who": "self", "by": "controller"}]})
+                                      "effects": [{"do": "sacrifice", "who": "self", "by": "controller"}]},
+                          cause=trigger_multipliers.entering(plan, top_id))
     if top_id in plan.rules.dashed:  # 702.109a: haste, and back to its owner's hand at the next end step
         plan.rules.dashed = [c for c in plan.rules.dashed if c != top_id]
         entered_now = plan.state.cards.get(top_id)

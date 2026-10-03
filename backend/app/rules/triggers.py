@@ -109,7 +109,8 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
 
 
 def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, name: str, index: int,
-         definition: dict[str, Any], manual: bool = False, event: TriggerEvent | None = None) -> PendingTrigger | None:
+         definition: dict[str, Any], manual: bool = False, event: TriggerEvent | None = None,
+         cause: TriggerEvent | None = None) -> PendingTrigger | None:
     if manual:
         return None
     if definition.get("if_kicked"):  # 603.4: "When ~ enters, if it was kicked, …" (702.33e)
@@ -150,12 +151,19 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
                              source_object=source_object, name=name, ability=definition, key=f"{name}:{index}",
                              event=event)
     plan.rules.pending_triggers.append(pending)
+    # -- trigger multipliers (wave 5D) -- 603.2d: "that ability triggers an additional time" (``cause``: the event it
+    # triggered on, for an ability that doesn't carry one)
+    from app.rules import trigger_multipliers
+
+    trigger_multipliers.multiply(plan, pending, index, cause if cause is not None else event)
+    # -- end trigger multipliers (wave 5D) --
     return pending
 
 
-def _entered(plan: Plan, card: CardInstance, oid: str) -> TriggerEvent:
+def _entered(plan: Plan, card: CardInstance, oid: str, batch: int = 0) -> TriggerEvent:
     """"Whenever [another] creature enters": the event is that object entering."""
-    return TriggerEvent(kind="enter", objects=[ObjectRef(card=card.id, object_id=oid, zone=card.zone)], count=1)
+    return TriggerEvent(kind="enter", objects=[ObjectRef(card=card.id, object_id=oid, zone=card.zone)], count=1,
+                        batch=batch)  # (batch: wave 5D, the multipliers there then, 603.10)
 
 
 HIDDEN = ("hand", "library")
@@ -220,7 +228,7 @@ def collect(plan: Plan) -> None:
     designations.on_events(plan, new)
     for e in new:
         if e.kind == "spell_cast" and not e.manual:
-            _cast_triggers(plan, e.card or "", e.player or "")
+            _cast_triggers(plan, e.card or "", e.player or "", e.batch)
             continue
         if e.kind == "counters" and e.counter == "defense" and e.amount < 0 and not e.manual:
             from app.rules import battles  # 310.12b: "When the last defense counter is removed …"
@@ -241,7 +249,7 @@ def collect(plan: Plan) -> None:
             for i, d in abilities(plan, ch, "enters_self"):
                 _add(plan, controller=card.controller, source_card=card.id, source_object=e.new_object_id,
                      name=ch.name, index=i, definition=d, event=entered.model_copy(deep=True))
-            _other_enters(plan, card, ch, e.new_object_id)
+            _other_enters(plan, card, ch, e.new_object_id, e.batch)
         if frm == "battlefield" and to != "battlefield":
             snap = r.lki.get(e.object_id or "")
             if snap is None or plan.rules.card_mode(snap.card) == "manual" or snap.controller not in plan.live():
@@ -471,6 +479,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     event, obj, och, player, info = fact
     you = watcher.controller
     want = cond["event"]
+    if want == "either":  # -- triggers (wave 5D) -- "Whenever you create or sacrifice a token": each event (603.2c)
+        return any(_cond_matches(plan, sub, watcher, fact) for sub in cond["conds"])
     if want == "multi":  # "Whenever ~ attacks or blocks" (this object; each event, 603.2)
         wanted = [(_PAIRED[x] if cond.get("other") else x) for x in cond["events"]]
         if cond.get("subject") == "host":  # -- attached events (wave 4L) -- what the source is attached to
@@ -686,6 +696,10 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
         players = [info["recipient"]]
     elif info.get("actor"):  # the player who cast, sacrificed, discarded, cycled, created …
         players = [info["actor"]]
+    elif player and obj is not None and kind in ("enter", "die", "leave"):
+        # -- triggers (wave 5D) -- "Whenever a creature an opponent controls dies, that player loses 2 life": its
+        # controller as it entered / as it last existed (603.10a), fixed as it triggers
+        players = [player]
     else:
         players = [player] if player and obj is None else []
     return TriggerEvent(kind=kind, batch=batch, objects=[ref] if ref else [], new_objects=new, players=players,
@@ -710,6 +724,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             nth = cond.get("nth") if cond["event"] == "draw" else None
             if nth and plan.rules.draws_this_turn.get(fact[3] or "", 0) != nth:
                 continue
+            if cond.get("not_first_in_draw_step") and fact[4].get("first_in_draw_step"):  # -- triggers (wave 5D) --
+                continue
             event = _event(plan, fact, batch)
             info = fact[4]
             # One damage event to several recipients at once is one "deals damage" (and several
@@ -728,6 +744,9 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                         pending.event.new_objects += event.new_objects
                     pending.event.amount += event.amount
                     pending.event.count += 1
+                    from app.rules import trigger_multipliers  # -- trigger multipliers (wave 5D) --
+
+                    trigger_multipliers.joined(plan, pending)
                     continue
             # -- sagas & attached-object triggers (wave 3S): a watcher that has left since is the object it
             # was (603.10a: "this Aura" reads its last known information, 608.2h), not the card's new object
@@ -785,6 +804,13 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
         if e.kind == "drew" and e.player:
             r.draws_this_turn[e.player] = r.draws_this_turn.get(e.player, 0) + 1
         facts = _facts(plan, e, window)
+        if e.kind == "drew" and e.player and facts:  # -- triggers (wave 5D) -- the first card a player draws in
+            # their own draw step (504.1), kept per player per turn (they have one draw step a turn)
+            first = plan.state.turn.phase == "draw" and e.player == plan.active and \
+                r.once_per_turn.get(f"drawstep:{e.player}") != plan.state.turn.number
+            if first:
+                r.once_per_turn[f"drawstep:{e.player}"] = plan.state.turn.number
+            facts[0][4]["first_in_draw_step"] = first
         if facts:
             _fire_generic(plan, facts, e.batch, fired, watchers, left)
 
@@ -889,7 +915,8 @@ def graveyard_abilities(plan: Plan, card: CardInstance, trigger: str,
 
 
 _GY_TRIGGERS = ("event", "landfall", "enters_other", "cast_you", "upkeep_you", "end_step_you")
-_GY_LOOK_BACK = ("die", "leave", "sacrifice", "leave_graveyard", "multi")  # (603.10a; "multi": not judged here)
+_GY_LOOK_BACK = ("die", "leave", "sacrifice", "leave_graveyard", "multi",  # (603.10a; "multi": not judged here)
+                 "either")  # (-- triggers (wave 5D) -- nor "either": one of its events may look back)
 
 
 def graveyard_trigger_ok(d: dict[str, Any]) -> bool:
@@ -904,14 +931,14 @@ def graveyard_trigger_ok(d: dict[str, Any]) -> bool:
                                   and cond.get("subject") not in ("self", "self_or", "host", "self_or_host"))
 
 
-def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics, oid: str) -> None:
+def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics, oid: str, batch: int = 0) -> None:
     """603.6a: "Whenever [another] creature [you control] enters" on every permanent, including
     ones entering at the same time."""
     if ech.is_land:  # "Landfall — Whenever a land you control enters"
         for watcher, ch, i, d in _watchers(plan, "landfall"):
             if entered.controller == watcher.controller:
                 _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher),
-                     name=ch.name, index=i, definition=d, event=_entered(plan, entered, oid))
+                     name=ch.name, index=i, definition=d, event=_entered(plan, entered, oid, batch))
     if not ech.is_creature:
         return
     for watcher, ch, i, d in _watchers(plan, "enters_other"):
@@ -923,7 +950,7 @@ def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics, oid: 
         if "nontoken" in f and entered.is_token:
             continue
         _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher), name=ch.name,
-             index=i, definition=d, event=_entered(plan, entered, oid))
+             index=i, definition=d, event=_entered(plan, entered, oid, batch))
 
 
 CAST_FILTERS = {
@@ -936,15 +963,18 @@ CAST_FILTERS = {
 }
 
 
-def _cast_triggers(plan: Plan, spell_id: str, caster: str) -> None:
+def _cast_triggers(plan: Plan, spell_id: str, caster: str, batch: int = 0) -> None:
     spell = plan.state.cards.get(spell_id)
     if spell is None:
         return
     sch = plan.ch(spell)
+    # -- trigger multipliers (wave 5D) -- what it triggered on (603.2d "you casting … causes")
+    cast = TriggerEvent(kind="cast", batch=batch, count=1, players=[caster],
+                        objects=[ObjectRef(card=spell.id, object_id=plan.oid(spell), zone=spell.zone)])
     for watcher, ch, i, d in _watchers(plan, "cast_you"):
         if watcher.controller == caster and CAST_FILTERS[d.get("filter", "a spell")](sch):
             _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher), name=ch.name,
-                 index=i, definition=d)
+                 index=i, definition=d, cause=cast)
 
 
 MONARCH_DRAW = {"kind": "triggered", "trigger": "end_step_you", "effects": [{"do": "draw", "who": "you", "n": 1}],
