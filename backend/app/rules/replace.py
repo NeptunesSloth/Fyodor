@@ -848,8 +848,14 @@ def do_counters(plan: Plan, planned: CounterPlan, *, by: str) -> None:
                 continue
             if ev["card"] in plan.state.cards:
                 groups.setdefault(("card", ev["counter"], ev["n"]), []).append(ev["card"])
-    for (_, kind, n), cards in groups.items():
-        plan.do({"type": "counter", "card_ids": cards, "kind": kind, "delta": n}, actor=by)
+    r = plan.rules  # -- counters (wave 7C) -- one instruction: its steps share a group (see RulesState.put_group)
+    r.put_seq += 1
+    r.put_group = r.put_seq
+    try:
+        for (_, kind, n), cards in groups.items():
+            plan.do({"type": "counter", "card_ids": cards, "kind": kind, "delta": n}, actor=by)
+    finally:
+        r.put_group = 0
 
 
 def _run_counters(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:

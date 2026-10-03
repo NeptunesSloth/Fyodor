@@ -1113,6 +1113,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
     found = _target_forms(text)  # -- target forms (agent T) --
     if found is not None:
         return found
+    # -- counters (wave 7C) -- "Exile ~ with three time counters on it." (the printed spell half of a suspend card, 702.62b)
+    m = re.fullmatch(rf"exile ~ with (?P<n>{AMT}) time counters on it", text)
+    if m and rider is None:
+        n = _amount(m["n"])
+        if isinstance(n, int):
+            return [{"do": "spell_self_move", "to": "exile", "counters": {"time": n}}], None
+    # -- end counters (wave 7C) --
     m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap) (?P<o>.+)", text)
     if m:
         whos, groups = _objects(m["o"])

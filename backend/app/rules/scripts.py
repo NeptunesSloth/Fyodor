@@ -2243,6 +2243,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if d is not None and d.get("kind") == "triggered" and \
             '{"x": 1}' in json.dumps([e.get("n") for e in d.get("effects") or [] if e.get("do") == "optional_payment"]):
         return None
+    if d is not None and d.get("kind") != "spell" and '"spell_self_move"' in json.dumps(d, default=str):
+        return None  # -- counters (wave 7C) -- only a spell moves itself off the stack
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
         return None
     # -- combat (wave 5C) -- "attacks each combat if able" needs its duration
