@@ -168,6 +168,14 @@ def _parse(c: str) -> Condition | None:
         if len(events) == 1:
             return {"event": events[0], "subject": "self", "other": other}
         return {"event": "multi", "events": events, "other": other}
+    # -- entry forms (wave 5F) -- "When this land enters untapped", "Whenever a permanent you control enters tapped":
+    # how it entered is part of the trigger event (603.2; triggers._details_ok reads the turn log's Entry)
+    m = re.fullmatch(r"(?P<s>.+?) enters (?P<t>tapped|untapped)", c)
+    if m:
+        inner = _parse(f"{m['s']} enters")
+        if inner is None or inner.get("event") != "enter" or inner.get("aggregate"):
+            return None
+        return {**inner, "entered_tapped": m["t"] == "tapped"}
     found = _combat(c)
     if found is not None:
         return found

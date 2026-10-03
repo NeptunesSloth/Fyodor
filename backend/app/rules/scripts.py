@@ -2830,6 +2830,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen
+    from app.rules import entry_forms  # -- entry forms (wave 5F) -- "~ enters tapped. As it enters, choose a color …"
+
+    if (tapped_choice := entry_forms.tapped_choice(text)) is not None:
+        return tapped_choice
     m = ENTERS_TAPPED_UNLESS.match(text)
     if m:  # check lands, fast lands, battle lands, Battlebond lands (614.1d)
         cond = _unless_condition(m["cond"])

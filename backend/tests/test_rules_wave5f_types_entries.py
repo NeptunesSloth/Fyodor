@@ -43,6 +43,21 @@ EXTRA = [
     card('Prismatic Omen', set_code="tst", number="5F06", mana_cost='{1}{G}', cmc=2.0, type_line='Enchantment',
          oracle_text='Lands you control are every basic land type in addition to their other types.', colors=['G'],
          color_identity=['G']),
+    card('Mystic Sanctuary', set_code="tst", number="5F101", type_line='Land — Island',
+         oracle_text='({T}: Add {U}.)\nThis land enters tapped unless you control three or more other Islands.\nWhen this land enters '
+                     'untapped, you may put target instant or sorcery card from your graveyard on top of your library.',
+         color_identity=['U']),
+    card('Dwarven Mine', set_code="tst", number="5F103", type_line='Land — Mountain',
+         oracle_text='({T}: Add {R}.)\nThis land enters tapped unless you control three or more other Mountains.\nWhen this land '
+                     'enters untapped, create a 1/1 red Dwarf creature token.', color_identity=['R']),
+    card('Amulet of Vigor', set_code="tst", number="5F105", mana_cost='{1}', cmc=1.0, type_line='Artifact',
+         oracle_text='Whenever a permanent you control enters tapped, untap it.'),
+    card('Thriving Isle', set_code="tst", number="5F106", type_line='Land',
+         oracle_text='This land enters tapped. As it enters, choose a color other than blue.\n{T}: Add {U} or one mana of the chosen '
+                     'color.', color_identity=['U']),
+    card("Valgavoth's Lair", set_code="tst", number="5F107", type_line='Enchantment Land',
+         oracle_text='Hexproof\nThis land enters tapped. As it enters, choose a color.\n{T}: Add one mana of the chosen color.',
+         keywords=['Hexproof']),
 ]
 
 
@@ -184,4 +199,123 @@ def test_maskwood_nexus_every_creature_type_everywhere(cards):
     assert s.state.cards[elves.id].zone == "stack"
     assert ch(s, elves).subtypes >= CREATURE_TYPES  # a creature spell you control
     pass_until_stack_empty(s)
+    roundtrip(s)
+
+
+# -- "enters untapped" / "enters tapped" triggers (603.2, 614.1d) ------------------------------------------------------
+def rules(s):
+    return s.state.rules
+
+
+def drive(s, choose=None):
+    """Resolve the stack; ``choose(decision)`` answers each decision (option ids), the first option otherwise."""
+    for _ in range(30):
+        d = rules(s).decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=(choose(d) if choose else [d.options[0].id]))
+            continue
+        if not s.state.zones.get("stack"):
+            return
+        act(s, rules(s).priority, type="pass_priority")
+
+
+def put_all(s, name, where, pid="p1"):
+    ids = [c.id for c in s.state.cards.values() if c.name == name and c.owner == pid]
+    act(s, pid, type="move", card_ids=ids, to={"player": pid, "zone": where})
+
+
+def play(s, name, pid="p1"):
+    land = put(s, name, "hand", pid=pid)
+    act(s, pid, type="play_land", card_id=land.id)
+    return s.state.cards[land.id]
+
+
+def test_entry_trigger_wordings_are_covered():
+    assert ok("When this land enters untapped, create a 1/1 red Dwarf creature token.", "Dwarven Mine", "Land — Mountain")
+    assert ok("Whenever a permanent you control enters tapped, untap it.", "Amulet of Vigor", "Artifact")
+    assert not ok("Whenever one or more lands you control enter tapped, draw a card.", "Card", "Artifact")
+
+
+def test_mystic_sanctuary_enters_tapped_nothing_triggers(cards):
+    s = build(cards, [(1, "Mystic Sanctuary"), (1, "Opt")])
+    put(s, "Opt", "graveyard")
+    land = play(s, "Mystic Sanctuary")  # no other Islands: it enters tapped
+    assert land.tapped and not s.state.zones.get("stack") and rules(s).decision is None
+    roundtrip(s)
+
+
+def test_mystic_sanctuary_enters_untapped_puts_a_spell_on_top(cards):
+    s = build(cards, [(1, "Mystic Sanctuary"), (3, "Island"), (1, "Opt")])
+    opt = put(s, "Opt", "graveyard")
+    put_all(s, "Island", "battlefield")
+    land = play(s, "Mystic Sanctuary")
+    assert not land.tapped
+    drive(s, lambda d: [opt.id] if any(o.id == opt.id for o in d.options) else ["yes"])
+    assert s.state.zones["p1:library"][0] == opt.id  # on top of the library
+    roundtrip(s)
+
+
+def test_dwarven_mine_untapped_makes_a_dwarf(cards):
+    s = build(cards, [(1, "Dwarven Mine"), (3, "Mountain")])
+    put_all(s, "Mountain", "battlefield")
+    play(s, "Dwarven Mine")
+    drive(s)
+    assert [c.name for c in s.state.cards.values() if c.is_token] == ["Dwarf"]
+    roundtrip(s)
+
+
+def test_amulet_of_vigor_untaps_what_enters_tapped(cards):
+    s = build(cards, [(1, "Amulet of Vigor"), (1, "Mystic Sanctuary"), (1, "Opt")])
+    put(s, "Opt", "graveyard")
+    put(s, "Amulet of Vigor", "battlefield")
+    sanctuary = play(s, "Mystic Sanctuary")  # enters tapped (no other Islands)
+    assert [e.tapped for e in rules(s).turn_log.entered if e.card == sanctuary.id] == [True]
+    drive(s)
+    assert not s.state.cards[sanctuary.id].tapped  # Amulet untapped it …
+    # … but it entered tapped: its "enters untapped" ability never triggered (its target was never asked for)
+    assert "Opt" in [s.state.cards[c].name for c in s.state.zones["p1:graveyard"]]
+    roundtrip(s)
+
+
+def test_thriving_land_enters_tapped_with_a_color_other_than_its_own(cards):
+    s = build(cards, [(1, "Thriving Isle"), (1, "Amulet of Vigor")])
+    isle = put(s, "Thriving Isle", "hand")
+    act(s, "p1", type="play_land", card_id=isle.id)
+    d = rules(s).decision  # 614.12a: chosen before it enters
+    assert d is not None and [o.id for o in d.options] == ["White", "Black", "Red", "Green"]  # not blue
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Red"])
+    isle = s.state.cards[isle.id]
+    assert isle.zone == "p1:battlefield" and isle.tapped and isle.choices == {"Chosen color": "Red"}
+    roundtrip(s)
+
+
+def test_thriving_land_untapped_by_amulet_taps_for_either_color(cards):
+    s = build(cards, [(1, "Thriving Isle"), (1, "Amulet of Vigor")])
+    put(s, "Amulet of Vigor", "battlefield")
+    isle = put(s, "Thriving Isle", "hand")
+    act(s, "p1", type="play_land", card_id=isle.id)
+    act(s, "p1", type="choose", decision_id=rules(s).decision.id, option_ids=["Black"])
+    drive(s)
+    assert not s.state.cards[isle.id].tapped  # Amulet of Vigor untapped it
+    options = {o for src in mana_sources(s.state, "p1", cards) if src.card_id == isle.id for o in src.options}
+    assert options == {("U",), ("B",)}
+    roundtrip(s)
+
+
+def test_valgavoths_lair_any_color(cards):
+    s = build(cards, [(1, "Valgavoth's Lair")])
+    lair = put(s, "Valgavoth's Lair", "hand")
+    act(s, "p1", type="play_land", card_id=lair.id)
+    d = rules(s).decision
+    assert [o.id for o in d.options] == ["White", "Blue", "Black", "Red", "Green"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Green"])
+    assert s.state.cards[lair.id].tapped and s.state.cards[lair.id].choices == {"Chosen color": "Green"}
+    roundtrip(s)
+
+
+def test_amulet_ignores_what_enters_untapped(cards):
+    s = build(cards, [(1, "Amulet of Vigor"), (1, "Forest")])
+    put(s, "Amulet of Vigor", "battlefield")
+    play(s, "Forest")
+    assert not s.state.zones.get("stack") and rules(s).decision is None
     roundtrip(s)

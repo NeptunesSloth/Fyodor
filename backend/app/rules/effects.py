@@ -35,6 +35,7 @@ from app.rules import (
     sized_damage,  # -- damage sized by a count (wave 4E) --
     values,
 )
+from app.rules import entry_forms  # -- entry forms (wave 5F) -- (a leaf module)
 from app.rules import this_way as _this_way  # -- "this way" outcomes (wave 4A) --
 from app.rules.plan import Plan, decide
 from app.rules.targets import source_of, still_legal
@@ -2580,6 +2581,7 @@ CHOICE_OPTIONS: dict[str, list[str]] = {
 }
 CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
                  "opponent": "Chosen opponent", "player": "Chosen player"}
+CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
 
 
 def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]:
@@ -2589,6 +2591,8 @@ def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]
         return copying.entry_options(plan, ctx["controller"], what)
     if what == "creature type":
         return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
+    if (others := entry_forms.color_options(what)) is not None:  # -- entry forms (wave 5F) --
+        return [DecisionOption(id=v, label=v) for v in others]
     if what in ("opponent", "player"):
         pids = [p for p in plan.live() if what == "player" or p != ctx["controller"]]
         return [DecisionOption(id=p, label=plan.name(p)) for p in pids]

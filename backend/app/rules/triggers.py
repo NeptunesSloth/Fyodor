@@ -601,6 +601,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
         if cond.get("first_each_turn") and not info.get("first"):
             return False
+    if event == "enter" and cond.get("entered_tapped") is not None:  # -- entry forms (wave 5F) --
+        from app.rules import entry_forms
+
+        if entry_forms.entered_tapped(plan, info) != cond["entered_tapped"]:
+            return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
         return False
     if event == "player_counters" and info.get("counter") != cond.get("counter"):  # (wave 3E: "you get one or more {E}")

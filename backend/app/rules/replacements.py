@@ -119,6 +119,8 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
                 out["tapped"] = True
         elif kind == "enters_with_counters" and d.get("tapped"):  # "~ enters tapped with two charge counters on it."
             out["tapped"] = True
+        elif kind == "enters_choice" and d.get("tapped"):  # -- entry forms (wave 5F) -- the Thriving lands
+            out["tapped"] = True
     if not out["tapped"] and others_enter_tapped(plan, card, controller):  # -- replacement effects stage 2 (wave 2E) --
         out["tapped"] = True
     for d in defs:
