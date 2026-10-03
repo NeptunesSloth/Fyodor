@@ -416,3 +416,74 @@ def test_block_trigger_reads_that_creatures_controller(cards):
     assert life(s, "p2") == 37 and life(s, "p1") == 40
     assert zone(s, ox) != "p2:battlefield"  # 3 from the trigger, then 5 combat damage
     roundtrip(s)
+
+
+# -- "target … that player controls" in a trigger about a player ---------------------------------------------------
+TRYGON = ("Haste\nWhenever this creature deals combat damage to a player, you may destroy target artifact or enchantment "
+          "that player controls.")
+ALELA = "Haste\nWhenever one or more Faeries you control deal combat damage to a player, goad target creature that player controls."
+
+
+def artifact(s, pid, name):
+    act(s, pid, type="create_token", player=pid, token={"name": name, "type_line": "Token Artifact — Clue"})
+    return next(c for c in s.state.cards.values() if c.name == name)
+
+
+def test_target_that_player_controls_is_the_damaged_players(cards):
+    s = build(cards)
+    predator = token(s, "p1", "Predator", "2/3", TRYGON)
+    theirs = artifact(s, "p2", "Their Clue")
+    artifact(s, "p1", "My Clue")
+    to_combat(s, predator)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        if d.kind == "choose_one" and any(o.id == theirs.id for o in d.options):
+            # only Bob's permanents: "that player" is the player dealt damage (608.2k)
+            assert {o.card_id for o in d.options} == {theirs.id}
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[theirs.id])
+            break
+        raise AssertionError(f"unexpected decision {d.kind}")
+    for _ in range(10):  # "you may": yes
+        d = s.state.rules.decision
+        if d is not None and d.player == "p1":
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.id == "yes")])
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    pass_until_stack_empty(s)
+    assert zone(s, theirs) != "p2:battlefield" and life(s, "p2") == 38
+    roundtrip(s)
+
+
+def test_that_player_selector_is_refused_where_nobody_binds_it():
+    assert parse("When this creature enters, destroy target artifact that player controls.") is None  # (no player)
+    # a target player beside it: which player is "that player"? (manual)
+    assert parse("Whenever an opponent draws a card, target player discards a card and you destroy target artifact that "
+                 "player controls.") is None
+
+
+SENTINEL = "At the beginning of combat on each opponent's turn, tap target creature that player controls."
+
+
+def test_step_trigger_binds_the_player_whose_turn_it_is(cards):
+    s = build(cards)
+    token(s, "p1", "Sentinel", "4/6", SENTINEL)
+    mine = token(s, "p1", "Mine", "2/2")
+    theirs = token(s, "p2", "Theirs", "2/2")
+    for _ in range(80):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_one":
+            assert s.state.turn.number == 2 and {o.card_id for o in d.options} == {theirs.id}  # Bob's, not Alice's
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[theirs.id])
+            break
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    else:
+        raise AssertionError("the trigger never asked for its target")
+    pass_until_stack_empty(s)
+    assert s.state.cards[theirs.id].tapped and not s.state.cards[mine.id].tapped
+    roundtrip(s)

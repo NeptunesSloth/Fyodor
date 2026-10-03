@@ -2490,6 +2490,15 @@ def _event_refs_ok(d: Definition) -> bool:
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
     if not _event_spell_ok(d):  # -- refused copy/mana (wave 3R3) --
         return False
+    # -- damage wordings (wave 6B) -- "target artifact that player controls": the one player a trigger is about, bound
+    # as it's put on the stack (triggers.bind_that_player) — never in a spell, nor beside a target player (which one?)
+    if '\\"controller\\":\\"that_player\\"' in json.dumps(d):
+        cond = d.get("cond") if d.get("trigger") == "event" else None
+        about_player = step_names_player(d) or (cond is not None and cond["event"] != "multi" and _has_player(cond))
+        specs = [d.get("target") or {}, *(d.get("targets") or [])]
+        if not about_player or any(str(s.get("what")) in ("player", "opponent", "any", "player_or_planeswalker",
+                                                         "opponent_or_planeswalker") for s in specs):
+            return False
     wants_player = any(e.get("who") in ("event_player", "each_other_opponent")
                        or str(e.get("who")).startswith("controlled:event_player|") for e in effects)  # (wave 4E)
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv"))  # ("mv": a free cast's limit, wave 3R5)

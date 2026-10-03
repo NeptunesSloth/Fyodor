@@ -204,6 +204,9 @@ def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "attacked_this_turn"))
 
 
+THAT_PLAYER = "that_player"  # -- damage wordings (wave 6B) -- a controller the trigger event's player binds
+
+
 # -- damage history (wave 6B) -- "creature that was dealt damage this turn", "each creature dealt damage this turn",
 # "creature that dealt damage [to you] this turn" (app/rules/damage_history.py)
 @_suffix(r"that dealt damage (?P<you>to you )?this turn")
@@ -214,6 +217,11 @@ def _dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"(?:that (?:was|were) )?dealt damage this turn")
 def _was_dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "was_dealt_damage"))
+
+
+@_suffix(r"that player controls")  # "destroy target artifact that player controls" in a trigger about a player: bound
+def _that_player_controls(s: Selector, m: re.Match[str]) -> Selector:  # to it as the trigger is put on the stack
+    return replace(s, controller=THAT_PLAYER)  # (triggers.bind_that_player: "player:<id>"; unbound, nothing matches)
 
 
 @_suffix(r"with toughness greater than (?:its|their) power")  # (Ghalta the Immovable, Bedrock Tortoise)
@@ -878,6 +886,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if sel.controller == "you" and card.controller != you:
         return False
     if sel.controller == "opponent" and card.controller == you:
+        return False
+    if sel.controller is not None and (sel.controller == THAT_PLAYER or (  # -- damage wordings (wave 6B) --
+            sel.controller.startswith("player:") and card.controller != sel.controller[7:])):
         return False
     if sel.controller == "defending" and card.controller not in defending_players(plan, source, attacker):
         return False
