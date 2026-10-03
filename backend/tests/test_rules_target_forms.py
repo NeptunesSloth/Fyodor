@@ -130,11 +130,13 @@ def test_refusals_are_registered():
         ("Exile all creature cards from target player's graveyard.", "zone"),  # (the whole graveyard: wave 4J)
         ("Destroy target creature that player controls.", "named earlier"),
         ("Target player shuffles up to four target cards from their graveyard into their library.", "earlier target"),
-        ("Switch target creature's power and toughness until end of turn.", "P/T"),
+        ("Exchange target creature's power and toughness with its mana value.", "P/T"),  # (switching: wave 7E)
     ]:
         reason = coverage.refusal(text)
         assert reason is not None and piece in reason, text
-        assert parse_effects(text) is None or language.has_primitive(piece), text
+        # (wave 6B: "… that player controls" parses as a selector bound only in a trigger about a player; a spell's
+        # definition refuses it — scripts._event_refs_ok)
+        assert parse_effects(text) is None or language.has_primitive(piece) or "that_player" in str(parse_effects(text)), text
     assert coverage.refusal("Destroy target creature.") is None
     # (read since: fight, "choose … target", "copy that spell", target groups with a total mana value)
     for text in ("Target creature you control fights another target creature.", "You may copy that spell.",

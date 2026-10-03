@@ -149,4 +149,4 @@ def test_partner_family_is_deckbuilding_only_702_124a():
     assert level("Hero", "Choose a Background") == "FULL"
     assert level("Companion", "Doctor's companion") == "FULL"
     assert level("Walker", "Walker can be your commander.") == "FULL"  # 903.3a
-    assert level("Twin", "Partner with Other Twin") == "PARTIAL"
+    assert level("Twin", "Partner with Other Twin") == "FULL"  # (wave 8A: the enters trigger is automated)

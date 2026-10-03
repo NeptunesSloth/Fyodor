@@ -62,6 +62,7 @@ than none). Applying these in layer order is app/rules/layers.py's job.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import TYPE_CHECKING, Any
 
@@ -85,6 +86,11 @@ GRANTABLE_KEYWORDS: frozenset[str] = frozenset({
     "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "desertwalk",
     "shadow", "horsemanship", "fear", "intimidate", "skulk", "wither", "infect",
 })
+
+# -- static wordings (wave 6E) -- triggered keywords a static may grant (613.1f): granted as the keyword line itself, an
+# ability of the object like a printed one (scripts.keyword_triggers: prowess 702.108a, persist 702.79a, undying
+# 702.93a; triggers._exalted: exalted 702.83a, each instance triggering separately, 702.83b / 702.108b)
+TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "undying"})
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
                      "enchanted permanent": "permanent", "enchanted artifact": "artifact",
@@ -115,6 +121,9 @@ def parse(text: str) -> Definition | None:
     cda = parse_cda(body)
     if cda is not None:
         return cda
+    # -- untap choice (wave 7F) -- 502.3: asked in the untap step (app/rules/untap_choice.py)
+    if body == "You may choose not to untap ~ during your untap step":
+        return _definition("self", None, [], rules=["may_stay_tapped"])
     # -- dynamic values (agent F): "~ gets +X/+X, where X is …" (the X of a static is defined by its text)
     x_phrase: str | None = None
     m = re.match(r"^(?P<rest>.+), where X is (?P<x>.+)$", body)
@@ -194,9 +203,13 @@ def parse(text: str) -> Definition | None:
         subject, predicate = m["s"], m["p"]
     if subject is None or predicate is None:
         return None
-    who, kind = _subject(subject)
+    # -- token & pump wordings (wave 6C) -- a plural verb ("get", "have") says the subject is a group even when its noun
+    # is the same in both numbers ("Other Merfolk you control get +1/+1.")
+    who, kind = _subject(subject, plural=re.match(r"(?:get|have) ", predicate) is not None)
     if who is None:
         return None
+    if who.startswith(UNION) and (conds or x_phrase is not None or defender_sel or rule_cond):
+        return None  # -- static wordings (wave 6E) -- (a union subject: only plain grants)
     if layer4 is not None and who != "self":
         return None
     if attached_cond is not None and (who != "attached" or (kind or attached_cond["noun"]) != attached_cond["noun"]):
@@ -212,6 +225,8 @@ def parse(text: str) -> Definition | None:
     parts = _predicate(predicate, x_value, it)
     if parts is None:
         return None
+    if who.startswith(UNION) and (parts["rules"] or parts["each"] or parts["extra"]):
+        return None  # -- static wordings (wave 6E) -- (a union subject: only P/T, keyword and ability grants)
     # -- attached events (wave 4L) --
     from app.rules import attached_types
 
@@ -316,8 +331,12 @@ def _each_part(rest: str, x_value: values.Value | None, it: str | None) -> dict[
 
     Definition key ``each`` on a grant static; app/rules/layers.py applies it in layer 7c."""
     m = _PT_EACH.match(rest)
+    if m and (rel := _relative_count(m["each"])) is not None:  # -- token & pump wordings (wave 6C) --
+        return {"p": _signed(m["p"]), "t": _signed(m["t"]), "value": rel}
     if m:
         v = values.parse_count(m["each"], it=it)  # ("counters on it": on the source, when ~ is the subject)
+        if v is None:  # -- attached events (wave 8D) -- "Equipped creature gets +1/+1 for each Aura and Equipment attached to it"
+            v = _attached_relative(m["each"])
         if v is None:
             return None
         return {"p": _signed(m["p"]), "t": _signed(m["t"]), "value": v}
@@ -329,6 +348,31 @@ def _each_part(rest: str, x_value: values.Value | None, it: str | None) -> dict[
         t = 0 if m["t2"] == "0" else (1 if m["t"] == "+" else -1)
         return {"p": p, "t": t, "value": x_value}
     return None
+
+
+# -- token & pump wordings (wave 6C) -- a count relative to the object the static modifies (613.4c, read for each one,
+# 611.3a): "Each creature gets +1/+1 for each other creature on the battlefield that shares at least one creature type
+# with it" (Coat of Arms: 205.3m creature types, a changeling has them all, 702.73a), "Each nontoken creature you control
+# gets +1/+1 for each other creature you control with the same name as that creature" (Mirror Box; 201.2)
+_SHARING = re.compile(r"^(?P<sel>other .+?) that shares? (?:at least one|a) creature type with it$")  # (wave 8D: "a")
+_SAME_NAME = re.compile(r"^(?P<sel>other .+?) with the same name as that creature$")
+
+
+def _attached_relative(each: str) -> dict[str, Any] | None:
+    """-- attached events (wave 8D) -- 301.5, 303.4: the Auras / Equipment attached to the object the static modifies (the
+    host of an Aura or Equipment: "it"), read for it whenever its characteristics are (611.3a)."""
+    m = re.fullmatch(r"(?P<kinds>Aura|Equipment|Aura (?:and|or|and/or) Equipment) attached to it", each)
+    return {"relative": "attached", "kinds": sorted(set(re.findall(r"Aura|Equipment", m["kinds"])))} if m else None
+
+
+def _relative_count(each: str) -> dict[str, Any] | None:
+    m = _SHARING.match(each) or _SAME_NAME.match(each)
+    if m is None:
+        return None
+    sel = selectors.parse(re.sub(r" on the battlefield$", "", m["sel"]))
+    if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card or not sel.other:
+        return None
+    return {"relative": "creature_type" if m.re is _SHARING else "name", "among": sel.key()}
 
 
 def parse_cda(body: str) -> Definition | None:
@@ -361,14 +405,71 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
     if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
         return goaded["s"], goaded["p"]
-    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", body)
+    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?(?= combat damage))\b", body)  # (assigns: wave 6E)
     if m is None or m.start() == 0:
         return None, None
     return body[: m.start()].strip(), body[m.start():].strip()
 
 
-def _subject(subject: str) -> tuple[str | None, str | None]:
-    """→ ("self" | "attached" | selector key, attached kind)."""
+# -- token & pump wordings (wave 6C) -- "Other Wolves and Werewolves you control", "Skeletons, Vampires, and Zombies you
+# control": a list of creature types joined by "and" names each creature with any of them (the same group as "Wolves
+# or Werewolves")
+_TYPE_LIST = re.compile(r"^(?P<pre>(?:[Oo]ther |[Aa]ll )?)(?P<list>[A-Z][a-z'\-]+(?:, [A-Z][a-z'\-]+)*,? and [A-Z][a-z'\-]+)"
+                        r"(?P<post> you control)?$")
+
+
+def _type_list(subject: str) -> str:
+    from app.rules.creature_types import CREATURE_TYPES
+    from app.rules.protection import _PLURALS
+
+    m = _TYPE_LIST.match(subject)
+    if m is None:
+        return subject
+    words = re.split(r",? and |, ", m["list"])
+    for w in words:
+        one = _PLURALS.get(w.lower()) or (w[:-1] if w.endswith("s") else w)
+        if one not in CREATURE_TYPES and w not in CREATURE_TYPES:
+            return subject
+    return f"{m['pre']}{' or '.join(words)}{m['post'] or ''}"
+
+
+# -- static wordings (wave 6E) -- two groups joined by "and", each its own selector: "Skeletons you control and other
+# Zombies you control" (Death Baron: "other" belongs to the Zombies only, so a Skeleton Death Baron would pump itself),
+# "Goblins you control and Elementals you control", "Other Treefolk and Forests you control". The static applies to an
+# object in either group (``UNION`` + the selector keys; ``applies``), once.
+UNION = "any:"
+_UNION_TWO = re.compile(r"^(?P<a>.+? you control) and (?P<b>(?:other )?[A-Za-z][\w' -]*? you control)$")
+_UNION_SHARED = re.compile(r"^(?P<pre>[Oo]ther )?(?P<a>[A-Z][a-z'\-]+) and (?P<b>[A-Z][a-z'\-]+) you control$")
+
+
+def _union_subject(subject: str) -> str | None:
+    m = _UNION_TWO.match(subject)
+    parts = [m["a"], m["b"]] if m else None
+    if parts is None and (m := _UNION_SHARED.match(subject)) is not None and _type_list(subject) == subject:
+        parts = [f"{m['pre'] or ''}{m['a']} you control", f"{m['pre'] or ''}{m['b']} you control"]
+    if parts is None:
+        return None
+    keys = []
+    for part in parts:
+        if " and " in part:
+            return None
+        key, _ = _subject(part[0].upper() + part[1:], plural=True)
+        if key is None or not key.startswith(selectors.PREFIX) or "keywords" in key:
+            return None
+        keys.append(key)
+    return UNION + json.dumps(keys)
+
+
+def _union_keys(who: str) -> list[str]:
+    return list(json.loads(who[len(UNION):]))
+
+
+def _subject(subject: str, *, plural: bool = False) -> tuple[str | None, str | None]:
+    """→ ("self" | "attached" | selector key, attached kind). ``plural``: the verb is plural (wave 6C)."""
+    union = _union_subject(subject)  # -- static wordings (wave 6E) --
+    if union is not None:
+        return union, None
+    subject = _type_list(subject)  # -- token & pump wordings (wave 6C) --
     low = subject.lower()
     if low in ("~", "it"):
         return "self", None
@@ -387,7 +488,7 @@ def _subject(subject: str) -> tuple[str | None, str | None]:
     # nouns the selector grammar doesn't name: tokens are "token <permanents>" to it
     phrase = re.sub(r"\bcreature tokens\b", "token creatures", phrase, flags=re.IGNORECASE)
     phrase = re.sub(r"^(?P<pre>(?:other |attacking |untapped |tapped )*)tokens\b", r"\g<pre>token permanents", phrase)
-    if not each and not selectors.is_plural(phrase):
+    if not each and not plural and not selectors.is_plural(phrase):
         return None, None  # "Creature you control gets …": not Oracle wording for a static
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or sel.zones != ("battlefield",) or sel.card:
@@ -402,6 +503,7 @@ def _pieces(predicate: str) -> list[str]:
     quoted = False
     i = 0
     predicate = predicate.replace("power and toughness", "power_and_toughness")
+    predicate = predicate.replace("Aura and Equipment", "Aura_and_Equipment")  # (wave 6C: one count, values._ATTACHED_TO)
     while i < len(predicate):
         c = predicate[i]
         if c == '"':
@@ -420,7 +522,8 @@ def _pieces(predicate: str) -> list[str]:
         buf += c
         i += 1
     out.append(buf.strip())
-    return [p.replace("power_and_toughness", "power and toughness") for p in out if p]
+    return [p.replace("power_and_toughness", "power and toughness").replace("Aura_and_Equipment", "Aura and Equipment")
+            for p in out if p]
 
 
 def _predicate(predicate: str, x_value: values.Value | None = None, it: str | None = None) -> dict[str, Any] | None:
@@ -494,6 +597,9 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         if rest in GRANTABLE_KEYWORDS:
             keywords.append(rest)
             continue
+        if rest in TRIGGERED_GRANTS:  # -- static wordings (wave 6E) --
+            grants.append(rest.capitalize())
+            continue
         line = keyword_line(rest.replace(_FROM_JOIN, " and from "))  # -- attached events (wave 4L) --
         if line is not None:
             grants.append(line)
@@ -566,6 +672,10 @@ RULES.update({"can't attack you or planeswalkers you control": ("cant_attack_pla
 # -- conditional statics (wave 4B) -- 702.3b: a creature with defender can't attack; this lets it (app/rules/combat.py)
 RULES.update({"can attack as though it didn't have defender": ("attack_despite_defender",),
               "can attack as though they didn't have defender": ("attack_despite_defender",)})
+# -- damage wordings (wave 6B) -- 510.1a: "Each creature assigns combat damage equal to its toughness rather than its
+# power" (Doran): the amount it assigns in the combat damage step (app/rules/combat.py ``compute_combat_damage``)
+RULES.update({"assigns combat damage equal to its toughness rather than its power": ("assign_toughness",),
+              "assign combat damage equal to their toughness rather than their power": ("assign_toughness",)})
 
 
 def _rule(piece: str) -> list[str] | None:
@@ -743,6 +853,9 @@ def applies(plan: Plan, d: Definition, *, source: CardInstance, controller: str,
         if kind == "land" and not ch.is_land:
             return False
         if kind == "artifact" and "Artifact" not in ch.types:
+            return False
+    elif who.startswith(UNION):  # -- static wordings (wave 6E) -- either group
+        if not any(selectors.matches(plan, selectors.from_key(k), card, ch, controller, source.id) for k in _union_keys(who)):
             return False
     elif not selectors.matches(plan, selectors.from_key(who), card, ch, controller, source.id):
         return False

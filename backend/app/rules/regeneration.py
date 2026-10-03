@@ -43,8 +43,12 @@ def regenerate(plan: Plan, card: CardInstance) -> None:
         plan.rules.blocked = [c for c in plan.rules.blocked if c != card.id]
 
 
-def survivors(plan: Plan, card_ids: list[str], *, can_regenerate: bool = True) -> list[str]:
+def survivors(plan: Plan, card_ids: list[str], *, can_regenerate: bool = True, actor: str | None = None) -> list[str]:
     """The cards that are really destroyed: shielded ones regenerate instead (unless they can't)."""
+    # -- counters (wave 7C) -- 122.1c: a shield counter is removed instead
+    from app.rules import shield_counters
+
+    card_ids = shield_counters.destroy_survivors(plan, card_ids, actor)
     if not can_regenerate or not plan.rules.regen_shields:
         return card_ids
     out = []

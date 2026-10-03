@@ -400,6 +400,15 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True,
                 "play": False, "cast": True, "filter": None, "while": cond, "effects": []}
+    # -- top of library (wave 5I) -- "You may cast Dragon spells / artifact spells and colorless spells / creature spells of
+    # the chosen type … from the top of your library", Radha's look-and-play line (app/rules/top_library.py)
+    from app.rules import escape, top_library
+
+    if (top := top_library.permission(t, lines)) is not None:
+        return top
+    if t.lower().startswith(("escape—", "each ")) and (found_escape := escape.define_static(t)) is not None:
+        return found_escape  # (702.138a: a printed escape cost, or "Each nonland card in your graveyard has escape. …")
+    # -- end top of library (wave 5I) --
     m = PERMISSION.fullmatch(t)
     if m:
         what = _permission_what(m["what"], m["sel"], m["qual"])
@@ -427,7 +436,11 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return {"kind": "static", "static": "top_reveal", "to": "all", "effects": []}
     if t == TOP_LOOK:
         return {"kind": "static", "static": "top_reveal", "to": "owner", "effects": []}
-    return None
+    # -- cast limits (wave 5E) -- "Your opponents can't cast spells during your turn.", "Any player may cast spells as though
+    # they had flash.", "You may activate abilities of creatures you control as though those creatures had haste."
+    from app.rules import cast_limits
+
+    return cast_limits.static_definition(text)
 
 
 def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
@@ -514,10 +527,12 @@ def _view(state: GameState, player: str, info: CardInfo) -> Plan:
     return Plan.view(state, player, info)
 
 
-def spell_matches(state: GameState, player: str, card: CardInstance, ch: Characteristics, key: str, info: CardInfo) -> bool:
-    """Would the spell this card becomes match the selector ("creature spells", "red spells")?"""
+def spell_matches(state: GameState, player: str, card: CardInstance, ch: Characteristics, key: str, info: CardInfo,
+                  source: str | None = None) -> bool:
+    """Would the spell this card becomes match the selector ("creature spells", "red spells")? (``source``: the
+    permanent whose "chosen type" the selector reads, wave 5I)"""
     probe = card.model_copy(update={"zone": STACK, "controller": player})
-    return selectors.matches(_view(state, player, info), selectors.from_key(key), probe, ch, player)
+    return selectors.matches(_view(state, player, info), selectors.from_key(key), probe, ch, player, source)
 
 
 def _table_statics(state: GameState, info: CardInfo, kinds: set[str]) -> list[tuple[CardInstance, int, Definition]]:
@@ -600,18 +615,39 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             if d.get("static") == "permission" and d.get("self") and d.get("free") and d["zone"] == "hand" \
                     and (d.get("cond") != "commander" or _controls_commander(state, player)):
                 out.append(Grant("permission", f"{ch.name}: cast it without paying its mana cost", free=True))
+    if verb == "cast":  # -- cast limits (wave 5E) -- 601.3d: "You may cast this spell as though it had flash if …"
+        from app.rules import cast_limits
+
+        if (label := cast_limits.self_flash(state, player, card, ch, info)) is not None:
+            out.append(Grant("permission", label, zone_ok=False, flash=True))
     for src, index, d in _table_statics(state, info, {"permission"}):
-        if src.controller != player or d.get("self") or not d[verb]:
+        # -- cast limits (wave 5E) -- "Any player may cast …" / "During each opponent's end step, you may cast …"
+        if (src.controller != player and not d.get("any_player")) or d.get("self") or not d[verb]:
+            continue
+        if d.get("during"):
+            from app.rules import cast_limits
+
+            if not cast_limits.permission_during_ok(state, d, player):
+                continue
+        if d.get("own") and card.owner != player:  # ("Creature cards you own …")
             continue
         if d["zone"] != "any" and d["zone"] != where:
             continue
         if d["filter"] and verb == "cast" and not spell_matches(state, player, card, ch, d["filter"], info):
             continue
+        # -- top of library (wave 5I) -- "artifact spells and colorless spells", the chosen type, historic lands
+        from app.rules import top_library
+
+        if not top_library.static_ok(state, player, card, ch, info, d, src, verb):
+            continue
         key = f"{src.id}:permission:{index}"
-        if d["once"] and (r.once_per_turn.get(key) == turn or state.turn.active_player != player):
-            continue  # "once during each of your turns"
+        if d["once"] and (r.once_per_turn.get(key) == turn or (state.turn.active_player != player and not d.get("once_any"))):
+            continue  # "once during each of your turns" ("once each turn": any turn, wave 5I)
         out.append(Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")),
                          once_key=key if d["once"] else None))
+    # -- top of library (wave 5I) -- the player picks the permission they use (601.3): a once-each-turn one is offered
+    # last, so a cast another permission also allows doesn't use it up
+    out.sort(key=lambda g: g.once_key is not None)
     return out
 
 
@@ -879,6 +915,8 @@ def refresh_reveals(state: GameState, info: CardInfo) -> None:
         for d in scripts.definitions(ch).values():
             if d.get("kind") == "static" and d.get("static") == "top_reveal":
                 found.append(TopReveal(source=card.id, player=card.controller, to=d["to"]))
+            elif d.get("kind") == "static" and d.get("static") == "permission" and d.get("look"):  # (wave 5I: Radha)
+                found.append(TopReveal(source=card.id, player=card.controller, to="owner"))
     if found != r.top_reveals:
         r.top_reveals = found
 
@@ -925,6 +963,11 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         if e.get("parity") and ch.mana_value % 2 != (1 if e["parity"] == "odd" else 0):
             continue
         if e.get("filter") and not spell_matches(plan.state, pid, card, ch, e["filter"], plan.info):
+            continue
+        # -- cast limits (wave 5E) -- a cast no rule or effect prohibits (601.3)
+        from app.rules import cast_limits
+
+        if cast_limits.free_cast_blocked(plan, pid, cid) is not None:
             continue
         options.append(DecisionOption(id=cid, label=card.name or "Card", card_id=cid))
     # (cards in a hand or a library are hidden: whether a choice appears mustn't tell the other

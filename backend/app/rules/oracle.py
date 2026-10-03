@@ -20,7 +20,7 @@ _MANA_ABILITY = re.compile(
     rf"^\{{T\}}: Add (?:{_MANA_SYMBOL}(?:{_MANA_SYMBOL})*(?:(?:, | or |, or ){_MANA_SYMBOL})*|one mana of any color)\.$"
 )
 _LOYALTY = re.compile(r"^[+−-]?\d+: |^[+−-]X: ")
-_TRIGGER = re.compile(r"^(?:[A-Z][A-Za-z0-9' ]+ — )?(When|Whenever|At) ")  # an ability word ("Landfall — ") may lead
+_TRIGGER = re.compile(r"^(?:[A-Z][A-Za-z0-9'’!?,\- ]+ — )?(When|Whenever|At) ")  # (wave 6E: "Exterminate! — When …")  # an ability word ("Landfall — ") may lead
 # (-- ability words (wave 4F) -- digits too: "Descend 4 — Whenever …", 207.2c)
 # (-- attached events (wave 4L) -- "Equipped creature has "{T}: …"" is a static granting an ability, not a cost)
 _COST_START = re.compile(
@@ -51,6 +51,7 @@ KEYWORDS = frozenset({
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",
     "transmute",  # (wave 3R4: casting.transmute)
+    "ingest", "poisonous", "frenzy", "afterlife", "modular", "split second",  # -- static wordings (wave 6E) -- (app/rules/keyword_triggers.py)
 })
 
 _PARAM = re.compile(r"(\{[^}]*\}|\d+|—.*$|\bfrom\b.*$| with .*$|walk$)")
@@ -97,6 +98,8 @@ def keyword_name(piece: str) -> str | None:
 
 
 def _keywords_line(line: str) -> tuple[str, ...] | None:
+    if re.fullmatch(r"partner with [^;.]+", line.strip(), re.IGNORECASE):  # -- keyword pieces (wave 8A) -- 702.124j: the name has a comma
+        return ("partner",)
     pieces = [p for p in re.split(r"[,;]\s*", line) if p.strip()]
     names = [keyword_name(p) for p in pieces]
     if names and all(names):
@@ -117,7 +120,8 @@ _ADD_MANA = re.compile(r"^(?P<cost>[^:]+): (?:Choose a color\. )?Add ")
 # Anything else is a flavor word only when what follows is a trigger or a cost-led activated ability; other lines are left as they were.
 _WORD_PREFIX = re.compile(r"^(?P<w>[A-Z][A-Za-z0-9'’!?,\- ]{0,48}?) — (?P<rest>\S.*)$")
 _NOT_FLAVOR = frozenset({"max speed", "power-up", "exhaust", "boast", "forecast", "visit", "companion", "prototype",
-                         "solved", "to solve", "jump", "station", "level up"})
+                         "solved", "to solve", "jump", "station", "level up",
+                         "prize"})  # (-- review (wave 6R) -- "Prize —" is part of an Attraction's visit ability: 702.159b)
 _ROMAN = re.compile(r"^[IVX]+(?:, [IVX]+)*$")
 
 
@@ -133,18 +137,34 @@ def word_prefix(line: str) -> tuple[str, str] | None:
         return m["w"], m["rest"]
     if word in _NOT_FLAVOR or keyword_name(m["w"]) is not None or "{" in word:
         return None
+    if word.endswith("villainous choice"):  # -- review (wave 6R) -- "Each opponent faces a villainous choice — …" (701.55a)
+        return None
     rest = m["rest"]
     if re.match(r"(?:When|Whenever|At) ", rest):
         return m["w"], rest
     if ":" in rest and _COST_START.match(rest.split(":", 1)[0]) and len(rest.split(":", 1)[0]) < 120:
         return m["w"], rest
+    # -- static wordings (wave 6E) -- a flavor word before a static ability or a spell's instruction ("Devastating Charge
+    # — Other creatures you control have trample."): no rules meaning either (207.2d)
+    if ":" not in rest and not rest.startswith(("•", "(", "{")):
+        return m["w"], rest
     return None
+
+
+_WATCH_LINE = re.compile(r"^(?:Whenever .+? this turn, |When you next cast .+? this turn, )")  # -- turn watches (wave 7D) --
 
 
 def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], str | None]:
     if _MANA_ABILITY.match(line):
         return "mana", (), "{T}"
+    # -- mana riders (wave 5A) -- 605.1a: "{T}: For each color among permanents you control, add one mana of that color."
+    from app.rules.mana_riders import EACH_COLOR_LINE  # (Bloom Tender: no target, adds mana: a mana ability)
+
+    if (each := EACH_COLOR_LINE.match(line)) is not None:
+        return "mana", (), each["cost"]
     m = _ADD_MANA.match(line)
+    if m and re.search(r"\bmill\b|\blibrary\b", m.group("cost"), re.I):  # -- mana riders (wave 5A) -- 605.1a: a cost moving
+        m = None  # a card to or from a library ("{T}, Mill a card: Add {C}.", Millikin): not a mana ability (uses the stack)
     if m and not _LOYALTY.match(line) and "target" not in line and '"' not in m.group("cost") \
             and not _TRIGGER.match(line) and not line.startswith("•"):  # a granted/token ability isn't one
         return "mana", (), m.group("cost")
@@ -154,12 +174,16 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
     if _LOYALTY.match(line):
         return "loyalty", (), line.split(":", 1)[0]
     if _TRIGGER.match(line):
-        return "triggered", (), None
+        # -- turn watches (wave 7D) -- an instant's or sorcery's "Whenever … this turn, …" is a spell ability that
+        # creates a delayed triggered ability (603.7), not a triggered ability of the spell
+        return ("spell" if spell and _WATCH_LINE.match(line) else "triggered"), (), None
     worded = word_prefix(line) if ":" in line else None  # -- refused zones/sized (wave 3R4) -- 207.2c/207.2d
     if line.startswith("Exhaust — ") and ":" in line:  # -- ability words (wave 4F) -- 702.177a: an activated ability
         worded = ("Exhaust", line[len("Exhaust — "):])  # (its "Activate only once": restrictions.parse)
     if line.startswith("Boast — ") and ":" in line:  # -- activation costs (wave 4H) -- 702.142a (restrictions.parse)
         worded = ("Boast", line[len("Boast — "):])
+    if line.startswith("Power-up — ") and ":" in line:  # -- counters (wave 7C) -- 702.193a (restrictions.parse, power_up.py)
+        worded = ("Power-up", line[len("Power-up — "):])
     if worded is not None:  # (wave 4F: channel is read, 113.6m)
         cost = worded[1].split(":", 1)[0]
         if _COST_START.match(cost) and len(cost) < 120:

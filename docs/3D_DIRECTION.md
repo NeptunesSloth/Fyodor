@@ -274,6 +274,93 @@ so Undo takes back the whole play.
    per-viewer privacy as libraries). Their results are resolved on the server and recorded,
    and the visual physics is cosmetic.
 
+> The full redesign brief that pulls these plans together is `UI_REDESIGN_BRIEF.md`.
+
+## 7a. Planned: end-of-game scenes (late-stage, not started)
+
+Requested 2026-10-03 for the 3D redesign. It is late-stage presentation work, like the other polish
+items: build it after the rules work, as part of the 3D redesign. The feel to reference is Teamfight
+Tactics' victory/defeat presentation, made much simpler, faster and cheaper to render. **It is not a
+cinematic.**
+
+Flow: **game ends → table reacts → result appears → player chooses what to do next.**
+
+**Core presentation.** Use the existing tabletop as the scene, never a separate full-screen
+environment. When the result happens:
+
+1. briefly disable unnecessary table interaction;
+2. subtly dim or tint the tabletop;
+3. make a small camera ease toward the center of the board;
+4. play a short visual pulse / particle effect;
+5. reveal the result text;
+6. reveal a small result panel;
+7. let the player inspect the final table afterward.
+
+The whole dramatic sequence takes roughly 1–3 seconds.
+
+| Result | Sequence | Camera | Particles |
+|---|---|---|---|
+| **Victory** (satisfying, warm, premium, restrained) | table darkens slightly → warm gold/brass light pulse across the battlefield → very few gold particles/sparks → "VICTORY" appears prominently → result panel fades in. Optional: a tiny commander/card emblem behind the text, a short victory sound sting. | slow 2–4% push toward the table center (optionally a subtle upward move) | small gold dust/sparks |
+| **Defeat** (understated; the final battlefield stays visible, no destruction animation) | table dims → restrained dark/red pulse → "DEFEAT" → result panel | very slight 2–4% pull-back | a few dark/red embers |
+| **Draw** (calmer than victory or defeat) | brief neutral desaturation / silver pulse → "DRAW" → short explanation if known → result panel | almost stationary | a few neutral/silver particles |
+| **Eliminated** (Commander-specific: the local player lost but the game continues; shorter and less dramatic than Defeat) | brief dark pulse → "ELIMINATED" → "Game continues" → immediately offer **Spectate** / **Leave game** | small pull-back | little or none |
+
+Elimination must **not** end the match UI for the other players: only the eliminated player sees it. After the scene, the
+eliminated player gets the activity hub planned in `ELIMINATION_HUB.md` (Spectate, Practice Table, Opening Hand
+Simulator, Deck Lab).
+
+**Result panel** (compact, never a dashboard), for example:
+
+```
+VICTORY
+Player 1
+Atraxa, Praetors' Voice
+Turn 11
+[REMATCH — SAME DECKS]  [RETURN TO LOBBY]  [VIEW FINAL BOARD]
+```
+
+Optional smaller actions: game log, pod stats.
+
+**Post-game flow (requested 2026-10-03; the game-night milestone in `GAME_NIGHT_FLOW.md` turns Rematch into a pod vote).** Deck changes happen **only in the existing lobby**. There is no
+separate "Change decks" screen after the match, and the result panel never duplicates lobby functions.
+
+```
+Lobby → Game → Result → Rematch — same decks
+Lobby → Game → Result → Return to lobby → change decks / ready up → Start next game
+```
+
+- **Rematch — same decks** starts a completely fresh Commander game with the same players, seats,
+  decks, commanders, lobby configuration, mulligan policy and the appropriate automation/player
+  settings. All match state is reset, and it gets a new game/result record.
+- **Return to lobby** takes the whole pod back to the existing lobby, with everyone still connected to
+  the room (nobody leaves and rejoins). Each player's previous deck is selected by default, for example
+  "Player 1 — Atraxa — not ready". Players who keep their deck do nothing. Others use the normal lobby
+  controls: keep the deck, choose another saved deck, import/paste a deck, choose another commander,
+  change deck privacy, ready/unready, and any pre-game setting the lobby allows. When everyone is
+  ready: **Start next game**.
+- **View final board** keeps the finished table inspectable.
+- Eliminated players who are in another activity when the game ends get the same three choices
+  (`ELIMINATION_HUB.md`); they change decks after returning to the lobby.
+
+**Visual style.** Match Fyodor: dark tabletop, warm brass/gold, blackened metal, dark wood/felt,
+restrained typography, a physical card-room feeling. Avoid neon UI, rainbow gradients, giant glowing
+buttons, generic SaaS modal styling, confetti covering the screen, giant explosions, excessive
+particles, and anything that looks like a mobile-game reward screen.
+
+**Rules for the implementation.**
+
+- Camera motion is extremely small and **presentation only: it must never affect game state.** Reduced-motion
+  settings disable it (and the pulses).
+- Particle counts are very low; effects finish quickly and clean themselves up. Don't add an
+  expensive particle engine: use the CSS/WebGL primitives already available, simple overlays and
+  transforms.
+- It must also work in the 2D fallback renderer.
+- Sound: prepare hooks for short victory / defeat / draw / eliminated sounds. Audio is optional and
+  nothing may depend on it. (The request was cut off at "Do not require audio for"; confirm the rest
+  of that sentence before building.)
+- The result comes from the server's game state (game over / player lost), never from the client
+  guessing, and it shows no hidden information.
+
 ## 8. Status
 
 - **Rules engine:** see `IMPLEMENTATION_PLAN.md` (M14–M18). It is next.

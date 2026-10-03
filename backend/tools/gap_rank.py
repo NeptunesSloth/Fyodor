@@ -53,6 +53,29 @@ FAMILIES: list[tuple[str, str]] = [
     ("chosen_type", r"chosen (?:type|name|color|player)|of the chosen"),
     ("x_value", r"\bx\b"),
     ("counters", r"counters? on"),
+    # -- wave 5: families split out of the catch-alls below --
+    ("trigger_multiplier", r"triggers an additional time"),
+    ("untap_rider", r"\buntap (?:up to (?:one|two|three|four|five|x) )?(?:target )?lands?\b|during each other player's untap step"),
+    ("mana_rider", r"\badd \{[^}]+\}[^.]*\. you gain|for each color among|\badd \{[^}]+\} for each|"
+                   r"tap (?:a|an|this) [^.]* for mana|taps? an? [^.]* for mana, [^.]*adds? an additional|"
+                   r"exile this card from your hand: add|among legendary|commander's color identity"),
+    ("counter_rider", r"^counter target [^.]*\. (?:its controller|you|untap|at the beginning)|"
+                      r"change (?:the|a) target of target"),
+    ("attack_restriction", r"can't attack you unless|no more than \w+ creatures can attack|attacks? (?:this turn|each combat) if able|"
+                           r"additional combat phase|tapped and attacking that player|can't block creatures you control"),
+    ("draw_trigger", r"whenever an (?:opponent|player) draws|each draw(?:s)? (?:an )?additional|"
+                     r"put (?:two|three|\w+) cards? from your hand on top|you and target opponent each draw|"
+                     r"can't draw more than|whenever an opponent searches"),
+    ("cast_restriction", r"can't cast (?:spells|noncreature spells)|as though (?:they|it) had flash|"
+                         r"as though those creatures had haste|have improvise|has escape"),
+    ("protection_choice", r"protection from (?:the color of your choice|everything|colorless or from)|"
+                          r"\byou(?:, [^.]*)? (?:have|has) hexproof"),
+    ("type_setting_static", r"is (?:a|an|every) (?:swamp|forest|island|mountain|plains|basic land type|creature type)|"
+                            r"are every (?:basic land type|creature type)|are \w+ lands in addition"),
+    ("enter_as_copy_other", r"enter (?:tapped )?as a copy of|become a copy of|becomes a copy of"),
+    ("enters_untapped_or_tapped", r"enters untapped|enters tapped,? untap|this land enters tapped\. as it enters, choose|"
+                                  r"in your opening hand|it's an enchantment"),
+    ("death_trigger", r"\bdies\b|put into a graveyard from the battlefield"),
     ("trigger_other", r"^(?:when|whenever|at)\b"),
     ("activated_other", r"^[^\"]*\{[^}]+\}[^\"]*:"),
     ("static_other", r"."),
@@ -78,6 +101,27 @@ def _card(data: dict[str, Any]) -> tuple[str, int, str, bool, list[tuple[str, st
     return name, rank, cov.level, commander.can_be_commander(data), missing
 
 
+def _ngrams(detail: list[tuple[int, str, list[str]]], limit: int) -> list[tuple[str, int, list[str]]]:
+    """The 3- and 4-word phrases most sole-blocker cards share (numbers → N, mana symbols → {m}, reminder text
+    dropped), each with a few example cards by EDHREC rank."""
+    count: Counter[str] = Counter()
+    where: dict[str, list[tuple[int, str]]] = defaultdict(list)
+    for rank, name, labs in detail:
+        seen: set[str] = set()
+        for lab in labs:
+            text = re.sub(r"\([^)]*\)", "", lab.lower())
+            words = re.findall(r"[a-z~'/+-]+|\{[^}]+\}|\d+", text)
+            words = ["N" if w.isdigit() else "{m}" if w.startswith("{") else w for w in words]
+            for n in (3, 4):
+                for i in range(len(words) - n + 1):
+                    g = " ".join(words[i:i + n])
+                    if g not in seen:
+                        seen.add(g)
+                        count[g] += 1
+                        where[g].append((rank, name))
+    return [(g, n, [x for _, x in sorted(where[g])[:4]]) for g, n in count.most_common(limit)]
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", type=Path)
@@ -86,6 +130,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--family", action="append", default=[])
     ap.add_argument("--limit", type=int, default=60)
     ap.add_argument("-j", type=int, default=8)
+    ap.add_argument("--ngrams", action="append", default=[],
+                    help="list the most common 3-4 word phrases in this family's sole-blocker lines (repeatable)")
     args = ap.parse_args(argv)
     cards, _ = rows(args.db or load_settings().cards_db_path)
     with ProcessPoolExecutor(args.j) as pool:
@@ -127,6 +173,9 @@ def main(argv: list[str] | None = None) -> int:
         out += ["", f"## {fam} (sole blockers)", ""]
         for rank, name, labs in sorted(detail[fam])[: args.limit]:
             out.append(f"- **{name}** ({rank}): " + " / ".join(lab.replace("\n", " ") for lab in labs))
+    for fam in args.ngrams:  # -- wave 6 -- what the lines of a (catch-all) family have in common
+        out += ["", f"## {fam}: common phrases in sole-blocker lines (cards / example cards)", ""]
+        out += [f"- {n} `{g}`: {', '.join(x)}" for g, n, x in _ngrams(detail[fam], args.limit)]
     text = "\n".join(out) + "\n"
     if args.out:
         args.out.write_text(text, "utf-8")

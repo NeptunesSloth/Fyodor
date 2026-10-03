@@ -30,14 +30,18 @@ from app.rules import (
     battles,
     casting,
     combat,
+    combat_rules,  # -- combat (wave 5C) --
     copying,
     cost_payment,
     coverage,
     delayed,
     effects,
+    exert,  # -- static wordings (wave 6E) --
+    extra_turns,  # -- extra turns (wave 8A) --
     layers,
     looking,
     modal_abilities,
+    next_untap,  # -- next untap step (wave 6A) --
     optional_payment,
     permissions,
     reconcile,
@@ -45,6 +49,7 @@ from app.rules import (
     sba,
     scripts,
     triggers,
+    untap_choice,  # -- untap choice (wave 7F) --
 )
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.leave import leave_game
@@ -454,7 +459,10 @@ def next_step(plan: Plan) -> None:
         return
     if phase == "end_combat":
         combat.end_combat(plan)
-    if phase == "declare_attackers" and r.no_attackers:
+    extra = combat_rules.next_phase(plan) if phase in ("main1", "main2", "end_combat") else None  # -- combat (wave 5C) -- 500.8
+    if extra is not None:
+        plan.do({"type": "phase", "to": extra, "force": True}, actor=plan.active)
+    elif phase == "declare_attackers" and r.no_attackers:
         # Nobody attacked: skip declare blockers and combat damage (rule 508.8).
         plan.do({"type": "phase", "to": "end_combat", "force": True}, actor=plan.active)
     else:
@@ -487,20 +495,35 @@ def _exerted(plan: Plan, player: str) -> list[str]:
 
 
 def start_next_turn(plan: Plan) -> None:
+    combat_rules.new_turn(plan)  # -- combat (wave 5C) -- added phases belong to the turn that ends
     keep = _keep_tapped(plan)
-    keep += [c for c in _exerted(plan, plan.after(plan.active)) if c not in keep]  # (wave 4H: an exerted one isn't stunned, 122.1d)
-    # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
-    stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
-    keep = [*keep, *stunned]
+    # -- extra turns (wave 8A) -- 500.7: an extra turn comes first (the latest created first); otherwise the turn order goes
+    # on after the player whose regular turn it was
+    extra = extra_turns.take(plan)
+    base = plan.rules.turn_base or plan.active
+    upcoming = extra or plan.after(base)
+    keep += [c for c in _exerted(plan, upcoming) if c not in keep]  # (wave 4H: an exerted one isn't stunned, 122.1d)
+    # -- next untap step (wave 6A) -- 502.3: kept tapped by "doesn't untap during … next untap step" (not stunned either)
+    keep += [c for c in next_untap.kept(plan, upcoming) if c not in keep]
     skipped: list[tuple[str, int]] = []  # 800.4k: a departed player's turn doesn't begin
     previous = (plan.active, plan.state.turn.number)
     # -- refused grants/replacements (wave 3R2) -- 614.10: skipped turns (they never begin: nothing ends with
     # them, 500.4) and a skipped untap step (nothing untaps, 502.2's day / night check doesn't happen)
-    skip_to = effects.skips.next_active(plan)
-    stay = effects.skips.untap_skipped(plan, skip_to or plan.after(plan.active))
+    skip_to = extra or effects.skips.next_active(plan, base)
+    if skip_to is None and upcoming != plan.after(plan.active):  # (leaving an extra turn)
+        skip_to = upcoming
+    stay = effects.skips.untap_skipped(plan, skip_to or upcoming)
     if stay is not None:
         keep = list(dict.fromkeys([*keep, *stay]))[:250]
-    keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or plan.after(plan.active))]))[:250]  # (wave 4H)
+    keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or upcoming)]))[:250]  # (wave 4H)
+    keep = list(dict.fromkeys([*keep, *next_untap.kept(plan, skip_to or upcoming)]))[:250]  # (wave 6A)
+    # -- untap choice (wave 7F) -- 502.3: "You may choose not to untap ~": asked below, after the turn changes
+    asked = untap_choice.candidates(plan, skip_to or upcoming, keep) if stay is None else []
+    keep = [*keep, *asked]
+    # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
+    # (wave 7F: after every other reason to stay tapped, so a permanent that isn't untapping keeps its counter)
+    stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
+    keep = [*keep, *stunned]
     if skip_to is not None:
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep, "player": skip_to}, actor=plan.active)
     # -- end refused grants/replacements (wave 3R2) --
@@ -511,16 +534,31 @@ def start_next_turn(plan: Plan) -> None:
         if plan.active in plan.live():
             break
         skipped.append((plan.active, plan.state.turn.number))
+    plan.rules.turn_base = base if extra else plan.active  # -- extra turns (wave 8A) -- 500.7
+    if untap_choice.ask(plan, asked, {"stunned": stunned, "previous": list(previous), "skipped": [list(s) for s in skipped],
+                                      "plain": stay is None, "keep": keep}):  # (wave 7F) the untap step waits for the choice
+        return
+    finish_turn_start(plan, stunned, previous, skipped, stay is None, keep)
+
+
+def finish_turn_start(plan: Plan, stunned: list[str], previous: tuple[str, int], skipped: list[tuple[str, int]], plain: bool,
+                      keep: list[str]) -> None:
+    """The rest of the turn's beginning after the untap step's permanents were chosen (``plain``: the untap step happened)."""
+    stay: list[str] | None = None if plain else []
     effects.keyword_actions.lose_stun(plan, [c for c in stunned if c in plan.state.cards and plan.state.cards[c].controller == plan.active],
                                       plan.active)
     delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
     if stay is None:  # -- activation costs (wave 4H) -- 701.43a: that untap step happened; 614.10a: a skipped one doesn't count
         plan.rules.exerted = {k: p for k, p in plan.rules.exerted.items()
                               if p != plan.active and plan.rules.object_id(k.rsplit(".", 1)[0]) == k}
+    if stay is None:  # -- next untap step (wave 6A) -- that untap step happened (614.10a: a skipped one doesn't count)
+        next_untap.untap_step_done(plan, plan.active)
     if stay is None:  # (wave 3R2: not in a skipped untap step)
         effects.designations.untap_day_night(plan, *previous)  # -- (wave 3E) 502.2: day / night --
     if not plan.state.settings.auto_untap and stay is None:
         plan.do({"type": "untap_all", "player": plan.active, "keep_tapped": keep}, actor=plan.active)
+    if stay is None:  # -- mana riders (wave 5A) -- 502.3: Seedborn Muse untaps the others' permanents in this untap step
+        effects._untap_riders.other_untap_step(plan)
     # The untap step has no priority: straight on to upkeep.
     plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
     effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step
@@ -570,6 +608,8 @@ def on_step_start(plan: Plan) -> None:
         sagas.precombat_main(plan)
         # -- counters & designations (wave 3E): 728.1 rad counters (precombat main phase) --
         effects.designations.rad_trigger(plan)
+    elif phase == "begin_combat":  # -- combat (wave 5C) -- "if it's the first combat phase of the turn"
+        combat_rules.combat_began(plan)
     elif phase == "end_combat":  # -- (wave 3E) delayed triggers "at end of combat" (511.2, 603.7: the Ring's sacrifice) --
         delayed.at_step(plan, "end_combat")
     elif phase == "declare_attackers":
@@ -583,6 +623,8 @@ def on_step_start(plan: Plan) -> None:
             combat_damage(plan, "only", "done")
     elif phase == "cleanup":
         cleanup_step(plan)
+    if phase in ("main1", "main2"):  # -- stack interaction (wave 5B) -- "at the beginning of your next main phase" (603.7)
+        delayed.at_step(plan, phase)
     if phase in ("upkeep", "draw", "main1", "begin_combat", "main2", "end"):
         triggers.at_step_generic(plan)  # "At the beginning of [whose] [step]" (503, 504, 505, 507, 513)
 
@@ -757,6 +799,17 @@ def resolve_top_of_stack(plan: Plan) -> None:
     x = top.stack_info.x if top.stack_info else None
     if ep.get("life"):
         plan.do({"type": "life", "player": controller, "delta": -int(ep["life"])}, actor=controller)
+    # -- entering for a cost (wave 5G) -- paid as it would enter, or it goes to its owner's graveyard instead (614.6)
+    from app.rules import enter_cost
+
+    if ep.get("pay") and not enter_cost.pay(plan, top, controller, ep["pay"], controller):
+        ep["divert"] = True
+    if ep.get("divert"):
+        plan.rules.payments.pop(plan.oid(top_id), None)
+        enter_cost.divert(plan, top_id, controller)
+        _after_resolution(plan)
+        return
+    # -- end entering for a cost (wave 5G) --
     leave_stack(plan, top_id, controller, tapped=bool(ep["tapped"]))
     if aura_target is not None and not manual and plan.state.cards[top_id].zone.endswith(":battlefield"):
         attachments.attach(plan, top_id, aura_target.id, controller)  # 303.4f: it enters attached to its target
@@ -766,10 +819,14 @@ def resolve_top_of_stack(plan: Plan) -> None:
         plan.rules.evoked = [c for c in plan.rules.evoked if c != top_id]
         entered_now = plan.state.cards.get(top_id)
         if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            # -- trigger multipliers (wave 5D) -- an enters trigger (603.2d)
+            from app.rules import trigger_multipliers
+
             triggers._add(plan, controller=controller, source_card=top_id, source_object=plan.oid(top_id),
                           name=entered_now.name, index=7100,
                           definition={"kind": "triggered", "trigger": "evoke", "optional": False, "target": None,
-                                      "effects": [{"do": "sacrifice", "who": "self", "by": "controller"}]})
+                                      "effects": [{"do": "sacrifice", "who": "self", "by": "controller"}]},
+                          cause=trigger_multipliers.entering(plan, top_id))
     if top_id in plan.rules.dashed:  # 702.109a: haste, and back to its owner's hand at the next end step
         plan.rules.dashed = [c for c in plan.rules.dashed if c != top_id]
         entered_now = plan.state.cards.get(top_id)
@@ -876,6 +933,22 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     if ep.get("life"):
         plan.do({"type": "life", "player": plan.actor, "delta": -int(ep["life"])})
+    # -- entering for a cost (wave 5G) -- the land was played (305.1); its entering is what the payment replaces
+    from app.rules import enter_cost
+
+    if ep.get("pay") and not enter_cost.pay(plan, card, plan.actor, ep["pay"], plan.actor):
+        ep["divert"] = True
+    if ep.get("divert"):
+        enter_cost.divert(plan, card.id, plan.actor)
+        plan.rules.entry_choices.pop(card.id, None)
+        if grant is not None and grant.how == "permission":
+            permissions.consume(plan, grant)
+        r = plan.rules
+        r.lands_played[plan.actor] = TurnCount(turn=plan.state.turn.number, count=r.lands_this_turn(plan.actor, plan.state.turn.number) + 1)
+        r.passed = []
+        r.priority = plan.actor
+        return
+    # -- end entering for a cost (wave 5G) --
     payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"}, "tapped": bool(ep["tapped"])}
     if a.x is not None and a.y is not None:
         payload.update(x=a.x, y=a.y)
@@ -886,6 +959,11 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         permissions.consume(plan, grant)  # ("once during each of your turns")
         plan.note(f"{plan.name(plan.actor)} plays {card.name} from their {from_where} ({grant.label})", [card.id])
     replacements.after_entry(plan, card.id, plan.actor, choices=ep.get("choices"))
+    # -- entry forms (wave 5F) -- 305.1: the land was played ("When you play another land", City of Traitors)
+    from app.game.rules_state import emit
+
+    if plan.state.cards[card.id].zone.endswith(":battlefield"):
+        emit(plan.state, "land_played", object_id=plan.oid(card.id), card=card.id, player=plan.actor)
     r = plan.rules
     turn = plan.state.turn.number
     r.lands_played[plan.actor] = TurnCount(turn=turn, count=r.lands_this_turn(plan.actor, turn) + 1)
@@ -1131,6 +1209,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "manual_done": _resume_manual_done,
     "combat_damage": _resume_combat_damage,
     "cleanup_manual": lambda plan, d, chosen: start_next_turn(plan),
+    "untap_keep": untap_choice.resume,  # -- untap choice (wave 7F) --
     "sba_confirm": sba.resume_confirm,
     "reconcile": reconcile.resume_reconcile,
     "payment": casting.resume_payment,
@@ -1152,6 +1231,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "siege_cast": battles.resume_siege_cast,  # 310.12b
     "sacrifice_choice": effects.resume_sacrifice_choice,
     "tap_choice": effects._this_way.resume_tap_choice,  # -- "this way" outcomes (wave 4A) --
+    "untap_choice": effects._untap_riders.resume_untap_choice,  # -- mana riders (wave 5A) -- "Untap up to three lands."
     "pick_looked": effects.resume_pick_looked,
     "library_place": effects.resume_library_place,
     "shuffle_library": effects.resume_shuffle_library,
@@ -1183,6 +1263,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "mana_ability": casting.resume_mana_ability,
     "crew": casting.resume_crew,
     "ability_cost": cost_payment.resume_choice,
+    "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,
     **effects.keyword_actions.RESUME,  # amass / bolster choices, tokens entering attacking (app/rules/keyword_actions.py)

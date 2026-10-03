@@ -385,6 +385,36 @@ reconnect, connection states with pending actions, graceful shutdown, pre-migrat
 BACKUP FYODOR / restore, a DB recovery mode, an offline E2E and a long-session test. Still to
 do: a multi-hour device soak on real game-night hardware.
 
+### Later: elimination activity hub — planned (`ELIMINATION_HUB.md`)
+
+A player eliminated early gets a compact hub instead of only spectating: Spectate (public
+information only), a private Practice Table, an Opening Hand Simulator and a Deck Lab working on a
+copy of the deck, all isolated from the live game, with a small live-game indicator. Not started.
+
+### Later: post-game flow — planned (`3D_DIRECTION.md` §7a)
+
+After a result: **Rematch — same decks** (a fresh game, same seats/decks/settings, new result record),
+**Return to lobby** (the whole pod stays connected; previous decks preselected; deck changes only
+there) or **View final board**. Not started.
+
+### Later: game night / match flow milestone — planned (`GAME_NIGHT_FLOW.md`)
+
+After the rules engine and the tabletop are mature: a persistent pod lobby, the pod turn-order rule
+(d20 rolls for game 1, then the previous winner goes last), a 2–4 s pre-game commander intro, group concession with an agreed result,
+a winner spotlight, a rematch vote and spectator rejoin. Not started.
+
+### Later: tabletop quality-of-life milestone — planned (`TABLETOP_QOL_MILESTONE.md`)
+
+After the rules engine and the 3D table are stable: 17 table aids built in order over shared primitives
+(private choice drawer, pending decision indicator, token piles, owner/controller colors, X/mode badges,
+commander damage hover, quick undo request, then readability and social features). Not started.
+
+### Later: full UI / 3D tabletop redesign — brief (`UI_REDESIGN_BRIEF.md`)
+
+The instruction set for the redesign: `frontend-design` drives creation, `impeccable` critiques each
+implemented pass, verified in the running app; phases A–E (design system and table shell, core
+tabletop, rules UX, 3D/camera, game flow). Not started.
+
 ## Deliberately out of scope
 
 - **Other formats:** Standard, Modern, Pioneer, Legacy, Vintage, Pauper, Brawl, Oathbreaker,

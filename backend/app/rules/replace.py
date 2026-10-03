@@ -212,7 +212,7 @@ class _TooMany(Exception):
 
 def _canon(ev: Event) -> str:
     # (an entering permanent's counters are the same event before and after it moves: 614.12a)
-    skip = ("applied", "why", "oid") if ev.get("entering") else ("applied", "why")
+    skip = ("applied", "why", "oid", "newcomers") if ev.get("entering") else ("applied", "why")  # (newcomers: wave 5H)
     return json.dumps({k: v for k, v in ev.items() if k not in skip}, sort_keys=True, default=str)
 
 
@@ -610,15 +610,34 @@ def create_token_batch(plan: Plan, requests: list[tuple[str, dict[str, Any], int
         raise
     left_to_players(plan, planner)
     made: list[str] = []
+    started: dict[str, int] = {}  # -- review (wave 5R) -- each player's first batch
     for before, out in finals:
         note_applied(plan, before, out, actor=before["player"])
+        start = started.setdefault(before["player"], plan.rules.batch)
         for ev in out:
             made += _make_tokens(plan, ev)
+        _one_batch(plan, start)
     if bind and ctx is not None:
         from app.rules import context
 
         context.bind_objects(plan, ctx, bind, made)  # the tokens, as the new objects they are
     return made
+
+
+# -- review (wave 5R) --
+def _one_batch(plan: Plan, start: int) -> None:
+    """One instruction creating several kinds of token ("a 3/3 … token with deathtouch and a 3/3 … token with
+    lifelink", Wurmcoil Engine), or more than one table step of them, is one event (701.7a, 603.2c): the steps since
+    batch ``start`` become one batch, so a "whenever one or more tokens enter" ability triggers once. (Each table
+    step is its own batch: app/game/rules_state.track.)"""
+    r = plan.rules
+    if r.batch <= start + 1 or r.trigger_batch > start:
+        return
+    for e in r.events:
+        if e.batch > start:
+            e.batch = start + 1
+    r.batch = start + 1
+# -- end review (wave 5R) --
 
 
 def _make_tokens(plan: Plan, ev: Event) -> list[str]:
@@ -641,7 +660,7 @@ def _make_tokens(plan: Plan, ev: Event) -> list[str]:
             from app.rules import copying
 
             copying.add_copy_effect(plan, [plan.oid(tid)], copying.CopyRecipe.model_validate(recipe), pid)
-        replacements.after_entry(plan, tid, pid)  # 616.1g: created first, then it enters (its "enters with" counters)
+        replacements.after_entry(plan, tid, pid, newcomers=made)  # 616.1g: created first, then it enters (its "enters with" counters)
     return made
 
 
@@ -691,7 +710,10 @@ def _counter_object(plan: Plan, ev: Event) -> tuple[CardInstance | None, Any]:
 
 
 def _counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
-    if ev["n"] <= 0:
+    if c.match.get("entering_only"):  # -- counters (wave 5H) -- "… enters with an additional … counter" (614.1c)
+        if not ev.get("entering") or ev["n"] < 0 or c.source_card in (ev.get("newcomers") or ()):
+            return False  # (614.12: a permanent entering at the same time doesn't apply it)
+    elif ev["n"] <= 0:
         return False
     if ev.get("entering") and c.source_card == ev["card"]:
         # 614.12: an entering permanent's own static applies to it only if it affects only it;
@@ -711,6 +733,8 @@ def _counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
 
 def _counters_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     op = c.op
+    if op.get("entering"):  # -- counters (wave 5H) --
+        return [{**ev, "n": max(0, ev["n"] + int(op["n"]) * _entering_times(plan, c, ev))}]
     n = ev["n"] * int(op["n"]) if op["do"] == "mul" else ev["n"] + int(op["n"]) if op["do"] == "add" else ev["n"]
     return [{**ev, "n": max(0, n)}]
 
@@ -722,16 +746,43 @@ def _player_counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> b
     return not (who == "you" and ev["player"] != c.controller)
 
 
+# -- counters (wave 5H) --
+def _entering_times(plan: Plan, c: Candidate, ev: Event) -> int:
+    """How many times an "enters with an additional …" static adds its counters: once, "equal to ~'s toughness" (the
+    source as it is now), "for each …" (values), "for each Angel you already control" (not the permanents entering
+    now, 614.12)."""
+    times = c.op.get("times")
+    if times is None:
+        return 1
+    ctx = {"controller": c.controller, "source_card": c.source_card, "source_object": c.source_oid}
+    if "already" in times:
+        fresh = {ev["card"], *(ev.get("newcomers") or ())}
+        return sum(1 for cid in selectors.candidates(plan, selectors.from_key(times["already"]), c.controller, c.source_card)
+                   if cid not in fresh)
+    from app.rules import values
+
+    return max(0, values.evaluate(plan, ctx, times))
+
+
+def entering_kinds(plan: Plan, cands: list[Candidate]) -> set[str]:
+    """The counter kinds an "enters with an additional …" static could add (a zero event of each is planned)."""
+    return {str(c.match["counter"]) for c in cands if c.match.get("entering_only") and c.match.get("counter")}
+# -- end counters (wave 5H) --
+
+
 def put_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effect: bool = True,
                  then: dict[str, Any] | None = None, entering: dict[str, str] | None = None,
-                 answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None) -> bool:
+                 answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None,
+                 newcomers: list[str] | None = None) -> bool:
     """THE counter choke point (see the module docstring). Removing counters (negative ``n``)
     isn't a replaceable "put" and passes straight through. False while a choice is open (the
     continuation ``then`` runs after the answer)."""
     answers = answers if answers is not None else _ctx_answers(ctx)
-    planned = plan_counters(plan, puts, by=by, effect=effect, entering=entering, answers=answers, ask=then is not None)
+    planned = plan_counters(plan, puts, by=by, effect=effect, entering=entering, answers=answers, ask=then is not None,
+                            newcomers=newcomers)
     if isinstance(planned, Ask):
-        request = {"puts": [list(p) for p in puts], "by": by, "effect": effect, "entering": entering}
+        request = {"puts": [list(p) for p in puts], "by": by, "effect": effect, "entering": entering,
+                   **({"newcomers": newcomers} if newcomers else {})}
         if _pause(plan, planned, answers, _resume_for(then, "counters", request)):
             return False
         raise planned
@@ -747,10 +798,15 @@ class CounterPlan:
 
 def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effect: bool,
                   entering: dict[str, str] | None, answers: dict[str, str], ask: bool,
-                  cands: list[Candidate] | None = None) -> CounterPlan | Ask:
+                  cands: list[Candidate] | None = None, newcomers: list[str] | None = None) -> CounterPlan | Ask:
     planner = Planner(plan, cands if cands is not None else candidates(plan, ("counters", "player_counters")), answers, ask=ask)
     finals: list[tuple[Event, list[Event]]] = []
     events: list[Event] = []
+    # -- counters (wave 5H) -- an entering permanent given none of a kind an "enters with an additional" static adds:
+    # a zero event of that kind, for the static to modify (614.1c, 122.6)
+    extra_kinds = entering_kinds(plan, planner.cands) if entering else set()
+    puts = list(puts) + [(cid, kind, 0) for cid in (entering or {}) for kind in sorted(extra_kinds)
+                         if not any(p[0] == cid and p[1] == kind for p in puts)]
     for target, kind, n in puts:
         if target in plan.state.players:
             events.append({"kind": "player_counters", "player": target, "counter": kind, "n": int(n), "applied": []})
@@ -759,13 +815,15 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
                          "by": by, "effect": bool(effect), "applied": []}
             if entering and target in entering:  # given counters as it enters (122.6): asked before it enters (614.12a)
                 ev.update(controller=entering[target], entering=True, oid=None)
+                if newcomers:  # -- counters (wave 5H) -- the permanents entering with it (614.12)
+                    ev["newcomers"] = sorted(newcomers)
             events.append(ev)
     order = plan.apnap()
     events.sort(key=lambda e: order.index(affected(plan, e) or "") if affected(plan, e) in order else len(order))  # 616.1: APNAP
     try:
         for ev in events:
             out: list[Event] = []
-            if ev["n"] > 0:
+            if ev["n"] > 0 or (ev.get("entering") and extra_kinds):  # (wave 5H: a zero entering event too)
                 planner.settle(ev, {}, out.append)
             else:
                 out = [ev]  # (removing counters: nothing replaces it)
@@ -790,14 +848,18 @@ def do_counters(plan: Plan, planned: CounterPlan, *, by: str) -> None:
                 continue
             if ev["card"] in plan.state.cards:
                 groups.setdefault(("card", ev["counter"], ev["n"]), []).append(ev["card"])
+    # -- counters (wave 7C) -- several kinds at once are one instruction: its steps share a group (the batch the first
+    # one gets), so "whenever you put one or more counters on a creature" triggers once (122.6)
+    group = plan.rules.batch + 1 if len(groups) > 1 else 0
     for (_, kind, n), cards in groups.items():
-        plan.do({"type": "counter", "card_ids": cards, "kind": kind, "delta": n}, actor=by)
+        plan.do({"type": "counter", "card_ids": cards, "kind": kind, "delta": n, **({"group": group} if group else {})},
+                actor=by)
 
 
 def _run_counters(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     puts = [(p[0], p[1], int(p[2])) for p in request["puts"]]
     if put_counters(plan, puts, by=request["by"], effect=bool(request.get("effect", True)), then=then,
-                    entering=request.get("entering"), answers=answers):
+                    entering=request.get("entering"), answers=answers, newcomers=request.get("newcomers")):
         run_then(plan, then)
 
 
@@ -1129,6 +1191,8 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         n //= 2
     elif kind == "prevent":
         n = max(0, n - int(op["n"]))
+    elif kind == "prevent_half_up":  # -- damage wordings (wave 6B) -- prevent half, rounded up: half rounded down is left
+        n //= 2
     elif kind == "prevent_all_but":
         n = min(n, int(op["n"]))
     elif kind == "prevent_all":
@@ -1176,6 +1240,7 @@ class DamagePlan:
     notes: list[str]
     shields: dict[str, int]
     planner: Planner
+    shield_counters: list[str] = field(default_factory=list)  # -- counters (wave 7C) -- shield counters used up (122.1c)
 
 
 class ShieldAsk(Exception):
@@ -1255,6 +1320,10 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
     except ShieldAsk as s:
         return s
     result = [finals.get(i, ev) for i, ev in enumerate(events)]
+    # -- counters (wave 7C) -- 122.1c: what the other effects left, prevented
+    from app.rules import shield_counters
+
+    used = shield_counters.prevent_damage(plan, result)
     notes = []
     for before, after in zip(events, result, strict=True):
         if after.get("why"):
@@ -1264,7 +1333,7 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
                 notes.append(f"{before['amount']} damage to {who} prevented ({why})")
             else:
                 notes.append(f"{why}: {after['amount']} damage to {who} instead of {before['amount']}")
-    return DamagePlan(result, notes, sim["shields"], planner)
+    return DamagePlan(result, notes, sim["shields"], planner, used)
 
 
 @dataclass
@@ -1286,6 +1355,7 @@ class DamageOutcome:
     left: list[Planner] = field(default_factory=list)
     counter_finals: list[tuple[Event, list[Event]]] = field(default_factory=list)
     life_finals: list[tuple[Event, list[Event]]] = field(default_factory=list)
+    shield_counters: list[str] = field(default_factory=list)  # (wave 7C) 122.1c
 
 
 def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], order: list[str] | None,
@@ -1301,7 +1371,8 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
     if not isinstance(planned, DamagePlan):
         return planned
     out = DamageOutcome(events=[ev for ev in planned.events if ev["amount"] > 0], notes=list(planned.notes),
-                        shields=planned.shields, left=[planned.planner])
+                        shields=planned.shields, left=[planned.planner],
+                        shield_counters=planned.shield_counters)
     counters: list[tuple[str, str, int, str]] = []  # (target, kind, n, by)
     gains: dict[str, int] = {}
     for ev in out.events:
@@ -1381,6 +1452,10 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
     for before, finals in [*out.counter_finals, *out.life_finals]:
         note_applied(plan, before, finals, actor=actor)
     commit_shields(plan, out.shields)
+    # -- counters (wave 7C) --
+    from app.rules import shield_counters
+
+    shield_counters.remove(plan, out.shield_counters, actor)
     if not out.events:
         return
     dealt = [{"source": ev["source_oid"], "target": ev["target"], "amount": int(ev["amount"]),

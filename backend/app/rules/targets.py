@@ -105,8 +105,12 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
     players_ok, check = SELECTORS[selector]
     out: list[str] = []
     if players_ok:
+        from app.rules import player_shields  # -- player shields (wave 5E) -- 702.11c, 702.16b, 702.18a
+
         for pid in plan.live():
             if selector in OPPONENTS_ONLY and pid == chooser:
+                continue
+            if not player_shields.can_target(plan, chooser, pid, source):
                 continue
             out.append(pid)
     if check is not None:
@@ -121,8 +125,11 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
 
 def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source: Characteristics | None,
                       source_card: str | None, attacker: str | None = None) -> list[str]:
-    if sel.player is not None:  # 115.1: players (hexproof players: not yet modelled)
-        return [p for p in plan.live() if selectors.matches_player(plan, sel, p, chooser)]
+    if sel.player is not None:  # 115.1: players
+        from app.rules import player_shields  # -- player shields (wave 5E) -- 702.11c, 702.16b, 702.18a
+
+        return [p for p in plan.live() if selectors.matches_player(plan, sel, p, chooser)
+                and player_shields.can_target(plan, chooser, p, source)]
     out = []
     for cid in selectors.candidates(plan, sel, chooser, source_card, attacker):
         card = plan.state.cards[cid]

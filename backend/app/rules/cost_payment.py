@@ -32,7 +32,8 @@ from app.rules.plan import Plan, decide
 
 _VERBS = {C.SACRIFICE: "sacrifice", C.DISCARD: "discard", C.EXILE_FROM_GRAVEYARD: "exile",
           C.RETURN_PERMANENT: "return to its owner's hand", C.TAP_OTHER: "tap", C.REMOVE_COUNTER: "remove counters from"}
-_VERBS["EXILE_FROM_HAND"] = "exile"  # -- cost changers (wave 4I) -- "exile a blue card from your hand" (alt_costs.py)
+_VERBS["EXILE_FROM_HAND"] = "exile"
+_VERBS["HAND_TO_BOTTOM"] = "put on the bottom of your library"  # -- if you do (wave 6F) --  # -- cost changers (wave 4I) -- "exile a blue card from your hand" (alt_costs.py)
 
 
 def _reserved(cost: AbilityCost, comp: CostComponent, source: CardInstance) -> set[str]:
@@ -50,7 +51,8 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
     assert comp.selector is not None
     sel = selectors.from_key(comp.selector)
     alt = selectors.from_key(comp.alt) if comp.alt else None  # (wave 4H: "another creature or an artifact")
-    if comp.kind in (C.DISCARD, "EXILE_FROM_HAND"):  # (EXILE_FROM_HAND: wave 4I, alt_costs.py — Force of Will)
+    if comp.kind in (C.DISCARD, "EXILE_FROM_HAND", "HAND_TO_BOTTOM"):  # (EXILE_FROM_HAND: wave 4I, alt_costs.py — Force of Will;
+        # HAND_TO_BOTTOM: wave 6F, optional_payment.py)
         zone = zone_key(player, "hand")
     elif comp.kind in (C.EXILE_FROM_GRAVEYARD, C.COLLECT_EVIDENCE):  # (collect evidence: wave 4H)
         zone = zone_key(player, "graveyard")
@@ -150,6 +152,7 @@ def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, playe
 def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: int | None = None) -> str | None:
     """Why the non-mana parts of ``cost`` can't be paid now (118.3), or None. ``x``: the X chosen
     for "Pay X {E}" (unknown yet: 0)."""
+    from app.rules import cast_limits  # -- cast limits (wave 5E) --
     from app.rules.casting import summoning_sick  # casting imports this module
 
     name = card.name or "It"
@@ -158,7 +161,8 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
             if not card.tapped:
                 return f"{name} isn't tapped"
             ch = plan.ch(card)
-            if ch.is_creature and "haste" not in ch.keywords and summoning_sick(plan.state, card):
+            if ch.is_creature and "haste" not in ch.keywords and summoning_sick(plan.state, card) \
+                    and not cast_limits.as_though_haste(plan.state, card, plan.info):  # -- cast limits (wave 5E) --
                 return f"{name} has summoning sickness"
         elif comp.kind == C.PAY_ENERGY and plan.state.players[player].resources.get("energy", 0) < energy_amount(comp, x):
             return f"You don't have {energy_amount(comp, x)} energy to pay"
@@ -176,6 +180,8 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell, cost: AbilityCost, ca
     None while waiting for the payer's (private) choice. Each object pays for one part only."""
     given: dict[int, list[str]] = {}
     for c in a.cost_choices:
+        if c.component == C.EITHER_SLOT and isinstance(a, A.CastSpell):  # -- static wordings (wave 6E) -- (either_costs)
+            continue
         if c.component in given:
             raise ActionError("Choose the objects for each part of the cost once")
         given[c.component] = list(c.cards)

@@ -7,8 +7,12 @@ Researched against CR 2026-09-25.
   played this turn (lands played during resolutions count too). Several such effects add up (Exploration and Azusa:
   four lands).
 * The static ability works while its permanent is on the battlefield (611.3a); its controller is the "you".
-* Refused (manual): the one-shot "You may play an additional land this turn." of a resolving spell, "on each of your
-  turns" with a condition, and anything granting land plays to other players.
+* -- one-shot extra land plays (wave 8A) -- "You may play an additional land this turn." (Explore, Urban Evolution),
+  "You may play up to three additional lands this turn." (Summer Bloom): a continuous effect from a resolving spell or
+  ability, lasting this turn (611.2a), for the player it names ("you"). Several add up. "Up to" is no obligation: the
+  extra plays are only permission (305.2).
+* Refused (manual): "on each of your turns" with a condition, "each player may play an additional land on each of their
+  turns" (Rites of Flourishing) and anything granting land plays to other players.
 
 Read by app/rules/engine.land_play_problem.
 """
@@ -34,6 +38,34 @@ def static_definition(text: str) -> dict[str, Any] | None:
     return {"kind": "static", "static": EXTRA_LANDS, "n": _N[m["n"]] if m["n"] else 1, "effects": []}
 
 
+_ONE_SHOT = re.compile(r"^you may play (?:an additional land|(?:up to )?(?P<n>two|three) additional lands) this turn$")
+
+
+def sentence(text: str) -> list[dict[str, Any]] | None:
+    """"You may play an additional land this turn." as an effect (a permission, not a choice made on resolution)."""
+    m = _ONE_SHOT.match(text)
+    return [{"do": "extra_land", "n": _N[m["n"]] if m["n"] else 1}] if m else None
+
+
+def extra_land(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """305.2 / 611.2a: the controller may play ``n`` additional lands this turn (several effects add up)."""
+    from app.game.rules_state import TurnCount
+
+    r, me, turn = plan.rules, ctx["controller"], plan.state.turn.number
+    r.extra_land_plays[me] = TurnCount(turn=turn, count=one_shot(plan.state, me) + int(e["n"]))
+    n = int(e["n"])
+    plan.note(f"{plan.name(me)} may play {'an' if n == 1 else n} additional land{'s' if n > 1 else ''} this turn (305.2)", actor=me)
+    return True
+
+
+PRIMITIVES = {"extra_land": extra_land}
+
+
+def one_shot(state: GameState, player: str) -> int:
+    entry = state.rules.extra_land_plays.get(player) if state.rules else None
+    return entry.count if entry and entry.turn == state.turn.number else 0
+
+
 def allowed(state: GameState, player: str, info: CardInfo | None) -> int:
     """How many lands ``player`` can play this turn (305.2): one, plus each "additional land" static ability of a
     permanent they control. Without card information only the one."""
@@ -43,7 +75,7 @@ def allowed(state: GameState, player: str, info: CardInfo | None) -> int:
     from app.rules import scripts
     from app.rules.layers import derive
 
-    n = 1
+    n = 1 + one_shot(state, player)  # (-- one-shot extra land plays (wave 8A) --)
     for cid in state.zones.get(f"{player}:battlefield", []):
         c = state.cards.get(cid)
         if c is None or c.controller != player or c.face_down or state.rules.card_mode(c.id) == "manual":

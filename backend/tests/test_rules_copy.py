@@ -865,8 +865,6 @@ def test_copy_cards_are_fully_automated(name):
     "You may have this creature enter as a copy of a creature or planeswalker you control, except it enters with an "
     "additional +1/+1 counter on it if it's a creature, it enters with an additional loyalty counter on it if it's a "
     "planeswalker, and it isn't legendary.",
-    # it could copy an Aura, which would have to attach as it enters (303.4f): Copy Enchantment
-    "You may have this enchantment enter as a copy of any enchantment on the battlefield.",
     # "except its name is …" (Sakashima the Impostor)
     "You may have Sakashima the Impostor enter as a copy of any creature on the battlefield, except its name is "
     "Sakashima the Impostor, it's legendary in addition to its other types, and it has \"{2}{U}{U}: Return Sakashima "
@@ -879,7 +877,7 @@ def test_unsupported_enter_as_a_copy_wordings_stay_manual(text):
 
 @pytest.mark.parametrize("text", [
     "Create a token that's a copy of it.",  # (no antecedent)
-    "Create a token that's a copy of target creature, except it's a 1/1 green Frog.",  # (sets the creature types)
+    "Create a token that's a copy of target creature, except it's a 1/1 green Forest.",  # (not a creature type; the Frog form: wave 5J)
     "Copy target instant or sorcery spell for each creature you control.",  # (707.10d-like: not read)
     "Copy target activated ability you control, except it has flying.",
 ])

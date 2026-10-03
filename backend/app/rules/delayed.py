@@ -31,8 +31,8 @@ one that has no such counter any more drops out, and the effect ends with the la
 doesn't change what an effect applies to: a characteristic-changing effect stays locked to the
 objects it began on (611.2c), so a "this turn" pump keeps going when the creature changes controllers.
 
-Not modelled here (the wording stays manual, never guessed): "whenever … this turn" (an "each"
-duration), "when you next cast … this turn, copy that spell", conditions on the deferred effect
+Not modelled here (the wording stays manual, never guessed; turn watches: app/rules/watches.py): (an "each"
+duration), conditions on the deferred effect
 ("… if it didn't attack this turn"), several watched objects ("when a creature dealt damage this
 way dies"), and linked leaves-the-battlefield abilities of a *second* ability line (607).
 """
@@ -59,7 +59,11 @@ WHEN = {
     "the next turn's upkeep": {"kind": "step", "step": "upkeep", "whose": "next_turn"},
     "the next upkeep": {"kind": "step", "step": "upkeep", "whose": "next_turn"},
     "your next upkeep": {"kind": "step", "step": "upkeep", "whose": "you"},
+    # -- stack interaction (wave 5B) -- Mana Drain: the next main phase (precombat or postcombat, 505.1) of a turn of
+    # yours to begin; a later one this turn if you're in your precombat main phase or combat now (engine: main1 / main2)
+    "your next main phase": {"kind": "step", "step": "main", "whose": "you"},
 }
+END_OF_COMBAT = {"kind": "step", "step": "end_combat", "whose": "next"}  # -- other side (wave 6D) -- "at end of combat" (511.2)
 WHEN_RE = "|".join(re.escape(k) for k in sorted(WHEN, key=len, reverse=True))
 # "when that creature dies / leaves the battlefield this turn": the object an earlier part named
 EVENT_SUBJECTS = ("it", "that creature", "that permanent", "that token", "that card", "~", "this creature",
@@ -74,6 +78,8 @@ DURATIONS: dict[str, str] = {
     "for as long as ~ remains on the battlefield": "source_on_battlefield",
     "for as long as you control ~": "source_controlled",
     "for as long as ~ remains tapped": "source_tapped",
+    # -- untap choice (wave 7F) -- Rubinia Soulsinger: both must stay true (611.2b: it ends the moment either stops)
+    "for as long as you control ~ and ~ remains tapped": "source_controlled_tapped",
 }
 # -- quoted grants (wave 2D) -- "for as long as that creature has a bounty counter on it" (Mathas): the
 # duration names a kind of counter ("while_counter:<kind>"): the effect lasts while the object it affects
@@ -82,6 +88,7 @@ COUNTER_DURATION = r"for as long as (?:that \w+|it|~) has an? (?P<kind>[\w+/-]+)
 DURATION_RE = "|".join([*(re.escape(k) for k in sorted(DURATIONS, key=len, reverse=True)), COUNTER_DURATION])
 LABELS = {"next_turn": "until your next turn", "source_on_battlefield": "for as long as ~ remains on the battlefield",
           "source_controlled": "for as long as you control ~", "source_tapped": "for as long as ~ remains tapped",
+          "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
           "while_counter": "for as long as it has a counter on it"}
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
 
@@ -172,12 +179,17 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             plan.note(f"{ctx.get('name') or 'The ability'}: nothing to watch (it already left)")
             return True
         context.bind_objects(plan, {"refs": refs}, "watch", watched)
+    if when["kind"] == "watch":  # -- turn watches (wave 7D) -- events after this resolution step only (603.7a)
+        when["since"] = plan.rules.batch
+        from app.rules import watches
+
+        deferred = watches.bind_x(deferred, int(ctx.get("x") or 0))  # (the X the creating spell was cast with)
     turn = plan.state.turn.number
     trigger = DelayedTrigger(
         id=secrets.token_hex(4), controller=ctx["controller"], source_card=ctx.get("source_card"),
         source_object=ctx.get("source_object"), name=ctx.get("name") or "", when=when,
         effects=_bind_now(plan, ctx, deferred, refs), refs=refs, event=ctx.get("event"), turn=turn,
-        step=plan.state.turn.phase, until_turn=turn if e.get("this_turn") else None)
+        step=plan.state.turn.phase, until_turn=turn if e.get("this_turn") else None, once=bool(e.get("once", True)))
     plan.rules.delayed.append(trigger)
     plan.note(f"{trigger.name or 'A delayed ability'} will trigger {describe_when(when)}")
     return True
@@ -196,12 +208,17 @@ def create_move(plan: Plan, controller: str, card_id: str, oid: str, to: str, na
 def describe_when(when: dict[str, Any]) -> str:
     if when["kind"] == "designation":  # (wave 3E: app/rules/designations.py fires these)
         return "when an opponent becomes the monarch"
+    if when["kind"] == "watch":  # -- turn watches (wave 7D) --
+        return f"when {when['text']} this turn"
     if when["kind"] == "event":
         if when["event"] == "die_or_exile":  # -- wave 3F -- (earthbend: no "this turn")
             return "when it dies or is put into exile"
         return "when it " + ("dies" if when["event"] == "die" else "leaves the battlefield") + " this turn"
+    if when.get("step") == "end_combat":  # -- other side (wave 6D) --
+        return "at end of combat"
     whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's"}[when["whose"]]
-    return f"at the beginning of {whose} {'end step' if when['step'] == 'end' else 'upkeep'}"
+    step = {"end": "end step", "main": "main phase"}.get(when["step"], "upkeep")  # (main: wave 5B)
+    return f"at the beginning of {whose} {step}"
 
 
 # -- triggering (603.2) and going on the stack with the other triggers (603.3b) --------------------
@@ -218,7 +235,8 @@ def _fire(plan: Plan, t: DelayedTrigger, event: TriggerEvent | None) -> None:
 
 def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
     w = t.when
-    if w.get("kind") != "step" or w.get("step") != phase:
+    main = w.get("step") == "main" and phase in ("main1", "main2")  # -- stack interaction (wave 5B) -- (505.1)
+    if w.get("kind") != "step" or (w.get("step") != phase and not main):
         return False
     turn = plan.state.turn.number
     later_turn = turn > t.turn
@@ -351,9 +369,9 @@ def _source_ok(plan: Plan, duration: str, source_card: str | None, source_object
         return False
     if not plan.in_game(card):
         return False  # 800.4a: its owner (or controller) left the game, and it left with them
-    if duration == "source_controlled":
-        return card.controller == controller
-    if duration == "source_tapped":
+    if duration in ("source_controlled", "source_controlled_tapped") and card.controller != controller:
+        return False
+    if duration in ("source_tapped", "source_controlled_tapped"):
         return card.tapped
     return True
 
@@ -392,6 +410,9 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     seats of departed players passed on the way here, with the turn number each would have had)."""
     r = plan.rules
     turn, active = plan.state.turn.number, plan.active
+    from app.rules import cast_limits  # -- cast limits (wave 5E) -- "until your next turn, … can't cast …"
+
+    cast_limits.turn_began(plan, skipped)
     ended = [e for e in r.effects if e.duration == "next_turn" and (
         (e.until_player == active and turn > e.turn)
         or any(e.until_player == p and n > e.turn for p, n in skipped or ()))]

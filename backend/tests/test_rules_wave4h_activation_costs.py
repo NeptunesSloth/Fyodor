@@ -174,7 +174,7 @@ def test_parsing():
         assert parse_ability_cost(text).activation_only and not parse_ability_cost(text).basic
     assert parse_ability_cost("Sacrifice a creature").basic is False and not parse_ability_cost("Sacrifice a creature").activation_only
     # refused: an "or" between objects, exert, snow mana, counters among several permanents, "a black and red creature"
-    for text in ("Sacrifice another creature or token", "Exert another creature", "{S}",
+    for text in ("Sacrifice another creature or token", "Exert another creature",
                  "Remove X +1/+1 counters from among creatures you control", "Sacrifice a black and red creature",
                  "Remove a counter from an artifact, creature, land, or planeswalker you control"):
         assert parse_ability_cost(text).unsupported, text
@@ -184,7 +184,11 @@ def test_optional_payments_and_mana_abilities_never_take_these_parts():
     from app.rules import mana, optional_payment
 
     assert optional_payment.parse("Sacrifice X Treasures") is None
-    assert optional_payment.parse("Discard your hand") is None
+    # -- if you do (wave 6F) -- "you may discard your hand. If you do, …" is paid as it resolves (tests/
+    # test_rules_wave6f_if_you_do.py); the other activation-only parts still aren't
+    assert optional_payment.parse("Discard your hand") is not None
+    assert optional_payment.parse("Mill two cards") is not None  # (wave 8C: "you may mill four cards. If you do, …", 701.17b)
+    assert optional_payment.parse("Forage") is None
     assert mana.parse_mana_ability("{T}, Sacrifice X Goats: Add X mana of any one color. You gain X life.") is None or \
         not parse_ability_cost("{T}, Sacrifice X Goats").basic
 

@@ -16,8 +16,15 @@ from dataclasses import dataclass, field
 from itertools import combinations_with_replacement
 from typing import Any
 
+from app.rules import mana_riders as _mana_riders  # -- mana riders (wave 5A) --
+from app.rules import removed_mana as _removed_mana  # -- if you do (wave 6F) --
+
 COLORS = ("W", "U", "B", "R", "G")
 ALL_MANA = (*COLORS, "C")
+# -- snow mana (wave 7E) -- 107.4h: {S} is paid with one mana of any type produced by a snow source (106.3 / 205.4g: a snow
+# permanent). The pool is one plain count per type and doesn't record where its mana came from, so {S} is paid only by
+# tapping a snow source as the cost is paid (``Source.snow``); mana already in the pool never pays it.
+SNOW = "S"
 _SYMBOL = re.compile(r"\{([^}]+)\}")
 _COST_AND_EFFECT = re.compile(r"^(?P<cost>[^:]+): (?P<effect>(?:Choose a color\. )?Add .+)$")
 
@@ -65,7 +72,7 @@ def parse_cost(text: str | None) -> ManaCost:
             generic += int(sym)
         elif sym == "X":
             x += 1
-        elif sym in ALL_MANA:
+        elif sym in ALL_MANA or sym == SNOW:  # -- snow mana (wave 7E) -- {S} is a colored requirement of its own (107.4h)
             colored.append(sym)
         elif sym.endswith("/P") and sym[0] in COLORS:
             phyrexian.append(sym[0])
@@ -105,11 +112,15 @@ class ManaAbility:
     # -- refused copy/mana (wave 3R3) -- "Put a -0/-1 counter on this creature: Add {G}." (Wall of Roots): the
     # counter put on the source as the cost (by hand only: the auto-payer never weakens a creature)
     self_counter: str | None = None
+    # -- mana riders (wave 5A) -- "Exile this card from your hand: Add {R}." (Simian Spirit Guide): activated only
+    # from its owner's hand (113.6m, 605.3a), by hand only (app/rules/mana_riders.activate_from_hand)
+    from_hand: bool = False
 
     @property
     def penalty(self) -> int:
         """How much using it costs beyond tapping (the payer avoids painful options first)."""
-        return sum(n for kind, n in self.riders if kind == "damage") * 3 + (5 if self.extra_cost else 0) + (4 if self.sacrifice_self else 0)
+        return sum(n for kind, n in self.riders if kind == "damage") * 3 + (5 if self.extra_cost else 0) + (4 if self.sacrifice_self else 0) \
+            + _mana_riders.penalty(self.riders)  # -- mana riders (wave 5A) --
 
 
 _NUM = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
@@ -221,9 +232,13 @@ def _without_ability_word(text: str) -> str:
 def _general_condition(text: str) -> str | None:
     import json
 
-    from app.rules import conditions
+    from app.rules import (
+        activation_words,  # -- activation wordings (wave 7B) --
+        conditions,
+    )
 
-    cond = conditions.parse(text)
+    cond = conditions.parse(text) or activation_words.condition(
+        re.sub(r"\bthis (?:creature|land|permanent|artifact|enchantment)\b", "~", text))
     if cond is None or conditions.is_cast_condition(cond):
         return None
     return "cond:" + json.dumps(cond, sort_keys=True)
@@ -245,6 +260,7 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     """Understand a mana ability. ``identity`` is the controller's commander color identity (for
     Command Tower-style wording). Returns None for wordings the engine doesn't carry out."""
     text = _without_ability_word(text.strip())  # -- ability words (wave 4F) --
+    text = _mana_riders.normalise(text)  # -- mana riders (wave 5A) -- "For each color among …, add …"
     m = _COST_AND_EFFECT.match(text)
     if not m:
         return None
@@ -253,9 +269,17 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     sacrifice = False
     chooses = False
     self_counter: str | None = None
+    from_hand = False  # -- mana riders (wave 5A) --
     extra: list[str] = []
+    removed_kind: str | None = None  # -- if you do (wave 6F) -- "Remove any number of storage counters from this land"
     for part in cost:
         if part in ("{T}", "{0}"):
+            continue
+        if (rk := _removed_mana.cost_kind(part)) is not None and removed_kind is None:  # -- if you do (wave 6F) --
+            removed_kind = rk
+            continue
+        if part == "Exile this card from your hand" and len(cost) == 1:  # -- mana riders (wave 5A) -- (113.6m)
+            from_hand = True
             continue
         if _SAC_SELF.fullmatch(part):
             sacrifice = True
@@ -279,7 +303,12 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             return None
     first = sentences[0].rstrip(".")
     options: tuple[tuple[str, ...], ...] | None
-    if chosen_color:
+    if removed_kind is not None:  # -- if you do (wave 6F) -- "Add {C} for each storage counter removed this way"
+        found_removed = None if chosen_color else _removed_mana.first_sentence(first, removed_kind)
+        if found_removed is None:
+            return None
+        count, options = found_removed
+    elif chosen_color:
         if first not in _CHOSEN_COLOR:
             return None
         count, options = _CHOSEN_COLOR[first], tuple((col,) for col in COLORS)
@@ -295,6 +324,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         count, options = "power", tuple((col,) for col in COLORS)
     elif c := _X_COUNT.fullmatch(first):  # (wave 4K)
         count, options = f"control:{_COUNT_TYPES[c.group('what')[:-1]]}", tuple((col,) for col in COLORS)
+    elif (more_forms := _mana_riders.first_sentence(first)) is not None:  # -- mana riders (wave 5A) --
+        count, options = more_forms
     else:
         options = _effect_options(sentences[0], identity)
     if options is None:
@@ -311,6 +342,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             riders.append(("damage", int(d.group("n"))))
         elif s == "Draw a card":
             riders.append(("draw", 1))
+        elif (rd := _mana_riders.rider(s)) is not None:  # -- mana riders (wave 5A) -- "You gain 2 life."
+            riders.append(rd)
         elif s == "Activate only once each turn":
             once = True
         elif c := _CONTROL.fullmatch(s):
@@ -352,7 +385,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
                 spend_only = q
     return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
                        riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition,
-                       count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter)
+                       count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter,
+                       from_hand=from_hand)
 
 
 @dataclass(frozen=True)
@@ -365,6 +399,7 @@ class Source:
     # Parallel to ``options``: which of the permanent's abilities gives it (for riders and costs).
     abilities: tuple[int, ...] = ()
     activation: ManaCost | None = None  # a mana cost to activate (a filter), paid by other sources
+    snow: bool = False  # -- snow mana (wave 7E) -- a snow permanent: its mana can pay {S} (107.4h)
 
     @property
     def flexibility(self) -> int:
@@ -448,7 +483,8 @@ def _pay_one(units: dict[str, int], remaining: list[Source], chosen: Chosen, req
             yield new, remaining, chosen
     for j, src in enumerate(remaining):
         for opt in src.options:
-            wanted = next((c for c in req if c in opt), None)
+            # (-- snow mana (wave 7E) -- {S}: any mana of a snow source, 107.4h)
+            wanted = opt[0] if req == (SNOW,) and src.snow and opt else next((c for c in req if c in opt), None)
             if wanted is None:
                 continue
             new = dict(units)

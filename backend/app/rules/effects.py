@@ -24,6 +24,7 @@ from app.game.state import zone_key
 from app.rules import (
     context,
     delayed,
+    entry_forms,
     layers,
     optional_payment,
     permissions,
@@ -87,6 +88,20 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if p != me]
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.players and t["id"] in plan.live()]
+    if who == "target_player_or_controller":  # -- damage wordings (wave 6B) -- "that player or that planeswalker's
+        # controller": the target player, or the target permanent's controller (as it last existed: 608.2h)
+        out: list[str] = []
+        for t in target_refs(ctx, "target"):
+            pid: str | None = t["id"] if t["id"] in plan.state.players else None
+            if pid is None:
+                card = plan.state.cards.get(t["id"])
+                if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == t.get("object_id"):
+                    pid = card.controller
+                elif (snap := plan.rules.lki.get(t.get("object_id") or "")) is not None:
+                    pid = snap.controller
+            if pid is not None and pid in plan.live() and pid not in out:
+                out.append(pid)
+        return out
     if who == "each_other_opponent":  # -- sized amounts (wave 3D) -- the opponents besides the player the trigger event was about
         named = set(context.players(plan, ctx, context.EVENT))
         return [p for p in plan.live() if p != me and p not in named]
@@ -98,6 +113,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return attached_players.attacking_opponents(plan, ctx)
     if who.startswith(context.PREFIX):  # a binding: "that player", "its controller", "its owner" (app/rules/context.py)
         return context.players(plan, ctx, who[len(context.PREFIX):])
+    if who == "defending_player":  # -- defending player (wave 6D) -- 508.5 (app/rules/defending.py)
+        from app.rules import defending
+
+        return defending.players(plan, ctx)
     if who == "chosen_player":  # -- chosen player (wave 4J) -- the player the source chose as it entered (614.12a)
         from app.rules import chosen
 
@@ -145,6 +164,10 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
             snap = plan.rules.lki.get(ctx.get("source_object") or "")
             host = plan.state.cards.get(snap.attached_to or "") if snap is not None else None
         return [host.id] if host is not None and host.zone.endswith(":battlefield") else []
+    if who == "exiled_with":  # -- exiled with (wave 6D) -- 607.2a (app/rules/exiled_with.py)
+        from app.rules import exiled_with
+
+        return exiled_with.cards(plan, ctx)
     if who == "event":  # "it" / "that creature": the object(s) the trigger event happened to — only while
         # each is still that object where it was (400.7: after a zone change it's a new object)
         return context.objects(plan, ctx, context.EVENT)
@@ -205,6 +228,8 @@ def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # 121.2c APNAP, 121.6a / 614.11 with an empty library, 704.5b) --
     want = _amount(plan, ctx, e["n"])
     players = _players(plan, ctx, e["who"])
+    if e.get("also"):  # -- triggers (wave 5D) -- "You and target opponent each draw a card": one instruction (121.2c)
+        players = list(dict.fromkeys([*_players(plan, ctx, e["also"]), *players]))
     if want <= 0 or not players:
         return True
     return replace.draw_cards(plan, players, want, then=_then(ctx, e), ctx=ctx)
@@ -228,9 +253,18 @@ def _then(ctx: Context, e: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    n = _amount(plan, ctx, e["n"])
+    # -- life lost (wave 8B) -- "Each opponent loses life equal to the life they lost this turn": each one's own amount,
+    # worked out before any of them loses life (608.2h; they lose it at once)
+    each = {p: _amount(plan, {**ctx, "recipient": p}, e["n"]) for p in _players(plan, ctx, e["who"])} \
+        if sized_damage.has_per_player(e["n"]) else None
+    n = 0 if each is not None else _amount(plan, ctx, e["n"])
     lost = 0
     for pid in _players(plan, ctx, e["who"]):
+        if each is not None:
+            n = each[pid]
+        if e.get("half"):  # -- attached events (wave 8D) -- "loses half their life, rounded up": of the life total now (a
+            half_of = max(0, plan.state.players[pid].life)  # negative total is 0, 107.1b)
+            n = half_of // 2 + (half_of % 2 if e["half"] == "up" else 0)
         if n:
             before = plan.state.players[pid].life
             plan.do({"type": "life", "player": pid, "delta": -n}, actor=ctx["controller"])
@@ -337,6 +371,13 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
                 and source_shields.protection_applies(plan, ev):  # (615.12: protection's prevention, 702.16e, too)
             notes.append((f"Protection prevents the damage to {plan.ch(plan.state.cards[key]).name}", [key]))
             continue
+        # -- player shields (wave 5E) -- a player's protection (702.16e, 702.16j)
+        from app.rules import player_shields
+
+        if key in plan.state.players and player_shields.protected_from(plan, key, src.ch) is not None \
+                and source_shields.protection_applies(plan, ev):
+            notes.append((f"Protection prevents the damage to {plan.name(key)}", []))
+            continue
         kept.append(ev)
     rerun = replace.rerun_then(ctx, e)
     answers = dict(ctx.get(replace.ANSWERS) or {})
@@ -354,6 +395,8 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
         # "a creature dealt damage this way" (the objects actually dealt damage: after prevention)
         ctx[DEALT_KEY][e["dealt_as"]] = [ev["target_oid"] for ev in out.events if ev.get("target_oid")]
     replace.do_damage(plan, out, actor=ctx["controller"], combat=False)
+    if e is not None and e.get("bind_dealt"):  # -- if you do (wave 5G) -- "the damage dealt this way" (this_way.damage_dealt)
+        context.bind_amount(ctx, e["bind_dealt"], sum(max(0, int(ev["amount"])) for ev in out.events))
     return True
 
 
@@ -596,6 +639,8 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
     _remember(plan, ctx, e, cards)
+    e = {**e, "rules": [r.replace("@you", ctx["controller"]).replace("@src", ctx.get("source_object") or "")  # (@src: wave 7E)
+                        for r in e["rules"]]}  # -- combat (wave 5C) -- (Kardur)
     group = who.startswith(selectors.PREFIX) and not e.get("locked")
     duration = e.get("duration", "end_of_turn")
     if cards or group:
@@ -627,7 +672,7 @@ def destroy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # controller …" means the target's controller even if it was indestructible or regenerated)
     before = _remember(plan, ctx, e, _cards(plan, ctx, e["who"]))
     doomed = [c for c in _cards(plan, ctx, e["who"]) if "indestructible" not in plan.ch(plan.state.cards[c]).keywords]
-    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx))
+    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx), actor=ctx["controller"])
     if doomed:
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
     _moved(plan, ctx, e, before)
@@ -639,6 +684,10 @@ def exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
+    if e.get("link"):  # -- exiled with (wave 6D) -- 607.2a: what the linked ability will refer to
+        from app.rules import exiled_with
+
+        exiled_with.record(plan, ctx, cards)
     _moved(plan, ctx, e, before)
     return True
 
@@ -730,17 +779,24 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
         from app.rules import this_way
 
         each = this_way.by_controller(plan, ctx, e["per_controller"])
-    # -- X sized by a count (wave 4K) -- "an X/X … token": X as the token is created, its printed P/T from then on (111.3)
-    pt = {k: str(values.evaluate(plan, ctx, t[k])) if isinstance(t.get(k), dict) else t.get(k) for k in ("power", "toughness")}
-    for pid in (list(each) if each is not None else _players(plan, ctx, e["who"])):
-        if each is not None and pid not in plan.live():
+    # -- triggers (wave 5D) -- "create a 3/3 … token with deathtouch and a 3/3 … token with lifelink" (Wurmcoil Engine):
+    # one instruction, so one batch of tokens entering together (701.7a, 603.2c)
+    kinds = [(t, count, e.get("tapped"))] + [(m["token"], _amount(plan, ctx, m["n"]), m.get("tapped"))
+                                             for m in e.get("more") or []]
+    for t, count, tapped_by_creator in kinds:
+        if count <= 0:
             continue
-        spec = {"name": t["name"], "power": pt["power"], "toughness": pt["toughness"],
-                "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
-        # a token enters tapped when its creator says so ("create a tapped …") or its own text does
-        # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
-        tapped = bool(e.get("tapped")) or replacements.token_enters_tapped(plan, pid, spec)
-        requests.append((pid, spec, count * each[pid] if each is not None else count, source, tapped))
+        # -- X sized by a count (wave 4K) -- "an X/X … token": X as the token is created, its printed P/T from then on (111.3)
+        pt = {k: str(values.evaluate(plan, ctx, t[k])) if isinstance(t.get(k), dict) else t.get(k) for k in ("power", "toughness")}
+        for pid in (list(each) if each is not None else _players(plan, ctx, e["who"])):
+            if each is not None and pid not in plan.live():
+                continue
+            spec = {"name": t["name"], "power": pt["power"], "toughness": pt["toughness"],
+                    "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
+            # a token enters tapped when its creator says so ("create a tapped …") or its own text does
+            # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
+            tapped = bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)
+            requests.append((pid, spec, count * each[pid] if each is not None else count, source, tapped))
     # (the tokens are recorded as binding "as", the new objects they are: "they gain haste")
     made = replace.create_token_batch(plan, requests, ctx=ctx, bind=e.get("as"), then=then or _then(ctx, e))
     return made is not None  # (None: the creating player chooses an order first, 616.1)
@@ -756,6 +812,10 @@ def add_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     else:
         n = _amount(plan, ctx, e["n"])
         puts = [(cid, e["kind"], n) for cid in cards] if n else []
+        for more in e.get("also") or ():  # -- counters (wave 5H) -- several kinds at once (one event, 122.6)
+            k = _amount(plan, ctx, more["n"])
+            more_cards = _cards(plan, ctx, more["who"]) if more.get("who") else cards
+            puts += [(cid, more["kind"], k) for cid in more_cards] if k else []
     if not puts:
         return True
     return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
@@ -771,6 +831,55 @@ def remove_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if have and n:
             plan.do({"type": "counter", "card_ids": [cid], "kind": e["kind"], "delta": -min(have, n)}, actor=ctx["controller"])
     return True
+
+
+# -- counters (wave 5H) --
+def double_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.10e: "double the number of [kind] counters on …" gives each object as many more of that kind as it has
+    ("each kind of counter": every kind it has) — counters put, all at once, through the choke point (122.6, 614.16:
+    Hardened Scales and Doubling Season apply)."""
+    cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
+    puts = []
+    for cid in cards:
+        have = plan.state.cards[cid].counters
+        kinds = [k for k, v in have.items() if v > 0] if e["kind"] == "*" else [e["kind"]]
+        puts += [(cid, k, have.get(k, 0)) for k in kinds if have.get(k, 0) > 0]
+    if not puts:
+        return True
+    return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
+
+
+def lki_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """122.8: "put its counters on …" after the object left: the same number of each kind it had as it last
+    existed (603.10a) are put — not moved — through the choke point (614.16 applies). Nothing to read: nothing put."""
+    got = values._object(plan, ctx, e["from"])
+    cards = _cards(plan, ctx, e["who"])
+    _remember(plan, ctx, e, cards)
+    had = {k: n for k, n in sorted(got[0].counters.items()) if n > 0} if got is not None else {}
+    puts = [(cid, k, n) for cid in cards for k, n in had.items()]
+    if not puts:
+        return True
+    return replace.put_counters(plan, puts, by=ctx["controller"], then=_then(ctx, e), ctx=ctx)
+
+
+def move_counters(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """122.5: "move all counters from ~ onto target creature": each counter is removed from the source and put on
+    the other permanent (a put: 614.16 applies, Nesting Grounds ruling). If the source is gone (no longer that object
+    on the battlefield) or the other is the source itself, nothing is moved."""
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    cards = [c for c in _cards(plan, ctx, e["who"]) if src is None or c != src.id]
+    _remember(plan, ctx, e, cards)
+    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object") or len(cards) != 1:
+        return True
+    have = {k: n for k, n in sorted(src.counters.items()) if n > 0}
+    if not have or not plan.state.cards[cards[0]].zone.endswith(":battlefield"):
+        return True
+    for k, n in have.items():
+        plan.do({"type": "counter", "card_ids": [src.id], "kind": k, "delta": -n}, actor=ctx["controller"])
+    return replace.put_counters(plan, [(cards[0], k, n) for k, n in have.items()], by=ctx["controller"],
+                                then=_then(ctx, e), ctx=ctx)
+# -- end counters (wave 5H) --
 
 
 def proliferate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -837,6 +946,10 @@ def renown(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             return False
         plan.rules.renowned.append(oid)
         _mark(plan, [cid], "Renowned")
+        # -- becomes monstrous (wave 6D) -- "Whenever a creature you control becomes renowned" (702.112b)
+        from app.game.rules_state import emit
+
+        emit(plan.state, "designation", counter="renowned", card=cid, object_id=oid, player=plan.state.cards[cid].controller)
     return True
 
 
@@ -893,6 +1006,12 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
     cid = d.resume["card"]
     finish(plan, d.resume["ctx"])
     r = plan.rules
+    # -- cast limits (wave 5E) -- a prohibited cast (601.3) can't begin: as if declined
+    from app.rules import cast_limits
+
+    if chosen[0] == "yes" and (limited := cast_limits.free_cast_blocked(plan, d.player, cid)) is not None:
+        plan.note(limited, actor=d.player)
+        chosen = ["no"]
     if chosen[0] != "yes":
         r.free_casts = [c for c in r.free_casts if c != cid]
         r.suspended = [c for c in r.suspended if c != cid]
@@ -900,6 +1019,11 @@ def resume_suspend_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
         if d.resume.get("decline") == "graveyard" and cid in plan.state.cards:  # madness
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "graveyard"}},
                     actor=d.player)
+            return
+        if d.resume.get("decline") == "hand" and cid in plan.state.cards:  # -- discover (wave 9A) -- 701.57a
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "hand"}},
+                    actor=d.player)
+            plan.note(f"{plan.name(d.player)} puts it into their hand")
             return
         if d.resume.get("decline") == "bottom" and cid in plan.state.cards:  # cascade: it joins the others
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
@@ -1044,8 +1168,11 @@ def _stack_targets(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[str]:
 
 
 def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    for sid in _stack_targets(plan, ctx, e):
+    sids = _stack_targets(plan, ctx, e)
+    before = _remember(plan, ctx, e, sids)  # -- stack interaction (wave 5B) -- "its controller": 608.2h
+    for sid in sids:
         counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")))  # (exile: 4C; to: 4A)
+    _moved(plan, ctx, e, before)  # (wave 5B)
     return True
 
 
@@ -1269,7 +1396,7 @@ def destroy_all(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         hit = (not ch.is_land) if wanted == ["*nonland"] else bool(ch.types & set(wanted))
         if hit and "indestructible" not in ch.keywords:
             doomed.append(c.id)
-    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx))
+    doomed = regeneration.survivors(plan, doomed, can_regenerate=_can_regenerate(ctx), actor=ctx["controller"])
     before = _remember(plan, ctx, e, doomed)  # "creatures destroyed this way": the ones it destroys
     if doomed:
         plan.do({"type": "move", "card_ids": doomed, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
@@ -1743,12 +1870,14 @@ PRIMITIVES = {
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
     "fabricate": fabricate, "storm": storm,
     "fight": fight, "choose_targets": choose_targets,
+    "double_counters": double_counters, "lki_counters": lki_counters, "move_counters": move_counters,  # (wave 5H)
 }
 # -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py,
 # which imports this module lazily) --
 from app.rules import copying  # noqa: E402
 
 PRIMITIVES.update(copying.PRIMITIVES)
+PRIMITIVES.update(entry_forms.PRIMITIVES)  # -- entry forms (wave 5F) -- "It's an enchantment." (611.2e)
 
 
 def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -1887,8 +2016,9 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     owner, looked = _looked(plan, ctx)
     ctx["looked"] = looked
     sel = selectors.from_key(e["sel"]) if e.get("sel") else None
-    options = [c for c in looked if sel is None
-               or selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+    options = [c for c in looked if sel is None  # (the source: "of the chosen type", wave 5I)
+               or selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid,
+                                    ctx.get("source_card"))]
     if e.get("sels"):  # -- refused look/cast-free (wave 3R5) -- "a creature card and/or a land card": any listed kind
         from app.rules import looking
 
@@ -2352,6 +2482,8 @@ def continue_effects(plan: Plan, ctx: Context) -> None:
         if replacements.ask_903_9b_first(plan, ctx, e):
             return  # 903.9b: a commander's owner chooses before it would be put into a hand or library
         ctx["next"] += 1
+        if e.get("note_group"):  # -- counters (wave 5H) -- the permanents a count reads, for a later "those creatures"
+            context.bind_objects(plan, ctx, e["note_group"]["as"], _cards(plan, ctx, e["note_group"]["who"]))
         if not PRIMITIVES[e["do"]](plan, ctx, e):
             return  # waiting for a choice; the decision's resume continues from ctx["next"]
     finish(plan, ctx)
@@ -2567,18 +2699,26 @@ CHOICE_OPTIONS: dict[str, list[str]] = {
 }
 CHOICE_LABELS = {"color": "Chosen color", "creature type": "Chosen creature type", "basic land type": "Chosen basic land type",
                  "opponent": "Chosen opponent", "player": "Chosen player"}
+CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
 
 
 def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]:
     from app.rules.creature_types import CREATURE_TYPES
 
     if what.endswith(copying.TO_COPY):  # -- copy system (wave 2F): "enter as a copy of …" (707.5, 614.12a) --
-        return copying.entry_options(plan, ctx["controller"], what)
+        return copying.entry_options(plan, ctx["controller"], what, ctx.get("source_card"))  # (wave 5F: the entering card)
     if what == "creature type":
         return [DecisionOption(id=t, label=t) for t in sorted(CREATURE_TYPES)]
+    if (others := entry_forms.color_options(what)) is not None:  # -- entry forms (wave 5F) --
+        return [DecisionOption(id=v, label=v) for v in others]
     if what in ("opponent", "player"):
         pids = [p for p in plan.live() if what == "player" or p != ctx["controller"]]
         return [DecisionOption(id=p, label=plan.name(p)) for p in pids]
+    # -- counters (wave 7C) -- "enters with your choice of a flying or a hexproof counter"
+    from app.rules import counter_choice
+
+    if (kinds := counter_choice.options(what)) is not None:
+        return [DecisionOption(id=k, label=k) for k in kinds]
     # -- sagas & attached-object triggers (wave 3S): read ahead's number (702.155b) --
     from app.rules import sagas
 
@@ -2629,6 +2769,12 @@ PRIMITIVES.update({"edict": edict, "player_chooses": player_chooses, "reveal_han
                    "choose_from_hand": choose_from_hand, "discard_named": discard_named, "choose_value": choose_value})
 RESUME = {"edict": resume_edict, "player_chooses": resume_player_chooses, "choose_from_hand": resume_choose_from_hand,
           "choose_value": resume_choose_value}
+# -- if you do (wave 8C) -- "put your choice of a +1/+1, first strike, or trample counter on it" (app/rules/counter_pick.py)
+from app.rules import counter_pick as _counter_pick  # noqa: E402, I001
+
+PRIMITIVES["pick_counter"] = _counter_pick.pick_counter
+RESUME["pick_counter"] = _counter_pick.resume
+# -- end if you do (wave 8C) --
 
 
 # -- temporary grants & riders (agent G) ------------------------------------------------------------
@@ -3068,11 +3214,30 @@ from app.rules import cant_gain, graveyard_grants, skips, source_shields  # noqa
 
 PRIMITIVES.update(source_shields.PRIMITIVES)
 PRIMITIVES.update(skips.PRIMITIVES)  # 614.10 "skips their next …" (app/rules/skips.py)
+# -- next untap step (wave 6A) --
+from app.rules import next_untap as _next_untap  # noqa: E402
+
+PRIMITIVES.update(_next_untap.PRIMITIVES)  # 502.3 "doesn't untap during its controller's next untap step"
+from app.rules import extra_turns as _extra_turns  # noqa: E402  -- extra turns (wave 8A) --
+
+PRIMITIVES.update(_extra_turns.PRIMITIVES)  # 500.7 "Take an extra turn after this one."
+from app.rules import land_plays as _land_plays  # noqa: E402  -- one-shot extra land plays (wave 8A) --
+
+PRIMITIVES.update(_land_plays.PRIMITIVES)  # 305.2 "You may play an additional land this turn."
+from app.rules import bounce_forms as _bounce_forms  # noqa: E402
+
+PRIMITIVES.update(_bounce_forms.PRIMITIVES)  # "return target A and target B to their owners' hands" (one move)
 PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
 PRIMITIVES.update(graveyard_grants.PRIMITIVES)  # "gains flashback until end of turn" (app/rules/graveyard_grants.py)
 RESUME.update(graveyard_grants.RESUME)  # ("Choose one of them.")
 RESUME.update(source_shields.RESUME)
 # -- end refused grants/replacements (wave 3R2) --
+from app.rules import tap_mana as _tap_mana  # noqa: E402, I001  -- mana riders (wave 5A) --
+
+PRIMITIVES["tap_mana_until_eot"] = _tap_mana.until_eot  # High Tide: a triggered mana ability for the rest of the turn
+from app.rules import untap_riders as _untap_riders  # noqa: E402, I001
+
+PRIMITIVES["untap_choice"] = _untap_riders.untap_choice  # "Untap up to three lands." (a choice, not a target)
 
 # -- refused copy/mana (wave 3R3) -- "you don't lose this mana" (106.4, 500.4): app/rules/kept_mana.py
 from app.rules import kept_mana as _kept_mana  # noqa: E402, I001
@@ -3085,6 +3250,17 @@ from app.rules import unless_pays as _unless_pays  # noqa: E402, I001
 
 PRIMITIVES.update(_unless_pays.PRIMITIVES)
 # -- end unless pays (wave 4C) --
+
+# -- cast limits (wave 5E) -- "… can't cast spells this turn" / flash for a turn (app/rules/cast_limits.py)
+from app.rules import cast_limits as _cast_limits  # noqa: E402, I001
+
+PRIMITIVES.update(_cast_limits.PRIMITIVES)
+RESUME.update(_cast_limits.RESUME)  # (and player hexproof / protection: app/rules/player_shields.py)
+from app.rules import protection_grants as _protection_grants  # noqa: E402, I001
+
+PRIMITIVES.update(_protection_grants.PRIMITIVES)  # "gains protection from the color of your choice" (608.2)
+RESUME.update(_protection_grants.RESUME)
+# -- end cast limits (wave 5E) --
 
 
 # -- this-turn history (wave 4D) -- "If this is the second time this ability has resolved this turn": the resolution
@@ -3106,8 +3282,91 @@ from app.rules import x_spells as _x_spells  # noqa: E402, I001
 PRIMITIVES.update(_x_spells.PRIMITIVES)
 # -- end X sized by a count (wave 4K) --
 
+# -- discover (wave 9A) -- 701.57: app/rules/discover.py
+from app.rules import discover as _discover  # noqa: E402, I001
+
+PRIMITIVES.update(_discover.PRIMITIVES)
+# -- end discover (wave 9A) --
+
 # -- recursion & tutors (wave 4M) -- a spell moving itself (608.2m/n) and the rest: app/rules/recursion.py
 from app.rules import recursion as _recursion  # noqa: E402, I001
 
 PRIMITIVES.update(_recursion.PRIMITIVES)
 # -- end recursion & tutors (wave 4M) --
+
+
+# -- combat (wave 5C) -- additional combat phases, tokens entering attacking each opponent (app/rules/combat_rules.py)
+from app.rules import combat_rules as _combat_rules  # noqa: E402
+
+PRIMITIVES.update(_combat_rules.PRIMITIVES)
+RESUME.update(_combat_rules.RESUME)
+
+# -- triggers (wave 5D) -- "then put two cards from your hand on top of your library in any order" (app/rules/put_back.py)
+from app.rules import put_back as _put_back  # noqa: E402, I001
+
+PRIMITIVES.update(_put_back.PRIMITIVES)
+RESUME.update(_put_back.RESUME)
+# -- end triggers (wave 5D) --
+
+# -- stack interaction (wave 5B) -- changing the target of a spell or ability (115.7): app/rules/stack_interaction.py
+from app.rules import stack_interaction as _stack_interaction  # noqa: E402, I001
+
+PRIMITIVES.update(_stack_interaction.PRIMITIVES)
+RESUME.update(_stack_interaction.RESUME)
+# -- end stack interaction (wave 5B) --
+
+# -- token & pump wordings (wave 6C) -- Role tokens created attached to a creature (app/rules/roles.py)
+from app.rules import roles as _roles  # noqa: E402, I001
+
+PRIMITIVES.update(_roles.PRIMITIVES)
+from app.rules import decayed as _decayed  # noqa: E402, I001  (702.147: decayed's sacrifice at end of combat)
+
+PRIMITIVES.update(_decayed.PRIMITIVES)
+# -- end token & pump wordings (wave 6C) --
+
+# -- token copies & attach on entry (wave 5J) -- "attach it to target creature you control" (app/rules/attach_entry.py),
+# populate and "for each …, create a token that's a copy of that …" (app/rules/populate.py)
+from app.rules import attach_entry as _attach_entry  # noqa: E402, I001
+
+PRIMITIVES.update(_attach_entry.PRIMITIVES)
+from app.rules import populate as _populate  # noqa: E402, I001
+
+PRIMITIVES.update(_populate.PRIMITIVES)
+RESUME.update(_populate.RESUME)
+from app.rules import put_from_hand as _put_from_hand  # noqa: E402, I001
+
+PRIMITIVES.update(_put_from_hand.PRIMITIVES)
+RESUME.update(_put_from_hand.RESUME)
+# -- end token copies & attach on entry (wave 5J) --
+# -- tap or untap (wave 6D) -- "You may tap or untap target permanent." (app/rules/tap_or_untap.py)
+from app.rules import tap_or_untap as _tap_or_untap  # noqa: E402
+
+PRIMITIVES.update(_tap_or_untap.PRIMITIVES)
+RESUME["tap_or_untap"] = _tap_or_untap.resume
+# -- state triggers (wave 6D) -- the marker effect of a state trigger (603.8: app/rules/state_triggers.py)
+from app.rules import state_triggers as _state_triggers  # noqa: E402
+
+PRIMITIVES.update(_state_triggers.PRIMITIVES)
+# -- endure (wave 6D) -- "it endures 2" (701.63: app/rules/endure.py)
+from app.rules import endure as _endure  # noqa: E402
+
+PRIMITIVES.update(_endure.PRIMITIVES)
+RESUME["endure"] = _endure.resume
+# -- win the game (wave 6D) -- "you win the game" (104.2b: app/rules/win_game.py)
+from app.rules import win_game as _win_game  # noqa: E402
+
+PRIMITIVES.update(_win_game.PRIMITIVES)
+
+# -- if you do (wave 6F) -- "Each opponent may [cost]. Each opponent who doesn't …" (app/rules/each_may.py)
+from app.rules import each_may as _each_may  # noqa: E402, I001
+
+PRIMITIVES.update(_each_may.PRIMITIVES)
+# -- end if you do (wave 6F) --
+# -- choice grants and switches (wave 7E) -- app/rules/choice_grants.py
+from app.rules import choice_grants as _choice_grants  # noqa: E402, I001
+
+PRIMITIVES.update(_choice_grants.PRIMITIVES)
+from app.rules import coin_flips as _coin_flips  # noqa: E402, I001  -- coin flips (wave 7E)
+
+PRIMITIVES.update(_coin_flips.PRIMITIVES)
+RESUME.update(_choice_grants.RESUME)

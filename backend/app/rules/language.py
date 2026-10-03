@@ -44,7 +44,20 @@ PLAYER_GROUPS = {"you": "you", "each player": "each_player", "each opponent": "e
                   "its controller": "it.controller", "its owner": "it.owner",
                   "that creature's controller": "it.controller", "that permanent's controller": "it.controller",
                   "that card's owner": "it.owner", "that creature's owner": "it.owner",
-                  "the chosen player": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
+                  "the chosen player": "chosen_player",  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
+                  "defending player": "defending_player"}  # (-- defending player (wave 6D) --: app/rules/defending.py)
+# -- damage wordings (wave 6B) -- "Destroy target land. ~ deals 2 damage to that land's controller.", "Counter target
+# spell. ~ deals 2 damage to that spell's controller.": the object the previous instruction was about, like "its"
+PLAYER_GROUPS.update({f"{the} {kind}'s controller": "it.controller" for the in ("that", "the")
+                      for kind in ("land", "artifact", "enchantment", "spell", "planeswalker", "Equipment")})
+# "~ deals 3 damage to target player or planeswalker. That player or that planeswalker's controller discards two cards."
+# (Blightning): the target player, or the target planeswalker's controller (app/rules/effects._players)
+PLAYER_GROUPS["that player or that planeswalker's controller"] = "target_player_or_controller"
+# "Whenever ~ blocks or becomes blocked by a creature, ~ deals 3 damage to that creature and 3 damage to that creature's
+# controller" (Assembled Alphas): the creature on the other side of the block (509.3c-d; the trigger event's ``other``)
+OTHER_SIDE = "the creature on the other side of the block"
+PLAYER_GROUPS[OTHER_SIDE + "'s controller"] = "ref:event_other.controller"
+# -- end damage wordings (wave 6B) --
 PLAYER_PHRASES = "|".join(sorted(PLAYER_GROUPS, key=len, reverse=True))
 
 
@@ -202,6 +215,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return "self", "", None
     if p in ("it", "that creature", "that permanent", "that card", "that token"):
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
+    if p == OTHER_SIDE:  # -- damage wordings (wave 6B) -- (scripts._define writes it for a block trigger's "that creature")
+        return "each", "ref:event_other", None
     if p == "that land":  # -- recursion & tutors (wave 4M) -- "… put it onto the battlefield tapped, then shuffle. Then if
         return "it", "", None  # you control four or more lands, untap that land." (Fabled Passage): the land found
     if p in _THEM:
@@ -262,6 +277,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
+    if (m := re.fullmatch(r"the exiled card's (?P<stat>power|toughness|mana value)", phrase)) is not None:
+        return {_STATS[m["stat"]]: "cost:exiled"}  # -- if you do (wave 8C) -- bound to the payment (pay_objects.bind)
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
     m = re.fullmatch(r"(?:(?P<its>its)|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
                      r"(?P<spell>that spell's)|(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
@@ -933,6 +950,16 @@ def _parse(text: str) -> tuple[Effects, Any]:
     lead = _EOT_LEAD.match(text)  # -- quoted grants (wave 2D) -- "Until end of turn, target creature gets +1/+0."
     if lead:
         return _end_of_turn_first(lead["rest"])
+    # -- damage wordings (wave 6B) -- "If you control an Equipment, ~ also deals 2 damage to that creature's controller":
+    # "also" says only that it adds to the instruction before it (another damage event, after it: 608.2c)
+    text = re.sub(r"^(~|it) also deals ", r"\1 deals ", text)
+    # "~ gets +1/+1 until end of turn and deals 1 damage to each opponent": one subject, two instructions in order
+    both =re.fullmatch(r"(?P<s>~|it) (?P<g>gets [+−-]\d+/[+−-]\d+ until end of turn) and (?P<d>deals .+)", text)
+    if both:
+        first, second = _parse(f"{both['s']} {both['g']}"), _parse(f"{both['s']} {both['d']}")
+        if first[1] is not None and second[1] is not None:
+            raise _Fail  # (two targets: not this form)
+        return first[0] + second[0], first[1] if first[1] is not None else second[1]
     found = _search(text) or _search_gy(text) or _looking(text)  # (_search_gy: refused zones/sized, wave 3R4)
     if found is not None:
         return found
@@ -986,6 +1013,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
             n = _stat(m["stat"])
             return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
+    # -- attached events (wave 8D) -- "that player loses half their life, rounded up" (119.3; half of the life total as it is
+    # when the instruction is carried out, 107.1a; effects.lose_life)
+    m = re.fullmatch(_SUBJ + r"loses? half (?:their|your) life, rounded (?P<r>up|down)", text)
+    if m and rider is None and (m["s"] in (None, "you")) == (text.endswith("your life, rounded " + m["r"])):
+        who, target = _subject(m)
+        return [{"do": "lose_life", "who": who, "n": 0, "half": m["r"]}], target
     m = re.fullmatch(_SUBJ + rf"discards? (?P<n>{AMT}) cards? at random", text)  # -- refused zones/sized (wave 3R4) --
     if m:  # 701.9b: the cards are chosen at random (effects.discard: the table picks; the move records which)
         who, target = _subject(m)
@@ -1009,9 +1042,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = re.fullmatch(_SUBJ + rf"sacrifices? (?P<n>{AMT}) (?P<sel>.+)", text)
     if m and rider is None:
         who, target = _subject(m)
-        sel = selectors.parse(m["sel"])
+        # -- damage wordings (wave 6B) -- "Each opponent sacrifices a creature with the greatest power among creatures
+        # that player controls" (Crackling Doom): among the sacrificing player's own creatures (ties: their choice)
+        greatest = re.fullmatch(r"(?P<s>creature) with the greatest power among creatures (?:that player|they) controls?",
+                                m["sel"])
+        sel = selectors.parse(greatest["s"] if greatest else m["sel"])
         if sel is None or sel.player is not None:
             raise _Fail
+        if greatest:
+            sel = replace(sel, extras=(*sel.extras, "greatest_power_own"))
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
     found = player_counters(text, rider) or (designation_instruction(text) if rider is None else None)  # (wave 3E)
     if found is not None:
@@ -1041,7 +1080,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         effects: Effects = []
         groups: list[dict[str, Any]] = []
         for o, n in ((m["o1"], m["n"]), (m["o2"], m["m"])):
-            whos, parts = _objects("~" if o == "itself" and m["src"] == "~" else o)
+            controlled = _that_player_controls(o) if groups else None  # -- damage wordings (wave 6B) -- "… and 1 damage
+            # to each creature that player controls" (Radiating Lightning): the first part's target player's
+            whos, parts = ([controlled], []) if controlled is not None else _objects("~" if o == "itself" and m["src"] == "~" else o)
             if len(whos) != 1:
                 raise _Fail
             effects.append({"do": "damage", "who": whos[0] if not parts else ("target" if not groups else f"target:{len(groups)}"),
@@ -1113,6 +1154,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
     found = _target_forms(text)  # -- target forms (agent T) --
     if found is not None:
         return found
+    # -- counters (wave 7C) -- "Exile ~ with three time counters on it." (the printed spell half of a suspend card, 702.62b)
+    m = re.fullmatch(rf"exile ~ with (?P<n>{AMT}) time counters on it", text)
+    if m and rider is None:
+        n = _amount(m["n"])
+        if isinstance(n, int):
+            return [{"do": "spell_self_move", "to": "exile", "counters": {"time": n}}], None
+    # -- end counters (wave 7C) --
     m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap) (?P<o>.+)", text)
     if m:
         whos, groups = _objects(m["o"])
@@ -1126,12 +1174,27 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "each" and m["v"] == "destroy":
             return [{"do": "destroy", "who": key}], None
         return [{"do": m["v"], "who": _who(kind, key)}], _one(group)
+    # -- static wordings (wave 6E) -- "It must be blocked this turn if able." (Enlarge): a requirement (509.1c)
+    m = re.fullmatch(r"(?P<o>.+?) must be blocked this turn if able", text)
+    if m and not _PUMP.fullmatch(text):
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": ["must_be_blocked"]}], _one(group)
     m = re.fullmatch(r"(?P<o>.+?) can't (?P<r>attack or block|block|attack|be blocked) this turn", text)
     if m and not _PUMP.fullmatch(text):  # (agent G: "… gets +2/+2 until end of turn and can't be blocked …" is a pump's rider)
         kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]]}], _one(group)
+    # -- token & pump wordings (wave 6C) -- "This creature can attack this turn as though it didn't have defender." (702.3b:
+    # the defender's restriction doesn't apply to it this turn; read by combat.attack_problem)
+    m = re.fullmatch(r"(?P<o>.+?) can attack this turn as though (?:it|they) didn't have defender", text)
+    if m and not _PUMP.fullmatch(text):
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": ["attack_despite_defender"]}], _one(group)
     # -- recursion & tutors (wave 4M) -- "Return all artifact and enchantment cards from your graveyard to the battlefield"
     # (Brilliant Restoration): every card that is any of the types named (the "and" lists the kinds, as "or" would)
     text = re.sub(r"^return all ((?:[a-z]+, )*[a-z]+),? and ([a-z]+) cards (?=(?:with [^,]+ )?from your graveyard to )",
@@ -1149,7 +1212,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "bounce", "who": "self" if text.startswith("return ~") else "it"}], None
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|their hand|your hand|"
                      r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?"
-                     r"(?: with (?:an?|one) (?P<ck>\+1/\+1|-1/-1|[a-z]+) counter on it)?)", text)
+                     r"(?: with (?:an?|one) (?P<ck>[+-]\d+/[+-]\d+|[a-z]+) counter on it)?)", text)
     if m:
         kind, key, group = ref(m["o"])
         if kind in ("players", "self"):
@@ -1174,13 +1237,63 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["d"] == "your hand":
             raise _Fail
         return [{"do": "bounce", "who": who}], target
-    m = re.fullmatch(rf"distribute (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters among (?P<o>.+)", text)
+    m = re.fullmatch(rf"distribute (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters among (?P<o>.+)", text)
     if m and rider is None:  # 601.2d: counters divided among the targets as the ability is put on the stack
         if m["k"] in values.UNMODELED_COUNTERS:
             raise _Fail
         return [{"do": "add_counters", "who": "target", "kind": m["k"], "n": {"divided": 0}}], \
             _divided(m["o"], "counters", _amount(m["n"]))
-    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? on (?P<o>.+)", text)
+    # -- counters (wave 5H) -- "When ~ dies, put its counters on target creature you control", "Whenever a creature you
+    # control leaves the battlefield, if it had counters on it, put those counters on ~": the same number of each kind
+    # the object had as it last existed (122.8) — a placeholder "it" bound by scripts.resolve_it only to an object that
+    # left (otherwise it would be a move, 122.5: refused)
+    # "put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control"
+    # (Brokers Ascendancy): one instruction, all at once (122.6)
+    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o>each [^,]+?) and "
+                     rf"(?P<n2>{AMT}) (?P<k2>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o2>each .+)", text)
+    if m and rider is None and "target" not in text:
+        if m["k"] in values.UNMODELED_COUNTERS or m["k2"] in values.UNMODELED_COUNTERS:
+            raise _Fail
+        k1, key1, _g1 = ref(m["o"])
+        k2, key2, _g2 = ref(m["o2"])
+        if "players" in (k1, k2):
+            raise _Fail
+        return [{"do": "add_counters", "who": _who(k1, key1), "kind": m["k"], "n": _amount(m["n"]),
+                 "also": [{"kind": m["k2"], "n": _amount(m["n2"]), "who": _who(k2, key2)}]}], None
+    # "move all counters from ~ onto target creature" (The Ozolith): removed from it and put on the other (122.5)
+    m = re.fullmatch(r"move all counters from ~ onto (?P<o>.+)", text)
+    if m and rider is None:
+        kind, key, group = ref(m["o"])
+        if kind in ("players", "self"):
+            raise _Fail
+        return [{"do": "move_counters", "who": _who(kind, key)}], _one(group)
+    m = re.fullmatch(r"put (?P<whose>its|those|~'s|this creature's) counters on (?P<o>.+)", text)
+    if m and rider is None:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "lki_counters", "from": "it" if m["whose"] in ("its", "those") else "self_named",
+                 "who": _who(kind, key)}], _one(group)
+    # -- counters (wave 5H) -- "put a +1/+1 counter, a reach counter, and a deathtouch counter on target creature",
+    # "put two +1/+1 counters and a flying counter on …": counters of several kinds put at once (one event, 122.6)
+    m = re.fullmatch(rf"put (?P<list>(?:(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+(?: [a-z]+)?) counters?,? )+and "
+                     rf"(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+(?: [a-z]+)?) counters?) on (?P<o>.+)", text)
+    if m and rider is None:
+        specs = [re.fullmatch(rf"(?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+(?: [a-z]+)?) counters?", p.strip())
+                 for p in re.split(r",? and |, ", m["list"])]
+        if any(p is None or p["k"] in values.UNMODELED_COUNTERS
+               or (" " in p["k"] and p["k"] not in ("first strike", "double strike")) for p in specs):
+            raise _Fail
+        kinds = [(p["k"], _amount(p["n"])) for p in specs if p is not None]
+        if len({k for k, _ in kinds}) != len(kinds):
+            raise _Fail
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "add_counters", "who": _who(kind, key), "kind": kinds[0][0], "n": kinds[0][1],
+                 "also": [{"kind": k, "n": n} for k, n in kinds[1:]]}], _one(group)
+    # -- end counters (wave 5H) --
+    m = re.fullmatch(rf"put (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o>.+)", text)
     if m:
         if m["k"] in values.UNMODELED_COUNTERS:
             raise _Fail
@@ -1195,13 +1308,23 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             _one(group)
-    m = re.fullmatch(rf"remove (?P<n>{AMT}) (?P<k>\+1/\+1|-1/-1|[a-z]+) counters? from (?P<o>.+)", text)
+    m = re.fullmatch(rf"remove (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
         kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
         return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             _one(group)
+    # -- counters (wave 5H) -- "double the number of +1/+1 counters on each creature you control" (Kalonian Hydra),
+    # "double the number of each kind of counter on target permanent" (Vorel): 701.10e, as many more as it has
+    m = re.fullmatch(r"double the number of (?:(?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters|(?P<each>each kind of counter)) on (?P<o>.+)",
+                     text)
+    if m and rider is None:
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail  # (a player's counters: not read here)
+        return [{"do": "double_counters", "who": _who(kind, key), "kind": m["k"] or "*"}], _one(group)
+    # -- end counters (wave 5H) --
     # -- temporary grants & riders (agent G) --  "+X/+0", "+1/+1 … for each …", "-X/-X … where X is …",
     # "gets +2/+2 and gains flying and first strike", "… and can't be blocked this turn", "loses flying"
     # -- X sized by a count (wave 4K) -- "creatures you control gain trample and get +X/+X until end of turn" (Craterhoof
@@ -1234,6 +1357,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail  # (keywords only: not read here)
         e = {**e, "remove": _keyword_list(m["rm"])}
         return [e if m["eot"] else {**e, "duration": "permanent"}], _one(group)
+    # -- protection grants (wave 5E) -- "… gains protection from red / the color of your choice until end of turn"
+    from app.rules import protection_grants
+
+    if (protected := protection_grants.clause(text)) is not None:
+        return protected
     m = _GRANT.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"])
@@ -1328,16 +1456,25 @@ def _target_forms(text: str) -> tuple[Effects, Any] | None:
 # duration (the resolved-effect layer model carries keywords only), "gains flashback until end of
 # turn" (a casting permission from the graveyard), "where X is" a quantity the value grammar
 # doesn't read, "its power" for a pronoun subject the pump can't bind itself.
-_GRANT_ITEM = rf"(?:{KEYWORDS}|⟦\d+⟧)"  # (a keyword, or -- wave 2D -- a quoted ability set aside as ⟦n⟧)
+# -- token & pump wordings (wave 6C) -- the evasion and damage keywords the engine reads from a creature's keywords
+# wherever they come from (combat.py: 702.14c landwalk, 702.28b shadow, 702.31b horsemanship, 702.36b fear, 702.13b
+# intimidate, 702.118b skulk; 702.80 wither, 702.90 infect): a resolved grant carries them like any other (613.1f)
+GRANT_KEYWORDS = KEYWORDS + "|" + "|".join(("fear", "shadow", "horsemanship", "intimidate", "skulk", "wither", "infect",
+                                             "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk",
+                                             "desertwalk"))
+_GRANT_ITEM = rf"(?:{GRANT_KEYWORDS}|⟦\d+⟧)"  # (a keyword, or -- wave 2D -- a quoted ability set aside as ⟦n⟧)
 _KW_LIST = rf"{_GRANT_ITEM}(?:(?:, and |, | and ){_GRANT_ITEM})*"
+# -- untap choice (wave 7F) -- "gets +2/+2 and has trample" (Everglove Courier): "has" reads like "gains"
 _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX]))"
-                   rf"(?: and gains? (?P<kw>{_KW_LIST}))? until end of turn"
-                   r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn)?")
+                   rf"(?: and (?:gains?|has|have) (?P<kw>{_KW_LIST}))? until end of turn"
+                   r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn"
+                   r"| and (?P<d>can attack this turn as though it didn't have defender)"  # (d: wave 6C)
+                   r"| and (?P<mb>must be blocked this turn if able))?")  # (mb: wave 6E, 509.1c)
 _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
 _GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
                         rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
 _GRANT_GAME = re.compile(rf"(?P<o>.+?)(?: each)? (?:gains?|has|have) (?P<kw>{_KW_LIST})")  # (quoted abilities only: see _parse)
-_KW_ONLY = rf"(?:{KEYWORDS})(?:(?:, and |, | and )(?:{KEYWORDS}))*"
+_KW_ONLY = rf"(?:{GRANT_KEYWORDS})(?:(?:, and |, | and )(?:{GRANT_KEYWORDS}))*"  # (wave 6C)
 _LOSE_GAIN = re.compile(rf"(?P<o>.+?) loses? (?P<rm>{_KW_ONLY}) and gains? (?P<kw>{_KW_LIST})(?P<eot> until end of turn)?")
 _DOUBLE = re.compile(r"double (?P<o>target creature|~|this creature)'s power(?P<both> and toughness)? until end of turn")  # (wave 3D)
 _BITE = re.compile(r"(?P<s>.+?) deals damage equal to (?P<stat>its power|its toughness|twice its power|that creature's power) to (?P<o>.+)")
@@ -1378,11 +1515,11 @@ def bare_pronoun_grant(text: str) -> Effects | None:
     and haste." after an instruction that put the object onto the battlefield (Puppeteer Clique, Sneak Attack): no
     duration is stated, so the grant lasts as long as that object exists (611.2a, 400.7). Read for a whole sentence
     only (scripts._parse_effects): inside "Until end of turn, … and it gains first strike" the lead's duration rules."""
-    m = re.fullmatch(rf"(?P<o>it|that creature|that token|they|those creatures|those tokens) gains? (?P<kw>{_KW_ONLY})", text)
+    m = re.fullmatch(rf"(?P<o>it|that creature|that token|they|those creatures|those tokens|that artifact) gains? (?P<kw>{_KW_ONLY})", text)  # (that artifact: wave 6A)
     if m is None:
         return None
     try:
-        kind, _key, _group = ref(m["o"])
+        kind, _key, _group = ref("it" if m["o"] == "that artifact" else m["o"])  # (wave 6A: Arms Race)
         e = _grant_effect(_who(kind, _key), m["kw"])
     except _Fail:
         return None
@@ -1521,6 +1658,10 @@ def _pump(m: re.Match[str], rider: Any) -> tuple[Effects, Any]:
         out.append(_grant_effect(who, m["kw"]))
     if m["r"]:
         out.append({"do": "restrict", "who": who, "rules": RESTRICTIONS[m["r"]]})
+    if m["d"]:  # -- token & pump wordings (wave 6C) -- 702.3b
+        out.append({"do": "restrict", "who": who, "rules": ["attack_despite_defender"]})
+    if m["mb"]:  # -- static wordings (wave 6E) -- a blocking requirement for this turn (509.1c: combat.block_requirements)
+        out.append({"do": "restrict", "who": who, "rules": ["must_be_blocked"]})
     return out, _one(group)
 
 
@@ -1580,7 +1721,7 @@ def _bite_recipients(o: str) -> tuple[list[str], list[dict[str, Any]]]:
     return whos, groups
 
 
-_THAT_PLAYER_CONTROLS = re.compile(r"^each (?P<sel>.+?) that player controls$")
+_THAT_PLAYER_CONTROLS = re.compile(r"^each (?P<sel>.+?) that player (?P<or>or that planeswalker's controller )?controls$")
 
 
 def _that_player_controls(part: str) -> str | None:
@@ -1593,6 +1734,8 @@ def _that_player_controls(part: str) -> str | None:
     sel = selectors.parse(m["sel"])
     if sel is None or sel.player is not None or sel.controller is not None:
         raise _Fail
+    if m["or"]:  # -- damage wordings (wave 6B) -- "… that player or that planeswalker's controller controls"
+        return f"controlled:target_player_or_controller|{sel.key()}"
     return f"controlled:that_player|{sel.key()}"
 
 
@@ -1652,6 +1795,7 @@ COMPOUND = (rf"(?P<s>target player|target opponent|each player|each opponent|eac
 _PRONOUN_SACRIFICE = {"them": "them", "those tokens": "them", "those creatures": "them", "the tokens": "them",
                       "those permanents": "them", "that creature": "it", "that token": "it", "the token": "it",
                       "that permanent": "it", "that card": "it"}
+_PRONOUN_SACRIFICE.update({"the creature": "it", "that artifact": "it"})  # -- permanent effects (wave 6A) -- Sneak Attack, Arms Race
 _OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)? under (?:their|its) owner's control$")
 
 
@@ -1737,8 +1881,7 @@ def _chooser(s: str) -> tuple[str, Any]:
         return "target", {"what": _LEGACY_TARGETS[s], "min": 1, "max": 1}
     if s == "each other player":
         return "each_opponent", None  # every other player is an opponent in a free-for-all (102.2, 806.2)
-    if s == "defending player":
-        raise _Fail  # which defending player (508.5)? the trigger event doesn't carry it: manual
+    # (-- defending player (wave 6D) -- "defending player": the attack trigger event's, 508.5: app/rules/defending.py)
     return PLAYER_GROUPS[s], None
 
 
@@ -1829,7 +1972,8 @@ _BECOME = re.compile(
     r"(?P<addition> in addition to its other (?P<addcolors>colors and )?types)?"
     r"(?P<still> that's still an? (?:land|artifact|enchantment|planeswalker|creature))?"
     r"(?: and gains? (?:(?P<gain>[a-z ]+)|(?P<gainq>\"[^\"]*\"(?:,? and \"[^\"]*\")*)))?"
-    r"(?:(?P<trail> until end of turn)|(?P<ntrail> until your next turn))?$")
+    r"(?:(?P<trail> until end of turn)|(?P<ntrail> until your next turn))?"
+    r"(?P<cbb> and can't be blocked this turn)?$")  # (cbb: wave 7E, Dimir Keyrune)
 _DESC = re.compile(  # (each part optional, space-separated: "legendary 8/12 green Spirit artifact creature with …")
     r"^(?P<leg>legendary)?(?: ?(?P<p>X|\d+)/(?P<t>X|\d+))?(?: ?(?P<colors>colorless|" + _COLOR_LIST + r"))?"
     r"(?: ?(?P<subs>[A-Z][\w’'-]+(?: [A-Z][\w’'-]+)*))?(?: ?(?P<kinds>(?:artifact |enchantment )?(?:creature|artifact|enchantment)))?"
@@ -1842,8 +1986,12 @@ _STAT_WORDS = {"power": "power", "toughness": "toughness", "mana value": "mana_v
 def _animation_keywords(text: str) -> list[str]:
     """"flying", "trample and haste", "vigilance, indestructible, and haste" → the keywords."""
     parts = [p.strip() for p in re.split(r",? and |, ", text) if p.strip()]
+    from app.rules.statics import (
+        GRANTABLE_KEYWORDS,  # -- animation keywords (wave 7E) -- infect, wither, landwalk … too
+    )
+
     for p in parts:
-        if p not in selectors.KEYWORDS or p == "protection":
+        if (p not in selectors.KEYWORDS and p not in GRANTABLE_KEYWORDS) or p == "protection":
             raise _Fail
     return parts
 
@@ -1868,6 +2016,12 @@ def _with_list(text: str, out: dict[str, Any]) -> None:
         out["all_creature_types"] = True
         rest = re.sub(r"(?:,? and |, )?all creature types$", "", rest)
     rest = re.sub(r"(?:,? and |, )\s*$", "", rest.strip())
+    # -- animation keywords (wave 7E) -- "with ward {3}": a parameterised keyword is granted as its keyword line
+    # (statics.keyword_line; the engine checks it as a quoted grant, scripts._become)
+    for w in re.findall(r"(?:^|,? and |, )(ward \{[^}]+\})", rest):
+        abilities.append(w[0].upper() + w[1:] + ".")
+        rest = rest.replace(w, "", 1)
+        rest = re.sub(r"^(?:,? and |, )|(?:,? and |, )$", "", rest.strip())
     if rest:
         out["keywords"] = _animation_keywords(rest)
     if abilities:
@@ -1887,6 +2041,8 @@ def _become(text: str) -> tuple[Effects, Any]:
 
     text, rider = _with_rider(text)
     m = _BECOME.fullmatch(text)
+    if m is None and rider is None and (c := _BECOME_COLOR.fullmatch(text)) is not None:
+        return _become_color(c)  # -- static wordings (wave 6E) --
     if m is None:
         raise _Fail
     d = _DESC.fullmatch(m["desc"])
@@ -1941,8 +2097,35 @@ def _become(text: str) -> tuple[Effects, Any]:
         if e["duration"] != "end_of_turn":
             raise _Fail
         out.append({"do": "grant", "who": who, "keywords": _animation_keywords(m["gain"])})
+    if m["cbb"]:  # -- animation keywords (wave 7E) -- "… artifact creature until end of turn and can't be blocked this turn"
+        if not m["trail"] and not m["lead"]:
+            raise _Fail
+        out.append({"do": "restrict", "who": who, "rules": ["cant_be_blocked"]})
     if m["gainq"]:  # -- quoted grants (wave 2D) -- "… becomes a Bear creature in addition to its other types and gains "…""
         e["abilities"] = [*e.get("abilities", []), *_QUOTED.findall(m["gainq"])]  # (the same layer-6 effect, 613.6)
+    return out, _one(group)
+
+
+# -- static wordings (wave 6E) -- "Target creature becomes red and gains haste until end of turn." (Crimson Wisps): a
+# color-changing effect (layer 5, 613.1e) whose colors replace the object's (105.3), locked in to the objects (611.2c)
+_BECOME_COLOR = re.compile(r"^(?:(?P<lead>until end of turn, ))?(?P<o>.+?) becomes? (?P<colors>colorless|" + _COLOR_LIST + r")"
+                           r"(?: and gains? (?P<gain>[a-z ]+?))?(?P<trail> until end of turn)?$")
+
+
+def _become_color(m: re.Match[str]) -> tuple[Effects, Any]:
+    kind, key, group = ref(m["o"])
+    if kind == "players" or not (m["lead"] or m["trail"]):
+        raise _Fail  # (no duration: a color for the rest of the game, not read)
+    who = _who(kind, key)
+    colors = [] if m["colors"] == "colorless" else [_COLOR_LETTERS[c] for c in re.split(r",? and |, ", m["colors"])]
+    out: Effects = [{"do": "become", "who": who, "types": [], "colors": colors, "duration": "end_of_turn"}]
+    if m["gain"]:
+        from app.rules.statics import GRANTABLE_KEYWORDS  # (the keywords a grant carries out, 613.1f)
+
+        kws = [p.strip() for p in re.split(r",? and |, ", m["gain"]) if p.strip()]
+        if not kws or any(k not in GRANTABLE_KEYWORDS for k in kws):
+            raise _Fail
+        out.append({"do": "grant", "who": who, "keywords": kws})
     return out, _one(group)
 
 
@@ -1992,7 +2175,7 @@ def parse_still(m: re.Match[str]) -> tuple[Effects, Any]:
 # returns to its OWNER's hand (400.3).
 _RA_UNDER = r"(?: under (?P<u>your|its owner's|their owner's|their owners') control)?"
 # -- refused zones/sized (wave 3R4) -- "… with a finality counter on it": it enters with it (122.6, 122.1h)
-_RA_WITH = (r"(?: with (?:(?:an?|one) (?P<add1>additional )?(?P<ck>\+1/\+1|-1/-1|[a-z]+) counter|"
+_RA_WITH = (r"(?: with (?:(?:an?|one) (?P<add1>additional )?(?P<ck>[+-]\d+/[+-]\d+|[a-z]+) counter|"
             # -- recursion & tutors (wave 4M) -- "… with two additional +1/+1 counters on it" (Rakdos Joins Up): they
             # enter with them (122.6; "additional": besides any it would enter with, 614.1c)
             r"(?P<cn>two|three|four|five) (?P<add2>additional )?(?P<ck2>\+1/\+1|-1/-1) counters) on it)?")

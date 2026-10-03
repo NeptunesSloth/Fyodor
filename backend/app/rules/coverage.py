@@ -58,6 +58,10 @@ SUPPORTED_REPLACEMENTS.add("enter_as_copy")
 # -- "this way" outcomes (wave 4A) -- "As ~ enters, you may reveal an X or Y card from your hand. If you don't, ~
 # enters tapped." (614.1c, 614.12a, 701.20a; app/rules/reveal_lands.py, tests/test_rules_wave4a_this_way.py)
 SUPPORTED_REPLACEMENTS.add("reveal_or_tapped")
+# -- entering for a cost (wave 5G) -- "If ~ would enter, you may discard a land card / sacrifice a Swamp instead. If you
+# do, put ~ onto the battlefield. If you don't, put it into its owner's graveyard." (614.1a, 614.12a, 614.13, 118.12;
+# app/rules/enter_cost.py, tests/test_rules_wave5g_if_you_do.py)
+SUPPORTED_REPLACEMENTS.add("enter_cost")
 
 
 # -- modal triggered/activated abilities (wave 1A) ---------------------------------------------------
@@ -149,6 +153,8 @@ SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
 # -- refused grants/replacements (wave 3R2) -- 614.9 redirection statics (Pariah, Palisade Giant: app/rules/source_shields.py,
 # tests/test_rules_refused_grants.py)
 SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"redirect"}
+# -- damage wordings (wave 6B) -- "prevent half that damage, rounded up" (Gisela, Blade of Goldnight; 615)
+SUPPORTED_REPLACE_OPS["damage"] = SUPPORTED_REPLACE_OPS["damage"] | {"prevent_half_up"}
 # … and token creation adding a different token (Peregrin Took, Chatterfang: app/rules/extra_tokens.py)
 SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra"}
 SUPPORTED_REPLACEMENTS |= {
@@ -208,12 +214,15 @@ SUPPORTED_KEYWORDS: set[str] = {
     "undaunted",
     # -- counters & designations (wave 3E) -- 702.145 day and night (app/rules/designations.py day_night_sync)
     "daybound", "nightbound",
+    # -- token & pump wordings (wave 6C) -- 702.147 decayed (app/rules/decayed.py, test_rules_wave6c_tokens_pumps.py)
+    "decayed",
 }
 # -- sagas & attached-object triggers (wave 3S) --------------------------------------------------------
 # Sagas (714, app/rules/sagas.py; tests/test_rules_sagas.py): lore counters as it enters and at the
 # precombat main phase, chapter abilities (a chapter line is automated when its effect parses: it is a
 # template), the 714.4 sacrifice; read ahead (702.155): the number chosen as it enters, skipped chapters.
 SUPPORTED_KEYWORDS.add("read ahead")
+SUPPORTED_KEYWORDS.add("split second")  # -- split second (wave 8A) -- 702.61 (app/rules/split_second.py, cast_limits)
 # -- end sagas & attached-object triggers (wave 3S) --
 
 
@@ -232,6 +241,7 @@ SUPPORTED_KEYWORD_ACTIONS: set[str] = {
     # -- keyword actions & face-down (wave 3F) -- test_rules_keywords3f.py
     "goad", "manifest", "manifest dread", "cloak", "earthbend", "incubate",
 }
+SUPPORTED_KEYWORD_ACTIONS.add("populate")  # -- token copies & attach on entry (wave 5J) -- test_rules_wave5j_token_copies.py
 
 
 # -- refusals (agent T) ------------------------------------------------------------------------------
@@ -254,7 +264,8 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bshuffles? up to \w+ target cards? from their graveyard\b", re.I),
      "cards from a target player's graveyard (a zone bound to an earlier target): not modelled"),
     (re.compile(r"\btarget creature with the greatest\b", re.I), "\"the greatest … among\" (a computed extreme): not modelled"),
-    (re.compile(r"\btarget creature's power and toughness\b", re.I), "switching or reading a target's P/T pair: not modelled"),
+    (re.compile(r"(?<!switch )\btarget creature's power and toughness\b", re.I),  # (switching: wave 7E, choice_grants.switch_pt)
+     "switching or reading a target's P/T pair: not modelled"),
     # -- conditional / instead clauses (wave 1B) --------------------------------------------------------
     # Conditions app/rules/conditions.py deliberately doesn't read: the clause (or the whole ability) stays manual.
     # -- refused modal/conditional (wave 3R1) -- how a spell was cast (the zone, the caster's main phase, the mana of
@@ -329,7 +340,11 @@ DECKBUILDING_KEYWORDS = {"partner", "choose a background", "doctor's companion",
 
 def _keyword_supported(kw: str, line: str) -> bool:
     if kw in DECKBUILDING_KEYWORDS:
-        return not line.strip().lower().startswith("partner with")
+        if line.strip().lower().startswith("partner with"):  # -- keyword pieces (wave 8A) -- 702.124j's enters trigger
+            from app.rules import keyword_triggers
+
+            return keyword_triggers.partner_with_definition(line) is not None
+        return True
     if kw in ("enchant", "equip"):  # app/rules/attachments.py: the wordings it maps
         from app.rules import attachments
 
@@ -355,6 +370,17 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "cumulative upkeep":  # triggers.cumulative_cost: a mana cost
         return re.fullmatch(r"cumulative upkeep (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+    from app.rules import (
+        keyword_triggers,  # -- static wordings (wave 6E) -- battle cry, ingest … (their CR meaning)
+    )
+
+    if kw in keyword_triggers.MEANINGS:
+        return keyword_triggers.supported(kw, line)
+    if kw == "ward":  # -- static wordings (wave 6E) -- every ward piece of the line has a mana cost (triggers.ward_costs)
+        from app.rules.triggers import WARD, ward_pieces
+
+        pieces = ward_pieces(line)
+        return bool(pieces) and all(WARD.fullmatch(p) for p in pieces)
     if kw in ("unearth", "dash", "buyback", "madness", "ward", "evoke"):  # casting.keyword_cost: a mana cost
         return re.fullmatch(rf"{kw} (?:\{{[^}}]+\}})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("kicker", "multikicker"):  # casting.cost_with_kicker: one mana kicker cost

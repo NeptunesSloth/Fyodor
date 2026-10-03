@@ -169,7 +169,15 @@ def note_cast(plan: Plan, card: Any) -> None:
     record = plan.rules.payments.get(plan.oid(card))
     log.casts.append(CastNote(player=card.controller, object_id=plan.oid(card), types=sorted(ch.types),
                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
-                              mv=float(ch.mana_value), cast_from=record.cast_from if record is not None else None))
+                              mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None))
+
+
+def _stack_mv(card: Any, ch: Any) -> int:
+    """-- review (wave 5R) -- a spell's mana value on the stack counts its X (202.3e): "a spell with mana value 5 or
+    greater" cast this turn."""
+    from app.rules.stack_interaction import mana_value
+
+    return mana_value(card, ch)
 
 
 def note_events(plan: Plan, events: list[Any]) -> None:
@@ -193,6 +201,12 @@ def note_events(plan: Plan, events: list[Any]) -> None:
             elif kind == "dealt_damage" and obj is None and info.get("recipient"):  # a player was dealt damage (120.3)
                 log.facts.append(TurnFact(kind="damage", player=info["recipient"], amount=int(info.get("amount") or 0),
                                           combat=bool(info.get("combat")), object_id=info.get("source_oid")))
+            elif kind == "dealt_damage" and obj is not None and info.get("oid") and int(info.get("amount") or 0) > 0:
+                # -- damage history (wave 6B) -- a permanent was dealt damage (120.3): "creature that was dealt damage
+                # this turn", "creature that dealt damage this turn" (app/rules/damage_history.py)
+                log.facts.append(TurnFact(kind="damaged", player=player or obj.controller, object_id=info["oid"],
+                                          amount=int(info["amount"]), combat=bool(info.get("combat")),
+                                          source=info.get("source_oid"), **what))
             elif kind == "deal_damage" and info.get("recipient") and log.facts and log.facts[-1].kind == "damage":
                 # its source, as it was as it dealt that damage (608.2i)
                 log.facts[-1].source_types, log.facts[-1].source_supertypes = what["types"], what["supertypes"]
@@ -218,11 +232,14 @@ def note_discards(plan: Plan, card_ids: list[str]) -> None:
 
 def note_look(plan: Plan, player: str, kind: str) -> None:
     """701.22b / 701.25c: ``player`` scried / surveilled N (N > 0), even with too few cards to look at (701.22d)."""
-    from app.game.rules_state import TurnFact, turn_log_now
+    from app.game.rules_state import TurnFact, emit, turn_log_now
 
     log = turn_log_now(plan.state)
     if log is not None:
         log.facts.append(TurnFact(kind=kind, player=player))
+        # -- looks (wave 8B) -- "Whenever you scry / surveil": the event (603.2), numbered among this turn's of that kind
+        emit(plan.state, "designation", counter=kind, player=player,
+             amount=sum(1 for f in log.facts if f.kind == kind and f.player == player))
 
 
 def note_crime(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -> None:
@@ -252,6 +269,10 @@ def note_crime(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -
             crime = False
         if crime:
             log.facts.append(TurnFact(kind="crime", player=controller))
+            # -- crimes (wave 6D) -- "Whenever you commit a crime" (700.13: one crime per spell or ability)
+            from app.game.rules_state import emit
+
+            emit(plan.state, "designation", counter="crime", player=controller)
             return
 
 
@@ -455,6 +476,7 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return log.drew.get(me, 0)
     if kind == "died":
         return sum(1 for d in log.left if d.to == "graveyard" and (snap := plan.rules.lki.get(d.object_id)) is not None
+                   and (v.get("who") != "you" or d.controller == me)  # (-- X actions (wave 9A) -- "under your control")
                    and _departed_matches(plan, selectors.from_key(v["sel"]), d, snap))
     if kind == "opponents_who":
         n = int(v.get("n", 1))

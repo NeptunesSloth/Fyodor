@@ -98,7 +98,9 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   if (mine && zone === "hand") {
     const text = oracle;
     abilityLines(text).forEach((line, i) => {
-      if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line) || /^suspend \d+\s*[—-]/i.test(line)) {
+      // (wave 5A) 113.6m / 605.3a: "Exile this card from your hand: Add {R}." (Simian Spirit Guide)
+      if (/^(?:(?:basic )?[a-z]+)?cycling \{/i.test(line) || /^suspend \d+\s*[—-]/i.test(line)
+        || /^Exile this card from your hand: Add /.test(line)) {
         items.push({ label: line.replace(/\s*\(.*$/, ""), onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
       }
     });

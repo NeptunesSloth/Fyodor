@@ -46,9 +46,9 @@ def test_cast_conditions_select_spells_on_the_stack():
 
 
 @pytest.mark.parametrize("cond", [
-    "you commit a crime",  # (an event we don't model)
+    "you visit an Attraction",  # (an event we don't model; crimes: wave 6D)
     "a foo enters",
-    "you cast a historic spell",  # (700.6: artifacts, legendaries and Sagas — not a selector yet)
+    "you expend 4",  # (an event we don't model; "a historic spell" is read since wave 6D, 700.6)
 ])
 def test_unknown_conditions_stay_manual(cond):
     assert events.parse_condition(cond) is None

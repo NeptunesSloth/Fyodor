@@ -66,7 +66,7 @@ def test_parse_count(phrase, value):
     "Auras attached to it",
     "creatures that were exiled this turn",  # ("… that died this turn": read since wave 4D)
     "the amount of mana spent to cast it",
-    "shield counters on ~",  # a counter kind the engine doesn't model
+    "hone counters on ~",  # a counter kind the engine doesn't model
     "the number of foo you control",
 ])
 def test_unknown_quantities_are_not_guessed(phrase):
@@ -154,7 +154,7 @@ def test_parse_cda(text, p, t):
 
 
 @pytest.mark.parametrize("text", [
-    "~ gets +2/+2 for each Aura attached to it.",
+    "Equipped creature gets +1/+1 for each Aura attached to another creature.",  # (wave 8D: "attached to it" is read)
     "Equipped creature gets +1/+1 for each +1/+1 counter on it.",  # "it" is the equipped creature, not the source
     "Creatures you control get +1/+1 for each counter on it.",
     "~ gets +1/+1 for each creature that attacked this turn.",
