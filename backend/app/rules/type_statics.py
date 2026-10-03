@@ -111,12 +111,19 @@ def layer4_entries(state: GameState, card: CardInstance, ch: Characteristics, in
     return [(st.seq, st.definition) for st in chosen]
 
 
-def with_gained_mana(before: Characteristics, after: Characteristics) -> Characteristics:
+def with_gained_mana(before: Characteristics, after: Characteristics, set_land: bool = False) -> Characteristics:
     """305.6 / 305.7: a land that gained a basic land type has that type's intrinsic mana ability (numbered 90-94 by
-    type, after the printed abilities, so the number doesn't change while other types come and go)."""
+    type, after the printed abilities, so the number doesn't change while other types come and go). -- land types set
+    (wave 12D) -- ``set_land``: an effect set its land types (305.7): the abilities of its rules text (and of any copiable
+    effects, layer 1) are gone (the ones other effects grant are layer 6, applied after this), and it has the intrinsic
+    mana ability of each basic land type it has now."""
     if "Land" not in after.types:
         return after
-    gained = [t for t in BASIC if t in after.subtypes and not (t in before.subtypes and "Land" in before.types)]
+    if set_land:
+        from dataclasses import replace
+
+        after = replace(after, abilities=tuple(a for a in after.abilities if a.index >= 90))
+    gained = [t for t in BASIC if t in after.subtypes and (set_land or not (t in before.subtypes and "Land" in before.types))]
     if not gained:
         return after
     from dataclasses import replace

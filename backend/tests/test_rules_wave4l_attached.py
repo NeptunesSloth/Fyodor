@@ -145,7 +145,7 @@ def test_definitions_of_the_full_cards():
 @pytest.mark.parametrize("text", [
     "Enchanted creature has protection from the chosen color.",  # (a choice made as it entered)
     "Enchanted permanent is a colorless Forest land.",  # 305.7
-    "Enchanted land is an Island.",
+    "Enchanted creature is an Island.",  # (an Island land type on a non-land: wave 12D reads only "Enchanted land")
     "Enchanted creature loses all abilities and is a green and white Citizen creature with base power and toughness 1/1 "
     "named Legitimate Businessperson.",
     "Enchanted permanent is a Treasure artifact with \"{T}, Sacrifice this artifact: Add one mana of any color,\" and it "

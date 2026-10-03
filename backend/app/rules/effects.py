@@ -1479,6 +1479,15 @@ def search(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """A tutor. The server filters the library; only the searching player gets the matching cards
     in their private decision (nobody else learns the library's contents)."""
     pid = ctx["controller"]
+    if e.get("who") in ("each_opponent", "each_player"):  # -- other players' choices (wave 12D) -- "Each opponent may search their
+        # library for …": one search per player, the active player first (101.4). A library is hidden, so each search is its
+        # player's private choice; the cards they put onto the battlefield enter as each search ends (a corner of 101.4's
+        # "actions happen simultaneously" that only an entering permanent watching the others entering could notice)
+        order = [p for p in plan.apnap() if p in _players(plan, ctx, e["who"])]
+        at = ctx["next"]
+        ctx["effects"] = [*ctx["effects"][:at], *({**e, "who": f"player:{p}"} for p in order), *ctx["effects"][at:]]
+        continue_effects(plan, ctx)
+        return False
     if e.get("who", "you") != "you":  # "Its controller may search their library …" (Path to Exile)
         who = _players(plan, ctx, e["who"])
         if not who:
@@ -2940,6 +2949,11 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     _remember(plan, ctx, e, cards)
     if not cards:
         return True
+    if e.get("land_pick"):  # -- land types set (wave 12D) -- "the basic land type of your choice": made as it resolves, by the controller
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a basic land type",
+               options=[DecisionOption(id=t, label=t) for t in e["land_pick"]],
+               resume={"step": "become_land", "ctx": ctx, "e": e})
+        return False
     per_object = _reads_it(e.get("p")) or _reads_it(e.get("t"))
     groups = [[c] for c in cards] if per_object else [cards]
     duration = e.get("duration", "end_of_turn")
@@ -2953,13 +2967,15 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                                   "duration": duration, "label": f"{label} ({name})" if name else label}
         made: list[str] = []
         types = list(e.get("types") or [])
+        lands = list(e.get("land_types") or ())  # -- land types set (wave 12D) -- 305.7: set, or added ("in addition", 205.1b)
         if types or e.get("creature_types") is not None or e.get("add_creature_types") or e.get("all_creature_types") \
-                or e.get("legendary"):
+                or e.get("legendary") or lands:
             made.append(layers.add_effect(plan, layer="4", **common,
                                           add_types=tuple(types) if e.get("retain") else (),
                                           set_types=None if e.get("retain") or not types else types,
                                           set_creature_types=e.get("creature_types"),
-                                          add_subtypes=tuple(e.get("add_creature_types") or ()),
+                                          set_land_types=lands if lands and not e.get("retain") else None,
+                                          add_subtypes=(*(e.get("add_creature_types") or ()), *(lands if e.get("retain") else ())),
                                           all_creature_types=bool(e.get("all_creature_types")),
                                           add_supertypes=["Legendary"] if e.get("legendary") else []).id)
         if e.get("colors") is not None or e.get("add_colors"):
@@ -3006,7 +3022,7 @@ def _become_label(e: dict[str, Any], p: int | None, t: int | None) -> str:
         words.append(" and ".join(_COLOR_WORDS.get(c, c) for c in e["colors"]))
     elif e.get("colors") == []:
         words.append("colorless")
-    words += list(e.get("creature_types") or e.get("add_creature_types") or [])
+    words += list(e.get("creature_types") or e.get("add_creature_types") or e.get("land_types") or [])
     words += [w.lower() for w in e.get("types") or []]
     extras = list(e.get("keywords") or [])
     if e.get("all_creature_types"):
@@ -3016,6 +3032,17 @@ def _become_label(e: dict[str, Any], p: int | None, t: int | None) -> str:
     if extras:
         words.append("with " + ", ".join(extras))
     return " ".join(words) or "a creature"
+
+
+def resume_become_land(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen[0] not in e["land_pick"]:
+        raise ValueError("not an offered basic land type")
+    if become(plan, ctx, {**e, "land_pick": None, "land_types": [chosen[0]]}):
+        continue_effects(plan, ctx)
+
+
+RESUME["become_land"] = resume_become_land
 
 
 def still_a(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -3108,6 +3135,12 @@ def add_mana(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     ctx.pop("_mana_added", None)  # (wave 3R3)
+    if "who" in e:  # -- other players' choices (wave 12D) -- "That player adds {G}{G}": 106.3, into their pool; their colour choice
+        # ("any color they choose"), the resumed decision being theirs
+        who = _players(plan, ctx, e["who"])
+        if not who:
+            return True
+        pid = who[0]
     if "mana" in e:
         return _put_mana(plan, ctx, pid, list(e["mana"]))
     if "sym" in e:
@@ -3231,9 +3264,31 @@ def _control_effect(plan: Plan, ctx: Context, cards: list[str], player: str, dur
 
 
 def gain_control(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """See above. ``e``: who (the permanents); to ("you", or a target player "target:N"); duration; untap."""
+    """See above. ``e``: who (the permanents); to ("you", a target player "target:N", or -- wave 12D -- "choose_opponent":
+    "An opponent gains control of it", not a target, so its controller chooses one as it resolves (608.2d); "owner":
+    "Each player gains control of all creatures they own"); duration; untap."""
     cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")
              and plan.in_game(plan.state.cards[c])]
+    if e.get("to") == "choose_opponent":
+        opponents = [p for p in plan.live() if p != ctx["controller"]]
+        if len(opponents) > 1 and cards:
+            decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose an opponent to gain control",
+                   options=[DecisionOption(id=p, label=plan.name(p)) for p in opponents], resume={"step": "gain_control", "ctx": ctx, "e": e})
+            return False
+        e = {**e, "to": f"player:{opponents[0]}" if opponents else "you"}
+        cards = cards if opponents else []
+    if e.get("to") == "owner":  # 613.1b: a control effect of its own for each owner (it overrides the earlier ones, 613.7); a permanent
+        # its owner already controls changes nothing unless an earlier control effect is on it
+        r = plan.rules
+        held = {o for x in r.effects if x.layer == "2" and x.new_controller for o in x.affected}
+        for owner in dict.fromkeys(plan.state.cards[c].owner for c in cards):
+            mine = [c for c in cards if plan.state.cards[c].owner == owner
+                    and (plan.state.cards[c].controller != owner or plan.oid(c) in held)]
+            if owner in plan.live():
+                _control_effect(plan, ctx, mine, owner, "permanent")
+        _remember(plan, ctx, e, cards)
+        layers.control_sync(plan)
+        return True
     _remember(plan, ctx, e, cards)
     if e.get("untap"):  # "Untap target creature and gain control of it": the same objects, untapped first
         tapped = [c for c in cards if plan.state.cards[c].tapped]
@@ -3270,7 +3325,17 @@ def exchange_control(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def resume_gain_control(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen[0] not in plan.live() or chosen[0] == ctx["controller"]:
+        raise ValueError("not an opponent")
+    plan.note(f"{plan.name(d.player)} chooses {plan.name(chosen[0])}")
+    if gain_control(plan, ctx, {**e, "to": f"player:{chosen[0]}"}):
+        continue_effects(plan, ctx)
+
+
 PRIMITIVES.update({"gain_control": gain_control, "exchange_control": exchange_control})
+RESUME["gain_control"] = resume_gain_control
 # -- end control (wave 3K) --
 
 RESUME["search_may"] = resume_search_may

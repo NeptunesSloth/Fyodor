@@ -1331,6 +1331,11 @@ def _tutor(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
              "reveal": "reveal it" in m.group(0)}], None
 
 
+@effect(r"(?:then )?each player who searched their library this way shuffles")
+def _searchers_shuffle(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "searchers_shuffle"}], None  # (joined to the search before it: _gy_shuffle; alone it stays manual)
+
+
 @effect(r"tap any number of untapped (?P<sel>.+?) you control")
 def _tap_choice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     """-- "this way" outcomes (wave 4A) -- "Tap any number of untapped creatures you control." (a choice of 0 or more,
@@ -1708,10 +1713,17 @@ def _attached_host(found: tuple[list[dict[str, Any]], Any, bool] | None, it: str
 def _gy_shuffle(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """-- refused zones/sized (wave 3R4) -- "If you search your library this way, shuffle." belongs to the
     "search your library and/or graveyard" right before it (language._search_gy); anywhere else: manual."""
-    if found is None or not any(e.get("do") == "gy_search_shuffle" for e in found[0]):
+    if found is None or not any(e.get("do") in ("gy_search_shuffle", "searchers_shuffle") for e in found[0]):
         return found
     effects: list[dict[str, Any]] = []
     for e in found[0]:
+        if e.get("do") == "searchers_shuffle":  # -- other players' choices (wave 12D) -- "Then each player who searched their
+            prev = effects[-1] if effects else None  # library this way shuffles." (701.24): after "Each opponent may search …"
+            if prev is None or prev.get("do") != "search" or prev.get("who") not in ("each_opponent", "each_player") \
+                    or prev.get("shuffle", True):
+                return None
+            effects[-1] = {**prev, "shuffle": True}
+            continue
         if e.get("do") != "gy_search_shuffle":
             effects.append(e)
             continue
@@ -2577,6 +2589,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     from app.rules import tap_mana as _tm
 
     if d is not None and _tm.adds_mana(d):
+        return None
+    # -- other players' choices (wave 12D) -- "{T}: That player adds {G}" without a target would be a mana ability (605.1a): no
+    # stack, which the engine doesn't do for another player's pool -- manual. (With a target it is not one.)
+    if d is not None and d.get("kind") == "activated" and any(
+            e.get("do") == "add_mana" and e.get("who") not in (None, "target") for e in d.get("effects") or []):
         return None
     # -- chosen player (wave 4J) -- "the chosen player" is the one this permanent chose as it entered (app/rules/chosen.py):
     # only on a card with exactly one "As ~ enters, choose an opponent / a player." ("Choose target opponent. … the chosen
@@ -3996,7 +4013,7 @@ def _compound_subject(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # their layers, 613.6); "It's still a land." is ``still_a``, which turns the types it set into
 # types added (205.1b). A quoted ability it grants must be one the engine carries out
 # (``granted_ability``), else the ability stays manual.
-@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:a|an) .+)")
+@effect(r"(?P<text>(?:until end of turn, )?(?:have )?.+? (?:loses all abilities and )?becomes? (?:(?:a|an) |the basic land type of your choice).+)")
 def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
@@ -4708,6 +4725,22 @@ def _put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return found
 
 
+from app.rules.put_from_hand import EACH_PATTERN as _put_from_hand_pattern  # noqa: E402  (a leaf module)
+
+
+@_first
+@effect(_put_from_hand_pattern)
+def _each_put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """-- other players' choices (wave 12D) -- "Each opponent may put a creature card from their hand onto the battlefield."
+    (app/rules/put_from_hand.py)"""
+    from app.rules import put_from_hand
+
+    found = put_from_hand.parse_each(m)
+    if found is None:
+        raise _NoMatch
+    return found
+
+
 _RECORDING["put_from_hand"] = None  # ("That creature gains haste.": the permanent it put onto the battlefield)
 _MOVERS.add("put_from_hand")
 # -- end token copies & attach on entry (wave 5J) --
@@ -4848,7 +4881,7 @@ _RECORDING.update({"gain_control": None, "exchange_control": None})
 
 
 @_first
-@effect(r"(?P<t>(?!.* (?:for as long as|until your next turn)\b)(?:(?:untap .+? and )?gain control of .+|.+? gains control of .+|exchange control of .+))")
+@effect(r"(?P<t>(?!.* (?:for as long as|until your next turn)\b)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
 def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
@@ -4944,6 +4977,18 @@ def _keep_mana(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 @_mana_effect(r"add (?P<n>two|three|four|five|six|seven|eight|nine|ten|that much) (?P<sym>\{[WUBRGC]\})")
 def _add_n_of(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "add_mana", "sym": m["sym"][1], "n": _mana_n(m["n"])}], None
+
+
+# -- other players' choices (wave 12D) -- "That player adds {G}{G}." (Eladamri's Vineyard), "Target player adds one mana of any
+# color." (The Warring Triad): 106.3-106.4, the mana goes into that player's pool and any choice in it (a color) is theirs.
+# ("Each player adds {B}{R}{G}." (Yurlok) is a mana ability with no target, 605.1a: not read.)
+@effect(r"(?P<who>that player|target player|target opponent) adds (?P<rest>.+)")
+def _other_adds(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    found = _one_clause("add " + m["rest"])
+    if found is None or found[1] is not None or len(found[0]) != 1 or found[0][0].get("do") != "add_mana":
+        raise _NoMatch
+    target = m["who"].startswith("target")
+    return [{**found[0][0], "who": "target" if target else "that_player"}], SELECTORS[m["who"]] if target else None
 
 
 # "Whenever you cast …, copy that spell [, except …]. You may choose new targets for the copy." / "…, copy it." (707.10):
