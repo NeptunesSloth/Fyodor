@@ -448,6 +448,10 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     r = state.rules
     if r is None:
         return None
+    from app.rules import split_second  # -- split second (wave 8A) -- 702.61a
+
+    if (why := split_second.problem(state, info, "cast other spells", card.id)) is not None:
+        return why
     for x in r.cast_limits:
         if x.get("player") == player and _record_live(state, x) and _cast_hit(state, player, card, ch, info, x):
             return f"{x.get('label') or 'An effect'}: you can't cast {_spells_words(x.get('filter'), x.get('from'))} now"
@@ -487,6 +491,11 @@ def activation_problem(state: GameState, player: str, card: CardInstance, ch: Ch
     r = state.rules
     if r is None:
         return None
+    if not mana:  # -- split second (wave 8A) -- 702.61a, 702.61b: mana abilities stay possible
+        from app.rules import split_second
+
+        if (why := split_second.problem(state, info, "activate abilities that aren't mana abilities")) is not None:
+            return why
     for x in r.cast_limits:
         if x.get("player") == player and _record_live(state, x) and x.get("act") \
                 and _act_hit(state, player, card, ch, x["act"], x, x.get("controller") or player, info, mana=mana, loyalty=loyalty):
@@ -503,6 +512,8 @@ def any_activation_limits(state: GameState, info: CardInfo | None) -> bool:
     r = state.rules
     if r is None:
         return False
+    if state.zones.get("stack"):  # (-- split second (wave 8A) --)
+        return True
     if any(x.get("act") and _record_live(state, x) for x in r.cast_limits):
         return True
     return info is not None and any(d["static"] == "cast_limit" and d.get("act") for _, _, d in _scan(state, info))

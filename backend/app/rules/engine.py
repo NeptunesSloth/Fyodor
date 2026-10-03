@@ -37,6 +37,7 @@ from app.rules import (
     delayed,
     effects,
     exert,  # -- static wordings (wave 6E) --
+    extra_turns,  # -- extra turns (wave 8A) --
     layers,
     looking,
     modal_abilities,
@@ -496,21 +497,28 @@ def _exerted(plan: Plan, player: str) -> list[str]:
 def start_next_turn(plan: Plan) -> None:
     combat_rules.new_turn(plan)  # -- combat (wave 5C) -- added phases belong to the turn that ends
     keep = _keep_tapped(plan)
-    keep += [c for c in _exerted(plan, plan.after(plan.active)) if c not in keep]  # (wave 4H: an exerted one isn't stunned, 122.1d)
+    # -- extra turns (wave 8A) -- 500.7: an extra turn comes first (the latest created first); otherwise the turn order goes
+    # on after the player whose regular turn it was
+    extra = extra_turns.take(plan)
+    base = plan.rules.turn_base or plan.active
+    upcoming = extra or plan.after(base)
+    keep += [c for c in _exerted(plan, upcoming) if c not in keep]  # (wave 4H: an exerted one isn't stunned, 122.1d)
     # -- next untap step (wave 6A) -- 502.3: kept tapped by "doesn't untap during … next untap step" (not stunned either)
-    keep += [c for c in next_untap.kept(plan, plan.after(plan.active)) if c not in keep]
+    keep += [c for c in next_untap.kept(plan, upcoming) if c not in keep]
     skipped: list[tuple[str, int]] = []  # 800.4k: a departed player's turn doesn't begin
     previous = (plan.active, plan.state.turn.number)
     # -- refused grants/replacements (wave 3R2) -- 614.10: skipped turns (they never begin: nothing ends with
     # them, 500.4) and a skipped untap step (nothing untaps, 502.2's day / night check doesn't happen)
-    skip_to = effects.skips.next_active(plan)
-    stay = effects.skips.untap_skipped(plan, skip_to or plan.after(plan.active))
+    skip_to = extra or effects.skips.next_active(plan, base)
+    if skip_to is None and upcoming != plan.after(plan.active):  # (leaving an extra turn)
+        skip_to = upcoming
+    stay = effects.skips.untap_skipped(plan, skip_to or upcoming)
     if stay is not None:
         keep = list(dict.fromkeys([*keep, *stay]))[:250]
-    keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or plan.after(plan.active))]))[:250]  # (wave 4H)
-    keep = list(dict.fromkeys([*keep, *next_untap.kept(plan, skip_to or plan.after(plan.active))]))[:250]  # (wave 6A)
+    keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or upcoming)]))[:250]  # (wave 4H)
+    keep = list(dict.fromkeys([*keep, *next_untap.kept(plan, skip_to or upcoming)]))[:250]  # (wave 6A)
     # -- untap choice (wave 7F) -- 502.3: "You may choose not to untap ~": asked below, after the turn changes
-    asked = untap_choice.candidates(plan, skip_to or plan.after(plan.active), keep) if stay is None else []
+    asked = untap_choice.candidates(plan, skip_to or upcoming, keep) if stay is None else []
     keep = [*keep, *asked]
     # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
     # (wave 7F: after every other reason to stay tapped, so a permanent that isn't untapping keeps its counter)
@@ -526,6 +534,7 @@ def start_next_turn(plan: Plan) -> None:
         if plan.active in plan.live():
             break
         skipped.append((plan.active, plan.state.turn.number))
+    plan.rules.turn_base = base if extra else plan.active  # -- extra turns (wave 8A) -- 500.7
     if untap_choice.ask(plan, asked, {"stunned": stunned, "previous": list(previous), "skipped": [list(s) for s in skipped],
                                       "plain": stay is None, "keep": keep}):  # (wave 7F) the untap step waits for the choice
         return

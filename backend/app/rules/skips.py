@@ -143,10 +143,10 @@ def take(plan: Plan, player: str, what: str) -> str | None:
     return None
 
 
-def next_active(plan: Plan) -> str | None:
+def next_active(plan: Plan, after: str | None = None) -> str | None:
     """614.10: the player whose turn begins next when the next player's turn (and maybe more) is
     skipped — None when no turn is skipped."""
-    nxt = plan.after(plan.active)
+    nxt = plan.after(after or plan.active)  # (-- extra turns (wave 8A) -- after the player whose regular turn it was)
     skipped = False
     for _ in range(64):
         label = take(plan, nxt, "turn")

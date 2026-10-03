@@ -29,8 +29,12 @@ MEANINGS: dict[str, str] = {
     # 702.135a
     "afterlife": "When this permanent is put into a graveyard from the battlefield, create {n} 1/1 white and black Spirit "
                  "creature tokens with flying.",
+    # -- keyword pieces (wave 8A) -- 702.43a: the triggered half of modular N (the static half, "enters with N +1/+1
+    # counters", is replacements.entering_counters). The counters are those the permanent had as it left (113.6, LKI)
+    "modular": "When this permanent is put into a graveyard from the battlefield, you may put a +1/+1 counter on target "
+               "artifact creature for each +1/+1 counter on this permanent.",
 }
-_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife"})
+_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular"})
 
 
 def pieces(kw: str, line: str) -> list[str]:
@@ -70,3 +74,30 @@ def definitions(kw: str, line: str) -> list[dict[str, Any]]:
 
 def supported(kw: str, line: str) -> bool:
     return kw in MEANINGS and bool(definitions(kw, line))
+
+
+# -- keyword pieces (wave 8A) -- 702.124j: "Partner with [name]" is the commander pairing (app/rules/commander.py) and
+# "When this permanent enters, target player may search their library for a card named [name], reveal it, put it into
+# their hand, then shuffle."
+_PARTNER_WITH = re.compile(r"partner with (?P<name>[^,.;()]+(?:, [^,.;()]+)?)", re.IGNORECASE)
+
+
+def partner_with_name(line: str) -> str | None:
+    m = _PARTNER_WITH.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
+    return m["name"].strip() if m else None
+
+
+def partner_with_definition(line: str) -> dict[str, Any] | None:
+    name = partner_with_name(line)
+    if name is None:
+        return None
+    from app.rules import scripts
+    from app.rules.characteristics import Characteristics
+
+    text = f"Search your library for a card named {name}, reveal it, put it into your hand, then shuffle."
+    ab = AbilityText(index=0, text=text, kind="spell")
+    d = scripts.define(ab, Characteristics(name="\u0000", abilities=(ab,), types=frozenset({"Instant"})))
+    if d is None or len(d.get("effects") or []) != 1 or d["effects"][0].get("do") != "search":
+        return None
+    return {"kind": "triggered", "trigger": "enters_self", "optional": False, "target": {"what": "player"},
+            "effects": [{**d["effects"][0], "who": "target", "may": True}]}
