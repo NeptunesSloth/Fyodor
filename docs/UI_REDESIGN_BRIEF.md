@@ -20,8 +20,9 @@ Use **both** skills, with different jobs:
   density, consistency, accessibility, motion, interaction clarity, responsive behavior, visual polish,
   and generic-AI/SaaS-looking elements.
 
-> **Note (2026-10-03):** `frontend-design` is **not** installed in this repository or this environment
-> yet. Install it (as `impeccable` was) before starting the redesign.
+Both are repo-local skills: `.claude/skills/frontend-design/` (from `anthropics/skills`) and
+`.claude/skills/impeccable/` (from `pbakaus/impeccable`). Product context for Impeccable is in
+`PRODUCT.md` at the repository root (written by `/impeccable init`).
 
 Never let both skills independently redesign the same screen from scratch. The loop is:
 
