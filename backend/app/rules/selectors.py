@@ -204,6 +204,19 @@ def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "attacked_this_turn"))
 
 
+# -- damage history (wave 6B) -- "creature that was dealt damage this turn", "each creature dealt damage this turn",
+# "creature that dealt damage [to you] this turn" (app/rules/damage_history.py)
+@_suffix(r"that dealt damage (?P<you>to you )?this turn")
+def _dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "dealt_damage_you" if m["you"] else "dealt_damage"))
+
+
+@_suffix(r"(?:that (?:was|were) )?dealt damage this turn")
+def _was_dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "was_dealt_damage"))
+# -- end damage history (wave 6B) --
+
+
 @_suffix(r"that['’]s attacking you")
 def _attacking_you(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, attacking=True, extras=(*s.extras, "attacking_you"))
@@ -931,6 +944,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
             return False
+        if extra in ("was_dealt_damage", "dealt_damage", "dealt_damage_you"):  # -- damage history (wave 6B) --
+            from app.rules import damage_history
+
+            if not damage_history.matches(plan, card, extra, you):
+                return False
     # -- chosen type (wave 4J) --
     return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source)
 

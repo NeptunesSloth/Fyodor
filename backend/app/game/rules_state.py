@@ -407,6 +407,9 @@ class TurnFact(BaseModel):
     counter: str | None = Field(default=None, max_length=40)
     source_types: list[str] = Field(default_factory=list)
     source_supertypes: list[str] = Field(default_factory=list)
+    # -- damage history (wave 6B) -- "damaged" facts (a permanent was dealt ``amount`` damage; ``object_id`` the
+    # permanent): the object that dealt it
+    source: str | None = Field(default=None, max_length=80)
 # -- end this-turn history (wave 4D) --
 
 
