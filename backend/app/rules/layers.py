@@ -484,7 +484,15 @@ def derive(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     effects = affecting(state, card)
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"
-    ch = _layer4(ch, effects, _own_layer4(state, card, info) + attached45)  # layer 4: type-changing (animation, agent A2: also layer 5 below)
+    # -- type statics (wave 5F) -- group statics adding types ("Each land is a Swamp in addition …", 613.1d, 305.7)
+    own4 = _own_layer4(state, card, info) + attached45
+    from app.rules import type_statics
+
+    before4 = ch
+    group4 = type_statics.layer4_entries(state, card, ch, info, lambda extra: _layer4(before4, effects, own4 + extra))
+    ch = _layer4(ch, effects, own4 + group4)  # layer 4: type-changing (animation, agent A2: also layer 5 below)
+    ch = type_statics.with_gained_mana(before4, ch)
+    # -- end type statics (wave 5F) --
     ch = _layer5(ch, effects, attached45)
     imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …
     imposed |= _group_imposed(state, card, ch, info)

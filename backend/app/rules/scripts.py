@@ -2150,6 +2150,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
         if (found := combat_rules.static_definition(text)) is not None:
             return found
+    if ability.kind == "static":  # -- type statics (wave 5F) -- "Each land is a Swamp in addition …" (613.1d, 305.7)
+        from app.rules import type_statics
+
+        if (typed := type_statics.parse(text)) is not None:
+            return typed
     if ability.kind == "static" and (anthem := parse_anthem(text)) is not None:
         return anthem
     if ability.kind == "static" and (rule := attached_rule(text)) is not None:
