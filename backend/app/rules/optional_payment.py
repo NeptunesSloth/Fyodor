@@ -164,8 +164,14 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     the payer the cost (PAY / DECLINE, privately) if they can pay it now; record the result as the
     binding ``bind`` (``{"succeeded": bind}`` in a following ``only_if``)."""
     # -- unless pays (wave 4C) -- a cost sized as it resolves ("{X}", "{1} for each …": app/rules/unless_pays.py)
-    from app.rules import unless_pays
+    from app.rules import paid_x, unless_pays
 
+    if paid_x.sized(e):  # -- sized payments (wave 5G) -- "you may pay {X}" / "pay X life, where X is …"
+        started = paid_x.start(plan, ctx, e)
+        if started is not True and started is not False:
+            e = {**e, "cost": started}
+        else:
+            return bool(started)
     text = unless_pays.concrete_cost(plan, ctx, e)
     cost = parse(text)
     # -- end unless pays (wave 4C) --
@@ -210,6 +216,11 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
 
     r = d.resume
     assert r is not None
+    if "choose_x" in r:  # -- sized payments (wave 5G) -- the X chosen
+        from app.rules import paid_x
+
+        paid_x.resume_choice(plan, d, chosen)
+        return
     if "opt" not in r:  # a pay-or-sacrifice / counter-unless prompt (app/rules/effects.py)
         effects.resume_pay_or_sacrifice(plan, d, chosen)
         return

@@ -244,6 +244,54 @@ def _matched(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> list[tuple[d
     return out
 
 
+# -- if you do (wave 5G) -- "~ deals 2 damage to each other player. You gain life equal to the damage dealt this way."
+DAMAGE_DEALT = "damage_dealt"
+
+
+def damage_dealt(found: Any) -> Any:
+    """"You gain life equal to the damage dealt this way." (Syphon Soul, Creeping Bloodsucker): the total damage the
+    damage instruction just before actually dealt — after prevention and replacement (615.6, 120.4: the damage events
+    as they are dealt), all recipients together. Only right after one plain damage instruction; anything else in
+    between, or no such instruction, leaves the ability manual."""
+    import json
+
+    if found is None or f'"{DAMAGE_DEALT}"' not in json.dumps(found[0]):
+        return found
+    effects = found[0]
+    for i, e in enumerate(effects):
+        if f'"{DAMAGE_DEALT}"' not in json.dumps(e):
+            continue
+        prev = effects[i - 1] if i else None
+        if prev is None or prev.get("do") != "damage" or prev.get("with_next") or prev.get("bind_dealt") \
+                or e.get("do") != "gain_life" or (i > 1 and effects[i - 2].get("with_next")):
+            return None
+        effects = [*effects[:i - 1], {**prev, "bind_dealt": DAMAGE_DEALT}, *effects[i:]]
+    return effects, found[1], found[2]
+
+
+_SWAP = re.compile(r"^each player exiles all (?P<cards>creature) cards from their graveyard, then sacrifices all (?P<perms>creatures) "
+                   r"they control, then puts all cards they exiled this way onto the battlefield$")
+
+
+def graveyard_swap(text: str) -> list[dict[str, Any]] | None:
+    """-- if you do (wave 5G) -- "Each player exiles all creature cards from their graveyard, then sacrifices all
+    creatures they control, then puts all cards they exiled this way onto the battlefield." (Living Death, Living
+    End): three instructions, each done by every player at once (101.4: nothing to choose, so simultaneously) —
+    every graveyard's creature cards exiled together (406.3), every creature sacrificed by its controller together
+    (701.21a), then the cards that exile moved put onto the battlefield together, each under its owner's control
+    (the player who exiled it; 400.7: the cards as they are in exile, 603.6a: one event, 614.12)."""
+    m = _SWAP.match(text)
+    if m is None:
+        return None
+    cards = selectors.parse("creature cards in graveyards")
+    perms = selectors.parse("creatures")
+    if cards is None or perms is None:
+        return None
+    return [{"do": "exile", "who": cards.key(), "as": "swap0"},
+            {"do": "sacrifice", "who": perms.key(), "by": "controller"},
+            {"do": "return_card", "who": "ref:swap0", "to": "battlefield", "tapped": False, "under": "owner"}]
+
+
 # -- "Tap any number of untapped creatures you control. … for each creature tapped this way" ----------------------
 def tap_choice(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """The controller chooses any number (0 or more) of the untapped permanents they control that match, and taps
