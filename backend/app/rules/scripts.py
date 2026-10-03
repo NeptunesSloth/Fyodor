@@ -3249,7 +3249,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         if cast_if is None or "cast" not in cast_if or cast_if.get("object") != "self":
             return None
         text = "~ enters with " + text[lead.end():]
-    from app.rules import counter_choice  # -- counters (wave 7C) --
+    # -- counters (wave 7C) --
+    from app.rules import counter_choice
 
     if (chosen_kind := counter_choice.parse(text)) is not None:
         return chosen_kind
@@ -3289,7 +3290,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         if m["each"]:
             each = _for_each(m["each"])
             if each is None and re.fullmatch(r"(?:nontoken )?creature that died this turn", m["each"]):
-                from app.rules import values  # -- counters (wave 7C) -- this turn's history (wave 4D), read as it enters
+                # -- counters (wave 7C) -- this turn's history (wave 4D), read as it enters
+                from app.rules import values
 
                 each = values.parse_count("the number of " + m["each"].replace("creature", "creatures", 1))
             if each is None or n == "X" or (m["kicked"] and each == {"kicked": 1}):  # (wave 7C: kicked + each is read)

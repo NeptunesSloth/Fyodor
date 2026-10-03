@@ -2521,7 +2521,7 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
         if ability.text.startswith("Power-up — "):  # -- counters (wave 7C) -- 702.193a: reduced by its mana cost this turn
             from app.rules import power_up
 
-            cost = replace(cost, mana=power_up.reduced(state, card, ch, cost.mana))
+            cost = replace(cost, mana=power_up.reduced(state, card, ch, cost.mana) or "")
         own = cost_changes.ability_delta(state, card.controller, card, ch, ability.text, info) \
             if "This ability costs " in ability.text else 0
         reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own)

@@ -36,6 +36,6 @@ def entering(definitions: list[dict[str, Any]], choices: dict[str, str] | None) 
     for d in definitions:
         kinds = d.get("counter_choice") or ()
         kind = (choices or {}).get(f"{PREFIX}{' or '.join(kinds)}") if kinds else None
-        if kind in kinds:
+        if kind is not None and kind in kinds:
             out[kind] = out.get(kind, 0) + 1
     return out

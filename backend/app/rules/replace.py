@@ -1320,7 +1320,8 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
     except ShieldAsk as s:
         return s
     result = [finals.get(i, ev) for i, ev in enumerate(events)]
-    from app.rules import shield_counters  # -- counters (wave 7C) -- 122.1c: what the other effects left, prevented
+    # -- counters (wave 7C) -- 122.1c: what the other effects left, prevented
+    from app.rules import shield_counters
 
     used = shield_counters.prevent_damage(plan, result)
     notes = []
@@ -1451,7 +1452,8 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
     for before, finals in [*out.counter_finals, *out.life_finals]:
         note_applied(plan, before, finals, actor=actor)
     commit_shields(plan, out.shields)
-    from app.rules import shield_counters  # -- counters (wave 7C) --
+    # -- counters (wave 7C) --
+    from app.rules import shield_counters
 
     shield_counters.remove(plan, out.shield_counters, actor)
     if not out.events:
