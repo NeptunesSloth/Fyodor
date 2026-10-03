@@ -85,6 +85,8 @@ class Move(Base):
     # differ: the ones among them that enter tapped, and whose battlefield each enters (default: ``to``)
     tapped_ids: list[Id] | None = Field(default=None, max_length=250)
     controllers: dict[Id, Id] | None = None
+    # -- transform (wave 11A) -- 712.14a: the double-faced cards among them that enter the battlefield transformed (back face up)
+    back_ids: list[Id] | None = Field(default=None, max_length=250)
     r: MoveData | None = None
 
 

@@ -68,7 +68,7 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str) ->
     if inner is None or inner[1] is not None:  # (the deferred ability's own target: chosen as it triggers)
         return None
     effects = delayed.inner_for_event(inner[0])
-    if effects is None or any(e.get("do") in ("delayed", "until", "optional_payment") for e in effects) \
+    if effects is None or any(e.get("do") in delayed.UNDEFERRABLE for e in effects) \
             or not refs_ok(cond, effects):
         return None
     head = {"kind": "watch", "cond": cond, "text": text}
