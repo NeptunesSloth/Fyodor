@@ -169,6 +169,7 @@ def test_a_look_before_a_choice_still_shows_the_hand_when_nothing_can_be_chosen(
     assert d is not None and d.kind == "confirm" and seen_by(s, "p1", hand) == hand
     choose(s, ["ok"])
     assert s.state.rules.decision is None and seen_by(s, "p1", hand) == [] and set(bobs_hand(s)) == set(hand)
+    assert not any("nothing to choose" in json.dumps(e).lower() for e in s.view("p2")["log"])  # (that would tell the table it's all lands)
     replay_matches(s)
 
 

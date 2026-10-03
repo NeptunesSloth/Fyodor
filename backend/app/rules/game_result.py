@@ -8,8 +8,8 @@ Researched against CR 2026-09-25.
   draw from an empty library is no longer pending once the check has passed (704.5b: "since the last time state-based
   actions were checked"), while a life total of 0 or less, or the poison counters, are still there when the permanent
   leaves and the player then loses at the next check. A player who concedes still leaves the game (104.3a).
-* 104.2: a player who "can't win the game" doesn't win by an effect (104.2b) nor by being the last player left
-  (104.2a); the game goes on.
+* 104.2: a player who "can't win the game" doesn't win by an effect (104.2b); being the last player left (104.2a)
+  overrides it: they win at once.
 * Both statics apply while their source is on the battlefield (611.3a): "you" is its controller, "your opponents" the
   other players. Not read: the same effect from a spell ("players can't lose the game this turn": Everybody Lives!).
 """
