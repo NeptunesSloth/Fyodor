@@ -2754,7 +2754,11 @@ def _intervening_may(body: str, it: str | None, event_player: bool) -> tuple[lis
     cond = conditions.parse(m["c"], objects=True)
     if cond is None or set(conditions.objects_in(cond)) - {"self"}:
         return None
-    parsed = parse_effects(m["rest"][0].upper() + m["rest"][1:], it=it, event_player=event_player)
+    # -- if you do (wave 10C) -- "At the beginning of your upkeep, if this creature has a +1/+1 counter on it, you may remove a
+    # +1/+1 counter from it. If you do, draw a card." (Ingenious Prodigy): the only object the condition names is the source, so
+    # the "it" of the sentence after it is that object (the pronoun's nearest antecedent, 608.2c)
+    about_self = it is None and "self" in str(cond)  # ({"object": "self", …} or {"value": {"on": "self"}, …})
+    parsed = parse_effects(m["rest"][0].upper() + m["rest"][1:], it="self" if about_self else it, event_player=event_player)
     if parsed is None or not parsed[0]:
         return None
     effects, target, optional = parsed
