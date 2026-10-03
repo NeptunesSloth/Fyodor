@@ -144,7 +144,14 @@ def word_prefix(line: str) -> tuple[str, str] | None:
 def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], str | None]:
     if _MANA_ABILITY.match(line):
         return "mana", (), "{T}"
+    # -- mana riders (wave 5A) -- 605.1a: "{T}: For each color among permanents you control, add one mana of that color."
+    from app.rules.mana_riders import EACH_COLOR_LINE  # (Bloom Tender: no target, adds mana: a mana ability)
+
+    if (each := EACH_COLOR_LINE.match(line)) is not None:
+        return "mana", (), each["cost"]
     m = _ADD_MANA.match(line)
+    if m and re.search(r"\bmill\b|\blibrary\b", m.group("cost"), re.I):  # -- mana riders (wave 5A) -- 605.1a: a cost moving
+        m = None  # a card to or from a library ("{T}, Mill a card: Add {C}.", Millikin): not a mana ability (uses the stack)
     if m and not _LOYALTY.match(line) and "target" not in line and '"' not in m.group("cost") \
             and not _TRIGGER.match(line) and not line.startswith("•"):  # a granted/token ability isn't one
         return "mana", (), m.group("cost")

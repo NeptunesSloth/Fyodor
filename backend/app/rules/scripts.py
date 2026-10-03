@@ -218,6 +218,7 @@ def _it_source(word: str) -> dict[str, str]:
 # that's a new object in another zone, 400.7)
 _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
             "deal_combat_damage_player", "deal_damage", "counters_put", "targeted", "create_token"}
+_STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 # Zone-change events after which "it" is the new object the card became where it went — found
 # only there (400.7e, 603.6, 603.6c): "When ~ dies, return it to its owner's hand"
 _GONE = {"die", "leave"}
@@ -2143,6 +2144,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if d is not None and combat_rules.unwrapped(d):
         return None
+    # -- mana riders (wave 5A) -- 605.1b: adding mana makes it a mana ability
+    from app.rules import tap_mana as _tm
+
+    if d is not None and _tm.adds_mana(d):
+        return None
     # -- chosen player (wave 4J) -- "the chosen player" is the one this permanent chose as it entered (app/rules/chosen.py):
     # only on a card with exactly one "As ~ enters, choose an opponent / a player." ("Choose target opponent. … the chosen
     # player" in one resolution — Haunt the Network — is another choice: not read as this)
@@ -2179,6 +2185,13 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import attached_mana
 
         return attached_mana.definition(text)
+    if ability.kind == "triggered" and text.startswith(("Whenever you tap ", "Whenever a player taps ")):
+        from app.rules import tap_mana  # -- mana riders (wave 5A) -- a triggered mana ability (605.1b)
+
+        if (tapped := tap_mana.definition(text)) is not None:
+            return tapped
+    if ability.kind == "static" and (untaps := _untap_riders.static_definition(text)) is not None:
+        return untaps  # -- mana riders (wave 5A) -- "Untap all … you control during each other player's untap step."
     if ability.kind == "static":
         # replacement / prevention effects of the permanent itself (the block at the end of this
         # module): "~ enters tapped [unless …]", shock lands, "~ enters with … counters", "If ~ would
@@ -3899,7 +3912,8 @@ def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     from app.rules import values
 
     what = m["what"]
-    if what.startswith(("card named", "color ", "different ", "creature that", "permanent ")) or " this way" in what:
+    if (what.startswith(("card named", "color ", "different ", "creature that", "permanent ")) or " this way" in what) \
+            and not re.fullmatch(r"card named ~ in each graveyard", what):  # (wave 5A: Rite of Flame, values.parse_count)
         raise _NoMatch
     # -- refused copy/mana (wave 3R3) -- Jeska's Will: "Add {R} for each card in target opponent's hand." The player
     # is the instruction's one target (115.1: chosen as it's cast, checked as it resolves, 608.2b); the amount is
@@ -3907,7 +3921,9 @@ def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     hand = re.fullmatch(r"cards? in target (?P<who>player|opponent)'s hand", what)
     if hand is not None:
         return [{"do": "add_mana", "sym": (m["sym"] or m["sym2"])[1], "n": {"hand": "target"}}], hand["who"]
-    count = values.parse_count(what)
+    # -- mana riders (wave 5A) -- Rite of Flame: "add {R} for each card named ~ in each graveyard" (the spell's own name;
+    # only in this "add" instruction: values.evaluate {"named_self_in_graveyards": 1})
+    count = {"named_self_in_graveyards": 1} if what == "card named ~ in each graveyard" else values.parse_count(what)
     if count is None:
         raise _NoMatch
     if isinstance(count, dict) and count.get("hand") == "target":
@@ -3979,6 +3995,12 @@ EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLA
 from app.rules import graveyard_exile as _graveyard_exile  # noqa: E402, I001  -- graveyard exile (wave 4J) --
 
 EFFECTS[:0] = _graveyard_exile.TEMPLATES  # "Exile target player's graveyard." (app/rules/graveyard_exile.py)
+from app.rules import tap_mana as _tap_mana  # noqa: E402, I001  -- mana riders (wave 5A) --
+
+EFFECTS[:0] = _tap_mana.TEMPLATES  # "Until end of turn, whenever a player taps an Island for mana, …" (High Tide)
+from app.rules import untap_riders as _untap_riders  # noqa: E402, I001
+
+EFFECTS[:0] = _untap_riders.TEMPLATES  # "Untap up to three lands." (app/rules/untap_riders.py)
 # "Choose one of them." chooses among what the instruction before moved; "that card" is then the chosen one
 _RECORDING["choose_one_of"] = None
 _MOVERS.add("choose_one_of")

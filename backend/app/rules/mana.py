@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from itertools import combinations_with_replacement
 from typing import Any
 
+from app.rules import mana_riders as _mana_riders  # -- mana riders (wave 5A) --
+
 COLORS = ("W", "U", "B", "R", "G")
 ALL_MANA = (*COLORS, "C")
 _SYMBOL = re.compile(r"\{([^}]+)\}")
@@ -105,11 +107,15 @@ class ManaAbility:
     # -- refused copy/mana (wave 3R3) -- "Put a -0/-1 counter on this creature: Add {G}." (Wall of Roots): the
     # counter put on the source as the cost (by hand only: the auto-payer never weakens a creature)
     self_counter: str | None = None
+    # -- mana riders (wave 5A) -- "Exile this card from your hand: Add {R}." (Simian Spirit Guide): activated only
+    # from its owner's hand (113.6m, 605.3a), by hand only (app/rules/mana_riders.activate_from_hand)
+    from_hand: bool = False
 
     @property
     def penalty(self) -> int:
         """How much using it costs beyond tapping (the payer avoids painful options first)."""
-        return sum(n for kind, n in self.riders if kind == "damage") * 3 + (5 if self.extra_cost else 0) + (4 if self.sacrifice_self else 0)
+        return sum(n for kind, n in self.riders if kind == "damage") * 3 + (5 if self.extra_cost else 0) + (4 if self.sacrifice_self else 0) \
+            + _mana_riders.penalty(self.riders)  # -- mana riders (wave 5A) --
 
 
 _NUM = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
@@ -245,6 +251,7 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     """Understand a mana ability. ``identity`` is the controller's commander color identity (for
     Command Tower-style wording). Returns None for wordings the engine doesn't carry out."""
     text = _without_ability_word(text.strip())  # -- ability words (wave 4F) --
+    text = _mana_riders.normalise(text)  # -- mana riders (wave 5A) -- "For each color among …, add …"
     m = _COST_AND_EFFECT.match(text)
     if not m:
         return None
@@ -253,9 +260,13 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     sacrifice = False
     chooses = False
     self_counter: str | None = None
+    from_hand = False  # -- mana riders (wave 5A) --
     extra: list[str] = []
     for part in cost:
         if part in ("{T}", "{0}"):
+            continue
+        if part == "Exile this card from your hand" and len(cost) == 1:  # -- mana riders (wave 5A) -- (113.6m)
+            from_hand = True
             continue
         if _SAC_SELF.fullmatch(part):
             sacrifice = True
@@ -295,6 +306,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         count, options = "power", tuple((col,) for col in COLORS)
     elif c := _X_COUNT.fullmatch(first):  # (wave 4K)
         count, options = f"control:{_COUNT_TYPES[c.group('what')[:-1]]}", tuple((col,) for col in COLORS)
+    elif (more_forms := _mana_riders.first_sentence(first)) is not None:  # -- mana riders (wave 5A) --
+        count, options = more_forms
     else:
         options = _effect_options(sentences[0], identity)
     if options is None:
@@ -311,6 +324,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             riders.append(("damage", int(d.group("n"))))
         elif s == "Draw a card":
             riders.append(("draw", 1))
+        elif (rd := _mana_riders.rider(s)) is not None:  # -- mana riders (wave 5A) -- "You gain 2 life."
+            riders.append(rd)
         elif s == "Activate only once each turn":
             once = True
         elif c := _CONTROL.fullmatch(s):
@@ -352,7 +367,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
                 spend_only = q
     return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
                        riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition,
-                       count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter)
+                       count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter,
+                       from_hand=from_hand)
 
 
 @dataclass(frozen=True)
