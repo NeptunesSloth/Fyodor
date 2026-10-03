@@ -1831,7 +1831,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 return None
             from app.rules import pay_objects
 
-            rest_text = pay_objects.rewrite(rest_text, pay_e, it)  # -- if you do (wave 8C) -- "that creature's mana value"
+            # ("that creature" is the paid object only when nothing else in the ability could be what it names)
+            others = bool(groups) or any(x["do"] in _MOVERS for x in effects if x is not pay_e)
+            rest_text = pay_objects.rewrite(rest_text, pay_e, "event" if others else it)  # -- if you do (wave 8C) -- "that creature's mana value"
             inner = _clause(rest_text) if not rest_text.startswith("you may ") else None
             if inner is not None:
                 inner = pay_objects.bind(inner, pay_e)  # -- if you do (wave 8C) -- the sacrificed / exiled object, from the payment
@@ -4267,6 +4269,19 @@ def _token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if found is None:
         raise _NoMatch
     return found
+
+
+# -- if you do (wave 8C) -- "that creature's controller creates a token that's a copy of that creature" (Bramble Sovereign):
+# the copy's maker is the object's controller (111.2: the player who creates it owns it), not the ability's
+@_first
+@effect(r"(?:that creature's|its) controller creates (?P<n>a|one) (?P<tapped>tapped )?token that's a copy of (?P<src>it|that creature)")
+def _their_token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import copying
+
+    found = copying.parse_token_copy(m["n"], bool(m["tapped"]), m["src"], None)
+    if found is None or found[1] is not None:
+        raise _NoMatch
+    return [{**found[0][0], "their": True}], None
 
 
 @_first

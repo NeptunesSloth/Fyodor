@@ -56,6 +56,16 @@ EXTRA = [
          oracle_text='When this creature enters, you get {E}{E} (two energy counters).\nWhenever an artifact creature you control attacks, you may pay {E}. If you do, put your choice of a +1/+1, first strike, or trample counter on that creature.', power='2', toughness='2', colors=['R'], color_identity=['R'], keywords=[]),
     card('T-45 Power Armor', set_code='tst', number='G8', mana_cost='{2}', cmc=2.0, type_line='Artifact — Equipment',
          oracle_text="When this Equipment enters, you get {E}{E} (two energy counters).\nEquipped creature gets +3/+3 and doesn't untap during its controller's untap step.\nAt the beginning of your upkeep, you may pay {E}. If you do, untap equipped creature, then put your choice of a menace, trample, or lifelink counter on it.\nEquip {3}", power=None, toughness=None, colors=[], color_identity=[], keywords=['Equip']),
+    card('Bramble Sovereign', set_code='tst', number='G9', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Creature — Dryad',
+         oracle_text="Whenever another nontoken creature enters, you may pay {1}{G}. If you do, that creature's controller creates a token that's a copy of that creature.", power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=[]),
+    card('Feed the Pack', set_code='tst', number='G21', mana_cost='{5}{G}', cmc=6.0, type_line='Enchantment',
+         oracle_text="At the beginning of your end step, you may sacrifice a nontoken creature. If you do, create X 2/2 green Wolf creature tokens, where X is the sacrificed creature's toughness.", power=None, toughness=None, colors=['G'], color_identity=['G'], keywords=[]),
+    card('Forsaken City', set_code='tst', number='G22', mana_cost='', cmc=0.0, type_line='Land',
+         oracle_text="This land doesn't untap during your untap step.\nAt the beginning of your upkeep, you may exile a card from your hand. If you do, untap this land.\n{T}: Add one mana of any color.", power=None, toughness=None, colors=[], color_identity=[], keywords=[]),
+    card('West Wind Avatar', set_code='tst', number='G23', mana_cost='{5}{G}{G}', cmc=7.0, type_line='Creature — Cat Spirit Avatar',
+         oracle_text='Trample\nWhenever this creature enters or attacks, you may sacrifice a token or a land. If you do, you gain 3 life.\nDisappear — At the beginning of your end step, if a permanent left the battlefield under your control this turn, draw a card.', power='7', toughness='7', colors=['G'], color_identity=['G'], keywords=['Disappear', 'Trample']),
+    card('Enigmatic Incarnation', set_code='tst', number='G24', mana_cost='{2}{G}{U}', cmc=4.0, type_line='Enchantment',
+         oracle_text="At the beginning of your end step, you may sacrifice another enchantment. If you do, search your library for a creature card with mana value equal to 1 plus the sacrificed enchantment's mana value, put that card onto the battlefield, then shuffle.", power=None, toughness=None, colors=['G', 'U'], color_identity=['G', 'U'], keywords=[]),
     card('Test Bear', set_code='tst', number='G90', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Bear',
          oracle_text='', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=[]),
     card('Test Rat', set_code='tst', number='G91', mana_cost='{B}', cmc=1.0, type_line='Creature — Rat',
@@ -64,7 +74,8 @@ EXTRA = [
          oracle_text='', power='3', toughness='3', colors=[], color_identity=[], keywords=[]),
 ]
 FULL = ["Industrial Advancement", "God-Pharaoh's Gift", "Nexus of Becoming", "Shadow, Mysterious Assassin",
-        "Ashcoat of the Shadow Swarm", "Gut, True Soul Zealot", "Assaultron Dominator", "T-45 Power Armor"]
+        "Ashcoat of the Shadow Swarm", "Gut, True Soul Zealot", "Assaultron Dominator", "T-45 Power Armor",
+        "Bramble Sovereign", "Feed the Pack", "Forsaken City", "West Wind Avatar", "Enigmatic Incarnation"]
 
 
 @pytest.fixture()
@@ -138,6 +149,9 @@ def test_refused_forms():
     assert scripts.parse_effects("You may exile a creature card from your graveyard. If you do, you gain life equal to its mana value.") is None
     # a trigger about an object: "that creature" stays the trigger's object, never the sacrificed one
     found = scripts.parse_effects("You may sacrifice a creature. If you do, you gain life equal to that creature's mana value.", "event")
+    assert found is None or "ref:pay0" not in str(found)
+    # ... and another object the ability already named is what "that creature" means
+    found = scripts.parse_effects("Destroy target creature. You may sacrifice a creature. If you do, you gain life equal to that creature's mana value.")
     assert found is None or "ref:pay0" not in str(found)
 
 
@@ -420,3 +434,95 @@ def test_t45_power_armor_untaps_and_the_controller_picks_a_counter(cards):
     assert not s.state.cards[bear.id].tapped  # ("doesn't untap during its controller's untap step", but this untaps it)
     assert s.state.cards[bear.id].counters.get("lifelink") == 1
     roundtrip(s)
+
+
+# -- its controller creates the copy -----------------------------------------------------------------
+def test_bramble_sovereign_the_creatures_controller_creates_the_copy(cards):
+    from tests.test_rules_effects import mana as add_mana
+
+    s = build(cards, p1=("Bramble Sovereign",), p2=("Test Bear",))
+    on_field(s, "Bramble Sovereign")
+    turn = s.state.turn.number
+    until(s, lambda s: s.state.turn.number == turn + 1 and s.state.turn.phase == "main1")
+    bear = to_hand(s, "Test Bear", "p2")
+    add_mana(s, "p2", G=1, C=1)
+    add_mana(s, "p1", G=1, C=1)  # (for the trigger's {1}{G})
+    act(s, "p2", type="cast_spell", card_id=bear.id)
+    until(s, lambda s: s.state.rules.decision is not None and [o.id for o in s.state.rules.decision.options][:2] == ["pay", "decline"])
+    assert s.state.rules.decision.player == "p1"
+    pick(s, "pay")
+    until(s, lambda s: not s.state.zones.get("stack") and s.state.rules.decision is None)
+    copies = [c for c in s.state.cards.values() if c.is_token and c.name == "Test Bear"]
+    assert len(copies) == 1 and copies[0].controller == "p2" and copies[0].owner == "p2"  # Bob's creature: Bob makes the copy
+    roundtrip(s)
+
+
+# -- cards the same grammar reached ------------------------------------------------------------------
+def test_feed_the_pack_reads_the_sacrificed_creatures_toughness_as_it_last_existed(cards):
+    """608.2h: X is the toughness the creature had on the battlefield (a +1/+1 counter counts), not the card's printed one."""
+    s = build(cards, p1=("Feed the Pack", "Test Bear"))
+    on_field(s, "Feed the Pack")
+    bear = on_field(s, "Test Bear")
+    act(s, "p1", type="counter", card_ids=[bear.id], kind="+1/+1", delta=1)
+    the_end_step_asked(s)
+    pick(s, "pay")
+    resolved_end(s)
+    assert s.state.cards[bear.id].zone == "p1:graveyard"
+    wolves = [c for c in s.state.cards.values() if c.is_token and c.name == "Wolf"]
+    assert len(wolves) == 3 and all(ch(s, w).pt == (2, 2) for w in wolves)
+    roundtrip(s)
+
+
+def test_feed_the_pack_a_token_is_not_a_choice(cards):
+    s = build(cards, p1=("Feed the Pack",))
+    on_field(s, "Feed the Pack")
+    creature(s, "p1", "Goblin Token")
+    until(s, lambda s: s.state.rules.decision is not None or (s.state.turn.number > 1 and s.state.turn.phase == "main1"))
+    assert s.state.rules.decision is None  # (only a nontoken creature can be sacrificed: nothing to pay, nothing asked)
+    roundtrip(s)
+
+
+def test_forsaken_city_exiles_a_card_from_the_hand_to_untap(cards):
+    s = build(cards, p1=("Forsaken City", "Test Bear"))
+    city = on_field(s, "Forsaken City")
+    bear = to_hand(s, "Test Bear")
+    forest = to_hand(s, "Forest")
+    act(s, "p1", type="tap", card_ids=[city.id])
+    turn = s.state.turn.number
+    until(s, lambda s: s.state.turn.number > turn + 1 and s.state.turn.active_player == "p1" and s.state.rules.decision is not None
+          and [o.id for o in s.state.rules.decision.options][:2] == ["pay", "decline"])
+    pick(s, "pay")
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards" and bear.id in {o.id for o in d.options} and forest.id in {o.id for o in d.options}
+    assert "options" not in s.view("p2")["rules"]["decision"]  # (a card chosen from a hand: privately)
+    pick(s, bear.id)
+    until(s, lambda s: not s.state.zones.get("stack") and s.state.rules.decision is None)
+    assert s.state.cards[bear.id].zone == "p1:exile" and not s.state.cards[city.id].tapped
+    roundtrip(s)
+
+
+def test_west_wind_avatar_sacrifices_a_token_or_a_land(cards):
+    s = build(cards, p1=("West Wind Avatar",))
+    avatar = ready(s, "West Wind Avatar")
+    token = creature(s, "p1", "Goblin Token")
+    land = on_field(s, "Forest")
+    act(s, "p1", type="pass_priority")
+    attack_with(s, avatar)
+    the_end_step_asked(s)
+    me = life(s, "p1")
+    pick(s, "pay")
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards" and {o.id for o in d.options} == {token.id, land.id}
+    pick(s, land.id)
+    through_combat(s)
+    assert s.state.cards[land.id].zone == "p1:graveyard" and life(s, "p1") == me + 3
+    roundtrip(s)
+
+
+def test_the_night_of_the_doctor_reads_it_as_the_returned_creature():
+    found = scripts.parse_effects("Return target legendary creature card from your graveyard to the battlefield. "
+                                  "Put your choice of a first strike, vigilance, or lifelink counter on it.")
+    assert found is not None
+    pick_e = found[0][-1]
+    assert pick_e["do"] == "pick_counter" and pick_e["kinds"] == ["first strike", "vigilance", "lifelink"]
+    assert str(pick_e["who"]).startswith("ref:")  # the object the return made, not the saga
