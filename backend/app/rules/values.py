@@ -499,6 +499,10 @@ def _relative(plan: Plan, ctx: dict[str, Any], v: Any) -> int:
     card = plan.state.cards.get(ctx.get("other_than") or "")
     if card is None:
         return 0
+    if v["relative"] == "attached":  # -- attached events (wave 8D) -- the Auras / Equipment attached to the modified object
+        kinds = set(v["kinds"])
+        return sum(1 for c in plan.state.cards.values() if c.attached_to == card.id and c.zone.endswith(":battlefield")
+                   and plan.in_game(c) and kinds & plan.ch(c).subtypes)
     mine = plan.ch(card)
     if v["relative"] == "creature_type":
         want = mine.subtypes & CREATURE_TYPES
@@ -553,6 +557,10 @@ def _object(plan: Plan, ctx: dict[str, Any], who: str) -> tuple[Any, Any] | None
         from app.rules.effects import target_refs  # (effects imports this module)
 
         refs = [(t["id"], t.get("object_id")) for t in target_refs(ctx, who)]
+    if who == "host":  # -- attached events (wave 8D) -- "equipped creature", "enchanted creature": what the source is attached to
+        from app.rules.effects import _cards  # (effects imports this module)
+
+        refs = [(c, plan.oid(c)) for c in _cards(plan, ctx, "host")]
     if who == "each":  # -- sized amounts (wave 3D) -- "each creature you control deals damage equal to its power": the one being read
         card = plan.state.cards.get(ctx.get("each_source") or "")
         return (card, plan.ch(card)) if card is not None else None

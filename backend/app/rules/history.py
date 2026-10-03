@@ -232,11 +232,14 @@ def note_discards(plan: Plan, card_ids: list[str]) -> None:
 
 def note_look(plan: Plan, player: str, kind: str) -> None:
     """701.22b / 701.25c: ``player`` scried / surveilled N (N > 0), even with too few cards to look at (701.22d)."""
-    from app.game.rules_state import TurnFact, turn_log_now
+    from app.game.rules_state import TurnFact, emit, turn_log_now
 
     log = turn_log_now(plan.state)
     if log is not None:
         log.facts.append(TurnFact(kind=kind, player=player))
+        # -- looks (wave 8B) -- "Whenever you scry / surveil": the event (603.2), numbered among this turn's of that kind
+        emit(plan.state, "designation", counter=kind, player=player,
+             amount=sum(1 for f in log.facts if f.kind == kind and f.player == player))
 
 
 def note_crime(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -> None:

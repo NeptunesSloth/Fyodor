@@ -1160,7 +1160,8 @@ def parse_copy_target(what: str, exc: str | None) -> tuple[list[dict[str, Any]],
 
 _SOURCES = {"~": "self", "it": "it", "that creature": "it", "that permanent": "it", "that artifact": "it",
             "that token": "it", "that card": "it", "equipped creature": "host", "enchanted creature": "host",
-            "enchanted permanent": "host", "enchanted artifact": "host"}
+            "enchanted permanent": "host", "enchanted artifact": "host",
+            "the exiled card": "pay_exiled"}  # -- if you do (wave 8C) -- bound to a payment's exiled card (pay_objects.bind)
 
 
 def parse_token_copy(n: str, tapped: bool, src: str, exc: str | None) -> tuple[list[dict[str, Any]], Any] | None:

@@ -35,7 +35,7 @@ import re
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from app.rules import selectors, values
+from app.rules import extremes, selectors, values
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -137,6 +137,9 @@ _SELF_COUNTS = re.compile(r"(?:(?:~|this [a-z]+) has|there (?:are|is)) (?:(?P<n>
 
 
 def _parse_one(t: str, objects: bool) -> Condition | None:
+    found_extreme = extremes.parse(t)  # -- extremes (wave 8B) -- "you control the creature with the greatest power or tied …"
+    if found_extreme is not None:
+        return found_extreme
     m = _SELF_COUNTS.fullmatch(t)
     if m and m["k"] not in ("any", "more", "fewer"):
         n = 0 if m["no"] else _num(m["n"])
@@ -371,6 +374,13 @@ def _lost(m: re.Match[str]) -> Condition | None:
     n = _num(m["n"]) if m["n"] else 1
     who = "you" if m["who"].startswith("you") else "opponent" if m["who"].startswith("an opponent") else "any"
     return None if n is None else {"history": "lost", "who": who, "n": n, **_when(m)}
+
+
+# -- this-turn conditions (wave 8D) -- "if you didn't lose life this turn" (Luminarch Ascension): none was lost (119.3)
+@_history_pattern(r"you(?: haven't| didn't|'ve not| have not| did not) (?P<k>lose|lost|gain|gained) life this turn")
+def _no_life_change(m: re.Match[str]) -> Condition:
+    gained = m["k"].startswith("gain")
+    return {"not": {"history": "gained", "n": 1} if gained else {"history": "lost", "who": "you", "n": 1, **_when(m)}}
 
 
 @_history_pattern(r"you(?:'ve)? drawn (?P<n>\w+) or more cards this turn")
@@ -722,6 +732,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import activation_words
 
         return activation_words.holds(plan, ctx, cond)
+    if "extreme" in cond:  # -- extremes (wave 8B) -- app/rules/extremes.py
+        return extremes.holds(plan, ctx, cond)
     if "all" in cond:
         return all(holds(plan, ctx, c) for c in cond["all"])
     if "any" in cond:

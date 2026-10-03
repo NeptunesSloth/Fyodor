@@ -236,6 +236,15 @@ def _parse(c: str) -> Condition | None:
     if m:
         return {"event": "player_counters", "subject": "player", "player": _PLAYERS[m["p"]],
                 "counter": "energy" if m["e"] else m["k"]}
+    # -- looks (wave 8B) -- "Whenever you scry or surveil" (701.22b, 701.25c: a scry / surveil of N > 0), "Whenever you
+    # surveil for the first time each turn" (the Nth of that kind this turn, as for "your second card")
+    m = re.fullmatch(r"you (?P<k>scry|surveil|scry or surveil)(?P<first> for the first time each turn)?", c)
+    if m:
+        kinds = ["scry", "surveil"] if m["k"] == "scry or surveil" else [m["k"]]
+        if m["first"] and len(kinds) > 1:
+            return None  # (the first scry or surveil, or the first of each? the wording doesn't say: manual)
+        conds = [{"event": k, "subject": "player", "player": "you", **({"nth": 1} if m["first"] else {})} for k in kinds]
+        return conds[0] if len(conds) == 1 else {"event": "either", "subject": "player", "player": "you", "conds": conds}
     for rx, event in _DESIGNATION_EVENTS:  # -- counters & designations (wave 3E) --
         m = rx.fullmatch(c)
         if m:

@@ -51,7 +51,7 @@ KEYWORDS = frozenset({
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",
     "transmute",  # (wave 3R4: casting.transmute)
-    "ingest", "poisonous", "frenzy", "afterlife",  # -- static wordings (wave 6E) -- (app/rules/keyword_triggers.py)
+    "ingest", "poisonous", "frenzy", "afterlife", "modular", "split second",  # -- static wordings (wave 6E) -- (app/rules/keyword_triggers.py)
 })
 
 _PARAM = re.compile(r"(\{[^}]*\}|\d+|—.*$|\bfrom\b.*$| with .*$|walk$)")
@@ -98,6 +98,8 @@ def keyword_name(piece: str) -> str | None:
 
 
 def _keywords_line(line: str) -> tuple[str, ...] | None:
+    if re.fullmatch(r"partner with [^;.]+", line.strip(), re.IGNORECASE):  # -- keyword pieces (wave 8A) -- 702.124j: the name has a comma
+        return ("partner",)
     pieces = [p for p in re.split(r"[,;]\s*", line) if p.strip()]
     names = [keyword_name(p) for p in pieces]
     if names and all(names):

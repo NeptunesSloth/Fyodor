@@ -277,6 +277,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
+    if (m := re.fullmatch(r"the exiled card's (?P<stat>power|toughness|mana value)", phrase)) is not None:
+        return {_STATS[m["stat"]]: "cost:exiled"}  # -- if you do (wave 8C) -- bound to the payment (pay_objects.bind)
     # (wave 4K: "this creature's power" is the source's own, like "~'s")
     m = re.fullmatch(r"(?:(?P<its>its)|that (?:creature|permanent|card|artifact|enchantment|land|planeswalker)'s|"
                      r"(?P<spell>that spell's)|(?P<self>~'s|this creature's)) (?P<stat>power|toughness|mana value)", phrase)
@@ -1011,6 +1013,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
             n = _stat(m["stat"])
             return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
+    # -- attached events (wave 8D) -- "that player loses half their life, rounded up" (119.3; half of the life total as it is
+    # when the instruction is carried out, 107.1a; effects.lose_life)
+    m = re.fullmatch(_SUBJ + r"loses? half (?:their|your) life, rounded (?P<r>up|down)", text)
+    if m and rider is None and (m["s"] in (None, "you")) == (text.endswith("your life, rounded " + m["r"])):
+        who, target = _subject(m)
+        return [{"do": "lose_life", "who": who, "n": 0, "half": m["r"]}], target
     m = re.fullmatch(_SUBJ + rf"discards? (?P<n>{AMT}) cards? at random", text)  # -- refused zones/sized (wave 3R4) --
     if m:  # 701.9b: the cards are chosen at random (effects.discard: the table picks; the move records which)
         who, target = _subject(m)

@@ -34,6 +34,7 @@ from typing import Any, Literal
 
 from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
 from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
+from app.rules import land_plays as _land_plays  # -- one-shot extra land plays (wave 8A) --
 from app.rules import restrictions, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
 from app.rules.costs import SACRIFICE, parse_ability_cost, spell_additional_cost
@@ -176,7 +177,7 @@ def _short_name(name: str) -> str | None:
     first word), unless that word is also a creature type ("Soldier of the Pantheon")."""
     from app.rules.creature_types import CREATURE_TYPES
 
-    m = re.match(r"^([A-Z][\w'-]{2,}) (?:the|of) ", name)
+    m = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]{2,}) (?:the|of) ", name)  # (-- extremes (wave 8B) -- a capital with an accent: Éomer)
     if m is None or m[1] in CREATURE_TYPES or m[1].rstrip("s") in CREATURE_TYPES:
         return None
     return m[1]
@@ -475,6 +476,10 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             return None
         latest = sentence_of(fitting[-1].index)
         same = [i for i in fitting if sentence_of(i.index) == latest]
+        # -- looks (wave 8B) -- "Reveal the top card of your library and put that card into your hand. You lose life equal
+        # to its mana value.": "that card" is the card revealed, so the one card is the pick (not two candidates)
+        if any(i.do == "pick_looked" and out[i.index].get("which") == "that" for i in same):
+            same = [i for i in same if i.do != "look_top"]
         # ("target creature gets +2/+2 and gains reach": two effects on one target are one candidate)
         distinct = {(("g", _group_of(out[i.index])) if _group_of(out[i.index]) is not None else ("i", i.index)): i
                     for i in same}
@@ -934,6 +939,13 @@ def _target_loses(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "lose_life", "who": "target", "n": num(m["n"])}], "player"
 
 
+# -- life lost (wave 8B) -- "Each opponent loses life equal to the life they lost this turn." (Wound Reflection): each
+# opponent's own total (the turn's log, 119.3), read for them as the instruction is carried out (608.2h)
+@effect(r"each opponent loses life equal to the life (?:they|that player) lost this turn")
+def _lose_life_lost(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "lose_life", "who": "each_opponent", "n": {"per_player": {"turn_history": "lost"}}}], None
+
+
 @effect(r"(?P<src>~|it) deals {N} damage to (?P<sel>{SEL})")
 def _damage(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "damage", "who": "target", "n": num(m["n"]), **_it_source(m["src"])}], SELECTORS[m["sel"]]
@@ -1095,6 +1107,17 @@ def _create_predefined(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | No
                        "type_line": type_line, "text": text}}], None
 
 
+# -- if you do (wave 8C) -- "put your choice of a +1/+1, first strike, or trample counter on that creature" (counter_pick.py)
+@effect(r"put your choice of (?P<kinds>.+?) counters? on (?P<who>~|this creature|it|that creature)")
+def _counter_pick(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import counter_pick
+
+    found = counter_pick.parse(m["kinds"], m["who"])
+    if found is None:
+        raise _NoMatch
+    return found, None
+
+
 @effect(r"put {N} (?P<kind>\+1/\+1|-1/-1) counters? on (?P<who>target creature you control|target creature|~|it|each creature you control)")
 def _counters(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     who = {"~": "self", "it": "it", "each creature you control": "creatures_you_control"}.get(m["who"], "target")
@@ -1174,6 +1197,18 @@ def _investigate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     type_line, text = PREDEFINED_TOKENS["Clue"]
     return [{"do": "create_token", "who": "you", "n": 1,
              "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
+
+
+# -- life lost (wave 8B) -- "Investigate for each opponent who lost life this turn." (Teysa): one Clue per counted thing
+# (701.16a: investigating is creating a Clue token; the count is worked out as the instruction is carried out, 608.2h)
+@effect(r"investigate (?:once )?for each (?P<what>.+)")
+def _investigate_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import sized_damage, values
+
+    n = values.parse_count(m["what"])
+    if n is None or sized_damage.has_per_player(n):
+        raise _NoMatch
+    return [{**_investigate(m)[0][0], "n": n}], None
 
 
 def _x_amount(xdef: str | None) -> Any:
@@ -1686,7 +1721,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if text == "if you search your library this way, shuffle":  # -- refused zones/sized (wave 3R4) -- (_gy_shuffle)
             effects.append({"do": "gy_search_shuffle"})
             continue
-        may_mill = re.fullmatch(r"you may mill (?P<n>two|three|four|five|\d+) cards", text) if i == 0 and len(texts) > 1 else None
+        may_mill = re.fullmatch(r"you may mill (?P<n>two|three|four|five|\d+) cards", text) if i == 0 and len(texts) > 1 \
+            and not texts[1].startswith("If you ") else None  # (wave 8C: "If you do" asks about the mill: a payment)
         if may_mill is not None:  # -- refused zones/sized (wave 3R4) -- "You may mill three cards. Then return …": only the
             # mill is optional (the rest happens either way): refused_zones.may_mill asks as it resolves
             effects.append({"do": "may_mill", "n": num(may_mill["n"])})
@@ -1823,7 +1859,14 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             if sized_pay and (if_do["neg"] or not re.search(r"\bX\b", rest_text)) and not (
                     pay_e.get("life_x") == {"event_amount": 1} and not if_do["neg"]):  # (Niv-Mizzet: "that many" = that much)
                 return None
+            from app.rules import pay_objects
+
+            # ("that creature" is the paid object only when nothing else in the ability could be what it names)
+            others = bool(groups) or any(x["do"] in _MOVERS for x in effects if x is not pay_e)
+            rest_text = pay_objects.rewrite(rest_text, pay_e, "event" if others else it)  # -- if you do (wave 8C) -- "that creature's mana value"
             inner = _clause(rest_text) if not rest_text.startswith("you may ") else None
+            if inner is not None:
+                inner = pay_objects.bind(inner, pay_e)  # -- if you do (wave 8C) -- the sacrificed / exiled object, from the payment
             if inner is None:
                 return None
             if sized_pay or hand_pay:  # (hand_pay: wave 6F)
@@ -1863,6 +1906,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (flash := cast_limits.flash_sentence(text)) is not None:  # (a permission, not a choice made on resolution)
             effects += flash
             continue
+        if (extra_land := _land_plays.sentence(text)) is not None:  # -- one-shot extra land plays (wave 8A) -- 305.2 (a permission)
+            effects += extra_land
+            continue
         if text.startswith("you may "):
             if effects:
                 # "…. You may reveal … from among them …": a clause that models its own choice
@@ -1900,6 +1946,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     if resolved is not None:  # -- refused modal/conditional (wave 3R1) -- an "instead" pronoun naming the target
         resolved = _gated_other_rewrite(_branch_refs_retarget(resolved))
     if resolved is None or not _branch_refs_ok(resolved) or not _gated_other_ok(resolved):  # (conditional clauses, wave 1B)
+        return None
+    from app.rules import pay_objects  # -- if you do (wave 8C) --
+
+    if pay_objects.leftover(resolved):  # -- if you do (wave 8C) -- "the exiled card" with no payment before it
         return None
     if not _cast_conditions_ok(resolved) or not _did_refs_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
         return None
@@ -2873,6 +2923,8 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
             if kw in _kw_meanings.MEANINGS:  # -- static wordings (wave 6E) -- read as its CR meaning (app/rules/keyword_triggers.py)
                 out += [(1000 + ab.index * 10 + k, d) for d in _kw_meanings.definitions(kw, ab.text)[:1]]
+            if kw == "partner" and (pw := _kw_meanings.partner_with_definition(ab.text)) is not None:  # -- keyword pieces (wave 8A) --
+                out.append((1000 + ab.index * 10 + k, pw))
             if kw == "decayed":  # -- token & pump wordings (wave 6C) -- 702.147a (app/rules/decayed.py)
                 from app.rules import decayed
 
@@ -3245,6 +3297,11 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     tail = re.fullmatch(r"(?P<body>~ enters with .+? counters? on it) (?P<c>if you cast it(?: from your hand)?)\.", text)
     if tail is not None:
         text = f"If {tail['c'][3:].replace(' it', ' ~', 1)}, {tail['body']}."
+    # -- this-turn conditions (wave 8D) -- "~ enters with a +1/+1 counter on it if you attacked this turn." (Raid, Morbid …)
+    ttail = re.fullmatch(r"(?P<body>~ enters with .+? counters? on it) if (?P<c>[^,]+ this turn)\.", text)
+    if ttail is not None:
+        text = f"If {ttail['c']}, {ttail['body']}."
+    # -- end this-turn conditions --
     eq = re.fullmatch(r"~ enters with a number of (?P<kind>\+1/\+1|[a-z]+) counters on it equal to (?P<v>.+)\.", text)
     if eq is not None:
         from app.rules import values
@@ -3271,7 +3328,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         from app.rules import conditions
 
         cast_if = conditions.parse(lead["c"], objects=True)
-        if cast_if is None or "cast" not in cast_if or cast_if.get("object") != "self":
+        if cast_if is not None and lead["c"].endswith(" this turn") and (  # -- this-turn conditions (wave 8D) -- 608.2i, 614.12:
+                "history" in cast_if or all("history" in x for x in cast_if.get("any", [None]))):  # read as it enters
+            pass
+        elif cast_if is None or "cast" not in cast_if or cast_if.get("object") != "self":
             return None
         text = "~ enters with " + text[lead.end():]
     # -- counters (wave 7C) --
@@ -3941,6 +4001,8 @@ def _trailing_conditional(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         if len(lead_groups) > 1 or _is_player_group(lead_groups[0]):
             return None
         cond = _bind_cond(cond, "target")  # (the lead's one target: numbered with its group by _add_groups)
+    elif _cond_has_it(cond) and found[0] and all(e.get("who") == "host" for e in found[0]):
+        cond = _bind_cond(cond, "host")  # -- attached events (wave 8D) -- "… on equipped creature if it's red": "it" is the host
     if m["kw"] == "unless":
         cond = {"not": cond}
     return [{"do": "only_if", "cond": cond, "skip": 1}, *found[0]], found[1]
@@ -4259,6 +4321,19 @@ def _token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return found
 
 
+# -- if you do (wave 8C) -- "that creature's controller creates a token that's a copy of that creature" (Bramble Sovereign):
+# the copy's maker is the object's controller (111.2: the player who creates it owns it), not the ability's
+@_first
+@effect(r"(?:that creature's|its) controller creates (?P<n>a|one) (?P<tapped>tapped )?token that's a copy of (?P<src>it|that creature)")
+def _their_token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import copying
+
+    found = copying.parse_token_copy(m["n"], bool(m["tapped"]), m["src"], None)
+    if found is None or found[1] is not None:
+        raise _NoMatch
+    return [{**found[0][0], "their": True}], None
+
+
 @_first
 @effect(r"~ becomes a copy of target (?P<what>.+?)(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")
 def _become_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
@@ -4513,6 +4588,10 @@ EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLA
 from app.rules import next_untap as _next_untap  # noqa: E402
 
 EFFECTS[:0] = _next_untap.TEMPLATES
+# -- extra turns (wave 8A) -- "Take an extra turn after this one." (app/rules/extra_turns.py)
+from app.rules import extra_turns as _extra_turns  # noqa: E402
+
+EFFECTS[:0] = _extra_turns.TEMPLATES
 # -- untap choice (wave 7F) -- "… doesn't untap during its controller's untap step for as long as ~ remains tapped"
 from app.rules import untap_choice as _untap_choice  # noqa: E402
 
