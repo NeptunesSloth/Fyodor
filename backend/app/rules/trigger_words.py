@@ -39,6 +39,14 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         body = _THEY.sub(lambda m: f"that player {_VERBS[m['v']]}", body)
         # -- damage wordings (wave 6B) -- "At the beginning of each player's upkeep, ~ deals 1 damage to them."
         body = re.sub(r"\b(deals? (?:\d+|X) damage) to them\b", r"\1 to that player", body)
+    # -- intervening ifs (wave 11F) -- "if you have fewer than seven cards in hand, draw cards equal to the difference": the
+    # difference between that number and the cards in hand as it resolves (608.2h; the "if" holds again then, 603.4)
+    body = re.sub(r"^(if you have fewer than (\w+) cards in hand, draw cards equal to) the difference\.$",
+                  r"\1 \2 minus the number of cards in your hand.", body)
+    if (cond or {}).get("event") == "cast":  # "…, if at least four mana was spent to cast it": the spell cast
+        body = re.sub(r"^(if (?:at least \w+|\w+ or more) mana was spent to cast) it,", r"\1 that spell,", body)
+    if cond is not None and cond.get("subject") == "source":  # -- source damage (wave 11F) -- 609.7: its controller
+        body = re.sub(r"\bthat source's controller\b", "that player", body)
     if name.startswith("step:draw:") and name.rsplit(":", 1)[-1] in ("each", "opponent"):
         # 504.1: the active player draws in the draw step; "an additional card" is one more card
         body = re.sub(r"\bthat player draws an additional card\.$", "that player draws a card.", body)

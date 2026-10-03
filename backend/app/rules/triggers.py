@@ -553,6 +553,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
             snap = info.get("snap")
             return snap is not None and watcher.id in snap.attached
         return watcher.attached_to is not None and obj.id == watcher.attached_to
+    if subject == "source":  # -- source damage (wave 11F) -- "a source you control / an opponent controls deals damage": its controller
+        return int(info.get("amount") or 0) > 0 and (cond.get("ctl", "any") == "any" or (cond["ctl"] == "you") == (player == you))
     if subject == "self_or_host":  # "~ or equipped creature"
         return obj.id == watcher.id or (watcher.attached_to is not None and obj.id == watcher.attached_to)
     if subject in ("self", "self_or") and obj.id == watcher.id:
@@ -614,6 +616,9 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     if event == "dealt_damage" and cond.get("combat") is not None and bool(info.get("combat")) != cond["combat"]:
         return False
     if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)
+        return False
+    if event == "activate" and ((cond.get("loyalty") and not info.get("loyalty")) or (
+            cond.get("own") and (obj is None or obj.controller != player))):  # -- activation (wave 11F) --
         return False
     if event in ("scry", "surveil") and cond.get("nth") and info.get("nth") != cond["nth"]:  # -- looks (wave 8B) --
         return False
@@ -688,6 +693,10 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "planeswalker" and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_pw" and recipient is None and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_battle" and recipient is None and not info.get("recipient_battle")) or \
+                (to == "self" and info.get("other") != watcher.id) or \
+                (to == "players" and recipient is None) or (to == "opponents" and (recipient is None or recipient == you)) or \
+                (to == "creatures" and not info.get("recipient_creature")) or \
+                (cond.get("min") and int(info.get("amount") or 0) < cond["min"]) or \
                 (to == "enchanted_player" and (recipient is None or recipient != watcher.attached_player)):
             return False
     return True
@@ -830,6 +839,10 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             # ("one or more creatures you control attack a player": once for each player attacked, 508.3e)
             per = (info.get("oid") or info.get("recipient") or "") if one_event else \
                 info.get("recipient") or info.get("actor") or (info.get("defended") if cond.get("defender") else "") or ""
+            if cond.get("to") in ("players", "opponents", "creatures"):  # -- source damage (wave 11F) -- 603.2c: one per batch
+                per = ""
+            if cond.get("subject") == "source":  # "that source's controller" is the event's player
+                event.players = [fact[3]] if fact[3] else []
             if anykind:  # (its steps are in batches of their own: keyed by the instruction, not the batch)
                 per, batch_key = f"{info.get('oid')}:{info['group']}", 0
             else:
@@ -1369,6 +1382,16 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=9000 + k, definition={"kind": "triggered", "trigger": "ward", "optional": False, "target": None,
                                          "effects": [{"do": "counter_unless", "cost": cost, "object": stack_id}]})
+
+
+def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False) -> None:
+    """-- activation (wave 11F) -- 602.2: an activated ability (not a mana ability) was put on the stack by ``plan.actor``:
+    "Whenever an opponent activates an ability of a creature …" (603.2). The source is the object that activated it,
+    as it last existed if paying the cost moved it (603.10a, 608.2h)."""
+    snap = None if plan.oid(card) == oid else plan.rules.lki.get(oid)
+    obj, och = _snapshot_card(plan, snap) if snap is not None else (card, plan.ch(card))
+    _fire_generic(plan, [("activate", obj, och, plan.actor,
+                          {"oid": oid, "snap": snap, "actor": plan.actor, "amount": 1, "loyalty": loyalty})], -1, {})
 
 
 def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -> None:

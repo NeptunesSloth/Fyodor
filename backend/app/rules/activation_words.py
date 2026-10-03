@@ -73,8 +73,8 @@ def _base(text: str) -> dict[str, Any] | None:
     found = conditions.parse(text)
     if found is None:
         found = conditions.parse(text, objects=True)
-        if found is not None and set(conditions.objects_in(found)) - {"self"}:
-            return None
+        if found is not None and (set(conditions.objects_in(found)) - {"self"} or conditions.needs_event(found)):
+            return None  # (wave 11F: "defending player controls …" has no event outside a trigger)
     return found
 
 

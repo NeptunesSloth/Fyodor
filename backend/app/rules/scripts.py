@@ -2724,6 +2724,14 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     if cond is None or (both and (_legacy_trigger(cond) or cond["event"] == "multi")):
                         return None
                     name = "multi:enters_self+event" if both else (_legacy_trigger(cond) or "event")
+                if cond is not None and cond.get("event") == "activate" and not cond["loyalty"]:
+                    # -- activation (wave 11F) -- only non-mana abilities use the stack (605.3b): "if it isn't a mana ability"
+                    # (Harsh Mentor) is the same as "that isn't a mana ability"; without either, mana abilities would trigger it
+                    nm = re.match(r"^if it isn't a mana ability, ", body)
+                    if nm:
+                        body = body[nm.end():]
+                    elif not cond["nonmana"]:
+                        return None
                 # (a trigger about a player, or damage to one, names them: "that player")
                 has_player = cond is not None and _has_player(cond)
                 if cond is not None and cond.get("event") == "cast" and cond.get("player") == "you":
@@ -2746,6 +2754,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 # -- triggers (wave 5D) -- "they lose 2 life", "an additional card"
                 from app.rules import trigger_words
 
+                if cond is not None and cond.get("subject") == "source" and re.search(r"\b(?:that player|they|them)\b", body):
+                    return None  # -- source damage (wave 11F) -- the source's controller, or the player dealt damage? (not read)
                 body = trigger_words.rewrite_body(body, name, cond, has_player)
                 if name == "step:draw:you":  # -- draw step (wave 6D) -- "At the beginning of your draw step, draw an
                     # additional card.": a triggered ability that draws, after the draw of 504.1 (504.2)
@@ -2758,6 +2768,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 if cond is not None and other_side.wanted(cond) and cond.get("subject") == "host" and "that creature" not in body:
                     body = body.replace("the other creature", "that creature")  # (wave 11E: Venom, Mammoth Harness)
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
+                if ante is None and (cond is None or cond.get("subject") == "player") and re.match(r"^if ~ ", body) \
+                        and name not in ("cast_you", "cast_self", "turned_face_up_you") and (cond or {}).get("event") != "cast":
+                    # -- intervening ifs (wave 11F) -- "At the beginning of your upkeep, if ~ has no charge counters on it, return
+                    # it …": a step or a player's event names no object, so the "if" names the only one: ~
+                    ante = "self"
                 parsed = parse_effects(body, it=ante, event_player=has_player)
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
@@ -2794,7 +2809,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # ability doesn't trigger, or does nothing as it resolves
                     intervening = effects[0]["cond"]
                     effects = [{**effects[0], "skip": len(effects) - 1}, *effects[1:]]
-                if _trigger_antecedent(name, cond) != "self" and any(
+                # (-- intervening ifs (wave 11F) -- a step, or an event about a player, has no other object: "another" is
+                # "other than ~", 603.4)
+                alone = _trigger_antecedent(name, cond) is None and (cond is None or cond.get("subject") == "player")
+                if _trigger_antecedent(name, cond) != "self" and not alone and any(
                         e["do"] == "only_if" and _condition_says_other(e["cond"]) for e in effects):
                     return None  # ("other" than the object the event happened to, not ~: not modeled)
                 out = {"kind": "triggered", "trigger": name,
@@ -2927,7 +2945,8 @@ def _has_player(cond: dict[str, Any]) -> bool:
     if cond.get("subject") == "sel" and cond["event"] in ("enter", "die", "leave") and not cond.get("aggregate") \
             and '"controller":"opponent"' in str(cond.get("sel")):
         return True
-    return cond["event"] == "deal_damage" and cond.get("to") in ("player", "opponent", "you")
+    # -- source damage (wave 11F) -- "that source's controller": the player who controlled the source (triggers._fire_generic)
+    return cond["event"] == "deal_damage" and (cond.get("to") in ("player", "opponent", "you") or cond.get("subject") == "source")
 
 
 def _wants_amount(value: Any) -> bool:
@@ -2943,6 +2962,16 @@ def _event_refs_ok(d: Definition) -> bool:
     acting player for a player's actions — so it can too."""
     effects = [e for e in d.get("effects") or []] + [e for m in d.get("modes") or [] for e in m.get("effects") or []]
     if not _event_spell_ok(d):  # -- refused copy/mana (wave 3R3) --
+        return False
+    # -- intervening ifs (wave 11F) -- "if that player controls …" / "if defending player has …" (603.4: read as it triggers
+    # and as it resolves): only a trigger whose event names that player — the one the event is about, or the one attacked
+    raw = json.dumps(d)
+    ev = d.get("cond") if d.get("kind") == "triggered" and d.get("trigger") == "event" else None
+    if '"as": "event"' in raw and not (d.get("kind") == "triggered" and (step_names_player(d) or (
+            ev is not None and ev["event"] != "multi" and _has_player(ev)))):
+        return False
+    if '"as": "defended"' in raw and not (d.get("trigger") == "attacks_self" or (
+            ev is not None and ev["event"] in ("attack", "unblocked", "blocked", "you_attack"))):
         return False
     # -- damage wordings (wave 6B) -- "target artifact that player controls": the one player a trigger is about, bound
     # as it's put on the stack (triggers.bind_that_player) — never in a spell, nor beside a target player (which one?)
