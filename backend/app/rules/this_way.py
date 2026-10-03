@@ -93,6 +93,68 @@ _IF_THAT = re.compile(r"^that (?:creature|permanent) (?:(?:was|is) (?P<verb>dest
 _IF_YOU = re.compile(r"^you (?P<verb>sacrificed|exiled|discarded|milled|destroyed) (?:a|an|one or more) (?P<what>.+?) this way$")
 
 
+# -- if you do (wave 10C) -- "If a player / a Dragon / a nonred permanent is dealt damage this way, …" (Play with Fire, The Black Arrow,
+# Redcap Melee): the damage instruction just before, read after prevention and replacement (120.3, 615): a recipient is "dealt
+# damage" when some damage was actually dealt to it (damage that was all prevented dealt none, 615.1), and what it is is judged as
+# it was when the damage was dealt (608.2h).
+HIT = "dealt_hit"
+_HIT_WHO = re.compile(r"^(?:target(?::\d+)?|it|event)$")  # (one recipient: the trigger event's object is one)
+_DEALT_THIS_WAY = re.compile(r"^(?:a|an) (?P<what>.+?) (?:is|was) dealt damage this way$")
+
+
+def hit_condition(text: str) -> dict[str, Any] | None:
+    m = _DEALT_THIS_WAY.match(text.strip())
+    if m is None:
+        return None
+    sel = selectors.parse(m["what"])
+    if sel is None or sel.other or sel.zones != ("battlefield",) or sel.card or sel.controller is not None or sel.owner is not None:
+        return None
+    if sel.player is not None and sel.player != "any":
+        return None  # ("an opponent is dealt damage this way": whose, relative to what? not read)
+    return {"value": {"ref_amount": HIT}, "op": ">=", "n": 1, "hit_is": sel.key()}
+
+
+def dealt_to(found: Any) -> Any:
+    """Bind every "dealt damage this way" condition of the ability to the one plain damage instruction before it: that
+    instruction counts, as it is dealt, the recipients that match (effects._deal). Anything else — no such instruction, two
+    of them, a damage chain (several recipients in one sentence), another reader of that damage — leaves the ability manual."""
+    import json
+
+    if found is None or '"hit_is"' not in json.dumps(found[0]):
+        return found
+    effects = list(found[0])
+    gates = [e for e in effects if e.get("do") == "only_if" and "hit_is" in e["cond"]]
+    if len(gates) != json.dumps(effects).count('"hit_is"') or len({g["cond"]["hit_is"] for g in gates}) != 1:
+        return None  # (the condition inside an "and" / "or", or two different questions about it)
+    dmg = [i for i, e in enumerate(effects) if e.get("do") == "damage"]
+    if len(dmg) != 1 or any(effects.index(g) < dmg[0] for g in gates):
+        return None
+    d = effects[dmg[0]]
+    if d.get("with_next") or any(d.get(k) for k in ("dealt_as", "bind_hit", "bind_dealt", "bind_excess", "excess")) \
+            or not _HIT_WHO.match(str(d.get("who"))) or (dmg[0] > 0 and effects[dmg[0] - 1].get("with_next")):
+        return None
+    effects[dmg[0]] = {**d, "bind_hit": HIT, "hit_is": gates[0]["cond"]["hit_is"]}
+    return effects, found[1], found[2]
+
+
+def hits(plan: Plan, ctx: dict[str, Any], events: list[dict[str, Any]], key: str) -> int:
+    """How many of the damage events (after prevention and replacement) dealt damage to a recipient the selector names,
+    judged before the damage is recorded."""
+    sel = selectors.from_key(key)
+    n = 0
+    for ev in events:
+        if int(ev["amount"]) <= 0:
+            continue
+        if ev["target"] in plan.state.players:
+            n += sel.player == "any"
+            continue
+        card = plan.state.cards.get(ev["target"])
+        if sel.player is None and card is not None and card.zone.endswith(":battlefield") and selectors.matches(
+                plan, sel, card, plan.ch(card), ctx["controller"], ctx.get("source_card")):
+            n += 1
+    return n
+
+
 def condition(text: str) -> dict[str, Any] | None:
     """"If a creature is destroyed this way, …" / "If a land card was milled this way, …" / "If that creature
     dies this way, …" / "If you sacrificed a creature this way, …": at least one object counted (a
@@ -110,6 +172,8 @@ def condition(text: str) -> dict[str, Any] | None:
         ctl = " you controlled" if m["verb"] == "sacrificed" else ""
         phrase = f"{m['what']}{ctl} {m['verb']} this way"
     v = parse(phrase) if phrase is not None else None
+    if v is None:
+        return hit_condition(text)  # -- if you do (wave 10C) --
     return {"value": v, "op": ">=", "n": 1} if v is not None else None
 
 

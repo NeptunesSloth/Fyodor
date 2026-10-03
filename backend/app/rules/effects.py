@@ -396,6 +396,8 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
         ctx[DEALT_KEY][e["dealt_as"]] = [ev["target_oid"] for ev in out.events if ev.get("target_oid")]
     if e is not None and e.get("bind_excess"):  # -- as long as (wave 9B) -- 120.10 (read before the damage is recorded)
         context.bind_amount(ctx, e["bind_excess"], _this_way.excess_of(plan, out.events))
+    if e is not None and e.get("bind_hit"):  # -- if you do (wave 10C) -- "If a Dragon is dealt damage this way" (this_way.hits)
+        context.bind_amount(ctx, e["bind_hit"], _this_way.hits(plan, ctx, out.events, e["hit_is"]))
     replace.do_damage(plan, out, actor=ctx["controller"], combat=False)
     if e is not None and e.get("bind_dealt"):  # -- if you do (wave 5G) -- "the damage dealt this way" (this_way.damage_dealt)
         context.bind_amount(ctx, e["bind_dealt"], sum(max(0, int(ev["amount"])) for ev in out.events))

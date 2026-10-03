@@ -31,9 +31,18 @@ EXTRA = [
     card('Leyline Dowser', set_code='tst', number='W03', mana_cost='{2}', cmc=2.0, type_line='Artifact', oracle_text='{1}, {T}: Mill a card. You may put an instant or sorcery card milled this way into your hand.\nTap an untapped legendary creature you control: Untap this artifact.', keywords=['Mill']),  # noqa: E501
     card('Adventure Awaits', set_code='tst', number='W04', mana_cost='{1}{G}', cmc=2.0, type_line='Sorcery', oracle_text="Look at the top five cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in a random order. If you didn't put a card into your hand this way, draw a card.", colors=['G'], color_identity=['G']),  # noqa: E501
     card('Inscribed Tablet', set_code='tst', number='W05', mana_cost='{1}', cmc=1.0, type_line='Artifact', oracle_text="{1}, {T}, Sacrifice this artifact: Reveal the top five cards of your library. Put a land card from among them into your hand and the rest on the bottom of your library in a random order. If you didn't put a card into your hand this way, draw a card."),  # noqa: E501
+    card('Play with Fire', set_code='tst', number='D01', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Play with Fire deals 2 damage to any target. If a player is dealt damage this way, scry 1. (Look at the top card of your library. You may put that card on the bottom.)', colors=['R'], color_identity=['R'], keywords=['Scry']),  # noqa: E501
+    card('Provoke the Trolls', set_code='tst', number='D02', mana_cost='{3}{R}', cmc=4.0, type_line='Instant', oracle_text='Provoke the Trolls deals 3 damage to any target. If a creature is dealt damage this way, it gets +5/+0 until end of turn.', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('Redcap Melee', set_code='tst', number='D03', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Redcap Melee deals 4 damage to target creature or planeswalker. If a nonred permanent is dealt damage this way, you sacrifice a land.', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('The Black Arrow', set_code='tst', number='D04', mana_cost='{3}', cmc=3.0, type_line='Legendary Artifact — Equipment', oracle_text='Flash\nWhen The Black Arrow enters, it deals 1 damage to any target. If a Dragon is dealt damage this way, destroy it.\nEquipped creature gets +1/+1 and has reach.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)', keywords=['Equip', 'Flash']),  # noqa: E501
+    card('Silver Bolt', set_code='tst', number='D05', mana_cost='{1}', cmc=1.0, type_line='Artifact', oracle_text='{3}, {T}, Sacrifice this artifact: It deals 3 damage to target creature. If a Werewolf is dealt damage this way, destroy it.'),  # noqa: E501
+    card('Marauding Raptor', set_code='tst', number='D06', mana_cost='{1}{R}', cmc=2.0, type_line='Creature — Dinosaur', oracle_text='Creature spells you cast cost {1} less to cast.\nWhenever another creature you control enters, this creature deals 2 damage to it. If a Dinosaur is dealt damage this way, this creature gets +2/+0 until end of turn.', power='2', toughness='3', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('Colossadactyl', set_code='tst', number='D08', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Creature — Dinosaur', oracle_text='Reach, trample', power='4', toughness='5', colors=['G'], color_identity=['G'], keywords=['Reach', 'Trample']),  # noqa: E501
+    card('Mending Hands', set_code='tst', number='D07', mana_cost='{W}', cmc=1.0, type_line='Instant', oracle_text='Prevent the next 4 damage that would be dealt to any target this turn.', colors=['W'], color_identity=['W']),  # noqa: E501
     card('Vivien on the Hunt', set_code='tst', number='W06', mana_cost='{4}{G}{G}', cmc=6.0, type_line='Legendary Planeswalker — Vivien', oracle_text="+2: You may sacrifice a creature. If you do, search your library for a creature card with mana value equal to 1 plus the sacrificed creature's mana value, put it onto the battlefield, then shuffle.\n+1: Mill five cards, then put any number of creature cards milled this way into your hand.\n−1: Create a 4/4 green Rhino Warrior creature token.", loyalty='4', colors=['G'], color_identity=['G'], keywords=['Mill']),  # noqa: E501
 ]
-NAMES = ["Ainok Wayfarer", "Wasteful Harvest", "Leyline Dowser", "Adventure Awaits", "Inscribed Tablet"]
+NAMES = ["Ainok Wayfarer", "Wasteful Harvest", "Leyline Dowser", "Adventure Awaits", "Inscribed Tablet", "Play with Fire",
+         "Provoke the Trolls", "Redcap Melee", "The Black Arrow", "Silver Bolt", "Marauding Raptor"]
 
 
 @pytest.fixture()
@@ -195,4 +204,166 @@ def test_mandatory_pick_with_nothing_to_pick_draws(cards):
     act(s, "p1", type="activate_ability", card_id=tablet.id, ability=0)
     answer(s)
     assert len(in_zone(s, "Forest", "hand")) == 1  # no land among the five revealed: draw a card
+    roundtrip(s)
+
+
+# -- "If a [player / creature / Dragon / nonred permanent] is dealt damage this way" -----------------------------------------
+def token(s, name, type_line, pt, pid="p2"):
+    p, t = pt.split("/")
+    act(s, pid, type="create_token", player=pid, token={"name": name, "type_line": type_line, "power": p, "toughness": t, "text": ""})
+    return find(s, name, pid)
+
+
+def settle(s, target=None, limit=30):
+    """Resolve everything; a trigger's target is ``target``, any other decision is answered with its first minimal choice.
+    Returns the prompts of the decisions that were asked."""
+    asked: list[str] = []
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            asked.append(d.prompt)
+            ids = [o.id for o in d.options]
+            if d.prompt.endswith("choose a target") and target in ids:
+                chosen = [target]
+            else:
+                chosen = ids[: max(1, d.min_choices)] if d.min_choices else []
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=chosen[:max(1, d.max_choices or 1)] if chosen else [])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return asked
+    raise AssertionError("never settled")
+
+
+def cast_at(s, name, targets, **m):
+    c = find(s, name)
+    act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "hand"})
+    mana(s, **m)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=targets)
+    return settle(s)
+
+
+def cast_at_self(s, name, **m):
+    c = find(s, name)
+    act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "hand"})
+    mana(s, **m)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    return settle(s)
+
+
+def pt(s, card):
+    from tests.test_rules_attachments import ch
+
+    return ch(s, card).pt
+
+
+def scried(asked):
+    return any("scry" in p.lower() for p in asked)
+
+
+def test_player_dealt_damage_this_way_scries(cards):
+    s = build(cards, p1=("Play with Fire",))
+    asked = cast_at(s, "Play with Fire", ["p2"], R=1)
+    assert s.state.players["p2"].life == 38
+    assert scried(asked)
+    roundtrip(s)
+
+
+def test_a_creature_dealt_damage_is_not_a_player_so_no_scry(cards):
+    s = build(cards, p1=("Play with Fire",))
+    brute = token(s, "Brute", "Token Creature — Test", "4/4")
+    asked = cast_at(s, "Play with Fire", [brute.id], R=1)
+    assert s.state.cards[brute.id].damage == 2 and not scried(asked)
+    roundtrip(s)
+
+
+def test_creature_dealt_damage_gets_the_bonus(cards):
+    s = build(cards, p1=("Provoke the Trolls",))
+    brute = token(s, "Brute", "Token Creature — Test", "2/5")
+    cast_at(s, "Provoke the Trolls", [brute.id], R=4)
+    assert pt(s, brute) == (7, 5)  # +5/+0 until end of turn
+    roundtrip(s)
+
+
+def test_a_player_dealt_damage_by_the_same_spell_gets_no_bonus(cards):
+    s = build(cards, p1=("Provoke the Trolls",))
+    brute = token(s, "Brute", "Token Creature — Test", "2/5", pid="p1")
+    cast_at(s, "Provoke the Trolls", ["p2"], R=4)
+    assert s.state.players["p2"].life == 37 and pt(s, brute) == (2, 5)
+    roundtrip(s)
+
+
+def test_damage_that_is_all_prevented_deals_none_so_the_condition_is_false(cards):
+    s = build(cards, p1=("Provoke the Trolls", "Mending Hands"))
+    brute = token(s, "Brute", "Token Creature — Test", "2/5")
+    cast_at(s, "Mending Hands", [brute.id], W=1)
+    cast_at(s, "Provoke the Trolls", [brute.id], R=4)
+    assert s.state.cards[brute.id].damage == 0 and pt(s, brute) == (2, 5)  # 615.1: prevented damage was never dealt
+    roundtrip(s)
+
+
+def test_nonred_permanent_dealt_damage_makes_you_sacrifice_a_land(cards):
+    s = build(cards, p1=("Redcap Melee",))
+    brute = token(s, "Brute", "Token Creature — Test", "2/5")
+    put(s, "Forest", "battlefield")
+    cast_at(s, "Redcap Melee", [brute.id], R=1)
+    assert s.state.cards[brute.id].damage == 4
+    assert not [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:battlefield"]  # the one land sacrificed
+    roundtrip(s)
+
+
+def test_a_red_permanent_dealt_damage_costs_no_land(cards):
+    s = build(cards, p1=("Redcap Melee",), p2=("Abbot of Keral Keep",))
+    abbot = put(s, "Abbot of Keral Keep", "battlefield", pid="p2")
+    put(s, "Forest", "battlefield")
+    cast_at(s, "Redcap Melee", [abbot.id], R=1)
+    assert s.state.cards[abbot.id].zone == "p2:graveyard"  # it was red when the damage was dealt (608.2h)
+    assert [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:battlefield"]
+    roundtrip(s)
+
+
+def test_the_black_arrow_destroys_a_dragon_it_damages_not_itself(cards):
+    s = build(cards, p1=("The Black Arrow",))
+    dragon = token(s, "Drake", "Token Creature — Dragon", "4/4")
+    c = find(s, "The Black Arrow")
+    act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "hand"})
+    mana(s, G=3)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s, target=dragon.id)
+    assert dragon.id not in s.state.cards  # a 4/4 token that took 1 damage: only the destroy removes it
+    assert s.state.cards[c.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_the_black_arrow_leaves_a_non_dragon_alone(cards):
+    s = build(cards, p1=("The Black Arrow",))
+    brute = token(s, "Brute", "Token Creature — Test", "4/4")
+    c = find(s, "The Black Arrow")
+    act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "hand"})
+    mana(s, G=3)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s, target=brute.id)
+    assert s.state.cards[brute.id].zone == "p2:battlefield" and s.state.cards[brute.id].damage == 1
+    roundtrip(s)
+
+
+def test_silver_bolt_destroys_a_werewolf_it_damages(cards):
+    s = build(cards, p1=("Silver Bolt",))
+    wolf = token(s, "Wolf", "Token Creature — Werewolf", "5/5")
+    bolt = put(s, "Silver Bolt", "battlefield")
+    mana(s, G=3)
+    act(s, "p1", type="activate_ability", card_id=bolt.id, ability=0, targets=[wolf.id])
+    settle(s)
+    assert wolf.id not in s.state.cards  # (5 toughness, 3 damage: only the destroy removes it)
+    roundtrip(s)
+
+
+def test_marauding_raptor_grows_only_when_a_dinosaur_enters(cards):
+    s = build(cards, p1=("Marauding Raptor", "Grizzly Bears", "Colossadactyl"))
+    raptor = put(s, "Marauding Raptor", "battlefield")
+    cast_at_self(s, "Grizzly Bears", G=2)
+    assert find(s, "Grizzly Bears").zone == "p1:graveyard"  # dealt 2 damage by the trigger
+    assert pt(s, raptor) == (2, 3)  # not a Dinosaur: no bonus
+    cast_at_self(s, "Colossadactyl", G=4)
+    assert find(s, "Colossadactyl").damage == 2 and pt(s, raptor) == (4, 3)  # +2/+0 until end of turn
     roundtrip(s)
