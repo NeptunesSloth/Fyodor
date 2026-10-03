@@ -972,8 +972,15 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if got is None:
         return False
     card, ch = got
-    if "attached" in cond:  # -- intervening ifs (wave 11F) -- an Aura / Equipment attached to it now (301.5, 303.4)
-        return any(c.attached_to == card.id and plan.ch(c).subtypes & set(cond["attached"]) for c in plan.state.cards.values())
+    if "attached" in cond:  # -- intervening ifs (wave 11F) -- an Aura / Equipment attached to it (301.5, 303.4)
+        live = plan.state.cards.get(card.id)
+        if live is not None and live.zone.endswith(":battlefield"):
+            ids = [c.id for c in plan.state.cards.values() if c.attached_to == card.id]
+        else:  # it left: attached as it last existed (603.10a, 608.2h)
+            snap = plan.rules.lki.get(ctx.get("source_object") or "") if cond["object"] == "self" else None
+            snap = snap or next((x for x in reversed(plan.rules.lki.values()) if x.card == card.id), None)
+            ids = list(snap.attached) if snap is not None else []
+        return any(plan.ch(plan.state.cards[i]).subtypes & set(cond["attached"]) for i in ids if i in plan.state.cards)
     if "designation" in cond:  # 701.37b, 702.112b: kept until the permanent leaves, so only the object it still is
         return plan.oid(card) in (plan.rules.monstrous if cond["designation"] == "monstrous" else plan.rules.renowned)
     if "beats_self" in cond:  # "its power is greater than ~'s": either stat named (as it is, or as it last existed, 608.2h)
