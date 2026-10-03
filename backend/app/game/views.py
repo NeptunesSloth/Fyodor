@@ -128,6 +128,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
             view["attacking"] = c.attacking.model_dump()
         if c.blocking:
             view["blocking"] = c.blocking
+            if c.blocking_more:
+                view["blocking_more"] = list(c.blocking_more)
     return view
 
 

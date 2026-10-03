@@ -1092,7 +1092,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             src = plan.state.cards.get(source or "")
             if src is None or not src.zone.endswith(":battlefield") or not card.zone.endswith(":battlefield"):
                 return False
-            if (card.blocking != src.id) if extra == "blocking_source" else (src.blocking != card.id):
+            if (not card.blocks(src.id)) if extra == "blocking_source" else (not src.blocks(card.id)):
                 return False
         if extra == "greatest_power_own":  # -- damage wordings (wave 6B) -- the greatest power among creatures its
             # controller controls (Crackling Doom: what the sacrificing player may choose; ties all qualify)

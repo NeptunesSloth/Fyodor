@@ -471,16 +471,17 @@ function optionLabel(o: DecisionOptionView, view: GameView): string {
 function Divide({ d, view }: { d: DecisionView; view: GameView }) {
   const options = d.options ?? [];
   const total = Number(d.display?.total ?? 0);
-  const [amounts, setAmounts] = useState<number[]>(() => options.map((_, i) => (i === 0 ? total - options.length + 1 : 1)));
+  const least = Number(d.display?.least ?? 1); // 510.1d: a blocker may assign 0 to some of the attackers it blocks
+  const [amounts, setAmounts] = useState<number[]>(() => options.map((_, i) => (i === 0 ? total - (options.length - 1) * least : least)));
   const sum = amounts.reduce((a, b) => a + b, 0);
-  const set = (i: number, v: number) => setAmounts((xs) => xs.map((x, k) => (k === i ? Math.max(1, v) : x)));
+  const set = (i: number, v: number) => setAmounts((xs) => xs.map((x, k) => (k === i ? Math.max(least, v) : x)));
   return (
     <div className="decision-options">
       {options.map((o, i) => (
         <label key={o.id} className="decision-divide">
           <span>{optionLabel(o, view)}</span>
-          <input type="number" min={1} max={total} value={amounts[i] ?? 1} data-testid={`divide-${o.id}`}
-            onChange={(e) => set(i, Number(e.target.value) || 1)} />
+          <input type="number" min={least} max={total} value={amounts[i] ?? least} data-testid={`divide-${o.id}`}
+            onChange={(e) => set(i, Number(e.target.value) || least)} />
         </label>
       ))}
       <button className="tt-btn brass" data-testid="decision-done" disabled={sum !== total} onClick={() => void divide(d.id, amounts)}>
