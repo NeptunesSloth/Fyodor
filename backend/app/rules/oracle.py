@@ -22,8 +22,9 @@ _MANA_ABILITY = re.compile(
 _LOYALTY = re.compile(r"^[+−-]?\d+: |^[+−-]X: ")
 _TRIGGER = re.compile(r"^(?:[A-Z][A-Za-z0-9' ]+ — )?(When|Whenever|At) ")  # an ability word ("Landfall — ") may lead
 # (-- ability words (wave 4F) -- digits too: "Descend 4 — Whenever …", 207.2c)
+# (-- attached events (wave 4L) -- "Equipped creature has "{T}: …"" is a static granting an ability, not a cost)
 _COST_START = re.compile(
-    r"^(\{[^}]+\}|Sacrifice|Tap|Untap|Discard|Pay|Remove|Exile|Return|Put|Reveal|Mill|Collect|Forage|[Ee]quip|Crew|"
+    r"^(\{[^}]+\}|Sacrifice|Tap|Untap|Discard|Pay|Remove|Exile|Return|Put|Reveal|Mill|Collect|Forage|[Ee]quip(?!ped)|Crew|"
     r"Channel|Cycling|Ninjutsu|Boast|Exhaust)"
 )
 

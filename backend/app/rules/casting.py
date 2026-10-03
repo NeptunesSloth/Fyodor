@@ -310,7 +310,10 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         options = _resolve_options(state, card, parsed, info)
         if options:
             out.append((ab.index, replace(parsed, options=options)))
-    return out
+    # -- attached events (wave 4L) -- "Whenever enchanted land is tapped for mana"
+    from app.rules import attached_mana
+
+    return attached_mana.extend(state, card, info, ch.is_land, out)
 
 
 def spend_allowed(kind: str | None, purpose: Purpose | None) -> bool:

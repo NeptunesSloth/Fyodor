@@ -249,6 +249,7 @@ class ObjectSnapshot(BaseModel):
     attacking: bool = False
     blocking: bool = False
     attached_to: str | None = None
+    attached_player: str | None = None  # -- attached events (wave 4L) -- the player an Aura enchanted (a Curse)
     # -- sagas & attached-object triggers (wave 3S) -- the permanents (card ids) attached to it as it
     # last existed: "When enchanted creature dies" looks back in time (603.10a)
     attached: list[str] = Field(default_factory=list)
@@ -972,6 +973,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         commander_key=c.commander_key, counters=dict(c.counters), damage=c.damage,
         effects=[e.value or e.name for e in c.effects], attacking=c.attacking is not None,
         blocking=c.blocking is not None, attached_to=c.attached_to, text=token.text if token else "",
+        attached_player=c.attached_player,  # -- attached events (wave 4L) --
     )
 
 
