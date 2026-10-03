@@ -130,6 +130,11 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
             return "it can't enchant a player"
         if selector == "opponent" and host == you:
             return "it can only enchant an opponent"
+        # -- player shields (wave 5E) -- 702.16c, 702.16j
+        from app.rules import player_shields
+
+        if (shield := player_shields.protected_from(plan, host, sch)) is not None:
+            return f"{plan.name(host)} has protection from it ({shield})"
         return None
     card = plan.state.cards.get(host)
     if card is None or not card.zone.endswith(":battlefield"):

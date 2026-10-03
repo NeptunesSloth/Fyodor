@@ -102,7 +102,7 @@ def test_unknown_wordings_stay_manual(text):
 
 def test_coverage_counts_static_grants():
     ab = parse_abilities("Other Elves you control get +1/+1 and have haste.\nCreatures you control have vigilance "
-                         "as long as you control a Forest.\nYou have hexproof.")
+                         "as long as you control a Forest.\nYou have hexproof from blue.")  # (wave 5E: "You have hexproof." is read now)
     feats = coverage.features_of(Characteristics(name="Lord", types=frozenset({"Creature"}), abilities=tuple(ab)))
     assert [f.supported for f in feats if f.id.startswith("text:")] == [True, True, False]
 

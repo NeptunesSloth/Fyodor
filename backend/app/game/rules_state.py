@@ -803,6 +803,14 @@ class RulesState(BaseModel):
     # … and "can't gain life this turn / for the rest of the game" (614.17; app/rules/cant_gain.py):
     # {"id", "player", "controller", "turn" (None: the rest of the game), "label"}
     cant_gain: list[dict[str, Any]] = Field(default_factory=list)
+    # -- cast limits (wave 5E) -- "… can't cast spells this turn / until your next turn" (601.3, 602.5;
+    # app/rules/cast_limits.py): {"id", "player", "controller", "until": "turn"|"next_turn", "turn", "filter", "from",
+    # "act", "label"}
+    cast_limits: list[dict[str, Any]] = Field(default_factory=list)
+    # … and a player's hexproof / shroud / protection from resolved effects (702.11c, 702.16, 702.18;
+    # app/rules/player_shields.py): {"id", "player", "controller", "shield": "hexproof"|"shroud"|"protection", "quality",
+    # "until": "turn"|"next_turn", "turn", "label"}
+    player_shields: list[dict[str, Any]] = Field(default_factory=list)
     # … and abilities granted to graveyard cards this turn (app/rules/graveyard_grants.py): "gains flashback until
     # end of turn" — {"id", "oid" (the card as the object it was then, 400.7), "card", "turn", "flashback", "controller"}
     graveyard_grants: list[dict[str, Any]] = Field(default_factory=list)
