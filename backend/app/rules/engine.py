@@ -57,7 +57,6 @@ from app.rules.plan import Plan, decide, require_no_decision, require_priority
 from app.rules.targets import still_legal
 
 MAIN_PHASES = ("main1", "main2")
-MAX_HAND_SIZE = 7
 
 NOT_YET: dict[str, str] = {}
 
@@ -659,15 +658,14 @@ def cleanup_step(plan: Plan) -> None:
                options=[DecisionOption(id="done", label="Done")], resume={"step": "cleanup_manual"})
         return
     hand = plan.state.zones.get(zone_key(ap, "hand"), [])
-    excess = len(hand) - MAX_HAND_SIZE
     from app.rules import hand_size  # -- hand size (wave 4J) -- "You have no maximum hand size." (402.2)
 
-    if excess > 0 and hand_size.no_maximum(plan, ap):
-        excess = 0
+    limit = hand_size.maximum(plan, ap)  # -- static statics (wave 10B) -- (changed by statics; None: no maximum)
+    excess = 0 if limit is None else len(hand) - limit
     if excess > 0:
         decide(
             plan, player=ap, kind="choose_cards",
-            prompt=f"Discard {excess} card{'s' if excess != 1 else ''} down to your maximum hand size ({MAX_HAND_SIZE})",
+            prompt=f"Discard {excess} card{'s' if excess != 1 else ''} down to your maximum hand size ({limit})",
             options=[DecisionOption(id=cid, label=plan.state.cards[cid].name or "Card", card_id=cid) for cid in hand],
             min_choices=excess, max_choices=excess, resume={"step": "cleanup_discard"},
         )

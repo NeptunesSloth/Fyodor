@@ -20,6 +20,8 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import replay_matches
 from tests.test_rules_permissions import build, put
+from tests.test_rules_conditionals import build as build_c
+from tests.test_rules_wave4j_leftovers import answer, named
 from tests.test_rules_wave5f_types_entries import rules
 
 EXTRA = [
@@ -33,7 +35,14 @@ EXTRA += [
     card('Archetype of Courage', set_code="tst", number="10B111", mana_cost='{1}{W}{W}', cmc=3.0, type_line='Enchantment Creature — Human Soldier', oracle_text='Creatures you control have first strike.\nCreatures your opponents control lose first strike and can\'t have or gain first strike.', power='2', toughness='2', colors=['W'], color_identity=['W']),  # noqa: E501
     card('Serra Angel', set_code="tst", number="10B112", mana_cost='{3}{W}{W}', cmc=5.0, type_line='Creature — Angel', oracle_text="Flying\nVigilance (Attacking doesn't cause this creature to tap.)", power='4', toughness='4', colors=['W'], color_identity=['W'], keywords=['Flying', 'Vigilance']),  # noqa: E501
 ]
+EXTRA += [
+    card('Thought Devourer', set_code="tst", number="10B120", mana_cost='{2}{U}{U}', cmc=4.0, type_line='Creature — Beast', oracle_text='Flying\nYour maximum hand size is reduced by four.', power='4', toughness='4', colors=['U'], color_identity=['U'], keywords=['Flying']),  # noqa: E501
+    card('Trusted Advisor', set_code="tst", number="10B121", mana_cost='{U}', cmc=1.0, type_line='Creature — Human Advisor', oracle_text='Your maximum hand size is increased by two.\nAt the beginning of your upkeep, return a blue creature you control to its owner\'s hand.', power='1', toughness='2', colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Gnat Miser', set_code="tst", number="10B122", mana_cost='{B}', cmc=1.0, type_line='Creature — Rat Shaman', oracle_text="Each opponent's maximum hand size is reduced by one.", power='1', toughness='1', colors=['B'], color_identity=['B']),  # noqa: E501
+    card('Price of Knowledge', set_code="tst", number="10B123", mana_cost='{6}{B}', cmc=7.0, type_line='Enchantment', oracle_text="Players have no maximum hand size.\nAt the beginning of each opponent's upkeep, this enchantment deals damage to that player equal to the number of cards in that player's hand.", colors=['B'], color_identity=['B']),  # noqa: E501
+]
 GATES = ["Manor Gate", "Sea Gate"]
+HAND_SIZE = ["Thought Devourer", "Trusted Advisor", "Gnat Miser", "Price of Knowledge"]
 ARCHETYPES = ["Archetype of Imagination", "Archetype of Courage"]
 
 
@@ -101,3 +110,46 @@ def test_the_denial_beats_a_later_grant_whatever_the_timestamps(cards):
     for c in (mine, theirs):
         assert "flying" not in keywords(s, cards, c)
     roundtrip(s)
+
+
+@pytest.mark.parametrize("name", HAND_SIZE)
+def test_hand_size_cards_are_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def hand_after_cleanup(s, size=9):
+    """Alice ends her turn holding ``size`` cards; how many does she keep?"""
+    hand = s.state.zones["p1:hand"]
+    library = s.state.zones["p1:library"]
+    act(s, "p1", type="move", card_ids=library[: max(0, size - len(hand))], to={"zone": "hand"})
+    assert len(s.state.zones["p1:hand"]) == size
+    for _ in range(80):
+        if s.state.turn.number == 2:
+            break
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None:
+            answer(s, [o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    return len(s.state.zones["p1:hand"])
+
+
+@pytest.mark.parametrize("mine,theirs,kept", [
+    ((), (), 7),
+    (("Thought Devourer",), (), 3),  # reduced by four
+    (("Trusted Advisor",), (), 9),  # increased by two
+    (("Thought Devourer", "Trusted Advisor"), (), 5),
+    ((), ("Gnat Miser",), 6),  # each opponent's, by one
+    (("Trusted Advisor",), ("Gnat Miser",), 8),
+    ((), ("Price of Knowledge",), 9),  # no maximum for players
+])
+def test_the_cleanup_discard_follows_the_maximum_hand_size(cards, mine, theirs, kept):
+    s = build_c(cards, *mine, p2=theirs)
+    for name in mine:
+        act(s, "p1", type="move", card_ids=[named(s, name).id], to={"player": "p1", "zone": "battlefield"})
+    for name in theirs:
+        act(s, "p2", type="move", card_ids=[named(s, name, "p2").id], to={"player": "p2", "zone": "battlefield"})
+    assert hand_after_cleanup(s) == kept
+    replay_matches(s)
