@@ -432,10 +432,10 @@ class Coverage:
 
 def features_of(ch: Characteristics) -> list[Feature]:
     script = scripts.trusted(ch.oracle_id, ch.oracle_text)
-    templated = {i for i, d in templates.definitions(ch).items() if definition_supported(d)}
+    templated = {i for i, d in templates.definitions(ch).items() if definition_supported(d) and x_selector_ok(ch, d)}
     if ch.is_instant_or_sorcery:
         whole = templates.spell_definition(ch)
-        if whole is None or not definition_supported(whole):
+        if whole is None or not definition_supported(whole) or not x_selector_ok(ch, whole):
             templated = set()  # a spell is automated as a whole or resolved by hand
         elif whole.get("modes"):
             templated = {ab.index for ab in ch.abilities if ab.kind != "keywords"}  # a modal spell (700.2)
@@ -522,6 +522,20 @@ def ability_supported(ch: Characteristics, index: int) -> bool:
         return "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None
     if ch.is_instant_or_sorcery:
         whole = templates.spell_definition(ch)
-        return whole is not None and definition_supported(whole)
+        return whole is not None and definition_supported(whole) and x_selector_ok(ch, whole)
     d = templates.definitions(ch).get(index)
-    return d is not None and definition_supported(d)
+    return d is not None and definition_supported(d) and x_selector_ok(ch, d)
+
+
+_X_SELECTOR = re.compile(r'\["mv","==",-1\]')  # (selectors.X_VALUE; "or less" wordings predate this check)
+
+
+def x_selector_ok(ch: Characteristics, d: dict[str, Any]) -> bool:
+    """-- reanimation (wave 10A) -- a selector reading "mana value X" (107.3f) needs an X the player announces: the {X} of
+    the spell's mana cost or of the activated ability's cost. An X chosen elsewhere (energy or counters paid, "you may pay
+    {X}" on resolution after the target was chosen) is not known when the target is, so those stay manual."""
+    if not _X_SELECTOR.search(json.dumps(d, default=str).replace('\\"', '"')):
+        return True
+    if d.get("kind") == "activated":
+        return "{X}" in str(d.get("cost") or "")
+    return d.get("kind") == "spell" and "{X}" in (ch.mana_cost or "")

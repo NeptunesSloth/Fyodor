@@ -59,6 +59,31 @@ REAL = [
                      "I — Each opponent sacrifices a creature or planeswalker.\nII — Each opponent discards a card.\n"
                      "III — Put target creature or planeswalker card from a graveyard onto the battlefield under your control.",
          colors=["B"], color_identity=["B"]),
+    card("Crop Sigil", set_code="tst", number="X1", mana_cost="{G}", cmc=1.0, type_line="Enchantment",
+         oracle_text="At the beginning of your upkeep, you may mill a card.\nDelirium — {2}{G}, Sacrifice this enchantment: Return "
+                     "up to one target creature card and up to one target land card from your graveyard to your hand. Activate "
+                     "only if there are four or more card types among cards in your graveyard.",
+         colors=["G"], color_identity=["G"]),
+    card("Lazotep Quarry", set_code="tst", number="X2", type_line="Land — Desert",
+         oracle_text="{T}: Add {C}.\n{T}, Sacrifice a creature: Add one mana of any color.\n{X}{2}, {T}, Sacrifice a Desert: Exile "
+                     "target creature card with mana value X from your graveyard. Create a token that's a copy of it, except it's "
+                     "a 4/4 black Zombie. Activate only as a sorcery."),
+    card("Sequence Engine", set_code="tst", number="X3", mana_cost="{2}{G}", cmc=3.0, type_line="Artifact",
+         oracle_text="{X}, {T}: Exile target creature card with mana value X from a graveyard. Create a 0/0 green and blue Fractal "
+                     "creature token. Put X +1/+1 counters on it. Activate only as a sorcery.", colors=["G"], color_identity=["G"]),
+    card("Retrieve", set_code="tst", number="X4", mana_cost="{2}{G}", cmc=3.0, type_line="Sorcery",
+         oracle_text="Return up to one target creature card and up to one target noncreature permanent card from your graveyard "
+                     "to your hand. Exile Retrieve.", colors=["G"], color_identity=["G"]),
+    card("Restoration Specialist", set_code="tst", number="X5", mana_cost="{1}{W}", cmc=2.0, type_line="Creature — Dwarf Artificer",
+         oracle_text="{W}, Sacrifice this creature: Return up to one target artifact card and up to one target enchantment card "
+                     "from your graveyard to your hand.", power="2", toughness="1", colors=["W"], color_identity=["W"]),
+    card("Shreds of Sanity", set_code="tst", number="X6", mana_cost="{2}{R}", cmc=3.0, type_line="Sorcery",
+         oracle_text="Return up to one target instant card and up to one target sorcery card from your graveyard to your hand, then "
+                     "discard a card. Exile Shreds of Sanity.", colors=["R"], color_identity=["R"]),
+    card("Druidic Ritual", set_code="tst", number="X7", mana_cost="{2}{G}", cmc=3.0, type_line="Sorcery",
+         oracle_text="You may mill three cards. Then return up to one creature card and up to one land card from your graveyard "
+                     "to your hand. (To mill a card, put the top card of your library into your graveyard.)",
+         colors=["G"], color_identity=["G"]),
     card("Gravedigger Test Double", set_code="tst", number="W7", mana_cost="{3}{B}", cmc=4.0, type_line="Creature — Zombie",
          oracle_text="Vigilance", power="2", toughness="2", colors=["B"], color_identity=["B"]),
 ]
@@ -76,7 +101,11 @@ def cards(settings) -> Iterator[CardRepository]:
 def build(cards):
     alice = deck(cards, "Krenko, Mob Boss", [(1, "Fiendish Panda"), (1, "Mirko, Obsessive Theorist"), (1, "Pull from the Deep"),
                                              (1, "Sudden Reclamation"), (1, "Postmortem Lunge"), (1, "Immortal Servitude"),
-                                             (1, "Gravedigger Test Double"), (1, "Rydia, Summoner of Mist"), (1, "The Eldest Reborn"), (1, "Lightning Bolt"), (1, "Counterspell"),
+                                             (1, "Gravedigger Test Double"), (1, "Rydia, Summoner of Mist"), (1, "The Eldest Reborn"),
+                                             (1, "Crop Sigil"), (1, "Lazotep Quarry"), (1, "Sequence Engine"), (1, "Retrieve"),
+                                             (1, "Restoration Specialist"), (1, "Sol Ring"), (1, "Shreds of Sanity"),
+                                             (1, "Druidic Ritual"),
+                                             (1, "Lightning Bolt"), (1, "Counterspell"),
                                              (1, "Llanowar Elves"), (2, "Grizzly Bears"), (20, "Forest")])
     bob = deck(cards, "Atraxa, Praetors' Voice", [(2, "Grizzly Bears"), (1, "Llanowar Elves"), (20, "Island")])
     state = new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)
