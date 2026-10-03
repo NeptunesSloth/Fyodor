@@ -841,12 +841,26 @@ def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.Ma
     if extra is not None and extra.energy:  # (wave 3E: "{T}, Pay {E}: Add one mana of any color", 107.14)
         plan.do({"type": "resource", "player": card.controller, "key": "energy", "delta": -extra.energy}, actor=card.controller)
     for kind, n in ability.riders:
-        if kind == "damage":
+        if kind == "damage" and _player_protected(plan, card):  # -- player shields (wave 5E) -- 702.16e, 702.16j
+            plan.note(f"Protection prevents the damage {plan.ch(card).name} would deal to {plan.name(card.controller)}")
+        elif kind == "damage":
             plan.do({"type": "rules_damage", "creatures": {}, "players": {card.controller: n}, "planeswalkers": {},
                      "lifelink": {}, "combat": False,
                      "dealt": [{"source": plan.oid(card.id), "target": card.controller, "amount": n}]}, actor=card.controller)
         elif kind == "draw":
             plan.do({"type": "draw", "player": card.controller, "count": n}, actor=card.controller)
+
+
+def _player_protected(plan: Plan, card: CardInstance) -> bool:
+    """-- player shields (wave 5E) -- does the controller's protection prevent the damage this mana source deals them?"""
+    from app.rules import player_shields, source_shields
+    from app.rules import replace as replacements
+
+    if player_shields.protected_from(plan, card.controller, plan.ch(card)) is None:
+        return False
+    ev = {"source_card": card.id, "source_oid": plan.oid(card.id), "target": card.controller, "combat": False,
+          "src": replacements.source_info(plan, card.id, plan.oid(card.id), plan.ch(card), card.controller)}
+    return source_shields.protection_applies(plan, ev)
 
 
 def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[str] | None = None,

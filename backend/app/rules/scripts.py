@@ -2054,7 +2054,8 @@ def granted_ability(text: str) -> AbilityText | None:
         # -- attached events (wave 4L) -- "Protection from red", "Ward {2}", "Toxic 1"
         from app.rules import statics
 
-        return ab if statics.keyword_line(ab.text[0].lower() + ab.text[1:]) == ab.text else None
+        line = ab.text.rstrip(".")  # -- protection grants (wave 5E) -- (a resolved grant's text ends with a period)
+        return ab if statics.keyword_line(line[0].lower() + line[1:]) == line else None
     probe = Characteristics(name="\u0000", abilities=(ab,))
     return ab if define(ab, probe) is not None else None
 

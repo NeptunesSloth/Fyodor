@@ -161,7 +161,9 @@ def static_definition(text: str) -> Definition | None:
         return d
     if t == STATIC_HASTE:
         return {"kind": "static", "static": "activate_as_haste", "effects": []}
-    return None
+    from app.rules import player_shields  # "You have hexproof." (app/rules/player_shields.py)
+
+    return player_shields.static_definition(text)
 
 
 def _effect_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
@@ -203,7 +205,13 @@ def _template(rx: re.Pattern[str], fn: Any) -> tuple[re.Pattern[str], Any]:
     return rx, run
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [_template(EFFECT_CAST, _effect_cast)]
+def _player_templates() -> list[tuple[re.Pattern[str], Any]]:
+    from app.rules import player_shields
+
+    return player_shields.TEMPLATES
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [_template(EFFECT_CAST, _effect_cast), *_player_templates()]
 
 
 def flash_sentence(text: str) -> list[dict[str, Any]] | None:
@@ -253,7 +261,14 @@ def flash_permission(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"cast_limit": cast_limit, "flash_permission": flash_permission}
+def _player_primitives() -> tuple[dict[str, Any], dict[str, Any]]:
+    from app.rules import player_shields
+
+    return player_shields.PRIMITIVES, player_shields.RESUME
+
+
+PRIMITIVES = {"cast_limit": cast_limit, "flash_permission": flash_permission, **_player_primitives()[0]}
+RESUME = dict(_player_primitives()[1])
 
 
 def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None:
@@ -264,6 +279,9 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "turn" and x.get("turn") != turn)]
+    from app.rules import player_shields
+
+    player_shields.turn_began(plan, ended)
 
 
 def _spells_words(key: str | None, frm: list[str] | None) -> str:
@@ -277,7 +295,7 @@ def _spells_words(key: str | None, frm: list[str] | None) -> str:
 
 # -- reading the table -----------------------------------------------------------------------------
 _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
-_KINDS = ("cast_limit", "activate_as_haste")
+_KINDS = ("cast_limit", "activate_as_haste", "player_shield")
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -305,7 +323,7 @@ def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]
         if not c.zone.endswith(":battlefield") or c.face_down or c.controller not in live or r.card_mode(cid) == "manual":
             continue
         for index, d in scripts.definitions(copiable(state, c, info)).items():
-            if d.get("kind") == "static" and d.get("static") in _KINDS:
+            if d.get("kind") == "static" and (d.get("static") in _KINDS or d.get("player_shield")):
                 out.append((cid, index, d))
     if len(_CACHE) > 256:
         _CACHE.clear()

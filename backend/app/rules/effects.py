@@ -339,6 +339,13 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
                 and source_shields.protection_applies(plan, ev):  # (615.12: protection's prevention, 702.16e, too)
             notes.append((f"Protection prevents the damage to {plan.ch(plan.state.cards[key]).name}", [key]))
             continue
+        # -- player shields (wave 5E) -- a player's protection (702.16e, 702.16j)
+        from app.rules import player_shields
+
+        if key in plan.state.players and player_shields.protected_from(plan, key, src.ch) is not None \
+                and source_shields.protection_applies(plan, ev):
+            notes.append((f"Protection prevents the damage to {plan.name(key)}", []))
+            continue
         kept.append(ev)
     rerun = replace.rerun_then(ctx, e)
     answers = dict(ctx.get(replace.ANSWERS) or {})
@@ -3109,6 +3116,11 @@ PRIMITIVES.update(_unless_pays.PRIMITIVES)
 from app.rules import cast_limits as _cast_limits  # noqa: E402, I001
 
 PRIMITIVES.update(_cast_limits.PRIMITIVES)
+RESUME.update(_cast_limits.RESUME)  # (and player hexproof / protection: app/rules/player_shields.py)
+from app.rules import protection_grants as _protection_grants  # noqa: E402, I001
+
+PRIMITIVES.update(_protection_grants.PRIMITIVES)  # "gains protection from the color of your choice" (608.2)
+RESUME.update(_protection_grants.RESUME)
 # -- end cast limits (wave 5E) --
 
 
