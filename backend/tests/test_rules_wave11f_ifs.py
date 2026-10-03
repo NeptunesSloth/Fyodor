@@ -41,6 +41,15 @@ EXTRA = [
          "This enchantment enters with X charge counters on it.\nRemove a charge counter from this enchantment: Add one mana of "
          "any color. Activate only once each turn.\nAt the beginning of your upkeep, if this enchantment has no charge counters on "
          "it, return it to its owner's hand.", None, "G"),
+    real("Hulkling, Burgeoning Bruiser", "{2}{G}", 3, "Legendary Creature — Kree Skrull Hero",
+         "Vigilance\nWhenever another creature you control enters, if it has greater power or toughness than Hulkling, put a "
+         "+1/+1 counter on Hulkling.", ("2", "3"), "G"),
+    real("Razor Pendulum", "{4}", 4, "Artifact",
+         "At the beginning of each player's end step, if that player has 5 or less life, this artifact deals 2 damage to that "
+         "player.", None),
+    real("Reaver Drone", "{B}", 1, "Creature — Eldrazi Drone",
+         "Devoid (This card has no color.)\nAt the beginning of your upkeep, you lose 1 life unless you control another colorless "
+         "creature.", ("2", "1"), ""),
     real("Farsight Mask", "{3}", 3, "Artifact",
          "Whenever a source an opponent controls deals damage to you, if this artifact is untapped, you may draw a card.", None),
     real("Demonic Rising", "{3}{B}", 4, "Enchantment",
@@ -59,7 +68,8 @@ def card_db(settings):
 
 
 @pytest.mark.parametrize("name", ["Imaginary Pet", "Asylum Visitor", "Keeper of the Accord", "Tephraderm", "Gunner Conscript",
-                                  "Farsight Mask", "Demonic Rising", "Damia, Sage of Stone", "Mana Bloom"])
+                                  "Farsight Mask", "Demonic Rising", "Damia, Sage of Stone", "Mana Bloom",
+                                  "Hulkling, Burgeoning Bruiser", "Razor Pendulum", "Reaver Drone"])
 def test_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -311,4 +321,35 @@ def test_it_is_the_source_when_nothing_else_is_named(cards):
     act(s, "p1", type="counter", card_ids=[bloom.id], kind="charge", delta=-1)
     to_turn(s, 5)  # none left: "return it" is the Bloom itself
     assert on(s, "Mana Bloom", "hand")
+    roundtrip(s)
+
+
+def test_a_creature_that_entered_with_greater_power_or_toughness(cards):
+    s = build(cards, ("Hulkling, Burgeoning Bruiser", "Grizzly Bears", "Krenko, Mob Boss"), forests=30, islands=30)
+    hulk = put(s, "Hulkling, Burgeoning Bruiser")  # 2/3
+    for name, m in (("Grizzly Bears", {"G": 1, "C": 1}), ("Krenko, Mob Boss", {"R": 2, "C": 2})):
+        spell = to_hand(s, name)
+        act(s, "p1", type="add_mana", player="p1", mana=m)
+        act(s, "p1", type="cast_spell", card_id=spell.id)
+        settle(s)
+        # (2/2 is greater in neither; Krenko 3/3 has greater power)
+        assert s.state.cards[hulk.id].counters.get("+1/+1", 0) == (0 if name == "Grizzly Bears" else 1)
+    roundtrip(s)
+
+
+def test_the_player_whose_end_step_it_is_has_few_life(cards):
+    s = build(cards, ("Razor Pendulum",), forests=30, islands=30)
+    put(s, "Razor Pendulum")
+    act(s, "p1", type="life", player="p1", delta=-35)
+    to_turn(s, 3)  # Alice's end step (5 life): 2 damage to her; Bob's end step (40 life): nothing
+    assert (life(s, "p1"), life(s, "p2")) == (3, 40)
+    roundtrip(s)
+
+
+def test_unless_you_control_another_colorless_creature(cards):
+    s = build(cards, ("Reaver Drone", "Llanowar Elves"), forests=30, islands=30)
+    put(s, "Reaver Drone")
+    put(s, "Llanowar Elves")  # (a green creature: not colorless)
+    to_turn(s, 3)
+    assert life(s, "p1") == 39
     roundtrip(s)
