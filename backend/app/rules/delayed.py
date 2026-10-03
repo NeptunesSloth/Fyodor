@@ -59,6 +59,9 @@ WHEN = {
     "the next turn's upkeep": {"kind": "step", "step": "upkeep", "whose": "next_turn"},
     "the next upkeep": {"kind": "step", "step": "upkeep", "whose": "next_turn"},
     "your next upkeep": {"kind": "step", "step": "upkeep", "whose": "you"},
+    # -- stack interaction (wave 5B) -- Mana Drain: the next main phase (precombat or postcombat, 505.1) of a turn of
+    # yours to begin; a later one this turn if you're in your precombat main phase or combat now (engine: main1 / main2)
+    "your next main phase": {"kind": "step", "step": "main", "whose": "you"},
 }
 WHEN_RE = "|".join(re.escape(k) for k in sorted(WHEN, key=len, reverse=True))
 # "when that creature dies / leaves the battlefield this turn": the object an earlier part named
@@ -201,7 +204,8 @@ def describe_when(when: dict[str, Any]) -> str:
             return "when it dies or is put into exile"
         return "when it " + ("dies" if when["event"] == "die" else "leaves the battlefield") + " this turn"
     whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's"}[when["whose"]]
-    return f"at the beginning of {whose} {'end step' if when['step'] == 'end' else 'upkeep'}"
+    step = {"end": "end step", "main": "main phase"}.get(when["step"], "upkeep")  # (main: wave 5B)
+    return f"at the beginning of {whose} {step}"
 
 
 # -- triggering (603.2) and going on the stack with the other triggers (603.3b) --------------------
@@ -218,7 +222,8 @@ def _fire(plan: Plan, t: DelayedTrigger, event: TriggerEvent | None) -> None:
 
 def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
     w = t.when
-    if w.get("kind") != "step" or w.get("step") != phase:
+    main = w.get("step") == "main" and phase in ("main1", "main2")  # -- stack interaction (wave 5B) -- (505.1)
+    if w.get("kind") != "step" or (w.get("step") != phase and not main):
         return False
     turn = plan.state.turn.number
     later_turn = turn > t.turn

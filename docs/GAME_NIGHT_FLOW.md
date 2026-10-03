@@ -69,8 +69,8 @@ Game 2:  A → B → D → C     D wins
 Game 3:  A → B → C → D
 ```
 
-(A game with no winner — a draw or no result — keeps the previous order unless the host changes it;
-confirm this before building.)
+- **After a draw** (a game with no winner), everyone **rolls the d20 again**, exactly as for Game 1
+  (server-authoritative rolls shown on the table, ties reroll among the tied players).
 
 **UI.** Before each new game, show a compact turn-order preview:
 
@@ -82,9 +82,9 @@ TURN ORDER
 4. Player C — Previous winner
 ```
 
-For Game 1, the preview shows the d20 rolls (and any tie rerolls) that set the order.
+For Game 1 and after a draw, the preview shows the d20 rolls (and any tie rerolls) that set the order.
 
-**Records.** Each game stores its turn order, and for Game 1 the rolls, in its metadata.
+**Records.** Each game stores its turn order, and the rolls when the order came from a d20 roll, in its metadata.
 
 **What exists today:** a server-side random first player (`secrets.randbelow`) and a seat-index option.
 The pod rule replaces it when enabled; the engine's turn order must follow the recorded order, not
@@ -203,6 +203,7 @@ The pod session holds what persists (section 1). No match-local state carries in
 - returning to the lobby and changing one player's deck;
 - game 1 turn order from server-authoritative d20 rolls (clients can't influence them), shown to everyone;
 - d20 ties rerolled only among the tied players;
+- a fresh d20 roll for the order after a drawn game;
 - later games: the previous winner goes last and the others keep their relative order (the A/B/C/D
   example above);
 - a host change to the order, and the order recorded in each game's metadata;
