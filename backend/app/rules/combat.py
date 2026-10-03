@@ -649,7 +649,8 @@ class CombatDamage:
 def _assigns(card: CardInstance, ch: Characteristics) -> int | None:
     """510.1a: the combat damage a creature assigns is its power — or its toughness while a static says so ("Each
     creature assigns combat damage equal to its toughness rather than its power", Doran: the rule assign_toughness)."""
-    return toughness(card, ch) if "assign_toughness" in ch.imposed else power(card, ch)
+    # (wave 6E reads the same wording as a static, "damage_by_toughness": both are honoured)
+    return toughness(card, ch) if "assign_toughness" in ch.imposed or "damage_by_toughness" in scripts.statics(ch) else power(card, ch)
 # -- end damage wordings (wave 6B) --
 
 
@@ -749,14 +750,6 @@ def compute_combat_damage(plan: Plan, rnd: Round) -> CombatDamage:
             continue
         gain(b, bch, hit_creature(b, bch, blocked, p))
     return out
-
-
-def _assigns(card: CardInstance, ch: Characteristics) -> int | None:
-    """-- static wordings (wave 6E) -- the combat damage a creature assigns: its power (510.1a), or its toughness when an
-    effect says it "assigns combat damage equal to its toughness rather than its power"."""
-    if "damage_by_toughness" in scripts.statics(ch):
-        return toughness(card, ch)
-    return power(card, ch)
 
 
 def damage_preview(plan: Plan, rnd: Round) -> str:
