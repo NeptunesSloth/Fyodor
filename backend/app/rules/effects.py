@@ -24,6 +24,7 @@ from app.game.state import zone_key
 from app.rules import (
     context,
     delayed,
+    entry_forms,
     layers,
     optional_payment,
     permissions,
@@ -35,7 +36,6 @@ from app.rules import (
     sized_damage,  # -- damage sized by a count (wave 4E) --
     values,
 )
-from app.rules import entry_forms  # -- entry forms (wave 5F) -- (a leaf module)
 from app.rules import this_way as _this_way  # -- "this way" outcomes (wave 4A) --
 from app.rules.plan import Plan, decide
 from app.rules.targets import source_of, still_legal

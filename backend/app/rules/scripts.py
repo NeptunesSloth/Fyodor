@@ -2118,7 +2118,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return None
     if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str):
         return None  # ("up to X target …" in a trigger: its targets are chosen before any X is known to it)
-    from app.rules import entry_forms  # -- entry forms (wave 5F) -- "It's an enchantment." only right after a return
+    # -- entry forms (wave 5F) -- "It's an enchantment." only right after a return
+    from app.rules import entry_forms
 
     if d is not None and not entry_forms.enters_as_bound(d.get("effects") or []):
         return None
@@ -2838,7 +2839,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen
-    from app.rules import entry_forms  # -- entry forms (wave 5F) -- "~ enters tapped. As it enters, choose a color …"
+    # -- entry forms (wave 5F) -- "~ enters tapped. As it enters, choose a color …"
+    from app.rules import entry_forms
 
     if (tapped_choice := entry_forms.tapped_choice(text)) is not None:
         return tapped_choice
