@@ -83,6 +83,8 @@ EXTRA = [
                      "not a creature.)", power='4', toughness='3', colors=['U'], color_identity=['U'], keywords=['Flash']),
     card('Disenchant', set_code="tst", number="5F501", mana_cost='{1}{W}', cmc=2.0, type_line='Instant',
          oracle_text='Destroy target artifact or enchantment.', colors=['W'], color_identity=['W']),
+    card("Thespian's Stage", set_code="tst", number="5F601", type_line='Land',
+         oracle_text='{T}: Add {C}.\n{2}, {T}: This land becomes a copy of target land, except it has this ability.'),
     card('Reanimate', set_code="tst", number="5F301", mana_cost='{B}', cmc=1.0, type_line='Sorcery',
          oracle_text="Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that "
                      "card's mana value.", colors=['B'], color_identity=['B']),
@@ -532,3 +534,27 @@ def test_enduring_curiosity_returns_as_an_enchantment_then_stays_dead(cards):
     drive(s)
     assert s.state.cards[c.id].zone == "p1:graveyard"
     roundtrip(s)
+
+
+# -- "becomes a copy …, except it has this ability" (707.4, 707.9a) ------------------------------------------------------
+def test_thespians_stage_copies_a_land_and_keeps_its_ability(cards):
+    s = build(cards, [(1, "Thespian's Stage"), (1, "Gaea's Cradle")], [(1, "Grizzly Bears"), (9, "Island")])
+    stage = put(s, "Thespian's Stage", "battlefield")
+    cradle = put(s, "Gaea's Cradle", "battlefield")
+    stage_text = "{2}, {T}: This land becomes a copy of target land, except it has this ability."
+    act(s, "p1", type="add_mana", player="p1", mana={"C": 2})
+    act(s, "p1", type="activate_ability", card_id=stage.id, ability=1, targets=[cradle.id])
+    drive(s)
+    got = ch(s, s.state.cards[stage.id])
+    assert got.name == "Gaea's Cradle" and "Legendary" in got.supertypes
+    texts = [a.text for a in got.abilities]
+    assert stage_text in texts and "{T}: Add {C}." not in texts  # the copied text, plus this ability (707.9a)
+    assert any("for each creature you control" in t for t in texts)
+    copied = next(a for a in got.abilities if a.text == stage_text)
+    assert coverage.ability_supported(got, copied.index)
+    roundtrip(s)
+
+
+def test_this_ability_needs_an_ability_of_its_own():
+    assert ok("{2}, {T}: This land becomes a copy of target land, except it has this ability.", "Thespian's Stage", "Land")
+    assert not ok("You may have this creature enter as a copy of any creature on the battlefield, except it has this ability.")

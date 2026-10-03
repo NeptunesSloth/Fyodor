@@ -2122,6 +2122,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if d is not None and not entry_forms.enters_as_bound(d.get("effects") or []):
         return None
+    if d is not None:  # "becomes a copy of …, except it has this ability" (707.9a): this ability's own line
+        from app.rules import copying
+
+        d = copying.with_this_ability(d, ability.text)
     return d
 
 

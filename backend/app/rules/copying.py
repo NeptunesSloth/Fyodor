@@ -970,6 +970,9 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     if re.fullmatch(_SUBJECT + r"(?:is|are) not legendary(?: if (?:the|that) (?:spell|creature|permanent) is legendary)?", c):
         ex.remove_supertypes = sorted({*ex.remove_supertypes, "Legendary"})
         return True
+    if re.fullmatch(_SUBJECT + r"(?:has|have) this ability", c):  # -- enter as copy (wave 5F) -- 707.9a: the ability's own
+        ex.add_text = [*ex.add_text, THIS_ABILITY]  # text, written in by ``scripts.define`` (``with_this_ability``)
+        return True
     m = re.fullmatch(_SUBJECT + r"(?:has|have) (?P<abil>.+)", c)
     if m:
         found = token_grammar._with(m["abil"])
@@ -1027,6 +1030,24 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         ex.set_colors = [_COLOR_WORDS[m["c"]]]
         return True
     return False
+
+
+# -- enter as copy (wave 5F) -- "except it has this ability" (Thespian's Stage, Cryptoplasm, Dimir Doppelganger): the copy
+# gains the very ability that made it (707.9a) — its printed line, filled in from the ability being defined
+THIS_ABILITY = "\x00this ability"
+
+
+def with_this_ability(d: dict[str, Any], text: str) -> dict[str, Any] | None:
+    """The definition with "this ability" written as the ability's own line (None: the marker is somewhere it can't be)."""
+    import json
+
+    raw = json.dumps(d)
+    marker = json.dumps(THIS_ABILITY)
+    if marker not in raw:
+        return d
+    if d.get("kind") not in ("activated", "triggered") or "\\u0000" in text or '"' in text:
+        return None
+    return json.loads(raw.replace(marker, json.dumps(text)))
 
 
 def _dump(ex: CopyExcept) -> dict[str, Any]:
