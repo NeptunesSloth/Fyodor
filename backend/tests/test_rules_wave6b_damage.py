@@ -15,13 +15,13 @@ import pytest
 
 from app.cards.importer import build_database
 from app.config import Settings
+from app.game.errors import ActionError
 from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import coverage, scripts
 from app.rules.characteristics import Characteristics
 from app.rules.oracle import parse_abilities
 from tests.fixtures.cards import card, fixture_cards
-from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.test_rules_attachments import build, mana, named, to_hand, token
 from tests.test_rules_effects import pass_until_stack_empty, replay_matches
@@ -39,6 +39,46 @@ EXTRA = [
     card('Swift Demise', set_code="tst", number="B604", mana_cost="{2}{B}", cmc=3.0, type_line="Instant",
          oracle_text="Swift Demise deals 1 damage to target creature. Then destroy each creature you don't control that was "
                      "dealt damage this turn.", colors=['B'], color_identity=['B']),
+]
+
+EXTRA += [
+    card('Melt Terrain', set_code="tst", number="B611", mana_cost="{2}{R}{R}", cmc=4.0, type_line="Sorcery",
+         oracle_text="Destroy target land. Melt Terrain deals 2 damage to that land's controller.", colors=['R'],
+         color_identity=['R']),
+    card('Molten Rain', set_code="tst", number="B612", mana_cost="{1}{R}{R}", cmc=3.0, type_line="Sorcery",
+         oracle_text="Destroy target land. If that land was nonbasic, Molten Rain deals 2 damage to the land's controller.",
+         colors=['R'], color_identity=['R']),
+    card('Ionize', set_code="tst", number="B613", mana_cost="{1}{U}{R}", cmc=3.0, type_line="Instant",
+         oracle_text="Counter target spell. Ionize deals 2 damage to that spell's controller.", colors=['R', 'U'],
+         color_identity=['R', 'U']),
+    card('Blightning', set_code="tst", number="B614", mana_cost="{1}{B}{R}", cmc=3.0, type_line="Sorcery",
+         oracle_text="Blightning deals 3 damage to target player or planeswalker. That player or that planeswalker's "
+                     "controller discards two cards.", colors=['B', 'R'], color_identity=['B', 'R']),
+    card('Flame Wave', set_code="tst", number="B615", mana_cost="{3}{R}{R}{R}{R}", cmc=7.0, type_line="Sorcery",
+         oracle_text="Flame Wave deals 4 damage to target player or planeswalker and each creature that player or that "
+                     "planeswalker's controller controls.", colors=['R'], color_identity=['R']),
+    card('Radiating Lightning', set_code="tst", number="B616", mana_cost="{3}{R}", cmc=4.0, type_line="Instant",
+         oracle_text='Radiating Lightning deals 3 damage to target player and 1 damage to each creature that player controls.',
+         colors=['R'], color_identity=['R']),
+    card('Endure', set_code="tst", number="B617", mana_cost="{3}{W}{W}", cmc=5.0, type_line="Instant",
+         oracle_text='Prevent all damage that would be dealt to you and permanents you control this turn.', colors=['W'],
+         color_identity=['W']),
+    card('Statecraft', set_code="tst", number="B618", mana_cost="{3}{U}", cmc=4.0, type_line="Enchantment",
+         oracle_text='Prevent all combat damage that would be dealt to and dealt by creatures you control.', colors=['U'],
+         color_identity=['U']),
+    card('Doran, the Siege Tower', set_code="tst", number="B619", mana_cost="{W}{B}{G}", cmc=3.0,
+         type_line="Legendary Creature — Treefolk Shaman",
+         oracle_text='Each creature assigns combat damage equal to its toughness rather than its power.', power="0",
+         toughness="5", colors=['B', 'G', 'W'], color_identity=['B', 'G', 'W']),
+    card('Ghalta the Immovable', set_code="tst", number="B620", mana_cost="{8}{W}", cmc=9.0,
+         type_line="Legendary Creature — Elder Dinosaur",
+         oracle_text="This spell costs {X} less to cast, where X is the greatest toughness among creatures you control.\n"
+                     "Creatures you control can attack as though they didn't have defender.\nEach creature you control with "
+                     "toughness greater than its power assigns combat damage equal to its toughness rather than its power.",
+         power="0", toughness="7", colors=['W'], color_identity=['W']),
+    card('The Wanderer', set_code="tst", number="B621", mana_cost="{3}{W}", cmc=4.0, type_line="Legendary Planeswalker",
+         oracle_text='Prevent all noncombat damage that would be dealt to you and other permanents you control.\n'
+                     '−2: Exile target creature with power 4 or greater.', colors=['W'], color_identity=['W']),
 ]
 
 PINGER = "Haste\n{T}: This creature deals 1 damage to any target."
@@ -142,4 +182,155 @@ def test_creatures_that_dealt_damage_to_anything(cards):
     assert zone(s, pinger) != "p1:battlefield"  # dealt damage to a creature: returned (a token ceases to exist)
     assert zone(s, idle) == "p1:battlefield"
     assert zone(s, ogre) == "p2:battlefield"  # it was dealt damage, it dealt none
+    roundtrip(s)
+
+
+# -- the controller of what the previous instruction was about ---------------------------------------------------
+@pytest.mark.parametrize("name", ["Melt Terrain", "Molten Rain", "Ionize", "Blightning", "Flame Wave", "Radiating Lightning",
+                                  "Endure", "Statecraft", "Doran, the Siege Tower", "Ghalta the Immovable", "The Wanderer"])
+def test_more_coverage_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_that_spells_controller_is_the_countered_spells():
+    found = scripts.parse_effects("Counter target spell. ~ deals 2 damage to that spell's controller.")
+    assert found is not None and found[0][1] == {"do": "damage", "who": "ref:e0.controller", "n": 2}
+
+
+def land(s, pid, name, basic=False):
+    act(s, pid, type="create_token", player=pid,
+        token={"name": name, "type_line": ("Token Basic Land — Mountain" if basic else "Token Land — Desert")})
+    return next(c for c in s.state.cards.values() if c.name == name)
+
+
+def test_that_lands_controller_is_dealt_the_damage(cards):
+    s = build(cards, "Melt Terrain")
+    desert = land(s, "p2", "Desert")
+    cast(s, "Melt Terrain", targets=[desert.id], R=2, C=2)
+    assert zone(s, desert) != "p2:battlefield" and life(s, "p2") == 38 and life(s, "p1") == 40
+    roundtrip(s)
+
+
+@pytest.mark.parametrize(("basic", "bob"), [(False, 38), (True, 40)])
+def test_molten_rain_reads_the_destroyed_land(cards, basic, bob):
+    s = build(cards, "Molten Rain")
+    target = land(s, "p2", "Target", basic=basic)
+    cast(s, "Molten Rain", targets=[target.id], R=2, C=1)
+    assert zone(s, target) != "p2:battlefield" and life(s, "p2") == bob  # 608.2h: as it last existed
+    roundtrip(s)
+
+
+def hand(s, pid):
+    return len(s.state.zones.get(f"{pid}:hand", []))
+
+
+def test_blightning_on_a_player(cards):
+    s = build(cards, "Blightning")
+    islands = [c.id for c in s.state.cards.values() if c.owner == "p2" and c.name == "Island"][:3]
+    act(s, "p2", type="move", card_ids=islands, to={"zone": "hand"})
+    before = hand(s, "p2")
+    assert before == 3
+    cast(s, "Blightning", targets=["p2"], B=1, R=1, C=1)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"  # Bob chooses what he discards
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:2])
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 37 and hand(s, "p2") == before - 2
+    roundtrip(s)
+
+
+def test_flame_wave_hits_the_target_players_creatures_only(cards):
+    s = build(cards, "Flame Wave")
+    theirs = token(s, "p2", "Theirs", "4/4")
+    mine = token(s, "p1", "Mine", "4/4")
+    cast(s, "Flame Wave", targets=["p2"], R=4, C=3)
+    assert life(s, "p2") == 36 and zone(s, theirs) != "p2:battlefield" and zone(s, mine) == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_radiating_lightning(cards):
+    s = build(cards, "Radiating Lightning")
+    theirs = token(s, "p2", "Theirs", "1/1")
+    mine = token(s, "p1", "Mine", "1/1")
+    cast(s, "Radiating Lightning", targets=["p2"], R=1, C=3)
+    assert life(s, "p2") == 37 and zone(s, theirs) != "p2:battlefield" and zone(s, mine) == "p1:battlefield"
+    roundtrip(s)
+
+
+# -- prevention -----------------------------------------------------------------------------------------------------
+def test_endure_prevents_damage_to_you_and_your_permanents(cards):
+    s = build(cards, "Endure")
+    pinger = token(s, "p1", "Pinger", "1/1", PINGER)
+    other = token(s, "p1", "Other", "1/1", PINGER)
+    cast(s, "Endure", W=2, C=3)
+    ping(s, pinger, "p1")
+    ping(s, other, pinger.id)
+    assert life(s, "p1") == 40 and zone(s, pinger) == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_the_wanderer_prevents_noncombat_damage_to_you_and_other_permanents(cards):
+    s = build(cards, "The Wanderer")
+    wanderer = named(s, "The Wanderer")
+    act(s, "p1", type="move", card_ids=[wanderer.id], to={"zone": "battlefield"})
+    act(s, "p1", type="counter", card_ids=[wanderer.id], kind="loyalty", delta=5)  # (moved by hand: no loyalty yet)
+    assert s.state.cards[wanderer.id].zone == "p1:battlefield"
+    pinger = token(s, "p1", "Pinger", "1/1", PINGER)
+    ping(s, pinger, "p1")
+    assert life(s, "p1") == 40
+    ping(s, token(s, "p1", "Other", "1/1", PINGER), pinger.id)
+    assert zone(s, pinger) == "p1:battlefield"
+    roundtrip(s)
+
+
+# -- combat damage assignment ---------------------------------------------------------------------------------------
+def to_combat(s, *attackers):
+    act(s, "p1", type="pass_priority")  # → combat: Alice declares attackers
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in attackers])
+
+
+def test_doran_each_creature_assigns_its_toughness(cards):
+    s = build(cards, "Doran, the Siege Tower")
+    act(s, "p1", type="move", card_ids=[named(s, "Doran, the Siege Tower").id], to={"zone": "battlefield"})
+    wall = token(s, "p1", "Wall", "1/4", "Haste")
+    to_combat(s, wall)
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 36  # 510.1a: its toughness, 4
+    roundtrip(s)
+
+
+def test_ghalta_only_creatures_with_more_toughness_than_power(cards):
+    s = build(cards, "Ghalta the Immovable")
+    act(s, "p1", type="move", card_ids=[named(s, "Ghalta the Immovable").id], to={"zone": "battlefield"})
+    wall = token(s, "p1", "Wall", "1/4", "Haste")
+    brute = token(s, "p1", "Brute", "3/2", "Haste")
+    to_combat(s, wall, brute)
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 33  # 4 (its toughness) + 3 (its power: toughness not greater)
+    roundtrip(s)
+
+
+def test_statecraft_prevents_combat_damage_by_your_creatures(cards):
+    s = build(cards, "Statecraft")
+    act(s, "p1", type="move", card_ids=[named(s, "Statecraft").id], to={"zone": "battlefield"})
+    bear = token(s, "p1", "Bear", "2/2", "Haste")
+    to_combat(s, bear)
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 40
+    roundtrip(s)
+
+
+def test_blightning_on_a_planeswalker_reads_its_controller(cards):
+    s = build(cards, "Blightning")
+    islands = [c.id for c in s.state.cards.values() if c.owner == "p2" and c.name == "Island"][:3]
+    act(s, "p2", type="move", card_ids=islands, to={"zone": "hand"})
+    act(s, "p2", type="create_token", player="p2", token={"name": "Walker", "type_line": "Token Legendary Planeswalker — Test"})
+    walker = named(s, "Walker")
+    act(s, "p2", type="counter", card_ids=[walker.id], kind="loyalty", delta=3)
+    cast(s, "Blightning", targets=[walker.id], B=1, R=1, C=1)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"  # its controller discards (608.2h: as it last existed — it died)
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:2])
+    pass_until_stack_empty(s)
+    assert life(s, "p2") == 40 and hand(s, "p2") == 1 and zone(s, walker) != "p2:battlefield"
     roundtrip(s)

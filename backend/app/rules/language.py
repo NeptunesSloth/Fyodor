@@ -45,6 +45,13 @@ PLAYER_GROUPS = {"you": "you", "each player": "each_player", "each opponent": "e
                   "that creature's controller": "it.controller", "that permanent's controller": "it.controller",
                   "that card's owner": "it.owner", "that creature's owner": "it.owner",
                   "the chosen player": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
+# -- damage wordings (wave 6B) -- "Destroy target land. ~ deals 2 damage to that land's controller.", "Counter target
+# spell. ~ deals 2 damage to that spell's controller.": the object the previous instruction was about, like "its"
+PLAYER_GROUPS.update({f"{the} {kind}'s controller": "it.controller" for the in ("that", "the")
+                      for kind in ("land", "artifact", "enchantment", "spell", "planeswalker", "Equipment")})
+# "~ deals 3 damage to target player or planeswalker. That player or that planeswalker's controller discards two cards."
+# (Blightning): the target player, or the target planeswalker's controller (app/rules/effects._players)
+PLAYER_GROUPS["that player or that planeswalker's controller"] = "target_player_or_controller"
 PLAYER_PHRASES = "|".join(sorted(PLAYER_GROUPS, key=len, reverse=True))
 
 
@@ -1041,7 +1048,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         effects: Effects = []
         groups: list[dict[str, Any]] = []
         for o, n in ((m["o1"], m["n"]), (m["o2"], m["m"])):
-            whos, parts = _objects("~" if o == "itself" and m["src"] == "~" else o)
+            controlled = _that_player_controls(o) if groups else None  # -- damage wordings (wave 6B) -- "… and 1 damage
+            # to each creature that player controls" (Radiating Lightning): the first part's target player's
+            whos, parts = ([controlled], []) if controlled is not None else _objects("~" if o == "itself" and m["src"] == "~" else o)
             if len(whos) != 1:
                 raise _Fail
             effects.append({"do": "damage", "who": whos[0] if not parts else ("target" if not groups else f"target:{len(groups)}"),
@@ -1645,7 +1654,7 @@ def _bite_recipients(o: str) -> tuple[list[str], list[dict[str, Any]]]:
     return whos, groups
 
 
-_THAT_PLAYER_CONTROLS = re.compile(r"^each (?P<sel>.+?) that player controls$")
+_THAT_PLAYER_CONTROLS = re.compile(r"^each (?P<sel>.+?) that player (?P<or>or that planeswalker's controller )?controls$")
 
 
 def _that_player_controls(part: str) -> str | None:
@@ -1658,6 +1667,8 @@ def _that_player_controls(part: str) -> str | None:
     sel = selectors.parse(m["sel"])
     if sel is None or sel.player is not None or sel.controller is not None:
         raise _Fail
+    if m["or"]:  # -- damage wordings (wave 6B) -- "… that player or that planeswalker's controller controls"
+        return f"controlled:target_player_or_controller|{sel.key()}"
     return f"controlled:that_player|{sel.key()}"
 
 

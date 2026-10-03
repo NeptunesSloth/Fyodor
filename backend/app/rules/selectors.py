@@ -214,6 +214,11 @@ def _dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"(?:that (?:was|were) )?dealt damage this turn")
 def _was_dealt_damage_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "was_dealt_damage"))
+
+
+@_suffix(r"with toughness greater than (?:its|their) power")  # (Ghalta the Immovable, Bedrock Tortoise)
+def _toughness_over_power(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "toughness_gt_power"))
 # -- end damage history (wave 6B) --
 
 
@@ -948,6 +953,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             from app.rules import damage_history
 
             if not damage_history.matches(plan, card, extra, you):
+                return False
+        if extra == "toughness_gt_power":  # -- damage wordings (wave 6B) -- as it is now (611.3a for a static)
+            p, t = _stat(ch, "power"), _stat(ch, "toughness")
+            if p is None or t is None or t <= p:
                 return False
     # -- chosen type (wave 4J) --
     return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source)

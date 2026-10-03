@@ -635,6 +635,8 @@ def _object(t: str) -> Condition | None:
         det = re.match(r"(?:a|an) (?P<rest>.+)", what)
         if det is None and re.fullmatch(r"(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*", what):
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "it's blue": a color test, on whatever it is
+        if det is None and re.fullmatch(r"(?:non)?(?:basic|legendary|snow)", what):  # -- damage wordings (wave 6B) --
+            det = re.match(r"(?P<rest>.+)", what + " permanent")  # "If that land was nonbasic": a supertype (205.4)
         sel = selectors.parse(det["rest"]) if det else None
         if (sel is None or sel.player is not None or sel.zone_owner is not None or sel.controller is not None
                 or sel.owner is not None or sel.zones not in (("battlefield",), ())):

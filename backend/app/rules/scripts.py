@@ -2770,6 +2770,9 @@ _PREVENT_TARGETS = {  # what the damage would be dealt to → (players, objects)
     "you": ("you", None), "players": ("all", None), "each player": ("all", None), "~": (None, "self"),
     "enchanted creature": (None, "attached"), "equipped creature": (None, "attached"),
     "you and creatures you control": ("you", "creatures you control"),
+    # -- damage wordings (wave 6B) -- The Wanderer ("other": not itself), Endure
+    "you and other permanents you control": ("you", "other permanents you control"),
+    "you and permanents you control": ("you", "permanents you control"),
 }
 _PREVENT_SOURCES = {"~": "self", "enchanted creature": "attached", "equipped creature": "attached"}
 
@@ -2880,6 +2883,11 @@ def _prevent_scope(kind: str | None, to: str | None, by: str | None) -> tuple[De
 def parse_prevent_all(text: str) -> tuple[Definition, bool, str | None, str | None] | None:
     """"Prevent all …" (one sentence, no trailing period, first letter lower-cased) → (scope, this
     turn?, target selector, role)."""
+    # -- damage wordings (wave 6B) -- "… dealt to and dealt by creatures you control" (Statecraft): either side in the group
+    g = re.fullmatch(r"prevent all (?P<kind>combat |noncombat )?damage that would be dealt to and dealt by (?P<g>creatures .+)", text)
+    if g and (key := _selector_key(g["g"])) is not None:
+        return ({"combat": {"combat ": True, "noncombat ": False}.get(g["kind"] or ""), "to_objects": key, "by_objects": key,
+                 "to_or_by": True}, False, None, None)
     m = PREVENT_TO_AND_BY.fullmatch(text)
     if m:
         what = _PREVENT_SOURCES[m["x"]]

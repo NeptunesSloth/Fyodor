@@ -88,6 +88,20 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if p != me]
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.players and t["id"] in plan.live()]
+    if who == "target_player_or_controller":  # -- damage wordings (wave 6B) -- "that player or that planeswalker's
+        # controller": the target player, or the target permanent's controller (as it last existed: 608.2h)
+        out: list[str] = []
+        for t in target_refs(ctx, "target"):
+            pid: str | None = t["id"] if t["id"] in plan.state.players else None
+            if pid is None:
+                card = plan.state.cards.get(t["id"])
+                if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == t.get("object_id"):
+                    pid = card.controller
+                elif (snap := plan.rules.lki.get(t.get("object_id") or "")) is not None:
+                    pid = snap.controller
+            if pid is not None and pid in plan.live() and pid not in out:
+                out.append(pid)
+        return out
     if who == "each_other_opponent":  # -- sized amounts (wave 3D) -- the opponents besides the player the trigger event was about
         named = set(context.players(plan, ctx, context.EVENT))
         return [p for p in plan.live() if p != me and p not in named]
