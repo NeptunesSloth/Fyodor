@@ -288,8 +288,6 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     goaded." 701.15d: the same player goading it again has no effect (no second requirement).
     ``controlled``: "goad each creature target player / that player controls" (``who`` names the
     player(s))."""
-    from app.rules import delayed, layers
-
     pid = ctx["controller"]
     if e.get("controlled"):
         players = set(effects._players(plan, ctx, e["who"]))
@@ -300,17 +298,52 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     effects._remember(plan, ctx, e, cards)
     fresh = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")
              and pid not in goaded_by(plan.ch(plan.state.cards[c]))]
-    if not fresh:
-        return True
+    if fresh:
+        _until_next_turn(plan, ctx, fresh, (GOADED + pid,), "Goaded", "goads")
+    return True
+
+
+def _until_next_turn(plan: Plan, ctx: Context, fresh: list[str], imposes: tuple[str, ...], word: str, verb: str) -> None:
+    """A layer-6 effect on these objects lasting until the controller's next turn (701.15a goad, 701.35a detain)."""
+    from app.rules import delayed, layers
+
+    pid = ctx["controller"]
     effect = layers.add_effect(plan, affected=[plan.oid(c) for c in fresh], layer="6", source=ctx.get("source_object"),
-                               controller=pid, imposes=(GOADED + pid,), label=f"goaded by {plan.name(pid)}")
+                               controller=pid, imposes=imposes, label=f"{word.lower()} by {plan.name(pid)}")
     effect.duration, effect.until_player, effect.turn = "next_turn", pid, plan.state.turn.number
     markers: list[str] = []
     for cid in fresh:
-        markers += delayed.marker_ids(plan.do({"type": "add_effect", "card_ids": [cid], "name": f"Goaded by {plan.name(pid)}"[:60],
-                                               "value": "Goaded", "text": delayed.LABELS["next_turn"]}))
+        markers += delayed.marker_ids(plan.do({"type": "add_effect", "card_ids": [cid], "name": f"{word} by {plan.name(pid)}"[:60],
+                                               "value": word, "text": delayed.LABELS["next_turn"]}))
     effect.markers = markers
-    plan.note(f"{plan.name(pid)} goads {effects._labels(plan, fresh)}", fresh, actor=pid)
+    plan.note(f"{plan.name(pid)} {verb} {effects._labels(plan, fresh)}", fresh, actor=pid)
+
+
+def suspect(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.60a: the creature becomes suspected until it leaves the battlefield (the designation is kept by rules object, as
+    monstrous is); 701.60c: it has menace and can't block while it is (app/rules/layers.py); 701.60d: it can't become
+    suspected again."""
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")
+             and plan.ch(plan.state.cards[c]).is_creature]
+    effects._remember(plan, ctx, e, cards)
+    for cid in cards:
+        oid = plan.oid(cid)
+        if oid not in plan.rules.suspected:
+            plan.rules.suspected.append(oid)
+            plan.do({"type": "add_effect", "card_ids": [cid], "name": "Suspected", "value": "Suspected",
+                     "text": "until it leaves the battlefield"})
+            plan.note(f"{plan.name(ctx['controller'])} suspects {plan.state.cards[cid].name}", [cid], actor=ctx["controller"])
+    return True
+
+
+def detain(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.35a: "Until the next turn of the controller of that spell or ability, that permanent can't attack or block and
+    its activated abilities can't be activated." (Mana abilities too: ``cant_activate``.) Detaining it again just extends
+    the same restrictions, so one effect per resolution is enough."""
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    effects._remember(plan, ctx, e, cards)
+    if cards:
+        _until_next_turn(plan, ctx, cards, ("cant_attack_or_block", "cant_activate"), "Detained", "detains")
     return True
 
 
@@ -457,7 +490,7 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
 
 
 PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
-              "goad": goad, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform,
+              "goad": goad, "detain": detain, "suspect": suspect, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform,
               **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
 RESUME = {"amass_choose": resume_amass, "bolster_choose": resume_bolster, "connive_discard": resume_connive,

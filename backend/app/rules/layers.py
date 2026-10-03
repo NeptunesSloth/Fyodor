@@ -232,7 +232,7 @@ def _table_key(state: GameState) -> tuple:
                # -- this-turn history (wave 4D) -- spells cast, facts, attackers, lands played
                len(log.casts), len(log.facts), tuple(sorted((p, len(a)) for p, a in log.attackers.items())),
                tuple(sorted((p, (c.turn, c.count)) for p, c in r.lands_played.items()))) if log is not None and r else ()
-    designations = (tuple(r.monstrous), tuple(r.renowned)) if r else ()  # -- conditional statics (wave 4B) --
+    designations = (tuple(r.monstrous), tuple(r.renowned), tuple(r.suspected)) if r else ()  # -- conditional statics (wave 4B) --
     return (state.seq, state.turn.number, state.turn.active_player, players, field,
             r.timestamp if r else 0, len(r.effects) if r else 0, history, designations)
 
@@ -554,6 +554,9 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     hits: list[Static] = []
     kwc = keyword_counters(state, card)  # -- counters (wave 5H) --
     on_field = card.zone.endswith(":battlefield") and state.rules is not None
+    if on_field and state.rules.object_id(card.id) in state.rules.suspected:  # -- suspect (wave 12A) -- 701.60c
+        kwc = [*kwc, ((timestamp(state, card.id), 0, 0), "menace")]
+        imposed.add("cant_block")
     if info is not None and on_field and _depth == 0:
         view = _view(state, info)
         table = statics(state, info)

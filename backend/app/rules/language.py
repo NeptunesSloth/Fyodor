@@ -2658,6 +2658,22 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         if land is None:
             return None
         return [{"do": "earthbend", "who": "target", "n": _amount(m["n"])}], land.key()
+    if text.startswith("detain ") and has_primitive("detain"):  # -- detain (wave 12A) -- 701.35a: permanents, not players
+        try:
+            kind, key, group = ref(text[len("detain "):])
+        except _Fail:
+            return None
+        if kind not in ("target", "each", "it", "them", "host") or (kind in ("target", "each") and not on_battlefield_only(key)):
+            return None
+        return [{"do": "detain", "who": _who(kind, key)}], _one(group)
+    if text.startswith("suspect ") and has_primitive("suspect"):  # -- suspect (wave 12A) -- 701.60a: a creature
+        try:
+            kind, key, group = ref(text[len("suspect "):])
+        except _Fail:
+            return None
+        if kind not in ("target", "it", "host", "self") or (kind == "target" and not on_battlefield_only(key)):
+            return None
+        return [{"do": "suspect", "who": _who(kind, key)}], _one(group)
     if not text.startswith("goad ") or not has_primitive("goad"):
         return None
     m = _GOAD_PLAYER.fullmatch(text)

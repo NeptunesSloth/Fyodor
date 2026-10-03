@@ -25,6 +25,19 @@ EXTRA = [
          "When this creature enters, clash with an opponent. If you win, put a +1/+1 counter on this creature.", ("2", "2"), "U"),
     real("Research the Deep", "{1}{U}", 2, "Sorcery",
          "Draw a card. Clash with an opponent. If you win, return Research the Deep to its owner's hand.", None, "U"),
+    real("Azorius Arrester", "{W}{U}", 2, "Creature — Human Soldier",
+         "When this creature enters, detain target creature an opponent controls. (Until your next turn, that creature can't "
+         "attack or block and its activated abilities can't be activated.)", ("1", "1"), "WU"),
+    real("Lavinia of the Tenth", "{3}{W}{U}", 5, "Legendary Creature — Human Soldier",
+         "Protection from red\nWhen Lavinia of the Tenth enters, detain each nonland permanent your opponents control with mana "
+         "value 4 or less. (Until your next turn, those permanents can't attack or block and their activated abilities can't be "
+         "activated.)", ("4", "4"), "WU"),
+    real("Incriminating Impetus", "{1}{B}", 2, "Enchantment — Aura",
+         "Enchant creature\nWhen this Aura enters, suspect enchanted creature. (A suspected creature has menace and can't "
+         "block.)\nEnchanted creature gets +1/+1.", None, "B"),
+    real("Repeat Offender", "{1}{B}", 2, "Creature — Human Rogue",
+         "{2}{B}: If this creature is suspected, put a +1/+1 counter on it. Otherwise, suspect it. (A suspected creature has "
+         "menace and can't block.)", ("2", "2"), "B"),
     real("Test Giant", "{6}", 6, "Creature — Giant", "", ("6", "6")),
     real("Test Mite", "{1}", 1, "Creature — Insect", "", ("1", "1")),
 ]
@@ -113,6 +126,81 @@ def test_a_clash_needs_its_own_clash_for_if_you_win():
     assert scripts.parse_effects("If you win, draw a card.") is None
     assert scripts.parse_effects("Clash with an opponent. If you win, draw a card.") is not None
     assert scripts.parse_effects("You lose 2 life and draw two cards, then clash with an opponent. If you win, repeat this process.") is None
+
+
+# -- detain (701.35) --------------------------------------------------------------------------------------
+def chars(s, c):
+    from app.rules.plan import Plan
+
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[c.id])
+
+
+@pytest.mark.parametrize("name", ["Azorius Arrester", "Lavinia of the Tenth", "Incriminating Impetus", "Repeat Offender"])
+def test_detain_and_suspect_cards_are_full(cards, name):
+    full(cards, name)
+
+
+def test_detain_lasts_until_the_next_turn_of_its_controller(cards):
+    from tests.test_rules_conditionals import to_turn, token_of
+    from tests.test_rules_wave7b_activation import ability_index
+
+    s = build(cards, ["Lavinia of the Tenth"], [])
+    small = token_of(s, "p2", "Bob Mage", "Creature — Human Wizard", "1/1", "{T}: You gain 1 life.")
+    big = token_of(s, "p2", "Bob Golem", "Creature — Golem", "5/5")  # (mana value 0: detained too)
+    land = put(s, "Island", "p2")
+    lav = to_hand(s, "Lavinia of the Tenth")
+    mana(s, "p1", W=1, U=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=lav.id)
+    answer(s)
+    for c in (small, big):
+        assert {"cant_attack_or_block", "cant_activate"} <= chars(s, c).imposed
+    assert "cant_activate" not in chars(s, land).imposed  # (a land isn't a nonland permanent)
+    to_turn(s, 2, "main1")  # Bob's turn: still detained
+    assert s.state.rules.priority == "p2"
+    with pytest.raises(ActionError, match="can't be activated|can't activate"):
+        act(s, "p2", type="activate_ability", card_id=small.id, ability=ability_index(s, small, "gain 1 life"))
+    check(s)
+    to_turn(s, 3, "main1")  # Alice's next turn: it ended as the turn began
+    assert not {"cant_attack_or_block", "cant_activate"} & chars(s, small).imposed
+    check(s)
+
+
+# -- suspect (701.60) -------------------------------------------------------------------------------------
+def test_a_suspected_creature_has_menace_and_cannot_block(cards):
+    from tests.test_rules_wave7b_activation import ability_index
+
+    s = build(cards, ["Repeat Offender"], [])
+    man = put(s, "Repeat Offender")
+    assert "menace" not in chars(s, man).keywords and "cant_block" not in chars(s, man).imposed
+    mana(s, "p1", B=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=man.id, ability=ability_index(s, man, "suspected"))
+    answer(s)
+    assert "menace" in chars(s, man).keywords and "cant_block" in chars(s, man).imposed  # 701.60c
+    assert counters(s, man) == 0
+    check(s)
+    mana(s, "p1", B=1, C=2)  # it is suspected now, so the other branch runs
+    act(s, "p1", type="activate_ability", card_id=man.id, ability=ability_index(s, man, "suspected"))
+    answer(s)
+    assert counters(s, man) == 1
+    check(s)
+    # the designation ends when it leaves the battlefield (701.60a); it comes back as a new object (400.7)
+    act(s, "p1", type="move", card_ids=[man.id], to={"zone": "hand"})
+    act(s, "p1", type="move", card_ids=[man.id], to={"player": "p1", "zone": "battlefield"})
+    assert "menace" not in chars(s, man).keywords and "cant_block" not in chars(s, man).imposed
+    check(s)
+
+
+def test_an_aura_suspects_the_creature_it_enchants(cards):
+    from tests.test_rules_conditionals import token_of
+
+    s = build(cards, ["Incriminating Impetus"], [])
+    bear = token_of(s, "p2", "Bob Bear", "Creature — Bear", "2/2")
+    aura = to_hand(s, "Incriminating Impetus")
+    mana(s, "p1", B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=aura.id)
+    answer(s)
+    assert "menace" in chars(s, bear).keywords and "cant_block" in chars(s, bear).imposed
+    check(s)
 
 
 def test_unused_imports():

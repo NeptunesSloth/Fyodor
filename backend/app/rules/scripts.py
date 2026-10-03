@@ -4733,7 +4733,7 @@ def _exile_until_monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # -- keyword actions & face-down (wave 3F) -- goad names its objects ("goad it" after a target, "tap it and goad
 # it"); manifest / cloak put cards onto the battlefield ("then put X +1/+1 counters on it": the face-down
 # permanent it made, app/rules/facedown.py binds it)
-_RECORDING.update({"goad": None, "manifest": None})
+_RECORDING.update({"goad": None, "manifest": None, "detain": None, "suspect": None})  # (detain, suspect: wave 12A)
 _MOVERS.add("manifest")
 _CHOSEN["manifest"] = "n"
 
