@@ -17,6 +17,7 @@ from itertools import combinations_with_replacement
 from typing import Any
 
 from app.rules import mana_riders as _mana_riders  # -- mana riders (wave 5A) --
+from app.rules import removed_mana as _removed_mana  # -- if you do (wave 6F) --
 
 COLORS = ("W", "U", "B", "R", "G")
 ALL_MANA = (*COLORS, "C")
@@ -262,8 +263,12 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     self_counter: str | None = None
     from_hand = False  # -- mana riders (wave 5A) --
     extra: list[str] = []
+    removed_kind: str | None = None  # -- if you do (wave 6F) -- "Remove any number of storage counters from this land"
     for part in cost:
         if part in ("{T}", "{0}"):
+            continue
+        if (rk := _removed_mana.cost_kind(part)) is not None and removed_kind is None:  # -- if you do (wave 6F) --
+            removed_kind = rk
             continue
         if part == "Exile this card from your hand" and len(cost) == 1:  # -- mana riders (wave 5A) -- (113.6m)
             from_hand = True
@@ -290,7 +295,12 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             return None
     first = sentences[0].rstrip(".")
     options: tuple[tuple[str, ...], ...] | None
-    if chosen_color:
+    if removed_kind is not None:  # -- if you do (wave 6F) -- "Add {C} for each storage counter removed this way"
+        found_removed = None if chosen_color else _removed_mana.first_sentence(first, removed_kind)
+        if found_removed is None:
+            return None
+        count, options = found_removed
+    elif chosen_color:
         if first not in _CHOSEN_COLOR:
             return None
         count, options = _CHOSEN_COLOR[first], tuple((col,) for col in COLORS)
