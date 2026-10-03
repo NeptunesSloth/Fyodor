@@ -156,6 +156,12 @@ def _count(word: str) -> int:
 
 
 def _parse(c: str) -> Condition | None:
+    # -- entry forms (wave 11F) -- "Whenever a creature enters [the battlefield] under your control" is "a creature you control
+    # enters" (603.6a: an object entering the battlefield, under that player's control); "under an opponent's control":
+    # "an opponent controls". (A permanent "an opponent owns" is another thing: not read.)
+    m = re.fullmatch(r"(?P<s>.+?) (?P<v>enters?) (?:the battlefield )?under (?P<w>your|an opponent's) control", c)
+    if m and not re.search(r"\b(?:controls?|owns?)\b", m["s"]):
+        return _parse(f"{m['s']} {'you control' if m['w'] == 'your' else 'an opponent controls'} {m['v']}")
     # -- counters (wave 7C) -- "Whenever a creature dealt damage by ~ this turn dies" (Sengir Vampire): it dies, and ~ dealt
     # it damage earlier this turn (the turn's log, history.note_events; 700.4, 120.3)
     m = re.fullmatch(r"(?P<s>an? .+?) dealt damage by ~ this turn dies", c)
@@ -639,7 +645,7 @@ def _object_event(c: str) -> Condition | None:
             not (m["to"] == " to a player" and m["c"] == "combat ") and (m["to"] or not m["min"]):
         to = _DAMAGE_TO[m["to"]]
         who = _subject(m["s"], host=True, many=to in ("opponent", "player", "player_or_pw", "player_or_battle", "players",
-                                                      "opponents"))
+                                                      "opponents", "you"))
         if who is None:
             return None
         # (a "min" is the damage one source dealt one recipient in one event: 120.3; "to one or more creatures": 603.2c)

@@ -2665,6 +2665,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import other_side
 
                 ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
+                if ante is None and (cond is None or cond.get("subject") == "player") and re.match(r"^if ~ ", body) \
+                        and name not in ("cast_you", "cast_self", "turned_face_up_you") and (cond or {}).get("event") != "cast":
+                    # -- intervening ifs (wave 11F) -- "At the beginning of your upkeep, if ~ has no charge counters on it, return
+                    # it …": a step or a player's event names no object, so the "if" names the only one: ~
+                    ante = "self"
                 parsed = parse_effects(body, it=ante, event_player=has_player)
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``

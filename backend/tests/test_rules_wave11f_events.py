@@ -40,6 +40,9 @@ EXTRA = [
     real("Dragonborn Champion", "{2}{R}{G}", 4, "Creature — Dragon Warrior",
          "Trample\nWhenever a source you control deals 5 or more damage to a player, draw a card.", ("5", "3"), "RG"),
     real("Lava Axe", "{4}{R}", 5, "Sorcery", "Lava Axe deals 5 damage to target player or planeswalker.", None, "R"),
+    real("Elrond, Moon-Reader", "{1}{G}{U}", 3, "Legendary Creature — Elf Noble",
+         "Whenever you activate an ability of a creature, draw a card. This ability triggers only once each turn.", ("3", "3"),
+         "GU"),
     real("Belltower Sphinx", "{4}{U}", 5, "Creature — Sphinx",
          "Flying\nWhenever a source deals damage to this creature, that source's controller mills that many cards.", ("4", "4"),
          "U"),
@@ -165,3 +168,32 @@ def test_a_damage_threshold_is_what_one_source_dealt_in_one_event(cards):
     settle(s)
     assert life(s, "p2") == 32 and len(s.state.zones["p1:hand"]) == hand + 1  # 5 damage: drew a card
     roundtrip(s)
+
+
+@pytest.mark.parametrize("text,plain", [
+    ("a nontoken creature enters the battlefield under your control", "a nontoken creature you control enters"),
+    ("another creature enters under your control", "another creature you control enters"),
+    ("a land enters under an opponent's control", "a land an opponent controls enters"),
+    ("one or more nontoken lands enter under your control", "one or more nontoken lands you control enter"),
+])
+def test_enters_under_a_players_control_is_that_players_permanent_entering(text, plain):
+    from app.rules import events
+
+    assert events.parse_condition(text) == events.parse_condition(plain) is not None
+
+
+@pytest.mark.parametrize("text", [
+    "a permanent an opponent owns enters the battlefield under your control",  # ownership is another thing
+    "a source deals 4 or more damage",  # (a threshold needs a recipient: the damage one source dealt one recipient)
+    "a creature has activated an ability",
+])
+def test_unread_wordings_stay_manual(text):
+    from app.rules import events
+
+    assert events.parse_condition(text) is None
+
+
+def test_activating_a_mana_ability_would_trigger_it_too_so_the_wording_must_exclude_them(cards):
+    """605.3b: mana abilities don't use the stack here, so "Whenever you activate an ability of a creature" (which a mana
+    ability triggers, 602.2) is refused rather than read as the non-mana abilities only."""
+    assert coverage.of_card_data(cards.resolve("Elrond, Moon-Reader")).level != "FULL"

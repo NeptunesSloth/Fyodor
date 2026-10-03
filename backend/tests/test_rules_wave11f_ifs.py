@@ -34,6 +34,13 @@ EXTRA = [
          "Trample\nThis creature gets +1/+1 for each Aura and Equipment attached to it.\nWhen this creature dies, if it was "
          "enchanted, create a Junk token.\nWhen this creature dies, if it was equipped, create a Junk token.", ("1", "1"), "R"),
     real("Pacifism", "{1}{W}", 2, "Enchantment — Aura", "Enchant creature\nEnchanted creature can't attack or block.", None, "W"),
+    real("Damia, Sage of Stone", "{4}{B}{G}{U}", 7, "Legendary Creature — Gorgon Wizard",
+         "Deathtouch\nSkip your draw step.\nAt the beginning of your upkeep, if you have fewer than seven cards in hand, draw "
+         "cards equal to the difference.", ("4", "4"), "BGU"),
+    real("Mana Bloom", "{X}{G}", 1, "Enchantment",
+         "This enchantment enters with X charge counters on it.\nRemove a charge counter from this enchantment: Add one mana of "
+         "any color. Activate only once each turn.\nAt the beginning of your upkeep, if this enchantment has no charge counters on "
+         "it, return it to its owner's hand.", None, "G"),
     real("Farsight Mask", "{3}", 3, "Artifact",
          "Whenever a source an opponent controls deals damage to you, if this artifact is untapped, you may draw a card.", None),
     real("Demonic Rising", "{3}{B}", 4, "Enchantment",
@@ -52,7 +59,7 @@ def card_db(settings):
 
 
 @pytest.mark.parametrize("name", ["Imaginary Pet", "Asylum Visitor", "Keeper of the Accord", "Tephraderm", "Gunner Conscript",
-                                  "Farsight Mask", "Demonic Rising"])
+                                  "Farsight Mask", "Demonic Rising", "Damia, Sage of Stone", "Mana Bloom"])
 def test_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -282,4 +289,26 @@ def test_defending_player_controls_a_black_nontoken_permanent(cards):
     declare(s, c)
     to_turn(s, 3)
     assert not s.state.cards[c.id].tapped
+    roundtrip(s)
+
+
+def test_draw_cards_equal_to_the_difference(cards):
+    s = build(cards, ("Damia, Sage of Stone",), forests=30, islands=30)
+    put(s, "Damia, Sage of Stone")
+    empty_hand(s)
+    act(s, "p1", type="draw", count=2)
+    to_turn(s, 3)  # Alice's upkeep: two cards in hand, so five more (the draw step is skipped)
+    assert len(hand_of(s, "p1")) == 7
+    roundtrip(s)
+
+
+def test_it_is_the_source_when_nothing_else_is_named(cards):
+    s = build(cards, ("Mana Bloom",), forests=30, islands=30)
+    bloom = put(s, "Mana Bloom")
+    act(s, "p1", type="counter", card_ids=[bloom.id], kind="charge", delta=1)
+    to_turn(s, 3)  # a charge counter on it: the condition fails, it stays
+    assert on(s, "Mana Bloom", "battlefield")
+    act(s, "p1", type="counter", card_ids=[bloom.id], kind="charge", delta=-1)
+    to_turn(s, 5)  # none left: "return it" is the Bloom itself
+    assert on(s, "Mana Bloom", "hand")
     roundtrip(s)

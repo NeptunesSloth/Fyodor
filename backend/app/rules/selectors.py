@@ -710,8 +710,8 @@ def _outlaws(phrase: str) -> Selector | None:
     m = _OUTLAW.fullmatch(phrase)
     if m is None:
         return None
-    spell = m["post"].strip().startswith("spell")
-    base = _parse((m["pre"] + ("" if spell else "permanent" + m["pl"]) + m["post"]).strip())
+    noun = re.match(r"\s*(?:spells?|cards?|creatures?|permanents?|tokens?)\b", m["post"]) is not None  # "outlaw spell", "outlaw cards"
+    base = _parse((m["pre"] + ("" if noun else "permanent" + m["pl"]) + m["post"]).strip())
     return replace(base, extras=(*base.extras, "subtype_any:" + OUTLAW_TYPES)) if base is not None else None
 
 
