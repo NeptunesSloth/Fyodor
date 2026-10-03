@@ -162,6 +162,8 @@ def _qualified(c: str) -> Condition | None:
     inner = _parse(c)
     if inner is None and during and re.search(r" (?:second|third|fourth|fifth) ", c):
         inner = _parse(f"{c} each turn")  # ("their second card during their turn": the Nth this turn, as "… each turn")
+    if inner is not None and during == "their" and inner.get("subject") != "player":
+        return None  # ("their" is the acting player's: only a player subject has one)
     if inner is None or (first and (inner.get("event") not in ("gain_life", "lose_life", "create_token")
                                     or inner.get("subject") != "player" or inner.get("player") != "you")):
         return None
