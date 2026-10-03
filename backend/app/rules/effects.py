@@ -3324,3 +3324,8 @@ from app.rules import each_may as _each_may  # noqa: E402, I001
 
 PRIMITIVES.update(_each_may.PRIMITIVES)
 # -- end if you do (wave 6F) --
+# -- choice grants and switches (wave 7E) -- app/rules/choice_grants.py
+from app.rules import choice_grants as _choice_grants  # noqa: E402, I001
+
+PRIMITIVES.update(_choice_grants.PRIMITIVES)
+RESUME.update(_choice_grants.RESUME)

@@ -44,8 +44,11 @@ def tap_or_untap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not cards:
         return True
     name = plan.state.cards[cards[0]].name or "it"
+    options = [DecisionOption(id="tap", label=f"Tap {name}"), DecisionOption(id="untap", label=f"Untap {name}")]
+    if e.get("optional"):  # (wave 7E) an activated ability's "you may": choosing neither
+        options.append(DecisionOption(id="none", label="Do nothing"))
     decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Tap or untap'}: tap or untap {name}?",
-           options=[DecisionOption(id="tap", label=f"Tap {name}"), DecisionOption(id="untap", label=f"Untap {name}")],
+           options=options,
            resume={"step": "tap_or_untap", "ctx": ctx, "e": e}, source=plan.state.cards[cards[0]])
     return False
 

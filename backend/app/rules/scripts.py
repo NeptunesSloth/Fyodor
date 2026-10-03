@@ -1971,6 +1971,9 @@ def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
     # (Elvish Piper): the "may" is choosing no card
     if parsed is not None and parsed[2] and parsed[0] and parsed[0][0]["do"] == "put_from_hand":
         return [{**parsed[0][0], "optional": True}, *parsed[0][1:]], parsed[1], False
+    # -- activated leftovers (wave 7E) -- "{U}, {T}: You may tap or untap target creature.": the "may" is choosing neither
+    if parsed is not None and parsed[2] and len(parsed[0]) == 1 and parsed[0][0]["do"] == "tap_or_untap":
+        return [{**parsed[0][0], "optional": True}], parsed[1], False
     return parsed
 
 
@@ -4585,6 +4588,10 @@ EFFECTS[:0] = _stack_interaction.TEMPLATES
 # -- turn grants (wave 6A) -- one subject for two grants ("… gains vigilance until end of turn and can't be blocked this
 # turn"): after every other template (it defers to the generic grammar first: app/rules/turn_grants.py)
 EFFECTS.extend(_turn_grants.LAST)
+# -- attach abilities (wave 7E) -- "Attach this Equipment to target creature you control." (app/rules/attach_abilities.py)
+from app.rules import attach_abilities as _attach_abilities  # noqa: E402
+
+EFFECTS[:0] = _attach_abilities.TEMPLATES
 # -- tap or untap (wave 6D) -- "You may tap or untap target permanent." (app/rules/tap_or_untap.py)
 from app.rules import tap_or_untap as _tap_or_untap  # noqa: E402
 
@@ -4605,3 +4612,8 @@ EFFECTS[:0] = _win_game.TEMPLATES
 from app.rules import activation_words as _activation_words  # noqa: E402, I001
 
 EFFECTS[:0] = _activation_words.TEMPLATES
+# -- choice grants and switches (wave 7E) -- "gains your choice of …", "gets +1/-1 or -1/+1", "Switch … power and toughness",
+# "Regenerate target Elf" (app/rules/choice_grants.py)
+from app.rules import choice_grants as _choice_grants  # noqa: E402, I001
+
+EFFECTS[:0] = _choice_grants.TEMPLATES
