@@ -8,7 +8,7 @@ import pytest
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.game.state import GameState
-from app.rules import coverage, scripts
+from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable, zone
 from tests.test_rules_conditionals import creature, life, on_field, pick, settle, to_hand, until_asked
