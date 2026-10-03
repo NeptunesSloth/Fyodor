@@ -138,7 +138,8 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
         text=a.token.text,
         back=_token_back(a.token.back),  # -- keyword actions & face-down (wave 3F) -- 111.10i
     )
-    key = zone_key(pid, "battlefield")
+    emblem = spec.type_line == "Emblem"  # -- emblems (wave 13A) -- 114.1: an object in the command zone, not a token (111.7 doesn't apply)
+    key = zone_key(pid, "command" if emblem else "battlefield")
     source = None
     if a.source_id:
         src = ops.card(state, a.source_id)
@@ -159,7 +160,7 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
             x=base_x + (i % 10) * 16,
             y=base_y + (i // 10) * 16 + (i % 10) * 4,
             tapped=a.tapped,
-            is_token=True,
+            is_token=not emblem,
             token=spec.model_copy(),
             quantity=a.count if stacked else 1,
             token_source=source,
@@ -167,6 +168,8 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
         state.cards[new_id] = c
         state.zone(key).append(new_id)
     what = f"{a.count} {spec.name} token{'s' if a.count != 1 else ''}" if a.count != 1 else f"a {spec.name} token"
+    if emblem:
+        what = f"the {spec.name}"
     if stacked and a.count > 1:
         what += f" (stack ×{a.count})"
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" created {what}" + (f" (from {source.name})" if source else ""))])

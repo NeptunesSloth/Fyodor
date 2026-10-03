@@ -961,6 +961,8 @@ def _one(group: dict[str, Any] | None) -> Any:
 
 
 def _parse(text: str) -> tuple[Effects, Any]:
+    if (emblem := _emblem(text)) is not None:  # -- emblems (wave 13A) --
+        return emblem
     if '"' in text:  # -- quoted grants (wave 2D) -- the quoted abilities are read on their own
         return _quoted(text)
     lead = _EOT_LEAD.match(text)  # -- quoted grants (wave 2D) -- "Until end of turn, target creature gets +1/+0."
@@ -2659,6 +2661,21 @@ _MONARCH = re.compile(_SUBJ + r"becomes? the monarch")
 _INITIATIVE = re.compile(_SUBJ + r"takes? the initiative")
 _VENTURE = re.compile(r"(?:you )?venture into (?P<into>the dungeon|Undercity)")
 _RING = re.compile(r"the Ring tempts you")
+_EMBLEM = re.compile(_SUBJ + r'gets? an emblem with "(?P<t>[^"]+)"')  # (nested quotes: not read)
+
+
+def _emblem(text: str) -> tuple[Effects, Any] | None:
+    """114.1: "You get an emblem with "…"" — only when every quoted ability is one the engine runs from the command zone;
+    a quote it can't read is no template match (the card stays manual)."""
+    m = _EMBLEM.fullmatch(text)
+    if m is None:
+        return None
+    from app.rules.designations import emblem_text_ok
+
+    if not emblem_text_ok(m["t"]):
+        raise _Fail
+    who, target = _subject(m)
+    return [{"do": "emblem", "who": who, "text": m["t"]}], target
 
 
 def designation_instruction(text: str) -> tuple[Effects, Any] | None:
