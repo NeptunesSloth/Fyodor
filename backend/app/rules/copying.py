@@ -143,7 +143,10 @@ def _base(recipe: CopyRecipe, info: CardInfo) -> Characteristics:
     if recipe.printing:
         data = info.get(recipe.printing)
         if data is not None:
-            return chars.printed_from_data(data, recipe.face)
+            ch = chars.printed_from_data(data, recipe.face)
+            # -- review (casting) -- 202.3b / 712.8e: a copy of the back face of a transforming double-faced object has mana
+            # value 0 (the printed back face reads its front face's cost only for the card itself, 712.8e)
+            return replace(ch, mana_value=0.0) if recipe.face and data.get("layout") == "transform" else ch
     if recipe.token is not None:
         t = recipe.token
         probe = CardInstance(id="copy-probe", owner="", controller="", zone="", is_token=True,
