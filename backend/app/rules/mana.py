@@ -107,6 +107,9 @@ class ManaAbility:
     # -- refused copy/mana (wave 3R3) -- "Put a -0/-1 counter on this creature: Add {G}." (Wall of Roots): the
     # counter put on the source as the cost (by hand only: the auto-payer never weakens a creature)
     self_counter: str | None = None
+    # -- mana riders (wave 5A) -- "Exile this card from your hand: Add {R}." (Simian Spirit Guide): activated only
+    # from its owner's hand (113.6m, 605.3a), by hand only (app/rules/mana_riders.activate_from_hand)
+    from_hand: bool = False
 
     @property
     def penalty(self) -> int:
@@ -257,9 +260,13 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     sacrifice = False
     chooses = False
     self_counter: str | None = None
+    from_hand = False  # -- mana riders (wave 5A) --
     extra: list[str] = []
     for part in cost:
         if part in ("{T}", "{0}"):
+            continue
+        if part == "Exile this card from your hand" and len(cost) == 1:  # -- mana riders (wave 5A) -- (113.6m)
+            from_hand = True
             continue
         if _SAC_SELF.fullmatch(part):
             sacrifice = True
@@ -360,7 +367,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
                 spend_only = q
     return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
                        riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition,
-                       count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter)
+                       count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter,
+                       from_hand=from_hand)
 
 
 @dataclass(frozen=True)

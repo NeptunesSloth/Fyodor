@@ -203,3 +203,26 @@ def after(plan: Plan, card: CardInstance, kind: str, n: int) -> None:
         gains = [(p, n) for p in plan.live() if p != card.controller]
         if gains:
             replace.gain_life(plan, gains, actor=card.controller)
+
+
+# -- "Exile this card from your hand: Add {R}." (Simian / Elvish Spirit Guide) ----------------------------------------------
+def activate_from_hand(plan: Plan, card: CardInstance, ch: Any, ability: Any) -> None:
+    """113.6m: an ability whose cost exiles the card from its owner's hand works only there. 605.3a / 605.3b: a mana
+    ability, activated whenever its controller has priority or is paying, resolving at once: the cost (the card is
+    exiled from the hand — a public move) and then the mana. The auto-payer never spends a card from the hand."""
+    from app.game.errors import ActionError
+    from app.rules import mana as M
+    from app.rules.casting import commander_identity
+    from app.game.rules_state import emit
+
+    parsed = M.parse_mana_ability(ability.text, commander_identity(plan.state, plan.actor, plan.info))
+    if parsed is None or not parsed.from_hand or card.owner != plan.actor or len(parsed.options) != 1:
+        raise ActionError(f"Fyodor can't carry out “{ability.text}” from your hand yet. Use the table tools.")
+    option = parsed.options[0]
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "exile"}}, actor=plan.actor)
+    added: dict[str, int] = {}
+    for m in option:
+        added[m] = added.get(m, 0) + 1
+    plan.do({"type": "rules_mana", "player": plan.actor, "tap": [], "sacrifice": [], "delta": added, "life": 0,
+             "label": f"exiled {ch.name or 'a card'} from their hand: added {M.symbols(added)}"}, actor=plan.actor)
+    emit(plan.state, "mana_added", object_id=None, card=card.id, player=plan.actor, amount=sum(added.values()))

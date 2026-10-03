@@ -289,7 +289,7 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         if ab.kind != "mana":
             continue
         parsed = M.parse_mana_ability(ab.text, identity)
-        if parsed is None:
+        if parsed is None or parsed.from_hand:  # (from_hand: only from the hand, wave 5A — mana_riders.activate_from_hand)
             continue
         if parsed.spend_only is not None and parsed.spend_only.startswith("q:") and '"chosen": true' in parsed.spend_only:
             # -- refused copy/mana (wave 3R3) -- "a creature spell of the chosen type": the type chosen as it entered
@@ -2233,6 +2233,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).from_hand:
             activate_to_stack(plan, card, ch, ability, a)  # -- ability words (wave 4F) -- channel (113.6m)
             return
+        if ability is not None and ability.kind == "mana":  # -- mana riders (wave 5A) -- Simian Spirit Guide (605.3a)
+            from app.rules import mana_riders
+
+            mana_riders.activate_from_hand(plan, card, ch, ability)
+            plan.rules.passed = []
+            return
         found = suspend_info(ch, a.ability)
         if found is not None:
             suspend(plan, card, ch, a, *found)
@@ -2333,6 +2339,15 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     if a.convoke or a.improvise or a.delve:
         _commit_helper(plan, card, "convoke" if a.convoke else "improvise" if a.improvise else "delve")
         return
+    if card is not None and card.zone == zone_key(plan.actor, "hand"):  # -- mana riders (wave 5A) -- a Spirit Guide
+        from app.rules import mana_riders
+
+        hand_ch = plan.ch(card)
+        hand_ability = _find_ability(hand_ch, a.ability)
+        if hand_ability.kind == "mana":
+            mana_riders.activate_from_hand(plan, card, hand_ch, hand_ability)
+            after_tapping(plan)
+            return
     if card is None or card.controller != plan.actor or not card.zone.endswith(":battlefield"):
         raise ActionError("Tap mana sources you control")
     d = plan.rules.decision

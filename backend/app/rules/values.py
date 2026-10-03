@@ -162,6 +162,8 @@ def parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"kicked": 1}
     if _COLORS_SPENT.fullmatch(what):  # -- ability words (wave 4F) -- converge
         return {"colors_spent": 1}
+    if re.fullmatch(r"cards? named ~ in (?:all|each) graveyards?", what):  # -- mana riders (wave 5A) -- Rite of Flame
+        return {"named_self_in_graveyards": 1}
     if what == "your life total":
         return {"life": "you"}
     if what in ("target player's life total", "target opponent's life total"):
@@ -315,6 +317,14 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                       "adjust by hand", [record.card] if record.card in plan.state.cards else ())
             return 0
         return sum(1 for c in "WUBRG" if record.mana_spent.get(c, 0) > 0)
+    if "named_self_in_graveyards" in v:  # -- mana riders (wave 5A) -- cards with the source's name in every graveyard
+        from app.rules import characteristics as chars
+
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        name = chars.of(src, plan.info).name if src is not None else ""
+        live = plan.live()
+        return sum(1 for key, ids in plan.state.zones.items() if key.endswith(":graveyard") and key.split(":")[0] in live
+                   for cid in ids if name and chars.of(plan.state.cards[cid], plan.info).name == name)
     if "count" in v:
         sel = selectors.from_key(v["count"])
         if sel.player is not None:

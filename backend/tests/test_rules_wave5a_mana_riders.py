@@ -62,6 +62,9 @@ EXTRA = [
     card('Colossus of Sardia', set_code="tst", number="C06", mana_cost='{9}', cmc=9.0, type_line='Artifact Creature — Golem', oracle_text="Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nThis creature doesn't untap during your untap step.\n{9}: Untap this creature. Activate only during your upkeep.", power='9', toughness='9', colors=[], color_identity=[], keywords=['Trample']),  # noqa: E501
     card('Frantic Search', set_code="tst", number="C07", mana_cost='{2}{U}', cmc=3.0, type_line='Instant', oracle_text='Draw two cards, then discard two cards. Untap up to three lands.', colors=['U'], color_identity=['U']),  # noqa: E501
     card('Murkfiend Liege', set_code="tst", number="C08", mana_cost='{2}{G/U}{G/U}{G/U}', cmc=5.0, type_line='Creature — Horror', oracle_text="Other green creatures you control get +1/+1.\nOther blue creatures you control get +1/+1.\nUntap all green and/or blue creatures you control during each other player's untap step.", power='4', toughness='4', colors=['G', 'U'], color_identity=['G', 'U']),  # noqa: E501
+    card('Simian Spirit Guide', set_code="tst", number="D01", mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Ape Spirit', oracle_text='Exile this card from your hand: Add {R}.', power='2', toughness='2', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('Rite of Flame', set_code="tst", number="D02", mana_cost='{R}', cmc=1.0, type_line='Sorcery', oracle_text='Add {R}{R}, then add {R} for each card named Rite of Flame in each graveyard.', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('Accumulated Knowledge', set_code="tst", number="D03", mana_cost='{1}{U}', cmc=2.0, type_line='Instant', oracle_text='Draw a card, then draw cards equal to the number of cards named Accumulated Knowledge in all graveyards.', colors=['U'], color_identity=['U']),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -529,4 +532,87 @@ def test_unwinding_clock_untaps_artifacts_not_lands(cards):
     to_bobs_main(s)
     assert not s.state.cards[clock.id].tapped and not s.state.cards[talisman.id].tapped
     assert s.state.cards[forest.id].tapped
+    roundtrip(s)
+
+
+# -- a mana ability activated from the hand (113.6m, 605.3a) ------------------------------------------------------------------
+def test_simian_spirit_guide_from_the_hand_only(cards):
+    s = build(cards, [(2, "Simian Spirit Guide"), (8, "Forest")])
+    guide, other = [c for c in s.state.cards.values() if c.name == "Simian Spirit Guide"]
+    act(s, "p1", type="move", card_ids=[guide.id, other.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="activate_ability", card_id=guide.id, ability=0)
+    assert s.state.cards[guide.id].zone == "p1:exile" and s.state.players["p1"].mana == {"R": 1}
+    assert not s.state.zones.get("stack")  # 605.3b
+    # on the battlefield it has no mana ability to use (its cost exiles it from the hand)
+    act(s, "p1", type="move", card_ids=[other.id], to={"player": "p1", "zone": "battlefield"})
+    assert not options(s, other)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=other.id, ability=0)
+    roundtrip(s)
+
+
+def test_the_payer_never_exiles_a_spirit_guide_by_itself(cards):
+    s = build(cards, [(1, "Simian Spirit Guide"), (1, "Rite of Flame"), (8, "Forest")])
+    guide = find(s, "Simian Spirit Guide")
+    rite = find(s, "Rite of Flame")
+    act(s, "p1", type="move", card_ids=[guide.id, rite.id], to={"player": "p1", "zone": "hand"})
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=rite.id)  # {R}: no red source on the battlefield
+    assert s.state.cards[guide.id].zone == "p1:hand"
+    act(s, "p1", type="activate_ability", card_id=guide.id, ability=0)
+    act(s, "p1", type="cast_spell", card_id=rite.id)  # paid with the Guide's {R}
+    pass_until_stack_empty(s)
+    assert s.state.cards[rite.id].zone == "p1:graveyard" and s.state.players["p1"].mana == {"R": 2}
+    roundtrip(s)
+
+
+# -- "for each card named ~ in each graveyard" --------------------------------------------------------------------------------
+def test_rite_of_flame_counts_the_others_in_every_graveyard(cards):
+    s = build(cards, [(2, "Rite of Flame"), (8, "Forest")], bob=[(1, "Rite of Flame"), (9, "Island")])
+    rite, other = [c for c in s.state.cards.values() if c.name == "Rite of Flame" and c.owner == "p1"]
+    bobs = next(c for c in s.state.cards.values() if c.name == "Rite of Flame" and c.owner == "p2")
+    act(s, "p1", type="move", card_ids=[other.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p2", type="move", card_ids=[bobs.id], to={"player": "p2", "zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[rite.id], to={"player": "p1", "zone": "hand"})
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=rite.id)
+    pass_until_stack_empty(s)
+    assert s.state.players["p1"].mana == {"R": 4}  # {R}{R}, then one for each of the two in graveyards (not itself)
+    roundtrip(s)
+
+
+def test_accumulated_knowledge_draws_one_more_for_each(cards):
+    s = build(cards, [(2, "Accumulated Knowledge"), (8, "Forest")])
+    ak, other = [c for c in s.state.cards.values() if c.name == "Accumulated Knowledge"]
+    act(s, "p1", type="move", card_ids=[other.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[ak.id], to={"player": "p1", "zone": "hand"})
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=ak.id)
+    pass_until_stack_empty(s)
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + 2  # a card, then one more (the other in the graveyard)
+    roundtrip(s)
+
+
+def test_spirit_guide_while_paying_for_a_spell(cards):
+    """605.3a: a mana ability can be activated while paying — here from the hand, during the "tap your mana" prompt."""
+    from app.game.factory import PlayerSetup, new_game
+    from tests.game_helpers import deck, enable
+
+    alice = deck(cards, "Krenko, Mob Boss", [(1, "Simian Spirit Guide"), (1, "Rite of Flame"), (8, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    state = enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False))
+    for prefs in state.rules.prefs.values():
+        prefs.payment = "self"  # the table default: players tap their own mana
+    s = GameSession(state, cards=cards)
+    act(s, "p1", type="pass_priority")
+    guide = find(s, "Simian Spirit Guide")
+    rite = find(s, "Rite of Flame")
+    act(s, "p1", type="move", card_ids=[guide.id, rite.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="cast_spell", card_id=rite.id)
+    d = s.state.rules.decision
+    assert d is not None and (d.resume or {}).get("step") == "pay_mana"
+    act(s, "p1", type="activate_ability", card_id=guide.id, ability=0)
+    assert s.state.cards[guide.id].zone == "p1:exile"
+    assert s.state.cards[rite.id].zone != "p1:hand"  # paid: cast
     roundtrip(s)

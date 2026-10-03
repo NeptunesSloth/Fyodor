@@ -3785,7 +3785,8 @@ def _add_counted(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     from app.rules import values
 
     what = m["what"]
-    if what.startswith(("card named", "color ", "different ", "creature that", "permanent ")) or " this way" in what:
+    if (what.startswith(("card named", "color ", "different ", "creature that", "permanent ")) or " this way" in what) \
+            and not re.fullmatch(r"card named ~ in each graveyard", what):  # (wave 5A: Rite of Flame, values.parse_count)
         raise _NoMatch
     # -- refused copy/mana (wave 3R3) -- Jeska's Will: "Add {R} for each card in target opponent's hand." The player
     # is the instruction's one target (115.1: chosen as it's cast, checked as it resolves, 608.2b); the amount is
