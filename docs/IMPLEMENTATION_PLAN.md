@@ -391,6 +391,12 @@ A player eliminated early gets a compact hub instead of only spectating: Spectat
 information only), a private Practice Table, an Opening Hand Simulator and a Deck Lab working on a
 copy of the deck, all isolated from the live game, with a small live-game indicator. Not started.
 
+### Later: spectator side activities — planned (`SPECTATOR_ACTIVITIES_MILESTONE.md`)
+
+After the elimination hub, Practice Table, persistent pod lobby and game-night flow are stable: Watch +
+PiP Practice Table, a next-game deck queue, rate-limited reactions, a public-only damage sandbox and
+session-only fake-point predictions, all isolated from the live match. Not started.
+
 ### Later: post-game flow — planned (`3D_DIRECTION.md` §7a)
 
 After a result: **Rematch — same decks** (a fresh game, same seats/decks/settings, new result record),
