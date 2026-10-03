@@ -2210,7 +2210,8 @@ _BECOME_LAND = re.compile(
 # -- activated wordings (wave 15D) -- "This creature becomes the creature type of your choice until end of turn." (Mistform
 # Dreamer), "Target creature becomes the color of your choice until end of turn.": a public choice made as it resolves (608.2),
 # then the same layer 4 / 5 effect as "becomes a Frog" / "becomes red" (205.1a: the chosen type replaces its creature types)
-_BECOME_PICK = re.compile(r"^(?:until end of turn, )?(?P<o>.+?) becomes? the (?P<what>creature type|color) of your choice until end of turn$")
+_BECOME_PICK = re.compile(r"^(?:until end of turn, )?(?P<o>.+?) becomes? the (?P<what>creature type|color)(?: other than (?P<ex>[A-Z][a-z]+))? of your choice "
+                          r"until end of turn$")
 
 
 def _become_land(m: re.Match[str]) -> tuple[Effects, Any]:
@@ -2237,7 +2238,8 @@ def _become(text: str) -> tuple[Effects, Any]:
         kind, key, group = ref(pick["o"])
         if kind == "players":
             raise _Fail
-        return [{"do": "become", "who": _who(kind, key), "types": [], "pick": pick["what"], "duration": "end_of_turn"}], _one(group)
+        return [{"do": "become", "who": _who(kind, key), "types": [], "pick": pick["what"], "duration": "end_of_turn",
+                 **({"not": pick["ex"]} if pick["ex"] else {})}], _one(group)
     m = _BECOME.fullmatch(text)
     if m is None and rider is None and (c := _BECOME_COLOR.fullmatch(text)) is not None:
         return _become_color(c)  # -- static wordings (wave 6E) --

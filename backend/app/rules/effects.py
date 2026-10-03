@@ -2960,7 +2960,8 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         return False
     if e.get("pick"):  # -- activated wordings (wave 15D) -- "becomes the creature type / color of your choice": chosen as it resolves
         decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a {e['pick']}",
-               options=_choice_options(plan, ctx, e["pick"]), resume={"step": "become_pick", "ctx": ctx, "e": e})
+               options=[o for o in _choice_options(plan, ctx, e["pick"]) if o.id != e.get("not")],
+               resume={"step": "become_pick", "ctx": ctx, "e": e})
         return False
     per_object = _reads_it(e.get("p")) or _reads_it(e.get("t"))
     groups = [[c] for c in cards] if per_object else [cards]
@@ -3055,7 +3056,7 @@ RESUME["become_land"] = resume_become_land
 
 def resume_become_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
-    if chosen[0] not in {o.id for o in _choice_options(plan, ctx, e["pick"])}:
+    if chosen[0] not in {o.id for o in _choice_options(plan, ctx, e["pick"])} - {e.get("not")}:
         raise ValueError("not an offered choice")
     plan.note(f"{plan.name(d.player)} chooses {chosen[0]} ({e['pick']})", actor=d.player)
     more = {"creature_types": [chosen[0]]} if e["pick"] == "creature type" else {"colors": [{"White": "W", "Blue": "U", "Black": "B", "Red": "R", "Green": "G"}[chosen[0]]]}
