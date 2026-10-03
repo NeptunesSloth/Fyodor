@@ -169,7 +169,15 @@ def note_cast(plan: Plan, card: Any) -> None:
     record = plan.rules.payments.get(plan.oid(card))
     log.casts.append(CastNote(player=card.controller, object_id=plan.oid(card), types=sorted(ch.types),
                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
-                              mv=float(ch.mana_value), cast_from=record.cast_from if record is not None else None))
+                              mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None))
+
+
+def _stack_mv(card: Any, ch: Any) -> int:
+    """-- review (wave 5R) -- a spell's mana value on the stack counts its X (202.3e): "a spell with mana value 5 or
+    greater" cast this turn."""
+    from app.rules.stack_interaction import mana_value
+
+    return mana_value(card, ch)
 
 
 def note_events(plan: Plan, events: list[Any]) -> None:

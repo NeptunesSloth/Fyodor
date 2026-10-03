@@ -22,6 +22,17 @@ EXTRA = [
     card('Hypothesizzle', set_code="tst", number="R2", mana_cost='{3}{U}{R}', cmc=5.0, type_line='Instant',
          oracle_text='Draw two cards. Then you may discard a nonland card. When you do, Hypothesizzle deals 4 damage to target creature.',
          colors=['R', 'U'], color_identity=['R', 'U']),
+    card('Grand Abolisher', set_code="tst", number="RC1", mana_cost='{W}{W}', cmc=2.0, type_line='Creature — Human Cleric', oracle_text="During your turn, your opponents can't cast spells or activate abilities of artifacts, creatures, or enchantments.", power='2', toughness='2', colors=['W'], color_identity=['W']),
+    card('Simian Spirit Guide', set_code="tst", number="RC2", mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Ape Spirit', oracle_text='Exile this card from your hand: Add {R}.', power='2', toughness='2', colors=['R'], color_identity=['R']),
+    card('Drannith Magistrate', set_code="tst", number="RC3", mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Human Wizard', oracle_text="Your opponents can't cast spells from anywhere other than their hands.", power='1', toughness='3', colors=['W'], color_identity=['W']),
+    card('Propaganda', set_code="tst", number="RC4", mana_cost='{2}{U}', cmc=3.0, type_line='Enchantment', oracle_text="Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.", colors=['U'], color_identity=['U']),
+    card("Mirari's Wake", set_code="tst", number="RC5", mana_cost='{3}{G}{W}', cmc=5.0, type_line='Enchantment', oracle_text='Creatures you control get +1/+1.\nWhenever you tap a land for mana, add one mana of any type that land produced.', colors=['G', 'W'], color_identity=['G', 'W']),
+    card('Seedborn Muse', set_code="tst", number="RC6", mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text="Untap all permanents you control during each other player's untap step.", power='2', toughness='4', colors=['G'], color_identity=['G']),
+    card('Hardened Scales', set_code="tst", number="RC7", mana_cost='{G}', cmc=1.0, type_line='Enchantment', oracle_text='If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead.', colors=['G'], color_identity=['G']),
+    card('Renata, Called to the Hunt', set_code="tst", number="RC8", mana_cost='{2}{G}{G}', cmc=4.0, type_line='Legendary Enchantment Creature — Demigod', oracle_text="Renata's power is equal to your devotion to green. (Each {G} in the mana costs of permanents you control counts toward your devotion to green.)\nEach other creature you control enters with an additional +1/+1 counter on it.", power='*', toughness='3', colors=['G'], color_identity=['G']),
+    card('Woe Strider', set_code="tst", number="RD1", mana_cost='{2}{B}', cmc=3.0, type_line='Creature — Horror', oracle_text='When this creature enters, create a 0/1 white Goat creature token.\nSacrifice another creature: Scry 1.\nEscape—{3}{B}{B}, Exile four other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)\nThis creature escapes with two +1/+1 counters on it.', power='3', toughness='2', colors=['B'], color_identity=['B'], keywords=['Escape', 'Scry']),
+    card('Memnite', set_code="tst", number="RD2", mana_cost='{0}', cmc=0.0, type_line='Artifact Creature — Construct', power='1', toughness='1'),
+    card('Blaze', set_code="tst", number="RB2", mana_cost='{X}{R}', cmc=1.0, type_line='Sorcery', oracle_text='Blaze deals X damage to any target.', colors=['R'], color_identity=['R']),
     card('Forbidden Friendship', set_code="tst", number="RA1", mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text='Create a 1/1 red Dinosaur creature token with haste and a 1/1 white Human Soldier creature token.', colors=['R'], color_identity=['R']),
     card('Woodland Champion', set_code="tst", number="RA2", mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Elf Scout', oracle_text='Whenever one or more tokens you control enter, put that many +1/+1 counters on this creature.', power='2', toughness='2', colors=['G'], color_identity=['G']),
     card('Mister Fantastic, Reed Richards', set_code="tst", number="RA3", mana_cost='{3}{U}', cmc=4.0, type_line='Legendary Creature — Human Scientist Hero', oracle_text='Reach\nWhenever one or more tokens you control enter, you may draw a card.', power='2', toughness='4', colors=['U'], color_identity=['U'], keywords=['Reach']),
@@ -132,4 +143,108 @@ def test_two_token_kinds_in_one_instruction_trigger_one_or_more_once(cards):
     settle(s)
     assert s.state.cards[champion.id].counters.get("+1/+1", 0) == 2  # ("that many": both tokens, one trigger)
     assert len(zone(s.state, "p1", "hand")) == hand_before - 1 + 1  # (Mister Fantastic: one draw, not two)
+    roundtrip(s)
+
+
+# -- 5B: a spell's X counts in its mana value on the stack (202.3e), also in this turn's cast log ------------------------
+def test_cast_log_counts_x_in_mana_value(cards):
+    s = build(cards, p1=("Blaze",))
+    blaze = to_hand(s, "Blaze")
+    mana(s, "p1", R=4)
+    act(s, "p1", type="cast_spell", card_id=blaze.id, targets=["p2"], x_value=3)
+    assert s.state.rules.turn_log.casts[-1].mv == 4  # ("if you've cast a spell with mana value 4 or greater this turn")
+    settle(s)
+    assert life(s, "p2") == 37
+    roundtrip(s)
+
+
+# -- seams between wave-5 features ---------------------------------------------------------------------------------------
+def test_grand_abolisher_doesnt_stop_a_spirit_guide_in_the_hand(cards):
+    """5E vs 5A: "activate abilities of … creatures" means creature permanents (109.2; Grand Abolisher ruling: not
+    abilities of cards in other zones)."""
+    from tests.test_rules_wave5e_cast_limits import bob_gets_priority
+
+    s = build(cards, p1=("Grand Abolisher", "Grizzly Bears"), p2=("Simian Spirit Guide",))
+    on_field(s, "Grand Abolisher")
+    guide = to_hand(s, "Simian Spirit Guide", "p2")
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    act(s, "p2", type="set_prefs", full_control=True)
+    bob_gets_priority(s)
+    act(s, "p2", type="activate_ability", card_id=guide.id, ability=0)
+    assert s.state.cards[guide.id].zone == "p2:exile" and s.state.players["p2"].mana.get("R") == 1
+    roundtrip(s)
+
+
+def test_drannith_magistrate_stops_escape(cards):
+    """5E vs 5I: escape casts from the graveyard (702.138a), which Drannith Magistrate forbids an opponent."""
+    from app.game.errors import ActionError
+    from app.rules.casting import castable
+
+    s = build(cards, p1=("Woe Strider", "Grizzly Bears", "Memnite", "Lightning Bolt", "Llanowar Elves"),
+              p2=("Drannith Magistrate",))
+    for name in ("Woe Strider", "Grizzly Bears", "Memnite", "Lightning Bolt", "Llanowar Elves"):
+        c = next(c for c in s.state.cards.values() if c.name == name and c.owner == "p1")
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    strider = next(c for c in s.state.cards.values() if c.name == "Woe Strider")
+    mana(s, "p1", B=5)
+    assert castable(s.state, "p1", s.state.cards[strider.id], s.cards, check_priority=False)
+    on_field(s, "Drannith Magistrate", "p2")
+    assert not castable(s.state, "p1", s.state.cards[strider.id], s.cards, check_priority=False)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=strider.id)
+    assert s.state.cards[strider.id].zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_renata_and_hardened_scales_on_an_entering_creature(cards):
+    """5H: Renata's "enters with an additional +1/+1 counter" is a replacement (614.1c) that Hardened Scales then
+    modifies (616.1: the affected object's controller orders them) — two counters."""
+    s = build(cards, p1=("Renata, Called to the Hunt", "Hardened Scales", "Grizzly Bears"))
+    renata = on_field(s, "Renata, Called to the Hunt")
+    on_field(s, "Hardened Scales")
+    bears = to_hand(s, "Grizzly Bears")
+    mana(s, "p1", G=2)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    settle(s)
+    assert s.state.cards[bears.id].counters.get("+1/+1", 0) == 2
+    assert s.state.cards[renata.id].counters.get("+1/+1", 0) == 0  # ("each other creature")
+    roundtrip(s)
+
+
+def test_seedborn_muse_and_a_stun_counter(cards):
+    """5A vs 122.1d: in another player's untap step Seedborn Muse untaps its controller's permanents, and a stunned
+    one loses a stun counter instead of untapping."""
+    from tests.test_rules_conditionals import to_turn
+
+    s = build(cards, p1=("Seedborn Muse",))
+    on_field(s, "Seedborn Muse")
+    stunned = creature(s, "p1", "Stunned")
+    plain = creature(s, "p1", "Plain")
+    act(s, "p1", type="tap", card_ids=[stunned.id, plain.id], tapped=True)
+    act(s, "p1", type="counter", card_ids=[stunned.id], kind="stun", delta=1)
+    to_turn(s, 2)  # Bob's turn
+    assert s.state.turn.active_player == "p2"
+    assert not s.state.cards[plain.id].tapped
+    assert s.state.cards[stunned.id].tapped and s.state.cards[stunned.id].counters.get("stun", 0) == 0
+    roundtrip(s)
+
+
+def test_propaganda_paid_with_mirraris_wake_extra_mana(cards):
+    """5C vs 5A: an attack cost is paid with mana abilities while it's open (508.1i); Mirari's Wake's triggered mana
+    ability (605.1b) adds its mana at once, so one Forest pays Propaganda's {2}."""
+    from tests.test_rules_wave5c_combat import attacking, declare, lands, old, put, to_attack
+    from tests.test_rules_wave5c_combat import build as combat_build
+
+    s = combat_build(cards, "Mirari's Wake", payment="self", bob=["Propaganda"])
+    put(s, "Propaganda", "p2")
+    put(s, "Mirari's Wake")
+    forest = lands(s, 1)[0]
+    a = old(s, "p1", "Ogre")
+    to_attack(s)
+    declare(s, (a, "p2"))
+    d = s.state.rules.decision
+    assert d is not None and d.display["kind"] == "tap_mana" and d.display["cost"] == "{2}"
+    act(s, "p1", type="activate_ability", card_id=forest, ability=0)
+    assert attacking(s, a) == "p2"
+    assert s.state.players["p1"].mana == {}
     roundtrip(s)
