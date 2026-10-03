@@ -2667,6 +2667,7 @@ def reveal_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for pid in _players(plan, ctx, e["who"]):
         hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
         if e.get("private"):  # -- hand disruption (wave 11D) -- "Look at target player's hand": shown to the looker alone (701.20e)
+            ctx["look"] = True
             hand = [c for c in hand if ALL not in plan.state.cards[c].revealed_to and me not in plan.state.cards[c].revealed_to]
             if hand:
                 plan.do({"type": "reveal", "card_ids": hand, "to": [me]}, actor=me)
@@ -2731,7 +2732,8 @@ def choose_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     most = min(_amount(plan, ctx, e["n"]), len(options))
     least = 0 if e.get("optional") else most
     if most == 0:
-        plan.note(f"Nothing to choose ({e.get('label', 'card')})", actor=pid)
+        if not ctx.get("look"):  # (after a private look, that nothing fit would tell the table what the hand holds: review of 11D)
+            plan.note(f"Nothing to choose ({e.get('label', 'card')})", actor=pid)
         _remember(plan, ctx, e, [])
         return _after_hand_choice(plan, ctx, [])
     owners = sorted({plan.state.cards[c].owner for c in pool})
