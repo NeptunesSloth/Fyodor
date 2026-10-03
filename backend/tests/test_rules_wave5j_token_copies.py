@@ -55,9 +55,17 @@ EXTRA = [
     card('Changeling Outcast', set_code='t5j', number='J22', mana_cost='{B}', cmc=1.0, type_line='Creature — Shapeshifter', oracle_text="Changeling (This card is every creature type.)\nThis creature can't block and can't be blocked.", power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=['Changeling']),  # noqa: E501
     card('Galadhrim Bow', set_code='t5j', number='J23', mana_cost='{2}{G}', cmc=3.0, type_line='Artifact — Equipment', oracle_text='Flash\nWhen this Equipment enters, attach it to target creature you control. Untap that creature.\nEquipped creature gets +1/+2 and has reach.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)', colors=['G'], color_identity=['G'], keywords=['Equip', 'Flash']),  # noqa: E501
     card("Hunter's Bow", set_code='t5j', number='J24', mana_cost='{1}{G}', cmc=2.0, type_line='Artifact — Equipment', oracle_text="When this Equipment enters, attach it to target creature you control. That creature deals damage equal to its power to up to one target creature you don't control.\nEquipped creature has reach and ward {2}.\nEquip {1}", colors=['G'], color_identity=['G'], keywords=['Equip']),  # noqa: E501
+    # putting a card from your hand onto the battlefield
+    card('Stoneforge Mystic', set_code='t5j', number='J31', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Kor Artificer', oracle_text='When this creature enters, you may search your library for an Equipment card, reveal it, put it into your hand, then shuffle.\n{1}{W}, {T}: You may put an Equipment card from your hand onto the battlefield.', power='1', toughness='2', colors=['W'], color_identity=['W']),  # noqa: E501
+    card('Elvish Piper', set_code='t5j', number='J32', mana_cost='{3}{G}', cmc=4.0, type_line='Creature — Elf Shaman', oracle_text='{G}, {T}: You may put a creature card from your hand onto the battlefield.', power='1', toughness='1', colors=['G'], color_identity=['G']),  # noqa: E501
+    card('Growth Spiral', set_code='t5j', number='J33', mana_cost='{G}{U}', cmc=2.0, type_line='Instant', oracle_text='Draw a card. You may put a land card from your hand onto the battlefield.', colors=['G', 'U'], color_identity=['G', 'U']),  # noqa: E501
+    card('Incandescent Soulstoke', set_code='t5j', number='J34', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Elemental Shaman', oracle_text='Other Elemental creatures you control get +1/+1.\n{1}{R}, {T}: You may put an Elemental creature card from your hand onto the battlefield. That creature gains haste until end of turn. Sacrifice it at the beginning of the next end step.', power='2', toughness='2', colors=['R'], color_identity=['R']),  # noqa: E501
+    card('Air Elemental', set_code='t5j', number='J35', mana_cost='{3}{U}{U}', cmc=5.0, type_line='Creature — Elemental', oracle_text='Flying', power='4', toughness='4', colors=['U'], color_identity=['U'], keywords=['Flying']),  # noqa: E501
+    card('Kona, Rescue Beastie', set_code='t5j', number='J36', mana_cost='{3}{G}', cmc=4.0, type_line='Legendary Creature — Beast Survivor', oracle_text='Survival — At the beginning of your second main phase, if Kona is tapped, you may put a permanent card from your hand onto the battlefield.', power='4', toughness='3', colors=['G'], color_identity=['G'], keywords=['Survival']),  # noqa: E501
 ]
 NAMES = [c["name"] for c in EXTRA]
-HELPERS = ("Darksteel Citadel", "Changeling Outcast", "Shivan Dragon", "Mist-Syndicate Naga", "Miirym, Sentinel Wyrm")
+HELPERS = ("Darksteel Citadel", "Changeling Outcast", "Shivan Dragon", "Mist-Syndicate Naga", "Miirym, Sentinel Wyrm",
+           "Air Elemental")
 
 
 @pytest.fixture()
@@ -510,3 +518,101 @@ def test_mechanized_production_short_of_eight_only_copies(cards):
     own_next_turn(s)
     assert len([t for t in tokens(s, "p1") if t.name == "Thopter"]) == 6 and s.state.rules.winner is None
     roundtrip(s)
+
+
+# -- putting a card from your hand onto the battlefield (305.4, 303.4f, 301.5b) -----------------------------------------
+def hand_choice(pick):
+    """Answer the hand choice with ``pick`` (a card id, or None for no card); anything else the plain way."""
+    def choose(d):
+        if "from your hand onto the battlefield" in d.prompt:
+            return [pick] if pick else []
+        return None
+    return choose
+
+
+def test_stoneforge_mystic_puts_an_equipment_onto_the_battlefield_unattached(cards):
+    s = game(cards, ["Stoneforge Mystic", "Bonesplitter", "Grizzly Bears"])
+    mystic = put(s, "Stoneforge Mystic")
+    own_next_turn(s)
+    splitter = put(s, "Bonesplitter", "hand")
+    bears = put(s, "Grizzly Bears", "hand")  # (not an Equipment: never offered)
+    mana(s, W=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=mystic.id, ability=1)
+    asked = []
+
+    def choose(d):
+        if "from your hand" in d.prompt:
+            asked.append({o.id for o in d.options})
+            # the choice is private (400.2): the opponent sees only that a choice is being made
+            other = s.view("p2")["rules"]["decision"]
+            assert "options" not in other and "Bonesplitter" not in str(other)
+            return [splitter.id]
+        return None
+    drive(s, choose)
+    assert asked == [{splitter.id}]
+    sp = s.state.cards[splitter.id]
+    assert sp.zone == "p1:battlefield" and sp.attached_to is None and s.state.cards[bears.id].zone == "p1:hand"
+    roundtrip(s)
+
+
+def test_elvish_piper_may_put_nothing_and_a_creature_put_in_has_its_enters_trigger(cards):
+    s = game(cards, ["Elvish Piper", "Elvish Visionary"])
+    piper = put(s, "Elvish Piper")
+    own_next_turn(s)
+    visionary = put(s, "Elvish Visionary", "hand")
+    mana(s, G=1)
+    act(s, "p1", type="activate_ability", card_id=piper.id, ability=0)
+    drive(s, hand_choice(None))
+    assert s.state.cards[visionary.id].zone == "p1:hand"
+    act(s, "p1", type="tap", card_ids=[piper.id], tapped=False)
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, G=1)
+    act(s, "p1", type="activate_ability", card_id=piper.id, ability=0)
+    drive(s, hand_choice(visionary.id))
+    assert s.state.cards[visionary.id].zone == "p1:battlefield"
+    assert len(s.state.zones["p1:hand"]) == hand  # it left the hand, and its enters trigger drew a card (not cast)
+    roundtrip(s)
+
+
+def test_growth_spiral_land_isnt_a_land_play(cards):
+    """305.4: a land put onto the battlefield by an effect isn't played; the player may still play a land."""
+    s = game(cards, ["Growth Spiral", "Mountain", "Island"])
+    mountain = put(s, "Mountain", "hand")
+    cast(s, "Growth Spiral", G=1, U=1)
+    drive(s, hand_choice(mountain.id))
+    assert s.state.cards[mountain.id].zone == "p1:battlefield"
+    island = put(s, "Island", "hand")
+    act(s, "p1", type="play_land", card_id=island.id)
+    assert s.state.cards[island.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_incandescent_soulstoke_puts_a_hasty_elemental_sacrificed_at_the_end_step(cards):
+    s = game(cards, ["Incandescent Soulstoke", "Air Elemental"])
+    stoke = put(s, "Incandescent Soulstoke")
+    own_next_turn(s)
+    air = put(s, "Air Elemental", "hand")
+    mana(s, R=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=stoke.id, ability=1)
+    drive(s, hand_choice(air.id))
+    got = ch(s, air)
+    assert s.state.cards[air.id].zone == "p1:battlefield" and "haste" in got.keywords and got.pt == (5, 5)
+    roundtrip(s)
+    from tests.test_rules_conditionals import until
+
+    until(s, lambda s: s.state.turn.number == 4)
+    assert s.state.cards[air.id].zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_put_from_hand_wordings():
+    assert ok("{G}, {T}: You may put a creature card from your hand onto the battlefield.", "Elvish Piper")
+    assert ok("When this creature enters, you may put a land card from your hand onto the battlefield tapped.")
+    # refused: an instant or sorcery could be chosen ("a card"), attached as it enters, attacking, "and/or"
+    assert not ok("{T}: You may put a card from your hand onto the battlefield.")
+    assert not ok("When this creature enters, you may put an Aura card from your hand onto the battlefield attached to "
+                  "this creature.")
+    assert not ok("Whenever this creature attacks, you may put a creature card from your hand onto the battlefield tapped "
+                  "and attacking.")
+    assert not ok("Whenever this creature deals combat damage to a player, you may put a creature card and/or a land card "
+                  "from your hand onto the battlefield.")

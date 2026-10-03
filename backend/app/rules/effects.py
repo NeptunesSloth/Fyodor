@@ -3190,4 +3190,8 @@ from app.rules import populate as _populate  # noqa: E402, I001
 
 PRIMITIVES.update(_populate.PRIMITIVES)
 RESUME.update(_populate.RESUME)
+from app.rules import put_from_hand as _put_from_hand  # noqa: E402, I001
+
+PRIMITIVES.update(_put_from_hand.PRIMITIVES)
+RESUME.update(_put_from_hand.RESUME)
 # -- end token copies & attach on entry (wave 5J) --
