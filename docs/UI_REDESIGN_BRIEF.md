@@ -24,6 +24,14 @@ Both are repo-local skills: `.claude/skills/frontend-design/` (from `anthropics/
 `.claude/skills/impeccable/` (from `pbakaus/impeccable`). Product context for Impeccable is in
 `PRODUCT.md` at the repository root (written by `/impeccable init`).
 
+**3D renderer rule.** Fyodor already has a plain three.js renderer (`frontend/src/table3d`). Preserve it and
+improve it in place, reusing its infrastructure wherever sound. Don't introduce React Three Fiber, Drei,
+Rapier or any other 3D framework because a skill demonstrates it: skills are guidance, not architecture.
+Any new runtime dependency needs a concrete need the current stack can't reasonably meet. The vanilla
+three.js skills in `.claude/skills/threejs-*` (core, geometry, materials, lighting, camera, animation,
+postprocessing, loaders, performance, shaders) are reference material for that work; ignore their
+React/R3F sections.
+
 Never let both skills independently redesign the same screen from scratch. The loop is:
 
 ```
