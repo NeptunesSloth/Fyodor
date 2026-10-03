@@ -577,6 +577,12 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         for index, e in enumerate(effects):
             e = dict(e)
             out.append(e)
+            if e.get("do") == "copy_spell" and e.get("first") and not e.get("excepts") and index > 0 \
+                    and (moved := objects(index, 1, "card")) is not None and moved.do in _MOVERS:
+                # -- cast a copy (wave 13C) -- "Exile target … card. Copy it.": the card an earlier instruction moved
+                e.update(do="copy_cards", who="ref:" + bound(moved))
+                e.pop("first")
+                continue
             if e.get("player") == "that_player":  # -- static wordings (wave 6E) -- "that player exiles the top card of
                 intro = find(lambda i: i.player, index)  # their library": whose library, bound like "who" below
                 if intro is not None:
@@ -5009,6 +5015,45 @@ def _copy_event_spell(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     if m["w"] == "it":
         out["first"] = True
     return [out], None
+
+
+# -- cast a copy (wave 13C) -- "Copy that card [three times]." / "Copy those cards." (707.12): copies of the card(s) an
+# earlier instruction exiled, made in exile (copying.copy_cards) for "You may cast the copy without paying its mana cost"
+# ("copy it" is read above as a cast trigger's spell; resolve_it turns it into this after a moved card).
+@_first
+@effect(r"copy (?P<w>that card|those cards|them)(?: (?P<k>twice|three times))?")
+def _copy_cards(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    out: dict[str, Any] = {"do": "copy_cards", "who": ("it:card" if m["w"] == "that card" else "them:card")}
+    if m["k"]:
+        out["n"] = {"twice": 2, "three times": 3}[m["k"]]
+    return [out], None
+
+
+@_first
+@effect(r"(?P<ex>exile [^,]+?) and copy it")
+def _exile_and_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    """"Exile up to one target instant or sorcery card from your graveyard and copy it." (Renegade Bull): the exile
+    instruction, then the copy of the card it exiled (707.12; the exile may be replaced: then nothing is copied)."""
+    found = _one_clause(m["ex"])
+    if found is None or len(found[0]) != 1 or found[0][0].get("do") != "exile":
+        raise _NoMatch
+    return [found[0][0], {"do": "copy_cards", "who": "it:card"}], found[1]
+
+
+@_first
+@effect(r"copy it, then (?P<cast>you may cast the copy without paying its mana cost)")
+def _copy_then_cast(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import permissions
+
+    found = permissions.parse_clause(m["cast"])
+    if found is None:
+        raise _NoMatch
+    return [{"do": "copy_cards", "who": "it:card"}, *found[0]], found[1]
+
+
+_RECORDING["copy_cards"] = "copy"
+_MOVERS.add("copy_cards")
+_CHOSEN["copy_cards"] = "n"
 
 
 # -- if you do (wave 5G) -- "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell."

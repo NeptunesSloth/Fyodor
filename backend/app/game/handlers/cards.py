@@ -144,6 +144,10 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
     pid = ops.player(state, a.player, a.actor)
     on_stack = src.zone == STACK
     key = STACK if on_stack else zone_key(pid, "battlefield")
+    if a.in_place:  # -- cast a copy (wave 13C) -- 707.12: "created in the same zone the object is in"
+        if ops.zone_name(src.zone) not in ("exile", "graveyard"):
+            raise ActionError("A copy to be cast is made in exile or a graveyard")
+        key = zone_key(pid, ops.zone_name(src.zone))
     for i, new_id in enumerate(a.r.ids):
         if new_id in state.cards:
             raise ActionError("id collision")
