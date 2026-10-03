@@ -1971,8 +1971,9 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     owner, looked = _looked(plan, ctx)
     ctx["looked"] = looked
     sel = selectors.from_key(e["sel"]) if e.get("sel") else None
-    options = [c for c in looked if sel is None
-               or selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid)]
+    options = [c for c in looked if sel is None  # (the source: "of the chosen type", wave 5I)
+               or selectors.matches(plan, sel, plan.state.cards[c], chars.of(plan.state.cards[c], plan.info), pid,
+                                    ctx.get("source_card"))]
     if e.get("sels"):  # -- refused look/cast-free (wave 3R5) -- "a creature card and/or a land card": any listed kind
         from app.rules import looking
 

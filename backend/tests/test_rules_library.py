@@ -486,6 +486,9 @@ def test_a_second_condition_reads_the_looked_at_card_not_what_the_first_gate_mov
     top = zone(s.state, "p1", "library")[0]
     assert s.state.cards[top].name == "Elvish Visionary"
     activate(s, src)
+    d = s.state.rules.decision  # (wave 5I, 701.20e) the Bison question is asked whatever the hidden card is
+    assert d is not None and d.options == [] and d.min_choices == 0
+    choose(s, [])
     d = s.state.rules.decision
     assert d is not None and [o.id for o in d.options] == [top]
     choose(s, [top])

@@ -172,6 +172,7 @@ class Offer:
     label: str
     alt: AltCost
     once_key: str | None = None
+    escape: bool = False  # -- escape (wave 5I) -- 702.138a: a cast from the graveyard (app/rules/escape.py)
 
 
 def _ctx(state: GameState, player: str, source: CardInstance) -> dict[str, Any]:
@@ -217,6 +218,10 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
         alt = parse_cost(d["cost"])
         if alt is not None:
             out.append(Offer(f"{src.id}:{index}", f"{src.name}: {d['cost']}", alt, once_key=key if d["once"] else None))
+    # -- escape (wave 5I) -- printed and granted escape costs (702.138a), for a card in its owner's graveyard
+    from app.rules import escape
+
+    out += escape.offers(state, player, card, ch, info)
     return out
 
 

@@ -1388,8 +1388,11 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     body = trigger_words.plain_amounts(body)
     try:
-        return _excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(this_way.damage_dealt(_energy_paid(
-            _parse_effects(body, it, event_player))))), it)))  # (damage_dealt: wave 5G)
+        # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
+        from app.rules import top_library
+
+        return top_library.private_gate(_excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(
+            this_way.damage_dealt(_energy_paid(_parse_effects(body, it, event_player))))), it))))  # (damage_dealt: wave 5G)
     except _NoMatch:
         return None
 
@@ -2962,6 +2965,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     m = SHOCK.match(text)
     if m:  # shock lands: "As ~ enters, you may pay 2 life. If you don't, it enters tapped."
         return {"kind": "replacement", "replacement": "pay_life_or_tapped", "life": int(m["n"]), "effects": []}
+    # -- escape (wave 5I) -- 702.138c: "~ escapes with two +1/+1 counters on it."
+    from app.rules import escape
+
+    text = escape.escapes_with(text) or text
     # -- counters (wave 5H) -- "~ enters with an indestructible counter on her", "… on it if you cast it from your hand"
     # (Myojin: the cast condition as "If you cast it from your hand, ~ enters with …"), "~ enters with a number of +1/+1
     # counters on it equal to the number of creatures that died this turn" (a count read as it enters, 614.1c)

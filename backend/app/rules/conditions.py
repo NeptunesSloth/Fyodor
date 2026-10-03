@@ -827,6 +827,8 @@ _NO_MANA = re.compile(r"no mana was spent to cast (?:it|that spell)")  # -- if y
 
 def _cast_how(t: str) -> Condition | None:
     """A condition about how the source was cast, or None."""
+    if t in ("it escaped", "~ escaped"):  # -- escape (wave 5I) -- 702.138b
+        return {"object": _cast_who(t.split()[0]), "cast": {"escaped": True}}
     if _NO_MANA.fullmatch(t):  # -- if you do (wave 5G) -- "if no mana was spent to cast it" (a cast trigger's spell)
         return {"object": "it", "cast": {"no_mana": True}}
     m = _CAST.fullmatch(t)
@@ -886,6 +888,8 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if how.get("by_you") and record.controller != ctx["controller"]:
         return False
     if how.get("kicked") and not record.kicked:  # 702.33d (a modal header's "If it was kicked, choose both instead")
+        return False
+    if how.get("escaped") and record.alternative != "escape":  # -- escape (wave 5I) -- 702.138b
         return False
     zone = how.get("from")
     if zone is not None and (record.cast_from == zone[1:] if zone.startswith("!") else record.cast_from != zone):
