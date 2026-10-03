@@ -1574,7 +1574,7 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return gifts
     from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
 
-    body = trigger_words.plain_amounts(body)
+    body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     try:
         # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
         from app.rules import top_library
@@ -2031,6 +2031,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     if pay_objects.leftover(resolved):  # -- if you do (wave 8C) -- "the exiled card" with no payment before it
         return None
     if not _cast_conditions_ok(resolved) or not _did_refs_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
+        return None
+    if not _dice.refs_ok(resolved):  # -- rolling dice (wave 12A) -- "equal to the result" only after a roll
         return None
     if not _coin_flips.refs_ok(resolved):  # -- coin flips (wave 7E) -- "If you win the flip" only after a flip
         return None
@@ -4942,6 +4944,10 @@ EFFECTS[:0] = _coin_flips.TEMPLATES
 from app.rules import clash as _clash  # noqa: E402, I001
 
 EFFECTS[:0] = _clash.TEMPLATES
+# -- rolling dice (wave 12A) -- "Roll a d20." (706: app/rules/dice.py)
+from app.rules import dice as _dice  # noqa: E402, I001
+
+EFFECTS[:0] = _dice.TEMPLATES
 # -- block effects (wave 7E) -- "Target creature can't block this creature this turn." (app/rules/block_effects.py)
 from app.rules import block_effects as _block_effects  # noqa: E402, I001
 

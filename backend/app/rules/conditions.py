@@ -152,6 +152,10 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
 
     if (flip := coin_flips.condition(t)) is not None:
         return flip
+    from app.rules import dice  # -- rolling dice (wave 12A) -- "If the result is 3 or less"
+
+    if (rolled := dice.condition(t)) is not None:
+        return rolled
     # -- combat (wave 5C) -- "it's the first combat phase of the turn" (500.8: additional ones may follow), "it's your
     # main phase" (505.1)
     if t in ("it's the first combat phase of the turn", "it is the first combat phase of the turn"):

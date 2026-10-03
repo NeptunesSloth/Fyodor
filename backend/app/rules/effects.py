@@ -3452,6 +3452,10 @@ from app.rules import clash as _clash  # noqa: E402, I001  -- clash (wave 12A)
 
 PRIMITIVES.update(_clash.PRIMITIVES)
 RESUME[_clash.STEP] = _clash.resume
+from app.rules import dice as _dice  # noqa: E402, I001  -- rolling dice (wave 12A)
+
+PRIMITIVES.update(_dice.PRIMITIVES)
+RESUME[_dice.STEP] = _dice.resume
 from app.rules import counter_moves as _counter_moves  # noqa: E402, I001  -- moving counters (wave 12A)
 
 PRIMITIVES.update(_counter_moves.PRIMITIVES)

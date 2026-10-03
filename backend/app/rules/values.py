@@ -142,6 +142,10 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
     what = m["what"] if m else p
     if what.lower() == "x":
         return {"x": 1}
+    from app.rules import dice  # -- rolling dice (wave 12A) -- "the result", "that result", "the other result" (706.4)
+
+    if (rolled := dice.amount(p)) is not None:
+        return rolled
     # -- refused zones/sized (wave 3R4) -- "the number of cards in their hand minus 4", "3 minus the number of …",
     # "… minus the number of cards in your hand": never below 0 (107.1b)
     minus = re.match(r"^(?P<a>.+?) minus (?P<b>\d+|one|two|three|four|five|the number of .+)$", what)
@@ -333,6 +337,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return sized_damage.evaluate(plan, ctx, v)
     if "x" in v:
         return max(0, int(ctx.get("x") or 0))
+    if "die" in v:  # -- rolling dice (wave 12A) -- this resolution's own roll (app/rules/dice.py)
+        from app.rules import dice
+
+        return dice.evaluate(ctx, v["die"])
     if "paid_x" in v:  # -- sized payments (wave 5G) -- the X an optional payment of this resolution paid
         from app.rules import paid_x
 

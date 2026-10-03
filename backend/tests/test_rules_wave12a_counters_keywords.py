@@ -53,6 +53,17 @@ EXTRA = [
     real("Scrounging Bandar", "{1}{G}", 2, "Creature — Cat Monkey",
          "This creature enters with two +1/+1 counters on it.\nAt the beginning of your upkeep, you may move any number of +1/+1 "
          "counters from this creature onto another target creature.", ("0", "0"), "G"),
+    real("Reckless Endeavor", "{5}{R}{R}", 7, "Sorcery",
+         "Roll two d12 and choose one result. Reckless Endeavor deals damage equal to that result to each creature. Then create a "
+         "number of Treasure tokens equal to the other result.", None, "R"),
+    real("Dissatisfied Customer", "{2}{B}", 3, "Creature — Vampire Guest",
+         "Flying, haste\nWhen this creature enters, roll a six-sided die. If the result is 3 or less, you lose that much life.",
+         ("2", "1"), "B"),
+    real("Vegetation Abomination", "{2}{G}", 3, "Artifact Creature — Plant Mutant Food",
+         "Deathtouch\n{T}, Sacrifice this creature: Roll a six-sided die. You gain life equal to the result.", ("2", "2"), "G"),
+    real("Ancient Gold Dragon", "{5}{W}{W}", 7, "Creature — Elder Dragon",
+         "Flying\nWhenever this creature deals combat damage to a player, roll a d20. You create a number of 1/1 blue Faerie Dragon "
+         "creature tokens with flying equal to the result.", ("7", "10"), "W"),
     real("Test Giant", "{6}", 6, "Creature — Giant", "", ("6", "6")),
     real("Test Mite", "{1}", 1, "Creature — Insect", "", ("1", "1")),
 ]
@@ -338,6 +349,67 @@ def test_scrounging_bandar_moves_the_number_its_controller_chooses(cards):
         act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
     assert (counters(s, bandar), counters(s, bear)) == (1, 1), seen
     check(s)
+
+
+# -- rolling dice (706) -----------------------------------------------------------------------------------
+def rolls(monkeypatch, *results):
+    """The dice come up as asked, in order (the result is recorded on the step: a replay doesn't roll again)."""
+    queue = list(results)
+    monkeypatch.setattr("app.game.resolve._rng_int", lambda rng, lo, hi: queue.pop(0))
+
+
+@pytest.mark.parametrize("name", ["Reckless Endeavor", "Dissatisfied Customer", "Vegetation Abomination", "Ancient Gold Dragon"])
+def test_dice_cards_are_full(cards, name):
+    full(cards, name)
+
+
+@pytest.mark.parametrize("die,lost", [(3, 3), (4, 0)])
+def test_dissatisfied_customer_loses_life_only_on_a_low_result(cards, monkeypatch, die, lost):
+    rolls(monkeypatch, die)
+    s = build(cards, ["Dissatisfied Customer"], [])
+    cust = to_hand(s, "Dissatisfied Customer")
+    mana(s, "p1", B=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=cust.id)
+    answer(s)
+    assert s.state.players["p1"].life == 40 - lost
+    assert "rolled" in str(s.view("p1")["log"])
+    check(s)
+
+
+def test_vegetation_abomination_gains_life_equal_to_the_result(cards, monkeypatch):
+    from tests.test_rules_wave7b_activation import ability_index
+
+    rolls(monkeypatch, 5)
+    s = build(cards, ["Vegetation Abomination"], [])
+    plant = put(s, "Vegetation Abomination")
+    from tests.test_rules_conditionals import to_turn
+
+    to_turn(s, 3, "main1")  # (no longer summoning sick)
+    act(s, "p1", type="activate_ability", card_id=plant.id, ability=ability_index(s, plant, "Roll a six-sided die"))
+    answer(s)
+    assert s.state.players["p1"].life == 45 and zone_of(s, "Vegetation Abomination") != "p1:battlefield"
+    check(s)
+
+
+def test_reckless_endeavor_chooses_one_result_and_the_other_makes_treasures(cards, monkeypatch):
+    from tests.test_rules_conditionals import token_of
+
+    rolls(monkeypatch, 3, 7)
+    s = build(cards, ["Reckless Endeavor"], [])
+    bear = token_of(s, "p2", "Bob Bear", "Creature — Bear", "2/2")
+    spell = to_hand(s, "Reckless Endeavor")
+    mana(s, "p1", R=2, C=5)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    answer(s, "1")  # the second die (7) is the damage; the other (3) the Treasures
+    assert bear.id not in s.state.zones["p2:battlefield"]  # (7 damage; the token ceased to exist)
+    assert len([c for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield"]) == 3
+    check(s)
+
+
+def test_a_roll_amount_needs_a_roll():
+    assert scripts.parse_effects("You gain life equal to the result.") is None
+    assert scripts.parse_effects("Roll a d20. You gain life equal to the result.") is not None
+    assert scripts.parse_effects("Roll two d6 and choose one result. Draw cards equal to the other result.") is not None
 
 
 def test_unused_imports():
