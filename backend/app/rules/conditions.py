@@ -823,6 +823,15 @@ def _object(t: str) -> Condition | None:
 
 
 # -- evaluation -----------------------------------------------------------------------------------------
+def needs_event(cond: Condition) -> bool:
+    """-- intervening ifs (wave 11F) -- does the condition read the player a trigger event names ("that player") or the one
+    attacked ("defending player")? Only a triggered ability has them (scripts._event_refs_ok)."""
+    if "as" in cond:
+        return cond["as"] != "any" or needs_event(cond["cond"])
+    return any(needs_event(c) for k in ("all", "any") for c in cond.get(k, ())) or (
+        "not" in cond and needs_event(cond["not"])) or cond.get("versus", {}).get("who") in ("event", "defended")
+
+
 def objects_in(cond: Condition) -> list[str]:
     """The objects a condition tests ("it" until bound, "self", "event", "target", "ref:e0")."""
     if "object" in cond:
