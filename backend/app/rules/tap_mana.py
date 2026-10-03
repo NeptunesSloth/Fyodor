@@ -46,9 +46,17 @@ _LINE = re.compile(r"^Whenever (?P<who>you tap|a player taps) (?P<what>an? [^,]+
 _SPELL = re.compile(r"^Until end of turn, (?P<rest>whenever .+)$")
 
 
+# -- ability words (wave 9C) -- "Whenever a Mountain is tapped for mana, its controller adds an additional {R}." (Gauntlet of
+# Might, Vernal Bloom): the same trigger as "Whenever a player taps a Mountain for mana, that player adds …" — the player
+# who taps a permanent for mana is its controller (605.2: a mana ability is activated by the player who controls it)
+_ITS_CONTROLLER = re.compile(r"^Whenever (?P<what>an? [^,]+?) is tapped for mana, its controller adds (?P<rest>.+)$")
+
+
 def definition(text: str) -> dict[str, Any] | None:
     from app.rules import selectors
 
+    if (alt := _ITS_CONTROLLER.match(text.strip())) is not None:
+        text = f"Whenever a player taps {alt['what']} for mana, that player adds {alt['rest']}"
     m = _LINE.match(text.strip())
     if m is None or (m["who"] == "you tap") != (m["adds"] == "add"):
         return None

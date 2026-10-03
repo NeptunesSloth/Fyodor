@@ -24,9 +24,12 @@ from typing import Any
 
 Definition = dict[str, Any]
 
-_UNDER_YOU = re.compile(r"If one or more tokens would be created under your control, those tokens plus "
-                        r"(?P<what>an additional [A-Z][a-z]+ token|a [^.]+? token|that many [^.]+? tokens) are created instead\.")
-_YOU_CREATE = re.compile(r"If you would create one or more tokens, instead create those tokens plus "
+# -- ability words (wave 9C) -- of one kind: "creature tokens" (Queen Allenal), "artifact tokens" (Stridehangar Automaton,
+# Worldwalker Helm): the replacement applies to a creation event of tokens that are (also) of that card type
+_UNDER_YOU = re.compile(r"If one or more (?P<kind>creature |artifact )?tokens would be created under your control, those tokens plus "
+                        r"(?P<what>(?:an additional|a) [^.]+? token(?: with [a-z]+)?|that many [^.]+? tokens) "
+                        r"are created instead\.")
+_YOU_CREATE = re.compile(r"If you would create one or more (?P<kind>artifact )?tokens, instead create those tokens plus "
                          r"(?P<what>an additional [A-Z][a-z]+ token)\.")
 
 
@@ -45,7 +48,10 @@ def static_definition(text: str) -> Definition | None:
     e = found[0]
     if set(e) - {"do", "who", "n", "token"} or any(isinstance(e["token"].get(k), dict) for k in ("power", "toughness")):  # (X/X: wave 4K)
         return None  # (a token "for each …", "where X is …", tapped or attacking: not this template)
-    return {"kind": "static", "static": "replace", "event": "tokens", "match": {"who": "you"},
+    match: dict[str, Any] = {"who": "you"}
+    if m["kind"]:
+        match["types"] = [m["kind"].strip().capitalize()]
+    return {"kind": "static", "static": "replace", "event": "tokens", "match": match,
             "op": {"do": "extra", "token": e["token"], "n": "same" if same else 1}, "effects": []}
 
 

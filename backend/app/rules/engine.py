@@ -38,6 +38,7 @@ from app.rules import (
     effects,
     exert,  # -- static wordings (wave 6E) --
     extra_turns,  # -- extra turns (wave 8A) --
+    kinship,  # -- kinship (wave 9C) --
     layers,
     looking,
     modal_abilities,
@@ -1233,6 +1234,8 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "tap_choice": effects._this_way.resume_tap_choice,  # -- "this way" outcomes (wave 4A) --
     "untap_choice": effects._untap_riders.resume_untap_choice,  # -- mana riders (wave 5A) -- "Untap up to three lands."
     "pick_looked": effects.resume_pick_looked,
+    "kinship_look": kinship.resume_look,  # -- kinship (wave 9C) --
+    "kinship_reveal": kinship.resume_reveal,
     "library_place": effects.resume_library_place,
     "shuffle_library": effects.resume_shuffle_library,
     "cast_modes": casting.resume_cast_modes,
