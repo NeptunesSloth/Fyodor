@@ -1351,7 +1351,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     body = trigger_words.plain_amounts(body)
     try:
-        from app.rules import top_library  # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
+        # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
+        from app.rules import top_library
 
         return top_library.private_gate(_excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(_energy_paid(
             _parse_effects(body, it, event_player)))), it))))
@@ -2884,6 +2885,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     m = SHOCK.match(text)
     if m:  # shock lands: "As ~ enters, you may pay 2 life. If you don't, it enters tapped."
         return {"kind": "replacement", "replacement": "pay_life_or_tapped", "life": int(m["n"]), "effects": []}
+    # -- escape (wave 5I) -- 702.138c: "~ escapes with two +1/+1 counters on it."
+    from app.rules import escape
+
+    text = escape.escapes_with(text) or text
     cast_if = None  # -- refused modal/conditional (wave 3R1) -- adamant: "If at least three white mana was spent to
     lead = re.match(r"^If (?P<c>[^,]+), ~ enters with ", text)  # cast this spell, ~ enters with a +1/+1 counter on it."
     if lead is not None:

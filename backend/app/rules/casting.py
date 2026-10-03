@@ -1405,10 +1405,11 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
     only a free permission lets them cast isn't castable that way."""
     how = "hand" if card.zone == zone_key(player, "hand") else "command" if from_command_zone(card, player) else \
         "flashback" if from_graveyard(card, player, ch, state) else None
-    if how is None and info is not None and card.zone == zone_key(player, "graveyard") and _escape_offers(state, player, card, ch, info):
-        how = "escape"  # -- escape (wave 5I) -- 702.138a: cast from the graveyard for an escape cost (only that way)
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
     flash = any(g.flash for g in found)
+    if how is None and info is not None and card.zone == zone_key(player, "graveyard") and not free \
+            and not any(g.zone_ok and not g.free for g in found) and _escape_offers(state, player, card, ch, info):
+        how = "escape"  # -- escape (wave 5I) -- 702.138a: cast from the graveyard for an escape cost (only that way)
     if free:
         # (wave 3C) a free permission with no zone of its own ("you may cast Dragon spells without paying")
         # covers the zones a card can be cast from anyway

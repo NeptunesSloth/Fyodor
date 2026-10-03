@@ -100,14 +100,11 @@ def permission(t: str, lines: tuple[str, ...]) -> Definition | None:
         return None
     what = m["what"]
     play, land, cast = False, None, False
-    spells: dict[str, Any] | None = {}
+    spells: dict[str, Any] = {}
     lands = _LANDS.fullmatch(what)
     if lands:
         play, land = True, ("historic" if lands["hist"] else None)
-        if lands["rest"]:
-            what = lands["rest"]
-        else:
-            what = ""
+        what = lands["rest"] or ""
     if what:
         c = _CAST.fullmatch(what)
         if c is None:
@@ -115,9 +112,10 @@ def permission(t: str, lines: tuple[str, ...]) -> Definition | None:
         single = bool(c["art"])
         if single != bool(m["once"]):
             return None  # ("you may cast a creature spell from the top": once a turn, or not English)
-        spells = _spells(c["spells"], single)
-        if spells is None:
+        found = _spells(c["spells"], single)
+        if found is None:
             return None
+        spells = found
         cast = True
         if lands and land == "historic" and spells != {"filter": _key("historic", None)}:
             return None  # ("play historic lands and cast <other> spells": not a printed wording)
@@ -184,7 +182,7 @@ def private_gate(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
                 and e["cond"]["object"] == f"ref:{look.get('as')}"):
             pick = {k: v for k, v in nxt.items() if k != "which"}
             out.append({**pick, "n": 1, "sel": e["cond"]["is"], "optional": True,
-                        "prompt": "You may choose the card you looked at if it qualifies"})
+                        "prompt": "You may choose the card you looked at (only a card that qualifies can be chosen)"})
             i += 2
             continue
         out.append(e)
