@@ -35,6 +35,11 @@ def untap_step(plan: Plan, player: str) -> None:
     back = [c for c in state.zones.get(zone_key(player, "phased"), []) if not state.cards[c].phased_indirect]
     if back:
         plan.do({"type": "phase_shift", "card_ids": back, "out": False}, actor=player)
+        from app.rules import keyword_actions  # -- prepared (wave 13C) -- 722.3c: one that "phases in prepared" gets its copy anew
+
+        for c in state.zones.get(zone_key(player, "battlefield"), []):
+            if plan.oid(c) in plan.rules.prepared:
+                keyword_actions.become_prepared(plan, state.cards[c])
     if out:
         plan.do({"type": "phase_shift", "card_ids": out, "out": True}, actor=player)
 

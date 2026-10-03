@@ -295,6 +295,7 @@ class CopyCard(Base):
     # permanent's copy is made in exile with the face of its prepare spell
     zone: Literal["exile", "graveyard"] | None = None
     face: int | None = None
+    printing: str | None = Field(default=None, max_length=64)  # the copied card's printing when the source is itself a copy (722.2b)
     x: Coord | None = None
     y: Coord | None = None
     r: NewIds | None = None

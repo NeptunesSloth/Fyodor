@@ -354,13 +354,17 @@ def become_prepared(plan: Plan, card: CardInstance) -> None:
     of it in exile with only the prepare spell's characteristics (the card's second face, 722.2), which stays there while
     it remains prepared on the battlefield (an exception to 704.5e: sba.py) and may be cast (casting.cast_grant)."""
     oid = plan.oid(card)
-    if oid in plan.rules.prepared or not card.zone.endswith(":battlefield"):
-        return
-    data = plan.info.get(card.card_id) if card.card_id else None
-    if (data or {}).get("layout") != "prepare" or card.is_token or card.face_down or copy_recipe_of(plan.rules, oid) is not None:
-        return  # (no prepare spell, 722.3a — or a copy of a permanent, whose copiable values aren't tracked here: not made)
-    created = plan.do({"type": "copy_card", "card_id": card.id, "player": card.controller, "count": 1, "zone": "exile", "face": 1},
-                      actor=card.controller)
+    if not card.zone.endswith(":battlefield") or (oid in plan.rules.prepared and plan.rules.prepared[oid] in plan.state.cards):
+        return  # (722.3a: it can't gain the designation again; a prepared permanent that phased out and in gets its copy anew, 722.3c)
+    # 722.2b: a copy of a preparation card (a Clone, a token copy) has that card's prepare spell among its copiable values;
+    # 722.3c: the exiled copy has only that prepare spell's characteristics, ignoring the copy's other exceptions
+    recipe = copy_recipe_of(plan.rules, oid)
+    printing = recipe.printing if recipe is not None else card.card_id
+    data = plan.info.get(printing) if printing else None
+    if (data or {}).get("layout") != "prepare" or card.face_down:
+        return  # (no prepare spell, 722.3a)
+    created = plan.do({"type": "copy_card", "card_id": card.id, "player": card.controller, "count": 1, "zone": "exile", "face": 1,
+                       **({"printing": printing} if printing != card.card_id else {})}, actor=card.controller)
     made = getattr(getattr(created, "r", None), "ids", [])
     if made:
         plan.rules.prepared[oid] = made[0]
