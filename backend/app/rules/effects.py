@@ -1290,6 +1290,14 @@ def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if n:
             plan.do({"type": "mill", "player": pid, "count": n}, actor=pid)
     _moved(plan, ctx, e, before)  # "cards milled this way": the new objects in the graveyards (400.7j)
+    if e.get("look"):  # -- if you do (wave 10C) -- "Mill three cards. You may put a land card from among them into your hand."
+        # (701.17a: the cards are put into the graveyard; "them" are the ones this mill put there — a card a replacement sent
+        # elsewhere isn't "milled" — and they are public, so the pick that follows works on them like a look's)
+        pid = _players(plan, ctx, e["who"])[0]
+        gone = {r.card for r in before}
+        grave = plan.state.zones.get(zone_key(pid, "graveyard"), [])
+        ctx["looked"] = [c for c in grave if c in gone]
+        ctx["looked_zone"], ctx["looked_owner"], ctx["found"] = "graveyard", pid, None
     return True
 
 
@@ -1987,6 +1995,7 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     (ctx["found"]), the others "the rest". With ``player``: another player's library."""
     owners = _library_owner(plan, ctx, e)
     ctx["looked"], ctx["found"] = [], None
+    ctx.pop("looked_zone", None)  # (wave 10C: a look is at a library; a mill's cards are in a graveyard)
     ctx["looked_owner"] = owners[0] if len(owners) == 1 else None
     cards: list[str] = []
     for pid in owners:
@@ -2013,7 +2022,7 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def _looked(plan: Plan, ctx: Context) -> tuple[str, list[str]]:
     """(the library's owner, the set-aside cards still in that library)."""
     pid = ctx.get("looked_owner") or ctx["controller"]
-    library = _library(plan, pid)
+    library = plan.state.zones.get(zone_key(pid, ctx.get("looked_zone") or "library"), [])  # (wave 10C: milled cards, in the graveyard)
     return pid, [c for c in ctx.get("looked") or [] if c in library]
 
 

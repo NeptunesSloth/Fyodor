@@ -1813,10 +1813,12 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += gated
             continue
         text = _PICK_NEG.sub(r"if you \1, ", text)  # -- look and distribute (wave 3L) -- "If you don't put the card into your hand, …"
+        if _PICK_DIDNT.match(text) and any(x["do"] == "pick_looked" and x["to"] == "hand" for x in effects):
+            text = _PICK_DIDNT.sub("if you don't, ", text)  # -- if you do (wave 10C) -- "If you didn't put a card into your hand this way, …"
         if (if_do := _IF_YOU_DO.match(text)) is not None:
             bind = _last_payment(effects)
             pick = next((e for e in reversed(effects) if e["do"] == "pick_looked"), None)
-            if bind is None and pick is not None and pick.get("optional"):
+            if bind is None and pick is not None and (pick.get("optional") or (pick.get("sel") and not pick.get("which"))):  # (wave 10C: "Put a land card from among them into your hand. If you didn't …")
                 # -- look and distribute (wave 3L) -- "You may put a land card from among them onto the
                 # battlefield. If you don't, put a card from among them into your hand.": the pick records
                 # whether it moved a card (effects._picked)
@@ -1974,6 +1976,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     resolved, target = _finish_targets(resolved, groups)
     looked = False
     exiled_at, cast_from_exile = None, False  # -- refused look/cast-free (wave 3R5) --
+    mill_k: int | None = None  # (wave 10C)
     for k, e in enumerate(resolved):  # "… from among them" needs the cards a look put aside (not milled ones)
         looked = looked or e["do"] == "look_top"
         if e["do"] == "exile_top":
@@ -1989,8 +1992,15 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             src.setdefault("as", f"x{exiled_at}")
             resolved[k] = {"do": "rest_exiled", "who": f"ref:{src['as']}", "to": e["to"]}
             continue
+        if e["do"] == "mill":
+            mill_k = k
         if e["do"] in ("pick_looked", "rest_looked") and not looked:
-            return None
+            # -- if you do (wave 10C) -- "Mill three cards. You may put a land card from among them into your hand.": the pick
+            # is from the cards that mill put into the graveyard (the controller's own mill, a choice among chosen-by-kind cards)
+            if mill_k is None or e["do"] != "pick_looked" or resolved[mill_k].get("who") != "you" or e.get("which") \
+                    or e.get("sels") or e.get("reveal") or e["to"] not in ("hand", "battlefield", "battlefield_tapped"):
+                return None
+            resolved[mill_k]["look"] = True
     # -- cast without paying (wave 3C) -- (wave 3R5: the cast is made during the resolution, 608.2g, and the
     # instructions after it follow it — permissions.free_cast; "from among them" was bound by resolve_it)
     if any(e["do"] == "free_cast" and e.get("zone") == "among" for e in resolved):
@@ -2110,6 +2120,7 @@ def _free_dont(rest: str, effects: list[dict[str, Any]]) -> list[dict[str, Any]]
 # -- optional payments (118.12 / 118.12a): app/rules/optional_payment.py ------------------------------
 _PICK_NEG = re.compile(r"^if you (don't|do) put (?:the card|that card|it|them) (?:into your (?:hand|graveyard)|onto the battlefield(?: tapped)?"
                        r"|on (?:top of|the bottom of) your library), ")
+_PICK_DIDNT = re.compile(r"^if you didn't put (?:a|the|that) card into your hand this way, ")
 _IF_YOU_DO = re.compile(r"^if you (?:(?P<neg>don't)|do), (?P<rest>.+)$")
 _UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller) "
                      r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?) .+)$")  # (wave 1B: any cost the engine pays)
