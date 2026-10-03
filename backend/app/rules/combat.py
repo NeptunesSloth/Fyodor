@@ -357,6 +357,11 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
 
         note_attack(plan.state, plan.actor,  # (wave 4D: the attacking objects)
                     [plan.oid(plan.state.cards[x.card_id]) for x in a.attackers])  # 508.1: "if you attacked this turn" (conditional clauses, wave 1B)
+        # -- static wordings (wave 6E) -- 508.1g / 701.43d: "You may exert this creature as it attacks" (app/rules/exert.py)
+        from app.rules import exert
+
+        if exert.ask(plan, [plan.state.cards[x.card_id] for x in a.attackers]):
+            return
         triggers.attacked(plan, [plan.state.cards[x.card_id] for x in a.attackers])
     r.priority = plan.active
     r.passed = []

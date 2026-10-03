@@ -1158,6 +1158,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if kind == "each" and m["v"] == "destroy":
             return [{"do": "destroy", "who": key}], None
         return [{"do": m["v"], "who": _who(kind, key)}], _one(group)
+    # -- static wordings (wave 6E) -- "It must be blocked this turn if able." (Enlarge): a requirement (509.1c)
+    m = re.fullmatch(r"(?P<o>.+?) must be blocked this turn if able", text)
+    if m and not _PUMP.fullmatch(text):
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "restrict", "who": _who(kind, key), "rules": ["must_be_blocked"]}], _one(group)
     m = re.fullmatch(r"(?P<o>.+?) can't (?P<r>attack or block|block|attack|be blocked) this turn", text)
     if m and not _PUMP.fullmatch(text):  # (agent G: "… gets +2/+2 until end of turn and can't be blocked …" is a pump's rider)
         kind, key, group = ref(m["o"])
@@ -1444,7 +1451,8 @@ _KW_LIST = rf"{_GRANT_ITEM}(?:(?:, and |, | and ){_GRANT_ITEM})*"
 _PUMP = re.compile(rf"(?P<o>.+?)(?: each)? gets? (?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX]))"
                    rf"(?: and gains? (?P<kw>{_KW_LIST}))? until end of turn"
                    r"(?: and can't (?P<r>attack or block|block|attack|be blocked) this turn"
-                   r"| and (?P<d>can attack this turn as though it didn't have defender))?")  # (d: wave 6C)
+                   r"| and (?P<d>can attack this turn as though it didn't have defender)"  # (d: wave 6C)
+                   r"| and (?P<mb>must be blocked this turn if able))?")  # (mb: wave 6E, 509.1c)
 _GRANT = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?|has|have|loses?) (?P<kw>{_KW_LIST}) until end of turn")
 _GAIN_PUMP = re.compile(rf"(?P<o>.+?)(?: each)? (?P<v>gains?) (?P<kw>{_KW_LIST}) and (?P<g>gets?) "  # (X sized: wave 4K)
                         rf"(?P<p>[+\-−](?:\d+|[xX]))/(?P<t>[+\-−](?:\d+|[xX])) until end of turn")
@@ -1635,6 +1643,8 @@ def _pump(m: re.Match[str], rider: Any) -> tuple[Effects, Any]:
         out.append({"do": "restrict", "who": who, "rules": RESTRICTIONS[m["r"]]})
     if m["d"]:  # -- token & pump wordings (wave 6C) -- 702.3b
         out.append({"do": "restrict", "who": who, "rules": ["attack_despite_defender"]})
+    if m["mb"]:  # -- static wordings (wave 6E) -- a blocking requirement for this turn (509.1c: combat.block_requirements)
+        out.append({"do": "restrict", "who": who, "rules": ["must_be_blocked"]})
     return out, _one(group)
 
 
@@ -2004,6 +2014,8 @@ def _become(text: str) -> tuple[Effects, Any]:
 
     text, rider = _with_rider(text)
     m = _BECOME.fullmatch(text)
+    if m is None and rider is None and (c := _BECOME_COLOR.fullmatch(text)) is not None:
+        return _become_color(c)  # -- static wordings (wave 6E) --
     if m is None:
         raise _Fail
     d = _DESC.fullmatch(m["desc"])
@@ -2060,6 +2072,29 @@ def _become(text: str) -> tuple[Effects, Any]:
         out.append({"do": "grant", "who": who, "keywords": _animation_keywords(m["gain"])})
     if m["gainq"]:  # -- quoted grants (wave 2D) -- "… becomes a Bear creature in addition to its other types and gains "…""
         e["abilities"] = [*e.get("abilities", []), *_QUOTED.findall(m["gainq"])]  # (the same layer-6 effect, 613.6)
+    return out, _one(group)
+
+
+# -- static wordings (wave 6E) -- "Target creature becomes red and gains haste until end of turn." (Crimson Wisps): a
+# color-changing effect (layer 5, 613.1e) whose colors replace the object's (105.3), locked in to the objects (611.2c)
+_BECOME_COLOR = re.compile(r"^(?:(?P<lead>until end of turn, ))?(?P<o>.+?) becomes? (?P<colors>colorless|" + _COLOR_LIST + r")"
+                           r"(?: and gains? (?P<gain>[a-z ]+?))?(?P<trail> until end of turn)?$")
+
+
+def _become_color(m: re.Match[str]) -> tuple[Effects, Any]:
+    kind, key, group = ref(m["o"])
+    if kind == "players" or not (m["lead"] or m["trail"]):
+        raise _Fail  # (no duration: a color for the rest of the game, not read)
+    who = _who(kind, key)
+    colors = [] if m["colors"] == "colorless" else [_COLOR_LETTERS[c] for c in re.split(r",? and |, ", m["colors"])]
+    out: Effects = [{"do": "become", "who": who, "types": [], "colors": colors, "duration": "end_of_turn"}]
+    if m["gain"]:
+        from app.rules.statics import GRANTABLE_KEYWORDS  # (the keywords a grant carries out, 613.1f)
+
+        kws = [p.strip() for p in re.split(r",? and |, ", m["gain"]) if p.strip()]
+        if not kws or any(k not in GRANTABLE_KEYWORDS for k in kws):
+            raise _Fail
+        out.append({"do": "grant", "who": who, "keywords": kws})
     return out, _one(group)
 
 

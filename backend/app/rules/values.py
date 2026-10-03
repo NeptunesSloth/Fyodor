@@ -386,6 +386,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
             return max(0, plan.state.players[you].life)
         if v["life"] == "opponent_max":
             return max([plan.state.players[p].life for p in plan.live() if p != you] or [0])
+        if v["life"] == "player_min":  # -- static wordings (wave 6E) -- "a player has 13 or less life": the lowest life total
+            return min([plan.state.players[p].life for p in plan.live()] or [0])
         return max([plan.state.players[p].life for p in _target_players(plan, ctx)] or [0])
     if "player_counters" in v:
         if v.get("of") == "opponents":  # (wave 3E) "poison counters your opponents have": all of them together
