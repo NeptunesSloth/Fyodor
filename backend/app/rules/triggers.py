@@ -68,7 +68,6 @@ from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan, decide
 from app.rules.targets import choose_groups, label, legal_targets, ref, source_of
 
-
 _FIRST_KINDS = ("gain_life", "lose_life", "create_token")  # (wave 11C) events counted "for the first time each turn"
 
 

@@ -131,9 +131,15 @@ def parse_condition(cond: str) -> Condition | None:
             found = _parse(cond.strip())
         except _Refuse:  # (a trailing qualifier can be what the plain reading refused: "… a permanent during your turn")
             found = None
-        return found or _qualified(cond.strip())
+        found = found or _qualified(cond.strip())
     except _Refuse:
         return None
+    # -- grammar (wave 11C) -- 700.9: "a modified creature you control dies / leaves" would read its Auras and Equipment after
+    # they let go of it (704.5n): not modelled, so the ability stays manual (counters alone are kept in its last known info)
+    if found is not None and found.get("event") in ("die", "leave", "either", "multi") and re.search(r"modified|enchanted_or_equipped",
+                                                                                                   str(found)):
+        return None
+    return found
 
 
 def _qualified(c: str) -> Condition | None:
@@ -157,7 +163,7 @@ def _qualified(c: str) -> Condition | None:
     if inner is None and during and re.search(r" (?:second|third|fourth|fifth) ", c):
         inner = _parse(f"{c} each turn")  # ("their second card during their turn": the Nth this turn, as "… each turn")
     if inner is None or (first and (inner.get("event") not in ("gain_life", "lose_life", "create_token")
-                                    or inner.get("subject") != "player")):
+                                    or inner.get("subject") != "player" or inner.get("player") != "you")):
         return None
     return {**inner, **({"during": during} if during else {}), **({"first_each_turn": True} if first else {})}
 

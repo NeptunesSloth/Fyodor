@@ -202,7 +202,7 @@ def _self_pronouns(part: str) -> str:
     part = re.sub(r"(~ enters (?:tapped )?with [^.]+? counters? on) (?:him|her)\b", r"\1 it", part)  # (as the "on it" form)
     part = re.sub(r"\b(?:[Hh]e|[Ss]he)\b(?! or |')", "~", part)
     part = re.sub(rf"\b(?:his|her) (?={_POSSESSED}\b)", "~'s ", part)
-    return re.sub(r"\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
+    return re.sub(r"(?<!or )\b(?:him|her)\b(?=[.,;:)]|$| (?:and|until|this|then|to|from|into|onto|on|with|unless|if|as|equal|for)\b)",
                   "~", part)
 
 
