@@ -32,7 +32,6 @@ EXTRA = [
     card('Monstrous Vortex', set_code='tst', number='N02', mana_cost='{3}{G}', cmc=4.0, type_line='Enchantment', oracle_text="Whenever you cast a creature spell with power 5 or greater, discover X, where X is that spell's mana value. (Exile cards from the top of your library until you exile a nonland card with that mana value or less. Cast it without paying its mana cost or put it into your hand. Put the rest on the bottom in a random order.)", colors=['G'], color_identity=['G'], keywords=['Discover']),  # noqa: E501
     card('Hurl into History', set_code='tst', number='N04', mana_cost='{3}{U}{U}', cmc=5.0, type_line='Instant', oracle_text="Counter target artifact or creature spell. Discover X, where X is that spell's mana value. (Exile cards from the top of your library until you exile a nonland card with that mana value or less. Cast it without paying its mana cost or put it into your hand. Put the rest on the bottom in a random order.)", colors=['U'], color_identity=['U'], keywords=['Discover']),  # noqa: E501
     card('Invade the City', set_code='tst', number='N05', mana_cost='{1}{U}{R}', cmc=3.0, type_line='Sorcery', oracle_text="Amass Zombies X, where X is the number of instant and sorcery cards in your graveyard. (Put X +1/+1 counters on an Army you control. It's also a Zombie. If you don't control an Army, create a 0/0 black Zombie Army creature token first.)", colors=['R', 'U'], color_identity=['R', 'U'], keywords=['Amass']),  # noqa: E501
-    card('Ethereal Investigator', set_code='tst', number='N06', mana_cost='{3}{U}', cmc=4.0, type_line='Creature — Spirit', oracle_text='Flying\nWhen this creature enters, investigate X times, where X is the number of opponents you have. (To investigate, create a Clue token. It\'s an artifact with "{2}, Sacrifice this token: Draw a card.")\nWhenever you draw your second card each turn, create a 1/1 white Spirit creature token with flying.', power='2', toughness='3', colors=['U'], color_identity=['U'], keywords=['Flying', 'Investigate']),  # noqa: E501
     card('Warden of the Grove', set_code='tst', number='N07', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Hydra', oracle_text='At the beginning of your end step, put a +1/+1 counter on this creature.\nWhenever another nontoken creature you control enters, it endures X, where X is the number of counters on this creature. (Put X +1/+1 counters on the creature that entered or create an X/X white Spirit creature token.)', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Endure']),  # noqa: E501
     card('Saruman, the White Hand', set_code='tst', number='N08', mana_cost='{1}{U}{B}{R}', cmc=4.0, type_line='Legendary Creature — Avatar Wizard', oracle_text="Whenever you cast a noncreature spell, amass Orcs X, where X is that spell's mana value. (Put X +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)\nGoblins and Orcs you control have ward {2}.", power='2', toughness='5', colors=['B', 'R', 'U'], color_identity=['B', 'R', 'U'], keywords=['Amass']),  # noqa: E501
     card("Spymaster's Vault", set_code='tst', number='N09', mana_cost='', cmc=0.0, type_line='Land', oracle_text='This land enters tapped unless you control a Swamp.\n{T}: Add {B}.\n{B}, {T}: Target creature you control connives X, where X is the number of creatures that died this turn. (Draw X cards, then discard X cards. Put a +1/+1 counter on that creature for each nonland card discarded this way.)', colors=[], color_identity=['B'], keywords=['Connive']),  # noqa: E501
@@ -179,6 +178,7 @@ def test_unclear_wordings_stay_manual():
     for kind, text in (("Creature — Bear", "When this creature enters, discover 3. Draw a card."),
                        ("Creature — Bear", "When this creature enters, discover X."),
                        ("Sorcery", "Bolster X."),
+                       ("Creature — Bear", "When this creature enters, investigate X times, where X is the number of opponents you have."),
                        ("Creature — Bear", "When this creature enters, it explores X times, where X is the number of creatures you control."),
                        ("Creature — Bear", "When you cast this spell, create X 0/1 Kobold creature tokens, where X is the amount of "
                                            "mana spent to cast it.")):
@@ -350,17 +350,6 @@ def test_endure_x_counts_the_wardens_counters(cards, pick):
         assert counters(s, "Runeclaw Bear") == 0
         spirit = next(c for c in s.state.cards.values() if c.name == "Spirit")
         assert pt(s, spirit) == (2, 2)
-    check(s)
-
-
-@pytest.mark.parametrize("players,clues", [(2, 1), (3, 2)])
-def test_investigate_x_times_for_each_opponent(cards, players, clues):
-    s = build(cards, "Ethereal Investigator", players=players)
-    to_hand(s, "Ethereal Investigator")
-    mana(s, U=1, C=3)
-    cast(s, "Ethereal Investigator")
-    run(s)
-    assert sum(1 for c in s.state.cards.values() if c.name == "Clue" and c.zone == "p1:battlefield") == clues
     check(s)
 
 
