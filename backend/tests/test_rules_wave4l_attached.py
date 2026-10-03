@@ -48,7 +48,18 @@ EXTRA = [
     card('Tarmogoyf', set_code="tst", number="L13", mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Lhurgoyf', oracle_text="Tarmogoyf's power is equal to the number of card types among cards in all graveyards and its toughness is equal to that number plus 1.", power='*', toughness='1+*', colors=['G'], color_identity=['G']),  # noqa: E501
     card('Prosthetic Injector', set_code="tst", number="L15", mana_cost='{1}', cmc=1.0, type_line='Artifact — Equipment', oracle_text='Equipped creature gets +0/+2 and has toxic 1. (Players dealt combat damage by equipped creature also get a poison counter.)\nEquip {1}', colors=[], color_identity=[], keywords=['Equip']),  # noqa: E501
     card('Super-Soldier Serum', set_code="tst", number="L16", mana_cost='{1}{W}', cmc=2.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature gets +2/+2, has first strike and vigilance, and is a legendary Soldier in addition to its other types.\nWhenever enchanted creature attacks or blocks, attach any number of target Equipment you control to it.', colors=['W'], color_identity=['W'], keywords=['Enchant']),  # noqa: E501
+    card('Curse of Opulence', set_code="tst", number="M01", mana_cost='{R}', cmc=1.0, type_line='Enchantment — Aura Curse', oracle_text='Enchant player\nWhenever enchanted player is attacked, create a Gold token. Each opponent attacking that player does the same. (A Gold token is an artifact with "Sacrifice this token: Add one mana of any color.")', colors=['R'], color_identity=['R'], keywords=['Enchant']),  # noqa: E501
+    card('Curse of Verbosity', set_code="tst", number="M02", mana_cost='{2}{U}', cmc=3.0, type_line='Enchantment — Aura Curse', oracle_text='Enchant player\nWhenever enchanted player is attacked, you draw a card. Each opponent attacking that player does the same.', colors=['U'], color_identity=['U'], keywords=['Enchant']),  # noqa: E501
+    card('Vow of Duty', set_code="tst", number="N01", mana_cost='{2}{W}', cmc=3.0, type_line='Enchantment — Aura', oracle_text="Enchant creature\nEnchanted creature gets +2/+2, has vigilance, and can't attack you or planeswalkers you control.", colors=['W'], color_identity=['W'], keywords=['Enchant']),  # noqa: E501
+    card('Carapace', set_code="tst", number="N02", mana_cost='{G}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature gets +0/+2.\nSacrifice this Aura: Regenerate enchanted creature.', colors=['G'], color_identity=['G'], keywords=['Regenerate', 'Enchant']),  # noqa: E501
+    card('Sinister Possession', set_code="tst", number="N03", mana_cost='{B}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nWhenever enchanted creature attacks or blocks, its controller loses 2 life.', colors=['B'], color_identity=['B'], keywords=['Enchant']),  # noqa: E501
+    card('Amorphous Axe', set_code="tst", number="N04", mana_cost='{2}', cmc=2.0, type_line='Artifact — Equipment', oracle_text='Equipped creature gets +3/+0 and is every creature type.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)', colors=[], color_identity=[], keywords=['Equip']),  # noqa: E501
+    card('Ghoulflesh', set_code="tst", number="N05", mana_cost='{B}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature gets -1/-1 and is a black Zombie in addition to its other colors and types.', colors=['B'], color_identity=['B'], keywords=['Enchant']),  # noqa: E501
+    card('Sinister Strength', set_code="tst", number="N06", mana_cost='{1}{B}', cmc=2.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature gets +3/+1 and is black.', colors=['B'], color_identity=['B'], keywords=['Enchant']),  # noqa: E501
+    card('Viridian Longbow', set_code="tst", number="P01", mana_cost='{1}', cmc=1.0, type_line='Artifact — Equipment', oracle_text='Equipped creature has "{T}: This creature deals 1 damage to any target."\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)', colors=[], color_identity=[], keywords=['Equip']),  # noqa: E501
+    card('Paradise Mantle', set_code="tst", number="P02", mana_cost='{0}', cmc=0.0, type_line='Artifact — Equipment', oracle_text='Equipped creature has "{T}: Add one mana of any color."\nEquip {1}', colors=[], color_identity=[], keywords=['Equip']),  # noqa: E501
     # (still manual)
+    card('Curse of Bounty', set_code="tst", number="M03", mana_cost='{1}{G}', cmc=2.0, type_line='Enchantment — Aura Curse', oracle_text='Enchant player\nWhenever enchanted player is attacked, untap all nonland permanents you control. Each opponent attacking that player untaps all nonland permanents they control.', colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
     card('Elvish Guidance', set_code="tst", number="L20", mana_cost='{2}{G}', cmc=3.0, type_line='Enchantment — Aura', oracle_text='Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G} for each Elf on the battlefield.', colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
     card('Song of the Dryads', set_code="tst", number="L21", mana_cost='{2}{G}', cmc=3.0, type_line='Enchantment — Aura', oracle_text='Enchant permanent\nEnchanted permanent is a colorless Forest land.', colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
     card('Flickering Ward', set_code="tst", number="L22", mana_cost='{W}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nAs this Aura enters, choose a color.\nEnchanted creature has protection from the chosen color. This effect doesn\'t remove this Aura.\n{W}: Return this Aura to its owner\'s hand.', colors=['W'], color_identity=['W'], keywords=['Enchant']),  # noqa: E501
@@ -56,13 +67,15 @@ EXTRA = [
 ]
 FULL = ["Sword of Feast and Famine", "Spirit Mantle", "Lavaspur Boots", "Kenrith's Transformation", "Darksteel Mutation",
         "Lignify", "Colossus Hammer", "Wild Growth", "Fertile Ground", "Shiny Impetus", "Sword of Body and Mind",
-        "Prosthetic Injector"]
+        "Prosthetic Injector", "Curse of Opulence", "Curse of Verbosity", "Vow of Duty", "Carapace", "Sinister Possession",
+        "Amorphous Axe", "Ghoulflesh", "Sinister Strength", "Viridian Longbow", "Paradise Mantle"]
 STILL_MANUAL = {
     "Elvish Guidance": "for each Elf",  # a counted extra
     "Song of the Dryads": "Forest land",  # a basic land type (305.7: rules-text abilities go)
     "Flickering Ward": "the chosen color",  # the color chosen as it entered
     "Witness Protection": "named",  # a name change, two colors
     "Super-Soldier Serum": "attach any number of target Equipment",
+    "Curse of Bounty": "untaps all nonland permanents they control",  # (not "does the same")
 }
 
 
@@ -348,4 +361,154 @@ def test_fertile_ground_any_color_and_a_restricted_ability(cards):
 
     found = dict(mana_abilities(s.state, s.state.cards[temple.id], s.cards))
     assert list(found) == [0] and found[0].options == (("C", "G"),)
+    replay_matches(s)
+
+
+# -- Curses that share ----------------------------------------------------------------------------------------------
+def golds(s, pid):
+    return sum(1 for c in s.state.cards.values() if c.name == "Gold" and c.controller == pid and c.zone.endswith("battlefield"))
+
+
+def test_curse_of_opulence_and_verbosity_the_attacking_opponent_does_the_same(cards):
+    """Alice enchants herself (ruling: "you'll get its effects whenever another player attacks you"). Bob attacks her:
+    Alice creates a Gold token and draws a card, and Bob, an opponent attacking her, does the same."""
+    s = build(cards, "Curse of Opulence", "Curse of Verbosity")
+    cast(s, "Curse of Opulence", targets=["p1"], R=1)
+    settle(s)
+    cast(s, "Curse of Verbosity", targets=["p1"], U=1, C=2)
+    settle(s)
+    assert named(s, "Curse of Opulence").attached_player == "p1"
+    ogre = token(s, "p2", "Ogre", "3/3")
+    until(s, lambda s: s.state.turn.number == 2 and s.state.rules.decision is not None
+          and s.state.rules.decision.kind == "declare_attackers")
+    hands = {p: len(s.state.zones[f"{p}:hand"]) for p in ("p1", "p2")}
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": ogre.id, "target": "p1"}])
+    settle(s)
+    assert golds(s, "p1") == 1 and golds(s, "p2") == 1
+    assert len(s.state.zones["p1:hand"]) == hands["p1"] + 1 and len(s.state.zones["p2:hand"]) == hands["p2"] + 1
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_curse_only_its_controller_when_nobody_attacks_that_player_any_more(cards):
+    """Ruling: no creature attacking the enchanted player as the ability resolves → only the Curse's controller."""
+    s = build(cards, "Curse of Opulence", "Lightning Bolt")
+    cast(s, "Curse of Opulence", targets=["p1"], R=1)
+    settle(s)
+    ogre = token(s, "p2", "Ogre", "3/3")
+    until(s, lambda s: s.state.turn.number == 2 and s.state.rules.decision is not None
+          and s.state.rules.decision.kind == "declare_attackers")
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_prefs", response="on")  # (everyone stops at each object on the stack)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": ogre.id, "target": "p1"}])
+    assert s.state.zones.get("stack")  # (the Curse's trigger)
+    act(s, "p1", type="move", card_ids=[ogre.id], to={"zone": "graveyard"})  # (gone before it resolves)
+    settle(s)
+    assert golds(s, "p1") == 1 and golds(s, "p2") == 0
+    replay_matches(s)
+
+
+# -- restrictions, regeneration, attack-or-block triggers, more types and colors -------------------------------------
+def to_bobs_attack(s):
+    until(s, lambda s: s.state.turn.number == 2 and s.state.rules.decision is not None
+          and s.state.rules.decision.kind == "declare_attackers")
+
+
+def test_vow_of_duty_the_creature_cant_attack_the_auras_controller(cards):
+    """508.1c: Bob's creature can't attack Alice. Goaded by Alice too (Shiny Impetus: it must attack a player other
+    than her if able, 701.15b), it has nowhere to attack: declaring no attackers is legal (508.1d)."""
+    from app.game.errors import ActionError
+
+    s = build(cards, "Vow of Duty", "Shiny Impetus")
+    ogre = token(s, "p2", "Ogre", "3/3")
+    cast(s, "Vow of Duty", targets=[ogre.id], W=1, C=2)
+    settle(s)
+    cast(s, "Shiny Impetus", targets=[ogre.id], R=1, C=2)
+    settle(s)
+    assert ch(s, ogre).pt == (7, 7) and "vigilance" in ch(s, ogre).keywords
+    to_bobs_attack(s)
+    with pytest.raises(ActionError, match="can't attack"):
+        act(s, "p2", type="declare_attackers", attackers=[{"card_id": ogre.id, "target": "p1"}])
+    act(s, "p2", type="declare_attackers", attackers=[])
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_carapace_sacrificed_regenerates_the_creature_it_enchanted(cards):
+    """"Sacrifice this Aura: Regenerate enchanted creature." — the Aura is gone as the ability resolves: the creature
+    it enchanted as it last existed (608.2h) gets the shield (701.19a)."""
+    s = build(cards, "Carapace", "Lightning Bolt")
+    bear = token(s, "p1", "Bear")
+    aura = cast(s, "Carapace", targets=[bear.id], G=1)
+    settle(s)
+    assert ch(s, bear).pt == (2, 4)
+    act(s, "p1", type="activate_ability", card_id=aura.id, ability=2)
+    settle(s)
+    assert s.state.cards[aura.id].zone == "p1:graveyard"
+    cast(s, "Lightning Bolt", targets=[bear.id], R=1)
+    settle(s)
+    assert s.state.cards[bear.id].zone == "p1:battlefield" and s.state.cards[bear.id].tapped  # regenerated
+    replay_matches(s)
+
+
+def test_sinister_possession_attacks_or_blocks(cards):
+    """"Whenever enchanted creature attacks or blocks, its controller loses 2 life" (603.2: each event)."""
+    s = build(cards, "Sinister Possession")
+    bear = token(s, "p1", "Bear")
+    cast(s, "Sinister Possession", targets=[bear.id], B=1)
+    settle(s)
+    to_attack(s)
+    life = s.state.players["p1"].life
+    attack(s, (bear, "p2"))
+    settle(s)
+    assert s.state.players["p1"].life == life - 2
+    replay_matches(s)
+
+
+def test_every_creature_type_and_colors(cards):
+    s = build(cards, "Amorphous Axe", "Ghoulflesh", "Sinister Strength")
+    bear = token(s, "p1", "Bear", "3/3")
+    equip(s, "Amorphous Axe", bear)
+    now = ch(s, bear)
+    assert {"Elf", "Goblin", "Sliver", "Test"} <= now.subtypes and now.pt == (6, 3)
+    wolf = token(s, "p1", "Wolf", "3/3")
+    act(s, "p1", type="create_token", player="p1", token={"name": "Pixie", "type_line": "Token Creature — Faerie",
+                                                         "power": "2", "toughness": "2", "colors": ["U"], "text": ""})
+    pixie = named(s, "Pixie")
+    cast(s, "Ghoulflesh", targets=[pixie.id], B=1)
+    settle(s)
+    now = ch(s, pixie)
+    assert now.colors == frozenset({"U", "B"}) and now.subtypes == frozenset({"Faerie", "Zombie"}) and now.pt == (1, 1)
+    cast(s, "Sinister Strength", targets=[pixie.id], B=1, C=1)
+    settle(s)
+    now = ch(s, pixie)
+    assert now.colors == frozenset({"B"}) and now.pt == (4, 2)  # (the later timestamp sets it: 613.7)
+    assert ch(s, wolf).colors == frozenset()
+    replay_matches(s)
+
+
+def test_equipment_granting_a_quoted_tap_ability(cards):
+    """"Equipped creature has "{T}: …"" is a static (not an Equip cost): the creature has the ability (layer 6) and
+    uses it as its own ("This creature" deals the damage); summoning sickness applies to {T} (302.6)."""
+    from app.game.errors import ActionError
+    from app.rules.casting import mana_abilities
+
+    s = build(cards, "Viridian Longbow", "Paradise Mantle")
+    bear = token(s, "p1", "Bear")
+    equip(s, "Viridian Longbow", bear)
+    granted = [a for a in ch(s, bear).abilities if a.index >= 100]
+    assert [a.text for a in granted] == ["{T}: This creature deals 1 damage to any target."]
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=bear.id, ability=granted[0].index, targets=["p2"])
+    elf = token(s, "p1", "Elf", "1/1")
+    equip(s, "Paradise Mantle", elf)
+    to_attack(s)
+    act(s, "p1", type="declare_attackers", attackers=[])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    life = s.state.players["p2"].life
+    act(s, "p1", type="activate_ability", card_id=bear.id, ability=granted[0].index, targets=["p2"])
+    settle(s)
+    assert s.state.players["p2"].life == life - 1 and s.state.cards[bear.id].tapped
+    found = mana_abilities(s.state, s.state.cards[elf.id], s.cards)
+    assert len(found) == 1 and len(found[0][1].options) == 5
     replay_matches(s)

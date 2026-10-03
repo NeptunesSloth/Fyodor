@@ -130,7 +130,7 @@ def _legacy_trigger(cond: dict[str, Any]) -> str | None:
     """Plain self conditions the engine already fires by name ("When ~ dies" → dies_self); one with
     more to it ("~ attacks alone", "~ attacks or blocks") is matched generically."""
     if cond.get("event") == "multi":
-        if cond.get("other") or not all(e in _LEGACY_SELF for e in cond["events"]):
+        if cond.get("other") or cond.get("subject") == "host" or not all(e in _LEGACY_SELF for e in cond["events"]):
             return None
         return "multi:" + "+".join(_LEGACY_SELF[e] for e in cond["events"])
     if cond.get("subject") == "self" and cond["event"] in _LEGACY_SELF and set(cond) == {"event", "subject"}:
@@ -253,6 +253,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         # exile that creature": the creature on the other side, which the event doesn't name
         return None
     if event == "multi":
+        if cond.get("subject") == "host":  # -- attached events (wave 4L) -- the attacking / blocking creature
+            return "event" if all(x in _STAYING for x in cond["events"]) else None
         return "self" if all(x in _STAYING for x in cond["events"]) else None
     if name.endswith("_self") or cond.get("subject") == "self":
         if event in _GONE or event == "sacrifice":
@@ -1080,8 +1082,10 @@ def _no_regeneration(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
     return [{"do": "no_regen"}], None  # the destruction of this spell/ability ignores regeneration shields
 
 
-@effect(r"regenerate (?P<who>~|it|target creature|target creature you control)")
+@effect(r"regenerate (?P<who>~|it|target creature|target creature you control|enchanted creature|equipped creature)")
 def _regenerate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if m["who"] in ("enchanted creature", "equipped creature"):  # -- attached events (wave 4L) -- (701.19a)
+        return [{"do": "regenerate", "who": "host"}], None
     if m["who"] in ("~", "it"):
         return [{"do": "regenerate", "who": _self_or_it(m["who"])}], None
     return [{"do": "regenerate", "who": "target"}], SELECTORS[m["who"]]
@@ -2090,7 +2094,14 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     and re.search(r"\bthis card\b", body) is not None
                 if aura_card:
                     body = re.sub(r"\bthis card\b", "~", body)
+                # -- attached events (wave 4L) -- "Whenever enchanted player is attacked, create a Gold token. Each
+                # opponent attacking that player does the same." (app/rules/attached_players.py)
+                from app.rules import attached_players
+
+                same, body = attached_players.split_same(body, cond)
                 parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
+                if same and parsed is not None:
+                    parsed = attached_players.does_the_same(parsed)
                 if parsed is None:  # -- this-turn history (wave 4D) -- "…, if [condition], you may …" (603.4 + 603.5)
                     parsed = _intervening_may(body, _trigger_antecedent(name, cond), has_player)
                 if parsed is None:

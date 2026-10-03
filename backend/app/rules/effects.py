@@ -92,6 +92,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if p != me and p not in named]
     if who == "event_player":  # "that player": the one the trigger event was about (who drew, was dealt damage …)
         return context.players(plan, ctx, context.EVENT)
+    if who == "attacking_opponents":  # -- attached events (wave 4L) -- "Each opponent attacking that player"
+        from app.rules import attached_players
+
+        return attached_players.attacking_opponents(plan, ctx)
     if who.startswith(context.PREFIX):  # a binding: "that player", "its controller", "its owner" (app/rules/context.py)
         return context.players(plan, ctx, who[len(context.PREFIX):])
     if who.startswith("player:"):  # (older saves: a player bound into the effect when it triggered)

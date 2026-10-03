@@ -154,6 +154,10 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(rf"~ (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m:
         return {"event": "multi", "events": [_MULTI[m["a"]], _MULTI[m["b"]]]}
+    # -- attached events (wave 4L) -- "Whenever enchanted creature attacks or blocks" (the object it's attached to)
+    m = re.fullmatch(rf"(?:enchanted|equipped) creature (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
+    if m and {_MULTI[m["a"]], _MULTI[m["b"]]} <= {"attack", "block", "blocked"}:
+        return {"event": "multi", "events": [_MULTI[m["a"]], _MULTI[m["b"]]], "subject": "host"}
     # 509.3b / 509.3d: "~ blocks or becomes blocked by a creature" — once per creature on the other side
     m = re.fullmatch(r"~ (?P<v>blocks or becomes blocked by|blocks|becomes blocked by) (?P<o>an? .+|another .+)", c)
     if m:

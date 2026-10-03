@@ -470,6 +470,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
     want = cond["event"]
     if want == "multi":  # "Whenever ~ attacks or blocks" (this object; each event, 603.2)
         wanted = [(_PAIRED[x] if cond.get("other") else x) for x in cond["events"]]
+        if cond.get("subject") == "host":  # -- attached events (wave 4L) -- what the source is attached to
+            return event in wanted and obj is not None and watcher.attached_to is not None and obj.id == watcher.attached_to
         return event in wanted and obj is not None and obj.id == watcher.id and _other_ok(plan, cond, watcher, info)
     if want in _PAIRED and cond.get("other"):
         want = _PAIRED[want]  # 509.3b / 509.3d: once per creature on the other side

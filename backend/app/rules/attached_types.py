@@ -43,12 +43,13 @@ import re
 _COLORS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 _LOSE_TYPES = "\u0002lose-all-types"
 _IS = re.compile(r"^is (?:a|an) (?P<desc>.+?)(?: with base power and toughness (?P<p>\d+)/(?P<t>\d+))?"
-                 r"(?P<add> in addition to its other types)?$")
+                 r"(?P<add> in addition to its other (?P<also>colors_and_)?types)?$")
 
 
 def protect(predicate: str) -> str:
     """Keep Darksteel Mutation's "it loses all other abilities, card types, and creature types" one piece."""
-    return predicate.replace("it loses all other abilities, card types, and creature types", _LOSE_TYPES)
+    return predicate.replace("it loses all other abilities, card types, and creature types", _LOSE_TYPES) \
+        .replace("its other colors and types", "its other colors_and_types")
 
 
 def piece(text: str, extra: dict[str, Any]) -> bool | list[int] | None:
@@ -72,6 +73,15 @@ def piece(text: str, extra: dict[str, Any]) -> bool | list[int] | None:
         return True
     if text == "is legendary":
         _layer4(extra).setdefault("add_supertypes", []).append("Legendary")
+        return True
+    if text in ("is every creature type", "is all creature types"):  # (205.3m: "all creature types")
+        _layer4(extra)["all_creature_types"] = True
+        return True
+    m = re.fullmatch(r"is (?P<c>white|blue|black|red|green|colorless)", text)
+    if m:  # layer 5: "Enchanted creature gets +3/+1 and is black." (105.3: its colors become that)
+        if "set_colors" in extra:
+            return False
+        extra["set_colors"] = [] if m["c"] == "colorless" else [_COLORS[m["c"]]]
         return True
     if not text.startswith("is "):
         return None
@@ -108,9 +118,15 @@ def _desc(m: re.Match[str], extra: dict[str, Any]) -> bool | list[int]:
     if legendary:
         layer4.setdefault("add_supertypes", []).append("Legendary")
     if m["add"]:
-        if colors is not None or m["p"] or artifact or creature or not (subs or legendary):
+        # "is an Angel in addition to its other types"; "is an artifact in addition to its other types" (205.1b);
+        # "is a black Zombie in addition to its other colors and types" (105.3: a color added)
+        if (colors is not None) != bool(m["also"]) or m["p"] or creature or not (subs or legendary or artifact):
             return False
         layer4.setdefault("add_subtypes", []).extend(subs)
+        if artifact:
+            layer4.setdefault("add_types", []).append("Artifact")
+        if colors:
+            extra["add_colors"] = colors
         return True
     if not subs or (artifact and not creature):
         return False
@@ -138,7 +154,8 @@ def consistent(extra: dict[str, Any], kind: str | None) -> bool:
             and set(layer4) != {"add_supertypes"}:
         return False  # (creature types for something that may not be a creature)
     if kind != "creature" and (extra.get("lose_all") or extra.get("lose_keywords") or "set_colors" in extra
-                               or layer4.get("set_types") or layer4.get("add_types")):
+                               or "add_colors" in extra or layer4.get("set_types") or layer4.get("add_types")
+                               or layer4.get("all_creature_types")):
         return False
     if not layer4:
         extra.pop("layer4", None)
@@ -152,7 +169,7 @@ def layer45(state: GameState, card: CardInstance, table: list[Static]) -> list[t
     creature)."""
     return [(st.seq, st.definition) for st in table
             if st.gate is None and st.definition.get("who") == "attached"
-            and (st.definition.get("layer4") or "set_colors" in st.definition)
+            and (st.definition.get("layer4") or "set_colors" in st.definition or "add_colors" in st.definition)
             and state.cards[st.source].attached_to == card.id]
 
 

@@ -391,6 +391,10 @@ def _layer4(ch: Characteristics, effects: list[ContinuousEffect],
                     known = LAND_TYPES | ARTIFACT_TYPES | ENCHANTMENT_TYPES | SPELL_TYPES | BATTLE_TYPES
                     subtypes = frozenset(s for s in subtypes if s in known) | frozenset(l4["set_creature_types"])
                 subtypes = subtypes | frozenset(l4.get("add_subtypes") or ())
+                if l4.get("all_creature_types"):
+                    from app.rules.creature_types import CREATURE_TYPES as _ALL
+
+                    subtypes = subtypes | _ALL
                 subtypes = frozenset(s for s in subtypes if _subtype_fits(s, types))
                 continue
             types = types - frozenset(e.get("remove_types") or ())
@@ -426,11 +430,13 @@ def _layer5(ch: Characteristics, effects: list[ContinuousEffect],
     of what is attached to it that set its colors ("is a green Elk creature"), interleaved by timestamp (613.7)."""
     colors = ch.colors
     ordered: list[tuple[tuple[int, int, int], Any]] = [((e.object_seq, 1, e.timestamp), e) for e in effects]
-    ordered += [((seq, 0, 0), d) for seq, d in own or () if "set_colors" in d]
+    ordered += [((seq, 0, 0), d) for seq, d in own or () if "set_colors" in d or "add_colors" in d]
     ordered.sort(key=lambda x: x[0])
     for _, e in ordered:
         if isinstance(e, dict):
-            colors = frozenset(e["set_colors"])
+            if "set_colors" in e:
+                colors = frozenset(e["set_colors"])
+            colors = colors | frozenset(e.get("add_colors") or ())
             continue
         if e.layer != "5":
             continue
