@@ -242,6 +242,8 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
         elif kind == "step":
             if x["whose"] == "you" and turn.active_player != player:
                 return f"That can only be activated during your {_phase_words(x['phases'])}"
+            if x["whose"] == "opponent" and turn.active_player == player:  # (wave 7A: cast timing)
+                return "That can only be activated during an opponent's turn"
             if turn.phase not in x["phases"]:
                 return f"That can only be activated {_when(x)}"
         elif kind == "per_turn":
