@@ -184,9 +184,11 @@ Soul Drain, Commander Finisher.
   authoritative record (for example "Player 2 was eliminated by commander damage from Player 4's
   commander"). Never infer a killer from recent actions. With no single deterministically known
   player/card, use the generic equipped effect.
-- **Setting:** Elimination Effects FULL / REDUCED / OFF, respecting the reduced-motion preference. What
-  REDUCED shows is still to be confirmed (the request was cut off at "REDUCED should replace"). The working
-  assumption is a brief simple fade or a static marker in place of the motion effect.
+- **Setting:** Elimination Effects FULL / REDUCED / OFF, respecting the reduced-motion preference.
+  REDUCED replaces the elaborate animation with a short fade/highlight.
+- **Locker listing:** Simple Fade (Owned / Default), Shatter 400 SP, Arcane Runes 700 SP, Void Collapse
+  1,000 SP, Commander Finisher 1,500 SP, with [PREVIEW] [UNLOCK] [EQUIP].
+- **Preview:** uses a dummy player/card setup and never interacts with a live game.
 
 ### Session recap (optional, subtle)
 
