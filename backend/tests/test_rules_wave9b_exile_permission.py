@@ -20,7 +20,8 @@ from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.game.state import GameState
-from app.rules import coverage, mana as M, permissions
+from app.rules import coverage, permissions
+from app.rules import mana as M
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_effects import mana, pass_until_stack_empty, replay_matches

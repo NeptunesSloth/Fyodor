@@ -21,7 +21,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import mana, pass_until_stack_empty
 from tests.test_rules_wave7f_untap_choice import play_to
-from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
+from tests.test_rules_wave9b_exile_permission import answer, build, put, roundtrip
 
 EXTRA = [
     card('Icefall Regent', set_code='tst', number='H01', mana_cost='{3}{U}{U}', cmc=5.0, type_line='Creature — Dragon', oracle_text="Flying\nWhen this creature enters, tap target creature an opponent controls. That creature doesn't untap during its controller's untap step for as long as you control this creature.\nSpells your opponents cast that target this creature cost {2} more to cast.", power='4', toughness='3', colors=['U'], color_identity=['U'], keywords=['Flying']),  # noqa: E501

@@ -95,8 +95,8 @@ phrases shared inside the catch-all families.
 | 6 | attached_events | 458 | 343 | 8 | Trailblazer's Boots, Blade of Selves |
 | 7 | this_turn_state | 469 | 340 | 63 | Sylvan Library, Veil of Summer |
 | 8 | x_value | 581 | 331 | 65 | Torment of Hailfire, Crackle with Power |
-| 9 | damage_sized | 423 | 277 | 33 | Descent into Avernus, Myr Battlesphere (9B in progress) |
-| 10 | as_long_as_static | 425 | 269 | 36 | Promise of Loyalty, Conqueror's Flail (9B in progress) |
+| 9 | damage_sized | 423 | 277 | 33 | Descent into Avernus, Myr Battlesphere |
+| 10 | as_long_as_static | 425 | 269 | 36 | Promise of Loyalty, Conqueror's Flail |
 | 11 | instead | 390 | 235 | 44 | Academy Manufactor, Bloodletter of Aclazotz (9C in progress) |
 | 12 | ability_word | 352 | 211 | 31 | Tireless Provisioner, Puresteel Paladin (9C in progress) |
 | 13 | reanimation | 361 | 177 | 26 | Sevinne's Reclamation, Haven of the Spirit Dragon |

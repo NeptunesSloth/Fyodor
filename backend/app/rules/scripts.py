@@ -640,6 +640,9 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             if "life_x" in e:  # -- sized payments (wave 5G) -- "pay X life, where X is its power"
                 e["life_x"] = _bind_stats(e["life_x"], lambda verb=None, at=index: stat_ref(at, verb),
                                           (lambda: "event") if antecedent == "event_spell" else None)
+            for pk in ("p", "t"):  # -- as long as (wave 9B) -- "gets +X/+X …, where X is the discarded card's mana value" (a pump / become)
+                if e.get("do") in ("pump", "become") and "it:discarded" in json.dumps(e.get(pk), default=str):
+                    e[pk] = _bind_stats(e[pk], lambda verb=None, at=index: stat_ref(at, verb), None)
             # -- X sized by a count (wave 4K) -- an "X/X" token's P/T: the same placeholders as an amount
             if isinstance(e.get("token"), dict) and any(isinstance(e["token"].get(k), dict) for k in ("power", "toughness")):
                 e["token"] = {**e["token"], **{k: _bind_stats(e["token"][k], lambda verb=None, at=index: stat_ref(at, verb),

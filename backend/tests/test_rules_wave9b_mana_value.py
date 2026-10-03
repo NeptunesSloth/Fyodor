@@ -78,10 +78,10 @@ def test_pyromancy_deals_the_mana_value_of_the_card_discarded_at_random(cards):
 
 
 def test_mercurial_chemister_reads_the_card_it_was_paid_with(cards):
-    s = build(cards, p1=("Mercurial Chemister", "Bonecrusher Giant", "Lightning Bolt"))
+    s = build(cards, p1=("Mercurial Chemister", "Bonecrusher Giant // Stomp", "Lightning Bolt"))
     chem = put(s, "Mercurial Chemister", "battlefield")
     big = tok(s, "p2", "Ogre", "9/9")
-    giant = put(s, "Bonecrusher Giant", "hand")
+    giant = put(s, "Bonecrusher Giant // Stomp", "hand")
     put(s, "Lightning Bolt", "hand")
     # a creature that just came under control can't use {T}: play on to Alice's next turn
     for _ in range(300):

@@ -21,7 +21,7 @@ from app.rules import coverage, static_pairs
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_attachments import ch
-from tests.test_rules_wave9b_exile_permission import build, find, put, roundtrip
+from tests.test_rules_wave9b_exile_permission import build, put, roundtrip
 
 EXTRA = [
     card('Phyrexian Boon', set_code='tst', number='Q1', mana_cost='{2}{B}', cmc=3.0, type_line='Enchantment — Aura', oracle_text="Enchant creature\nEnchanted creature gets +2/+1 as long as it's black. Otherwise, it gets -1/-2.", colors=['B'], color_identity=['B'], keywords=['Enchant']),  # noqa: E501

@@ -20,7 +20,7 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import mana, pass_until_stack_empty
-from tests.test_rules_wave9b_exile_permission import build, find, put, roundtrip
+from tests.test_rules_wave9b_exile_permission import build, find, roundtrip
 
 EXTRA = [
     card('Band Together', set_code='tst', number='B1', mana_cost='{2}{G}', cmc=3.0, type_line='Instant', oracle_text='Up to two target creatures you control each deal damage equal to their power to another target creature.', colors=['G'], color_identity=['G']),  # noqa: E501

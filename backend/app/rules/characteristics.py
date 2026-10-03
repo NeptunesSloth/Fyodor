@@ -9,7 +9,7 @@ system) arrive with milestone 16 and are applied on top of this in one place.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
 from app.game.state import CardInstance
@@ -148,6 +148,9 @@ def _from_card_data(data: dict[str, Any], face: int, *, half: bool = False) -> C
     elif faces and layout in ("split", "adventure", "aftermath"):
         src = faces[min(face, len(faces) - 1)] if face else data
         text = str(src.get("oracle_text") or data.get("oracle_text") or "")
+        if layout == "adventure" and not face:  # -- as long as (wave 9B) -- 715.4: off the stack an adventurer has only its normal
+            built = _build(data, src, text)  # characteristics: the mana value is the creature's (the "// Adventure" cost is no part of it)
+            return replace(built, mana_cost=str(faces[0].get("mana_cost") or ""), mana_value=mana_value(str(faces[0].get("mana_cost") or "")))
     else:
         src = data
         text = str(data.get("oracle_text") or "")

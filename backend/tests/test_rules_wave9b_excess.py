@@ -20,7 +20,7 @@ from app.rules import coverage, scripts
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import mana, pass_until_stack_empty
-from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
+from tests.test_rules_wave9b_exile_permission import build, find, put, roundtrip
 
 EXTRA = [
     card('Goblin Negotiation', set_code='tst', number='X01', mana_cost='{X}{R}{R}', cmc=2.0, type_line='Sorcery', oracle_text='Goblin Negotiation deals X damage to target creature. Create a number of 1/1 red Goblin creature tokens equal to the amount of excess damage dealt to that creature this way.', colors=['R'], color_identity=['R']),  # noqa: E501
