@@ -121,6 +121,9 @@ def parse(text: str) -> Definition | None:
     cda = parse_cda(body)
     if cda is not None:
         return cda
+    # -- untap choice (wave 7F) -- 502.3: asked in the untap step (app/rules/untap_choice.py)
+    if body == "You may choose not to untap ~ during your untap step":
+        return _definition("self", None, [], rules=["may_stay_tapped"])
     # -- dynamic values (agent F): "~ gets +X/+X, where X is …" (the X of a static is defined by its text)
     x_phrase: str | None = None
     m = re.match(r"^(?P<rest>.+), where X is (?P<x>.+)$", body)

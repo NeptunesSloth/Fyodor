@@ -473,7 +473,7 @@ class ContinuousEffect(BaseModel):
     # it" (``counter`` names the kind; an affected object that has none left drops out, and the effect
     # ends with the last one: 611.2b, app/rules/delayed.expire).
     duration: Literal["end_of_turn", "permanent", "next_turn", "source_on_battlefield", "source_controlled",
-                      "source_tapped", "while_counter"] = "end_of_turn"
+                      "source_tapped", "source_controlled_tapped", "while_counter"] = "end_of_turn"
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
     turn: int = 0  # the turn the effect began (next_turn: it ends on a later turn of until_player)

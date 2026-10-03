@@ -48,6 +48,7 @@ from app.rules import (
     sba,
     scripts,
     triggers,
+    untap_choice,  # -- untap choice (wave 7F) --
 )
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.leave import leave_game
@@ -498,9 +499,6 @@ def start_next_turn(plan: Plan) -> None:
     keep += [c for c in _exerted(plan, plan.after(plan.active)) if c not in keep]  # (wave 4H: an exerted one isn't stunned, 122.1d)
     # -- next untap step (wave 6A) -- 502.3: kept tapped by "doesn't untap during … next untap step" (not stunned either)
     keep += [c for c in next_untap.kept(plan, plan.after(plan.active)) if c not in keep]
-    # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
-    stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
-    keep = [*keep, *stunned]
     skipped: list[tuple[str, int]] = []  # 800.4k: a departed player's turn doesn't begin
     previous = (plan.active, plan.state.turn.number)
     # -- refused grants/replacements (wave 3R2) -- 614.10: skipped turns (they never begin: nothing ends with
@@ -511,6 +509,13 @@ def start_next_turn(plan: Plan) -> None:
         keep = list(dict.fromkeys([*keep, *stay]))[:250]
     keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or plan.after(plan.active))]))[:250]  # (wave 4H)
     keep = list(dict.fromkeys([*keep, *next_untap.kept(plan, skip_to or plan.after(plan.active))]))[:250]  # (wave 6A)
+    # -- untap choice (wave 7F) -- 502.3: "You may choose not to untap ~": asked below, after the turn changes
+    asked = untap_choice.candidates(plan, skip_to or plan.after(plan.active), keep) if stay is None else []
+    keep = [*keep, *asked]
+    # -- keyword actions & face-down (wave 3F) -- 122.1d: a stunned permanent stays tapped and loses a stun counter instead
+    # (wave 7F: after every other reason to stay tapped, so a permanent that isn't untapping keeps its counter)
+    stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep])
+    keep = [*keep, *stunned]
     if skip_to is not None:
         plan.do({"type": "next_turn", "force": True, "keep_tapped": keep, "player": skip_to}, actor=plan.active)
     # -- end refused grants/replacements (wave 3R2) --
@@ -521,6 +526,16 @@ def start_next_turn(plan: Plan) -> None:
         if plan.active in plan.live():
             break
         skipped.append((plan.active, plan.state.turn.number))
+    if untap_choice.ask(plan, asked, {"stunned": stunned, "previous": list(previous), "skipped": [list(s) for s in skipped],
+                                      "plain": stay is None, "keep": keep}):  # (wave 7F) the untap step waits for the choice
+        return
+    finish_turn_start(plan, stunned, previous, skipped, stay is None, keep)
+
+
+def finish_turn_start(plan: Plan, stunned: list[str], previous: tuple[str, int], skipped: list[tuple[str, int]], plain: bool,
+                      keep: list[str]) -> None:
+    """The rest of the turn's beginning after the untap step's permanents were chosen (``plain``: the untap step happened)."""
+    stay: list[str] | None = None if plain else []
     effects.keyword_actions.lose_stun(plan, [c for c in stunned if c in plan.state.cards and plan.state.cards[c].controller == plan.active],
                                       plan.active)
     delayed.turn_began(plan, skipped)  # 500.4, 800.4m: "until your next turn" effects end
@@ -1185,6 +1200,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "manual_done": _resume_manual_done,
     "combat_damage": _resume_combat_damage,
     "cleanup_manual": lambda plan, d, chosen: start_next_turn(plan),
+    "untap_keep": untap_choice.resume,  # -- untap choice (wave 7F) --
     "sba_confirm": sba.resume_confirm,
     "reconcile": reconcile.resume_reconcile,
     "payment": casting.resume_payment,

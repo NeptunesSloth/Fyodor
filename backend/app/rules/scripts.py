@@ -4474,6 +4474,10 @@ EFFECTS[:0] = [*_source_shields.TEMPLATES, *_skips.TEMPLATES, *_cant_gain.TEMPLA
 from app.rules import next_untap as _next_untap  # noqa: E402
 
 EFFECTS[:0] = _next_untap.TEMPLATES
+# -- untap choice (wave 7F) -- "… doesn't untap during its controller's untap step for as long as ~ remains tapped"
+from app.rules import untap_choice as _untap_choice  # noqa: E402
+
+EFFECTS[:0] = _untap_choice.TEMPLATES
 # -- bounce forms (wave 6A) -- "Return a permanent you control to its owner's hand." … (app/rules/bounce_forms.py):
 # after the older literal templates ("return a land you control …": effects.return_yours)
 from app.rules import bounce_forms as _bounce_forms  # noqa: E402

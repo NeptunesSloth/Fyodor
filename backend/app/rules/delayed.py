@@ -78,6 +78,8 @@ DURATIONS: dict[str, str] = {
     "for as long as ~ remains on the battlefield": "source_on_battlefield",
     "for as long as you control ~": "source_controlled",
     "for as long as ~ remains tapped": "source_tapped",
+    # -- untap choice (wave 7F) -- Rubinia Soulsinger: both must stay true (611.2b: it ends the moment either stops)
+    "for as long as you control ~ and ~ remains tapped": "source_controlled_tapped",
 }
 # -- quoted grants (wave 2D) -- "for as long as that creature has a bounty counter on it" (Mathas): the
 # duration names a kind of counter ("while_counter:<kind>"): the effect lasts while the object it affects
@@ -86,6 +88,7 @@ COUNTER_DURATION = r"for as long as (?:that \w+|it|~) has an? (?P<kind>[\w+/-]+)
 DURATION_RE = "|".join([*(re.escape(k) for k in sorted(DURATIONS, key=len, reverse=True)), COUNTER_DURATION])
 LABELS = {"next_turn": "until your next turn", "source_on_battlefield": "for as long as ~ remains on the battlefield",
           "source_controlled": "for as long as you control ~", "source_tapped": "for as long as ~ remains tapped",
+          "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
           "while_counter": "for as long as it has a counter on it"}
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
 
@@ -366,9 +369,9 @@ def _source_ok(plan: Plan, duration: str, source_card: str | None, source_object
         return False
     if not plan.in_game(card):
         return False  # 800.4a: its owner (or controller) left the game, and it left with them
-    if duration == "source_controlled":
-        return card.controller == controller
-    if duration == "source_tapped":
+    if duration in ("source_controlled", "source_controlled_tapped") and card.controller != controller:
+        return False
+    if duration in ("source_tapped", "source_controlled_tapped"):
         return card.tapped
     return True
 
