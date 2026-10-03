@@ -44,7 +44,8 @@ PLAYER_GROUPS = {"you": "you", "each player": "each_player", "each opponent": "e
                   "its controller": "it.controller", "its owner": "it.owner",
                   "that creature's controller": "it.controller", "that permanent's controller": "it.controller",
                   "that card's owner": "it.owner", "that creature's owner": "it.owner",
-                  "the chosen player": "chosen_player"}  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
+                  "the chosen player": "chosen_player",  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
+                  "defending player": "defending_player"}  # (-- defending player (wave 6D) --: app/rules/defending.py)
 # -- damage wordings (wave 6B) -- "Destroy target land. ~ deals 2 damage to that land's controller.", "Counter target
 # spell. ~ deals 2 damage to that spell's controller.": the object the previous instruction was about, like "its"
 PLAYER_GROUPS.update({f"{the} {kind}'s controller": "it.controller" for the in ("that", "the")
@@ -1864,8 +1865,7 @@ def _chooser(s: str) -> tuple[str, Any]:
         return "target", {"what": _LEGACY_TARGETS[s], "min": 1, "max": 1}
     if s == "each other player":
         return "each_opponent", None  # every other player is an opponent in a free-for-all (102.2, 806.2)
-    if s == "defending player":
-        raise _Fail  # which defending player (508.5)? the trigger event doesn't carry it: manual
+    # (-- defending player (wave 6D) -- "defending player": the attack trigger event's, 508.5: app/rules/defending.py)
     return PLAYER_GROUPS[s], None
 
 

@@ -101,6 +101,11 @@ TRIGGERS = [
                 r"(?P<body>.+)$"), "step"),
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
                 r"an artifact spell|an enchantment spell), (?P<body>.+)$"), "cast_you"),
+    # -- cast triggers (wave 6D) -- "When you cast this spell, …" (603.2, 601.2i: it triggers from the stack)
+    (re.compile(r"^When you cast this spell, (?P<body>.+)$"), "cast_self"),
+    # -- state triggers (wave 6D) -- "When you control no Islands, …" (603.8: app/rules/state_triggers.py)
+    (re.compile(r"^When (?P<state>you control (?:no|a|an|\w+ or more) [^,]+|there are no [^,]+ on the battlefield|"
+                r"you have \w+ or (?:more|less) life), (?P<body>.+)$"), "state"),
     # Anything else "When/Whenever [subject] [event], …": the generic condition grammar (app/rules/events.py)
     (re.compile(r"^(?:When|Whenever) (?P<cond>[^,]+), (?P<body>.+)$"), "event"),
 ]
@@ -126,7 +131,8 @@ def step_trigger(m: re.Match[str]) -> str:
 
 # ("Whenever ~ deals combat damage to a player" is generic: its event has the player dealt the
 # damage and the amount — "that player", "that much", 510.2)
-_LEGACY_SELF = {"enter": "enters_self", "die": "dies_self", "leave": "ltb_self", "attack": "attacks_self"}
+_LEGACY_SELF = {"enter": "enters_self", "die": "dies_self", "leave": "ltb_self", "attack": "attacks_self",
+                "turned_face_up": "turned_face_up_self"}  # (-- face up (wave 6D) --: only in "~ enters or is turned face up")
 
 
 def _legacy_trigger(cond: dict[str, Any]) -> str | None:
@@ -219,6 +225,8 @@ def _it_source(word: str) -> dict[str, str]:
 # that's a new object in another zone, 400.7)
 _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
             "deal_combat_damage_player", "deal_damage", "counters_put", "targeted", "create_token"}
+_STAYING.update({"become_monstrous", "become_renowned"})  # -- becomes monstrous (wave 6D) --
+_STAYING.add("to_graveyard")  # -- into a graveyard (wave 6D) -- the card(s) there, as they are there
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 # Zone-change events after which "it" is the new object the card became where it went — found
 # only there (400.7e, 603.6, 603.6c): "When ~ dies, return it to its owner's hand"
@@ -1438,7 +1446,8 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         if left is not None and right is not None and left[1] is None and right[1] is None:
             return left[0] + right[0], None
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
-                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad)\b)"):
+                                 r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
+                                 r"remove)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
@@ -2286,6 +2295,10 @@ def parse_anthem(text: str) -> Definition | None:
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     d = _define(ability, ch)
+    # -- exiled with (wave 6D) -- 607.2a linked abilities (app/rules/exiled_with.py)
+    from app.rules import exiled_with
+
+    d = exiled_with.link(d, ability, ch)
     from app.rules import kicked_instead  # -- kicked / instead (wave 4G) -- 702.33g: a spell's targets only
 
     if d is not None and d.get("kind") != "spell" and kicked_instead.has_kicked_groups(d):
@@ -2315,6 +2328,16 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             '{"x": 1}' in json.dumps([e.get("n") for e in d.get("effects") or [] if e.get("do") == "optional_payment"]):
         return None
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
+        return None
+    # -- defending player (wave 6D) -- only an attacking creature's trigger names one (508.5: app/rules/defending.py)
+    from app.rules import defending
+
+    if d is not None and not defending.allowed(d):
+        return None
+    # -- blocking it (wave 6D) -- "each creature blocking it": "it" must be the source (a trigger about this object)
+    if d is not None and "blocking_source" in json.dumps(d, default=str) and not (
+            d.get("kind") == "triggered" and (str(d.get("trigger", "")).endswith("_self")
+                                              or (d.get("cond") or {}).get("subject") == "self")):
         return None
     # -- combat (wave 5C) -- "attacks each combat if able" needs its duration
     from app.rules import combat_rules
@@ -2474,9 +2497,19 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import trigger_words
 
                 body = trigger_words.rewrite_body(body, name, cond, has_player)
+                if name == "step:draw:you":  # -- draw step (wave 6D) -- "At the beginning of your draw step, draw an
+                    # additional card.": a triggered ability that draws, after the draw of 504.1 (504.2)
+                    body = re.sub(r"^draw (an|two|three) additional (cards?)\.$",
+                                  lambda m: f"draw {'a' if m[1] == 'an' else m[1]} {m[2]}.", body)
+                # -- other side (wave 6D) -- "… blocks a creature, destroy that creature. You gain life equal to that
+                # creature's toughness" / "… deals damage to a creature, …": the event's object (app/rules/other_side.py)
+                from app.rules import other_side
+
+                ante = _trigger_antecedent(name, cond) or other_side.antecedent(cond, body)
+                parsed = parse_effects(body, it=ante, event_player=has_player)
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
-                if cond is not None and cond.get("other") and cond.get("subject", "self") == "self" and (
+                if parsed is None and cond is not None and cond.get("other") and cond.get("subject", "self") == "self" and (
                         cond["event"] in ("block", "blocked")
                         or (cond["event"] == "multi" and set(cond["events"]) <= {"block", "blocked"})):
                     from app.rules.language import OTHER_SIDE
@@ -2484,11 +2517,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     body = re.sub(r"^it deals ", "~ deals ", body)
                     body = body.replace("that creature's controller", OTHER_SIDE + "'s controller")
                     body = body.replace("that creature", OTHER_SIDE)
-                parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
+                    ante = _trigger_antecedent(name, cond)
+                    parsed = parse_effects(body, it=ante, event_player=has_player)
                 if same and parsed is not None:
                     parsed = attached_players.does_the_same(parsed)
                 if parsed is None:  # -- this-turn history (wave 4D) -- "…, if [condition], you may …" (603.4 + 603.5)
-                    parsed = _intervening_may(body, _trigger_antecedent(name, cond), has_player)
+                    parsed = _intervening_may(body, ante, has_player)
                 if parsed is None:
                     return None
                 effects, target, optional = parsed
@@ -2522,6 +2556,15 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     out["limit"] = restrictions.limit_kind(limit)
                 if "filter" in pattern.groupindex:
                     out["filter"] = m["filter"]
+                if trigger == "cast_self" and re.search(r'"(?:self|event)', json.dumps(effects, default=str)):
+                    return None  # -- cast triggers (wave 6D) -- the spell itself is on the stack: not read as "~"
+                if trigger == "state":  # -- state triggers (wave 6D) -- 603.8
+                    from app.rules import state_triggers
+
+                    state = state_triggers.condition(m["state"])
+                    if state is None or intervening is not None or limit is not None:
+                        return None
+                    out["state"] = state
                 return out
         return None
     if ability.kind == "spell":
@@ -3401,6 +3444,19 @@ def _delayed_trailing(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return _deferred(m["clause"], _delayed.WHEN[m["when"]])
 
 
+# -- other side (wave 6D) -- "Destroy that creature at end of combat." / "At end of combat, sacrifice it.": a delayed
+# trigger (603.7) that triggers as the next end of combat step begins (511.2)
+@effect(r"at end of combat, (?P<clause>.+)")
+def _delayed_end_combat_leading(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _deferred(m["clause"], _delayed.END_OF_COMBAT)
+
+
+@effect(r"(?P<clause>.+?) at end of combat")
+def _delayed_end_combat_trailing(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return _deferred(m["clause"], _delayed.END_OF_COMBAT)
+# -- end other side (wave 6D) --
+
+
 @effect(_delayed.EVENT.pattern.lstrip("^").rstrip("$"))
 def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     inner = _clause(m["clause"])
@@ -4167,11 +4223,12 @@ def _attach_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return found
 
 
-# -- if you do (wave 6F) -- "create a 2/1 red Dwarf Berserker creature token, then attach this Equipment to it." (Dwarven
-# Hammer, Elven Bow, Valkyrie's Sword): this object (400.7: still the one that entered) attached to the token just made,
-# if it could be attached there (701.3a-b, attachments.host_problem); otherwise nothing moves.
+# -- other side (wave 6D) / if you do (wave 6F) -- "Whenever a creature you control enters, you may attach ~ to it." (Hero's
+# Blade), "create a 1/1 … token, then attach ~ to it." (Ancestral Blade, Dwarven Hammer): this object attached to the one
+# the pronoun names (701.3a-b, attachments.host_problem: nothing moves if it can't be attached there or either has become
+# a new object, 400.7)
 @_first
-@effect(r"attach ~ to it")
+@effect(r"attach ~ to (?:it|that creature)")
 def _attach_self_to_it(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "attach_to", "src": "self", "who": "it"}], None
 
@@ -4525,3 +4582,19 @@ EFFECTS[:0] = _stack_interaction.TEMPLATES
 # -- turn grants (wave 6A) -- one subject for two grants ("… gains vigilance until end of turn and can't be blocked this
 # turn"): after every other template (it defers to the generic grammar first: app/rules/turn_grants.py)
 EFFECTS.extend(_turn_grants.LAST)
+# -- tap or untap (wave 6D) -- "You may tap or untap target permanent." (app/rules/tap_or_untap.py)
+from app.rules import tap_or_untap as _tap_or_untap  # noqa: E402
+
+EFFECTS[:0] = _tap_or_untap.TEMPLATES
+# -- exiled with (wave 6D) -- "return the exiled card to the battlefield under its owner's control" (607.2a)
+from app.rules import exiled_with as _exiled_with  # noqa: E402
+
+EFFECTS[:0] = _exiled_with.TEMPLATES
+# -- endure (wave 6D) -- "it endures 2" (701.63: app/rules/endure.py)
+from app.rules import endure as _endure  # noqa: E402
+
+EFFECTS[:0] = _endure.TEMPLATES
+# -- win the game (wave 6D) -- "you win the game" (104.2b: app/rules/win_game.py)
+from app.rules import win_game as _win_game  # noqa: E402
+
+EFFECTS[:0] = _win_game.TEMPLATES

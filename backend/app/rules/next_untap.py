@@ -24,7 +24,8 @@ from app.rules.plan import Plan
 
 Context = dict[str, Any]
 
-_PATTERN = re.compile(r"^(?P<o>.+?) (?:doesn't|don't) untap during (?P<whose>its controller's|their controller's|"
+# (-- other side (wave 6D) -- the object has no " and " in it: "tap that creature and it doesn't untap …" is two clauses)
+_PATTERN = re.compile(r"^(?P<o>(?:(?! and ).)+?) (?:doesn't|don't) untap during (?P<whose>its controller's|their controller's|"
                       r"their controllers'|your) next untap steps?$")
 _OBJECTS = ("it", "them", "target", "self")
 

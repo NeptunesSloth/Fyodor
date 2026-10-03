@@ -205,6 +205,12 @@ def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "attacked_this_turn"))
 
 
+# -- both colors (wave 6D) -- "a spell that's both red and white" (the Mimics): each of the colors (105.2)
+@_suffix(r"that['’]s both (?P<c1>" + "|".join(COLORS) + r") and (?P<c2>" + "|".join(COLORS) + r")")
+def _thats_both(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "all_colors:" + COLORS[m["c1"]] + COLORS[m["c2"]]))
+
+
 THAT_PLAYER = "that_player"  # -- damage wordings (wave 6B) -- a controller the trigger event's player binds
 
 
@@ -683,6 +689,13 @@ def _parse(phrase: str) -> Selector | None:
     # matches, narrowing one card type (205.3); "historic card" (700.6: legendary, artifact or Saga)
     if text.strip() in ("historic card", "historic cards") and not qualified:
         return replace(s, card=True, zones=() if s.zones == ("battlefield",) else s.zones, extras=(*s.extras, "historic"))
+    # -- historic (wave 6D) -- "a historic spell" (Jhoira), "another nontoken historic permanent" (700.6)
+    hist = re.fullmatch(r"(?P<pre>(?:nontoken )?)historic (?P<rest>spells?|permanents?)", text.strip())
+    if hist is not None and not qualified:
+        base = _parse(hist["pre"] + hist["rest"])
+        if base is None or base.types or base.subtypes or base.card:
+            return None
+        return replace(s, zones=base.zones, token=base.token, extras=(*s.extras, "historic"))
     alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker) cards?)",
                             text.strip())
     if alt_subs is not None:
@@ -978,6 +991,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra.startswith("entered_this_turn") and not _entered_now(plan, card, you if extra.endswith("_you") else None):
             return False  # (wave 5H)
+        if extra.startswith("all_colors:") and not set(extra[11:]) <= set(ch.colors):  # -- both colors (wave 6D) --
+            return False
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --

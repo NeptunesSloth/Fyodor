@@ -808,6 +808,9 @@ class RulesState(BaseModel):
     prevention: dict[str, int] = Field(default_factory=dict)  # player / object id -> damage to prevent this turn
     regen_shields: dict[str, int] = Field(default_factory=dict)  # object id -> regeneration shields this turn
     linked_exile: dict[str, list[str]] = Field(default_factory=dict)  # source object -> cards exiled "until it leaves"
+    # -- exiled with (wave 6D) -- source object -> the objects its abilities exiled (607.2a: "the exiled card",
+    # "cards exiled with ~"; app/rules/exiled_with.py)
+    exiled_with: dict[str, list[str]] = Field(default_factory=dict)
     delayed: list[DelayedTrigger] = Field(default_factory=list)  # delayed triggered abilities (603.7; app/rules/delayed.py)
     exile_if_leaves: list[str] = Field(default_factory=list)  # objects exiled instead of leaving (unearth)
     # Replacement / prevention records with a duration (app/rules/replacements.py): "Prevent all

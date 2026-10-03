@@ -266,6 +266,10 @@ def note_crime(plan: Plan, stack_id: str, controller: str, targets: list[Any]) -
             crime = False
         if crime:
             log.facts.append(TurnFact(kind="crime", player=controller))
+            # -- crimes (wave 6D) -- "Whenever you commit a crime" (700.13: one crime per spell or ability)
+            from app.game.rules_state import emit
+
+            emit(plan.state, "designation", counter="crime", player=controller)
             return
 
 
