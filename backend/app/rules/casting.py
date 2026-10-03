@@ -164,6 +164,13 @@ def _mana_count(state: GameState, card: CardInstance, count: str, info: CardInfo
 
 
 def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, info: CardInfo) -> tuple[tuple[str, ...], ...]:
+    # -- mana riders (wave 5A) -- "for each …" / "where X is …" counts, "any color among …" (app/rules/mana_riders.py)
+    from app.rules import mana_riders
+
+    more = mana_riders.resolve(state, card, ab, info)
+    if more is not None:
+        return more
+    # -- end mana riders (wave 5A) --
     if ab.instead_if == (M.PLAYED_LAND,):  # -- this-turn history (wave 4D) -- River of Tears
         played = state.rules is not None and state.rules.lands_this_turn(card.controller, state.turn.number) > 0
         return ab.instead if played else ab.options
@@ -282,7 +289,7 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         if ab.kind != "mana":
             continue
         parsed = M.parse_mana_ability(ab.text, identity)
-        if parsed is None:
+        if parsed is None or parsed.from_hand:  # (from_hand: only from the hand, wave 5A — mana_riders.activate_from_hand)
             continue
         if parsed.spend_only is not None and parsed.spend_only.startswith("q:") and '"chosen": true' in parsed.spend_only:
             # -- refused copy/mana (wave 3R3) -- "a creature spell of the chosen type": the type chosen as it entered
@@ -311,8 +318,9 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         if options:
             out.append((ab.index, replace(parsed, options=options)))
     # -- attached events (wave 4L) -- "Whenever enchanted land is tapped for mana"
-    from app.rules import attached_mana
+    from app.rules import attached_mana, tap_mana
 
+    out = tap_mana.extend(state, card, info, out)  # -- mana riders (wave 5A) -- "Whenever you tap a land for mana, …"
     return attached_mana.extend(state, card, info, ch.is_land, out)
 
 
@@ -832,6 +840,10 @@ def after_mana_ability(plan: Plan, card: CardInstance, index: int, ability: M.Ma
                      "dealt": [{"source": plan.oid(card.id), "target": card.controller, "amount": n}]}, actor=card.controller)
         elif kind == "draw":
             plan.do({"type": "draw", "player": card.controller, "count": n}, actor=card.controller)
+        else:  # -- mana riders (wave 5A) -- "You gain 2 life.", "Each opponent gains 1 life."
+            from app.rules import mana_riders
+
+            mana_riders.after(plan, card, kind, n)
 
 
 def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[str] | None = None,
@@ -849,10 +861,13 @@ def pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list[
         extras.append((card, index, ability))
         if ability.extra_cost:
             life += parse_ability_cost(ability.extra_cost, card_name=plan.ch(card).name).life
+    oids = {card.id: plan.oid(card) for card, _, _ in extras}  # (wave 5A: the objects as they were tapped)
     plan.do({"type": "rules_mana", "player": player, "tap": payment.tapped, "sacrifice": payment.sacrificed,
              "delta": payment.delta(), "life": life, "label": label}, actor=player)
     for card, index, ability in extras:
-        emit(plan.state, "mana_added", object_id=plan.oid(card), card=card.id, player=player)
+        # -- mana riders (wave 5A) -- counter "tap": tapped for mana (106.12a: an ability with {T} in its cost)
+        emit(plan.state, "mana_added", object_id=oids[card.id], card=card.id, player=player,
+             counter="tap" if ability.tap else None)
         after_mana_ability(plan, card, index, ability)
     payment.life = life
     return payment
@@ -2236,6 +2251,12 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).from_hand:
             activate_to_stack(plan, card, ch, ability, a)  # -- ability words (wave 4F) -- channel (113.6m)
             return
+        if ability is not None and ability.kind == "mana":  # -- mana riders (wave 5A) -- Simian Spirit Guide (605.3a)
+            from app.rules import mana_riders
+
+            mana_riders.activate_from_hand(plan, card, ch, ability)
+            plan.rules.passed = []
+            return
         found = suspend_info(ch, a.ability)
         if found is not None:
             suspend(plan, card, ch, a, *found)
@@ -2336,6 +2357,15 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     if a.convoke or a.improvise or a.delve:
         _commit_helper(plan, card, "convoke" if a.convoke else "improvise" if a.improvise else "delve")
         return
+    if card is not None and card.zone == zone_key(plan.actor, "hand"):  # -- mana riders (wave 5A) -- a Spirit Guide
+        from app.rules import mana_riders
+
+        hand_ch = plan.ch(card)
+        hand_ability = _find_ability(hand_ch, a.ability)
+        if hand_ability.kind == "mana":
+            mana_riders.activate_from_hand(plan, card, hand_ch, hand_ability)
+            after_tapping(plan)
+            return
     if card is None or card.controller != plan.actor or not card.zone.endswith(":battlefield"):
         raise ActionError("Tap mana sources you control")
     d = plan.rules.decision
@@ -2630,10 +2660,12 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
 
         replace_.put_counters(plan, [(card.id, ability.self_counter, 1)], by=card.controller, effect=False)
     mana = _count(option)
+    oid = plan.oid(card)  # (wave 5A: the object as it was tapped)
     plan.do({"type": "rules_mana", "player": card.controller, "tap": [card.id] if ability.tap else [],
              "sacrifice": [card.id] if ability.sacrifice_self else [], "delta": mana,
              "life": extra.life if extra else 0, "label": f"added {M.symbols(mana)}"}, actor=card.controller)
-    emit(plan.state, "mana_added", object_id=plan.oid(card), card=card.id, player=card.controller, amount=sum(mana.values()))
+    emit(plan.state, "mana_added", object_id=oid, card=card.id, player=card.controller, amount=sum(mana.values()),
+         counter="tap" if ability.tap else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
     if index is not None:
         after_mana_ability(plan, card, index, ability)
 
@@ -2688,7 +2720,8 @@ def _add_paid_mana(plan: Plan, card: CardInstance, ability: M.ManaAbility, optio
     mana = _count(option)
     plan.do({"type": "rules_mana", "player": card.controller, "tap": [], "sacrifice": [], "delta": mana, "life": 0,
              "label": f"added {M.symbols(mana)}"}, actor=plan.actor)
-    emit(plan.state, "mana_added", object_id=oid, card=card.id, player=card.controller, amount=sum(mana.values()))
+    emit(plan.state, "mana_added", object_id=oid, card=card.id, player=card.controller, amount=sum(mana.values()),
+         counter="tap" if ability.tap else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
     after_mana_ability(plan, card, index, ability)
 
 

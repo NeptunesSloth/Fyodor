@@ -3086,6 +3086,12 @@ PRIMITIVES.update(graveyard_grants.PRIMITIVES)  # "gains flashback until end of 
 RESUME.update(graveyard_grants.RESUME)  # ("Choose one of them.")
 RESUME.update(source_shields.RESUME)
 # -- end refused grants/replacements (wave 3R2) --
+from app.rules import tap_mana as _tap_mana  # noqa: E402, I001  -- mana riders (wave 5A) --
+
+PRIMITIVES["tap_mana_until_eot"] = _tap_mana.until_eot  # High Tide: a triggered mana ability for the rest of the turn
+from app.rules import untap_riders as _untap_riders  # noqa: E402, I001
+
+PRIMITIVES["untap_choice"] = _untap_riders.untap_choice  # "Untap up to three lands." (a choice, not a target)
 
 # -- refused copy/mana (wave 3R3) -- "you don't lose this mana" (106.4, 500.4): app/rules/kept_mana.py
 from app.rules import kept_mana as _kept_mana  # noqa: E402, I001
