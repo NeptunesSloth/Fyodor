@@ -146,8 +146,8 @@ def parse(text: str) -> Definition | None:
         return _definition("self", None, [], rules=[f"cant_be_blocked_by_power:{m['dir']}"])
     # -- lure (wave 12B) -- "All creatures able to block ~ do so." / "…, and all creatures able to block it do so." (Lure,
     # Nemesis Mask): every creature able to block it must (509.1c) — the rule "lure" on the attacker
-    body = re.sub(r"^All creatures able to block (?P<o>~|this creature|enchanted creature|equipped creature) do so$",
-                  lambda m: f"{'~' if m['o'] in ('~', 'this creature') else m['o'].capitalize()} must be blocked by all creatures able",
+    body = re.sub(r"^All (?P<w>[A-Za-z ]+?) able to block (?P<o>~|this creature|enchanted creature|equipped creature) do so$",
+                  lambda m: f"{'~' if m['o'] in ('~', 'this creature') else m['o'].capitalize()} must be blocked by all {m['w']} able",
                   body)
     body = re.sub(r"(?P<sep>, and| and|,) all creatures able to block it do so$", r"\g<sep> must be blocked by all creatures able", body)
     conds: list[dict[str, Any]] = []
@@ -723,6 +723,10 @@ def _rule(piece: str) -> list[str] | None:
     plain = RULES.get(piece)
     if plain is not None:
         return list(plain)
+    m = re.fullmatch(r"must be blocked by all (?P<sel>.+) able", piece)  # (-- lure (wave 12B) -- only those creatures must)
+    if m:
+        sels = _sels(m["sel"])
+        return [f"lure:{sels}"] if sels else None
     m = re.fullmatch(r"can't be blocked except by (?P<n>\w+) or more creatures", piece)
     if m:
         n = _num(m["n"])

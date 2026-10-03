@@ -117,6 +117,21 @@ def test_static_lure_makes_every_able_creature_block(cards):
     check(s)
 
 
+def test_lure_for_one_kind_of_creature(cards):
+    from tests.test_rules_combat import attack, block
+
+    s, lure, guard, spare = combat_table(cards, "All Walls able to block this creature do so.")
+    act(s, "p2", type="create_token", player="p2", token={"name": "Bulwark", "type_line": "Token Creature — Wall",
+                                                          "power": "0", "toughness": "4"})
+    wall = next(c for c in s.state.cards.values() if c.name == "Bulwark")
+    act(s, "p1", type="pass_priority")
+    attack(s, (lure, "p2"))
+    with pytest.raises(ActionError, match="if able"):
+        block(s, "p2", (guard, lure))  # (only the Wall is made to block)
+    block(s, "p2", (wall, lure))
+    check(s)
+
+
 def test_activated_lure_lasts_the_turn(cards):
     from tests.test_rules_combat import attack, block
 

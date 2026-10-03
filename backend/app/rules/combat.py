@@ -609,7 +609,9 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
     for b in (state.cards[i] for i in blockers):
         wanted = [arg for name, arg in map(rule_arg, scripts.statics(plan.ch(b))) if name == "must_block_obj"]
         # -- lure (wave 12B) -- 509.1c: "All creatures able to block ~ do so": every blocker has "blocks it if able"
-        wanted = list(dict.fromkeys([*wanted, *(plan.oid(y) for y in att if "lure" in scripts.statics(plan.ch(y)))]))
+        lures = [(y, arg) for y in att for name, arg in map(rule_arg, scripts.statics(plan.ch(y))) if name == "lure"]
+        wanted = list(dict.fromkeys([*wanted, *(plan.oid(y) for y, arg in lures
+                                                if not arg or _any_selector(state, plan.info, arg, b, plan.ch(b), y))]))
         for x in (y for y in att if plan.oid(y) in wanted):
             other = state.cards.get(blocking.get(b.id, ""))
             if other is not None and (other.id == x.id or len(wanted) > 1 or "must_be_blocked" in scripts.statics(plan.ch(other))):
