@@ -236,19 +236,10 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         for pid, _ in found.losers:
             leave_game(plan, pid)
         left = live_players(state)
-        from app.rules import game_result
-
-        if len(left) == 1 and r.winner is None and not game_result.cannot_win(plan, left[0]):  # 104.2a, 10B
+        # 104.2a: the last player left wins at once, overriding "can't win the game" (review of wave 10B)
+        if len(left) == 1 and r.winner is None:
             r.winner = left[0]
             plan.note(f"{state.players[left[0]].name} wins the game")
-    elif r.winner is None and (r.lost or r.conceded):  # -- game result statics (wave 10B) --
-        from app.rules import game_result  # a last player who couldn't win (104.2) wins once nothing stops it
-
-        left = live_players(state)
-        if len(left) == 1 and not game_result.cannot_win(plan, left[0]):
-            r.winner = left[0]
-            plan.note(f"{state.players[left[0]].name} wins the game")
-            happened = True
     # -- counters & designations (wave 3E): 309.6 dungeons, 701.54a Ring-bearers --
     from app.rules import designations
 

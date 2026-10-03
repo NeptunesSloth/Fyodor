@@ -2,8 +2,8 @@
 
 * Platinum Angel / Herald of Eternal Dawn: "You can't lose the game and your opponents can't win the game." (104.3, 104.2):
   0 life doesn't end the game for its controller; once the permanent is gone the next check (704.3) ends it.
-* Abyssal Persecutor: "You can't win the game and your opponents can't lose the game.": its controller isn't the winner
-  while it stays, the opponents with 0 life stay in the game.
+* Abyssal Persecutor: "You can't win the game and your opponents can't lose the game.": no effect makes its controller win (104.2b),
+  the opponents with 0 life stay in the game; being the last player left still wins at once (104.2a).
 Every scenario checks the replay and a save/load round trip.
 """
 
@@ -100,14 +100,11 @@ def test_an_opponent_of_platinum_angel_still_loses_normally(cards):
 
 def test_abyssal_persecutor_keeps_the_opponents_in_and_its_controller_from_winning(cards):
     s = build(cards, [(1, "Abyssal Persecutor")], [(1, "Grizzly Bears")])
-    persecutor = put(s, "Abyssal Persecutor", "battlefield")
+    put(s, "Abyssal Persecutor", "battlefield")
     drain = agent(s, "p1", "{1}: Each opponent loses 43 life.")
     activate(s, drain, "p1")
     assert s.state.players["p2"].life == -3 and "p2" not in lost(s) and s.state.rules.winner is None  # can't lose
-    act(s, "p2", type="concede")  # leaves the game: Alice is the last one, but can't win while it is there
-    assert s.state.rules.winner is None
+    act(s, "p2", type="concede")  # leaves the game: Alice is the last one and wins at once (104.2a overrides "can't win")
+    assert s.state.rules.winner == "p1"
     roundtrip(s)
-    act(s, "p1", type="move", card_ids=[persecutor.id], to={"player": "p1", "zone": "graveyard"})
-    act(s, "p1", type="pass_priority")
-    assert s.state.rules.winner == "p1"  # nothing stops the win any more
     replay_matches(s)
