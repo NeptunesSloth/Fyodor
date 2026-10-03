@@ -137,6 +137,8 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
         for d in scripts.definitions(copiable(state, c, info)).values():
             if d["kind"] == "static" and d.get("static") in ("grant", "attached_rule") and not grammar.zone_static(d):
                 out.append(Static(cid, c.controller, d, timestamp(state, cid)))
+                # -- as long as (wave 9B) -- the other sentences of one ability (static_pairs.py): statics of the same permanent
+                out += [Static(cid, c.controller, extra, timestamp(state, cid)) for extra in d.get("also", ())]
     # -- conditional statics (wave 4B) -- "As long as this card is in your graveyard and you control a Mountain,
     # creatures you control have haste." (Anger): an ability that states the zone it functions in functions only
     # from there (113.6b); "you" is its owner (108.4a). Its timestamp: the object number it got as it went there.
