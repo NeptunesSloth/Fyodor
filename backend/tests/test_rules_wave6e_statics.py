@@ -4,6 +4,8 @@
   the ward piece triggers like a lone one (702.21a); "ward—Pay 3 life" stays manual.
 * Anthems granting triggered keywords (613.1f): undying (702.93a), persist (702.79a), prowess (702.108a), exalted (702.83a,
   each instance separately, 702.83b): Mikaeus the Unhallowed, Sublime Archangel, Bria.
+* A choice between additional costs (601.2b announced before targets, 601.2f in the total cost, 601.2h paid with the
+  rest, 118.3): Demand Answers, Bitter Triumph, Eaten Alive, Annihilating Glare.
 * Anthems over two groups ("Skeletons you control and other Zombies you control"): Death Baron, Caterwauling Boggart,
   Timber Protector.
 
@@ -35,11 +37,18 @@ EXTRA = [
     card('Bria, Riptide Rogue', set_code='tst', number='E06', mana_cost='{2}{U}{R}', cmc=4.0, type_line='Legendary Creature — Otter Rogue', oracle_text="Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nOther creatures you control have prowess. (If a creature has multiple instances of prowess, each triggers separately.)\nWhenever you cast a noncreature spell, target creature you control can't be blocked this turn.", power='3', toughness='3', colors=['R', 'U'], color_identity=['R', 'U'], keywords=['Prowess']),  # noqa: E501
     card('Caterwauling Boggart', set_code='tst', number='E07', mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Goblin Shaman', oracle_text="Goblins you control and Elementals you control have menace. (They can't be blocked except by two or more creatures.)", power='2', toughness='2', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
     card('Timber Protector', set_code='tst', number='E08', mana_cost='{4}{G}', cmc=5.0, type_line='Creature — Treefolk Warrior', oracle_text='Other Treefolk creatures you control get +1/+1.\nOther Treefolk and Forests you control have indestructible.', power='4', toughness='6', colors=['G'], color_identity=['G'], keywords=[]),  # noqa: E501
+    card('Demand Answers', set_code='tst', number='E09', mana_cost='{1}{R}', cmc=2.0, type_line='Instant', oracle_text='As an additional cost to cast this spell, sacrifice an artifact or discard a card.\nDraw two cards.', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
+    card('Bitter Triumph', set_code='tst', number='E10', mana_cost='{1}{B}', cmc=2.0, type_line='Instant', oracle_text='As an additional cost to cast this spell, discard a card or pay 3 life.\nDestroy target creature or planeswalker.', colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
+    card('Eaten Alive', set_code='tst', number='E11', mana_cost='{B}', cmc=1.0, type_line='Sorcery', oracle_text='As an additional cost to cast this spell, sacrifice a creature or pay {3}{B}.\nExile target creature or planeswalker.', colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
+    card('Annihilating Glare', set_code='tst', number='E12', mana_cost='{B}', cmc=1.0, type_line='Sorcery', oracle_text='As an additional cost to cast this spell, pay {4} or sacrifice an artifact or creature.\nDestroy target creature or planeswalker.', colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
+    card('Silvergill Adept', set_code='tst', number='E13', mana_cost='{1}{U}', cmc=2.0, type_line='Creature — Merfolk Wizard', oracle_text='As an additional cost to cast this spell, reveal a Merfolk card from your hand or pay {3}.\nWhen this creature enters, draw a card.', power='2', toughness='1', colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
 ]
 FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime Archangel", "Bria, Riptide Rogue",
-        "Caterwauling Boggart", "Timber Protector"]
+        "Caterwauling Boggart", "Timber Protector", "Demand Answers", "Bitter Triumph", "Eaten Alive",
+        "Annihilating Glare"]
 STILL_MANUAL = {
     "Sedgemoor Witch": "Ward",  # (ward—Pay 3 life: a cost the ward trigger doesn't read)
+    "Silvergill Adept": "reveal a Merfolk card",  # (revealing a card as a cost: not paid by the engine)
 }
 
 
@@ -48,6 +57,10 @@ def card_db(settings: Settings) -> Path:
     settings.ensure_dirs()
     build_database(fixture_cards() + EXTRA, settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
+
+
+def gone(s, c):
+    return c.id not in s.state.cards or not s.state.cards[c.id].zone.endswith(":battlefield")
 
 
 def named(s, name, pid="p1"):
@@ -220,3 +233,107 @@ def test_caterwauling_boggart_goblins_and_elementals(cards):
     elf = token_of(s, "p1", "Elfy", "Token Creature — Elf", "1/1")
     assert "menace" in chars(s, elem).keywords and "menace" not in chars(s, elf).keywords
     replay_matches(s)
+
+
+# -- a choice between additional costs (601.2b, 601.2f, 601.2h) ---------------------------------------------------
+def test_either_costs_parse():
+    from app.rules import costs
+
+    sides = costs.parse_additional_cost("pay {4} or sacrifice an artifact or creature")
+    assert sides is not None and [costs.either_label(c) for c in sides.either] == ["Pay {4}", "Sacrifice an artifact or creature"]
+    assert costs.parse_additional_cost("reveal a Merfolk card from your hand or pay {3}") is None
+    assert costs.parse_additional_cost("forage or pay {B}") is None
+
+
+def test_bitter_triumph_asks_which_cost_and_pays_life(cards):
+    s = build(cards, "Bitter Triumph", "Grizzly Bears")
+    to_hand(s, "Grizzly Bears")
+    victim = token_of(s, "p2", "Victim", "Token Creature — Bear", "2/2")
+    triumph = to_hand(s, "Bitter Triumph")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=triumph.id, targets=[victim.id])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and [o.label for o in d.options] == ["Discard a card", "Pay 3 life"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["either:1"])
+    assert s.state.players["p1"].life == 37
+    settle(s)
+    assert gone(s, victim)
+    assert named(s, "Grizzly Bears").zone == "p1:hand"
+    s = reloaded(s)
+    replay_matches(s)
+
+
+def test_bitter_triumph_discards_a_card_when_chosen(cards):
+    s = build(cards, "Bitter Triumph", "Grizzly Bears")
+    bears = to_hand(s, "Grizzly Bears")
+    victim = token_of(s, "p2", "Victim", "Token Creature — Bear", "2/2")
+    triumph = to_hand(s, "Bitter Triumph")
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=triumph.id, targets=[victim.id])
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["either:0"])
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard" and s.state.players["p1"].life == 40
+    assert gone(s, victim)
+    replay_matches(s)
+
+
+def test_bitter_triumph_with_an_empty_hand_pays_life_without_asking(cards):
+    s = build(cards, "Bitter Triumph")
+    victim = token_of(s, "p2", "Victim", "Token Creature — Bear", "2/2")
+    triumph = to_hand(s, "Bitter Triumph")
+    for c in list(s.state.zones["p1:hand"]):
+        if c != triumph.id:
+            act(s, "p1", type="move", card_ids=[c], to={"zone": "library"})
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=triumph.id, targets=[victim.id])
+    settle(s)
+    assert s.state.players["p1"].life == 37 and gone(s, victim)
+    replay_matches(s)
+
+
+def test_eaten_alive_without_a_creature_pays_the_extra_mana(cards):
+    s = build(cards, "Eaten Alive")
+    victim = token_of(s, "p2", "Victim", "Token Creature — Bear", "2/2")
+    eaten = to_hand(s, "Eaten Alive")
+    mana(s, B=2)
+    with pytest.raises(Exception):  # ({B} plus {3}{B}: two black mana aren't enough)
+        act(s, "p1", type="cast_spell", card_id=eaten.id, targets=[victim.id])
+    if s.state.rules.decision is not None:  # (asked for the mana payment: cancelled)
+        act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=[])
+    assert s.state.cards[eaten.id].zone == "p1:hand"
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=eaten.id, targets=[victim.id])
+    settle(s)
+    assert gone(s, victim) and s.state.cards[eaten.id].zone == "p1:graveyard"
+    assert not any(s.state.players["p1"].mana.values())  # ({B} + {3}{B}: all five spent)
+    replay_matches(reloaded(s))
+
+
+def test_annihilating_glare_sacrifices_a_creature_when_chosen(cards):
+    s = build(cards, "Annihilating Glare")
+    fodder = token_of(s, "p1", "Fodder", "Token Creature — Thrull", "1/1")
+    victim = token_of(s, "p2", "Victim", "Token Creature — Bear", "2/2")
+    glare = to_hand(s, "Annihilating Glare")
+    mana(s, B=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=glare.id, targets=[victim.id])
+    d = s.state.rules.decision
+    assert [o.id for o in d.options] == ["either:0", "either:1"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["either:1"])
+    settle(s)
+    assert gone(s, fodder)
+    assert gone(s, victim)
+    replay_matches(s)
+
+
+def test_demand_answers_sacrifices_an_artifact(cards):
+    s = build(cards, "Demand Answers")
+    relic = token_of(s, "p1", "Relic", "Token Artifact — Clue", "0/0")
+    answers = to_hand(s, "Demand Answers")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, R=1, C=1)
+    assert s.state.zones["p1:hand"] == [answers.id]  # (nothing to discard: the artifact is sacrificed, unasked)
+    act(s, "p1", type="cast_spell", card_id=answers.id)
+    settle(s)
+    assert gone(s, relic)
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + 2
+    replay_matches(reloaded(s))
