@@ -1893,9 +1893,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     # for "whenever you cast"; amount: the Nth spell its caster cast this turn ("your second spell each turn")
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
          amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)
-    extra = 0 if a.face_down or plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
-    if extra or ("cascade" in ch.keywords and not a.face_down and not plan.manual(card)):
-        _cascade_triggers(plan, card, ch, extra)
+    more_cascade = 0 if a.face_down or plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
+    if more_cascade or ("cascade" in ch.keywords and not a.face_down and not plan.manual(card)):
+        _cascade_triggers(plan, card, ch, more_cascade)
     if "storm" in ch.keywords and not a.face_down and not plan.manual(card):
         _storm_trigger(plan, card, ch)
     if definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot

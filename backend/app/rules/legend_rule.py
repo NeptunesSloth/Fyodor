@@ -46,9 +46,7 @@ def exempt_cards(plan: Plan, group: list[CardInstance]) -> set[str]:
             if i in skip or d.get("kind") != "static" or d.get("static") != KIND:
                 continue
             for card in group:
-                if d["scope"] == "all":
-                    out.add(card.id)
-                elif card.controller == src.controller and (
+                if d["scope"] == "all" or card.controller == src.controller and (
                         d["scope"] == "permanents" or (d["scope"] == "tokens" and card.is_token)
                         or (d["scope"] == "creatures" and plan.ch(card).is_creature)):
                     out.add(card.id)

@@ -995,7 +995,9 @@ def _win(plan: Plan, pid: str) -> None:
     r = plan.rules
     if r.winner is not None or pid not in plan.live():
         return
-    from app.rules import game_result  # -- game result statics (wave 10B) -- "You can't win the game" (104.2b)
+    from app.rules import (
+        game_result,  # -- game result statics (wave 10B) -- "You can't win the game" (104.2b)
+    )
 
     if game_result.cannot_win(plan, pid):
         plan.note(f"{plan.name(pid)} would win the game, but can't")

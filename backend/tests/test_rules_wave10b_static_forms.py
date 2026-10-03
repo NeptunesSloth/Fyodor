@@ -14,13 +14,13 @@ import pytest
 
 from app.game.state import GameState
 from app.rules import coverage
-from app.rules.plan import Plan
 from app.rules.casting import mana_sources
+from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
+from tests.test_rules_conditionals import build as build_c
 from tests.test_rules_effects import replay_matches
 from tests.test_rules_permissions import build, put
-from tests.test_rules_conditionals import build as build_c
 from tests.test_rules_wave4j_leftovers import answer, named
 from tests.test_rules_wave5f_types_entries import rules
 

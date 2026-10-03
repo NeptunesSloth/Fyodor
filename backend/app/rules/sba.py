@@ -93,7 +93,9 @@ def find(plan: Plan) -> Found:
         elif pid in r.drew_from_empty:
             reason = "drew from an empty library"
         if reason:
-            from app.rules import game_result  # -- game result statics (wave 10B) -- "You can't lose the game" (104.3)
+            from app.rules import (
+                game_result,  # -- game result statics (wave 10B) -- "You can't lose the game" (104.3)
+            )
 
             if game_result.cannot_lose(plan, pid):
                 r.drew_from_empty = [p_ for p_ in r.drew_from_empty if p_ != pid]  # (704.5b: checked, nothing happened)
