@@ -394,6 +394,8 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
     if kept and ctx.get(DEALT_KEY) is not None and e is not None and e.get("dealt_as"):
         # "a creature dealt damage this way" (the objects actually dealt damage: after prevention)
         ctx[DEALT_KEY][e["dealt_as"]] = [ev["target_oid"] for ev in out.events if ev.get("target_oid")]
+    if e is not None and e.get("bind_excess"):  # -- as long as (wave 9B) -- 120.10 (read before the damage is recorded)
+        context.bind_amount(ctx, e["bind_excess"], _this_way.excess_of(plan, out.events))
     replace.do_damage(plan, out, actor=ctx["controller"], combat=False)
     if e is not None and e.get("bind_dealt"):  # -- if you do (wave 5G) -- "the damage dealt this way" (this_way.damage_dealt)
         context.bind_amount(ctx, e["bind_dealt"], sum(max(0, int(ev["amount"])) for ev in out.events))
@@ -457,6 +459,15 @@ def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Sou
                 keys = [sid] if e["who"] == "itself" else [*_other_than(plan, ctx, e, cards, sid), *players]
                 hits += [(_card_source(plan, sid), key, each) for key in keys]
         return hits
+    if e.get("src_many"):
+        # -- as long as (wave 9B) -- "Up to two target creatures you control each deal damage equal to their power to …": every
+        # creature of the group that is still a legal target is a source, dealing its own power (120.3, 608.2h), all at once
+        many: list[tuple[_Source, str, int]] = []
+        for sid in dict.fromkeys([*_cards(plan, ctx, e["src"]), *(_cards(plan, ctx, e["src2"]) if e.get("src2") else [])]):
+            each = _amount(plan, {**ctx, "each_source": sid}, e["n"])
+            if each > 0:
+                many += [(_card_source(plan, sid), key, each) for key in [*cards, *players]]
+        return many
     if e.get("src"):
         src = _named_source(plan, ctx, e["src"])
         if src is None:

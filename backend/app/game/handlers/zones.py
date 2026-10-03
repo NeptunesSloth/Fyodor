@@ -77,6 +77,10 @@ def move(state: GameState, a: A.Move) -> None:
             c.tapped = True
         if c.face_down and a.face_down:
             c.face_down_kind = a.face_down_kind or ("exile" if ops.zone_name(dest) == "exile" else "generic")
+            if ops.zone_name(dest) == "exile" and a.actor in state.players and a.actor != c.owner:
+                # -- as long as (wave 9B) -- 406.3: a card another player exiles face down is looked at by the one who exiled
+                # it (Gonti, Thief of Sanity), not by its owner: the face-down rule shows an exiled card to its "controller"
+                c.controller = a.actor
 
     for c in commander_casts:
         caster = state.players[c.owner]

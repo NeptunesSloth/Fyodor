@@ -812,9 +812,10 @@ def test_wordings_that_stay_manual():
         # Kalitas: exile and a token (a zone replacement with an extra event)
         "If a nontoken creature an opponent controls would die, instead exile that card and create a 2/2 black Zombie "
         "creature token.",
-        # damage: "a red or artifact source" (a union of a color and a type)
-        "If a red or artifact source you control would deal damage to an opponent or a permanent an opponent controls, "
-        "it deals that much damage plus 1 instead.",
+        # damage: a union that isn't one of the two properties ("a red or artifact source" is read since wave 9B:
+        # tests/test_rules_wave9b_damage_plus.py)
+        "If a red or artifact and white source you control would deal damage to an opponent or a permanent an opponent "
+        "controls, it deals that much damage plus 1 instead.",
     ]:
         assert not scripts.definitions(ch("X", "Enchantment", text)), text
 

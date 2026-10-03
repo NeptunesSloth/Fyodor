@@ -159,6 +159,10 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         return {"main_phase": "yours"}
     # "you control a Forest", "you control two or more Islands", "you control another Elf",
     # "you control no creatures", "you don't control a …", "an opponent controls a …"
+    # -- as long as (wave 9B) -- "If excess damage was dealt (to that creature) this way, …" (120.10: scripts bind it to the damage
+    # instruction just before, this_way.excess_dealt)
+    if re.fullmatch(r"excess damage was dealt (?:to (?:that|a) (?:creature|permanent) )?this way", t):
+        return {"value": {"ref_amount": "excess_dealt"}, "op": ">=", "n": 1}
     m = _DIFFERENT_POWERS.fullmatch(t)
     if m:  # "you control three or more creatures with different powers"
         n = _num(m["n"])

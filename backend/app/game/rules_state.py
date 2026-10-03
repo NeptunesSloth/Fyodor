@@ -715,6 +715,9 @@ class Permission(BaseModel):
     turn: int = 0  # the turn it was granted (for end_of_next_turn)
     source: str | None = None  # the granting object
     label: str = Field(default="", max_length=120)
+    # -- as long as (wave 9B) -- "mana of any type can be spent to cast that spell" ("type") / "you may spend mana as though it
+    # were mana of any color to cast it" ("color"): applies only to mana spent casting with this permission (118.14, 609.4b)
+    spend: Literal["", "type", "color"] = ""
 
 
 class CostModifier(BaseModel):
