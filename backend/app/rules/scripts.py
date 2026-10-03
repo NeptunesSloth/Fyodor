@@ -33,6 +33,7 @@ from functools import lru_cache
 from typing import Any, Literal
 
 from app.rules import chosen as _chosen  # -- chosen player (wave 4J) --
+from app.rules import keyword_triggers as _kw_meanings  # -- static wordings (wave 6E) --
 from app.rules import restrictions, this_way  # (this_way: wave 4A)
 from app.rules.characteristics import Characteristics
 from app.rules.costs import SACRIFICE, parse_ability_cost, spell_additional_cost
@@ -535,6 +536,15 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         for index, e in enumerate(effects):
             e = dict(e)
             out.append(e)
+            if e.get("player") == "that_player":  # -- static wordings (wave 6E) -- "that player exiles the top card of
+                intro = find(lambda i: i.player, index)  # their library": whose library, bound like "who" below
+                if intro is not None:
+                    if event_player:
+                        return None
+                    g = _group_of(out[intro.index])
+                    e["player"] = "target" if groups is None else f"target:{g}"
+                else:
+                    e["player"] = "event_player"
             who = e.get("who")
             if isinstance(who, str) and (who in ("it", "them") or who.startswith(("it:", "them:"))):
                 pronoun, _, verb = who.partition(":")
@@ -783,6 +793,11 @@ def _renumber(value: Any, index: list[int] | None) -> Any:
         if k in _TARGET_REFS and isinstance(v, str) and (v == "target" or v.startswith("target:")):
             local = 0 if v == "target" else int(v[7:])
             v = "target" if index is None else f"target:{index[local]}"
+        elif k in _TARGET_REFS and isinstance(v, str) and v.startswith("controlled:target"):
+            # -- static wordings (wave 6E) -- "creatures target player controls": the player is the clause's target too
+            players, _, key = v[len("controlled:"):].partition("|")
+            local = 0 if players == "target" else int(players[7:])
+            v = f"controlled:{'target' if index is None else f'target:{index[local]}'}|{key}"
         elif k == "divided" and isinstance(v, int):
             if index is None:
                 raise _NoMatch
@@ -1202,6 +1217,25 @@ def _regenerate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if m["who"] in ("~", "it"):
         return [{"do": "regenerate", "who": _self_or_it(m["who"])}], None
     return [{"do": "regenerate", "who": "target"}], SELECTORS[m["who"]]
+
+
+# -- static wordings (wave 6E) -- "Creatures target player controls get +2/+0 until end of turn." (How to Start a Riot,
+# Arms of Hadar): the creatures that player controls as it resolves (608.2c), each until end of turn (611.2c: locked in)
+@effect(r"creatures target (?P<pl>player|opponent) controls get (?P<p>[+−-]\d+)/(?P<t>[+−-]\d+) until end of turn")
+def _pump_their_team(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    creatures = 'sel:{"types":["Creature"]}'
+    return [{"do": "pump", "who": f"controlled:target|{creatures}", "p": _signed(m["p"]), "t": _signed(m["t"])}], \
+        SELECTORS[f"target {m['pl']}"]
+
+
+# -- static wordings (wave 6E) -- "Regenerate each creature you control." (Golgari Charm, Wrap in Vigor): a shield on each
+# object of the group as the effect resolves (701.19a; 608.2c: the group is read then)
+@effect(r"regenerate (?:each|all) (?P<what>[a-z][a-z ]*?)")
+def _regenerate_group(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    key = _selector_key(m["what"])
+    if key is None:
+        raise _NoMatch
+    return [{"do": "regenerate", "who": key}], None
 
 
 SEARCH_FILTERS = {"basic land card": "basic_land", "land card": "land", "creature card": "creature", "card": "any",
@@ -2328,6 +2362,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
         if (tapped := tap_mana.definition(text)) is not None:
             return tapped
+    if ability.kind == "static" and text.startswith("You may exert "):  # -- static wordings (wave 6E) -- 701.43d
+        from app.rules import exert
+
+        return exert.definition(text, ch, ability.index)
     if ability.kind == "static" and (untaps := _untap_riders.static_definition(text)) is not None:
         return untaps  # -- mana riders (wave 5A) -- "Untap all … you control during each other player's untap step."
     if ability.kind == "static":
@@ -2589,7 +2627,8 @@ def _event_refs_ok(d: Definition) -> bool:
     if not _event_spell_ok(d):  # -- refused copy/mana (wave 3R3) --
         return False
     wants_player = any(e.get("who") in ("event_player", "each_other_opponent")
-                       or str(e.get("who")).startswith("controlled:event_player|") for e in effects)  # (wave 4E)
+                       or str(e.get("who")).startswith("controlled:event_player|") for e in effects) \
+        or any(e.get("player") == "event_player" for e in effects)  # (wave 4E; "player": wave 6E)
     wants_amount = any(_wants_amount(e.get(k)) for e in effects for k in ("n", "p", "t", "mv"))  # ("mv": a free cast's limit, wave 3R5)
     if not wants_player and not wants_amount:
         return True
@@ -2732,6 +2771,8 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
         for k, kw in enumerate(ab.keywords):
             if kw in KEYWORD_TRIGGERS:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
+            if kw in _kw_meanings.MEANINGS:  # -- static wordings (wave 6E) -- read as its CR meaning (app/rules/keyword_triggers.py)
+                out += [(1000 + ab.index * 10 + k, d) for d in _kw_meanings.definitions(kw, ab.text)[:1]]
             if kw == "decayed":  # -- token & pump wordings (wave 6C) -- 702.147a (app/rules/decayed.py)
                 from app.rules import decayed
 
@@ -2902,11 +2943,21 @@ def _word_num(word: str) -> int | None:
 
 def _unless_condition(text: str) -> Definition | None:
     """"~ enters tapped unless <condition>" → a condition (app/rules/conditions.py shape; ``{"any":
-    [...]}`` for "a Plains or an Island"). Reveal-or-tapped wordings and "unless a player has 13 or less
-    life" stay manual."""
+    [...]}`` for "a Plains or an Island"). Reveal-or-tapped wordings stay manual."""
     from app.rules import selectors  # (a leaf module)
 
     t = text.strip()
+    # -- static wordings (wave 6E) -- "unless a player has 13 or less life" (the Slow lands of Duskmourn), "unless your
+    # opponents control eight or more lands" (the Turbulent lands): read as the land enters (614.1c, 614.12)
+    m = re.fullmatch(r"a player has (?P<n>\w+) or less life", t)
+    if m:
+        n = _word_num(m["n"])
+        return {"value": {"life": "player_min"}, "op": "<=", "n": n} if n is not None else None
+    m = re.fullmatch(r"your opponents control (?P<n>\w+) or more (?P<what>[a-z]+)", t)
+    if m:
+        n = _word_num(m["n"])
+        key = _selector_key(m["what"] + " your opponents control")
+        return {"value": {"count": key}, "op": ">=", "n": n} if n is not None and key is not None else None
     m = _UNLESS_OPPONENTS.fullmatch(t)
     if m:
         n = _word_num(m["n"])
@@ -3475,6 +3526,15 @@ def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
             if any(c is None for c in checked):
                 raise _NoMatch
             e["abilities"] = checked
+    return found
+
+
+# -- static wordings (wave 6E) -- "Target creature becomes red [and gains haste] until end of turn." (language._BECOME_COLOR)
+@effect(r"(?P<text>(?:until end of turn, )?.+? becomes? (?:colorless|white|blue|black|red|green)\b.*)")
+def _become_colored(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    found = _language.parse_become(m["text"])
+    if found is None or any(e["do"] == "become" and (e.get("types") or e.get("p") is not None) for e in found[0]):
+        raise _NoMatch
     return found
 
 

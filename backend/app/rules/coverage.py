@@ -362,6 +362,17 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "cumulative upkeep":  # triggers.cumulative_cost: a mana cost
         return re.fullmatch(r"cumulative upkeep (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+    from app.rules import (
+        keyword_triggers,  # -- static wordings (wave 6E) -- battle cry, ingest … (their CR meaning)
+    )
+
+    if kw in keyword_triggers.MEANINGS:
+        return keyword_triggers.supported(kw, line)
+    if kw == "ward":  # -- static wordings (wave 6E) -- every ward piece of the line has a mana cost (triggers.ward_costs)
+        from app.rules.triggers import WARD, ward_pieces
+
+        pieces = ward_pieces(line)
+        return bool(pieces) and all(WARD.fullmatch(p) for p in pieces)
     if kw in ("unearth", "dash", "buyback", "madness", "ward", "evoke"):  # casting.keyword_cost: a mana cost
         return re.fullmatch(rf"{kw} (?:\{{[^}}]+\}})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("kicker", "multikicker"):  # casting.cost_with_kicker: one mana kicker cost
