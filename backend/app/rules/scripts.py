@@ -1575,6 +1575,13 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
 
     body = trigger_words.plain_amounts(body)
+    found = _parse_effects_checked(body, it, event_player)
+    if found is not None and '{"x": 1}' not in json.dumps(found[0]):
+        return found
+    return _where_x(body, it, event_player) or found  # (X left as a cast X by the sentence grammar: read it as defined)
+
+
+def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
     try:
         # -- top of library (wave 5I) -- "If it's a …, you may reveal it" (private)
         from app.rules import top_library
@@ -1584,6 +1591,50 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
             it))))  # (damage_dealt: wave 5G; excess_dealt: wave 9B; dealt_to: wave 10C)
     except _NoMatch:
         return None
+
+
+# -- X defined by text (wave 12C) -- "Each opponent loses X life and you scry X, where X is the number of Zombies you control."
+# (107.3c: the text defines X; 608.2h: read as the effect is carried out). The sentence is read with a stand-in number for X, which
+# is then swapped for the value; only in amount fields that evaluate values (a target count or a selector bound would not).
+_WHERE_X = re.compile(r",? where X is (?P<def>[^.\"]+?)(?=\.(?: |$)|$)")
+_X_SENTINEL = 7919
+_X_KEYS = frozenset({"n", "p", "t"})
+
+
+def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import language
+
+    found = list(_WHERE_X.finditer(body))
+    if len(found) != 1 or "{X}" in body:
+        return None
+    m = found[0]
+    value = language.x_definition(m["def"])
+    start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
+    head, rest = body[start: m.start()], body[:start] + "\0" + body[m.end():]
+    if value is None or '"it"' in json.dumps(value) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):
+        return None
+    got = _parse_effects_checked(rest.replace("\0", re.sub(r"\bX\b", str(_X_SENTINEL), head)), it, event_player)
+    if got is None or str(_X_SENTINEL) in json.dumps(got[1]):
+        return None
+    hit = [False]
+
+    def swap(v: Any, key: str | None) -> Any:
+        if isinstance(v, list):
+            return [swap(x, key) for x in v]
+        if isinstance(v, dict):
+            return {k: swap(x, k) for k, x in v.items()}
+        if isinstance(v, bool) or v not in (_X_SENTINEL, -_X_SENTINEL):
+            return v
+        if key not in _X_KEYS or (v < 0 and key == "n"):
+            raise _NoMatch
+        hit[0] = True
+        return value if v > 0 else {"neg": value}
+
+    try:
+        effects = swap(got[0], None)
+    except _NoMatch:
+        return None
+    return (effects, got[1], got[2]) if hit[0] else None
 
 
 _EXCESS = re.compile(r"(?P<trample>if the creature you control has trample, )?excess damage is dealt to that "
