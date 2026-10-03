@@ -779,6 +779,12 @@ def _renumber(value: Any, index: list[int] | None) -> Any:
             if index is None:
                 raise _NoMatch
             v = index[v]
+        # -- review (wave 5R) -- a reflexive trigger's ability (603.12) chooses its own targets as it's put on the
+        # stack: its "target" words aren't the spell's target groups (an IndexError on "You may sacrifice a creature.
+        # When you do, ~ deals 4 damage to target creature." in a spell)
+        elif k == "ability" and value.get("do") == "reflexive":
+            pass
+        # -- end review (wave 5R) --
         else:
             v = _renumber(v, index)
         out[k] = v
