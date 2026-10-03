@@ -1557,6 +1557,9 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
     """Put one trigger on the stack. False if it waits for its controller's target choice.
     ``picks``: the choices so far for an ability with target groups (603.3d → 601.2c-d)."""
     bind_that_player(t)  # -- damage wordings (wave 6B) --
+    from app.rules import per_opponent  # -- per-opponent targets (wave 12C) -- a group for each opponent, as it is put
+
+    per_opponent.expand(plan, t)
     if t.ability.get("modes"):  # -- modal triggered abilities (wave 1A): the modes first (603.3c, 700.2b) --
         from app.rules import modal_abilities
 

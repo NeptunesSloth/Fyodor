@@ -1575,6 +1575,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
 
     body = trigger_words.plain_amounts(body)
+    from app.rules import per_opponent  # -- per-opponent targets (wave 12C) --
+
+    if (each_opp := per_opponent.parse(body, lambda b: parse_effects(b, it, event_player=event_player))) is not None:
+        return each_opp
     found = _parse_effects_checked(body, it, event_player)
     if found is not None and '{"x": 1}' not in json.dumps(found[0]):
         return found
@@ -2542,6 +2546,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if d is not None and d.get("kind") != "spell" and '"spell_self_move"' in json.dumps(d, default=str):
         return None  # -- counters (wave 7C) -- only a spell moves itself off the stack
     if d is not None and this_way.unbound(d):  # -- "this way" outcomes (wave 4A) -- a count no instruction bound
+        return None
+    from app.rules import per_opponent  # -- per-opponent targets (wave 12C) -- only a triggered ability's own group
+
+    if d is not None and not per_opponent.allowed(d):
         return None
     # -- defending player (wave 6D) -- only an attacking creature's trigger names one (508.5: app/rules/defending.py)
     from app.rules import defending
