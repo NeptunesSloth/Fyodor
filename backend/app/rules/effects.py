@@ -1320,7 +1320,8 @@ def _search_matches(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, key: 
     if e.get("mv"):
         op, value = e["mv"][0], _amount(plan, ctx, e["mv"][1])
         mvs = {c: chars.of(plan.state.cards[c], plan.info).mana_value for c in matching}
-        matching = [c for c in matching if (mvs[c] <= value if op == "<=" else mvs[c] == value)]
+        matching = [c for c in matching if (mvs[c] <= value if op == "<=" else mvs[c] < value if op == "<"  # ("<": wave 4M)
+                                            else mvs[c] == value)]
     return matching
 
 
@@ -1410,6 +1411,7 @@ def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
             from app.game.errors import ActionError
 
             raise ActionError("The cards you find must have different names")
+    _recursion.check_found(plan, e, chosen)  # -- recursion & tutors (wave 4M) -- "… that share a land type"
     if e.get("parts"):  # the next kind of card, or all the cards found
         chosen = [*d.resume.get("picked", []), *chosen]
         if d.resume.get("part", 0) + 1 < len(e["parts"]):
@@ -1613,7 +1615,8 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
         return True
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
                 "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
-                **({"counter": e["counter"]} if e.get("counter") else {})} for cid in cards]  # (a counter it enters with, 122.6)
+                **({"counter": e["counter"]} if e.get("counter") else {}),
+                **({"counter_n": e["counter_n"]} if e.get("counter_n") else {})} for cid in cards]  # (counters it enters with, 122.6; n: wave 4M)
     if e.get("host"):  # -- refused zones/sized (wave 3R4) -- "attached to this creature / that creature"
         entries = _attached_entries(plan, ctx, e["host"], entries)
         cards = [x["card"] for x in entries]
@@ -3094,3 +3097,9 @@ from app.rules import x_spells as _x_spells  # noqa: E402, I001
 
 PRIMITIVES.update(_x_spells.PRIMITIVES)
 # -- end X sized by a count (wave 4K) --
+
+# -- recursion & tutors (wave 4M) -- a spell moving itself (608.2m/n) and the rest: app/rules/recursion.py
+from app.rules import recursion as _recursion  # noqa: E402, I001
+
+PRIMITIVES.update(_recursion.PRIMITIVES)
+# -- end recursion & tutors (wave 4M) --

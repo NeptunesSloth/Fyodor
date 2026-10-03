@@ -489,10 +489,24 @@ def _parse(phrase: str) -> Selector | None:
         # "artifact, enchantment, or creature with flying": the qualifier is the last item's
         # only (any artifact; a creature with flying), which a selector can't say: not a guess
         return None
+    # -- recursion & tutors (wave 4M) -- "Angel or Human creature card" (Bruna, the Fading Light): subtypes any of which
+    # matches, narrowing one card type (205.3); "historic card" (700.6: legendary, artifact or Saga)
+    if text.strip() in ("historic card", "historic cards") and not qualified:
+        return replace(s, card=True, zones=() if s.zones == ("battlefield",) else s.zones, extras=(*s.extras, "historic"))
+    alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker) cards?)",
+                            text.strip())
+    if alt_subs is not None:
+        subs = [_core(w) for w in re.split(r",? or ", alt_subs["subs"])]
+        base = _parse(alt_subs["rest"]) if all(c is not None and c[0] == "sub" for c in subs) else None
+        if base is None or base.subtypes or base.union or len(base.types) != 1 or not base.card:
+            return None
+        return replace(s, card=True, zones=() if s.zones == ("battlefield",) else s.zones, types=base.types,
+                       subtypes=tuple(dict.fromkeys(c[1] for c in subs if c is not None)))
+    # -- end recursion & tutors (wave 4M) --
     words = text.replace(",", " ,").split()
     if not words:
         return None
-    ability = _ABILITY.fullmatch(text.strip())
+    ability =_ABILITY.fullmatch(text.strip())
     if ability is not None:  # -- target forms (agent T) --
         if s.zones != _DEFAULT.zones or s.owner is not None or s.controller not in (None, "you", "opponent"):
             return None  # ("ability from an artifact source": its source's qualities aren't read)

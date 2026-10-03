@@ -201,7 +201,10 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
         n = _num(m["n"])
         amount = values.parse_count("card types among cards in your graveyard")
         return {"value": amount, "op": ">=", "n": n} if n is not None and amount is not None else None
-    m = _GRAVEYARD.fullmatch(t) or _GRAVEYARD_ARE.fullmatch(t)
+    # -- recursion & tutors (wave 4M) -- "you have four or more creature cards in your graveyard" (Oversold Cemetery):
+    # the same count as "there are four or more creature cards in your graveyard"
+    m = _GRAVEYARD.fullmatch(re.sub(r"^you have (?=(?:an?|\w+ or more) .+? in your graveyard$)", "there are ", t)) \
+        or _GRAVEYARD_ARE.fullmatch(t)
     if m:  # "there are seven or more cards in your graveyard", "there is a Desert card in your graveyard"
         n = 1 if m.groupdict().get("a") else _num(m["n"] or "")
         in_graveyard = selectors.parse(m["sel"] if "in your graveyard" in m["sel"] else m["sel"] + " in your graveyard")
