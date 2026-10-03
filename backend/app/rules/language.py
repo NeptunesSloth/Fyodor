@@ -1970,6 +1970,8 @@ def _become(text: str) -> tuple[Effects, Any]:
 
     text, rider = _with_rider(text)
     m = _BECOME.fullmatch(text)
+    if m is None and rider is None and (c := _BECOME_COLOR.fullmatch(text)) is not None:
+        return _become_color(c)  # -- static wordings (wave 6E) --
     if m is None:
         raise _Fail
     d = _DESC.fullmatch(m["desc"])
@@ -2026,6 +2028,29 @@ def _become(text: str) -> tuple[Effects, Any]:
         out.append({"do": "grant", "who": who, "keywords": _animation_keywords(m["gain"])})
     if m["gainq"]:  # -- quoted grants (wave 2D) -- "… becomes a Bear creature in addition to its other types and gains "…""
         e["abilities"] = [*e.get("abilities", []), *_QUOTED.findall(m["gainq"])]  # (the same layer-6 effect, 613.6)
+    return out, _one(group)
+
+
+# -- static wordings (wave 6E) -- "Target creature becomes red and gains haste until end of turn." (Crimson Wisps): a
+# color-changing effect (layer 5, 613.1e) whose colors replace the object's (105.3), locked in to the objects (611.2c)
+_BECOME_COLOR = re.compile(r"^(?:(?P<lead>until end of turn, ))?(?P<o>.+?) becomes? (?P<colors>colorless|" + _COLOR_LIST + r")"
+                           r"(?: and gains? (?P<gain>[a-z ]+?))?(?P<trail> until end of turn)?$")
+
+
+def _become_color(m: re.Match[str]) -> tuple[Effects, Any]:
+    kind, key, group = ref(m["o"])
+    if kind == "players" or not (m["lead"] or m["trail"]):
+        raise _Fail  # (no duration: a color for the rest of the game, not read)
+    who = _who(kind, key)
+    colors = [] if m["colors"] == "colorless" else [_COLOR_LETTERS[c] for c in re.split(r",? and |, ", m["colors"])]
+    out: Effects = [{"do": "become", "who": who, "types": [], "colors": colors, "duration": "end_of_turn"}]
+    if m["gain"]:
+        from app.rules.statics import GRANTABLE_KEYWORDS  # (the keywords a grant carries out, 613.1f)
+
+        kws = [p.strip() for p in re.split(r",? and |, ", m["gain"]) if p.strip()]
+        if not kws or any(k not in GRANTABLE_KEYWORDS for k in kws):
+            raise _Fail
+        out.append({"do": "grant", "who": who, "keywords": kws})
     return out, _one(group)
 
 

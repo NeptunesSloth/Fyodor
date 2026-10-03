@@ -3466,6 +3466,15 @@ def _become(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return found
 
 
+# -- static wordings (wave 6E) -- "Target creature becomes red [and gains haste] until end of turn." (language._BECOME_COLOR)
+@effect(r"(?P<text>(?:until end of turn, )?.+? becomes? (?:colorless|white|blue|black|red|green)\b.*)")
+def _become_colored(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    found = _language.parse_become(m["text"])
+    if found is None or any(e["do"] == "become" and (e.get("types") or e.get("p") is not None) for e in found[0]):
+        raise _NoMatch
+    return found
+
+
 # -- recursion & tutors (wave 4M) -- "That creature is a black Zombie in addition to its other colors and types."
 # (Rise from the Grave, Liliana, Death's Majesty), "It's a Phyrexian in addition to its other types." (Portal to
 # Phyrexia): the object an earlier instruction put onto the battlefield gets the types (and colors) for as long as

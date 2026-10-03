@@ -15,6 +15,7 @@
   Neutralize the Guards. Irregular plurals in anthems ("Oxen you control"): Bruse Tarl.
 * Triggered keywords read through their CR meaning: battle cry (702.91a), ingest (702.115a), poisonous N (702.70a),
   frenzy N (702.68a): Hero of Oxid Ridge, Mist Intruder.
+* "Target creature becomes red [and gains haste] until end of turn." (layer 5, 613.1e; 105.3): the Wisps.
 * Anthems over two groups ("Skeletons you control and other Zombies you control"): Death Baron, Caterwauling Boggart,
   Timber Protector.
 
@@ -68,13 +69,16 @@ EXTRA = [
     card('Neutralize the Guards', set_code='tst', number='E27', mana_cost='{2}{B}', cmc=3.0, type_line='Instant', oracle_text='Creatures target opponent controls get -1/-1 until end of turn. Surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)', colors=['B'], color_identity=['B'], keywords=['Surveil']),  # noqa: E501
     card('Hero of Oxid Ridge', set_code='tst', number='E28', mana_cost='{2}{R}{R}', cmc=4.0, type_line='Creature — Human Knight', oracle_text="Haste\nBattle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)\nWhenever this creature attacks, creatures with power 1 or less can't block this turn.", power='4', toughness='2', colors=['R'], color_identity=['R'], keywords=['Battle Cry', 'Haste']),  # noqa: E501
     card('Mist Intruder', set_code='tst', number='E29', mana_cost='{1}{U}', cmc=2.0, type_line='Creature — Eldrazi Drone', oracle_text='Devoid (This card has no color.)\nFlying\nIngest (Whenever this creature deals combat damage to a player, that player exiles the top card of their library.)', power='1', toughness='2', colors=[], color_identity=['U'], keywords=['Flying', 'Devoid', 'Ingest']),  # noqa: E501
+    card('Crimson Wisps', set_code='tst', number='E30', mana_cost='{R}', cmc=1.0, type_line='Instant', oracle_text='Target creature becomes red and gains haste until end of turn. (It can attack and {T} this turn.)\nDraw a card.', colors=['R'], color_identity=['R'], keywords=[]),  # noqa: E501
+    card('Aphotic Wisps', set_code='tst', number='E31', mana_cost='{B}', cmc=1.0, type_line='Instant', oracle_text="Target creature becomes black and gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)\nDraw a card.", colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
+    card('Cerulean Wisps', set_code='tst', number='E32', mana_cost='{U}', cmc=1.0, type_line='Instant', oracle_text='Target creature becomes blue until end of turn. Untap that creature.\nDraw a card.', colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
 ]
 FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime Archangel", "Bria, Riptide Rogue",
         "Caterwauling Boggart", "Timber Protector", "Demand Answers", "Bitter Triumph", "Eaten Alive",
         "Annihilating Glare", "Golgari Charm", "Wrap in Vigor", "Hooded Brawler", "Glorybringer", "Tah-Crop Elite",
         "Bloodcrusher of Khorne", "Inquisitor Greyfax", "Ghost, Spectral Saboteur", "Company Commander",
         "Bruse Tarl, Roving Rancher", "Arms of Hadar", "How to Start a Riot", "Neutralize the Guards",
-        "Hero of Oxid Ridge", "Mist Intruder"]
+        "Hero of Oxid Ridge", "Mist Intruder", "Crimson Wisps", "Aphotic Wisps", "Cerulean Wisps"]
 STILL_MANUAL = {
     "Sedgemoor Witch": "Ward",  # (ward—Pay 3 life: a cost the ward trigger doesn't read)
     "Silvergill Adept": "reveal a Merfolk card",
@@ -556,3 +560,31 @@ def test_ingest_exiles_the_top_card_of_the_damaged_players_library(cards):
     through_combat(s)
     assert s.state.cards[top].zone == "p2:exile" and s.state.players["p2"].life == 38
     replay_matches(reloaded(s))
+
+
+# -- a color for a turn (613.1e, 105.3) -------------------------------------------------------------------------------
+def test_crimson_wisps_makes_it_red_with_haste_until_end_of_turn(cards):
+    s = build(cards, "Crimson Wisps")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2", colors=("G",))
+    wisps = to_hand(s, "Crimson Wisps")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=wisps.id, targets=[bear.id])
+    settle(s)
+    c = chars(s, bear)
+    assert set(c.colors) == {"R"} and "haste" in c.keywords
+    s = reloaded(s)
+    replay_matches(s)
+    assert {e.duration for e in s.state.rules.effects} == {"end_of_turn"}  # (gone at cleanup, 514.2)
+
+
+def test_aphotic_wisps_black_with_fear_and_a_card(cards):
+    s = build(cards, "Aphotic Wisps")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2", colors=("W",))
+    wisps = to_hand(s, "Aphotic Wisps")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, B=1)
+    act(s, "p1", type="cast_spell", card_id=wisps.id, targets=[bear.id])
+    settle(s)
+    c = chars(s, bear)
+    assert set(c.colors) == {"B"} and "fear" in c.keywords and len(s.state.zones["p1:hand"]) == hand  # (-1 cast, +1 drawn)
+    replay_matches(s)
