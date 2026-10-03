@@ -2971,6 +2971,11 @@ def attached_rule(text: str) -> Definition | None:
     """"Enchanted creature can't attack or block.", "Enchanted creature doesn't untap during its
     controller's untap step." …: a rule for whatever the source is attached to."""
     text = text.replace("’", "'")
+    # -- small wordings (wave 11E) -- "All creatures able to block enchanted creature do so." (Lure; 509.1c): a requirement on
+    # every creature that could block the creature it's attached to (combat.block_requirements)
+    if re.fullmatch(r"All creatures able to block (?:enchanted|equipped) creature do so\.", text):
+        return {"kind": "static", "static": "attached_rule", "imposes": ["all_able_block"], "effects": [], "lands": False,
+                "permanent": False}
     for subject in (*ATTACHED_SUBJECTS, "Enchanted permanent"):
         imposed = None
         if text.startswith(subject + " "):

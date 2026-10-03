@@ -7,6 +7,7 @@
   other creature at end of combat" (Venom; 509.3b / 509.3d: the creature on the other side).
 * "This creature is the chosen type in addition to its other types." (Metallic Mimic; 613.1d, 205.1b): layer 4, with
   the creature type chosen as it entered (614.12a).
+* "All creatures able to block enchanted creature do so." (Lure; 509.1c): every creature that could block it must.
 * "Instant and sorcery spells you control can't be countered." (Sphinx of the Final Word; 101.2, 701.6): the counter
   does nothing to such a spell, but the rest of the counterspell still happens (608.2c).
 """
@@ -15,6 +16,8 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
+
 from app.cards.importer import build_database
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
@@ -22,7 +25,7 @@ from tests.game_helpers import act
 from tests.test_rules_attachments import ch, mana, to_hand, token
 from tests.test_rules_conditionals import settle, until
 from tests.test_rules_wave4h_activation_costs import activate, counters, roundtrip, set_counters
-from tests.test_rules_wave5c_combat import build, put
+from tests.test_rules_wave5c_combat import build, declare, old, put, to_attack
 from tests.test_rules_conditionals import life, on_field
 from tests.test_rules_wave5b_stack_interaction import EXTRA as COUNTERS
 from tests.test_rules_wave5b_stack_interaction import alice_casts, bob_answers
@@ -31,6 +34,7 @@ from tests.test_rules_wave5b_stack_interaction import roundtrip as roundtrip_cou
 from tests.test_rules_wave6d_trigger_bodies import bob_attacks_into, gone
 
 EXTRA = [
+    card('Lure', set_code="tst", number="Q07", mana_cost='{1}{G}{G}', cmc=3.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nAll creatures able to block enchanted creature do so.', colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
     card('Metallic Mimic', set_code="tst", number="Q05", mana_cost='{2}', cmc=2.0, type_line='Artifact Creature — Shapeshifter', oracle_text="Changeling\nAs this creature enters, choose a creature type.\nThis creature is the chosen type in addition to its other types.\nEach other creature you control of the chosen type enters with an additional +1/+1 counter on it.", power='1', toughness='1', colors=[], color_identity=[], keywords=['Changeling']),  # noqa: E501
     card('Adaptive Automaton', set_code="tst", number="Q06", mana_cost='{3}', cmc=3.0, type_line='Artifact Creature — Construct', oracle_text="As this creature enters, choose a creature type.\nThis creature is the chosen type in addition to its other types.\nOther creatures you control of the chosen type get +1/+1.", power='2', toughness='2', colors=[], color_identity=[]),  # noqa: E501
     card('Sphinx of the Final Word', set_code="tst", number="Q04", mana_cost='{U}{U}{U}{U}{U}', cmc=5.0, type_line='Creature — Sphinx', oracle_text="Flash\nThis spell can't be countered.\nFlying\nInstant and sorcery spells you control can't be countered.", power='5', toughness='5', colors=['U'], color_identity=['U'], keywords=['Flash', 'Flying']),  # noqa: E501
@@ -47,7 +51,7 @@ def card_db(settings):
     return settings.cards_db_path
 
 
-@pytest.mark.parametrize("name", ["Triskelion", "Ice Cage", "Venom", "Adaptive Automaton"])
+@pytest.mark.parametrize("name", ["Triskelion", "Ice Cage", "Venom", "Adaptive Automaton", "Lure"])
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -104,4 +108,24 @@ def test_adaptive_automaton_is_the_chosen_type(cards):
     assert "Elf" not in ch(s, auto).subtypes
     act(s, "p1", type="set_choice", card_id=auto.id, key="Chosen creature type", value="Elf")
     assert "Elf" in ch(s, auto).subtypes and "Construct" in ch(s, auto).subtypes  # (in addition to its other types)
+    roundtrip(s)
+
+
+def test_lure_every_creature_able_to_block_does(cards):
+    s = build(cards, "Lure")
+    bear = old(s, "p1", "Bear", "2/2")
+    token(s, "p2", "Guard One")
+    guards = [c for c in s.state.cards.values() if c.zone == "p2:battlefield"]  # (the table's own Wall too)
+    assert len(guards) == 2
+    lure = to_hand(s, "Lure")
+    mana(s, G=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=lure.id, targets=[bear.id])
+    settle(s)
+    to_attack(s, 1)
+    declare(s, (bear, "p2"))
+    with pytest.raises(ActionError, match="if able|must"):
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": one.id, "attacker_id": bear.id}])
+    with pytest.raises(ActionError, match="if able|must"):
+        act(s, "p2", type="declare_blockers", blocks=[])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": g.id, "attacker_id": bear.id} for g in guards])
     roundtrip(s)
