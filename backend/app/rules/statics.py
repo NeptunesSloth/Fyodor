@@ -180,6 +180,10 @@ def parse(text: str) -> Definition | None:
     # (Jetmir: "also" only says the effect adds to the line before it)
     body = re.sub(r"^(?P<s>[A-Z][\w' ]*?) also (?P<v>gets?|ha(?:s|ve)) ", r"\g<s> \g<v> ", body)
     body = re.sub(r"^(?P<s>it|~) gets an additional (?P<pt>[+−-]\d+/[+−-]\d+)$", r"\g<s> gets \g<pt>", body)  # (Bladed Pinions-style)
+    # -- ability words (wave 9C) -- "Enchanted creature gets an additional +2/+2 as long as …" (Strange Augmentation, Divine
+    # Sacrament, Taste for Mayhem): "additional" only says the modification adds to the line before it; a P/T bonus of
+    # layer 7c adds to the others either way (613.4c)
+    body = re.sub(r"\b(?P<v>gets?) an additional (?=[+−-]\d+/[+−-]\d+)", r"\g<v> ", body)
     # layer 4 (613.1d) on the source itself: "~ isn't a creature" (Theros gods), "… and is a Knight in addition to
     # its other types" (205.1b)
     # -- attached events (wave 4L) -- "Enchanted creature … is an Angel in addition to its other types": the attached

@@ -1646,6 +1646,14 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     body = body.strip()
     if not body.endswith(".") and not body.endswith('."'):
         return None
+    from app.rules import radiance  # -- radiance (wave 9C) --
+
+    if (rad := radiance.split(body)) is not None:
+        return radiance.bind(_parse_effects(rad[0], it, event_player), rad[1])
+    from app.rules import kinship  # -- kinship (wave 9C) --
+
+    if (kin := kinship.split(body)) is not None:
+        return kinship.bind(_parse_effects(kin, it, event_player))
     optional = False
     effects: list[dict[str, Any]] = []
     groups: list[dict[str, Any]] = []
