@@ -638,6 +638,19 @@ def test_killian_reduces_spells_that_target_a_creature(cards):
     roundtrip(s)
 
 
+def test_killian_reduction_counts_in_the_castable_hint(cards):
+    """-- review (Codex) -- castable only thanks to "spells that target a creature cost {2} less": the hint offers it;
+    a spell without targets gets no such reduction in the hint."""
+    s = build(cards, [(1, "Killian, Ink Duelist"), (1, "Murder"), (1, "Grizzly Bears")])
+    put(s, "Killian, Ink Duelist", "battlefield")
+    murder = put(s, "Murder", "hand")
+    bears = put(s, "Grizzly Bears", "hand")
+    tok(s, "Victim", pid="p2")
+    mana(s, B=2)
+    found = hints(s.state, "p1", s.cards)["castable"]
+    assert murder.id in found and bears.id not in found  # Bears: {1}{G}, no green and no targets
+
+
 def test_gloom_taxes_an_ability_with_no_mana_in_its_cost(cards):
     s = build(cards, [(1, "Gloom")])
     put(s, "Gloom", "battlefield")

@@ -316,6 +316,20 @@ def test_sacrifice_x_treasures(cards):
     roundtrip(s)
 
 
+def test_sacrifice_x_treasures_with_x_zero_sacrifices_nothing(cards):
+    """-- review (Codex) -- X = 0 is a legal announcement (107.3a): with Treasures around, nothing is chosen or asked."""
+    s = build(cards, p1=("Grim Hireling",), p2=("Grizzly Bears",))
+    hireling = on_field(s, "Grim Hireling")
+    t1 = artifact(s, "T1", subtype="Treasure")
+    bear = on_field(s, "Grizzly Bears", "p2")
+    mana(s, B=1)
+    activate(s, hireling, "{B}, Sacrifice X", targets=[bear.id], x_value=0)
+    assert s.state.rules.decision is None or s.state.rules.decision.kind != "choose_cards"
+    settle(s)
+    assert s.state.cards[t1.id].zone.endswith(":battlefield") and not gone(s, bear)
+    roundtrip(s)
+
+
 def test_tap_x_untapped_artifacts(cards):
     s = build(cards, p1=("Secluded Starforge",))
     forge = on_field(s, "Secluded Starforge")

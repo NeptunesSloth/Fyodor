@@ -1498,10 +1498,19 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
         grant = cast_grant(state, player, card, ch, info)
-        cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free)
+        cost = spell_cost(state, card, ch, info=info, player=player, free=grant is not None and grant.free,
+                          targets=_hint_targets(ch))  # -- review (Codex) --
         if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
             return True
     return False
+
+
+def _hint_targets(ch: Characteristics) -> tuple[str, ...]:
+    """-- review (Codex) -- the targets a castability hint assumes: none for a spell without targets, else the best
+    case for "spells that target …" cost changes (cost_changes.ANY_TARGET)."""
+    from app.rules import cost_changes
+
+    return cost_changes.ANY_TARGET if "target" in ch.oracle_text.lower() else ()
 
 
 # -- cost changers (wave 4I) --
@@ -1525,7 +1534,8 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
         extra = alt_costs.merged(costs.spell_additional_cost(ch.abilities), offer.alt.cost)
         if extra is not None and additional_problem(view, extra, card, player):
             continue
-        cost = spell_cost(state, card, ch, info=info, player=player, alternative=offer.alt.mana_cost)
+        cost = spell_cost(state, card, ch, info=info, player=player, alternative=offer.alt.mana_cost,
+                          targets=_hint_targets(ch))  # -- review (Codex) --
         if can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id)):
             out.append({"id": offer.key, "label": offer.label})
     return out

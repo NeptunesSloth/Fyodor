@@ -265,6 +265,28 @@ def test_kenriths_transformation_on_a_lord(cards):
     replay_matches(s)
 
 
+def test_moving_a_loses_all_abilities_aura_updates_both_hosts(cards):
+    """-- review (Codex) -- the static cache must notice an Aura moving: the old host's anthem works again, the new
+    host's statics are gone."""
+    s = build(cards, "Kenrith's Transformation")
+    for name in ("Lord", "Other Lord"):
+        act(s, "p1", type="create_token", player="p1", token={"name": name, "type_line": "Token Creature — Goblin",
+                                                             "power": "2", "toughness": "2",
+                                                             "text": "Other Goblins you control get +1/+1."})
+    act(s, "p1", type="create_token", player="p1", token={"name": "Grunt", "type_line": "Token Creature — Goblin",
+                                                         "power": "1", "toughness": "1", "text": ""})
+    lord, other, grunt = named(s, "Lord"), named(s, "Other Lord"), named(s, "Grunt")
+    assert ch(s, grunt).pt == (3, 3)
+    cast(s, "Kenrith's Transformation", targets=[lord.id], G=1, C=1)
+    settle(s)
+    assert ch(s, grunt).pt == (2, 2)  # only Other Lord's anthem
+    aura = named(s, "Kenrith's Transformation")
+    act(s, "p1", type="attach", card_ids=[aura.id], to=other.id)
+    assert ch(s, grunt).pt == (2, 2) and ch(s, lord).pt == (2, 2)  # now only Lord's anthem; Lord is a Goblin again
+    assert ch(s, other).subtypes == frozenset({"Elk"})
+    replay_matches(s)
+
+
 def test_darksteel_mutation_and_lignify_on_tarmogoyf(cards):
     """Darksteel Mutation: an indestructible 0/1 Insect artifact creature (its characteristic-defining P/T is gone);
     Lightning Bolt doesn't destroy it. Lignify on another: a 0/4 Treefolk (still a creature)."""

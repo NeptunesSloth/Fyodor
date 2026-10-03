@@ -255,6 +255,20 @@ def test_anger_from_the_graveyard(cards):
     roundtrip(s)
 
 
+def test_anger_set_to_manual_in_the_graveyard_stops_granting(cards):
+    """-- review (Codex) -- the static cache must notice a graveyard card's automation mode changing."""
+    s = build(cards, [(1, "Anger"), (1, "Mountain"), (5, "Forest")], [(9, "Island")])
+    bear = tok(s, "Bear")
+    anger = put(s, "Anger", "graveyard")
+    put(s, "Mountain", "battlefield")
+    assert "haste" in ch(s, bear).keywords
+    act(s, "p1", type="set_card_automation", card_id=anger.id, mode="manual")
+    assert "haste" not in ch(s, bear).keywords
+    act(s, "p1", type="set_card_automation", card_id=anger.id, mode="auto")
+    assert "haste" in ch(s, bear).keywords
+    roundtrip(s)
+
+
 def test_riftstone_portal_grants_a_mana_ability_from_the_graveyard(cards):
     s = build(cards, [(1, "Riftstone Portal"), (5, "Forest")])
     forest = put(s, "Forest", "battlefield")

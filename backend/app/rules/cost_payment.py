@@ -202,6 +202,8 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell, cost: AbilityCost, ca
                                                                            if any(c in used for c in chosen) else ""))
         elif len(usable) < need:
             raise ActionError(f"You can't pay “{comp.text}”")  # 118.3
+        elif need == 0:  # -- review (Codex) -- X announced as 0 (107.3a): nothing to choose, and an empty pick would cancel
+            chosen = []
         elif len(usable) == need:
             chosen = usable  # (no choice to make)
         else:

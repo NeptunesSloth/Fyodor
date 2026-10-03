@@ -110,7 +110,12 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                        for cid, c in state.cards.items() if c.zone.endswith(":battlefield")))
     # -- conditional statics (wave 4B) -- statics that function from a graveyard (113.6b): which cards are there
     graveyards = tuple((p, tuple(state.zones.get(f"{p}:graveyard", ()))) for p in state.seat_order)
-    key_all: tuple = (key, graveyards, tuple(sorted(live)),
+    # -- review (Codex) -- also read below: graveyard cards' automation modes and what each permanent is attached to
+    # (a "loses all abilities" Aura's host, attached_types.wipes)
+    gy_modes = tuple(r.card_mode(cid) for _, ids in graveyards for cid in ids) if r else ()
+    hosts = tuple(sorted((cid, c.attached_to or "") for cid, c in state.cards.items()
+                         if c.zone.endswith(":battlefield") and c.attached_to))
+    key_all: tuple = (key, graveyards, gy_modes, hosts, tuple(sorted(live)),
                       # -- attached events (wave 4L) -- "loses all abilities" effects: their objects' statics are gone
                       tuple(e.id for e in r.effects if e.remove_abilities) if r else ())
     hit = _STATIC_CACHE.get(key_all)

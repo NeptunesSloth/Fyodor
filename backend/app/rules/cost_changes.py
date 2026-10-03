@@ -406,13 +406,23 @@ def _ordinal_ok(state: GameState, info: CardInfo, player: str, d: dict[str, Any]
     return before == d["ordinal"] - 1
 
 
+# -- review (Codex) -- the ``targets`` a castability hint passes for a spell that has targets: "spells that target …"
+# reductions count and such increases don't, so a spell castable with some target is offered (the cast itself checks
+# the real targets and refuses with nothing changed when it can't be paid).
+ANY_TARGET: tuple[str, ...] = ("*any target*",)
+
+
 def static_delta(state: GameState, info: CardInfo, src: CardInstance, d: dict[str, Any], player: str,
                  card: CardInstance, ch: Characteristics, targets: tuple[str, ...] = ()) -> int | None:
     """The signed change a table cost changer makes to this spell now, or None when it doesn't apply to it."""
     if "change" not in d:
         return int(d["delta"])
-    if d.get("target") and not _targets_match(state, info, src, d["target"], targets):
-        return None
+    if d.get("target"):
+        if targets == ANY_TARGET:  # -- review (Codex) -- a castability hint, before targets: the best case
+            if d["change"]["dir"] > 0:
+                return None
+        elif not _targets_match(state, info, src, d["target"], targets):
+            return None
     if d.get("ordinal") and not _ordinal_ok(state, info, player, d):
         return None
     turn = d.get("turn")
