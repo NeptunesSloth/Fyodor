@@ -50,7 +50,7 @@ KEYWORDS = frozenset({
     "myriad", "melee", "friends forever", "choose a background", "doctor's companion", "space sculptor", "gift",
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",
-    "transmute",  # (wave 3R4: casting.transmute)
+    "phasing", "transmute",  # (wave 3R4: casting.transmute)
     "ingest", "poisonous", "frenzy", "afterlife", "modular", "split second", "graft", "sunburst", "devour",  # -- static wordings (wave 6E) -- (app/rules/keyword_triggers.py)
 })
 

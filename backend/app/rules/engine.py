@@ -45,6 +45,7 @@ from app.rules import (
     next_untap,  # -- next untap step (wave 6A) --
     optional_payment,
     permissions,
+    phasing,  # -- phasing (wave 13D) --
     reconcile,
     replacements,
     sba,
@@ -513,6 +514,9 @@ def start_next_turn(plan: Plan) -> None:
     if skip_to is None and upcoming != plan.after(plan.active):  # (leaving an extra turn)
         skip_to = upcoming
     stay = effects.skips.untap_skipped(plan, skip_to or upcoming)
+    if stay is None:  # -- phasing (wave 13D) -- 702.26a/m: before the untap step, unless it is skipped
+        phasing.untap_step(plan, skip_to or upcoming)
+        keep += [c for c in _keep_tapped(plan) if c not in keep]  # (the ones that just phased in)
     if stay is not None:
         keep = list(dict.fromkeys([*keep, *stay]))[:250]
     keep = list(dict.fromkeys([*keep, *_exerted(plan, skip_to or upcoming)]))[:250]  # (wave 4H)

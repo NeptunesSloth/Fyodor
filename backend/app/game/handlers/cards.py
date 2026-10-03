@@ -42,6 +42,43 @@ def tap(state: GameState, a: A.Tap) -> None:
         log(state, a.actor, a.ts, [pname(state, a.actor), text(" untapped "), group(state, changed_off)])
 
 
+def phase_shift(state: GameState, a: A.PhaseShift) -> None:
+    """-- phasing (wave 13D) -- 702.26b-g: a permanent phases out into its controller's "phased" zone (not a zone change,
+    702.26d: counters, damage, tapped state and tokens stay) and leaves combat (506.4); Auras, Equipment and Fortifications
+    attached to it phase out with it (702.26g; 702.26h: indirectly if also named). Phasing in puts each back on its
+    controller's battlefield, indirect ones along with their host; a directly phased attachment whose host isn't on the
+    battlefield any more phases in unattached (702.26i)."""
+    here, there = ("battlefield", "phased") if a.out else ("phased", "battlefield")
+    moving = {c.id: c for c in ops.cards(state, a.card_ids) if c.zone == zone_key(c.controller, here) and (a.out or not c.phased_indirect)}
+    indirect: set[str] = set()
+    grew = True
+    while grew:  # (attachments of attachments: an Aura on an Equipment)
+        grew = False
+        for c in state.cards.values():
+            if c.id not in indirect and c.attached_to in moving and c.zone == zone_key(c.controller, here) and (a.out or c.phased_indirect):
+                moving[c.id] = c
+                indirect.add(c.id)
+                grew = True
+    for c in moving.values():
+        ops.remove_from_zone(state, c)
+        ops.insert(state, c, zone_key(c.controller, there))
+        c.phased_indirect = a.out and c.id in indirect
+        if a.out:  # 506.4
+            c.attacking = None
+            c.blocking = None
+            for other in state.cards.values():
+                if other.blocking == c.id:
+                    other.blocking = None
+                if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
+                    other.attacking = None
+    for c in moving.values():
+        if not a.out and c.attached_to and ((host := state.cards.get(c.attached_to)) is None or not host.zone.endswith(":battlefield")):
+            c.attached_to = None  # 702.26i (state-based actions apply as appropriate)
+            c.attach_offset = None
+    if moving:
+        log(state, a.actor, a.ts, [group(state, list(moving.values())), text(f" phase{'' if len(moving) > 1 else 's'} {'out' if a.out else 'in'}")])
+
+
 def untap_all(state: GameState, a: A.UntapAll) -> None:
     pid = ops.player(state, a.player, a.actor)
     count = untap_permanents(state, pid, set(a.keep_tapped))

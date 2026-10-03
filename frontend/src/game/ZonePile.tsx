@@ -17,6 +17,7 @@ const LABEL: Partial<Record<ZoneName, string>> = {
   sideboard: "Sideboard",
   companion: "Companion",
   foretell: "Foretold",
+  phased: "Phased out",
 };
 
 function dropInto(ids: string[], target: DropResult | null) {

@@ -1185,6 +1185,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if isinstance(n, int):
             return [{"do": "spell_self_move", "to": "exile", "counters": {"time": n}}], None
     # -- end counters (wave 7C) --
+    m = re.fullmatch(r"(?P<o>.+?) phases? out", text)  # -- phasing (wave 13D) -- 702.26b: "Target creature phases out."
+    if m and not re.search(r"\b(?:until|unless|if|when|whenever|at|and|then|can't|for as long as)\b", m["o"]):
+        kind, key, group = ref(m["o"])
+        if kind == "players":
+            raise _Fail
+        return [{"do": "phase_out", "who": _who(kind, key)}], _one(group)
     m = re.fullmatch(r"(?P<v>destroy|exile|tap|untap) (?P<o>.+)", text)
     if m:
         whos, groups = _objects(m["o"])

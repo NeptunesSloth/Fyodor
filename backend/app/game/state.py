@@ -20,9 +20,11 @@ from app.game.rules_state import AutomationLevel, AutomationOptions, RulesState
 ALL = "*"  # marker in ``revealed_to`` meaning "every player"
 
 PLAYER_ZONES = (
-    "library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside"
+    "library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside", "phased"
 )
-PUBLIC_ZONES = frozenset({"battlefield", "graveyard", "exile", "command", "companion", "stack"})
+# "phased": phased-out permanents (702.26b, wave 13D) stay on the battlefield for the rules (no zone change, 702.26d) but sit in
+# this controller-keyed zone so every battlefield query skips them; public like the battlefield.
+PUBLIC_ZONES = frozenset({"battlefield", "phased", "graveyard", "exile", "command", "companion", "stack"})
 # "setaside": cards put aside face down during the pregame (e.g. rejected mulligan hands), owner-only.
 HIDDEN_ZONES = frozenset({"library", "hand", "sideboard", "foretell", "setaside"})
 OWNER_VISIBLE_ZONES = frozenset({"hand", "sideboard", "foretell", "setaside"})
@@ -169,6 +171,7 @@ class CardInstance(BaseModel):
     rotation: float = 0.0  # free rotation in degrees, independent of tapping
     locked: bool = False  # cannot be moved until unlocked
     protected: bool = False  # cannot be deleted / stacked / merged without an explicit force
+    phased_indirect: bool = False  # -- phasing (wave 13D) -- 702.26g: phased out with its host; phases in only along with it
     attached_to: str | None = None  # host permanent (equipment, auras, cards tucked under)
     attached_player: str | None = None  # the player an Aura enchants ("Enchant player", 702.5d)
     attach_offset: tuple[float, float] | None = None  # position relative to the host

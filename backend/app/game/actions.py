@@ -20,7 +20,7 @@ from app.textutil import clean_text
 Id = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9:_\-]+$")]
 IdList = Annotated[list[Id], Field(min_length=1, max_length=250)]
 ZoneName = Literal[
-    "library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside",
+    "library", "hand", "battlefield", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside", "phased",
     "stack",
 ]
 Coord = Annotated[float, Field(ge=-100000, le=100000)]
@@ -212,6 +212,14 @@ class UntapAll(Base):
     type: Literal["untap_all"] = "untap_all"
     player: Id | None = None
     keep_tapped: list[Id] = Field(default_factory=list, max_length=250)  # see NextTurn
+
+
+class PhaseShift(Base):
+    """-- phasing (wave 13D) -- 702.26: permanents phase out (``out``) or in; attachments follow their host (702.26g)."""
+
+    type: Literal["phase_shift"] = "phase_shift"
+    card_ids: IdList
+    out: bool = True
 
 
 class Counter(Base):
@@ -1194,6 +1202,7 @@ Action = Annotated[
     | EndView
     | Tap
     | UntapAll
+    | PhaseShift
     | Counter
     | SetCounter
     | CreateToken

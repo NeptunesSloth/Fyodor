@@ -204,6 +204,7 @@ function playerMenu(p: PlayerView): MenuItem[] {
     { label: "Untap all permanents", onClick: () => void send({ type: "untap_all", player: p.id }) },
     { label: "View sideboard", onClick: () => useGame.getState().openBrowser({ zone: `${p.id}:sideboard`, title: `${p.name}'s sideboard` }) },
     { label: "View foretold / face-down exile", onClick: () => useGame.getState().openBrowser({ zone: `${p.id}:foretell`, title: `${p.name}'s foretold cards` }) },
+    { label: "View phased-out permanents", onClick: () => useGame.getState().openBrowser({ zone: `${p.id}:phased`, title: `${p.name}'s phased-out permanents` }) },
     { label: "View companion zone", onClick: () => useGame.getState().openBrowser({ zone: `${p.id}:companion`, title: `${p.name}'s companion` }) },
   ];
   for (const c of p.commanders) {

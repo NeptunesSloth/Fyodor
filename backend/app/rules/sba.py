@@ -104,7 +104,7 @@ def find(plan: Plan) -> Found:
     from app.rules.copying import ceases_to_exist
 
     for card in list(state.cards.values()):
-        if card.is_token and not card.zone.endswith(":battlefield") and card.zone != "stack":
+        if card.is_token and not card.zone.endswith((":battlefield", ":phased")) and card.zone != "stack":  # (702.26d: tokens persist phased out)
             out.vanishing.append(card)
             continue
         if ceases_to_exist(plan, card):  # -- copy system (wave 2F): 704.5d (a token on the stack), 704.5e --

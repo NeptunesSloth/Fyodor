@@ -42,6 +42,7 @@ export type ZoneName =
   | "companion"
   | "foretell"
   | "setaside"
+  | "phased"
   | "stack";
 
 export const OMNISCIENT = "__omniscient__";

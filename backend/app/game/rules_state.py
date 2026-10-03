@@ -1188,6 +1188,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         new_name = _zone_name(new_zone) if new_zone else None
         if card is not None and old_name == new_name and old_name != "battlefield":
             continue  # e.g. a hand passed between players' libraries is still a library card
+        if {old_name, new_name} == {"battlefield", "phased"}:
+            continue  # -- phasing (wave 13D) -- 702.26d: phasing is no zone change: same object, no leave / enter triggers
         if old_name == new_name == "battlefield":
             continue  # a control change is not a zone change: same object (rule 400.7 doesn't apply)
         old_oid = rules.object_id(card_id)
