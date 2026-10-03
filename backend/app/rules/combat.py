@@ -17,6 +17,7 @@ from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption
 from app.game.state import CardInstance, GameState, zone_key
 from app.rules import characteristics as chars
+from app.rules import mana as M
 from app.rules import protection, replace, scripts, selectors
 from app.rules.casting import summoning_sick
 from app.rules.characteristics import CardInfo, Characteristics
@@ -77,6 +78,11 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
             return f"{bch.name} can't block {_phrase(arg)}"
         if name == "cant_block_power" and _power(ach) > _power(bch):
             return f"{bch.name} can't block creatures with greater power"
+    from app.rules import combat_rules  # -- combat (wave 5C) -- "can't block creatures you control"
+
+    found = combat_rules.block_problem(state, blocker, bch, attacker, info)
+    if found:
+        return found
     # landwalk (702.14): unblockable while the defending player controls a land of that type
     for walk, land in LANDWALK.items():
         if walk in ach.keywords and _controls_land(state, blocker.controller, land, info):
@@ -251,12 +257,23 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
 
     r = plan.rules
     d = r.decision
-    if d is None or d.kind != "declare_attackers":
-        raise ActionError("Attackers are declared at the start of the declare attackers step")
-    if d.player != plan.actor:
-        raise ActionError(f"{plan.name(d.player)} is declaring attackers")
-    eligible = {o.id[2:] for o in d.options if o.id.startswith("a:")}
-    targets = {o.id[2:] for o in d.options if o.id.startswith("t:")}
+    # -- combat (wave 5C) -- the declaration again, once the attack cost's mana is in the pool (508.1h-j, casting._rerun)
+    locked: M.ManaCost | None = None
+    paying = d is None and plan.locked_cost is not None and plan.state.turn.phase == "declare_attackers" \
+        and plan.actor == plan.active and not r.no_attackers and not attackers_on(plan.state)
+    if paying:
+        locked = M.parse_cost(plan.locked_cost or "{0}")
+        plan.locked_cost = None
+        eligible = {cid for cid in plan.state.zones.get(zone_key(plan.active, "battlefield"), [])
+                    if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None}
+        targets = set(attack_targets(plan.state, plan.active, plan.info))
+    else:
+        if d is None or d.kind != "declare_attackers":
+            raise ActionError("Attackers are declared at the start of the declare attackers step")
+        if d.player != plan.actor:
+            raise ActionError(f"{plan.name(d.player)} is declaring attackers")
+        eligible = {o.id[2:] for o in d.options if o.id.startswith("a:")}
+        targets = {o.id[2:] for o in d.options if o.id.startswith("t:")}
     seen: set[str] = set()
     for decl in a.attackers:
         card = plan.state.cards.get(decl.card_id)
@@ -279,16 +296,46 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         seen.add(decl.card_id)
         if "cant_attack_alone" in scripts.statics(plan.ch(card)) and len(a.attackers) == 1:
             raise ActionError(f"{card.name} can't attack alone")  # 506.5 / 508.1c
-    # 508.1d: a creature that "attacks each combat if able" must attack when it can
-    for cid in eligible - seen:
-        card = plan.state.cards.get(cid)
-        if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
-                attack_problem(plan.state, card, plan.ch(card)) is None and \
-                any(not attack_forbidden(plan, plan.ch(card), t) for t in targets):  # (wave 4L: 508.1d)
-            raise ActionError(f"{card.name} attacks each combat if able")
-    goad_problem = goad_requirements(plan, eligible, targets, {x.card_id: x.target for x in a.attackers})
-    if goad_problem:  # -- keyword actions & face-down (wave 3F) --
-        raise ActionError(goad_problem)
+    # -- combat (wave 5C) -- 508.1c: "No more than two creatures can attack you each combat"
+    from app.rules import combat_rules
+
+    declared = [(x.card_id, x.target) for x in a.attackers]
+    caps = combat_rules.limits(plan)
+    limit = combat_rules.limit_problem(plan, declared, caps)
+    if limit:
+        raise ActionError(limit)
+    if any(cap_player in targets for cap_player in caps):  # 508.1d weighed over the whole declaration
+        problem = combat_rules.requirements_problem(plan, eligible, _required_places(plan, eligible, targets),
+                                                    {x.card_id: x.target for x in a.attackers}, caps)
+        if problem:
+            raise ActionError(problem)
+    else:
+        # 508.1d: a creature that "attacks each combat if able" must attack when it can
+        for cid in eligible - seen:
+            card = plan.state.cards.get(cid)
+            if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
+                    attack_problem(plan.state, card, plan.ch(card)) is None and \
+                    any(not _closed(plan, plan.ch(card), t) for t in targets):  # (wave 4L: 508.1d; wave 5C: costs)
+                raise ActionError(f"{card.name} attacks each combat if able")
+        goad_problem = goad_requirements(plan, eligible, targets, {x.card_id: x.target for x in a.attackers})
+        if goad_problem:  # -- keyword actions & face-down (wave 3F) --
+            raise ActionError(goad_problem)
+    # -- combat (wave 5C) -- 508.1h-j: the total cost to attack, locked in, then paid (mana abilities allowed meanwhile);
+    # creatures declared as attackers are tapped before it's paid (508.1f), so they don't tap for it
+    tax = combat_rules.attack_cost(plan, declared)
+    if tax:
+        from app.rules import casting
+
+        cost = locked if locked is not None else M.parse_cost(tax)
+        exclude = tuple(x.card_id for x in a.attackers if "vigilance" not in plan.ch(plan.state.cards[x.card_id]).keywords)
+        if not casting.can_pay(plan.state, plan.actor, cost, plan.info, exclude=exclude):
+            raise ActionError(f"Attacking costs {cost.text()} (508.1h): {plan.name(plan.actor)} can't pay it")
+        if not paying:
+            r.decision = None
+        if casting.payment_step(plan, a, cost, "attacking", exclude=exclude):  # type: ignore[arg-type]
+            return  # (the declaration is made again once it's paid; cancelling asks for attackers again)
+        casting.pay(plan, plan.actor, cost, f"paid {cost.text()} to attack", sources=a.sources, exclude=exclude)
+    # -- end combat (wave 5C) --
     r.decision = None
     if not a.attackers:
         r.no_attackers = True
@@ -314,6 +361,38 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     advance(plan)
 
 
+# -- combat (wave 5C) --------------------------------------------------------------------------
+def _closed(plan: Plan, ch: Characteristics, target: str) -> bool:
+    """508.1d: a place a requirement can't send the creature: a restriction forbids it, or attacking there has a
+    cost (nobody is required to pay one)."""
+    from app.rules import combat_rules
+
+    return attack_forbidden(plan, ch, target) or combat_rules.taxed(plan, ch, target)
+
+
+def _required_places(plan: Plan, eligible: set[str], targets: set[str]) -> dict[str, list[str]]:
+    """Creatures with attack requirements (attacks each combat if able, goaded, "attack a player other than you if
+    able") and where each could attack obeying the restrictions without paying a cost."""
+    from app.rules import combat_rules
+    from app.rules.keyword_actions import goaded_by
+
+    out: dict[str, list[str]] = {}
+    for cid in sorted(eligible):
+        card = plan.state.cards.get(cid)
+        if card is None:
+            continue
+        ch = plan.ch(card)
+        st = scripts.statics(ch)
+        if not ("must_attack" in st or goaded_by(ch) or combat_rules.other_than(ch)) or attack_problem(plan.state, card, ch):
+            continue
+        if "cant_attack_alone" in st and len(eligible) == 1:
+            continue
+        out[cid] = [t for t in sorted(targets) if ("attack_needs_island" not in st or _controls_land(
+            plan.state, t if t in plan.state.players else plan.state.cards[t].controller, "Island", plan.info))
+            and not _closed(plan, ch, t)]
+    return out
+
+
 # -- keyword actions & face-down (wave 3F) ------------------------------------------------------
 def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declared: dict[str, str]) -> str | None:
     """701.15b / 508.1d for goaded creatures: a goaded creature attacks each combat if able, and
@@ -321,7 +400,9 @@ def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declare
     goading player; attacking a planeswalker obeys none of those). The declaration must obey as many
     of each creature's requirements as it could without breaking a restriction (508.1d); each
     goaded creature's requirements are judged on its own, against the places it may attack.
-    Costs to attack are never required (508.1d), and none are modelled here."""
+    Costs to attack are never required (508.1d): a place with one isn't weighed (wave 5C). "Attack a player other
+    than you if able" from an effect (Kardur, ``attack_other_than:<player>``) is weighed the same way."""
+    from app.rules import combat_rules  # -- combat (wave 5C) --
     from app.rules.keyword_actions import goaded_by
 
     live = set(plan.live())
@@ -331,28 +412,33 @@ def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declare
             continue
         ch = plan.ch(card)
         goaders = goaded_by(ch)
-        if not goaders or attack_problem(plan.state, card, ch) is not None:
+        others_only = combat_rules.other_than(ch) - goaders
+        if not (goaders or others_only) or attack_problem(plan.state, card, ch) is not None:
             continue
         st = scripts.statics(ch)
         if "cant_attack_alone" in st and len(eligible) == 1:
             continue  # (it can't attack at all: alone is the only way it could)
         places = [t for t in targets if ("attack_needs_island" not in st
                   or _controls_land(plan.state, t if t in plan.state.players else plan.state.cards[t].controller,
-                                    "Island", plan.info)) and not attack_forbidden(plan, ch, t)]  # (wave 4L)
+                                    "Island", plan.info)) and not _closed(plan, ch, t)]  # (wave 4L; wave 5C: costs)
         if not places:
             continue
 
-        def obeyed(place: str | None, others: set[str] = goaders & live) -> int:
+        base = 1 if goaders or "must_attack" in st else 0
+
+        def obeyed(place: str | None, others: set[str] = (goaders | others_only) & live, base: int = base) -> int:
             if place is None:
                 return 0
-            return 1 + sum(1 for g in others if place in plan.state.players and place != g)
+            return base + sum(1 for g in others if place in plan.state.players and place != g)
 
         best = max(obeyed(t) for t in places)
         if obeyed(declared.get(cid)) < best:
-            who = " or ".join(sorted(plan.name(g) for g in goaders & live)) or "anyone"
+            who = " or ".join(sorted(plan.name(g) for g in (goaders | others_only) & live)) or "anyone"
+            what = "is goaded: it" if goaders else "must"
             if cid not in declared:
-                return f"{card.name} is goaded: it attacks each combat if able"
-            return f"{card.name} is goaded: it attacks a player other than {who} if able"
+                return f"{card.name} {what} attacks each combat if able" if goaders else \
+                    f"{card.name} attacks each combat if able"
+            return f"{card.name} {what} attack{'s' if goaders else ''} a player other than {who} if able"
     return None
 
 

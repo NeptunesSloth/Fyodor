@@ -596,6 +596,7 @@ def restrict(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     who = _GROUPS.get(e["who"], e["who"])
     cards = _cards(plan, ctx, who)
     _remember(plan, ctx, e, cards)
+    e = {**e, "rules": [r.replace("@you", ctx["controller"]) for r in e["rules"]]}  # -- combat (wave 5C) -- (Kardur)
     group = who.startswith(selectors.PREFIX) and not e.get("locked")
     duration = e.get("duration", "end_of_turn")
     if cards or group:
@@ -3114,6 +3115,13 @@ from app.rules import recursion as _recursion  # noqa: E402, I001
 
 PRIMITIVES.update(_recursion.PRIMITIVES)
 # -- end recursion & tutors (wave 4M) --
+
+
+# -- combat (wave 5C) -- additional combat phases, tokens entering attacking each opponent (app/rules/combat_rules.py)
+from app.rules import combat_rules as _combat_rules  # noqa: E402
+
+PRIMITIVES.update(_combat_rules.PRIMITIVES)
+RESUME.update(_combat_rules.RESUME)
 
 # -- stack interaction (wave 5B) -- changing the target of a spell or ability (115.7): app/rules/stack_interaction.py
 from app.rules import stack_interaction as _stack_interaction  # noqa: E402, I001

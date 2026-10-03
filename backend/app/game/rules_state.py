@@ -538,6 +538,7 @@ class TriggerEvent(BaseModel):
     source: ObjectRef | None = None  # the source of damage dealt
     amount: int = 0  # life gained or lost, damage dealt (summed over a "one or more" batch)
     count: int = 0  # how many objects / events the batch had
+    defended: str | None = None  # -- combat (wave 5C) -- "Whenever you attack a player": the player attacked (508.3e)
 
 
 class PendingTrigger(BaseModel):
@@ -834,6 +835,10 @@ class RulesState(BaseModel):
     no_attackers: bool = False  # nobody attacked: skip blockers and damage (rule 508.8)
     blockers_pending: list[str] = Field(default_factory=list)  # defending players still to declare
     combat_round: Literal["", "first", "done"] = ""
+    # -- combat (wave 5C) -- 500.8: the phases still to come after the current one when effects added some (the
+    # last is the phase that would have come next), and how many combat phases began this turn
+    extra_phases: list[str] = Field(default_factory=list)
+    combats: int = 0
     # Commanders offered the move to the command zone, and from which zone (asked once per arrival).
     commander_offered: dict[str, str] = Field(default_factory=dict)
     overrides: int = 0  # manual (sandbox) actions taken while automation was on

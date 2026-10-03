@@ -967,6 +967,7 @@ class AttackDeclaration(BaseModel):
 class DeclareAttackers(_Intent):
     type: Literal["declare_attackers"] = "declare_attackers"
     attackers: list[AttackDeclaration] = Field(default_factory=list, max_length=100)
+    sources: list[Id] | None = Field(default=None, max_length=60)  # -- combat (wave 5C) -- MANUAL PAY of an attack cost
 
 
 class BlockDeclaration(BaseModel):

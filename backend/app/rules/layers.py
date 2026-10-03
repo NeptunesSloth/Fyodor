@@ -723,7 +723,7 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
         try:
             for st in table:
                 d = st.definition
-                rules = _own(d["rules"], st.controller)
+                rules = [r.replace("@src", st.source) for r in _own(d["rules"], st.controller)]  # (wave 5C: per source)
                 if set(rules) <= imposed or not _gate_open(view, st, tkey):
                     continue
                 source = state.cards[st.source]

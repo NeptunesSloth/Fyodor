@@ -180,7 +180,12 @@ def skip_steps(plan: Plan) -> None:
         if label is None:
             return
         plan.note(f"{plan.name(plan.active)} skips their {_LABEL[what]} ({label}, 614.10)", actor=plan.active)
-        plan.do({"type": "phase", "to": "main2" if what == "combat" else "next", "force": True}, actor=plan.active)
+        to = "next"
+        if what == "combat":  # -- combat (wave 5C) -- after a skipped combat phase: the phase added after it, if any (500.8)
+            from app.rules import combat_rules
+
+            to = combat_rules.next_phase(plan) or "main2"
+        plan.do({"type": "phase", "to": to, "force": True}, actor=plan.active)
 
 
 PRIMITIVES = {"skip_next": skip_next}

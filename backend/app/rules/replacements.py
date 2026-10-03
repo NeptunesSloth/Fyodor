@@ -949,7 +949,12 @@ def prevent_all(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules.effects import _cards
 
     scope = dict(e["scope"])
-    if e.get("who") == "target":
+    if e.get("role") == "both":  # -- combat (wave 5C) -- "dealt to and dealt by that creature" (Maze of Ith)
+        oids = [plan.oid(c) for c in _cards(plan, ctx, e["who"])]
+        if not oids:
+            return True
+        scope["to_oids"] = scope["by_oids"] = oids
+    elif e.get("who") == "target":
         oids = [plan.oid(c) for c in _cards(plan, ctx, "target")]
         if not oids:
             return True
