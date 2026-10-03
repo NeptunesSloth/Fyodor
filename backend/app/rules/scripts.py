@@ -3261,6 +3261,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (tapped_choice := entry_forms.tapped_choice(text)) is not None:
         return tapped_choice
+    if (standalone := entry_forms.standalone_choice(text)) is not None:  # -- static statics (wave 10B) --
+        return standalone
     m = ENTERS_TAPPED_UNLESS.match(text)
     if m:  # check lands, fast lands, battle lands, Battlebond lands (614.1d)
         cond = _unless_condition(m["cond"])
