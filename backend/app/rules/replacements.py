@@ -246,6 +246,8 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                     n = _counter_amount(plan, card.id, controller, {"n": {"colors_spent": 1}}, x)
                     if n > 0:
                         counters[kind] = counters.get(kind, 0) + n
+        if x and any(ab.kind == "keywords" and "ravenous" in ab.keywords for ab in ch.abilities):  # -- keyword meanings (wave 11B) -- 702.156a
+            counters["+1/+1"] = counters.get("+1/+1", 0) + x
         for d in scripts.definitions(ch).values():
             if d["kind"] == "replacement" and d.get("replacement") == "enters_with_counters":
                 n = _counter_amount(plan, card.id, controller, d, x)

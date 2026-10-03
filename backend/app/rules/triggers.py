@@ -121,8 +121,12 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
         from app.rules import conditions
 
         # (the source and the event it triggered on: "if ~ is an enchantment", "if it's a Dragon", 603.4)
-        check = {"controller": controller, "source_card": source_card, "source_object": source_object,
+        check: dict[str, Any] = {"controller": controller, "source_card": source_card, "source_object": source_object,
                  "event": event.model_dump(mode="json") if event is not None else None}
+        record = plan.rules.payments.get(source_object)  # -- keyword meanings (wave 11B) -- 107.3m: "if X is 5 or more" (ravenous)
+        if record is not None and event is not None and event.kind == "enter" \
+                and any(o.object_id == source_object for o in event.objects):
+            check["x"] = record.x
         if not conditions.holds(plan, check, definition["if"]):
             return None
     if definition.get("limit") == "once_each_turn":  # "This ability triggers only once each turn." (app/rules/restrictions.py)

@@ -37,8 +37,17 @@ MEANINGS: dict[str, str] = {
     # is replacements.entering_counters). 122.5: if either object has left the battlefield nothing is moved.
     "graft": "Whenever another creature enters, if this creature has a +1/+1 counter on it, you may move a +1/+1 counter "
              "from this creature onto that creature.",
+    # -- keyword meanings (wave 11B) --
+    "living weapon": "When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this "
+                     "Equipment to it.",  # 702.92a
+    "for mirrodin!": "When this Equipment enters, create a 2/2 red Rebel creature token, then attach this Equipment to it.",  # 702.163a
+    "annihilator": "Whenever this creature attacks, defending player sacrifices {n} permanents.",  # 702.86a
+    "afflict": "Whenever this creature becomes blocked, defending player loses {n} life.",  # 702.130a
+    # 702.156a: the triggered half of ravenous (its "enters with X +1/+1 counters" half is replacements.entering_counters;
+    # X is 0 when it isn't cast, 107.3m)
+    "ravenous": "When this permanent enters, if X is 5 or more, draw a card.",
 }
-_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft"})
+_NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict"})
 
 
 def pieces(kw: str, line: str) -> list[str]:
