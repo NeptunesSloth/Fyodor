@@ -36,6 +36,30 @@ EXTRA = [
     card('Evolution Sage', set_code='tst', number='T5D14', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Elf Druid', oracle_text='Landfall — Whenever a land you control enters, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)', power='3', toughness='2', colors=['G'], color_identity=['G'], keywords=['Proliferate', 'Landfall']),
     card('Annie Joins Up', set_code='tst', number='T5D15', mana_cost='{1}{R}{G}{W}', cmc=4.0, type_line='Legendary Enchantment', oracle_text='When Annie Joins Up enters, it deals 5 damage to target creature or planeswalker an opponent controls.\nIf a triggered ability of a legendary creature you control triggers, that ability triggers an additional time.', colors=['G', 'R', 'W'], color_identity=['G', 'R', 'W']),
     card('Naban, Dean of Iteration', set_code='tst', number='T5D16', mana_cost='{1}{U}', cmc=2.0, type_line='Legendary Creature — Human Wizard', oracle_text='If a Wizard you control entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.', power='2', toughness='1', colors=['U'], color_identity=['U']),
+    # -- draw and death triggers --
+    card('Sheoldred, the Apocalypse', set_code='tst', number='T5D20', mana_cost='{2}{B}{B}', cmc=4.0, type_line='Legendary Creature — Phyrexian Praetor', oracle_text='Deathtouch\nWhenever you draw a card, you gain 2 life.\nWhenever an opponent draws a card, they lose 2 life.', power='4', toughness='5', colors=['B'], color_identity=['B'], keywords=['Deathtouch']),
+    card('Massacre Wurm', set_code='tst', number='T5D21', mana_cost='{3}{B}{B}{B}', cmc=6.0, type_line='Creature — Phyrexian Wurm', oracle_text='When this creature enters, creatures your opponents control get -2/-2 until end of turn.\nWhenever a creature an opponent controls dies, that player loses 2 life.', power='6', toughness='5', colors=['B'], color_identity=['B']),
+    card('Howling Mine', set_code='tst', number='T5D22', mana_cost='{2}', cmc=2.0, type_line='Artifact', oracle_text="At the beginning of each player's draw step, if this artifact is untapped, that player draws an additional card."),
+    card('Loran of the Third Path', set_code='tst', number='T5D23', mana_cost='{2}{W}', cmc=3.0, type_line='Legendary Creature — Human Artificer', oracle_text='Vigilance\nWhen Loran enters, destroy up to one target artifact or enchantment.\n{T}: You and target opponent each draw a card.', power='2', toughness='1', colors=['W'], color_identity=['W'], keywords=['Vigilance']),
+    card('Secret Rendezvous', set_code='tst', number='T5D24', mana_cost='{1}{W}{W}', cmc=3.0, type_line='Sorcery', oracle_text='You and target opponent each draw three cards.', colors=['W'], color_identity=['W']),
+    card('Goldvein Hydra', set_code='tst', number='T5D25', mana_cost='{X}{G}', cmc=1.0, type_line='Creature — Hydra', oracle_text='Vigilance, trample, haste\nThis creature enters with X +1/+1 counters on it.\nWhen this creature dies, create a number of tapped Treasure tokens equal to its power.', power='0', toughness='0', colors=['G'], color_identity=['G'], keywords=['Vigilance', 'Treasure', 'Haste', 'Trample']),
+    card('Lifeblood Hydra', set_code='tst', number='T5D26', mana_cost='{X}{G}{G}{G}', cmc=3.0, type_line='Creature — Hydra', oracle_text='Trample\nThis creature enters with X +1/+1 counters on it.\nWhen this creature dies, you gain life and draw cards equal to its power.', power='0', toughness='0', colors=['G'], color_identity=['G'], keywords=['Trample']),
+    card('Murderous Rider // Swift End', set_code='tst', number='T5D27', layout='adventure', mana_cost='{1}{B}{B} // {1}{B}{B}', cmc=3.0, type_line='Creature — Zombie Knight // Instant — Adventure', colors=['B'], color_identity=['B'], keywords=['Lifelink'],
+         card_faces=[
+             {"object": "card_face", "name": "Murderous Rider", "mana_cost": "{1}{B}{B}", "type_line": "Creature — Zombie Knight", "oracle_text": "Lifelink\nWhen this creature dies, put it on the bottom of its owner's library.", "power": "2", "toughness": "3"},
+             {"object": "card_face", "name": "Swift End", "mana_cost": "{1}{B}{B}", "type_line": "Instant — Adventure", "oracle_text": "Destroy target creature or planeswalker. You lose 2 life. (Then exile this card. You may cast the creature later from exile.)"},
+         ]),
+    card('Ichor Wellspring', set_code='tst', number='T5D28', mana_cost='{2}', cmc=2.0, type_line='Artifact', oracle_text='When this artifact enters or is put into a graveyard from the battlefield, draw a card.'),
+    card('Wurmcoil Engine', set_code='tst', number='T5D29', mana_cost='{6}', cmc=6.0, type_line='Artifact Creature — Phyrexian Wurm', oracle_text='Deathtouch, lifelink\nWhen this creature dies, create a 3/3 colorless Phyrexian Wurm artifact creature token with deathtouch and a 3/3 colorless Phyrexian Wurm artifact creature token with lifelink.', power='6', toughness='6', keywords=['Lifelink', 'Deathtouch']),
+    card('Brainstorm', set_code='tst', number='T5D30', mana_cost='{U}', cmc=1.0, type_line='Instant', oracle_text='Draw three cards, then put two cards from your hand on top of your library in any order.', colors=['U'], color_identity=['U']),
+    card('Kederekt Parasite', set_code='tst', number='T5D31', mana_cost='{B}', cmc=1.0, type_line='Creature — Horror', oracle_text='Whenever an opponent draws a card, if you control a red permanent, you may have this creature deal 1 damage to that player.', power='1', toughness='1', colors=['B'], color_identity=['B']),
+    card('Disciple of the Vault', set_code='tst', number='T5D32', mana_cost='{B}', cmc=1.0, type_line='Creature — Human Cleric', oracle_text='Whenever an artifact is put into a graveyard from the battlefield, you may have target opponent lose 1 life.', power='1', toughness='1', colors=['B'], color_identity=['B']),
+    card('Suture Priest', set_code='tst', number='T5D33', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Phyrexian Cleric', oracle_text='Whenever another creature you control enters, you may gain 1 life.\nWhenever a creature an opponent controls enters, you may have that player lose 1 life.', power='1', toughness='1', colors=['W'], color_identity=['W']),
+    card('Conch Horn', set_code='tst', number='T5D34', mana_cost='{2}', cmc=2.0, type_line='Artifact', oracle_text='{1}, {T}, Sacrifice this artifact: Draw two cards, then put a card from your hand on top of your library.'),
+    card('Fecundity', set_code='tst', number='T5D36', mana_cost='{2}{G}', cmc=3.0, type_line='Enchantment', oracle_text="Whenever a creature dies, that creature's controller may draw a card.", colors=['G'], color_identity=['G']),
+    card('Dark Revenant', set_code='tst', number='T5D43', mana_cost='{3}{B}', cmc=4.0, type_line='Creature — Spirit', oracle_text="Flying\nWhen this creature dies, put it on top of its owner's library.", power='2', toughness='2', colors=['B'], color_identity=['B'], keywords=['Flying']),
+    card('Shatter', set_code='tst', number='T5D40', mana_cost='{1}{R}', cmc=2.0, type_line='Instant', oracle_text='Destroy target artifact.', colors=['R'], color_identity=['R']),
+    card('Triplicate Titan', set_code='tst', number='T5D42', mana_cost='{9}', cmc=9.0, type_line='Artifact Creature — Golem', oracle_text='Flying, vigilance, trample\nWhen this creature dies, create a 3/3 colorless Golem artifact creature token with flying, a 3/3 colorless Golem artifact creature token with vigilance, and a 3/3 colorless Golem artifact creature token with trample.', power='9', toughness='9', keywords=['Flying', 'Vigilance', 'Trample']),
 ]
 
 
@@ -279,4 +303,241 @@ def test_krang_draw_cause(cards):
     act(s, "p1", type="cast_spell", card_id=opts[1].id)
     settle(s)
     assert s.state.cards[krang.id].counters.get("+1/+1", 0) == 2
+    replay_matches(s)
+
+
+# -- death and draw triggers: coverage ----------------------------------------------------------------------------------
+@pytest.mark.parametrize(("name", "level"), [
+    ("Sheoldred, the Apocalypse", "FULL"), ("Massacre Wurm", "FULL"), ("Howling Mine", "FULL"),
+    ("Loran of the Third Path", "FULL"), ("Secret Rendezvous", "FULL"), ("Goldvein Hydra", "FULL"),
+    ("Lifeblood Hydra", "FULL"), ("Murderous Rider // Swift End", "FULL"), ("Ichor Wellspring", "FULL"),
+    ("Wurmcoil Engine", "FULL"), ("Brainstorm", "FULL"), ("Kederekt Parasite", "FULL"), ("Disciple of the Vault", "FULL"),
+    ("Suture Priest", "FULL"), ("Conch Horn", "FULL"), ("Triplicate Titan", "FULL"),
+    # refused: "that creature's controller may draw" (another player's "may" on someone else's trigger)
+    ("Fecundity", "PARTIAL"),
+])
+def test_death_and_draw_coverage(name, level):
+    assert cov(name) == level
+
+
+def kill(s, c, pid="p1"):
+    """Lethal damage, then the state-based actions (704.5g) — the engine moves it (not by hand)."""
+    act(s, pid, type="set_damage", card_ids=[c.id], delta=20)
+    act(s, s.state.rules.priority or pid, type="pass_priority")
+    settle(s)
+
+
+# -- "they" / "that player" (Sheoldred, Massacre Wurm, Suture Priest) ----------------------------------------------------
+def test_sheoldred_they_lose_and_you_and_target_opponent_each_draw(cards):
+    """Secret Rendezvous: both draw three (121.2c: the active player first). Sheoldred: Alice gains 2 per card, Bob
+    ("they": the opponent who drew) loses 2 per card."""
+    s = build(cards, "Sheoldred, the Apocalypse", "Secret Rendezvous")
+    put(s, "Sheoldred, the Apocalypse")
+    spell = to_hand(s, "Secret Rendezvous")
+    s = saved(s)
+    hands, lives = (hand_size(s), hand_size(s, "p2")), (life(s), life(s, "p2"))
+    mana(s, W=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"])
+    settle(s)
+    assert (hand_size(s), hand_size(s, "p2")) == (hands[0] - 1 + 3, hands[1] + 3)
+    assert (life(s), life(s, "p2")) == (lives[0] + 6, lives[1] - 6)
+    replay_matches(s)
+
+
+def test_loran_you_and_target_opponent(cards):
+    from tests.test_rules_conditionals import to_turn
+
+    s = build(cards, "Loran of the Third Path")
+    loran = put(s, "Loran of the Third Path")
+    to_turn(s, 3)  # (no longer summoning sick)
+    hands = (hand_size(s), hand_size(s, "p2"))
+    act(s, "p1", type="activate_ability", card_id=loran.id, ability=2, targets=["p2"])
+    settle(s)
+    assert (hand_size(s), hand_size(s, "p2")) == (hands[0] + 1, hands[1] + 1)
+    replay_matches(s)
+
+
+def test_massacre_wurm_that_player_is_the_creatures_controller(cards):
+    """Bob's creatures die to the -2/-2: Bob loses 2 for each; Alice's own creature dying costs her nothing."""
+    s = build(cards, "Massacre Wurm", "Grizzly Bears", p2=("Grizzly Bears", "Soul Warden"))
+    put(s, "Grizzly Bears", "p2")
+    put(s, "Soul Warden", "p2")
+    mine = put(s, "Grizzly Bears")
+    wurm = to_hand(s, "Massacre Wurm")
+    s = saved(s)
+    lives = (life(s), life(s, "p2"))
+    mana(s, B=3, C=3)
+    act(s, "p1", type="cast_spell", card_id=wurm.id)
+    settle(s)
+    assert life(s, "p2") == lives[1] - 4 + 1  # (Bob's Soul Warden saw the Wurm enter)
+    kill(s, mine)
+    assert life(s) == lives[0]
+    replay_matches(s)
+
+
+def test_suture_priest_may_have_that_player_lose(cards):
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, "Suture Priest", p2=("Grizzly Bears",))
+    put(s, "Suture Priest")
+    bears = to_hand(s, "Grizzly Bears", "p2")
+    before = life(s, "p2")
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    mana(s, "p2", G=2)
+    act(s, "p2", type="cast_spell", card_id=bears.id)
+    settle(s)  # (Alice's "you may": yes, the first option)
+    assert life(s, "p2") == before - 1
+    replay_matches(s)
+
+
+# -- draw-step and draw triggers (Howling Mine, Kederekt Parasite) --------------------------------------------------------
+@pytest.mark.parametrize("tapped", [False, True])
+def test_howling_mine_each_players_draw_step_if_untapped(cards, tapped):
+    """At the beginning of each player's draw step, if this artifact is untapped (603.4: as it triggers and resolves),
+    that player draws an additional card."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, "Howling Mine")
+    mine = put(s, "Howling Mine")
+    if tapped:
+        act(s, "p1", type="tap", card_ids=[mine.id], tapped=True)
+    before = hand_size(s, "p2")
+    until(s, lambda s: s.state.turn.active_player == "p2" and s.state.turn.phase == "main1")
+    settle(s)
+    assert hand_size(s, "p2") == before + (1 if tapped else 2)
+    replay_matches(s)
+
+
+@pytest.mark.parametrize("red", [False, True])
+def test_kederekt_parasite_if_you_control_a_red_permanent(cards, red):
+    s = build(cards, "Kederekt Parasite", "Secret Rendezvous")
+    put(s, "Kederekt Parasite")
+    spell = to_hand(s, "Secret Rendezvous")
+    if red:
+        from tests.test_rules_conditionals import token_of
+
+        token_of(s, "p1", "Red Thing", "Token Creature — Elemental", colors=("R",))
+    before = life(s, "p2")
+    mana(s, W=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"])
+    settle(s)  # (three cards drawn: three triggers, "you may": yes)
+    assert life(s, "p2") == before - (3 if red else 0)
+    replay_matches(s)
+
+
+# -- dies: last known information (Goldvein Hydra, Lifeblood Hydra), the card's new object (Murderous Rider) -------------
+def test_goldvein_and_lifeblood_read_the_power_it_last_had(cards):
+    s = build(cards, "Goldvein Hydra", "Lifeblood Hydra")
+    gold, blood = put(s, "Goldvein Hydra"), put(s, "Lifeblood Hydra")
+    act(s, "p1", type="counter", card_ids=[gold.id], kind="+1/+1", delta=3)
+    act(s, "p1", type="counter", card_ids=[blood.id], kind="+1/+1", delta=2)
+    s = saved(s)
+    before_hand, before_life = hand_size(s), life(s)
+    kill(s, gold)
+    treasures = [c for c in s.state.cards.values() if c.name == "Treasure" and c.zone == "p1:battlefield"]
+    assert len(treasures) == 3 and all(c.tapped for c in treasures)
+    kill(s, blood)
+    assert (hand_size(s), life(s)) == (before_hand + 2, before_life + 2)
+    replay_matches(s)
+
+
+def test_dark_revenant_goes_on_top_of_its_owners_library(cards):
+    """"put it on top of its owner's library": the card's new object in the graveyard (400.7e, 603.6c)."""
+    s = build(cards, "Dark Revenant")
+    revenant = put(s, "Dark Revenant")
+    kill(s, revenant)
+    assert s.state.zones["p1:library"][0] == revenant.id
+    replay_matches(s)
+
+
+def test_ichor_wellspring_enters_and_goes_to_the_graveyard(cards):
+    """"When ~ enters or is put into a graveyard from the battlefield" (603.2: one ability, each event); Disciple of the
+    Vault sees the artifact go too."""
+    s = build(cards, "Ichor Wellspring", "Shatter", "Disciple of the Vault")
+    put(s, "Disciple of the Vault")
+    well, shatter = to_hand(s, "Ichor Wellspring"), to_hand(s, "Shatter")
+    before = hand_size(s)
+    mana(s, C=2)
+    act(s, "p1", type="cast_spell", card_id=well.id)
+    settle(s)
+    assert hand_size(s) == before - 1 + 1
+    s = saved(s)
+    lives = life(s, "p2")
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=shatter.id, targets=[well.id])
+    settle(s)
+    assert hand_size(s) == before - 2 + 2
+    assert life(s, "p2") == lives - 1
+    replay_matches(s)
+
+
+def test_wurmcoil_and_triplicate_titan_make_each_kind(cards):
+    s = build(cards, "Wurmcoil Engine", "Triplicate Titan")
+    wurm, titan = put(s, "Wurmcoil Engine"), put(s, "Triplicate Titan")
+    kill(s, wurm)
+    wurms = sorted(c.token.text for c in s.state.cards.values() if c.name == "Phyrexian Wurm" and c.zone == "p1:battlefield")
+    assert wurms == ["Deathtouch", "Lifelink"]
+    s = saved(s)
+    kill(s, titan)
+    golems = sorted(c.token.text for c in s.state.cards.values() if c.name == "Golem" and c.zone == "p1:battlefield")
+    assert golems == ["Flying", "Trample", "Vigilance"]
+    replay_matches(s)
+
+
+# -- Brainstorm: a private choice, a private order (401.4), nothing named to the other players ----------------------------
+def test_brainstorm_puts_back_two_in_the_chosen_order_privately(cards):
+    import json
+
+    from app.rules.view import rules_view
+
+    s = build(cards, "Brainstorm", "Opt", "Lightning Bolt", "Counterspell", "Giant Growth")
+    storm = to_hand(s, "Brainstorm")
+    for name in ("Opt", "Lightning Bolt", "Counterspell", "Giant Growth"):  # (on top of the library)
+        c = named(s, name)
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "library"}, position="top")
+    s = saved(s)
+    before = hand_size(s)
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=storm.id)
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_cards":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and d.min_choices == d.max_choices == 2
+    assert "Giant Growth" not in json.dumps(rules_view(s.state, "p2", s.cards)["decision"])  # (Bob: "choosing")
+    picked = [o.id for o in d.options if o.label in ("Giant Growth", "Counterspell")]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=picked)
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "order" and d.player == "p1"
+    growth = next(o.id for o in d.options if o.label == "Giant Growth")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[growth, *[o.id for o in d.options if o.id != growth]])
+    settle(s)
+    assert hand_size(s) == before - 1 + 3 - 2
+    top = s.state.zones["p1:library"][:2]
+    assert [s.state.cards[c].name for c in top] == ["Giant Growth", "Counterspell"]
+    seen_by_bob = json.dumps(s.view("p2"))
+    for name in ("Giant Growth", "Counterspell", "Lightning Bolt", "Opt"):
+        assert name not in seen_by_bob
+    replay_matches(s)
+
+
+def test_conch_horn_one_card_back_without_an_order(cards):
+    s = build(cards, "Conch Horn")
+    horn = put(s, "Conch Horn")
+    before = hand_size(s)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=horn.id, ability=0)
+    d = s.state.rules.decision
+    for _ in range(4):
+        if d is not None and d.kind == "choose_cards":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+    assert d is not None and d.max_choices == 1
+    chosen = d.options[0].id
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[chosen])
+    settle(s)
+    assert hand_size(s) == before + 2 - 1 and s.state.zones["p1:library"][0] == chosen
     replay_matches(s)

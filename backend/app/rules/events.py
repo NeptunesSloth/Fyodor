@@ -98,7 +98,8 @@ _NTH = {"second": 2, "third": 3, "first": 1, "fourth": 4, "fifth": 5}
 _COUNT = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
 _MULTI = {"enters": "enter", "dies": "die", "attacks": "attack", "leaves the battlefield": "leave", "blocks": "block",
           "becomes blocked": "blocked", "becomes tapped": "tapped", "becomes untapped": "untapped",
-          "is dealt damage": "dealt_damage"}
+          "is dealt damage": "dealt_damage",
+          "is put into a graveyard from the battlefield": "die"}  # (700.4; wave 5D: Ichor Wellspring)
 _MULTI_RE = "|".join(sorted((re.escape(k) for k in _MULTI), key=len, reverse=True))
 _P = r"(?P<p>you|an opponent|a player)"
 # -- counters & designations (wave 3E) -- a player getting counters (122.6; one event per player per instruction)

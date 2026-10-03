@@ -819,6 +819,24 @@ def _each_draws(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "draw", "who": "each_player", "n": num(m["n"])}], None
 
 
+# -- triggers (wave 5D) -- "You and target opponent each draw a card." (Loran of the Third Path, Secret Rendezvous):
+# one draw instruction for both players — the active player draws first, then the other (121.2c: replace.draw_cards)
+@effect(r"you and target opponent each draw {N} cards?")
+def _you_and_target_draw(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "draw", "who": "target", "also": "you", "n": num(m["n"])}], "opponent"
+
+
+# "put two cards from your hand on top of your library in any order" (Brainstorm): a private choice, then the owner's
+# order (401.4) — app/rules/put_back.py
+@effect(r"put (?:(?P<one>a card)|(?P<n>two|three|four|five) cards) from your hand on top of your library"
+        r"(?P<any> in any order)?")
+def _put_back(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if bool(m["one"]) == bool(m["any"]):
+        raise _NoMatch  # (several cards come with "in any order"; one card never does)
+    return [{"do": "put_back", "n": 1 if m["one"] else num(m["n"])}], None
+# -- end triggers (wave 5D) --
+
+
 @effect(r"you gain {N} life")
 def _gain(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "gain_life", "who": "you", "n": num(m["n"])}], None
@@ -1318,6 +1336,9 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (gifts := refused_zones.gifts_ability(body)) is not None:
         return gifts
+    from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
+
+    body = trigger_words.plain_amounts(body)
     try:
         return _excess_redirect(_that_players_hand(_attached_host(_gy_shuffle(_life_lost(_energy_paid(
             _parse_effects(body, it, event_player)))), it)))
@@ -1632,6 +1653,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 effects += _add_groups(groups, own[0], own[1])
                 continue
             optional, text = True, text[len("you may "):]
+            from app.rules import trigger_words  # -- triggers (wave 5D) -- "you may have ~ deal 1 damage …" (603.5)
+
+            text = trigger_words.have_subject(text)
         if effects and (bare := _language.bare_pronoun_grant(text)) is not None:  # -- recursion & tutors (wave 4M) --
             effects += bare  # ("It gains haste.": a whole sentence, after the instruction that names "it")
             continue
@@ -2165,6 +2189,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import attached_players
 
                 same, body = attached_players.split_same(body, cond)
+                from app.rules import trigger_words  # -- triggers (wave 5D) -- "they lose 2 life", "an additional card"
+
+                body = trigger_words.rewrite_body(body, name, cond, has_player)
                 parsed = parse_effects(body, it=_trigger_antecedent(name, cond), event_player=has_player)
                 if same and parsed is not None:
                     parsed = attached_players.does_the_same(parsed)
@@ -2291,6 +2318,11 @@ def _intervening_may(body: str, it: str | None, event_player: bool) -> tuple[lis
 def _has_player(cond: dict[str, Any]) -> bool:
     """Does the event name a player ("that player")? The player who acted, or who was dealt damage."""
     if cond.get("subject") == "player" or cond["event"] in _PLAYER_EVENTS:
+        return True
+    # -- triggers (wave 5D) -- "Whenever a creature an opponent controls dies / enters, that player …": the opponent
+    # who controlled it (one object per event: not "one or more", 603.2c; triggers._event)
+    if cond.get("subject") == "sel" and cond["event"] in ("enter", "die", "leave") and not cond.get("aggregate") \
+            and '"controller":"opponent"' in str(cond.get("sel")):
         return True
     return cond["event"] == "deal_damage" and cond.get("to") in ("player", "opponent", "you")
 
@@ -2970,6 +3002,9 @@ from app.rules import delayed as _delayed  # noqa: E402  (a leaf module over rul
 # object where it went (400.7e); deferred effects are never introducers (not in _RECORDING): a
 # later sentence's "that creature" can't name what a move that hasn't happened yet would record.
 _MOVES.update({_delayed.DEFERRED + x for x in _MOVES})
+# -- triggers (wave 5D) -- "When this creature dies, put it on the bottom of its owner's library." (Murderous Rider): the
+# card's new object in the graveyard, found there and only there (400.7e, 603.6c), as for "return it"
+_MOVES.add("to_library")
 
 
 def _deferred(clause: str, when: dict[str, Any]) -> tuple[list[dict[str, Any]], Any]:
@@ -3905,3 +3940,34 @@ def _event_spell_ok(d: Definition) -> bool:
     lead = [e for e in effects if e.get("do") != "only_if"]
     return all(not effects[k].get("first") or (lead and lead[0] is effects[k]) for k in uses)
 # -- end refused copy/mana (wave 3R3) --
+
+
+# -- triggers (wave 5D) -------------------------------------------------------------------------------------------
+# "create a 3/3 colorless Phyrexian Wurm artifact creature token with deathtouch and a 3/3 colorless Phyrexian Wurm
+# artifact creature token with lifelink" (Wurmcoil Engine), "create A, B, and C" (Triplicate Titan): one instruction
+# creating several kinds of token (701.7a), carried out as one create_token effect (effects.create_token's "more").
+# Each kind must read on its own as a plain "create …" with a fixed number; anything else stays manual.
+_TOKEN_LIST_SPLIT = re.compile(r"(?:, and |, | and )(?=an? [^,]*?\btokens?\b)")
+
+
+@effect(r"create (?P<list>(?=[^\"]*$)an? [^.]*?\btokens?\b[^.]*?(?:, and |, | and )an? [^.]*?\btokens?\b[^.]*)")
+def _create_several_kinds(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    pieces = _TOKEN_LIST_SPLIT.split(m["list"])
+    made: list[dict[str, Any]] = []
+    for piece in pieces:
+        found = _one_clause("create " + piece)
+        if found is None or found[1] is not None or len(found[0]) != 1:
+            raise _NoMatch
+        e = found[0][0]
+        if e.get("do") != "create_token" or e.get("who") != "you" or not isinstance(e.get("n"), int) \
+                or set(e) - {"do", "who", "n", "token", "tapped"}:
+            raise _NoMatch
+        made.append(e)
+    if len(made) < 2:
+        raise _NoMatch
+    first, *rest = made
+    return [{**first, "more": [{k: v for k, v in e.items() if k in ("token", "n", "tapped")} for e in rest]}], None
+
+
+EFFECTS[:0] = [EFFECTS.pop()]  # (before the one-kind templates, which would read "with deathtouch and a 3/3 …" as keywords)
+# -- end triggers (wave 5D) --

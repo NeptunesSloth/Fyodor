@@ -692,6 +692,10 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
         players = [info["recipient"]]
     elif info.get("actor"):  # the player who cast, sacrificed, discarded, cycled, created …
         players = [info["actor"]]
+    elif player and obj is not None and kind in ("enter", "die", "leave"):
+        # -- triggers (wave 5D) -- "Whenever a creature an opponent controls dies, that player loses 2 life": its
+        # controller as it entered / as it last existed (603.10a), fixed as it triggers
+        players = [player]
     else:
         players = [player] if player and obj is None else []
     return TriggerEvent(kind=kind, batch=batch, objects=[ref] if ref else [], new_objects=new, players=players,

@@ -205,6 +205,8 @@ def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # 121.2c APNAP, 121.6a / 614.11 with an empty library, 704.5b) --
     want = _amount(plan, ctx, e["n"])
     players = _players(plan, ctx, e["who"])
+    if e.get("also"):  # -- triggers (wave 5D) -- "You and target opponent each draw a card": one instruction (121.2c)
+        players = list(dict.fromkeys([*_players(plan, ctx, e["also"]), *players]))
     if want <= 0 or not players:
         return True
     return replace.draw_cards(plan, players, want, then=_then(ctx, e), ctx=ctx)
@@ -730,17 +732,24 @@ def create_token(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str,
         from app.rules import this_way
 
         each = this_way.by_controller(plan, ctx, e["per_controller"])
-    # -- X sized by a count (wave 4K) -- "an X/X … token": X as the token is created, its printed P/T from then on (111.3)
-    pt = {k: str(values.evaluate(plan, ctx, t[k])) if isinstance(t.get(k), dict) else t.get(k) for k in ("power", "toughness")}
-    for pid in (list(each) if each is not None else _players(plan, ctx, e["who"])):
-        if each is not None and pid not in plan.live():
+    # -- triggers (wave 5D) -- "create a 3/3 … token with deathtouch and a 3/3 … token with lifelink" (Wurmcoil Engine):
+    # one instruction, so one batch of tokens entering together (701.7a, 603.2c)
+    kinds = [(t, count, e.get("tapped"))] + [(m["token"], _amount(plan, ctx, m["n"]), m.get("tapped"))
+                                             for m in e.get("more") or []]
+    for t, count, tapped_by_creator in kinds:
+        if count <= 0:
             continue
-        spec = {"name": t["name"], "power": pt["power"], "toughness": pt["toughness"],
-                "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
-        # a token enters tapped when its creator says so ("create a tapped …") or its own text does
-        # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
-        tapped = bool(e.get("tapped")) or replacements.token_enters_tapped(plan, pid, spec)
-        requests.append((pid, spec, count * each[pid] if each is not None else count, source, tapped))
+        # -- X sized by a count (wave 4K) -- "an X/X … token": X as the token is created, its printed P/T from then on (111.3)
+        pt = {k: str(values.evaluate(plan, ctx, t[k])) if isinstance(t.get(k), dict) else t.get(k) for k in ("power", "toughness")}
+        for pid in (list(each) if each is not None else _players(plan, ctx, e["who"])):
+            if each is not None and pid not in plan.live():
+                continue
+            spec = {"name": t["name"], "power": pt["power"], "toughness": pt["toughness"],
+                    "colors": t.get("colors") or [], "type_line": t["type_line"], "text": t.get("text") or ""}
+            # a token enters tapped when its creator says so ("create a tapped …") or its own text does
+            # (614.1d), never otherwise; its "enters with" counters follow (app/rules/replacements.py)
+            tapped = bool(tapped_by_creator) or replacements.token_enters_tapped(plan, pid, spec)
+            requests.append((pid, spec, count * each[pid] if each is not None else count, source, tapped))
     # (the tokens are recorded as binding "as", the new objects they are: "they gain haste")
     made = replace.create_token_batch(plan, requests, ctx=ctx, bind=e.get("as"), then=then or _then(ctx, e))
     return made is not None  # (None: the creating player chooses an order first, 616.1)
@@ -3111,3 +3120,10 @@ from app.rules import recursion as _recursion  # noqa: E402, I001
 
 PRIMITIVES.update(_recursion.PRIMITIVES)
 # -- end recursion & tutors (wave 4M) --
+
+# -- triggers (wave 5D) -- "then put two cards from your hand on top of your library in any order" (app/rules/put_back.py)
+from app.rules import put_back as _put_back  # noqa: E402, I001
+
+PRIMITIVES.update(_put_back.PRIMITIVES)
+RESUME.update(_put_back.RESUME)
+# -- end triggers (wave 5D) --
