@@ -176,7 +176,7 @@ def _short_name(name: str) -> str | None:
     first word), unless that word is also a creature type ("Soldier of the Pantheon")."""
     from app.rules.creature_types import CREATURE_TYPES
 
-    m = re.match(r"^([A-Z][\w'-]{2,}) (?:the|of) ", name)
+    m = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]{2,}) (?:the|of) ", name)  # (-- extremes (wave 8B) -- a capital with an accent: Éomer)
     if m is None or m[1] in CREATURE_TYPES or m[1].rstrip("s") in CREATURE_TYPES:
         return None
     return m[1]
@@ -475,6 +475,10 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
             return None
         latest = sentence_of(fitting[-1].index)
         same = [i for i in fitting if sentence_of(i.index) == latest]
+        # -- looks (wave 8B) -- "Reveal the top card of your library and put that card into your hand. You lose life equal
+        # to its mana value.": "that card" is the card revealed, so the one card is the pick (not two candidates)
+        if any(i.do == "pick_looked" and out[i.index].get("which") == "that" for i in same):
+            same = [i for i in same if i.do != "look_top"]
         # ("target creature gets +2/+2 and gains reach": two effects on one target are one candidate)
         distinct = {(("g", _group_of(out[i.index])) if _group_of(out[i.index]) is not None else ("i", i.index)): i
                     for i in same}
@@ -934,6 +938,13 @@ def _target_loses(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "lose_life", "who": "target", "n": num(m["n"])}], "player"
 
 
+# -- life lost (wave 8B) -- "Each opponent loses life equal to the life they lost this turn." (Wound Reflection): each
+# opponent's own total (the turn's log, 119.3), read for them as the instruction is carried out (608.2h)
+@effect(r"each opponent loses life equal to the life (?:they|that player) lost this turn")
+def _lose_life_lost(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "lose_life", "who": "each_opponent", "n": {"per_player": {"turn_history": "lost"}}}], None
+
+
 @effect(r"(?P<src>~|it) deals {N} damage to (?P<sel>{SEL})")
 def _damage(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "damage", "who": "target", "n": num(m["n"]), **_it_source(m["src"])}], SELECTORS[m["sel"]]
@@ -1174,6 +1185,18 @@ def _investigate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     type_line, text = PREDEFINED_TOKENS["Clue"]
     return [{"do": "create_token", "who": "you", "n": 1,
              "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
+
+
+# -- life lost (wave 8B) -- "Investigate for each opponent who lost life this turn." (Teysa): one Clue per counted thing
+# (701.16a: investigating is creating a Clue token; the count is worked out as the instruction is carried out, 608.2h)
+@effect(r"investigate (?:once )?for each (?P<what>.+)")
+def _investigate_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import sized_damage, values
+
+    n = values.parse_count(m["what"])
+    if n is None or sized_damage.has_per_player(n):
+        raise _NoMatch
+    return [{**_investigate(m)[0][0], "n": n}], None
 
 
 def _x_amount(xdef: str | None) -> Any:

@@ -253,9 +253,15 @@ def _then(ctx: Context, e: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    n = _amount(plan, ctx, e["n"])
+    # -- life lost (wave 8B) -- "Each opponent loses life equal to the life they lost this turn": each one's own amount,
+    # worked out before any of them loses life (608.2h; they lose it at once)
+    each = {p: _amount(plan, {**ctx, "recipient": p}, e["n"]) for p in _players(plan, ctx, e["who"])} \
+        if sized_damage.has_per_player(e["n"]) else None
+    n = 0 if each is not None else _amount(plan, ctx, e["n"])
     lost = 0
     for pid in _players(plan, ctx, e["who"]):
+        if each is not None:
+            n = each[pid]
         if n:
             before = plan.state.players[pid].life
             plan.do({"type": "life", "player": pid, "delta": -n}, actor=ctx["controller"])
