@@ -21,7 +21,7 @@ verified, the text says so.
 | Backend pytest (full, `-n 8` with pytest-xdist) | Passed locally on the final head: all 3,576 tests (exit 0). |
 | ruff (`backend`) / mypy (`app tools`, 178 files) | Passed locally. |
 | Frontend tsc / vitest (61) | Passed locally after wave 4I (the only wave that touched the frontend). |
-| Playwright (18 spec files) | Passed in GitHub CI on `551e636` (all waves merged, before the review merge). Not run locally this session. |
+| Playwright (17 spec files) | Passed in GitHub CI on `551e636` (all waves merged, before the review merge). Not run locally this session. |
 | GitHub CI | Green on `551e636`. Check the final head (review merge and this file) before merging. |
 
 `test_rules_statics.py::test_full_board_derive_is_fast` (a 500 ms timing limit) can fail when the
