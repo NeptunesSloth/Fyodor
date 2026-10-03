@@ -188,16 +188,21 @@ def _phrase(arg: str) -> str:
 
 
 LANDWALK = {"plainswalk": "Plains", "islandwalk": "Island", "swampwalk": "Swamp", "mountainwalk": "Mountain",
-            "forestwalk": "Forest", "desertwalk": "Desert"}
+            "forestwalk": "Forest", "desertwalk": "Desert",
+            # -- landwalk variants (wave 12B) -- 702.14a/c: the type, supertype and/or subtype the land has, or (nonbasic) lacks
+            "snow landwalk": "Snow", "nonbasic landwalk": "nonbasic", "legendary landwalk": "Legendary",
+            "artifact landwalk": "Artifact", **{f"snow {w}walk": f"Snow {w.capitalize()}"
+                                                for w in ("plains", "island", "swamp", "mountain", "forest")}}
 
 
-def _controls_land(state: GameState, player: str, subtype: str, info: CardInfo | None) -> bool:
+def _controls_land(state: GameState, player: str, kind: str, info: CardInfo | None) -> bool:
     for cid in state.zones.get(zone_key(player, "battlefield"), []):
         card = state.cards[cid]
         if card.controller != player:
             continue
         ch = chars.of(card, info) if info is not None else None
-        if ch is not None and ch.is_land and subtype in ch.subtypes:
+        if ch is not None and ch.is_land and (
+                "Basic" not in ch.supertypes if kind == "nonbasic" else set(kind.split()) <= {*ch.supertypes, *ch.types, *ch.subtypes}):
             return True
     return False
 

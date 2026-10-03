@@ -44,3 +44,25 @@ def test_activated_lure_lasts_the_turn(cards):
         block(s, "p2", (guard, lure))
     block(s, "p2", (guard, lure), (spare, lure))
     check(s)
+
+
+# -- landwalk variants (702.14a, 702.14c) --
+@pytest.mark.parametrize(("walk", "land", "blockable"), [
+    ("Snow landwalk", "Token Snow Land — Forest", False),
+    ("Snow landwalk", "Token Land — Forest", True),
+    ("Snow swampwalk", "Token Snow Land — Forest", True),
+    ("Snow forestwalk", "Token Snow Land — Forest", False),
+    ("Nonbasic landwalk", "Token Land", False),
+    ("Nonbasic landwalk", "Token Basic Land — Forest", True),
+    ("Legendary landwalk", "Token Legendary Land", False),
+    ("Legendary landwalk", "Token Land", True),
+    ("Artifact landwalk", "Token Artifact Land", False),
+    ("Desertwalk", "Token Land — Desert", False),
+])
+def test_landwalk_variants(cards, walk, land, blockable):
+    from tests.test_rules_combat import _blocks, _evasion_table
+
+    s, sneak, guard = _evasion_table(cards, walk)
+    act(s, "p2", type="create_token", player="p2", token={"name": "Terrain", "type_line": land})
+    assert _blocks(s, sneak, guard) is blockable
+    check(s)

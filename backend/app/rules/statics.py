@@ -84,6 +84,7 @@ GRANTABLE_KEYWORDS: frozenset[str] = frozenset({
     "flying", "first strike", "double strike", "deathtouch", "lifelink", "vigilance", "trample", "haste",
     "reach", "menace", "indestructible", "hexproof", "defender", "shroud",
     "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "desertwalk",
+    "snow landwalk", "nonbasic landwalk", "legendary landwalk", "artifact landwalk", "snow plainswalk", "snow islandwalk", "snow swampwalk", "snow mountainwalk", "snow forestwalk",  # (wave 12B: 702.14c variants)
     "shadow", "horsemanship", "fear", "intimidate", "skulk", "wither", "infect",
 })
 

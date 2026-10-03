@@ -37,7 +37,7 @@ KEYWORDS = frozenset({
     "defender", "menace", "hexproof", "indestructible", "flash", "shroud", "fear", "intimidate", "skulk", "prowess",
     "protection", "ward", "equip", "enchant", "cycling", "kicker", "multikicker", "flashback", "convoke", "delve", "cascade",
     "affinity", "storm", "partner", "partner with", "changeling", "landwalk", "islandwalk", "swampwalk",
-    "forestwalk", "mountainwalk", "plainswalk", "exalted", "undying", "persist", "wither", "infect", "toxic",
+    "forestwalk", "mountainwalk", "plainswalk", "snow landwalk", "nonbasic landwalk", "legendary landwalk", "artifact landwalk", "snow plainswalk", "snow islandwalk", "snow swampwalk", "snow mountainwalk", "snow forestwalk", "desertwalk", "exalted", "undying", "persist", "wither", "infect", "toxic",
     "annihilator", "evolve", "extort", "unearth", "embalm", "eternalize", "afflict", "riot", "escape", "mutate",
     "companion", "foretell", "disturb", "daybound", "nightbound", "training", "casualty", "blitz", "backup",
     "bargain", "craft", "disguise", "offspring", "saddle", "crew", "ninjutsu", "morph", "megamorph", "suspend",

@@ -199,6 +199,7 @@ SUPPORTED_KEYWORDS: set[str] = {
     "flash", "hexproof", "shroud",
     # evasion (test_rules_combat.py::test_evasion, landwalk tests)
     "plainswalk", "islandwalk", "swampwalk", "mountainwalk", "forestwalk", "desertwalk",
+    "snow landwalk", "nonbasic landwalk", "legendary landwalk", "artifact landwalk", "snow plainswalk", "snow islandwalk", "snow swampwalk", "snow mountainwalk", "snow forestwalk",  # (wave 12B: 702.14c variants)
     "shadow", "horsemanship", "fear", "intimidate", "skulk",
     # triggered keywords (app/rules/scripts.py KEYWORD_TRIGGERS)
     "prowess",
