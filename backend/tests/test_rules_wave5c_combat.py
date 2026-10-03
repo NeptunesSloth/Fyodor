@@ -62,6 +62,8 @@ EXTRA = [
     card('Finest Hour', set_code="tst", number="C24", mana_cost='{2}{G}{W}{U}', cmc=5.0, type_line='Enchantment', oracle_text="Exalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)\nWhenever a creature you control attacks alone, if it's the first combat phase of the turn, untap that creature. After this phase, there is an additional combat phase.", colors=['G', 'U', 'W'], color_identity=['G', 'U', 'W'], keywords=['Exalted']),  # noqa: E501
     # (still manual)
     card('Karlach, Fury of Avernus', set_code="tst", number="C30", mana_cost='{4}{R}', cmc=5.0, type_line='Legendary Creature — Tiefling Barbarian', oracle_text="Whenever you attack, if it's the first combat phase of the turn, untap all attacking creatures. They gain first strike until end of turn. After this phase, there is an additional combat phase.\nChoose a Background (You can have a Background as a second commander.)", power='5', toughness='4', colors=['R'], color_identity=['R'], keywords=['Choose a background']),  # noqa: E501
+    card('Baird, Steward of Argive', set_code="tst", number="C25", mana_cost='{2}{W}{W}', cmc=4.0, type_line='Legendary Creature — Human Soldier', oracle_text="Vigilance\nCreatures can't attack you or planeswalkers you control unless their controller pays {1} for each of those creatures.", power='2', toughness='4', colors=['W'], color_identity=['W'], keywords=['Vigilance']),  # noqa: E501
+    card("Norn's Annex", set_code="tst", number="C26", mana_cost='{3}{W/P}{W/P}', cmc=5.0, type_line='Artifact', oracle_text="({W/P} can be paid with either {W} or 2 life.)\nCreatures can't attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures.", colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
     card('Sphere of Safety', set_code="tst", number="C31", mana_cost='{4}{W}', cmc=5.0, type_line='Enchantment', oracle_text="Creatures can't attack you or planeswalkers you control unless their controller pays {X} for each of those creatures, where X is the number of enchantments you control.", colors=['W'], color_identity=['W'], keywords=[]),  # noqa: E501
     card('Nahiri, the Unforgiving', set_code="tst", number="C32", mana_cost='{1}{R}{W/P}{W}', cmc=4.0, type_line='Legendary Planeswalker — Nahiri', oracle_text="Compleated\n+1: Until your next turn, up to one target creature attacks a player each combat if able.\n−2: Discard a card, then draw a card.", colors=['R', 'W'], color_identity=['R', 'W'], keywords=['Compleated']),  # noqa: E501
 ]
@@ -69,9 +71,9 @@ FULL = ["Propaganda", "Ghostly Prison", "Windborn Muse", "Elephant Grass", "Craw
         "Bower Passage", "Bident of Thassa", "Kardur, Doomscourge", "The Akroan War", "Rage Nimbus", "Goblin Diplomats",
         "Aggravated Assault", "Seize the Day", "Aurelia, the Warleader", "Adeline, Resplendent Cathar",
         "Soaring Lightbringer", "Karlach, Fury of Avernus", "Maze of Ith", "Reconnaissance", "Unnatural Growth", "Bulk Up",
-        "Relentless Assault", "Hellkite Charger", "Finest Hour"]
+        "Relentless Assault", "Hellkite Charger", "Finest Hour", "Baird, Steward of Argive", "Norn's Annex",
+        "Sphere of Safety"]
 STILL_MANUAL = {
-    "Sphere of Safety": "{X}",  # (a cost sized by a count, and planeswalkers too)
     "Nahiri, the Unforgiving": "attacks a player each combat",
 }
 
@@ -219,7 +221,7 @@ def test_two_attack_cost_statics_add_up_and_planeswalkers_are_free(cards):
     lands(s, 4)
     a = old(s, "p1", "Ogre")
     p = plan(s)
-    assert combat_rules.attack_cost(p, [(a.id, "p2")]) == 4
+    assert combat_rules.attack_cost(p, [(a.id, "p2")]) == "{4}"
     to_attack(s)
     declare(s, (a, "p2"))
     assert attacking(s, a) == "p2"
@@ -540,7 +542,7 @@ def test_soaring_lightbringer_token_attacks_that_player(cards):
 def test_statics_parse_for_the_combat_rules():
     d = combat_rules.static_definition("Creatures can't attack you unless their controller pays {2} for each creature "
                                        "they control that's attacking you.")
-    assert d is not None and d["rules"] == ["attack_tax:@you:2:@src"]
+    assert d is not None and d["rules"] == ["attack_tax:@you:{2}:@src"]
     assert statics.parse("Creatures with flying can't block creatures you control.") is None  # (read here, not there)
 
 
@@ -691,4 +693,37 @@ def test_adeline_token_may_attack_a_planeswalker(cards):
     to_blocks(s)
     humans = [c for c in s.state.cards.values() if c.name == "Human" and c.zone == "p1:battlefield"]
     assert sorted(attacking(s, h) for h in humans) == sorted(["p2", gideon.id])
+    replay_matches(s)
+
+
+def test_sphere_of_safety_and_baird_cover_planeswalkers(cards):
+    """"You or planeswalkers you control … for each of those creatures": Sphere of Safety's {X} is the number of
+    enchantments Bob controls as the total is determined (508.1h); Propaganda doesn't cover planeswalkers."""
+    s = build(cards, bob=["Sphere of Safety", "Propaganda", "Gideon Jura"])
+    put(s, "Sphere of Safety", "p2")
+    put(s, "Propaganda", "p2")
+    gideon = put(s, "Gideon Jura", "p2")
+    act(s, "p2", type="counter", card_ids=[gideon.id], kind="loyalty", delta=6)
+    forests = lands(s, 6)
+    a, b = old(s, "p1", "Ogre"), old(s, "p1", "Wolf")
+    p = plan(s)
+    assert combat_rules.attack_cost(p, [(a.id, gideon.id)]) == "{2}"
+    assert combat_rules.attack_cost(p, [(a.id, gideon.id), (b.id, "p2")]) == "{6}"
+    to_attack(s)
+    declare(s, (a, gideon.id), (b, "p2"))
+    assert attacking(s, a) == gideon.id and attacking(s, b) == "p2"
+    assert all(s.state.cards[f].tapped for f in forests)
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def test_norns_annex_phyrexian_cost(cards):
+    """{W/P} for each creature: paid with white mana or 2 life each (107.4f)."""
+    s = build(cards, bob=["Norn's Annex"])
+    put(s, "Norn's Annex", "p2")
+    a = old(s, "p1", "Ogre")
+    assert combat_rules.attack_cost(plan(s), [(a.id, "p2")]) == "{W/P}"
+    to_attack(s)
+    declare(s, (a, "p2"))
+    assert attacking(s, a) == "p2" and s.state.players["p1"].life == 38  # (no white mana: 2 life)
     replay_matches(s)

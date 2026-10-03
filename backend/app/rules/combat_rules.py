@@ -25,6 +25,15 @@ the Comprehensive Rules of 2026-09-25 (data/rules/comprehensive_rules/).
   phases are kept as a queue (``RulesState.extra_phases``) ending with the phase that would have come next.
 * "for each opponent, create a … token that's tapped and attacking that player [or a planeswalker they
   control]" (Adeline) and "Whenever you attack a player, create … tapped and attacking that player." (508.4).
+* "Remove target attacking creature you control from combat" (Reconnaissance, 506.4), Maze of Ith's "Prevent all combat
+  damage that would be dealt to and dealt by that creature this turn" (615), "if it's the first combat phase of the
+  turn" (Finest Hour, Karlach: ``RulesState.combats``), "creatures that attacked this turn" (Relentless Assault: the
+  wave 4D attackers log), and doubling power and toughness (701.10b-c, layer 7c: Unnatural Growth, Bulk Up).
+
+Refused (manual): attack costs sized by a count or covering planeswalkers (Sphere of Safety), "attacks a player each
+combat" (Nahiri), "Only land creatures can attack during that combat phase" (Bumi), additional phases scheduled for a
+later phase ("After the second main phase this turn", World at War), "can't attack a player it has already attacked
+this turn" (Port Razer), costs to block (Heat Wave's second line).
 """
 
 from __future__ import annotations
@@ -45,6 +54,7 @@ Definition = dict[str, Any]
 Effects = list[dict[str, Any]]
 
 TAX = "attack_tax"
+TAX_PW = "attack_tax_pw"  # (also attacking a planeswalker the player controls)
 OTHER_THAN = "attack_other_than"
 CANT_BLOCK_CTRL = "cant_block_ctrl"
 CANT_BLOCK_CTRL_POWER = "cant_block_ctrl_power"
@@ -53,8 +63,10 @@ _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 
 
 # -- statics ---------------------------------------------------------------------------------------------------------
-_TAX_RE = re.compile(r"(?P<sub>.+?) can't attack you unless their controller pays \{(?P<n>\d+)\} for each creature "
-                     r"they control that's attacking you\.")
+_TAX_RE = re.compile(r"(?P<sub>.+?) can't attack you unless their controller pays (?P<cost>(?:\{[^}]+\})+) for each "
+                     r"creature they control that's attacking you(?:, where X is (?P<x>.+))?\.")
+_TAX_PW_RE = re.compile(r"(?P<sub>.+?) can't attack you or planeswalkers you control unless their controller pays "
+                        r"(?P<cost>(?:\{[^}]+\})+) for each of those creatures(?:, where X is (?P<x>.+))?\.")
 _CTRL_RE = re.compile(r"(?P<sub>.+?) can't block creatures you control\.")
 _POWER_SUB = re.compile(r"Creatures with power less than (?:~|this creature)'s power")
 _LIMIT_RE = re.compile(r"No more than (?P<n>one|two|three|four|five) creatures? can attack you each combat\.")
@@ -68,12 +80,27 @@ def static_definition(text: str) -> Definition | None:
     m = _LIMIT_RE.fullmatch(t)
     if m:
         return {"kind": "static", "static": LIMIT, "n": _NUMBERS[m["n"]], "effects": []}
-    m = _TAX_RE.fullmatch(t)
+    m = _TAX_RE.fullmatch(t) or _TAX_PW_RE.fullmatch(t)
     if m:
+        from app.rules import mana as M
+
         who, _ = statics._subject(m["sub"])
-        if who is None or who in ("self", "attached"):
+        cost = M.parse_cost(m["cost"])
+        x_value = None
+        if m["x"] is not None or cost.x:  # "{X} …, where X is the number of enchantments you control" (Sphere of Safety)
+            from app.rules import values
+
+            x_value = values.parse_count(m["x"] or "")
+            if m["cost"] != "{X}" or x_value is None:
+                return None
+        if who is None or who in ("self", "attached") or cost.unsupported or (cost.is_free and not cost.x) \
+                or ":" in m["cost"]:
             return None
-        return statics._definition(who, None, [], rules=[f"{TAX}:@you:{int(m['n'])}:@src"])
+        name = TAX if m.re is _TAX_RE else TAX_PW
+        out = statics._definition(who, None, [], rules=[f"{name}:@you:{m['cost']}:@src"])
+        if x_value is not None:
+            out["tax_x"] = x_value  # (read as the total cost is determined: 508.1h)
+        return out
     m = _CTRL_RE.fullmatch(t)
     if m:
         if _POWER_SUB.fullmatch(m["sub"]):
@@ -93,31 +120,73 @@ def _parts(rule: str) -> list[str]:
     return rule.split(":")
 
 
-def taxes(ch: Characteristics, target: str) -> list[tuple[str, int, str]]:
-    """The attack-cost rules on this creature for attacking ``target`` (a player): (player, {N}, source)."""
+def _defended(plan: Plan, target: str) -> tuple[str | None, bool]:
+    """(the player attacked, directly or through a planeswalker they control; whether it's the player)."""
+    if target in plan.state.players:
+        return target, True
+    card = plan.state.cards.get(target)
+    if card is not None and "Planeswalker" in plan.ch(card).types:
+        return card.controller, False
+    return None, False
+
+
+def taxes(plan: Plan, ch: Characteristics, target: str) -> list[tuple[str, str, str, str]]:
+    """The attack-cost rules on this creature for attacking ``target``: (kind, player, cost per creature, source)."""
+    player, direct = _defended(plan, target)
     out = []
     for rule in ch.imposed:
         p = _parts(rule)
-        if p[0] == TAX and len(p) == 4 and p[1] == target and p[2].isdigit():
-            out.append((p[1], int(p[2]), p[3]))
+        if p[0] in (TAX, TAX_PW) and len(p) == 4 and p[1] == player and (direct or p[0] == TAX_PW):
+            out.append((p[0], p[1], p[2], p[3]))
     return out
 
 
-def attack_cost(plan: Plan, declared: list[tuple[str, str]]) -> int:
-    """The generic mana the declaration costs (508.1h): for each attack-cost static that applies to a creature
-    attacking its controller, {N} for each creature attacking that player."""
-    applying: set[tuple[str, int, str]] = set()
-    count: dict[str, int] = {}
+def attack_cost(plan: Plan, declared: list[tuple[str, str]]) -> str:
+    """The total cost of the declaration (508.1h, "" when none): for each attack-cost static that applies to a creature
+    attacking its controller (or, for "you or planeswalkers you control", one of their planeswalkers), its cost for
+    each creature attacking that player (or them and their planeswalkers)."""
+    from app.rules import mana as M
+
+    applying: set[tuple[str, str, str, str]] = set()
+    direct: dict[str, int] = {}
+    any_way: dict[str, int] = {}
     for cid, target in declared:
-        if target not in plan.state.players:
+        player, is_direct = _defended(plan, target)
+        if player is None:
             continue
-        count[target] = count.get(target, 0) + 1
-        applying.update(taxes(plan.ch(plan.state.cards[cid]), target))
-    return sum(n * count[player] for player, n, _ in applying)
+        any_way[player] = any_way.get(player, 0) + 1
+        if is_direct:
+            direct[player] = direct.get(player, 0) + 1
+        applying.update(taxes(plan, plan.ch(plan.state.cards[cid]), target))
+    generic, symbols = 0, []
+    for kind, player, cost, src in sorted(applying):
+        n = (direct if kind == TAX else any_way).get(player, 0)
+        if cost == "{X}":
+            cost = f"{{{_tax_x(plan, src)}}}"
+        each = M.parse_cost(cost)
+        generic += each.generic * n
+        symbols += [s for s in re.findall(r"\{[^}]+\}", cost) if not s[1:-1].isdigit()] * n
+    if not generic and not symbols:
+        return ""
+    return (f"{{{generic}}}" if generic else "") + "".join(symbols)
 
 
-def taxed(ch: Characteristics, target: str) -> bool:
-    return bool(taxes(ch, target))
+def _tax_x(plan: Plan, source: str) -> int:
+    """X of an attack cost "{X} …, where X is …", read from its source now (508.1h: as the total is determined)."""
+    from app.rules import scripts, values
+
+    card = plan.state.cards.get(source)
+    if card is None:
+        return 0
+    for d in scripts.definitions(plan.ch(card)).values():
+        if d.get("tax_x") is not None:
+            return values.evaluate(plan, {"controller": card.controller, "source_card": card.id,
+                                          "source_object": plan.oid(card)}, d["tax_x"])
+    return 0
+
+
+def taxed(plan: Plan, ch: Characteristics, target: str) -> bool:
+    return bool(taxes(plan, ch, target))
 
 
 # -- attack limits (508.1c) ------------------------------------------------------------------------------------------
@@ -310,10 +379,10 @@ def clause(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "double_pt", "who": found[0], "toughness": what == "power and toughness"}], found[1]
     m = _EACH_COMBAT.fullmatch(text)
     if m:  # (with a duration: "until end of turn", or "until your next turn, …" read as that: ``unwrapped``)
-        found = _restrict(m["o"], ["must_attack"] + ([f"{OTHER_THAN}:@you"] if m["pl"] or m["sg"] else []))
-        if found is None:
+        restricted = _restrict(m["o"], ["must_attack"] + ([f"{OTHER_THAN}:@you"] if m["pl"] or m["sg"] else []))
+        if restricted is None:
             return None
-        return ([found[0][0]] if m["eot"] else [{**found[0][0], "each_combat": True}]), found[1]
+        return ([restricted[0][0]] if m["eot"] else [{**restricted[0][0], "each_combat": True}]), restricted[1]
     m = _MUST.fullmatch(text)
     if m:
         return _restrict(m["o"], ["must_attack"])

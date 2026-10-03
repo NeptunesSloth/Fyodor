@@ -326,7 +326,7 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     if tax:
         from app.rules import casting
 
-        cost = locked if locked is not None else M.parse_cost(f"{{{tax}}}")
+        cost = locked if locked is not None else M.parse_cost(tax)
         exclude = tuple(x.card_id for x in a.attackers if "vigilance" not in plan.ch(plan.state.cards[x.card_id]).keywords)
         if not casting.can_pay(plan.state, plan.actor, cost, plan.info, exclude=exclude):
             raise ActionError(f"Attacking costs {cost.text()} (508.1h): {plan.name(plan.actor)} can't pay it")
@@ -367,7 +367,7 @@ def _closed(plan: Plan, ch: Characteristics, target: str) -> bool:
     cost (nobody is required to pay one)."""
     from app.rules import combat_rules
 
-    return attack_forbidden(plan, ch, target) or combat_rules.taxed(ch, target)
+    return attack_forbidden(plan, ch, target) or combat_rules.taxed(plan, ch, target)
 
 
 def _required_places(plan: Plan, eligible: set[str], targets: set[str]) -> dict[str, list[str]]:
