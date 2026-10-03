@@ -208,14 +208,17 @@ def _parse(c: str) -> Condition | None:
     if m and {_MULTI[m["a"]], _MULTI[m["b"]]} <= {"attack", "block", "blocked"}:
         return {"event": "multi", "events": [_MULTI[m["a"]], _MULTI[m["b"]]], "subject": "host"}
     # 509.3b / 509.3d: "~ blocks or becomes blocked by a creature" — once per creature on the other side
-    m = re.fullmatch(r"~ (?P<v>blocks or becomes blocked by|blocks|becomes blocked by) (?P<o>an? .+|another .+)", c)
+    # (wave 11E: also "enchanted / equipped creature …", the permanent the source is attached to)
+    m = re.fullmatch(r"(?P<s>~|enchanted creature|equipped creature) (?P<v>blocks or becomes blocked by|blocks|becomes blocked by)"
+                     r" (?P<o>an? .+|another .+)", c)
     if m:
         other = _object_sel(m["o"])
         events = {"blocks or becomes blocked by": ["block", "blocked"], "blocks": ["block"],
                   "becomes blocked by": ["blocked"]}[m["v"]]
+        subject = "self" if m["s"] == "~" else "host"
         if len(events) == 1:
-            return {"event": events[0], "subject": "self", "other": other}
-        return {"event": "multi", "events": events, "other": other}
+            return {"event": events[0], "subject": subject, "other": other}
+        return {"event": "multi", "events": events, "other": other, **({"subject": "host"} if subject == "host" else {})}
     # -- entry forms (wave 5F) -- "When this land enters untapped", "Whenever a permanent you control enters tapped":
     # how it entered is part of the trigger event (603.2; triggers._details_ok reads the turn log's Entry)
     m = re.fullmatch(r"(?P<s>.+?) enters (?P<t>tapped|untapped)", c)
@@ -631,7 +634,7 @@ def _object_event(c: str) -> Condition | None:
     m = re.fullmatch(r"(?P<s>.+?) becomes the target of (?P<what>a spell or ability|a spell)"
                      r"(?: (?P<by>an opponent controls|you control))?(?P<first> for the first time each turn)?", c)
     if m:
-        base = _subject(m["s"])
+        base = _subject(m["s"], host=True)
         if base is None:
             raise _Refuse
         return {**base, "event": "targeted", "by": {"an opponent controls": "opponent", "you control": "you"}.get(m["by"] or "", "any"),

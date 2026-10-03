@@ -603,6 +603,7 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
     blocking = {d.blocker_id: d.attacker_id for d in a.blocks}
     for b in (state.cards[i] for i in blockers):
         wanted = [arg for name, arg in map(rule_arg, scripts.statics(plan.ch(b))) if name == "must_block_obj"]
+        wanted += [plan.oid(y) for y in att if "all_able_block" in scripts.statics(plan.ch(y))]  # (wave 11E: Lure)
         for x in (y for y in att if plan.oid(y) in wanted):
             other = state.cards.get(blocking.get(b.id, ""))
             if other is not None and (other.id == x.id or len(wanted) > 1 or "must_be_blocked" in scripts.statics(plan.ch(other))):
@@ -617,7 +618,7 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
         # "blocks this creature if able": taking it away would only trade one obeyed requirement for another)
         def obeying(d: A.BlockDeclaration) -> bool:
             blocker, target = plan.ch(state.cards[d.blocker_id]), state.cards[d.attacker_id]
-            return "must_block" in scripts.statics(blocker) or any(
+            return "must_block" in scripts.statics(blocker) or "all_able_block" in scripts.statics(plan.ch(target)) or any(
                 name == "must_block_obj" and arg == plan.oid(target) for name, arg in map(rule_arg, scripts.statics(blocker)))
 
         free = idle + [state.cards[d.blocker_id] for d in a.blocks
