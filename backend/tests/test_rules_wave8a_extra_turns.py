@@ -17,7 +17,7 @@ from app.game.state import GameState
 from app.rules import coverage, scripts
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
-from tests.test_rules_conditionals import creature, settle, to_hand, until
+from tests.test_rules_conditionals import creature, on_field, settle, to_hand, until
 from tests.test_rules_effects import mana, replay_matches
 
 EXTRA = [
@@ -30,10 +30,13 @@ EXTRA = [
     card('Final Fortune', set_code="tst", number="W06", mana_cost='{R}{R}', cmc=2.0, type_line='Instant', oracle_text="Take an extra turn after this one. At the beginning of that turn's end step, you lose the game.", colors=['R'], color_identity=['R']),  # noqa: E501
     card('Savor the Moment', set_code="tst", number="W07", mana_cost='{1}{U}{U}', cmc=3.0, type_line='Sorcery', oracle_text='Take an extra turn after this one. Skip the untap step of that turn.', colors=['U'], color_identity=['U']),  # noqa: E501
     card('Mu Yanling', set_code="tst", number="W08", mana_cost='{4}{U}{U}', cmc=6.0, type_line='Legendary Planeswalker — Yanling', oracle_text="+2: Target creature can't be blocked this turn.\n−3: Draw two cards.\n−10: Tap all creatures your opponents control. You take an extra turn after this one.", loyalty='5', colors=['U'], color_identity=['U']),  # noqa: E501
+    card('Time Sieve', set_code="tst", number="W10", mana_cost='{U}{B}', cmc=2.0, type_line='Artifact', oracle_text='{T}, Sacrifice five artifacts: Take an extra turn after this one.', colors=['B', 'U'], color_identity=['B', 'U']),  # noqa: E501
+    card('Seedtime', set_code="tst", number="W11", mana_cost='{1}{G}', cmc=2.0, type_line='Instant', oracle_text='Cast this spell only during your turn.\nTake an extra turn after this one if an opponent cast a blue spell this turn.', colors=['G'], color_identity=['G']),  # noqa: E501
+    card('Stitch in Time', set_code="tst", number="W12", mana_cost='{1}{U}{R}', cmc=3.0, type_line='Sorcery', oracle_text='Flip a coin. If you win the flip, take an extra turn after this one.', colors=['R', 'U'], color_identity=['R', 'U']),  # noqa: E501
     card("Karn's Temporal Sundering", set_code="tst", number="W09", mana_cost='{4}{U}{U}', cmc=6.0, type_line='Legendary Sorcery', oracle_text="(You may cast a legendary sorcery only if you control a legendary creature or planeswalker.)\nTarget player takes an extra turn after this one. Return up to one target nonland permanent to its owner's hand. Exile Karn's Temporal Sundering.", colors=['U'], color_identity=['U']),  # noqa: E501
 ]
 FULL = ["Time Warp", "Time Stretch", "Temporal Manipulation", "Capture of Jingzhou", "Beacon of Tomorrows", "Temporal Trespass",
-        "Mu Yanling", "Karn's Temporal Sundering"]
+        "Mu Yanling", "Karn's Temporal Sundering", "Time Sieve", "Seedtime", "Stitch in Time"]
 MANUAL = ["Final Fortune", "Savor the Moment"]
 
 
@@ -75,7 +78,7 @@ def test_the_wordings():
 
 
 def table(cards, players=2):
-    names = ["Time Warp", "Time Stretch", "Temporal Manipulation", "Beacon of Tomorrows", "Karn's Temporal Sundering"]
+    names = ["Time Warp", "Time Stretch", "Temporal Manipulation", "Beacon of Tomorrows", "Karn's Temporal Sundering", "Time Sieve"]
     setups = [PlayerSetup("Alice", cards=deck(cards, "Krenko, Mob Boss", [*((1, n) for n in names), (9, "Island")])),
               PlayerSetup("Bob", cards=deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")]))]
     if players == 3:
@@ -176,4 +179,31 @@ def test_karn_sundering_gives_the_turn_bounces_and_exiles_itself(cards):
     assert ox.id not in s.state.zones["p2:battlefield"] and legend.id in s.state.zones["p1:battlefield"]
     assert [s.state.cards[c].name for c in s.state.zones["p1:exile"]] == ["Karn's Temporal Sundering"]
     assert turns(s, 3) == [(1, "p1"), (2, "p2"), (3, "p2")]
+    roundtrip(s)
+
+
+def test_the_conditional_and_coin_flip_wordings_are_wrapped_around_the_extra_turn():
+    assert scripts.parse_effects("Take an extra turn after this one if an opponent cast a blue spell this turn.")[0][-1] == {
+        "do": "extra_turn", "who": "you", "n": 1}
+    assert scripts.parse_effects("Flip a coin. If you win the flip, take an extra turn after this one.")[0][1:] == [
+        {"do": "only_if", "cond": {"coin": "win"}, "skip": 1}, {"do": "extra_turn", "who": "you", "n": 1}]
+
+
+def test_time_sieve_sacrifices_five_artifacts_for_the_extra_turn(cards):
+    s = table(cards)
+    sieve = on_field(s, "Time Sieve")
+    gadgets = [creature(s, "p1", f"Gadget {i}", type_line="Token Artifact — Gadget") for i in range(5)]
+    act(s, "p1", type="activate_ability", card_id=sieve.id, ability=0)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:5])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    left = [c for c in [sieve, *gadgets] if c.id in s.state.cards and s.state.cards[c.id].zone.endswith("battlefield")]
+    assert len(left) == 1  # five of the six artifacts were sacrificed (the Sieve may be one of them)
+    assert s.state.rules.extra_turns == [{"player": "p1", "label": "Time Sieve"}]
+    assert turns(s, 3) == [(1, "p1"), (2, "p1"), (3, "p2")]
     roundtrip(s)
