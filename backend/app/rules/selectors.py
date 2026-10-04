@@ -776,6 +776,36 @@ def _targets_suffix(s: Selector, m: re.Match[str]) -> Selector:
 _SUFFIXES.insert(0, (re.compile(r" that targets (?P<w>(?!only\b).+)$"), _targets_suffix))
 
 
+# -- copy abilities (wave 19E) -- "target activated or triggered ability you control from an enchantment source" / "… from another
+# legendary source that's not a commander" (Weaver of Harmony, Peregrine Dynamo): the ability's source as it last existed
+# (608.2h; ``source_matches``), encoded as the extras "src:<selector key>" and "src_nc".
+_FROM_SOURCE = re.compile(r" from (?P<o>another )?(?:an? )?(?P<w>[a-z]+(?: [a-z]+)*?) source(?P<nc> that's not a commander)?$")
+
+
+def _from_source_suffix(s: Selector, m: re.Match[str]) -> Selector:
+    sub = next((x for w in (m["w"], m["w"] + " permanent") if (x := parse(("another " if m["o"] else "") + w)) is not None
+                and x.zones == ("battlefield",) and x.player is None and not x.extras and x.ability is None and not x.card), None)
+    if sub is None:
+        raise ValueError("unread source condition")
+    return replace(s, extras=(*s.extras, f"src:{sub.key()}", *(("src_nc",) if m["nc"] else ())))
+
+
+_SUFFIXES.insert(0, (_FROM_SOURCE, _from_source_suffix))
+
+
+def source_matches(plan: Plan, card: CardInstance, extra: str, you: str, source: str | None) -> bool:
+    """Is the source of this ability on the stack what the "src:" / "src_nc" extra names (as it last existed)?"""
+    from app.rules import triggers  # (triggers imports this module)
+
+    entry = plan.rules.stack.get(card.id) if plan.rules is not None else None
+    then = triggers._object_then(plan, entry.source_card, entry.source_object) if entry is not None else None
+    if then is None:
+        return False
+    if extra == "src_nc":
+        return then[0].commander_key is None
+    return matches(plan, from_key(extra[4:]), then[0], then[1], you, source)
+
+
 def targets_match(plan: Plan, card: CardInstance, extra: str, you: str, source: str | None) -> bool:
     """Does this spell or ability on the stack target what the "targets:" extra names?"""
     entry = plan.rules.stack.get(card.id) if plan.rules is not None else None
@@ -1124,6 +1154,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if any_stack and card.ability is not None and not _ability_kind(plan, card, "any"):
         return False
     if "single_target" in sel.extras and (zone != "stack" or not single_target(plan, card)):  # (wave 5B)
+        return False
+    if any(x.startswith("src") and (zone != "stack" or card.ability is None or not source_matches(plan, card, x, you, source))
+           for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
         return False
     for extra in sel.extras:  # (wave 5B) "… that targets you or a creature you control"
         if extra.startswith("targets:") and (zone != "stack" or not targets_match(plan, card, extra, you, source)):
