@@ -1322,6 +1322,23 @@ def _keyword_n(ch: Any, word: str) -> list[int]:
 
 
 WARD = re.compile(r"^ward (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+# -- keywords (wave 15E) -- "Ward—Pay 3 life." / "Ward—Sacrifice a creature." / "Ward—Discard a card." (702.21a: counter it unless that
+# player pays that cost): any cost the optional payment engine pays (app/rules/optional_payment.py)
+WARD_COST = re.compile(r"^ward—(?P<cost>[^.]+?)\.?$", re.IGNORECASE)
+
+
+def ward_piece_cost(piece: str) -> str | None:
+    """The cost of one ward piece: its mana ("{2}") or the non-mana cost text ("Pay 3 life"), or None when not read."""
+    from app.rules import optional_payment
+
+    m = WARD.fullmatch(piece)
+    if m:
+        return m["cost"]
+    m = WARD_COST.fullmatch(piece.strip())
+    if m is None:
+        return None
+    phrase = m["cost"].strip()
+    return optional_payment.cost_text(phrase[:1].lower() + phrase[1:])
 
 
 def ward_cost(ch: Any) -> str | None:
@@ -1338,9 +1355,9 @@ def ward_costs(ch: Any) -> list[str]:
             # -- static wordings (wave 6E) -- a keyword line listing several keywords ("Flying, ward {2}"): each piece
             # is its own keyword ability (702.1), the ward piece triggers as any other (702.21a)
             for piece in ward_pieces(ab.text):
-                m = WARD.fullmatch(piece)
-                if m:
-                    out.append(m["cost"])
+                cost = ward_piece_cost(piece)
+                if cost is not None:
+                    out.append(cost)
     return out
 
 
@@ -1381,9 +1398,14 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
             continue
         ch = plan.ch(card)
         for k, cost in enumerate(ward_costs(ch)):  # -- attached events (wave 4L) -- each instance (702.21a)
+            effects: list[dict[str, Any]] = [{"do": "counter_unless", "cost": cost, "object": stack_id}]
+            if not cost.startswith("{"):  # (wave 15E) a non-mana ward cost: the targeting player may pay it, else it's countered
+                effects = [{"do": "optional_payment", "who": f"player:{controller}", "cost": cost, "bind": "pay0"},
+                           {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
+                           {"do": "counter", "object": stack_id}]
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=9000 + k, definition={"kind": "triggered", "trigger": "ward", "optional": False, "target": None,
-                                         "effects": [{"do": "counter_unless", "cost": cost, "object": stack_id}]})
+                                         "effects": effects})
 
 
 def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False) -> None:

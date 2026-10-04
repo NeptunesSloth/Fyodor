@@ -82,6 +82,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, me)] if sel.player else []
     if who == "you":
         return [me]
+    if who.startswith("player:"):  # -- keywords (wave 15E) -- one named player (ward: the player whose spell or ability targeted)
+        return [who[7:]] if who[7:] in plan.live() else []
     if who == "each_player":
         return list(plan.live())
     if who == "each_opponent":

@@ -197,3 +197,34 @@ def test_enchant_a_described_creature(cards):
     settle(s)
     assert s.state.cards[vines.id].attached_to == down.id
     check(s)
+
+
+def _ward_life(cards, answer):
+    from tests.test_rules_counter import build as counter_build
+    from tests.test_rules_effects import mana as add_mana
+
+    s, bolt, _ = counter_build(cards, "Counterspell")
+    act(s, "p2", type="create_token", player="p2", token={"name": "Warden", "type_line": "Token Creature — Test",
+                                                         "power": "2", "toughness": "2", "text": "Ward—Pay 3 life."})
+    warden = next(c for c in s.state.cards.values() if c.name == "Warden")
+    add_mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[warden.id])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.player == "p1")
+    d = s.state.rules.decision
+    assert "3 life" in d.prompt
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[answer])
+    until(s, lambda s: not s.state.zones.get("stack"))
+    return s, bolt, warden
+
+
+def test_ward_pay_life_declined_counters_the_spell(cards):
+    s, bolt, warden = _ward_life(cards, "decline")
+    assert s.state.cards[warden.id].zone == "p2:battlefield" and s.state.players["p1"].life == 40  # 702.21a
+    assert s.state.cards[bolt.id].zone == "p1:graveyard" and s.state.cards[warden.id].damage == 0
+    check(s)
+
+
+def test_ward_pay_life_paid_lets_the_spell_resolve(cards):
+    s, bolt, warden = _ward_life(cards, "pay")
+    assert s.state.players["p1"].life == 37 and warden.id not in s.state.zones["p2:battlefield"]  # paid 3, Bolt killed it
+    check(s)
