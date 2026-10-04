@@ -46,6 +46,15 @@ MEANINGS: dict[str, str] = {
     # 702.156a: the triggered half of ravenous (its "enters with X +1/+1 counters" half is replacements.entering_counters;
     # X is 0 when it isn't cast, 107.3m)
     "ravenous": "When this permanent enters, if X is 5 or more, draw a card.",
+    # -- keywords (wave 15E) --
+    "training": "Whenever this creature and at least one other creature with power greater than this creature's power attack, "
+                "put a +1/+1 counter on this creature.",  # 702.149a
+    "dethrone": "Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on "
+                "this creature.",  # 702.105a
+    "evolve": "Whenever a creature you control enters, if that creature's power is greater than this creature's power and/or "
+              "that creature's toughness is greater than this creature's toughness, put a +1/+1 counter on this creature.",  # 702.100a
+    "mentor": "Whenever this creature attacks, put a +1/+1 counter on target attacking creature with power less than this "
+              "creature's power.",  # 702.134a
 }
 _NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict"})
 

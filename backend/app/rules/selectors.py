@@ -747,8 +747,10 @@ def _parse(phrase: str) -> Selector | None:
                     break
     except ValueError:
         return None
-    if any(isinstance(c[2], str) and c[2].startswith(SOURCE_STAT) for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
-        return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source)
+    if any(isinstance(c[2], str) and c[2].startswith(SOURCE_STAT) for c in s.compare) and (
+            (s.zones != ("graveyard",) or not s.card) and (s.zones != ("battlefield",) or s.card)):
+        return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source; -- keywords
+        # (wave 15E) -- or permanents: mentor's "target attacking creature with power less than this creature's power")
     if any(c[1] == "==" and c[2] == X_VALUE for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
         return None  # -- reanimation (wave 10A) -- ("mana value X" exactly: read only for a card in a graveyard)
     if qualified and re.search(r", or \S+$", text):

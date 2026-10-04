@@ -88,7 +88,8 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
 _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
-              "one of your opponents": "opponent", "enchanted player": "enchanted_player"}
+              "one of your opponents": "opponent", "enchanted player": "enchanted_player",
+              "the player with the most life or tied for most life": "most_life"}  # (wave 15E: dethrone, 702.105a)
 _DEFENDER_RE = "|".join(re.escape(k) for k in sorted(_DEFENDERS, key=len, reverse=True))
 _PLAYER_VERBS = [
     (r"gains? life", "gain_life"),
@@ -239,6 +240,11 @@ def _parse(c: str) -> Condition | None:
     found = _combat(c)
     if found is not None:
         return found
+    # -- keywords (wave 15E) -- training (702.149a): "~ and at least one other creature with power greater than ~'s power attack"
+    if c == "~ and at least one other creature with power greater than ~'s power attack":
+        sel = selectors.parse("creature with power greater than ~'s power")
+        return None if sel is None else {"event": "attack", "subject": "self", "min_attackers": 1, "sel": sel.key(),
+                                         "others_only": True}
     # battalion: "~ and at least two other creatures attack" (the creatures declared as attackers)
     m = re.fullmatch(r"~ and at least (?P<n>\w+) other creatures? attack", c)
     if m:

@@ -604,7 +604,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         # attacked (508.3d, 508.3e): each reads only its own fact
         if event == "you_attack" and bool(want) != ("defended" in info):
             return False
-        if want and not _defender_ok(want, watcher, info):
+        if want and not _defender_ok(want, watcher, info, plan):
             return False
         if cond.get("first_each_turn") and not info.get("first"):
             return False
@@ -702,7 +702,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     return True
 
 
-def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any]) -> bool:
+def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: Plan | None = None) -> bool:
     """Whom the attack was declared against (508.3a, 508.3e, 508.6): ``defended`` is the defending
     player (a planeswalker's controller), ``direct`` whether it was that player (not a planeswalker)."""
     defended, you = info.get("defended"), watcher.controller
@@ -718,6 +718,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any]) -> bool
         return defended != you
     if want == "enchanted_player":
         return defended == watcher.attached_player
+    if want == "most_life":  # -- keywords (wave 15E) -- 702.105a: the player attacked has the most life or is tied for it
+        return plan is not None and plan.state.players[defended].life >= max(plan.state.players[p].life for p in plan.live())
     return want == "player"
 
 

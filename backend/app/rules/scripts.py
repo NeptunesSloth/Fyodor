@@ -3209,11 +3209,12 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                 out.append((1000 + ab.index * 10 + k, {
                     "kind": "triggered", "trigger": "enters_self", "optional": False, "target": None,
                     "effects": [{"do": "fabricate", "n": int(f.group(1))}]}))
-            m = re.fullmatch(r"soulshift (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "soulshift" else None
-            if m:  # 702.46a: "When this creature dies, you may return target Spirit card with mana value N or less …"
+            ns = re.findall(r"soulshift (\d+)", ab.text.lower()) if kw == "soulshift" and re.fullmatch(  # (wave 15E: each instance, 702.46b)
+                r"soulshift \d+(?:, soulshift \d+)*", ab.text.strip().rstrip(".").lower()) else []
+            if ns:  # 702.46a: "When this creature dies, you may return target Spirit card with mana value N or less …"
                 out.append((1000 + ab.index * 10 + k, {
                     "kind": "triggered", "trigger": "dies_self", "optional": True,
-                    "target": {"what": f"graveyard:Spirit:{m.group(1)}"},
+                    "target": {"what": f"graveyard:Spirit:{ns[ab.keywords[:k].count(kw)]}"},
                     "effects": [{"do": "bounce", "who": "target"}]}))
             fb = re.fullmatch(r"firebending (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "firebending" else None
             if fb:  # -- keyword actions & face-down (wave 3F) -- 702.189a: "Whenever this creature attacks, add N {R}. …"
