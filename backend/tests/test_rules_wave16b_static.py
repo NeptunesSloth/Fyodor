@@ -1,5 +1,6 @@
 """Wave 16B (the static_other long tail, continued). Real Oracle text, replay and save/load for each.
 
+* 702.77a: Reinforce (a hand ability: "{cost}, Discard this card: Put N +1/+1 counters on target creature").
 * 702.69a: Gravestorm (a copy for each permanent put into a graveyard from the battlefield this turn).
 * 702.127a: Aftermath (the half is cast only from a graveyard; exiled instead of going anywhere else as it leaves the stack).
 """
@@ -9,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from app.game.errors import ActionError
+from app.rules import characteristics as chars
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -28,6 +30,11 @@ EXTRA = [
          "from the battlefield this turn.)\nTarget player draws a card and loses 1 life."),
     card("Test Small", set_code="tst", number="B03", mana_cost="{G}", cmc=1.0, type_line="Creature — Elf", power="2", toughness="2",
          colors=["G"], color_identity=["G"], oracle_text=""),
+    card("Fowl Strike", set_code="tst", number="B04", mana_cost="{1}{G}", cmc=2.0, type_line="Instant", colors=["G"],
+         color_identity=["G"], oracle_text="Destroy target creature with flying.\nReinforce 2—{2}{G} ({2}{G}, Discard this card: Put two "
+         "+1/+1 counters on target creature.)"),
+    card("Test Flyer", set_code="tst", number="B05", mana_cost="{1}{U}", cmc=2.0, type_line="Creature — Bird", power="2",
+         toughness="2", colors=["U"], color_identity=["U"], oracle_text="Flying"),
 ]
 
 
@@ -74,4 +81,23 @@ def test_gravestorm_copies_for_each_permanent_that_went_to_a_graveyard(cards):
     act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2"])
     answer(s)
     assert s.state.players["p2"].life == life - 2 and len(s.state.zones["p2:hand"]) == hand + 2  # the spell and one copy
+    roundtrip(s)
+
+
+def test_reinforce_discards_the_card_for_counters_and_the_spell_is_still_cast(cards):
+    s = build(cards, p1=("Fowl Strike", "Test Small"), p2=("Test Flyer",))
+    small = put(s, "Test Small", "battlefield")
+    put(s, "Test Flyer", "battlefield", "p2")
+    fs = put(s, "Fowl Strike", "hand")
+    mana(s, C=2, G=1)
+    ab = next(a.index for a in chars.of(fs, s.cards).abilities if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=fs.id, ability=ab, targets=[small.id])
+    answer(s)
+    assert find(s, "Fowl Strike").zone == "p1:graveyard" and s.state.cards[small.id].counters.get("+1/+1") == 2
+    roundtrip(s)
+    put(s, "Fowl Strike", "hand")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=fs.id, targets=[find(s, "Test Flyer", "p2").id])
+    answer(s)
+    assert find(s, "Test Flyer", "p2").zone == "p2:graveyard"
     roundtrip(s)

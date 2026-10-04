@@ -3296,11 +3296,17 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
             "modal": {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": condition}}
 
 
+def _from_hand_ability(ab: AbilityText) -> bool:
+    return ab.kind == "activated" and re.search(r"(?:^|, )Discard (?:this card|~)(?:,|$)", ab.cost or "") is not None
+
+
 def spell_definition(ch: Characteristics) -> Definition | None:
     """A whole instant/sorcery as one definition, if every line is automated (else None)."""
     if not ch.is_instant_or_sorcery:
         return None
-    text_lines = [ab for ab in ch.abilities if ab.kind != "keywords"]
+    # (-- static_other sweep (wave 16B) -- a hand ability on the card — reinforce 702.77a, "{cost}, Discard this card: …" — is not
+    # part of what the spell does)
+    text_lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab)]
     if text_lines and text_lines[0].text in _MODAL_HEADERS:
         modal = modal_definition(text_lines, ch.name)
         # (a spell has no trigger event: "that player" / "that much" can't be bound)
@@ -3308,7 +3314,7 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
-    lines = [ab for ab in ch.abilities if ab.kind != "keywords"
+    lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab)
              and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction")  # (alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self") and defs[ab.index].get("free"))]
     if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):

@@ -255,6 +255,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         if m := re.fullmatch(r"Scavenge ((?:\{[^}]+\})+)", line):
             line = (f"{m[1]}, Exile this card from your graveyard: Put X +1/+1 counters on target creature, where X is this "
                     "creature's power. Activate only as a sorcery.")  # (X: the exiled card's power, as it last existed)
+        # -- static_other sweep (wave 16B) -- 702.77a: "Reinforce N—[cost]" means "[Cost], Discard this card: Put N +1/+1 counters on
+        # target creature." (an activated ability that works only from the hand)
+        if m := re.fullmatch(r"Reinforce (\d+)—((?:\{[^}]+\})+)", line):
+            line = f"{m[2]}, Discard this card: Put {m[1]} +1/+1 counters on target creature."
         kind, kws, cost = classify(line, spell=spell)
         out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost))
     return out
