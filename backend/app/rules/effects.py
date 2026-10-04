@@ -1265,7 +1265,7 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         return
     from app.rules import permissions, scripts
 
-    if card.ability is None and (scripts.uncounterable(plan.ch(card))
+    if card.ability is None and (scripts.uncounterable(plan.ch(card)) or _mana_units.uncounterable(plan, card)  # (wave 18B: 106.6)
                                  or permissions.spell_uncounterable(plan.state, plan.info, card, plan.ch(card))):
         plan.note(f"{card.name} can't be countered", [stack_id])
         return
@@ -3671,6 +3671,9 @@ PRIMITIVES["untap_choice"] = _untap_riders.untap_choice  # "Untap up to three la
 from app.rules import kept_mana as _kept_mana  # noqa: E402, I001
 
 PRIMITIVES["keep_mana"] = _kept_mana.keep
+from app.rules import mana_units as _mana_units  # noqa: E402, I001  -- mana provenance (wave 18B) --
+
+PRIMITIVES["restrict_mana"] = _mana_units.restrict
 # -- end refused copy/mana (wave 3R3) --
 
 # -- unless pays (wave 4C) -- "you may [effect] unless that player pays …" (118.12a): app/rules/unless_pays.py

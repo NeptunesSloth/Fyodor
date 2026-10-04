@@ -122,6 +122,11 @@ _COLORS_SPENT = re.compile(r"colors? of mana spent to cast (?:this spell|it|~|th
 # -- X actions (wave 9A) -- 700.14-style "mana spent": the total amount of mana paid for the spell (601.2h), from its payment
 # record; "that spell" is the cast event's spell, "her" / "this spell" / "~" the source (the permanent remembers its spell's
 # record). A bare "it" is not read: it could be either.
+# -- mana provenance (wave 18B) -- 107.4h/106.3: "the amount of {S} spent to cast this spell", "{S} spent to cast it", "mana from a Treasure
+# spent to cast it / this spell" (PaymentRecord.mana_tags; the source's own record, like converge)
+_FROM_TAGS = {"treasure": "Treasure", "artifact": "Artifact", "desert": "Desert", "cave": "Cave", "creature": "Creature"}
+_MANA_FROM = re.compile(r"(?:the amount of )?(?:\{S\}|mana from (?:an? )?(?P<what>[Tt]reasure|[Aa]rtifact|[Dd]esert|[Cc]ave|[Cc]reature)(?: source)?)(?: that was)? spent to cast "
+                        r"(?:this spell|it|~|this creature|this permanent)")
 _MANA_SPENT = re.compile(r"(?:the )?amount of mana spent to cast (?P<o>that spell|this spell|her|him|~|this creature)")
 
 
@@ -201,6 +206,9 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"devoured": 1}
     if _COLORS_SPENT.fullmatch(what):  # -- ability words (wave 4F) -- converge
         return {"colors_spent": 1}
+    m = _MANA_FROM.fullmatch(what)  # -- mana provenance (wave 18B) -- "the amount of {S} spent to cast this spell"
+    if m:
+        return {"mana_from": "Snow" if m["what"] is None else _FROM_TAGS[m["what"].lower()]}
     m = _MANA_SPENT.fullmatch(what)  # -- X actions (wave 9A) -- "the amount of mana spent to cast that spell / her"
     if m:
         return {"mana_spent": "event" if m["o"] == "that spell" else "self"}
@@ -410,6 +418,13 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                       "adjust by hand", [record.card] if record.card in plan.state.cards else ())
             return 0
         return sum(1 for c in "WUBRG" if record.mana_spent.get(c, 0) > 0)
+    if "mana_from" in v:  # -- mana provenance (wave 18B) -- {S} (107.4h) or mana from a Treasure ... spent to cast the source
+        record = plan.rules.payments.get(ctx.get("source_object") or "")
+        if record is None or not record.mana_known:
+            plan.note("What paid for the spell isn't known (read as 0) — adjust by hand",
+                      [record.card] if record is not None and record.card in plan.state.cards else ())
+            return 0
+        return sum(1 for t in record.mana_tags if v["mana_from"] in t)
     if "mana_spent" in v:  # -- X actions (wave 9A) -- a spell cast by hand: no mana known, 0 (and said so)
         return _mana_spent(plan, ctx, v["mana_spent"])
     if "named_self_in_graveyards" in v:  # -- mana riders (wave 5A) -- cards with the source's name in every graveyard

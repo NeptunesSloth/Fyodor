@@ -94,11 +94,12 @@ def _order(symbols: Iterable[str]) -> list[str]:
     return sorted(set(symbols), key=lambda s: (s == GENERIC, s))
 
 
-def pool_pays(pool: dict[str, int], life: int = 0) -> Callable[[M.ManaCost], bool]:
-    """``covers`` for :func:`assign`: can this mana pool (plus life for Phyrexian mana) pay it?"""
+def pool_pays(pool: dict[str, int], life: int = 0, units: Sequence[M.Source] = ()) -> Callable[[M.ManaCost], bool]:
+    """``covers`` for :func:`assign`: can this mana pool (plus life for Phyrexian mana) pay it? (``units``: wave 18B, the pool's
+    restricted / remembered mana that may pay for this, app/rules/mana_units.py)"""
     def covers(rest: M.ManaCost) -> bool:
         try:
-            M.solve(rest, dict(pool), [], life=life)
+            M.solve(rest, dict(pool), list(units), life=life)
         except M.ManaError:
             return False
         return True

@@ -1208,7 +1208,13 @@ _CAST_SUBJECT = r"(?:it|this spell|~)"
 _CAST = re.compile(rf"(?:(?P<you>you) (?P<neg>didn't )?cast (?P<who>{_CAST_SUBJECT})|(?P<who2>{_CAST_SUBJECT}) (?P<neg2>wasn't|was) cast)"
                    r"(?: from (?P<from>your hand|a graveyard|your graveyard|exile|your library|anywhere other than your hand))?"
                    r"(?P<main> during your main phase)?")
-_SPENT_SYMBOLS = re.compile(rf"(?P<syms>(?:\{{[WUBRGC]\}})+) was spent to cast (?P<who>{_CAST_SUBJECT})")
+_SPENT_SYMBOLS = re.compile(rf"(?P<syms>(?:\{{[WUBRGCS]\}})+) was spent to cast (?P<who>{_CAST_SUBJECT})")  # ({S}: wave 18B)
+# -- mana provenance (wave 18B) -- 106.3, 107.4h: "if mana from a Treasure was spent to cast it", "if three or more mana from creatures was
+# spent to cast it": the mana spent that a source with that type produced (PaymentRecord.mana_tags, app/rules/mana_units.py)
+_FROM_TAGS = {"treasure": "Treasure", "treasures": "Treasure", "creature": "Creature", "creatures": "Creature", "artifact": "Artifact",
+              "artifacts": "Artifact", "desert": "Desert", "cave": "Cave", "snow": "Snow"}
+_SPENT_FROM = re.compile(rf"(?:(?:at least )?(?P<n>\w+)(?: or more)? )?mana from (?:(?:a|an) )?(?P<what>[a-z]+)(?: source)?"
+                         rf" (?:was|were) spent to cast (?P<who>{_CAST_SUBJECT}|that spell)")
 _SPENT_COLOR = re.compile(rf"at least (?P<n>\w+) (?P<color>white|blue|black|red|green) mana was spent to cast (?P<who>{_CAST_SUBJECT})")
 _SPENT_SAME = re.compile(rf"at least (?P<n>\w+) mana of the same color was spent to cast (?P<who>{_CAST_SUBJECT})")
 _SPENT_TOTAL = re.compile(rf"(?P<n>\w+) or more mana was spent to cast (?P<who>{_CAST_SUBJECT})")
@@ -1256,6 +1262,11 @@ def _cast_how(t: str) -> Condition | None:
         found_cast: Condition = {"object": _cast_who(m["who"] or m["who2"]), "cast": how}
         # -- trigger tail (wave 16C) -- "if you didn't cast it from your hand": no record (put onto the battlefield) or another zone
         return {"not": found_cast} if m["neg"] or m["neg2"] == "wasn't" else found_cast
+    if (m := _SPENT_FROM.fullmatch(t.lower())) is not None and m["what"] in _FROM_TAGS and (m["n"] is None or _num(m["n"])):
+        how_from: dict[str, Any] = {"from_mana": {"tag": _FROM_TAGS[m["what"]], "n": _num(m["n"]) if m["n"] else 1}}
+        if m["who"] == "that spell":  # a cast trigger's spell (trigger_words rewrites its "it")
+            return {"object": "it", "cast": {**how_from, "event_spell": True}}
+        return {"object": _cast_who(m["who"]), "cast": how_from}
     m = _SPENT_SYMBOLS.fullmatch(t)
     if m:
         need: dict[str, int] = {}
@@ -1295,6 +1306,8 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if cond.get("object") == "event" and how.get("no_mana"):  # -- if you do (wave 5G) --
         return _no_mana_spent(plan, ctx)
     if cond.get("object") == "event" and how.get("event_spell"):  # -- ability words (wave 9C) -- opus
+        if "from_mana" in how:  # -- mana provenance (wave 18B) -- "if mana from a Treasure was spent to cast it" (a cast trigger)
+            return _mana_from_event(plan, ctx, how["from_mana"])
         return _total_mana_spent(plan, ctx, how["total"])
     if cond.get("object") != "self":
         return False
@@ -1316,15 +1329,35 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return False
     if how.get("main") and not record.cast_main:
         return False
-    if any(k in how for k in ("spent", "same_color", "total")) and not record.mana_known:
+    if any(k in how for k in ("spent", "same_color", "total", "from_mana")) and not record.mana_known:
         return False  # (cast by hand: what paid for it isn't known — such a condition never holds)
     spent = record.mana_spent
-    if any(spent.get(sym, 0) < n for sym, n in (how.get("spent") or {}).items()):
+    if any((sum(1 for t in record.mana_tags if "Snow" in t) if sym == "S" else spent.get(sym, 0)) < n  # ({S}: 107.4h)
+           for sym, n in (how.get("spent") or {}).items()):
+        return False
+    if "from_mana" in how and sum(1 for t in record.mana_tags if how["from_mana"]["tag"] in t) < how["from_mana"]["n"]:
         return False
     if "same_color" in how and not any(spent.get(c, 0) >= how["same_color"] for c in "WUBRG"):
         return False
     return "total" not in how or sum(spent.values()) >= how["total"]
 # -- end refused modal/conditional (wave 3R1) --
+
+
+# -- mana provenance (wave 18B) --
+def _mana_from_event(plan: Plan, ctx: dict[str, Any], need: dict[str, Any]) -> bool:
+    """"Whenever you cast a spell, if mana from a Treasure was spent to cast it, …": the cast spell's payment record, read while it is
+    on the stack (603.4). A spell cast by hand has no known payment: the condition doesn't hold (said in the log)."""
+    from app.rules import context
+
+    refs = context._object_refs(ctx, context.EVENT)
+    record = plan.rules.payments.get(refs[0].object_id) if refs else None
+    if record is None or record.cast_from is None:
+        return False
+    if not record.mana_known:
+        plan.note(f"{plan.state.cards[record.card].name or 'That spell'} was cast by hand: what paid for it isn't known — apply the "
+                  "ability by hand", [record.card])
+        return False
+    return sum(1 for t in record.mana_tags if need["tag"] in t) >= need["n"]
 
 
 # -- ability words (wave 9C) --

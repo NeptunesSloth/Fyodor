@@ -676,6 +676,10 @@ class PaymentRecord(BaseModel):
     controller: str = Field(max_length=64)
     total_cost: str = Field(default="", max_length=200)  # the locked-in total cost, e.g. "{3}{G}{G}"
     mana_spent: dict[str, int] = Field(default_factory=dict)  # actual mana, by type (W U B R G C)
+    # -- mana provenance (wave 18B) -- 106.3/107.4h: what each mana spent came from (the source's supertypes, types and subtypes; mana
+    # from the plain pool has no entry) and the riders it carried ("when that mana is spent ...", 106.6): app/rules/mana_units.py
+    mana_tags: list[list[str]] = Field(default_factory=list)
+    mana_riders: list[dict[str, Any]] = Field(default_factory=list)
     contributions: list[CostContribution] = Field(default_factory=list)
     life: int = 0  # life paid (Phyrexian mana, …)
     tapped: list[str] = Field(default_factory=list)  # permanents tapped for mana while paying (engine-paid)
@@ -986,6 +990,9 @@ class RulesState(BaseModel):
     # steps and phases end" (500.4, 106.4): {"player", "mana": {sym: n}, "until": "end_of_turn" | "end_of_combat",
     # "turn"}; never more than that player's pool holds (spending uses the other mana first)
     kept_mana: list[dict[str, Any]] = Field(default_factory=list)
+    # -- mana provenance (wave 18B) -- does any card in this game ask where mana came from (mana_units.tracking)? Decided once, from
+    # the cards of the game; None until the first mana is added
+    provenance: bool | None = None
     # -- refused look/cast-free (wave 3R5) -- a free cast made while a spell or ability resolves (608.2g):
     # {"card", "ctx", "e"} — the resolution to continue once that cast is done or abandoned
     # (app/rules/permissions.free_cast_done); and the stack objects cast "without paying" whose

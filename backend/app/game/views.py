@@ -229,6 +229,13 @@ def build_view(
         if not own and state.settings.deck_privacy == "private":
             exclude.add("deck_name")
         data = p.model_dump(exclude=exclude)
+        if viewer != OMNISCIENT:  # -- review 18B -- whether a source's mana is remembered depends on every card of the game, hidden
+            # ones too (mana_units.tracking): mana with no restriction and no rider shows as plain mana, units renumbered, no counter
+            data.pop("mana_seq", None)
+            plain = [u for u in data["mana_units"] if not u["only"] and not u["riders"]]
+            for u in plain:
+                data["mana"][u["sym"]] = data["mana"].get(u["sym"], 0) + 1
+            data["mana_units"] = [{**u, "id": i} for i, u in enumerate(u for u in data["mana_units"] if u not in plain)]
         data["commanders"] = sorted(commanders[pid], key=lambda x: x["key"])
         data["hand_count"] = len(state.zones.get(f"{pid}:hand", []))
         data["library_count"] = len(state.zones.get(f"{pid}:library", []))

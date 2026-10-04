@@ -15,7 +15,7 @@ from app.game.errors import ActionError
 from app.game.handlers.players import change_life
 from app.game.ops import log, text
 from app.game.rules_state import RulesState, capture, emit, track, wither_put_by
-from app.game.state import GameState, LogPart
+from app.game.state import GameState, LogPart, ManaUnit
 
 _NOT_A_STEP = A.INTENT_TYPES | {"run_macro", "restore_state", "response_open"}
 
@@ -48,6 +48,7 @@ def rules_mana(state: GameState, a: A.RulesMana) -> None:
     if a.empty_all:
         for p in state.players.values():
             p.mana = {}
+            p.mana_units = []  # (wave 18B)
         return
     player = state.players.get(a.player)
     if player is None:
@@ -59,6 +60,17 @@ def rules_mana(state: GameState, a: A.RulesMana) -> None:
             raise ActionError(f"{card.name or 'That card'} is already tapped")
         card.tapped = True
         tapped.append(card)
+    # -- mana provenance (wave 18B) -- units spent, added, or emptied (the plain pool below is the rest)
+    if a.spend_units:
+        gone = set(a.spend_units)
+        if not gone <= {u.id for u in player.mana_units}:
+            raise ActionError("That mana isn't in the pool")
+        player.mana_units = [u for u in player.mana_units if u.id not in gone]
+    if a.empty_units:
+        player.mana_units = [u for u in player.mana_units if u.id in set(a.keep_units)]
+    for raw in a.add_units:
+        player.mana_seq += 1
+        player.mana_units.append(ManaUnit(id=player.mana_seq, **raw))
     pool = player.mana
     for color, amount in a.delta.items():
         value = pool.get(color, 0) + amount

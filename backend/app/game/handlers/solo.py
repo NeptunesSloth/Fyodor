@@ -58,6 +58,7 @@ def _reset(state: GameState, pid: str, shuffle: A.ShuffleData | None, *, reset_l
         p.commander_tax = {k: 0 for k in p.commander_tax}
         p.commander_casts = {}
         p.mana = {}
+        p.mana_units = []  # (wave 18B)
         p.mulligans = 0
     if draw:
         draw_cards(state, pid, draw)

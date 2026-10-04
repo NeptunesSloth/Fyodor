@@ -279,6 +279,12 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
         lore = sagas.entering_lore(ch, choices)
         if lore:
             counters[sagas.LORE] = counters.get(sagas.LORE, 0) + lore
+    from app.rules import (
+        mana_units,  # -- mana provenance (wave 18B) -- 106.6: the mana's rider, whatever the permanent is
+    )
+
+    if n := mana_units.entering_counters(plan, card):  # (the spell's payment record follows the permanent: as in ``entered``)
+        counters["+1/+1"] = counters.get("+1/+1", 0) + n
     return counters
 
 
@@ -618,6 +624,9 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
     if riot.gains_haste(plan.ch(card), choices):
         layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
                           add_keywords=("haste",), duration="permanent", label="Haste (riot)")
+    from app.rules import mana_units
+
+    mana_units.entered(plan, card, controller)  # -- mana provenance (wave 18B) -- 106.6: "it gains haste"
     counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices)
     puts = [(card_id, kind, n) for kind, n in counters.items() if n > 0]
     from app.rules import replace

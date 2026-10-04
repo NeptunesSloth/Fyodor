@@ -458,7 +458,7 @@ def empty_pools(plan: Plan) -> None:
             if add > 0:
                 plan.do({"type": "rules_mana", "player": pid, "delta": {"R": add}}, actor=pid)
         return
-    if any(p.mana for p in plan.state.players.values()):
+    if any(p.mana or p.mana_units for p in plan.state.players.values()):  # (wave 18B: units too)
         plan.do({"type": "rules_mana", "player": plan.active, "empty_all": True}, actor=plan.active)
         for pid, n in kept.items():
             plan.do({"type": "rules_mana", "player": pid, "delta": {"R": n}}, actor=pid)

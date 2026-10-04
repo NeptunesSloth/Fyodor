@@ -335,6 +335,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     if cost_changes.is_self(t):
         change = cost_changes.self_change(t)
         return {"kind": "static", "static": "self_cost", "change": change, "effects": []} if change else None
+    # -- mana provenance (wave 18B) -- K'rrik: each {B} of any cost may be paid with 2 life instead (118.1: life is paid like a Phyrexian
+    # symbol; 601.2h: while the cost is paid, casting.life_for_mana)
+    if t == "for each {B} in a cost, you may pay 2 life rather than pay that mana":
+        return {"kind": "static", "static": "life_for_mana", "sym": "B", "life": 2, "effects": []}
     if " have prowl " in t and kind == "static":  # -- static_other sweep (wave 17C) -- granted prowl (702.76a)
         from app.rules import alt_costs
 

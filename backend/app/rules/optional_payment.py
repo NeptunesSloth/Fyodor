@@ -458,7 +458,7 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
         return
     source = _source(plan, ctx)
     mana_cost = M.parse_cost(cost.mana) if cost.mana else None
-    if mana_cost is not None and _self_pays(plan, payer) and not casting.pool_covers(plan.state, payer, mana_cost):
+    if mana_cost is not None and _self_pays(plan, payer) and not casting.pool_covers(plan.state, payer, mana_cost, info=plan.info):
         raise ActionError(f"Tap your mana first: {mana_cost.text()} isn't in your mana pool")
     paid = ([source.id] if _self_parts(cost) else []) + [c for ids in chosen.values() for c in ids]
     refs = [r for r in (context.ref_of(plan, c) for c in dict.fromkeys(paid)) if r is not None]

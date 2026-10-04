@@ -181,8 +181,17 @@ export interface PlayerView {
   playmat?: Playmat | null;
   /** Temporary mana pool, e.g. { U: 2, C: 3 }. */
   mana?: Record<string, number>;
+  /** Restricted or remembered mana (CR 106.6): its type, its source's types, and the restriction in Oracle words. */
+  mana_units?: ManaUnit[];
   hand_count: number;
   library_count: number;
+}
+
+export interface ManaUnit {
+  id: number;
+  sym: string;
+  tags: string[];
+  note: string;
 }
 
 export type LogPartView =

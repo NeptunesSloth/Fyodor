@@ -278,8 +278,10 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
     # each type spent) is now on its payment record (conditions._cast_how); what stays refused:
     (re.compile(r"\b(?:entered|was put onto the battlefield) from (?:your|a) (?:library|graveyard)\b", re.I),
      "the zone a permanent entered from isn't recorded with the object: not modelled"),
-    (re.compile(r"\b(?:\{S\}|mana from [^.,]+) (?:of [^.,]+ )?was spent to (?:cast|activate)\b|\bwas spent to activate\b", re.I),
-     "snow mana, the source of the mana spent, and mana spent on an ability aren't recorded (601.2h): not modelled"),
+    # (-- mana provenance (wave 18B) -- {S} and "mana from a Treasure" spent to cast a spell are read now: app/rules/mana_units.py;
+    # what stays refused: mana spent on an ability, {S} "of that spell's colors", mana spent to cast other creatures as they enter)
+    (re.compile(r"\bspent to activate\b|\{S\} of [^.,]+ was spent to cast\b|\bspent to cast them\b", re.I),
+     "mana spent on an ability, snow mana by color, and the mana spent to cast other creatures as they enter aren't recorded: not modelled"),
     # (wave 3E: "you've completed a dungeon" and "it's day / night" are read now: app/rules/designations.py)
     # (-- this-turn history (wave 4D) -- "this is the second time this ability has resolved this turn" is read now:
     # app/rules/history.py counts each object's ability resolutions per turn)

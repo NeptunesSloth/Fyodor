@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -18,6 +19,7 @@ from typing import Any
 
 from app.rules import costs as _costs
 from app.rules import mana_riders as _mana_riders  # -- mana riders (wave 5A) --
+from app.rules import mana_units as _mana_units  # -- mana provenance (wave 18B) --
 from app.rules import removed_mana as _removed_mana  # -- if you do (wave 6F) --
 
 COLORS = ("W", "U", "B", "R", "G")
@@ -134,6 +136,10 @@ class ManaAbility:
     # -- mana riders (wave 5A) -- "Exile this card from your hand: Add {R}." (Simian Spirit Guide): activated only
     # from its owner's hand (113.6m, 605.3a), by hand only (app/rules/mana_riders.activate_from_hand)
     from_hand: bool = False
+    # -- mana provenance (wave 18B) -- "When that mana is spent to cast …, …" / "If that mana is spent on …, that spell can't be
+    # countered": the riders (JSON dicts, mana_units.RIDERS) the mana it adds carries (106.6)
+    on_spend: tuple[str, ...] = ()
+    spend_text: str = ""  # the restriction sentence, for the pool display
 
     @property
     def penalty(self) -> int:
@@ -379,6 +385,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
     if options is None:
         return None
     riders: list[tuple[str, int]] = []
+    on_spend: list[str] = []  # -- mana provenance (wave 18B) -- 106.6 riders (mana_units.rider)
+    spend_text = ""
     spend_only: str | None = None
     instead_if: tuple[tuple[str, ...], ...] = ()
     instead: tuple[tuple[str, ...], ...] = ()
@@ -431,22 +439,22 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             if more is None or len(more) != 1:
                 return None
             instead_if, instead = (PLAYED_LAND,), more
+        elif (rider_json := _mana_units.rider(s)) is not None:  # -- mana provenance (wave 18B) --
+            on_spend.append(rider_json)
         else:
-            for pattern, kind in _SPEND:
-                if sm := pattern.fullmatch(s):
-                    spend_only = f"type:{sm.group('t')}" if kind == "type" else kind
-                    break
-            else:
-                q = parse_spend(s)  # -- refused copy/mana (wave 3R3): the general restriction grammar --
-                if q is None or spend_only is not None:
-                    return None  # a rider the engine doesn't know: leave the ability manual
-                spend_only = q
-    if spend_only is not None and (chooses or removed_kind is not None or self_counter is not None or from_hand):
-        return None  # -- activated sweep (wave 17B) -- activated by hand only, and the pool carries no spending restriction: manual
+            if m_unc := re.fullmatch(r"(Spend this mana only to cast .+?), and that spell can't be countered", s):
+                s = m_unc.group(1)  # (Cavern of Souls, Delighted Halfling: the restriction and a rider on any spell it pays for)
+                on_spend.append(json.dumps({"kind": "uncounterable", "spell": "sel:{\"zones\":[\"stack\"]}"}, sort_keys=True))
+            q = spend_kind(s)  # (-- refused copy/mana (wave 3R3) -- the general restriction grammar)
+            if q is None or spend_only is not None:
+                return None  # a rider the engine doesn't know: leave the ability manual
+            spend_only, spend_text = q, s + "."
+    if spend_only is not None and from_hand:
+        return None  # (-- wave 18B -- activated from the hand by mana_riders.activate_from_hand, which adds plain mana: manual)
     return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
                        riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition,
                        count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter,
-                       from_hand=from_hand)
+                       from_hand=from_hand, on_spend=tuple(on_spend), spend_text=spend_text)
 
 
 @dataclass(frozen=True)
@@ -474,6 +482,11 @@ class Payment:
     spent: dict[str, int] = field(default_factory=dict)  # mana taken from the pool (after producing)
     life: int = 0  # life paid for Phyrexian symbols
     used: list[tuple[str, int]] = field(default_factory=list)  # (source card, ability index) per tapped source
+    # -- mana provenance (wave 18B) -- each tapped source with the option it produced, in order ("unit:<id>" = a pool unit spent)
+    slots: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
+    # -- mana provenance (wave 18B) -- set by ``mana_units.settle``: the source tags of each mana spent, and its riders (source, rider)
+    tags: list[list[str]] = field(default_factory=list)
+    riders: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
 
     def delta(self) -> dict[str, int]:
         out = dict(self.produced)
@@ -496,7 +509,7 @@ def _solve(reqs: list[tuple[str, ...]], generic: int, pool: dict[str, int], sour
     def generic_from(units: dict[str, int], remaining: list[Source], n: int, chosen: Chosen) -> Found | None:
         units = dict(units)
         # tap the sources that give the most mana first (Sol Ring before a Forest)
-        for src in sorted(remaining, key=lambda s: (not s.preferred, -max(len(o) for o in s.options), s.flexibility, s.rank)):
+        for src in sorted(remaining, key=lambda s: (s.rank >= 0, not s.preferred, -max(len(o) for o in s.options), s.flexibility, s.rank)):
             if sum(units.values()) >= n:
                 break
             opt = max(src.options, key=len)
@@ -558,11 +571,16 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
     """Find a payment for ``cost`` (X already fixed). Raises ManaError if there is none."""
     if cost.unsupported:
         raise ManaError(f"Can't pay {' '.join('{' + s + '}' for s in cost.unsupported)} automatically")
-    ordered = sorted(sources, key=lambda s: (not s.preferred, s.flexibility, s.rank, -max(len(o) for o in s.options)))
+    # (review 18B: mana already in the pool — mana_units' pseudo-sources, rank -1 — before anything is tapped, as the plain pool)
+    ordered = sorted(sources, key=lambda s: (s.rank >= 0, not s.preferred, s.flexibility, s.rank, -max(len(o) for o in s.options)))
     base = [(c,) for c in cost.colored] + sorted(cost.hybrid, key=len)
-    attempts = [(base + [(c,) for c in cost.phyrexian], 0)]  # Phyrexian with mana first …
-    if cost.phyrexian:
-        attempts.append((base, 2 * len(cost.phyrexian)))  # … else with 2 life each
+    # Phyrexian symbols with mana first, then one more with 2 life each time (107.4f: each symbol on its own; wave 18B: K'rrik too;
+    # review 18B: any k of them, so {W/P}{U/P} with only {W} pays 2 life, not 4)
+    from itertools import combinations
+
+    phy = cost.phyrexian
+    by_life = {tuple(sorted(phy[i] for i in ix)): ix for k in range(len(phy) + 1) for ix in combinations(range(len(phy)), k)}
+    attempts = [(base + [(c,) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
     for reqs, life_cost in attempts:
         if life_cost and life_cost >= life:
             continue
@@ -572,6 +590,7 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
         left, chosen = found
         payment = Payment(life=life_cost)
         for src, opt in chosen:
+            payment.slots.append((src.card_id, opt))
             payment.tapped.append(src.card_id)
             if src.sacrifice:
                 payment.sacrificed.append(src.card_id)
@@ -677,20 +696,37 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
     return out
 
 
+# -- mana provenance (wave 18B) -- what a spell is besides its types: "spells with mana value 5 or greater", "spells with {X} in their
+# mana costs", "a spell with devoid" / "that has freerunning", "creature spells with no abilities", "spells you don't own" (601.2h: the
+# spell's characteristics and who owns it are known as it is paid)
+_SPELL_WITH: list[tuple[re.Pattern[str], Any]] = [
+    (re.compile(r"^(?P<pre>.*?) ?spells? with mana value (?P<n>\d+)_ge$"), lambda m: {"mv_min": int(m["n"])}),
+    (re.compile(r"^(?P<pre>.*?) ?spells? with \{X\} in (?:their|its) mana costs?$"), lambda m: {"has_x": True}),
+    (re.compile(r"^(?P<pre>.*?) ?spells? (?:with|that has) (?P<kw>devoid|freerunning|flash|haste)$"), lambda m: {"kw": m["kw"]}),
+    (re.compile(r"^(?P<pre>.*?) ?spells? with no abilities$"), lambda m: {"no_abilities": True}),
+    (re.compile(r"^(?P<pre>.*?) ?spells? you don't own$"), lambda m: {"not_own": True}),
+]
+
+
 def _alts(phrase: str, *, source: bool) -> list[dict[str, object]] | None:
     p = re.sub(r"^(?:an?|one or more) ", "", phrase.strip())
+    p = re.sub(r"(\d+) or greater", r"\1_ge", p)  # (its "or" isn't an alternative)
     parts = [x for x in re.split(r",? and/or |,? or |, and |, | and ", p) if x]
     out = []
     for part in parts:
         part = re.sub(r"^(?:an?) ", "", part)
+        extra: dict[str, object] = {}
+        if not source:
+            for rx, make in _SPELL_WITH:
+                if (w := rx.fullmatch(part)) is not None:
+                    extra, part = make(w), w["pre"]
+                    break
         if not source:  # ("instant and sorcery spells": the noun may come once, at the end)
             part = re.sub(r" spells?(?= of the chosen type$)| spells?$", "", part)
-        alt = _alt(part, source=source)
+        alt = _alt(part, source=source) if part or not extra else {}
         if alt is None:
             return None
-        out.append(alt)
-    if any(a.get("chosen") for a in out) and len(out) > 1:
-        return None
+        out.append({**alt, **extra})
     return out or None
 
 
@@ -705,11 +741,22 @@ _GENERIC_SPEND = re.compile(
 _ORIGIN = re.compile(r"^Spend this mana only to cast (?:a spell|spells)(?: with (?P<kw>flashback))? from (?P<z>exile|your graveyard|a graveyard)$")
 
 
+def spend_kind(s: str) -> str | None:
+    """A "Spend this mana only to …" / "This mana can't be spent to …" sentence (no final period) as the restriction
+    ``casting.spend_allowed`` reads (None: not one the payer checks)."""
+    for pattern, kind in _SPEND:
+        if sm := pattern.fullmatch(s):
+            return f"type:{sm.group('t')}" if kind == "type" else kind
+    return parse_spend(s)
+
+
 def parse_spend(sentence: str) -> str | None:
     """A general "Spend this mana only to …" restriction as "q:<json>" (None: not one the payer checks)."""
     import json
 
     s = sentence.strip().rstrip(".")
+    if s == "Spend this mana only on costs that contain {X}":  # -- mana provenance (wave 18B) -- casting.Purpose.cost_x
+        return "q:" + json.dumps({"cast": None, "ability": None, "cost_x": True}, sort_keys=True)
     if s == "This mana can't be spent to cast spells":
         return "q:" + json.dumps({"cast": None, "ability": "any"}, sort_keys=True)
     if s == "This mana can't be spent to cast spells from your hand":
@@ -758,6 +805,12 @@ def spend_alt_matches(alt: dict[str, Any], ch: Any) -> bool:
     if any(t in types for t in alt.get("non") or []):
         return False
     if alt.get("kw") and alt["kw"] not in ch.keywords:
+        return False
+    if alt.get("mv_min") is not None and ch.mana_value < alt["mv_min"]:  # -- mana provenance (wave 18B) --
+        return False
+    if alt.get("has_x") and "{X}" not in ch.mana_cost:
+        return False
+    if alt.get("no_abilities") and ch.abilities:
         return False
     color = alt.get("color")
     if color == "colorless" and colors:

@@ -3045,7 +3045,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                 from app.rules import trigger_words  # or Vehicle spell", "a noncreature, nonland card")
 
                 m = trigger_words.comma_condition(text, m)
-            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b", m["body"]):  # (3R3: copy it; wave 16B: increment)
+            if m and trigger == "cast_you" and re.search(r"\bthat spell\b|\bcopy it\b|\bthe amount of mana you spent\b|\bwas spent to cast it\b", m["body"]):  # (3R3: copy it; wave 16B: increment; 18B: mana spent)
                 continue  # -- sized amounts (wave 3D) -- it reads the spell cast: the generic condition's event carries it
             if m:
                 name = step_trigger(m) if trigger == "step" else trigger
@@ -5439,6 +5439,19 @@ _CHOSEN["choose_one_of"] = "n"
 @effect(r"until end of (?P<u>turn|combat), you don't lose this mana as steps(?: and phases)? end")
 def _keep_mana(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "keep_mana", "until": "end_of_turn" if m["u"] == "turn" else "end_of_combat"}], None
+
+
+# -- mana provenance (wave 18B) -- "Spend this mana only to cast artifact or creature spells." / "This mana can't be spent to cast
+# nonartifact spells." after an "add" instruction: the mana it added is restricted (106.6; app/rules/mana_units.py)
+@_first
+@effect(r"(?P<s>spend this mana only .+|this mana can't be spent .+)")
+def _restrict_mana(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import mana as mana_
+
+    only = mana_.spend_kind(m["s"][:1].upper() + m["s"][1:])
+    if only is None:
+        raise _NoMatch
+    return [{"do": "restrict_mana", "only": only, "note": m["s"][:1].upper() + m["s"][1:] + "."}], None
 
 
 # "Add six {R}" / "add eight {C}" / "add that much {G}" (the trigger event's amount, 608.2k): n of one type
