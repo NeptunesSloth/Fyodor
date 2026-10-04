@@ -1,0 +1,139 @@
+"""Wave 15E: keywords carried out as their Comprehensive Rules definition (CR 2026-09-25), real Oracle text.
+
+* Mentor 702.134a, training 702.149a, dethrone 702.105a, evolve 702.100a, mobilize N 702.181a, repeated soulshift 702.46.
+Every scenario checks the replay and a save/load round trip.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from app.rules import coverage
+from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act
+from tests.test_rules_conditionals import settle, token_of, until
+from tests.test_rules_effects import replay_matches
+from tests.test_rules_wave6c_tokens_pumps import build, put, reloaded, to_hand, tokens
+from tests.test_rules_wave6e_statics import attack_with
+
+EXTRA = [
+    card('Tributary Instructor', set_code='tst', number='X00', mana_cost='{3}{G}', cmc=4.0, type_line='Creature — Merfolk Shaman', oracle_text='Mentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)\nWhenever a creature you control with a +1/+1 counter on it dies, draw a card.', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Mentor']),  # noqa: E501
+    card('Jenny Flint', set_code='tst', number='X01', mana_cost='{1}{U}{R}', cmc=3.0, type_line='Legendary Creature — Human Detective', oracle_text='Partner with Madame Vastra\nFirst strike\nTraining (Whenever this creature attacks with another creature with greater power, put a +1/+1 counter on this creature.)\nWhenever you sacrifice a Clue or Food, put a +1/+1 counter on another target creature you control.', power='2', toughness='2', colors=['R', 'U'], color_identity=['R', 'U'], keywords=['Partner with', 'Training', 'First strike', 'Partner']),  # noqa: E501
+    card('Treasonous Ogre', set_code='tst', number='X02', mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Ogre Shaman', oracle_text='Dethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)\nPay 3 life: Add {R}.', power='2', toughness='3', colors=['R'], color_identity=['R'], keywords=['Dethrone']),  # noqa: E501
+    card('Gyre Sage', set_code='tst', number='X03', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Elf Druid', oracle_text='Evolve (Whenever a creature you control enters, if that creature has greater power or toughness than this creature, put a +1/+1 counter on this creature.)\n{T}: Add {G} for each +1/+1 counter on this creature.', power='1', toughness='2', colors=['G'], color_identity=['G'], keywords=['Evolve']),  # noqa: E501
+    card('Voice of Victory', set_code='tst', number='X04', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Human Bard', oracle_text="Mobilize 2 (Whenever this creature attacks, create two tapped and attacking 1/1 red Warrior creature tokens. Sacrifice them at the beginning of the next end step.)\nYour opponents can't cast spells during your turn.", power='1', toughness='3', colors=['W'], color_identity=['W'], keywords=['Mobilize']),  # noqa: E501
+    card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
+]
+FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
+
+
+@pytest.fixture()
+def card_db(settings):
+    from app.cards.importer import build_database
+
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    return settings.cards_db_path
+
+
+@pytest.mark.parametrize("name", FULL)
+def test_coverage_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def check(s):
+    replay_matches(s)
+    replay_matches(reloaded(s))
+
+
+def next_own_turn(s):
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None
+          and s.state.turn.active_player == "p1")
+
+
+def counters(s, c):
+    return s.state.cards[c.id].counters.get("+1/+1", 0)
+
+
+def attack_and_settle(s, *attackers):
+    next_own_turn(s)
+    attack_with(s, *attackers)
+    settle(s)
+
+
+def test_mentor_puts_a_counter_on_a_lesser_attacker(cards):
+    s = build(cards, "Tributary Instructor")
+    mentor = put(s, "Tributary Instructor")
+    small = token_of(s, "p1", "Squirrel", "Token Creature — Squirrel", "1/1")
+    big = token_of(s, "p1", "Ogre", "Token Creature — Ogre", "5/5")
+    next_own_turn(s)
+    attack_with(s, mentor, small, big)
+    until(s, lambda s: counters(s, small) == 1 or s.state.rules.decision is not None and s.state.rules.decision.kind != "declare_blockers")
+    d = s.state.rules.decision
+    if d is not None and d.kind == "choose_cards":
+        assert {o.id for o in d.options} == {small.id}  # only a lesser power: 702.134a
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[small.id])
+    settle(s)
+    assert counters(s, small) == 1 and counters(s, big) == 0 and counters(s, mentor) == 0
+    check(s)
+
+
+def test_training_counts_a_greater_power_attacker(cards):
+    s = build(cards, "Jenny Flint")
+    jenny = put(s, "Jenny Flint")
+    big = token_of(s, "p1", "Ogre", "Token Creature — Ogre", "5/5")
+    attack_and_settle(s, jenny, big)
+    assert counters(s, jenny) == 1  # 702.149a
+    check(s)
+
+
+def test_training_alone_does_nothing(cards):
+    s = build(cards, "Jenny Flint")
+    jenny = put(s, "Jenny Flint")
+    attack_and_settle(s, jenny)
+    assert counters(s, jenny) == 0
+    check(s)
+
+
+def test_dethrone_needs_the_player_with_the_most_life(cards):
+    s = build(cards, "Treasonous Ogre")
+    ogre = put(s, "Treasonous Ogre")
+    act(s, "p1", type="set_life", player="p2", value=50)  # the most life of the two (Commander starts at 40)
+    attack_and_settle(s, ogre)
+    assert counters(s, ogre) == 1  # 702.105a
+    check(s)
+
+
+def test_dethrone_does_not_trigger_on_the_lower_life_player(cards):
+    s = build(cards, "Treasonous Ogre")
+    ogre = put(s, "Treasonous Ogre")
+    act(s, "p1", type="set_life", player="p2", value=10)
+    attack_and_settle(s, ogre)
+    assert counters(s, ogre) == 0
+    check(s)
+
+
+def test_evolve_when_a_bigger_creature_enters(cards):
+    s = build(cards, "Gyre Sage", "Tributary Instructor", "Voice of Victory")
+    sage = put(s, "Gyre Sage")
+    for name, m, counters_after in (("Tributary Instructor", {"G": 1, "C": 3}, 1), ("Voice of Victory", {"W": 1, "C": 1}, 1)):
+        spell = to_hand(s, name)
+        act(s, "p1", type="add_mana", player="p1", mana=m)
+        act(s, "p1", type="cast_spell", card_id=spell.id)
+        settle(s)
+        # 702.100a: the 4/4 has greater power and toughness than the 1/2; then the 1/3 isn't greater than the 2/3 Sage
+        assert counters(s, sage) == counters_after
+    check(s)
+
+
+def test_mobilize_makes_attacking_warriors_that_are_sacrificed(cards):
+    s = build(cards, "Voice of Victory")
+    voice = put(s, "Voice of Victory")
+    attack_and_settle(s, voice)
+    warriors = [t for t in tokens(s) if t.name == "Warrior"]
+    assert len(warriors) == 2 and all(s.state.cards[w.id].tapped for w in warriors)  # 702.181a
+    until(s, lambda s: s.state.turn.phase == "end" or not [t for t in tokens(s) if t.name == "Warrior"])
+    settle(s)
+    until(s, lambda s: not [t for t in tokens(s) if t.name == "Warrior"] or s.state.turn.number > 3)
+    assert not [t for t in tokens(s) if t.name == "Warrior"]  # sacrificed at the next end step
+    check(s)
