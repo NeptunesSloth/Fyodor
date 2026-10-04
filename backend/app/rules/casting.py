@@ -1854,7 +1854,9 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
     affinity = (affinity_discount(state, player, ch, info, card) if info is not None else 0) + reduce  # (reduce: emerge, 18E)
     total = permissions.total_cost(state, player, card, ch, info, base=base, additional=tuple(extras), tax=tax, affinity=affinity,
                                    targets=targets)
-    from app.rules import cast_limits  # -- static_other sweep (wave 19A) -- Oath of Nissa: how the mana may be spent
+    from app.rules import (
+        cast_limits,  # -- static_other sweep (wave 19A) -- Oath of Nissa: how the mana may be spent
+    )
     mode = cast_limits.spend_mode(state, player, card, ch, info)
     return M.spend_as(total, mode) if mode else total
 
