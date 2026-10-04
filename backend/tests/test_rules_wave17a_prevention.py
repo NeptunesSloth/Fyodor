@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import pytest
 
-from app.rules import coverage, scripts
-from app.rules.characteristics import Characteristics, parse_abilities
 from tests.game_helpers import act
 from tests.test_rules_attachments import build, token
 from tests.test_rules_effects import replay_matches
@@ -299,3 +297,102 @@ def test_each_creature_you_control_gets_its_own_shield(cards):
     activate(s, pinger, targets=[bear.id])
     activate(s, pinger, targets=[late.id])
     assert s.state.cards[bear.id].damage == 2 and s.state.cards[late.id].damage == 3
+
+
+# -- redirection by a resolved effect (614.9, 615.8) --------------------------------------------------------------------------------------
+NOMADS = "{0}: The next 1 damage that would be dealt to this creature this turn is dealt to target creature you control instead."
+VALOR = "{1}: All damage that would be dealt to target creature this turn is dealt to you instead."  # Sivvi's Valor (as an ability)
+GRACE = ("{1}: All damage that would be dealt this turn to you and permanents you control is dealt to enchanted creature "
+         "instead.")  # Saving Grace (its trigger's sentence, as an ability)
+BEACON = "{1}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to this creature instead."
+
+
+@pytest.mark.parametrize("text", [
+    NOMADS, VALOR, GRACE, BEACON,
+    "{1}{W}: The next 1 damage that would be dealt to this creature this turn is dealt to any target instead.",  # Zhalfirin Crusader
+    "{W}: The next 1 damage that would be dealt to target white creature this turn is dealt to ~ instead.",  # Daughter of Autumn
+    "{3}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature you "
+    "control instead.",  # General's Regalia
+    "{1}: The next time a source of your choice would deal damage to target creature this turn, that source deals that damage to you "
+    "instead.",  # Jade Monolith
+])
+def test_read_redirections(text):
+    assert all(supported(text)), text
+
+
+@pytest.mark.parametrize("text", [
+    # two targets, a source's controller, an opponent's choice of the target, an optional redirection
+    "{1}: The next 1 damage that would be dealt to target creature this turn is dealt to another target creature instead.",
+    "{3}, {T}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature "
+    "of an opponent's choice instead.",
+    "{1}: The next time a source of your choice would deal damage this turn, that damage is dealt to that source's controller instead.",
+])
+def test_redirections_left_manual(text):
+    assert not all(supported(text)), text
+
+
+def test_nomads_en_kor_redirects_only_the_next_1_damage(cards):
+    s = build(cards)
+    nomads = token(s, "p1", "Nomads en-Kor", "1/4", NOMADS)
+    bear = token(s, "p1", "Bear", "3/3")
+    pinger = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    s2 = reload(s, cards)
+    act(s, "p1", type="activate_ability", card_id=nomads.id, ability=0, targets=[bear.id])
+    from tests.test_rules_effects import pass_until_stack_empty
+
+    pass_until_stack_empty(s)
+    activate(s, pinger, targets=[nomads.id])  # 3 damage: 1 goes to the Bear, 2 stay
+    assert s.state.cards[nomads.id].damage == 2 and s.state.cards[bear.id].damage == 1
+    assert not [r for r in rules(s).replacements if r["op"].get("do") == "redirect"]  # used up
+    activate(s, pinger, targets=[nomads.id])  # (a second "next 1 damage" needs a second activation)
+    assert s.state.cards.get(nomads.id) is None or s.state.cards[nomads.id].zone != "p1:battlefield"
+    replay_matches(s)
+    assert reload(s, cards).state.cards[bear.id].damage == 1
+    act(s2, "p1", type="activate_ability", card_id=nomads.id, ability=0, targets=[bear.id])
+    pass_until_stack_empty(s2)
+    activate(s2, pinger, targets=[nomads.id])
+    assert s2.state.cards[bear.id].damage == 1
+    replay_matches(s2)
+
+
+def test_all_damage_to_target_creature_is_dealt_to_you_instead(cards):
+    s = build(cards)
+    valor = permanent(s, "p1", "Valor", "Enchantment", VALOR)
+    bear = token(s, "p1", "Bear", "2/2")
+    pinger = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    activate(s, valor, targets=[bear.id])
+    activate(s, pinger, targets=[bear.id])
+    activate(s, pinger, targets=[bear.id])
+    assert s.state.cards[bear.id].damage == 0 and life(s, "p1") == 34  # 614.9
+    replay_matches(s)
+
+
+def test_saving_grace_sends_damage_to_you_and_your_permanents_to_the_enchanted_creature(cards):
+    s = build(cards)
+    bear = token(s, "p1", "Bear", "9/9")
+    mine = token(s, "p1", "Mine", "1/1")
+    aura = permanent(s, "p1", "Saving Grace", "Enchantment — Aura", GRACE)
+    act(s, "p1", type="attach", card_ids=[aura.id], to=bear.id)
+    pinger = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    activate(s, aura)
+    activate(s, pinger, targets=["p1"])
+    activate(s, pinger, targets=[mine.id])
+    assert life(s, "p1") == 40 and s.state.cards[mine.id].damage == 0 and s.state.cards[bear.id].damage == 6
+    replay_matches(s)
+
+
+def test_beacon_of_destiny_redirects_the_next_damage_from_the_chosen_source(cards):
+    s = build(cards)
+    beacon = token(s, "p1", "Beacon", "1/9", BEACON)
+    pinger = red_creature(s, "p1", "Pinger", "1/1", PINGER)
+    other = token(s, "p1", "Other", "1/1", "{1}: Other deals 3 damage to any target.")
+    activate(s, beacon)
+    _choose(s, "Pinger")
+    activate(s, other, targets=["p1"])
+    assert life(s, "p1") == 37  # not the chosen source
+    activate(s, pinger, targets=["p1"])
+    assert life(s, "p1") == 37 and s.state.cards[beacon.id].damage == 3
+    activate(s, pinger, targets=["p1"])  # the next time: once
+    assert life(s, "p1") == 34 and s.state.cards[beacon.id].damage == 3
+    replay_matches(s)
+    assert reload(s, cards).state.cards[beacon.id].damage == 3

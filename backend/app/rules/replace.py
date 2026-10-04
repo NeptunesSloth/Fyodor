@@ -1286,6 +1286,8 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
 
         if source_shields.redirect_target(plan, c, ev) is None:
             return False
+        if c.op.get("limit") is not None and sim.get("shields", {}).get(f"redir:{c.id}", c.op["limit"]) <= 0:
+            return False  # (-- prevention riders (wave 17A) -- "the next 1 damage": used up)
     return _source_matches(plan, m.get("source") or {}, c, ev) and _recipient_matches(plan, m.get("to") or {}, c, ev)
 
 
@@ -1302,7 +1304,16 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     if op["do"] == "redirect":  # -- refused grants/replacements (wave 3R2) -- 614.9 (app/rules/source_shields.py)
         from app.rules import source_shields
 
-        return [source_shields.redirect(plan, c, ev)]
+        k = int(ev["amount"])
+        if op.get("limit") is not None:  # -- prevention riders (wave 17A) -- 614.9, 615.7-like: only the next N damage is redirected
+            shields = sim.setdefault("shields", {})
+            left = int(shields.get(f"redir:{c.id}", op["limit"]))
+            k = min(k, left)
+            shields[f"redir:{c.id}"] = left - k
+        if op.get("once"):  # (the next time a source would deal damage: used up by this instance, 615.8)
+            sim.setdefault("shields", {})[f"once:{c.id}"] = 0
+        moved = source_shields.redirect(plan, c, {**ev, "amount": k})
+        return [moved, {**ev, "amount": int(ev["amount"]) - k}] if k < int(ev["amount"]) else [moved]
     n = int(ev["amount"])
     kind = op["do"]
     if ev.get("unpreventable") and op.get("prevention"):
@@ -1425,7 +1436,7 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
         return card.controller if card is not None else ""
 
     targets = sorted(by_target, key=lambda t: (apnap.index(chooser_of(t)) if chooser_of(t) in apnap else len(apnap)))
-    finals: dict[int, Event] = {}
+    finals: dict[int, list[Event]] = {}  # (-- prevention riders (wave 17A) -- a redirection of "the next 1 damage" splits an event)
     index = {id(ev): i for i, ev in enumerate(events)}
     try:
         for target in targets:
@@ -1452,25 +1463,28 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
                 pending.remove(ev)
                 out: list[Event] = []
                 planner.settle(dict(ev), sim, out.append)
-                finals[index[id(ev)]] = out[0] if out else {**ev, "amount": 0}
+                finals[index[id(ev)]] = out or [{**ev, "amount": 0}]
     except Ask as q:
         return q
     except ShieldAsk as s:
         return s
-    result = [finals.get(i, ev) for i, ev in enumerate(events)]
+    result = [e for i, ev in enumerate(events) for e in finals.get(i, [ev])]
     # -- counters (wave 7C) -- 122.1c: what the other effects left, prevented
     from app.rules import shield_counters
 
     used = shield_counters.prevent_damage(plan, result)
     notes = []
-    for before, after in zip(events, result, strict=True):
-        if after.get("why"):
-            who = replacements._label(plan, before["target"])
-            why = ", ".join(dict.fromkeys(after["why"]))
-            if after["amount"] <= 0:
-                notes.append(f"{before['amount']} damage to {who} prevented ({why})")
-            else:
-                notes.append(f"{why}: {after['amount']} damage to {who} instead of {before['amount']}")
+    for i, before in enumerate(events):
+        for after in finals.get(i, [before]):
+            if after.get("why"):
+                who = replacements._label(plan, before["target"])
+                why = ", ".join(dict.fromkeys(after["why"]))
+                if after["amount"] <= 0:
+                    notes.append(f"{before['amount']} damage to {who} prevented ({why})")
+                elif after["target"] != before["target"]:
+                    notes.append(f"{why}: {after['amount']} damage to {replacements._label(plan, after['target'])} instead of {who}")
+                else:
+                    notes.append(f"{why}: {after['amount']} damage to {who} instead of {before['amount']}")
     return DamagePlan(result, notes, sim["shields"], planner, used)
 
 
@@ -1630,6 +1644,14 @@ def commit_shields(plan: Plan, shields: dict[str, int]) -> None:
     r = plan.rules
     # -- refused grants/replacements (wave 3R2) -- 615.8: a "next time" shield that prevented damage is used up
     used = {key[len("once:r:"):] for key in shields if key.startswith("once:r:")}
+    for key, left in shields.items():  # -- prevention riders (wave 17A) -- what is left of "the next N damage is dealt to … instead"
+        if key.startswith("redir:r:"):
+            if left <= 0:
+                used.add(key[len("redir:r:"):])
+            else:
+                for rec in r.replacements:
+                    if rec.get("id") == key[len("redir:r:"):]:
+                        rec["op"] = {**rec["op"], "limit": left}
     if used:
         r.replacements = [rec for rec in r.replacements if rec.get("id") not in used]
     # -- end refused grants/replacements (wave 3R2) --

@@ -154,6 +154,72 @@ def _next_n(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "prevent", "who": "target", "n": n}], sel.key()
 
 
+# -- redirection of damage by a resolved effect (wave 17A) -- 614.9: "The next 1 damage that would be dealt to this creature this
+# turn is dealt to target creature you control instead." (Nomads en-Kor), "All damage that would be dealt to target creature this
+# turn is dealt to you instead." (Sivvi's Valor), "The next time a source of your choice would deal damage to you this turn, that
+# damage is dealt to this creature instead." (Beacon of Destiny), "When this Aura enters, all damage that would be dealt this turn
+# to you and permanents you control is dealt to enchanted creature instead." (Saving Grace). One of the two ends is a target at
+# most; both ends are the objects and players they are when the effect is created (400.7).
+_FROM_WORDS = {"you": "you", "you and permanents you control": "you_perms", "you and creatures you control": "you_creatures",
+               "this creature": "self", "~": "self", "enchanted creature": "host", "any target": "target"}
+_DEST_WORDS = {"you": "you", "this creature": "self", "~": "self", "enchanted creature": "host", "any target": "target",
+               "target creature": "target", "target creature you control": "target"}
+_FROM = r"(?P<from>you and permanents you control|you and creatures you control|you|this creature|~|enchanted creature|any target|target [a-z ]+?)"
+_DEST = r"(?P<dest>you|this creature|~|enchanted creature|any target|target creature you control|target creature)"
+_REDIR_N = re.compile(r"the next (?P<n>\d+|one|two|three|four|five|X) damage that would be dealt to " + _FROM +
+                      r" this turn is dealt to " + _DEST + " instead")
+_REDIR_ALL = re.compile(r"all damage that would be dealt (?:this turn )?to " + _FROM + r"(?P<late> this turn)? is dealt to " + _DEST +
+                        " instead")
+_REDIR_SRC = re.compile(r"the next time (?:a|an) (?:(?P<props>[a-z ]+?) )?source of your choice would deal damage to " + _FROM +
+                        r" this turn, (?:that damage is dealt to " + _DEST + r" instead|that source deals that damage to " +
+                        _DEST.replace("dest", "dest2") + " instead)")
+
+
+def _redirect_ends(m: re.Match[str]) -> tuple[str, str, Any]:
+    """(from, to, the target's selector key) of a redirection sentence, or no match: a target at both ends or none read."""
+    from app.rules import scripts, selectors
+
+    dest = m["dest"] if "dest" in m.groupdict() and m["dest"] else m["dest2"]
+    origin = _FROM_WORDS.get(m["from"])
+    target = None
+    if origin is None:  # "target creature [you control / with …]": a creature selector
+        sel = selectors.parse(m["from"][len("target "):])
+        if sel is None or sel.zones != ("battlefield",) or sel.player is not None or sel.card or "Creature" not in sel.types:
+            raise scripts._NoMatch
+        origin, target = "target", sel.key()
+    elif origin == "target":
+        target = "any"
+    end = _DEST_WORDS[dest]
+    if end == "target":
+        if target is not None:
+            raise scripts._NoMatch  # (two targets: not read)
+        target = scripts.SELECTORS[dest]
+    return origin, end, target
+
+
+def _redirect_n(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules import scripts
+
+    origin, end, target = _redirect_ends(m)
+    n: Any = {"x": 1} if m["n"] == "X" else scripts.num(m["n"])
+    return [{"do": "redirect_damage", "from": origin, "to": end, "limit": n}], target
+
+
+def _redirect_all(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    origin, end, target = _redirect_ends(m)
+    return [{"do": "redirect_damage", "from": origin, "to": end, "limit": None}], target
+
+
+def _redirect_src(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    from app.rules.scripts import _NoMatch
+
+    props = _props(m["props"])
+    origin, end, target = _redirect_ends(m)
+    if props is None or origin in ("you_perms", "you_creatures"):
+        raise _NoMatch
+    return [{"do": "source_shield", "props": props, "once": True, "to": origin, "redirect": end}], target
+
+
 # (registered first in app/rules/scripts.py EFFECTS: "prevent all damage that would be dealt …" is the
 # generic "prevent all" template's, which refuses the "source of your choice" wording)
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
@@ -162,6 +228,9 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
     (re.compile("^" + _ALL_TO_YOU.pattern + "$"), _all_to_you),
     (re.compile("^" + _TURN.pattern + "$"), _turn),
     (re.compile("^" + _NEXT_N.pattern + "$"), _next_n),
+    (re.compile("^" + _REDIR_N.pattern + "$"), _redirect_n),
+    (re.compile("^" + _REDIR_ALL.pattern + "$"), _redirect_all),
+    (re.compile("^" + _REDIR_SRC.pattern + "$"), _redirect_src),
 ]
 THE_DAMAGE = "the damage can't be prevented"  # (a sentence about the damage of the sentence before it)
 
@@ -222,17 +291,25 @@ def redirect_target(plan: Plan, c: Any, ev: dict[str, Any]) -> str | None:
     """Where a redirection static sends this damage now — or None: 614.9, the new recipient is no
     longer on the battlefield or no longer a creature, planeswalker or battle (or the player has
     left the game), and the effect does nothing."""
-    holder = plan.state.cards.get(c.source_card or "")
-    if holder is None or not holder.zone.endswith(":battlefield") or plan.oid(holder) != c.source_oid:
-        return None
     into = c.op.get("to")
-    if into == "self":
-        new = holder.id
+    new: str | None
+    if into == "pid":  # -- prevention riders (wave 17A) -- a record of a resolved effect: the player / permanent it named
+        new = c.op["pid"]
+    elif into == "oid":
+        new = next((x.id for x in plan.state.cards.values() if x.zone.endswith(":battlefield") and plan.oid(x) == c.op["oid"]), None)
     else:
-        attached = plan.state.cards.get(holder.attached_to or "")
-        if attached is None or not attached.zone.endswith(":battlefield"):
+        holder = plan.state.cards.get(c.source_card or "")
+        if holder is None or not holder.zone.endswith(":battlefield") or plan.oid(holder) != c.source_oid:
             return None
-        new = attached.id if into == "attached" else attached.controller
+        if into == "self":
+            new = holder.id
+        else:
+            attached = plan.state.cards.get(holder.attached_to or "")
+            if attached is None or not attached.zone.endswith(":battlefield"):
+                return None
+            new = attached.id if into == "attached" else attached.controller
+    if new is None:
+        return None
     if new in plan.state.players:
         return new if new in plan.live() and new != ev["target"] else None
     ch = plan.ch(plan.state.cards[new])
@@ -594,6 +671,12 @@ def _recipient(plan: Plan, ctx: Context, e: dict[str, Any]) -> dict[str, Any] | 
         return {}
     if to == "you":
         return {"players": "you"}
+    if to in ("you_perms", "you_creatures"):
+        from app.rules import selectors
+
+        sel = selectors.parse("permanents you control" if to == "you_perms" else "creatures you control")
+        assert sel is not None
+        return {"players": "you", "objects": {"sel": sel.key()}}
     from app.rules import effects
 
     cards = effects._cards(plan, ctx, to)
@@ -603,6 +686,39 @@ def _recipient(plan: Plan, ctx: Context, e: dict[str, Any]) -> dict[str, Any] | 
     return {"pids": [players[0]]} if players else None
 
 
+def _destination(plan: Plan, ctx: Context, end: str) -> dict[str, Any] | None:
+    """Where redirected damage goes: you, or the permanent / player the effect names, as they are now (400.7); None: gone."""
+    if end == "you":
+        return {"to": "pid", "pid": ctx["controller"]}
+    from app.rules import effects
+
+    cards = effects._cards(plan, ctx, end)
+    if cards:
+        return {"to": "oid", "oid": plan.oid(cards[0])}
+    players = effects._players(plan, ctx, "target") if end == "target" else []
+    return {"to": "pid", "pid": players[0]} if players else None
+
+
+def redirect_damage(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """614.9, 611.2a: "The next N damage that would be dealt to … this turn is dealt to … instead." / "All damage that would be
+    dealt to … is dealt to … instead.": a record of this turn (the replacement effect of 616.1). With no end left the
+    effect does nothing."""
+    from app.rules import effects, replace
+
+    pid = ctx["controller"]
+    origin, dest = _recipient(plan, ctx, {"to": e["from"]}), _destination(plan, ctx, e["to"])
+    if origin is None or dest is None or (e["from"] == "self" and not effects._cards(plan, ctx, "self")):
+        plan.note(f"{plan.name(pid)}: nothing is left for the damage to be redirected from or to", actor=pid)
+        return True
+    limit = None if e.get("limit") is None else effects._amount(plan, ctx, e["limit"])
+    if limit is not None and limit <= 0:
+        return True
+    op: dict[str, Any] = {"do": "redirect", **dest, **({"limit": limit} if limit is not None else {})}
+    replace.add_record(plan, event="damage", match={"to": origin}, op=op, controller=pid, source=ctx.get("source_object"),
+                       source_card=ctx.get("source_card"), label=ctx.get("name") or "a redirection effect")
+    return True
+
+
 def _record(plan: Plan, ctx: Context, e: dict[str, Any], oids: list[str], label: str) -> None:
     from app.rules import replace
 
@@ -610,6 +726,12 @@ def _record(plan: Plan, ctx: Context, e: dict[str, Any], oids: list[str], label:
     match: dict[str, Any] = {"source": {"oids": list(oids), **(e.get("props") or {})}, "to": _recipient(plan, ctx, e)}
     op: dict[str, Any] = {"do": "prevent_all", "prevention": True, **({"once": True} if e.get("once") else {}),
                           **({"rider": e["rider"]} if e.get("rider") else {})}  # (wave 17A) 615.5
+    if e.get("redirect"):  # (-- prevention riders (wave 17A) -- 614.9: "that damage is dealt to … instead")
+        dest = _destination(plan, ctx, e["redirect"])
+        if dest is None:
+            plan.note(f"{plan.name(pid)}: nothing is left for the damage to be dealt to", actor=pid)
+            return
+        op = {"do": "redirect", "once": True, **dest}
     replace.add_record(plan, event="damage", match=match, op=op, controller=pid, source=ctx.get("source_object"),
                        source_card=ctx.get("source_card"), label=ctx.get("name") or "a prevention effect")
     plan.note(f"{plan.name(pid)} chose {label}: {_describe(e)}", actor=pid)
@@ -624,5 +746,5 @@ def resume_source_shield(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"source_shield": source_shield, "unpreventable_turn": unpreventable_turn}
+PRIMITIVES = {"source_shield": source_shield, "unpreventable_turn": unpreventable_turn, "redirect_damage": redirect_damage}
 RESUME = {"source_shield": resume_source_shield}

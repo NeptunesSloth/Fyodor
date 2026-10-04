@@ -348,7 +348,8 @@ def _recipient(phrase: str | None) -> dict[str, Any] | None:
 # as the prevention's rider (app/rules/source_shields.py)
 _DAMAGE_TO = re.compile(r"^If (?P<kind>combat |noncombat )?damage would be dealt to (?P<to>.+?)(?P<cond> while [^,]+)?, (?P<rest>.+)$")
 _DAMAGE_BE = re.compile(r"^If (?P<to>.+?) would be dealt (?P<kind>combat |noncombat )?damage(?P<cond> while [^,]+)?, (?P<rest>.+)$")
-_CONDS = {" while it has a +1/+1 counter on it": {"counter": "+1/+1"}, " while you're the monarch": {"monarch": True}}
+_CONDS: dict[str, dict[str, Any]] = {" while it has a +1/+1 counter on it": {"counter": "+1/+1"},
+                                     " while you're the monarch": {"monarch": True}}
 _RIDER = re.compile(r"^prevent that damage(?:\. | and )(?P<rider>.+?)\.?$")
 
 
@@ -374,7 +375,7 @@ def _damage_to(text: str) -> Definition | None:
         if _CONDS[m["cond"]] == {"monarch": True}:
             match["monarch"] = True
         else:
-            to["objects"] = {**to["objects"], **_CONDS[m["cond"]]}
+            to["objects"] = {**dict(to["objects"]), **_CONDS[m["cond"]]}
     rest = m["rest"].strip()
     if rest in ("prevent that damage.", "prevent that damage"):
         return _static("damage", match, {"do": "prevent_all", "prevention": True})
