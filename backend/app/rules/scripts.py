@@ -237,7 +237,7 @@ def self_text(text: str, name: str) -> str:
     # object that gets it ("this creature" is): it stays as written, so no ~ there means the granter
     parts = out.split('"')
     out = '"'.join(own(p) if i % 2 == 0 else p for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
-    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Equipment|Vehicle|Aura|emblem)\b", "~", out)
+    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem)\b", "~", out)
 
 
 EFFECTS: list[tuple[re.Pattern[str], Any]] = []
@@ -257,7 +257,7 @@ def _it_source(word: str) -> dict[str, str]:
 # that's a new object in another zone, 400.7)
 _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
             "deal_combat_damage_player", "deal_damage", "counters_put", "targeted", "create_token"}
-_STAYING.update({"become_monstrous", "become_renowned"})  # -- becomes monstrous (wave 6D) --
+_STAYING.update({"become_monstrous", "become_renowned", "become_level"})  # -- becomes monstrous (wave 6D) --
 _STAYING.add("to_graveyard")  # -- into a graveyard (wave 6D) -- the card(s) there, as they are there
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 # Zone-change events after which "it" is the new object the card became where it went — found
@@ -1475,6 +1475,11 @@ def _connive(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 @effect(r"monstrosity {N}")
 def _monstrosity(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "monstrosity", "n": num(m["n"])}], None  # 701.37a
+
+
+@effect(r"~'s level becomes {N}")
+def _class_level(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "class_level", "n": num(m["n"])}], None  # 716.2a: the Class's level becomes N
 
 
 @effect(r"bolster {N}")
@@ -3093,6 +3098,8 @@ def _event_refs_ok(d: Definition) -> bool:
 def _cached(ch: Characteristics) -> dict[int, Definition]:
     out: dict[int, Definition] = {}
     for ab in ch.abilities:
+        if ch.level is not None and ab.section > ch.level:
+            continue  # -- Class (wave 16A) -- 716.2a: an ability under a level bar the permanent hasn't reached
         if out.get(ab.index, {}).get("kind") == "mode":
             continue  # (a mode line of the modal ability above it)
         d = define(ab, ch)

@@ -804,6 +804,9 @@ def _object(t: str) -> Condition | None:
     who = _OBJECT_WORDS[m["who"]]
     negate = m["verb"] in ("isn't", "wasn't", "is not", "was not")
     what = m["what"].strip()
+    if lv := re.fullmatch(r"level (\d+)( or greater)?", what):  # -- Class (wave 16A) -- 716.2a, 716.2b
+        test = {"object": who, "level": int(lv[1]), "min": bool(lv[2])}
+        return {"not": test} if negate else test
     if what in _ATTACHED or what in ("renowned", "monstrous"):  # (wave 11F)
         test: Condition = {"object": who, **({"attached": list(_ATTACHED[what])} if what in _ATTACHED else {"designation": what})}
         return {"not": test} if negate else test
@@ -1012,6 +1015,9 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
             snap = snap or next((x for x in reversed(plan.rules.lki.values()) if x.card == card.id), None)
             ids = list(snap.attached) if snap is not None else []
         return any(plan.ch(plan.state.cards[i]).subtypes & set(cond["attached"]) for i in ids if i in plan.state.cards)
+    if "level" in cond:  # -- Class (wave 16A) -- 716.2b, 716.2d: no level is level 1
+        n = plan.rules.levels.get(plan.oid(card), 1)
+        return n >= cond["level"] if cond["min"] else n == cond["level"]
     if "designation" in cond:  # 701.37b, 702.112b: kept until the permanent leaves, so only the object it still is
         return plan.oid(card) in (plan.rules.monstrous if cond["designation"] == "monstrous" else plan.rules.renowned)
     if "beats_self" in cond:  # "its power is greater than ~'s": either stat named (as it is, or as it last existed, 608.2h)

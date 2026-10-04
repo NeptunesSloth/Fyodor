@@ -224,6 +224,14 @@ def layer1(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     by timestamp, 613.7); 613.2b: a face-down object keeps its face-down characteristics (708.2),
     which ``characteristics.of`` already gave. ``ch`` is the object's printed (or defined) values."""
     r = state.rules
+    ch = _layer1(state, card, ch, info)
+    if r is not None and any(a.section > 1 for a in ch.abilities):  # -- Class (wave 16A) -- 716.2b: the level isn't copied
+        ch = replace(ch, level=r.levels.get(r.object_id(card.id), 1))  # (its own; 716.2d: none is level 1)
+    return ch
+
+
+def _layer1(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> Characteristics:
+    r = state.rules
     if r is None or not r.effects or info is None or card.face_down:
         return ch
     recipe = copy_recipe_of(r, r.object_id(card.id))

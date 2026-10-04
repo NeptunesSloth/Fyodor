@@ -58,6 +58,7 @@ class Characteristics:
     # cant_be_blocked_by:<selector> …). They aren't abilities: losing abilities doesn't remove
     # the ones other objects impose.
     imposed: frozenset[str] = frozenset()
+    level: int | None = None  # -- Class (wave 16A) -- 716.2b: the permanent's class level (None: not read for a permanent, all sections)
 
     @property
     def is_land(self) -> bool:

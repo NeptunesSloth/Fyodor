@@ -123,7 +123,8 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                            if c.token is not None and c.zone.endswith(":command") and c.token.type_line == "Emblem"))
     key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)),
                       # -- attached events (wave 4L) -- "loses all abilities" effects: their objects' statics are gone
-                      tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else ())
+                      tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else (),
+                      tuple(sorted(r.levels.items())) if r else ())  # -- Class (wave 16A) -- 716.2a: the levels reached
     hit = _STATIC_CACHE.get(key_all)
     if hit is not None:
         if memo is not None and memo[0] is state and memo[1] is info:

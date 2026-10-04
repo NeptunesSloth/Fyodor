@@ -324,6 +324,13 @@ def _parse(c: str) -> Condition | None:
         if base is None or base.get("aggregate"):
             return None
         return {**base, "event": f"become_{m['d']}"}
+    # -- Class (wave 16A) -- "When this Class becomes level 2" (716.2a): the class level it became (designations.facts)
+    m = re.fullmatch(r"(?P<s>.+?) becomes level (?P<n>\d+)", c)
+    if m:
+        base = _subject(m["s"])
+        if base is None or base.get("aggregate"):
+            return None
+        return {**base, "event": "become_level", "level": int(m["n"])}
     # -- into a graveyard (wave 6D) -- "one or more land cards are put into your graveyard from anywhere" (The Gitrog
     # Monster), "… from your library" (Hedge Shredder): a card put there, as it is there (603.6c: "from anywhere" is never
     # a leaves-the-battlefield ability, so it doesn't look back), whatever zone it came from (or only the library)

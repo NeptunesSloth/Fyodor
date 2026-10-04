@@ -232,6 +232,20 @@ def monstrosity(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+# -- Class (wave 16A) -- 716.2a ---------------------------------------------------------------
+def class_level(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"This Class's level becomes N": the level designation (716.2b) of the permanent; "becomes level N" triggers."""
+    from app.game.rules_state import emit
+
+    for cid in effects._cards(plan, ctx, "self"):
+        card = plan.state.cards[cid]
+        if card.zone.endswith(":battlefield"):
+            oid = plan.oid(cid)
+            plan.rules.levels[oid] = e["n"]
+            emit(plan.state, "designation", counter="level", card=cid, object_id=oid, amount=e["n"], player=card.controller)
+    return True
+
+
 # -- bolster (701.39) -------------------------------------------------------------------------
 def _toughness(ch: Any) -> int:
     if ch.pt is not None:
@@ -533,7 +547,7 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
     return [c for c in card_ids if c not in stuck]
 
 
-PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
+PRIMITIVES = {"class_level": class_level, "amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
               "goad": goad, "detain": detain, "suspect": suspect, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform,
               **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}
