@@ -1935,6 +1935,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         _cascade_triggers(plan, card, ch, more_cascade)
     if "storm" in ch.keywords and not a.face_down and not plan.manual(card):
         _storm_trigger(plan, card, ch)
+    if "replicate" in ch.keywords and not a.face_down and not plan.manual(card):  # (wave 15E)
+        _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
         effects_in_order = [e for k, i in enumerate(picked)
                             for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]
@@ -2253,6 +2255,17 @@ def _cascade_triggers(plan: Plan, card: CardInstance, ch: Characteristics, extra
                                          "effects": [{"do": "cascade", "mv": ch.mana_value}]})
 
 
+def _replicate_trigger(plan: Plan, card: CardInstance, ch: Characteristics, times: int) -> None:
+    """-- keywords (wave 15E) -- 702.56a replicate: "When you cast this spell, copy it for each time you paid its replicate cost. You
+    may choose new targets for the copies." (the cost is paid as kicker is: ``times``)"""
+    from app.rules.triggers import _add
+
+    if times and any(ab.kind == "keywords" and "replicate" in ab.keywords for ab in ch.abilities):
+        _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6150,
+             definition={"kind": "triggered", "trigger": "storm", "optional": False, "target": None,
+                         "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": times}]})
+
+
 def _storm_trigger(plan: Plan, card: CardInstance, ch: Characteristics) -> None:
     """702.40a: "When you cast this spell, copy it for each other spell that was cast before it
     this turn. You may choose new targets for the copies." """
@@ -2387,6 +2400,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         _cascade_triggers(plan, card, ch, extra)
     if "storm" in ch.keywords and not plan.manual(card):
         _storm_trigger(plan, card, ch)
+    if "replicate" in ch.keywords and not plan.manual(card):  # (wave 15E)
+        _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked:
         effects_in_order = [e for k, i in enumerate(picked)
                             for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]

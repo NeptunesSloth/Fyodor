@@ -46,6 +46,9 @@ EXTRA = [
     card('Weftstalker Ardent', set_code='tst', number='X27', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Drix Artificer', oracle_text='Whenever another creature or artifact you control enters, this creature deals 1 damage to each opponent.\nWarp {R} (You may cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)', power='2', toughness='3', colors=['R'], color_identity=['R'], keywords=['Warp']),  # noqa: E501
     card('Highway Robbery', set_code='tst', number='X28', mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery', oracle_text='You may discard a card or sacrifice a land. If you do, draw two cards.\nPlot {1}{R} (You may pay {1}{R} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)', power=None, toughness=None, colors=['R'], color_identity=['R'], keywords=['Plot']),  # noqa: E501
     card("Trickster's Elk", set_code='tst', number='X29', mana_cost='{2}{G}', cmc=3.0, type_line='Enchantment Creature — Elk', oracle_text="Bestow {1}{G} (If you cast this card for its bestow cost, it's an Aura spell with enchant creature. It becomes a creature again if it's not attached.)\nEnchanted creature loses all abilities and is a green Elk creature with base power and toughness 3/3.", power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Bestow']),  # noqa: E501
+    card('Galadhrim Brigade', set_code='tst', number='X30', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Elf Soldier', oracle_text='Squad {1}{G} (As an additional cost to cast this spell, you may pay {1}{G} any number of times. When this creature enters, create that many tokens that are copies of it.)\nOther Elves you control get +1/+1.', power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Squad']),  # noqa: E501
+    card('Agate Instigator', set_code='tst', number='X31', mana_cost='{1}{R}', cmc=2.0, type_line='Creature — Lizard Rogue', oracle_text='Offspring {1}{R} (You may pay an additional {1}{R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)\nWhenever another creature you control enters, this creature deals 1 damage to each opponent.', power='1', toughness='3', colors=['R'], color_identity=['R'], keywords=['Offspring']),  # noqa: E501
+    card('Shattering Spree', set_code='tst', number='X32', mana_cost='{R}', cmc=1.0, type_line='Sorcery', oracle_text='Replicate {R} (When you cast this spell, copy it for each time you paid its replicate cost. You may choose new targets for the copies.)\nDestroy target artifact.', power=None, toughness=None, colors=['R'], color_identity=['R'], keywords=['Replicate']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -625,4 +628,38 @@ def test_bestow_target_illegal_on_resolution_resolves_as_a_creature(cards):
     act(s, "p2", type="cast_spell", card_id=bolt.id, targets=[bear.id])  # in response: the target dies first
     settle(s)
     assert s.state.cards[elk.id].zone == "p1:battlefield" and chars(s, elk).is_creature  # 702.103e
+    check(s)
+
+
+def test_squad_makes_a_copy_for_each_time_the_cost_was_paid(cards):
+    s = build(cards, "Galadhrim Brigade")
+    brigade = to_hand(s, "Galadhrim Brigade")
+    mana(s, G=3, C=4)  # {2}{G} and {1}{G} twice
+    act(s, "p1", type="cast_spell", card_id=brigade.id, kicker=2)
+    settle(s)
+    copies = [t for t in tokens(s) if t.name == "Galadhrim Brigade"]
+    assert len(copies) == 2  # 702.157a
+    check(s)
+
+
+def test_offspring_makes_a_1_1_copy_when_paid(cards):
+    s = build(cards, "Agate Instigator")
+    instigator = to_hand(s, "Agate Instigator")
+    mana(s, R=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=instigator.id, kicker=1)
+    settle(s)
+    (copy,) = [t for t in tokens(s) if t.name == "Agate Instigator"]
+    assert pt(s, copy) == (1, 1)  # 702.175a: a token copy of it, except it's 1/1
+    check(s)
+
+
+def test_replicate_copies_the_spell(cards):
+    s = build(cards, "Shattering Spree")
+    spree = to_hand(s, "Shattering Spree")
+    token_of(s, "p2", "Rock", "Token Artifact — Rock", "0/0")
+    mana(s, R=2)
+    act(s, "p1", type="cast_spell", card_id=spree.id, targets=[next(c.id for c in s.state.cards.values() if c.name == "Rock")], kicker=1)
+    settle(s)
+    log = " ".join("".join(p.t or "" for p in x.parts) for x in s.state.log)
+    assert log.count("Shattering Spree") >= 3  # the cast, and its copy (702.56a) put on the stack and resolved
     check(s)

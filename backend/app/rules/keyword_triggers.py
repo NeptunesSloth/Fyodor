@@ -68,9 +68,14 @@ MEANINGS: dict[str, str] = {
               "created this way, exile the tokens at end of combat.",
     "rampage": "Whenever this creature becomes blocked, it gets +{n}/+{n} until end of turn for each creature blocking it beyond "
                "the first.",  # 702.23a
+    # 702.157a squad (the count: how many times its cost was paid, as kicker's: values.kicked_count)
+    "squad": "When this creature enters, create a token that's a copy of it for each time it was kicked.",
+    # 702.175a offspring: "if its offspring cost was paid" is "if it was kicked"
+    "offspring": "When this creature enters, if it was kicked, create a token that's a copy of it, except it's 1/1.",
     "mentor": "Whenever this creature attacks, put a +1/+1 counter on target attacking creature with power less than this "
               "creature's power.",  # 702.134a
 }
+_COSTED = frozenset({"squad", "offspring"})  # keywords written with a cost (paid as kicker is: costs.kicker_cost)
 _NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict", "mobilize", "vanishing", "fading", "backup", "rampage"})
 
 
@@ -81,6 +86,8 @@ def pieces(kw: str, line: str) -> list[str]:
         p = p.strip().lower()
         if p == kw or (kw in _NUMBERED and re.fullmatch(rf"{re.escape(kw)} \d+", p)):
             out.append(p)
+        elif kw in _COSTED and re.fullmatch(rf"{re.escape(kw)} (?:\{{[^}}]+\}})+", p):  # (wave 15E) "squad {1}{g}": the keyword
+            out.append(kw)
     return out
 
 

@@ -4677,13 +4677,16 @@ def _copy_new_targets(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 @_first
 @effect(r"create (?P<n>a|an|one|two|three|four|five|six|seven|eight|nine|ten|x|X|\d+) (?P<tapped>tapped )?tokens? "
-        r"that(?:'s| are) (?:a )?cop(?:y|ies) of (?P<src>.+?)(?:, except (?P<exc>.+))?")
+        r"that(?:'s| are) (?:a )?cop(?:y|ies) of (?P<src>.+?)(?P<each> for each time (?:it|this creature) was kicked)?"
+        r"(?:, except (?P<exc>.+))?")
 def _token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import copying
 
     found = copying.parse_token_copy(m["n"], bool(m["tapped"]), m["src"], m["exc"])
     if found is None:
         raise _NoMatch
+    if m["each"]:  # -- keywords (wave 15E) -- squad 702.157a: once for each time its cost was paid (702.33d's count)
+        found[0][0]["n"] = {"kicked": 1}
     return found
 
 
