@@ -1545,6 +1545,9 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
         how = "prepared"  # -- prepared (wave 13C) -- 722.3c: its controller may cast the copy in exile
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
     flash = any(g.flash for g in found)
+    if how is None and info is not None and card.zone == zone_key(player, "foretell") and not free and card.owner == player \
+            and _foretell_offers(state, player, card, ch, info):
+        how = "foretell"  # -- hidden exile (wave 18A) -- 702.143a: cast from the foretell exile for the foretell cost (only that way)
     if "aftermath" in ch.keywords:  # -- static_other sweep (wave 16B) -- 702.127a: "can't be cast from any zone other than a graveyard"
         return permissions.Grant("flashback", flash=flash) if how == "flashback" else None
     if how is None and info is not None and card.zone == zone_key(player, "graveyard") and not free \
@@ -1562,6 +1565,13 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
         return None
     best = min(ways, key=lambda g: bool(g.extra))  # (a way with no extra cost to pay first: the cheaper of two permissions)
     return replace(best, flash=flash or best.flash)
+
+
+def _foretell_offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Any]:
+    """-- hidden exile (wave 18A) -- the foretell costs this foretold card can be cast for now (alt_costs.offers: tag "foretell")."""
+    from app.rules import alt_costs
+
+    return alt_costs.offers(state, player, card, ch, info)
 
 
 def _escape_offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Any]:
@@ -1735,7 +1745,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
         grant = cast_grant(state, player, card, ch, info)
-        if grant is not None and grant.how == "escape":  # -- escape (wave 5I) -- only for an escape cost (702.138a)
+        if grant is not None and grant.how in ("escape", "foretell"):  # -- escape (wave 5I) -- only for an escape cost (702.138a)
             if alt_castable(state, player, card, info, check_priority=check_priority):
                 return True
             continue
@@ -1904,11 +1914,18 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         escapes = _escape_offers(plan.state, plan.actor, card, ch, plan.info)
         if escapes:
             a.alt_cost = escapes[0].key
+    foretold = grant is not None and grant.how == "foretell"  # -- hidden exile (wave 18A) -- 702.143a: only for its foretell cost
+    if foretold:
+        fore = _foretell_offers(plan.state, plan.actor, card, ch, plan.info)
+        if a.alt_cost is None and fore:
+            a.alt_cost = fore[0].key
+        if not any(o.key == a.alt_cost for o in fore):
+            raise ActionError(f"{ch.name} can be cast from foretell exile only for its foretell cost (702.143a)")
     escaping = a.alt_cost is not None and card.zone == zone_key(plan.actor, "graveyard") and any(
         o.key == a.alt_cost for o in _escape_offers(plan.state, plan.actor, card, ch, plan.info))
     if grant is not None and grant.how == "escape" and not escaping:
         raise ActionError(f"{ch.name} can be cast from your graveyard only for its escape cost (702.138a)")
-    if a.alt_cost is not None:
+    if a.alt_cost is not None:  # (a foretold card: no other alternative cost, 118.9a)
         if free or alternative is not None or a.face_down or (grant is not None and grant.how == "flashback" and not escaping):
             raise ActionError("Only one alternative cost can be applied to a spell (118.9a)")
         alt_offer = alt_costs.chosen(plan, a.alt_cost, card, ch)
@@ -2037,6 +2054,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else "awaken" if a.awaken else \
         "flashback" if flashback else "free" if free else "escape" if escaping else \
         (alt_offer.tag or "alternative") if alt_offer is not None else None  # ("escape": 702.138b, wave 5I; blitz: 15E)
+    if foretold:
+        plan.rules.foretold.pop(card.id, None)
     if alt_offer is not None:  # -- cost changers (wave 4I) --
         if alt_offer.once_key:
             plan.rules.once_per_turn[alt_offer.once_key] = plan.state.turn.number  # ("once each turn")
@@ -2047,7 +2066,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Aftermath" if "aftermath" in ch.keywords else "Flashback"] if flashback else ["Dashed"] if a.dash else \
-        ["Escaped"] if escaping else []  # (wave 5I)
+        ["Escaped"] if escaping else ["Foretold"] if foretold else []  # (wave 5I)
     if grant is not None and grant.how == "permission":
         permissions.consume(plan, grant)  # (a "once during each of your turns" permission is used up)
         tags.append(f"Cast from {from_where}" + (" without paying its mana cost" if free else ""))
@@ -2291,6 +2310,25 @@ def plot(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
         until="permanent", turn=state.turn.number, after_turn=state.turn.number, sorcery=True,
         label=f"{ch.name}: cast it without paying its mana cost (plotted)"))
     plan.note(f"{ch.name} is plotted", [card.id])
+    plan.rules.passed = []
+
+
+FORETELL = re.compile(r"^foretell (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+
+
+def foretell(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility) -> None:
+    """-- hidden exile (wave 18A) -- 702.143a/b foretell: a special action (116.2h), any time you have priority during your turn:
+    pay {2} and exile this card from your hand face down. Its owner alone may look at it (the foretell zone); it may be cast
+    after this turn has ended for its foretell cost (alt_costs.offers, casting.cast_grant)."""
+    if plan.state.turn.active_player != plan.actor:
+        raise ActionError("You can foretell a card only during your turn (702.143a)")
+    cost = M.parse_cost("{2}")
+    if payment_step(plan, a, cost, f"foretelling {ch.name}", purpose=Purpose(spell=ch)):
+        return
+    pay(plan, plan.actor, cost, "paid {2} to foretell a card", sources=a.sources, purpose=Purpose(spell=ch))
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "foretell"}})
+    plan.rules.foretold[card.id] = plan.state.turn.number
+    plan.note(f"{plan.name(plan.actor)} foretells a card")
     plan.rules.passed = []
 
 
@@ -2637,6 +2675,8 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
             suspend(plan, card, ch, a, *found)
         elif (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is not None and not plan.manual(card):
             plot(plan, card, ch, a, plot_cost)
+        elif keyword_cost(ch, "foretell", FORETELL, a.ability) is not None and not plan.manual(card):
+            foretell(plan, card, ch, a)
         elif (ninja := ninjutsu.cost_of(ch, a.ability)) is not None and not plan.manual(card):
             on_stack = len(plan.state.zones.get(STACK, []))
             activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION)
@@ -3230,7 +3270,8 @@ def resume_mana_ability(plan: Plan, d: Any, chosen: list[str]) -> None:
 # -- responding -------------------------------------------------------------------------
 def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
     """Could ``player`` do anything at instant speed right now? (For Arena-style auto-passing.)"""
-    for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"), zone_key(player, "exile")):
+    for key in (zone_key(player, "hand"), zone_key(player, "command"), zone_key(player, "graveyard"), zone_key(player, "exile"),
+                zone_key(player, "foretell")):
         for cid in state.zones.get(key, []):
             card = state.cards[cid]
             ch = chars.of(card, info)

@@ -174,8 +174,8 @@ def define(t: str) -> dict[str, Any] | None:
 # (702.137a: "You may cast this spell by paying [cost] rather than its mana cost if an opponent lost life this turn."), surge
 # (702.117a: "if you or a teammate has cast another spell this turn" — no teammates in Commander), freerunning
 # (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
-KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None}
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None, "foretell": None}
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|foretell) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
 
 
 def keyword_definition(line: str) -> dict[str, Any] | None:
@@ -186,7 +186,7 @@ def keyword_definition(line: str) -> dict[str, Any] | None:
     cond = KEYWORD_CONDS[kw]
     found = define(f"you may pay {m['cost']} rather than pay ~'s mana cost" + (f" if {cond}" if cond else ""))
     # ("tag": what the cast record says it was cast for; warp: only "from your hand", 702.185a)
-    return {**found, "tag": kw, **({"hand_only": True} if kw == "warp" else {})} if found is not None else None
+    return {**found, "tag": kw, **({"hand_only": True} if kw == "warp" else {})} if found is not None else None  # (foretell 702.143a: only from the foretell zone, see offers())
 
 
 @dataclass(frozen=True)
@@ -220,6 +220,10 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         if d.get("hand_only") and card.zone != f"{player}:hand":
             continue
+        if (d.get("tag") == "foretell") != (card.zone == f"{player}:foretell"):
+            continue  # -- hidden exile (wave 18A) -- 702.143a: a foretold card is cast for its foretell cost only (and it only from there)
+        if d.get("tag") == "foretell" and (card.owner != player or r.foretold.get(card.id, 0) >= state.turn.number):
+            continue  # 702.143a/d: its owner, "after the current turn has ended" (a card put there by hand has no record: any turn)
         if d.get("cond") is not None and not conditions.holds(view, _ctx(state, player, card), d["cond"]):
             continue
         alt = parse_cost(d["cost"])
@@ -227,7 +231,7 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
             out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt, tag=d.get("tag")))
     where = card.zone.rsplit(":", 1)[-1]
     for src, index, d in permissions._table_statics(state, info, {"alt_cost"}):
-        if not d.get("table") or src.controller != player:
+        if not d.get("table") or src.controller != player or where == "foretell":
             continue
         key = f"{src.id}:alt:{index}"
         if d["once"] and r.once_per_turn.get(key) == state.turn.number:
