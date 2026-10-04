@@ -212,7 +212,8 @@ def note_events(plan: Plan, events: list[Any]) -> None:
                 log.facts[-1].source_types, log.facts[-1].source_supertypes = what["types"], what["supertypes"]
             elif kind == "counters_put" and player is not None:
                 log.facts.append(TurnFact(kind="counters", player=player, object_id=info.get("oid"),
-                                          amount=int(info.get("amount") or 0), counter=info.get("counter"), **what))
+                                          amount=int(info.get("amount") or 0), counter=info.get("counter"),
+                                          actor=info.get("actor"), **what))
 
 
 def note_discards(plan: Plan, card_ids: list[str]) -> None:
@@ -403,6 +404,10 @@ def _facts_holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: Tur
         if f.kind != cond["kind"] or (cond.get("counter") and f.counter != cond["counter"]):
             continue
         if sel is not None and not note_matches(sel, f.types, f.subtypes, f.supertypes, (), 0, f.token):
+            continue
+        if cond.get("self") and f.object_id != _source_object(plan, ctx):  # (wave 16D) "a counter was put on ~ this turn"
+            continue
+        if cond.get("by") == "you" and f.actor != ctx["controller"]:  # (wave 16D) "you put a counter on a creature this turn"
             continue
         per[f.player] = per.get(f.player, 0) + 1
     return _per_player(plan, ctx, cond, per)

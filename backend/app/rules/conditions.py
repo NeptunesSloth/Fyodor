@@ -717,6 +717,27 @@ def _counters_put(m: re.Match[str]) -> Condition | None:
     return {"history": "facts", "kind": "counters", "who": "you", "counter": m["counter"], "sel": key, "n": 1}
 
 
+_COUNTER_KINDS = ("+1/+1", "-1/-1", "loyalty", "oil", "lore", "shield", "stun")
+
+
+# -- long tail (wave 16D) -- "if you put a counter on a creature this turn" (the player who put them: the event's actor,
+# 122.6; whoever controls the permanent), "as long as you've put one or more +1/+1 counters on a creature this turn"
+@_history_pattern(r"you(?:'ve| have)? put (?:a|an|one or more) (?:(?P<k>\S+) )?counters? on (?:a|an) (?P<sel>.+?) this turn")
+def _counters_by_you(m: re.Match[str]) -> Condition | None:
+    key = _history_sel(m["sel"], "battlefield")
+    if key is None or (m["k"] is not None and m["k"] not in _COUNTER_KINDS):
+        return None
+    return {"history": "facts", "kind": "counters", "who": "any", "by": "you", "sel": key, "n": 1,
+            **({"counter": m["k"]} if m["k"] else {})}
+
+
+@_history_pattern(r"(?:a|an|one or more) (?:(?P<k>\S+) )?counters? (?:was|were) put on ~ this turn")  # (anyone put it: "if a counter was put on ~")
+def _counters_on_self(m: re.Match[str]) -> Condition | None:
+    if m["k"] is not None and m["k"] not in _COUNTER_KINDS:
+        return None
+    return {"history": "facts", "kind": "counters", "who": "any", "self": True, "n": 1, **({"counter": m["k"]} if m["k"] else {})}
+
+
 @_history_pattern(r"you(?:'ve| have)? committed a crime this turn")
 def _crime(m: re.Match[str]) -> Condition:
     return {"history": "facts", "kind": "crime", "who": "you", "n": 1}  # 700.13

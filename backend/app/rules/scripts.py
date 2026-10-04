@@ -261,7 +261,7 @@ def self_text(text: str, name: str) -> str:
 
     def _own(part: str) -> str:
         for n in names:
-            part = re.sub(rf"\b{re.escape(n)}\b", "~", part)
+            part = re.sub(rf"(?<!\w){re.escape(n)}(?!\w)", "~", part)  # (wave 16D: a name ending in "!" has no \b after it)
         return part
 
     # -- quoted grants (wave 2D) -- inside a quoted ability a name is the card that grants it, not the

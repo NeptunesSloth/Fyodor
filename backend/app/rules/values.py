@@ -50,7 +50,7 @@ if TYPE_CHECKING:
 Value = int | dict[str, Any]
 NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
            "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "twenty": 20}
-AMOUNT = r"(?:\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x|X|that much|that many)"
+AMOUNT = r"(?:twice [xX]|(?:two|three|four) times [xX]|\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|x|X|that much|that many)"
 
 # Counters that carry rules the engine doesn't model yet (122.1b keyword counters, 122.1c shield,
 # 122.1d stun, 122.1h finality, 122.1i rad, 122.1j hone, 714 lore): an effect putting one of these
@@ -76,6 +76,8 @@ def parse_amount(word: str) -> Value | None:
         return NUMBERS[w]
     if w == "x":
         return {"x": 1}
+    if (m := re.fullmatch(r"(?:twice|(two|three|four) times) x", w)) is not None:  # (wave 16D) "twice X", "three times X"
+        return {"times": [NUMBERS[m[1]] if m[1] else 2, {"x": 1}]}
     if w in ("that much", "that many"):
         return {"event_amount": 1}  # the trigger event's amount (TriggerEvent.amount)
     return None
