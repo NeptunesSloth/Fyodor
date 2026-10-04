@@ -930,8 +930,8 @@ def _parse(phrase: str) -> Selector | None:
             return None  # ("token card": no such thing; a token is only ever a permanent, 111.7)
         s = replace(s, token=True)
     if "commander" in markers:
-        if s.card or "spell" in markers:
-            return None  # (a commander card in the command zone / a commander spell: not yet)
+        if s.card:
+            return None  # (a commander card in the command zone: not yet; -- static_other sweep (wave 17C) -- a commander spell is one)
         s = replace(s, commander=True)
     if "perm" in markers and not types and (s.card or "spell" in markers):
         # "permanent card" (110.4a) / "permanent spell" (110.4b): only the permanent types, any of

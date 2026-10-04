@@ -81,6 +81,21 @@ EXTRA = [
          color_identity=["U"], oracle_text="Return target nonland permanent to its owner's hand. If that permanent had mana value 3 or "
          "less, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already "
          "there.)"),
+    card("Flamekin Herald", set_code="tst", number="C23", mana_cost="{2}{R}", cmc=3.0, type_line="Creature — Elemental Wizard",
+         power="3", toughness="2", colors=["R"], color_identity=["R"],
+         oracle_text="Commander spells you cast have cascade. (Whenever you cast a commander, exile cards from the top of your library "
+         "until you exile a nonland card with lesser mana value. You may cast it without paying its mana cost. Put the exiled cards "
+         "on the bottom in a random order.)"),
+    card("Kudo, King Among Bears", set_code="tst", number="C24", mana_cost="{G}{W}", cmc=2.0, type_line="Legendary Creature — Bear",
+         power="2", toughness="2", colors=["G", "W"], color_identity=["G", "W"],
+         oracle_text="Other creatures have base power and toughness 2/2 and are Bears in addition to their other types."),
+    card("Roshan, Hidden Magister", set_code="tst", number="C25", mana_cost="{3}{B}", cmc=4.0,
+         type_line="Legendary Creature — Human Assassin", power="4", toughness="4", colors=["B"], color_identity=["B"],
+         oracle_text="Other creatures you control are Assassins in addition to their other types. The same is true for creature spells "
+         "you control and creature cards you own that aren't on the battlefield.\nFace-down creatures you control have menace.\n"
+         "Whenever a permanent you control is turned face up, you draw a card and you lose 1 life."),
+    card("Test Brute", set_code="tst", number="C26", mana_cost="{4}{G}", cmc=5.0, type_line="Creature — Ogre", power="5", toughness="5",
+         colors=["G"], color_identity=["G"], oracle_text=""),
     card("Hexing Squelcher", set_code="tst", number="C05", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Goblin Sorcerer",
          power="2", toughness="2", colors=["R"], color_identity=["R"],
          oracle_text="This spell can't be countered.\nWard—Pay 2 life.\nSpells you control can't be countered.\nOther creatures you control have \"Ward—Pay 2 life.\""),
@@ -305,4 +320,34 @@ def test_its_controller_investigates(cards):
     answer(s)
     assert s.state.cards[victim.id].zone == "p2:graveyard"
     assert any(c.name == "Clue" and c.controller == "p2" for c in s.state.cards.values())  # 701.16a: the creature's controller
+    roundtrip(s)
+
+
+def test_commander_spells_have_cascade(cards):
+    s = build(cards, p1=("Flamekin Herald",))
+    put(s, "Flamekin Herald", "battlefield")
+    krenko = next(c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Krenko, Mob Boss")
+    mana(s, R=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=krenko.id)
+    text = " ".join(part.t or "" for e in s.state.log for part in e.parts)
+    assert "ascade" in text  # 702.85a: the cascade trigger went on the stack and resolved
+    roundtrip(s)
+
+
+def test_kudo_sets_base_power_and_toughness_and_adds_bear(cards):
+    s = build(cards, p1=("Kudo, King Among Bears", "Test Brute"))
+    put(s, "Kudo, King Among Bears", "battlefield")
+    put(s, "Test Brute", "battlefield")
+    _, ch = _derived(s, "Test Brute")
+    assert ch.pt == (2, 2) and {"Bear", "Ogre"} <= ch.subtypes  # 613.4b, 205.1b: base 2/2, Bear in addition
+    roundtrip(s)
+
+
+def test_roshan_assassins_on_the_battlefield_and_in_hand(cards):
+    s = build(cards, p1=("Roshan, Hidden Magister", "Test Brute", "Test Small"))
+    put(s, "Roshan, Hidden Magister", "battlefield")
+    put(s, "Test Brute", "battlefield")
+    put(s, "Test Small", "hand")
+    assert "Assassin" in _derived(s, "Test Brute")[1].subtypes and "Assassin" in _derived(s, "Test Small")[1].subtypes
+    assert "Assassin" in _derived(s, "Roshan, Hidden Magister")[1].subtypes  # (a printed Assassin, whatever "other" says)
     roundtrip(s)

@@ -39,20 +39,24 @@ _ARE_LANDS = re.compile(rf"^(?P<s>(?:Nontoken )?creatures you control) are (?P<t
 # artifact: You gain 3 life."" (Ragost) / "Other creatures are Food artifacts in addition to their other types and have "..."" (Ygra) /
 # "Nontoken artifacts you control are lands in addition to their other types." (Toph): the same layer-4 addition (613.1d, 205.1b) for any
 # group on the battlefield, the types lower case plural ("artifacts") and the subtypes capitalised ("Foods"), then layer 6 grants
-_ARE_ALSO = re.compile(r"^(?P<during>During your turn, )?(?P<s>[A-Za-z' ]+?) are (?P<what>[A-Za-z ]+?) in addition to their other types(?: and have (?P<q>\"[^\"]+\")|\.)$")
+_ARE_ALSO = re.compile(r"^(?P<during>During your turn, )?(?P<s>[A-Za-z' ]+?)(?: have base power and toughness (?P<p>\d+)/(?P<t>\d+) and)? are "
+                       r"(?P<what>[A-Za-z ]+?) in addition to their other (?:creature )?types"
+                       r"(?: and have (?P<q>\"[^\"]+\")|\.(?P<same> The same is true for creature spells you control and creature cards you own "
+                       r"that aren't on the battlefield\.)?)$")  # (Kudo, Graaz: base P/T, 7b; Roshan: the Maskwood sentence)
 _TYPE_WORDS = {"artifacts": "Artifact", "creatures": "Creature", "enchantments": "Enchantment", "lands": "Land"}
 MASKWOOD = ("Creatures you control are every creature type. The same is true for creature spells you control and "
             "creature cards you own that aren't on the battlefield.")
 
 
-def _definition(subject: str, layer4: dict[str, Any], *, everywhere: bool = False, during: bool = False) -> dict[str, Any] | None:
+def _definition(subject: str, layer4: dict[str, Any], *, everywhere: bool = False, during: bool = False,
+                base: list[int] | None = None) -> dict[str, Any] | None:
     from app.rules import selectors
     from app.rules.statics import _definition as grant
 
-    sel = selectors.parse(subject[0].lower() + subject[1:])
+    sel = selectors.parse(re.sub(r"^All ", "", subject)[0].lower() + re.sub(r"^All ", "", subject)[1:])  # (wave 17C: "All permanents")
     if sel is None or sel.player is not None or sel.zones != ("battlefield",):
         return None
-    out = {**grant(sel.key(), None, [{"static": "your_turn"}] if during else []), "layer4": layer4, "group_layer4": True}
+    out = {**grant(sel.key(), None, [{"static": "your_turn"}] if during else [], base=base), "layer4": layer4, "group_layer4": True}
     if everywhere:
         out["everywhere"] = True
     return out
@@ -93,7 +97,10 @@ def _also(m: re.Match[str]) -> dict[str, Any] | None:
             return None
     if not types and not subtypes:
         return None
-    d = _definition(m["s"], {"add_types": types, "add_subtypes": subtypes}, during=bool(m["during"]))
+    if m["same"] and (m["s"] not in ("Creatures you control", "Other creatures you control") or m["p"]):
+        return None  # ("The same is true for creature spells …": the creature spells and cards of the same group, as Maskwood Nexus does)
+    d = _definition(m["s"], {"add_types": types, "add_subtypes": subtypes}, during=bool(m["during"]), everywhere=bool(m["same"]),
+                    base=[int(m["p"]), int(m["t"])] if m["p"] else None)
     if d is not None and m["q"]:
         text = m["q"][1:-1]
         if granted_ability(text) is None:
