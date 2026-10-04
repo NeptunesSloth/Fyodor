@@ -1477,6 +1477,26 @@ def face_up_ways(card: CardInstance, printed: Characteristics) -> dict[str, tupl
     return {w: v for w, v in ways.items() if "{X}" not in v[0]}
 
 
+def turned_up(plan: Plan, card: CardInstance) -> None:
+    """-- hidden exile (wave 18A) -- the permanent was just turned face up (by the special action or by an effect): its "When ~ is
+    turned face up" and the table's "Whenever a permanent you control is turned face up" abilities trigger (702.37e: not
+    "enters" abilities, 708.8)."""
+    emit(plan.state, "turned_face_up", object_id=plan.oid(card), card=card.id, player=card.controller)
+    from app.rules import triggers  # (triggers imports this module)
+
+    face_up = plan.ch(plan.state.cards[card.id])
+    if not plan.manual(card):  # "When ~ is turned face up, …"
+        for i, d in triggers.abilities(plan, face_up, "turned_face_up_self"):
+            triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card),
+                          name=face_up.name, index=i, definition=d)
+    for other in list(plan.state.cards.values()):  # "Whenever a permanent you control is turned face up, …"
+        if other.zone == card.zone and other.controller == card.controller and not other.face_down and not plan.manual(other):
+            och = plan.ch(other)
+            for i, d in triggers.abilities(plan, och, "turned_face_up_you"):
+                triggers._add(plan, controller=other.controller, source_card=other.id, source_object=plan.oid(other),
+                              name=och.name, index=i, definition=d)
+
+
 def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
     """702.37e / 702.168d / 701.40b / 701.58b: a special action any time you have priority (it
     doesn't use the stack): show the cost, pay it, turn the permanent face up (708.8: no "enters"
@@ -1503,20 +1523,7 @@ def turn_face_up(plan: Plan, a: A.TurnFaceUp) -> None:
         pay(plan, plan.actor, cost, f"paid {cost.text()} to turn {printed.name} face up", sources=a.sources,
             purpose=Purpose(ability_of=printed))
     plan.do({"type": "face_down", "card_ids": [card.id], "face_down": False})
-    emit(plan.state, "turned_face_up", object_id=plan.oid(card), card=card.id, player=plan.actor)
-    from app.rules import triggers  # (triggers imports this module)
-
-    face_up = plan.ch(plan.state.cards[card.id])
-    if not plan.manual(card):  # "When ~ is turned face up, …" (702.37e: not "enters" abilities, 708.8)
-        for i, d in triggers.abilities(plan, face_up, "turned_face_up_self"):
-            triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card),
-                          name=face_up.name, index=i, definition=d)
-    for other in list(plan.state.cards.values()):  # "Whenever a permanent you control is turned face up, …"
-        if other.zone == card.zone and other.controller == card.controller and not other.face_down and not plan.manual(other):
-            och = plan.ch(other)
-            for i, d in triggers.abilities(plan, och, "turned_face_up_you"):
-                triggers._add(plan, controller=other.controller, source_card=other.id, source_object=plan.oid(other),
-                              name=och.name, index=i, definition=d)
+    turned_up(plan, card)
     plan.rules.passed = []
     if kind == "megamorph":  # 702.37b, 708.11: the counter is put on as it's turned face up (the counter choke point)
         from app.rules import replace as replace_effects

@@ -2923,6 +2923,20 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         found = _manifest_forms(text)
         if found is not None:
             return found
+    m = re.fullmatch(r"turn (?P<o>.+) face (?P<d>up|down)", text)  # -- hidden exile (wave 18A) -- 701.40g / 708.2a / 708.8
+    if m and has_primitive("turn_face_up"):
+        up = m["d"] == "up"
+        choose = re.fullmatch(r"an? (face-down (?:creature|permanent|artifact|enchantment|land)) you control", m["o"]) if up else None
+        if choose:
+            sel = selectors.parse(f"{choose[1]} you control")
+            return ([{"do": "turn_face_up", "choose": sel.key()}], None) if sel is not None else None
+        try:
+            kind, key, group = ref("this permanent" if re.fullmatch(r"this (?:enchantment|artifact|land)", m["o"]) else m["o"])
+        except _Fail:
+            return None
+        if kind not in ("target", "self", "it", "them", "host") or (kind == "target" and not on_battlefield_only(key)):
+            return None
+        return [{"do": "turn_face_up" if up else "turn_face_down", "who": _who(kind, key)}], _one(group)
     m = re.fullmatch(r"(?:you )?incubate (?P<n>\d+|[xX])", text)
     if m and has_primitive("incubate"):  # 701.53a
         return [{"do": "incubate", "n": _amount(m["n"])}], None

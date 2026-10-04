@@ -21,7 +21,7 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption
 from app.game.state import CardInstance, zone_key
-from app.rules import effects
+from app.rules import effects, selectors
 from app.rules.plan import Plan, decide
 
 Context = dict[str, Any]
@@ -123,5 +123,66 @@ def resume_manifest_dread(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
-PRIMITIVES: dict[str, Any] = {"manifest": manifest}
-RESUME: dict[str, Any] = {"manifest_dread": resume_manifest_dread}
+def _turn_up(plan: Plan, card_id: str, actor: str) -> bool:
+    """Turn one face-down permanent face up by an effect (701.40g / 701.58g: a manifested or cloaked instant or sorcery card is
+    revealed and stays face down, and nothing triggers; 708.8: the rest as for the special action)."""
+    from app.rules import casting
+    from app.rules import characteristics as chars
+
+    card = plan.state.cards.get(card_id)
+    if card is None or not card.face_down or not card.zone.endswith(":battlefield"):
+        return False
+    printed = chars.of(card.model_copy(update={"face_down": False}), plan.info)
+    if card.face_down_kind in ("manifest", "cloak") and printed.is_instant_or_sorcery:
+        plan.do({"type": "reveal", "card_ids": [card_id]}, actor=actor)
+        plan.do({"type": "hide", "card_ids": [card_id]}, actor=actor)
+        return False
+    plan.do({"type": "face_down", "card_ids": [card_id], "face_down": False}, actor=actor)
+    casting.turned_up(plan, card)
+    return True
+
+
+def turn_face_up(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Turn target face-down creature face up", "you may turn a face-down creature you control face up" (``choose``: the
+    selector; its controller picks one, privately): no cost is paid (it isn't the special action of 116.2b)."""
+    pid = ctx["controller"]
+    if e.get("choose"):
+        mine = [c for c in selectors.candidates(plan, selectors.from_key(e["choose"]), pid, ctx.get("source_card"))
+                if plan.state.cards[c].controller == pid and plan.state.cards[c].face_down
+                and plan.state.cards[c].zone.endswith(":battlefield")]
+        if not mine:
+            return True
+        decide(plan, player=pid, kind="choose_cards", prompt="Turn a face-down permanent face up",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Face-down permanent", card_id=c) for c in mine],
+               min_choices=0 if e.get("optional") else 1, max_choices=1, resume={"step": "turn_face_up", "ctx": ctx, "e": e})
+        return False
+    cards = effects._cards(plan, ctx, e["who"])
+    done = [c for c in cards if _turn_up(plan, c, pid)]
+    for c in done:
+        plan.note(f"{plan.name(pid)} turns {plan.state.cards[c].name} face up")
+    effects._remember(plan, ctx, e, done)
+    return True
+
+
+def resume_turn_face_up(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx = d.resume["ctx"]
+    for c in chosen:
+        if _turn_up(plan, c, d.player):
+            plan.note(f"{plan.name(d.player)} turns {plan.state.cards[c].name} face up")
+    effects.continue_effects(plan, ctx)
+
+
+def turn_face_down(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Turn target creature face down", "turn this creature face down": a face-up permanent becomes a 2/2 face-down creature with
+    no text, name, subtypes or mana cost (708.2a); a face-down permanent can't be turned face down (708.2b)."""
+    pid = ctx["controller"]
+    cards = [c for c in effects._cards(plan, ctx, e["who"])
+             if plan.state.cards[c].zone.endswith(":battlefield") and not plan.state.cards[c].face_down]
+    if cards:
+        plan.do({"type": "face_down", "card_ids": cards, "face_down": True, "kind": "generic"}, actor=pid)
+    effects._remember(plan, ctx, e, cards)
+    return True
+
+
+PRIMITIVES: dict[str, Any] = {"manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down}
+RESUME: dict[str, Any] = {"manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up}
