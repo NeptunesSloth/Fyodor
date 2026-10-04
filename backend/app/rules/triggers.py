@@ -409,6 +409,14 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         return [("counters_put", got[0], got[1], got[0].controller,
                  {"oid": e.object_id, "counter": e.counter, "amount": e.amount, "actor": e.actor, "group": e.group,  # (5H, 7C)
                   "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or "")})]
+    if e.kind == "counters" and e.amount < 0:  # -- keywords (wave 15E) -- 122.6: counters removed from a permanent ("the last time
+        got = _object_then(plan, e.card, e.object_id)  # counter is removed", vanishing 702.63a); ``last``: none of that kind left
+        if got is None:
+            return []
+        return [("counters_removed", got[0], got[1], got[0].controller,
+                 {"oid": e.object_id, "counter": e.counter, "amount": -e.amount, "actor": e.actor,
+                  "last": got[0].counters.get(e.counter or "", 0) == 0,
+                  "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or "")})]
     if e.kind == "damage":
         return _damage_facts(plan, e)
     if e.kind == "player_counters" and e.amount > 0 and e.player:  # -- counters & designations (wave 3E): 122.6 a player got counters --
@@ -616,7 +624,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         # attacked (508.3d, 508.3e): each reads only its own fact
         if event == "you_attack" and bool(want) != ("defended" in info):
             return False
-        if want and not _defender_ok(want, watcher, info):
+        if want and not _defender_ok(want, watcher, info, plan):
             return False
         if cond.get("first_each_turn") and not info.get("first"):
             return False
@@ -682,6 +690,9 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
         return False
+    if event == "counters_removed" and ((cond.get("counter") and info.get("counter") != cond["counter"])
+                                        or (cond.get("last") and not info.get("last"))):  # (wave 15E)
+        return False
     if event == "leave" and cond.get("dest") and _zone(info.get("to")) != cond["dest"]:  # -- trigger tail (wave 15B) -- "put into exile"
         return False
     if event == "explore" and cond.get("kind") and info.get("revealed") != (1 if cond["kind"] == "land" else 2):
@@ -723,7 +734,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     return True
 
 
-def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any]) -> bool:
+def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: Plan | None = None) -> bool:
     """Whom the attack was declared against (508.3a, 508.3e, 508.6): ``defended`` is the defending
     player (a planeswalker's controller), ``direct`` whether it was that player (not a planeswalker)."""
     defended, you = info.get("defended"), watcher.controller
@@ -739,6 +750,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any]) -> bool
         return defended != you
     if want == "enchanted_player":
         return defended == watcher.attached_player
+    if want == "most_life":  # -- keywords (wave 15E) -- 702.105a: the player attacked has the most life or is tied for it
+        return plan is not None and plan.state.players[defended].life >= max(plan.state.players[p].life for p in plan.live())
     return want == "player"
 
 
@@ -1266,13 +1279,16 @@ def echo_cost(ch: Any) -> str | None:
 
 
 CUMULATIVE = re.compile(r"^cumulative upkeep (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+# -- keywords (wave 15E) -- "Cumulative upkeep—Pay 2 life.": N times 2 life for N age counters (702.24a)
+CUMULATIVE_LIFE = re.compile(r"^cumulative upkeep—pay (?P<n>\d+) life$", re.IGNORECASE)
 
 
 def cumulative_cost(ch: Any) -> str | None:
     for ab in ch.abilities:
         if ab.kind == "keywords" and "cumulative upkeep" in ab.keywords:
-            m = CUMULATIVE.fullmatch(ab.text.strip().rstrip("."))
-            return m["cost"] if m else None
+            m = CUMULATIVE.fullmatch(re.sub(r"\s*\(.*?\)", "", ab.text).strip().rstrip("."))
+            life = CUMULATIVE_LIFE.fullmatch(re.sub(r"\s*\(.*?\)", "", ab.text).strip().rstrip("."))
+            return m["cost"] if m else f"life:{life['n']}" if life else None
     return None
 
 
@@ -1289,7 +1305,11 @@ def _cumulative_upkeep(plan: Plan) -> None:
         _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
              index=5100, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
                                      "effects": [{"do": "add_counters", "who": "self", "kind": "age", "n": 1},
-                                                 {"do": "pay_or_sacrifice", "cost": cost, "per": "age"}]})
+                                                 *([{"do": "optional_payment", "who": "you", "cost": "", "bind": "pay0",
+                                                     "life_x": {"times": [int(cost[5:]), {"counters": "age", "on": "self"}]}},
+                                                    {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
+                                                    {"do": "sacrifice", "who": "self"}] if cost.startswith("life:") else
+                                                   [{"do": "pay_or_sacrifice", "cost": cost, "per": "age"}])]})
 
 
 def _rebound(plan: Plan) -> None:
@@ -1349,6 +1369,23 @@ def _keyword_n(ch: Any, word: str) -> list[int]:
 
 
 WARD = re.compile(r"^ward (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+# -- keywords (wave 15E) -- "Ward—Pay 3 life." / "Ward—Sacrifice a creature." / "Ward—Discard a card." (702.21a: counter it unless that
+# player pays that cost): any cost the optional payment engine pays (app/rules/optional_payment.py)
+WARD_COST = re.compile(r"^ward—(?P<cost>[^.]+?)\.?$", re.IGNORECASE)
+
+
+def ward_piece_cost(piece: str) -> str | None:
+    """The cost of one ward piece: its mana ("{2}") or the non-mana cost text ("Pay 3 life"), or None when not read."""
+    from app.rules import optional_payment
+
+    m = WARD.fullmatch(piece)
+    if m:
+        return m["cost"]
+    m = WARD_COST.fullmatch(piece.strip())
+    if m is None:
+        return None
+    phrase = m["cost"].strip()
+    return optional_payment.cost_text(phrase[:1].lower() + phrase[1:])
 
 
 def ward_cost(ch: Any) -> str | None:
@@ -1365,9 +1402,9 @@ def ward_costs(ch: Any) -> list[str]:
             # -- static wordings (wave 6E) -- a keyword line listing several keywords ("Flying, ward {2}"): each piece
             # is its own keyword ability (702.1), the ward piece triggers as any other (702.21a)
             for piece in ward_pieces(ab.text):
-                m = WARD.fullmatch(piece)
-                if m:
-                    out.append(m["cost"])
+                cost = ward_piece_cost(piece)
+                if cost is not None:
+                    out.append(cost)
     return out
 
 
@@ -1408,9 +1445,14 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
             continue
         ch = plan.ch(card)
         for k, cost in enumerate(ward_costs(ch)):  # -- attached events (wave 4L) -- each instance (702.21a)
+            effects: list[dict[str, Any]] = [{"do": "counter_unless", "cost": cost, "object": stack_id}]
+            if not cost.startswith("{"):  # (wave 15E) a non-mana ward cost: the targeting player may pay it, else it's countered
+                effects = [{"do": "optional_payment", "who": f"player:{controller}", "cost": cost, "bind": "pay0"},
+                           {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
+                           {"do": "counter", "object": stack_id}]
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=9000 + k, definition={"kind": "triggered", "trigger": "ward", "optional": False, "target": None,
-                                         "effects": [{"do": "counter_unless", "cost": cost, "object": stack_id}]})
+                                         "effects": effects})
 
 
 def activated(plan: Plan, card: CardInstance, oid: str, *, loyalty: bool = False) -> None:
