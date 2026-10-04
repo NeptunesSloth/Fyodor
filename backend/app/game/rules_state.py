@@ -343,6 +343,7 @@ class Event(BaseModel):
     manual: bool = False  # caused by a sandbox action, not by the rules engine
     # -- counters (wave 5H) -- counters put on an object: the player who put them (the step's actor: 122.6, 122.6a)
     actor: str | None = None
+    looked: int = 0  # -- scry counts (wave 19C) -- a scry / surveil: how many cards it looked at (701.22d: fewer than N with a short library)
     group: int = 0  # -- counters (wave 7C) -- counters one instruction put in several steps share it (122.6); 0: alone
 
 

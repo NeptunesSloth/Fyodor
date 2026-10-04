@@ -87,7 +87,9 @@ PERMISSION = re.compile(
     r"^(?P<once>once during each of your turns, )?you may "
     r"(?P<what>play lands and cast spells|play lands|cast spells|play a land|"
     r"cast (?:a |an )?(?P<sel>[a-z][a-z' ,-]*?) spells?(?P<qual> with mana value \d+ or less)?|cast (?:this card|~))"
-    r" from (?P<zone>your graveyard|the top of your library)$")
+    r" from (?P<zone>your graveyard|the top of your library)"
+    # -- cast from graveyard (wave 19C) -- 614.1a: "If a spell cast this way would be put into your graveyard, exile it instead."
+    r"(?:\. If (?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead)?$")
 SELF_GY_BY = re.compile(r"^you may cast (?:this card|~) from your graveyard by (?P<cost>.+) in addition to paying its other costs"
                         r"(?P<exile>\. Then exile this card)?$")  # (-- casting extras (wave 18E) -- jump-start 702.133a: exiled as it leaves the stack)
 # -- keyword grants (wave 17C) -- 702.81a: "Instant and sorcery cards in your graveyard have retrace." / "During your turn, nonland
@@ -477,7 +479,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         if what is None:
             return None
         zone = "graveyard" if m["zone"] == "your graveyard" else "library_top"
-        if what.get("self") and zone != "graveyard":
+        if (what.get("self") and zone != "graveyard") or (m["exile"] and (zone != "graveyard" or what.get("self"))):
             return None
         if zone == "library_top" and not any(_lower_first(x.strip().rstrip(".")) in (TOP_REVEAL, TOP_LOOK) for x in lines):
             # The engine offers a cast from the top of the library only when the player can see
@@ -486,7 +488,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "permission", "zone": zone, "once": bool(m["once"]), "flash": False,
                 "self": bool(what.get("self")), "play": what["play"], "cast": what["cast"], "filter": what["filter"],
-                "effects": []}
+                "effects": [], **({"exile_gy": "is" if m["exile"] == "an instant or sorcery" else "all"} if m["exile"] else {})}
     m = FLASH.fullmatch(t)
     if m:
         key = spell_filter(m["sel"]) if m["sel"] else None
@@ -673,6 +675,7 @@ class Grant:
     once_key: str | None = None  # a static "once during each of your turns" ability's key
     sorcery: bool = False  # -- keywords (wave 15E) -- plot 702.170d: only in your main phase with an empty stack, whatever it is
     extra: str = ""  # -- cost alt (wave 16F) -- an additional cost the permission names ("discard a card"), paid with the rest (601.2b)
+    exile_gy: str = ""  # -- cast from graveyard (wave 19C) -- 614.1a: "all" | "is" (instants and sorceries only): "If a spell cast this way would be put into your graveyard, exile it instead"
     exile: bool = False  # -- casting extras (wave 18E) -- jump-start 702.133a: exile the card instead of putting it anywhere else as it leaves the stack
 
 
@@ -808,7 +811,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if d["once"] and (r.once_per_turn.get(key) == turn or (state.turn.active_player != player and not d.get("once_any"))):
             continue  # "once during each of your turns" ("once each turn": any turn, wave 5I)
         out.append(Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")),
-                         once_key=key if d["once"] else None, extra=d.get("extra") or ""))
+                         once_key=key if d["once"] else None, extra=d.get("extra") or "", exile_gy=d.get("exile_gy", "")))
     # -- top of library (wave 5I) -- the player picks the permission they use (601.3): a once-each-turn one is offered
     # last, so a cast another permission also allows doesn't use it up
     out.sort(key=lambda g: g.once_key is not None)
@@ -1276,8 +1279,8 @@ def free_cast_done(plan: Plan, card_id: str, *, cast: bool) -> None:
         effects.continue_effects(plan, ctx)
         return
     ctx.setdefault("free_cast_done", []).append(card_id)
-    if e.get("exile_gy"):  # "If that spell would be put into your graveyard, exile it instead" (614.1a)
-        r.exile_if_graveyard.append(plan.oid(card_id))
+    if e.get("exile_gy") and (e["exile_gy"] is True or plan.ch(plan.state.cards[card_id]).is_instant_or_sorcery):
+        r.exile_if_graveyard.append(plan.oid(card_id))  # "If that spell would be put into your graveyard, exile it instead" (614.1a; wave 19C: "an instant or sorcery spell" only)
     if int(e.get("n", 1)) > 1 and not free_cast(plan, ctx, e):
         return  # the next one is being chosen
     _free_cast_over(ctx, e)

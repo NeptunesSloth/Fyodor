@@ -124,6 +124,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"(?P<p>you) choose a creature as your ring-bearer", re.IGNORECASE), "ring_bearer"),
     (re.compile(r"(?P<p>you) complete a dungeon"), "complete_dungeon"),
     (re.compile(r"(?P<p>you) proliferate"), "proliferate"),  # -- trigger tail (wave 15B) -- 701.34a
+    (re.compile(r"a spell or ability (?P<p>you) control counters a spell"), "counters_spell"),  # -- counter events (wave 19C) -- 701.6a
     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
 ]
@@ -801,10 +802,11 @@ def _object_event(c: str) -> Condition | None:
             raise _Refuse
         return {**base, "event": "counters_put", "counter": m["k"]}
     # "one or more creature cards leave your graveyard", "a card leaves your graveyard"
-    m = re.fullmatch(r"(?P<o>(?:one or more|an?) .+?) leaves? your graveyard", c)
+    m = re.fullmatch(r"(?P<o>(?:one or more|an?) .+?) leaves? (?:your|an opponent's) graveyard", c)  # (wave 19C: an opponent's)
     if m:
         sel = selectors.from_key(_object_sel(m["o"], card=True))
-        return {"event": "leave_graveyard", "subject": "sel", "sel": selectors.replace(sel, zone_owner="you").key(),
+        return {"event": "leave_graveyard", "subject": "sel",
+                "sel": selectors.replace(sel, zone_owner="opponent" if c.endswith("an opponent's graveyard") else "you").key(),
                 "aggregate": m["o"].startswith("one or more ")}
     # "~ becomes the target of a spell or ability an opponent controls [for the first time each turn]"
     m = re.fullmatch(r"(?P<s>.+?) becomes the target of (?P<what>a spell or ability|a spell)"

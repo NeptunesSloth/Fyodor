@@ -471,7 +471,8 @@ def test_cost_modifier_wordings(text, expected):
 
 @pytest.mark.parametrize("text", [
     # each of these means something the engine doesn't model: refused, never guessed
-    "Once during each of your turns, you may cast an instant or sorcery spell from your graveyard. If a spell cast this way would be put into your graveyard, exile it instead.",
+    # (wave 19C: "Once during each of your turns, you may cast an instant or sorcery spell from your graveyard. If a spell cast this
+    # way would be put into your graveyard, exile it instead." is read now: Kess, tests/test_rules_wave19c_ifyoudo.py)
     # (wave 4I: "from anywhere other than your hand" and "for each creature in your party" are read now: cost_changes.py)
     "During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard.",
     # (wave 4I: "The first creature spell you cast each turn costs {1} less" is read now: cost_changes.ORDINAL)

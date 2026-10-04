@@ -106,7 +106,9 @@ TRIGGERS = [
     (re.compile(r"^When you cast this spell, (?P<body>.+)$"), "cast_self"),
     # -- state triggers (wave 6D) -- "When you control no Islands, …" (603.8: app/rules/state_triggers.py)
     (re.compile(r"^When (?P<state>you control (?:no|a|an|\w+ or more) [^,]+|there are no [^,]+ on the battlefield|"
-                r"you have \w+ or (?:more|less) life), (?P<body>.+)$"), "state"),
+                r"you have \w+ or (?:more|less) life|"
+                r"(?:~|this [a-z]+) has (?:no|\w+ or more) [^,]+ counters on it|there are \w+ or more [^,]+ counters on (?:~|this [a-z]+)), "  # -- state triggers (wave 19C) -- its own counters
+                r"(?P<body>.+)$"), "state"),
     # Anything else "When/Whenever [subject] [event], …": the generic condition grammar (app/rules/events.py)
     (re.compile(r"^(?:When|Whenever) (?P<cond>[^,]+), (?P<body>.+)$"), "event"),
 ]
@@ -273,6 +275,8 @@ def self_text(text: str, name: str) -> str:
 
     parts = out.split('"')
     out = '"'.join(own(p) if i % 2 == 0 else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
+    out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
+    out = re.sub(r"(\bto the battlefield) and (attach this (?:Equipment|Aura) to it\b)", lambda m: f"{m[1]}. {m[2][0].upper()}{m[2][1:]}", out)  # (wave 19C: Nim Deathmantle: two instructions in order)
     return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
 
 
@@ -348,6 +352,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
         return "self" if event in _STAYING or event is None else None
     if name in ("enters_other", "landfall"):
         return "event"
+    if name == "state":
+        return "self"  # -- state triggers (wave 19C) -- "When ~ has no ice counters on it, sacrifice it": the permanent itself (603.8)
     subject = cond.get("subject")
     if subject == "player" and event == "cast":
         return "event_spell"  # -- sized amounts (wave 3D) -- "that spell's mana value": read from the spell, never "it"
@@ -1481,7 +1487,7 @@ def _pump_their_team(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
 
 # -- untap restrictions (wave 13E) -- "Tap all creatures target player controls." (Sleep, Kiora Bests the Sea God): the
 # permanents that player controls as it resolves (608.2c)
-@effect(r"(?P<v>tap|untap) all (?P<what>creatures|nonland permanents|lands|artifacts|permanents) target (?P<pl>player|opponent) controls")
+@effect(r"(?P<v>tap|untap|destroy|exile) all (?P<what>creatures|nonland permanents|lands|artifacts|permanents) target (?P<pl>player|opponent) controls")  # (wave 19C: destroy, exile)
 def _tap_their_all(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     from app.rules import selectors
 
@@ -2228,8 +2234,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if graveyard_grants.cost_sentence(text, effects[prev_start:]):
             continue
         # -- end refused grants/replacements (wave 3R2) --
-        if _FREE_EXILE_GY.fullmatch(text) and effects and effects[-1]["do"] == "free_cast":
-            effects[-1] = {**effects[-1], "exile_gy": True}  # -- refused look/cast-free (wave 3R5) -- 614.1a, on the spell cast
+        if (exile_gy := _FREE_EXILE_GY.fullmatch(text)) and effects and effects[-1]["do"] == "free_cast":
+            effects[-1] = {**effects[-1], "exile_gy": "is" if exile_gy["is"] else True}  # -- refused look/cast-free (wave 3R5) -- 614.1a, on the spell cast
             continue
         if text.startswith("if you do, you may cast the cop") and effects and effects[-1]["do"] == "copy_cards":
             text = text[len("if you do, "):]  # -- copied abilities (wave 18F) -- "You may copy the exiled card. If you do, …": the first sentence's "may"
@@ -2282,7 +2288,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:
             effects.append(paid)
             continue
-        if text.startswith("when you do, "):  # -- refused modal/conditional (wave 3R1) -- a reflexive trigger (603.12)
+        if text.startswith("when you do, ") or _REFLEX_DISCARD.match(text):  # -- refused modal/conditional (wave 3R1) -- a reflexive trigger (603.12)
             reflex = _reflexive(" ".join(texts[i:]), effects, prev_start, optional, it)
             if reflex is None:
                 return None
@@ -2598,8 +2604,8 @@ def _own_choice(parsed: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[
 
 _KICKED = re.compile(r"^if (?:this spell|it|~) was kicked, (?P<instead1>instead )?(?P<rest>.+?)(?P<instead2> instead)?$")
 # -- refused look/cast-free (wave 3R5) -- after a free cast: a replacement effect on the spell cast (614.1a)
-_FREE_EXILE_GY = re.compile(r"^if (?:that spell|that card|a spell cast this way) would be put into (?:your|a) graveyard, "
-                            r"exile it instead$")
+_FREE_EXILE_GY = re.compile(r"^if (?:that spell|that card|a spell cast this way|(?P<is>an instant or sorcery) spell cast this way) "  # (wave 19C: "is")
+                            r"would be put into (?:your|a) graveyard, exile it instead$")
 # -- refused look/cast-free (wave 3R5) -- 700.3: piles of the cards just revealed (public: 701.20a)
 _PILES_THEY = re.compile(r"^an opponent separates (?:those|the revealed|these) cards into two piles$")
 _PILES_YOU = re.compile(r"^(?P<reveal>reveal the top .+? of your library) and separate them into two piles$")
@@ -3196,6 +3202,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if granted is not None:
             return granted
     if ability.kind == "triggered":
+        text = re.sub(r"^((?:When|Whenever) [^,]+?) while this card is in your graveyard, ", r"\1, if this card is in your graveyard, ", text)  # (wave 19C)
         for pattern, trigger in TRIGGERS:
             m = pattern.match(text)
             if m and trigger == "event":  # -- triggers (wave 5D) -- a condition with commas in it ("an Aura, Equipment,
@@ -3344,6 +3351,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     # ability doesn't trigger, or does nothing as it resolves
                     intervening = effects[0]["cond"]
                     effects = [{**effects[0], "skip": len(effects) - 1}, *effects[1:]]
+                    if intervening == {"object": "self", "test": "in_graveyard"}:  # -- graveyard triggers (wave 19C) -- "it" is the card there
+                        effects = [{**e, "who": "self_gy"} if e.get("who") == "self" else e for e in effects]
                 # (-- intervening ifs (wave 11F) -- a step, or an event about a player, has no other object: "another" is
                 # "other than ~", 603.4)
                 alone = _trigger_antecedent(name, cond) is None and (cond is None or cond.get("subject") == "player")
@@ -3356,6 +3365,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                     out["cond"] = cond
                 if intervening is not None:
                     out["if"] = intervening
+                    if intervening == {"object": "self", "test": "in_graveyard"}:
+                        out["gy_watch"] = True  # -- graveyard triggers (wave 19C) -- it sees the events that come after the card is there
                 if kicked is not None:
                     out["if_kicked"] = True
                 if limit is not None:
@@ -3455,7 +3466,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # tokens created … the number of them (603.2c)
 _AMOUNT_EVENTS = {"gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
-                  "player_counters", "mill", "attack"}  # (player_counters: wave 3E, "you get that many {E}")
+                  "player_counters", "mill", "attack", "scry"}  # (player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
@@ -5155,6 +5166,10 @@ def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any
     return (name, found) if name is not None else None
 
 
+# -- reflexive discards (wave 19C) -- "Draw a card, then discard a card. When you discard a creature card this way, …" (603.12)
+_REFLEX_DISCARD = re.compile(r"^when you discard (?P<w>a card|a nonland card|a creature card) this way, ", re.I)
+
+
 def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, optional: bool,
                it: str | None = None) -> dict[str, Any] | None:
     """"[A]. When you do, [B]." (603.12): a reflexive triggered ability that triggers if A was done — a "you may
@@ -5162,6 +5177,18 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     and whose B (everything to the end of the ability) is put on the stack afterwards with its own targets and
     "you may" (603.3c-d). B is read alone: a pronoun in it naming what A did ("that creature's power") isn't read."""
     base = effects[prev_start:]
+    if (disc := _REFLEX_DISCARD.match(rest)) is not None:  # -- reflexive discards (wave 19C) -- the discard just before, counted "this way"
+        last = base[-1] if base else None
+        cond_d = this_way.condition(f"{disc['w']} was discarded this way")
+        tail = rest[disc.end():]
+        if last is None or last["do"] != "discard" or last.get("who") not in (None, "you") or last.get("n") != 1 \
+                or any(last.get(k) for k in ("all", "random", "upto", "to", "zone")) or cond_d is None:
+            return None
+        parsed_d = parse_effects(tail[:1].upper() + tail[1:], "self" if it == "self" else None)
+        if parsed_d is None or not parsed_d[0]:
+            return None
+        return {"do": "reflexive", "cond": cond_d, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": parsed_d[0],
+                                                             "optional": parsed_d[2], **target_fields(parsed_d[1])}}
     if len(base) == 1 and base[0]["do"] == "optional_payment" and base[0].get("bind"):
         cond: dict[str, Any] = {"succeeded": base[0]["bind"]}
     elif not optional and (name := _probe_previous(effects, prev_start)) is not None:
