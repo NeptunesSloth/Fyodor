@@ -191,12 +191,19 @@ def _new_ref(card_id: str, new_oid: str | None, to_zone: str | None) -> list[Obj
     return [ObjectRef(card=card_id, object_id=new_oid, zone=to_zone)]
 
 
-def _left(kind: str, snap: ObjectSnapshot, e: Event) -> TriggerEvent:
+def pile_refs(plan: Plan, e: Event | None) -> list[ObjectRef]:
+    """-- review (wave 18D) -- 730.3c / 712.21c: the other new objects a merged permanent that left in ``e`` became (public zones)."""
+    from app.rules import merged
+
+    return [r for x in (merged.parts_left(plan, e) if e is not None else []) for r in _new_ref(x.card or "", x.new_object_id, x.to_zone)]
+
+
+def _left(plan: Plan, kind: str, snap: ObjectSnapshot, e: Event) -> TriggerEvent:
     """A leaves-the-battlefield / dies event of one object: as it last existed on the battlefield
-    (603.10a) and the new object it became where it went (400.7e, 603.6c)."""
+    (603.10a) and the new object it became where it went (400.7e, 603.6c; a merged permanent: all of them, 730.3c)."""
     return TriggerEvent(kind=kind, batch=e.batch, count=1,
                         objects=[ObjectRef(card=snap.card, object_id=snap.object_id, zone=snap.zone, snapshot=snap)],
-                        new_objects=_new_ref(snap.card, e.new_object_id, e.to_zone))
+                        new_objects=_new_ref(snap.card, e.new_object_id, e.to_zone) + pile_refs(plan, e))
 
 
 def sacrificing(plan: Plan, card_ids: list[str]) -> None:
@@ -283,7 +290,7 @@ def collect(plan: Plan) -> None:
                     if d.get("unless_counter") and snap.counters.get(d["unless_counter"], 0) > 0:
                         continue  # persist / undying: "if it had no … counters on it"
                     _add(plan, controller=snap.controller, source_card=snap.card, source_object=snap.object_id,
-                         name=ch.name, index=i, definition=d, event=_left("die" if kind == "dies_self" else "leave", snap, e))
+                         name=ch.name, index=i, definition=d, event=_left(plan, "die" if kind == "dies_self" else "leave", snap, e))
 
     entries = [entry for batch in sorted(returning) for entry in returning[batch]]
     if entries:
@@ -457,8 +464,8 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
         return out
     if frm == "battlefield" and to != "battlefield":
         snap = r.lki.get(e.object_id or "")
-        if snap is None:
-            return []
+        if snap is None:  # (-- review (wave 18D) -- a card of a merged permanent that left: put there, not a permanent leaving, 730.3)
+            return _to_graveyard(plan, e, frm) if e.object_id is None else []
         card, ch = _snapshot_card(plan, snap)
         info: dict[str, Any] = {"oid": e.object_id, "snap": snap, "new_oid": e.new_object_id, "to": e.to_zone}
         out.append(("leave", card, ch, snap.controller, info))
@@ -825,6 +832,9 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
     new: list[ObjectRef] = []
     if obj is not None:
         new = _new_ref(obj.id, info.get("new_oid"), info.get("to"))
+        if kind in ("leave", "die") and info.get("new_oid"):  # (review (wave 18D): a merged permanent became all of its cards, 730.3c)
+            new += pile_refs(plan, next((e for e in plan.rules.events if e.kind == "zone_change" and e.object_id == info.get("oid")
+                                         and e.new_object_id == info["new_oid"]), None))
     if info.get("recipient"):
         players = [info["recipient"]]
     elif info.get("actor"):  # the player who cast, sacrificed, discarded, cycled, created …

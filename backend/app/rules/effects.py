@@ -781,7 +781,7 @@ def exile_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -
     if e.get("link"):  # -- exiled with (wave 6D) -- 607.2a: what the linked ability will refer to
         from app.rules import exiled_with
 
-        exiled_with.record(plan, ctx, cards)
+        exiled_with.record(plan, ctx, _merged.pieces(plan, cards))  # (review (wave 18D): every card of a merged permanent, 730.3c)
     _moved(plan, ctx, e, before)
     return True
 
@@ -1472,7 +1472,8 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
         key = ctx["source_object"]
-        exiled = [plan.oid(c) for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
+        exiled = [plan.oid(c) for c in _merged.pieces(plan, cards)  # (review (wave 18D): each card of a merged permanent, 730.3c)
+                  if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
         plan.rules.linked_exile[key] = [*plan.rules.linked_exile.get(key, []), *exiled]  # the objects in exile (400.7)
     _moved(plan, ctx, e, before)
     return True
@@ -1584,8 +1585,9 @@ def blink(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         owner = plan.state.cards[cid].owner
         back = ctx["controller"] if e.get("under") == "you" else owner
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "exile"}}, actor=ctx["controller"])
-        if cid in plan.state.cards:  # (a token ceases to exist in exile: 111.7, and can't come back, 111.8)
-            entries.append({"card": cid, "player": back, "actor": ctx["controller"]})
+        for piece in _merged.pieces(plan, [cid]):  # (-- review (wave 18D) -- 730.3c: every card a merged permanent became returns)
+            if piece in plan.state.cards:  # (a token ceases to exist in exile: 111.7, and can't come back, 111.8)
+                entries.append({"card": piece, "player": back, "actor": ctx["controller"]})
     done = attachments.enter(plan, entries, ctx)
     if done:  # (an Aura choosing what it enchants pauses: the binding then keeps what they were)
         _moved(plan, ctx, e, before)  # the permanents they became: new objects (400.7)

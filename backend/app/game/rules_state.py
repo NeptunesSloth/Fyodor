@@ -1272,13 +1272,21 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
              player=(card.controller if card is not None else snap.controller if snap else None),
              from_zone=old_zone, to_zone=new_zone)
+    # -- review (wave 18D) -- 730.3 / 712.21: the cards of a merged permanent that left (other than the one its instance became) were
+    # never objects of their own: each is put into the zone from the battlefield, a new object there (not one more permanent leaving)
+    pile = {p["id"]: snap for snap in before.snaps.values() for p in snap.merged}
     for card_id, card in state.cards.items():
-        if card_id not in before.zones and _zone_name(card.zone) in TRACKED_ZONES:
-            if card_id not in rules.objects:  # a created object is numbered like one that entered (613.7d)
+        if card_id not in before.zones and (_zone_name(card.zone) in TRACKED_ZONES or card_id in pile):
+            shell = pile.get(card_id)
+            if card_id not in rules.objects or shell is not None:  # a created object is numbered like one that entered (613.7d)
                 rules.next_object += 1
                 rules.objects[card_id] = rules.next_object
+            if shell is not None and _zone_name(card.zone) in ("library", "hand"):
+                continue  # (private: as for any card put into a hidden zone)
             emit(state, "zone_change", new_object_id=rules.object_id(card_id), card=card_id, player=card.controller,
-                 to_zone=card.zone)  # created: a token, a copy, an ability on the stack
+                 to_zone=card.zone, **({"from_zone": shell.zone} if shell is not None else {}))  # created: a token, a copy, an ability on the stack
+            if shell is not None and _zone_name(card.zone) == "graveyard" and (log := turn_log_now(state)) is not None:
+                log.entered_graveyard.append(Arrival(card=card_id, owner=card.owner))
             if _zone_name(card.zone) == "battlefield" and (log := turn_log_now(state)) is not None:  # (wave 3R1)
                 log.entered.append(Entry(card=card_id, object_id=rules.object_id(card_id), controller=card.controller,
                                          tapped=card.tapped))  # (-- entry forms (wave 5F) --)

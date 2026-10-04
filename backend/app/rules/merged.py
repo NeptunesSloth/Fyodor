@@ -86,6 +86,32 @@ def times_mutated_in(plan: Plan, ctx: dict[str, Any]) -> int:
     return 0 if snap is None or snap.melded else max(0, len(snap.merged) - 1)
 
 
+def parts_left(plan: Plan, e: Any) -> list[Any]:
+    """-- review (wave 18D) -- the zone-change events of the other cards of the merged / melded permanent that left in ``e``
+    (each put into the zone from the battlefield, 730.3 / 712.21; app/game/rules_state._diff)."""
+    snap = plan.rules.lki.get(e.object_id or "")
+    if snap is None or not snap.merged:
+        return []
+    ids = {p["id"] for p in snap.merged} - {e.card}
+    return [x for x in plan.rules.events if x.kind == "zone_change" and x.batch == e.batch and x.object_id is None and x.card in ids
+            and x.from_zone == snap.zone]
+
+
+def pieces(plan: Plan, card_ids: list[str]) -> list[str]:
+    """730.3c / 712.21c: an effect that finds the new object a merged permanent became as it left the battlefield finds all of them:
+    each card id, followed by the other cards of the pile it just left the battlefield as (still the objects they became)."""
+    out: list[str] = []
+    for cid in card_ids:
+        out.append(cid)
+        card = plan.state.cards.get(cid)
+        oid = plan.oid(card) if card is not None else None
+        e = next((x for x in reversed(plan.rules.events) if x.kind == "zone_change" and x.card == cid and x.new_object_id == oid), None) \
+            if oid is not None else None
+        out += [x.card for x in (parts_left(plan, e) if e is not None else [])
+                if x.card in plan.state.cards and plan.oid(plan.state.cards[x.card]) == x.new_object_id and x.card not in out]
+    return out
+
+
 def resolve(plan: Plan, top: CardInstance, controller: str) -> bool:
     """A mutating creature spell begins resolving. True when it is done (merged) or waiting for the over / under answer; False when
     its target is illegal and it carries on as a creature spell (702.140b, 608.3b)."""

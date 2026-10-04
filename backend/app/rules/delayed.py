@@ -284,7 +284,7 @@ def at_step(plan: Plan, phase: str) -> None:
 def on_events(plan: Plan, events: list[Event]) -> None:
     """The watched object died / left the battlefield (603.6c; 603.10a: the object as it last
     existed, and what it became where it went, 400.7e)."""
-    from app.rules.triggers import _new_ref, _zone
+    from app.rules.triggers import _new_ref, _zone, pile_refs
 
     r = plan.rules
     watching = [t for t in r.delayed if t.when.get("kind") == "event"]
@@ -311,7 +311,7 @@ def on_events(plan: Plan, events: list[Event]) -> None:
             kind = "die" if t.when["event"] in ("die", "die_or_exile") and died else "leave"
             event = TriggerEvent(kind=kind, batch=e.batch, count=1,
                                  objects=[ObjectRef(card=snap.card, object_id=snap.object_id, zone=snap.zone, snapshot=snap)],
-                                 new_objects=_new_ref(snap.card, e.new_object_id, e.to_zone))
+                                 new_objects=_new_ref(snap.card, e.new_object_id, e.to_zone) + pile_refs(plan, e))  # (review 18D: 730.3c)
             fired.append(t)
             _fire(plan, t, event)
     if fired:
