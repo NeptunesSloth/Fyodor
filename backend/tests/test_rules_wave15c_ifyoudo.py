@@ -43,8 +43,16 @@ EXTRA = [
          oracle_text="When you cast this spell, you may put a card an opponent owns from exile into that player's graveyard. If you do, you gain 5 life.", power='7', toughness='8', colors=[], color_identity=[], keywords=[]),
     card('Processor Assault', set_code='tst', number='W6', mana_cost='{1}{R}', cmc=2.0, type_line='Sorcery',
          oracle_text="Devoid (This card has no color.)\nAs an additional cost to cast this spell, put a card an opponent owns from exile into that player's graveyard.\nProcessor Assault deals 5 damage to target creature.", power=None, toughness=None, colors=[], color_identity=['R'], keywords=['Devoid']),
+    card('Wrexial, the Risen Deep', set_code='tst', number='W7', mana_cost='{3}{U}{U}{B}', cmc=6.0, type_line='Legendary Creature — Kraken',
+         oracle_text="Islandwalk, swampwalk (This creature can't be blocked as long as defending player controls an Island or a Swamp.)\nWhenever Wrexial deals combat damage to a player, you may cast target instant or sorcery card from that player's graveyard without paying its mana cost. If that spell would be put into a graveyard, exile it instead.", power='5', toughness='8', colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Landwalk', 'Swampwalk', 'Islandwalk']),
+    card('Deluxe Dragster', set_code='tst', number='W8', mana_cost='{4}{U}', cmc=5.0, type_line='Artifact — Vehicle',
+         oracle_text="This Vehicle can't be blocked except by Vehicles.\nWhenever this Vehicle deals combat damage to a player, you may cast target instant or sorcery card from that player's graveyard without paying its mana cost. If that spell would be put into a graveyard, exile it instead.\nCrew 2", power='4', toughness='3', colors=['U'], color_identity=['U'], keywords=['Crew']),
+    card('Zombie Cannibal', set_code='tst', number='W9', mana_cost='{B}', cmc=1.0, type_line='Creature — Zombie',
+         oracle_text="Whenever this creature deals combat damage to a player, you may exile target card from that player's graveyard.", power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=[]),
+    card('Fire Nation Salvagers', set_code='tst', number='W10', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Creature — Human Soldier',
+         oracle_text="Menace\nWhen this creature enters, put a +1/+1 counter on target creature or Vehicle you control.\nWhenever one or more creatures you control with counters on them deal combat damage to a player, put target creature or Vehicle card from that player's graveyard onto the battlefield under your control.", power='3', toughness='3', colors=['B'], color_identity=['B'], keywords=['Menace']),
 ]
-FULL = ['Murk Strider', 'Dark Supplicant', 'Gate to the Afterlife', 'Void Attendant', 'Ruin Processor', 'Processor Assault']
+FULL = ['Murk Strider', 'Dark Supplicant', 'Gate to the Afterlife', 'Scion of Darkness', 'Void Attendant', 'Ruin Processor', 'Processor Assault', 'Wrexial, the Risen Deep', 'Deluxe Dragster', 'Zombie Cannibal', 'Fire Nation Salvagers']
 # --EXTRA-END--
 
 
@@ -210,6 +218,31 @@ def test_gate_to_the_afterlife_gains_then_may_loot(cards, draws):
     settle(s)
     assert len(zone(s.state, "p1", "hand")) == hand_before
     assert len(zone(s.state, "p1", "graveyard")) == (3 if draws else 2)  # (Lightning Bolt, the Supplicant, the discard)
+    roundtrip(s)
+
+
+def test_scion_of_darkness_takes_a_creature_only_from_the_damaged_players_graveyard(cards):
+    """"… target creature card from that player's graveyard": the player the trigger is about (608.2k), bound as it is put on the
+    stack — a creature card in my own graveyard is not a legal target."""
+    from app.game.rules_state import ControlMark
+    from tests.test_rules_conditionals import attack, until
+
+    s = build(cards, p1=("Scion of Darkness", "Scion of Darkness"), p2=("Scion of Darkness",))
+    scion = to_zone(s, find(s, "Scion of Darkness"), "battlefield")
+    s.state.rules.controlled_since[scion.id] = ControlMark(controller="p1", turn=0)
+    mine = to_zone(s, next(c for c in s.state.cards.values() if c.name == "Scion of Darkness" and c.zone == "p1:library"), "graveyard")
+    theirs = to_zone(s, find(s, "Scion of Darkness", "p2"), "graveyard")
+    act(s, "p1", type="pass_priority")  # → combat
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    attack(s, (scion, "p2"))
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind in ("choose_one", "choose_cards"))
+    d = s.state.rules.decision
+    assert theirs.id in {o.id for o in d.options} and mine.id not in {o.id for o in d.options}
+    pick(s, theirs.id)
+    settle(s)
+    assert theirs.id in zone(s.state, "p1", "battlefield") or any(
+        c.name == "Scion of Darkness" and c.zone == "p1:battlefield" and c.id != scion.id for c in s.state.cards.values())
+    assert mine.id in zone(s.state, "p1", "graveyard")
     roundtrip(s)
 
 

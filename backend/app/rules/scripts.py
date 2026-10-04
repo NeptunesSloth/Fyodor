@@ -3036,7 +3036,7 @@ def _event_refs_ok(d: Definition) -> bool:
         mine = d.get("kind") == "activated" and not re.search(r"\b[Ss]acrifice (?:this|~)", str(d.get("cost")))
         if not (self_trigger or mine):
             return False
-    if '\\"controller\\":\\"that_player\\"' in json.dumps(d):
+    if '\\"controller\\":\\"that_player\\"' in json.dumps(d) or '\\"zone_owner\\":\\"that_player\\"' in json.dumps(d):
         cond = d.get("cond") if d.get("trigger") == "event" else None
         about_player = step_names_player(d) or (cond is not None and cond["event"] != "multi" and _has_player(cond))
         specs = [d.get("target") or {}, *(d.get("targets") or [])]

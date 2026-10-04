@@ -1568,12 +1568,14 @@ def bind_that_player(t: PendingTrigger) -> None:
     player" (controller "that_player") becomes the one player the trigger event is about, as the ability is put on the
     stack and its targets are chosen (603.3d, 608.2k) — "player:<id>", kept for the 608.2b check. An event with no
     single player leaves it unbound (nothing matches: no legal target)."""
-    marker = '\\"controller\\":\\"that_player\\"'
     raw = json.dumps(t.ability)
     players = list(t.event.players) if t.event is not None else []
-    if marker not in raw or len(players) != 1:
+    if len(players) != 1:
         return
-    t.ability = json.loads(raw.replace(marker, f'\\"controller\\":\\"player:{players[0]}\\"'))
+    for key in ("controller", "zone_owner"):  # (zone_owner: wave 15C, "from that player's graveyard")
+        marker = f'\\"{key}\\":\\"that_player\\"'
+        raw = raw.replace(marker, f'\\"{key}\\":\\"player:{players[0]}\\"')
+    t.ability = json.loads(raw)
 # -- end damage wordings (wave 6B) --
 
 
