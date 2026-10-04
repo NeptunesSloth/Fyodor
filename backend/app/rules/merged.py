@@ -199,7 +199,7 @@ def partner_of(plan: Plan, ctx: dict[str, Any], kind: str | None = None, name: s
     if pair is None or (name is not None and pair[1]["name"] != name):
         return None
     return next((c for c in plan.state.cards.values() if c.id != src.id and c.zone == f"{ctx['controller']}:battlefield" and not c.merged
-                 and not c.is_token and c.owner == ctx["controller"] and c.name == pair[1]["name"]
+                 and not c.is_token and c.owner == ctx["controller"] and plan.ch(c).name == pair[1]["name"]  # ("named": 201.2)
                  and (kind in (None, "permanent") or kind.capitalize() in plan.ch(c).types)), None)
 
 
@@ -226,6 +226,8 @@ def meld(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     cards = [plan.state.cards.get(src.id), plan.state.cards.get(partner.id)]
     if any(c is None or c.zone != f"{owner}:exile" for c in cards):
         return True  # (701.42c: replaced, or gone)
+    if (plan.info.get(cards[1].card_id or "") or {}).get("name") != pair[1]["name"]:  # type: ignore[union-attr]
+        return True  # (-- review (wave 18D) -- 701.42b-c: a card that only copied the other half isn't of the pair: both stay in exile)
     ch = chars.printed_from_data(pair[0])
     plan.do({"type": "meld", "card_id": src.id, "other_id": partner.id, "result_id": pair[0]["id"], "result_name": pair[0]["name"],
              "row": "land" if ch.is_land and not ch.is_creature else "creature" if ch.is_creature else "other"}, actor=ctx["controller"])

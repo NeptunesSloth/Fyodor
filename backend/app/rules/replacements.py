@@ -811,7 +811,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
     for cid, zone, _why in replaced:
         owner = plan.state.cards[cid].owner
         # (-- merged permanents (wave 18D) -- 903.9c: the cards of a merged / melded commander that aren't commanders go where it was headed)
-        also = {"rest_zone": dest} if zone == "command" and plan.state.cards[cid].merged and dest in ("hand", "library") else {}
+        also = {"rest_zone": dest, **{k: payload[k] for k in ("position", "index") if payload.get(k) is not None}} \
+            if zone == "command" and plan.state.cards[cid].merged and dest in ("hand", "library") else {}  # (review 18D: top / bottom too)
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": zone}, **also}, actor=actor)
     for cid, cost in madness:
         _discard_into_exile(plan, cid, cost, actor)

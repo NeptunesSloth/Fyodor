@@ -10,8 +10,8 @@ import pytest
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle, to_turn
-from tests.test_rules_wave6c_tokens_pumps import mana, put, to_hand
-from tests.test_rules_wave18d_merged import EXTRA, mutate, mutate_key, real
+from tests.test_rules_wave6c_tokens_pumps import chars, mana, pt, put, to_hand
+from tests.test_rules_wave18d_merged import EXTRA, MUTATE_REMINDER, mutate, mutate_key, real
 from tests.wave9c_kit import build, check, life
 
 MORE = [
@@ -21,6 +21,19 @@ MORE = [
     real("Cloudshift", "{W}", 1, "Instant", "Exile target creature you control, then return that card to the battlefield under your control.",
          None, "W"),
     real("Griptide", "{3}{U}", 4, "Instant", "Put target creature on top of its owner's library.", None, "U"),
+    real("Clone", "{3}{U}", 4, "Creature — Shapeshifter", "You may have this creature enter as a copy of any creature on the battlefield.",
+         ("0", "0"), "U"),
+    real("Porcuparrot", "{3}{R}", 4, "Creature — Bird Beast", "Mutate {2}{R}" + MUTATE_REMINDER +
+         "\n{T}: This creature deals X damage to any target, where X is the number of times this creature has mutated.", ("3", "4"), "R"),
+    real("Necropanther", "{1}{W}{B}", 3, "Creature — Cat Nightmare", "Mutate {2}{W/B}{W/B}" + MUTATE_REMINDER +
+         "\nWhenever this creature mutates, return target creature card with mana value 3 or less from your graveyard to the battlefield.",
+         ("3", "3"), "WB"),
+    real("Cubwarden", "{3}{W}", 4, "Creature — Cat", "Mutate {2}{W}{W}" + MUTATE_REMINDER +
+         "\nLifelink\nWhenever this creature mutates, create two 1/1 white Cat creature tokens with lifelink.", ("3", "5"), "W"),
+    real("Chittering Harvester", "{5}{B}", 6, "Creature — Nightmare", "Mutate {4}{B}" + MUTATE_REMINDER +
+         "\nWhenever this creature mutates, each opponent sacrifices a creature of their choice.", ("4", "6"), "B"),
+    real("Rancor", "{G}", 1, "Enchantment — Aura", "Enchant creature\nEnchanted creature gets +2/+0 and has trample.\n"
+         "When Rancor is put into a graveyard from the battlefield, return Rancor to its owner's hand.", None, "G"),
     real("Banisher Priest", "{1}{W}{W}", 3, "Creature — Human Cleric",
          "When this creature enters, exile target creature an opponent controls until this creature leaves the battlefield.", ("2", "2"), "W"),
 ]
@@ -163,6 +176,66 @@ def test_a_merged_commander_that_dies_offers_only_the_commander_card_to_the_comm
     gem = next(c for c in s.state.cards.values() if c.name == "Gemrazer")
     assert k.zone == "p1:command" and gem.zone == "p1:graveyard" and not gem.commander_key
     assert offered == ["Move Krenko, Mob Boss to the command zone?"]
+    check(s)
+
+
+def test_a_clone_named_like_the_other_half_is_exiled_but_never_melded(cards):
+    """701.42a-c: Gisela's condition reads names (a Clone copying Bruna is "a creature named Bruna, the Fading Light"), so both are
+    exiled; but only the two cards of a meld pair can be melded: they stay in exile."""
+    from tests.test_rules_conditionals import the_end_step
+
+    s = build(cards, ["Gisela, the Broken Blade", "Clone"], ["Bruna, the Fading Light"])
+    gisela = put(s, "Gisela, the Broken Blade")
+    bruna = put(s, "Bruna, the Fading Light", "p2")
+    clone = to_hand(s, "Clone")
+    mana(s, U=4)
+    act(s, "p1", type="cast_spell", card_id=clone.id)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            pick = [bruna.id] if any(o.id == bruna.id for o in d.options) else ["yes"] if any(o.id == "yes" for o in d.options) else [d.options[0].id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert chars(s, s.state.cards[clone.id]).name == "Bruna, the Fading Light"
+    the_end_step(s)
+    assert s.state.cards[gisela.id].zone == "p1:exile" and s.state.cards[clone.id].zone == "p1:exile"
+    assert not any(c.melded for c in s.state.cards.values())
+    check(s)
+
+
+def test_a_tall_pile_keeps_its_aura_and_counts_every_mutation(cards):
+    """730.2c: the Aura stays on the mutated permanent; each mutate trigger works (Necropanther returns, Cubwarden from underneath
+    makes Cats, Chittering Harvester makes the opponent sacrifice); Porcuparrot's {T} (no summoning sickness: the permanent has been
+    there, 302.6) deals X = 4, the number of times it has mutated."""
+    s = build(cards, ["Porcuparrot", "Necropanther", "Cubwarden", "Chittering Harvester", "Probe Bear", "Probe Mourner", "Rancor"],
+              ["Probe Bear"])
+    bear = put(s, "Probe Bear")
+    theirs = put(s, "Probe Bear", "p2")
+    mourner = to_hand(s, "Probe Mourner")
+    act(s, "p1", type="move", card_ids=[mourner.id], to={"zone": "graveyard"})
+    rancor = to_hand(s, "Rancor")
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=rancor.id, targets=[bear.id])
+    settle(s)
+    assert s.state.cards[rancor.id].attached_to == bear.id
+    mutate(s, "Necropanther", bear, W=4)
+    assert s.state.cards[mourner.id].zone == "p1:battlefield"
+    assert s.state.cards[rancor.id].attached_to == bear.id and pt(s, s.state.cards[bear.id]) == (5, 3)
+    mutate(s, "Cubwarden", bear, over="under", W=4)
+    assert sum(1 for c in s.state.cards.values() if c.is_token and c.name == "Cat") == 2
+    mutate(s, "Chittering Harvester", bear, B=5)
+    assert s.state.cards[theirs.id].zone == "p2:graveyard"
+    mutate(s, "Porcuparrot", bear, over="under", R=3)
+    to_turn(s, 3)
+    before = life(s, "p2")
+    host = s.state.cards[bear.id]
+    idx = next(a.index for a in chars(s, host).abilities if "number of times" in a.text)
+    act(s, "p1", type="activate_ability", card_id=bear.id, ability=idx, targets=["p2"])
+    settle(s)
+    assert life(s, "p2") == before - 4
     check(s)
 
 
