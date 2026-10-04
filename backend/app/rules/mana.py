@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from itertools import combinations_with_replacement
 from typing import Any
 
+from app.rules import costs as _costs
 from app.rules import mana_riders as _mana_riders  # -- mana riders (wave 5A) --
 from app.rules import removed_mana as _removed_mana  # -- if you do (wave 6F) --
 
@@ -272,7 +273,7 @@ def _choice_part(part: str) -> bool:
     # -- activated sweep (wave 17B) -- also exerting / untapping the source ({Q}, 107.6) and foraging (701.61a): paid by hand
     return not found.unsupported and bool(found.components) and all(
         c.kind in (C.EXERT, C.UNTAP, C.FORAGE) or (
-            not c.activation_only and c.selector is not None
+            (not c.activation_only or (c.x and c.kind == C.TAP_OTHER)) and c.selector is not None  # (X: Hazel, "Tap X untapped tokens")
             and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD) and not c.random)
         for c in found.components)
 
@@ -329,6 +330,13 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
         if found_removed is None:
             return None
         count, options = found_removed
+    elif any(c.x for p in extra for c in _costs.parse_ability_cost(p, card_name="~").components):
+        # -- activated sweep (wave 17B) -- "Tap X untapped tokens you control: Add X mana in any combination of colors." (Hazel of
+        # the Rootbloom): X is announced as the cost is paid (107.3a), the mana is X of them (casting._activate_choosing)
+        mix = None if chosen_color else _removed_mana.x_mix(first)
+        if mix is None:
+            return None
+        count, options = f"xcost:{mix[0]}:{mix[1]}", tuple((c,) for c in mix[1])
     elif chosen_color:
         if first not in _CHOSEN_COLOR:
             return None
@@ -404,6 +412,8 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
                 if q is None or spend_only is not None:
                     return None  # a rider the engine doesn't know: leave the ability manual
                 spend_only = q
+    if spend_only is not None and (chooses or removed_kind is not None or self_counter is not None or from_hand):
+        return None  # -- activated sweep (wave 17B) -- activated by hand only, and the pool carries no spending restriction: manual
     return ManaAbility(tap=tap, sacrifice_self=sacrifice, options=options, extra_cost=", ".join(extra),
                        riders=tuple(riders), spend_only=spend_only, once_per_turn=once, condition=condition,
                        count=count, chooses=chooses, instead_if=instead_if, instead=instead, self_counter=self_counter,

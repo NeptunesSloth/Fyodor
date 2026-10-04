@@ -115,7 +115,7 @@ def _choice_cost_ok(extra: Any) -> bool:
 
     return not extra.unsupported and all(
         c.kind in (C.MANA, C.TAP, C.PAY_LIFE, C.EXERT, C.UNTAP, C.FORAGE)  # (wave 17B: exert, {Q}, forage: paid by hand)
-        or (not c.activation_only and (
+        or ((not c.activation_only or (c.x and c.kind == C.TAP_OTHER)) and (  # (X: Hazel of the Rootbloom)
             (c.kind in (C.SACRIFICE, C.REMOVE_COUNTER) and c.selector is None)
             or (c.selector is not None and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD)
                 and not c.random)))  # (activation_only: wave 4H, 605)
@@ -212,6 +212,8 @@ def _resolve_options(state: GameState, card: CardInstance, ab: M.ManaAbility, in
         return ab.instead  # -- refused copy/mana (wave 3R3): Urza's Tower with the Mine and the Power-Plant --
     from app.rules import removed_mana  # -- if you do (wave 6F) -- one option per number removed
 
+    if (ab.count or "").startswith("xcost:"):
+        return ab.options  # (wave 17B: the mana depends on the X announced as it's activated: _activate_choosing)
     if (removed := removed_mana.parts(ab.count)) is not None:
         return removed_mana.options(card.counters.get(removed[0], 0), ab.count or "", ab.options[0])
     if ab.count == "devotion":  # -- refused copy/mana (wave 3R3): Nykthos, per chosen color (700.5) --
@@ -3122,14 +3124,19 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
 # resolves at once (605.3a: no stack) — a color to choose is chosen then, after the costs (resume "paid").
 def _activate_choosing(plan: Plan, card: CardInstance, ch: Characteristics, parsed: M.ManaAbility,
                        a: A.ActivateAbility) -> None:
+    from app.rules import removed_mana
+
     cost = parse_ability_cost(parsed.extra_cost, card_name=ch.name)
-    problem = cost_payment.problem(plan, cost, card, plan.actor)
+    xcost = (parsed.count or "").startswith("xcost:")
+    if xcost and (a.x_value is None or a.x_value < 1):
+        raise ActionError(f"Say what X is to activate {ch.name} (it taps X permanents and adds X mana)")
+    problem = cost_payment.problem(plan, cost, card, plan.actor, a.x_value)
     if problem is not None:
         raise ActionError(problem)
     objects = cost_payment.choose(plan, a, cost, card, ch.name or "It")
     if objects is None:
         return  # (the payer's choice is pending; its resume runs this intent again with it)
-    options = parsed.options
+    options = removed_mana.x_options(parsed.count or "", a.x_value or 0) if xcost else parsed.options
     option: tuple[str, ...] | None = options[0] if len(options) == 1 else None
     if option is None and a.mana_choice is not None:
         option = next((o for o in options if o == (a.mana_choice,)), None)

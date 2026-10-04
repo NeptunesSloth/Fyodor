@@ -9,6 +9,10 @@
   creature" (701.43: the exerted creature is the source).
 * Mana abilities whose cost exerts the source ("{T}, Exert this creature"), untaps it ("{2}, {Q}") or forages: paid by hand like a
   sacrifice cost, 605.3a (Oasis Ritualist, Pili-Pala, Thornvault Forager).
+* "Remove X storage counters from this land: Add X mana in any combination of {U} and/or {B}" (the storage lands), "…X mana of any one
+  color" (Petalmane Baku, Haruspex), "…an amount of {C} equal to X plus one" (Kyren Toy) and "Tap X untapped tokens you control: Add X mana
+  in any combination of colors" (Hazel of the Rootbloom): X is announced as the cost is paid (107.3a), 605.3a. A mana ability that is
+  activated by hand with a spending restriction (Crucible of the Spirit Dragon) stays manual: the pool carries no restriction.
 * "has base power 4 and gains trample" (613.4b: layer 7b, power only).
 
 Real Oracle text; each scenario replays the history and survives a save/load round trip."""
@@ -78,9 +82,17 @@ EXTRA = [
          'Flying\n{2}, {Q}: Add one mana of any color. ({Q} is the untap symbol.)', ('1', '1'), ''),
     real('Thornvault Forager', '{1}{G}', 2, 'Creature — Squirrel Ranger',
          '{T}: Add {G}.\n{T}, Forage: Add two mana in any combination of colors. (To forage, exile three cards from your graveyard or sacrifice a Food.)\n{3}{G}, {T}: Search your library for a Squirrel card, reveal it, put it into your hand, then shuffle.', ('2', '2'), 'G'),
+    real('Dreadship Reef', '', 0, 'Land',
+         '{T}: Add {C}.\n{1}, {T}: Put a storage counter on this land.\n{1}, Remove X storage counters from this land: Add X mana in any combination of {U} and/or {B}.', None, ''),
+    real('Petalmane Baku', '{1}{G}', 2, 'Creature — Spirit',
+         'Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\n{1}, Remove X ki counters from this creature: Add X mana of any one color.', ('1', '2'), 'G'),
+    real('Kyren Toy', '{3}', 3, 'Artifact',
+         '{1}, {T}: Put a charge counter on this artifact.\n{T}, Remove X charge counters from this artifact: Add an amount of {C} equal to X plus one.', None, ''),
+    real('Hazel of the Rootbloom', '{2}{B}{G}', 4, 'Legendary Creature — Squirrel Druid',
+         "{T}, Pay 2 life, Tap X untapped tokens you control: Add X mana in any combination of colors.\nAt the beginning of your end step, create a token that's a copy of target token you control. If that token is a Squirrel, instead create two tokens that are copies of it.", ('3', '5'), 'BG'),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
-FULL = ["Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
+FULL = ["Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
         "Volshe Tideturner", "Phelddagrif", "Leering Gargoyle", "Canopy Dragon", "Turtle-Duck", "Gargoyle Sentinel", "Singing Tree", "Island of Wak-Wak"]
 
 
@@ -318,4 +330,53 @@ def test_forage_as_a_mana_ability_cost(cards):
     settle(s)
     assert all(s.state.cards[f.id].zone.endswith(":exile") for f in forests)  # (701.61a: three cards from the graveyard)
     assert sum(s.state.players["p1"].mana.values()) == 2 and s.state.cards[c.id].tapped
+    roundtrip(s)
+
+
+def test_storage_land_adds_x_mana_in_any_combination(cards):
+    s = build(cards, "Dreadship Reef")
+    reef = on_field(s, "Dreadship Reef")
+    act(s, "p1", type="set_counter", card_id=reef.id, kind="storage", value=3)
+    mana(s, "p1", C=1)
+    act(s, "p1", type="activate_ability", card_id=reef.id, ability=ability(s, reef, "{1}, Remove"))
+    d = s.state.rules.decision  # one option per number of counters, and per mix of {U} and {B}: 1: U, B; 2: UU, UB, BB; 3: …
+    assert [o.label for o in d.options][:5] == ["{U}", "{B}", "{U}{U}", "{U}{B}", "{B}{B}"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["3"])
+    assert s.state.players["p1"].mana == {"U": 1, "B": 1} and s.state.cards[reef.id].counters.get("storage", 0) == 1
+    roundtrip(s)
+
+
+def test_x_mana_of_any_one_color_and_x_plus_one(cards):
+    s = build(cards, "Petalmane Baku", "Kyren Toy")
+    baku = on_field(s, "Petalmane Baku")
+    toy = on_field(s, "Kyren Toy")
+    act(s, "p1", type="set_counter", card_id=baku.id, kind="ki", value=2)
+    act(s, "p1", type="set_counter", card_id=toy.id, kind="charge", value=2)
+    mana(s, "p1", C=1)
+    act(s, "p1", type="activate_ability", card_id=baku.id, ability=ability(s, baku, "{1}, Remove"))
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.label == "{G}{G}"])
+    assert s.state.players["p1"].mana == {"G": 2} and s.state.cards[baku.id].counters.get("ki", 0) == 0
+    act(s, "p1", type="activate_ability", card_id=toy.id, ability=ability(s, toy, "{T}, Remove"))
+    d = s.state.rules.decision  # 1 + X colorless: X = 0, 1 or 2
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.label == "{C}{C}{C}"])
+    assert s.state.players["p1"].mana == {"G": 2, "C": 3} and s.state.cards[toy.id].counters.get("charge", 0) == 0
+    roundtrip(s)
+
+
+def test_tap_x_untapped_tokens_for_x_mana(cards):
+    s = build(cards, "Hazel of the Rootbloom")
+    hazel = on_field(s, "Hazel of the Rootbloom")
+    s.state.rules.controlled_since[hazel.id].turn = 0
+    tokens = [creature(s, "p1", f"Squirrel {i}", pt="1/1") for i in range(3)]
+    with pytest.raises(ActionError):  # (X isn't said)
+        act(s, "p1", type="activate_ability", card_id=hazel.id, ability=0)
+    act(s, "p1", type="activate_ability", card_id=hazel.id, ability=0, x_value=2)
+    d = s.state.rules.decision  # which two tokens to tap
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[tokens[0].id, tokens[1].id])
+    d = s.state.rules.decision  # the two mana: 15 mixes of five colors
+    assert len(d.options) == 15
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["0"])
+    assert [s.state.cards[t.id].tapped for t in tokens] == [True, True, False]
+    assert sum(s.state.players["p1"].mana.values()) == 2 and s.state.players["p1"].life == 38
     roundtrip(s)
