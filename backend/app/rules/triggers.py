@@ -1553,7 +1553,10 @@ def flush(plan: Plan) -> bool:
             if not put(plan, t):
                 return True  # waiting for a target choice
     r.passed = []
-    r.priority = plan.active if plan.active in plan.live() else plan.after(plan.active)
+    # -- core review -- 117.3c / 603.3: the player who was about to receive priority gets it once the triggers are on the
+    # stack — the caster after a cast or activation, the active player after a resolution or at a step's start
+    holder = plan.hold or r.priority
+    r.priority = holder if holder in plan.live() else (plan.active if plan.active in plan.live() else plan.after(plan.active))
     return True
 
 
