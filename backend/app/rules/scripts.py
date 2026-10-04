@@ -4194,6 +4194,16 @@ def _exile_hand_down(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
     return [{"do": "exile_hand_down", "all": m["k"] == "all", "n": 99}], None  # (n: several cards, for "those cards")
 
 
+@effect(r"reveal (?P<o>target face-down permanent) and you may turn it face up if it's a creature card")
+def _reveal_turn_up(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import language
+
+    group = language.target_group(m["o"])
+    if group is None:
+        raise _NoMatch
+    return [{"do": "reveal_turn_up", "who": "target"}], group["what"]
+
+
 @effect(r"exile (?:it|~) face down")
 def _exile_it_face_down(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "exile", "who": "it", "face_down": True}], None  # (The Foretold Soldier)

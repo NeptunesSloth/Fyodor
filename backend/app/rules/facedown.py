@@ -28,7 +28,7 @@ from app.rules.plan import Plan, decide
 Context = dict[str, Any]
 
 
-def put_face_down(plan: Plan, card_id: str, player: str, kind: str, *, actor: str, spec: str | None = None) -> bool:
+def put_face_down(plan: Plan, card_id: str, player: str, kind: str, *, actor: str, spec: str | None = None, tapped: bool = False) -> bool:
     """Put one card onto the battlefield face down under ``player``'s control (701.40a / 701.58a).
     Its "enters" replacements are those that apply to the face-down creature (708.3). True if it
     entered."""
@@ -42,7 +42,7 @@ def put_face_down(plan: Plan, card_id: str, player: str, kind: str, *, actor: st
     ep = replacements.entry_plan(plan, probe, player)
     payload: dict[str, Any] = {"type": "move", "card_ids": [card_id], "to": {"player": player, "zone": "battlefield"},
                                "face_down": True, "face_down_kind": kind, "face_down_as": spec}
-    if ep.get("tapped"):
+    if ep.get("tapped") or tapped:
         payload["tapped"] = True
     plan.do(payload, actor=actor)
     entered = plan.state.cards.get(card_id)
@@ -92,8 +92,8 @@ def _manifest_next(plan: Plan, ctx: Context, e: dict[str, Any], todo: list[tuple
     return True
 
 
-def _manifested(plan: Plan, ctx: Context, pid: str, card_id: str, kind: str) -> None:
-    if put_face_down(plan, card_id, pid, kind, actor=pid):
+def _manifested(plan: Plan, ctx: Context, pid: str, card_id: str, kind: str, *, tapped: bool = False) -> None:
+    if put_face_down(plan, card_id, pid, kind, actor=pid, tapped=tapped):
         ctx["manifested"] = [*ctx.get("manifested", []), card_id]
         verb = "cloaks" if kind == "cloak" else "manifests"
         plan.note(f"{plan.name(pid)} {verb} a card", actor=pid)
@@ -311,6 +311,66 @@ def become_foretold(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def manifest_pile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Exile [the creature cards of a graveyard / it / a creature you own] [and the top N cards of your library] in a face-down pile,
+    shuffle that pile, then manifest / cloak those cards [tapped]": the cards are exiled together face down, the pile's order is
+    shuffled (the table's randomness, recorded as the moves that follow: replay is deterministic), and each card is then manifested
+    or cloaked in turn, one at a time (701.40e, 701.58e) — nobody looks at the cards in between."""
+    import secrets
+
+    pid = ctx["controller"]
+    cards: list[str] = []
+    if e.get("gy"):
+        for owner in effects._players(plan, ctx, e["who"]):
+            cards += [c for c in plan.state.zones.get(zone_key(owner, "graveyard"), []) if plan.ch(plan.state.cards[c]).is_creature]
+    else:
+        cards += [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    if e.get("top"):
+        cards += effects._library(plan, pid)[: max(0, effects._amount(plan, ctx, e["top"]))]
+    if not cards:
+        return True
+    plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}, "face_down": True, "face_down_kind": "exile"}, actor=pid)
+    pile = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
+    (plan.rng or secrets.SystemRandom()).shuffle(pile)
+    ctx.setdefault("manifested", [])
+    for c in pile:
+        _manifested(plan, ctx, pid, c, e["kind"], tapped=bool(e.get("tapped")))
+    _bind(plan, ctx, e)
+    return True
+
+
+def reveal_turn_up(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Reveal target face-down permanent. If it's a creature card, you may turn it face up." (Hauntwoods Shrieker): it is shown to all
+    players (701.20a) and stays face down (701.20c: revealing moves nothing); then, if the card it is is a creature card, the controller
+    chooses whether to turn it face up (no cost: it isn't the special action of 116.2b). Not a face-down permanent any more: nothing."""
+    from app.rules import characteristics as chars
+
+    pid = ctx["controller"]
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].face_down and plan.state.cards[c].zone.endswith(":battlefield")]
+    if not cards:
+        return True
+    card = plan.state.cards[cards[0]]
+    plan.do({"type": "reveal", "card_ids": cards}, actor=pid)
+    if not chars.of(card.model_copy(update={"face_down": False}), plan.info).is_creature:
+        plan.do({"type": "hide", "card_ids": cards}, actor=pid)
+        return True
+    decide(plan, player=pid, kind="confirm", prompt=f"{ctx.get('name') or 'It'}: turn the revealed creature card face up?",
+           options=[DecisionOption(id="yes", label="Turn it face up"), DecisionOption(id="no", label="Leave it face down")],
+           resume={"step": "reveal_turn_up", "ctx": ctx, "card": card.id})
+    return False
+
+
+def resume_reveal_turn_up(plan: Plan, d: Any, chosen: list[str]) -> None:
+    card_id = d.resume["card"]
+    card = plan.state.cards.get(card_id)
+    if card is not None and card.face_down:
+        if chosen == ["yes"] and _turn_up(plan, card_id, d.player):
+            plan.note(f"{plan.name(d.player)} turns {plan.state.cards[card_id].name} face up")
+        else:
+            plan.do({"type": "hide", "card_ids": [card_id]}, actor=d.player)
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
 def top_to_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Put that many cards from the top of your library into your hand" (Scroll Rack): not a draw (121.1), so no draw replacement or
     trigger; as many as there are when the library has fewer."""
@@ -321,7 +381,7 @@ def top_to_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"become_foretold": become_foretold, "put_down": put_down, "exile_hand_down": exile_hand_down, "top_to_hand": top_to_hand, "manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down,
+PRIMITIVES: dict[str, Any] = {"reveal_turn_up": reveal_turn_up, "manifest_pile": manifest_pile, "become_foretold": become_foretold, "put_down": put_down, "exile_hand_down": exile_hand_down, "top_to_hand": top_to_hand, "manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down,
                               "look_face_down": look_face_down, "look_exiled": look_exiled}
-RESUME: dict[str, Any] = {"put_down": resume_put_down, "exile_hand_down": resume_exile_hand_down, "manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up,
+RESUME: dict[str, Any] = {"reveal_turn_up": resume_reveal_turn_up, "put_down": resume_put_down, "exile_hand_down": resume_exile_hand_down, "manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up,
                           "look_face_down": resume_look_face_down}

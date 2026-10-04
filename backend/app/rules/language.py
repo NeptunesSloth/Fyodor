@@ -739,6 +739,13 @@ _EXILE_TOP = re.compile(rf"exile the top {_N_CARDS} of {_LIB}(?P<fd> face down)?
 # -- hidden exile (wave 18A) -- "Put the top two cards of that player's library onto the battlefield face down under your control as
 # 2/2 Cyberman artifact creatures." (Cybership), "Put any number of cards from your hand onto the battlefield face down as 5/5 artifact
 # creatures." (Tezzeret, Cruel Machinist): facedown.put_down (708.2a: the characteristics come with the instruction)
+# -- hidden exile (wave 18A) -- "Exile all creature cards from target player's graveyard in a face-down pile, shuffle that pile, then
+# manifest those cards." (Ghastly Conscription), "exile it and the top card of your library in a face-down pile, …" (Jeskai Infiltrator),
+# "Exile target nontoken creature you own and the top two cards of your library in a face-down pile, shuffle that pile, then cloak those
+# cards [tapped]." (Become Anonymous): facedown.manifest_pile
+_PILE = re.compile(rf"exile (?P<src>all creature cards from target player's graveyard|(?P<obj>it|target nontoken creature you own)"
+                   rf"(?: and the top {_N_CARDS} of your library)?) in a face-down pile, shuffle that pile, then (?P<v>manifest|cloak) "
+                   r"those cards(?P<tap> tapped)?")
 _PUT_DOWN = re.compile(rf"put (?:the top {_N_CARDS} of {_LIB}|(?P<hand>any number of cards from your hand)) onto the battlefield face down"
                        r"(?P<under> under your control)?(?: as (?P<spec>.+))?")
 # -- hidden exile (wave 18A) -- looking.join_down_piles: a face-down pile and a face-up pile (700.3), one clause
@@ -952,6 +959,16 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
             raise _Fail
         return [{"do": do, "n": count(m), "player": _who(kind, key), **({"reveal": True} if do == "look_top" else {}),
                  **({"face_down": True} if m["fd"] else {})}], _one(group)  # (face down: wave 18A)
+    m = _PILE.fullmatch(text)  # -- hidden exile (wave 18A) --
+    if m and has_primitive("manifest_pile"):
+        e: dict[str, Any] = {"do": "manifest_pile", "kind": m["v"], "tapped": bool(m["tap"])}
+        if not m["obj"]:
+            kind, key, group = "players", "target", _chooser("target player")[1]
+            return [{**e, "gy": True, "who": "target"}], group
+        kind, key, group = ref(m["obj"])
+        if m["obj"] == "it" or kind != "target":
+            return [{**e, "who": "it", "top": count(m) if "top" in m["src"] else 0}], None
+        return [{**e, "who": "target", "top": count(m)}], group
     m = _PUT_DOWN.fullmatch(text)  # -- hidden exile (wave 18A) --
     if m and has_primitive("put_down"):
         spec = chars.parse_spec(m["spec"]) if m["spec"] else None

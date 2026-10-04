@@ -40,6 +40,10 @@ EXTRA = [
     card('Cybership', set_code='tst', number='Z32', mana_cost='{6}', cmc=6.0, type_line='Artifact — Vehicle', oracle_text="Flying\nWhenever this Vehicle deals combat damage to a player, put the top two cards of that player's library onto the battlefield face down under your control. They're 2/2 Cyberman artifact creatures.\nCrew 4", power='8', toughness='8', colors=[], color_identity=[], keywords=['Flying', 'Crew']),  # noqa: E501
     card('Ethereal Valkyrie', set_code='tst', number='Z33', mana_cost='{4}{W}{U}', cmc=6.0, type_line='Creature — Spirit Angel', oracle_text='Flying\nWhenever this creature enters or attacks, draw a card, then exile a card from your hand face down. It becomes foretold. Its foretell cost is its mana cost reduced by {2}. (On a later turn, you may cast it for its foretell cost, even if this creature has left the battlefield.)', power='4', toughness='4', colors=['U', 'W'], color_identity=['U', 'W'], keywords=['Flying']),  # noqa: E501
     card('The Foretold Soldier', set_code='tst', number='Z34', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Creature — Alien Zombie Soldier', oracle_text="This creature must be blocked if able.\nThis creature can't be blocked by more than one creature.\nWhenever this creature deals damage, exile it face down. It becomes foretold.\nForetell {1}{G} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)", power='6', toughness='6', colors=['G'], color_identity=['G'], keywords=['Foretell']),  # noqa: E501
+    card('Ghastly Conscription', set_code='tst', number='Z35', mana_cost='{5}{B}{B}', cmc=7.0, type_line='Sorcery', oracle_text="Exile all creature cards from target player's graveyard in a face-down pile, shuffle that pile, then manifest those cards. (To manifest a card, put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)", power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=['Manifest']),  # noqa: E501
+    card('Jeskai Infiltrator', set_code='tst', number='Z36', mana_cost='{2}{U}', cmc=3.0, type_line='Creature — Human Monk', oracle_text="This creature can't be blocked as long as you control no other creatures.\nWhen this creature deals combat damage to a player, exile it and the top card of your library in a face-down pile, shuffle that pile, then manifest those cards. (To manifest a card, put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)", power='2', toughness='3', colors=['U'], color_identity=['U'], keywords=['Manifest']),  # noqa: E501
+    card('Become Anonymous', set_code='tst', number='Z37', mana_cost='{2}{U}{U}', cmc=4.0, type_line='Instant', oracle_text="Exile target nontoken creature you own and the top two cards of your library in a face-down pile, shuffle that pile, then cloak those cards. They enter tapped. (To cloak a card, put it onto the battlefield face down as a 2/2 creature with ward {2}. Turn it face up any time for its mana cost if it's a creature card.)", power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=['Cloak']),  # noqa: E501
+    card('Hauntwoods Shrieker', set_code='tst', number='Z38', mana_cost='{1}{G}{G}', cmc=3.0, type_line='Creature — Beast Mutant', oracle_text="Whenever this creature attacks, manifest dread. (Look at the top two cards of your library. Put one onto the battlefield face down as a 2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)\n{1}{G}: Reveal target face-down permanent. If it's a creature card, you may turn it face up.", power='3', toughness='3', colors=['G'], color_identity=['G'], keywords=['Manifest', 'Manifest dread']),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
 
@@ -444,3 +448,90 @@ def test_cybership_puts_the_top_cards_of_their_library_onto_the_battlefield_face
         assert ch.types == {"Artifact", "Creature"} and ch.subtypes == {"Cyberman"} and (ch.power, ch.toughness) == ("2", "2")
         assert unseen_by(s, c, "p2", SPECTATOR) and not unseen_by(s, c, "p1")
     replay_matches(s)
+
+
+def test_ghastly_conscription_manifests_the_creature_cards_of_a_graveyard(cards):
+    s = build(cards, p1=("Ghastly Conscription",), p2=("Ambush Viper", "Grizzly Bears", "Lightning Bolt"))
+    viper = put(s, "Ambush Viper", "graveyard", pid="p2")
+    bears = put(s, "Grizzly Bears", "graveyard", pid="p2")
+    bolt = put(s, "Lightning Bolt", "graveyard", pid="p2")
+    spell = put(s, "Ghastly Conscription", "hand")
+    mana(s, B=2, C=5)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=["p2"])
+    answer(s)
+    for c in (viper, bears):  # the creature cards only, as face-down 2/2 creatures under Alice's control (701.40a)
+        card_ = s.state.cards[c.id]
+        assert card_.zone == "p1:battlefield" and card_.face_down and card_.face_down_kind == "manifest" and card_.controller == "p1"
+        assert unseen_by(s, c, "p2", SPECTATOR) and not unseen_by(s, c, "p1")
+    assert s.state.cards[bolt.id].zone == "p2:graveyard"
+    roundtrip(s)
+
+
+def test_become_anonymous_cloaks_your_creature_and_the_top_two_cards_tapped(cards):
+    s = build(cards, p1=("Become Anonymous", "Ambush Viper", "Grizzly Bears", "Giant Growth"))
+    viper = put(s, "Ambush Viper", "battlefield")
+    top1 = put(s, "Grizzly Bears", "library", position="top")
+    top2 = put(s, "Giant Growth", "library", position="top")
+    spell = put(s, "Become Anonymous", "hand")
+    mana(s, U=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[viper.id])
+    answer(s)
+    for c in (viper, top1, top2):
+        card_ = s.state.cards[c.id]
+        assert card_.zone == "p1:battlefield" and card_.face_down and card_.face_down_kind == "cloak" and card_.tapped  # "They enter tapped"
+        assert unseen_by(s, c, "p2", SPECTATOR)
+        assert any(a.text.startswith("Ward") for a in chars_of(s, c).abilities)  # 701.58a: ward {2}
+    roundtrip(s)
+
+
+def test_jeskai_infiltrator_manifests_itself_and_the_top_card(cards):
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, turn_on
+    from tests.test_rules_effects import run_until
+
+    alice = deck(cards, "Krenko, Mob Boss", [(1, "Jeskai Infiltrator"), (9, "Forest")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    s = GameSession(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False), cards=cards)
+    infiltrator = find(s, "Jeskai Infiltrator")
+    act(s, "p1", type="move", card_ids=[infiltrator.id], to={"zone": "battlefield"})
+    top = s.state.zones["p1:library"][0]
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # → main 1
+    act(s, "p1", type="pass_priority")  # → combat
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": infiltrator.id, "target": "p2"}])
+    run_until(s, lambda s: s.state.cards[infiltrator.id].face_down or s.state.cards[top].face_down)
+    run_until(s, lambda s: s.state.rules.decision is None and not s.state.zones.get("stack"))
+    mine = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.face_down]
+    assert {c.id for c in mine} == {infiltrator.id, top} and all(c.face_down_kind == "manifest" for c in mine)
+    for c in mine:
+        assert unseen_by(s, c, "p2", SPECTATOR)
+    replay_matches(s)
+
+
+def test_hauntwoods_shrieker_reveals_a_face_down_permanent_and_may_turn_a_creature_card_up(cards):
+    s = build(cards, p1=("Hauntwoods Shrieker",), p2=("Grizzly Bears", "Giant Growth"))
+    shrieker = put(s, "Hauntwoods Shrieker", "battlefield")
+    bears = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    growth = put(s, "Giant Growth", "battlefield", pid="p2")
+    for c in (bears, growth):
+        act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "battlefield"}, face_down=True, face_down_kind="morph")
+        assert unseen_by(s, c, "p1", SPECTATOR)
+    mana(s, G=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=shrieker.id, ability=1, targets=[growth.id])
+    answer(s)  # a noncreature card: revealed, stays face down, nothing to decide
+    assert s.state.cards[growth.id].face_down and not s.state.cards[growth.id].revealed_to  # hidden again
+    mana(s, G=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=shrieker.id, ability=1, targets=[bears.id])
+    d = None
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1" and d.kind == "confirm"  # a creature card: Alice may turn it face up
+    assert "Grizzly Bears" in blob(s, "p2")  # 701.20a: revealed to all players while she decides
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"])
+    answer(s)
+    assert not s.state.cards[bears.id].face_down and s.state.cards[bears.id].zone == "p2:battlefield"
+    roundtrip(s)

@@ -2090,6 +2090,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     flashback = from_graveyard(card, plan.actor, ch, plan.state) and not escaping  # (wave 5I: escape instead, 118.9a)
     card_was_in_hand = card.zone == zone_key(plan.actor, "hand")
     cast_zone = card.zone.rsplit(":", 1)[-1]  # -- refused modal/conditional (wave 3R1) -- where it was cast from
+    if cast_zone == "foretell":
+        cast_zone = "exile"  # -- hidden exile (wave 18A) -- the foretell zone is the exile zone (702.143a): "cast from exile"
     from_where = {"graveyard": "the graveyard", "exile": "exile", "library": "the library", "hand": "the hand"}.get(
         card.zone.rsplit(":", 1)[-1], card.zone)
     if a.face is not None and a.face != card.face:
