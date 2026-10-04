@@ -129,6 +129,9 @@ def test_leyline_and_chancellor_in_turn_order_with_private_hands(cards):
     for viewer in ("p2", SPECTATOR):
         view = json.dumps(s.view(viewer))
         assert "Leyline of Sanctity" not in view and "Chancellor of the Dross" not in view
+    with pytest.raises(ActionError) as err:  # the refusal an opponent gets says nothing about the hand either
+        act(s, "p2", type="pass_priority")
+    assert "Leyline" not in str(err.value) and "Chancellor" not in str(err.value)
     mine = s.view("p1")["rules"]["decision"]
     assert sorted(o["label"] for o in mine["options"]) == ["Chancellor of the Dross", "Leyline of Sanctity"]
     answer(s, "p1", ["Chancellor of the Dross", "Leyline of Sanctity"])
