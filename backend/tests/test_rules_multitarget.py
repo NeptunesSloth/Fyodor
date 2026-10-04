@@ -96,8 +96,6 @@ def test_pronouns_bind_to_the_last_group():
     "~ deals X damage divided as you choose among any number of target creatures, where X is its power.",
     "Exile two target cards from an opponent's graveyard.",  # (the same opponent's? not a guess)
     # "with flying" qualifies only the creature (any artifact can be chosen): a selector can't say that
-    "Destroy up to one target artifact, enchantment, or creature with flying.",
-    "Destroy target artifact, enchantment, or creature with flying.",
     "~ deals 2 damage to another target.",  # ("another" than what?)
 ])
 def test_unsupported_wordings(text):

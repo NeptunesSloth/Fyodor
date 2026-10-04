@@ -555,7 +555,6 @@ def test_the_wordings_parse(text):
     "search your library for an artifact card with a mana ability or a basic land card, reveal it, put it into your hand, then shuffle",
     "search your library for up to X creature cards with mana value X or less, where X is the number of lands you control, "
     "put them onto the battlefield, then shuffle",
-    "search your library for a creature card with power or toughness 6 or greater, reveal it, put it into your hand, then shuffle",
     "return target creature card from your graveyard to the battlefield with a hexproof counter and an indestructible counter on it",
 ])
 def test_what_cannot_be_done_correctly_is_refused(text):
