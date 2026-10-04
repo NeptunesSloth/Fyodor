@@ -44,7 +44,7 @@ def card_db(settings):
     from app.cards.importer import build_database
 
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, *EXTRA2], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
 
 
@@ -202,4 +202,82 @@ def test_sporogenesis_makes_a_saproling_for_each_fungus_counter_the_creature_had
     settle(s)
     assert zone(s, bears) == "p1:graveyard"
     assert len([c for c in s.state.cards.values() if c.name == "Saproling" and c.zone == "p1:battlefield"]) == 2  # 603.10a: as it was
+    check(s)
+
+
+# -- second batch: selectors and edicts ---------------------------------------------------------------------------------
+EXTRA2 = [
+    card('Smokestack', set_code='tst', number='T19D12', mana_cost='{4}', cmc=4.0, type_line='Artifact', oracle_text="At the beginning of your upkeep, you may put a soot counter on this artifact.\nAt the beginning of each player's upkeep, that player sacrifices a permanent of their choice for each soot counter on this artifact."),  # noqa: E501
+    card('Arcbound Overseer', set_code='tst', number='T19D14', mana_cost='{8}', cmc=8.0, type_line='Artifact Creature — Golem', oracle_text='At the beginning of your upkeep, put a +1/+1 counter on each creature you control with modular.\nModular 6 (This creature enters with six +1/+1 counters on it. When it dies, you may put its +1/+1 counters on target artifact creature.)', power='0', toughness='0', keywords=['Modular']),  # noqa: E501
+    card('Quirion Dryad', set_code='tst', number='T19D15', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Dryad', oracle_text="Whenever you cast a spell that's white, blue, black, or red, put a +1/+1 counter on this creature.", power='1', toughness='1', colors=['G'], color_identity=['G']),  # noqa: E501
+    card('Legolas Greenleaf', set_code='tst', number='T19D16', mana_cost='{2}{G}', cmc=3.0, type_line='Legendary Creature — Elf Archer', oracle_text="Reach\nLegolas can't be blocked by creatures with power 2 or less.\nWhenever another legendary creature you control enters, put a +1/+1 counter on Legolas.\nWhenever Legolas deals combat damage to a player, draw a card.", power='2', toughness='2', colors=['G'], color_identity=['G'], keywords=['Reach']),  # noqa: E501
+]
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in EXTRA2])
+def test_second_batch_is_full(name):
+    c = next(x for x in EXTRA2 if x["name"] == name)
+    assert coverage.of_card_data({**c, "faces": c.get("card_faces") or []}).level == "FULL"
+
+
+def test_smokestack_sacrifices_a_permanent_for_each_soot_counter(cards):
+    s = build(cards, "Smokestack", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears")
+    stack = put(s, "Smokestack")
+    add(s, stack, 2, "soot")
+    for c in [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+
+    def mine():
+        return [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p1:battlefield"]
+
+    assert len(mine()) == 3
+    for _ in range(300):  # Alice's upkeep: decline the "may put a soot counter", stop at the sacrifice choice
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "choose_cards" and "sacrifice" in d.prompt:
+            break
+        elif d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        else:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids if d.kind == "order" else ["no"] if "no" in ids else ids[:1])
+    d = s.state.rules.decision
+    assert d.player == "p1" and len(d.options) == 4  # her choice among her permanents (701.21a): two of them, one per soot counter
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[stack.id, mine()[0].id])
+    settle(s)
+    assert zone(s, stack) == "p1:graveyard" and len(mine()) == 2
+    check(s)
+
+
+def test_arcbound_overseer_counts_the_creatures_with_modular_only(cards):
+    s = build(cards, "Arcbound Overseer", "Grizzly Bears")
+    bears = put(s, "Grizzly Bears")
+    overseer = cast(s, "Arcbound Overseer", C=8)  # (it enters with six +1/+1 counters: modular)
+    settle(s)
+    before = counters(s, overseer).get("+1/+1", 0)
+    assert before == 6
+    until(s, lambda s: counters(s, overseer).get("+1/+1", 0) > before)  # Alice's next upkeep
+    assert counters(s, overseer).get("+1/+1", 0) == before + 1 and not counters(s, bears)  # 702.43: the printed keyword
+    check(s)
+
+
+def test_quirion_dryad_counts_white_blue_black_or_red_spells_only(cards):
+    s = build(cards, "Quirion Dryad", "Giant Growth", "Lightning Bolt", "Grizzly Bears")
+    dryad, bears = put(s, "Quirion Dryad"), put(s, "Grizzly Bears")
+    cast(s, "Giant Growth", targets=[bears.id], G=1)  # green: no counter
+    settle(s)
+    assert not counters(s, dryad)
+    cast(s, "Lightning Bolt", targets=[bears.id], R=1)  # red: a counter
+    settle(s)
+    assert counters(s, dryad) == {"+1/+1": 1}
+    check(s)
+
+
+def test_legolas_is_named_in_its_own_counter_wording(cards):
+    s = build(cards, "Legolas Greenleaf", "Krenko, Mob Boss")
+    legolas = put(s, "Legolas Greenleaf")
+    cast(s, "Krenko, Mob Boss", R=2, C=2)  # another legendary creature entering under Alice's control
+    settle(s)
+    assert counters(s, legolas) == {"+1/+1": 1}
     check(s)
