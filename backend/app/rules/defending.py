@@ -40,7 +40,7 @@ def attacked(plan: Any, ctx: dict[str, Any], *, player: bool) -> list[str]:
 
 def allowed(d: dict[str, Any]) -> bool:
     """Whether a definition that names the defending player (or the attacked object) is an attacking creature's trigger (above)."""
-    if WHO not in (raw := json.dumps(d, default=str)) and '"attacked"' not in raw and "defended_player" not in raw:
+    if WHO not in (raw := json.dumps(d, default=str)) and "attacked_it" not in raw and "defended_player" not in raw:
         return True
     if d.get("kind") != "triggered":
         return False

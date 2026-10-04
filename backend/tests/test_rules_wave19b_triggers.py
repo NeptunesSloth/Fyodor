@@ -16,6 +16,7 @@
   "deals damage to an opponent, that opponent discards a card" - the opponent dealt damage.
 * 608.2h / 601.1: "put any number of creature cards from your hand onto the battlefield", "an artifact card with mana value less than or
   equal to that damage" - chosen privately, not cast.
+* 701.21a: "sacrifice any number of other permanents, then draw that many cards" - the player picks which (none is allowed).
 * 508.1b: "deals 1 damage to the player or planeswalker it's attacking" - what the attacker the trigger is about attacks now.
 """
 
@@ -66,6 +67,7 @@ EXTRA = [
     real('Covert Technician', '{2}{U}', 3, 'Artifact Creature — Human Ninja', 'Ninjutsu {1}{U} ({1}{U}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, you may put an artifact card with mana value less than or equal to that damage from your hand onto the battlefield.', ("2", "4"), 'U'),
     real('Probe Rock', '{3}', 3, 'Artifact', '', None),
     real('Probe Giant', '{5}', 5, 'Creature — Giant', '', ("5", "5")),
+    real('God-Eternal Bontu', '{3}{B}{B}', 5, 'Legendary Creature — Zombie God', "Menace\nWhen God-Eternal Bontu enters, sacrifice any number of other permanents, then draw that many cards.\nWhen God-Eternal Bontu dies or is put into exile from the battlefield, you may put her into her owner's library third from the top.", ("5", "6"), 'B'),
 ]
 
 NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
@@ -356,4 +358,19 @@ def test_artifact_with_mana_value_up_to_the_damage_dealt(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[blade.id])
     answer(s)
     assert s.state.cards[blade.id].zone == "p1:battlefield" and s.state.cards[rock.id].zone == "p1:hand"
+    check(s)
+
+
+@pytest.mark.parametrize("count", [2, 0])
+def test_sacrifice_any_number_of_other_permanents_then_draw_that_many(cards, count):
+    s = build(cards, ["God-Eternal Bontu", "Probe Rock", "Probe Blade"], [])
+    rock, blade = put(s, "Probe Rock"), put(s, "Probe Blade")
+    cast(s, "God-Eternal Bontu", B=2, C=3)
+    d = s.state.rules.decision
+    assert d is not None and d.min_choices == 0 and {o.id for o in d.options} == {rock.id, blade.id}  # (not Bontu herself)
+    hand = len(zone(s.state, "p1", "hand"))
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[rock.id, blade.id][:count])
+    answer(s)
+    assert len(zone(s.state, "p1", "hand")) == hand + count
+    assert (s.state.cards[rock.id].zone == "p1:graveyard") == (count == 2)
     check(s)

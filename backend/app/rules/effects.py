@@ -120,7 +120,7 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         from app.rules import defending
 
         return defending.players(plan, ctx)
-    if who == "attacked":  # -- attacked (wave 19B) -- "the player or planeswalker it's attacking" (the player: app/rules/defending.py)
+    if who == "attacked_it":  # -- attacked (wave 19B) -- "the player or planeswalker it's attacking" (the player: app/rules/defending.py)
         from app.rules import defending
 
         return defending.attacked(plan, ctx, player=True)
@@ -157,7 +157,7 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "target" or who.startswith("target:"):
         return [t["id"] for t in target_refs(ctx, who) if t["id"] in plan.state.cards
                 and plan.oid(t["id"]) == t.get("object_id")]
-    if who == "attacked":  # -- attacked (wave 19B) -- ... or the planeswalker
+    if who == "attacked_it":  # -- attacked (wave 19B) -- ... or the planeswalker
         from app.rules import defending
 
         return defending.attacked(plan, ctx, player=False)
@@ -1901,11 +1901,11 @@ def sacrifice_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     who = _players(plan, ctx, e["who"])
     order = [p for p in plan.apnap() if p in who]
     return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order, [], e.get("as"), bool(e.get("exile")),
-                           bool(e.get("link")))
+                           bool(e.get("link")), bool(e.get("upto")))
 
 
 def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list[str], picked: list[str],
-                    binding: str | None = None, exile: bool = False, link: bool = False) -> bool:
+                    binding: str | None = None, exile: bool = False, link: bool = False, upto: bool = False) -> bool:
     sel = selectors.from_key(key)
     for i, pid in enumerate(players):
         mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
@@ -1913,14 +1913,14 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
         n = min(want, len(mine))
         if n == 0:
             continue
-        if n == len(mine):
+        if n == len(mine) and not upto:
             picked = [*picked, *mine]
             continue
-        decide(plan, player=pid, kind="choose_cards", prompt=f"Sacrifice {n}",
+        decide(plan, player=pid, kind="choose_cards", prompt=f"Sacrifice {'up to ' if upto else ''}{n}",
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
-               min_choices=n, max_choices=n,
+               min_choices=0 if upto else n, max_choices=n,  # (-- triggers (wave 19B) -- "any number of": none is allowed)
                resume={"step": "sacrifice_choice", "ctx": ctx, "sel": key, "want": want, "rest": players[i + 1:],
-                       "picked": picked, "as": binding, "exile": exile, "link": link})
+                       "picked": picked, "as": binding, "exile": exile, "link": link, "upto": upto})
         return False
     if exile:  # -- trigger tail (wave 16C) -- "Exile a land you control": chosen as it resolves, then exiled (not sacrificed)
         picked = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
@@ -1949,7 +1949,7 @@ def resume_sacrifice_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
     picked = [*(r.get("picked") or []), *chosen]
     if _sacrifice_next(plan, r["ctx"], r["sel"], r["want"], r.get("rest") or [], picked, r.get("as"), r.get("exile", False),
-                       r.get("link", False)):
+                       r.get("link", False), r.get("upto", False)):
         continue_effects(plan, r["ctx"])
 
 

@@ -1263,6 +1263,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if greatest:
             sel = replace(sel, extras=(*sel.extras, "greatest_power_own"))
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
+    # -- triggers (wave 19B) -- "Sacrifice any number of other permanents." (God-Eternal Bontu): the player's own choice, none allowed
+    m = re.fullmatch(r"sacrifice any number of (?P<sel>.+)", text)
+    if m and rider is None:
+        sel = selectors.parse(m["sel"])
+        if sel is None or sel.player is not None or sel.controller is not None:
+            raise _Fail
+        return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": 10**6, "upto": True}], None
     # -- trigger tail (wave 16C) -- "Exile a land you control." (Wormfang Newt, Turtle): you choose it as this resolves (608.2d),
     # then it's exiled (no sacrifice, 701.21a: sacrificing is putting into a graveyard); linked for "the exiled card" (607.2a)
     m = re.fullmatch(r"exile (?P<n>a|an|one|two|three) (?P<sel>[a-z -]+? you control)", text)
@@ -1352,7 +1359,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         # (selectors read "or" for a list of types), and "each other player" is every opponent (102.2)
         recipients = m["o"].replace("each other player", "each opponent")
         if re.fullmatch(r"the player or planeswalker (?:it's|that creature is) attacking", recipients) and not m["stat"]:
-            return [{"do": "damage", "who": "attacked", "n": n, **src}], None  # -- attacked (wave 19B) -- 508.1b
+            return [{"do": "damage", "who": "attacked_it", "n": n, **src}], None  # -- attacked (wave 19B) -- 508.1b
         if recipients == "itself" and m["src"] == "~":  # -- chosen player (wave 4J) -- "~ deals 1 damage to itself" (Stuffy Doll)
             recipients = "~"
         recipients = re.sub(r"^(each opponent and each .+?) they control$", r"\1 your opponents control", recipients)

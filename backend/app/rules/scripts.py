@@ -1683,13 +1683,14 @@ def _that_many(left: tuple[list[dict[str, Any]], Any], text: str) -> tuple[list[
     m = _THAT_MANY.match(text)
     first = left[0][0] if len(left[0]) == 1 else {}
     kind = "discarded" if first.get("do") == "discard" and (first.get("all") or first.get("upto")) else \
+        "sacrificed" if first.get("do") == "sacrifice_choice" and first.get("upto") else \
         "shuffled" if first.get("do") == "shuffle_library" and first.get("zones") == ["hand"] else None
     if m is None or kind is None:
         return None
     s, plural = m["s"] or "", bool(m["s"]) and m["s"].startswith("each")
     verb = m["v"] if s else m["v"].rstrip("s")
     if verb.startswith("draw"):
-        right = _clause(f"{s}{verb} a card for each card discarded this way")
+        right = _clause(f"{s}{verb} a card for each {'permanent sacrificed' if kind == 'sacrificed' else 'card discarded'} this way")
         if right is None or len(right[0]) != 1 or right[0][0].get("do") != "draw":
             return None
         if kind == "shuffled":  # (the shuffle is no introducer of "it": its binding is named here)
