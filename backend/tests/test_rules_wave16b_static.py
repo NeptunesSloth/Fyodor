@@ -16,6 +16,7 @@ from app.game.session import GameSession
 from app.rules import characteristics as chars
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
+from app.rules.layers import derive
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_effects import mana, replay_matches
 from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip
@@ -77,6 +78,13 @@ EXTRA = [
          "• You draw two cards and you lose 2 life.\n• Distribute two +1/+1 counters among one or two target creatures."),
     card("Urza's Rebuff", set_code="tst", number="B26", mana_cost="{1}{U}", cmc=2.0, type_line="Instant", colors=["U"],
          color_identity=["U"], oracle_text="Choose one —\n• Counter target spell.\n• Tap up to two target creatures."),
+    card("Borrowed Hostility", set_code="tst", number="B27", mana_cost="{1}{R}", cmc=2.0, type_line="Instant", colors=["R"],
+         color_identity=["R"], oracle_text="Escalate {3} (Pay this cost for each mode chosen beyond the first.)\nChoose one or both —\n"
+         "• Target creature gets +3/+0 until end of turn.\n• Target creature gains first strike until end of turn."),
+    card("Collective Brutality", set_code="tst", number="B28", mana_cost="{1}{B}", cmc=2.0, type_line="Sorcery", colors=["B"],
+         color_identity=["B"], oracle_text="Escalate—Discard a card. (Discard a card for each mode chosen beyond the first.)\n"
+         "Choose one or more —\n• Target opponent reveals their hand. You choose an instant or sorcery card from it. That player "
+         "discards that card.\n• Target creature gets -2/-2 until end of turn.\n• Target opponent loses 2 life and you gain 2 life."),
     card("Deep Analysis", set_code="tst", number="B19", mana_cost="{3}{U}", cmc=4.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
          oracle_text="Target player draws two cards.\nFlashback—{1}{U}, Pay 3 life. (You may cast this card from your graveyard for "
          "its flashback cost. Then exile it.)"),
@@ -495,4 +503,33 @@ def test_a_mode_dividing_counters_among_one_or_two_targets(cards):
     act(s, "p1", type="cast_spell", card_id=c.id, modes=[2], targets=[a.id, b.id], target_counts=[2], division=[1, 1])
     answer(s)
     assert s.state.cards[a.id].counters.get("+1/+1") == 1 and s.state.cards[b.id].counters.get("+1/+1") == 1
+    roundtrip(s)
+
+
+def test_escalate_mana_is_paid_for_each_mode_beyond_the_first(cards):
+    s = build(cards, p1=("Borrowed Hostility", "Test Small"))
+    mine = put(s, "Test Small", "battlefield")
+    c = put(s, "Borrowed Hostility", "hand")
+    mana(s, C=1, R=1)  # {1}{R} alone doesn't pay for two modes: {3} more
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=c.id, modes=[0, 1], targets=[mine.id, mine.id])
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=c.id, modes=[0, 1], targets=[mine.id, mine.id])
+    answer(s)
+    d = derive(s.state, s.state.cards[mine.id], chars.of(s.state.cards[mine.id], s.cards), s.cards)
+    assert d.pt == (5, 2) and "first strike" in d.keywords
+    roundtrip(s)
+
+
+def test_escalate_discard_is_paid_once_for_each_extra_mode(cards):
+    s = build(cards, p1=("Collective Brutality", "Test Small"), p2=("Test Flyer",))
+    victim = put(s, "Test Flyer", "battlefield", "p2")
+    c = put(s, "Collective Brutality", "hand")
+    fill(s, "p1", 2)
+    mana(s, C=1, B=1)
+    hand, life = hand_size(s, "p1"), s.state.players["p2"].life
+    act(s, "p1", type="cast_spell", card_id=c.id, modes=[1, 2], targets=[victim.id, "p2"])
+    answer(s)
+    assert hand_size(s, "p1") == hand - 1 - 1  # the spell, and one card discarded for the second mode
+    assert s.state.players["p2"].life == life - 2 and find(s, "Test Flyer", "p2").zone == "p2:graveyard"
     roundtrip(s)

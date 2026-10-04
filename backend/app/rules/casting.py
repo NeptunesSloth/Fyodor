@@ -1335,6 +1335,34 @@ def flashback_parts(text: str) -> tuple[str, AbilityCost | None] | None:
     return m["mana"] or "{0}", AbilityCost(components=comps, life=sum(c.amount for c in comps if c.kind == costs.PAY_LIFE))
 
 
+# -- static_other sweep (wave 16B) -- 702.120a: "Escalate {cost}" / "Escalate—Discard a card.": "for each mode you choose beyond the first, you pay
+# [cost] as an additional cost to cast this spell" (a mana cost, or other parts alt_costs reads)
+ESCALATE = re.compile(r"^escalate(?: (?P<mana>(?:\{[^}]+\})+)|—(?P<rest>[^{}]+))$", re.IGNORECASE)
+
+
+def escalate_parts(text: str) -> tuple[str, AbilityCost | None] | None:
+    """The escalate line's (mana cost, other cost parts) per extra mode, or None when it isn't read."""
+    from app.rules import alt_costs
+
+    m = ESCALATE.fullmatch(text.strip().rstrip("."))
+    if m is None:
+        return None
+    if m["mana"]:
+        return m["mana"], None
+    parts = [alt_costs._part(p.strip()) for p in m["rest"].split(", ")]
+    if any(p is None or isinstance(p, str) or getattr(p, "x", False) for p in parts):
+        return None
+    comps = tuple(p for p in parts if not isinstance(p, str) and p is not None)
+    return "{0}", AbilityCost(components=comps, life=sum(c.amount for c in comps if c.kind == costs.PAY_LIFE))
+
+
+def escalate_cost(ch: Characteristics) -> tuple[str, AbilityCost | None] | None:
+    for ab in ch.abilities:
+        if ab.kind == "keywords" and "escalate" in ab.keywords and (found := escalate_parts(ab.text)) is not None:
+            return found
+    return None
+
+
 def flashback_cost(ch: Characteristics) -> str | None:
     """702.34: the mana part of the flashback cost printed on the card ("Flashback {2}{R}"), or None (``flashback_extra``: the
     other parts of "Flashback—{1}{U}, Pay 3 life")."""
@@ -1854,6 +1882,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     slots: list[list[TargetRef]] = []
     slot_specs: list[dict[str, Any] | None] = []
     picked: list[int] = []
+    escalate_more: AbilityCost | None = None
     if definition is not None and definition.get("modes"):
         from app.rules.modal_abilities import printed_order
 
@@ -1862,6 +1891,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if modes is None:
             return
         picked = modes
+        if len(picked) > 1 and (esc := escalate_cost(ch)) is not None:  # -- static_other sweep (wave 16B) -- 702.120a: each mode beyond the first
+            more = len(picked) - 1
+            one = M.parse_cost(esc[0])
+            additional.append(M.ManaCost(one.generic * more, one.colored * more, one.hybrid * more, one.phyrexian * more, 0, one.unsupported * more))
+            if esc[1] is not None:
+                escalate_more = AbilityCost(components=esc[1].components * more, life=esc[1].life * more)
         grouped = modal_groups(definition, picked)  # -- static_other sweep (wave 16B) --
         if grouped is not None:
             picked_targets: ChosenTargets | None = choose_targets(plan, a, {"targets": grouped}, ch.name or "it")
@@ -1896,6 +1931,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         add_cost = either if either.components else None
     if alt_offer is not None:  # -- cost changers (wave 4I) -- its other parts are paid with the rest (601.2h)
         add_cost = alt_costs.merged(add_cost, alt_offer.alt.cost)
+    if escalate_more is not None:  # -- static_other sweep (wave 16B) -- escalate's non-mana parts, once for each mode beyond the first
+        add_cost = alt_costs.merged(add_cost, escalate_more)
     if grant is not None and grant.how == "flashback" and not escaping and (fb_more := flashback_extra(ch)) is not None \
             and card.zone == zone_key(plan.actor, "graveyard"):  # -- static_other sweep (wave 16B) -- the flashback cost's other parts
         add_cost = alt_costs.merged(add_cost, fb_more)
@@ -2343,6 +2380,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         if modes is None:
             return
         picked = modes
+        if len(picked) > 1 and escalate_cost(ch) is not None:  # (-- static_other sweep (wave 16B) -- its escalate cost is still paid, 118.9d)
+            raise ActionError("Choose one mode: the escalate cost of a spell cast without paying its mana cost is paid by hand")
         grouped = modal_groups(definition, picked)  # -- static_other sweep (wave 16B) --
         if grouped is not None:
             picked_targets = choose_targets(plan, a, {"targets": grouped}, ch.name or "it")

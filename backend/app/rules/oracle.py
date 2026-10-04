@@ -51,7 +51,7 @@ KEYWORDS = frozenset({
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "mobilize", "harmonize", "renew", "undaunted",
     "phasing", "transmute",  # (wave 3R4: casting.transmute)
-    "aftermath", "gravestorm", "dredge", "fuse", "awaken",  # -- static_other sweep (wave 16B) -- 702.127 (casting.from_graveyard / cast_grant)
+    "aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate",  # -- static_other sweep (wave 16B) -- 702.127 (casting.from_graveyard / cast_grant)
     "ingest", "poisonous", "frenzy", "afterlife", "modular", "split second", "graft", "sunburst", "devour",  # -- static wordings (wave 6E) -- (app/rules/keyword_triggers.py)
 })
 
