@@ -1743,6 +1743,12 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
     # opponent, the token grammar's "… for each opponent"
     body = re.sub(r"(^|\. )For each opponent, you (create [^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
+    from app.rules import (
+        tempting,  # -- tempting offers (wave 18C) -- "Each opponent may …. For each opponent who does, you …"
+    )
+
+    if (offer := tempting.bind(body, lambda t: parse_effects(t, it, event_player=event_player), split_sentences)) is not None:
+        return offer
     from app.rules import voting  # -- voting (wave 18C) -- 701.38 (read before the sentence rewrites below)
 
     if (vote := voting.split(body)) is not None:

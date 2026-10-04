@@ -52,6 +52,14 @@ EXTRA = [
          "While voting, you may vote an additional time. (The votes can be for different choices or for the same choice.)", ("2", "3"), "U"),
     real("Capital Punishment", "{3}{B}{B}", 5, "Sorcery",
          "Council's dilemma — Starting with you, each player votes for death or taxes. Each opponent sacrifices a creature of their choice for each death vote and discards a card for each taxes vote.", colors="B"),
+    real("Tempt with Bunnies", "{2}{W}", 3, "Sorcery",
+         "Tempting Offer — Draw a card and create a 1/1 white Rabbit creature token. Then each opponent may draw a card and create a 1/1 white Rabbit creature token. For each opponent who does, you draw a card and you create a 1/1 white Rabbit creature token.", colors="W"),
+    real("Tempt with Glory", "{5}{W}", 6, "Sorcery",
+         "Tempting offer — Put a +1/+1 counter on each creature you control. Each opponent may put a +1/+1 counter on each creature they control. For each opponent who does, put a +1/+1 counter on each creature you control.", colors="W"),
+    real("Tempt with Discovery", "{3}{G}", 4, "Sorcery",
+         "Tempting offer — Search your library for a land card and put it onto the battlefield. Each opponent may search their library for a land card and put it onto the battlefield. For each opponent who searches a library this way, search your library for a land card and put it onto the battlefield. Then each player who searched a library this way shuffles.", colors="G"),
+    real("Tempt with Reflections", "{2}{U}", 3, "Sorcery",
+         "Tempting offer — Choose target creature you control. Create a token that's a copy of that creature. Each opponent may create a token that's a copy of that creature. For each opponent who does, create a token that's a copy of that creature.", colors="U"),
     real("Council's Judgment", "{1}{W}{W}", 3, "Sorcery",
          "Will of the council — Starting with you, each player votes for a nonland permanent you don't control. Exile each permanent with the most votes or tied for most votes.", colors="W"),
     real("Vault 11: Voter's Dilemma", "{2}{W}", 3, "Enchantment — Saga",
@@ -344,3 +352,88 @@ def test_capital_punishment_repeats_each_instruction_once_per_vote(cards):
     roundtrip(s)
 
 
+
+
+def answer_yes(s, pid, yes=True):
+    d = s.state.rules.decision
+    assert d is not None and d.player == pid and d.kind == "confirm", d
+    act(s, pid, type="choose", decision_id=d.id, option_ids=["yes" if yes else "no"])
+
+
+def test_tempt_with_glory_gives_the_offer_to_each_opponent_who_takes_it(cards):
+    s = build(cards, "Tempt with Glory")
+    from tests.test_rules_conditionals import creature
+
+    mine, theirs, theirs2 = creature(s, "p1", "Ox"), creature(s, "p2", "Bear"), creature(s, "p2", "Wolf")
+    cast(s, "Tempt with Glory", W=1, C=5)
+    settle_stack(s)
+    assert s.state.cards[mine.id].counters == {"+1/+1": 1}  # the offer first (you do it)
+    d = s.state.rules.decision
+    assert d.player == "p2" and d.kind == "confirm"
+    answer_yes(s, "p2")
+    settle_stack(s)
+    assert s.state.cards[theirs.id].counters == {"+1/+1": 1} and s.state.cards[theirs2.id].counters == {"+1/+1": 1}
+    assert s.state.cards[mine.id].counters == {"+1/+1": 2}  # once more for the opponent who did
+    roundtrip(s)
+
+
+def test_tempt_with_glory_declined(cards):
+    s = build(cards, "Tempt with Glory")
+    from tests.test_rules_conditionals import creature
+
+    mine, theirs = creature(s, "p1", "Ox"), creature(s, "p2", "Bear")
+    cast(s, "Tempt with Glory", W=1, C=5)
+    settle_stack(s)
+    answer_yes(s, "p2", yes=False)
+    settle_stack(s)
+    assert s.state.cards[mine.id].counters == {"+1/+1": 1} and not s.state.cards[theirs.id].counters
+    roundtrip(s)
+
+
+def test_tempt_with_bunnies_draws_and_makes_tokens_for_each_side(cards):
+    s = build(cards, "Tempt with Bunnies")
+    cast(s, "Tempt with Bunnies", W=1, C=2)
+    settle_stack(s)
+    answer_yes(s, "p2")
+    settle_stack(s)
+    rabbits = [c for c in s.state.cards.values() if c.name == "Rabbit"]
+    assert sorted(c.controller for c in rabbits) == ["p1", "p1", "p2"]  # you, then once more for the opponent who did
+    assert len(s.state.zones["p2:hand"]) == 1 and len(s.state.zones["p1:hand"]) == 2
+    roundtrip(s)
+
+
+def test_tempt_with_discovery_searches_privately_and_shuffles_only_the_searchers(cards):
+    s = build(cards, "Tempt with Discovery")
+    cast(s, "Tempt with Discovery", G=1, C=3)
+    settle_stack(s)
+    d = s.state.rules.decision  # Alice searches first (the offer)
+    assert d.player == "p1" and d.kind == "choose_cards"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    answer_yes(s, "p2")
+    d = s.state.rules.decision  # Bob's own search: only Bob is shown his library
+    assert d.player == "p2" and d.kind == "choose_cards"
+    assert "Forest" not in json.dumps(s.view("p1")["rules"]["decision"]) and "Island" not in json.dumps(s.view("p1")["rules"])
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    d = s.state.rules.decision  # once more for the opponent who searched
+    assert d.player == "p1" and d.kind == "choose_cards"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    settle_stack(s)
+    assert [c.name for c in s.state.cards.values() if c.zone == "p2:battlefield"] == ["Island"]
+    assert sorted(c.name for c in s.state.cards.values() if c.zone == "p1:battlefield") == ["Forest", "Forest"]
+    roundtrip(s)
+
+
+def test_tempt_with_reflections_copies_the_chosen_creature_for_the_opponent_too(cards):
+    s = build(cards, "Tempt with Reflections")
+    from tests.test_rules_conditionals import creature
+
+    ox = creature(s, "p1", "Ox")
+    c = to_hand(s, "Tempt with Reflections")
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[ox.id])
+    settle_stack(s)
+    answer_yes(s, "p2")
+    settle_stack(s)
+    oxen = [x for x in s.state.cards.values() if x.name == "Ox" and x.zone.endswith(":battlefield")]
+    assert sorted(x.controller for x in oxen) == ["p1", "p1", "p1", "p2"]  # Ox, your copy, the opponent's copy, your second copy
+    roundtrip(s)
