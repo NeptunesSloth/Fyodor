@@ -318,6 +318,11 @@ def _any_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", None)
 
 
+@_suffix(r"(?:from|in) that player's graveyard")  # -- if you do (wave 15C) -- the player a trigger is about (bound like
+def _that_players_graveyard(s: Selector, m: re.Match[str]) -> Selector:  # "that player controls": triggers.bind_that_player)
+    return _in_zone(s, "graveyard", "that_player")
+
+
 @_suffix(r"(?:from|in) (?:an opponent's|your opponents') graveyards?")
 def _opp_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", "opponent")
@@ -630,6 +635,8 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, attacking=True)
     if low == "blocking":
         return replace(s, blocking=True)
+    if low == "unblocked":  # -- keywords (wave 15E) -- ninjutsu 702.49a: "unblocked attacking creature" (509.1h: not blocked)
+        return replace(s, attacking=True, extras=(*s.extras, "unblocked"))
     if low in ("attacking-or-blocking", "blocking-or-attacking"):  # (joined by parse: one status)
         return replace(s, in_combat=True)
     pt = re.fullmatch(r"(\d+)/(\d+)", word)
@@ -800,8 +807,10 @@ def _parse(phrase: str) -> Selector | None:
                     break
     except ValueError:
         return None
-    if any(isinstance(c[2], str) and c[2].startswith(SOURCE_STAT) for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
-        return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source)
+    if any(isinstance(c[2], str) and c[2].startswith(SOURCE_STAT) for c in s.compare) and (
+            (s.zones != ("graveyard",) or not s.card) and (s.zones != ("battlefield",) or s.card)):
+        return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source; -- keywords
+        # (wave 15E) -- or permanents: mentor's "target attacking creature with power less than this creature's power")
     if any(c[1] == "==" and c[2] == X_VALUE for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
         return None  # -- reanimation (wave 10A) -- ("mana value X" exactly: read only for a card in a graveyard)
     # (wave 16C: "artifact, creature, or enchantment an opponent controls with mana value 3 or greater": a qualifier after the
@@ -1015,6 +1024,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.zone_owner == "opponent" and card.owner == you:
         return False
+    if (sel.zone_owner == "that_player" or (sel.zone_owner or "").startswith("player:")) \
+            and card.owner != (sel.zone_owner or "")[7:]:
+        return False  # (wave 15C) unbound "that_player": nothing matches
     any_stack = sel.ability == SPELL_OR_ABILITY  # -- stack interaction (wave 5B) --
     if zone == "stack" and not any_stack and (card.ability is not None) != (sel.ability is not None):
         return False  # a spell isn't an ability, and an ability isn't a spell (115.2b)
@@ -1145,6 +1157,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
+            return False
+        if extra == "unblocked" and card.id in plan.rules.blocked:  # (wave 15E) a blocked attacker stays blocked
             return False
         if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
             return False

@@ -240,6 +240,9 @@ def probe_ok(plan: Any, ctx: Context, name: str) -> bool:
     if "counters" in b:
         return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid
                    and card.counters.get(b["counter"], 0) < n for cid, (oid, n) in b["counters"].items())
+    if "counters_up" in b:  # -- if you do (wave 15C) -- counters were put on it
+        return any((card := plan.state.cards.get(cid)) is not None and plan.oid(card) == oid
+                   and card.counters.get(b["counter"], 0) > n for cid, (oid, n) in b["counters_up"].items())
     if "hands_down" in b:
         return any(len(plan.state.zones.get(f"{p}:hand", [])) < n for p, n in b["hands_down"].items())
     for cid, oid in b["cards"].items():

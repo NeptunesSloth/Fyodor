@@ -9,6 +9,7 @@ tap lands yourself first (``activate_ability`` on their mana ability) to pay a p
 from __future__ import annotations
 
 import re
+import secrets
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -18,13 +19,24 @@ from app.game.rules_state import (
     CostContribution,
     DecisionOption,
     PaymentRecord,
+    Permission,
     StackEntry,
     TargetRef,
     TurnCount,
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import attachments, cost_payment, costs, history, permissions, restrictions, scripts
+from app.rules import (
+    attachments,
+    cost_payment,
+    costs,
+    graveyard_keywords,
+    history,
+    ninjutsu,
+    permissions,
+    restrictions,
+    scripts,
+)
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
@@ -1479,6 +1491,10 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
 
     if (timed := cast_timing.problem(state, player, card, ch, info)) is not None:
         return timed
+    if grant.sorcery:  # -- keywords (wave 15E) -- plot 702.170d: during your main phase while the stack is empty
+        if state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
+            return f"{ch.name} can only be cast in your main phase while the stack is empty (plot)"
+        return None
     if "Instant" in ch.types or ch.has_flash or grant.flash:  # (601.3b: as though it had flash)
         return None
     if state.turn.active_player != player:
@@ -1716,6 +1732,17 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.free and card.id in plan.rules.free_casts:  # suspend / cascade / rebound / madness: what the engine granted
         cast_free(plan, card, ch, a)
         return
+    if a.alt_cost is not None and not plan.manual(card):  # -- keywords (wave 15E) -- bestow 702.103b/d: cast as an Aura spell
+        from app.rules import alt_costs as _alt
+        from app.rules import bestow
+
+        if any(o.key == a.alt_cost and o.tag == "bestow" for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info)):
+            ch = bestow.overlay(ch)
+            bestowed_cast = True
+        else:
+            bestowed_cast = False
+    else:
+        bestowed_cast = False
     face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
     if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
         if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
@@ -1868,7 +1895,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else \
         "flashback" if flashback else "free" if free else "escape" if escaping else \
-        "alternative" if alt_offer is not None else None  # ("escape": 702.138b, wave 5I)
+        (alt_offer.tag or "alternative") if alt_offer is not None else None  # ("escape": 702.138b, wave 5I; blitz: 15E)
     if alt_offer is not None:  # -- cost changers (wave 4I) --
         if alt_offer.once_key:
             plan.rules.once_per_turn[alt_offer.once_key] = plan.state.turn.number  # ("once each turn")
@@ -1885,6 +1912,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         tags.append(f"Cast from {from_where}" + (" without paying its mana cost" if free else ""))
     if a.dash:
         plan.rules.dashed.append(card.id)
+    if bestowed_cast:  # -- keywords (wave 15E) -- 702.103b: the spell on the stack is a bestowed Aura spell
+        plan.rules.bestowed.append(plan.oid(card))
+        tags.append("Bestowed")
     if a.kicker:
         tags.append("Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}")
     if a.buyback:
@@ -1915,6 +1945,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         _cascade_triggers(plan, card, ch, more_cascade)
     if "storm" in ch.keywords and not a.face_down and not plan.manual(card):
         _storm_trigger(plan, card, ch)
+    if "replicate" in ch.keywords and not a.face_down and not plan.manual(card):  # (wave 15E)
+        _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
         effects_in_order = [e for k, i in enumerate(picked)
                             for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]
@@ -2093,6 +2125,29 @@ def suspend(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAb
     plan.rules.passed = []
 
 
+PLOT = re.compile(r"^plot (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def plot(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, cost_text: str) -> None:
+    """-- keywords (wave 15E) -- 702.170a/b plot: a special action, any time you have priority during your main phase while the
+    stack is empty: exile this card from your hand and pay the plot cost. It becomes a plotted card (702.170d): its owner may cast
+    it from exile without paying its mana cost during their main phase while the stack is empty, on a later turn."""
+    state = plan.state
+    if state.turn.active_player != plan.actor or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
+        raise ActionError("You can plot a card only in your main phase while the stack is empty")
+    cost = M.parse_cost(cost_text)
+    if payment_step(plan, a, cost, f"plotting {ch.name}", purpose=Purpose(spell=ch)):
+        return
+    pay(plan, plan.actor, cost, f"paid {cost.text()} to plot {ch.name}", sources=a.sources, purpose=Purpose(spell=ch))
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}})
+    plan.rules.permissions.append(Permission(
+        id=secrets.token_hex(4), player=card.owner, cast=True, zone="any", object_id=plan.oid(card), card=card.id, free=True,
+        until="permanent", turn=state.turn.number, after_turn=state.turn.number, sorcery=True,
+        label=f"{ch.name}: cast it without paying its mana cost (plotted)"))
+    plan.note(f"{ch.name} is plotted", [card.id])
+    plan.rules.passed = []
+
+
 UNEARTH = re.compile(r"^unearth (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 MADNESS = re.compile(r"^madness (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 BUYBACK = re.compile(r"^buyback (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
@@ -2206,6 +2261,17 @@ def _cascade_triggers(plan: Plan, card: CardInstance, ch: Characteristics, extra
         _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name,
              index=6000 + k, definition={"kind": "triggered", "trigger": "cascade", "optional": False, "target": None,
                                          "effects": [{"do": "cascade", "mv": ch.mana_value}]})
+
+
+def _replicate_trigger(plan: Plan, card: CardInstance, ch: Characteristics, times: int) -> None:
+    """-- keywords (wave 15E) -- 702.56a replicate: "When you cast this spell, copy it for each time you paid its replicate cost. You
+    may choose new targets for the copies." (the cost is paid as kicker is: ``times``)"""
+    from app.rules.triggers import _add
+
+    if times and any(ab.kind == "keywords" and "replicate" in ab.keywords for ab in ch.abilities):
+        _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6150,
+             definition={"kind": "triggered", "trigger": "storm", "optional": False, "target": None,
+                         "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": times}]})
 
 
 def _storm_trigger(plan: Plan, card: CardInstance, ch: Characteristics) -> None:
@@ -2342,6 +2408,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         _cascade_triggers(plan, card, ch, extra)
     if "storm" in ch.keywords and not plan.manual(card):
         _storm_trigger(plan, card, ch)
+    if "replicate" in ch.keywords and not plan.manual(card):  # (wave 15E)
+        _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked:
         effects_in_order = [e for k, i in enumerate(picked)
                             for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]
@@ -2403,6 +2471,14 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         found = suspend_info(ch, a.ability)
         if found is not None:
             suspend(plan, card, ch, a, *found)
+        elif (plot_cost := keyword_cost(ch, "plot", PLOT, a.ability)) is not None and not plan.manual(card):
+            plot(plan, card, ch, a, plot_cost)
+        elif (ninja := ninjutsu.cost_of(ch, a.ability)) is not None and not plan.manual(card):
+            on_stack = len(plan.state.zones.get(STACK, []))
+            activate_to_stack(plan, card, ch, ninjutsu.ability(ch, a.ability, ninja), a, definition=ninjutsu.DEFINITION)
+            if len(plan.state.zones.get(STACK, [])) > on_stack and card.zone == zone_key(plan.actor, "hand"):  # -- keywords
+                # (wave 15E) -- 702.49b: revealed until the ability leaves the stack (ninjutsu.enter hides it again)
+                plan.do({"type": "reveal", "card_ids": [card.id]}, actor=plan.actor)
         else:
             cycle(plan, card, ch, a)
         return
@@ -2414,6 +2490,10 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
                 ability_cost(ch, ability).from_graveyard:  # 113.6m: "Exile this card from your graveyard: …"
             _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
             activate_to_stack(plan, card, ch, ability, a)
+            return
+        if unearth_cost is None and (gk := graveyard_keywords.ability(ch, a.ability)) is not None and not plan.manual(card):
+            _activation_limit(plan, card, ch)  # -- keywords (wave 15E) -- embalm / eternalize: activated from the graveyard
+            activate_to_stack(plan, card, ch, gk, a, definition=scripts.define(gk, ch))
             return
         if unearth_cost is None:
             raise ActionError("That card has no ability to use from your graveyard")
@@ -2560,7 +2640,7 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
             cost = replace(cost, mana=power_up.reduced(state, card, ch, cost.mana) or "")
         own = cost_changes.ability_delta(state, card.controller, card, ch, ability.text, info) \
             if "This ability costs " in ability.text else 0
-        reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own)
+        reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own, ability.text)
         if reduced != cost.mana:
             cost = replace(cost, mana=reduced)
     # -- reanimation (wave 3R) -- 113.6m: "{1}{B}: Return this card from your graveyard to the battlefield" moves the
@@ -2594,6 +2674,10 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     elif cost.from_graveyard:  # 113.6m: its cost moves it out of your graveyard, so it works only there
         if card.zone != zone_key(player, "graveyard") or card.owner != player:
             return "That ability can only be activated from your graveyard"
+    elif ninjutsu.is_ninjutsu(ability.text):  # -- keywords (wave 15E) -- 702.49a: from the hand, once blockers are declared
+        why = ninjutsu.problem(state, player, card)
+        if why:
+            return why
     elif not card.zone.endswith(":battlefield") or (card.controller != player and not any_player(ability, cost)):  # (wave 7B)
         return "You can only activate abilities of permanents you control"
     if cost.unsupported:
@@ -2641,18 +2725,19 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     return None
 
 
-EQUIP_DEFINITION = {"kind": "activated", "effects": [{"do": "attach_self"}], "target": {"what": "creature_you_control"}}
-
-
-def equip_ability(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, cost: str) -> None:
-    """702.6a Equip [cost]: "[Cost]: Attach this permanent to target creature you control. Activate
-    only as a sorcery." An Equipment that's also a creature can't equip (301.5c)."""
+def equip_ability(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility,
+                  equip: tuple[str, str, str]) -> None:
+    """702.6a Equip [cost]: "[Cost]: Attach this permanent to target creature you control. Activate only as a sorcery."
+    (702.6b: the target narrowed by a quality; -- equip (wave 15E) -- non-mana costs and the line's own trailing sentences).
+    An Equipment that's also a creature can't equip (301.5c)."""
+    cost, target, tail = equip
     if "Equipment" not in ch.subtypes or ch.is_creature:
         raise ActionError(f"{ch.name} can't equip a creature" + (" while it's a creature" if ch.is_creature else ""))
     ability = AbilityText(index=a.ability, kind="activated", cost=cost,
-                          text=f"{cost}: Attach {ch.name} to target creature you control. Activate only as a sorcery.")
-    activate_to_stack(plan, card, ch, ability, a, definition=EQUIP_DEFINITION,
-                      exclude_targets=(card.id,))
+                          text=f"{cost}: Attach {ch.name} to target creature you control. Activate only as a sorcery."
+                               + (f" {tail}" if tail else ""))
+    definition = {"kind": "activated", "effects": [{"do": "attach_self"}], "target": {"what": target}}
+    activate_to_stack(plan, card, ch, ability, a, definition=definition, exclude_targets=(card.id,))
 
 
 def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, ability: AbilityText,
@@ -2782,9 +2867,23 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                                     check_priority=check_priority,
                                     info=info) is None:
                 out.append({"card_id": cid, "ability": ab.index})
+    for cid in state.zones.get(zone_key(player, "hand"), []):  # -- keywords (wave 15E) -- ninjutsu (702.49a)
+        card = state.cards[cid]
+        ch = chars.of(card, info)
+        for ab in ch.abilities:
+            if (cost_text := ninjutsu.cost_of(ch, ab.index)) is not None:
+                made = ninjutsu.ability(ch, ab.index, cost_text)
+                if ability_problem(state, player, card, ch, made, ability_cost(ch, made, state=state, card=card, info=info),
+                                   check_priority=check_priority, info=info) is None:
+                    out.append({"card_id": cid, "ability": ab.index})
     for cid in state.zones.get(zone_key(player, "graveyard"), []):  # 113.6m: "Exile this card from your graveyard: …"
         card = state.cards[cid]
         ch = chars.of(card, info)
+        for ab in ch.abilities:  # -- keywords (wave 15E) -- embalm / eternalize
+            if (gk := graveyard_keywords.ability(ch, ab.index)) is not None and ability_problem(
+                    state, player, card, ch, gk, ability_cost(ch, gk, state=state, card=card, info=info),
+                    check_priority=check_priority, info=info) is None:
+                out.append({"card_id": cid, "ability": ab.index})
         for ab in ch.abilities:
             if ab.kind == "activated" and ability_cost(ch, ab).from_graveyard and \
                     ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),  # (wave 4I)

@@ -50,7 +50,7 @@ STEP = "pay_or_sacrifice"
 PAY, DECLINE = "pay", "decline"
 SUPPORTED = frozenset({C.MANA, C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.DISCARD, C.EXILE, C.EXILE_FROM_GRAVEYARD,
                        C.REMOVE_COUNTER, C.RETURN_PERMANENT, C.TAP_OTHER, C.PUT_COUNTER, C.DISCARD_HAND,
-                       C.MILL, "EXILE_FROM_HAND"})  # (MILL, EXILE_FROM_HAND: wave 8C)  # (PUT_COUNTER: wave 6F, blight)
+                       C.MILL, "EXILE_FROM_HAND", C.EXILE_TO_GY})  # (MILL, EXILE_FROM_HAND: wave 8C; EXILE_TO_GY: wave 15C)  # (PUT_COUNTER: wave 6F, blight)
 _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 
 
@@ -72,6 +72,8 @@ def cost_text(phrase: str) -> str | None:
     """The cost an Oracle "you may …" / "unless … pays …" phrase names ("pay {2}", "sacrifice
     another creature", "pay 2 life", "pay {1} and discard a card"), as the comma-separated cost
     text the cost parser reads — or None when the engine couldn't pay every part by itself."""
+    if " another " not in f" {phrase} ":  # -- if you do (wave 15C) -- the payer chooses what pays (Torment of Scarabs); "another" is
+        phrase = phrase.replace(" of their choice", "")  # other than what? (an Aura's: the enchanted creature) — not read
     parts = []
     # -- if you do (wave 6F) -- "sacrifice an artifact, creature, enchantment, land, or planeswalker" (Braids): one
     # permanent of any of those types — the cost parser's "a creature or artifact or land"
@@ -106,7 +108,7 @@ _ALT_VERB = re.compile(r" or (?=(?:sacrifice|discard|pay|exile|return|tap|remove
 def alternatives(phrase: str) -> list[str] | None:
     """"sacrifice an artifact or discard a card" → ["Sacrifice an artifact", "Discard a card"], or None (not two
     costs each read alone)."""
-    pieces = _ALT_VERB.split(phrase.strip())
+    pieces = _ALT_VERB.split((phrase if " another " in f" {phrase} " else phrase.replace(" of their choice", "")).strip())
     if len(pieces) != 2:
         return None
     found = [cost_text(p) for p in pieces]
@@ -127,12 +129,19 @@ def _hand_to_bottom() -> AbilityCost | None:
 
 
 _EXILE_FROM_HAND = re.compile(r"^Exile (?:a|an|one) (?:[\w\-]+ )*card from your hand$")
+# -- if you do (wave 15C) -- "You may reveal a Dinosaur card from your hand. If you do, …" (Priest of the Wakening Sun): revealing is
+# the cost (701.20a: shown to everyone, it stays in the hand); payable only with such a card in hand (118.3)
+REVEAL_FROM_HAND = "REVEAL_FROM_HAND"
+_REVEAL_FROM_HAND = re.compile(r"^Reveal (?:a|an) (?P<what>[A-Za-z]+ card) from your hand$")
 
 
 def parse(text: str) -> AbilityCost | None:
     """The cost text as components, or None if any part isn't one the engine pays here."""
     if text == _HAND_TO_BOTTOM_TEXT:  # -- if you do (wave 6F) --
         return _hand_to_bottom()
+    if (r := _REVEAL_FROM_HAND.match(text)) is not None:  # -- if you do (wave 15C) --
+        key = C._selector(r["what"], zone="hand")
+        return AbilityCost(components=(C.CostComponent(REVEAL_FROM_HAND, selector=key, text=text),)) if key else None
     if (m := _EXILE_FROM_HAND.match(text)) is not None:  # -- if you do (wave 8C) -- "Exile a creature card from your hand"
         from app.rules import alt_costs
 
@@ -469,6 +478,9 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
         cost_payment.pay(plan, cost, source, chosen, record)
     finally:
         plan.actor = actor
+    for i, comp in enumerate(cost.components):  # -- if you do (wave 15C) -- shown to everyone, and it stays in the hand
+        if comp.kind == REVEAL_FROM_HAND and chosen.get(i):
+            plan.do({"type": "reveal", "card_ids": chosen[i]}, actor=payer)
     for i, comp in enumerate(cost.components):  # -- if you do (wave 6F) -- to the bottom of the payer's library
         if comp.kind == HAND_TO_BOTTOM:
             for cid in chosen.get(i, []):
