@@ -503,6 +503,11 @@ def _history_pattern(pattern: str):  # type: ignore[no-untyped-def]
     return register
 
 
+@_history_pattern(r"a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell")
+def _prowl(m: re.Match[str]) -> Condition:
+    return {"history": "prowl"}  # -- static_other sweep (wave 17C) -- prowl, 702.76a (history._prowl)
+
+
 @_history_pattern(r"you attacked(?: with a creature)? this turn")
 def _attacked(m: re.Match[str]) -> Condition:
     return {"history": "attacked"}  # 508.1: declared attackers; 508.4: a creature put onto the battlefield attacking never "attacked"
@@ -1190,6 +1195,8 @@ _SPENT_OVER_PT = re.compile(r"the amount of mana you spent is greater than (?:th
 
 def _cast_how(t: str) -> Condition | None:
     """A condition about how the source was cast, or None."""
+    if t in ("this spell's prowl cost was paid", "its prowl cost was paid"):  # -- static_other sweep (wave 17C) -- 702.76a
+        return {"object": "self", "cast": {"alt": "prowl"}}
     if t in ("it escaped", "~ escaped"):  # -- escape (wave 5I) -- 702.138b
         return {"object": _cast_who(t.split()[0]), "cast": {"escaped": True}}
     if _NO_MANA.fullmatch(t):  # -- if you do (wave 5G) -- "if no mana was spent to cast it" (a cast trigger's spell)
@@ -1263,6 +1270,8 @@ def _cast_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     if how.get("kicked") and not record.kicked:  # 702.33d (a modal header's "If it was kicked, choose both instead")
         return False
     if how.get("escaped") and record.alternative != "escape":  # -- escape (wave 5I) -- 702.138b
+        return False
+    if how.get("alt") and record.alternative != how["alt"]:  # -- static_other sweep (wave 17C) -- "if this spell's prowl cost was paid"
         return False
     zone = how.get("from")
     if zone is not None and (record.cast_from == zone[1:] if zone.startswith("!") else record.cast_from != zone):

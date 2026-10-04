@@ -174,8 +174,26 @@ def define(t: str) -> dict[str, Any] | None:
 # (702.137a: "You may cast this spell by paying [cost] rather than its mana cost if an opponent lost life this turn."), surge
 # (702.117a: "if you or a teammate has cast another spell this turn" — no teammates in Commander), freerunning
 # (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
-KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None}
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+PROWL_COND = "a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell"  # 702.76a
+KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None,
+                 "prowl": PROWL_COND}  # (wave 17C: prowl)
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+# -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
+# when the prowl condition holds for that spell
+GRANT_PROWL = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells you cast have prowl (?P<cost>(?:\{[^}X]+\})+)$")
+
+
+def grant_prowl(t: str) -> dict[str, Any] | None:
+    m = GRANT_PROWL.fullmatch(t)
+    if m is None or parse_cost(f"pay {m['cost']}") is None:
+        return None
+    from app.rules.permissions import spell_filter
+
+    key = spell_filter(m["sel"]) if m["sel"] else None
+    if m["sel"] and key is None:
+        return None
+    return {"kind": "static", "static": "alt_cost", "cost": f"pay {m['cost']}", "table": True, "filter": key, "once": False, "zone": None,
+            "mv": None, "cond": _cond(PROWL_COND), "tag": "prowl", "effects": []}
 
 
 def keyword_definition(line: str) -> dict[str, Any] | None:
@@ -241,9 +259,11 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
 
             if int(ch.mana_value) > values.evaluate(view, _ctx(state, player, src), d["mv"]):
                 continue
+        if d.get("cond") is not None and not conditions.holds(view, _ctx(state, player, card), d["cond"]):
+            continue  # (wave 17C: prowl — read about the spell being cast)
         alt = parse_cost(d["cost"])
         if alt is not None:
-            out.append(Offer(f"{src.id}:{index}", f"{src.name}: {d['cost']}", alt, once_key=key if d["once"] else None))
+            out.append(Offer(f"{src.id}:{index}", f"{src.name}: {d['cost']}", alt, once_key=key if d["once"] else None, tag=d.get("tag")))
     # -- escape (wave 5I) -- printed and granted escape costs (702.138a), for a card in its owner's graveyard
     from app.rules import escape
 

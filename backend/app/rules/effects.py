@@ -2174,7 +2174,8 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     (ctx["found"]), the others "the rest". With ``player``: another player's library."""
     owners = _library_owner(plan, ctx, e)
     if e.get("optional") and not ctx.pop("reveal_asked", None):  # -- if you do (wave 15C) -- "you may reveal the top card": asked first
-        decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: reveal the top card of your library?",
+        decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: reveal the top " + (f"{e['n']} cards" if isinstance(e.get("n"), int) and e["n"] > 1 else "card")
+               + " of your library?",  # (wave 17C: "Ripple 4")
                options=[DecisionOption(id="yes", label="Reveal it"), DecisionOption(id="no", label="Don't reveal")],
                resume={"step": "look_may", "ctx": ctx, "e": e})
         return False

@@ -210,6 +210,8 @@ def note_events(plan: Plan, events: list[Any]) -> None:
             elif kind == "deal_damage" and info.get("recipient") and log.facts and log.facts[-1].kind == "damage":
                 # its source, as it was as it dealt that damage (608.2i)
                 log.facts[-1].source_types, log.facts[-1].source_supertypes = what["types"], what["supertypes"]
+                log.facts[-1].source_subtypes = what["subtypes"]  # (wave 17C: prowl, 702.76a)
+                log.facts[-1].source_controller = obj.controller if obj is not None else None
             elif kind == "counters_put" and player is not None:
                 log.facts.append(TurnFact(kind="counters", player=player, object_id=info.get("oid"),
                                           amount=int(info.get("amount") or 0), counter=info.get("counter"),
@@ -428,6 +430,19 @@ def _damage(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog)
     return any(per.get(p, 0) >= int(cond.get("n", 1)) for p in _players(plan, ctx["controller"], cond.get("who")))
 
 
+def _prowl(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
+    """-- static_other sweep (wave 17C) -- 702.76a: a player was dealt combat damage this turn by a source that, at the time it dealt that
+    damage, was under your control and had any of this spell's creature types (the spell being the condition's source)."""
+    from app.rules.creature_types import CREATURE_TYPES
+
+    spell = plan.state.cards.get(ctx.get("source_card") or "")
+    if spell is None:
+        return False
+    types = set(plan.ch(spell).subtypes) & CREATURE_TYPES
+    return any(f.kind == "damage" and f.combat and f.amount > 0 and f.source_controller == ctx["controller"]
+               and types & set(f.source_subtypes) for f in log.facts)
+
+
 def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLog) -> bool:
     """Permanents that left the battlefield (or died, 700.4) this turn, as they last existed there (608.2i, 603.10a)."""
     from app.rules import selectors
@@ -458,6 +473,7 @@ _WAVE_4D: dict[str, Any] = {
     "cast": _cast,
     "facts": _facts_holds,
     "damage": _damage,
+    "prowl": _prowl,
     "departed": _departed,
     "lands": lambda plan, ctx, cond, log: plan.rules.lands_this_turn(ctx["controller"], plan.state.turn.number) >= int(cond.get("n", 1)),
     "resolution": lambda plan, ctx, cond, log: resolution_holds(ctx, cond),

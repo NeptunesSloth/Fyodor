@@ -117,6 +117,15 @@ EXTRA = [
          oracle_text="Spells you cast have ripple 4. (Whenever you cast a spell, you may reveal the top four cards of your library. You "
          "may cast spells with the same name as that spell from among the revealed cards without paying their mana costs. Put the "
          "rest on the bottom of your library.)"),
+    card("Morsel Theft", set_code="tst", number="C33", mana_cost="{2}{B}{B}", cmc=4.0, type_line="Kindred Sorcery — Rogue", colors=["B"],
+         color_identity=["B"], oracle_text="Prowl {1}{B} (You may cast this for its prowl cost if you dealt combat damage to a player "
+         "this turn with a Rogue.)\nTarget player loses 3 life and you gain 3 life. If this spell's prowl cost was paid, draw a card."),
+    card("Hunting Velociraptor", set_code="tst", number="C34", mana_cost="{2}{R}", cmc=3.0, type_line="Creature — Dinosaur", power="3",
+         toughness="2", colors=["R"], color_identity=["R"],
+         oracle_text="First strike\nDinosaur spells you cast have prowl {2}{R}. (You may cast a spell for its prowl cost if you dealt "
+         "combat damage to a player this turn with a creature with any of its creature types.)"),
+    card("Test Raptor", set_code="tst", number="C35", mana_cost="{3}{R}{R}", cmc=5.0, type_line="Creature — Dinosaur", power="5",
+         toughness="5", colors=["R"], color_identity=["R"], oracle_text=""),
     card("Hexing Squelcher", set_code="tst", number="C05", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Goblin Sorcerer",
          power="2", toughness="2", colors=["R"], color_identity=["R"],
          oracle_text="This spell can't be countered.\nWard—Pay 2 life.\nSpells you control can't be countered.\nOther creatures you control have \"Ward—Pay 2 life.\""),
@@ -453,4 +462,57 @@ def test_thrumming_stone_gives_every_spell_ripple(cards):
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     answer(s, limit=40)
     assert set(s.state.zones["p1:library"][-4:]) == set(top4)
+    roundtrip(s)
+
+
+def _prowl_offers(s, name):
+    from app.rules import alt_costs, characteristics as chars
+
+    c = find(s, name)
+    return c, [o for o in alt_costs.offers(s.state, "p1", c, chars.of(c, s.cards), s.cards) if o.tag == "prowl"]
+
+
+def _attack_with(s, type_line):
+    act(s, "p1", type="create_token", player="p1", token={"name": "Scout", "type_line": type_line, "power": "2", "toughness": "2",
+                                                          "text": "Haste"})
+    scout = next(c for c in s.state.cards.values() if c.name == "Scout")
+    act(s, "p1", type="pass_priority")  # → declare attackers
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": scout.id, "target": "p2"}])
+    for _ in range(12):
+        if s.state.turn.phase == "main2":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.players["p2"].life == 38 and s.state.turn.phase == "main2"
+
+
+def test_prowl_cost_after_combat_damage_by_a_creature_of_its_type(cards):
+    s = build(cards, p1=("Morsel Theft",))
+    theft = put(s, "Morsel Theft", "hand")
+    assert not _prowl_offers(s, "Morsel Theft")[1]  # (nobody was dealt combat damage yet)
+    _attack_with(s, "Token Creature — Rogue")
+    _, offers = _prowl_offers(s, "Morsel Theft")
+    assert len(offers) == 1  # 702.76a: a Rogue dealt combat damage to a player this turn
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, B=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=theft.id, targets=["p2"], alt_cost=offers[0].key)
+    answer(s)
+    assert s.state.players["p2"].life == 38 - 3 and len(s.state.zones["p1:hand"]) == hand - 1 + 1  # lost 3, and the prowl draw
+    roundtrip(s)
+
+
+def test_prowl_needs_a_matching_creature_type(cards):
+    s = build(cards, p1=("Morsel Theft",))
+    put(s, "Morsel Theft", "hand")
+    _attack_with(s, "Token Creature — Goblin")
+    assert not _prowl_offers(s, "Morsel Theft")[1]  # (a Goblin is not a Rogue)
+    roundtrip(s)
+
+
+def test_velociraptor_grants_prowl_to_dinosaur_spells(cards):
+    s = build(cards, p1=("Hunting Velociraptor", "Test Raptor", "Test Small"))
+    put(s, "Hunting Velociraptor", "battlefield")
+    put(s, "Test Raptor", "hand")
+    put(s, "Test Small", "hand")
+    _attack_with(s, "Token Creature — Dinosaur")
+    assert len(_prowl_offers(s, "Test Raptor")[1]) == 1 and not _prowl_offers(s, "Test Small")[1]
     roundtrip(s)
