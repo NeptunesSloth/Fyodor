@@ -67,7 +67,7 @@ _CAPS = r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*"
 _NAME = r"[A-Z][A-Za-z'\-]*(?:,? (?:(?:of|the|to|of the) )?[A-Z][A-Za-z'\-]*)*"
 _SENTENCE = re.compile(
     rf"^create (?:(?P<n>{_QTY}) |(?P<lname>{_NAME}), an? (?P<legendary>legendary) )(?P<tapped>tapped )?"
-    rf"(?:(?P<pt>(?:\d+|X)/(?:\d+|X)) (?:(?P<colors>{_COLORS}) )?(?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?"
+    rf"(?:(?:(?P<pt>(?:\d+|X)/(?:\d+|X)) )?(?:(?P<colors>{_COLORS}) )?(?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?"
     r"(?P<land>land )?creature tokens?"
     rf"|(?P<ncolors>{_COLORS}) (?P<nsnow>snow )?(?:(?P<nsub>{_CAPS}) )?(?P<nkind>artifact|enchantment) tokens?"  # (wave 15B)
     r"|(?P<pre>[A-Z][a-z]+) tokens?)"
@@ -219,7 +219,13 @@ def parse(sentence: str) -> list[Effect] | None:
         kws, quoted = parsed_with
         # -- X sized by a count (wave 4K) -- "an X/X … token": the value of X as the token is created is its printed P/T
         # (111.3: its copiable values; fixed then, 608.2h), evaluated by effects.create_token
-        p, t = (_qty(s) if s == "X" else s for s in m["pt"].split("/"))
+        if m["pt"] is None:  # -- trigger tail (wave 15B) -- no printed P/T: a quoted characteristic-defining ability sets both (604.3, 208.1)
+            if not quoted or not re.match(r"This (?:creature|token)'s power (?:and toughness are each|is) equal to ", quoted):
+                return None
+            m_pt = "*/*"  # (nothing is printed: the CDA, layer 7a, defines both, as for a card printed with "*")
+        else:
+            m_pt = m["pt"]
+        p, t = (_qty(s) if s == "X" else s for s in m_pt.split("/"))
         said = m["colors"] or m["thats"]
         # (105.2c colorless; wave 6C: "that's all colors" — each of the five, 105.1)
         colors = [] if said == "colorless" else list("WUBRG") if said == "all colors" else \

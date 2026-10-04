@@ -65,6 +65,7 @@ EXTRA += [
     real("Weapons Manufacturing", "{2}{R}", 3, "Enchantment", "Whenever a nontoken artifact you control enters, create a colorless artifact token named Munitions with \"When this token leaves the battlefield, it deals 2 damage to any target.\"", None, "R"),
     real("Esgaroth Garrison", "{2}{W}", 3, "Creature — Human Soldier", "When this creature enters, recruit. (Draw a card, then discard a card. If you discarded a nonland card, create a 1/1 white Human Soldier creature token.)", ("2", "2"), "W"),
     real("Affectionate Indrik", "{4}{G}", 5, "Creature — Beast", "When this creature enters, you may have it fight target creature you don't control.", ("4", "4"), "G"),
+    real("Vernal Sovereign", "{3}{G}{W}", 5, "Creature — Elemental", "Whenever this creature enters or attacks, create a green and white Elemental creature token with \"This token's power and toughness are each equal to the number of creatures you control.\"", ("4", "4"), "GW"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -333,6 +334,23 @@ def test_young_hero_role_grants_an_attack_trigger_with_an_intervening_if(cards):
     attack(s, (bear, "p2"))
     answer(s)
     assert s.state.cards[bear.id].counters == {"+1/+1": 1}
+    check(s)
+
+
+def test_a_token_with_a_characteristic_defining_ability_counts_itself(cards):
+    # 604.3, 208.1: the token has no printed power or toughness; its CDA (layer 7a) counts the creatures you control, itself included
+    from app.rules import sba
+    from app.rules.plan import Plan
+
+    s = build(cards, ["Vernal Sovereign", "Llanowar Elves"], [])
+    sovereign = to_hand(s, "Vernal Sovereign")
+    put(s, "Llanowar Elves")
+    mana(s, "p1", G=1, W=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=sovereign.id)
+    answer(s)
+    token = next(c for c in s.state.cards.values() if c.name == "Elemental" and c.zone == "p1:battlefield")
+    ch = Plan(s.state, "p1", s.cards, None).ch(token)
+    assert (sba.power(token, ch), sba.toughness(token, ch)) == (3, 3)  # Llanowar Elves, Vernal Sovereign and the token
     check(s)
 
 
