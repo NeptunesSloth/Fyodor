@@ -750,11 +750,38 @@ def spend_kind(s: str) -> str | None:
     return parse_spend(s)
 
 
+# -- mana for special abilities (wave 19E) -- actions that aren't casting a spell or activating an ability of a source, with the
+# ``casting.Purpose.special`` that names them: "activate an equip ability", "turn permanents face up", "foretell a card",
+# "activate power-up abilities"
+_SPECIAL_SPEND = {r"activate (?:an equip ability|equip abilities)": "equip", r"turn (?:a )?(?:permanents?|creatures?) face up": "turn_up",
+                  r"foretell (?:a card|cards)(?: from your hand)?": "foretell", r"activate power-up abilities": "power_up"}
+
+
+def _special_split(s: str) -> tuple[str, list[str]]:
+    """The sentence without its special actions, and those (the list "cast X, turn permanents face up, or activate abilities")."""
+    found: list[str] = []
+    for pattern, name in _SPECIAL_SPEND.items():
+        for rx in (rf"(?:, or | or |, ){pattern}", rf"(?<=only to ){pattern}(?:, or | or |, )"):
+            s, n = re.subn(rx, "", s, count=1)
+            if n:
+                found.append(name)
+                break
+        else:
+            if re.fullmatch(rf"Spend this mana only to {pattern}", s):
+                return "Spend this mana only to", [name]
+    return s, found
+
+
 def parse_spend(sentence: str) -> str | None:
     """A general "Spend this mana only to …" restriction as "q:<json>" (None: not one the payer checks)."""
     import json
 
     s = sentence.strip().rstrip(".")
+    s, special = _special_split(s)
+    if special:
+        rest = None if s == "Spend this mana only to" else parse_spend(s)
+        spec = json.loads(rest[2:]) if rest is not None else {"cast": None, "ability": None} if s == "Spend this mana only to" else None
+        return None if spec is None else "q:" + json.dumps({**spec, "special": sorted(special)}, sort_keys=True)
     if s == "Spend this mana only on costs that contain {X}":  # -- mana provenance (wave 18B) -- casting.Purpose.cost_x
         return "q:" + json.dumps({"cast": None, "ability": None, "cost_x": True}, sort_keys=True)
     if s == "This mana can't be spent to cast spells":

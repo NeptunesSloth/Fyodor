@@ -65,6 +65,11 @@ EXTRA = [
     _card("Carbonize", "W17", "{2}{R}", "Instant",
           "Carbonize deals 3 damage to any target. If it's a creature, it can't be regenerated this turn, and if it would die this "
           "turn, exile it instead.", ["R"]),
+    _card("Freya Crescent", "W18", "{R}", "Legendary Creature — Rat Knight",
+          "Jump — During your turn, Freya Crescent has flying.\n{T}: Add {R}. Spend this mana only to cast an Equipment spell or "
+          "activate an equip ability.", ["R"], power="1", toughness="1"),
+    _card("Short Sword", "W19", "{1}", "Artifact — Equipment",
+          "Equipped creature gets +1/+1.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)", []),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -266,4 +271,17 @@ def test_if_its_a_creature_it_cant_be_regenerated_and_is_exiled(cards):
     act(s, "p1", type="cast_spell", card_id=named(s, "Carbonize").id, targets=[skeletons.id])
     pass_until_stack_empty(s)
     assert s.state.cards[skeletons.id].zone == "p1:exile"
+    replay_matches(s)
+
+
+def test_mana_only_for_an_equip_ability(cards):
+    """Freya Crescent's {R}: "Spend this mana only to cast an Equipment spell or activate an equip ability" (106.6): it can't pay for a
+    Lightning Bolt, but it pays for Short Sword's equip ability (702.6)."""
+    s = table(cards, ["Freya Crescent", "Short Sword", "Grizzly Bears"], ["Lightning Bolt"])
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=named(s, "Lightning Bolt").id, targets=["p2"])
+    sword, bears = named(s, "Short Sword"), named(s, "Grizzly Bears")
+    act(s, "p1", type="activate_ability", card_id=sword.id, ability=1, targets=[bears.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[sword.id].attached_to == bears.id and s.state.cards[named(s, "Freya Crescent").id].tapped
     replay_matches(s)
