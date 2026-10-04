@@ -56,7 +56,7 @@ def _unread_blocker(plan: Plan, what: str) -> str | None:
 def lose_game(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """-- lose the game (wave 11C) -- 104.3e: an effect may state that a player loses the game. They leave the game at once
     (104.3, 800.4a: as for a state-based loss, app/rules/sba.py): their permanents and spells go, and the last player left wins.
-    A permanent saying a player "can't lose the game" (104.3b, not modelled) leaves it to the players, as for winning."""
+    A player who "can't lose the game" (game_result.py, wave 10B) stays; any other such wording leaves it to the players."""
     from app.rules import game_result
     from app.rules.effects import _players
     from app.rules.leave import leave_game
