@@ -1347,6 +1347,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         # -- sized amounts (wave 3D) -- "each opponent and each creature and planeswalker they control": the opponents'
         # (selectors read "or" for a list of types), and "each other player" is every opponent (102.2)
         recipients = m["o"].replace("each other player", "each opponent")
+        if re.fullmatch(r"the player or planeswalker (?:it's|that creature is) attacking", recipients) and not m["stat"]:
+            return [{"do": "damage", "who": "attacked", "n": n, **src}], None  # -- attacked (wave 19B) -- 508.1b
         if recipients == "itself" and m["src"] == "~":  # -- chosen player (wave 4J) -- "~ deals 1 damage to itself" (Stuffy Doll)
             recipients = "~"
         recipients = re.sub(r"^(each opponent and each .+?) they control$", r"\1 your opponents control", recipients)
