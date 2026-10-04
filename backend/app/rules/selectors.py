@@ -859,7 +859,7 @@ def _parse(phrase: str) -> Selector | None:
         if base is None or base.types or base.subtypes or base.card:
             return None
         return replace(s, zones=base.zones, token=base.token, extras=(*s.extras, "historic"))
-    alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker)(?: cards?| spells?)?)",
+    alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker)s?(?: cards?| spells?)?)",
                             text.strip())  # (wave 15B: also "Beast or Bird creature", "Beast or Bird creature spell")
     if alt_subs is not None:
         subs = [_core(w) for w in re.split(r",? or ", alt_subs["subs"])]

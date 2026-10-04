@@ -1212,6 +1212,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # -- damage ---------------------------------------------------------------------------------
     # -- sized amounts (wave 3D) -- "that creature deals damage equal to its power": the pronoun's creature (as "it")
     text = re.sub(r"^that creature deals ", "it deals ", text)
+    text = re.sub(r"^exile that card from (?:your|their) graveyard$", "exile it", text)  # (wave 17D: the discarded card, Necropotence)
     # -- damage sized by a count (wave 4E) -- "Whenever Smaug attacks, he deals …": a named character's pronoun is the
     # card itself (its power: "his power"); "this enchantment deals … equal to the number of verse counters on it"
     text = re.sub(r"^(?:he|she) deals ", "~ deals ", text)

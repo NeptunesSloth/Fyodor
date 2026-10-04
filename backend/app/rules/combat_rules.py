@@ -452,7 +452,7 @@ def _token(create: str) -> dict[str, Any] | None:
     from app.rules import token_grammar
 
     found = token_grammar.parse(create)
-    if not found or len(found) != 1 or found[0].get("do") != "create_attacking" or isinstance(found[0].get("n"), dict):
+    if not found or len(found) != 1 or found[0].get("do") != "create_attacking" or not found[0].get("tapped") or isinstance(found[0].get("n"), dict):
         return None
     return found[0]
 

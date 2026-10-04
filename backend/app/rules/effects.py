@@ -1330,9 +1330,9 @@ def explore(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.game.rules_state import emit
     from app.rules import characteristics as chars
 
-    pid = ctx["controller"]
+    me = _cards(plan, ctx, e.get("who", "self"))  # (wave 16C: "target creature you control explores"; 17D: "it" the event's creature)
+    pid = plan.state.cards[me[0]].controller if me else ctx["controller"]  # 701.44a: that permanent's controller reveals and decides
     library = plan.state.zones.get(zone_key(pid, "library"), [])
-    me = _cards(plan, ctx, "target" if e.get("who") == "target" else "self")  # (wave 16C: "target creature you control explores")
 
     def explored(kind: int) -> None:  # -- trigger tail (wave 15B) -- "Whenever a creature you control explores" (701.44a): 1 a land
         if me:  # card was revealed, 2 a nonland card, 0 none

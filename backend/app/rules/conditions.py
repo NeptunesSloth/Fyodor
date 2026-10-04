@@ -98,6 +98,7 @@ _CTRL = re.compile(r"(?P<who>you|an opponent) (?P<neg>don't |doesn't )?controls?
 _LIFE = re.compile(r"you have (?:(?P<n>\w+) or (?P<cmp>less|more|fewer|greater)|at least (?P<least>\w+)) life")
 _HAND = re.compile(r"you have (?:(?P<no>no)|(?P<n>\w+) or (?P<cmp>more|fewer|less)) cards in (?:your )?hand")
 _YOUR_TURN = re.compile(r"it(?:'s| is) (?P<neg>not |n't )?your turn|it isn't your turn|it(?:'s| is) an opponent's turn")
+_THEIR_TURN = re.compile(r"it(?:'s| is) (?P<neg>not )?(?:that player's|their) turn")  # (wave 17D: the trigger event's player, 500.1)
 _STATUS = {"you're the monarch": "monarch", "you are the monarch": "monarch", "you have the initiative": "initiative",
            "you have the city's blessing": "city_blessing"}
 _THIS_TURN = r"(?P<when>this|last) turn"
@@ -274,6 +275,10 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
     if m:  # 500.1: whose turn it is (an opponent's turn is any turn that isn't yours: every other player is one)
         mine: Condition = {"turn": "yours"}
         return {"not": mine} if (m["neg"] or t.startswith("it isn't") or "opponent's" in t) else mine
+    m = _THEIR_TURN.fullmatch(t)
+    if m:  # -- triggers (wave 17D) -- "if it's not that player's turn" (Price of Glory): the player the trigger event is about
+        theirs: Condition = {"turn": "event_player"}
+        return {"not": theirs} if m["neg"] else theirs
     if t in _STATUS:
         return {"status": _STATUS[t]}
     if t == "you have a full party":  # -- refused modal/conditional (wave 3R1) -- 700.8c: four creatures in your party
@@ -969,6 +974,11 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         ok = context.flag(ctx, cond["flag"])
         return not ok if cond.get("negate") else ok
     if "turn" in cond:
+        if cond["turn"] == "event_player":
+            from app.rules import context
+
+            who = context.players(plan, ctx, context.EVENT)
+            return len(who) == 1 and plan.state.turn.active_player == who[0]
         return plan.state.turn.active_player == ctx["controller"]
     if "status" in cond:
         return _status(plan, ctx["controller"], cond["status"])

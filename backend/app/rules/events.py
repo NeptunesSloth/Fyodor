@@ -219,6 +219,14 @@ def _parse(c: str) -> Condition | None:
         if inner is None or inner.get("event") != "die" or inner.get("aggregate"):
             return None
         return {**inner, "in_combat": True}
+    # -- triggers (wave 17D) -- "Whenever one or more other creatures you control leave the battlefield without dying" (Dour Port-Mage):
+    # a leave that isn't a death (700.4: put into a graveyard from the battlefield), read as the event happens
+    m = re.fullmatch(r"(?P<s>.+?) leaves? the battlefield without dying", c)
+    if m:
+        inner = _parse(f"{m['s']} leaves the battlefield")
+        if inner is None or inner.get("event") != "leave":
+            return None
+        return {**inner, "nodie": True}
     # "When ~ enters or dies", "Whenever ~ attacks or blocks": one ability, each event (603.2)
     m = re.fullmatch(rf"~ (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m:
@@ -331,6 +339,14 @@ def _parse(c: str) -> Condition | None:
         if a is None or b is None or a.get("aggregate") or b.get("aggregate") or a["event"] == b["event"]:
             return None
         return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
+    # -- triggers (wave 17D) -- "Whenever you cast a black spell or a Swamp you control enters" (Staff of the Death Magus): two whole
+    # conditions, each its own event (603.2c); split where both halves read on their own
+    for part in re.finditer(r" or ", c):
+        a, b = _parse(c[:part.start()]), _parse(c[part.end():])
+        if a is None or b is None or a["event"] in ("either", "multi") or b["event"] in ("either", "multi") \
+                or a.get("aggregate") or b.get("aggregate") or a["event"] == b["event"]:
+            continue
+        return {"event": "either", "subject": a["subject"] if a["subject"] == b["subject"] else "mixed", "conds": [a, b]}
     m = _GETS_COUNTERS.fullmatch(c)  # -- counters & designations (wave 3E): "whenever you get one or more {E}" (122.6) --
     if m:
         return {"event": "player_counters", "subject": "player", "player": _PLAYERS[m["p"]],
@@ -656,15 +672,19 @@ def _player_action(c: str) -> Condition | None:
     if m:
         return {"event": "land_played", "subject": "player", "player": _PLAYERS[m["p"]], "obj": _object_sel(m["o"]),
                 "aggregate": False}
-    m = re.fullmatch(rf"{_P} (?P<v>sacrifices?|discards?|cycles? or discards?|cycles?|creates?) (?P<o>.+)", c)
+    m = re.fullmatch(rf"{_P} (?P<v>sacrifices?|discards?|cycles? or discards?|cycles?|creates?|mills?) (?P<o>.+)", c)
     if not m:
-        return None
+        # -- triggers (wave 17D) -- "Whenever one or more nonland cards are milled" (701.17a: put from a library into its owner's graveyard)
+        m = re.fullmatch(r"(?P<o>one or more .+?) (?:is|are) milled", c)
+        if m is None:
+            return None
+        return {"event": "mill", "subject": "player", "player": "any", "obj": _object_sel(m["o"], card=True), "aggregate": True}
     v = m["v"]
     if " or " in v:  # 702.29d: "cycles or discards" triggers once for a cycled card — it was discarded (702.29a)
         event = "discard"
     else:
         event = next(e for w, e in (("sacrifice", "sacrifice"), ("discard", "discard"), ("cycle", "cycle"),
-                                    ("create", "create_token")) if v.startswith(w))
+                                    ("create", "create_token"), ("mill", "mill")) if v.startswith(w))
     o = m["o"]
     if o in ("~", "this card") and event in ("sacrifice", "cycle") and m["p"] == "you":
         # "When you sacrifice ~" (603.10a: looks back in time), "When you cycle ~" (702.29c: from
@@ -675,7 +695,7 @@ def _player_action(c: str) -> Condition | None:
         return None
     if not re.match(r"^(?:an?|one or more|another) ", o):
         return None
-    card = event in ("discard", "cycle")
+    card = event in ("discard", "cycle", "mill")
     return {"event": event, "subject": "player", "player": _PLAYERS[m["p"]], "obj": _object_sel(o, card=card),
             "aggregate": aggregate}
 
