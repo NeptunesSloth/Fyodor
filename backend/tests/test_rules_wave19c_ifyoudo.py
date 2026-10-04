@@ -71,8 +71,10 @@ EXTRA = [
          oracle_text='Lifelink\nWhen this creature enters, you may exile target card from a graveyard.\nWhenever you surveil, if this card is in your graveyard, you may pay 3 life. If you do, return this card to your hand.', power='3', toughness='1', colors=['B'], color_identity=['B'], keywords=['Lifelink']),
     card('Pyrewild Shaman', set_code='tst', number='W52', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Goblin Shaman',
          oracle_text='Bloodrush — {1}{R}, Discard this card: Target attacking creature gets +3/+1 until end of turn.\nWhenever one or more creatures you control deal combat damage to a player, if this card is in your graveyard, you may pay {3}. If you do, return this card to your hand.', power='3', toughness='1', colors=['R'], color_identity=['R'], keywords=['Bloodrush']),
+    card('Ichorid', set_code='tst', number='W60', mana_cost='{3}{B}', cmc=4.0, type_line='Creature — Horror',
+         oracle_text='Haste\nAt the beginning of the end step, sacrifice this creature.\nAt the beginning of your upkeep, if this card is in your graveyard, you may exile a black creature card other than this card from your graveyard. If you do, return this card to the battlefield.', power='3', toughness='1', colors=['B'], color_identity=['B'], keywords=['Haste']),
 ]
-FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor', 'Gigapede', 'Blood Operative', 'Pyrewild Shaman']
+FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor', 'Gigapede', 'Blood Operative', 'Pyrewild Shaman', 'Ichorid']
 # --EXTRA-END--
 
 
@@ -418,4 +420,34 @@ def test_gigapede_discards_a_card_to_return_from_the_graveyard(cards, pay):
     play_out(s, prefer=(elves.id,))
     assert (s.state.cards[gigapede.id].zone == "p1:hand") is pay  # "If you do, return this card to your hand"
     assert (s.state.cards[elves.id].zone == "p1:graveyard") is pay  # the discard is the cost
+    roundtrip(s)
+
+
+def test_ichorid_exiles_another_black_creature_card_never_itself(cards):
+    s = build(cards, p1=("Ichorid", "Fanatic of the Harrowing"))
+    ichorid = to_zone(s, find(s, "Ichorid"), "graveyard")
+    # nothing else black in the graveyard: "a black creature card other than this card" can't be exiled, so no payment is offered
+    for _ in range(60):
+        d = s.state.rules.decision
+        assert d is None or not {o.id for o in d.options} >= {"pay", "decline"}
+        if s.state.turn.number == 3 and s.state.turn.phase == "main1":
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[ichorid.id].zone == "p1:graveyard"
+    fodder = to_zone(s, find(s, "Fanatic of the Harrowing"), "graveyard")
+    for _ in range(80):  # to the next upkeep of hers
+        d = s.state.rules.decision
+        if d is not None and {o.id for o in d.options} >= {"pay", "decline"}:
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and s.state.turn.number == 5
+    pick(s, "pay")
+    play_out(s, prefer=(fodder.id,))
+    assert s.state.cards[ichorid.id].zone == "p1:battlefield" and s.state.cards[fodder.id].zone == "p1:exile"
     roundtrip(s)
