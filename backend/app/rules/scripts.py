@@ -1744,8 +1744,12 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # opponent, the token grammar's "… for each opponent"
     body = re.sub(r"(^|\. )For each opponent, you (create [^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
     from app.rules import (
+        friend_foe,  # -- friend or foe (wave 18C) -- "For each player, choose friend or foe. Each friend …"
         tempting,  # -- tempting offers (wave 18C) -- "Each opponent may …. For each opponent who does, you …"
     )
+
+    if (sides := friend_foe.bind(body, lambda t: parse_effects(t, it, event_player=event_player), split_sentences)) is not None:
+        return sides
 
     if (offer := tempting.bind(body, lambda t: parse_effects(t, it, event_player=event_player), split_sentences)) is not None:
         return offer

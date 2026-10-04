@@ -60,6 +60,10 @@ EXTRA = [
          "Tempting offer — Search your library for a land card and put it onto the battlefield. Each opponent may search their library for a land card and put it onto the battlefield. For each opponent who searches a library this way, search your library for a land card and put it onto the battlefield. Then each player who searched a library this way shuffles.", colors="G"),
     real("Tempt with Reflections", "{2}{U}", 3, "Sorcery",
          "Tempting offer — Choose target creature you control. Create a token that's a copy of that creature. Each opponent may create a token that's a copy of that creature. For each opponent who does, create a token that's a copy of that creature.", colors="U"),
+    real("Virtus's Maneuver", "{2}{B}{G}", 4, "Sorcery",
+         "For each player, choose friend or foe. Each friend returns a creature card from their graveyard to their hand. Each foe sacrifices a creature of their choice.", colors="BG"),
+    real("Pir's Whim", "{3}{G}", 4, "Sorcery",
+         "For each player, choose friend or foe. Each friend searches their library for a land card, puts it onto the battlefield tapped, then shuffles. Each foe sacrifices an artifact or enchantment of their choice.", colors="G"),
     real("Council's Judgment", "{1}{W}{W}", 3, "Sorcery",
          "Will of the council — Starting with you, each player votes for a nonland permanent you don't control. Exile each permanent with the most votes or tied for most votes.", colors="W"),
     real("Vault 11: Voter's Dilemma", "{2}{W}", 3, "Enchantment — Saga",
@@ -436,4 +440,44 @@ def test_tempt_with_reflections_copies_the_chosen_creature_for_the_opponent_too(
     settle_stack(s)
     oxen = [x for x in s.state.cards.values() if x.name == "Ox" and x.zone.endswith(":battlefield")]
     assert sorted(x.controller for x in oxen) == ["p1", "p1", "p1", "p2"]  # Ox, your copy, the opponent's copy, your second copy
+    roundtrip(s)
+
+
+def side(s, who, label):
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and d.prompt == f"Is {who} a friend or a foe?", d
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[label])
+
+
+def test_virtus_maneuver_friends_return_and_foes_sacrifice(cards):
+    s = build(cards, "Virtus's Maneuver", "Elvish Visionary")
+    from tests.test_rules_conditionals import creature
+
+    dead = next(c for c in s.state.cards.values() if c.name == "Elvish Visionary")
+    act(s, "p1", type="move", card_ids=[dead.id], to={"player": "p1", "zone": "graveyard"})
+    bear = creature(s, "p2", "Bear")
+    cast(s, "Virtus's Maneuver", B=1, G=1, C=2)
+    settle_stack(s)
+    side(s, "Alice", "friend")  # the controller sorts everyone, herself included, in turn order
+    assert "Alice is a friend" in json.dumps(s.view("p2")["log"])  # public
+    side(s, "Bob", "foe")
+    settle_stack(s)
+    assert s.state.cards[dead.id].zone == "p1:hand" and bear.id not in s.state.cards
+    roundtrip(s)
+
+
+def test_pirs_whim_with_nobody_in_a_group_does_nothing_for_it(cards):
+    s = build(cards, "Pir's Whim")
+    cast(s, "Pir's Whim", G=1, C=3)
+    settle_stack(s)
+    side(s, "Alice", "friend")
+    side(s, "Bob", "friend")  # no foes: "Each foe sacrifices …" has nobody to act
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.kind == "choose_cards"  # Alice searches
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    d = s.state.rules.decision
+    assert d.player == "p2" and d.kind == "choose_cards"  # then Bob, for his own library
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    settle_stack(s)
+    assert [c.tapped for c in s.state.cards.values() if c.zone in ("p1:battlefield", "p2:battlefield")] == [True, True]
     roundtrip(s)
