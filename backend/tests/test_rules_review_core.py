@@ -14,7 +14,7 @@ from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import answer
-from tests.wave9c_kit import build, card_named, check, life, mana, put, pt, reloaded, to_hand, zone_of
+from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, reloaded, to_hand, zone_of
 
 REAL_DB = Path("/home/user/Fyodor/data/cards.sqlite")
 NAMES = ["Blood Artist", "Zulaport Cutthroat", "Wrath of God", "Kiki-Jiki, Mirror Breaker", "Deceiver Exarch", "Mana Drain",
@@ -64,7 +64,10 @@ def test_wrath_dies_triggers_apnap_and_lki(cards):
     """704.3 / 603.10a: all creatures die at once; Blood Artist (Alice, AP) sees itself and every other creature die;
     Zulaport (Bob) sees its controller's two. APNAP (603.3b): Bob's go on top and resolve first."""
     s = build(cards, ["Blood Artist", "Grizzly Bears", "Wrath of God"], ["Zulaport Cutthroat", "Deceiver Exarch"])
-    put(s, "Blood Artist"); put(s, "Grizzly Bears"); put(s, "Zulaport Cutthroat", "p2"); put(s, "Deceiver Exarch", "p2")
+    put(s, "Blood Artist")
+    put(s, "Grizzly Bears")
+    put(s, "Zulaport Cutthroat", "p2")
+    put(s, "Deceiver Exarch", "p2")
     wrath = to_hand(s, "Wrath of God")
     mana(s, "p1", W=2, C=2)
     act(s, "p1", type="cast_spell", card_id=wrath.id)
@@ -82,7 +85,8 @@ def test_wrath_dies_triggers_apnap_and_lki(cards):
 
 def test_rest_in_peace_exiles_instead_so_persist_never_sees_a_death(cards):
     s = build(cards, ["Rest in Peace", "Glen Elendra Archmage", "Wrath of God"], [])
-    put(s, "Rest in Peace"); put(s, "Glen Elendra Archmage")
+    put(s, "Rest in Peace")
+    put(s, "Glen Elendra Archmage")
     wrath = to_hand(s, "Wrath of God")
     mana(s, "p1", W=2, C=2)
     act(s, "p1", type="cast_spell", card_id=wrath.id)
@@ -110,7 +114,10 @@ def test_platinum_angel_keeps_a_player_at_zero_life_until_it_leaves(cards):
 
 def test_elesh_norn_and_night_of_souls_betrayal_layer_7c(cards):
     s = build(cards, ["Elesh Norn, Grand Cenobite", "Night of Souls' Betrayal", "Grizzly Bears"], ["Deceiver Exarch"])
-    put(s, "Elesh Norn, Grand Cenobite"); put(s, "Night of Souls' Betrayal"); put(s, "Grizzly Bears"); put(s, "Deceiver Exarch", "p2")
+    put(s, "Elesh Norn, Grand Cenobite")
+    put(s, "Night of Souls' Betrayal")
+    put(s, "Grizzly Bears")
+    put(s, "Deceiver Exarch", "p2")
     act(s, "p1", type="pass_priority")
     assert pt(s, "Grizzly Bears") == (3, 3)
     assert pt(s, "Elesh Norn, Grand Cenobite") == (3, 6)
@@ -161,7 +168,8 @@ def test_bolt_fizzles_when_its_only_target_left(cards):
 
 def test_kiki_jiki_copies_exarch_which_untaps_kiki(cards):
     s = build(cards, ["Kiki-Jiki, Mirror Breaker", "Deceiver Exarch"], [])
-    put(s, "Kiki-Jiki, Mirror Breaker"); put(s, "Deceiver Exarch")
+    put(s, "Kiki-Jiki, Mirror Breaker")
+    put(s, "Deceiver Exarch")
     kiki = card_named(s, "Kiki-Jiki, Mirror Breaker")
     exarch = card_named(s, "Deceiver Exarch")
     act(s, "p1", type="activate_ability", card_id=kiki.id, ability=1, targets=[exarch.id])
@@ -193,7 +201,10 @@ def test_skullclamp_sees_the_equipped_creature_die_by_sba_lki(cards):
 
 def test_save_and_load_in_the_middle_of_a_trigger_order_decision(cards):
     s = build(cards, ["Blood Artist", "Grizzly Bears", "Wrath of God"], ["Zulaport Cutthroat", "Deceiver Exarch"])
-    put(s, "Blood Artist"); put(s, "Grizzly Bears"); put(s, "Zulaport Cutthroat", "p2"); put(s, "Deceiver Exarch", "p2")
+    put(s, "Blood Artist")
+    put(s, "Grizzly Bears")
+    put(s, "Zulaport Cutthroat", "p2")
+    put(s, "Deceiver Exarch", "p2")
     wrath = to_hand(s, "Wrath of God")
     mana(s, "p1", W=2, C=2)
     act(s, "p1", type="cast_spell", card_id=wrath.id)
@@ -213,7 +224,10 @@ def test_save_and_load_in_the_middle_of_a_trigger_order_decision(cards):
 
 def test_concede_while_a_decision_is_pending(cards):
     s = build(cards, ["Blood Artist", "Grizzly Bears", "Wrath of God"], ["Zulaport Cutthroat", "Deceiver Exarch"])
-    put(s, "Blood Artist"); put(s, "Grizzly Bears"); put(s, "Zulaport Cutthroat", "p2"); put(s, "Deceiver Exarch", "p2")
+    put(s, "Blood Artist")
+    put(s, "Grizzly Bears")
+    put(s, "Zulaport Cutthroat", "p2")
+    put(s, "Deceiver Exarch", "p2")
     wrath = to_hand(s, "Wrath of God")
     mana(s, "p1", W=2, C=2)
     act(s, "p1", type="cast_spell", card_id=wrath.id)
@@ -249,7 +263,8 @@ def test_mana_drain_adds_mana_at_the_next_main_phase_across_a_save(cards):
 
 def test_darksteel_plate_indestructible_survives_wrath(cards):
     s = build(cards, ["Darksteel Plate", "Grizzly Bears", "Wrath of God"], [])
-    put(s, "Darksteel Plate"); put(s, "Grizzly Bears")
+    put(s, "Darksteel Plate")
+    put(s, "Grizzly Bears")
     mana(s, "p1", C=2)
     act(s, "p1", type="activate_ability", card_id=card_named(s, "Darksteel Plate").id, ability=2, targets=[card_named(s, "Grizzly Bears").id])
     answer(s)
@@ -265,7 +280,9 @@ def test_linvala_stops_an_opponents_creature_abilities(cards):
     from app.game.errors import ActionError
 
     s = build(cards, ["Linvala, Keeper of Silence"], ["Kiki-Jiki, Mirror Breaker", "Deceiver Exarch"])
-    put(s, "Linvala, Keeper of Silence"); put(s, "Kiki-Jiki, Mirror Breaker", "p2"); put(s, "Deceiver Exarch", "p2")
+    put(s, "Linvala, Keeper of Silence")
+    put(s, "Kiki-Jiki, Mirror Breaker", "p2")
+    put(s, "Deceiver Exarch", "p2")
     act(s, "p2", type="set_stops", others=["main1"])
     act(s, "p1", type="pass_priority")
     assert s.state.rules.priority == "p2"
@@ -290,7 +307,9 @@ def test_thassas_oracle_cannot_win_through_an_opponents_platinum_angel(cards):
 
 def test_mikaeus_undying_never_returns_under_rest_in_peace(cards):
     s = build(cards, ["Mikaeus, the Unhallowed", "Rest in Peace", "Grizzly Bears", "Wrath of God"], [])
-    put(s, "Mikaeus, the Unhallowed"); put(s, "Rest in Peace"); put(s, "Grizzly Bears")
+    put(s, "Mikaeus, the Unhallowed")
+    put(s, "Rest in Peace")
+    put(s, "Grizzly Bears")
     wrath = to_hand(s, "Wrath of God")
     mana(s, "p1", W=2, C=2)
     act(s, "p1", type="cast_spell", card_id=wrath.id)
@@ -301,7 +320,9 @@ def test_mikaeus_undying_never_returns_under_rest_in_peace(cards):
 
 def test_dictate_of_erebos_makes_each_opponent_sacrifice(cards):
     s = build(cards, ["Dictate of Erebos", "Grizzly Bears", "Lightning Bolt"], ["Deceiver Exarch"])
-    put(s, "Dictate of Erebos"); put(s, "Grizzly Bears"); put(s, "Deceiver Exarch", "p2")
+    put(s, "Dictate of Erebos")
+    put(s, "Grizzly Bears")
+    put(s, "Deceiver Exarch", "p2")
     bolt = to_hand(s, "Lightning Bolt")
     mana(s, "p1", R=1)
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[card_named(s, "Grizzly Bears").id])
