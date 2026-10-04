@@ -199,6 +199,17 @@ def _count(word: str) -> int:
 
 
 def _parse(c: str) -> Condition | None:
+    # -- triggers (wave 19B) -- "your commander attacks / enters / deals combat damage to a player" is "a commander you control …"
+    # (903.3: a commander its owner's deck names; the selector reads it on the battlefield), "you attack with your commander" /
+    # "~ attacks an opponent" (the one of your opponents the attack is declared against, 508.3a)
+    m = re.fullmatch(r"your commander (?P<rest>.+)", c)
+    if m or c == "you attack with your commander":
+        found = _parse(f"a commander you control {m['rest']}" if m else "you attack with one or more commanders you control")
+        if found is not None and found.get("sel"):  # (your own: a commander you own, as "you control your commander" reads it)
+            found["sel"] = selectors.replace(selectors.from_key(found["sel"]), owner="you").key()
+        return found
+    if c.endswith(" attacks an opponent"):
+        return _parse(c[: -len("an opponent")] + "one of your opponents")
     # -- entry forms (wave 11F) -- "Whenever a creature enters [the battlefield] under your control" is "a creature you control
     # enters" (603.6a: an object entering the battlefield, under that player's control); "under an opponent's control":
     # "an opponent controls". (A permanent "an opponent owns" is another thing: not read.)
@@ -418,7 +429,9 @@ def _parse(c: str) -> Condition | None:
     # a leaves-the-battlefield ability, so it doesn't look back), whatever zone it came from (or only the library)
     if c == "~ is put into a graveyard from anywhere":  # -- trigger tail (wave 15B) -- 603.6c: not a leaves-the-battlefield ability
         return {"event": "to_graveyard", "subject": "self"}  # (it triggers from the graveyard, on the card's new object)
-    m = re.fullmatch(r"(?P<o>one or more .+? cards|an? .+? card|a card) (?:is|are) put into (?P<g>your|an opponent's|a) "
+    if c in ("~ is put into your graveyard from your library", "this card is put into your graveyard from your library"):
+        return {"event": "to_graveyard", "subject": "self", "from": "library"}  # -- triggers (wave 19B) -- (Narcomoeba)
+    m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?P<g>your|an opponent's|a) "
                      r"graveyard from (?P<f>anywhere|your library|a library)", c)
     if m:
         gsel = selectors.from_key(_object_sel(m["o"], card=True))

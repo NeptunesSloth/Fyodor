@@ -5,6 +5,7 @@
   "a creature card and/or a land card from among them into your hand" - the pick is from the cards the mill put into the graveyard.
 * 701.54a: "if you chose a creature other than Gandalf as your Ring-bearer" - the creature this tempting chose.
 * 903.8: "for each time you've cast a commander from the command zone this game" - the casts counted so far.
+* 903.3: "your commander enters / attacks", "you attack with your commander" - a commander you own (not another player's).
 * 508.1b: "deals 1 damage to the player or planeswalker it's attacking" - what the attacker the trigger is about attacks now.
 """
 
@@ -34,6 +35,8 @@ EXTRA = [
     real('Probe Temptation', '{1}', 1, 'Sorcery', 'The Ring tempts you.', None),
     real('Probe Soldier', '{1}{W}', 2, 'Creature — Human Soldier', '', ("1", "1"), 'W'),
     real('Jirina Kudro', '{1}{R}{W}{B}', 4, 'Legendary Creature — Human Soldier', "When Jirina Kudro enters, create a 1/1 white Human Soldier creature token for each time you've cast a commander from the command zone this game.\nOther Humans you control get +2/+0.", ("3", "3"), 'BRW'),
+    real('We Ride at Dawn', '{2}{W}', 3, 'Enchantment', 'Legendary creature spells you cast have convoke. (Your creatures can help cast those spells. Each creature you tap while casting a legendary creature spell pays for {1} or one mana of that creature\'s color.)\nWhenever your commander attacks, create a 1/1 red Mercenary creature token with "{T}: Target creature you control gets +1/+0 until end of turn. Activate only as a sorcery."', None, 'W'),
+    real('Nakia, Wakandan Operative', '{2}{G}', 3, 'Legendary Creature — Human Warrior Hero', 'Reach\nWhenever your commander enters, you become the monarch.\n{2}, {T}: Put two +1/+1 counters on target creature or Vehicle. Activate only as a sorcery.', ("3", "3"), 'G'),
 ]
 
 NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
@@ -151,4 +154,26 @@ def test_tokens_for_each_commander_cast_from_the_command_zone(cards):
     cast(s, "Jirina Kudro", C=1, R=1, W=1, B=1)
     answer(s)
     assert sum(1 for c in s.state.cards.values() if c.name == "Human Soldier" and c.zone == "p1:battlefield") == 1
+    check(s)
+
+
+def test_your_commander_enters_makes_you_the_monarch(cards):
+    s = combat_build(cards, "Nakia, Wakandan Operative")
+    combat_put(s, "Nakia, Wakandan Operative")
+    krenko = next(c for c in s.state.cards.values() if c.name == "Krenko, Mob Boss" and c.owner == "p1")
+    mana(s, "p1", R=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=krenko.id)
+    answer(s)
+    assert s.state.table.monarch == "p1"
+    check(s)
+
+
+def test_your_commander_attacks_makes_a_token(cards):
+    s = combat_build(cards, "We Ride at Dawn")
+    combat_put(s, "We Ride at Dawn")
+    krenko = combat_put(s, "Krenko, Mob Boss")
+    to_attack(s, 3)
+    declare(s, (krenko, "p2"))
+    to_blocks(s)
+    assert sum(1 for c in s.state.cards.values() if c.name == "Mercenary" and c.zone == "p1:battlefield") == 1
     check(s)
