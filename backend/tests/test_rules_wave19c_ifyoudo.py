@@ -57,8 +57,16 @@ EXTRA = [
          oracle_text='At the beginning of your upkeep, if this card is in your graveyard, you may pay {1}{B}{B}. If you do, return it to your hand.\n{1}{R}{R}, Sacrifice this creature: It deals 2 damage to any target.', power='2', toughness='1', colors=['B', 'R'], color_identity=['B', 'R'], keywords=[]),
     card('Ghastly Remains', set_code='tst', number='W23', mana_cost='{B}{B}{B}', cmc=3.0, type_line='Creature — Zombie',
          oracle_text='Amplify 1 (As this creature enters, put a +1/+1 counter on it for each Zombie card you reveal in your hand.)\nAt the beginning of your upkeep, if this card is in your graveyard, you may pay {B}{B}{B}. If you do, return it to your hand.', power='0', toughness='0', colors=['B'], color_identity=['B'], keywords=['Amplify']),
+    card('Overwhelming Forces', set_code='tst', number='W30', mana_cost='{6}{B}{B}', cmc=8.0, type_line='Sorcery',
+         oracle_text='Destroy all creatures target opponent controls. Draw a card for each creature destroyed this way.', power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=[]),
+    card('Rain of Daggers', set_code='tst', number='W31', mana_cost='{4}{B}{B}', cmc=6.0, type_line='Sorcery',
+         oracle_text='Destroy all creatures target opponent controls. You lose 2 life for each creature destroyed this way.', power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=[]),
+    card('Baral, Chief of Compliance', set_code='tst', number='W40', mana_cost='{1}{U}', cmc=2.0, type_line='Legendary Creature — Human Wizard',
+         oracle_text='Instant and sorcery spells you cast cost {1} less to cast.\nWhenever a spell or ability you control counters a spell, you may draw a card. If you do, discard a card.', power='1', toughness='3', colors=['U'], color_identity=['U'], keywords=[]),
+    card('Lullmage Mentor', set_code='tst', number='W41', mana_cost='{1}{U}{U}', cmc=3.0, type_line='Creature — Merfolk Wizard',
+         oracle_text='Whenever a spell or ability you control counters a spell, you may create a 1/1 blue Merfolk creature token.\nTap seven untapped Merfolk you control: Counter target spell.', power='2', toughness='2', colors=['U'], color_identity=['U'], keywords=[]),
 ]
-FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains']
+FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor']
 # --EXTRA-END--
 
 
@@ -309,4 +317,59 @@ def test_a_graveyard_trigger_does_not_work_from_the_battlefield(cards):
         else:
             act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.turn.number == 3 and s.state.players["p1"].life == life and s.state.cards[master.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def token_creature(s, pid, name, text=""):
+    act(s, pid, type="create_token", player=pid, token={"name": name, "type_line": "Token Creature — Test", "power": "2",
+                                                         "toughness": "2", "text": text})
+    return find(s, name, pid)
+
+
+@pytest.mark.parametrize("spell", ["Overwhelming Forces", "Rain of Daggers"])
+def test_destroy_all_of_target_opponents_creatures_counts_only_the_ones_destroyed(cards, spell):
+    s = build(cards, p1=(spell,))
+    victims = [token_creature(s, "p2", f"Bear {i}") for i in range(2)]
+    tough = token_creature(s, "p2", "Golem", "Indestructible")  # not destroyed (702.12b): not counted
+    mine = token_creature(s, "p1", "Mine")
+    card_ = to_hand(s, spell)
+    life, hand = s.state.players["p1"].life, len(zone(s.state, "p1", "hand"))
+    add_mana(s, "p1", B=2, C=6)
+    act(s, "p1", type="cast_spell", card_id=card_.id, targets=["p2"])
+    play_out(s)
+    assert [c.id in zone(s.state, "p2", "battlefield") for c in (*victims, tough)] == [False, False, True]
+    assert mine.id in zone(s.state, "p1", "battlefield")  # only the target opponent's creatures
+    if spell == "Overwhelming Forces":
+        assert len(zone(s.state, "p1", "hand")) == hand - 1 + 2  # (the spell left the hand) "a card for each creature destroyed"
+    else:
+        assert s.state.players["p1"].life == life - 4  # 2 life for each of the two destroyed
+    roundtrip(s)
+
+
+def test_baral_loots_when_a_spell_you_control_counters_a_spell(cards):
+    s = build(cards, p1=("Llanowar Elves",), p2=("Baral, Chief of Compliance", "Counterspell"))
+    to_zone(s, find(s, "Baral, Chief of Compliance", "p2"), "battlefield")
+    counter = to_zone(s, find(s, "Counterspell", "p2"), "hand")
+    elves = to_hand(s, "Llanowar Elves")
+    add_mana(s, "p1", G=1)
+    add_mana(s, "p2", U=2)
+    library = len(zone(s.state, "p2", "library"))
+    act(s, "p1", type="cast_spell", card_id=elves.id)
+    act(s, "p2", type="cast_spell", card_id=counter.id, targets=[elves.id])
+    play_out(s, prefer=("yes",))
+    assert s.state.cards[elves.id].zone == "p1:graveyard"
+    assert len(zone(s.state, "p2", "library")) == library - 1  # "you may draw a card. If you do, discard a card"
+    assert len(zone(s.state, "p2", "graveyard")) == 2  # Counterspell and the discarded card
+    roundtrip(s)
+
+
+def test_baral_does_not_loot_for_a_spell_that_is_not_countered(cards):
+    s = build(cards, p1=("Llanowar Elves",), p2=("Baral, Chief of Compliance", "Counterspell"))
+    to_zone(s, find(s, "Baral, Chief of Compliance", "p2"), "battlefield")
+    elves = to_hand(s, "Llanowar Elves")
+    add_mana(s, "p1", G=1)
+    library = len(zone(s.state, "p2", "library"))
+    act(s, "p1", type="cast_spell", card_id=elves.id)
+    play_out(s, prefer=("yes",))
+    assert s.state.cards[elves.id].zone == "p1:battlefield" and len(zone(s.state, "p2", "library")) == library
     roundtrip(s)

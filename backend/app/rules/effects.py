@@ -1270,7 +1270,8 @@ def madness_offer(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
-def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None, *, exile: bool = False) -> None:
+def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None, *, exile: bool = False,
+                   by: str | None = None) -> None:
     """701.6: a countered spell goes to its owner's graveyard (a flashback spell into exile); a
     countered ability simply stops existing. ``exile``: "If that spell is countered this way, exile
     it instead of putting it into its owner's graveyard" (608.2c; wave 4C).
@@ -1291,6 +1292,10 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
     oid = plan.oid(stack_id)
     r.buyback = [o for o in r.buyback if o != oid]
     plan.note(f"{card.name or 'It'} is countered", [stack_id])
+    if card.ability is None and by is not None:  # -- counter events (wave 19C) -- "Whenever a spell or ability you control counters a spell":
+        from app.game.rules_state import emit  # ``by`` is the controller of the spell or ability that countered it (701.6a)
+
+        emit(plan.state, "designation", counter="counters_spell", player=by)
     if oid in r.flashback or exile:
         r.flashback = [o for o in r.flashback if o != oid]
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
@@ -1316,7 +1321,7 @@ def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     sids = _stack_targets(plan, ctx, e)
     before = _remember(plan, ctx, e, sids)  # -- stack interaction (wave 5B) -- "its controller": 608.2h
     for sid in sids:
-        counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")))  # (exile: 4C; to: 4A)
+        counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")), by=ctx["controller"])  # (exile: 4C; to: 4A)
     _moved(plan, ctx, e, before)  # (wave 5B)
     return True
 
@@ -1337,7 +1342,7 @@ def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     if not cost.is_free and not casting.can_pay(plan.state, payer, cost, plan.info):
         plan.note(f"{plan.name(payer)} can't pay {cost.text()}")
-        counter_object(plan, sid, payer)
+        counter_object(plan, sid, payer, by=ctx["controller"])
         return True
     # -- end review (wave 4R) --
     options = [DecisionOption(id="pay", label=f"Pay {cost.text()}"),  # (tap your mana first)
@@ -2059,7 +2064,7 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
             cost = mana.parse_cost(d.resume["cost"])
             casting.pay_from_pool(plan, d.player, cost, f"paid {cost.text()} so it isn't countered")
         else:
-            counter_object(plan, sid, d.player)
+            counter_object(plan, sid, d.player, by=ctx["controller"])
         continue_effects(plan, ctx)
         return
     src = [c for c in _cards(plan, ctx, "self") if plan.state.cards[c].controller == d.player]  # (701.21a)

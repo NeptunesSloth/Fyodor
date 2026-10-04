@@ -1445,7 +1445,7 @@ def _pump_their_team(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
 
 # -- untap restrictions (wave 13E) -- "Tap all creatures target player controls." (Sleep, Kiora Bests the Sea God): the
 # permanents that player controls as it resolves (608.2c)
-@effect(r"(?P<v>tap|untap) all (?P<what>creatures|nonland permanents|lands|artifacts|permanents) target (?P<pl>player|opponent) controls")
+@effect(r"(?P<v>tap|untap|destroy|exile) all (?P<what>creatures|nonland permanents|lands|artifacts|permanents) target (?P<pl>player|opponent) controls")  # (wave 19C: destroy, exile)
 def _tap_their_all(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     from app.rules import selectors
 
