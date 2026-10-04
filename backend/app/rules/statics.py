@@ -595,6 +595,8 @@ def _pieces(predicate: str) -> list[str]:
     predicate = predicate.replace("can't attack, block, or crew Vehicles", "can't attack,_block,_or_crew_Vehicles")  # (wave 16F)
     predicate = predicate.replace("Aura and Equipment", "Aura_and_Equipment")  # (wave 6C: one count, values._ATTACHED_TO)
     predicate = re.sub(r"(for each [^,\"]*?) and each ", r"\1 and_each ", predicate)  # (wave 15A: one sum, values._parse_count)
+    # -- X sized by a count (wave 19F) -- "for each Dwarf, Equipment, and/or Vehicle you control": one count of a list of kinds
+    predicate = re.sub(r"for each [\w'-]+(?:, [\w'-]+)*,? (?:and/or|and|or) [\w'-]+ you control", lambda m: m.group(0).replace(" ", "\x00"), predicate)
     while i < len(predicate):
         c = predicate[i]
         if c == '"':
@@ -615,7 +617,7 @@ def _pieces(predicate: str) -> list[str]:
     out.append(buf.strip())
     return [p.replace("power_and_toughness", "power and toughness").replace("Aura_and_Equipment", "Aura and Equipment")
             .replace(" and_each ", " and each ").replace("attack,_block,_or_crew_Vehicles", "attack, block, or crew Vehicles")
-            for p in out if p]
+            .replace("\x00", " ") for p in out if p]
 
 
 def _predicate(predicate: str, x_value: values.Value | None = None, it: str | None = None) -> dict[str, Any] | None:

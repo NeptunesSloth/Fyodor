@@ -198,6 +198,8 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"party": "you"}  # 700.8
     if what in ("cards in target player's hand", "cards in target opponent's hand"):
         return {"hand": "target"}
+    if what in ("cards in all players' hands", "card in all players' hands"):  # -- X sized by a count (wave 19F) --
+        return {"hand": "all"}
     if what in ("opponents you have", "opponent you have", "your opponents", "opponent", "opponents"):
         return {"opponents": 1}
     if what == "opponent you attacked with a creature this combat":  # -- casting extras (wave 18E) -- melee 702.121a
@@ -264,10 +266,13 @@ def _parse_count(phrase: str, *, it: str | None = None) -> Value | None:
         return {"max": "mana_value", "of": selectors.Selector(commander=True, owner="you", zones=("battlefield", "command")).key()}  # 903.3
     m = _AGGREGATE.match(what)
     if m:
-        key = _selector_key(m["sel"])
-        if key is None or selectors.from_key(key).player is not None:
+        # -- X sized by a count (wave 19F) -- "the greatest power among creatures you control and creature cards in your graveyard":
+        # the greatest of two groups (not a sum: "total" would count each)
+        parts = m["sel"].split(" and ") if m["max"] and " and " in m["sel"] and _selector_key(m["sel"]) is None else [m["sel"]]
+        keys = [_selector_key(x) for x in parts]
+        if len(parts) > 2 or None in keys or any(selectors.from_key(k).player is not None for k in keys if k):
             return None
-        return {"max" if m["max"] else "sum": _STATS[m["stat"]], "of": key}
+        return {"max" if m["max"] else "sum": _STATS[m["stat"]], "of": keys[0], **({"also": keys[1]} if len(keys) == 2 else {})}
     m = re.fullmatch(r"differently named (?P<sel>.+)", what)  # -- amounts (wave 12C) -- 201.2: how many different names
     if m:
         key = _selector_key(m["sel"])
@@ -346,6 +351,15 @@ def _turn_amount(what: str) -> Value | None:
             return None
         # -- X actions (wave 9A) -- "that died under your control this turn": the ones you controlled as they died (700.4)
         return {"turn_history": "died", "sel": sel.key(), **({"who": "you"} if m["mine"] else {})}
+    # -- X sized by a count (wave 19F) -- this turn's log: tokens you created, permanents you sacrificed, what your opponents lost
+    if re.fullmatch(r"tokens? you(?:'ve)? created this turn", what):
+        return {"turn_history": "tokens"}
+    if re.fullmatch(r"permanents? you(?:'ve)? sacrificed this turn", what):
+        return {"turn_history": "sacrificed"}
+    if re.fullmatch(r"(?:the )?(?:total )?(?:amount of )?life (?:lost by your opponents|your opponents have lost) this turn", what):
+        return {"turn_history": "opp_lost"}
+    if re.fullmatch(r"(?:the )?(?:total )?damage dealt to your opponents this turn", what):
+        return {"turn_history": "opp_damage"}
     m = _OPPONENTS_WHO.match(what)
     if m:  # each opponent whose history this turn says so (one per opponent)
         word = m["n"] or m["m"]
@@ -486,6 +500,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if who is None and ctx.get("unknown_choice_raises"):
             raise NoChosenPlayer
         return len(plan.state.zones.get(f"{who}:hand", [])) if who in plan.live() else 0
+    if "hand" in v and v["hand"] == "all":  # (wave 19F) every player's hand, a public count
+        return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live())
     if "hand" in v:
         players = [you] if v["hand"] == "you" else _target_players(plan, ctx)
         return sum(len(plan.state.zones.get(f"{p}:hand", [])) for p in players)
@@ -520,7 +536,8 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "sum" in v or "max" in v:
         stat = v.get("sum") or v["max"]
         found = [_stat_of(plan.ch(plan.state.cards[c]), stat)
-                 for c in selectors.candidates(plan, selectors.from_key(v["of"]), you, _other_than(ctx))]
+                 for key in (v["of"], *([v["also"]] if "also" in v else []))  # (wave 19F: "among A and B")
+                 for c in selectors.candidates(plan, selectors.from_key(key), you, _other_than(ctx))]
         nums = [n for n in found if n is not None]
         return max(0, sum(nums) if "sum" in v else max(nums or [0]))
     for stat in ("power", "toughness", "mana_value"):

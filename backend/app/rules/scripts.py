@@ -496,8 +496,8 @@ def _bind_stats(v: Any, bind: Any, spell: Any = None) -> Any:
         return v
     out = {}
     for k, x in v.items():
-        if k in _STAT_KEYS and (x in ("it", "that_spell") or (isinstance(x, str) and x.startswith("it:"))):
-            x = (spell or bind)() if x == "that_spell" else bind(x[3:]) if x.startswith("it:") else bind()
+        if k in _STAT_KEYS and (x in ("it", "that_spell", "cost:exiled") or (isinstance(x, str) and x.startswith("it:"))):
+            x = (spell or bind)() if x == "that_spell" else bind(x[3:]) if x.startswith("it:") else bind("exiled") if x == "cost:exiled" else bind()
             if x is None:
                 raise _NoMatch
         else:
@@ -742,7 +742,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                 e["life_x"] = _bind_stats(e["life_x"], lambda verb=None, at=index: stat_ref(at, verb),
                                           (lambda: "event") if antecedent == "event_spell" else None)
             for pk in ("p", "t"):  # -- as long as (wave 9B) -- "gets +X/+X …, where X is the discarded card's mana value" (a pump / become)
-                if e.get("do") in ("pump", "become") and "it:discarded" in json.dumps(e.get(pk), default=str):
+                if e.get("do") in ("pump", "become") and re.search(r'"(?:it:[a-z]+|cost:exiled)"', json.dumps(e.get(pk), default=str)):
                     e[pk] = _bind_stats(e[pk], lambda verb=None, at=index: stat_ref(at, verb), None)
             # -- X sized by a count (wave 4K) -- an "X/X" token's P/T: the same placeholders as an amount
             if isinstance(e.get("token"), dict) and any(isinstance(e["token"].get(k), dict) for k in ("power", "toughness")):
@@ -1277,6 +1277,22 @@ def _proliferate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "proliferate", "who": "you"}] * (2 if m["again"] else 1), None  # (wave 16C: 701.34a, one after the other)
 
 
+# -- X sized by a count (wave 19F) -- "Proliferate X times." (701.34), "it explores X times" (701.44), "Investigate X times." (701.16):
+# the instruction after a repeat is carried out as many times as the amount says, one after the other (effects.repeat)
+_TIMES = r"(?P<n>\d+|two|three|four|five|X)"
+
+
+def _repeat(word: str, span: int = 1) -> dict[str, Any]:
+    from app.rules import values
+
+    return {"do": "repeat", "n": values.parse_amount(word), "span": span}
+
+
+@effect(rf"proliferate {_TIMES} times")
+def _proliferate_times(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [_repeat(m["n"]), {"do": "proliferate", "who": "you"}], None
+
+
 WIPES = {"creatures": ["Creature"], "artifacts": ["Artifact"], "enchantments": ["Enchantment"],
          "artifacts and enchantments": ["Artifact", "Enchantment"], "creatures and planeswalkers": ["Creature", "Planeswalker"],
          "nonland permanents": ["*nonland"], "artifacts, creatures, and enchantments": ["Artifact", "Creature", "Enchantment"]}
@@ -1347,6 +1363,11 @@ def _investigate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
              "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
 
 
+@effect(rf"investigate {_TIMES} times")  # (wave 19F: each time is its own investigation, 701.16a: one Clue, one event)
+def _investigate_times(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [_repeat(m["n"]), *_investigate(m)[0]], None
+
+
 @effect(r"investigate twice")  # -- trigger tail (wave 15B) -- 701.16a: investigating twice makes two Clues
 def _investigate_twice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{**_investigate(m)[0][0], "n": 2}], None
@@ -1384,6 +1405,11 @@ def _scry_x(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 @effect(r"(?P<src>~|it) explores, then (?:it|~) explores again")
 def _explore_twice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "explore", **_it_source(m["src"])}, {"do": "explore", **_it_source(m["src"])}], None  # -- triggers (wave 17D) -- 701.44a twice
+
+
+@effect(rf"(?P<src>~|it) explores (?:{_TIMES} times|(?P<twice>twice))")
+def _explore_times(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [_repeat("two" if m["twice"] else m["n"]), {"do": "explore", **_it_source(m["src"])}], None  # (wave 19F)
 
 
 @effect(r"(?P<src>~|it|target creature you control) explores")
@@ -1588,6 +1614,11 @@ def _monstrosity(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "monstrosity", "n": num(m["n"])}], None  # 701.37a
 
 
+@effect(r"monstrosity X")
+def _monstrosity_x(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "monstrosity", "n": {"x": 1}}], None  # -- X sized by a count (wave 19F) -- X announced as it's activated (107.3a)
+
+
 @effect(r"~'s level becomes {N}")
 def _class_level(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "class_level", "n": num(m["n"])}], None  # 716.2a: the Class's level becomes N
@@ -1611,7 +1642,8 @@ class _NoMatch(Exception):
 
 
 def _lower_first(s: str) -> str:
-    return s[:1].lower() + s[1:] if s[:1].isupper() and not s.startswith("~") else s
+    # (-- X sized by a count (wave 19F) -- "X target creatures can't block this turn": the X of the group stays a capital)
+    return s[:1].lower() + s[1:] if s[:1].isupper() and not s.startswith(("~", "X target", "X blocked")) else s
 
 
 def _one_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
@@ -1860,15 +1892,28 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     value = language.x_definition(m["def"])
     start = body.rfind(". ", 0, m.start()) + 2 if ". " in body[: m.start()] else 0
     head, rest = body[start: m.start()], body[:start] + "\0" + body[m.end():]
-    # (a pronoun placeholder in the value — "its power", "that spell's mana value" — is bound by resolve_it, which has already
-    # run on the stand-in sentence: such a value is left to the sentence grammars that bind it)
-    # (likewise what the wrappers around the sentence grammar bind afterwards: "this way" counts, the target player's hand)
-    if value is None or re.search(r'"(?:it|that_spell|that_player|ref_amount|ref_count)"|"this_way"|"it:|"cost:exiled"', json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):
+    # (what the wrappers around the sentence grammar bind afterwards — "this way" counts, the target player's hand — is not read)
+    if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"|"cost:exiled"', json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):
         return None
-    got = _parse_effects_checked(rest.replace("\0", re.sub(r"\bX\b", str(_X_SENTINEL), head)), it, event_player)
-    if got is None or str(_X_SENTINEL) in json.dumps(got[1]):
+    outer = list(_X_NOW)
+    _X_NOW[:] = [value, False]  # (-- X sized by a count (wave 19F) -- swapped in by _parse_effects before it binds the pronouns)
+    try:
+        got = _parse_effects_checked(rest.replace("\0", re.sub(r"\bX\b", str(_X_SENTINEL), head)), it, event_player)
+        hit = _X_NOW[1]
+    finally:
+        _X_NOW[:] = outer
+    if got is None or str(_X_SENTINEL) in json.dumps(got[1]) or not hit:
         return None
-    hit = [False]
+    return got
+
+
+_X_NOW: list[Any] = []  # [value, swapped?] while _where_x parses its stand-in sentence
+
+
+def _swap_x(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """-- X sized by a count (wave 19F) -- the stand-in of _where_x → the value, in amount fields only (a pronoun in the value is
+    bound by the resolve_it that follows: "where X is that creature's power", "… the milled card's mana value")."""
+    value = _X_NOW[0]
 
     def swap(v: Any, key: str | None) -> Any:
         if isinstance(v, list):
@@ -1879,14 +1924,10 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
             return v
         if key not in _X_KEYS or (v < 0 and key == "n"):
             raise _NoMatch
-        hit[0] = True
+        _X_NOW[1] = True
         return value if v > 0 else {"neg": value}
 
-    try:
-        effects = swap(got[0], None)
-    except _NoMatch:
-        return None
-    return (effects, got[1], got[2]) if hit[0] else None
+    return swap(effects, None)
 
 
 _EXCESS = re.compile(r"(?P<trample>if the creature you control has trample, )?excess damage is dealt to that "
@@ -2418,6 +2459,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 return None
             found, sel = parsed_clause
             effects += _add_groups(groups, found, sel)
+    if _X_NOW:
+        effects = _swap_x(effects)
     resolved = resolve_it(effects, it, groups, sentences=sentences, event_player=event_player)
     if resolved is not None:  # -- refused modal/conditional (wave 3R1) -- an "instead" pronoun naming the target
         resolved = _gated_other_rewrite(_branch_refs_retarget(resolved))
@@ -2427,6 +2470,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     if pay_objects.leftover(resolved):  # -- if you do (wave 8C) -- "the exiled card" with no payment before it
         return None
+    if re.search(r'"(?:power|toughness|mana_value)": "it:(?!discarded)', json.dumps(resolved, default=str)):
+        return None  # (-- X sized by a count (wave 19F) -- "the milled card's …" in a field that binds no such reference)
     if not _cast_conditions_ok(resolved) or not _did_refs_ok(resolved):  # -- refused modal/conditional (wave 3R1) --
         return None
     if not _dice.refs_ok(resolved):  # -- rolling dice (wave 12A) -- "equal to the result" only after a roll
@@ -2991,9 +3036,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # sentence would read as 0 — manual. And a triggered ability's bare X other than an enters trigger's (107.3m, the
     # cast X: triggers.py) is some cost's X the trigger isn't given ("When you cycle this card, create an X/X …": the
     # cycling cost's): manual too.
+    # (wave 19F: or its own "When this creature becomes monstrous" with a "Monstrosity X" ability on the card: that X, 701.37c)
+    monstrous_x = d is not None and (d.get("cond") or {}) == {"subject": "self", "event": "become_monstrous"} and any(
+        "Monstrosity X" in a.text for a in ch.abilities) and "where X is" not in ability.text
     if d is not None and '{"x": 1}' in json.dumps(d.get("effects") or [], default=str) and (
             re.search(r"\bwhere X is\b", ability.text)
-            or (d.get("kind") == "triggered" and d.get("trigger") != "enters_self")):
+            or (d.get("kind") == "triggered" and d.get("trigger") != "enters_self" and not monstrous_x)):
         return None
     # -- review (wave 12C) -- the X a selector compares with ("with mana value X or less": selectors.X_VALUE, the cast X) or
     # the stand-in number of _where_x, left in any field: that X isn't what "where X is" defines — manual
@@ -3002,8 +3050,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if d is not None and re.search(r"\bwhere X is\b", ability.text) and re.search(
             rf'(?<![\d-]){_X_SENTINEL}(?!\d)|,{selectors.X_VALUE}\]', json.dumps(d, default=str)):
         return None
-    if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str):
-        return None  # ("up to X target …" in a trigger: its targets are chosen before any X is known to it)
+    if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str) and not (
+            monstrous_x or (d.get("trigger") == "enters_self" and "{X}" in (ch.mana_cost or "") and "where X is" not in ability.text)):
+        return None  # ("up to X target …" in a trigger: its targets are chosen before any X is known to it; wave 19F: but the X an
+        # enters trigger of a spell cast with X, or a becomes-monstrous trigger, is given: triggers.cast_x)
     # -- entry forms (wave 5F) -- "It's an enchantment." only right after a return
     from app.rules import entry_forms
 
@@ -3357,6 +3407,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if own is None and re.fullmatch(r"(?:(?:(?:\{[^}]+\})+|Pay \d+ life), )*Exert (?:~|this \w+)(?:, (?:(?:\{[^}]+\})+|Pay \d+ life))*",
                                         self_text(ability.cost or "", ch.name)):
             own = "self"
+        if any(c.kind == SACRIFICE and c.selector is not None for c in cost.components) and "target" not in body:
+            # -- X sized by a count (wave 19F) -- "Sacrifice another creature: Draw X cards, where X is that creature's power.": the only
+            # object the cost names (as it last existed, 608.2h), read as "the sacrificed creature's power"
+            body = re.sub(r"\bthat (creature|permanent|artifact|enchantment|land)'s (?=power|toughness|mana value)", r"the sacrificed \1's ", body)
         parsed = _own_choice(parse_effects(body, "self_gone" if gone else own))  # (_own_choice: wave 3R5)
         if parsed is None or parsed[2]:
             return None
@@ -3941,7 +3995,7 @@ def _prevent_scope(kind: str | None, to: str | None, by: str | None) -> tuple[De
         if target is not None:
             return None  # (two targets: not this template)
         target, role = SELECTORS[by], "by"
-    elif target is None and by.startswith(("target ", "up to ", "one or two ", "x target ", "another target ")) \
+    elif target is None and by.startswith(("target ", "up to ", "one or two ", "x target ", "X target ", "another target ")) \
             and _prevent_group(by) is not None:  # -- prevention riders (wave 17A) -- "one or two target creatures would deal"
         target, role = _prevent_group(by), "by"
     else:

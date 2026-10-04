@@ -68,7 +68,6 @@ def test_keys_stay_compact():
 
 @pytest.mark.parametrize("phrase", [
     "nontoken token", "token card", "token spell", "spell or token", "commander card", "creature or token",
-    "creature with power X or less",  # (X isn't a value)
 ])
 def test_refused_phrases(phrase):
     assert S.parse(phrase) is None

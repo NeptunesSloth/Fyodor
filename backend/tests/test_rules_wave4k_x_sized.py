@@ -174,8 +174,6 @@ def test_coverage_refused(cards, name):
     # one X for the whole ability (107.3c): the second sentence's bare X isn't read as 0
     "Whenever this creature attacks, create an X/X black Horror creature token, where X is half your life total, rounded "
     "up. It deals X damage to you.",
-    # each investigation is its own event (701.16a)
-    "When this creature enters, investigate X times, where X is the number of opponents you have.",
     # a trigger's targets are chosen with no X known to it
     "When you cycle this card, destroy up to X target artifacts.",
 ])

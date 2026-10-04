@@ -501,6 +501,13 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
                    and _departed_matches(plan, selectors.from_key(v["sel"]), d, snap))
     if kind == "attackers":  # -- cost self reduction (wave 16F) -- each creature declared as an attacker this turn, once (508.1)
         return len({a for p, ids in log.attackers.items() if v.get("who") != "you" or p == me for a in ids})
+    if kind in ("tokens", "sacrificed"):  # -- X sized by a count (wave 19F) -- one fact per token / permanent (111.2, 701.21a)
+        return sum(1 for f in log.facts if f.kind == ("token" if kind == "tokens" else "sacrifice") and f.player == me)
+    if kind in ("opp_lost", "opp_damage"):  # (the opponents still in the game: 800.4a)
+        opps = {p for p in plan.live() if p != me}
+        if kind == "opp_lost":
+            return sum(n for p, n in log.lost.items() if p in opps)
+        return sum(f.amount for f in log.facts if f.kind == "damage" and f.player in opps)
     if kind == "opponents_who":
         n = int(v.get("n", 1))
         opponents = [p for p in plan.state.players if p != me]  # (800.4a: a player who left still did it — but isn't counted)

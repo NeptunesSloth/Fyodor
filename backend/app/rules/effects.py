@@ -2825,9 +2825,8 @@ def resume_may(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def continue_effects(plan: Plan, ctx: Context) -> None:
-    effects = ctx["effects"]
-    while ctx["next"] < len(effects):
-        e = effects[ctx["next"]]
+    while ctx["next"] < len(ctx["effects"]):  # (wave 19F: re-read each time: effects.repeat replaces the list)
+        e = ctx["effects"][ctx["next"]]
         if replacements.ask_903_9b_first(plan, ctx, e):
             return  # 903.9b: a commander's owner chooses before it would be put into a hand or library
         ctx["next"] += 1
@@ -2836,6 +2835,17 @@ def continue_effects(plan: Plan, ctx: Context) -> None:
         if not PRIMITIVES[e["do"]](plan, ctx, e):
             return  # waiting for a choice; the decision's resume continues from ctx["next"]
     finish(plan, ctx)
+
+
+def repeat(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- X sized by a count (wave 19F) -- the next ``span`` instructions, as many times as ``n`` says ("Proliferate X times": each time
+    is a whole proliferate, 701.34a; none when it is 0), one after the other."""
+    effects, i = ctx["effects"], ctx["next"]
+    ctx["effects"] = [*effects[:i], *effects[i: i + e["span"]] * _amount(plan, ctx, e["n"]), *effects[i + e["span"]:]]
+    return True
+
+
+PRIMITIVES["repeat"] = repeat
 
 
 def finish(plan: Plan, ctx: Context, *, countered: bool = False) -> None:

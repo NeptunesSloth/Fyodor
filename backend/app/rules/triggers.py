@@ -1772,8 +1772,8 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
         picks = picks or {"targets": [], "counts": [], "division": []}
         try:
             found = choose_groups(plan, specs, t.controller, source_of(plan, t.source_card), t.source_card,
-                                  picks["targets"], picks["counts"], picks["division"], None, t.name or "It",
-                                  attacker=attacker)
+                                  picks["targets"], picks["counts"], picks["division"], cast_x(plan, t), t.name or "It",
+                                  attacker=attacker)  # (wave 19F: "up to X target …", X as 107.3m / 701.37c give it)
         except ActionError:  # 603.3d: no legal choice for a required target: removed from the stack
             r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
             plan.note(f"{t.name}'s ability doesn't have enough legal targets and is removed")
@@ -1822,6 +1822,8 @@ def cast_x(plan: Plan, t: PendingTrigger) -> int | None:
     """107.3m: an object's enters-the-battlefield triggered ability that refers to X uses the X of the spell that
     became that object as it resolved (its payment record, which follows it onto the battlefield); for any other
     triggered ability — or an object that wasn't cast with X — X is undefined here (0, 107.3i)."""
+    if t.event is not None and t.event.kind == "become_monstrous" and any(o.object_id == t.source_object for o in t.event.objects):
+        return plan.rules.monstrous_x.get(t.source_object)  # -- X sized by a count (wave 19F) -- 701.37c
     if t.event is None or t.event.kind != "enter" or not any(o.object_id == t.source_object for o in t.event.objects):
         return None
     record = plan.rules.payments.get(t.source_object)
