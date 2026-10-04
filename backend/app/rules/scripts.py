@@ -1589,6 +1589,10 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                         r"(?P<y>.+)", text)
     if twin is not None:
         text = f"{twin['p']} {twin['a']} on {twin['x']}, then put {twin['b']} on {twin['y']}"
+    # -- trigger tail (wave 15B) -- "You draw three cards, gain 6 life, and create three Bats." (a serial list of instructions, in
+    # order: 608.2c): read as the same instructions joined by "and"; each part must still be understood on its own
+    if (serial := re.fullmatch(r"([^,]+(?:, [^,]+)+), and ([^,]+)", text)) is not None:
+        text = serial[1].replace(", ", " and ") + " and " + serial[2]
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
                                  r"remove|add|investigate|prevent)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")

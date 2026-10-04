@@ -61,6 +61,7 @@ EXTRA += [
     real("God-Eternal Oketra", "{3}{W}{B}", 5, "Legendary Creature — Zombie God", "Double strike\nWhenever you cast a Zombie creature spell, create a 4/4 black Zombie Warrior creature token with vigilance.\nWhen God-Eternal Oketra dies or is put into exile from the battlefield, you may put it into its owner's library third from the top.", ("3", "6"), "WB"),
     real("The Endstone", "{3}", 3, "Artifact", "Whenever you play a land or cast a spell, draw a card.", None),
     real("Unshakable Tail", "{1}{W}", 2, "Creature — Cat Rogue", "Menace\nWhen this creature enters and at the beginning of your upkeep, surveil 1.", ("1", "1"), "W"),
+    real("Intimidation Campaign", "{3}{B}", 4, "Enchantment", "When this enchantment enters, each opponent loses 1 life, you gain 1 life, and you draw a card.\nWhenever you cast a creature spell, you may return this enchantment to its owner's hand.", None, "B"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -255,6 +256,18 @@ def test_deals_damage_to_a_vampire_destroys_that_creature(cards):
         answer(s)
         assert (foe.id in s.state.cards and s.state.cards[foe.id].zone == "p2:battlefield") == survives
         check(s)
+
+
+def test_a_serial_list_of_instructions_happens_in_order(cards):
+    s = build(cards, ["Intimidation Campaign"], [])
+    spell = to_hand(s, "Intimidation Campaign")
+    mana(s, "p1", B=1, C=3)
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    answer(s)
+    assert (s.state.players["p2"].life, s.state.players["p1"].life) == (39, 41)
+    assert len(s.state.zones["p1:hand"]) == hand  # -1 cast, +1 drawn
+    check(s)
 
 
 def test_cast_trigger_of_the_combined_ability_destroys_and_gives_a_powerstone(cards):
