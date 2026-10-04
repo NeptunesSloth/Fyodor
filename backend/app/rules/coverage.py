@@ -48,6 +48,7 @@ SUPPORTED_REPLACEMENTS: set[str] = {
     "pay_life_or_tapped",  # shock lands (614.1c, 614.12a): a private decision on every path
     "enters_choice",  # "As ~ enters, choose a color / creature type / …" (614.12a): chosen before it enters, recorded on it
     "enters_with_counters",  # "~ enters [tapped] with N … counters on it [for each …]" (614.1c, 122.6)
+    "enters_turn_down",  # "As ~ enters, turn all other nontoken creatures face down." (708.2a; wave 18A: replacements.turn_down)
     "exile_instead",  # "If ~ would die / be put into a graveyard from anywhere, exile it instead" (own and statics)
     "prevent",  # "Prevent all [combat] damage that would be dealt [to …] [by …] [this turn]" (615)
 }

@@ -1714,7 +1714,7 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                   r"\g<a>, then \g<b>, then ", text)
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
-                                 r"remove|add|investigate|prevent|amass|proliferate)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
+                                 r"remove|add|investigate|prevent|amass|proliferate|manifest)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue
@@ -3935,6 +3935,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return tapped_choice
     if (standalone := entry_forms.standalone_choice(text)) is not None:  # -- static statics (wave 10B) --
         return standalone
+    if (turn_down := entry_forms.turn_others_down(text)) is not None:  # -- hidden exile (wave 18A) --
+        return turn_down
     m = ENTERS_TAPPED_UNLESS.match(text)
     if m:  # check lands, fast lands, battle lands, Battlebond lands (614.1d)
         cond = _unless_condition(m["cond"])
@@ -4182,6 +4184,32 @@ def _reveal_any_in_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | N
     return [{"do": "reveal_hand_cards", "sel": sel.key(), "n": 99}], None
 
 
+# -- hidden exile (wave 18A) -- Scroll Rack / Ignorant Bliss: the hand cards exiled face down are "exiled this way" (facedown.py)
+@effect(r"exile (?P<k>all|any number of) cards from your hand face down")
+def _exile_hand_down(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "exile_hand_down", "all": m["k"] == "all", "n": 99}], None  # (n: several cards, for "those cards")
+
+
+@effect(r"exile all cards from your library face down")
+def _exile_library_down(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "exile_top", "n": 99999, "player": "you", "face_down": True}], None  # (the whole library: min'd with its size)
+
+
+@effect(r"each player exiles all but the bottom {N} cards of their library face down")  # (Doomsday Excruciator)
+def _exile_all_but_bottom(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "exile_top", "n": 0, "keep_bottom": num(m["n"]), "player": "each_player", "face_down": True}], None
+
+
+@effect(r"put that many cards from the top of your library into your hand")
+def _top_to_hand_that_many(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "top_to_hand", "n": {"this_way": "exiled", "of": None}}], None
+
+
+@effect(r"look at the exiled cards and put them on top of your library in any order")
+def _look_exiled_to_top(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "to_library", "who": "them:exiled", "place": "top"}], None
+
+
 @effect(r"(?P<text>prevent all (?:combat |noncombat )?damage (?:that would be dealt|(?:that )?(?!would be dealt).+? would deal).*)")
 def _prevent_all_this_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     got = parse_prevent_all(m["text"])
@@ -4286,7 +4314,7 @@ def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
         if group is None:
             raise _NoMatch
         sel = group["what"]
-    return _delayed.wrap_when(effects, when, who=who, this_turn=True), sel
+    return _delayed.wrap_when(effects, when, who=who, this_turn=bool(m["turn"])), sel  # (-- hidden exile (wave 18A) -- no "this turn": it waits for as long as it takes, 603.7)
 
 
 # -- turn watches (wave 7D; app/rules/watches.py) -- "Whenever you cast a spell this turn, draw a card." / "When you next
@@ -4345,7 +4373,7 @@ def _sacrifice_pronoun(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return _from_language(language.parse_sacrifice_pronoun(m["o"]))
 
 
-@effect(r"return (?P<o>.+?) to the battlefield(?P<t> tapped)? under (?:their|its) owner's control")
+@effect(r"return (?P<o>.+?) to the battlefield(?P<t> tapped)?(?P<fd> face down)? under (?:their owner's|its owner's|your) control")
 def _return_owner(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
@@ -5353,9 +5381,9 @@ def _exile_until_monarch(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 # -- keyword actions & face-down (wave 3F) -- goad names its objects ("goad it" after a target, "tap it and goad
 # it"); manifest / cloak put cards onto the battlefield ("then put X +1/+1 counters on it": the face-down
 # permanent it made, app/rules/facedown.py binds it)
-_RECORDING.update({"goad": None, "manifest": None, "detain": None, "suspect": None})  # (detain, suspect: wave 12A)
-_MOVERS.add("manifest")
-_CHOSEN["manifest"] = "n"
+_RECORDING.update({"goad": None, "manifest": None, "detain": None, "suspect": None, "exile_hand_down": "exiled"})  # (detain, suspect: wave 12A; exile_hand_down: 18A)
+_MOVERS.update({"manifest", "exile_hand_down"})  # (exile_hand_down: wave 18A)
+_CHOSEN.update({"manifest": "n", "exile_hand_down": "n"})
 
 
 # -- refused grants/replacements (wave 3R2) -- source-of-your-choice shields (609.7, 615.8) and "Damage can't be

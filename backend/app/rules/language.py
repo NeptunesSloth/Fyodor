@@ -1016,6 +1016,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         return [{"do": "shuffle_library", "who": who, "zones": zones, **({"optional": True} if m["may"] else {})}], _one(group)
     # -- trigger tail (wave 16C) -- "Shuffle all creature cards from your graveyard into your library." (Barishi): those cards, then
     # the shuffle (701.24a; effects.shuffle_library with a selector)
+    if text == "shuffle all cards from your graveyard into your library":  # (wave 18A: Inverter of Truth — all of it, as "your graveyard")
+        return [{"do": "shuffle_library", "who": "you", "zones": ["graveyard"]}], None
     m = re.fullmatch(r"shuffle all (?P<what>[a-z ]+?) cards? from your graveyard into your library", text)
     sel = selectors.parse(f"{m['what']} card from your graveyard") if m else None
     if sel is not None and _graveyard_cards(sel.key()):
@@ -2098,7 +2100,7 @@ _PRONOUN_SACRIFICE = {"them": "them", "those tokens": "them", "those creatures":
                       "those permanents": "them", "that creature": "it", "that token": "it", "the token": "it",
                       "that permanent": "it", "that card": "it"}
 _PRONOUN_SACRIFICE.update({"the creature": "it", "that artifact": "it"})  # -- permanent effects (wave 6A) -- Sneak Attack, Arms Race
-_OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)? under (?:their|its) owner's control$")
+_OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)?(?P<fd> face down)? under (?P<u>their owner's|its owner's|your) control$")
 
 
 def parse_sacrifice_pronoun(phrase: str) -> tuple[Effects, Any] | None:
@@ -2121,8 +2123,10 @@ def parse_return_owner(text: str) -> tuple[Effects, Any] | None:
         return None
     if kind not in ("it", "them"):
         return parse_sentence(text)  # ("return all creature cards from your graveyard …": the grammar above)
+    if m["u"] == "your" and not m["fd"]:
+        return None  # (-- hidden exile (wave 18A) -- "under your control" is read only for the face-down return)
     return [{"do": "return_card", "who": _who(kind, key), "to": "battlefield", "tapped": bool(m["t"]),
-             "under": "owner"}], _one(group)
+             "under": "you" if m["u"] == "your" else "owner", **({"face_down": True} if m["fd"] else {})}], _one(group)
 
 
 def parse_exile_until(phrase: str) -> tuple[Effects, Any] | None:
@@ -2589,7 +2593,7 @@ _RA_WITH = (r"(?: with (?:(?:an?|one) (?P<add1>additional )?(?P<ck>[+-]\d+/[+-]\
 # "… attached to this creature / that creature" (303.4f, 303.4i, 301.5e): app/rules/effects._return_cards
 _RA_HOST = r"(?: attached to (?P<host>this creature|~|that creature))?"
 _RA_RETURN = re.compile(rf"return (?P<o>.+?) to (?:(?P<h>your hand|its owner's hand|their owner's hand|their owners' hands|their hand)|"
-                        rf"the battlefield(?P<t> tapped(?P<atk> and attacking)?)?{_RA_UNDER}{_RA_WITH}{_RA_HOST})")
+                        rf"the battlefield(?P<t> tapped(?P<atk> and attacking)?)?(?P<fd> face down)?{_RA_UNDER}{_RA_WITH}{_RA_HOST})")  # (face down: wave 18A, 708.4)
 _RA_PUT = re.compile(rf"put (?P<o>.+?) onto the battlefield(?P<t> tapped(?P<atk> and attacking)?)?{_RA_UNDER}{_RA_WITH}{_RA_HOST}")
 _RA_ZONE = r"(?:your graveyard|a graveyard|an opponent's graveyard)"
 _RA_CHOICE = re.compile(rf"(?:(?:an?|one) |up to (?P<upto>{AMT}) |(?P<any>any number of )|(?P<n>{AMT}) )(?P<what>[^,]+?)(?P<rand> at random)?"
@@ -2684,6 +2688,8 @@ def reanimation_forms(text: str) -> tuple[Effects, Any] | None:
     effect: dict[str, Any] = {"do": "return_card", "to": "hand" if hand else "battlefield"}
     if not hand:  # (110.2a: the one instructed controls it unless the text says "its owner's")
         effect.update(tapped=bool(m["t"]), under="owner" if m["u"] and m["u"] != "your" else "you")
+        if m.groupdict().get("fd"):  # -- hidden exile (wave 18A) -- "return it to the battlefield face down" (708.4: a 2/2 face-down creature)
+            effect["face_down"] = True
         if m["ck"]:  # -- refused zones/sized (wave 3R4) --
             if m["ck"] in values.UNMODELED_COUNTERS:
                 return None

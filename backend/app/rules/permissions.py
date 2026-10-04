@@ -547,6 +547,11 @@ _PLAY_RIDER = re.compile(r"(?P<g>You may (?:play|cast) (?P<w>that card|those car
 
 def join_exile_play(body: str) -> str:
     """The wordings above as the sentences the permission grammar reads (permissions.GRANT_EXILED, LOOK_EXILED)."""
+    # (Ugin, the Ineffable: "Exile the top card of your library face down and look at it." — 406.3: whoever looked may go on looking;
+    # "put the exiled card into your hand" is the return of that card, 400.3)
+    body = re.sub(r"([Ee]xile the top card of your library face down) and look at it\b", r"\1. You may look at it for as long as it remains exiled",
+                  body)
+    body = re.sub(r"\b([Pp])ut the exiled card into your hand\b", lambda m: ("R" if m[1] == "P" else "r") + "eturn the exiled card to your hand", body)
     body = re.sub(r"(You may (?:look at and )?(?:play|cast) )the exiled (card|cards)\b",
                   lambda m: m[1] + ("that card" if m[2] == "card" else "those cards"), body)
     body = _LOOK_AND_PLAY.sub(lambda m: f"You may look at {m['w']} for as long as {m['d']} {m['r']} exiled. You may {m['v']} {m['w']}"

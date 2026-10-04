@@ -227,7 +227,49 @@ def look_exiled(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down,
+def exile_hand_down(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Exile all / any number of cards from your hand face down" (Ignorant Bliss, Scroll Rack): the controller exiles their own cards,
+    so they keep looking at them (406.3: they were exiled face down, 708.5's controller sees them) and nobody else may. "Any
+    number" is chosen privately (608.2d), and asked even with an empty hand so the question itself shows nothing. The cards are
+    "exiled this way" (``as``)."""
+    pid = ctx["controller"]
+    hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
+    if e.get("all"):
+        _exile_hand(plan, ctx, e, pid, hand)
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'Exile'}: choose any number of cards from your hand to exile "
+           "face down", options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
+           min_choices=0, max_choices=len(hand), resume={"step": "exile_hand_down", "ctx": ctx, "e": e})
+    return False
+
+
+def _exile_hand(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, cards: list[str]) -> None:
+    before = effects._remember(plan, ctx, e, cards)
+    if cards:
+        plan.do({"type": "move", "card_ids": cards, "to": {"player": pid, "zone": "exile"}, "face_down": True,
+                 "face_down_kind": "exile"}, actor=pid)
+        plan.note(f"{plan.name(pid)} exiles {len(cards)} card{'s' if len(cards) != 1 else ''} from their hand face down")
+    effects._moved(plan, ctx, e, before)
+
+
+def resume_exile_hand_down(plan: Plan, d: Any, chosen: list[str]) -> None:
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    hand = plan.state.zones.get(zone_key(d.player, "hand"), [])
+    _exile_hand(plan, ctx, e, d.player, [c for c in chosen if c in hand])
+    effects.continue_effects(plan, ctx)
+
+
+def top_to_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Put that many cards from the top of your library into your hand" (Scroll Rack): not a draw (121.1), so no draw replacement or
+    trigger; as many as there are when the library has fewer."""
+    pid = ctx["controller"]
+    top = plan.state.zones.get(zone_key(pid, "library"), [])[: max(0, effects._amount(plan, ctx, e["n"]))]
+    if top:
+        plan.do({"type": "move", "card_ids": top, "to": {"player": pid, "zone": "hand"}}, actor=pid)
+    return True
+
+
+PRIMITIVES: dict[str, Any] = {"exile_hand_down": exile_hand_down, "top_to_hand": top_to_hand, "manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down,
                               "look_face_down": look_face_down, "look_exiled": look_exiled}
-RESUME: dict[str, Any] = {"manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up,
+RESUME: dict[str, Any] = {"exile_hand_down": resume_exile_hand_down, "manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up,
                           "look_face_down": resume_look_face_down}

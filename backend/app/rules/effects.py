@@ -1944,6 +1944,14 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
             plan.do({"type": "move", "card_ids": [cid], "to": {"player": card.owner, "zone": "hand"}}, actor=ctx["controller"])
         _moved(plan, ctx, e, before)
         return True
+    if e.get("face_down"):  # -- hidden exile (wave 18A) -- 708.4: enters face down (a 2/2 creature; turned up with its morph cost)
+        from app.rules import facedown
+
+        for cid in cards:
+            facedown.put_face_down(plan, cid, ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
+                                   "generic", actor=ctx["controller"])
+        _moved(plan, ctx, e, before)
+        return True
     entries = [{"card": cid, "player": ctx["controller"] if e.get("under") == "you" else plan.state.cards[cid].owner,
                 "actor": ctx["controller"], "tapped": bool(e.get("tapped")),
                 **({"transformed": True} if e.get("transformed") else {}),  # (-- transform, wave 11A -- 712.14a)
@@ -2392,6 +2400,8 @@ def exile_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             n = len(library) if at is None else at + 1
             if at is not None and len(owners) == 1:
                 ctx["found"] = library[at]
+        elif e.get("keep_bottom") is not None:  # -- hidden exile (wave 18A) -- "all but the bottom six cards of their library"
+            n = max(0, len(library) - int(e["keep_bottom"]))
         else:
             n = min(_amount(plan, ctx, e["n"]), len(library))
         if not n:
