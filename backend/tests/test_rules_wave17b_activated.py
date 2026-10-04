@@ -185,9 +185,11 @@ EXTRA = [
          '{T}: Add {C}.\n{T}, Sacrifice this land: Put your commander into your hand from the command zone.', None, ''),
     real('Campfire', '{1}', 1, 'Artifact',
          '{1}, {T}: You gain 2 life.\n{2}, {T}, Exile this artifact: Put all commanders you own from the command zone and from your graveyard into your hand. Then shuffle your graveyard into your library.', None, ''),
+    real('Grab the Prize', '{1}{R}', 2, 'Sorcery',
+         "As an additional cost to cast this spell, discard a card.\nDraw two cards. If the discarded card wasn't a land card, Grab the Prize deals 2 damage to each opponent.", None, 'R'),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
-FULL = ["Command Beacon", "Campfire", "Sanctum of Eternity", "Moria Scavenger", "Land's Edge", "Scandalmonger", "Well of Knowledge", "Armageddon Clock", "Infinite Hourglass", "Task Mage Assembly",
+FULL = ["Grab the Prize", "Command Beacon", "Campfire", "Sanctum of Eternity", "Moria Scavenger", "Land's Edge", "Scandalmonger", "Well of Knowledge", "Armageddon Clock", "Infinite Hourglass", "Task Mage Assembly",
         "Volrath's Dungeon", "Lozhan, Dragons' Legacy", "Wrathful Red Dragon", "Disembowel", "Ruthless Waterbender", "North Pole Patrol", "Katara, Bending Prodigy", "Geyser Leaper", "Giant Koi",
         "Flexible Waterbender", "Axebane Guardian", "Vivi Ornitier", "Lavinia, Foil to Conspiracy", "Pernicious Deed", "Dauntless Dismantler", "Godo's Irregulars", "Knight of Dusk", "Jabari's Banner", "Reckless Pyrosurfer", "Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
         "Volshe Tideturner", "Phelddagrif", "Leering Gargoyle", "Canopy Dragon", "Turtle-Duck", "Gargoyle Sentinel", "Singing Tree", "Island of Wak-Wak"]
@@ -783,4 +785,22 @@ def test_put_your_commander_into_your_hand_from_the_command_zone(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["no"])
     settle(s)
     assert s.state.cards[krenko.id].zone == "p1:hand" and s.state.cards[beacon.id].zone == "p1:graveyard"
+    roundtrip(s)
+
+
+@pytest.mark.parametrize(("discard", "damage"), [("Grizzly Bears", 2), ("Forest", 0)])
+def test_if_the_discarded_card_wasnt_a_land_card(cards, discard, damage):
+    """A spell's additional cost discards the card, and the spell reads it (608.2h)."""
+    s = build(cards, "Grab the Prize", "Grizzly Bears", "Forest")
+    spell = next(c for c in s.state.cards.values() if c.name == "Grab the Prize")
+    chosen = next(c for c in s.state.cards.values() if c.name == discard and c.owner == "p1" and c.zone == "p1:library")
+    for cid in list(zone(s.state, "p1", "hand")):
+        act(s, "p1", type="move", card_ids=[cid], to={"zone": "library"})
+    for c in (spell, chosen):
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "hand"})
+    mana(s, "p1", R=1, C=1)
+    before = s.state.players["p2"].life
+    act(s, "p1", type="cast_spell", card_id=spell.id, cost_choices=[{"component": 0, "cards": [chosen.id]}])
+    settle(s)
+    assert s.state.cards[chosen.id].zone == "p1:graveyard" and s.state.players["p2"].life == before - damage
     roundtrip(s)

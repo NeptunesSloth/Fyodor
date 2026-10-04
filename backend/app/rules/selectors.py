@@ -837,8 +837,10 @@ def _parse(phrase: str) -> Selector | None:
             (s.zones != ("graveyard",) or not s.card) and (s.zones != ("battlefield",) or s.card)):
         return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source; -- keywords
         # (wave 15E) -- or permanents: mentor's "target attacking creature with power less than this creature's power")
-    if any(c[1] == "==" and c[2] == X_VALUE for c in s.compare) and not ((s.zones == ("graveyard",) and s.card) or (s.zones == ("battlefield",) and not s.card)):
-        return None  # -- reanimation (wave 10A) -- ("mana value X" exactly: read for a card in a graveyard, or -- wave 17B -- a permanent)
+    if any(c[1] == "==" and c[2] == X_VALUE for c in s.compare) and not ((s.zones == ("graveyard",) and s.card) or (s.zones == ("battlefield",) and not s.card
+                                                                                  and not re.search(r"\bspells?\b", text))):
+        return None  # -- reanimation (wave 10A) -- ("mana value X" exactly: read for a card in a graveyard, or -- wave 17B -- a permanent;
+        # not a spell: the X in its cost counts on the stack (202.3e), which the selector's mana value doesn't read)
     # (wave 16C: "artifact, creature, or enchantment an opponent controls with mana value 3 or greater": a qualifier after the
     # controller clause is the whole phrase's)
     if qualified and re.search(r", or \S+$", text) and not re.search(
