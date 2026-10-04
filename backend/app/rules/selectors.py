@@ -207,9 +207,10 @@ def _chosen_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", "chosen")
 
 
-@_suffix(r"that['’]s enchanted or equipped")  # -- grammar (wave 11C) -- an Aura or an Equipment on it (303.4, 301.5)
+# -- static_other sweep (wave 19A) -- also "creatures you control that are equipped" (Hexgold Hoverwings), "that are enchanted"
+@_suffix(r"that(?:['’]s| are) (?P<w>enchanted or equipped|enchanted|equipped)")  # -- grammar (wave 11C) -- an Aura or an Equipment on it (303.4, 301.5)
 def _enchanted_or_equipped(s: Selector, m: re.Match[str]) -> Selector:
-    return replace(s, extras=(*s.extras, "enchanted_or_equipped"))
+    return replace(s, extras=(*s.extras, m["w"].replace(" ", "_")))
 
 
 @_suffix(r"other than ~")

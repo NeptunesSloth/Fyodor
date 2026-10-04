@@ -97,7 +97,7 @@ TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "
 # -- static grants (wave 15A) -- keywords whose whole meaning is one triggered ability (keyword_triggers.MEANINGS): granted as the
 # line itself (613.1f). Not modular / graft / living weapon / for mirrodin! / ravenous: those have a half that works as the
 # permanent enters (a granted one would miss it).
-MEANING_GRANTS = r"extort|ingest|(?:poisonous|frenzy|afterlife|annihilator|afflict) \d+"
+MEANING_GRANTS = r"extort|ingest|melee|(?:poisonous|frenzy|afterlife|annihilator|afflict) \d+"
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
                      "enchanted permanent": "permanent", "enchanted artifact": "artifact",
@@ -121,6 +121,7 @@ def _num(word: str) -> int | None:
 def parse(text: str) -> Definition | None:
     """One static ability sentence (the card's own name already written as ~) → definition, or None."""
     t = text.strip().replace("’", "'").replace("“", '"').replace("”", '"')
+    t = t.replace(" your team controls ", " you control ")  # -- static_other sweep (wave 19A) -- 102.4: outside a team game "your team" is you
     # -- attached events (wave 16F) -- "Enchanted permanent can't attack, block, or crew Vehicles. Its activated abilities can't be
     # activated unless they're mana abilities." (Intercessor's Arrest): the two sentences are one static's two rules
     # -- attached events (wave 16F) -- Zendikon: "Enchanted land is a 3/3 black Ooze creature with reach. It's still a land." is

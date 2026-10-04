@@ -86,6 +86,15 @@ EXTRA = [
     real('Wolverine, Claws Out', '{3}{G}', 4, 'Legendary Creature — Mutant Berserker Hero',
          "You may have Wolverine assign his combat damage as though he weren't blocked.\nWhenever a Mutant you control attacks, double its power until end of turn.",
          ('2', '5'), 'G'),
+    real('Hexgold Hoverwings', '{3}{W}', 4, 'Artifact — Equipment',
+         'For Mirrodin! (When this Equipment enters, create a 2/2 red Rebel creature token, then attach this to it.)\nEquipped creature has flying.\nCreatures you control that are equipped get +1/+0.\nEquip {2}{W}',
+         None, 'W'),
+    real('Sylvia Brightspear', '{2}{W}', 3, 'Legendary Creature — Human Knight',
+         'Partner with Khorvath Brightflame (When this creature enters, target player may put Khorvath into their hand from their library, then shuffle.)\nDouble strike\nDragons your team controls have double strike.',
+         ('2', '2'), 'W'),
+    real('Titania, Proud Pummeler', '{3}{R}', 4, 'Legendary Creature — Human Villain',
+         'First strike\nMelee (Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)\nOther creatures you control have melee.',
+         ('3', '3'), 'R'),
 ]
 FULL = [e["name"] for e in EXTRA]
 
@@ -350,4 +359,18 @@ def test_wolverine_assigns_its_combat_damage_as_though_it_weren_t_blocked(cards)
 def test_wolverine_may_assign_it_to_its_blocker_instead(cards):
     s, wall = blocked_combat(cards, "no")
     assert s.state.players["p2"].life == 40 and (wall.id not in s.state.cards or s.state.cards[wall.id].zone != "p2:battlefield")
+    roundtrip(s)
+
+
+def test_groups_you_control_get_keywords_and_bonuses(cards):
+    s = build(cards, "Hexgold Hoverwings", "Sylvia Brightspear", "Titania, Proud Pummeler")
+    plain = creature(s, "p1", "Plain", "2/2")
+    dragon = creature(s, "p1", "Drake", "2/2", type_line="Token Creature — Dragon")
+    on_field(s, "Sylvia Brightspear")
+    assert "double strike" in now(s, dragon).keywords and "double strike" not in now(s, plain).keywords  # ("your team" is you, 102.4)
+    on_field(s, "Titania, Proud Pummeler")
+    assert "melee" in now(s, plain).keywords and "melee" in now(s, dragon).keywords
+    cast(s, "Hexgold Hoverwings", W=4)
+    rebel = next(c for c in s.state.cards.values() if c.name == "Rebel" and c.zone == "p1:battlefield")
+    assert now(s, rebel).pt == (3, 2) and "flying" in now(s, rebel).keywords and now(s, plain).pt == (2, 2)  # (only the equipped one)
     roundtrip(s)
