@@ -242,6 +242,7 @@ _EXTRA = re.compile(r"^(\{[^}]+\})+$|^Pay \d+ life$|^Pay (?:\{E\})+$|^Pay (?:one
 # "Activate only if [condition]" the condition grammar reads (app/rules/conditions.py) is kept as
 # ``"cond:<json>"`` and checked as the ability would be activated (602.5: a mana ability too, 605.3a).
 _ACTIVATE_IF = re.compile(r"^Activate only if (?P<cond>.+)$")
+_ACTIVATE_TURN = re.compile(r"^Activate only during (?P<w>your turn|an opponent's turn)(?P<once> and only once each turn)?$")
 
 
 def _without_ability_word(text: str) -> str:
@@ -389,6 +390,11 @@ def parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS) -> ManaAbi
             riders.append(rd)
         elif s == "Activate only once each turn":
             once = True
+        elif (t := _ACTIVATE_TURN.fullmatch(s)) and condition is None:  # -- activated sweep (wave 17B) -- 602.5d: whose turn it is
+            condition = _general_condition("it's your turn" if t["w"] == "your turn" else "it's an opponent's turn")
+            once = once or bool(t["once"])
+            if condition is None:
+                return None
         elif c := _CONTROL.fullmatch(s):
             condition = f"control:{c.group('what')}" + (f"|{c.group('or')}" if c.group("or") else "")
         elif c := _CONTROL_COUNT.fullmatch(s):

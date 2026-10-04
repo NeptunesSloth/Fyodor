@@ -48,6 +48,11 @@ _SYMS = r"(?:\{[WUBRGC]\})+"
 
 _FOR_EACH = re.compile(rf"^Add (?P<syms>{_SYMS}) for each (?P<what>.+)$")
 _X_ONE_COLOR = re.compile(r"^Add X mana of any one color, where X is (?P<what>.+)$")
+# -- activated sweep (wave 17B) -- "Add X mana in any combination of colors, where X is the number of creatures you control with
+# defender." (Axebane Guardian), "… of {U} and/or {R}, where X is Vivi Ornitier's power": X as the ability is activated (605.3b), each mix
+# one option (106.1)
+_X_COMBO = re.compile(r"^Add X mana in any combination of (?:(?P<colors>colors)|\{(?P<a>[WUBRG])\} and/or \{(?P<b>[WUBRG])\}), "
+                      r"where X is (?P<what>.+)$")
 _AMOUNT_EQUAL = re.compile(r"^Add an amount of \{(?P<sym>[WUBRGC])\} equal to (?P<what>.+)$")
 _AMONG = re.compile(r"^Add one mana of any color among (?P<what>.+)$")
 # (app/rules/oracle.py classifies this line as a mana ability; :func:`normalise` gives it the "Add" form)
@@ -146,6 +151,11 @@ def first_sentence(first: str) -> tuple[str | None, tuple[tuple[str, ...], ...]]
     if m := _X_ONE_COLOR.fullmatch(first):
         count = _value(m["what"])
         return (count, tuple((c,) for c in COLORS)) if count else None
+    if m := _X_COMBO.fullmatch(first):
+        own = re.fullmatch(r"(?:this creature|[A-Z][^.]{0,60}?)'s (power|toughness)", m["what"])  # (the source's own: its current stat)
+        count = "value:" + json.dumps({own[1]: "self"}) if own else _value(m["what"])
+        colors = COLORS if m["colors"] else (m["a"], m["b"])
+        return (count, (("@combo", *colors),)) if count else None
     if m := _AMOUNT_EQUAL.fullmatch(first):
         count = _value(m["what"])
         return (count, ((m["sym"],),)) if count else None
@@ -203,6 +213,11 @@ def resolve(state: GameState, card: CardInstance, ab: M.ManaAbility, info: CardI
     counted = bool(ab.count and ab.count.startswith("value:"))
     if not counted and marker not in ("@among", "@each_color"):
         return None
+    if counted and marker == "@combo":  # (wave 17B) X mana in any mix of those colors
+        assert ab.count is not None
+        n = values.evaluate(Plan.view(state, card.controller, info), {"controller": card.controller, "source_card": card.id},
+                            json.loads(ab.count[6:]))
+        return tuple(combinations_with_replacement(ab.options[0][1:], n)) if n > 0 else ()
     plan = Plan.view(state, card.controller, info)
     if counted:
         assert ab.count is not None

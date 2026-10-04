@@ -22,6 +22,11 @@
   triggered ability exists for as long as the grant does (702.25a flanking).
 * "…target creature blocking it / blocking this creature" in an activated ability of the attacker (509.1, 506.3d): only a creature
   blocking the source is a legal target (115.2).
+* "{X}, Sacrifice this enchantment: Destroy each artifact, creature, and enchantment with mana value X or less." (Pernicious Deed) and
+  "…Destroy each artifact with mana value X." (Dauntless Dismantler): the X announced as the ability is activated (107.3a, 107.3f).
+* "Add X mana in any combination of colors, where X is the number of creatures you control with defender" (Axebane Guardian) and "…of {U}
+  and/or {R}, where X is Vivi Ornitier's power": X as the ability is activated (605.3b); "Activate only during your turn / an opponent's
+  turn" on a mana ability (602.5b).
 * "has base power 4 and gains trample" (613.4b: layer 7b, power only).
 
 Real Oracle text; each scenario replays the history and survives a save/load round trip."""
@@ -115,9 +120,19 @@ EXTRA = [
          '{R}: This creature deals 1 damage to target creature blocking it.', ('1', '1'), 'R'),
     real('Knight of Dusk', '{1}{B}{B}', 3, 'Creature — Human Knight',
          '{B}{B}: Destroy target creature blocking this creature.', ('2', '2'), 'B'),
+    real('Pernicious Deed', '{1}{B}{G}', 3, 'Enchantment',
+         '{X}, Sacrifice this enchantment: Destroy each artifact, creature, and enchantment with mana value X or less.', None, 'BG'),
+    real('Dauntless Dismantler', '{1}{W}', 2, 'Creature — Human Artificer',
+         'Artifacts your opponents control enter tapped.\n{X}{X}{W}, Sacrifice this creature: Destroy each artifact with mana value X.', ('1', '4'), 'W'),
+    real('Axebane Guardian', '{2}{G}', 3, 'Creature — Human Druid',
+         'Defender\n{T}: Add X mana in any combination of colors, where X is the number of creatures you control with defender.', ('0', '3'), 'G'),
+    real('Vivi Ornitier', '{1}{U}{R}', 3, 'Legendary Creature — Wizard',
+         "{0}: Add X mana in any combination of {U} and/or {R}, where X is Vivi Ornitier's power. Activate only during your turn and only once each turn.\nWhenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier and it deals 1 damage to each opponent.", ('0', '3'), 'RU'),
+    real('Lavinia, Foil to Conspiracy', '{1}{W/U}{W/U}', 3, 'Legendary Creature — Human Detective',
+         'Vigilance\nWhenever you cast your second spell each turn, investigate. (Create a Clue token. It\'s an artifact with "{2}, Sacrifice this token: Draw a card.")\n{T}: Add {C}{C}. Activate only during an opponent\'s turn.', ('2', '3'), 'UW'),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
-FULL = ["Godo's Irregulars", "Knight of Dusk", "Jabari's Banner", "Reckless Pyrosurfer", "Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
+FULL = ["Axebane Guardian", "Vivi Ornitier", "Lavinia, Foil to Conspiracy", "Pernicious Deed", "Dauntless Dismantler", "Godo's Irregulars", "Knight of Dusk", "Jabari's Banner", "Reckless Pyrosurfer", "Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
         "Volshe Tideturner", "Phelddagrif", "Leering Gargoyle", "Canopy Dragon", "Turtle-Duck", "Gargoyle Sentinel", "Singing Tree", "Island of Wak-Wak"]
 
 
@@ -491,3 +506,65 @@ def test_target_creature_blocking_this_creature(cards):
     settle(s)
     assert s.state.cards[bear.id].damage == 1 and s.state.cards[other.id].damage == 0
     roundtrip(s)
+
+
+def test_destroy_each_artifact_creature_and_enchantment_with_mana_value_x_or_less(cards):
+    s = build(cards, "Pernicious Deed", "Kyren Toy", "Priest of Yawgmoth", p2=("Grizzly Bears",))
+    deed = on_field(s, "Pernicious Deed")
+    toy = on_field(s, "Kyren Toy")  # (mana value 3)
+    priest = on_field(s, "Priest of Yawgmoth")  # (2)
+    bears = on_field(s, "Grizzly Bears", "p2")  # (2)
+    mana(s, "p1", C=2)
+    act(s, "p1", type="activate_ability", card_id=deed.id, ability=0, x_value=2)
+    settle(s)
+    zones = {c.name: s.state.cards[c.id].zone for c in (deed, toy, priest, bears)}
+    assert zones == {"Pernicious Deed": "p1:graveyard", "Kyren Toy": "p1:battlefield", "Priest of Yawgmoth": "p1:graveyard",
+                     "Grizzly Bears": "p2:graveyard"}
+    roundtrip(s)
+
+
+def test_destroy_each_artifact_with_mana_value_exactly_x(cards):
+    s = build(cards, "Dauntless Dismantler", "Kyren Toy", "Pili-Pala")
+    dismantler = on_field(s, "Dauntless Dismantler")
+    toy = on_field(s, "Kyren Toy")  # (3)
+    pili = on_field(s, "Pili-Pala")  # (2)
+    mana(s, "p1", W=1, C=6)
+    act(s, "p1", type="activate_ability", card_id=dismantler.id, ability=ability(s, dismantler, "{X}{X}{W}"), x_value=3)
+    settle(s)
+    assert s.state.cards[toy.id].zone == "p1:graveyard" and s.state.cards[pili.id].zone == "p1:battlefield"
+    assert s.state.cards[dismantler.id].zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_x_mana_in_any_combination_where_x_is_a_count(cards):
+    s = build(cards, "Axebane Guardian", "Pili-Pala")
+    guardian = on_field(s, "Axebane Guardian")
+    s.state.rules.controlled_since[guardian.id].turn = 0
+    act(s, "p1", type="activate_ability", card_id=guardian.id, ability=ability(s, guardian, "{T}"))
+    d = s.state.rules.decision  # X = 1 (only the Guardian has defender): one mana of any color
+    assert sorted(o.label for o in d.options) == ["{B}", "{G}", "{R}", "{U}", "{W}"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "{R}")])
+    assert s.state.players["p1"].mana == {"R": 1}
+    roundtrip(s)
+
+
+def test_x_mana_of_two_colors_where_x_is_power_once_each_turn(cards):
+    s = build(cards, "Vivi Ornitier")
+    vivi = on_field(s, "Vivi Ornitier")
+    act(s, "p1", type="set_counter", card_id=vivi.id, kind="+1/+1", value=2)  # (power 2)
+    act(s, "p1", type="activate_ability", card_id=vivi.id, ability=0)
+    d = s.state.rules.decision
+    assert [o.label for o in d.options] == ["{U}{U}", "{U}{R}", "{R}{R}"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["1"])
+    assert s.state.players["p1"].mana == {"U": 1, "R": 1}
+    with pytest.raises(ActionError):  # (once each turn)
+        act(s, "p1", type="activate_ability", card_id=vivi.id, ability=0)
+    roundtrip(s)
+
+
+def test_mana_ability_only_during_an_opponents_turn(cards):
+    s = build(cards, "Lavinia, Foil to Conspiracy")
+    lavinia = on_field(s, "Lavinia, Foil to Conspiracy")
+    s.state.rules.controlled_since[lavinia.id].turn = 0
+    with pytest.raises(ActionError):  # (it's Alice's turn)
+        act(s, "p1", type="activate_ability", card_id=lavinia.id, ability=ability(s, lavinia, "{T}"))

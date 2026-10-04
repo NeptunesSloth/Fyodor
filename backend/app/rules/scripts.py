@@ -1752,6 +1752,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
                   "draw a card, then discard a card, then create a 1/1 white Human Soldier creature token for each nonland card "
                   "discarded this way", body)
     body = _dice.plain(trigger_words.plain_amounts(body))  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
+    # -- activated sweep (wave 17B) -- "Destroy each artifact, creature, and enchantment with mana value X or less.": "each" is distributive,
+    # so the list is any of them and the qualifier is every kind's (Pernicious Deed); "and/or" is the selector grammar's spelling
+    body = re.sub(r"(?i)\b(each|all) ((?:(?:artifact|creature|enchantment|land|planeswalker|battle), )+)and "
+                  r"((?:artifact|creature|enchantment|land|planeswalker|battle) with mana value\b)", r"\1 \2and/or \3", body)
     from app.rules import per_opponent  # -- per-opponent targets (wave 12C) --
 
     if (each_opp := per_opponent.parse(body, lambda b: parse_effects(b, it, event_player=event_player))) is not None:
