@@ -351,6 +351,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     subject = cond.get("subject")
     if subject == "player" and event == "cast":
         return "event_spell"  # -- sized amounts (wave 3D) -- "that spell's mana value": read from the spell, never "it"
+    if subject == "player" and event == "sacrifice" and cond.get("obj") and not cond.get("aggregate"):
+        return "event_gone"  # -- triggers (wave 19B) -- "Whenever an opponent sacrifices a permanent, put that card onto the battlefield": 603.10a
     if subject == "player" and event in ("discard", "tapped_for_mana") and cond.get("obj") and not cond.get("aggregate"):
         return "event"  # -- triggers (wave 17D) -- "Whenever you discard a card, exile that card": the discarded card, now in the graveyard (701.9a)
     if subject in ("sel", "self_or", "host") or (subject == "player" and event == "create_token"):
@@ -1368,6 +1370,13 @@ def _investigate_times(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | No
     return [_repeat(m["n"]), *_investigate(m)[0]], None
 
 
+@effect(r"investigate that many times")  # -- triggers (wave 19B) -- 701.16a: one Clue each time, as many times as the event's amount
+def _investigate_many(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    type_line, text = PREDEFINED_TOKENS["Clue"]
+    return [{"do": "create_token", "who": "you", "n": {"event_amount": 1},
+             "token": {"name": "Clue", "power": None, "toughness": None, "colors": [], "type_line": type_line, "text": text}}], None
+
+
 @effect(r"investigate twice")  # -- trigger tail (wave 15B) -- 701.16a: investigating twice makes two Clues
 def _investigate_twice(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{**_investigate(m)[0][0], "n": 2}], None
@@ -1711,13 +1720,14 @@ def _that_many(left: tuple[list[dict[str, Any]], Any], text: str) -> tuple[list[
     m = _THAT_MANY.match(text)
     first = left[0][0] if len(left[0]) == 1 else {}
     kind = "discarded" if first.get("do") == "discard" and (first.get("all") or first.get("upto")) else \
+        "sacrificed" if first.get("do") == "sacrifice_choice" and first.get("upto") else \
         "shuffled" if first.get("do") == "shuffle_library" and first.get("zones") == ["hand"] else None
     if m is None or kind is None:
         return None
     s, plural = m["s"] or "", bool(m["s"]) and m["s"].startswith("each")
     verb = m["v"] if s else m["v"].rstrip("s")
     if verb.startswith("draw"):
-        right = _clause(f"{s}{verb} a card for each card discarded this way")
+        right = _clause(f"{s}{verb} a card for each {'permanent sacrificed' if kind == 'sacrificed' else 'card discarded'} this way")
         if right is None or len(right[0]) != 1 or right[0][0].get("do") != "draw":
             return None
         if kind == "shuffled":  # (the shuffle is no introducer of "it": its binding is named here)
@@ -2514,11 +2524,21 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             continue
         if e["do"] == "mill":
             mill_k = k
+        if k and any(x.get("upto") and x["do"] == "sacrifice_choice" for x in resolved[:k]) and "event_amount" in json.dumps(e):
+            return None  # -- triggers (wave 19B) -- "up to that many" after "sacrifice any number of": the sacrificed count, not the event's
+        if e.get("put") and not str(e.get("who")).startswith("event"):
+            return None  # -- triggers (wave 19B) -- "put it onto the battlefield" is read only for the trigger event's card (a graveyard card)
+        if e["do"] == "pick_looked" and not looked and mill_k is None and e.get("which") in ("that", "all") and not e.get("sel") \
+                and not e.get("optional") and e["to"] in ("battlefield", "battlefield_tapped") and str(it).startswith("event"):
+            # -- triggers (wave 19B) -- "Whenever one or more land cards are put into your graveyard from your library, put them onto the
+            # battlefield tapped": nothing was looked at, so it is the trigger event's card(s), as "return them to the battlefield" reads it
+            resolved[k] = {"do": "return_card", "who": "event", "to": "battlefield", "tapped": e["to"] == "battlefield_tapped", "under": "you"}
+            continue
         if e["do"] in ("pick_looked", "rest_looked") and not looked:
             # -- if you do (wave 10C) -- "Mill three cards. You may put a land card from among them into your hand.": the pick
             # is from the cards that mill put into the graveyard (the controller's own mill, a choice among chosen-by-kind cards)
             if mill_k is None or e["do"] != "pick_looked" or resolved[mill_k].get("who") != "you" or e.get("which") \
-                    or e.get("sels") or e.get("reveal") or e["to"] not in ("hand", "battlefield", "battlefield_tapped"):
+                    or e.get("reveal") or e["to"] not in ("hand", "top", "battlefield", "battlefield_tapped"):
                 return None
             resolved[mill_k]["look"] = True
     # -- cast without paying (wave 3C) -- (wave 3R5: the cast is made during the resolution, 608.2g, and the
@@ -3471,6 +3491,8 @@ def _intervening_may(body: str, it: str | None, event_player: bool) -> tuple[lis
 def _has_player(cond: dict[str, Any]) -> bool:
     """Does the event name a player ("that player")? The player who acted, or who was dealt damage."""
     if cond.get("subject") == "player" or cond["event"] in _PLAYER_EVENTS:
+        return True
+    if cond["event"] == "targeted" and cond.get("by") in ("opponent", "you"):  # -- triggers (wave 19B) -- the player whose spell or ability it was
         return True
     # -- triggers (wave 5D) -- "Whenever a creature an opponent controls dies / enters, that player …": the opponent
     # who controlled it (one object per event: not "one or more", 603.2c; triggers._event)
@@ -5430,8 +5452,7 @@ def _for_each_of_them_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]
 
 
 @_first
-@effect(r"(?P<may>you may )?put (?:a|an) [^.]+? card(?: with total power and toughness \d+ or (?:less|greater))? from your hand "
-        r"onto the battlefield(?: tapped(?: and attacking)?)?")
+@effect(r"(?P<may>you may )?put (?:a|an|any number of) [^.]+? from your hand onto the battlefield(?: tapped(?: and attacking)?)?")
 def _put_from_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     """"You may put an Equipment card from your hand onto the battlefield." (Stoneforge Mystic): app/rules/put_from_hand.py.
     "You may" after another instruction ("Draw a card. You may put a land card …"): choosing no card."""

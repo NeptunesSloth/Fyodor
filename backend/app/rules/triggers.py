@@ -423,8 +423,11 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         if got is None:
             return []
         live = _live(plan, got[0])
+        # (wave 19B: where it went, for "put that card onto the battlefield": the zone change that followed in this batch, 400.7e)
+        went = next((z for z in r.events if z.kind == "zone_change" and z.object_id == e.object_id and z.new_object_id), None)
         return [("sacrifice", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "amount": 1,
-                                                          "snap": None if live else r.lki.get(e.object_id or "")})]
+                                                          "snap": None if live else r.lki.get(e.object_id or ""),
+                                                          **({"new_oid": went.new_object_id, "to": went.to_zone} if went else {})})]
     if e.kind == "counters" and e.amount > 0:  # 122.6: counters put on a permanent
         got = _object_then(plan, e.card, e.object_id)
         if got is None:
@@ -863,7 +866,8 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         defended=info.get("defended") if kind == "you_attack" else _attack_defended(plan, kind, obj),
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
-                        if kind in _PAIRED.values() and info.get("other") in plan.state.cards else None)
+                        if kind in _PAIRED.values() and info.get("other") in plan.state.cards
+                        else _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None)  # (wave 19B: the Ring-bearer chosen)
 
 
 def _attack_defended(plan: Plan, kind: str, obj: CardInstance | None) -> str | None:
@@ -1542,7 +1546,8 @@ def _targeted_generic(plan: Plan, stack_id: str, controller: str, targets: list[
         first = plan.rules.once_per_turn.get(key) != turn
         plan.rules.once_per_turn[key] = turn
         facts.append(("targeted", card, plan.ch(card), card.controller,
-                      {"oid": oid, "by": controller, "spell": is_spell, "first": first, "source_ref": source}))
+                      {"oid": oid, "by": controller, "spell": is_spell, "first": first, "source_ref": source,
+                       "actor": controller}))  # (wave 19B: "that player" is the one whose spell or ability targeted it)
     if facts:
         _fire_generic(plan, facts, -1, {})
 
@@ -1708,6 +1713,9 @@ def bind_that_player(t: PendingTrigger) -> None:
     stack and its targets are chosen (603.3d, 608.2k) — "player:<id>", kept for the 608.2b check. An event with no
     single player leaves it unbound (nothing matches: no legal target)."""
     raw = json.dumps(t.ability)
+    if t.event is not None and t.event.defended and '\\"defended_player\\"' in raw:  # -- triggers (wave 19B) -- 508.5: the player the attacker attacked
+        raw = raw.replace('\\"controller\\":\\"defended_player\\"', f'\\"controller\\":\\"player:{t.event.defended}\\"')
+        t.ability = json.loads(raw)
     players = list(t.event.players) if t.event is not None else []
     if len(players) != 1:
         return

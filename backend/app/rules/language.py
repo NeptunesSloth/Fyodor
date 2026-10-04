@@ -44,6 +44,7 @@ PLAYER_GROUPS = {"you": "you", "each player": "each_player", "each opponent": "e
                   "each of your opponents": "each_opponent", "that player": "that_player",
                   "its controller": "it.controller", "its owner": "it.owner",
                   "that creature's controller": "it.controller", "that permanent's controller": "it.controller",
+                  "that opponent": "that_player",  # (wave 19B: the opponent the trigger event names)
                   "that card's owner": "it.owner", "that creature's owner": "it.owner",
                   "the chosen player": "chosen_player",  # (-- chosen player (wave 4J) --: app/rules/chosen.py)
                   "defending player": "defending_player"}  # (-- defending player (wave 6D) --: app/rules/defending.py)
@@ -243,13 +244,13 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
     m = re.match(r"^(?:each|all) (other )?(.+)$", p)
     if m:
         sel = selectors.parse(("other " if m[1] else "") + m[2])
-        if sel is None or _untargeted_defending(sel):
+        if sel is None:
             raise _Fail
-        return "each", sel.key(), None
+        return "each", (selectors.replace(sel, controller=selectors.DEFENDED) if _untargeted_defending(sel) else sel).key(), None
     if selectors.is_plural(p):  # "creatures you control get …", "other Elves you control …"
         sel = selectors.parse(p)
-        if sel is not None and sel.player is None and not _untargeted_defending(sel):
-            return "each", sel.key(), None
+        if sel is not None and sel.player is None:
+            return "each", (selectors.replace(sel, controller=selectors.DEFENDED) if _untargeted_defending(sel) else sel).key(), None
     raise _Fail
 
 
@@ -783,7 +784,7 @@ _PICK_DESTS = {**_DESTS, "onto the battlefield tapped and attacking": "battlefie
                "on the bottom of that library": "bottom", "on top of that library": "top"}
 _PICK = re.compile(
     rf"(?:(?P<may>you may reveal) |(?P<mayput>you may put) |(?P<exile>(?:you may )?exile) |put )"
-    rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among (?:them|the cards milled this way|those cards)|revealed this way|milled this way))"
+    rf"(?:(?P<q>up to {AMT}|any number of|{AMT}|all)(?: (?:of them|of those cards|(?P<sel>.+?) (?:from among (?:them|the cards milled this way|the milled cards|those cards)|revealed this way|milled this way))"
     r"|(?= (?:into|on|onto) )| them(?= (?:into|on|onto) ))"
     r"|(?P<that>that card|it|the revealed card)|(?P<all>those cards|them|the revealed cards|all cards revealed this way))"
     r"(?: and put (?:it|them|the revealed cards|that card|those cards))?"
@@ -818,7 +819,7 @@ _SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)
 # that type from among the revealed cards into your hand" (205.2a: the card types a Commander deck can hold)
 _KINDS = re.compile(r"(?P<verb>you may reveal|you may put) (?P<list>(?:(?:a|an) [a-zA-Z ]+? card, )*(?:a|an) [a-zA-Z ]+? card,? "
                     r"and/or (?:a|an) [a-zA-Z ]+? card) from among (?:them|the revealed cards)"
-                    r"(?: and put (?:them|the revealed cards|those cards))? into your hand")
+                    r"(?: and put (?:them|the revealed cards|those cards))? (?P<to>into your hand|onto the battlefield)")
 _EACH_TYPE = re.compile(r"for each card type, you may (?P<verb>put|reveal) a card of that type from among (?:them|the revealed cards)"
                         r"(?: and put (?:it|them|the revealed cards|those cards))? into your hand")
 _COMMANDER_CARD_TYPES = ("artifact", "battle", "creature", "enchantment", "instant", "kindred", "land", "planeswalker", "sorcery")
@@ -839,8 +840,8 @@ def _pick_kinds(text: str) -> tuple[Effects, Any] | None:
         if sel is None or sel.player is not None or not sel.card:
             raise _Fail
         sels.append(sel.key())
-    return [{"do": "pick_looked", "n": len(sels), "sel": None, "sels": sels, "to": "hand", "optional": True,
-             "reveal": m["verb"].endswith("reveal")}], None
+    return [{"do": "pick_looked", "n": len(sels), "sel": None, "sels": sels, "to": "battlefield" if m.groupdict().get("to") == "onto the battlefield" else "hand",
+             "optional": True, "reveal": m["verb"].endswith("reveal")}], None  # (-- triggers (wave 19B) -- also onto the battlefield)
 
 
 # -- look top (wave 16F) -- one card that is any of several kinds: "You may reveal a Knight, Aura, Equipment, or legendary artifact card
@@ -1181,6 +1182,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
                 raise _Fail  # ("… and draw a card, where X is …": which half X belongs to isn't read)
             return [_bind_x(e, rider[1]) for e in (*left[0], *right[0])], left[1] if left[1] is not None else right[1]
     # -- players ------------------------------------------------------------------------------
+    m = re.fullmatch(rf"(?P<s>its controller|that creature's controller|that player) may draw (?P<n>{AMT}) cards?", text)
+    if m and rider is None:  # -- triggers (wave 19B) -- "its controller may draw a card": that player decides on resolution (608.2d)
+        return [{"do": "draw", "who": PLAYER_GROUPS[m["s"]], "n": _amount(m["n"]), "may": True}], None
     m = re.fullmatch(_SUBJ + rf"draws? (?:(?P<n>{AMT}) (?:additional )?cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)
@@ -1279,6 +1283,13 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if greatest:
             sel = replace(sel, extras=(*sel.extras, "greatest_power_own"))
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(word)}], target
+    # -- triggers (wave 19B) -- "Sacrifice any number of other permanents." (God-Eternal Bontu): the player's own choice, none allowed
+    m = re.fullmatch(r"sacrifice any number of (?P<sel>.+)", text)
+    if m and rider is None:
+        sel = selectors.parse(m["sel"])
+        if sel is None or sel.player is not None or sel.controller is not None:
+            raise _Fail
+        return [{"do": "sacrifice_choice", "who": "you", "sel": sel.key(), "n": 10**6, "upto": True}], None
     # -- trigger tail (wave 16C) -- "Exile a land you control." (Wormfang Newt, Turtle): you choose it as this resolves (608.2d),
     # then it's exiled (no sacrifice, 701.21a: sacrificing is putting into a graveyard); linked for "the exiled card" (607.2a)
     m = re.fullmatch(r"exile (?P<n>a|an|one|two|three) (?P<sel>[a-z -]+? you control)", text)
@@ -1367,6 +1378,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         # -- sized amounts (wave 3D) -- "each opponent and each creature and planeswalker they control": the opponents'
         # (selectors read "or" for a list of types), and "each other player" is every opponent (102.2)
         recipients = m["o"].replace("each other player", "each opponent")
+        if re.fullmatch(r"the player or planeswalker (?:it's|that creature is) attacking", recipients) and not m["stat"]:
+            return [{"do": "damage", "who": "attacked_it", "n": n, **src}], None  # -- attacked (wave 19B) -- 508.1b
         if recipients == "itself" and m["src"] == "~":  # -- chosen player (wave 4J) -- "~ deals 1 damage to itself" (Stuffy Doll)
             recipients = "~"
         recipients = re.sub(r"^(each opponent and each .+?) they control$", r"\1 your opponents control", recipients)
@@ -1504,6 +1517,10 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if text == "put all commanders you own from the command zone and from your graveyard into your hand":
         key = selectors.Selector(commander=True, owner="you", zones=("command", "graveyard"), card=True).key()
         return [{"do": "return_card", "who": key, "to": "hand", "under": "owner"}], None
+    m = re.fullmatch(r"put (?P<o>it|them|that card|those cards) onto the battlefield(?P<rest>(?: tapped)?(?: under your control)?)", text)
+    if m:  # -- triggers (wave 19B) -- "put that card onto the battlefield": a card in a graveyard (the trigger's), as "return it" reads it
+        found = _parse(f"return {m['o']} to the battlefield{m['rest']}")
+        return [{**e, "put": True} for e in found[0]], found[1]  # (scripts refuses it unless "it" is the trigger event's card)
     m = re.fullmatch(r"return (?P<o>.+?) to (?P<d>its owner's hand|their owners' hands|their owner's hand|their hand|your hand|"
                      r"the battlefield(?P<t> tapped)?(?: under (?P<u>your|its owner's|their owners') control)?"
                      r"(?: with (?:an?|one) (?P<ck>[+-]\d+/[+-]\d+|[a-z]+) counter on it)?)", text)

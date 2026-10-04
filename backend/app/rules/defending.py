@@ -24,9 +24,23 @@ _EVENTS = ("attack", "unblocked", "blocked")
 _SUBJECTS = ("self", "sel", "host", "self_or_host", "self_or")
 
 
+def attacked(plan: Any, ctx: dict[str, Any], *, player: bool) -> list[str]:
+    """-- attacked (wave 19B) -- "the player or planeswalker it's attacking" (``who: "attacked"``): what the creature the
+    attack trigger is about is attacking now (508.1b); nothing once it has left combat or if it attacks a battle."""
+    from app.rules import selectors
+
+    t = getattr(plan.state.cards.get(selectors.attacker_of(ctx.get("event")) or ""), "attacking", None)
+    if t is None:
+        return []
+    if t.kind == "player":
+        return [str(t.id)] if player and t.id in plan.live() else []
+    target = plan.state.cards.get(t.id)
+    return [target.id] if not player and target is not None and "Planeswalker" in plan.ch(target).types else []
+
+
 def allowed(d: dict[str, Any]) -> bool:
-    """Whether a definition that names the defending player is an attacking creature's trigger (above)."""
-    if WHO not in json.dumps(d, default=str):
+    """Whether a definition that names the defending player (or the attacked object) is an attacking creature's trigger (above)."""
+    if WHO not in (raw := json.dumps(d, default=str)) and "attacked_it" not in raw and "defended_player" not in raw:
         return True
     if d.get("kind") != "triggered":
         return False
