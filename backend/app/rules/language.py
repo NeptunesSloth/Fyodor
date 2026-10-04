@@ -732,6 +732,10 @@ _N_CARDS = rf"(?:(?P<n>{AMT}) cards|card)"
 _TOP = re.compile(rf"(?P<verb>look at|reveal) the top {_N_CARDS} of {_LIB}(?P<back>, then put them back in any order)?")
 _SUBJ_TOP = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) the top {_N_CARDS} of their library(?P<fd> face down)?")
 _EXILE_TOP = re.compile(rf"exile the top {_N_CARDS} of {_LIB}(?P<fd> face down)?")
+# -- hidden exile (wave 18A) -- looking.join_down_piles: a face-down pile and a face-up pile (700.3), one clause
+_DOWN = re.compile(rf"(?P<s>target opponent|an opponent|you) separates? the top {_N_CARDS} of your library into a face-down pile and a "
+                   r"face-up pile, then (?P<tail>you put one pile into your hand and the other into your graveyard|an opponent chooses "
+                   r"one of them, then you put that pile into your hand and the other into your graveyard)")
 _UNTIL = re.compile(rf"(?P<verb>reveal|exile) cards from the top of {_LIB} until you (?P=verb) (?:a|an) (?P<sel>.+)")
 # -- look and distribute (wave 3L) -- where the picked / remaining cards go; a library may be "that library"
 # / "that player's library" (the one looked at), a graveyard "their graveyard"
@@ -898,6 +902,15 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     order / into your graveyard", "exile the rest". Also "put target creature on top / on the
     bottom of its owner's library", "shuffle ~ into its owner's library", "shuffle [your graveyard
     into your library]"."""
+    down = _DOWN.fullmatch(text) if has_primitive("piles_down") else None  # -- hidden exile (wave 18A) --
+    if down is not None:
+        if (down["s"] == "you") != down["tail"].startswith("an opponent"):
+            raise _Fail
+        e: dict[str, Any] = {"do": "piles_down", "n": _amount(down["n"]) if down["n"] else 1,
+                             "by": "you" if down["s"] == "you" else "opponent", "choose": "opponent" if down["s"] == "you" else "you"}
+        if down["s"] == "target opponent":
+            return [{**e, "who": "target"}], {"what": "opponent", "min": 1, "max": 1}
+        return [e], None
     chained = _chain(text)  # -- look and distribute (wave 3L) --
     if chained is not None:
         return chained

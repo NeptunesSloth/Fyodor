@@ -2006,9 +2006,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import name_search  # -- name search (wave 11D) --
 
     body = name_search.rewrite(body)
+    from app.rules import looking as _looking
     from app.rules import permissions as _permissions  # -- hidden exile (wave 18A) --
 
     body = _permissions.join_exile_play(body)
+    body = _looking.join_down_piles(body)
     # -- activated wordings (wave 15D) -- "Choose a creature type [other than Wall]. Each creature you control becomes that type until
     # end of turn." is one choice made as it resolves (608.2d): read as "… becomes the creature type [other than Wall] of your choice …"
     body = re.sub(r"([^.]+?) (gets [+−-]\d+/[+−-]\d+) and (becomes the color of your choice) until end of turn\.",

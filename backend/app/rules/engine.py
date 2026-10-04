@@ -1313,6 +1313,9 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "piles_opponent": looking.resume_opponent,
     "piles_split": looking.resume_split,
     "piles_pick": looking.resume_pick,
+    "piles_down_opponent": looking.resume_down_opponent,  # -- hidden exile (wave 18A) --
+    "piles_down_split": looking.resume_down_split,
+    "piles_down_pick": looking.resume_down_pick,
     "order_triggers": triggers.resume_order,
     "trigger_target": triggers.resume_target,
     "trigger_confirm": triggers.resume_confirm,

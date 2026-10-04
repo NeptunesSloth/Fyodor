@@ -39,6 +39,8 @@ EXTRA = [
     card('Ruthless Ripper', set_code='tst', number='Y12', mana_cost='{B}', cmc=1.0, type_line='Creature — Human Assassin', oracle_text='Deathtouch\nMorph—Reveal a black card in your hand. (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, target player loses 2 life.', power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=['Morph', 'Deathtouch']),  # noqa: E501
     card('Gathan Raiders', set_code='tst', number='Y13', mana_cost='{3}{R}{R}', cmc=5.0, type_line='Creature — Human Warrior', oracle_text='Hellbent — This creature gets +2/+2 as long as you have no cards in hand.\nMorph—Discard a card. (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)', power='3', toughness='3', colors=['R'], color_identity=['R'], keywords=['Morph', 'Hellbent']),  # noqa: E501
     card('Zombie Cutthroat', set_code='tst', number='Y14', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Creature — Zombie', oracle_text='Morph—Pay 5 life. (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)', power='3', toughness='4', colors=['B'], color_identity=['B'], keywords=['Morph']),  # noqa: E501
+    card("Fortune's Favor", set_code='tst', number='Y15', mana_cost='{3}{U}', cmc=4.0, type_line='Instant', oracle_text='Target opponent looks at the top four cards of your library and separates them into a face-down pile and a face-up pile. Put one pile into your hand and the other into your graveyard.', power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
+    card('Riddles in the Dark', set_code='tst', number='Y16', mana_cost='{2}{U}', cmc=3.0, type_line='Instant', oracle_text='Look at the top four cards of your library and separate them into a face-down pile and a face-up pile. An opponent chooses one of the piles. Put that pile into your hand and the other into your graveyard.', power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=[]),  # noqa: E501
     card('Doomskar', set_code='tst', number='Y01', mana_cost='{3}{W}{W}', cmc=5.0, type_line='Sorcery', oracle_text='Destroy all creatures.\nForetell {1}{W}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)', power=None, toughness=None, colors=['W'], color_identity=['W'], keywords=['Foretell']),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
@@ -304,6 +306,77 @@ def test_discard_and_life_morph_costs(cards):
     assert s2.state.players["p1"].life == 35 and not s2.state.cards[zc.id].face_down
     check(s)
     check(s2)
+
+
+TOP4 = ("Ambush Viper", "Lightning Bolt", "Giant Growth", "Murder")
+
+
+def stack_library(s, names, owner="p1"):
+    from tests.test_rules_wave9b_exile_permission import put as put9
+
+    return [put9(s, n, "library", pid=owner, position="top") for n in reversed(names)][::-1]  # (names[0] ends on top)
+
+
+def view_text(s, pid):
+    return json.dumps(s.view(pid))
+
+
+def test_fortunes_favor_the_opponent_separates_and_you_choose_blind(cards):
+    from tests.test_rules_wave9b_exile_permission import build as build9, put as put9
+
+    s = build9(cards, p1=("Fortune's Favor", *TOP4), p2=())
+    favor = put9(s, "Fortune's Favor", "hand")
+    top = stack_library(s, TOP4)
+    mana(s, U=4)
+    act(s, "p1", type="cast_spell", card_id=favor.id, targets=["p2"])
+    d = until_asked(s)
+    assert d is not None and d.player == "p2" and {o.card_id for o in d.options} == {c.id for c in top}  # Bob looks at the top four
+    for viewer in ("p1", SPECTATOR):  # mid-decision: Alice (whose library it is) and spectators learn nothing about the cards
+        assert not any(c.name in view_text(s, viewer) for c in top)
+        assert "options" not in s.view(viewer)["rules"]["decision"]
+    assert all(c.name not in view_text(s, "p1") for c in top)
+    down = [top[1].id, top[3].id]  # Lightning Bolt and Murder face down
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=down)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1"
+    labels = [o.label for o in d.options]
+    assert labels[0] == "Face-down pile: 2 cards" and "Ambush Viper" in labels[1] and "Giant Growth" in labels[1]
+    seen = view_text(s, "p1")
+    assert "Lightning Bolt" not in seen and "Murder" not in seen  # the face-down pile stays Bob's secret
+    for viewer in ("p1", "p2", SPECTATOR):  # the face-up pile is public
+        assert "Ambush Viper" in view_text(s, viewer)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["down"])
+    settle(s)
+    hand = set(s.state.zones["p1:hand"])
+    assert {top[1].id, top[3].id} <= hand and s.state.cards[top[0].id].zone == "p1:graveyard"
+    assert s.state.cards[top[2].id].zone == "p1:graveyard"  # the other pile is public in the graveyard
+    check(s)
+
+
+def test_riddles_in_the_dark_you_separate_and_the_opponent_chooses_blind(cards):
+    from tests.test_rules_wave9b_exile_permission import build as build9, put as put9
+
+    s = build9(cards, p1=("Riddles in the Dark", *TOP4), p2=())
+    riddles = put9(s, "Riddles in the Dark", "hand")
+    top = stack_library(s, TOP4)
+    mana(s, U=3)
+    act(s, "p1", type="cast_spell", card_id=riddles.id)
+    d = until_asked(s)
+    assert d is not None and d.player == "p1"
+    for viewer in ("p2", SPECTATOR):
+        assert not any(c.name in view_text(s, viewer) for c in top)
+        assert "options" not in s.view(viewer)["rules"]["decision"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[top[2].id])  # Giant Growth face down, the rest face up
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"
+    assert [o.label for o in d.options][0] == "Face-down pile: 1 card" and "Giant Growth" not in " ".join(o.label for o in d.options)
+    assert "Giant Growth" not in view_text(s, "p2") and "Giant Growth" not in view_text(s, SPECTATOR)
+    assert "Ambush Viper" in view_text(s, "p2")  # the face-up pile
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["up"])  # Alice gets the face-up pile; the face-down card goes to her graveyard
+    settle(s)
+    assert {top[0].id, top[1].id, top[3].id} <= set(s.state.zones["p1:hand"]) and s.state.cards[top[2].id].zone == "p1:graveyard"
+    assert "Giant Growth" in view_text(s, "p2")  # revealed in the graveyard
+    check(s)
 
 
 def test_look_at_target_face_down_creature_is_private_to_the_looker(cards):
