@@ -350,3 +350,22 @@ def test_sacrifice_unless_you_pay_its_mana_cost(cards, pay):
     answer(s)
     assert (s.state.cards[bears.id].zone == "p1:battlefield") == pay
     check(s)
+
+
+def test_cant_be_the_target_of_black_spells_or_abilities_from_black_sources(cards):
+    # 115.2 / 702.11: Mercenary Informer's wording: a black spell can't target it (Murder), a green one can (Giant Growth); the
+    # color is the source's, spell or ability
+    from app.game.errors import ActionError
+    from tests.wave9c_kit import card_named
+
+    s = build(cards, ["Murder", "Giant Growth"], [])
+    inf = _token(s, "p1", "Informer", "Token Creature — Rogue", text="~ can't be the target of black spells or abilities from black "
+                 "sources.")
+    murder, growth = to_hand(s, "Murder"), to_hand(s, "Giant Growth")
+    mana(s, B=2, C=1, G=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=murder.id, targets=[inf.id])
+    act(s, "p1", type="cast_spell", card_id=growth.id, targets=[inf.id])
+    answer(s)
+    assert _pt(s, inf) == (5, 5)
+    check(s)

@@ -785,6 +785,14 @@ def _rule(piece: str) -> list[str] | None:
         return ["cant_be_blocked_by_power:greater"]
     if piece == "can't block creatures with power greater than ~'s power":
         return ["cant_block_power:greater"]
+    # -- cant (wave 16F) -- 115.2: "can't be the target of black spells or abilities from black sources" (Mercenary Informer) /
+    # "… of nongreen spells or abilities from nongreen sources" (Gaea's Revenge), "… your opponents control" (Thrun): an object
+    # whose source (a spell, or the source of an ability) has that color (or lacks it) can't target it. Colorless is nongreen.
+    m = re.fullmatch(r"can't be the targets? of (?P<n>non)?(?P<c>white|blue|black|red|green) spells(?: (?P<o1>your opponents control))? or "
+                     r"abilities from (?P=n)?(?P=c) sources(?: (?P<o2>your opponents control))?", piece)
+    if m:
+        colors = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}[m["c"]]
+        return [f"untargetable:{1 if m['o1'] or m['o2'] else 0}:{1 if m['n'] else 0}:{colors}"]
     m = re.fullmatch(r"can't be blocked (?P<except>except )?by (?P<sel>.+)", piece)
     if m:
         sels = _sels(m["sel"])
