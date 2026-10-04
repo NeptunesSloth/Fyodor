@@ -924,6 +924,7 @@ class CastSpell(_Intent):
     dash: bool = False  # 702.109: cast for its dash cost (haste; returns to hand at the next end step)
     awaken: bool = False  # 702.113: cast for its awaken cost (and put its counters on a land)
     splice: list[Id] = Field(default_factory=list, max_length=10)  # 702.47a: cards revealed from your hand to splice onto this spell, in order
+    prototype: bool = False  # 702.160a: cast it prototyped (its alternative mana cost, power and toughness, 718.3)
     fuse: bool = False  # 702.102a: cast both halves of a split card with fuse from your hand (one fused split spell)
     # Cost contributions that aren't mana (convoke / improvise / delve): validated and applied
     # only when the rest of the total cost is paid (601.2h: no partial payments).

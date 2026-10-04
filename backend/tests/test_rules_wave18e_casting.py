@@ -60,6 +60,10 @@ EXTRA = [
                      {"name": "Sovereign's Macuahuitl", "mana_cost": "", "type_line": "Artifact — Equipment", "colors": ["R"],
                       "oracle_text": "Equipped creature gets +2/+0.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a "
                       "sorcery.)"}]),
+    card("Skitterbeam Battalion", set_code="tst", number="D12", mana_cost="{9}", cmc=9.0, type_line="Artifact Creature — Construct",
+         power="4", toughness="4", oracle_text="Prototype {3}{R}{R} — 2/2 (You may cast this spell with different mana cost, color, and "
+         "size. It keeps its abilities and types.)\nTrample, haste\nWhen this creature enters, if you cast it, create two tokens that are "
+         "copies of it.", keywords=["Prototype", "Trample", "Haste"]),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -213,6 +217,25 @@ def test_disturb_casts_the_back_face_from_the_graveyard(cards):
     from tests.test_rules_attachments import ch
 
     assert ch(s, now).name == "Luminous Phantom" and "flying" in ch(s, now).keywords
+    roundtrip(s)
+
+
+def test_prototype_casts_with_the_alternative_characteristics_and_its_copies_keep_them(cards):
+    s = build(cards, p1=("Skitterbeam Battalion",))
+    sk = put(s, "Skitterbeam Battalion", "hand")
+    mana(s, R=2, C=3)
+    with pytest.raises(ActionError):  # {9} can't be paid: only the alternative cost counts when it's prototyped (718.3a)
+        act(s, "p1", type="cast_spell", card_id=sk.id)
+    act(s, "p1", type="cast_spell", card_id=sk.id, prototype=True)
+    answer(s)
+    bats = [c for c in s.state.cards.values() if c.name == "Skitterbeam Battalion" and c.zone == "p1:battlefield"]
+    assert len(bats) == 3  # the creature and the two token copies (718.3d: copies are prototyped too)
+    from tests.test_rules_attachments import ch
+
+    assert all(pt(s, b) == (2, 2) and ch(s, b).colors == {"R"} and ch(s, b).mana_value == 5 for b in bats)
+    gone = s.state.cards[sk.id]
+    act(s, "p1", type="move", card_ids=[gone.id], to={"player": "p1", "zone": "hand"})
+    assert pt(s, s.state.cards[sk.id]) == (4, 4) and ch(s, s.state.cards[sk.id]).mana_value == 9  # 718.4: normal in a hand
     roundtrip(s)
 
 

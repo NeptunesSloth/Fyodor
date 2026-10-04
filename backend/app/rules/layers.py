@@ -554,6 +554,11 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
 
         if bestow.is_bestowed(state, card):
             ch = bestow.overlay(ch)
+    if state.rules is not None and state.rules.payments:  # -- casting extras (wave 18E) -- 718.3b: a prototyped spell / permanent
+        from app.rules import prototype
+
+        if prototype.is_prototyped(state, card):
+            ch = prototype.overlay(ch)
     effects = affecting(state, card)
     each_amounts: dict[int, int] = {}
     attached45 = _attached45(state, card, info)  # -- attached events (wave 4L) -- "Enchanted creature is a … creature"

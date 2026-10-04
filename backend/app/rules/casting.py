@@ -1875,6 +1875,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             ch = bestow.overlay(ch)
     else:
         bestowed_cast = False
+    if a.prototype:  # -- casting extras (wave 18E) -- 702.160a / 718.3a: only the alternative cost, power and toughness are used to cast it
+        from app.rules import prototype
+
+        if a.face_down or a.fuse or prototype.parse(ch) is None or plan.manual(card):
+            raise ActionError(f"{ch.name or 'That card'} has no prototype the engine can cast it with")
+        ch = prototype.overlay(ch)
     face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
     if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
         if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
@@ -2091,6 +2097,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.note(f"{plan.name(plan.actor)} cast {ch.name} for an alternative cost ({alt_offer.label})", [card.id])
     record.additional = (["buyback"] if a.buyback else []) + (["kicker"] if a.kicker else []) \
         + [f"optional:{o.source}" for o in optional]  # (wave 4I: Defiler of Vigor's life)
+    record.prototyped = a.prototype  # -- casting extras (wave 18E) -- 718.3b
     record.kicked = a.kicker or int(a.awaken)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as "If this spell was kicked")
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
     record_payment(plan, card.id, record)
@@ -2112,6 +2119,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         tags.append("Awakened")
     if a.splice:
         tags.append("Spliced")
+    if a.prototype:
+        tags.append("Prototyped")
     if a.buyback:
         tags.append("Buyback")
         plan.rules.buyback.append(plan.oid(card))
@@ -2553,8 +2562,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     r = plan.rules
     if card.id not in r.free_casts or card.zone == STACK or ch.is_land:
         raise ActionError("You can't cast that without paying its mana cost now")
-    if a.splice:
-        raise ActionError("Splice by hand: Fyodor splices only onto a spell cast with its cost")
+    if a.splice or a.prototype:
+        raise ActionError("Splice and prototype by hand: Fyodor does them only when a spell is cast with its cost")
     if "Legendary" in ch.supertypes and ch.is_instant_or_sorcery and not _controls_legendary(plan.state, plan.actor, plan.info):
         raise ActionError(f"{ch.name} needs you to control a legendary creature or planeswalker")  # 205.4e
     # -- cast limits (wave 5E) -- 601.3 applies to a cast as something resolves too

@@ -219,6 +219,7 @@ class CopyRecipe(BaseModel):
     token: dict[str, Any] | None = None  # {"name", "power", "toughness", "colors", "type_line", "text"}
     excepts: list[CopyExcept] = Field(default_factory=list)
     source: str = Field(default="", max_length=200)  # the name of what was copied (for labels)
+    prototyped: bool = False  # -- casting extras (wave 18E) -- 718.2a / 718.3c-d: the alternative cost, power and toughness are copiable
 
 
 # -- game objects, last known information, events -------------------------------------------
@@ -690,6 +691,7 @@ class PaymentRecord(BaseModel):
     tapped_for_cost: list[str] = Field(default_factory=list)  # "Tap an untapped creature you control" (not for mana)
     kicked: int = 0  # 702.33d: times its kicker cost was paid
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
+    prototyped: bool = False  # -- casting extras (wave 18E) -- 718.3: cast prototyped (the spell and the permanent have the alternative values)
     additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
     x: int | None = None
     # -- refused modal/conditional (wave 3R1) -- how the spell was cast, for "if you cast it [from your hand]",
