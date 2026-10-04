@@ -1852,8 +1852,11 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
     tax = state.players[card.owner].commander_tax.get(card.commander_key, 0) \
         if from_command_zone(card, card.owner) and card.commander_key else 0
     affinity = (affinity_discount(state, player, ch, info, card) if info is not None else 0) + reduce  # (reduce: emerge, 18E)
-    return permissions.total_cost(state, player, card, ch, info, base=base, additional=tuple(extras), tax=tax, affinity=affinity,
-                                  targets=targets)
+    total = permissions.total_cost(state, player, card, ch, info, base=base, additional=tuple(extras), tax=tax, affinity=affinity,
+                                   targets=targets)
+    from app.rules import cast_limits  # -- static_other sweep (wave 19A) -- Oath of Nissa: how the mana may be spent
+    mode = cast_limits.spend_mode(state, player, card, ch, info)
+    return M.spend_as(total, mode) if mode else total
 
 
 def additional_problem(plan: Plan, extra: AbilityCost, card: CardInstance, player: str) -> str | None:
@@ -3203,9 +3206,12 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
     if ability.kind == "loyalty":  # 606.3: as a sorcery, once per permanent each turn
-        if state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
+        if (state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK)) \
+                and not cast_limits.loyalty_rule(state, card, info, "instant"):  # (wave 19A: Teferi, Master of Time)
             return "That can only be activated in your main phase while the stack is empty"
-        if r.loyalty_used.get(r.object_id(card.id)) == state.turn.number:
+        oid = r.object_id(card.id)
+        if r.loyalty_used.get(oid) == state.turn.number and (r.loyalty_second.get(oid) == state.turn.number
+                                                             or not cast_limits.loyalty_rule(state, card, info, "twice")):  # (Oath of Teferi)
             return f"{ch.name} has already used a loyalty ability this turn"
         if cost.loyalty is not None and cost.loyalty < 0 and card.counters.get("loyalty", 0) < -cost.loyalty:
             return f"{ch.name} doesn't have enough loyalty"
@@ -3346,6 +3352,8 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
 
         activated(plan, card, oid, loyalty=ability.kind == "loyalty", ability_id=ability_id)
     if ability.kind == "loyalty":
+        if r.loyalty_used.get(oid) == plan.state.turn.number:
+            r.loyalty_second[oid] = plan.state.turn.number  # -- static_other sweep (wave 19A) -- the second use (Oath of Teferi)
         r.loyalty_used[oid] = plan.state.turn.number
     if restrictions.limited(restrictions.parse(_own_text(ability.text, ch.name)) or []):  # "Activate only once each turn" / "… only once"
         restrictions.record_use(r, oid, ability.index, plan.state.turn.number)

@@ -161,6 +161,7 @@ def begin(plan: Plan) -> None:
         prefs.yields = [y for y in prefs.yields if y.kind == "always_yield" or y.turn == turn]
     r = plan.rules
     r.loyalty_used = {k: t for k, t in r.loyalty_used.items() if t == turn}
+    r.loyalty_second = {k: t for k, t in r.loyalty_second.items() if t == turn}
     r.once_per_turn = {k: t for k, t in r.once_per_turn.items() if t == turn}
     permissions.refresh_reveals(plan.state, plan.info)  # (a permanent put onto the table by hand since)
 

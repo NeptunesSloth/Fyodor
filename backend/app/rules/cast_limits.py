@@ -95,6 +95,10 @@ STATIC_FLASH = re.compile(r"^(?P<during>during each opponent's end step, )?(?P<w
                           r"(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells as though they had flash$")
 EFFECT_FLASH = re.compile(r"^(?:until end of turn, )?you may cast (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells(?P<this> this turn)? "
                           r"as though they had flash$")
+# -- static_other sweep (wave 19A) -- 609.4b / 118.14: "You may spend mana as though it were mana of any color to cast planeswalker spells."
+# (Oath of Nissa), "You can spend mana of any type to cast creature spells." (Vizier of the Menagerie): how the cost of those spells may be paid
+STATIC_SPEND = re.compile(r"^you (?P<how>may spend mana as though it were mana of any color|can spend mana of any type) to cast "
+                          r"(?P<sel>[A-Za-z][A-Za-z' ,-]*?) spells$")
 STATIC_HASTE = "you may activate abilities of creatures you control as though those creatures had haste"
 # 702.51 / 702.126 / 702.66: "Nonartifact spells you cast have improvise." / "Artifact spells you cast have convoke." / "Spells
 # you cast have delve." — the spell has it while it's being cast (601.2g-h: costs are paid with the spell on the stack)
@@ -232,6 +236,20 @@ def static_definition(text: str) -> Definition | None:
         return d
     if t == STATIC_HASTE:
         return {"kind": "static", "static": "activate_as_haste", "effects": []}
+    # -- static_other sweep (wave 19A) -- 606.3: "You may activate the loyalty abilities of planeswalkers you control twice each turn
+    # rather than only once." (Oath of Teferi), "You may activate loyalty abilities of ~ on any player's turn any time you could cast an
+    # instant." (Teferi, Master of Time): the once-a-turn and the sorcery timing of a loyalty ability, changed for those permanents
+    if t == "you may activate the loyalty abilities of planeswalkers you control twice each turn rather than only once":
+        return {"kind": "static", "static": "loyalty_rule", "who": "you", "twice": True, "effects": []}
+    if t == "you may activate loyalty abilities of ~ on any player's turn any time you could cast an instant":
+        return {"kind": "static", "static": "loyalty_rule", "who": "self", "instant": True, "effects": []}
+    m = STATIC_SPEND.fullmatch(t)
+    if m:
+        ok, key = _filter(m["sel"])
+        if not ok or key is None:
+            return None
+        return {"kind": "static", "static": "spend_as", "mode": "type" if m["how"].startswith("can") else "color", "filter": key,
+                "effects": []}
     m = STATIC_CASCADE.fullmatch(t)
     if m:  # -- static statics (wave 10B) --
         return _cascade_definition(m)
@@ -384,7 +402,7 @@ def _spells_words(key: str | None, frm: list[str] | None) -> str:
 
 # -- reading the table -----------------------------------------------------------------------------
 _CACHE: dict[tuple, list[tuple[str, int, Definition]]] = {}
-_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword")
+_KINDS = ("cast_limit", "activate_as_haste", "player_shield", "spell_helper", "spell_keyword", "loyalty_rule", "spend_as")
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -570,6 +588,24 @@ def any_activation_limits(state: GameState, info: CardInfo | None) -> bool:
     if any(x.get("act") and _record_live(state, x) for x in r.cast_limits):
         return True
     return info is not None and any(d["static"] == "cast_limit" and d.get("act") for _, _, d in _scan(state, info))
+
+
+def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, key: str) -> bool:
+    """-- static_other sweep (wave 19A) -- does a static let this planeswalker's loyalty abilities be activated ``key`` ("twice" each turn, at
+    "instant" speed on any player's turn)? Its controller's "planeswalkers you control", or its own."""
+    return info is not None and any(d.get(key) and (src.id == card.id if d["who"] == "self" else src.controller == card.controller)
+                                    for src, d in _statics(state, info, "loyalty_rule"))
+
+
+def spend_mode(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> str | None:
+    """-- static_other sweep (wave 19A) -- how ``player``'s statics let them spend mana on this spell ("type": any type, else "color")."""
+    if info is None:
+        return None
+    from app.rules.permissions import spell_matches
+
+    modes = {d["mode"] for src, d in _statics(state, info, "spend_as") if src.controller == player
+             and spell_matches(state, player, card, ch, d["filter"], info)}
+    return "type" if "type" in modes else "color" if modes else None
 
 
 def as_though_haste(state: GameState, card: CardInstance, info: CardInfo | None) -> bool:

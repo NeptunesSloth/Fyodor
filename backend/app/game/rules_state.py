@@ -828,6 +828,7 @@ class RulesState(BaseModel):
     spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
     mana_cast: dict[str, TurnCount] = Field(default_factory=dict)  # -- wave 15B -- mana spent to cast spells this turn (700.14 expend)
     loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
+    loyalty_second: dict[str, int] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- planeswalker -> turn of its second use
     # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't
     # untap during that player's next untap step (app/rules/engine.start_next_turn)
     exerted: dict[str, str] = Field(default_factory=dict)

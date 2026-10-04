@@ -1791,7 +1791,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     # into your hand. If you don't, you may discard a card. If you do, draw a card." A game here has no cards outside it (no sideboard is
     # modelled: the decks are the games'), so the reveal never has a Lesson to show and the rest is the rummage
     body = re.sub(r"(^|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)
-    body = _extra_turns.one_sentence(body)  # -- static_other sweep (wave 19A) -- Final Fortune  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
+    body = _extra_turns.one_sentence(body)  # -- static_other sweep (wave 19A) -- Final Fortune
+    # -- static_other sweep (wave 19A) -- "Choose a creature type. Draw a card for each permanent you control of that type." (Distant
+    # Melody): "that type" is the type just chosen, as in "of the chosen type" (app/rules/chosen.py)
+    body = re.sub(r"(Choose a creature type\. [^.]*?) of that type\b", r"\1 of the chosen type", body)  # (-- rolling dice, wave 12A -- "that much" after a roll is the result)
     # -- trigger tail (wave 16C) -- "Create a 4/4 … token with flying at the beginning of the next end step." (Rukh Egg): the same delayed
     # trigger (603.7) as the leading wording, which the token grammar reads whole
     body = re.sub(rf"(?i)^(create [^.]+?) (at the beginning of (?:{_delayed.WHEN_RE}))(\.?)$", r"\2, \1\3", body)

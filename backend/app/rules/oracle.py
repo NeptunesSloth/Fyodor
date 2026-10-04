@@ -331,6 +331,11 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         # target creature." (an activated ability that works only from the hand)
         if m := re.fullmatch(r"Reinforce (\d+)—((?:\{[^}]+\})+)", line):
             line = f"{m[2]}, Discard this card: Put {m[1]} +1/+1 counters on target creature."
+        # -- static_other sweep (wave 19A) -- "Traxos enters tapped and doesn't untap during your untap step.": two abilities, "enters tapped"
+        # (614.1d) and the static "doesn't untap" (502.3), the second one added after the printed lines as Reconfigure's are
+        if (um := re.fullmatch(r"(.+?) enters tapped and (doesn't untap during your untap step)\.", line)) and not spell:
+            line = f"{um[1]} enters tapped."
+            tail.append((f"{um[1]} {um[2]}.", sections[n]))
         kind, kws, cost = classify(line, spell=spell)
         out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n]))
         # -- keyword meanings (wave 18E) -- 702.151a: "Reconfigure [cost]" is two activated abilities, "[Cost]: Attach this permanent to another
