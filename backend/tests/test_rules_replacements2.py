@@ -803,8 +803,7 @@ def test_wordings_that_stay_manual():
         # automated: tests/test_rules_refused_grants.py)
         "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste "
         "or that many 3/1 green Dog creature tokens with vigilance.",
-        # a rider after prevention (615.5)
-        "If a source would deal damage to you, prevent that damage and put an incarnation counter on this enchantment.",
+        # (a rider after prevention, 615.5, is automated since wave 17A: tests/test_rules_wave17a_prevention.py)
         # "can't" and life-loss replacements (614.17, 119.8) / a draw replaced by looking (Abundance-like)
         "If an opponent would lose life during your turn, they lose twice that much life instead.",
         "If you would draw a card, you may instead choose land or nonland and reveal cards from the top of your library "

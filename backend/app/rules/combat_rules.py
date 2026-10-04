@@ -347,7 +347,7 @@ _EACH_OPP = re.compile(r"for each opponent, (?P<create>create .+? token(?:s)? th
                        r"(?P<pw> or a planeswalker they control)?")
 _AND_EXTRA = re.compile(r"(?P<a>.+?),? and (?P<b>after this (?:main |combat )?phase, there is an additional combat phase.*)")
 _REMOVE = re.compile(r"remove (?P<o>.+?) from combat")
-_MAZE = re.compile(r"prevent all combat damage that would be dealt to and dealt by (?P<o>that creature|it|target creature|~)"
+_MAZE = re.compile(r"prevent all combat damage that would be dealt to and dealt by (?P<o>that creature|it|target creature(?: you control)?|~)"
                    r" this turn")
 _DOUBLE = re.compile(r"double (?:the (?P<w1>power and toughness|power) of (?P<o1>.+?)|(?P<o2>.+?)'s "
                      r"(?P<w2>power and toughness|power)|(?P<o3>its) (?P<w3>power and toughness|power)) until end of turn")

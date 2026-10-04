@@ -861,7 +861,7 @@ def _free_cast_source(e: dict[str, Any], pronoun: str, intro: _Introducer | None
     return True
 
 
-_TARGET_REFS = ("who", "to", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
+_TARGET_REFS = ("who", "to", "from", "redirect", "power", "toughness", "mana_value", "on", "with", "src", "src2", "object", "player")  # ("with": the other creature of a fight; "src": a bite's biter; "object": the object a condition tests)
 
 
 def rename_bindings(value: Any, prefix: str) -> Any:
@@ -874,6 +874,9 @@ def rename_bindings(value: Any, prefix: str) -> Any:
         return value
     out = {}
     for k, v in value.items():
+        if k == "rider":  # -- prevention riders (wave 17A) -- its bindings ("prevented", "to", "from_ctrl") are its own
+            out[k] = v
+            continue
         if k in ("as", "bind", "succeeded", "flag", "did", "ref_amount", "ref_count",
                  "bind_dealt", "bind_excess", "bind_hit", "paid_x") and isinstance(v, str):  # (bind_dealt, paid_x: wave 5G; bind_excess: wave 9B)  # ("bind": the library primitives' recorder;
             v = prefix + v  # "succeeded": the payment an "If you do" / "unless … pays" gate depends on;
@@ -2085,6 +2088,11 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 return None
             for e in dealt:
                 e["unpreventable"] = True
+            continue
+        # -- prevention riders (wave 17A) -- 615.5: "You gain life equal to the damage prevented this way." after a prevention
+        if (attached := _source_shields.rider(text, effects)) is not None:
+            if not attached:
+                return None
             continue
         # "The flashback cost is equal to its mana cost." (the grant before it)
         from app.rules import graveyard_grants
@@ -3629,6 +3637,8 @@ EXILE_INSTEAD_STATIC = re.compile(r"^If (?P<subject>a card or token|a card|(?:a|
 # Prevention: "Prevent all [combat] damage that would be dealt [this turn] [to …] [by …] [this turn]."
 PREVENT_ALL = re.compile(r"^prevent all (?P<kind>combat |noncombat )?damage that would be dealt(?P<t1> this turn)?"
                          r"(?: to (?P<to>.+?))?(?P<t2> this turn)?(?: by (?P<by>.+?))?(?P<t3> this turn)?$")
+_PREVENT_WOULD_DEAL = re.compile(r"^prevent all (?P<kind>combat |noncombat )?damage (?:that )?(?P<subj>(?!would be dealt).+?) would deal"
+                                 r"(?: to (?P<to>.+?))?(?P<t> this turn)?$")
 PREVENT_TO_AND_BY = re.compile(r"^prevent all (?P<kind>combat |noncombat )?damage that would be dealt to and dealt by "
                                r"(?P<x>~|enchanted creature|equipped creature)$")
 _PREVENT_TARGETS = {  # what the damage would be dealt to → (players, objects)
@@ -3639,7 +3649,7 @@ _PREVENT_TARGETS = {  # what the damage would be dealt to → (players, objects)
     "you and other permanents you control": ("you", "other permanents you control"),
     "you and permanents you control": ("you", "permanents you control"),
 }
-_PREVENT_SOURCES = {"~": "self", "enchanted creature": "attached", "equipped creature": "attached"}
+_PREVENT_SOURCES = {"~": "self", "this creature": "self", "enchanted creature": "attached", "equipped creature": "attached"}
 
 
 def _selector_key(phrase: str) -> str | None:
@@ -3749,7 +3759,8 @@ def _prevent_scope(kind: str | None, to: str | None, by: str | None) -> tuple[De
                 return None
     elif to in SELECTORS and SELECTORS[to] in ("creature", "creature_you_control", "creature_opponent_controls"):
         target, role = SELECTORS[to], "to"
-    elif to == "it" and by is None:  # "Untap target creature. Prevent all damage that would be dealt to it this turn." (Djeru's Resolve)
+    elif to in ("it", "that creature"):  # "Untap target creature. Prevent all damage that would be dealt to it this turn." (Djeru's Resolve);
+        # -- prevention riders (wave 17A) -- "… to that creature this turn by colorless sources." (Lithomancer's Focus)
         target, role = "it", "to"
     # -- prevention variants (wave 12B) -- "to target legendary creature", "to up to two target creatures", "to target
     # creature with power 5 or greater": the creatures chosen as the spell or ability is put on the stack (115.1); the
@@ -3769,11 +3780,17 @@ def _prevent_scope(kind: str | None, to: str | None, by: str | None) -> tuple[De
         if target is not None:
             return None  # (two targets: not this template)
         target, role = SELECTORS[by], "by"
+    elif target is None and by.startswith(("target ", "up to ", "one or two ", "x target ", "another target ")) \
+            and _prevent_group(by) is not None:  # -- prevention riders (wave 17A) -- "one or two target creatures would deal"
+        target, role = _prevent_group(by), "by"
     else:
         key = _selector_key(by)
-        if key is None:
+        if key is not None:
+            scope["by_objects"] = key
+        elif (spec := _source_shields.source_scope(by)) is not None:  # -- prevention riders (wave 17A) -- "red sources", "sources you don't control"
+            scope["by_source"] = spec
+        else:
             return None
-        scope["by_objects"] = key
     return scope, target, role
 
 
@@ -3790,6 +3807,12 @@ def parse_prevent_all(text: str) -> tuple[Definition, bool, str | None, str | No
         what = _PREVENT_SOURCES[m["x"]]
         return ({"combat": {"combat ": True, "noncombat ": False}.get(m["kind"] or ""), "to_objects": what, "by_objects": what,
                  "to_or_by": True}, False, None, None)
+    # -- prevention riders (wave 17A) -- "Prevent all damage that black sources and red sources would deal this turn." (Luminesce),
+    # "Prevent all combat damage target creature would deal this turn." (Azorius Ploy): the same as "… dealt by [them]"
+    w = _PREVENT_WOULD_DEAL.fullmatch(text)
+    if w:
+        text = (f"prevent all {w['kind'] or ''}damage that would be dealt{' to ' + w['to'] if w['to'] else ''} by {w['subj']}"
+                f"{' this turn' if w['t'] else ''}")
     m = PREVENT_ALL.fullmatch(text)
     if not m:
         return None
@@ -4104,7 +4127,7 @@ def _reveal_any_in_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | N
     return [{"do": "reveal_hand_cards", "sel": sel.key(), "n": 99}], None
 
 
-@effect(r"(?P<text>prevent all (?:combat |noncombat )?damage that would be dealt.*)")
+@effect(r"(?P<text>prevent all (?:combat |noncombat )?damage (?:that would be dealt|(?:that )?(?!would be dealt).+? would deal).*)")
 def _prevent_all_this_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     got = parse_prevent_all(m["text"])
     if got is None or not got[1]:

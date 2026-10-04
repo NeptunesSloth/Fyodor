@@ -728,6 +728,10 @@ def _object_matches(plan: Plan, spec: dict[str, Any], c: Candidate, card: CardIn
                     oid: str | None) -> bool:
     if card is None:
         return False
+    if spec.get("oids") is not None:  # (-- prevention riders (wave 17A) -- the permanent a shield was made for, as that object)
+        return oid in spec["oids"]
+    if spec.get("counter") and not card.counters.get(spec["counter"]):  # (-- prevention riders (wave 17A) -- "while it has a +1/+1 counter on it")
+        return False
     if spec.get("self"):
         return oid is not None and oid == c.source_oid
     if spec.get("attached"):
@@ -1222,6 +1226,16 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
         return False
     if spec.get("colors") and not set(spec["colors"]) & set(src.get("colors") or ()):
         return False
+    if spec.get("chosen_color"):  # (-- prevention riders (wave 17A) -- "sources of the chosen color": its permanent's choice, 614.12a)
+        from app.rules import selectors
+
+        color = selectors.COLORS.get((selectors.source_choice(plan, c.source_card, "color") or "").lower())
+        if color is None or color not in (src.get("colors") or ()):
+            return False
+    if spec.get("colorless") and src.get("colors"):  # (-- prevention riders (wave 17A) -- "colorless sources", "non-Human sources")
+        return False
+    if spec.get("not_subtypes") and set(spec["not_subtypes"]) & set(src.get("subtypes") or ()):
+        return False
     if spec.get("types") and not set(spec["types"]) & set(src.get("types") or ()):
         return False
     if spec.get("not_types") and set(spec["not_types"]) & set(src.get("types") or ()):
@@ -1234,6 +1248,8 @@ def _recipient_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event
         return True
     target = ev["target"]
     if target in plan.state.players:
+        if spec.get("pids") is not None:  # (-- prevention riders (wave 17A) -- the player a shield was made for)
+            return target in spec["pids"]
         want = spec.get("players")
         if want is None:
             return False
@@ -1253,8 +1269,9 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     # -- refused grants/replacements (wave 3R2) -- 615.12: a prevention effect applied to damage that can't be
     # prevented prevents none of it and a shield isn't reduced; none the engine applies has an additional effect
     # (app/rules/source_shields.py), so it isn't applied at all. 615.8: a "next time" shield is used up once.
-    if (c.prevention or c.legacy is not None) and ev.get("unpreventable"):
-        return False
+    if (c.prevention or c.legacy is not None) and ev.get("unpreventable") and not (
+            c.op.get("rider") and c.id.startswith("s:")):  # (-- prevention riders (wave 17A) -- a static's additional effect
+        return False  # still takes place, 615.12; a record's or shield's riders all count the damage prevented: none)
     if c.op.get("once") and f"once:{c.id}" in sim.get("shields", {}):
         return False
     # -- end refused grants/replacements (wave 3R2) --
@@ -1264,15 +1281,19 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
         return replacements._applies(plan, c.legacy, ev)
     if c.op["do"] == "shield":
         # 615.7: a shield prevents only damage to what it protects
-        return c.op["key"] == _shield_key(plan, ev["target"]) and sim.get("shields", {}).get(c.op["key"], 0) > 0
+        return c.op["key"].split("#")[0] == _shield_key(plan, ev["target"]) and sim.get("shields", {}).get(c.op["key"], 0) > 0
     m = c.match
     if m.get("combat") is not None and bool(m["combat"]) != bool(ev.get("combat")):
+        return False
+    if m.get("monarch") and plan.state.table.monarch != c.controller:  # (-- prevention riders (wave 17A) -- "while you're the monarch")
         return False
     if c.op["do"] == "redirect":  # -- refused grants/replacements (wave 3R2) -- 614.9: nowhere to redirect to: nothing
         from app.rules import source_shields
 
         if source_shields.redirect_target(plan, c, ev) is None:
             return False
+        if c.op.get("limit") is not None and sim.get("shields", {}).get(f"redir:{c.id}", c.op["limit"]) <= 0:
+            return False  # (-- prevention riders (wave 17A) -- "the next 1 damage": used up)
     return _source_matches(plan, m.get("source") or {}, c, ev) and _recipient_matches(plan, m.get("to") or {}, c, ev)
 
 
@@ -1289,10 +1310,21 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     if op["do"] == "redirect":  # -- refused grants/replacements (wave 3R2) -- 614.9 (app/rules/source_shields.py)
         from app.rules import source_shields
 
-        return [source_shields.redirect(plan, c, ev)]
+        k = int(ev["amount"])
+        if op.get("limit") is not None:  # -- prevention riders (wave 17A) -- 614.9, 615.7-like: only the next N damage is redirected
+            shields = sim.setdefault("shields", {})
+            left = int(shields.get(f"redir:{c.id}", op["limit"]))
+            k = min(k, left)
+            shields[f"redir:{c.id}"] = left - k
+        if op.get("once"):  # (the next time a source would deal damage: used up by this instance, 615.8)
+            sim.setdefault("shields", {})[f"once:{c.id}"] = 0
+        moved = source_shields.redirect(plan, c, {**ev, "amount": k})
+        return [moved, {**ev, "amount": int(ev["amount"]) - k}] if k < int(ev["amount"]) else [moved]
     n = int(ev["amount"])
     kind = op["do"]
-    if kind == "mul":
+    if ev.get("unpreventable") and op.get("prevention"):
+        pass  # (-- prevention riders (wave 17A) -- 615.12: the effect applies once and prevents none of it)
+    elif kind == "mul":
         n *= int(op["n"])
     elif kind == "add":
         n += int(op["n"]) + (_added_value(plan, c, op["value"]) if op.get("value") else 0)
@@ -1319,6 +1351,9 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     out = {**ev, "amount": n}
     if op.get("prevention"):
         out["prevented"] = int(ev.get("prevented") or 0) + (int(ev["amount"]) - n)
+        if op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
+            out["riders"] = [*(ev.get("riders") or []), {"rider": op["rider"], "n": int(ev["amount"]) - n, "by": c.controller,
+                                                         "card": c.source_card, "oid": c.source_oid, "name": c.label}]
     return [out]
 
 
@@ -1332,17 +1367,26 @@ def damage_candidates(plan: Plan) -> list[Candidate]:
         src = plan.state.cards.get(rec.get("source_card") or "")
         label = (src.name if src is not None else None) or "a prevention effect"
         out.append(Candidate(id=f"p:{rec.get('id') or rec.get('source') or i}:{i}", event="damage", match={},
-                             op={"do": "prevent_all", "prevention": True}, controller=rec["controller"],
+                             op={"do": "prevent_all", "prevention": True, **({"rider": rec["rider"]} if rec.get("rider") else {})},
+                             controller=rec["controller"],
                              source_card=rec.get("source_card"), source_oid=rec.get("source"), seq=(0, 2, i), label=label,
                              legacy=rec))
     for key in sorted(plan.rules.prevention):
-        out.append(Candidate(id=f"shield:{key}", event="damage", match={}, op={"do": "shield", "key": key, "prevention": True},
-                             controller="", source_card=None, source_oid=None, seq=(0, 3, 0), label="a prevention shield"))
+        info = plan.rules.prevention_riders.get(key) or {}  # (-- prevention riders (wave 17A) -- "key#id": a shield with a rider)
+        out.append(Candidate(id=f"shield:{key}", event="damage", match={},
+                             op={"do": "shield", "key": key, "prevention": True, **({"rider": info["rider"]} if info else {})},
+                             controller=info.get("by", ""), source_card=info.get("card"), source_oid=info.get("oid"),
+                             seq=(0, 3, 0), label=info.get("name") or "a prevention shield"))
     return out
 
 
 def _shield_key(plan: Plan, target: str) -> str:
     return target if target in plan.state.players else plan.oid(target)
+
+
+def _shield_left(sim: Sim, key: str) -> int:
+    """-- prevention riders (wave 17A) -- what is left of the shields on this recipient ("<key>#<id>": one with a rider)."""
+    return sum(v for k, v in sim["shields"].items() if not k.startswith("once:") and k.split("#")[0] == key)
 
 
 @dataclass
@@ -1398,7 +1442,7 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
         return card.controller if card is not None else ""
 
     targets = sorted(by_target, key=lambda t: (apnap.index(chooser_of(t)) if chooser_of(t) in apnap else len(apnap)))
-    finals: dict[int, Event] = {}
+    finals: dict[int, list[Event]] = {}  # (-- prevention riders (wave 17A) -- a redirection of "the next 1 damage" splits an event)
     index = {id(ev): i for i, ev in enumerate(events)}
     try:
         for target in targets:
@@ -1410,7 +1454,7 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
                 # (damage a "prevent all" effect prevents anyway isn't what the shield would prevent)
                 contenders = [e for e in pending if e["amount"] > 0 and not e.get("unpreventable")  # (615.12, wave 3R2)
                               and not any(c.legacy is not None and replacements._applies(plan, c.legacy, e) for c in cands)]
-                if len(contenders) > 1 and sim["shields"].get(key, 0) > 0 \
+                if len(contenders) > 1 and _shield_left(sim, key) > 0 \
                         and len({replacements._shield_signature(plan, e) for e in contenders}) > 1:
                     # 615.7: which source's damage the shield prevents first
                     mine = [p for p in picks if p.startswith(f"{target}:")]
@@ -1419,31 +1463,34 @@ def plan_damage(plan: Plan, events: list[Event], *, answers: dict[str, str], ord
                         picks.remove(pick)
                         ev = next((e for e in contenders if f"{target}:{e['source_oid']}" == pick), contenders[0])
                     elif ask:
-                        raise ShieldAsk(target, chooser_of(target), contenders, sim["shields"][key])
+                        raise ShieldAsk(target, chooser_of(target), contenders, _shield_left(sim, key))
                     else:
                         ev = contenders[0]
                 pending.remove(ev)
                 out: list[Event] = []
                 planner.settle(dict(ev), sim, out.append)
-                finals[index[id(ev)]] = out[0] if out else {**ev, "amount": 0}
+                finals[index[id(ev)]] = out or [{**ev, "amount": 0}]
     except Ask as q:
         return q
     except ShieldAsk as s:
         return s
-    result = [finals.get(i, ev) for i, ev in enumerate(events)]
+    result = [e for i, ev in enumerate(events) for e in finals.get(i, [ev])]
     # -- counters (wave 7C) -- 122.1c: what the other effects left, prevented
     from app.rules import shield_counters
 
     used = shield_counters.prevent_damage(plan, result)
     notes = []
-    for before, after in zip(events, result, strict=True):
-        if after.get("why"):
-            who = replacements._label(plan, before["target"])
-            why = ", ".join(dict.fromkeys(after["why"]))
-            if after["amount"] <= 0:
-                notes.append(f"{before['amount']} damage to {who} prevented ({why})")
-            else:
-                notes.append(f"{why}: {after['amount']} damage to {who} instead of {before['amount']}")
+    for i, before in enumerate(events):
+        for after in finals.get(i, [before]):
+            if after.get("why"):
+                who = replacements._label(plan, before["target"])
+                why = ", ".join(dict.fromkeys(after["why"]))
+                if after["amount"] <= 0:
+                    notes.append(f"{before['amount']} damage to {who} prevented ({why})")
+                elif after["target"] != before["target"]:
+                    notes.append(f"{why}: {after['amount']} damage to {replacements._label(plan, after['target'])} instead of {who}")
+                else:
+                    notes.append(f"{why}: {after['amount']} damage to {who} instead of {before['amount']}")
     return DamagePlan(result, notes, sim["shields"], planner, used)
 
 
@@ -1467,6 +1514,7 @@ class DamageOutcome:
     counter_finals: list[tuple[Event, list[Event]]] = field(default_factory=list)
     life_finals: list[tuple[Event, list[Event]]] = field(default_factory=list)
     shield_counters: list[str] = field(default_factory=list)  # (wave 7C) 122.1c
+    riders: list[dict[str, Any]] = field(default_factory=list)  # (wave 17A) the additional effects of prevention effects, 615.5
 
 
 def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], order: list[str] | None,
@@ -1483,7 +1531,9 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
         return planned
     out = DamageOutcome(events=[ev for ev in planned.events if ev["amount"] > 0], notes=list(planned.notes),
                         shields=planned.shields, left=[planned.planner],
-                        shield_counters=planned.shield_counters)
+                        shield_counters=planned.shield_counters,
+                        riders=[{**r, "ev": {k: ev.get(k) for k in ("src", "source_card", "source_oid", "target", "target_oid", "combat")}}
+                                for ev in planned.events for r in ev.get("riders") or []])
     counters: list[tuple[str, str, int, str]] = []  # (target, kind, n, by)
     gains: dict[str, int] = {}
     for ev in out.events:
@@ -1568,6 +1618,7 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
 
     shield_counters.remove(plan, out.shield_counters, actor)
     if not out.events:
+        _run_riders(plan, out.riders)
         return
     dealt = [{"source": ev["source_oid"], "target": ev["target"], "amount": int(ev["amount"]),
               **({"target_object": plan.oid(ev["target"])} if ev["target"] in plan.state.cards else {})} for ev in out.events]
@@ -1584,6 +1635,14 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
     for pid, n in out.losses:  # (after the damage: its own step, UNVERIFIED batching)
         plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor)
     plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *out.deathtouched]))
+    _run_riders(plan, out.riders)
+
+
+def _run_riders(plan: Plan, riders: list[dict[str, Any]]) -> None:
+    from app.rules import source_shields
+
+    for r in riders:
+        source_shields.run_rider(plan, r)
 
 
 def commit_shields(plan: Plan, shields: dict[str, int]) -> None:
@@ -1591,6 +1650,14 @@ def commit_shields(plan: Plan, shields: dict[str, int]) -> None:
     r = plan.rules
     # -- refused grants/replacements (wave 3R2) -- 615.8: a "next time" shield that prevented damage is used up
     used = {key[len("once:r:"):] for key in shields if key.startswith("once:r:")}
+    for key, left in shields.items():  # -- prevention riders (wave 17A) -- what is left of "the next N damage is dealt to … instead"
+        if key.startswith("redir:r:"):
+            if left <= 0:
+                used.add(key[len("redir:r:"):])
+            else:
+                for rec in r.replacements:
+                    if rec.get("id") == key[len("redir:r:"):]:
+                        rec["op"] = {**rec["op"], "limit": left}
     if used:
         r.replacements = [rec for rec in r.replacements if rec.get("id") not in used]
     # -- end refused grants/replacements (wave 3R2) --
@@ -1601,6 +1668,7 @@ def commit_shields(plan: Plan, shields: dict[str, int]) -> None:
             r.prevention[key] = left
         else:
             r.prevention.pop(key, None)
+            r.prevention_riders.pop(key, None)
 
 
 def ask_shield(plan: Plan, s: ShieldAsk, resume: dict[str, Any], order: list[str]) -> None:
