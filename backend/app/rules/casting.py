@@ -2507,7 +2507,8 @@ def _conspire_trigger(plan: Plan, card: CardInstance, ch: Characteristics, recor
     any targets, you may choose new targets for the copy." (the copy is storm's: copying.storm)"""
     from app.rules.triggers import _add
 
-    if f"optional:{card.id}:conspire" in record.additional:
+    # (-- casting extras (wave 18E) -- 702.153a casualty: "When you cast this spell, if a casualty cost was paid for it, copy it.")
+    if f"optional:{card.id}:conspire" in record.additional or f"optional:{card.id}:casualty" in record.additional:
         _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6160,
              definition={"kind": "triggered", "trigger": "storm", "optional": False, "target": None,
                          "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": 1}]})

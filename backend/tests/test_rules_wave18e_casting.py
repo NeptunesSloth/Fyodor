@@ -70,6 +70,17 @@ EXTRA = [
     card("Wretched Gryff", set_code="tst", number="D14", mana_cost="{7}", cmc=7.0, type_line="Creature — Eldrazi Hippogriff", power="3",
          toughness="4", oracle_text="Emerge {5}{U} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by "
          "that creature's mana value.)\nWhen you cast this spell, draw a card.\nFlying", keywords=["Emerge", "Flying"]),
+    card("Light 'Em Up", set_code="tst", number="D15", mana_cost="{1}{R}", cmc=2.0, type_line="Instant", colors=["R"], color_identity=["R"],
+         oracle_text="Casualty 2 (As you cast this spell, you may sacrifice a creature with power 2 or greater. When you do, copy this "
+         "spell and you may choose a new target for the copy.)\nLight 'Em Up deals 2 damage to target creature or planeswalker."),
+    card("Deputized Protester", set_code="tst", number="D16", mana_cost="{2}{R}", cmc=3.0, type_line="Creature — Human Warrior", power="2",
+         toughness="1", colors=["R"], color_identity=["R"], oracle_text="Menace (This creature can't be blocked except by two or more "
+         "creatures.)\nMelee (Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)",
+         keywords=["Menace", "Melee"]),
+    card("Krosan Vorine", set_code="tst", number="D17", mana_cost="{3}{G}", cmc=4.0, type_line="Creature — Cat Beast", power="3",
+         toughness="2", colors=["G"], color_identity=["G"], oracle_text="Provoke (Whenever this creature attacks, you may have target "
+         "creature defending player controls untap and block it if able.)\nThis creature can't be blocked by more than one creature.",
+         keywords=["Provoke"]),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -223,6 +234,72 @@ def test_disturb_casts_the_back_face_from_the_graveyard(cards):
     from tests.test_rules_attachments import ch
 
     assert ch(s, now).name == "Luminous Phantom" and "flying" in ch(s, now).keywords
+    roundtrip(s)
+
+
+def _my_next_attack(s):
+    """Play on (answering what's asked the plain way) to p1's declare attackers step of the next turn they have."""
+    for _ in range(300):
+        d = s.state.rules.decision
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_attackers" and d.player == "p1" and s.state.turn.number >= 3:
+            return
+        elif d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    raise AssertionError("never got there")
+
+
+def test_melee_counts_the_opponents_attacked(cards):
+    s = build(cards, p1=("Deputized Protester",))
+    dep = put(s, "Deputized Protester", "battlefield")
+    _my_next_attack(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": dep.id, "target": "p2"}])
+    answer(s)
+    assert s.state.players["p2"].life == 37  # 702.121a: +1/+1 for the one opponent attacked, 3 damage (unblocked)
+    roundtrip(s)
+
+
+def test_provoke_makes_the_creature_untap_and_block_it_if_able(cards):
+    s = build(cards, p1=("Krosan Vorine",), p2=("Test Bear",))
+    vorine = put(s, "Krosan Vorine", "battlefield")
+    bear = put(s, "Test Bear", "battlefield", pid="p2")
+    act(s, "p2", type="tap", card_ids=[bear.id], tapped=True)
+    _my_next_attack(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": vorine.id, "target": "p2"}])
+    for _ in range(10):  # the trigger's target, then "you may" (yes)
+        d = s.state.rules.decision
+        if d is not None and d.kind != "declare_blockers":
+            pick = bear.id if any(o.id == bear.id for o in d.options) else "yes" if any(o.id == "yes" for o in d.options) else d.options[0].id
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+        elif d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert not s.state.cards[bear.id].tapped  # 702.39a: untapped
+    assert s.state.rules.decision.kind == "declare_blockers"
+    with pytest.raises(ActionError):  # 509.1c: it blocks Krosan Vorine if able
+        act(s, "p2", type="declare_blockers", blocks=[])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bear.id, "attacker_id": vorine.id}])
+    roundtrip(s)
+
+
+def test_casualty_sacrifices_a_creature_and_copies_the_spell(cards):
+    s = build(cards, p1=("Light 'Em Up", "Test Bear"), p2=("Test Bear", "Test Bear"))
+    lit = put(s, "Light 'Em Up", "hand")
+    mine = put(s, "Test Bear", "battlefield")  # power 2: casualty 2 (702.153a)
+    theirs = [c for c in s.state.cards.values() if c.owner == "p2" and c.name == "Test Bear"]
+    for t in theirs:
+        act(s, "p2", type="move", card_ids=[t.id], to={"player": "p2", "zone": "battlefield"})
+    mana(s, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=lit.id, targets=[theirs[0].id], optional_costs=[f"{lit.id}:casualty"])
+    assert s.state.cards[mine.id].zone == "p1:graveyard"
+    answer(s, pick=theirs[1].id)  # the copy's new target
+    assert all(s.state.cards[t.id].zone == "p2:graveyard" for t in theirs)
     roundtrip(s)
 
 

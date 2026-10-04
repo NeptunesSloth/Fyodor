@@ -77,7 +77,14 @@ MEANINGS: dict[str, str] = {
     "offspring": "When this creature enters, if it was kicked, create a token that's a copy of it, except it's 1/1.",
     "mentor": "Whenever this creature attacks, put a +1/+1 counter on target attacking creature with power less than this "
               "creature's power.",  # 702.134a
+    # -- casting extras (wave 18E) -- 702.121a melee (values.parse_count: the opponents attacked directly, 506.3)
+    "melee": "Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked with a creature this combat.",
+    # 702.39a provoke: "you may choose to have target creature … block … If you do, untap that creature" — the whole of it is the "may"
+    # (``_OPTIONAL``); "this combat" is read as "this turn" (the requirement only matters while this creature attacks)
+    "provoke": "Whenever this creature attacks, target creature defending player controls blocks this creature this turn if able. "
+               "Untap that creature.",
 }
+_OPTIONAL = frozenset({"provoke"})  # (the controller may choose not to do it, when it resolves)
 _COSTED = frozenset({"squad", "offspring"})  # keywords written with a cost (paid as kicker is: costs.kicker_cost)
 _NUMBERED = frozenset({"poisonous", "frenzy", "afterlife", "modular", "graft", "annihilator", "afflict", "mobilize", "vanishing", "fading", "backup", "rampage"})
 
@@ -114,7 +121,7 @@ def _definition(piece: str) -> str | None:
         d = scripts.define(ab, Characteristics(name="\u0000", abilities=(ab,), types=frozenset({"Creature"})))
         if d is None or d.get("kind") != "triggered" or not scripts._event_refs_ok(d):
             return None
-        out.append(d)
+        out.append({**d, "optional": True} if kw in _OPTIONAL else d)
     return json.dumps(out)
 
 

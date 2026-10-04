@@ -362,6 +362,8 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return affinity_filter(Characteristics(name="", abilities=(AbilityText(index=0, text=line, kind="keywords",
                                                                               keywords=("affinity",)),))) is not None
+    if kw == "casualty":  # -- casting extras (wave 18E) -- cost_changes.optional_offers / casting._conspire_trigger (one instance)
+        return re.fullmatch(r"casualty \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "conspire":  # -- static_other sweep (wave 17C) -- cost_changes.optional_offers / casting._conspire_trigger
         return line.strip().rstrip(".").lower() == "conspire"
     if kw == "teamwork":  # (702.194a: its optional cost, and "cast using teamwork" in the text)

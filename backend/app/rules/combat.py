@@ -369,6 +369,8 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         from app.game.rules_state import note_attack
         from app.rules import triggers  # triggers → plan; imported late
 
+        plan.rules.attacked_players[plan.actor] = sorted({x.target for x in a.attackers if x.target in plan.state.players})  # (melee: 18E)
+
         note_attack(plan.state, plan.actor,  # (wave 4D: the attacking objects)
                     [plan.oid(plan.state.cards[x.card_id]) for x in a.attackers])  # 508.1: "if you attacked this turn" (conditional clauses, wave 1B)
         # -- static wordings (wave 6E) -- 508.1g / 701.43d: "You may exert this creature as it attacks" (app/rules/exert.py)

@@ -832,6 +832,9 @@ class RulesState(BaseModel):
     winner: str | None = None
     # -- casting extras (wave 18E) -- miracle (app/rules/miracle.py): the cards whose owner may reveal them now (never sent to anyone else),
     # the last turn each player drew (for "the first card you've drawn this turn"), and the free casts that are miracle casts
+    # (melee, 702.121a: the opponents each attacking player attacked directly — not through a planeswalker or battle, 506.3 — in the
+    # latest declaration of attackers: "for each opponent you attacked with a creature this combat")
+    attacked_players: dict[str, list[str]] = Field(default_factory=dict)
     miracle: list[str] = Field(default_factory=list)
     miracle_turn: dict[str, int] = Field(default_factory=dict)
     miracled: list[str] = Field(default_factory=list)
