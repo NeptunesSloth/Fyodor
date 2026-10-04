@@ -1945,6 +1945,20 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
     if a.kicker and (kick := kicker_cost(ch.abilities)) is not None and kick.entwine and not (definition or {}).get("modes"):
         raise ActionError(f"{ch.name} can be entwined only as a modal spell")  # -- casting extras (wave 18E) -- 702.42a
+    splice_extra: list[AbilityCost] = []
+    if a.splice:  # -- casting extras (wave 18E) -- 702.47: the spliced cards' text is part of the spell; their costs are additional costs
+        from app.rules import splice
+
+        if plan.manual(card) or a.face_down:
+            raise ActionError("That card is played by hand: splice by hand with the table tools")
+        spliced_ch, spliced_costs = splice.prepare(plan, a.splice, card, ch)
+        if (definition := scripts.spell_definition(spliced_ch)) is None:
+            raise ActionError("That splice can't be carried out by the engine")
+        for sc in spliced_costs:
+            if sc.mana:
+                additional.append(sc.mana_cost)
+            if sc.cost.components:
+                splice_extra.append(sc.cost)
     aura = None if plan.manual(card) or a.face_down else attachments.enchant_selector(ch)
     slots: list[list[TargetRef]] = []
     slot_specs: list[dict[str, Any] | None] = []
@@ -2012,6 +2026,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if extra_cost is None:  # (defined only when it parses; never cast without the cost)
             raise ActionError("That additional cost can't be paid automatically")
         add_cost = alt_costs.merged(add_cost, extra_cost)
+    for sx in splice_extra:  # -- casting extras (wave 18E) -- splice costs that aren't mana (702.47a)
+        add_cost = alt_costs.merged(add_cost, sx)
     if optional:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(components=tuple(
             cost_changes.keyword_component(o) if o.kind else costs.CostComponent(costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life")
@@ -2058,6 +2074,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
             plan.do({"type": "life", "player": plan.actor, "delta": -a.x_value})
             record.life += a.x_value
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile, return, tap …
+    if a.splice:  # -- casting extras (wave 18E) -- 702.47a: the spliced cards are revealed (they stay in the hand)
+        plan.do({"type": "reveal", "card_ids": list(a.splice)}, actor=plan.actor)
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else "awaken" if a.awaken else \
         "flashback" if flashback else "free" if free else "escape" if escaping else \
         (alt_offer.tag or "alternative") if alt_offer is not None else None  # ("escape": 702.138b, wave 5I; blitz: 15E)
@@ -2086,6 +2104,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         tags.append("Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}")
     if a.awaken:
         tags.append("Awakened")
+    if a.splice:
+        tags.append("Spliced")
     if a.buyback:
         tags.append("Buyback")
         plan.rules.buyback.append(plan.oid(card))
@@ -2527,6 +2547,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     r = plan.rules
     if card.id not in r.free_casts or card.zone == STACK or ch.is_land:
         raise ActionError("You can't cast that without paying its mana cost now")
+    if a.splice:
+        raise ActionError("Splice by hand: Fyodor splices only onto a spell cast with its cost")
     if "Legendary" in ch.supertypes and ch.is_instant_or_sorcery and not _controls_legendary(plan.state, plan.actor, plan.info):
         raise ActionError(f"{ch.name} needs you to control a legendary creature or planeswalker")  # 205.4e
     # -- cast limits (wave 5E) -- 601.3 applies to a cast as something resolves too

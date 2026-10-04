@@ -27,6 +27,16 @@ EXTRA = [
          "this spell for its overload cost. If you do, change its text by replacing all instances of \"target\" with \"each.\")"),
     card("Test Bear", set_code="tst", number="D05", mana_cost="{2}{G}", cmc=3.0, type_line="Creature — Bear", power="2", toughness="2",
          colors=["G"], color_identity=["G"], oracle_text=""),
+    card("Kodama's Might", set_code="tst", number="D06", mana_cost="{G}", cmc=1.0, type_line="Instant — Arcane", colors=["G"],
+         color_identity=["G"], oracle_text="Target creature gets +2/+2 until end of turn.\nSplice onto Arcane {G} (As you cast an Arcane "
+         "spell, you may reveal this card from your hand and pay its splice cost. If you do, add this card's effects to that spell.)"),
+    card("Glacial Ray", set_code="tst", number="D07", mana_cost="{1}{R}", cmc=2.0, type_line="Instant — Arcane", colors=["R"],
+         color_identity=["R"], oracle_text="Glacial Ray deals 2 damage to any target.\nSplice onto Arcane {1}{R} (As you cast an Arcane "
+         "spell, you may reveal this card from your hand and pay its splice cost. If you do, add this card's effects to that spell.)"),
+    card("Torrent of Stone", set_code="tst", number="D08", mana_cost="{3}{R}", cmc=4.0, type_line="Instant — Arcane", colors=["R"],
+         color_identity=["R"], oracle_text="Torrent of Stone deals 4 damage to target creature.\nSplice onto Arcane—Sacrifice two "
+         "Mountains. (As you cast an Arcane spell, you may reveal this card from your hand and pay its splice cost. If you do, add "
+         "this card's effects to that spell.)"),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -98,4 +108,49 @@ def test_overload_only_affects_what_the_wording_names(cards):
     act(s, "p1", type="cast_spell", card_id=addr.id, alt_cost=f"{addr.id}:1")
     answer(s)
     assert (pt(s, mine), pt(s, theirs)) == ((4, 4), (2, 2))  # "Each creature you control gets +2/+2 until end of turn"
+    roundtrip(s)
+
+
+def seen(s, viewer):
+    import json
+
+    from app.game.views import build_view
+
+    return json.dumps(build_view(s.state, viewer), default=str)
+
+
+def test_splice_adds_the_text_and_costs_and_reveals(cards):
+    s = build(cards, p1=("Kodama's Might", "Glacial Ray", "Torrent of Stone", "Test Bear"))
+    might, ray, torrent, bear = (put(s, n, "hand" if n != "Test Bear" else "battlefield")
+                                 for n in ("Kodama's Might", "Glacial Ray", "Torrent of Stone", "Test Bear"))
+    from app.game.views import SPECTATOR
+
+    assert all("Glacial Ray" not in seen(s, v) for v in ("p2", SPECTATOR))  # hidden in hand until it's revealed as a splice
+    mana(s, G=1, R=1, C=1)  # {G} + the splice cost {1}{R}
+    act(s, "p1", type="cast_spell", card_id=might.id, splice=[ray.id], targets=[bear.id, "p2"], target_counts=[1, 1])  # 702.47a/d: a target for each text
+    assert s.state.cards[ray.id].zone == "p1:hand"  # the spliced card stays in hand …
+    for v in ("p2", SPECTATOR):  # … revealed to everyone (702.47a); the card that wasn't spliced stays hidden
+        assert "Glacial Ray" in seen(s, v) and "Torrent of Stone" not in seen(s, v)
+    answer(s)
+    assert s.state.players["p2"].life == 38  # … and the spell deals the 2 damage (702.47c)
+    assert pt(s, bear) == (4, 4)
+    roundtrip(s)
+
+
+def test_splice_cost_that_is_not_mana_and_a_card_that_cant_splice(cards):
+    s = build(cards, p1=("Kodama's Might", "Torrent of Stone", "Test Bear", "Mountain", "Mountain"), p2=("Test Bear",))
+    might, torrent = put(s, "Kodama's Might", "hand"), put(s, "Torrent of Stone", "hand")
+    mine = put(s, "Test Bear", "battlefield")
+    theirs = put(s, "Test Bear", "battlefield", pid="p2")
+    mts = [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Mountain"]
+    for m in mts:
+        act(s, "p1", type="move", card_ids=[m.id], to={"player": "p1", "zone": "battlefield"})
+    mana(s, G=1)
+    with pytest.raises(ActionError):  # a spliced card must be in your hand, and not the spell itself
+        act(s, "p1", type="cast_spell", card_id=might.id, splice=[might.id], targets=[mine.id])
+    act(s, "p1", type="cast_spell", card_id=might.id, splice=[torrent.id], targets=[mine.id, theirs.id], target_counts=[1, 1],
+        cost_choices=[{"component": 0, "cards": [m.id for m in mts]}])
+    answer(s)
+    assert all(s.state.cards[m.id].zone == "p1:graveyard" for m in mts)
+    assert s.state.cards[theirs.id].zone == "p2:graveyard" and s.state.cards[mine.id].zone == "p1:battlefield"
     roundtrip(s)

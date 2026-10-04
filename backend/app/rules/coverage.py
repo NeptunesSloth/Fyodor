@@ -516,6 +516,11 @@ def features_of(ch: Characteristics) -> list[Feature]:
             add(f"script:{ab.index}", ab.text, True)
         elif ab.kind == "keywords":
             for kw in ab.keywords:
+                if kw == "splice":  # -- casting extras (wave 18E) -- app/rules/splice.py
+                    from app.rules import splice
+
+                    add("keyword:splice", "Splice", splice.spliceable(ch))
+                    continue
                 if kw == "overload":  # -- casting extras (wave 18E) -- the spell read with "each" for "target" (702.96a)
                     from app.rules import overload
 
