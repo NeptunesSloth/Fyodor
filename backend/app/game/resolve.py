@@ -61,6 +61,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.r = None  # never trust client-supplied resolution data
     if hasattr(a, "opening"):
         a.opening = None
+    if hasattr(a, "keep_ids") and not trusted:
+        a.keep_ids = False  # -- review (face-down ids) -- only the rules engine defers the renumbering (Plan.renumber_face_down)
     if isinstance(a, A.ResponseOpen):
         raise ActionError("Response checks are opened by the server")
     if a.type in A.SERVER_ONLY_TYPES and not trusted:

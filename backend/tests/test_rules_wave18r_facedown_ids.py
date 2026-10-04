@@ -135,3 +135,86 @@ def test_a_face_down_permanent_that_changes_controller_keeps_its_id(cards):
     act(s, "p1", type="move", card_ids=[viper.id], to={"player": "p2", "zone": "battlefield"})
     assert viper.id == before and viper.zone == "p2:battlefield"
     roundtrip(s)
+
+
+# -- review (face-down ids, head review) --
+def test_typed_text_and_the_old_objects_relations_are_not_rewritten(cards):
+    """A player can't plant the old id in a note or a counter's name and read the new one back; a copy keeps the old object as its
+    source (400.7: the face-down card is a new object); the renamed card is last in the table's card order (no position to match)."""
+    s = build(cards, p1=("Ambush Viper",), p2=("Grizzly Bears",))
+    viper = put(s, "Ambush Viper", "battlefield")
+    bears = put(s, "Grizzly Bears", "battlefield", pid="p2")
+    old = viper.id
+    act(s, "p2", type="set_copy_source", card_id=bears.id, source_id=old)
+    act(s, "p2", type="note", card_id=bears.id, text=f"was {old}")
+    act(s, "p2", type="counter", card_ids=[bears.id], kind=old)
+    act(s, "p1", type="move", card_ids=[old], to={"zone": "hand"})
+    act(s, "p1", type="move", card_ids=[old], to={"zone": "battlefield"}, face_down=True, face_down_kind="manifest", keep_ids=True)
+    assert viper.id != old  # (keep_ids is the rules engine's, never a client's)
+    assert bears.copy_of.source_id == old and bears.note == f"was {old}" and old in bears.counters
+    assert viper.id not in json.dumps(s.view("p2")["cards"][bears.id])
+    assert list(s.state.cards)[-1] == viper.id
+    roundtrip(s)
+
+
+def test_a_manual_move_leaves_no_old_id_in_the_rules_state(cards):
+    """A move made by hand renumbers in the step; the rules bookkeeping of that step (last known information) follows the new id."""
+    s = build(cards, p1=("Ambush Viper",))
+    viper = put(s, "Ambush Viper", "battlefield")
+    old = viper.id
+    act(s, "p1", type="move", card_ids=[old], to={"zone": "exile"}, face_down=True)
+    assert viper.id != old and old not in json.dumps(s.state.rules.model_dump(mode="json"))
+    roundtrip(s)
+
+
+def test_a_face_down_spell_that_resolves_and_then_leaves_in_one_intent_is_renumbered(cards):
+    """708.9: it is revealed as it leaves the battlefield, so face down in exile it is a card they saw, whatever it was at the start."""
+    import random
+
+    from app.rules.plan import Plan
+
+    s = build(cards, p1=("Ambush Viper",))
+    viper = put(s, "Ambush Viper", "hand")
+    act(s, "p1", type="move", card_ids=[viper.id], to={"zone": "stack"}, face_down=True, face_down_kind="morph")
+    plan = Plan(s.state, "p1", s.cards, random.Random(0))
+    for zone in ("battlefield", "exile"):
+        plan.do({"type": "move", "card_ids": [viper.id], "to": {"player": "p1", "zone": zone}, "face_down": True})
+    plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
+    assert [st["card_ids"] for st in plan.steps if st["type"] == "renumber"] == [[viper.id]]
+
+
+def test_an_exported_rules_scenario_replays_a_renumbering(cards):
+    """The new ids come from the game's salt: a rules scenario (developer export) carries it, or its replay can't follow them."""
+    from app.rules import scenario
+
+    s = build(cards, p1=("Ashcloud Phoenix", "Lightning Bolt"))
+    phoenix = put(s, "Ashcloud Phoenix", "battlefield")
+    bolt = put(s, "Lightning Bolt", "hand")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[phoenix.id])
+    answer(s)
+    assert phoenix.face_down
+    mana(s, R=2, C=4)
+    act(s, "p1", type="turn_face_up", card_id=phoenix.id)  # (an intent naming the new id)
+    answer(s)
+    data = next(d for n in range(1, 20) if (d := json.loads(json.dumps(scenario.export(s, s.cards, intents=n))))["actions"][0]["type"]
+                == "cast_spell")  # (from the Bolt on)
+    assert any(st["type"] == "renumber" for a in data["actions"] for st in a.get("r") or [])
+    assert scenario.replay(data, s.cards) == []
+
+
+def test_a_save_from_before_renumbering_keeps_its_history(cards):
+    """v6 saves recorded face-down moves that kept their ids: replaying them (load, undo) must not renumber."""
+    from app.storage.save_format import decode, encode
+    from app.storage.saves import load_payload
+
+    s = build(cards, p1=("Ambush Viper",))
+    viper = put(s, "Ambush Viper", "battlefield")
+    s.perform("p1", {"type": "move", "card_ids": [viper.id], "to": {"zone": "exile"}, "face_down": True, "keep_ids": True},
+              trusted=True)  # (what the v6 engine did)
+    history = s.history.to_dict()
+    for action in history["actions"]:
+        action.pop("keep_ids", None)
+    payload = {"format": "fyodor-save", "version": 6, "saved_at": 0, "state": s.state.model_dump(mode="json"), "history": history}
+    state, restored = load_payload(decode(encode(payload)))
+    assert restored is not None and restored.rebuild().model_dump(mode="json") == state.model_dump(mode="json")

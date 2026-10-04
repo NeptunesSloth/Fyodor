@@ -8,7 +8,7 @@ from typing import Any
 from app.game import actions as A
 from app.game.control import controller_of
 from app.game.errors import ActionError
-from app.game.ops import down_public, needs_fresh_id, zone_name
+from app.game.ops import down_public, seen_move, zone_name
 from app.game.rules_state import (
     AutomationOptions,
     Decision,
@@ -44,9 +44,9 @@ class Plan:
         self.max_steps = MAX_STEPS
         self.hold: str | None = None  # a player keeping priority right now (HOLD PRIORITY, a cancelled cast)
         self.probe_903: list[tuple[str, str]] | None = None  # a look ahead for 903.9b (replacements.ask_903_9b_first)
-        # -- review (face-down ids) -- where each card was, and whether face down in view, when the intent began
+        # -- review (face-down ids) -- whether each card is face down in view (as the intent began, then after each of its moves)
         self.began: dict[str, bool] | None = {cid: down_public(c) for cid, c in self.state.cards.items()}
-        self.moved: dict[str, tuple[str, str]] = {}  # card -> the zones of its first move this intent (it changed kinds of zone)
+        self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
 
     began: dict[str, bool] | None = None
 
@@ -55,8 +55,7 @@ class Plan:
         down where others see them get new ids: one recorded step, then the rules state is re-dumped by the caller."""
         if self.began is None:
             return False
-        fresh = [cid for cid, (src, first) in self.moved.items()
-                 if (c := self.state.cards.get(cid)) is not None and needs_fresh_id(src, first, self.began.get(cid, False), c)]
+        fresh = [cid for cid, seen in self.moved.items() if seen and (c := self.state.cards.get(cid)) is not None and down_public(c)]
         if fresh:
             self.do({"type": "renumber", "card_ids": fresh})
         return bool(fresh)
@@ -101,10 +100,11 @@ class Plan:
             before.types = self._battlefield_types(payload)
         entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
         HANDLERS[resolved.type](self.state, resolved)
-        if before is not None:
+        if before is not None and self.began is not None:
             for cid, zone in before.zones.items():
-                if cid not in self.moved and (c := self.state.cards.get(cid)) is not None and zone_name(zone) != zone_name(c.zone):
-                    self.moved[cid] = (zone, c.zone)
+                if (c := self.state.cards.get(cid)) is not None and zone_name(zone) != zone_name(c.zone):
+                    was, self.began[cid] = self.began.get(cid, False), down_public(c)
+                    self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
               put_by=wither_put_by(resolved))  # (5H, 7C, 17D)
         if entered_before is not None:  # -- refused modal/conditional (wave 3R1) -- what entered was, as it entered (608.2i)

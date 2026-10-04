@@ -14,10 +14,13 @@ from app.game.state import (
     ALL,
     HIDDEN_ZONES,
     STACK,
+    Arrow,
     CardInstance,
     GameState,
     LogEntry,
     LogPart,
+    MergedPart,
+    PlayerState,
     split_zone,
     zone_key,
 )
@@ -280,16 +283,32 @@ def needs_fresh_id(source: str, first: str, was_down: bool, c: CardInstance) -> 
     Not a control change, nor a face-down object that goes on (its spell resolving): they already know it as the same object. But
     708.9: a face-down permanent or spell that leaves the battlefield or stack is revealed, so going face down again is a card they
     have seen."""
-    if not down_public(c):
-        return False
-    src, dst = zone_name(source), zone_name(first)
+    return down_public(c) and seen_move(source, first, was_down)
+
+
+def seen_move(source: str, dest: str, was_down: bool) -> bool:
+    """A move after which the card is no longer the face-down object others knew (``was_down``: it was one, see needs_fresh_id)."""
+    src, dst = zone_name(source), zone_name(dest)
     return src != dst and (not was_down or (src in ("battlefield", STACK) and dst != "battlefield"))
 
 
+# Never rewritten: what players type (a note, a counter's or an effect's name, a token's text, an arrow's label, a player's name: a
+# player could write the old id there and read the new one back), and what speaks of the card as it was (400.7: the source of a copy,
+# of a token, of an ability on the stack or of mana in a pool is that old object; following it to the face-down card would name it)
+_KEEP: dict[type, frozenset[str]] = {
+    CardInstance: frozenset({"name", "note", "counters", "effects", "choices", "stack_info", "exile_group", "face_down_as", "token",
+                             "token_source", "copy_of", "ability"}),
+    MergedPart: frozenset({"name", "token", "copy_of"}),
+    Arrow: frozenset({"label"}),
+    PlayerState: frozenset({"name", "deck_name", "resources", "mana_units"}),
+}
+
+
 def renumber(state: GameState, ids: Iterable[str]) -> dict[str, str]:
-    """Give each of these cards a new instance id and rewrite every reference to the old one (attachments, combat, copies, views,
-    arrows, and everything the rules state remembers: exiled-with links, delayed triggers, decisions in flight, permissions). The
-    new ids come from the game's secret salt and the old id: unpredictable to players, the same on replay (the compile and the apply)."""
+    """Give each of these cards a new instance id and rewrite every reference to the old one (attachments, combat, views, arrows,
+    and everything the rules state remembers: exiled-with links, delayed triggers, decisions in flight, permissions, object ids).
+    The new ids come from the game's secret salt and the old id: unpredictable to players, the same on replay (the compile and the
+    apply). A renamed card goes to the end of the table's card order, like any new object (no position to match it by)."""
     mapping: dict[str, str] = {}
     key = state.hidden_salt.encode()[:64] or b"fyodor"
     for old in dict.fromkeys(ids):
@@ -304,6 +323,17 @@ def renumber(state: GameState, ids: Iterable[str]) -> dict[str, str]:
         mapping[old] = new
     if not mapping:
         return mapping
+    for field in ("cards", "zones", "views", "arrows", "response", "table", "players", "rules", "auto_pass", "pregame", "turn"):
+        rewrite(getattr(state, field), mapping)
+    for new in mapping.values():
+        state.cards[new] = state.cards.pop(new)
+    state.renames().update(mapping)
+    return mapping
+
+
+def rewrite(v: Any, mapping: dict[str, str]) -> Any:
+    """``v`` with each card id of ``mapping`` replaced (in place where it can be), also inside an object id ("<card>.<n>") or a
+    ‹granter#<card>.<n>› token; never inside a longer word."""
     pattern = re.compile(r"(?<![0-9A-Za-z_])(" + "|".join(re.escape(o) for o in mapping) + r")(?![0-9A-Za-z_])")
 
     def sub(v: Any) -> Any:
@@ -320,11 +350,10 @@ def renumber(state: GameState, ids: Iterable[str]) -> dict[str, str]:
         elif isinstance(v, set):
             return {sub(x) for x in v}
         elif isinstance(v, BaseModel):
+            keep = _KEEP.get(type(v), frozenset())
             for field, x in v.__dict__.items():
-                v.__dict__[field] = sub(x)
+                if field not in keep:
+                    v.__dict__[field] = sub(x)
         return v
 
-    for field in ("cards", "zones", "views", "arrows", "response", "table", "players", "rules", "auto_pass", "pregame", "turn"):
-        sub(getattr(state, field))
-    state.renames().update(mapping)
-    return mapping
+    return sub(v)

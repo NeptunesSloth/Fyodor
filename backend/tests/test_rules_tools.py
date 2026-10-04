@@ -78,7 +78,7 @@ def test_scenario_export_redacts_and_replays(cards):
     assert [a["type"] for a in data["actions"]] == ["activate_ability"]
     hidden = [c for c in data["state"]["cards"].values() if c["zone"].endswith(":library")]
     assert hidden and all(c["name"] == "" and c["card_id"] is None for c in hidden)  # redacted
-    assert data["state"]["log"] == [] and data["state"]["hidden_salt"] == ""
+    assert data["state"]["log"] == [] and data["state"]["hidden_salt"] == s.state.hidden_salt  # (renumbering replays from it)
     assert scenario.replay(json.loads(json.dumps(data)), cards) == []  # the current engine agrees
 
 
