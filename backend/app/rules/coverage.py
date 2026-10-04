@@ -225,6 +225,7 @@ SUPPORTED_KEYWORDS: set[str] = {
 # template), the 714.4 sacrifice; read ahead (702.155): the number chosen as it enters, skipped chapters.
 SUPPORTED_KEYWORDS.add("read ahead")
 SUPPORTED_KEYWORDS.add("phasing")  # -- phasing (wave 13D) -- 702.26 (app/rules/phasing.py)
+SUPPORTED_KEYWORDS.update(("aftermath", "gravestorm"))  # -- static_other sweep (wave 16B) -- 702.127 (casting.cast_grant)
 SUPPORTED_KEYWORDS.add("split second")  # -- split second (wave 8A) -- 702.61 (app/rules/split_second.py, cast_limits)
 # -- end sagas & attached-object triggers (wave 3S) --
 

@@ -1301,7 +1301,8 @@ def from_graveyard(card: CardInstance, player: str, ch: Characteristics, state: 
     own, or (wave 3R2, ``state``) one an effect gave it this turn (app/rules/graveyard_grants.py)."""
     if card.zone != zone_key(player, "graveyard") or card.owner != player:
         return False
-    return flashback_cost(ch) is not None or (state is not None and _granted_flashback(state, card, ch) is not None)
+    # -- static_other sweep (wave 16B) -- 702.127a: the aftermath half is cast from a graveyard and exiled as it leaves the stack
+    return "aftermath" in ch.keywords or flashback_cost(ch) is not None or (state is not None and _granted_flashback(state, card, ch) is not None)
 
 
 def _granted_flashback(state: GameState, card: CardInstance, ch: Characteristics) -> str | None:
@@ -1425,6 +1426,8 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
         how = "prepared"  # -- prepared (wave 13C) -- 722.3c: its controller may cast the copy in exile
     found = permissions.grants(state, player, card, ch, info, verb="cast") if info is not None else []
     flash = any(g.flash for g in found)
+    if "aftermath" in ch.keywords:  # -- static_other sweep (wave 16B) -- 702.127a: "can't be cast from any zone other than a graveyard"
+        return permissions.Grant("flashback", flash=flash) if how == "flashback" else None
     if how is None and info is not None and card.zone == zone_key(player, "graveyard") and not free \
             and not any(g.zone_ok and not g.free for g in found) and _escape_offers(state, player, card, ch, info):
         how = "escape"  # -- escape (wave 5I) -- 702.138a: cast from the graveyard for an escape cost (only that way)
@@ -1878,7 +1881,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     record.kicked = a.kicker  # 702.33d
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
     record_payment(plan, card.id, record)
-    tags = ["Cast from the command zone"] if commander_cast else ["Flashback"] if flashback else ["Dashed"] if a.dash else \
+    tags = ["Cast from the command zone"] if commander_cast else ["Aftermath" if "aftermath" in ch.keywords else "Flashback"] if flashback else ["Dashed"] if a.dash else \
         ["Escaped"] if escaping else []  # (wave 5I)
     if grant is not None and grant.how == "permission":
         permissions.consume(plan, grant)  # (a "once during each of your turns" permission is used up)
@@ -1913,7 +1916,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     more_cascade = 0 if a.face_down or plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
     if more_cascade or ("cascade" in ch.keywords and not a.face_down and not plan.manual(card)):
         _cascade_triggers(plan, card, ch, more_cascade)
-    if "storm" in ch.keywords and not a.face_down and not plan.manual(card):
+    if ("storm" in ch.keywords or "gravestorm" in ch.keywords) and not a.face_down and not plan.manual(card):
         _storm_trigger(plan, card, ch)
     if definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
         effects_in_order = [e for k, i in enumerate(picked)
@@ -2216,6 +2219,10 @@ def _storm_trigger(plan: Plan, card: CardInstance, ch: Characteristics) -> None:
     r = plan.rules
     turn = plan.state.turn.number
     before = sum(r.spells_this_turn(p, turn) for p in plan.state.seat_order)
+    if "gravestorm" in ch.keywords:  # -- static_other sweep (wave 16B) -- 702.69a: each permanent put into a graveyard from the battlefield this turn (tokens too)
+        from app.rules import history
+
+        before = sum(1 for d in history.log_for(plan).left if d.to == "graveyard")
     if before:
         _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6100,
              definition={"kind": "triggered", "trigger": "storm", "optional": False, "target": None,
@@ -2340,7 +2347,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     extra = 0 if plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
     if extra or ("cascade" in ch.keywords and not plan.manual(card)):
         _cascade_triggers(plan, card, ch, extra)
-    if "storm" in ch.keywords and not plan.manual(card):
+    if ("storm" in ch.keywords or "gravestorm" in ch.keywords) and not plan.manual(card):
         _storm_trigger(plan, card, ch)
     if definition is not None and picked:
         effects_in_order = [e for k, i in enumerate(picked)
