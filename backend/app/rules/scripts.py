@@ -1028,6 +1028,16 @@ def _put_back(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if bool(m["one"]) == bool(m["any"]):
         raise _NoMatch  # (several cards come with "in any order"; one card never does)
     return [{"do": "put_back", "n": 1 if m["one"] else num(m["n"])}], None
+
+
+# -- trigger tail (wave 16C) -- "Target opponent puts a card from their hand on top of their library." (Chimney Imp), "Each player
+# puts a card from their hand on top of their library." (Sadistic Augermage): each chooses privately from their own hand (401.4), in
+# turn order (101.4)
+@effect(r"(?P<who>each player|each opponent|target opponent|target player) puts a card from their hand on top of their library")
+def _each_put_back(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    who = m["who"]
+    return [{"do": "put_back", "n": 1, "who": "target" if who.startswith("target") else who.replace(" ", "_")}], \
+        {"target opponent": "opponent", "target player": "player"}.get(who)
 # -- end triggers (wave 5D) --
 
 
@@ -1236,9 +1246,9 @@ def _counters(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "add_counters", "who": who, "kind": m["kind"], "n": num(m["n"])}], SELECTORS.get(m["who"])
 
 
-@effect(r"proliferate")
+@effect(r"proliferate(?P<again>, then proliferate again| twice)?")
 def _proliferate(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
-    return [{"do": "proliferate", "who": "you"}], None
+    return [{"do": "proliferate", "who": "you"}] * (2 if m["again"] else 1), None  # (wave 16C: 701.34a, one after the other)
 
 
 WIPES = {"creatures": ["Creature"], "artifacts": ["Artifact"], "enchantments": ["Enchantment"],
@@ -1345,8 +1355,10 @@ def _scry_x(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": m["verb"], "who": "you", "n": _x_amount(m["xdef"])}], None  # (wave 4K: 701.22, 701.25)
 
 
-@effect(r"(?P<src>~|it) explores")
+@effect(r"(?P<src>~|it|target creature you control) explores")
 def _explore(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    if m["src"] == "target creature you control":  # -- trigger tail (wave 16C) -- 701.44a: the creature explores (you control it)
+        return [{"do": "explore", "who": "target"}], "creature_you_control"
     return [{"do": "explore", **_it_source(m["src"])}], None
 
 
@@ -1635,7 +1647,7 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         text = serial[1].replace(", ", " and ") + " and " + serial[2]
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
-                                 r"remove|add|investigate|prevent)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
+                                 r"remove|add|investigate|prevent|amass|proliferate)\b)"):  # (remove: wave 6D, "untap it and remove it from combat")
         parts = re.split(joiner, text, maxsplit=1)
         if len(parts) != 2:
             continue

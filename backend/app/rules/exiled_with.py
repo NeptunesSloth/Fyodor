@@ -69,7 +69,7 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_BATTLEFIELD, _battlefield), (_
 def _exiles(d: dict[str, Any] | None) -> bool:
     # (-- champion (wave 12B) -- also a payment: "sacrifice it unless you exile another Merfolk you control", recorded by
     # optional_payment._pay)
-    return d is not None and any(e.get("do") == "exile" or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile "))
+    return d is not None and any(e.get("do") == "exile" or e.get("exile") or (e.get("do") == "optional_payment" and str(e.get("cost")).startswith("Exile "))
                                  for e in d.get("effects") or [])
 
 
@@ -98,7 +98,7 @@ def link(d: dict[str, Any] | None, ability: Any, ch: Any) -> dict[str, Any] | No
     referring = [ab for ab in ch.abilities if ab.index != ability.index and _REFERS.search(scripts.self_text(ab.text, ch.name))]
     if not referring:
         return d
-    return {**d, "effects": [{**e, "link": True} if e.get("do") == "exile" else e for e in d["effects"]]}
+    return {**d, "effects": [{**e, "link": True} if e.get("do") == "exile" or e.get("exile") else e for e in d["effects"]]}
 
 
 def record(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> None:

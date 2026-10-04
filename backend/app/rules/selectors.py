@@ -47,7 +47,7 @@ OTHER_SUBTYPES = {"Equipment", "Aura", "Vehicle", "Food", "Clue", "Treasure", "B
                   "Curse", "Plains", "Island", "Swamp", "Mountain", "Forest", "Desert", "Gate", "Cave", "Town",
                   "Sphere", "Lesson", "Adventure", "Arcane", "Trap", "Room", "Class", "Case", "Background",
                   "Fortification", "Attraction", "Contraption", "Powerstone", "Map", "Incubator", "Junk",
-                  "Lair", "Bobblehead", "Cartouche"}  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
+                  "Lair", "Locus", "Bobblehead", "Cartouche"}  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
 # -- kicked / instead (wave 4G) -- 205.3j: the planeswalker types ("If you control a Jace planeswalker, …"), read only
 # when written capitalized (a word like "will" is never one)
 PLANESWALKER_TYPES = frozenset({
@@ -804,7 +804,10 @@ def _parse(phrase: str) -> Selector | None:
         return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source)
     if any(c[1] == "==" and c[2] == X_VALUE for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
         return None  # -- reanimation (wave 10A) -- ("mana value X" exactly: read only for a card in a graveyard)
-    if qualified and re.search(r", or \S+$", text):
+    # (wave 16C: "artifact, creature, or enchantment an opponent controls with mana value 3 or greater": a qualifier after the
+    # controller clause is the whole phrase's)
+    if qualified and re.search(r", or \S+$", text) and not re.search(
+            r", or \w+ (?:an opponent controls|you control|your opponents control|you don't control|that player controls) with", phrase):
         # "artifact, enchantment, or creature with flying": the qualifier is the last item's
         # only (any artifact; a creature with flying), which a selector can't say: not a guess
         return None

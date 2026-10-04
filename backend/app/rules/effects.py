@@ -268,13 +268,33 @@ def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             n = each[pid]
         if e.get("half"):  # -- attached events (wave 8D) -- "loses half their life, rounded up": of the life total now (a
             half_of = max(0, plan.state.players[pid].life)  # negative total is 0, 107.1b)
-            n = half_of // 2 + (half_of % 2 if e["half"] == "up" else 0)
+            div = e.get("of", 2)  # (wave 16C: "a third of their life")
+            n = half_of // div + (1 if half_of % div and e["half"] == "up" else 0)
         if n:
             before = plan.state.players[pid].life
             plan.do({"type": "life", "player": pid, "delta": -n}, actor=ctx["controller"])
             lost += max(0, before - plan.state.players[pid].life)
     if e.get("bind"):  # -- refused zones/sized (wave 3R4) -- "the life lost this way": the total actually lost (119.3)
         context.bind_amount(ctx, e["bind"], lost)
+    return True
+
+
+def set_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- trigger tail (wave 16C) -- 119.5: "[Player]'s life total becomes N": the player gains or loses what it takes (each its own
+    event, with replacement effects); 119.7: a player who can't gain life stays where they are when the new total is higher."""
+    from app.rules import cant_gain
+
+    for pid in _players(plan, ctx, e["who"]):
+        start = plan.state.settings.starting_life
+        want = -(-start // 2) if e["n"] == "half_start" else _amount(plan, ctx, e["n"])  # (107.1a: rounded up)
+        diff = want - plan.state.players[pid].life
+        if diff < 0:
+            plan.do({"type": "life", "player": pid, "delta": diff}, actor=ctx["controller"])
+        elif diff > 0:
+            if (why := cant_gain.why_not(plan, pid)) is not None:
+                plan.note(f"{why}: the life total doesn't change", actor=ctx["controller"])
+            elif not replace.gain_life(plan, [(pid, diff)], actor=ctx["controller"], then=_then(ctx, e), ctx=ctx):
+                return False
     return True
 
 
@@ -722,7 +742,10 @@ def _destroy_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]
 
 
 def exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    cards = _cards(plan, ctx, e["who"])
+    return exile_cards(plan, ctx, e, _cards(plan, ctx, e["who"]))
+
+
+def exile_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
     before = _remember(plan, ctx, e, cards)
     if cards:
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
@@ -1258,7 +1281,7 @@ def explore(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     pid = ctx["controller"]
     library = plan.state.zones.get(zone_key(pid, "library"), [])
-    me = _cards(plan, ctx, "self")
+    me = _cards(plan, ctx, "target" if e.get("who") == "target" else "self")  # (wave 16C: "target creature you control explores")
 
     def explored(kind: int) -> None:  # -- trigger tail (wave 15B) -- "Whenever a creature you control explores" (701.44a): 1 a land
         if me:  # card was revealed, 2 a nonland card, 0 none
@@ -1735,11 +1758,12 @@ def sacrifice_choice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     control that match, in APNAP order; then they're all sacrificed at once (101.4)."""
     who = _players(plan, ctx, e["who"])
     order = [p for p in plan.apnap() if p in who]
-    return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order, [], e.get("as"))
+    return _sacrifice_next(plan, ctx, e["sel"], _amount(plan, ctx, e["n"]), order, [], e.get("as"), bool(e.get("exile")),
+                           bool(e.get("link")))
 
 
 def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list[str], picked: list[str],
-                    binding: str | None = None) -> bool:
+                    binding: str | None = None, exile: bool = False, link: bool = False) -> bool:
     sel = selectors.from_key(key)
     for i, pid in enumerate(players):
         mine = [c for c in selectors.candidates(plan, sel, pid, ctx.get("source_card"))
@@ -1754,8 +1778,11 @@ def _sacrifice_next(plan: Plan, ctx: Context, key: str, want: int, players: list
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in mine],
                min_choices=n, max_choices=n,
                resume={"step": "sacrifice_choice", "ctx": ctx, "sel": key, "want": want, "rest": players[i + 1:],
-                       "picked": picked, "as": binding})
+                       "picked": picked, "as": binding, "exile": exile, "link": link})
         return False
+    if exile:  # -- trigger tail (wave 16C) -- "Exile a land you control": chosen as it resolves, then exiled (not sacrificed)
+        picked = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+        return exile_cards(plan, ctx, {"as": binding, "link": link}, picked)
     _sacrifice_cards(plan, picked, ctx["controller"], ctx, binding)
     return True
 
@@ -1779,7 +1806,8 @@ def _sacrifice_cards(plan: Plan, cards: list[str], actor: str, ctx: Context | No
 def resume_sacrifice_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
     picked = [*(r.get("picked") or []), *chosen]
-    if _sacrifice_next(plan, r["ctx"], r["sel"], r["want"], r.get("rest") or [], picked, r.get("as")):
+    if _sacrifice_next(plan, r["ctx"], r["sel"], r["want"], r.get("rest") or [], picked, r.get("as"), r.get("exile", False),
+                       r.get("link", False)):
         continue_effects(plan, r["ctx"])
 
 
@@ -2304,6 +2332,9 @@ def shuffle_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     for pid in _players(plan, ctx, e["who"]):
         for zone in e.get("zones") or []:
             cards = list(plan.state.zones.get(zone_key(pid, zone), []))
+            if e.get("sel"):  # (wave 16C: "all creature cards from your graveyard")
+                keep = set(_cards(plan, ctx, e["sel"]))
+                cards = [c for c in cards if c in keep]
             if cards:
                 plan.do({"type": "move", "card_ids": cards, "to": {"player": pid, "zone": "library"}}, actor=pid)
         plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
@@ -3437,7 +3468,8 @@ PRIMITIVES.update(_land_plays.PRIMITIVES)  # 305.2 "You may play an additional l
 from app.rules import bounce_forms as _bounce_forms  # noqa: E402
 
 PRIMITIVES.update(_bounce_forms.PRIMITIVES)  # "return target A and target B to their owners' hands" (one move)
-PRIMITIVES["exchange_life"] = exchange_life  # -- activated wordings (wave 15D) --
+PRIMITIVES["exchange_life"] = exchange_life
+PRIMITIVES["set_life"] = set_life  # (wave 16C)  # -- activated wordings (wave 15D) --
 PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
 PRIMITIVES.update(graveyard_grants.PRIMITIVES)  # "gains flashback until end of turn" (app/rules/graveyard_grants.py)
 RESUME.update(graveyard_grants.RESUME)  # ("Choose one of them.")

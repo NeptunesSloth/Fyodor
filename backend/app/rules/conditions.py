@@ -811,9 +811,12 @@ def _object(t: str) -> Condition | None:
         test: Condition = {"object": who, **({"attached": list(_ATTACHED[what])} if what in _ATTACHED else {"designation": what})}
         return {"not": test} if negate else test
     if what in _STATES:
-        if who != "self":
-            return None  # (tapped / untapped / attacking / blocking: the source's own state, never an LKI guess)
+        past = m["verb"] in ("was", "wasn't", "was not") and what in ("tapped", "untapped", "attacking", "blocking")
+        if who not in ("self", "it") or (who == "it" and not past):
+            return None  # (an object other than the source: only "it was attacking" — as it last existed, never a present-tense guess)
         out: Condition = {"object": who, "test": _STATES[what]}
+        if who == "it":  # -- trigger tail (wave 16C) -- 608.2h: "if it was attacking": as it is, or as it last existed; unknown fails both ways
+            return {**out, "negate": True} if negate else out
     else:
         det = re.match(r"(?:a|an) (?P<rest>.+)", what)
         if det is None and re.fullmatch(r"(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*", what):
@@ -992,9 +995,23 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     that object where it was, else as it last existed (608.2h); an object that can't be found
     fails the test (608.2b: a part that needs the information can't be carried out)."""
     who = cond["object"]
-    if "test" in cond:
+    if "test" in cond and who == "self":
         return _self_state(plan, ctx, cond["test"])
     got = values._object(plan, ctx, who)
+    if "test" in cond:  # -- trigger tail (wave 16C) -- 608.2h: the object's physical state as it is while it's still on the battlefield, else
+        card = got[0] if got is not None else None  # as it last existed there (the snapshot taken as it left); not found: fails
+        if card is None:
+            return False
+        live = plan.state.cards.get(card.id)
+        if live is not None and live.zone.endswith(":battlefield"):
+            state = {"tapped": live.tapped, "untapped": not live.tapped, "attacking": live.attacking is not None,
+                     "blocking": bool(live.blocking)}
+        else:
+            snap = next((x for x in reversed(plan.rules.lki.values()) if x.card == card.id and x.zone.endswith(":battlefield")), None)
+            if snap is None:
+                return False
+            state = {"tapped": snap.tapped, "untapped": not snap.tapped, "attacking": snap.attacking, "blocking": snap.blocking}
+        return state[cond["test"]] != bool(cond.get("negate"))
     if who == "event" and "is" in cond and selectors.from_key(cond["is"]).card:
         # "exile it if it's an instant or sorcery card" after "dies": the card it is now (a face-down 2/2 that died
         # is its face-up card in the graveyard, 708.9), while it is still there; else as it last existed
@@ -1071,7 +1088,7 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
 # Refused (None): snow mana ({S}: what produced the mana isn't recorded), "mana from a Treasure" (the source of the
 # mana), "that spell" (the trigger's spell, whose record is gone once it resolved), "entered from your graveyard".
 _CAST_SUBJECT = r"(?:it|this spell|~)"
-_CAST = re.compile(rf"(?:(?P<you>you) cast (?P<who>{_CAST_SUBJECT})|(?P<who2>{_CAST_SUBJECT}) was cast)"
+_CAST = re.compile(rf"(?:(?P<you>you) (?P<neg>didn't )?cast (?P<who>{_CAST_SUBJECT})|(?P<who2>{_CAST_SUBJECT}) (?P<neg2>wasn't|was) cast)"
                    r"(?: from (?P<from>your hand|a graveyard|your graveyard|exile|your library|anywhere other than your hand))?"
                    r"(?P<main> during your main phase)?")
 _SPENT_SYMBOLS = re.compile(rf"(?P<syms>(?:\{{[WUBRGC]\}})+) was spent to cast (?P<who>{_CAST_SUBJECT})")
@@ -1112,7 +1129,9 @@ def _cast_how(t: str) -> Condition | None:
             if not m["you"]:
                 return None
             how["main"] = True
-        return {"object": _cast_who(m["who"] or m["who2"]), "cast": how}
+        found_cast: Condition = {"object": _cast_who(m["who"] or m["who2"]), "cast": how}
+        # -- trigger tail (wave 16C) -- "if you didn't cast it from your hand": no record (put onto the battlefield) or another zone
+        return {"not": found_cast} if m["neg"] or m["neg2"] == "wasn't" else found_cast
     m = _SPENT_SYMBOLS.fullmatch(t)
     if m:
         need: dict[str, int] = {}
