@@ -1740,6 +1740,13 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (gifts := refused_zones.gifts_ability(body)) is not None:
         return gifts
+    # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
+    # opponent, the token grammar's "… for each opponent"
+    body = re.sub(r"(^|\. )For each opponent, you (create [^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
+    from app.rules import voting  # -- voting (wave 18C) -- 701.38 (read before the sentence rewrites below)
+
+    if (vote := voting.split(body)) is not None:
+        return voting.bind(vote, lambda t: parse_effects(t, it, event_player=event_player), split_sentences)
     from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
 
     body = _dice.plain(trigger_words.plain_amounts(_dice.rewrite(body)))  # (rewrite: a results table, wave 16B)
@@ -2934,6 +2941,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
         if (tapped := tap_mana.definition(text)) is not None:
             return tapped
+    if ability.kind == "static" and text.startswith("While voting, "):  # -- voting (wave 18C) -- 701.38d
+        from app.rules import voting
+
+        return voting.static_definition(text)
     if ability.kind == "static" and "opening hand" in text:  # -- opening hand (wave 18C) -- 103.6 (app/rules/opening_hand.py)
         from app.rules import opening_hand
 

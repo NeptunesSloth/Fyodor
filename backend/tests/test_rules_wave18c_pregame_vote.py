@@ -5,6 +5,10 @@ their hand to use: "begin the game with it on the battlefield" (the Leylines, Qu
 not the starting player) or "reveal this card from your opening hand" (the Chancellors, Sphinx of Foresight), whose delayed
 trigger is the revealer's (603.7a). A revealed card stays revealed until the first turn begins (103.6b).
 
+Voting (701.38): "Starting with you, each player votes for X or Y." in turn order from the controller, public votes logged as made,
+"gets more votes" / "or the vote is tied", "for each X vote", "the most votes or tied for most votes", extra votes ("While voting, you
+may vote an additional time"), and the secret council vote of Vault 11 (revealed together; nothing visible to others before).
+
 Real Oracle text; each scenario replays the history and survives a save/load round trip."""
 
 from __future__ import annotations
@@ -21,7 +25,8 @@ from app.game.state import GameSettings, GameState
 from app.game.visibility import SPECTATOR
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, engine_pays
-from tests.test_rules_effects import replay_matches
+from tests.test_rules_conditionals import build, to_hand
+from tests.test_rules_effects import mana, replay_matches
 
 
 def real(name, cost, cmc, types, text, pt=None, colors=()):
@@ -39,6 +44,18 @@ EXTRA = [
          "You may reveal this card from your opening hand. If you do, scry 3 at the beginning of your first upkeep.\nFlying\nAt the beginning of your upkeep, scry 1.", ("4", "4"), "U"),
     real("Gemstone Caverns", "", 0, "Legendary Land",
          "If this card is in your opening hand and you're not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand.\n{T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."),
+    real("Tyrant's Choice", "{3}{B}", 4, "Sorcery",
+         "Will of the council — Starting with you, each player votes for death or torture. If death gets more votes, each opponent sacrifices a creature of their choice. If torture gets more votes or the vote is tied, each opponent loses 4 life.", colors="B"),
+    real("Lieutenants of the Guard", "{3}{W}", 4, "Creature — Human Soldier",
+         "Council's dilemma — When this creature enters, starting with you, each player votes for strength or numbers. Put a +1/+1 counter on this creature for each strength vote and create a 1/1 white Soldier creature token for each numbers vote.", ("2", "2"), "W"),
+    real("Ballot Broker", "{2}{U}", 3, "Creature — Human Advisor",
+         "While voting, you may vote an additional time. (The votes can be for different choices or for the same choice.)", ("2", "3"), "U"),
+    real("Capital Punishment", "{3}{B}{B}", 5, "Sorcery",
+         "Council's dilemma — Starting with you, each player votes for death or taxes. Each opponent sacrifices a creature of their choice for each death vote and discards a card for each taxes vote.", colors="B"),
+    real("Council's Judgment", "{1}{W}{W}", 3, "Sorcery",
+         "Will of the council — Starting with you, each player votes for a nonland permanent you don't control. Exile each permanent with the most votes or tied for most votes.", colors="W"),
+    real("Vault 11: Voter's Dilemma", "{2}{W}", 3, "Enchantment — Saga",
+         "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — For each opponent, you create a 1/1 white Human Soldier creature token.\nII, III — Each player secretly votes for up to one creature, then those votes are revealed. If no creature got votes, each player draws a card. Otherwise, destroy each creature with the most votes or tied for most votes.", colors="W"),
     real("Chancellor of the Tangle", "{4}{G}{G}{G}", 7, "Creature — Phyrexian Treefolk",
          "You may reveal this card from your opening hand. If you do, at the beginning of your first main phase of the game, add {G}.\nReach, vigilance", ("6", "7"), "G"),
 ]
@@ -176,3 +193,154 @@ def test_chancellor_of_the_tangle_adds_mana_in_their_first_main_phase(cards):
     assert s.state.turn.phase == "main1" and s.state.players["p1"].mana.get("G") == 1
     assert s.state.rules.delayed == []
     roundtrip(s)
+
+
+# -- voting ------------------------------------------------------------------------------------------
+def ballot(s, pid, label):
+    d = s.state.rules.decision
+    assert d is not None and d.player == pid, (d.player if d else None, pid)
+    pick = next(o for o in d.options if o.label == label)
+    act(s, pid, type="choose", decision_id=d.id, option_ids=[pick.id])
+
+
+def cast(s, name, **m):
+    c = to_hand(s, name)
+    mana(s, **m)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    return c
+
+
+def settle_stack(s):
+    for _ in range(10):
+        if s.state.rules.decision is not None or not s.state.zones.get("stack"):
+            return
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+def test_tyrants_choice_tie_goes_to_torture_and_votes_are_public(cards):
+    s = build(cards, "Tyrant's Choice")
+    cast(s, "Tyrant's Choice", B=4)
+    settle_stack(s)
+    d = s.state.rules.decision
+    assert d.player == "p1" and d.prompt == "Vote: death or torture"  # 701.38a: starting with the controller
+    ballot(s, "p1", "death")
+    assert "Alice voted for death" in json.dumps(s.view("p2")["log"])  # a public vote is seen by the next voter
+    assert s.state.rules.decision.player == "p2"
+    ballot(s, "p2", "torture")
+    assert s.state.rules.decision is None and s.state.players["p2"].life == 36  # a tie: "torture … or the vote is tied"
+    assert s.state.players["p1"].life == 40
+    roundtrip(s)
+
+
+def test_tyrants_choice_death_wins_a_sacrifice(cards):
+    s = build(cards, "Tyrant's Choice")
+    from tests.test_rules_conditionals import creature
+
+    bear = creature(s, "p2", "Bear")
+    cast(s, "Tyrant's Choice", B=4)
+    settle_stack(s)
+    ballot(s, "p1", "death")
+    ballot(s, "p2", "death")
+    assert bear.id not in s.state.cards  # the token is sacrificed
+    assert s.state.players["p2"].life == 40
+    roundtrip(s)
+
+
+def test_lieutenants_counts_votes_and_ballot_broker_votes_twice(cards):
+    s = build(cards, "Lieutenants of the Guard", "Ballot Broker")
+    from tests.test_rules_conditionals import on_field
+
+    on_field(s, "Ballot Broker")
+    lt = cast(s, "Lieutenants of the Guard", W=1, G=3)
+    settle_stack(s)
+    for label in ("strength", "numbers"):  # Alice votes, then votes an additional time (701.38d: optional, Ballot Broker)
+        ballot(s, "p1", label)
+    d = s.state.rules.decision
+    assert d.player == "p2"
+    ballot(s, "p2", "numbers")
+    settle_stack(s)
+    assert s.state.cards[lt.id].counters.get("+1/+1") == 1  # one strength vote
+    assert sorted(s.state.cards[c].name for c in s.state.zones["p1:battlefield"]).count("Soldier") == 2  # two numbers votes
+    roundtrip(s)
+
+
+def test_ballot_broker_extra_vote_may_be_declined(cards):
+    s = build(cards, "Tyrant's Choice", "Ballot Broker")
+    from tests.test_rules_conditionals import on_field
+
+    on_field(s, "Ballot Broker")
+    cast(s, "Tyrant's Choice", B=4)
+    settle_stack(s)
+    ballot(s, "p1", "death")
+    ballot(s, "p1", "Don't vote again")
+    assert s.state.rules.decision.player == "p2"
+
+
+def test_councils_judgment_exiles_every_permanent_tied_for_most_votes(cards):
+    s = build(cards, "Council's Judgment")
+    from tests.test_rules_conditionals import creature
+
+    bear, wolf, cub = creature(s, "p2", "Bear"), creature(s, "p2", "Wolf"), creature(s, "p2", "Cub")
+    cast(s, "Council's Judgment", W=3)
+    settle_stack(s)
+    ballot(s, "p1", "Bear")
+    ballot(s, "p2", "Wolf")
+    settle_stack(s)
+    assert bear.id not in s.state.cards and wolf.id not in s.state.cards  # tied for most votes: both are exiled (tokens cease to exist)
+    assert s.state.cards[cub.id].zone == "p2:battlefield"
+    roundtrip(s)
+
+
+def test_secret_council_vote_is_hidden_until_revealed(cards):
+    s = build(cards, "Vault 11: Voter's Dilemma")
+    from tests.test_rules_conditionals import creature
+
+    bear = creature(s, "p2", "Bear")
+    wolf = creature(s, "p1", "Wolf")
+    from tests.test_rules_sagas import main_phase
+
+    cast(s, "Vault 11: Voter's Dilemma", W=1, C=2)
+    settle_stack(s)  # chapter I: a Human Soldier for the one opponent
+    assert sorted(s.state.cards[c].name for c in s.state.zones["p1:battlefield"]).count("Human Soldier") == 1
+    main_phase(s, 3)  # Alice's next precombat main phase: a lore counter, chapter II
+    settle_stack(s)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and "secret" in d.prompt
+    assert {o.label for o in d.options} == {"Bear", "Wolf", "Human Soldier"}
+    ballot(s, "p1", "Bear")
+    roundtrip(s)  # (a save and a load with Alice's secret ballot pending)
+    # Bob decides without any sign of what Alice voted for; nobody else sees the pending ballot
+    for viewer in ("p2", SPECTATOR):
+        seen = json.dumps(s.view(viewer))
+        assert "voted for" not in seen and "ballots" not in seen
+    assert s.state.rules.decision.player == "p2"
+    ballot(s, "p2", "Bear")
+    settle_stack(s)
+    log = json.dumps(s.view("p2")["log"])
+    assert "The votes are revealed: Alice voted for Bear; Bob voted for Bear" in log
+    assert bear.id not in s.state.cards  # destroyed (token)
+    assert s.state.cards[wolf.id].zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_capital_punishment_repeats_each_instruction_once_per_vote(cards):
+    s = build(cards, "Capital Punishment")
+    from tests.test_rules_conditionals import creature
+
+    bear, wolf = creature(s, "p2", "Bear"), creature(s, "p2", "Wolf")
+    act(s, "p2", type="draw", count=3)
+    cast(s, "Capital Punishment", B=5)
+    settle_stack(s)
+    ballot(s, "p1", "death")
+    ballot(s, "p2", "taxes")
+    assert s.state.rules.decision.player == "p2"  # one death vote: Bob sacrifices one creature of his choice
+    ballot(s, "p2", "Bear")
+    d = s.state.rules.decision  # one taxes vote: Bob discards one card of his choice
+    assert d.player == "p2" and d.max_choices == 1
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    settle_stack(s)
+    assert bear.id not in s.state.cards and s.state.cards[wolf.id].zone == "p2:battlefield"
+    assert len(s.state.zones["p2:hand"]) == 2 and len(s.state.zones["p2:graveyard"]) == 1
+    roundtrip(s)
+
+
