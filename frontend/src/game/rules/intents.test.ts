@@ -218,7 +218,7 @@ describe("rules card menu", () => {
   });
 
   it("offers a Room's halves to cast, and its locked doors to unlock (709.5)", () => {
-    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true }, stats: { rb: { doors: [1] } } });
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true }, stats: { rb: { doors: [1], halves: [{ name: "Grand Entryway", mana_cost: "{1}{W}" }, { name: "Elegant Rotunda", mana_cost: "{2}{W}" }] } } });
     const v = { ...base, cards: { ...base.cards, rh: card("rh", "p1:hand", "room"), rb: card("rb", "p1:battlefield", "room") } } as unknown as GameView;
     useCardCache.setState({
       cards: {

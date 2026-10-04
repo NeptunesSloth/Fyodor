@@ -18,6 +18,7 @@ from app.game.rules_state import emit
 from app.game.state import STACK
 from app.rules import characteristics as chars
 from app.rules import mana as M
+from app.rules.copying import room_printing
 from app.rules.plan import Plan, require_no_decision, require_priority
 
 
@@ -50,9 +51,10 @@ def unlock_action(plan: Plan, a: A.UnlockDoor) -> None:
     require_priority(plan)
     state = plan.state
     card = state.cards.get(a.card_id)
-    data = plan.info.get(card.card_id) if card is not None and card.card_id else None
-    if card is None or data is None or not chars.room(data) or card.controller != plan.actor or not card.zone.endswith(":battlefield"):
+    if card is None or card.controller != plan.actor or not card.zone.endswith(":battlefield") or card.face_down \
+            or plan.ch(card).doors is None:  # (708.2: a face-down Room has no halves; a copy of a Room has the copied ones)
         raise ActionError("Unlock a door of a Room you control")
+    data = plan.info.get(room_printing(plan.rules, card, plan.oid(card))) or {}
     if state.turn.active_player != plan.actor or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK):
         raise ActionError("Unlock a door in your main phase, with the stack empty")
     if a.door in doors_of(plan, card.id):

@@ -115,10 +115,12 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   if (mine && zone === "hand" && morph) {
     items.push({ label: "Cast face down (morph, {3})", onClick: () => void send({ type: "cast_spell", card_id: card.id, face_down: true }) });
   }
-  if (mine && zone === "battlefield" && isRoom(data)) {
-    // 116.2m, 709.5e: the unlock special action — pay a locked half's mana cost (the server checks the phase and the stack)
-    const open = rules.stats?.[card.id]?.doors ?? [];
-    data.faces.forEach((f, i) => {
+  const room = rules.stats?.[card.id];
+  if (mine && zone === "battlefield" && room?.doors && room.halves) {
+    // 116.2m, 709.5e: the unlock special action — pay a locked half's mana cost (the server checks the phase and the stack);
+    // the halves come from the server (a copy of a Room has the copied card's, 709.5b)
+    const open = room.doors;
+    room.halves.forEach((f, i) => {
       if (!open.includes(i + 1)) items.push({ label: `Unlock ${f.name} ${f.mana_cost ?? ""}`.trim(), disabled: !hints.has_priority,
         onClick: () => void send({ type: "unlock_door", card_id: card.id, door: i + 1 }) });
     });

@@ -103,6 +103,10 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
     from app.rules import copying
 
     ch = copying.lki(plan, snap, ch)
+    # -- Rooms (review 18G) -- 709.5, 716.2b: the doors it had unlocked (and its class level) as it last existed, not every half
+    recipe = getattr(snap, "copy_recipe", None)
+    ch = copying.with_level(plan.state, card, ch, plan.info, snap.object_id,
+                            recipe.printing if recipe is not None and recipe.printing and not snap.face_down else None)
     if snap.power is not None and snap.toughness is not None:
         ch = replace(ch, pt=(snap.power, snap.toughness))  # as it last existed (608.2h)
     # -- quoted grants (wave 2D) -- the abilities and keywords it had (603.10a): granted ones too

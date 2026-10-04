@@ -97,8 +97,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         names: dict[str, int] = {}
         for c in found:
             card = plan.state.cards[c]
-            if not card.face_down:  # (a face-down permanent has no name, 708.2a)
-                names[plan.ch(card).name] = names.get(plan.ch(card).name, 0) + 1
+            name = "" if card.face_down else plan.ch(card).name  # (a face-down permanent has no name, 708.2a; nor a locked Room, 709.5)
+            if name:
+                names[name] = names.get(name, 0) + 1
         return max(names.values(), default=0) >= cond["n"]
     if kind == "self_combat":
         src = plan.state.cards.get(ctx.get("source_card") or "")
