@@ -207,6 +207,21 @@ def test_your_commander_attacks_makes_a_token(cards):
     check(s)
 
 
+def test_your_commander_attacking_under_an_opponents_control_still_triggers(cards):
+    # Review 19: 903.3 "your commander" is the card your deck names, whoever controls it now (903.3d is only "control")
+    s = combat_build(cards, "We Ride at Dawn")
+    combat_put(s, "We Ride at Dawn")
+    krenko = next(c for c in s.state.cards.values() if c.name == "Krenko, Mob Boss" and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[krenko.id], to={"player": "p2", "zone": "battlefield"})
+    assert s.state.cards[krenko.id].controller == "p2"
+    s.state.rules.controlled_since[krenko.id].turn = 0
+    to_attack(s, 2)
+    declare(s, (krenko, "p1"), pid="p2")
+    to_blocks(s)
+    assert sum(1 for c in s.state.cards.values() if c.name == "Mercenary" and c.zone == "p1:battlefield") == 1
+    check(s)
+
+
 def test_sacrificed_nontoken_permanent_comes_back_under_your_control(cards):
     s = build(cards, ["It That Betrays", "Probe Edict"], ["Probe Soldier"])
     put(s, "It That Betrays")

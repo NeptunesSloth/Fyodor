@@ -206,8 +206,9 @@ def _parse(c: str) -> Condition | None:
     if m or c == "you attack with your commander":
         found = _parse(f"a commander you control {m['rest']}" if m else "you attack with one or more commanders you control")
         for part in ([found] if found else []) + list((found or {}).get("conds") or []):  # ("enters or attacks": each half)
-            if part.get("sel"):  # (your own: a commander you own, as "you control your commander" reads it)
-                part["sel"] = selectors.replace(selectors.from_key(part["sel"]), owner="you").key()
+            if part.get("sel"):  # (your own: a commander you own, as "you control your commander" reads it; review 19: whoever
+                part["sel"] = selectors.replace(selectors.from_key(part["sel"]), owner="you",  # controls it, 903.3 / 903.3d)
+                                                controller=None if m else "you").key()
         return found
     if c.endswith(" attacks an opponent"):
         return _parse(c[: -len("an opponent")] + "one of your opponents")
