@@ -69,6 +69,7 @@ EXTRA += [
     real("Preeminent Captain", "{2}{W}", 3, "Creature — Kithkin Soldier", "First strike\nWhenever this creature attacks, you may put a Soldier creature card from your hand onto the battlefield tapped and attacking.", ("2", "2"), "W"),
     real("Test Soldier", "{1}{W}", 2, "Creature — Human Soldier", "", ("1", "1"), "W"),
     real("Netherborn Phalanx", "{3}{B}", 4, "Creature — Horror", "When this creature enters, each opponent loses 1 life for each creature they control.", ("2", "2"), "B"),
+    real("Public Thoroughfare", "", 0, "Land", "This land enters tapped.\nWhen this land enters, sacrifice it unless you tap an untapped artifact or land you control.\n{T}: Add {C}.", None),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -421,6 +422,22 @@ def test_each_opponent_loses_life_for_each_creature_they_control(cards):
     answer(s)
     assert s.state.players["p2"].life == 38 and s.state.players["p1"].life == 40
     check(s)
+
+
+def test_sacrifice_it_unless_you_tap_an_untapped_artifact_or_land(cards):
+    # 118.12a: "X unless you [cost]": the controller may tap one (tapping is the cost, 118.3: payable only with an untapped one)
+    for taps, stays in ((True, True), (False, False)):
+        s = build(cards, ["Public Thoroughfare"], [])
+        land = to_hand(s, "Public Thoroughfare")
+        if taps:
+            put(s, "Forest")
+        act(s, "p1", type="play_land", card_id=land.id)
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+        answer(s)
+        assert (s.state.cards[land.id].zone == "p1:battlefield") == stays
+        check(s)
 
 
 @pytest.mark.parametrize("text", [

@@ -2361,7 +2361,7 @@ _PICK_NEG = re.compile(r"^if you (don't|do) put (?:the card|that card|it|them) (
 _PICK_DIDNT = re.compile(r"^if you didn't put (?:a|the|that) card into your hand this way, ")
 _IF_YOU_DO = re.compile(r"^if you (?:(?P<neg>don't)|do), (?P<rest>.+)$")
 _UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller) "
-                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?) .+)$")  # (wave 1B: any cost the engine pays)
+                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?|removes?|taps?) .+)$")  # (wave 1B: any cost the engine pays)
 
 
 def _last_payment(effects: list[dict[str, Any]]) -> str | None:
@@ -2413,6 +2413,8 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         return None
     verb, _, rest = m["act"].partition(" ")
     phrase = rest if verb.startswith("pay") else f"{verb[:-1] if verb.endswith('s') else verb} {rest}"
+    if (it == "self" or m["lead"] == "sacrifice ~") and re.search(r"^remove an? [^ ]+ counter from it$", phrase):
+        phrase = phrase[:-2] + "~"  # -- trigger tail (wave 15B) -- "sacrifice ~ unless you remove a +1/+1 counter from it": it is the source
     if re.search(r"\bit\b", phrase):
         return None
     cost = optional_payment.cost_text(phrase)
