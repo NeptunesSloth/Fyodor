@@ -95,10 +95,8 @@ FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime A
         "Bruse Tarl, Roving Rancher", "Arms of Hadar", "How to Start a Riot", "Neutralize the Guards",
         "Hero of Oxid Ridge", "Mist Intruder", "Crimson Wisps", "Aphotic Wisps", "Cerulean Wisps", "Neglected Manor",
         "Turbulent Moor", "Orzhov Racketeers", "Doran, the Siege Tower", "Belligerent Brontodon",
-        "Blind Obedience", "Emergent Growth", "Enlarge"]
-STILL_MANUAL = {
-    "Silvergill Adept": "reveal a Merfolk card",
-}
+        "Blind Obedience", "Emergent Growth", "Enlarge", "Silvergill Adept"]  # (Silvergill Adept: read since wave 17C)
+STILL_MANUAL: dict[str, str] = {}
 
 
 @pytest.fixture()
@@ -291,8 +289,10 @@ def test_either_costs_parse():
 
     sides = costs.parse_additional_cost("pay {4} or sacrifice an artifact or creature")
     assert sides is not None and [costs.either_label(c) for c in sides.either] == ["Pay {4}", "Sacrifice an artifact or creature"]
-    assert costs.parse_additional_cost("reveal a Merfolk card from your hand or pay {3}") is None
-    assert costs.parse_additional_cost("forage or pay {B}") is None
+    reveal = costs.parse_additional_cost("reveal a Merfolk card from your hand or pay {3}")  # (wave 17C: reveal, behold, blight, forage)
+    assert reveal is not None and [costs.either_label(c) for c in reveal.either] == ["Reveal a Merfolk card from your hand", "Pay {3}"]
+    forage = costs.parse_additional_cost("forage or pay {B}")
+    assert forage is not None and [costs.either_label(c) for c in forage.either] == ["Forage", "Pay {B}"]
 
 
 def test_bitter_triumph_asks_which_cost_and_pays_life(cards):

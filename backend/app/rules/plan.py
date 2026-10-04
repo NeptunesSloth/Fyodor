@@ -15,6 +15,7 @@ from app.game.rules_state import (
     RulesState,
     capture,
     track,
+    wither_put_by,
 )
 from app.game.state import CardInstance, GameState
 from app.game.visibility import publicly_visible
@@ -78,7 +79,8 @@ class Plan:
             before.types = self._battlefield_types(payload)
         entered_before = (self.state.turn.number, len(self.rules.turn_log.entered)) if self.state.rules else None
         HANDLERS[resolved.type](self.state, resolved)
-        track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0))  # (5H, 7C)
+        track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
+              put_by=wither_put_by(resolved))  # (5H, 7C, 17D)
         if entered_before is not None:  # -- refused modal/conditional (wave 3R1) -- what entered was, as it entered (608.2i)
             log = self.rules.turn_log
             for entry in log.entered[entered_before[1] if log.turn == entered_before[0] else 0:]:

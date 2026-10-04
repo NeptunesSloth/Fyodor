@@ -110,6 +110,7 @@ def parse_cost(text):
 @pytest.mark.parametrize("text", [
     "sacrifice a creature", "discard a card", "pay 2 life", "sacrifice an artifact or creature", "sacrifice a land",
     "exile a creature card from your graveyard", "discard a card and sacrifice a creature",
+    "reveal a Merfolk card from your hand or pay {3}", "behold an Elf or pay {2}", "blight 1 or pay {3}", "forage or pay {B}",  # (wave 17C)
 ])
 def test_additional_costs_the_engine_pays(text):
     assert parse_cost(text) is not None
@@ -117,7 +118,6 @@ def test_additional_costs_the_engine_pays(text):
 
 @pytest.mark.parametrize("text", [
     "you may sacrifice a creature", "discard X cards",  # ("pay X life": wave 4K; "A or B": read since wave 6E)
-    "reveal a Merfolk card from your hand or pay {3}",
     "sacrifice this spell", "tap an untapped creature you control, discard a card",
 ])
 def test_additional_costs_it_refuses(text):

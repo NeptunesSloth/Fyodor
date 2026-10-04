@@ -177,7 +177,8 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
         subtypes=changeling(subtypes, abilities, str(src.get("name") or data.get("name") or "")),
         mana_cost=cost,
         mana_value=mana_value(cost),
-        colors=frozenset() if _devoid(abilities) else frozenset(colors or []),
+        colors=frozenset() if _devoid(abilities) else frozenset("WUBRG") if all_colors(abilities, str(src.get("name") or data.get("name") or ""))
+        else frozenset(colors or []),
         power=src.get("power"),
         toughness=src.get("toughness"),
         loyalty=src.get("loyalty"),
@@ -203,7 +204,26 @@ def changeling(subtypes: frozenset[str], abilities: tuple[AbilityText, ...], nam
         from app.rules.creature_types import CREATURE_TYPES
 
         return subtypes | CREATURE_TYPES
+    # -- static_other sweep (wave 17C) -- 604.3: "Burakos is also a Cleric, Rogue, Warrior, and Wizard." (a characteristic-defining ability
+    # adding creature types, in every zone)
+    for a in abilities:
+        m = _ALSO.fullmatch(a.text.strip()) if a.kind == "static" else None
+        if m is not None and m["n"] in (name, name.split(",")[0]) and (types := [w for w in re.split(r", and |, | and ", m["l"]) if w]):
+            from app.rules.creature_types import CREATURE_TYPES
+
+            if all(t in CREATURE_TYPES for t in types):
+                subtypes = subtypes | frozenset(types)
     return subtypes
+
+
+_ALSO = re.compile(r"^(?P<n>[^,.]+(?:, [A-Z][^,.]*)?) is also an? (?P<l>[A-Z][A-Za-z]*(?:(?:, | and |, and )[A-Z][A-Za-z]*)*)\.$")
+_ALL_COLORS = re.compile(r"^(?P<n>.+?) is all colors\.(?: This ability doesn't affect its color identity\.)?$")
+
+
+def all_colors(abilities: tuple[AbilityText, ...], name: str) -> bool:
+    """-- static_other sweep (wave 17C) -- 604.3, 105.2c: "Transguild Courier is all colors." (a characteristic-defining ability, every zone)"""
+    return any((m := _ALL_COLORS.fullmatch(a.text.strip())) is not None and m["n"] in (name, name.split(",")[0])
+               for a in abilities if a.kind == "static")
 
 
 def with_intrinsic_mana(abilities: list[AbilityText], subtypes: frozenset[str]) -> tuple[AbilityText, ...]:

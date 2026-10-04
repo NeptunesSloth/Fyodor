@@ -192,6 +192,10 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         return context.objects(plan, ctx, context.EVENT_NEW)
     if who.startswith(context.PREFIX):  # an earlier effect's objects ("it", "cards exiled this way")
         return context.objects(plan, ctx, who[len(context.PREFIX):])
+    if who.startswith("exiled_card:"):  # -- static_other sweep (wave 17C) -- one card in exile, while it is still that object (cipher)
+        oid = who[len("exiled_card:"):]
+        card = plan.state.cards.get(oid.rsplit(".", 1)[0])
+        return [card.id] if card is not None and card.zone.endswith(":exile") and plan.oid(card) == oid else []
     if who.startswith("object:"):  # one specific rules object (e.g. the creature that attacked alone)
         oid = who[7:]
         return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == oid]
@@ -1158,6 +1162,33 @@ def cascade(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
+def ripple_split(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- static_other sweep (wave 17C) -- 702.60a: of the revealed cards, those with the spell's name may be cast; the others go on the
+    bottom. Two or more copies revealed (a game with several of one card) is a choice this does not carry out: all stay on top."""
+    looked = ctx.get("looked") or []
+    same = [c for c in looked if plan.state.cards[c].name == e["name"]]
+    if len(same) > 1:
+        plan.note(f"Ripple: several cards named {e['name']} were revealed; cast them by hand and put the others on the bottom")
+        ctx["looked"] = []
+        return True
+    ctx["ripple_same"] = same
+    ctx["looked"] = [c for c in looked if c not in same]
+    return True
+
+
+def ripple_cast(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """702.60a: the revealed card with the spell's name may be cast without paying its mana cost; if not, it goes on the bottom."""
+    same = ctx.pop("ripple_same", None) or []
+    if not same:
+        return True
+    card = plan.state.cards[same[0]]
+    plan.rules.free_casts.append(card.id)
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Ripple: cast {card.name} without paying its mana cost?",
+           options=[DecisionOption(id="yes", label="Cast it"), DecisionOption(id="no", label="Put it on the bottom")],
+           resume={"step": "suspend_cast", "ctx": ctx, "card": card.id, "decline": "bottom"}, source=card)
+    return False
+
+
 def unearth(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     cid = e["card"]
     card = plan.state.cards.get(cid)
@@ -1330,9 +1361,9 @@ def explore(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.game.rules_state import emit
     from app.rules import characteristics as chars
 
-    pid = ctx["controller"]
+    me = _cards(plan, ctx, e.get("who", "self"))  # (wave 16C: "target creature you control explores"; 17D: "it" the event's creature)
+    pid = plan.state.cards[me[0]].controller if me else ctx["controller"]  # 701.44a: that permanent's controller reveals and decides
     library = plan.state.zones.get(zone_key(pid, "library"), [])
-    me = _cards(plan, ctx, "target" if e.get("who") == "target" else "self")  # (wave 16C: "target creature you control explores")
 
     def explored(kind: int) -> None:  # -- trigger tail (wave 15B) -- "Whenever a creature you control explores" (701.44a): 1 a land
         if me:  # card was revealed, 2 a nonland card, 0 none
@@ -2152,7 +2183,8 @@ def look_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     (ctx["found"]), the others "the rest". With ``player``: another player's library."""
     owners = _library_owner(plan, ctx, e)
     if e.get("optional") and not ctx.pop("reveal_asked", None):  # -- if you do (wave 15C) -- "you may reveal the top card": asked first
-        decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: reveal the top card of your library?",
+        decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name') or 'It'}: reveal the top " + (f"{e['n']} cards" if isinstance(e.get("n"), int) and e["n"] > 1 else "card")
+               + " of your library?",  # (wave 17C: "Ripple 4")
                options=[DecisionOption(id="yes", label="Reveal it"), DecisionOption(id="no", label="Don't reveal")],
                resume={"step": "look_may", "ctx": ctx, "e": e})
         return False
@@ -2396,10 +2428,13 @@ def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                      "index": e["place"] - 1}, actor=ctx["controller"])
         _moved(plan, ctx, e, before)
         return True
-    if e["place"] == "choice" and len(cards) == 1:
+    if e["place"] in ("choice", "choice_second") and len(cards) == 1:
         card = plan.state.cards[cards[0]]
-        decide(plan, player=card.owner, kind="choose_one", prompt=f"Put {card.name} on the top or the bottom of your library?",
-               options=[DecisionOption(id="top", label="On top"), DecisionOption(id="bottom", label="On the bottom")],
+        second = e["place"] == "choice_second"  # -- static_other sweep (wave 17C) -- "second from the top or on the bottom" (Lost Days)
+        decide(plan, player=card.owner, kind="choose_one",
+               prompt=f"Put {card.name} " + ("second from the top or on the bottom of your library?" if second else "on the top or the bottom of your library?"),
+               options=[DecisionOption(id="second" if second else "top", label="Second from the top" if second else "On top"),
+                        DecisionOption(id="bottom", label="On the bottom")],
                resume={"step": "library_place", "card": card.id, "ctx": ctx, "e": e, "before": [r.model_dump(mode="json") for r in before]},
                source=card)
         return False
@@ -2425,8 +2460,8 @@ def resume_library_place(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = r["ctx"], r["e"]
     card = plan.state.cards.get(r["card"])
     if card is not None:
-        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "library"}, "position": chosen[0]},
-                actor=d.player)
+        where = {"index": 1} if chosen[0] == "second" else {"position": chosen[0]}  # (the index: 2nd from the top, 401.4)
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "library"}, **where}, actor=d.player)
     _moved(plan, ctx, e, [ObjectRef.model_validate(x) for x in r["before"]])
     continue_effects(plan, ctx)
 
@@ -2465,6 +2500,7 @@ def resume_shuffle_library(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
+PRIMITIVES.update({"ripple_split": ripple_split, "ripple_cast": ripple_cast})  # (wave 17C)
 PRIMITIVES.update({"look_top": look_top, "pick_looked": pick_looked, "rest_looked": rest_looked, "exile_top": exile_top,
                    "to_library": to_library, "shuffle_library": shuffle_library, "grant_play": permissions.grant_play,
                    "free_cast": permissions.free_cast,  # (free_cast: wave 3C)

@@ -29,11 +29,13 @@ from app.rules import costs as C
 from app.rules import selectors
 from app.rules.costs import AbilityCost, CostComponent
 from app.rules.plan import Plan, decide
+from app.rules.sba import power
 
 _VERBS = {C.SACRIFICE: "sacrifice", C.DISCARD: "discard", C.EXILE_FROM_GRAVEYARD: "exile",
           C.RETURN_PERMANENT: "return to its owner's hand", C.TAP_OTHER: "tap", C.UNTAP_OTHER: "untap", C.REMOVE_COUNTER: "remove counters from"}
 _VERBS["EXILE_FROM_HAND"] = "exile"
 _VERBS["REVEAL_FROM_HAND"] = "reveal"  # (wave 15C)
+_VERBS[C.BEHOLD] = "behold"  # (wave 17C) 701.4a
 _VERBS[C.EXILE_TO_GY] = "put into its owner's graveyard"  # (wave 15C)
 _VERBS["HAND_TO_BOTTOM"] = "put on the bottom of your library"  # -- if you do (wave 6F) --  # -- cost changers (wave 4I) -- "exile a blue card from your hand" (alt_costs.py)
 
@@ -61,6 +63,14 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
     else:
         zone = zone_key(player, "battlefield")
     out = []
+    if comp.kind == C.BEHOLD:  # -- static_other sweep (wave 17C) -- 701.4a: a card in your hand (the selector) or a permanent you control (alt)
+        for z, s in ((zone_key(player, "hand"), sel), (zone_key(player, "battlefield"), alt)):
+            for cid in plan.state.zones.get(z, []):
+                card = plan.state.cards.get(cid)
+                if card is not None and cid != source.id and (z.endswith(":hand") or (card.controller == player and plan.in_game(card))) \
+                        and s is not None and selectors.matches(plan, s, card, plan.ch(card), player, source.id):
+                    out.append(cid)
+        return out
     if comp.kind == C.EXILE_TO_GY:  # -- if you do (wave 15C) -- a card an opponent owns, face up in exile (406.3), in a stable order
         pool = [c for pid in plan.state.players if pid != player for c in plan.state.zones.get(zone_key(pid, "exile"), [])]
         return [c for c in pool if (x := plan.state.cards.get(c)) is not None and not x.face_down and x.owner != player
@@ -174,6 +184,10 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
             return f"You don't have {energy_amount(comp, x)} energy to pay"
         elif (why := _new_part_problem(plan, comp, card, player, x)) is not None:  # (wave 4H)
             return why
+        elif comp.kind == "TAP_POWER":  # -- static_other sweep (wave 17C) -- teamwork 702.194a: untapped creatures with total power N or more
+            usable = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
+            if sum(max(0, power(plan.state.cards[c], plan.ch(plan.state.cards[c])) or 0) for c in usable) < comp.amount:
+                return f"You can't pay “{comp.text}”"
         elif comp.selector is not None and comp.kind not in (C.COLLECT_EVIDENCE, C.WATERBEND):  # (collect evidence: _new_part_problem, wave 4H; waterbend: any number, even none)
             usable = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
             if len(usable) < objects_needed(comp, x):  # (X / one permanent for its counters: wave 4H)
@@ -200,6 +214,9 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, cost: 
     for i, comp in cost.choices:
         if comp.kind == C.WATERBEND:  # -- activated sweep (wave 17B) -- up to N artifacts / creatures, each paying {1} (701.67a)
             found = _choose_waterbend(plan, a, i, comp, cost, card, what, given.get(i), used)
+        elif comp.kind == "TAP_POWER":  # -- static_other sweep (wave 17C) -- one choice of creatures, validated as a whole
+            found = _choose_power(plan, a, i, comp, cost, card, what, given.get(i), used)
+        if comp.kind in (C.WATERBEND, "TAP_POWER"):
             if found is None:
                 return None
             out[i] = found
@@ -261,6 +278,31 @@ def _choose_waterbend(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFac
                    "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
            source=card)
     return None
+
+
+def _choose_power(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, i: int, comp: CostComponent, cost: AbilityCost, card: CardInstance,
+                  what: str, given: list[str] | None, used: set[str]) -> list[str] | None:
+    """-- static_other sweep (wave 17C) -- teamwork N (702.194a): any number of untapped creatures you control with total power N or
+    more; the payer picks them (validated as a whole, 601.2h)."""
+    options = [c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card) and c not in used]
+    total = lambda ids: sum(max(0, power(plan.state.cards[c], plan.ch(plan.state.cards[c])) or 0) for c in ids)  # noqa: E731
+    if given is not None:
+        if len(set(given)) != len(given) or any(c not in options for c in given) or total(given) < comp.amount:
+            raise ActionError(f"Those creatures don't pay “{comp.text}”")
+        chosen = list(given)
+    elif total(options) < comp.amount:
+        raise ActionError(f"You can't pay “{comp.text}”")  # 118.3
+    else:
+        decide(plan, player=plan.actor, kind="choose_cards",
+               prompt=f"{what}: choose the creatures to tap (“{comp.text}”), or none to cancel",
+               options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name or 'Creature'} ({total([c])})", card_id=c) for c in options],
+               min_choices=0, max_choices=len(options),
+               resume={"step": "ability_cost", "component": i, "amount": None,
+                       "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})},
+               source=card)
+        return None
+    used |= set(chosen)
+    return chosen
 
 
 def _choose_counters(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, i: int, comp: CostComponent, cost: AbilityCost,
@@ -338,11 +380,16 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             sacrifice += ids  # (wave 4H) 701.61a: the Food, sacrificed with the cost's other sacrifices
         elif _pay_new_part(plan, comp, card, ids, record):  # -- activation costs (wave 4H) --
             continue
+        elif comp.kind in ("REVEAL_FROM_HAND", C.BEHOLD):  # -- static_other sweep (wave 17C) -- revealed to everyone (701.20a); a beheld permanent just is
+            shown = [c for c in ids if plan.state.cards[c].zone.endswith(":hand")]
+            if shown:
+                plan.do({"type": "reveal", "card_ids": shown}, actor=player)
+                record.revealed += shown
         elif comp.kind == C.UNTAP:
             plan.do({"type": "tap", "card_ids": [card.id], "tapped": False})
         elif comp.kind == C.PAY_ENERGY and energy_amount(comp, record.x):  # (107.14: remove that many energy counters)
             plan.do({"type": "resource", "player": player, "key": "energy", "delta": -energy_amount(comp, record.x)})
-        elif comp.kind in (C.TAP_OTHER, C.WATERBEND):  # (wave 17B: waterbend 701.67a — tapped to help pay)
+        elif comp.kind in (C.TAP_OTHER, C.WATERBEND, "TAP_POWER"):  # (wave 17B: waterbend 701.67a — tapped to help pay; 17C teamwork)
             if ids:
                 plan.do({"type": "tap", "card_ids": ids, "tapped": True})
             record.tapped_for_cost += ids
