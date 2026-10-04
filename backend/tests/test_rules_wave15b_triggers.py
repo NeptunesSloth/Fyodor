@@ -62,6 +62,7 @@ EXTRA += [
     real("The Endstone", "{3}", 3, "Artifact", "Whenever you play a land or cast a spell, draw a card.", None),
     real("Unshakable Tail", "{1}{W}", 2, "Creature — Cat Rogue", "Menace\nWhen this creature enters and at the beginning of your upkeep, surveil 1.", ("1", "1"), "W"),
     real("Intimidation Campaign", "{3}{B}", 4, "Enchantment", "When this enchantment enters, each opponent loses 1 life, you gain 1 life, and you draw a card.\nWhenever you cast a creature spell, you may return this enchantment to its owner's hand.", None, "B"),
+    real("Weapons Manufacturing", "{2}{R}", 3, "Enchantment", "Whenever a nontoken artifact you control enters, create a colorless artifact token named Munitions with \"When this token leaves the battlefield, it deals 2 damage to any target.\"", None, "R"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -267,6 +268,22 @@ def test_a_serial_list_of_instructions_happens_in_order(cards):
     answer(s)
     assert (s.state.players["p2"].life, s.state.players["p1"].life) == (39, 41)
     assert len(s.state.zones["p1:hand"]) == hand  # -1 cast, +1 drawn
+    check(s)
+
+
+def test_a_named_artifact_token_carries_its_quoted_ability(cards):
+    # 111.4: the ability sets the name; the quoted ability is the token's own (here: leaves-the-battlefield damage)
+    s = build(cards, ["Weapons Manufacturing", "Sol Ring"], ["Grizzly Bears"])
+    put(s, "Weapons Manufacturing")
+    ring = to_hand(s, "Sol Ring")
+    mana(s, "p1", C=1)
+    act(s, "p1", type="cast_spell", card_id=ring.id)
+    answer(s)
+    token = next(c for c in s.state.cards.values() if c.name == "Munitions" and c.zone == "p1:battlefield")
+    from app.rules.plan import Plan
+
+    ch = Plan(s.state, "p1", s.cards, None).ch(token)
+    assert token.is_token and "Artifact" in ch.types and "leaves the battlefield" in ch.oracle_text
     check(s)
 
 
