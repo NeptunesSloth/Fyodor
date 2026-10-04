@@ -3183,7 +3183,6 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     r = state.rules
     if r is None:
         return "Rules automation is off"
-    info = info or (plan.info if plan is not None else None)  # -- static_other sweep (wave 19A) -- the statics of other permanents are read from it
     if cost.from_hand:  # -- ability words (wave 4F) -- 113.6m: "Discard this card" (channel) works only from the hand
         if card.zone != zone_key(player, "hand") or card.owner != player:
             return "That ability can only be activated from your hand"
@@ -3209,12 +3208,13 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"
     if ability.kind == "loyalty":  # 606.3: as a sorcery, once per permanent each turn
+        rule_info = info or (plan.info if plan is not None else None)  # (wave 19A: the statics of other permanents are read from it)
         if (state.turn.active_player != player or state.turn.phase not in MAIN_PHASES or state.zones.get(STACK)) \
-                and not cast_limits.loyalty_rule(state, card, info, "instant"):  # (wave 19A: Teferi, Master of Time)
+                and not cast_limits.loyalty_rule(state, card, rule_info, "instant"):  # (Teferi, Master of Time)
             return "That can only be activated in your main phase while the stack is empty"
         oid = r.object_id(card.id)
         if r.loyalty_used.get(oid) == state.turn.number and (r.loyalty_second.get(oid) == state.turn.number
-                                                             or not cast_limits.loyalty_rule(state, card, info, "twice")):  # (Oath of Teferi)
+                                                             or not cast_limits.loyalty_rule(state, card, rule_info, "twice")):  # (Oath of Teferi)
             return f"{ch.name} has already used a loyalty ability this turn"
         if cost.loyalty is not None and cost.loyalty < 0 and card.counters.get("loyalty", 0) < -cost.loyalty:
             return f"{ch.name} doesn't have enough loyalty"
