@@ -278,6 +278,26 @@ def lose_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def exchange_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- activated wordings (wave 15D) -- 701.12c: the player with the lower life total gains, the other loses, what it takes to
+    equal the other's previous total (replacement effects and triggers apply to the gain and the loss). 701.12a: if the whole
+    exchange can't be done (a target gone, 119.7: a player who can't gain life can't be given a higher total), none of it is."""
+    ps = list(dict.fromkeys([ctx["controller"], *_players(plan, ctx, e["with"])] if e.get("with") else _players(plan, ctx, e["who"])))
+    if len(ps) != 2:
+        return True
+    low, high = sorted(ps, key=lambda p: plan.state.players[p].life)
+    diff = plan.state.players[high].life - plan.state.players[low].life
+    if diff == 0:
+        return True
+    from app.rules import cant_gain
+
+    if (why := cant_gain.why_not(plan, low)) is not None:
+        plan.note(f"{why}: the life totals aren't exchanged", actor=ctx["controller"])
+        return True
+    plan.do({"type": "life", "player": high, "delta": -diff}, actor=ctx["controller"])
+    return replace.gain_life(plan, [(low, diff)], actor=ctx["controller"], then=_then(ctx, e), ctx=ctx)
+
+
 class _Source:
     """What deals damage: the spell or ability's source, or a creature the text names ("target
     creature you control deals damage equal to its power to …", a fight). ``keywords`` and ``ch``
@@ -3395,6 +3415,7 @@ PRIMITIVES.update(_land_plays.PRIMITIVES)  # 305.2 "You may play an additional l
 from app.rules import bounce_forms as _bounce_forms  # noqa: E402
 
 PRIMITIVES.update(_bounce_forms.PRIMITIVES)  # "return target A and target B to their owners' hands" (one move)
+PRIMITIVES["exchange_life"] = exchange_life  # -- activated wordings (wave 15D) --
 PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
 PRIMITIVES.update(graveyard_grants.PRIMITIVES)  # "gains flashback until end of turn" (app/rules/graveyard_grants.py)
 RESUME.update(graveyard_grants.RESUME)  # ("Choose one of them.")

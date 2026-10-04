@@ -1031,6 +1031,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
             n = _stat(m["stat"])
             return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
+    # -- activated wordings (wave 15D) -- 701.12c: "Exchange life totals with target opponent." (Magus of the Mirror), "Two target
+    # players exchange life totals." (Soul Conduit): each gains or loses what it takes to equal the other's previous total
+    m = re.fullmatch(r"exchange life totals with (?P<o>target opponent|target player)", text)
+    if m and rider is None:
+        return [{"do": "exchange_life", "who": "you", "with": "target"}], _one(target_group(m["o"]))
+    m = re.fullmatch(r"(?P<o>two target players) exchange life totals", text)
+    if m and rider is None:
+        return [{"do": "exchange_life", "who": "target"}], _one(target_group(m["o"]))
     # -- attached events (wave 8D) -- "that player loses half their life, rounded up" (119.3; half of the life total as it is
     # when the instruction is carried out, 107.1a; effects.lose_life)
     m = re.fullmatch(_SUBJ + r"loses? half (?:their|your) life, rounded (?P<r>up|down)", text)
