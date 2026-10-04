@@ -65,6 +65,12 @@ ABILITY_COST = re.compile(
     rf"^(?:activated abilities(?: of (?P<sel>[a-z][a-z' ,-]*?))?|(?P<yours>abilities you activate that aren't mana abilities)) "
     rf"costs? {_N} (?P<dir>less|more) to activate(?:\. (?P<floor>this effect can't reduce the mana in that cost to less than one mana))?$",
     re.IGNORECASE)
+# -- equip (wave 15E) -- "Equip abilities you activate cost {1} less to activate." (Bureau Headmaster), "Equip costs you pay cost
+# {1} less." (Auriok Steelshaper), "Equip abilities you activate of other Equipment cost {1} less to activate." (Bladehold
+# War-Whip): a cost modifier (601.2f) of equip abilities only (attachments.is_equip_text), the player's own
+EQUIP_COST = re.compile(
+    rf"^equip (?:abilities you activate(?P<other> of other equipment)?|costs you pay) costs? {_N} (?P<dir>less|more)(?: to activate)?$",
+    re.IGNORECASE)
 # An effect's cost modifier with a duration (611.2a): "Artifact, instant, and sorcery spells you cast this turn cost {2}
 # less to cast." (Urza, Planeswalker) / "Until your next turn, instant and sorcery spells you cast cost {1} less to cast."
 # (Ral, Leyline Prodigy)
@@ -92,11 +98,11 @@ TOP_LOOK = "you may look at the top card of your library any time"
 # instruction of the same ability moved (400.7j: found where it went); with no such instruction
 # the ability stays manual. A bare "You may cast that card." (no duration) means "cast it now, as
 # this resolves, ignoring timing" — not a permission that lasts: refused.
-GRANT_THAT = re.compile(r"^(?:(?P<until>until end of turn|until the end of your next turn), )?you may (?P<verb>play|cast) "
+GRANT_THAT = re.compile(r"^(?:(?P<until>until end of turn|until the end of your next turn|until your next end step), )?you may (?P<verb>play|cast) "
                         r"(?P<what>that card|those cards|it)(?P<this_turn> this turn)?(?P<free> without paying (?:its|their) mana costs?)?$")
 # -- refused grants/replacements (wave 3R2) -- "You may play that card until the end of your next turn."
 _TRAILING_UNTIL = re.compile(r"^(?P<rest>you may (?:play|cast) (?:that card|those cards|it|them)(?: without paying (?:its|their) mana costs?)?) "
-                             r"(?P<until>until end of turn|until the end of your next turn)$")
+                             r"(?P<until>until end of turn|until the end of your next turn|until your next end step)$")
 # -- end refused grants/replacements (wave 3R2) --
 # "Until end of turn, you may play lands and cast spells from your graveyard." (Yawgmoth's Will)
 GRANT_ZONE = re.compile(r"^(?:(?P<until>until end of turn), )?you may (?P<what>play lands and cast spells|play lands|cast spells)"
@@ -391,6 +397,11 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
         delta = int(m["n"]) * (-1 if m["dir"] == "less" else 1)
         return {"kind": "static", "static": "cost_modifier", "delta": delta, "caster": caster, "filter": key, "effects": []}
+    m = EQUIP_COST.fullmatch(t)
+    if m:
+        return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
+                "filter": other.key() if m["other"] and (other := selectors.parse("other Equipment")) else None, "who": "you", "floor": False,
+                "equip": True, "effects": []}
     m = ABILITY_COST.fullmatch(t)
     if m:  # -- costs (wave 3$) -- the source permanent is matched at the cost, relative to the ability's controller
         key = None
@@ -544,7 +555,7 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         if (m["until"] and m["this_turn"]) or not (m["until"] or m["this_turn"]):
             return None  # (a bare "you may cast that card": cast it as this resolves, not modelled)
         free = bool(m["free"])  # (wave 3C) "... without paying its mana cost" (118.9)
-        until = "end_of_next_turn" if m["until"] == "until the end of your next turn" else "end_of_turn"
+        until = {"until the end of your next turn": "end_of_next_turn", "until your next end step": "next_end_step"}.get(m["until"], "end_of_turn")
         # "who": a pronoun for scripts.resolve_it — the object(s) the preceding instruction moved
         # ("that card": a card — never a token the same sentence created, 111.1: scripts.resolve_it)
         return [{"do": "grant_play", "who": "them:card" if m["what"] == "those cards" else "it:card", "play": m["verb"] == "play",
@@ -573,6 +584,7 @@ class Grant:
     permission: str | None = None  # the stored Permission's id
     spend: str = ""  # -- as long as (wave 9B) -- "" | "type" | "color": how mana may be spent casting with it (118.14, 609.4b)
     once_key: str | None = None  # a static "once during each of your turns" ability's key
+    sorcery: bool = False  # -- keywords (wave 15E) -- plot 702.170d: only in your main phase with an empty stack, whatever it is
 
 
 def _view(state: GameState, player: str, info: CardInfo) -> Plan:
@@ -651,7 +663,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
     oid = r.object_id(card.id)
     out: list[Grant] = []
     for p in r.permissions:
-        if p.player != player or not _wants(p, verb) or (p.once and p.used_turn == turn):
+        if p.player != player or not _wants(p, verb) or (p.once and p.used_turn == turn) or (p.after_turn and turn <= p.after_turn):
             continue
         if p.object_id is not None:
             if p.object_id != oid:
@@ -661,7 +673,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if p.filter and verb == "cast" and not spell_matches(state, player, card, ch, p.filter, info):
             continue
         zone_ok = p.object_id is not None or p.zone != "any"  # (a flash-only permission grants no zone)
-        out.append(Grant("permission", p.label, zone_ok=zone_ok, free=p.free, flash=p.flash, permission=p.id, spend=p.spend))
+        out.append(Grant("permission", p.label, zone_ok=zone_ok, free=p.free, flash=p.flash, permission=p.id, spend=p.spend,
+                         sorcery=p.sorcery))
     if verb == "cast" and where == "graveyard" and card.owner == player:
         for index, d in _definitions(ch).items():  # the card's own ability, functioning in the graveyard (113.6)
             if d.get("static") == "permission" and d.get("self") and d["zone"] == "graveyard":
@@ -852,7 +865,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
 
 # -- costs (wave 3$) -- cost modifiers for activated abilities (602.2b -> 601.2f, 118.7) ---------------------
 def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characteristics, mana: str, info: CardInfo,
-                 own: int = 0) -> str:
+                 own: int = 0, ability_text: str = "") -> str:
     """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
@@ -865,8 +878,12 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
     view = None
     increase, reduction = max(0, own), max(0, -own)
     floor = False
+    from app.rules import attachments
+
     for src, d in mods:
         if d["who"] == "you" and src.controller != player:
+            continue
+        if d.get("equip") and not attachments.is_equip_text(ability_text):  # -- equip (wave 15E) --
             continue
         if d["filter"]:
             view = view or _view(state, player, info)
@@ -902,7 +919,10 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
     r = plan.rules
     turn = plan.state.turn.number
+    if e["until"] == "next_end_step" and plan.active == pid and plan.state.turn.phase in ("end", "cleanup"):
+        turn += 1  # (granted in its own end step or later: the next one is the following turn's)
     when = "until the end of their next turn" if e["until"] == "end_of_next_turn" else \
+        "until their next end step" if e["until"] == "next_end_step" else \
         "for as long as it remains there" if e["until"] == "permanent" else "this turn"  # (permanent: wave 3E, 611.2a)
     verb = "play" if e["play"] else "cast"
     if e.get("who"):
@@ -942,6 +962,14 @@ def expire(plan: Plan) -> None:
     r.permissions = keep
     r.cost_modifiers = [m for m in r.cost_modifiers if m.until != "end_of_turn"
                         and not (m.until == "next_turn" and r.turn_started.get(m.controller, 0) > m.turn)]
+
+
+def expire_end_step(plan: Plan) -> None:
+    """-- trigger tail (wave 15B) -- "until your next end step" (611.2a): the permission ends as that player's end step begins
+    (``turn`` is the first turn whose end step may end it: grant_play), before anything is played in it."""
+    turn = plan.state.turn.number
+    plan.rules.permissions = [p for p in plan.rules.permissions
+                              if not (p.until == "next_end_step" and p.player == plan.active and turn >= p.turn)]
 
 
 def cost_modifier(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

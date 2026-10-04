@@ -97,6 +97,9 @@ EXTRA = [
          colors=["W"], color_identity=["W"], oracle_text="When this creature enters, you gain 2 life."),
     card("Test Gem", set_code="tst", number="B33", mana_cost="{1}", cmc=1.0, type_line="Artifact",
          oracle_text="When this artifact enters, you gain 1 life."),
+    card("Phalanx Formation", set_code="tst", number="B34", mana_cost="{1}{W}", cmc=2.0, type_line="Instant", colors=["W"],
+         color_identity=["W"], oracle_text="Strive — This spell costs {1}{W} more to cast for each target beyond the first.\n"
+         "Any number of target creatures each gain double strike until end of turn."),
     card("Deep Analysis", set_code="tst", number="B19", mana_cost="{3}{U}", cmc=4.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
          oracle_text="Target player draws two cards.\nFlashback—{1}{U}, Pay 3 life. (You may cast this card from your graveyard for "
          "its flashback cost. Then exile it.)"),
@@ -598,4 +601,19 @@ def test_a_noncreature_entering_still_triggers_under_torpor_orb(cards):
     act(s, "p1", type="cast_spell", card_id=c.id)
     answer(s)
     assert s.state.players["p1"].life == life + 1
+    roundtrip(s)
+
+
+def test_strive_costs_more_for_each_target_beyond_the_first(cards):
+    s = build(cards, p1=("Phalanx Formation", "Test Small", "Test Flyer"))
+    a, b = put(s, "Test Small", "battlefield"), put(s, "Test Flyer", "battlefield")
+    c = put(s, "Phalanx Formation", "hand")
+    mana(s, C=1, W=1)  # {1}{W} pays for one target only
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=c.id, targets=[a.id, b.id], target_counts=[2])
+    mana(s, C=1, W=1)  # + {1}{W} for the second target (601.2f)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[a.id, b.id], target_counts=[2])
+    answer(s)
+    d = derive(s.state, s.state.cards[b.id], chars.of(s.state.cards[b.id], s.cards), s.cards)
+    assert "double strike" in d.keywords
     roundtrip(s)

@@ -138,6 +138,10 @@ def _connive_next(plan: Plan, ctx: Context, queue: list[Conniver], n: int) -> bo
         cid, oid, pid = queue.pop(0)
         if pid not in plan.live():
             continue
+        if cid is not None:  # -- trigger tail (wave 15B) -- "Whenever a creature you control connives" (701.50a)
+            from app.game.rules_state import emit
+
+            emit(plan.state, "designation", counter="connive", card=cid, object_id=oid, player=pid)
         # -- replacement effects stage 2 (wave 2E): the draw through the draw choke point; after a
         # 616.1 choice the conniving goes on from the discard ("connive_after_draw") --
         rest = {"do": "connive_after_draw", "ctx": ctx, "card": cid, "object": oid, "player": pid, "n": n,
@@ -229,6 +233,20 @@ def monstrosity(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         from app.game.rules_state import emit
 
         emit(plan.state, "designation", counter="monstrous", card=cid, object_id=oid, player=plan.state.cards[cid].controller)
+    return True
+
+
+# -- Class (wave 16A) -- 716.2a ---------------------------------------------------------------
+def class_level(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"This Class's level becomes N": the level designation (716.2b) of the permanent; "becomes level N" triggers."""
+    from app.game.rules_state import emit
+
+    for cid in effects._cards(plan, ctx, "self"):
+        card = plan.state.cards[cid]
+        if card.zone.endswith(":battlefield"):
+            oid = plan.oid(cid)
+            plan.rules.levels[oid] = e["n"]
+            emit(plan.state, "designation", counter="level", card=cid, object_id=oid, amount=e["n"], player=card.controller)
     return True
 
 
@@ -533,7 +551,7 @@ def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[st
     return [c for c in card_ids if c not in stuck]
 
 
-PRIMITIVES = {"amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
+PRIMITIVES = {"class_level": class_level, "amass": amass, "connive": connive, "monstrosity": monstrosity, "bolster": bolster,
               "goad": goad, "detain": detain, "suspect": suspect, "prepare": prepare, "earthbend": earthbend, "firebend": firebend, "incubate": incubate, "transform": transform,
               **facedown.PRIMITIVES,  # -- keyword actions & face-down (wave 3F) --
               **token_grammar.PRIMITIVES}

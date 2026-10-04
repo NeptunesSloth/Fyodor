@@ -32,8 +32,7 @@ def test_qualities(line, source, protected):
     assert any(q(source) for q in protection.parse(line)) is protected
 
 
-@pytest.mark.parametrize("line", ["Protection from mana value 3 or greater", "Protection from non-Spirit creatures",
-                                  "Protection from the chosen player", "Protection from legendary creatures"])
+@pytest.mark.parametrize("line", ["Protection from the chosen player", "Protection from modified creatures"])  # (wave 15E: the others are read)
 def test_unknown_qualities_stay_manual(line):
     assert not protection.supported(line)
 

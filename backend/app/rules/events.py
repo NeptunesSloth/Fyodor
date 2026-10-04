@@ -88,7 +88,8 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
 _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
-              "one of your opponents": "opponent", "enchanted player": "enchanted_player"}
+              "one of your opponents": "opponent", "enchanted player": "enchanted_player",
+              "the player with the most life or tied for most life": "most_life"}  # (wave 15E: dethrone, 702.105a)
 _DEFENDER_RE = "|".join(re.escape(k) for k in sorted(_DEFENDERS, key=len, reverse=True))
 _PLAYER_VERBS = [
     (r"gains? life", "gain_life"),
@@ -119,6 +120,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"the ring tempts (?P<p>you)", re.IGNORECASE), "ring_tempts"),
     (re.compile(r"(?P<p>you) choose a creature as your ring-bearer", re.IGNORECASE), "ring_bearer"),
     (re.compile(r"(?P<p>you) complete a dungeon"), "complete_dungeon"),
+    (re.compile(r"(?P<p>you) proliferate"), "proliferate"),  # -- trigger tail (wave 15B) -- 701.34a
     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
 ]
@@ -212,6 +214,17 @@ def _parse(c: str) -> Condition | None:
     m = re.fullmatch(rf"~ (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m:
         return {"event": "multi", "events": [_MULTI[m["a"]], _MULTI[m["b"]]]}
+    # -- trigger tail (wave 15B) -- "~ dies or is put into exile from the battlefield" (God-Eternal Oketra), "~ or another
+    # nontoken artifact you control is put into a graveyard from the battlefield or is put into exile from the battlefield":
+    # either event of the same objects (603.2), each its own (a card put into exile from the battlefield: 603.6c, 700.4)
+    m = re.fullmatch(r"(?P<s>.+?) (?:dies|(?:is|are) put into a graveyard from the battlefield) or (?:is|are) put into exile "
+                     r"from the battlefield", c)
+    if m:
+        died, left = _parse(f"{m['s']} dies"), _parse(f"{m['s']} leaves the battlefield")
+        if died is None or left is None or died.get("event") != "die" or left.get("event") != "leave" or died.get("aggregate") \
+                or left.get("aggregate") or {k: v for k, v in died.items() if k != "event"} != {k: v for k, v in left.items() if k != "event"}:
+            return None
+        return {"event": "either", "subject": died["subject"], "conds": [died, {**left, "dest": "exile"}]}
     # -- attached events (wave 4L) -- "Whenever enchanted creature attacks or blocks" (the object it's attached to)
     m = re.fullmatch(rf"(?:enchanted|equipped) creature (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m and {_MULTI[m["a"]], _MULTI[m["b"]]} <= {"attack", "block", "blocked"}:
@@ -239,6 +252,11 @@ def _parse(c: str) -> Condition | None:
     found = _combat(c)
     if found is not None:
         return found
+    # -- keywords (wave 15E) -- training (702.149a): "~ and at least one other creature with power greater than ~'s power attack"
+    if c == "~ and at least one other creature with power greater than ~'s power attack":
+        sel = selectors.parse("creature with power greater than ~'s power")
+        return None if sel is None else {"event": "attack", "subject": "self", "min_attackers": 1, "sel": sel.key(),
+                                         "others_only": True}
     # battalion: "~ and at least two other creatures attack" (the creatures declared as attackers)
     m = re.fullmatch(r"~ and at least (?P<n>\w+) other creatures? attack", c)
     if m:
@@ -318,15 +336,31 @@ def _parse(c: str) -> Condition | None:
         return found
     # -- becomes monstrous (wave 6D) -- "When ~ becomes monstrous" (701.37b), "Whenever a creature you control becomes
     # renowned" (702.112b): the permanent got the designation
+    m = re.fullmatch(r"(?P<s>.+?) (?P<v>explores|connives)(?P<k> a land card| a nonland card)?", c)  # -- trigger tail (wave 15B) --
+    if m and (m["k"] is None or m["v"] == "explores"):  # 701.44a explore (the revealed card), 701.50a connive
+        base = _subject(m["s"])
+        if base is None or base.get("aggregate"):
+            return None
+        return {**base, "event": m["v"][:-1] if m["v"] == "explores" else "connive",
+                **({"kind": "land" if "nonland" not in m["k"] else "nonland"} if m["k"] else {})}
     m = re.fullmatch(r"(?P<s>.+?) becomes (?P<d>monstrous|renowned)", c)
     if m:
         base = _subject(m["s"])
         if base is None or base.get("aggregate"):
             return None
         return {**base, "event": f"become_{m['d']}"}
+    # -- Class (wave 16A) -- "When this Class becomes level 2" (716.2a): the class level it became (designations.facts)
+    m = re.fullmatch(r"(?P<s>.+?) becomes level (?P<n>\d+)", c)
+    if m:
+        base = _subject(m["s"])
+        if base is None or base.get("aggregate"):
+            return None
+        return {**base, "event": "become_level", "level": int(m["n"])}
     # -- into a graveyard (wave 6D) -- "one or more land cards are put into your graveyard from anywhere" (The Gitrog
     # Monster), "… from your library" (Hedge Shredder): a card put there, as it is there (603.6c: "from anywhere" is never
     # a leaves-the-battlefield ability, so it doesn't look back), whatever zone it came from (or only the library)
+    if c == "~ is put into a graveyard from anywhere":  # -- trigger tail (wave 15B) -- 603.6c: not a leaves-the-battlefield ability
+        return {"event": "to_graveyard", "subject": "self"}  # (it triggers from the graveyard, on the card's new object)
     m = re.fullmatch(r"(?P<o>one or more .+? cards|an? .+? card|a card) (?:is|are) put into (?P<g>your|an opponent's|a) "
                      r"graveyard from (?P<f>anywhere|your library)", c)
     if m:
@@ -579,7 +613,20 @@ def _player_action(c: str) -> Condition | None:
     """A player sacrifices (701.21), discards (701.9), cycles (702.29) or creates a token (111.2)."""
     # -- entry forms (wave 5F) -- "When you play another land" (City of Traitors), "Whenever a player plays a land": 305.1
     # (playing a land — not putting one onto the battlefield)
-    m = re.fullmatch(rf"{_P} plays? (?P<o>a land|another land)", c)
+    # -- trigger tail (wave 15B) -- "Whenever you expend 4" (700.14: as you spend your fourth total mana to cast spells this turn)
+    m = re.fullmatch(r"(?P<p>you|a player|an opponent) plays? (?P<a>an? [\w ]*?land) or casts? (?P<b>an? [\w ]*?spell)", c)
+    if m:  # "Whenever you play a land or cast a spell" (305.1: playing a land is no cast): either event, each its own (603.2)
+        p = m["p"]
+        verb = "play" if p == "you" else "plays"
+        land, spell = _parse(f"{p} {verb} {m['a']}"), _parse(f"{p} {'cast' if p == 'you' else 'casts'} {m['b']}")
+        if land is None or spell is None or land.get("event") != "land_played" or spell.get("event") != "cast" \
+                or land.get("aggregate") or spell.get("aggregate"):
+            return None
+        return {"event": "either", "subject": "player", "player": land["player"], "conds": [land, spell]}
+    m = re.fullmatch(r"you expend (?P<n>\d+)", c)
+    if m:
+        return {"event": "expend", "subject": "player", "player": "you", "n": int(m["n"])}
+    m = re.fullmatch(rf"{_P} plays? (?P<o>another land|an? (?:[a-z]+ )?land)", c)
     if m:
         return {"event": "land_played", "subject": "player", "player": _PLAYERS[m["p"]], "obj": _object_sel(m["o"]),
                 "aggregate": False}
@@ -650,6 +697,10 @@ def _object_event(c: str) -> Condition | None:
         return {**base, "event": "counters_put", **({"counter": m["k"]} if m["k"] else {}),
                 "by": "you" if m["p"] == "you" else "opponent", **({"own": True} if own else {})}
     # -- end counters (wave 5H) --
+    # -- keywords (wave 15E) -- 702.63a vanishing: "When the last time counter is removed from this permanent"
+    m = re.fullmatch(r"the last (?P<k>[a-z]+) counter is removed from ~", c)
+    if m:
+        return {"subject": "self", "event": "counters_removed", "counter": m["k"], "last": True}
     m = re.fullmatch(r"(?:one or more|an?) (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) )?counters? (?:is|are) put on (?P<s>.+)", c)
     if m:
         base = _subject(m["s"])
@@ -695,6 +746,16 @@ def _object_event(c: str) -> Condition | None:
                 **({"min": _count(m["min"])} if m["min"] else {}),
                 "ctl": {" you control": "you", " an opponent controls": "opponent"}.get(m["ctl"] or "", "any"),
                 "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}
+    # -- trigger tail (wave 15B) -- "Whenever ~ deals damage to a Vampire": a creature of that type (120.1), as it last existed
+    m = re.fullmatch(r"(?P<head>.+? deals? (?:(?:combat|noncombat) )?damage) to an? (?P<ty>[A-Z][\w-]+(?: or [A-Z][\w-]+)?)", c)
+    if m:
+        from app.rules.creature_types import CREATURE_TYPES
+
+        types = m["ty"].split(" or ")
+        inner = _parse(f"{m['head']} to a creature")
+        if inner is None or not all(t in CREATURE_TYPES for t in types):
+            raise _Refuse
+        return {**inner, "to_types": types}
     m = re.fullmatch(rf"(?P<s>.+?) deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?damage(?P<to>{_DAMAGE_TO_RE}|)", c)
     # (combat damage to a player / an opponent and damage to an opponent: the verbs below)
     if m and not (m["to"] == " to an opponent" and m["c"] != "noncombat ") and \

@@ -616,7 +616,8 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
         extra["distinct_names"] = True
     named = _NAMED.fullmatch(sel_text)
     if named:
-        if re.search(r" or an? ", named["name"]):  # -- wave 3S: "a card named X or an Equipment card" (alternatives): not read --
+        if re.search(r" or an? |and/or |\bnamed\b", named["name"]):  # -- wave 3S: "a card named X or an Equipment card" (alternatives): not read --
+            # (-- if you do (wave 15C) -- nor "a card named X and/or a card named Y": two names, not one)
             raise _Fail
         extra["name"] = named["name"]
         sel_text = named["rest"]
@@ -676,9 +677,13 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
 # deck cards): the searcher chooses to search the library and the graveyard, or the graveyard only (701.23a: a
 # search looks at all the cards in that zone); the second sentence (``gy_search_shuffle``, joined to the search
 # by scripts._gy_shuffle) shuffles only a library that was searched (701.24). One card, one destination.
-_SEARCH_GY = re.compile(rf"search your library and/or graveyard for (?P<q>(?:up to )?(?:{AMT})) (?P<sel>.+?)(?:,? and |, )"
+# -- if you do (wave 15C) -- also "your graveyard, hand, and/or library" (any of them, 701.23a) and "your graveyard, hand, and
+# library" (all three), the zones in any order; "…, then shuffle" after the destination
+_GY_ZONES = (r"(?P<zones>library and/or graveyard|graveyard and/or library|(?:graveyard|library), hand,? (?:and/or|and) (?:library|graveyard)"
+             r"|hand and/or library|library and/or hand)")
+_SEARCH_GY = re.compile(rf"search your {_GY_ZONES} for (?P<q>(?:up to )?(?:{AMT})) (?P<sel>.+?)(?:,? and |, )"
                         rf"(?:(?P<reveal>reveal {_PRON})(?:,? and |, )(?:then )?)?put (?P<pron>{_PRON}) "
-                        rf"(?P<dest>into your hand|onto the battlefield)")
+                        rf"(?P<dest>into your hand|onto the battlefield)(?P<then>, then shuffle)?")
 
 
 _GAMBLE = re.compile(r"search your library for a card, put (?:that card|it) into your hand, (?P<first>shuffle, then )?"
@@ -704,7 +709,15 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
     e = found[0][0]
     if e.get("parts") or e.get("to2") or e.get("who", "you") != "you" or e["max"] != 1:
         raise _Fail  # (several cards from two zones: not read)
-    return [{**e, "graveyard": True, "shuffle": False, **({"may": True, "optional": True} if may else {})}], None
+    zones = [z for z in ("library", "hand", "graveyard") if z in m["zones"]]
+    if " and/or " not in m["zones"] and len(zones) == 3:  # -- if you do (wave 15C) -- "your graveyard, hand, and library": all three
+        if may or not m["then"]:
+            raise _Fail  # (the library is searched, so it is shuffled: 701.24, only when told; a "may" is not read)
+        return [{**e, "zones": zones, "shuffle": True}], None
+    if m["then"]:
+        raise _Fail  # (a "may" search, "then shuffle": only the forced three zones, above)
+    extra = {"search_zones": zones} if "hand" in zones else {}
+    return [{**e, "graveyard": True, "shuffle": False, **extra, **({"may": True, "optional": True} if may else {})}], None
 
 
 # -- the top of a library (401, 701.20 reveal, 701.20e look, 701.24 shuffle) ----------------------
@@ -712,7 +725,7 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
 _LIB = r"(?P<lib>your|target player's|target opponent's|that player's|each player's|each opponent's) library"
 _LIB_WHO = {"your": "you", "target player's": "target player", "target opponent's": "target opponent",
             "that player's": "that player", "each player's": "each player", "each opponent's": "each opponent"}
-_SUBJECTS = r"(?P<subj>target player|target opponent|that player|each player|each opponent|each of your opponents)"
+_SUBJECTS = r"(?P<subj>target player|target opponent|that player|defending player|each player|each opponent|each of your opponents)"
 _N_CARDS = rf"(?:(?P<n>{AMT}) cards|card)"
 _TOP = re.compile(rf"(?P<verb>look at|reveal) the top {_N_CARDS} of {_LIB}(?P<back>, then put them back in any order)?")
 _SUBJ_TOP = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) the top {_N_CARDS} of their library")
@@ -725,7 +738,8 @@ _REST = (r"(?:the rest|the rest of (?:those|the) cards|the rest of them|the othe
          r"all other cards revealed this way|"
          # -- refused look/cast-free (wave 3R5) -- after a free cast (608.2g): the cards it didn't cast
          r"all revealed cards not cast this way|the exiled cards not cast this way|the exiled cards that weren't cast this way|"
-         r"all cards exiled this way that weren't cast) "
+         r"all cards exiled this way that weren't cast|"
+         r"all cards revealed this way that weren't put onto the battlefield) "  # (-- if you do (wave 15C) -- Genesis Wave)
          rf"(?P<rest>into (?:your|their) graveyard|into your hand|on the bottom(?: of {_LIBREF})? in (?:any|a random) order|"
          rf"on the bottom of {_LIBREF}|(?:back )?on top of {_LIBREF} in any order)")
 _PICK_TO = ("into your hand|onto the battlefield tapped and attacking|onto the battlefield tapped|onto the battlefield|into your graveyard|"
@@ -752,6 +766,7 @@ _SUBJ_UNTIL = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) cards from the 
 _REST_THEY = re.compile(rf"(?:that player|the player) puts {_REST}")
 _OWNERS = r"(?:its owner's|their owner's|their owners'|your)"
 _TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_OWNERS} library")
+_NTH_FROM_TOP = re.compile(rf"put (?P<o>.+?) into {_OWNERS} library (?P<nth>second|third|fourth|fifth|sixth|seventh) from the top")
 _SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
 _OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that permanent's) owner shuffles it into their library")
 _OWNER_CHOICE = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it on their choice of the top or bottom of their library")
@@ -866,6 +881,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     def count(m: re.Match[str]) -> Any:
         return _apply(_amount(m["n"]) if m["n"] else 1, rider)
 
+    if text == "you may reveal the top card of your library":  # -- if you do (wave 15C) -- the revealing is the choice (701.20a)
+        return [{"do": "look_top", "n": 1, "player": "you", "reveal": True, "optional": True}], None
     m = _TOP.fullmatch(text)
     if m:
         who, group = _lib_owner(m["lib"])
@@ -949,6 +966,13 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     found_lib = gy_to_library(text)  # -- refused zones/sized (wave 3R4) --
     if found_lib is not None:
         return found_lib
+    m = _NTH_FROM_TOP.fullmatch(text)  # -- trigger tail (wave 15B) -- "third from the top" (401.4: one card, the Nth from the top)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind not in ("target", "self", "it"):
+            raise _Fail
+        nth = ("second", "third", "fourth", "fifth", "sixth", "seventh").index(m["nth"]) + 2
+        return [{"do": "to_library", "who": _who(kind, key), "place": nth}], _one(group)
     m = _TO_LIBRARY.fullmatch(text) or _SHUFFLE_INTO.fullmatch(text)
     if m:
         kind, key, group = ref(m["o"])
@@ -975,7 +999,7 @@ def parse_sentence(text: str) -> tuple[Effects, Any] | None:
         return None
     # -- damage sized by a count (wave 4E) -- an amount read per recipient player is a damage instruction's only
     # ("each player creates X tokens, where X is the number of lands they control": not read)
-    if any(e.get("do") != "damage" and sized_damage.has_per_player(e) for e in found[0]):
+    if any(e.get("do") not in ("damage", "lose_life") and sized_damage.has_per_player(e) for e in found[0]):
         return None
     return found
 
@@ -1077,12 +1101,6 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m and rider is None and (m["s"] in (None, "you")) == (text.endswith("your life, rounded " + m["r"])):
         who, target = _subject(m)
         return [{"do": "lose_life", "who": who, "n": 0, "half": m["r"]}], target
-    # -- static grants (wave 15A) -- "Target opponent mills half their library, rounded down." (107.1a: half of the cards in the
-    # library as the instruction is carried out; the player whose library it is: the one milled)
-    m = re.fullmatch(_SUBJ + r"mills? half (?P<own>their|your) library, rounded (?P<r>up|down)", text)
-    if m and rider is None and (m["own"] == "your") == (m["s"] in (None, "you")):
-        who, target = _subject(m)
-        return [{"do": "mill", "who": who, "n": {"half": {"library": "you" if m["own"] == "your" else "that_player"}, "round": m["r"]}}], target
     m = re.fullmatch(_SUBJ + rf"discards? (?P<n>{AMT}) cards? at random", text)  # -- refused zones/sized (wave 3R4) --
     if m:  # 701.9b: the cards are chosen at random (effects.discard: the table picks; the move records which)
         who, target = _subject(m)
@@ -1093,11 +1111,17 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m and rider is None and (m["your"] is not None) == (m["s"] in (None, "you")):
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": 0, "all": True}], target
-    # -- static_other sweep (wave 16B) -- "discards any number of cards" (701.9a: the player chooses how many, from none up to all)
-    m = re.fullmatch(_SUBJ + rf"discards? (?:any number of|up to (?P<up>{AMT})) cards", text)
+    # -- trigger tail (wave 15B) -- "discard up to two cards" / "discard any number of cards": the player chooses how many (701.9a)
+    m = re.fullmatch(_SUBJ + rf"discards? (?:up to (?P<n>{AMT})|(?P<any>any number of)) cards?", text)
     if m and rider is None:
         who, target = _subject(m)
-        return [{"do": "discard", "who": who, "n": 0, "any": True, **({"up_to": _amount(m["up"])} if m["up"] else {})}], target
+        return [{"do": "discard", "who": who, "n": 0 if m["any"] else _amount(m["n"]), "upto": True}], target
+    # -- if you do (wave 15C) -- "target player mills half their library, rounded up" (107.1a: half of the cards in the
+    # library as the instruction is carried out; 701.17a; effects.mill)
+    m = re.fullmatch(_SUBJ + r"mills? half (?:(?P<your>your)|their) library, rounded (?P<r>up|down)", text)
+    if m and rider is None and (m["your"] is not None) == (m["s"] in (None, "you")):
+        who, target = _subject(m)
+        return [{"do": "mill", "who": who, "n": 0, "half": m["r"]}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)

@@ -47,7 +47,7 @@ OTHER_SUBTYPES = {"Equipment", "Aura", "Vehicle", "Food", "Clue", "Treasure", "B
                   "Curse", "Plains", "Island", "Swamp", "Mountain", "Forest", "Desert", "Gate", "Cave", "Town",
                   "Sphere", "Lesson", "Adventure", "Arcane", "Trap", "Room", "Class", "Case", "Background",
                   "Fortification", "Attraction", "Contraption", "Powerstone", "Map", "Incubator", "Junk",
-                  "Lair", "Bobblehead"}  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
+                  "Lair", "Bobblehead", "Cartouche"}  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
 # -- kicked / instead (wave 4G) -- 205.3j: the planeswalker types ("If you control a Jace planeswalker, …"), read only
 # when written capitalized (a word like "will" is never one)
 PLANESWALKER_TYPES = frozenset({
@@ -65,6 +65,7 @@ _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves"
               "allies": "Ally", "fairies": "Faerie", "zombies": "Zombie", "sorceries": "Sorcery", "mercenaries": "Mercenary",
               "plains": "Plains", "pegasi": "Pegasus", "octopi": "Octopus", "harpies": "Harpy", "dryads": "Dryad"}
 _IRREGULAR.update({"oxen": "Ox", "armies": "Army", "spies": "Spy", "cyclopes": "Cyclops"})  # -- static wordings (wave 6E) --
+_IRREGULAR.update({"aurochs": "Aurochs"})  # -- trigger tail (wave 15B) -- (its own plural)
 _MARKERS = {"card", "spell", "perm", "token", "commander"}  # nouns that mark what kind of object, not its type
 ZONES = ("battlefield", "graveyard", "hand", "exile", "library", "stack", "command")
 
@@ -317,6 +318,11 @@ def _any_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", None)
 
 
+@_suffix(r"(?:from|in) that player's graveyard")  # -- if you do (wave 15C) -- the player a trigger is about (bound like
+def _that_players_graveyard(s: Selector, m: re.Match[str]) -> Selector:  # "that player controls": triggers.bind_that_player)
+    return _in_zone(s, "graveyard", "that_player")
+
+
 @_suffix(r"(?:from|in) (?:an opponent's|your opponents') graveyards?")
 def _opp_graveyard(s: Selector, m: re.Match[str]) -> Selector:
     return _in_zone(s, "graveyard", "opponent")
@@ -419,10 +425,10 @@ def source_stat(plan: Plan, source: str | None, what: str) -> int | None:
 
 # -- token & pump wordings (wave 6C) -- keywords a selector may ask about but a grant doesn't give ("if you control no
 # creatures with decayed": read from the object's keywords, like the others)
-_WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk")
+_WITH_KEYWORDS = (*KEYWORDS, "decayed", "infect", "wither", "fear", "shadow", "horsemanship", "intimidate", "skulk", "convoke")
 
 
-@_suffix(r"with (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")
+@_suffix(r"(?:with|that has) (?P<kw>" + "|".join(_WITH_KEYWORDS) + r")")  # (wave 15B: "a spell that has convoke")
 def _with_kw(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, with_keywords=(*s.with_keywords, m["kw"]))
 
@@ -629,6 +635,8 @@ def _prefix(s: Selector, word: str) -> Selector | None:
         return replace(s, attacking=True)
     if low == "blocking":
         return replace(s, blocking=True)
+    if low == "unblocked":  # -- keywords (wave 15E) -- ninjutsu 702.49a: "unblocked attacking creature" (509.1h: not blocked)
+        return replace(s, attacking=True, extras=(*s.extras, "unblocked"))
     if low in ("attacking-or-blocking", "blocking-or-attacking"):  # (joined by parse: one status)
         return replace(s, in_combat=True)
     pt = re.fullmatch(r"(\d+)/(\d+)", word)
@@ -799,8 +807,10 @@ def _parse(phrase: str) -> Selector | None:
                     break
     except ValueError:
         return None
-    if any(isinstance(c[2], str) and c[2].startswith(SOURCE_STAT) for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
-        return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source)
+    if any(isinstance(c[2], str) and c[2].startswith(SOURCE_STAT) for c in s.compare) and (
+            (s.zones != ("graveyard",) or not s.card) and (s.zones != ("battlefield",) or s.card)):
+        return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source; -- keywords
+        # (wave 15E) -- or permanents: mentor's "target attacking creature with power less than this creature's power")
     if any(c[1] == "==" and c[2] == X_VALUE for c in s.compare) and (s.zones != ("graveyard",) or not s.card):
         return None  # -- reanimation (wave 10A) -- ("mana value X" exactly: read only for a card in a graveyard)
     if qualified and re.search(r", or \S+$", text):
@@ -818,14 +828,14 @@ def _parse(phrase: str) -> Selector | None:
         if base is None or base.types or base.subtypes or base.card:
             return None
         return replace(s, zones=base.zones, token=base.token, extras=(*s.extras, "historic"))
-    alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker) cards?)",
-                            text.strip())
+    alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker)(?: cards?| spells?)?)",
+                            text.strip())  # (wave 15B: also "Beast or Bird creature", "Beast or Bird creature spell")
     if alt_subs is not None:
         subs = [_core(w) for w in re.split(r",? or ", alt_subs["subs"])]
         base = _parse(alt_subs["rest"]) if all(c is not None and c[0] == "sub" for c in subs) else None
-        if base is None or base.subtypes or base.union or len(base.types) != 1 or not base.card:
+        if base is None or base.subtypes or base.union or len(base.types) != 1 or base.player is not None:
             return None
-        return replace(s, card=True, zones=() if s.zones == ("battlefield",) else s.zones, types=base.types,
+        return replace(s, card=base.card, zones=base.zones if s.zones == ("battlefield",) else s.zones, types=base.types,
                        subtypes=tuple(dict.fromkeys(c[1] for c in subs if c is not None)))
     # -- end recursion & tutors (wave 4M) --
     words = text.replace(",", " ,").split()
@@ -1011,6 +1021,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.zone_owner == "opponent" and card.owner == you:
         return False
+    if (sel.zone_owner == "that_player" or (sel.zone_owner or "").startswith("player:")) \
+            and card.owner != (sel.zone_owner or "")[7:]:
+        return False  # (wave 15C) unbound "that_player": nothing matches
     any_stack = sel.ability == SPELL_OR_ABILITY  # -- stack interaction (wave 5B) --
     if zone == "stack" and not any_stack and (card.ability is not None) != (sel.ability is not None):
         return False  # a spell isn't an ability, and an ability isn't a spell (115.2b)
@@ -1141,6 +1154,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra == "attacking_you" and (card.attacking is None or card.attacking.kind != "player" or card.attacking.id != you):
             return False
         if extra in ("face_down", "face_up") and card.face_down != (extra == "face_down"):  # -- wave 3F --
+            return False
+        if extra == "unblocked" and card.id in plan.rules.blocked:  # (wave 15E) a blocked attacker stays blocked
             return False
         if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
             return False

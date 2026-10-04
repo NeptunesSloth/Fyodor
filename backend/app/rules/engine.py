@@ -28,6 +28,7 @@ from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import (
     attachments,
     battles,
+    bestow,
     casting,
     combat,
     combat_rules,  # -- combat (wave 5C) --
@@ -607,6 +608,8 @@ def on_step_start(plan: Plan) -> None:
             if empty and ap in plan.rules.drew_from_empty:
                 plan.note(f"{plan.name(ap)} can't draw: their library is empty")
     elif phase in ("upkeep", "end"):
+        if phase == "end":
+            permissions.expire_end_step(plan)  # -- trigger tail (wave 15B) -- "until your next end step" ends as it begins
         triggers.at_step(plan, "upkeep_you" if phase == "upkeep" else "end_step_you")
         if phase == "end":
             triggers.monarch_end_step(plan)
@@ -775,6 +778,10 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
         record = plan.rules.payments.pop(oid, None)
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
+        if oid in plan.rules.bestowed:  # -- keywords (wave 15E) -- the bestowed Aura permanent is the spell it was (702.103b)
+            plan.rules.bestowed = [o for o in plan.rules.bestowed if o != oid]
+            if card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
+                plan.rules.bestowed.append(plan.oid(card_id))
         if card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             from app.rules import history  # -- this-turn history (wave 4D) --
 
@@ -804,7 +811,12 @@ def resolve_top_of_stack(plan: Plan) -> None:
         or ("Aura" in ch.subtypes and aura_target is None)
     if aura_target is not None and not manual:
         selector = attachments.enchant_selector(ch)
-        if selector is None or not still_legal(plan, selector, controller, aura_target, ch):
+        if (selector is None or not still_legal(plan, selector, controller, aura_target, ch)) and bestow.is_bestowed(plan.state, top):
+            bestow.cease(plan, top, "its target is illegal")  # -- keywords (wave 15E) -- 702.103e: it resolves as a creature spell
+            aura_target = None
+            ch = plan.ch(top)
+            manual = ch.is_instant_or_sorcery or ch.is_ability or needs_manual_resolution(ch) or plan.manual(top)
+        elif selector is None or not still_legal(plan, selector, controller, aura_target, ch):
             # 608.2b / 303.4g: its target is illegal: it doesn't resolve and goes to the graveyard
             plan.note(f"{ch.name or 'The Aura'} does nothing: its target is no longer legal")
             plan.do({"type": "move", "card_ids": [top_id], "to": {"player": top.owner, "zone": "graveyard"}}, actor=controller)
@@ -859,6 +871,19 @@ def resolve_top_of_stack(plan: Plan) -> None:
             layers.add_effect(plan, affected=[oid], layer="6", source=None, controller=controller,
                               add_keywords=("haste",), duration="permanent", label="Haste (dash)")
             delayed.create_move(plan, controller, top_id, oid, "hand", entered_now.name)  # (a delayed trigger, 603.7)
+    rec = plan.rules.payments.get(plan.oid(top_id))
+    if rec is not None and rec.alternative == "warp" and entering and not manual:  # -- keywords (wave 15E) -- 702.185a
+        entered_now = plan.state.cards.get(top_id)
+        if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            delayed.create_move(plan, controller, top_id, plan.oid(top_id), "exile", entered_now.name, warp=True)
+    if rec is not None and rec.alternative == "blitz" and entering and not manual:  # -- keywords (wave 15E) -- 702.152a
+        entered_now = plan.state.cards.get(top_id)
+        if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            oid = plan.oid(top_id)
+            layers.add_effect(plan, affected=[oid], layer="6", source=None, controller=controller, add_keywords=("haste",),
+                              duration="permanent", label="Haste (blitz)",
+                              add_abilities=["When this permanent is put into a graveyard from the battlefield, draw a card."])
+            delayed.create_move(plan, controller, top_id, oid, "graveyard", entered_now.name, sacrifice=True)
     if top_id in plan.rules.suspend_haste:  # 702.62e: a suspended creature has haste
         plan.rules.suspend_haste = [c for c in plan.rules.suspend_haste if c != top_id]
         entered_now = plan.state.cards.get(top_id)

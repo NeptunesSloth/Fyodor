@@ -92,11 +92,12 @@ GRANTABLE_KEYWORDS: frozenset[str] = frozenset({
 # -- static wordings (wave 6E) -- triggered keywords a static may grant (613.1f): granted as the keyword line itself, an
 # ability of the object like a printed one (scripts.keyword_triggers: prowess 702.108a, persist 702.79a, undying
 # 702.93a; triggers._exalted: exalted 702.83a, each instance triggering separately, 702.83b / 702.108b)
-TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "undying"})
+TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "undying",
+                                              "mentor", "training", "dethrone", "evolve", "flanking", "battle cry"})  # (wave 15E)
 # -- static grants (wave 15A) -- keywords whose whole meaning is one triggered ability (keyword_triggers.MEANINGS): granted as the
 # line itself (613.1f). Not modular / graft / living weapon / for mirrodin! / ravenous: those have a half that works as the
 # permanent enters (a granted one would miss it).
-MEANING_GRANTS = r"extort|battle cry|ingest|(?:poisonous|frenzy|afterlife|annihilator|afflict) \d+"
+MEANING_GRANTS = r"extort|ingest|(?:poisonous|frenzy|afterlife|annihilator|afflict) \d+"
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
                      "enchanted permanent": "permanent", "enchanted artifact": "artifact",
@@ -190,18 +191,21 @@ def parse(text: str) -> Definition | None:
                     return None
                 body = m["rest"]
             else:
-                m = re.match(r"^(?P<rest>.+?) (?:as long as|(?P<r>unless|if)) (?P<cond>(?!able\b).+)$", body)
+                # (-- trigger tail (wave 15B) -- a condition inside a quoted granted ability is that ability's own: masked here)
+                masked = re.sub(r'"[^"]*"', lambda q: "\0" * len(q[0]), body)
+                m = re.match(r"^(?P<rest>.+?) (?:as long as|(?P<r>unless|if)) (?P<cond>(?!able\b).+)$", masked)
                 if m:
-                    cond = _condition(m["cond"])
+                    cond_text, rest_text = body[m.start("cond"):m.end("cond")], body[m.start("rest"):m.end("rest")]
+                    cond = _condition(cond_text)
                     if cond is None:
                         return None
-                    names_source = _names_source(m["cond"])  # -- conditional statics (wave 4B) --
+                    names_source = _names_source(cond_text)  # -- conditional statics (wave 4B) --
                     if m["r"]:
                         rule_cond = True
                         if m["r"] == "unless":
                             cond = {"static": "not", "cond": cond}
                     conds.append(cond)
-                    body = m["rest"]
+                    body = rest_text
     if " as long as " in body or " unless " in body or body.startswith(("As long as", "During ", "If ", "if ")):
         return None
     # -- conditional statics (wave 4B) -- "Creatures you control also get +1/+0 and have trample as long as …"
@@ -670,7 +674,8 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
 # targeting, blocking, damage, attachments), ward (702.21a: each instance triggers, triggers.ward_costs), toxic
 # (702.164: combat.py). Only qualities and costs the engine enforces (coverage._keyword_supported).
 _FROM_JOIN = "\u0001from "
-_PARAM_KEYWORDS = ("protection", "ward", "toxic")
+_PARAM_KEYWORDS = ("protection", "ward", "toxic", "annihilator", "afflict", "poisonous", "bushido", "mobilize", "frenzy",
+                   "soulshift", "afterlife")  # (wave 15E: keywords whose line is carried out wherever it is: keyword_triggers)
 
 
 def keyword_line(rest: str) -> str | None:

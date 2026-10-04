@@ -193,7 +193,8 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
         abilities = chars.with_intrinsic_mana(kept, subtypes)
     else:
         abilities = ch.abilities
-    return replace(ch, name=ex.name if ex.name is not None else ch.name, supertypes=supertypes, types=types,
+    cost: dict[str, Any] = {"mana_cost": "", "mana_value": 0} if ex.no_mana_cost else {}  # (wave 15E: 707.9b)
+    return replace(ch, **cost, name=ex.name if ex.name is not None else ch.name, supertypes=supertypes, types=types,
                    subtypes=chars.changeling(subtypes, abilities, ex.name if ex.name is not None else ch.name),
                    power=ex.power if ex.power is not None else ch.power,
                    toughness=ex.toughness if ex.toughness is not None else ch.toughness,
@@ -223,6 +224,19 @@ def layer1(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     """613.2a: the copy effect that applies to the object gives its copiable values (the latest
     by timestamp, 613.7); 613.2b: a face-down object keeps its face-down characteristics (708.2),
     which ``characteristics.of`` already gave. ``ch`` is the object's printed (or defined) values."""
+    return with_level(state, card, _layer1(state, card, ch, info))
+
+
+def with_level(state: GameState, card: CardInstance, ch: Characteristics) -> Characteristics:
+    """-- Class (wave 16A) -- 716.2b: the object's own class level (never a copied one; 716.2d: none is level 1), so that
+    ``scripts.definitions`` leaves out the abilities under a level bar it hasn't reached."""
+    r = state.rules
+    if r is not None and any(a.section > 1 for a in ch.abilities):
+        ch = replace(ch, level=r.levels.get(r.object_id(card.id), 1))
+    return ch
+
+
+def _layer1(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> Characteristics:
     r = state.rules
     if r is None or not r.effects or info is None or card.face_down:
         return ch
@@ -863,8 +877,8 @@ def _own(plan: Plan, card: CardInstance) -> Characteristics:
                 and (best is None or e.timestamp > best.timestamp):
             best = e
     if best is not None and best.copy_recipe is not None:
-        return characteristics(best.copy_recipe, plan.info)
-    return chars.of(card, plan.info)
+        return with_level(plan.state, card, characteristics(best.copy_recipe, plan.info))
+    return with_level(plan.state, card, chars.of(card, plan.info))
 
 
 def enter_definition(plan: Plan, card: CardInstance) -> dict[str, Any] | None:
@@ -1078,6 +1092,9 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     if re.fullmatch(_SUBJECT + r"(?:has|have) this ability", c):  # -- enter as copy (wave 5F) -- 707.9a: the ability's own
         ex.add_text = [*ex.add_text, THIS_ABILITY]  # text, written in by ``scripts.define`` (``with_this_ability``)
         return True
+    if re.fullmatch(_SUBJECT + r"(?:has|have) no mana cost", c):  # -- keywords (wave 15E) -- 707.9b
+        ex.no_mana_cost = True
+        return True
     m = re.fullmatch(_SUBJECT + r"(?:has|have) (?P<abil>.+)", c)
     if m:
         found = token_grammar._with(m["abil"])
@@ -1201,7 +1218,8 @@ def parse_copy_target(what: str, exc: str | None) -> tuple[list[dict[str, Any]],
 _SOURCES = {"~": "self", "it": "it", "that creature": "it", "that permanent": "it", "that artifact": "it",
             "that token": "it", "that card": "it", "equipped creature": "host", "enchanted creature": "host",
             "enchanted permanent": "host", "enchanted artifact": "host",
-            "the exiled card": "pay_exiled"}  # -- if you do (wave 8C) -- bound to a payment's exiled card (pay_objects.bind)
+            "the exiled card": "pay_exiled",
+            "the card exiled to activate this ability": "cost_exiled"}  # (wave 15E: embalm, 702.128a)  # -- if you do (wave 8C) -- bound to a payment's exiled card (pay_objects.bind)
 
 
 def parse_token_copy(n: str, tapped: bool, src: str, exc: str | None) -> tuple[list[dict[str, Any]], Any] | None:

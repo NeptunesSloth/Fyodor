@@ -66,6 +66,7 @@ class AbilityText:
     keywords: tuple[str, ...] = ()  # for "keywords" lines: the normalised keyword names
     cost: str | None = None  # for activated/loyalty abilities: the text before the colon
     intrinsic: bool = False  # granted by a basic land type rather than printed
+    section: int = 1  # -- Class (wave 16A) -- 716.2a: the class level whose "as long as this Class is level N or greater" it is under
 
 
 def strip_reminders(text: str) -> str:
@@ -85,6 +86,8 @@ def keyword_name(piece: str) -> str | None:
         return None
     if raw in KEYWORDS:
         return raw
+    if re.match(r"^\w+ (?:abilities|costs) you (?:activate|pay)\b", raw):  # -- keywords (wave 15E) -- "Equip abilities you activate
+        return None  # cost {1} less", "Dash costs you pay cost {2} less": a static ability about the keyword, not the keyword
     base = _PARAM.sub("", raw).strip(" —-")
     if base in KEYWORDS:
         return base
@@ -265,7 +268,18 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         else:
             merged.append(line)
     lines = merged
-    for line in lines:
+    # -- Class (wave 16A) -- 716.2a: "[Cost]: Level N" is "[Cost]: This Class's level becomes N. Activate only if this Class is
+    # level N-1 and only as a sorcery."; the lines under it belong to level N (scripts.definitions gates them by the permanent's level)
+    sections, level = [], 1
+    for i, line in enumerate(lines):
+        if (m := re.fullmatch(r"((?:\{[^}]+\})+): Level (\d+)", line)) and not spell:
+            lines[i] = (f"{m[1]}: This Class's level becomes {m[2]}. Activate only if this Class is level {int(m[2]) - 1} and "
+                        "only as a sorcery.")
+            sections.append(level)
+            level = int(m[2])
+        else:
+            sections.append(level)
+    for n, line in enumerate(lines):
         # -- keyword meanings (wave 11B) -- 702.107a: "Outlast [cost]" means "[Cost], {T}: Put a +1/+1 counter on this
         # creature. Activate only as a sorcery." (read as that activated ability)
         if m := re.fullmatch(r"Outlast ((?:\{[^}]+\})+)", line):
@@ -280,5 +294,5 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         if m := re.fullmatch(r"Reinforce (\d+)—((?:\{[^}]+\})+)", line):
             line = f"{m[2]}, Discard this card: Put {m[1]} +1/+1 counters on target creature."
         kind, kws, cost = classify(line, spell=spell)
-        out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost))
+        out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n]))
     return out

@@ -612,7 +612,7 @@ def test_put_from_hand_wordings():
     assert not ok("{T}: You may put a card from your hand onto the battlefield.")
     assert not ok("When this creature enters, you may put an Aura card from your hand onto the battlefield attached to "
                   "this creature.")
-    assert not ok("Whenever this creature attacks, you may put a creature card from your hand onto the battlefield tapped "
-                  "and attacking.")
+    assert ok("Whenever this creature attacks, you may put a creature card from your hand onto the battlefield tapped "
+              "and attacking.")  # (wave 15B: 508.4, its controller chooses what it attacks)
     assert not ok("Whenever this creature deals combat damage to a player, you may put a creature card and/or a land card "
                   "from your hand onto the battlefield.")

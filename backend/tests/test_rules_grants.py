@@ -60,7 +60,6 @@ def test_pump_and_grant_forms(text, expected):
     "target creature gets +1/+1 until end of turn, where X is your life total",  # (no X)
     "target creature gets +X/+X until end of turn for each creature you control",
     # ("… for each creature blocking it": read since wave 6B, where "it" is the source — scripts._event_refs_ok)
-    "it gets +1/+1 until end of turn for each creature blocking it beyond the first",  # ("blocking it": wave 6D)
     "target creature gains \"Flashback {2}{R}.\" until end of turn",  # (a quoted ability the engine doesn't carry out; the read ones: test_rules_quoted_grants.py)
     "target instant card in your graveyard gains flashback until end of turn",
 ])

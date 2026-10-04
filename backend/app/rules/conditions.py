@@ -125,7 +125,7 @@ _OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|a
 _ATTACHED = {"enchanted": ("Aura",), "equipped": ("Equipment",), "enchanted or equipped": ("Aura", "Equipment")}
 _BEATS_SELF = re.compile(r"(?P<who>it|that creature) has greater (?P<a>power|toughness)(?: or (?P<b>power|toughness))? than ~|"
                          r"(?P<who2>its|that creature's) power is greater than ~'s(?: power)?"
-                         r"(?: or (?:its|that creature's) toughness is greater than ~'s toughness)?")
+                         r"(?: (?:or|and/or) (?:its|that creature's) toughness is greater than ~'s toughness)?")  # (and/or: 702.100a, wave 15E)
 _STATES = {"tapped": "tapped", "untapped": "untapped", "attacking": "attacking", "blocking": "blocking",
            "suspected": "suspected", "prepared": "prepared"}  # (prepared: wave 13C, 722.3; suspected: wave 12A, 701.60 — a designation of the source, like its other states)
 # -- counters (wave 5H) -- "if it had counters on it", "if it had a +1/+1 counter on it", "if ~ has counters on it",
@@ -798,12 +798,16 @@ def _object(t: str) -> Condition | None:
         stats = [x for x in (m["a"], m["b"]) if x] if m["a"] else ["power"] + (["toughness"] if "toughness" in t else [])
         return {"object": "it", "beats_self": stats}
     t = re.sub(r"^(it|that (?:creature|permanent|card|land|token|artifact))'s ", r"\1 is ", t)
+    t = re.sub(r"^that's (?=another )", "that creature is ", t)  # -- keywords (wave 15E) -- backup 702.165a: "If that's another creature"
     m = _OBJECT.fullmatch(t)
     if m is None:
         return None
     who = _OBJECT_WORDS[m["who"]]
     negate = m["verb"] in ("isn't", "wasn't", "is not", "was not")
     what = m["what"].strip()
+    if lv := re.fullmatch(r"level (\d+)( or greater)?", what):  # -- Class (wave 16A) -- 716.2a, 716.2b
+        at_level: Condition = {"object": who, "level": int(lv[1]), "min": bool(lv[2])}
+        return {"not": at_level} if negate else at_level
     if what in _ATTACHED or what in ("renowned", "monstrous"):  # (wave 11F)
         test: Condition = {"object": who, **({"attached": list(_ATTACHED[what])} if what in _ATTACHED else {"designation": what})}
         return {"not": test} if negate else test
@@ -812,7 +816,9 @@ def _object(t: str) -> Condition | None:
             return None  # (tapped / untapped / attacking / blocking: the source's own state, never an LKI guess)
         out: Condition = {"object": who, "test": _STATES[what]}
     else:
-        det = re.match(r"(?:a|an) (?P<rest>.+)", what)
+        det = re.match(r"(?:a|an|another) (?P<rest>.+)", what) if what != "another" else None
+        if det is not None and what.startswith("another "):
+            det = re.match(r"(?P<rest>another .+)", what)
         if det is None and re.fullmatch(r"(?:white|blue|black|red|green)(?: or (?:white|blue|black|red|green))*", what):
             det = re.match(r"(?P<rest>.+)", what + " permanent")  # "it's blue": a color test, on whatever it is
         if det is None and re.fullmatch(r"(?:non)?(?:basic|legendary|snow)", what):  # -- damage wordings (wave 6B) --
@@ -1012,6 +1018,9 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
             snap = snap or next((x for x in reversed(plan.rules.lki.values()) if x.card == card.id), None)
             ids = list(snap.attached) if snap is not None else []
         return any(plan.ch(plan.state.cards[i]).subtypes & set(cond["attached"]) for i in ids if i in plan.state.cards)
+    if "level" in cond:  # -- Class (wave 16A) -- 716.2b, 716.2d: no level is level 1
+        n = plan.rules.levels.get(plan.oid(card), 1)
+        return n >= cond["level"] if cond["min"] else n == cond["level"]
     if "designation" in cond:  # 701.37b, 702.112b: kept until the permanent leaves, so only the object it still is
         return plan.oid(card) in (plan.rules.monstrous if cond["designation"] == "monstrous" else plan.rules.renowned)
     if "beats_self" in cond:  # "its power is greater than ~'s": either stat named (as it is, or as it last existed, 608.2h)
