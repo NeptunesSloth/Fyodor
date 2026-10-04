@@ -151,6 +151,61 @@ def test_fishing_pole_taps_itself_and_gets_the_counter(cards):
     roundtrip(s)
 
 
+# -- borrowed abilities (113.10, 613.1f): Necrotic Ooze, Myr Welder ---------------------------------------------------------
+EXTRA += [
+    card("Necrotic Ooze", set_code="tst", number="18FC", mana_cost="{2}{B}", cmc=3.0, colors=["B"], color_identity=["B"],
+         type_line="Creature — Ooze", power="2", toughness="2",
+         oracle_text="As long as this creature is on the battlefield, it has all activated abilities of all creature cards in all graveyards."),
+    card("Mogg Fanatic", set_code="tst", number="18FD", mana_cost="{R}", cmc=1.0, colors=["R"], color_identity=["R"],
+         type_line="Creature — Goblin", power="1", toughness="1",
+         oracle_text="Sacrifice this creature: It deals 1 damage to any target."),
+    card("Myr Welder", set_code="tst", number="18FE", mana_cost="{3}", cmc=3.0, type_line="Artifact Creature — Myr", power="1",
+         toughness="4", keywords=["Haste"],
+         oracle_text="Haste\nImprint — {T}: Exile target artifact card from a graveyard.\nThis creature has all activated abilities of all cards exiled with it."),
+    card("Test Tinker", set_code="tst", number="18FF", mana_cost="{1}", cmc=1.0, type_line="Artifact",
+         oracle_text="{1}, {T}: Test Tinker deals 1 damage to any target."),
+]
+
+
+def _borrowed(s, name, pid="p1"):
+    return [a for a in _derived(s, name, pid).abilities if a.index >= 2_000_000]
+
+
+def test_necrotic_ooze_borrows_the_graveyards_abilities(cards):
+    s = build(cards, p1=("Necrotic Ooze",), p2=("Mogg Fanatic",))
+    ooze = put(s, "Necrotic Ooze", "battlefield")
+    assert not _borrowed(s, "Necrotic Ooze")
+    fanatic = put(s, "Mogg Fanatic", "graveyard", "p2")
+    (ab,) = _borrowed(s, "Necrotic Ooze")  # 613.1f: its name is the Ooze's now (it is sacrificed, not the card in the graveyard)
+    assert ab.text == "Sacrifice this permanent: It deals 1 damage to any target."
+    act(s, "p1", type="activate_ability", card_id=ooze.id, ability=ab.index, targets=["p2"])
+    assert s.state.cards[ooze.id].zone.endswith(":graveyard") and s.state.cards[fanatic.id].zone.endswith(":graveyard")
+    answer(s)
+    assert s.state.players["p2"].life == 39
+    roundtrip(s)
+    act(s, "p1", type="move", card_ids=[fanatic.id], to={"player": "p2", "zone": "exile"})  # (and when the card leaves, so does the ability)
+    put(s, "Necrotic Ooze", "battlefield")
+    assert not _borrowed(s, "Necrotic Ooze")
+
+
+def test_myr_welder_has_the_abilities_of_what_it_exiled(cards):
+    s = build(cards, p1=("Myr Welder",), p2=("Test Tinker",))
+    welder = put(s, "Myr Welder", "battlefield")
+    tinker = put(s, "Test Tinker", "graveyard", "p2")
+    exile = next(i for i, a in enumerate(_derived(s, "Myr Welder").abilities) if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=welder.id, ability=exile, targets=[tinker.id])
+    answer(s)
+    assert s.state.cards[tinker.id].zone.endswith(":exile")  # 607.2a: linked to this Welder
+    (ab,) = _borrowed(s, "Myr Welder")
+    assert ab.text == "{1}, {T}: This permanent deals 1 damage to any target."
+    act(s, "p1", type="tap", card_ids=[welder.id], tapped=False)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=welder.id, ability=ab.index, targets=["p2"])
+    answer(s)
+    assert s.state.players["p2"].life == 39
+    roundtrip(s)
+
+
 # -- imprint and copy the exiled card (607.2a, 707.12): Isochron Scepter ----------------------------------------------------
 EXTRA += [
     card("Isochron Scepter", set_code="tst", number="18FA", mana_cost="{2}", cmc=2.0, type_line="Artifact",
@@ -210,6 +265,46 @@ def test_cast_the_copy_pays_its_mana_cost(cards):
     assert s.state.cards[bolt.id].zone.endswith(":exile")
     assert s.state.players["p2"].life == 40 - 3 - 4 and not s.state.players["p1"].mana.get("R")  # the Bolt copy, and {R} was spent on it
     roundtrip(s)
+
+
+def _cast_scepter_with_hand(cards, hand):
+    s = build(cards, p1=("Isochron Scepter", *hand))
+    for name in hand:
+        put(s, name, "hand")
+    scepter = put(s, "Isochron Scepter", "hand")
+    mana(s, C=2)
+    act(s, "p1", type="cast_spell", card_id=scepter.id)
+    for _ in range(5):  # the imprint trigger goes on the stack and resolves: you are asked whether to exile
+        d = s.state.rules.decision
+        if d is not None:
+            return s
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no decision")
+
+
+def test_imprint_never_tells_the_hand(cards):
+    """101.4a: the imprint question is asked of the owner with or without an instant in hand, and neither the other player, a
+    spectator, nor the log learns which (names, option counts, prompts, notes)."""
+    from app.game.visibility import SPECTATOR
+
+    seen = {}
+    for label, hand in (("with", ("Lightning Bolt",)), ("without", ())):
+        s = _cast_scepter_with_hand(cards, hand)
+        d = s.state.rules.decision
+        assert d.player == "p1" and [o.label for o in d.options] == ["Pay Exile an instant card with mana value 2 or less from your hand", "Don't pay"]
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])  # "pay": then which card
+        d = s.state.rules.decision
+        assert d is not None and d.kind == "choose_cards"  # (also when there is nothing, or one card, to exile)
+        for viewer in ("p2", SPECTATOR):
+            text = str(s.view(viewer))
+            assert "Lightning Bolt" not in text
+            seen.setdefault(viewer, []).append(sorted(k for k in s.view(viewer)["rules"] if k != "decision"))
+        text = str(s.view("p1")["rules"].get("decision"))
+        assert ("Lightning Bolt" in text) == (label == "with")  # the owner sees the card to choose, only the owner
+        if label == "without":
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+            assert "couldn't" not in str(s.view("p2")["log"]) and "Lightning" not in str(s.view("p2")["log"])
+    assert all(a == b for a, b in seen.values())  # the same shape of view either way
 
 
 # -- copied abilities: Kurkesh (707.10) -----------------------------------------------------------------------------------

@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 # the keyword triggers' (1000 + 10 × index + k), exalted (2000…), achievements (4200…), delayed (7000).
 INDEX_BASE = 10_000
 INDEX_STRIDE = 16  # abilities one effect can grant
-MAX_INDEX = 2_000_000  # app/game/actions.py ActivateAbility.ability's bound (a game with ~120 000 effects)
+MAX_INDEX = 2_000_000  # app/game/actions.py ActivateAbility.ability's bound (a game with ~120 000 effects; borrowed abilities, abilities_of.py, above)
 MAX_GRANTED = INDEX_STRIDE
 
 

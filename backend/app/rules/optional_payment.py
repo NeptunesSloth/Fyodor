@@ -258,7 +258,11 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         context.bind_payment(ctx, name, False)
         return True
     why = problem(plan, ctx, cost, payer)
-    if why is not None:  # 118.3 / 608.2d: the option isn't offered
+    # -- copied abilities (wave 18F) -- imprint, "you may exile an instant card from your hand": a hand is hidden (101.4a), so whether the
+    # choice is offered mustn't tell the other players whether there was a card to exile: the payer is asked either way, and a pay
+    # that then finds no card is a decline that says nothing about the hand
+    hidden = any(c.kind == "EXILE_FROM_HAND" for c in cost.components)
+    if why is not None and not hidden:  # 118.3 / 608.2d: the option isn't offered
         plan.note(f"{plan.name(payer)} can't pay {_label(cost)} for {ctx.get('name') or 'it'}: {why}")
         context.bind_payment(ctx, name, False)
         return True
@@ -328,6 +332,11 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     cost = parse(opt["cost"])
     assert cost is not None
     if "component" in r:
+        if not chosen and r.get("hand"):  # (wave 18F: a card from a hand, chosen privately; none is a decline that says nothing of the hand)
+            plan.note(f"{plan.name(d.player)} didn't pay {_label(cost)} for {ctx.get('name') or 'it'}")
+            context.bind_payment(ctx, opt["bind"], False)
+            effects.continue_effects(plan, ctx)
+            return
         if len(chosen) != r["amount"]:
             raise ActionError(f"Choose {r['amount']}")
         opt = {**opt, "chosen": {**opt["chosen"], str(r["component"]): list(chosen)}}
@@ -425,9 +434,10 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
             continue
         usable = [c for c in cost_payment.candidates(plan, comp, payer, source)
                   if c not in cost_payment._reserved(cost, comp, source) and c not in used]
-        if len(usable) < comp.objects:  # (objects: one permanent for its counters, wave 6F)
+        hand = comp.kind == "EXILE_FROM_HAND"  # -- copied abilities (wave 18F) -- always asked, even with one card or none (101.4a): none = decline
+        if len(usable) < comp.objects and not hand:  # (objects: one permanent for its counters, wave 6F)
             return True  # (validated again in _pay: it can't be paid any more)
-        if len(usable) == comp.objects:
+        if len(usable) == comp.objects and not hand:
             picked[i] = usable
             used |= set(usable)
             opt["chosen"][str(i)] = usable
@@ -436,8 +446,9 @@ def _choose_next(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCos
         decide(plan, player=payer, kind="choose_cards",
                prompt=f"{ctx.get('name') or 'It'}: choose {comp.objects} to {verb} (“{comp.text}”)",
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
-               min_choices=comp.objects, max_choices=comp.objects,
-               resume=_resume(ctx, opt, cost, component=i, amount=comp.objects), source=plan.state.cards.get(ctx.get("source_card") or ""))
+               min_choices=0 if hand else comp.objects, max_choices=comp.objects,
+               resume=_resume(ctx, opt, cost, component=i, amount=comp.objects, hand=hand),
+               source=plan.state.cards.get(ctx.get("source_card") or ""))
         return False
     return True
 
@@ -453,7 +464,8 @@ def _pay(plan: Plan, ctx: Context, opt: dict[str, Any], cost: AbilityCost) -> No
     chosen = {int(k): list(v) for k, v in opt["chosen"].items()}
     why = problem(plan, ctx, cost, payer, chosen)
     if why is not None:
-        plan.note(f"{plan.name(payer)} couldn't pay {_label(cost)} for {label}: {why}")
+        hand = any(c.kind == "EXILE_FROM_HAND" for c in cost.components)  # (wave 18F: no reason given: it would describe a hidden hand)
+        plan.note(f"{plan.name(payer)} " + (f"didn't pay {_label(cost)}" if hand else f"couldn't pay {_label(cost)}: {why}") + f" for {label}")
         context.bind_payment(ctx, name, False)
         return
     source = _source(plan, ctx)

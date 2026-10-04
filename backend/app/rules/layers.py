@@ -571,6 +571,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     imposed = {rule for e in effects for rule in e.imposes}  # "can't block this turn" …
     imposed |= _group_imposed(state, card, ch, info)
     hits: list[Static] = []
+    borrowed: list[tuple[int, Any]] = []  # -- borrowed abilities (wave 18F) -- (the lending static's timestamp, the ability)
     kwc = keyword_counters(state, card)  # -- counters (wave 5H) --
     on_field = card.zone.endswith(":battlefield") and state.rules is not None
     if state.rules is not None and on_field and state.rules.object_id(card.id) in state.rules.suspected:  # -- suspect (wave 12A) -- 701.60c
@@ -601,6 +602,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
             # "… gets +1/+1 for each Elf you control": the count, read now (611.3a), while other
             # objects' characteristics are read without statics (as a condition's are)
             each_amounts = {id(st): _each_amount(view, st, tkey, card) for st in hits if st.definition.get("each")}
+            if any(st.definition.get("abilities_of") for st in hits):  # "has all activated abilities of …" (app/rules/abilities_of.py)
+                from app.rules import abilities_of
+
+                borrowed = [(st.seq, ab) for st in hits if st.definition.get("abilities_of") for ab in abilities_of.collect(view, st, card)]
         finally:
             _depth -= 1
     elif effects or kwc:
@@ -624,6 +629,9 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
             if ab is not None:
                 extra.append(replace(ab, index=100 + k))
         ch = replace(ch, abilities=ch.abilities + tuple(extra))
+    lent = tuple({ab.index: ab for seq, ab in borrowed if wipe is None or (seq, 0, 0) > wipe}.values())
+    if lent:
+        ch = replace(ch, abilities=ch.abilities + lent)
     ch = _granted_by_effects(ch, effects, wipe)
     # layer 7
     setters: list[tuple[tuple[int, int, int], int | None, int | None]] = []
@@ -734,7 +742,7 @@ def _own_layer5(state: GameState, card: CardInstance, info: CardInfo | None) -> 
 def _grants(d: dict[str, Any]) -> bool:
     """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
     opponents control can't block.") is applied by ``_with_rules`` instead."""
-    return bool(d["p"] or d["t"] or d.get("base") or d["keywords"] or d["grants"] or d.get("each")
+    return bool(d["p"] or d["t"] or d.get("base") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of")
                 or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords"))  # -- attached events (wave 4L) --
 
 
