@@ -344,6 +344,11 @@ def _parse(c: str) -> Condition | None:
             return None
         return {**base, "event": m["v"][:-1] if m["v"] == "explores" else "connive",
                 **({"kind": "land" if "nonland" not in m["k"] else "nonland"} if m["k"] else {})}
+    # -- transform (wave 16F) -- "When this creature transforms into Avacyn, the Purifier" (701.28, 712.18): this very object turned over
+    # and is now the face named (the ability is printed on that face; "~": whichever it is)
+    m = re.fullmatch(r"(?P<s>~|this creature|this permanent) transforms into (?P<n>.+)", c)
+    if m:
+        return {"subject": "self", "event": "transform", **({"into": m["n"]} if m["n"] != "~" else {})}
     m = re.fullmatch(r"(?P<s>.+?) becomes (?P<d>monstrous|renowned)", c)
     if m:
         base = _subject(m["s"])

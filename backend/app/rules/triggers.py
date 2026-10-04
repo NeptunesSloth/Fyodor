@@ -617,6 +617,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
     you = watcher.controller
     if not _other_ok(plan, cond, watcher, info):
         return False
+    if cond.get("into") and (info.get("face_name") or "").lower() != cond["into"].lower():  # -- transform (wave 16F) --
+        return False
     if cond.get("alone") and info.get("attackers") != 1:  # 506.5
         return False
     if event in ("attack", "unblocked", "you_attack"):

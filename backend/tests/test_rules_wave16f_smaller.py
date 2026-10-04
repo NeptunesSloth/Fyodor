@@ -9,10 +9,10 @@ from __future__ import annotations
 import pytest
 
 from app.rules import coverage
-from tests.fixtures.cards import fixture_cards
+from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave12a_counters_keywords import answer, real
 from tests.test_rules_sagas import main_phase
+from tests.test_rules_wave12a_counters_keywords import answer, real
 from tests.wave9c_kit import build, check, life, mana, to_hand
 
 EXTRA = [
@@ -61,6 +61,18 @@ EXTRA.append(real("Entropic Specter", "{1}{B}{B}", 3, "Creature — Specter",
 EXTRA.append(real("Haunting Apparition", "{1}{B}", 2, "Creature — Spirit",
                   "Flying\nAs this creature enters, choose an opponent.\nHaunting Apparition's power is equal to 1 plus the number of "
                   "green creature cards in the chosen player's graveyard.", ("*", "1"), "B"))
+
+EXTRA.append(card(
+    "Captive Weird // Compleated Conjurer", set_code="tst", number="16F-CW", layout="transform", mana_cost=None, cmc=3.0,
+    type_line="Creature — Weird // Creature — Phyrexian Wizard", colors=["R"], color_identity=["R"], image_uris=None,
+    card_faces=[
+        {"object": "card_face", "name": "Captive Weird", "mana_cost": "{2}{R}", "type_line": "Creature — Weird", "power": "3",
+         "toughness": "3", "colors": ["R"], "oracle_text": "Defender\n{3}{R/P}: Transform this creature. Activate only as a sorcery. "
+                                                         "({R/P} can be paid with either {R} or 2 life.)"},
+        {"object": "card_face", "name": "Compleated Conjurer", "mana_cost": "", "type_line": "Creature — Phyrexian Wizard", "power": "3",
+         "toughness": "3", "colors": ["R"], "oracle_text": "When this creature transforms into Compleated Conjurer, exile the top card "
+                                                         "of your library. Until the end of your next turn, you may play that card."},
+    ]))
 
 IDOLIZED = ("Enchant creature\nEnchanted creature has \"Whenever this creature attacks alone, it gets +X/+X until end of turn, "
             "where X is the number of nonland permanents you control.\"")
@@ -295,7 +307,7 @@ def test_lesser_mana_value_is_than_the_creature_that_died(cards):
 def test_legate_is_cast_for_free_only_while_the_condition_holds(cards):
     # 118.9: an alternative cost of {0}, announced as the spell is cast; the Swamp/Forest condition is checked then (601.2b)
     from app.game.errors import ActionError
-    from tests.wave9c_kit import card_named, put
+    from tests.wave9c_kit import card_named
 
     s = build(cards, ["Deepwood Legate"], [])
     legate = to_hand(s, "Deepwood Legate")
@@ -337,7 +349,7 @@ def test_cast_from_the_graveyard_by_discarding_two_cards(cards):
 def test_a_static_grants_every_creature_an_upkeep_payment(cards):
     # 613.1f / 603.2: Tabernacle at Pendrell Vale: each creature has the ability, its own controller pays or it is destroyed
     pass
-    from tests.wave9c_kit import card_named, put
+    from tests.wave9c_kit import put
 
     s = build(cards, ["Tabernacle at Pendrell Vale"], [], forests=30, islands=30)
     put(s, "Tabernacle at Pendrell Vale")
@@ -355,7 +367,7 @@ def test_a_static_grants_every_creature_an_upkeep_payment(cards):
 def test_sacrifice_unless_you_pay_its_mana_cost(cards, pay):
     # 701.21a / 118.12a: Pendrell Flux gives the creature "sacrifice this creature unless you pay its mana cost" ({1}{G})
     from tests.test_rules_conditionals import until
-    from tests.wave9c_kit import card_named, put
+    from tests.wave9c_kit import put
 
     s = build(cards, ["Grizzly Bears"], [], forests=30, islands=30)
     bears = put(s, "Grizzly Bears")
@@ -378,7 +390,6 @@ def test_cant_be_the_target_of_black_spells_or_abilities_from_black_sources(card
     # 115.2 / 702.11: Mercenary Informer's wording: a black spell can't target it (Murder), a green one can (Giant Growth); the
     # color is the source's, spell or ability
     from app.game.errors import ActionError
-    from tests.wave9c_kit import card_named
 
     s = build(cards, ["Murder", "Giant Growth"], [])
     inf = _token(s, "p1", "Informer", "Token Creature — Rogue", text="~ can't be the target of black spells or abilities from black "
@@ -395,12 +406,11 @@ def test_cant_be_the_target_of_black_spells_or_abilities_from_black_sources(card
 
 def test_cost_reduction_counts_the_creatures_you_attacked_with(cards):
     # 601.2f / 508.1: Search Party Captain after attacking with two creatures (one of which died) costs {1} less for each of the two
-    from tests.test_rules_combat import automate, creature, table
-    from tests.test_rules_conditionals import attack, through_combat
-    from tests.wave9c_kit import card_named
-
     from app.game.factory import DeckCard, PlayerSetup, new_game
     from app.game.session import GameSession
+    from tests.test_rules_combat import automate, creature
+    from tests.test_rules_conditionals import attack, through_combat
+    from tests.wave9c_kit import card_named
 
     def deck(commander, *spells):
         cmd = cards.resolve(commander)
@@ -505,4 +515,19 @@ def test_power_and_toughness_count_what_the_chosen_player_has(cards):
     hand = [c.id for c in s.state.cards.values() if c.zone == "p2:hand" and c.name == "Llanowar Elves"]
     act(s, "p2", type="move", card_ids=hand[:1] or [card_named(s, "Llanowar Elves", "p2").id], to={"zone": "graveyard"})
     assert _pt(s, app)[0] == 2
+    check(s)
+
+
+def test_transforms_into_triggers_when_the_object_turns_over(cards):
+    # 701.28 / 712.18 / 603.2: Captive Weird transformed by its own ability: the new face's "transforms into" trigger exiles the top card
+    from tests.wave9c_kit import put
+
+    s = build(cards, ["Captive Weird // Compleated Conjurer"], [])
+    weird = put(s, "Captive Weird // Compleated Conjurer")
+    top = s.state.zones["p1:library"][0]
+    mana(s, R=1, C=3)
+    act(s, "p1", type="activate_ability", card_id=weird.id, ability=1)
+    answer(s)
+    assert s.state.cards[weird.id].face == 1
+    assert s.state.cards[top].zone == "p1:exile"
     check(s)
