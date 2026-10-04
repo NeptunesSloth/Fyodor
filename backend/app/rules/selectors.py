@@ -767,14 +767,14 @@ def _parse(phrase: str) -> Selector | None:
         if base is None or base.types or base.subtypes or base.card:
             return None
         return replace(s, zones=base.zones, token=base.token, extras=(*s.extras, "historic"))
-    alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker) cards?)",
-                            text.strip())
+    alt_subs = re.fullmatch(r"(?P<subs>[A-Z][\w'’-]*(?:,? or [A-Z][\w'’-]*)+) (?P<rest>(?:creature|artifact|enchantment|land|planeswalker)(?: cards?| spells?)?)",
+                            text.strip())  # (wave 15B: also "Beast or Bird creature", "Beast or Bird creature spell")
     if alt_subs is not None:
         subs = [_core(w) for w in re.split(r",? or ", alt_subs["subs"])]
         base = _parse(alt_subs["rest"]) if all(c is not None and c[0] == "sub" for c in subs) else None
-        if base is None or base.subtypes or base.union or len(base.types) != 1 or not base.card:
+        if base is None or base.subtypes or base.union or len(base.types) != 1 or base.player is not None:
             return None
-        return replace(s, card=True, zones=() if s.zones == ("battlefield",) else s.zones, types=base.types,
+        return replace(s, card=base.card, zones=base.zones if s.zones == ("battlefield",) else s.zones, types=base.types,
                        subtypes=tuple(dict.fromkeys(c[1] for c in subs if c is not None)))
     # -- end recursion & tutors (wave 4M) --
     words = text.replace(",", " ,").split()
