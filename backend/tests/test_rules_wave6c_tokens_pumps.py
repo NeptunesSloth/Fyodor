@@ -71,9 +71,8 @@ FULL = ["Tainted Strike", "Shadow Rift", "Monstrous Rage", "Royal Treatment", "S
         "Jadar, Ghoulcaller of Nephalia", "Tolsimir Wolfblood", "Army of the Damned", "Moogles' Valor", "Godsire",
         "Crib Swap", "The Hive", "Field of the Dead", "Vodalian Hexcatcher", "Nightpack Ambusher", "Kor Spiritdancer",
         "Coat of Arms", "Firedrinker Satyr", "Champion of the Flame", "The Great Mound", "Hansk, Slayer Zealot",
-        "Mobile Fort", "Sporecrown Thallid", "Lovisa Coldeyes", "Painsmith"]
+        "Kher Keep", "Mobile Fort", "Sporecrown Thallid", "Lovisa Coldeyes", "Painsmith"]
 STILL_MANUAL = {
-    "Kher Keep": "Kobolds of",  # (the token's name holds the card's own name: not read)
     "Ezuri's Predation": "fights a different one",  # (pairing each token with a different creature: refused)
     "Become Brutes": "For each of those creatures",  # (a Role for each of several objects: refused)
 }
