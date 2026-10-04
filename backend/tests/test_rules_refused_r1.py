@@ -90,8 +90,7 @@ def test_cast_wordings(text, expected):
 
 
 @pytest.mark.parametrize("text", [
-    "{S} was spent to cast it",  # Berg Strider: what made the mana (snow) isn't recorded
-    "mana from a Treasure was spent to cast it",  # Hired Hexblade
+    # (-- mana provenance (wave 18B) -- "{S} was spent" and "mana from a Treasure was spent" are read now: test_rules_wave18b_mana.py)
     "it was cast during your main phase",
 ])
 def test_cast_wordings_refused(text):
