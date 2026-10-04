@@ -112,6 +112,7 @@ HANDLERS: dict[str, Handler] = {
     "rules_log": rules.rules_log,
     "rules_mana": rules.rules_mana,
     "rules_damage": rules.rules_damage,
+    "renumber": zones.renumber,
 }
 
 # Actions that change nothing worth undoing or logging separately.
@@ -146,6 +147,7 @@ def apply(state: GameState, action: A.Action) -> None:
     except ActionError:
         state.seq -= 1
         state.departures().clear()
+        state.renames().clear()
         raise
     if state.arrows:
         marks.prune_arrows(state)
@@ -162,3 +164,4 @@ def apply(state: GameState, action: A.Action) -> None:
             rules.unsynced = True
         track(state, before, manual=manual, actor=action.actor, put_by=wither_put_by(action))  # (actor: wave 5H)
     state.departures().clear()
+    state.renames().clear()

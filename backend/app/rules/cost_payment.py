@@ -323,7 +323,7 @@ def _choose_power(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp,
     return chosen
 
 
-def _choose_craft(plan: Plan, a: A.ActivateAbility | A.CastSpell, i: int, comp: CostComponent, cost: AbilityCost, card: CardInstance,
+def _choose_craft(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp, i: int, comp: CostComponent, cost: AbilityCost, card: CardInstance,
                   what: str, given: list[str] | None, used: set[str]) -> list[str] | None:
     """-- casting extras (wave 18E) -- craft's materials for one description (702.167a): exactly ``amount`` of them ("or more": at least);
     each object pays one part only. The payer picks (the graveyard cards are public, the permanents are on the table)."""

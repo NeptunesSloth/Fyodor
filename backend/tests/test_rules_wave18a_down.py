@@ -218,14 +218,14 @@ def test_ignorant_bliss_exiles_your_hand_face_down_and_returns_it_at_the_end_ste
 def test_inverter_of_truth_exiles_the_whole_library_face_down(cards):
     s = build(cards, p1=("Inverter of Truth",))
     inverter = put(s, "Inverter of Truth", "hand")
-    library = list(s.state.zones["p1:library"])
+    library = [s.state.cards[c] for c in s.state.zones["p1:library"]]  # (the objects: they are renumbered as they go face down)
     mana(s, B=2, C=2)
     act(s, "p1", type="cast_spell", card_id=inverter.id)
     answer(s)
-    exiled = [c for c in library if s.state.cards[c].zone == "p1:exile"]
-    assert exiled and all(s.state.cards[c].face_down and s.state.cards[c].unseen for c in exiled)  # 406.3: nobody may look
+    exiled = [c for c in library if c.zone == "p1:exile"]
+    assert exiled and all(c.face_down and c.unseen for c in exiled)  # 406.3: nobody may look
     for viewer in ("p1", "p2", SPECTATOR):  # not even the one who exiled them
-        assert all(unseen_by(s, s.state.cards[c], viewer) for c in exiled)
+        assert all(unseen_by(s, c, viewer) for c in exiled)
     roundtrip(s)
 
 

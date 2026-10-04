@@ -89,6 +89,7 @@ class Move(Base):
     # -- transform (wave 11A) -- 712.14a: the double-faced cards among them that enter the battlefield transformed (back face up)
     back_ids: list[Id] | None = Field(default=None, max_length=250)
     r: MoveData | None = None
+    keep_ids: bool = False  # server-built: the rules engine renumbers the face-down cards when its intent is complete (Renumber)
 
 
 class SetPosition(Base):
@@ -113,6 +114,7 @@ class Mill(Base):
     to: Literal["graveyard", "exile"] = "graveyard"
     face_down: bool = False
     blind: bool = False  # -- hidden exile (wave 18A) -- an effect exiled it face down: nobody has looked at it (state.CardInstance.unseen)
+    keep_ids: bool = False  # (see Move)
 
 
 class Mulligan(Base):
@@ -130,6 +132,7 @@ class PutTopFaceDown(Base):
     count: int = Field(default=1, ge=1, le=20)
     kind: Literal["manifest", "cloak", "generic"] = "manifest"
     r: MoveData | None = None
+    keep_ids: bool = False  # (see Move)
 
 
 class MulliganTake(Base):
@@ -1193,6 +1196,14 @@ class CommanderHit(BaseModel):
     amount: int = Field(ge=0, le=100000)
 
 
+class Renumber(Base):
+    """Server-built only: the cards that became face down in a zone others can see get new instance ids (406.3, 708.5: nobody may
+    link the face-down object to the card they saw). The new ids are derived from the game's secret salt, so replay reproduces them."""
+
+    type: Literal["renumber"] = "renumber"
+    card_ids: IdList
+
+
 class RulesDamage(Base):
     """Server-built only: all combat damage of one damage step, dealt simultaneously."""
 
@@ -1234,7 +1245,7 @@ INTENT_TYPES = frozenset(
      "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
      "miracle_reveal"}
 )
-SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage"})
+SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage", "renumber"})
 
 
 Action = Annotated[
@@ -1348,6 +1359,7 @@ Action = Annotated[
     | RulesSync
     | RulesMana
     | RulesDamage
+    | Renumber
     | RulesLog,
     Field(discriminator="type"),
 ]
