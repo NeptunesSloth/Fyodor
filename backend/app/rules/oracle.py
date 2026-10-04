@@ -245,6 +245,15 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
             lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
                               "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
                               "its owner's control."]
+    # -- static_other sweep (wave 16B) -- 706.3: a results table's rows (one per line) belong to the roll before them
+    merged: list[str] = []
+    for line in lines:
+        if merged and re.match(r"^\d+(?:[—–-]\d+|\+| or less)? \| ", line) and re.search(r"\broll a (?:d\d+|\w+-sided die)\b", merged[-1], re.I) \
+                and not re.search(r"\bactivate only\b", merged[-1], re.I):
+            merged[-1] += " " + line
+        else:
+            merged.append(line)
+    lines = merged
     for line in lines:
         # -- keyword meanings (wave 11B) -- 702.107a: "Outlast [cost]" means "[Cost], {T}: Put a +1/+1 counter on this
         # creature. Activate only as a sorcery." (read as that activated ability)

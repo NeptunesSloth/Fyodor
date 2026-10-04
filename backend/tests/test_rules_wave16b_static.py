@@ -47,6 +47,13 @@ EXTRA = [
          color_identity=["R"], oracle_text="Each player shuffles the cards from their hand into their library, then draws that many cards."),
     card("Funeral Rites", set_code="tst", number="B10", mana_cost="{3}{B}", cmc=4.0, type_line="Sorcery", colors=["B"],
          color_identity=["B"], oracle_text="You draw two cards, lose 2 life, then mill two cards."),
+    card("Contact Other Plane", set_code="tst", number="B12", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"],
+         color_identity=["U"], oracle_text="Roll a d20.\n1—9 | Draw two cards.\n10—19 | Scry 2, then draw two cards.\n"
+         "20 | Scry 3, then draw three cards."),
+    card("Spiked Pit Trap", set_code="tst", number="B13", mana_cost="{3}", cmc=3.0, type_line="Artifact",
+         oracle_text="Flash\n{5}, {T}, Sacrifice this artifact: Choose target creature, then roll a d20.\n"
+         "1—9 | This artifact deals 5 damage to that creature.\n10—20 | This artifact deals 5 damage to that creature. Create a "
+         "Treasure token."),
     card("Cathartic Pyre", set_code="tst", number="B11", mana_cost="{2}{R}", cmc=3.0, type_line="Instant", colors=["R"],
          color_identity=["R"], oracle_text="Choose one —\n• Cathartic Pyre deals 3 damage to target creature or planeswalker.\n"
          "• Discard up to two cards, then draw that many cards."),
@@ -203,4 +210,39 @@ def test_discard_up_to_two_then_draw_that_many(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:2])
     answer(s)
     assert hand_size(s, "p1") == 3  # discarded two, drew two
+    roundtrip(s)
+
+
+def rolls(monkeypatch, *results):
+    """The dice come up as asked (the result is recorded on the step, so a replay doesn't roll again)."""
+    queue = list(results)
+    monkeypatch.setattr("app.game.resolve._rng_int", lambda rng, lo, hi: queue.pop(0))
+
+
+@pytest.mark.parametrize("die,drawn", [(1, 2), (9, 2), (10, 2), (19, 2), (20, 3)])
+def test_roll_table_does_what_the_row_holding_the_result_says(cards, monkeypatch, die, drawn):
+    rolls(monkeypatch, die)
+    s = build(cards, p1=("Contact Other Plane",))
+    c = put(s, "Contact Other Plane", "hand")
+    before = hand_size(s, "p1")
+    mana(s, C=2, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    assert hand_size(s, "p1") == before - 1 + drawn
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("die,treasures", [(9, 0), (10, 1)])
+def test_roll_table_row_reads_the_target_chosen_before_the_roll(cards, monkeypatch, die, treasures):
+    rolls(monkeypatch, die)
+    s = build(cards, p1=("Spiked Pit Trap",), p2=("Test Small",))
+    trap = put(s, "Spiked Pit Trap", "battlefield")
+    victim = put(s, "Test Small", "battlefield", "p2")
+    mana(s, C=5)
+    ab = next(a.index for a in chars.of(trap, s.cards).abilities if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=trap.id, ability=ab, targets=[victim.id])
+    answer(s)
+    assert find(s, "Test Small", "p2").zone == "p2:graveyard"
+    made = [x for x in s.state.cards.values() if x.token and x.token.name == "Treasure" and x.zone.endswith(":battlefield")]
+    assert len(made) == treasures
     roundtrip(s)

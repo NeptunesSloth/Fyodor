@@ -54,13 +54,55 @@ def amount(phrase: str) -> dict[str, Any] | None:
 
 
 _AT = re.compile(r"^the result is (?P<n>\d+) or (?P<c>less|more|greater)$")
+_BETWEEN = re.compile(r"^the result is (?:(?P<lo>\d+) to (?P<hi>\d+)|(?P<one>\d+))$")  # (the results table's rows, wave 16B)
 _ROLLED = re.compile(r"\broll a (?:d\d+|\w+-sided die)\b.*\bthe result is\b", re.I)
 
 
 def condition(text: str) -> dict[str, Any] | None:
     """"the result is 3 or less" / "… 4 or greater" → a comparison of this resolution's roll (706.4)."""
     m = _AT.fullmatch(text)
+    if m is None and (b := _BETWEEN.fullmatch(text)) is not None:  # -- static_other sweep (wave 16B) -- one row of a results table (706.3)
+        lo, hi = int(b["lo"] or b["one"]), int(b["hi"] or b["one"])
+        return {"all": [{"value": {"die": "result"}, "op": ">=", "n": lo}, {"value": {"die": "result"}, "op": "<=", "n": hi}]}
     return {"value": {"die": "result"}, "op": "<=" if m["c"] == "less" else ">=", "n": int(m["n"])} if m else None
+
+
+# -- static_other sweep (wave 16B) -- 706.3: a results table ("Roll a d20. / 1—9 | You gain 1 life. / 10—19 | You gain 2 life. / 20 |
+# You gain 5 life."): the ability reads the die's result and does what the row that holds it says. Read as the same text with each
+# sentence of each row under "If the result is lo to hi," — the conditional sentences of 706.4 — only when the rows are exactly the
+# die's results, each once (an unfinished table stays manual).
+ROW = re.compile(r"(?:^|(?<=[.!?] ))(?P<lo>\d+)(?:[—–-](?P<hi>\d+)|(?P<plus>\+)| (?P<less>or less))? \| ")
+_SIDES_IN = re.compile(r"\broll a (?:d(?P<n>\d+)|(?P<w>four|six|eight|ten|twelve|twenty)-sided die)\b")
+
+
+def rows_in_text(text: str) -> bool:
+    return ROW.search(text) is not None
+
+
+def rewrite(body: str) -> str:
+    rows = list(ROW.finditer(body))
+    if not rows:
+        return body
+    head = body[: rows[0].start()].strip()
+    roll = _SIDES_IN.search(head.lower())
+    if roll is None or head.lower().count("roll ") != 1 or not head.endswith("."):
+        return body
+    sides = int(roll["n"]) if roll["n"] else _SIDES[roll["w"]]
+    from app.rules.oracle import split_sentences
+
+    spans: list[tuple[int, int, str]] = []
+    out = [head]
+    for k, m in enumerate(rows):
+        end = rows[k + 1].start() if k + 1 < len(rows) else len(body)
+        lo = 1 if m["less"] else int(m["lo"])
+        hi = int(m["lo"]) if m["less"] else int(m["hi"]) if m["hi"] else sides if m["plus"] else int(m["lo"])
+        spans.append((lo, hi, ""))
+        for s in split_sentences(body[m.end():end].strip()):
+            out.append(f"If the result is {lo} to {hi}, {s[:1].lower()}{s[1:]}")
+    spans.sort()
+    if [s[0] for s in spans][0] != 1 or spans[-1][1] != sides or any(b[0] != a[1] + 1 for a, b in zip(spans, spans[1:], strict=False)):
+        return body
+    return " ".join(out)
 
 
 def plain(body: str) -> str:
