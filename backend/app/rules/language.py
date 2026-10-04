@@ -1098,12 +1098,6 @@ def _parse(text: str) -> tuple[Effects, Any]:
     if m and rider is None and m["s"] in (None, "you"):
         who, target = _subject(m)
         return [{"do": "discard", "who": who, "n": 0 if m["any"] else _amount(m["n"]), "upto": True}], target
-    # -- if you do (wave 15C) -- "target player mills half their library, rounded up" (107.1a: half of the cards in the
-    # library as the instruction is carried out; 701.17a; effects.mill)
-    m = re.fullmatch(_SUBJ + r"mills? half (?:(?P<your>your)|their) library, rounded (?P<r>up|down)", text)
-    if m and rider is None and (m["your"] is not None) == (m["s"] in (None, "you")):
-        who, target = _subject(m)
-        return [{"do": "mill", "who": who, "n": 0, "half": m["r"]}], target
     m = re.fullmatch(_SUBJ + rf"(?P<v>discards?|mills?) (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)

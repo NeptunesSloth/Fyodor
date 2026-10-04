@@ -104,7 +104,7 @@ _GRAVEYARD = re.compile(r"there(?:'s| is| are) (?:(?P<a>a|an)|(?P<n>\w+) or more
 _GRAVEYARD_ARE = re.compile(r"(?P<n>\w+) or more (?P<sel>.+?) (?:are|is) in your graveyard")  # "seven or more cards are in your graveyard"
 _GRAVEYARD_TYPES = re.compile(r"there are (?P<n>\w+) or more card types among cards in your graveyard")
 _NONE_ON_BATTLEFIELD = re.compile(r"(?:there are )?no (?P<sel>[\w' -]+?)(?: are)? on the battlefield")
-_OBJECT_STAT = re.compile(r"(?P<who>its|that creature's|that permanent's|that card's|~'s) (?P<stat>power|toughness|mana value) "
+_OBJECT_STAT = re.compile(r"(?P<who>its|that creature's|that permanent's|that card's|that spell's|~'s|the sacrificed (?:creature|permanent|artifact)'s) (?P<stat>power|toughness|mana value) "
                           r"(?:is|was) (?P<n>\w+) or (?P<cmp>less|greater|more|fewer)")
 _X_IS = re.compile(r"x is (?P<n>\w+)(?: or (?P<cmp>more|greater|less|fewer))?", re.IGNORECASE)
 _VERSUS = re.compile(r"an opponent (?:(?P<controls>controls)|has) more (?P<what>.+?) than you")
@@ -116,9 +116,11 @@ _VERSUS_WHO = re.compile(r"(?P<who>that player|defending player) (?:(?P<controls
 _VERSUS_REV = re.compile(r"you (?:(?P<controls>control)|have) more (?P<what>.+?) than an opponent")
 _COMMANDER = re.compile(r"you control (?P<which>your commander|a commander)")
 # "it's a land card", "that creature is a Human", "~ is an enchantment", "it was a creature card"
-_OBJECT_WORDS = {"it": "it", "~": "self", "that creature": "it", "that permanent": "it", "that card": "it",
+_OBJECT_WORDS = {"it": "it", "~": "self", "the sacrificed creature": "cost:sacrificed", "the sacrificed permanent": "cost:sacrificed",
+                 "the sacrificed artifact": "cost:sacrificed",  # (wave 16D: what a cost sacrificed, values._object)
+                  "that creature": "it", "that permanent": "it", "that card": "it",
                  "that land": "it", "that token": "it", "that artifact": "it"}
-_OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact)) "
+_OBJECT = re.compile(r"(?P<who>it|~|that (?:creature|permanent|card|land|token|artifact)|the sacrificed (?:creature|permanent|artifact)) "
                      r"(?P<verb>is not|was not|isn't|wasn't|is|was) (?P<what>.+)")  # (wave 11F: "is not" before "is")
 # -- intervening ifs (wave 11F) -- "~ is enchanted", "it's enchanted or equipped" (303.4, 301.5: an Aura / Equipment
 # attached to it), "~ is monstrous" (701.37b), "it's renowned" (702.112b)
@@ -784,7 +786,9 @@ def _object(t: str) -> Condition | None:
         n = _num(m["n"])
         if n is None:
             return None
-        return {"object": "self" if m["who"] == "~'s" else "it", "stat": m["stat"].replace(" ", "_"),
+        who = m["who"]
+        return {"object": "self" if who == "~'s" else "cost:sacrificed" if who.startswith("the sacrificed") else "it",
+                "stat": m["stat"].replace(" ", "_"),
                 "op": "<=" if m["cmp"] in ("less", "fewer") else ">=", "n": n}
     m = _HAD_COUNTERS.fullmatch(t)  # -- counters (wave 5H) --
     if m:
@@ -797,7 +801,7 @@ def _object(t: str) -> Condition | None:
     if m:
         stats = [x for x in (m["a"], m["b"]) if x] if m["a"] else ["power"] + (["toughness"] if "toughness" in t else [])
         return {"object": "it", "beats_self": stats}
-    t = re.sub(r"^(it|that (?:creature|permanent|card|land|token|artifact))'s ", r"\1 is ", t)
+    t = re.sub(r"^(it|that (?:creature|permanent|card|land|token|artifact)|the sacrificed (?:creature|permanent|artifact))'s ", r"\1 is ", t)
     m = _OBJECT.fullmatch(t)
     if m is None:
         return None
@@ -1033,6 +1037,10 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return cond["has"] in ch.keywords
     if "stat" in cond:  # "its mana value was 3 or less": a characteristic, as it is or as it last existed (608.2h)
         value = values._stat_of(ch, cond["stat"])
+        if cond["stat"] == "mana_value":  # (wave 16D) a spell on the stack counts its X (202.3e)
+            from app.rules.stack_interaction import mana_value
+
+            value = mana_value(card, ch)
         return value is not None and _OPS[cond["op"]](value, cond["n"])
     # "it's a land card" / "that creature is a Human": its characteristics, wherever it is (a card in
     # a library, a graveyard or exile, or a permanent as it last existed): the zone is not the test

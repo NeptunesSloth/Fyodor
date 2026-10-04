@@ -514,7 +514,7 @@ def _cast_trigger_spell_cond(cond: dict[str, Any]) -> bool:
     """-- ability words (wave 9C) -- is a condition (or a part of one, under "not" / "all" / "any" as an "instead" clause
     makes it) about the mana spent to cast a cast trigger's spell ("if no mana was spent to cast it", opus)?"""
     cast = cond.get("cast") or {}
-    return bool(cast.get("no_mana") or cast.get("event_spell")) or any(
+    return bool(cast.get("no_mana") or cast.get("event_spell")) or (cond.get("stat") == "mana_value" and cond.get("object") == "it") or any(
         _cast_trigger_spell_cond(c) for k in ("all", "any") for c in cond.get(k, ())) or (
         "not" in cond and _cast_trigger_spell_cond(cond["not"]))
 
@@ -1631,7 +1631,7 @@ def _clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
         text = f"{twin['p']} {twin['a']} on {twin['x']}, then put {twin['b']} on {twin['y']}"
     # -- trigger tail (wave 15B) -- "You draw three cards, gain 6 life, and create three Bats." (a serial list of instructions, in
     # order: 608.2c): read as the same instructions joined by "and"; each part must still be understood on its own
-    if (serial := re.fullmatch(r"([^,]+(?:, [^,]+)+), and ([^,]+)", text)) is not None:
+    if (serial := re.fullmatch(r"([^,]+(?:, [^,]+)+), (?:and|then) ([^,]+)", text)) is not None:  # (wave 16D: "…, then investigate")
         text = serial[1].replace(", ", " and ") + " and " + serial[2]
     for joiner in (r", then ", r" and (?=(?:you|target|each|~|it|that player|draw|lose|gain|put|return|exile|"
                                  r"destroy|tap|untap|create|sacrifice|discard|mill|scry|surveil|get|goad|"
@@ -3151,7 +3151,9 @@ def _intervening_may(body: str, it: str | None, event_player: bool) -> tuple[lis
     resolves) — the gate over the whole of the rest. A condition about an object ("if it's …") isn't read here."""
     from app.rules import conditions
 
-    m = re.match(r"^if (?P<c>[^,]+), (?P<rest>you may .+)$", body.strip(), re.DOTALL)
+    # (-- long tail (wave 16D) -- the rest may be any instructions, "…, you draw a card. If seven or more creatures died this
+    # turn, instead you draw seven cards.": the gate is still over the whole ability, 603.4)
+    m = re.match(r"^if (?P<c>[^,]+), (?P<rest>.+)$", body.strip(), re.DOTALL)
     if m is None:
         return None
     cond = conditions.parse(m["c"], objects=True)
@@ -4084,7 +4086,7 @@ def _delayed_exile_return_transformed(m: re.Match[str]) -> tuple[list[dict[str, 
 
 @effect(_delayed.EVENT.pattern.lstrip("^").rstrip("$"))
 def _delayed_event(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    inner = _clause(m["clause"])
+    inner = _clause(m["clause"].replace("the creature's controller", "that creature's controller"))  # (wave 16D)
     if inner is None or inner[1] is not None:  # (the deferred effect's own target: not modeled)
         raise _NoMatch
     effects = _delayed.inner_for_event(inner[0])

@@ -1318,8 +1318,6 @@ def mill(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     before: list[ObjectRef] = []
     for pid in _players(plan, ctx, e["who"]):
         library = plan.state.zones.get(zone_key(pid, "library"), [])
-        if e.get("half"):  # -- if you do (wave 15C) -- 107.1a: half the library as it is now, rounded as the text says
-            want = (len(library) + 1) // 2 if e["half"] == "up" else len(library) // 2
         n = min(want, len(library))
         before += [r for r in (context.ref_of(plan, c) for c in library[:n]) if r is not None]
         if n:

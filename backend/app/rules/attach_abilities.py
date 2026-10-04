@@ -15,18 +15,18 @@ import re
 from typing import Any
 
 _SELF = r"(?:~|this (?:Equipment|equipment|permanent|Aura|aura))"
-_ONE = re.compile(rf"^attach {_SELF} to (?P<tgt>target [^,.]+)$")
+_ONE = re.compile(rf"^attach {_SELF} to (?P<tgt>(?:up to one )?target [^,.]+)$")  # (wave 16D: "up to one")
 _PAIR = re.compile(r"^attach (?P<src>target [^,.]+?) to (?P<dst>target [^,.]+)$")
 _TO_SELF = re.compile(rf"^attach (?P<src>target [^,.]+?) to {_SELF}$")
 _TO_THIS_CREATURE = re.compile(r"^attach (?P<src>target [^,.]+?) to this creature$")
 
 
-def _group(phrase: str, *, kinds: tuple[str, ...]) -> dict[str, Any] | None:
+def _group(phrase: str, *, kinds: tuple[str, ...], upto: bool = False) -> dict[str, Any] | None:
     from app.rules import selectors
     from app.rules.copying import _target_group
 
     g = _target_group(phrase)
-    if g is None or (g["min"], g["max"]) != (1, 1) or "another" in g or not g["what"].startswith(selectors.PREFIX):
+    if g is None or (g["min"], g["max"]) != ((0, 1) if upto else (1, 1)) or "another" in g or not g["what"].startswith(selectors.PREFIX):
         return None
     sel = selectors.from_key(g["what"])
     if sel.player is not None or sel.zones != ("battlefield",) or sel.card or sel.ability is not None:
@@ -39,7 +39,7 @@ def _group(phrase: str, *, kinds: tuple[str, ...]) -> dict[str, Any] | None:
 def _one(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules.scripts import _NoMatch
 
-    g = _group(m["tgt"], kinds=("Creature",))
+    g = _group(m["tgt"], kinds=("Creature",), upto=m["tgt"].startswith("up to"))
     if g is None:
         raise _NoMatch
     return [{"do": "attach_to", "src": "self", "who": "target"}], g
