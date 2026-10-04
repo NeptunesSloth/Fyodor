@@ -1848,6 +1848,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     card = plan.state.cards.get(a.card_id)
     if card is None:
         raise ActionError("That card isn't here any more")
+    if card.zone == zone_key(plan.actor, "graveyard") and a.face is None and not a.fuse:  # -- casting extras (wave 18E) -- 702.146a
+        from app.rules import disturb
+
+        if disturb.cast_face(plan.state, plan.actor, card, plan.info, a.alt_cost):
+            a.face = 1  # cast transformed: the spell is the back face (702.146b, 712.8c)
     ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
     if a.fuse and (ch.name.count(" // ") != 1 or card.zone != zone_key(plan.actor, "hand")):  # -- static_other sweep (wave 16B) -- 702.102a
         raise ActionError("Only a split card with fuse can be cast as both halves, from your hand")
@@ -2077,7 +2082,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if a.splice:  # -- casting extras (wave 18E) -- 702.47a: the spliced cards are revealed (they stay in the hand)
         plan.do({"type": "reveal", "card_ids": list(a.splice)}, actor=plan.actor)
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else "awaken" if a.awaken else \
-        "flashback" if flashback else "free" if free else "escape" if escaping else \
+        "flashback" if flashback else "free" if free else "disturb" if escaping and alt_offer is not None and alt_offer.tag == "disturb" \
+        else "escape" if escaping else \
         (alt_offer.tag or "alternative") if alt_offer is not None else None  # ("escape": 702.138b, wave 5I; blitz: 15E)
     if alt_offer is not None:  # -- cost changers (wave 4I) --
         if alt_offer.once_key:
@@ -2089,7 +2095,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     _note_cast(plan, record, cast_zone)  # -- refused modal/conditional (wave 3R1) --
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Aftermath" if "aftermath" in ch.keywords else "Flashback"] if flashback else ["Dashed"] if a.dash else \
-        ["Escaped"] if escaping else []  # (wave 5I)
+        ["Disturbed" if alt_offer is not None and alt_offer.tag == "disturb" else "Escaped"] if escaping else []  # (wave 5I; 18E)
     if grant is not None and grant.how == "permission":
         permissions.consume(plan, grant)  # (a "once during each of your turns" permission is used up)
         tags.append(f"Cast from {from_where}" + (" without paying its mana cost" if free else ""))

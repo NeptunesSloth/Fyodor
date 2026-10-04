@@ -102,7 +102,9 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 if alt is not None:
                     out.append(alt_costs.Offer(f"{src.id}:{index}", f"{src.name}: escape ({ch.mana_cost}, exile {d['exile']} "
                                                "other cards from your graveyard)", alt, escape=True))
-    return out
+    from app.rules import disturb  # -- casting extras (wave 18E) -- 702.146a: cast transformed from the graveyard, its own alternative cost
+
+    return out + disturb.offers(state, player, card, info)
 
 
 def escapes_with(text: str) -> str | None:

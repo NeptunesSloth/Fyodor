@@ -42,6 +42,15 @@ EXTRA = [
          oracle_text="When this creature dies, create a 1/1 green Elf Warrior creature token.\nEncore {4}{B} ({4}{B}, Exile this card "
          "from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. "
          "Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)"),
+    card("Lunarch Veteran // Luminous Phantom", set_code="tst", number="D10", layout="transform", mana_cost=None, cmc=1.0,
+         type_line="Creature — Human Cleric // Creature — Spirit Cleric", colors=["W"], color_identity=["W"], image_uris=None,
+         keywords=["Disturb", "Flying"],
+         card_faces=[{"name": "Lunarch Veteran", "mana_cost": "{W}", "type_line": "Creature — Human Cleric", "power": "1", "toughness": "1",
+                      "colors": ["W"], "oracle_text": "Whenever another creature you control enters, you gain 1 life.\nDisturb {1}{W} (You may "
+                      "cast this card from your graveyard transformed for its disturb cost.)"},
+                     {"name": "Luminous Phantom", "mana_cost": "", "type_line": "Creature — Spirit Cleric", "power": "1", "toughness": "1",
+                      "colors": ["W"], "oracle_text": "Flying\nWhenever another creature you control leaves the battlefield, you gain 1 life.\n"
+                      "If Luminous Phantom would be put into a graveyard from anywhere, exile it instead."}]),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -180,4 +189,19 @@ def test_encore_token_must_attack_the_opponent_and_is_sacrificed(cards):
         act(s, s.state.rules.priority, type="pass_priority")
         until_end -= 1
     assert tok.id not in s.state.cards  # (a token that left the battlefield has ceased to exist)
+    roundtrip(s)
+
+
+def test_disturb_casts_the_back_face_from_the_graveyard(cards):
+    name = "Lunarch Veteran // Luminous Phantom"
+    s = build(cards, p1=(name,))
+    vet = put(s, name, "graveyard")
+    mana(s, W=2)
+    act(s, "p1", type="cast_spell", card_id=vet.id, alt_cost=f"{vet.id}:1")  # 702.146a: {1}{W} rather than {W}
+    answer(s)
+    now = s.state.cards[vet.id]
+    assert now.zone == "p1:battlefield" and now.face == 1  # 702.146b: it enters with its back face up
+    from tests.test_rules_attachments import ch
+
+    assert ch(s, now).name == "Luminous Phantom" and "flying" in ch(s, now).keywords
     roundtrip(s)
