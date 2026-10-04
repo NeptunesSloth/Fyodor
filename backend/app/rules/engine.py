@@ -651,7 +651,8 @@ def combat_damage(plan: Plan, rnd: str, then: str) -> None:
 
 def _resume_block_split(plan: Plan, d: Decision, chosen: list[str]) -> None:
     assert d.resume is not None
-    plan.rules.block_split[d.resume["creature"]] = {o.id: int(n) for o, n in zip(d.options, chosen, strict=True)}
+    creature = d.resume.get("creature") or d.resume["blocker"]  # ("blocker": a save from before wave 14A)
+    plan.rules.block_split[creature] = {o.id: int(n) for o, n in zip(d.options, chosen, strict=True)}
     combat_damage(plan, d.resume["round"], d.resume["then"])
     if plan.rules.decision is None:
         _after_resolution(plan)

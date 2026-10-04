@@ -966,6 +966,8 @@ def _control_pass(plan: Plan) -> bool:
     for cid in sorted(set(entries) | set(r.control_changed)):
         card = battle.get(cid)
         if card is None:
+            if cid in state.cards and state.cards[cid].zone.endswith(":phased"):
+                continue  # -- review (wave 14R) -- 702.26b/f: judged again once it phases in (its effect may have ended meanwhile)
             r.control_changed = [x for x in r.control_changed if x != cid]
             continue
         valid = [p for _, p in sorted(entries.get(cid, ())) if p in live]  # (800.4a: a departed player's effects ended)

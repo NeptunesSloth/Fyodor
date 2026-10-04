@@ -63,12 +63,12 @@ def phase_shift(state: GameState, a: A.PhaseShift) -> None:
         ops.remove_from_zone(state, c)
         ops.insert(state, c, zone_key(c.controller, there))
         c.phased_indirect = a.out and c.id in indirect
-        if a.out:  # 506.4
+        if a.out:  # 506.4 (-- review (wave 14R) -- every block of a blocker of several, 509.1a)
             c.attacking = None
-            c.blocking = None
+            c.unblock()
             for other in state.cards.values():
-                if other.blocking == c.id:
-                    other.blocking = None
+                if other.blocks(c.id):
+                    other.unblock(c.id)
                 if other.attacking and other.attacking.kind == "card" and other.attacking.id == c.id:
                     other.attacking = None
     for c in moving.values():
