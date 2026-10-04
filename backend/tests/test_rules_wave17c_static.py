@@ -35,6 +35,25 @@ EXTRA = [
          oracle_text="Reach\nWhenever Six attacks, mill three cards. You may put a land card from among them into your hand.\n"
          "During your turn, nonland permanent cards in your graveyard have retrace. (You may cast permanent cards from your "
          "graveyard by discarding a land card in addition to paying their other costs.)"),
+    card("Sami, Wildcat Captain", set_code="tst", number="C10", mana_cost="{4}{R}{W}", cmc=6.0,
+         type_line="Legendary Creature — Human Artificer Rogue", power="4", toughness="4", colors=["R", "W"], color_identity=["R", "W"],
+         oracle_text="Double strike, vigilance\nSpells you cast have affinity for artifacts. (They cost {1} less to cast for each "
+         "artifact you control.)"),
+    card("Test Relic", set_code="tst", number="C11", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
+    card("Test Bear", set_code="tst", number="C12", mana_cost="{2}{G}", cmc=3.0, type_line="Creature — Bear", power="2", toughness="2",
+         colors=["G"], color_identity=["G"], oracle_text=""),
+    card("Hoarding Broodlord", set_code="tst", number="C13", mana_cost="{5}{B}{B}{B}", cmc=8.0, type_line="Creature — Dragon",
+         power="7", toughness="6", colors=["B"], color_identity=["B"],
+         oracle_text="Convoke\nFlying\nWhen this creature enters, search your library for a card, exile it face down, then "
+         "shuffle. For as long as that card remains exiled, you may play it.\nSpells you cast from exile have convoke."),
+    card("Light Up the Stage", set_code="tst", number="C14", mana_cost="{2}{R}", cmc=3.0, type_line="Sorcery", colors=["R"],
+         color_identity=["R"], oracle_text="Spectacle {R} (You may cast this spell for its spectacle cost rather than its mana cost "
+         "if an opponent lost life this turn.)\nExile the top two cards of your library. Until the end of your next turn, you may "
+         "play those cards."),
+    card("Prismari, the Inspiration", set_code="tst", number="C15", mana_cost="{5}{U}{R}", cmc=7.0,
+         type_line="Legendary Creature — Elder Dragon", power="7", toughness="7", colors=["R", "U"], color_identity=["R", "U"],
+         oracle_text="Flying\nWard—Pay 5 life.\nInstant and sorcery spells you cast have storm. (Whenever you cast an instant or "
+         "sorcery spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)"),
     card("Hexing Squelcher", set_code="tst", number="C05", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Goblin Sorcerer",
          power="2", toughness="2", colors=["R"], color_identity=["R"],
          oracle_text="This spell can't be countered.\nWard—Pay 2 life.\nSpells you control can't be countered.\nOther creatures you control have \"Ward—Pay 2 life.\""),
@@ -145,4 +164,48 @@ def test_granted_retrace_for_the_named_cards_only(cards):
     act(s, "p1", type="cast_spell", card_id=hs[1].id)  # 702.81a: a Merfolk Druid has retrace from the other one
     answer(s)
     assert s.state.cards[hs[1].id].zone == "p1:battlefield" and s.state.cards[forest.id].zone == "p1:graveyard"
+    roundtrip(s)
+
+
+def test_granted_affinity_reduces_the_spells_cost(cards):
+    s = build(cards, p1=("Sami, Wildcat Captain", "Test Relic", "Test Relic", "Test Bear"))
+    put(s, "Sami, Wildcat Captain", "battlefield")
+    for r in [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Test Relic"]:
+        act(s, "p1", type="move", card_ids=[r.id], to={"player": "p1", "zone": "battlefield"})
+    bear = put(s, "Test Bear", "hand")
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=bear.id)  # 702.41a: {2}{G} less two generic = {G}
+    answer(s)
+    assert find(s, "Test Bear").zone == "p1:battlefield"
+    roundtrip(s)
+
+
+def test_convoke_granted_to_spells_cast_from_exile(cards):
+    s = build(cards, p1=("Hoarding Broodlord", "Light Up the Stage", "Test Small", "Test Bear"))
+    lord = put(s, "Hoarding Broodlord", "battlefield")
+    small = put(s, "Test Small", "battlefield")
+    bear = put(s, "Test Bear", "library", position="top")
+    act_ = put(s, "Light Up the Stage", "hand")
+    mana(s, R=3)
+    act(s, "p1", type="cast_spell", card_id=act_.id)
+    answer(s)
+    assert s.state.cards[bear.id].zone == "p1:exile"
+    mana(s, C=1)  # {2}{G}: the creatures pay for the rest (702.51a: Test Small is green), the Bear is cast from exile
+    act(s, "p1", type="cast_spell", card_id=bear.id)
+    answer(s)
+    assert s.state.cards[bear.id].zone == "p1:battlefield" and s.state.cards[lord.id].tapped and s.state.cards[small.id].tapped
+    roundtrip(s)
+
+
+def test_granted_storm_copies_for_each_earlier_spell(cards):
+    s = build(cards, p1=("Prismari, the Inspiration", "Lightning Bolt", "Lightning Bolt"))
+    put(s, "Prismari, the Inspiration", "battlefield")
+    bolts = [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Lightning Bolt"]
+    for b in bolts:
+        act(s, "p1", type="move", card_ids=[b.id], to={"player": "p1", "zone": "hand"})
+    mana(s, R=2)
+    act(s, "p1", type="cast_spell", card_id=bolts[0].id, targets=["p2"])  # 702.40a: nothing was cast before it
+    act(s, "p1", type="cast_spell", card_id=bolts[1].id, targets=["p2"])  # one spell before it: one copy
+    answer(s)
+    assert s.state.players["p2"].life == 40 - 9
     roundtrip(s)

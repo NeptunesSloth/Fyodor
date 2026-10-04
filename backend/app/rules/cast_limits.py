@@ -98,7 +98,12 @@ EFFECT_FLASH = re.compile(r"^(?:until end of turn, )?you may cast (?:(?P<sel>[A-
 STATIC_HASTE = "you may activate abilities of creatures you control as though those creatures had haste"
 # 702.51 / 702.126 / 702.66: "Nonartifact spells you cast have improvise." / "Artifact spells you cast have convoke." / "Spells
 # you cast have delve." — the spell has it while it's being cast (601.2g-h: costs are paid with the spell on the stack)
-STATIC_HELPER = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells you cast have (?P<kw>convoke|improvise|delve)$")
+STATIC_HELPER = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells you cast(?P<frm> from exile)? have (?P<kw>convoke|improvise|delve)$")
+
+
+# -- static_other sweep (wave 17C) -- 702.41a: "Artifact spells you cast have affinity for artifacts." / "Spells you cast have affinity for
+# artifacts." — the spell has it while it's being cast (601.2f: the total cost is determined with it), one more reduction per instance
+STATIC_AFFINITY = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells you cast have affinity for (?P<what>[A-Za-z ]+)$")
 
 
 # -- static statics (wave 10B) -- 702.85a: "Spells you cast with mana value 6 or greater have cascade." / "The first spell
@@ -111,7 +116,7 @@ STATIC_CASCADE = re.compile(
     r"^(?:(?P<first>the first) )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? you cast"
     r"(?: from (?P<frm>your hand|exile|anywhere other than your hand))?"
     r"(?: (?P<tail>with mana value \d+ or (?:greater|less)))?(?P<each> each turn)? "
-    r"(?:has|have) (?P<kw>cascade|\"[Cc]ascade, cascade\.?\")$")
+    r"(?:has|have) (?P<kw>cascade|storm|\"[Cc]ascade, cascade\.?\")$")  # (wave 17C: storm, 702.40a)
 
 
 def _cascade_definition(m: re.Match[str]) -> Definition | None:
@@ -131,7 +136,7 @@ def _cascade_definition(m: re.Match[str]) -> Definition | None:
         if key is None and (phrase or m["tail"]):
             return None  # (a wording the spell selector doesn't read)
         first = None
-    return {"kind": "static", "static": "spell_keyword", "keyword": "cascade",
+    return {"kind": "static", "static": "spell_keyword", "keyword": "storm" if m["kw"] == "storm" else "cascade",
             "count": 2 if m["kw"].startswith('"') else 1, "filter": key,
             "from": _FROM_ZONES[m["frm"]] if m["frm"] else None, "first": first, "effects": []}
 
@@ -234,7 +239,16 @@ def static_definition(text: str) -> Definition | None:
         ok, key = _filter(m["sel"])
         if not ok:
             return None
-        return {"kind": "static", "static": "spell_helper", "keyword": m["kw"], "filter": key, "effects": []}
+        return {"kind": "static", "static": "spell_helper", "keyword": m["kw"], "filter": key, "effects": [],
+                **({"from": "exile"} if m["frm"] else {})}  # (wave 17C: "Spells you cast from exile have convoke.")
+    m = STATIC_AFFINITY.fullmatch(t)
+    if m:
+        from app.rules.casting import affinity_pred
+
+        ok, key = _filter(m["sel"])
+        if not ok or affinity_pred(m["what"].lower()) is None:
+            return None
+        return {"kind": "static", "static": "spell_helper", "keyword": "affinity", "what": m["what"].lower(), "filter": key, "effects": []}
     from app.rules import player_shields  # "You have hexproof." (app/rules/player_shields.py)
 
     return player_shields.static_definition(text)
@@ -572,11 +586,21 @@ def granted_helpers(state: GameState, player: str, spell_card: str, spell: Chara
         return set()
     from app.rules.permissions import spell_matches
 
-    return {d["keyword"] for src, d in found if src.controller == player
+    return {d["keyword"] for src, d in found if src.controller == player and d["keyword"] != "affinity"
+            and (d.get("from") is None or card.zone.endswith(":exile")
+                 or (card.stack_info is not None and "Cast from exile" in card.stack_info.tags))
             and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))}
 
 
-def granted_cascade(plan: Plan, spell_card: str, spell: Characteristics, cast_from: str | None) -> int:
+def granted_affinities(state: GameState, player: str, card: CardInstance, spell: Characteristics, info: CardInfo) -> list[str]:
+    """-- static_other sweep (wave 17C) -- the "affinity for X" words that permanents ``player`` controls give this spell (702.41a)."""
+    from app.rules.permissions import spell_matches
+
+    return [d["what"] for src, d in _statics(state, info, "spell_helper") if src.controller == player and d["keyword"] == "affinity"
+            and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))]
+
+
+def granted_cascade(plan: Plan, spell_card: str, spell: Characteristics, cast_from: str | None, keyword: str = "cascade") -> int:
     """-- static statics (wave 10B) -- how many extra instances of cascade (702.85a) the permanents ``plan.actor``
     controls give this spell as it is cast from ``cast_from`` (the zone's name). "The first spell you cast each turn"
     reads the spells cast before this one (it isn't counted yet: 601.2i), "from exile" those cast from exile."""
@@ -591,7 +615,7 @@ def granted_cascade(plan: Plan, spell_card: str, spell: Characteristics, cast_fr
     earlier = [c for c in (log.casts if log else []) if c.player == player and c.object_id != plan.oid(card)]
     total = 0
     for src, d in found:
-        if src.controller != player or d.get("keyword") != "cascade":
+        if src.controller != player or d.get("keyword") != keyword:
             continue
         zone = d.get("from")
         if zone is not None and not (cast_from != "hand" if zone == "not_hand" else cast_from == zone):
