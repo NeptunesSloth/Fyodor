@@ -2365,7 +2365,8 @@ def exile_top(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not n:
             continue
         before += [r for r in (context.ref_of(plan, c) for c in library[:n]) if r is not None]
-        plan.do({"type": "mill", "player": pid, "count": n, "to": "exile", "face_down": bool(e.get("face_down"))}, actor=pid)
+        plan.do({"type": "mill", "player": pid, "count": n, "to": "exile", "face_down": bool(e.get("face_down")),
+                 "blind": bool(e.get("face_down"))}, actor=pid)
     _moved(plan, ctx, e, before)  # the new objects in exile (400.7j)
     if e.get("bind") and not e.get("as"):  # (a permission's "You may play that card": app/rules/permissions.py)
         context.bind_moved(plan, ctx, e["bind"], before)

@@ -218,6 +218,7 @@ def mill(state: GameState, a: A.Mill) -> None:
         ops.move_card(state, c, dest, face_down=a.face_down if a.to == "exile" else None)
         if c.face_down:
             c.face_down_kind = "exile"
+            c.unseen = a.blind  # (-- hidden exile (wave 18A) --)
     verb = "milled" if a.to == "graveyard" else ("exiled face down" if a.face_down else "exiled")
     log(state, a.actor, a.ts, [pname(state, pid), text(f" {verb} "), group(state, milled)])
 

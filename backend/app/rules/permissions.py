@@ -515,6 +515,37 @@ def _grant_exiled(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
              **({"spend": spend} if spend else {})}], None
 
 
+# -- hidden exile (wave 18A) -- cards exiled face down that "you may look at" (406.3a: a face-down exiled card has no characteristics,
+# but the spell or ability that exiled it may let a player look at it and play it): the looker alone sees them (``revealed_to``,
+# which ends when the card leaves exile, 400.7). Printed wordings, read as two plain sentences:
+#   "You may look at and play those cards for as long as they remain exiled."   (look at + play)
+#   "You may play it for as long as it remains exiled. Mana of any type can be spent to cast a spell this way."  (one permission)
+LOOK_EXILED = re.compile(r"^you may look at (?P<what>it|that card|those cards|them) for as long as (?:it|they|that card|those cards) "
+                         r"remains? exiled$")
+_LOOK_AND_PLAY = re.compile(r"You may look at and (?P<v>play|cast) (?P<w>that card|those cards|it|them)(?P<free> without paying "
+                            r"(?:its|their) mana costs?)? for as long as (?P<d>it|they) (?P<r>remains?) exiled")
+_PLAY_RIDER = re.compile(r"(?P<g>You may (?:play|cast) (?P<w>that card|those cards|it|them)[^.]*?)\. (?:(?P<a>Mana of any type can be "
+                         r"spent to cast (?:a spell|spells) this way)|(?P<b>If you cast a spell this way, you may spend mana as though it "
+                         r"were mana of any type to cast it))\.")
+
+
+def join_exile_play(body: str) -> str:
+    """The wordings above as the sentences the permission grammar reads (permissions.GRANT_EXILED, LOOK_EXILED)."""
+    body = re.sub(r"(You may (?:look at and )?(?:play|cast) )the exiled (card|cards)\b",
+                  lambda m: m[1] + ("that card" if m[2] == "card" else "those cards"), body)
+    body = _LOOK_AND_PLAY.sub(lambda m: f"You may look at {m['w']} for as long as {m['d']} {m['r']} exiled. You may {m['v']} {m['w']}"
+                              f"{m['free'] or ''} for as long as {m['d']} {m['r']} exiled", body)
+
+    def rider(m: re.Match[str]) -> str:
+        plural = m["w"] in ("those cards", "them")
+        spell = "those spells" if plural else "that spell"
+        tail = f"mana of any type can be spent to cast {spell}" if m["a"] else \
+            f"you may spend mana as though it were mana of any type to cast {spell}"
+        return f"{m['g']}, and {tail}."
+
+    return _PLAY_RIDER.sub(rider, body)
+
+
 def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
     """An effect sentence of the permission grammar (see ``scripts._one_clause``), or None.
     ("Exile the top card of your library" itself is the library grammar's: app/rules/language.py.)"""
@@ -525,6 +556,9 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
             return None
         return [{"do": "cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1), "filter": key,
                  "until": "next_turn" if m["until"] else "end_of_turn"}], None
+    m = LOOK_EXILED.fullmatch(text)  # -- hidden exile (wave 18A) --
+    if m:
+        return [{"do": "look_exiled", "who": "them:card" if m["what"] in ("those cards", "them") else "it:card", "optional": True}], None
     m = FREE_COPY.fullmatch(text)  # -- cast a copy (wave 13C) --
     if m:
         many = m["w"] != "the copy"

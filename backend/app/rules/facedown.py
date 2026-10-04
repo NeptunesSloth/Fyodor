@@ -20,8 +20,8 @@ from __future__ import annotations
 from typing import Any
 
 from app.game.rules_state import DecisionOption
-from app.game.visibility import can_see
 from app.game.state import CardInstance, zone_key
+from app.game.visibility import can_see
 from app.rules import effects, selectors
 from app.rules.plan import Plan, decide
 
@@ -207,7 +207,27 @@ def resume_look_face_down(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, d.resume["ctx"])
 
 
+# -- hidden exile (wave 18A) -- cards exiled face down that "you may look at" (406.3a): the wordings are read in
+# app/rules/permissions.py (``join_exile_play``, ``LOOK_EXILED``).
+
+
+def look_exiled(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"You may look at it for as long as it remains exiled": the ability's controller alone sees the face-down exiled cards the
+    earlier instruction exiled (a card they could already see, e.g. their own, shows nothing new)."""
+    from app.rules import context
+
+    pid = ctx["controller"]
+    if not str(e.get("who", "")).startswith(context.PREFIX):
+        return True
+    cards = [c for c in context.objects(plan, ctx, e["who"][len(context.PREFIX):])
+             if plan.state.cards[c].face_down and plan.state.cards[c].zone.endswith(":exile")
+             and not can_see(plan.state, plan.state.cards[c], pid)]
+    if cards:
+        plan.do({"type": "reveal", "card_ids": cards, "to": [pid]}, actor=pid)
+    return True
+
+
 PRIMITIVES: dict[str, Any] = {"manifest": manifest, "turn_face_up": turn_face_up, "turn_face_down": turn_face_down,
-                              "look_face_down": look_face_down}
+                              "look_face_down": look_face_down, "look_exiled": look_exiled}
 RESUME: dict[str, Any] = {"manifest_dread": resume_manifest_dread, "turn_face_up": resume_turn_face_up,
                           "look_face_down": resume_look_face_down}

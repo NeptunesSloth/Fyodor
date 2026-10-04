@@ -34,6 +34,8 @@ EXTRA = [
     card('Lens of Clarity', set_code='tst', number='Y07', mana_cost='{1}', cmc=1.0, type_line='Artifact', oracle_text="You may look at the top card of your library and at face-down creatures you don't control any time.", power=None, toughness=None, colors=[], color_identity=[], keywords=[]),  # noqa: E501
     card('Sumala Sentry', set_code='tst', number='Y08', mana_cost='{G}{W}', cmc=2.0, type_line='Creature — Elf Archer', oracle_text="Reach\nWhenever a face-down permanent you control is turned face up, put a +1/+1 counter on it and a +1/+1 counter on this creature.", power='1', toughness='3', colors=['G', 'W'], color_identity=['G', 'W'], keywords=['Reach']),  # noqa: E501
     card('Pine Walker', set_code='tst', number='Y09', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Elemental', oracle_text="Morph {4}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhenever this creature or another creature you control is turned face up, untap that creature.", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Morph']),  # noqa: E501
+    card('Outrageous Robbery', set_code='tst', number='Y10', mana_cost='{X}{B}{B}', cmc=2.0, type_line='Instant', oracle_text="Target opponent exiles the top X cards of their library face down. You may look at and play those cards for as long as they remain exiled. If you cast a spell this way, you may spend mana as though it were mana of any type to cast it.", power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=[]),  # noqa: E501
+    card('Siphon Insight', set_code='tst', number='Y11', mana_cost='{U}{B}', cmc=2.0, type_line='Instant', oracle_text="Look at the top two cards of target opponent's library. Exile one of them face down and put the other on the bottom of that library. You may play the exiled card for as long as it remains exiled, and you may spend mana as though it were mana of any color to cast that spell.\nFlashback {1}{U}{B}", power=None, toughness=None, colors=['B', 'U'], color_identity=['B', 'U'], keywords=['Flashback']),  # noqa: E501
     card('Doomskar', set_code='tst', number='Y01', mana_cost='{3}{W}{W}', cmc=5.0, type_line='Sorcery', oracle_text='Destroy all creatures.\nForetell {1}{W}{W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)', power=None, toughness=None, colors=['W'], color_identity=['W'], keywords=['Foretell']),  # noqa: E501
 ]
 FULL = [c["name"] for c in EXTRA]
@@ -200,6 +202,58 @@ def test_turned_face_up_triggers_of_other_permanents(cards):
     assert not s.state.cards[hermit.id].face_down
     assert s.state.cards[hermit.id].counters.get("+1/+1") == 1 and s.state.cards[sentry.id].counters.get("+1/+1") == 1
     assert sum(1 for c in s.state.cards.values() if c.name == "Saproling" and c.zone == "p1:battlefield") == 4
+    check(s)
+
+
+def test_outrageous_robbery_exiles_unseen_cards_only_the_caster_may_look_at(cards):
+    from tests.test_rules_wave9b_exile_permission import answer, build as build9, put as put9
+
+    s = build9(cards, p1=("Outrageous Robbery",), p2=("Ambush Viper", "Lightning Bolt"))
+    robbery = put9(s, "Outrageous Robbery", "hand")
+    bolt = put9(s, "Lightning Bolt", "library", pid="p2", position="top")
+    viper = put9(s, "Ambush Viper", "library", pid="p2", position="top")
+    mana(s, B=4)
+    act(s, "p1", type="cast_spell", card_id=robbery.id, x_value=2, targets=["p2"])
+    answer(s)
+    for c in (viper, bolt):
+        assert s.state.cards[c.id].zone == "p2:exile" and s.state.cards[c.id].face_down and s.state.cards[c.id].unseen
+        # 406.3a: nobody has looked yet; the caster does at once ("look at and play"), the owner who exiled them blind and everyone else never
+        assert s.view("p1")["cards"][c.id].get("name") == c.name
+        for viewer in ("p2", SPECTATOR):
+            assert c.name not in json.dumps(s.view(viewer)) and c.card_id not in json.dumps(s.view(viewer))
+    assert {p.card for p in s.state.rules.permissions} == {viper.id, bolt.id}
+    assert all(p.spend == "type" for p in s.state.rules.permissions)
+    mana(s, B=2)
+    act(s, "p1", type="cast_spell", card_id=viper.id)  # any type of mana pays for the {1}{G} creature (609.4b)
+    answer(s)
+    assert s.state.cards[viper.id].zone == "p1:battlefield" and s.state.cards[bolt.id].face_down
+    check(s)
+
+
+def test_siphon_insight_privacy_while_choosing_and_after(cards):
+    from tests.test_rules_wave9b_exile_permission import answer, build as build9, put as put9
+
+    s = build9(cards, p1=("Siphon Insight",), p2=("Ambush Viper", "Lightning Bolt"))
+    siphon = put9(s, "Siphon Insight", "hand")
+    bolt = put9(s, "Lightning Bolt", "library", pid="p2", position="top")
+    viper = put9(s, "Ambush Viper", "library", pid="p2", position="top")
+    mana(s, U=1, B=1)
+    act(s, "p1", type="cast_spell", card_id=siphon.id, targets=["p2"])
+    d = until_asked(s)
+    assert d is not None and d.player == "p1"
+    assert {o.card_id for o in d.options} == {viper.id, bolt.id}  # Alice looks at the top two (701.20e)
+    for viewer in ("p2", SPECTATOR):  # mid-decision: nothing about the two cards reaches Bob or a spectator
+        seen = json.dumps(s.view(viewer))
+        for c in (viper, bolt):
+            assert c.name not in seen and c.card_id not in seen
+        assert "options" not in s.view(viewer)["rules"]["decision"]
+    answer(s, pick=viper.id)
+    assert s.state.cards[viper.id].zone == "p2:exile" and s.state.cards[viper.id].face_down
+    assert s.view("p1")["cards"][viper.id].get("name") == "Ambush Viper"
+    for viewer in ("p2", SPECTATOR):
+        seen = json.dumps(s.view(viewer))
+        assert "Ambush Viper" not in seen and "Lightning Bolt" not in seen
+    assert s.state.zones["p2:library"][-1] == bolt.id
     check(s)
 
 

@@ -109,6 +109,7 @@ class Mill(Base):
     count: int = Field(default=1, ge=1, le=500)
     to: Literal["graveyard", "exile"] = "graveyard"
     face_down: bool = False
+    blind: bool = False  # -- hidden exile (wave 18A) -- an effect exiled it face down: nobody has looked at it (state.CardInstance.unseen)
 
 
 class Mulligan(Base):

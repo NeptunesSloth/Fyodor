@@ -181,6 +181,7 @@ def move_card(
     if dst_zone in HIDDEN_ZONES or src_zone in HIDDEN_ZONES or (src_zone == "battlefield" and dst_zone != "battlefield"):
         c.face = 0  # (-- transform, wave 11A -- 712.8a: off the battlefield and the stack a double-faced card shows its front face)
     c.revealed_to = []  # a reveal ends when the card changes zones
+    c.unseen = False
     if face_down is not None:
         c.face_down = bool(face_down)
     elif not same_object:

@@ -560,7 +560,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
         same = [i for i in fitting if sentence_of(i.index) == latest]
         # -- looks (wave 8B) -- "Reveal the top card of your library and put that card into your hand. You lose life equal
         # to its mana value.": "that card" is the card revealed, so the one card is the pick (not two candidates)
-        if any(i.do == "pick_looked" and out[i.index].get("which") == "that" for i in same):
+        if any(i.do == "pick_looked" and out[i.index].get("which") in ("that", "all") for i in same):
             same = [i for i in same if i.do != "look_top"]
         # ("target creature gets +2/+2 and gains reach": two effects on one target are one candidate)
         distinct = {(("g", _group_of(out[i.index])) if _group_of(out[i.index]) is not None else ("i", i.index)): i
@@ -654,7 +654,7 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                         return None
                 else:
                     intro = objects(index, 1 if pronoun == "it" else 2, verb or None)
-                if e.get("do") in ("grant_play", "free_cast") and (intro is None or intro.do not in _MOVERS):
+                if e.get("do") in ("grant_play", "free_cast", "look_exiled") and (intro is None or intro.do not in _MOVERS):
                     # "You may play that card this turn": only what an earlier instruction of this
                     # ability moved (exiled, found), where it went (400.7h/j) — never the source,
                     # a trigger's object, or a card an instruction put in a hidden zone ("draw a
@@ -2004,6 +2004,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import name_search  # -- name search (wave 11D) --
 
     body = name_search.rewrite(body)
+    from app.rules import permissions as _permissions  # -- hidden exile (wave 18A) --
+
+    body = _permissions.join_exile_play(body)
     # -- activated wordings (wave 15D) -- "Choose a creature type [other than Wall]. Each creature you control becomes that type until
     # end of turn." is one choice made as it resolves (608.2d): read as "… becomes the creature type [other than Wall] of your choice …"
     body = re.sub(r"([^.]+?) (gets [+−-]\d+/[+−-]\d+) and (becomes the color of your choice) until end of turn\.",

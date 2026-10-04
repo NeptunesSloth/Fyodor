@@ -724,13 +724,13 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
 
 # -- the top of a library (401, 701.20 reveal, 701.20e look, 701.24 shuffle) ----------------------
 # Whose library: "your library" (default), a target player's (a target group), everyone's.
-_LIB = r"(?P<lib>your|target player's|target opponent's|that player's|each player's|each opponent's) library"
+_LIB = r"(?P<lib>your|target player's|target opponent's|that player's|their|each player's|each opponent's) library"
 _LIB_WHO = {"your": "you", "target player's": "target player", "target opponent's": "target opponent",
-            "that player's": "that player", "each player's": "each player", "each opponent's": "each opponent"}
+            "that player's": "that player", "their": "that player", "each player's": "each player", "each opponent's": "each opponent"}
 _SUBJECTS = r"(?P<subj>target player|target opponent|that player|defending player|each player|each opponent|each of your opponents)"
 _N_CARDS = rf"(?:(?P<n>{AMT}) cards|card)"
 _TOP = re.compile(rf"(?P<verb>look at|reveal) the top {_N_CARDS} of {_LIB}(?P<back>, then put them back in any order)?")
-_SUBJ_TOP = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) the top {_N_CARDS} of their library")
+_SUBJ_TOP = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) the top {_N_CARDS} of their library(?P<fd> face down)?")
 _EXILE_TOP = re.compile(rf"exile the top {_N_CARDS} of {_LIB}(?P<fd> face down)?")
 _UNTIL = re.compile(rf"(?P<verb>reveal|exile) cards from the top of {_LIB} until you (?P=verb) (?:a|an) (?P<sel>.+)")
 # -- look and distribute (wave 3L) -- where the picked / remaining cards go; a library may be "that library"
@@ -921,7 +921,10 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
     if m:
         kind, key, group = ref(m["subj"])
         do = "look_top" if m["verb"] == "reveals" else "exile_top"
-        return [{"do": do, "n": count(m), "player": _who(kind, key), **({"reveal": True} if do == "look_top" else {})}], _one(group)
+        if m["fd"] and do == "look_top":
+            raise _Fail
+        return [{"do": do, "n": count(m), "player": _who(kind, key), **({"reveal": True} if do == "look_top" else {}),
+                 **({"face_down": True} if m["fd"] else {})}], _one(group)  # (face down: wave 18A)
     m = _EXILE_TOP.fullmatch(text)
     if m:
         who, group = _lib_owner(m["lib"])
@@ -968,6 +971,8 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
                 raise _Fail
         else:
             e["which"] = "that" if m["that"] else "all"
+            if not m["that"]:
+                e["n"] = 99  # (all of them: a pronoun for the cards moved names several, scripts.resolve_it)
         if e["to"] in ("top", "bottom") and (e.get("which") == "all" or e["n"] != 1):
             raise _Fail  # (several cards put into a library: their order is a choice not read here)
         out = [e]

@@ -39,7 +39,7 @@ def can_see(state: GameState, card: CardInstance, viewer: str) -> bool:
         return True
     _, zone = split_zone(card.zone)
     if zone in PUBLIC_ZONES:
-        return not card.face_down or viewer == card.controller or looks_at_face_down(state, card, viewer)
+        return not card.face_down or (viewer == card.controller and not card.unseen) or looks_at_face_down(state, card, viewer)
     if zone in OWNER_VISIBLE_ZONES and viewer == card.owner:
         return True
     for view in state.views:
