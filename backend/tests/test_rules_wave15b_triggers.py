@@ -395,6 +395,20 @@ def test_you_and_that_player_each_draw_that_many_cards(cards):
     check(s)
 
 
+def test_defending_player_exiles_the_top_cards_of_their_library(cards):
+    # 508.5: the defending player is the one the attacker attacks; Ulamog, the Ceaseless Hunger's attack trigger (20 there, 2 here)
+    from tests.test_rules_combat import attack, automate, creature, table
+
+    s = table(cards)
+    giant = creature(s, "p1", "Giant", "2/2", "Whenever ~ attacks, defending player exiles the top two cards of their library.")
+    automate(s)
+    library = len(s.state.zones["p2:library"])
+    attack(s, (giant, "p2"))
+    answer(s)
+    assert len(s.state.zones["p2:library"]) == library - 2 and len(s.state.zones["p2:exile"]) == 2
+    check(s)
+
+
 @pytest.mark.parametrize("text", [
     # "that many" after a discard the player sizes is the cards discarded: only "then draw that many cards" is read (above)
     "Discard any number of cards. Search your library for up to that many basic land cards, reveal them, put them into your hand, then shuffle.",

@@ -689,7 +689,7 @@ def _search_gy(text: str) -> tuple[Effects, str | None] | None:
 _LIB = r"(?P<lib>your|target player's|target opponent's|that player's|each player's|each opponent's) library"
 _LIB_WHO = {"your": "you", "target player's": "target player", "target opponent's": "target opponent",
             "that player's": "that player", "each player's": "each player", "each opponent's": "each opponent"}
-_SUBJECTS = r"(?P<subj>target player|target opponent|that player|each player|each opponent|each of your opponents)"
+_SUBJECTS = r"(?P<subj>target player|target opponent|that player|defending player|each player|each opponent|each of your opponents)"
 _N_CARDS = rf"(?:(?P<n>{AMT}) cards|card)"
 _TOP = re.compile(rf"(?P<verb>look at|reveal) the top {_N_CARDS} of {_LIB}(?P<back>, then put them back in any order)?")
 _SUBJ_TOP = re.compile(rf"{_SUBJECTS} (?P<verb>reveals|exiles) the top {_N_CARDS} of their library")
