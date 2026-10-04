@@ -2562,7 +2562,7 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
             cost = replace(cost, mana=power_up.reduced(state, card, ch, cost.mana) or "")
         own = cost_changes.ability_delta(state, card.controller, card, ch, ability.text, info) \
             if "This ability costs " in ability.text else 0
-        reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own)
+        reduced = permissions.ability_mana(state, card.controller, card, ch, cost.mana, info, own, ability.text)
         if reduced != cost.mana:
             cost = replace(cost, mana=reduced)
     # -- reanimation (wave 3R) -- 113.6m: "{1}{B}: Return this card from your graveyard to the battlefield" moves the

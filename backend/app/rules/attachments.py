@@ -127,6 +127,12 @@ def equip_info(line: str, name: str = "") -> tuple[str, str, str] | None:
     return cost, target, tail
 
 
+def is_equip_text(text: str) -> bool:
+    """Is this the text casting.equip_ability gives an equip ability (702.6a: "[Cost]: Attach … to target creature you control.
+    Activate only as a sorcery.")?"""
+    return re.search(r": Attach .+? to target creature you control\. Activate only as a sorcery\.", text) is not None
+
+
 def equip_cost(ch: Characteristics, index: int) -> tuple[str, str, str] | None:
     """The equip ability on ability line ``index`` (702.6a): (cost, target selector, trailing sentences), or None."""
     for ab in ch.abilities:

@@ -24,6 +24,7 @@ EXTRA = [
     card('Voice of Victory', set_code='tst', number='X04', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Human Bard', oracle_text="Mobilize 2 (Whenever this creature attacks, create two tapped and attacking 1/1 red Warrior creature tokens. Sacrifice them at the beginning of the next end step.)\nYour opponents can't cast spells during your turn.", power='1', toughness='3', colors=['W'], color_identity=['W'], keywords=['Mobilize']),  # noqa: E501
     card('Blackblade Reforged', set_code='tst', number='X06', mana_cost='{1}', cmc=1.0, type_line='Legendary Artifact — Equipment', oracle_text='Equipped creature gets +1/+1 for each land you control.\nEquip legendary creature {3}\nEquip {7}', power=None, toughness=None, colors=[], color_identity=[], keywords=['Equip']),  # noqa: E501
     card('Demonmail Hauberk', set_code='tst', number='X07', mana_cost='{4}', cmc=4.0, type_line='Artifact — Equipment', oracle_text='Equipped creature gets +4/+2.\nEquip—Sacrifice a creature. (Sacrifice a creature: Attach to target creature you control. Equip only as a sorcery.)', power=None, toughness=None, colors=[], color_identity=[], keywords=['Equip']),  # noqa: E501
+    card('Bureau Headmaster', set_code='tst', number='X08', mana_cost='{R}{W}', cmc=2.0, type_line='Creature — Human Assassin', oracle_text='Equipment spells you cast cost {1} less to cast.\nEquip abilities you activate cost {1} less to activate.', power='2', toughness='2', colors=['R', 'W'], color_identity=['R', 'W'], keywords=[]),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -167,4 +168,16 @@ def test_equip_with_a_sacrifice_cost(cards):
     settle(s)
     assert s.state.cards[hauberk.id].attached_to == keep.id
     assert fodder.id not in s.state.zones["p1:battlefield"]  # sacrificed to pay (a token ceases to exist)
+    check(s)
+
+
+def test_equip_abilities_cost_less_with_bureau_headmaster(cards):
+    s = build(cards, "Bureau Headmaster", "Blackblade Reforged")
+    put(s, "Bureau Headmaster")
+    blade = put(s, "Blackblade Reforged")
+    bear = token_of(s, "p1", "Hero", "Token Legendary Creature — Human", "2/2")
+    mana(s, C=2)  # Equip legendary creature {3} costs {1} less (601.2f), and not the other equip, nor anything but equip
+    act(s, "p1", type="activate_ability", card_id=blade.id, ability=1, targets=[bear.id])
+    settle(s)
+    assert s.state.cards[blade.id].attached_to == bear.id
     check(s)

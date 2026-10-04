@@ -65,6 +65,12 @@ ABILITY_COST = re.compile(
     rf"^(?:activated abilities(?: of (?P<sel>[a-z][a-z' ,-]*?))?|(?P<yours>abilities you activate that aren't mana abilities)) "
     rf"costs? {_N} (?P<dir>less|more) to activate(?:\. (?P<floor>this effect can't reduce the mana in that cost to less than one mana))?$",
     re.IGNORECASE)
+# -- equip (wave 15E) -- "Equip abilities you activate cost {1} less to activate." (Bureau Headmaster), "Equip costs you pay cost
+# {1} less." (Auriok Steelshaper), "Equip abilities you activate of other Equipment cost {1} less to activate." (Bladehold
+# War-Whip): a cost modifier (601.2f) of equip abilities only (attachments.is_equip_text), the player's own
+EQUIP_COST = re.compile(
+    rf"^equip (?:abilities you activate(?P<other> of other equipment)?|costs you pay) costs? {_N} (?P<dir>less|more)(?: to activate)?$",
+    re.IGNORECASE)
 # An effect's cost modifier with a duration (611.2a): "Artifact, instant, and sorcery spells you cast this turn cost {2}
 # less to cast." (Urza, Planeswalker) / "Until your next turn, instant and sorcery spells you cast cost {1} less to cast."
 # (Ral, Leyline Prodigy)
@@ -384,6 +390,11 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         caster = {None: "any", "you cast ": "you", "your opponents cast ": "opponent"}[m["who"]]
         delta = int(m["n"]) * (-1 if m["dir"] == "less" else 1)
         return {"kind": "static", "static": "cost_modifier", "delta": delta, "caster": caster, "filter": key, "effects": []}
+    m = EQUIP_COST.fullmatch(t)
+    if m:
+        return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
+                "filter": selectors.parse("other Equipment").key() if m["other"] else None, "who": "you", "floor": False,
+                "equip": True, "effects": []}
     m = ABILITY_COST.fullmatch(t)
     if m:  # -- costs (wave 3$) -- the source permanent is matched at the cost, relative to the ability's controller
         key = None
@@ -837,7 +848,7 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
 
 # -- costs (wave 3$) -- cost modifiers for activated abilities (602.2b -> 601.2f, 118.7) ---------------------
 def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characteristics, mana: str, info: CardInfo,
-                 own: int = 0) -> str:
+                 own: int = 0, ability_text: str = "") -> str:
     """The mana part of an activated ability's cost after "Activated abilities of creatures you control cost {2} less to
     activate" and its increases: increases first, then reductions on the generic component only (118.7a, 601.2f), and with
     "can't reduce the mana in that cost to less than one mana" never below one mana. Costs with {X} are left alone."""
@@ -850,8 +861,12 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
     view = None
     increase, reduction = max(0, own), max(0, -own)
     floor = False
+    from app.rules import attachments
+
     for src, d in mods:
         if d["who"] == "you" and src.controller != player:
+            continue
+        if d.get("equip") and not attachments.is_equip_text(ability_text):  # -- equip (wave 15E) --
             continue
         if d["filter"]:
             view = view or _view(state, player, info)
