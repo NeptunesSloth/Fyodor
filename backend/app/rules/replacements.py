@@ -248,7 +248,9 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
 
         if riot.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + riot.counters(ch, choices)
-        from app.rules import mana_units  # -- mana provenance (wave 18B) -- 106.6: "that creature enters with an additional counter"
+        from app.rules import (
+            mana_units,  # -- mana provenance (wave 18B) -- 106.6: "that creature enters with an additional counter"
+        )
 
         if card.zone == "stack" and mana_units.entering_counters(plan, card):
             counters["+1/+1"] = counters.get("+1/+1", 0) + mana_units.entering_counters(plan, card)

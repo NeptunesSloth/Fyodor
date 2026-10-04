@@ -684,7 +684,7 @@ def _alt(words: str, *, source: bool) -> dict[str, object] | None:
 # -- mana provenance (wave 18B) -- what a spell is besides its types: "spells with mana value 5 or greater", "spells with {X} in their
 # mana costs", "a spell with devoid" / "that has freerunning", "creature spells with no abilities", "spells you don't own" (601.2h: the
 # spell's characteristics and who owns it are known as it is paid)
-_SPELL_WITH = [
+_SPELL_WITH: list[tuple[re.Pattern[str], Any]] = [
     (re.compile(r"^(?P<pre>.*?) ?spells? with mana value (?P<n>\d+)_ge$"), lambda m: {"mv_min": int(m["n"])}),
     (re.compile(r"^(?P<pre>.*?) ?spells? with \{X\} in (?:their|its) mana costs?$"), lambda m: {"has_x": True}),
     (re.compile(r"^(?P<pre>.*?) ?spells? (?:with|that has) (?P<kw>devoid|freerunning|flash|haste)$"), lambda m: {"kw": m["kw"]}),

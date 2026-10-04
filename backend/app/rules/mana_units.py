@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 from app.rules import mana as M
 
 if TYPE_CHECKING:
-    from app.game.state import GameState, ManaUnit
+    from app.game.state import GameState
     from app.rules.casting import Purpose
     from app.rules.characteristics import Characteristics
     from app.rules.plan import Plan
