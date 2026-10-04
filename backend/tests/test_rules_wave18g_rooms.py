@@ -35,6 +35,8 @@ EXTRA = [
     room("Dazzling", ("Dazzling Theater", "{3}{W}", "Creature spells you cast have convoke. (Your creatures can help cast those spells. Each "
                                                     "creature you tap while casting a creature spell pays for {1} or one mana of that creature's color.)"),
          ("Prop Room", "{2}{W}", "Untap each creature you control during each other player's untap step."), ["W"]),
+    room("Glassworks", ("Glassworks", "{2}{R}", "When you unlock this door, this Room deals 4 damage to target creature an opponent controls."),
+         ("Shattered Yard", "{4}{R}", "At the beginning of your end step, this Room deals 1 damage to each opponent."), ["R"]),
     room("Smoky", ("Smoky Lounge", "{2}{R}", "At the beginning of your first main phase, add {R}{R}. Spend this mana only to cast Room spells "
                                               "and unlock doors."),
          ("Misty Salon", "{3}{U}", "When you unlock this door, create an X/X blue Spirit creature token with flying, where X is the number "
@@ -183,3 +185,33 @@ def test_a_copy_of_a_room_has_neither_door_unlocked(cards):
     copying.add_copy_effect(plan, [plan.oid(ring.id)], copying.recipe_of(plan, s.state.cards[c.id]), "p1")
     ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[ring.id])
     assert ch.name == "" and not scripts.definitions(ch) and doors(s, ring) == []
+
+
+def to_end_step(s):
+    for _ in range(100):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.turn.phase == "end" and not s.state.zones.get("stack"):
+            return
+        else:
+            act(s, s.state.rules.priority, type="pass_priority", until="next_step")
+    raise AssertionError("never reached the end step")
+
+
+def test_a_locked_doors_triggered_ability_does_not_trigger(cards):
+    """709.5: Shattered Yard's end step trigger is its right door's text — there only once that door is unlocked."""
+    s = build(cards, "Glassworks // Shattered Yard")
+    c = on_field(s, "Glassworks // Shattered Yard")
+    to_end_step(s)
+    assert s.state.players["p2"].life == 40  # both doors locked
+    s = build(cards, "Glassworks // Shattered Yard")
+    c = to_hand(s, "Glassworks // Shattered Yard")
+    mana(s, "p1", R=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=c.id, face=1)
+    settle(s)
+    to_end_step(s)
+    assert doors(s, c) == [2] and s.state.players["p2"].life == 39
+    roundtrip(s)
