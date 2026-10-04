@@ -29,7 +29,7 @@ _NUM = r"[+\-−]\d+"
 _GAIN = re.compile(rf"^(?P<o>.+?)(?: gets (?P<p>{_NUM})/(?P<t>{_NUM}) and)? gains your choice of (?P<kws>{_LIST}) until end of turn$")
 _PUMP = re.compile(rf"^(?P<o>.+?) gets (?P<p1>{_NUM})/(?P<t1>{_NUM}) or (?P<p2>{_NUM})/(?P<t2>{_NUM}) until end of turn$")
 _SWITCH = re.compile(r"^switch (?P<o>target creature|this creature|~)'s power and toughness until end of turn$")
-_TRIGGERED = re.compile(r"^(?P<o>.+?) gains? (?P<kw>persist|undying|prowess|exalted) until end of turn$")
+_TRIGGERED = re.compile(r"^(?P<o>.+?) gains? (?P<kw>persist|undying|prowess|exalted|flanking|battle cry|dethrone|toxic \d+) until end of turn$")  # (wave 17B: flanking …)
 _REGEN = re.compile(r"^regenerate (?!target creature(?: you control)?$)(?P<tgt>(?:another )?target .+)$")  # (not the older template's)
 
 

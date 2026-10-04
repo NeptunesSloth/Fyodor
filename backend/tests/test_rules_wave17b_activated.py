@@ -18,6 +18,8 @@
 * "Choose a color of a permanent you control. Add one mana of that color." (Meteor Crater; 105.2: never colorless) and "Choose a color.
   Add one mana of that color for each different power among creatures you control." (Selvala, Eager Trailblazer): counted as it's
   activated, 605.3b.
+* "Target creature gains flanking / battle cry / dethrone / toxic 1 until end of turn": the keyword line itself is granted (613.1f), so its
+  triggered ability exists for as long as the grant does (702.25a flanking).
 * "has base power 4 and gains trample" (613.4b: layer 7b, power only).
 
 Real Oracle text; each scenario replays the history and survives a save/load round trip."""
@@ -103,9 +105,13 @@ EXTRA = [
          'Vigilance\nWhenever you cast a creature spell, create a 1/1 red Mercenary creature token with "{T}: Target creature you control gets +1/+0 until end of turn. Activate only as a sorcery."\n{T}: Choose a color. Add one mana of that color for each different power among creatures you control.', ('4', '5'), 'GW'),
     real('Corrupted Grafstone', '{2}', 2, 'Artifact',
          'This artifact enters tapped.\n{T}: Choose a color of a card in your graveyard. Add one mana of that color.', None, ''),
+    real("Jabari's Banner", '{2}', 2, 'Artifact',
+         '{1}, {T}: Target creature gains flanking until end of turn. (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)', None, ''),
+    real('Reckless Pyrosurfer', '{1}{R}', 2, 'Creature — Human Scout',
+         'Haste\nLandfall — Whenever a land you control enters, this creature gains battle cry until end of turn. (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn. Each instance of battle cry triggers separately.)', ('2', '2'), 'R'),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
-FULL = ["Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
+FULL = ["Jabari's Banner", "Reckless Pyrosurfer", "Meteor Crater", "Selvala, Eager Trailblazer", "Corrupted Grafstone", "Priest of Yawgmoth", "Dreadship Reef", "Petalmane Baku", "Kyren Toy", "Hazel of the Rootbloom", "Oasis Ritualist", "Pili-Pala", "Thornvault Forager", "Halo Fountain", "Crackleburr", "Fervent Paincaster", "Elfhame Druid", "Interdimensional Web Watch", "Altar of the Lost", "Vhal, Candlekeep Researcher", "Lord of the Forsaken",
         "Volshe Tideturner", "Phelddagrif", "Leering Gargoyle", "Canopy Dragon", "Turtle-Duck", "Gargoyle Sentinel", "Singing Tree", "Island of Wak-Wak"]
 
 
@@ -429,4 +435,30 @@ def test_one_mana_of_the_chosen_color_for_each_different_power(cards):
     d = s.state.rules.decision
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "{G}{G}{G}")])
     assert s.state.players["p1"].mana == {"G": 3}  # (powers 4, 1 and 2)
+    roundtrip(s)
+
+
+def test_granted_flanking_shrinks_the_blocker(cards):
+    s = build(cards, "Jabari's Banner")
+    banner = on_field(s, "Jabari's Banner")
+    knight = creature(s, "p1", "Knight", pt="2/2")
+    s.state.rules.controlled_since[knight.id].turn = 0  # (not summoning sick: 302.6)
+    guard = creature(s, "p2", "Guard", pt="2/2")
+    mana(s, "p1", C=1)
+    act(s, "p1", type="activate_ability", card_id=banner.id, ability=0, targets=[knight.id])
+    settle(s)
+    for _ in range(8):  # → combat
+        if s.state.rules.decision is None and s.state.rules.priority:
+            act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "declare_attackers"
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": knight.id, "target": "p2"}])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": guard.id, "attacker_id": knight.id}])
+    for _ in range(6):
+        if s.state.rules.decision is None and s.state.rules.priority:
+            act(s, s.state.rules.priority, type="pass_priority")
+        if guard.id not in s.state.cards:
+            break
+    assert guard.id not in s.state.cards  # (a 1/1 after flanking: the Knight's 2 damage kills it)
+    assert s.state.cards[knight.id].zone == "p1:battlefield"  # (a 2/2 Guard would have killed the 2/2 Knight too)
     roundtrip(s)
