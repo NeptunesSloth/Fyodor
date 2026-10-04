@@ -168,6 +168,28 @@ def test_plus_one_for_each_of_its_colors_counts_the_modified_creatures_colors(ca
     check(s)
 
 
+def test_zendikon_makes_the_land_a_creature_that_is_still_a_land(cards):
+    # 205.1b / 613.1d-e / 613.4b: Corrupted Zendikon: a 3/3 black Ooze creature, still a (Forest) land, with its mana ability
+    from app.rules import sba
+    from app.rules.plan import Plan
+
+    s = build(cards)
+    act(s, "p1", type="create_token", player="p1", token={
+        "name": "Wood", "type_line": "Token Land — Forest", "power": None, "toughness": None, "colors": [], "text": "{T}: Add {G}."})
+    land = next(c for c in s.state.cards.values() if c.name == "Wood")
+    act(s, "p1", type="create_token", player="p1", token={
+        "name": "Zendikon", "type_line": "Token Enchantment — Aura", "power": None, "toughness": None, "colors": [],
+        "text": "Enchant land\nEnchanted land is a 3/3 black Ooze creature. It's still a land.\nWhen enchanted land dies, return that "
+                "card to its owner's hand."})
+    aura = next(c for c in s.state.cards.values() if c.name == "Zendikon")
+    act(s, "p1", type="attach", card_ids=[aura.id], to=land.id)
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[land.id])
+    assert {"Land", "Creature"} <= ch.types and {"Forest", "Ooze"} <= ch.subtypes and ch.colors == frozenset({"B"})
+    assert (sba.power(s.state.cards[land.id], ch), sba.toughness(s.state.cards[land.id], ch)) == (3, 3)
+    assert any(a.kind == "mana" for a in ch.abilities)
+    check(s)
+
+
 def test_sentences_inside_a_granted_quote_are_the_quotes_own():
     from app.rules import statics
 

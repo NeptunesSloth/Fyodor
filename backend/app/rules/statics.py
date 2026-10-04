@@ -123,6 +123,12 @@ def parse(text: str) -> Definition | None:
     t = text.strip().replace("’", "'").replace("“", '"').replace("”", '"')
     # -- attached events (wave 16F) -- "Enchanted permanent can't attack, block, or crew Vehicles. Its activated abilities can't be
     # activated unless they're mana abilities." (Intercessor's Arrest): the two sentences are one static's two rules
+    # -- attached events (wave 16F) -- Zendikon: "Enchanted land is a 3/3 black Ooze creature with reach. It's still a land." is
+    # 205.1b's "is a black Ooze creature with base power and toughness 3/3 in addition to its other types and has reach"
+    # (the land keeps its types and its subtypes: 305.7 only takes the rules text away when a land TYPE is set)
+    t = re.sub(r"^(Enchanted land) is an? (\d+)/(\d+) ([^.]+?)(?: with ([^.]+))?\. It's still a land\.$",
+               lambda m: f"{m[1]} is a {m[4]} with base power and toughness {m[2]}/{m[3]} in addition to its other types"
+                         + (f" and has {m[5]}." if m[5] else "."), t)
     t = t.replace(" be activated unless they're mana abilities", " be activated-nonmana")  # ("unless" is not a condition here)
     t = re.sub(r"(?<=Vehicles)\. Its (activated abilities can't be activated-nonmana\.)$", r", and its \1", t)
     if not t.endswith(".") and not t.endswith('."'):
