@@ -231,6 +231,11 @@ def _attacked_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "attacked_this_turn"))
 
 
+@_suffix(r"drawn this turn")  # -- drawn this turn (wave 18G) -- "cards in your hand drawn this turn" (Sylvan Library): TurnLog.drawn
+def _drawn_this_turn(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "drawn_this_turn"))
+
+
 # -- both colors (wave 6D) -- "a spell that's both red and white" (the Mimics): each of the colors (105.2)
 @_suffix(r"that['’]s both (?P<c1>" + "|".join(COLORS) + r") and (?P<c2>" + "|".join(COLORS) + r")")
 def _thats_both(s: Selector, m: re.Match[str]) -> Selector:
@@ -1251,6 +1256,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "attacked_this_turn" and not _attacked_this_turn_now(plan, card):  # -- combat (wave 5C) --
             return False
+        if extra == "drawn_this_turn" and not drawn_now(plan, card):  # -- drawn this turn (wave 18G) --
+            return False
         if extra in ("was_dealt_damage", "dealt_damage", "dealt_damage_you"):  # -- damage history (wave 6B) --
             from app.rules import damage_history
 
@@ -1279,6 +1286,15 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
     # -- chosen type (wave 4J) --
     return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source)
+
+
+def drawn_now(plan: Plan, card: CardInstance) -> bool:
+    """-- drawn this turn (wave 18G) -- the card is still the object (400.7) its owner drew this turn, in their hand (PRIVATE: only
+    ever read for the owner's own choices, never shown to another player)."""
+    r = plan.state.rules
+    if r is None or r.turn_log.turn != plan.state.turn.number or not card.zone.endswith(":hand"):
+        return False
+    return r.object_id(card.id) in r.turn_log.drawn.get(card.owner, ())
 
 
 def _attacked_this_turn_now(plan: Plan, card: CardInstance) -> bool:

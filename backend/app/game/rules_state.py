@@ -435,6 +435,9 @@ class TurnLog(BaseModel):
     gained: dict[str, int] = Field(default_factory=dict)  # player -> life gained
     lost: dict[str, int] = Field(default_factory=dict)  # player -> life lost
     drew: dict[str, int] = Field(default_factory=dict)  # player -> cards drawn
+    # -- drawn this turn (wave 18G) -- player -> the rules objects (as they are in that player's hand) they drew, in order. PRIVATE:
+    # which cards in a hand were drawn this turn is the owner's information (never in a view, a log line or a prompt others see)
+    drawn: dict[str, list[str]] = Field(default_factory=dict)
     left: list[Departure] = Field(default_factory=list)
     left_graveyard: list[str] = Field(default_factory=list)  # the owner of each card that left a graveyard
     entered_graveyard: list[Arrival] = Field(default_factory=list)
@@ -1250,6 +1253,10 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                         eff.affected.append(new_oid)
         else:
             rules.objects.pop(card_id, None)
+        if old_name == "library" and new_name == "hand" and card is not None and new_oid is not None \
+                and any(e.kind == "drew" and e.card == card_id and e.batch > rules.batch for e in rules.events) \
+                and (log := turn_log_now(state)) is not None:  # -- drawn this turn (wave 18G) -- the card it drew is this object now
+            log.drawn.setdefault(card.owner, []).append(new_oid)
         if old_name in ("library", "hand") and new_name in ("library", "hand", None) and snap is None:
             continue  # private shuffling around: new objects, but nothing public happened
         if old_name == "battlefield" and snap is not None:  # -- conditional / instead clauses (wave 1B) --

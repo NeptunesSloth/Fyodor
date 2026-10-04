@@ -157,7 +157,7 @@ def draw_cards(state: GameState, pid: str, count: int) -> list[CardInstance]:
     drawn = [state.cards[cid] for cid in lib[:count]]
     for c in drawn:
         ops.move_card(state, c, zone_key(pid, "hand"))
-        emit(state, "drew", player=pid)  # 121.2: each card is its own draw
+        emit(state, "drew", player=pid, card=c.id)  # 121.2: each card is its own draw
     return drawn
 
 

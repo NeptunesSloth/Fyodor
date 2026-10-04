@@ -51,6 +51,9 @@ def rewrite_body(body: str, name: str, cond: dict[str, Any] | None, has_player: 
         # 504.1: the active player draws in the draw step; "an additional card" is one more card
         body = re.sub(r"\bthat player draws an additional card\.$", "that player draws a card.", body)
         body = re.sub(r"\bthat player draws (two|three) additional cards\.$", r"that player draws \1 cards.", body)
+    from app.rules import drawn_toll  # -- drawn this turn (wave 18G) --
+
+    body = drawn_toll.rewrite(body)
     # -- counters (wave 7C) -- heroic: "Whenever you cast a spell that targets ~, put a +1/+1 counter on it": the creature
     # that was targeted (the spell is "that spell"), which is ~ itself
     if cond is not None and cond.get("event") == "cast" and cond.get("targets") == "self":
