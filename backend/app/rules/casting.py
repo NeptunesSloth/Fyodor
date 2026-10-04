@@ -2643,18 +2643,19 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     return None
 
 
-EQUIP_DEFINITION = {"kind": "activated", "effects": [{"do": "attach_self"}], "target": {"what": "creature_you_control"}}
-
-
-def equip_ability(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, cost: str) -> None:
-    """702.6a Equip [cost]: "[Cost]: Attach this permanent to target creature you control. Activate
-    only as a sorcery." An Equipment that's also a creature can't equip (301.5c)."""
+def equip_ability(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility,
+                  equip: tuple[str, str, str]) -> None:
+    """702.6a Equip [cost]: "[Cost]: Attach this permanent to target creature you control. Activate only as a sorcery."
+    (702.6b: the target narrowed by a quality; -- equip (wave 15E) -- non-mana costs and the line's own trailing sentences).
+    An Equipment that's also a creature can't equip (301.5c)."""
+    cost, target, tail = equip
     if "Equipment" not in ch.subtypes or ch.is_creature:
         raise ActionError(f"{ch.name} can't equip a creature" + (" while it's a creature" if ch.is_creature else ""))
     ability = AbilityText(index=a.ability, kind="activated", cost=cost,
-                          text=f"{cost}: Attach {ch.name} to target creature you control. Activate only as a sorcery.")
-    activate_to_stack(plan, card, ch, ability, a, definition=EQUIP_DEFINITION,
-                      exclude_targets=(card.id,))
+                          text=f"{cost}: Attach {ch.name} to target creature you control. Activate only as a sorcery."
+                               + (f" {tail}" if tail else ""))
+    definition = {"kind": "activated", "effects": [{"do": "attach_self"}], "target": {"what": target}}
+    activate_to_stack(plan, card, ch, ability, a, definition=definition, exclude_targets=(card.id,))
 
 
 def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, ability: AbilityText,

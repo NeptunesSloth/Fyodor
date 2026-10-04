@@ -13,7 +13,7 @@ from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle, token_of, until
 from tests.test_rules_effects import replay_matches
-from tests.test_rules_wave6c_tokens_pumps import build, put, reloaded, to_hand, tokens
+from tests.test_rules_wave6c_tokens_pumps import build, mana, put, reloaded, to_hand, tokens
 from tests.test_rules_wave6e_statics import attack_with
 
 EXTRA = [
@@ -22,6 +22,8 @@ EXTRA = [
     card('Treasonous Ogre', set_code='tst', number='X02', mana_cost='{3}{R}', cmc=4.0, type_line='Creature — Ogre Shaman', oracle_text='Dethrone (Whenever this creature attacks the player with the most life or tied for most life, put a +1/+1 counter on it.)\nPay 3 life: Add {R}.', power='2', toughness='3', colors=['R'], color_identity=['R'], keywords=['Dethrone']),  # noqa: E501
     card('Gyre Sage', set_code='tst', number='X03', mana_cost='{1}{G}', cmc=2.0, type_line='Creature — Elf Druid', oracle_text='Evolve (Whenever a creature you control enters, if that creature has greater power or toughness than this creature, put a +1/+1 counter on this creature.)\n{T}: Add {G} for each +1/+1 counter on this creature.', power='1', toughness='2', colors=['G'], color_identity=['G'], keywords=['Evolve']),  # noqa: E501
     card('Voice of Victory', set_code='tst', number='X04', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Human Bard', oracle_text="Mobilize 2 (Whenever this creature attacks, create two tapped and attacking 1/1 red Warrior creature tokens. Sacrifice them at the beginning of the next end step.)\nYour opponents can't cast spells during your turn.", power='1', toughness='3', colors=['W'], color_identity=['W'], keywords=['Mobilize']),  # noqa: E501
+    card('Blackblade Reforged', set_code='tst', number='X06', mana_cost='{1}', cmc=1.0, type_line='Legendary Artifact — Equipment', oracle_text='Equipped creature gets +1/+1 for each land you control.\nEquip legendary creature {3}\nEquip {7}', power=None, toughness=None, colors=[], color_identity=[], keywords=['Equip']),  # noqa: E501
+    card('Demonmail Hauberk', set_code='tst', number='X07', mana_cost='{4}', cmc=4.0, type_line='Artifact — Equipment', oracle_text='Equipped creature gets +4/+2.\nEquip—Sacrifice a creature. (Sacrifice a creature: Attach to target creature you control. Equip only as a sorcery.)', power=None, toughness=None, colors=[], color_identity=[], keywords=['Equip']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -136,4 +138,33 @@ def test_mobilize_makes_attacking_warriors_that_are_sacrificed(cards):
     settle(s)
     until(s, lambda s: not [t for t in tokens(s) if t.name == "Warrior"] or s.state.turn.number > 3)
     assert not [t for t in tokens(s) if t.name == "Warrior"]  # sacrificed at the next end step
+    check(s)
+
+
+def test_equip_a_quality_limits_the_target(cards):
+    s = build(cards, "Blackblade Reforged")
+    blade = put(s, "Blackblade Reforged")
+    plain = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    legend = token_of(s, "p1", "Hero", "Token Legendary Creature — Human", "2/2")
+    mana(s, C=3)
+    with pytest.raises(Exception):
+        act(s, "p1", type="activate_ability", card_id=blade.id, ability=1, targets=[plain.id])  # 702.6b: legendary only
+    act(s, "p1", type="activate_ability", card_id=blade.id, ability=1, targets=[legend.id])
+    settle(s)
+    assert s.state.cards[blade.id].attached_to == legend.id
+    check(s)
+
+
+def test_equip_with_a_sacrifice_cost(cards):
+    s = build(cards, "Demonmail Hauberk")
+    hauberk = put(s, "Demonmail Hauberk")
+    keep = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    fodder = token_of(s, "p1", "Goat", "Token Creature — Goat", "0/1")
+    act(s, "p1", type="activate_ability", card_id=hauberk.id, ability=1, targets=[keep.id])
+    d = s.state.rules.decision
+    if d is not None:
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[fodder.id])
+    settle(s)
+    assert s.state.cards[hauberk.id].attached_to == keep.id
+    assert fodder.id not in s.state.zones["p1:battlefield"]  # sacrificed to pay (a token ceases to exist)
     check(s)
