@@ -1578,11 +1578,11 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # creature an opponent controls" (Evolutionary Escalation): each part is its own instruction on its own target (115.3), all in one
     # resolution
     if rider is None and text.startswith("put ") and " counter" in text:
-        parts = re.split(rf",? and (?=(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+) counters? on )|, (?=(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+) counters? on )",
-                         text[len("put "):])
+        pieces = re.split(rf",? and (?=(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+) counters? on )|, (?=(?:{AMT}) (?:[+-]\d+/[+-]\d+|[a-z]+) counters? on )",
+                          text[len("put "):])
         specs = [re.fullmatch(rf"(?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? on (?P<o>(?:a third |another |a second )?target .+)", p)
-                 for p in parts]
-        if len(parts) > 1 and all(specs) and not any(s["k"] in values.UNMODELED_COUNTERS for s in specs if s):
+                 for p in pieces]
+        if len(pieces) > 1 and all(specs) and not any(s["k"] in values.UNMODELED_COUNTERS for s in specs if s):
             effects_out: list[dict[str, Any]] = []
             groups_out: list[dict[str, Any]] = []
             for s in specs:

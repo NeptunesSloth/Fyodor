@@ -44,7 +44,7 @@ def card_db(settings):
     from app.cards.importer import build_database
 
     settings.ensure_dirs()
-    build_database([*fixture_cards(), *EXTRA, *EXTRA2], settings.cards_db_path, meta={"bulk_type": "test"})
+    build_database([*fixture_cards(), *EXTRA, *EXTRA2, *EXTRA3], settings.cards_db_path, meta={"bulk_type": "test"})
     return settings.cards_db_path
 
 
@@ -271,6 +271,47 @@ def test_quirion_dryad_counts_white_blue_black_or_red_spells_only(cards):
     cast(s, "Lightning Bolt", targets=[bears.id], R=1)  # red: a counter
     settle(s)
     assert counters(s, dryad) == {"+1/+1": 1}
+    check(s)
+
+
+EXTRA3 = [
+    card('Aligned Heart', set_code='tst', number='T19D17', mana_cost='{2}{W}', cmc=3.0, type_line='Enchantment', oracle_text='Flurry — Whenever you cast your second spell each turn, put a rally counter on this enchantment. Then create a 1/1 white Monk creature token with prowess for each rally counter on it. (Whenever you cast a noncreature spell, the token gets +1/+1 until end of turn.)', colors=['W'], color_identity=['W'], keywords=['Flurry']),  # noqa: E501
+    card('Thoughts of Ruin', set_code='tst', number='T19D18', mana_cost='{2}{R}{R}', cmc=4.0, type_line='Sorcery', oracle_text='Each player sacrifices a land of their choice for each card in your hand.', colors=['R'], color_identity=['R']),  # noqa: E501
+]
+
+
+def test_aligned_heart_makes_a_monk_for_each_rally_counter_on_it(cards):
+    s = build(cards, "Aligned Heart", "Lightning Bolt", "Giant Growth", "Grizzly Bears")
+    heart, bears = put(s, "Aligned Heart"), put(s, "Grizzly Bears")
+    cast(s, "Giant Growth", targets=[bears.id], G=1)
+    settle(s)
+    cast(s, "Lightning Bolt", targets=[bears.id], R=1)  # the second spell this turn
+    settle(s)
+    assert counters(s, heart) == {"rally": 1}  # (the enchantment's own counters: "it" is not the spell)
+    assert len([c for c in s.state.cards.values() if c.name == "Monk" and c.zone == "p1:battlefield"]) == 1
+    check(s)
+
+
+def test_thoughts_of_ruin_counts_the_cards_in_your_hand_for_every_player(cards):
+    from tests.test_rules_conditionals import to_hand
+
+    s = build(cards, "Thoughts of Ruin", "Giant Growth", "Grizzly Bears")
+    for pid, n in (("p1", 3), ("p2", 2)):  # Alice has three lands, Bob two
+        for c in [c for c in s.state.cards.values() if c.owner == pid and c.name in ("Forest", "Island")][:n]:
+            act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "battlefield"})
+    to_hand(s, "Giant Growth")
+    to_hand(s, "Grizzly Bears")
+    cast(s, "Thoughts of Ruin", R=2, C=2)  # two cards left in her hand: each player sacrifices up to two lands
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.min_choices])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    lands = lambda pid: [c for c in s.state.cards.values() if c.zone == f"{pid}:battlefield" and c.name in ("Forest", "Island")]  # noqa: E731
+    assert len(lands("p1")) == 1 and not lands("p2")  # the number counted once, as it resolves (the same for each player)
     check(s)
 
 
