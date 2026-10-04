@@ -113,6 +113,13 @@ class GameSession:
             **(meta or {}),
         }
         view = build_view(self.state, viewer, extra_log=self.notices, meta=info)
+        pregame = self.state.pregame
+        seat = pregame.seats.get(viewer) if pregame is not None and not pregame.finished else None
+        if seat is not None and seat.status == "deciding" and view.get("pregame"):  # -- opening hand (wave 18C) -- 103.5b, own hand only
+            from app.rules.opening_hand import powder_cards
+
+            if powder := powder_cards(self.state, viewer, self.cards or NoCardInfo()):
+                view["pregame"]["mine"] = {"powder": powder}
         if self.state.rules is not None:
             from app.rules.view import rules_view  # only needed for tables with rules automation
 

@@ -6,6 +6,8 @@ import { GameCardFace } from "./GameCardFace";
 
 const toBottom = (policy: MulliganPolicy, mulligans: number) => Math.max(0, mulligans - policy.free_mulligans) * policy.cards_to_bottom;
 
+const nameOf = (card: GameView["cards"][string] | undefined): string => (card && "name" in card && card.name ? card.name : "Exile hand");
+
 function describe(seat: PregameSeat): string {
   if (seat.status === "kept") return seat.to_bottom ? "Kept" : `Kept ${seat.kept ?? ""}`.trim();
   if (seat.status === "bottoming") return `Choosing ${seat.to_bottom} for the bottom`;
@@ -153,6 +155,14 @@ function MyDecision({ view, me, seat, policy }: { view: GameView; me: string; se
               onClick={() => void act(picked.length ? { type: "mulligan_take", card_ids: picked } : { type: "mulligan_take" })}>
               {picked.length ? `Send back ${picked.length}` : "Mulligan"}
             </button>
+            {(view.pregame?.mine?.powder ?? []).filter((id) => hand.includes(id)).map((id) => (
+              // 103.5b: "any time you could mulligan" (Serum Powder): exile the hand and draw that many; not a mulligan
+              <button key={id} className="tt-btn" data-testid="mull-powder" disabled={busy}
+                title="Exile all the cards from your hand, then draw that many cards (not a mulligan)"
+                onClick={() => void act({ type: "mulligan_powder", card_id: id })}>
+                {nameOf(view.cards[id])}: exile hand, draw {hand.length}
+              </button>
+            ))}
             <span className="spacer" />
             <button className="tt-btn brass" data-testid="mull-keep" disabled={busy || picked.length > 0} onClick={() => void act({ type: "mulligan_keep" })}>
               Keep {hand.length}

@@ -1750,6 +1750,23 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (gifts := refused_zones.gifts_ability(body)) is not None:
         return gifts
+    # -- voting (wave 18C) -- "For each opponent, you create a 1/1 white Human Soldier creature token." (Vault 11): one token for each
+    # opponent, the token grammar's "… for each opponent"
+    body = re.sub(r"(^|\. )For each opponent, you (create [^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
+    from app.rules import (
+        friend_foe,  # -- friend or foe (wave 18C) -- "For each player, choose friend or foe. Each friend …"
+        tempting,  # -- tempting offers (wave 18C) -- "Each opponent may …. For each opponent who does, you …"
+    )
+
+    if (sides := friend_foe.bind(body, lambda t: parse_effects(t, it, event_player=event_player), split_sentences)) is not None:
+        return sides
+
+    if (offer := tempting.bind(body, lambda t: parse_effects(t, it, event_player=event_player), split_sentences)) is not None:
+        return offer
+    from app.rules import voting  # -- voting (wave 18C) -- 701.38 (read before the sentence rewrites below)
+
+    if (vote := voting.split(body)) is not None:
+        return voting.bind(vote, lambda t: parse_effects(t, it, event_player=event_player), split_sentences)
     from app.rules import trigger_words  # -- triggers (wave 5D) -- "create a number of … equal to …"
 
     body = _dice.plain(trigger_words.plain_amounts(_dice.rewrite(body)))  # (rewrite: a results table, wave 16B)
@@ -2956,6 +2973,14 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
         if (tapped := tap_mana.definition(text)) is not None:
             return tapped
+    if ability.kind == "static" and text.startswith("While voting, "):  # -- voting (wave 18C) -- 701.38d
+        from app.rules import voting
+
+        return voting.static_definition(text)
+    if ability.kind == "static" and ("opening hand" in text or text.startswith("Any time you could mulligan")):  # -- opening hand (wave 18C) -- 103.6 (app/rules/opening_hand.py)
+        from app.rules import opening_hand
+
+        return opening_hand.definition(text, ch)
     if ability.kind == "static" and text.startswith("You may exert "):  # -- static wordings (wave 6E) -- 701.43d
         from app.rules import exert
 
@@ -5605,9 +5630,11 @@ from app.rules import choice_grants as _choice_grants  # noqa: E402, I001
 
 EFFECTS[:0] = _choice_grants.TEMPLATES
 # -- coin flips (wave 7E) -- "Flip a coin." (app/rules/coin_flips.py; the conditions are in conditions.py)
+from app.rules import voting as _voting_templates  # noqa: E402, I001  -- voting (wave 18C) --
 from app.rules import coin_flips as _coin_flips  # noqa: E402, I001
 
 EFFECTS[:0] = _coin_flips.TEMPLATES
+EFFECTS[:0] = _voting_templates.TEMPLATES
 # -- clash (wave 12A) -- "Clash with an opponent." (701.30: app/rules/clash.py)
 from app.rules import clash as _clash  # noqa: E402, I001
 

@@ -44,6 +44,7 @@ from app.rules import (
     looking,
     modal_abilities,
     next_untap,  # -- next untap step (wave 6A) --
+    opening_hand,  # -- opening hand (wave 18C) --
     optional_payment,
     permissions,
     phasing,  # -- phasing (wave 13D) --
@@ -115,6 +116,15 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         remember_intent(plan, intent)
     permissions.refresh_reveals(plan.state, plan.info)  # 401.5: which top library cards the table reveals now
     plan.rules.engine_version = RULES_ENGINE_VERSION
+    plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
+    return plan.steps
+
+
+def compile_opening(state: GameState, actor: str, info: CardInfo, rng: Any) -> list[dict[str, Any]]:
+    """-- opening hand (wave 18C) -- 103.6: the steps that ask the first player about their opening-hand actions (the mulligan
+    action that ended the pregame carries them; ``state`` is the table as it leaves that action)."""
+    plan = Plan(state, actor, info, rng)
+    opening_hand.start(plan)
     plan.do({"type": "rules_sync", "rules": plan.rules.model_dump(mode="json")})
     return plan.steps
 
@@ -1148,7 +1158,7 @@ def _settle_decision(plan: Plan, d: Decision, leaver: str) -> None:
         # 800.4f-g: the choice isn't made; the resolution goes on — with the other players still to
         # choose in APNAP order ("each opponent discards a card"), then its next instruction
         plan.note(f"{plan.name(leaver)} left the game: their choice isn't made")
-        if "rest" in resume and "picked" in resume and str(resume.get("step")) in RESUME:
+        if ("rest" in resume and "picked" in resume or resume.get("step") == "vote") and str(resume.get("step")) in RESUME:
             RESUME[str(resume["step"])](plan, d, [])
         else:
             effects.continue_effects(plan, ctx)
@@ -1163,6 +1173,9 @@ def _settle_decision(plan: Plan, d: Decision, leaver: str) -> None:
         r.no_attackers = True  # (they declared none: 800.4j, the turn goes on)
     if step in ("cleanup_discard", "cleanup_manual"):
         finish_cleanup(plan)  # 514.2 still happens; then the next player's turn
+        return
+    if step in ("opening_hand", "opening_exile"):  # -- opening hand (wave 18C) -- the rest of the table still acts (103.6)
+        opening_hand.ask(plan, list(resume.get("order") or resume.get("rest") or [])[1 if step == "opening_hand" else 0:])
         return
     _after_resolution(plan)
 
@@ -1324,6 +1337,8 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "mana_ability": casting.resume_mana_ability,
     "crew": casting.resume_crew,
     "ability_cost": cost_payment.resume_choice,
+    "opening_hand": opening_hand.resume,  # -- opening hand (wave 18C) -- 103.6
+    "opening_exile": opening_hand.resume_exile,
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "legend_rule": sba.resume_legend_rule,
     "commander_zone": sba.resume_commander_zone,

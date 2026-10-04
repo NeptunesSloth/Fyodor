@@ -184,6 +184,10 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
 
     if (flip := coin_flips.condition(t)) is not None:
         return flip
+    from app.rules import voting  # -- voting (wave 18C) -- "If death gets more votes" (701.38)
+
+    if (voted := voting.condition(t)) is not None:
+        return voted
     from app.rules import dice  # -- rolling dice (wave 12A) -- "If the result is 3 or less"
 
     if (rolled := dice.condition(t)) is not None:
@@ -970,6 +974,10 @@ def bind_objects(cond: Condition, who: str) -> Condition:
 
 
 def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
+    if "vote" in cond:  # -- voting (wave 18C) -- this resolution's own vote (app/rules/voting.py)
+        from app.rules import voting
+
+        return voting.holds(ctx, cond)
     if "coin" in cond:  # -- coin flips (wave 7E) -- this resolution's own flip (app/rules/coin_flips.py)
         from app.rules import coin_flips
 

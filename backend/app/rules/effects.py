@@ -2534,6 +2534,15 @@ PRIMITIVES.update({"only_if": only_if})
 from app.rules import kinship as _kinship  # noqa: E402
 
 PRIMITIVES["kinship"] = _kinship.run
+from app.rules import voting as _voting  # noqa: E402, I001  -- voting (wave 18C) --
+
+PRIMITIVES.update(_voting.PRIMITIVES)
+from app.rules import tempting as _tempting  # noqa: E402, I001  -- tempting offers (wave 18C) --
+
+PRIMITIVES.update(_tempting.PRIMITIVES)
+from app.rules import friend_foe as _friend_foe  # noqa: E402, I001  -- friend or foe (wave 18C) --
+
+PRIMITIVES.update(_friend_foe.PRIMITIVES)
 from app.rules import parley as _parley  # noqa: E402  -- parley (wave 9C) --
 
 PRIMITIVES.update({"parley_reveal": _parley.reveal, "parley_repeat": _parley.repeat})
@@ -3107,6 +3116,9 @@ from app.rules import counter_pick as _counter_pick  # noqa: E402, I001
 
 PRIMITIVES["pick_counter"] = _counter_pick.pick_counter
 RESUME["pick_counter"] = _counter_pick.resume
+RESUME.update(_voting.RESUME)  # -- voting (wave 18C) --
+RESUME.update(_tempting.RESUME)
+RESUME.update(_friend_foe.RESUME)
 # -- name search (wave 11D) -- "Search its controller's graveyard, hand, and library for all cards with the same name …"
 from app.rules import name_search as _name_search  # noqa: E402, I001
 
