@@ -1891,12 +1891,13 @@ def _where_x(body: str, it: str | None, event_player: bool) -> tuple[list[dict[s
     # (what the wrappers around the sentence grammar bind afterwards — "this way" counts, the target player's hand — is not read)
     if value is None or re.search(r'"(?:that_player|ref_amount|ref_count)"|"this_way"|"cost:exiled"', json.dumps(value)) or not re.search(r"\bX\b", head) or re.search(r"\bX\b", rest):
         return None
+    outer = list(_X_NOW)
     _X_NOW[:] = [value, False]  # (-- X sized by a count (wave 19F) -- swapped in by _parse_effects before it binds the pronouns)
     try:
         got = _parse_effects_checked(rest.replace("\0", re.sub(r"\bX\b", str(_X_SENTINEL), head)), it, event_player)
         hit = _X_NOW[1]
     finally:
-        _X_NOW.clear()
+        _X_NOW[:] = outer
     if got is None or str(_X_SENTINEL) in json.dumps(got[1]) or not hit:
         return None
     return got
