@@ -74,7 +74,6 @@ def test_parse_token_forms(text, expected):
     "Create a 1/1 green Foo creature token.",  # not a creature type
     "Create a token that's a copy of it.",  # copies: not this grammar
     "Create an Incubator token.",  # 111.10i: a double-faced token that transforms
-    "Create a Young Hero Role token attached to target creature you control.",  # (wave 6C: a Role whose ability isn't run)
     "Create a Treasure token with flying.",
 ])
 def test_unknown_token_wordings_stay_manual(text):

@@ -714,7 +714,7 @@ class Permission(BaseModel):
     flash: bool = False  # "as though it had flash" (601.3b)
     once: bool = False  # "once during each of your turns"
     used_turn: int = 0  # (once) the turn it was used
-    until: Literal["end_of_turn", "end_of_next_turn", "permanent"] = "end_of_turn"
+    until: Literal["end_of_turn", "end_of_next_turn", "next_end_step", "permanent"] = "end_of_turn"
     turn: int = 0  # the turn it was granted (for end_of_next_turn)
     source: str | None = None  # the granting object
     label: str = Field(default="", max_length=120)
@@ -786,6 +786,7 @@ class RulesState(BaseModel):
     lands_played: dict[str, TurnCount] = Field(default_factory=dict)
     extra_land_plays: dict[str, TurnCount] = Field(default_factory=dict)  # -- wave 8A -- "You may play an additional land this turn."
     spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
+    mana_cast: dict[str, TurnCount] = Field(default_factory=dict)  # -- wave 15B -- mana spent to cast spells this turn (700.14 expend)
     loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
     # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't
     # untap during that player's next untap step (app/rules/engine.start_next_turn)

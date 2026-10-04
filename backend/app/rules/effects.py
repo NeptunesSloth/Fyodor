@@ -916,7 +916,10 @@ def proliferate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                if c.zone.endswith(":battlefield") and plan.in_game(c) and any(v > 0 for v in c.counters.values())]
     options += [DecisionOption(id=pid, label=f"{plan.name(pid)} ({', '.join(f'{v} {k}' for k, v in p.resources.items() if v > 0)})")
                 for pid, p in plan.state.players.items() if pid in plan.live() and any(v > 0 for v in p.resources.values())]
+    from app.game.rules_state import emit
+
     if not options:
+        emit(plan.state, "designation", counter="proliferate", player=ctx["controller"])  # -- trigger tail (wave 15B) --
         return True
     decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Proliferate: choose permanents and players",
            options=options, min_choices=0, max_choices=len(options), resume={"step": "proliferate", "ctx": ctx})
@@ -933,6 +936,9 @@ def resume_proliferate(plan: Plan, d: Any, chosen: list[str]) -> None:
             puts += [(x, kind, 1) for kind, v in plan.state.cards[x].counters.items() if v > 0]
         elif x in plan.state.players:
             puts += [(x, kind, 1) for kind, v in plan.state.players[x].resources.items() if v > 0]
+    from app.game.rules_state import emit
+
+    emit(plan.state, "designation", counter="proliferate", player=d.player)  # -- trigger tail (wave 15B) -- 701.34a: "you proliferate"
     if puts and not replace.put_counters(plan, puts, by=d.player, then={"do": "continue", "ctx": ctx}):
         return  # an order to choose first (616.1)
     continue_effects(plan, ctx)
@@ -1247,17 +1253,24 @@ def sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def explore(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.44a: reveal the top card of your library. A land goes into your hand; otherwise put a
     +1/+1 counter on this creature, then you may put the revealed card into your graveyard."""
+    from app.game.rules_state import emit
     from app.rules import characteristics as chars
 
     pid = ctx["controller"]
     library = plan.state.zones.get(zone_key(pid, "library"), [])
     me = _cards(plan, ctx, "self")
+
+    def explored(kind: int) -> None:  # -- trigger tail (wave 15B) -- "Whenever a creature you control explores" (701.44a): 1 a land
+        if me:  # card was revealed, 2 a nonland card, 0 none
+            emit(plan.state, "designation", counter="explore", card=me[0], object_id=plan.oid(me[0]), player=pid, amount=kind)
     # -- replacement effects stage 2 (wave 2E): the +1/+1 counter through the counter choke point --
     if not library:  # (False: an order to choose first; then the resolution continues)
+        explored(0)
         return not me or replace.put_counters(plan, [(c, "+1/+1", 1) for c in me], by=pid, then={"do": "continue", "ctx": ctx})
     top = library[0]
     plan.do({"type": "reveal_top", "player": pid, "count": 1}, actor=pid)
     card = plan.state.cards[top]
+    explored(1 if chars.of(card, plan.info).is_land else 2)
     if chars.of(card, plan.info).is_land:
         plan.do({"type": "move", "card_ids": [top], "to": {"player": pid, "zone": "hand"}}, actor=pid)
         return True
@@ -1678,26 +1691,27 @@ def discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("all"):  # -- "this way" outcomes (wave 4A) -- "discard your hand": every card, no choice (701.9a)
         picked = [c for pid in order for c in plan.state.zones.get(zone_key(pid, "hand"), [])]
         return _discard_next(plan, ctx, 0, [], picked, e.get("as"))
-    return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("to", "graveyard"), e.get("zone", "hand"))
+    return _discard_next(plan, ctx, _amount(plan, ctx, e["n"]), order, [], e.get("as"), e.get("to", "graveyard"),
+                         bool(e.get("upto")), e.get("zone", "hand"))
 
 
 def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picked: list[str],
-                  binding: str | None = None, dest: str = "graveyard", src: str = "hand") -> bool:
+                  binding: str | None = None, dest: str = "graveyard", upto: bool = False, src: str = "hand") -> bool:
     for i, pid in enumerate(players):
         hand = plan.state.zones.get(zone_key(pid, src), [])  # (wave 15D: "exiles a card from their graveyard", public, 404.1)
-        n = min(want, len(hand))
+        n = min(want, len(hand)) if want or not upto else len(hand)  # (upto, 0: "any number of cards")
         if n == 0:
             continue
-        if n == len(hand):
+        if n == len(hand) and not upto:
             picked = [*picked, *hand]
             continue
         decide(plan, player=pid, kind="choose_cards",
                prompt=f"{'Exile' if dest == 'exile' else 'Discard'} {n} card{'s' if n != 1 else ''}"  # (wave 11D: "exiles two cards from their hand")
                + (f" from your {src}" if dest == "exile" else ""),
                options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand],
-               min_choices=n, max_choices=n,
+               min_choices=0 if upto else n, max_choices=n,  # (-- trigger tail (wave 15B) -- "up to N" / "any number": 701.9a)
                resume={"step": "discard", "ctx": ctx, "want": want, "rest": players[i + 1:], "picked": picked,
-                       "as": binding, "to": dest, "zone": src})
+                       "as": binding, "to": dest, "upto": upto, "zone": src})
         return False
     cards = [c for c in picked if c in plan.state.cards and plan.state.cards[c].zone.endswith(f":{src}")]
     e = {"as": binding}
@@ -1712,7 +1726,7 @@ def resume_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx = d.resume["ctx"]
     picked = [*(d.resume.get("picked") or []), *chosen]
     if _discard_next(plan, ctx, d.resume.get("want", 0), d.resume.get("rest") or [], picked, d.resume.get("as"),
-                     d.resume.get("to", "graveyard"), d.resume.get("zone", "hand")):
+                     d.resume.get("to", "graveyard"), bool(d.resume.get("upto")), d.resume.get("zone", "hand")):
         continue_effects(plan, ctx)
 
 
@@ -2234,6 +2248,12 @@ def to_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         for pid in sorted(owners):
             plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
         _moved(plan, ctx, e, before)  # (new objects: a shuffled library is re-keyed, 701.20d)
+        return True
+    if isinstance(e["place"], int):  # -- trigger tail (wave 15B) -- "third from the top": one card, its owner's library (401.4)
+        for cid in cards:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
+                     "index": e["place"] - 1}, actor=ctx["controller"])
+        _moved(plan, ctx, e, before)
         return True
     if e["place"] == "choice" and len(cards) == 1:
         card = plan.state.cards[cards[0]]

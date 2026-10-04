@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 Context = dict[str, Any]
 
 _PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Planeswalker", "Battle"})
-PATTERN = r"put (?:a|an) (?P<what>[^.]+?) card from your hand onto the battlefield(?P<tapped> tapped)?"
+PATTERN = r"put (?:a|an) (?P<what>[^.]+?) card from your hand onto the battlefield(?P<tapped> tapped(?P<atk> and attacking)?)?"
 
 
 def parse(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
@@ -44,6 +44,8 @@ def parse(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     effect: dict[str, Any] = {"do": "put_from_hand", "sel": sel.key(), "label": m["what"]}
     if m["tapped"]:
         effect["tapped"] = True
+    if m["atk"]:  # -- trigger tail (wave 15B) -- 508.4: its controller chooses whom it attacks (looking.attack_with_entered)
+        effect["attacking"] = True
     return [effect], None
 
 
@@ -94,6 +96,11 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     if entries and not attachments.enter(plan, entries, ctx):
         return  # (an Aura chooses what it enchants; the resolution goes on from there)
     effects._moved(plan, ctx, e, before)
+    if e.get("attacking"):  # -- trigger tail (wave 15B) -- 508.4 (the choice of whom, if any, goes on from token_attack)
+        from app.rules import looking
+
+        if not looking.attack_with_entered(plan, ctx, cards):
+            return
     effects.continue_effects(plan, ctx)
 
 

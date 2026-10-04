@@ -293,7 +293,7 @@ def _sized(what: str, it: str | None) -> Value | None:
 _TURN_LIFE = re.compile(r"^(?:the )?(?:amount of )?life you(?:'ve| have)? (?P<k>gained|lost) this turn$")
 _TURN_SPELL = re.compile(r"^spell you(?:'ve| have) cast this turn$")
 _TURN_DREW = re.compile(r"^(?:the number of )?cards? you(?:'ve| have) drawn this turn$")
-_TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?) that died(?P<mine> under your control)? this turn$")
+_TURN_DIED = re.compile(r"^(?:the number of )?(?P<sel>creatures?|nontoken creatures?|[A-Z][a-z-]+) that died(?P<mine> under your control)? this turn$")
 _OPPONENTS_WHO = re.compile(r"^(?:the number of )?opponents? who (?:(?P<drew>drew (?P<n>\w+) or more cards)|"
                             r"(?P<lost>lost life)|(?P<lands>had (?P<m>\w+) or more lands enter the battlefield under their control)) "
                             r"this turn$")
@@ -309,7 +309,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "drew"}
     m = _TURN_DIED.match(what)
     if m:  # 700.4; as they last existed on the battlefield (608.2i)
-        sel = selectors.parse(m["sel"])
+        # -- trigger tail (wave 15B) -- "for each Zubera that died this turn": a creature type counts creatures (700.4)
+        sel = selectors.parse(m["sel"] + (" creature" if m["sel"][0].isupper() else ""))
         if sel is None:
             return None
         # -- X actions (wave 9A) -- "that died under your control this turn": the ones you controlled as they died (700.4)

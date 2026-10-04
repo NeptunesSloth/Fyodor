@@ -67,8 +67,9 @@ _CAPS = r"[A-Z][A-Za-z'\-]*(?: [A-Z][A-Za-z'\-]*)*"
 _NAME = r"[A-Z][A-Za-z'\-]*(?:,? (?:(?:of|the|to|of the) )?[A-Z][A-Za-z'\-]*)*"
 _SENTENCE = re.compile(
     rf"^create (?:(?P<n>{_QTY}) |(?P<lname>{_NAME}), an? (?P<legendary>legendary) )(?P<tapped>tapped )?"
-    rf"(?:(?P<pt>(?:\d+|X)/(?:\d+|X)) (?:(?P<colors>{_COLORS}) )?(?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?"
+    rf"(?:(?:(?P<pt>(?:\d+|X)/(?:\d+|X)) )?(?:(?P<colors>{_COLORS}) )?(?P<sub>{_CAPS}) (?P<ench>enchantment )?(?P<art>artifact )?"
     r"(?P<land>land )?creature tokens?"
+    rf"|(?P<ncolors>{_COLORS}) (?P<nsnow>snow )?(?:(?P<nsub>{_CAPS}) )?(?P<nkind>artifact|enchantment) tokens?"  # (wave 15B)
     r"|(?P<pre>[A-Z][a-z]+) tokens?)"
     rf"(?: named (?P<name>{_NAME}))?"
     r"(?: with (?P<with>.+?))?"
@@ -175,6 +176,8 @@ def parse(sentence: str) -> list[Effect] | None:
         return None
     if m["name"] and m["name2"]:
         return None
+    if m["nkind"]:
+        return _named_noncreature(m, n_word=m["n"], plain=each is None and xdef is None and half is None)
     if m["lname"] and (m["pre"] or m["name"] or m["name2"] or each is not None or xdef is not None or half is not None):
         return None  # -- token & pump wordings (wave 6C) -- "create Voja, a legendary 2/2 … token": one, named so (111.4)
     if (m["colors"] is None) == (m["thats"] is None) and not m["pre"]:
@@ -216,7 +219,13 @@ def parse(sentence: str) -> list[Effect] | None:
         kws, quoted = parsed_with
         # -- X sized by a count (wave 4K) -- "an X/X … token": the value of X as the token is created is its printed P/T
         # (111.3: its copiable values; fixed then, 608.2h), evaluated by effects.create_token
-        p, t = (_qty(s) if s == "X" else s for s in m["pt"].split("/"))
+        if m["pt"] is None:  # -- trigger tail (wave 15B) -- no printed P/T: a quoted characteristic-defining ability sets both (604.3, 208.1)
+            if not quoted or not re.match(r"This (?:creature|token)'s power (?:and toughness are each|is) equal to ", quoted):
+                return None
+            m_pt = "*/*"  # (nothing is printed: the CDA, layer 7a, defines both, as for a card printed with "*")
+        else:
+            m_pt = m["pt"]
+        p, t = (_qty(s) if s == "X" else s for s in m_pt.split("/"))
         said = m["colors"] or m["thats"]
         # (105.2c colorless; wave 6C: "that's all colors" — each of the five, 105.1)
         colors = [] if said == "colorless" else list("WUBRG") if said == "all colors" else \
@@ -236,6 +245,36 @@ def parse(sentence: str) -> list[Effect] | None:
         n, token = language._bind_x(n, v), language._bind_x(token, v)
     effect: Effect = {"do": "create_attacking" if m["attacking"] else "create_token", "who": "you", "n": n, "token": token}
     if m["tapped"] or m["attacking"]:
+        effect["tapped"] = True
+    return [effect]
+
+
+def _named_noncreature(m: re.Match[str], *, n_word: str | None, plain: bool) -> list[Effect] | None:
+    """-- trigger tail (wave 15B) -- "create a colorless artifact token named Scrap [with "…" and "…"]" (111.4: the ability sets
+    the name; 111.10 has no such predefined token): a noncreature token with its quoted abilities, each of which the engine must
+    carry out (a keyword, a name or an ability it doesn't know leaves the sentence unread)."""
+    kind, said = m["nkind"], m["ncolors"]
+    name = m["name"] or m["name2"]
+    quotes = re.findall(r'"([^"]+)"', m["with"] or "")
+    if not plain or not name or m["thats"] or m["attacking"] or m["lname"] or m["pre"] or (
+            m["with"] and not re.fullmatch(r'"[^"]+"(?: and "[^"]+")*', m["with"])):
+        return None
+    allowed = ARTIFACT_TYPES if kind == "artifact" else ENCHANTMENT_TYPES
+    subs = [m["nsub"]] if m["nsub"] else []
+    if any(x not in allowed for x in subs):
+        return None
+    lines = []
+    for q in quotes:
+        line = _quoted_text(q.replace("this token", f"this {kind}")) if "this token" in q else _quoted_text(q)
+        if line is None or ('"' in line):
+            return None
+        lines.append(line)
+    colors = [] if said == "colorless" else [COLOR_WORDS[w] for w in re.findall(r"white|blue|black|red|green", said)]
+    type_line = f"Token {'Snow ' if m['nsnow'] else ''}{kind.capitalize()}" + (f" — {' '.join(subs)}" if subs else "")
+    effect: Effect = {"do": "create_token", "who": "you", "n": _qty(n_word) if n_word else 1,
+                      "token": {"name": name, "power": None, "toughness": None, "colors": colors, "type_line": type_line,
+                                "text": "\n".join(lines)}}
+    if m["tapped"]:
         effect["tapped"] = True
     return [effect]
 
