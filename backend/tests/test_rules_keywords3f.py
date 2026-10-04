@@ -456,12 +456,12 @@ def test_whisperwood_elemental_sacrifice_grants_a_dies_manifest_to_face_up_nonto
     act(s, "p1", type="activate_ability", card_id=killer.id, ability=0, targets=[down.id])
     pass_until_stack_empty(s)
     assert s.state.cards[down.id].zone == "p1:graveyard" and len(s.state.zones["p1:library"]) == library  # (it was face down)
-    second = s.state.zones["p1:library"][0]
+    second = s.state.cards[s.state.zones["p1:library"][0]]
     mana(s, C=1)
     act(s, "p1", type="activate_ability", card_id=killer.id, ability=0, targets=[bears.id])
     pass_until_stack_empty(s)
     assert s.state.cards[bears.id].zone == "p1:graveyard"
-    assert s.state.cards[second].zone == "p1:battlefield" and s.state.cards[second].face_down
+    assert second.zone == "p1:battlefield" and second.face_down
     replay_matches(s)
 
 

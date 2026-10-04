@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Iterable
+from typing import Any
+
+from pydantic import BaseModel
 
 from app.game.errors import ActionError
 from app.game.state import (
@@ -263,3 +267,64 @@ def visible_to_all_players(state: GameState, c: CardInstance) -> bool:
 
 def library_key(state: GameState, player_id: str) -> str:
     return zone_key(player_id, "library")
+
+
+# -- review (face-down ids) -- 406.3, 708.5: a card that becomes face down in a zone others can see is a new, unlinkable object
+def down_public(c: CardInstance) -> bool:
+    """A face-down card in a zone other players see (battlefield, exile, stack): they must not know which card it is."""
+    return c.face_down and c.ability is None and zone_name(c.zone) in ("battlefield", "exile", STACK)
+
+
+def needs_fresh_id(source: str, first: str, was_down: bool, c: CardInstance) -> bool:
+    """Did ``c`` come to be face down somewhere others see it, having gone from ``source`` to ``first`` (the zones of its first move)?
+    Not a control change, nor a face-down object that goes on (its spell resolving): they already know it as the same object. But
+    708.9: a face-down permanent or spell that leaves the battlefield or stack is revealed, so going face down again is a card they
+    have seen."""
+    if not down_public(c):
+        return False
+    src, dst = zone_name(source), zone_name(first)
+    return src != dst and (not was_down or (src in ("battlefield", STACK) and dst != "battlefield"))
+
+
+def renumber(state: GameState, ids: Iterable[str]) -> dict[str, str]:
+    """Give each of these cards a new instance id and rewrite every reference to the old one (attachments, combat, copies, views,
+    arrows, and everything the rules state remembers: exiled-with links, delayed triggers, decisions in flight, permissions). The
+    new ids come from the game's secret salt and the old id: unpredictable to players, the same on replay (the compile and the apply)."""
+    mapping: dict[str, str] = {}
+    key = state.hidden_salt.encode()[:64] or b"fyodor"
+    for old in dict.fromkeys(ids):
+        if old not in state.cards:
+            continue
+        n = 0
+        while True:
+            new = hashlib.blake2b(f"{old}:{n}".encode(), key=key, digest_size=6).hexdigest()
+            if new not in state.cards and new not in mapping.values():
+                break
+            n += 1
+        mapping[old] = new
+    if not mapping:
+        return mapping
+    pattern = re.compile(r"(?<![0-9A-Za-z_])(" + "|".join(re.escape(o) for o in mapping) + r")(?![0-9A-Za-z_])")
+
+    def sub(v: Any) -> Any:
+        if isinstance(v, str):
+            return pattern.sub(lambda m: mapping[m.group(1)], v) if pattern.search(v) else v
+        if isinstance(v, dict):
+            items = [(sub(k), sub(x)) for k, x in v.items()]
+            v.clear()
+            v.update(items)
+        elif isinstance(v, list):
+            v[:] = [sub(x) for x in v]
+        elif isinstance(v, tuple):
+            return tuple(sub(x) for x in v)
+        elif isinstance(v, set):
+            return {sub(x) for x in v}
+        elif isinstance(v, BaseModel):
+            for field, x in v.__dict__.items():
+                v.__dict__[field] = sub(x)
+        return v
+
+    for field in ("cards", "zones", "views", "arrows", "response", "table", "players", "rules", "auto_pass", "pregame", "turn"):
+        sub(getattr(state, field))
+    state.renames().update(mapping)
+    return mapping

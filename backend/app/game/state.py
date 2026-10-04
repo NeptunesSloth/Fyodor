@@ -437,6 +437,12 @@ class GameState(BaseModel):
     def departures(self) -> dict[str, str]:
         return self._departed
 
+    # -- review (face-down ids) -- old card id -> new id, for the step being applied (rules tracking follows a renumbered card)
+    _renamed: dict[str, str] = PrivateAttr(default_factory=dict)
+
+    def renames(self) -> dict[str, str]:
+        return self._renamed
+
     # -- helpers ---------------------------------------------------------------------
     def zone(self, key: str) -> list[str]:
         return self.zones.setdefault(key, [])

@@ -36,13 +36,14 @@ def test_a_face_down_forest_land_taps_for_green(cards):
     s = build(cards, p1=("Yedora, Grave Gardener", "Ambush Viper", "Lightning Bolt"))
     put(s, "Yedora, Grave Gardener", "battlefield")
     viper = put(s, "Ambush Viper", "battlefield")
-    vid = viper.id
+    old_id = viper.id
     bolt = put(s, "Lightning Bolt", "hand")
     mana(s, R=1)
-    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[vid])
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[old_id])
     answer(s)
-    land = s.state.cards[vid]
-    assert land.face_down and land.face_down_as == "Forest land"
+    land = viper  # (the same object, but a new id: it came back face down, 406.3)
+    vid = land.id
+    assert vid != old_id and old_id not in s.state.cards and land.face_down and land.face_down_as == "Forest land"
     tap = next(a for a in chars_of(s, land).abilities if a.text.startswith("{T}: Add {G}"))
     act(s, "p1", type="activate_ability", card_id=vid, ability=tap.index)
     assert s.state.cards[vid].tapped and s.state.cards[vid].face_down  # a mana ability: it stays face down (no reveal)
@@ -116,8 +117,8 @@ def test_a_face_down_creature_exiled_into_a_face_down_pile_is_revealed_as_it_lea
     """708.9: a face-down permanent leaving the battlefield is revealed to all, even into a face-down pile (Become Anonymous)."""
     s = build(cards, p1=("Become Anonymous", "Ambush Viper"))
     viper = put(s, "Ambush Viper", "hand")
-    vid = viper.id
-    act(s, "p1", type="move", card_ids=[vid], to={"player": "p1", "zone": "battlefield"}, face_down=True, face_down_kind="manifest")
+    act(s, "p1", type="move", card_ids=[viper.id], to={"player": "p1", "zone": "battlefield"}, face_down=True, face_down_kind="manifest")
+    vid = viper.id  # (renumbered as it went face down)
     assert "Ambush Viper" not in json.dumps(s.view("p2")["log"])
     spell = put(s, "Become Anonymous", "hand")
     mana(s, U=2, C=2)
