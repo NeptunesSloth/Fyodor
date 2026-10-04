@@ -1648,7 +1648,7 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     # -- trigger tail (wave 15B) -- "Discard any number of cards, then draw that many cards.": "that many" is the cards discarded
     # this way (701.9a), not a trigger event's amount; "plus one" would be a different (single) draw: not read
-    body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?), then draw that many cards\b(?! plus)",
+    body = re.sub(r"(?i)\b(discard (?:up to \w+|any number of|\w+) cards?)(?:, then |\. (?:then )?)draw that many cards\b(?! plus)",
                   r"\1, then draw a card for each card discarded this way", body)
     # 701.70a: "Recruit" means "Draw a card, then discard a card. If you discarded a nonland card this way, create a 1/1 white
     # Human Soldier creature token." (one card is discarded, so the token is made once for it or not at all)
@@ -2190,7 +2190,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     # -- "this way" outcomes (wave 4A) -- "discard your hand, then draw that many cards": "that many" is the
     # cards discarded, not a trigger event's amount (not read)
     for k, e in enumerate(resolved):
-        if e["do"] == "discard" and e.get("all") and '"event_amount"' in json.dumps(resolved[k + 1:]):
+        if e["do"] == "discard" and (e.get("all") or e.get("upto")) and '"event_amount"' in json.dumps(resolved[k + 1:]):
             return None
     # -- kicked / instead (wave 4G) -- targets tied to the kicker (702.33g)
     from app.rules import kicked_instead
