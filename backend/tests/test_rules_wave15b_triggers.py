@@ -317,6 +317,25 @@ def test_you_may_have_it_fight_target_creature(cards):
     check(s)
 
 
+def test_young_hero_role_grants_an_attack_trigger_with_an_intervening_if(cards):
+    # 303.7: the Role is an Aura token; its granted trigger keeps its own "if" (603.4), read on the quoted ability alone
+    from tests.test_rules_combat import attack, automate, creature, table
+
+    s = table(cards)
+    bear = creature(s, "p1", "Bear", "2/2")
+    act(s, "p1", type="create_token", player="p1", token={
+        "name": "Young Hero", "type_line": "Token Enchantment — Aura Role", "power": None, "toughness": None, "colors": [],
+        "text": "Enchant creature\nEnchanted creature has \"Whenever this creature attacks, if its toughness is 3 or less, "
+                "put a +1/+1 counter on it.\""})
+    hero = next(c for c in s.state.cards.values() if c.name == "Young Hero")
+    act(s, "p1", type="attach", card_ids=[hero.id], to=bear.id)
+    automate(s)
+    attack(s, (bear, "p2"))
+    answer(s)
+    assert s.state.cards[bear.id].counters == {"+1/+1": 1}
+    check(s)
+
+
 def test_cast_trigger_of_the_combined_ability_destroys_and_gives_a_powerstone(cards):
     s = build(cards, ["Cityscape Leveler"], ["Grizzly Bears"])
     put(s, "Grizzly Bears", "p2")

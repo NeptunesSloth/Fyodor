@@ -2023,7 +2023,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects.append(paid)
             continue
         if text.startswith("when you do, "):  # -- refused modal/conditional (wave 3R1) -- a reflexive trigger (603.12)
-            reflex = _reflexive(" ".join(texts[i:]), effects, prev_start, optional)
+            reflex = _reflexive(" ".join(texts[i:]), effects, prev_start, optional, it)
             if reflex is None:
                 return None
             effects.append(reflex)
@@ -4555,7 +4555,8 @@ def _if_you_do_after_mandatory(if_do: re.Match[str], effects: list[dict[str, Any
     return (name, found) if name is not None else None
 
 
-def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, optional: bool) -> dict[str, Any] | None:
+def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, optional: bool,
+               it: str | None = None) -> dict[str, Any] | None:
     """"[A]. When you do, [B]." (603.12): a reflexive triggered ability that triggers if A was done — a "you may
     [cost]" payment made (118.12), or an instruction that isn't optional actually carried out (probed as it runs) —
     and whose B (everything to the end of the ability) is put on the stack afterwards with its own targets and
@@ -4574,7 +4575,9 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     if lki is not None:
         body = lki
     # -- end reflexive LKI (wave 4J) --
-    parsed = parse_effects(body[:1].upper() + body[1:], "event" if lki is not None else None)
+    # (-- trigger tail (wave 15B) -- "it" is the ability's source when the trigger is about it: "you may pay {2}{R}. When you do, it
+    # deals 3 damage to any target"; the reflexive ability has that same source, 603.12)
+    parsed = parse_effects(body[:1].upper() + body[1:], "event" if lki is not None else ("self" if it == "self" else None))
     if parsed is None or not parsed[0]:
         return None
     b_effects, b_target, b_optional = parsed
