@@ -15,8 +15,8 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.rules import characteristics as chars
 from app.rules import coverage
-from tests.fixtures.cards import card, fixture_cards
 from app.rules.layers import derive
+from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_effects import mana, replay_matches
 from tests.test_rules_wave9b_exile_permission import answer, build, find, put, roundtrip

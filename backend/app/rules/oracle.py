@@ -55,6 +55,8 @@ KEYWORDS = frozenset({
     "ingest", "poisonous", "frenzy", "afterlife", "modular", "split second", "graft", "sunburst", "devour",  # -- static wordings (wave 6E) -- (app/rules/keyword_triggers.py)
 })
 
+_FORMS = {"awaken": r"awaken \d+—.*", "escalate": r"escalate(?: \{.*|—.*)", "dredge": r"dredge \d+", "fuse": "fuse",
+          "aftermath": "aftermath", "gravestorm": "gravestorm", "increment": "increment"}
 _PARAM = re.compile(r"(\{[^}]*\}|\d+|—.*$|\bfrom\b.*$| with .*$|walk$)")
 
 
@@ -97,6 +99,9 @@ def keyword_name(piece: str) -> str | None:
     first = raw.split()[0]
     if first == "devour" and not re.match(r"devour (?:(?:land|artifact|food) )?(?:\d+|x)\b", raw):  # -- keyword mechanics (wave 9D) --
         return None  # ("Devour in Flames deals 5 damage …" is a card's name, not the keyword)
+    # -- static_other sweep (wave 16B) -- ordinary words that open a card's rules text ("Awaken the Inferno deals 6 damage …"): the keyword has its form
+    if first in _FORMS and not re.fullmatch(_FORMS[first], raw):
+        return None
     if first in KEYWORDS:
         return first
     typecycling = _TYPECYCLING.match(raw)  # "Swampcycling {2}", "Basic landcycling {1}{G}", "Wizardcycling {3}"

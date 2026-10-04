@@ -2451,6 +2451,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         grouped = modal_groups(definition, picked)  # -- static_other sweep (wave 16B) --
         if grouped is not None:
             picked_targets = choose_targets(plan, a, {"targets": grouped}, ch.name or "it")
+            if picked_targets is None:
+                return
         else:
             slot_specs = [definition["modes"][i]["target"] for i in picked]
             found = choose_slot_targets(plan, a, slot_specs, ch.name or "it")

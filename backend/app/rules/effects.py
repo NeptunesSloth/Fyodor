@@ -248,9 +248,9 @@ def draw(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         from app.rules import this_way
 
         counts = this_way.by_controller(plan, ctx, e["n"])
-        want = {p: max(0, counts.get(p, 0) + int(e["n"].get("delta", 0))) for p in players}
-        players = [p for p in players if want[p] > 0]
-        return not players or replace.draw_cards(plan, players, want, then=_then(ctx, e), ctx=ctx)
+        each = {p: max(0, counts.get(p, 0) + int(e["n"].get("delta", 0))) for p in players}
+        players = [p for p in players if each[p] > 0]
+        return not players or replace.draw_cards(plan, players, each, then=_then(ctx, e), ctx=ctx)
     want = _amount(plan, ctx, e["n"])
     if e.get("also"):  # -- triggers (wave 5D) -- "You and target opponent each draw a card": one instruction (121.2c)
         players = list(dict.fromkeys([*_players(plan, ctx, e["also"]), *players]))

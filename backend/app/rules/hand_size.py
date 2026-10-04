@@ -62,9 +62,8 @@ def maximum(plan: Plan, player: str) -> int | None:
     """-- static statics (wave 10B) -- ``player``'s maximum hand size (402.2): None when they have none, else seven
     changed by the reductions and increases of the permanents on the battlefield (611.3a), never below zero."""
     from app.rules import scripts
-    from app.rules.replace import conditional_lines
-
     from app.rules.layers import timestamp
+    from app.rules.replace import conditional_lines
 
     size = MAX_HAND_SIZE
     for c in sorted(plan.state.cards.values(), key=lambda c: timestamp(plan.state, c.id)):  # (613.7: oldest first, the latest set wins)

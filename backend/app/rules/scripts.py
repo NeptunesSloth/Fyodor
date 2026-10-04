@@ -409,7 +409,6 @@ _RECORDING: dict[str, str | None] = {
     "edict": "sacrificed",  # -- "this way" outcomes (wave 4A) -- "each opponent sacrifices a creature …" (effects._choose_next)
     "tap_choice": "tapped",  # (wave 4A) "tap any number of untapped creatures you control" (this_way.tap_choice)
     "double_counters": None, "lki_counters": None, "move_counters": None,  # -- counters (wave 5H) --
-    "shuffle_library": "shuffled",  # -- static_other sweep (wave 16B) -- "shuffle the cards from your hand into your library, then draw that many"
 }
 # Effects that introduce objects by themselves — by moving, choosing or creating them — rather than
 # by naming a target: a pronoun after them binds to their recorded objects (the object may be in
@@ -1631,7 +1630,9 @@ def _that_many(left: tuple[list[dict[str, Any]], Any], text: str) -> tuple[list[
         right = _clause(f"{s}{verb} a card for each card discarded this way")
         if right is None or len(right[0]) != 1 or right[0][0].get("do") != "draw":
             return None
-        n = {**right[0][0]["n"], "this_way": kind, **({"delta": 1 if m["d"] == "plus" else -1} if m["d"] else {}),
+        if kind == "shuffled":  # (the shuffle is no introducer of "it": its binding is named here)
+            first["as"] = "shuffled"
+        n = {**right[0][0]["n"], "this_way": kind, **({"ref_count": "shuffled"} if kind == "shuffled" else {}), **({"delta": 1 if m["d"] == "plus" else -1} if m["d"] else {}),
              **({"each_owner": True} if plural else {})}
         return [{**right[0][0], "n": n}], right[1]
     if m["d"] or m["what"] == "cards":
