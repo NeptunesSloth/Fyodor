@@ -191,3 +191,15 @@ def test_contagion_engine_puts_a_counter_on_each_creature_the_player_controls(ca
             break
     assert zone(s, theirs[0]) == "p2:graveyard" and counters(s, theirs[1]) == {"-1/-1": 1} and not counters(s, mine)  # each of that player's (the 1/1 died: 704.5f)
     check(s)
+
+
+def test_sporogenesis_makes_a_saproling_for_each_fungus_counter_the_creature_had(cards):
+    s = build(cards, "Sporogenesis", "Grizzly Bears", "Murder")
+    put(s, "Sporogenesis")
+    bears = put(s, "Grizzly Bears")
+    add(s, bears, 2, "fungus")
+    cast(s, "Murder", targets=[bears.id], B=2, C=1)
+    settle(s)
+    assert zone(s, bears) == "p1:graveyard"
+    assert len([c for c in s.state.cards.values() if c.name == "Saproling" and c.zone == "p1:battlefield"]) == 2  # 603.10a: as it was
+    check(s)

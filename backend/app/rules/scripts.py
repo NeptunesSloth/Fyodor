@@ -218,7 +218,8 @@ def _short_name(name: str, text: str = "") -> str | None:
         # -- grammar (wave 11C) -- 201.5c: "Elanor Gardner" is "Elanor" in its own text; taken only where that word acts as
         # the subject ("Elanor enters", "Elanor's power"), so a color or type word of a plain name is never read as it
         m = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]{2,}) [A-ZÀ-ÖØ-Þ]", name)
-        if m is None or not re.search(rf"\b{re.escape(m[1])}(?: {_SELF_VERBS}|'s )", text):
+        # (wave 19D: also "put a +1/+1 counter on Legolas", the name after "counter(s) on")
+        if m is None or not re.search(rf"\b{re.escape(m[1])}(?: {_SELF_VERBS}|'s )|counters? on {re.escape(m[1])}\b", text):
             return None
     if m[1] in CREATURE_TYPES or m[1].rstrip("s") in CREATURE_TYPES:
         return None
@@ -283,6 +284,7 @@ def self_text(text: str, name: str) -> str:
 # and untap it." (Prize Pig, Waterbender Ascension, Cursed Recording): after a sentence that put counters on ~, "it" in the next
 # sentence's count is ~ itself (122.1: the counters of that one object), and "those counters" are the ones of that kind ~ has (122.8)
 def _counter_threshold(text: str) -> str:
+    text = re.sub(r"(counters? on ~) and ~ (gains|gets) ", r"\1. ~ \2 ", text)  # "put a counter on ~ and he gains flying …": two instructions
     text = re.sub(r"(counters? on ~\. Then if )it has( [^,.]+? counters? on )it,", r"\1~ has\2~,", text)
     text = re.sub(r"(counters? on ~\. Then if there (?:are|is) [^,.]+? counters? on )it,", r"\1~,", text)
     return re.sub(r"(Then if (?:~ has|there are) [^,.]+? (\S+) counters? on ~, )remove (?:those counters|them all|all of them|them)\b", r"\1remove all \2 counters from ~", text)

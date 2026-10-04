@@ -2227,7 +2227,7 @@ _CHOOSERS = ("target player", "target opponent", "each opponent", "each of your 
              "that player", "its controller", "that creature's controller", "that permanent's controller", "defending player")
 CHOOSER = "|".join(re.escape(c) for c in sorted(_CHOOSERS, key=len, reverse=True))
 # (patterns are format()-ed by scripts.effect: no literal braces)
-EDICT = rf"(?P<s>{CHOOSER}) sacrifices (?P<n>{AMT}) (?P<sel>.+?) of their choice"
+EDICT = rf"(?P<s>{CHOOSER}) sacrifices (?P<n>{AMT}) (?P<sel>.+?) of their choice(?: for each (?P<each>.+))?"  # (each: wave 19D, Smokestack)
 EDICT_OTHERS = rf"each other player sacrifices (?P<n>{AMT}) (?P<sel>.+?)(?: of their choice)?"
 PLAYER_CHOOSES = (rf"(?P<s>{CHOOSER}) chooses (?:(?P<upto>up to )?(?P<n>{AMT})) (?P<sel>.+?) they control"
                   r"(?:, then (?:(?P<sac>sacrifices the rest)|(?P<des>the rest are destroyed)))?")  # (wave 11D: "… then sacrifices the rest")
@@ -2270,7 +2270,13 @@ def _permanent_sel(phrase: str) -> str:
 def edict(m: re.Match[str]) -> tuple[Effects, Any]:
     who, group = _chooser(m["s"] if "s" in m.groupdict() else "each other player")
     key = _permanent_sel(m["sel"])
-    return [{"do": "edict", "who": who, "sel": key, "n": _amount(m["n"]), "label": m["sel"]}], _one(group)
+    n = _amount(m["n"])
+    if m.groupdict().get("each"):  # -- counters sweep (wave 19D) -- "… of their choice for each soot counter on this artifact": a count read as it resolves
+        v = values.parse_count(m["each"], it="self")
+        if v is None:
+            raise _Fail
+        n = v if n == 1 else {"times": [n, v]}
+    return [{"do": "edict", "who": who, "sel": key, "n": n, "label": m["sel"]}], _one(group)
 
 
 def player_chooses(m: re.Match[str]) -> tuple[Effects, Any]:
