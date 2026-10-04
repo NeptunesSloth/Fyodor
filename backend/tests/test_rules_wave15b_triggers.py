@@ -56,6 +56,8 @@ EXTRA += [
     real("Kinetic Augur", "{3}{R}", 4, "Creature — Human Wizard",
          "When this creature enters, discard up to two cards, then draw that many cards.", ("2", "3"), "R"),
     real("Armed with Proof", "{3}", 3, "Enchantment", "When this enchantment enters, investigate twice.", None),
+    real("Teapot Slinger", "{3}{R}", 4, "Creature — Raccoon Warrior", "Menace\nWhenever you expend 4, this creature deals 2 damage to each opponent.", ("3", "3"), "R"),
+    real("Raise the Alarm Copy", "{1}{W}", 2, "Instant", "Create two 1/1 white Soldier creature tokens.", None, "W"),
     real("Serra Avatar", "{4}{W}{W}", 6, "Creature — Avatar",
          "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from "
          "anywhere, shuffle it into its owner's library.", ("*", "*"), "W"),
@@ -170,6 +172,19 @@ def test_investigate_twice_makes_two_clues(cards):
     act(s, "p1", type="cast_spell", card_id=spell.id)
     answer(s)
     assert len(on_battlefield(s, "Clue")) == 2  # 701.16a
+    check(s)
+
+
+def test_expend_four_triggers_once_when_the_fourth_mana_is_spent_on_spells(cards):
+    # 700.14: you expend 4 as you spend your fourth total mana to cast spells during a turn
+    s = build(cards, ["Teapot Slinger", "Raise the Alarm", "Raise the Alarm Copy"], ["Grizzly Bears"])
+    put(s, "Teapot Slinger")
+    for name, expected in (("Raise the Alarm", 40), ("Raise the Alarm Copy", 38)):
+        spell = to_hand(s, name)
+        mana(s, "p1", W=2)
+        act(s, "p1", type="cast_spell", card_id=spell.id)
+        answer(s)
+        assert s.state.players["p2"].life == expected  # the second spell reaches the fourth mana: 2 damage, once
     check(s)
 
 

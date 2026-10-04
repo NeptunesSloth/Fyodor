@@ -58,6 +58,7 @@ from app.game.rules_state import (
     PendingTrigger,
     StackEntry,
     TriggerEvent,
+    TurnCount,
     emit,
     track,
 )
@@ -365,7 +366,17 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         from app.rules import unless_pays
 
         info["kinds_before"] = unless_pays.mark_cast(plan, e.player or "", plan.ch(spell).types)
-        return [("cast", spell, plan.ch(spell), e.player, info)]
+        out = [("cast", spell, plan.ch(spell), e.player, info)]
+        # -- trigger tail (wave 15B) -- 700.14: the mana spent to cast it adds to the caster's total this turn (a spell cast by
+        # hand, or for free, adds none known); "expend N" is the Nth mana reached by this spell (one event per spell)
+        record = r.payments.get(plan.oid(spell))
+        if e.player and record is not None and record.mana_known and sum(record.mana_spent.values()) > 0:
+            turn, spent = plan.state.turn.number, sum(record.mana_spent.values())
+            have = r.mana_cast.get(e.player)
+            before = have.count if have is not None and have.turn == turn else 0
+            r.mana_cast[e.player] = TurnCount(turn=turn, count=before + spent)
+            out.append(("expend", None, None, e.player, {"before": before, "after": before + spent, "actor": e.player}))
+        return out
     if e.kind == "spell_copied":  # -- refused copy/mana (wave 3R3) -- 707.10: a copy put on the stack, not cast
         spell = plan.state.cards.get(e.card or "")
         if spell is None or spell.zone != "stack" or plan.oid(spell) != e.object_id:
@@ -667,6 +678,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         if entry_forms.entered_tapped(plan, info) != cond["entered_tapped"]:
             return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
+        return False
+    if event == "expend" and not info["before"] < cond["n"] <= info["after"]:
         return False
     if event == "to_graveyard" and cond.get("from") and info.get("from") != cond["from"]:  # -- into a graveyard (wave 6D)
         return False

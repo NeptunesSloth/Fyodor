@@ -783,6 +783,7 @@ class RulesState(BaseModel):
     lands_played: dict[str, TurnCount] = Field(default_factory=dict)
     extra_land_plays: dict[str, TurnCount] = Field(default_factory=dict)  # -- wave 8A -- "You may play an additional land this turn."
     spells_cast: dict[str, TurnCount] = Field(default_factory=dict)
+    mana_cast: dict[str, TurnCount] = Field(default_factory=dict)  # -- wave 15B -- mana spent to cast spells this turn (700.14 expend)
     loyalty_used: dict[str, int] = Field(default_factory=dict)  # planeswalker -> turn it last used a loyalty ability
     # -- activation costs (wave 4H) -- exerted permanents (701.43a): object id -> the player who exerted it; it doesn't
     # untap during that player's next untap step (app/rules/engine.start_next_turn)
