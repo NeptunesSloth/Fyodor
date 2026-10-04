@@ -105,6 +105,9 @@ EXTRA = [
     card("Betrayal of Flesh", set_code="tst", number="D24", mana_cost="{5}{B}", cmc=6.0, type_line="Instant", colors=["B"], color_identity=["B"],
          oracle_text="Choose one —\n• Destroy target creature.\n• Return target creature card from your graveyard to the battlefield.\n"
          "Entwine—Sacrifice three lands. (Choose both if you pay the entwine cost.)"),
+    card("Aven Warhawk", set_code="tst", number="D25", mana_cost="{4}{W}", cmc=5.0, type_line="Creature — Bird Soldier", power="2", toughness="2",
+         colors=["W"], color_identity=["W"], oracle_text="Amplify 1 (As this creature enters, put a +1/+1 counter on it for each creature card "
+         "you reveal in your hand that shares a creature type with it.)\nFlying", keywords=["Amplify", "Flying"]),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -334,6 +337,43 @@ def test_reconfigure_attaches_stops_being_a_creature_and_unattaches(cards):
     answer(s)
     assert s.state.cards[gauntlet.id].attached_to is None and ch(s, gauntlet).is_creature
     roundtrip(s)
+
+
+def test_amplify_reveals_cards_sharing_a_creature_type_and_always_asks(cards):
+    s = build(cards, p1=("Aven Warhawk", "Aven Warhawk", "Test Bear"))
+    hawks = [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Aven Warhawk"]
+    bear = put(s, "Test Bear", "hand")
+    for h in hawks:
+        act(s, "p1", type="move", card_ids=[h.id], to={"player": "p1", "zone": "hand"})
+    mana(s, W=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=hawks[0].id)
+    for _ in range(4):
+        if s.state.rules.decision is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            act(s, "p2", type="pass_priority")
+    d = s.state.rules.decision
+    assert d.player == "p1" and [o.id for o in d.options] == [hawks[1].id, "done"]  # 702.38a: the other Bird Soldier, not the Bear
+    assert s.view("p2")["rules"]["decision"]["kind"] == "waiting" and "options" not in s.view("p2")["rules"]["decision"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[hawks[1].id])
+    answer(s)  # (one answer at a time; with nothing left to offer the list is over)
+    assert s.state.cards[hawks[0].id].counters.get("+1/+1") == 1  # one card revealed, Amplify 1
+    assert s.state.cards[hawks[1].id].zone == "p1:hand" and not s.state.cards[hawks[1].id].revealed_to  # (shown, then hidden again)
+    roundtrip(s)
+    # nothing to reveal: the question is asked all the same (its absence would say the hand has no matching card)
+    s = build(cards, p1=("Aven Warhawk", "Test Bear"))
+    hawk = put(s, "Aven Warhawk", "hand")
+    put(s, "Test Bear", "hand")
+    mana(s, W=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=hawk.id)
+    for _ in range(4):
+        if s.state.rules.decision is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            act(s, "p2", type="pass_priority")
+    d = s.state.rules.decision
+    assert [o.id for o in d.options] == ["done"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["done"])
+    answer(s)
+    assert not s.state.cards[hawk.id].counters.get("+1/+1")
 
 
 def test_assist_another_player_pays_some_of_the_generic_mana(cards):
