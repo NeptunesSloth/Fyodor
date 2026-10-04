@@ -148,3 +148,12 @@ def test_afflict_triggers_once_when_blocked(cards):
     settle(s)
     assert s.state.players["p2"].life == life - 2  # afflict 2, once
     check(s)
+
+
+def test_each_instance_of_annihilator_on_a_line_triggers_separately():
+    """702.86b (-- review (wave 11B) --): "Annihilator 1, annihilator 2" is two triggers, each with its own number."""
+    from app.rules import scripts
+    from tests.test_rules_scripts import ch
+
+    found = [d for _, d in scripts.keyword_triggers(ch("Test", "Creature — Eldrazi", "Annihilator 1, annihilator 2"))]
+    assert [d["effects"][0]["n"] for d in found] == [1, 2]

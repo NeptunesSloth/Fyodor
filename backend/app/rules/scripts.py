@@ -2643,6 +2643,13 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             re.search(r"\bwhere X is\b", ability.text)
             or (d.get("kind") == "triggered" and d.get("trigger") != "enters_self")):
         return None
+    # -- review (wave 12C) -- the X a selector compares with ("with mana value X or less": selectors.X_VALUE, the cast X) or
+    # the stand-in number of _where_x, left in any field: that X isn't what "where X is" defines — manual
+    from app.rules import selectors  # (a leaf module)
+
+    if d is not None and re.search(r"\bwhere X is\b", ability.text) and re.search(
+            rf'(?<![\d-]){_X_SENTINEL}(?!\d)|,{selectors.X_VALUE}\]', json.dumps(d, default=str)):
+        return None
     if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str):
         return None  # ("up to X target …" in a trigger: its targets are chosen before any X is known to it)
     # -- entry forms (wave 5F) -- "It's an enchantment." only right after a return
@@ -3192,7 +3199,10 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
             if kw in KEYWORD_TRIGGERS:
                 out.append((1000 + ab.index * 10 + k, KEYWORD_TRIGGERS[kw]))
             if kw in _kw_meanings.MEANINGS:  # -- static wordings (wave 6E) -- read as its CR meaning (app/rules/keyword_triggers.py)
-                out += [(1000 + ab.index * 10 + k, d) for d in _kw_meanings.definitions(kw, ab.text)[:1]]
+                # (-- review (wave 11B) -- the k-th instance on the line is its own piece: "Annihilator 1, annihilator 2" each
+                # triggers, 702.86b)
+                nth = ab.keywords[:k].count(kw)
+                out += [(1000 + ab.index * 10 + k, d) for d in _kw_meanings.definitions(kw, ab.text)[nth:nth + 1]]
             if kw == "partner" and (pw := _kw_meanings.partner_with_definition(ab.text)) is not None:  # -- keyword pieces (wave 8A) --
                 out.append((1000 + ab.index * 10 + k, pw))
             if kw == "decayed":  # -- token & pump wordings (wave 6C) -- 702.147a (app/rules/decayed.py)

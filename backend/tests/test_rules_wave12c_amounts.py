@@ -332,3 +332,16 @@ def test_judgment_bolt_hits_the_creature_and_its_controller(cards):
     cast(s, "Judgment Bolt", [bears.id], R=1, C=3)
     assert s.state.cards[bears.id].zone == "p2:graveyard" and life(s, "p2") == 40  # no Equipment: X is 0
     roundtrip(s)
+
+
+# -- review (wave 12C) --
+@pytest.mark.parametrize("text", [
+    # an X a selector compares with (selectors.X_VALUE, the cast X) isn't the X the text defines: manual, not "mana value 0 or less"
+    "Destroy each creature with mana value X or less and you gain X life, where X is the number of Zombies you control.",
+    "Draw X cards and each creature with mana value X or less gains flying until end of turn, where X is the number of Zombies you control.",
+    "Destroy each creature with mana value X or less, where X is the number of Zombies you control.",
+])
+def test_an_x_left_inside_a_selector_stays_manual(text):
+    from tests.test_rules_scripts import ch
+
+    assert coverage.of_characteristics(ch("Test", "Sorcery", text)).level != "FULL"
