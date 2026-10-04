@@ -3322,7 +3322,11 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
             return None
         effects, target, _ = parsed
         if target is not None and not isinstance(target, str):
-            return None  # (a mode with several targets or a division: not yet)
+            # -- static_other sweep (wave 16B) -- a mode with several target groups, "up to N targets" or a division: its groups join the
+            # spell's (601.2c: casting.modal_groups); the effects name them as the mode's own "target" / "target:<k>"
+            modes.append({"text": ab.text[2:], "effects": rename_bindings(effects, f"m{len(modes)}_"), "target": None,
+                          "groups": _as_groups(target)})
+            continue
         modes.append({"text": ab.text[2:], "effects": rename_bindings(effects, f"m{len(modes)}_"),
                       "target": {"what": target} if target else None})
     if not repeat and lo > len(modes):

@@ -658,6 +658,32 @@ def _controls_commander(plan: Plan, player: str) -> bool:
                for c in plan.state.cards.values())
 
 
+def modal_groups(definition: dict[str, Any], picked: list[int]) -> list[dict[str, Any]] | None:
+    """-- static_other sweep (wave 16B) -- a modal spell with a mode that has several target groups (or "up to N", or a division)
+    chooses its targets as one list of groups, each chosen mode's after the one before it (601.2c); None when every chosen mode has at
+    most one plain target (each mode's own slot, ``choose_slot_targets``)."""
+    modes = [definition["modes"][i] for i in picked]
+    if not any(m.get("groups") for m in modes):
+        return None
+    return [g for m in modes for g in (m.get("groups") or ([{"what": m["target"]["what"]}] if m["target"] else []))]
+
+
+def modal_effects(definition: dict[str, Any], picked: list[int], grouped: bool) -> list[dict[str, Any]]:
+    """The chosen modes' effects in printed order (608.2c): each with its own target slot, or (``grouped``) with its target words
+    renumbered to the spell's groups."""
+    out: list[dict[str, Any]] = []
+    offset = 0
+    for k, i in enumerate(picked):
+        mode = definition["modes"][i]
+        if not grouped:
+            out += [{"do": "use_targets", "slot": k}, *mode["effects"]]
+            continue
+        n = len(mode.get("groups") or ([mode["target"]] if mode["target"] else []))
+        out += scripts._renumber(mode["effects"], list(range(offset, offset + n))) if n else mode["effects"]
+        offset += n
+    return out
+
+
 def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dict[str, Any], what: str,
                  *, exclude: tuple[int, ...] = ()) -> list[int] | None:
     """700.2a / 601.2b: the modes of a modal spell (or activated ability: 602.2b), validated if given,
@@ -669,7 +695,9 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
         hi = 2  # "If you control a commander as you cast this spell, you may choose both instead."
     src = source_of(plan, a.card_id)
     allowed = [i for i, m in enumerate(modes) if i not in exclude
-               and (not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, a.card_id))]
+               and (not m["target"] or legal_targets(plan, m["target"]["what"], plan.actor, src, a.card_id))
+               and all(len(legal_targets(plan, g["what"], plan.actor, src, a.card_id)) >= g.get("min", 1)  # (several groups: wave 16B)
+                       for g in m.get("groups") or ())]
     if a.modes:
         if not lo <= len(a.modes) <= hi:
             raise ActionError(f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}")
@@ -1834,12 +1862,16 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if modes is None:
             return
         picked = modes
-        slot_specs = [definition["modes"][i]["target"] for i in picked]
-        found = choose_slot_targets(plan, a, slot_specs, ch.name or "it")  # … then each mode's target (601.2c)
-        if found is None:
-            return
-        slots = found
-        picked_targets: ChosenTargets | None = ChosenTargets(flat=[t for slot in slots for t in slot])
+        grouped = modal_groups(definition, picked)  # -- static_other sweep (wave 16B) --
+        if grouped is not None:
+            picked_targets: ChosenTargets | None = choose_targets(plan, a, {"targets": grouped}, ch.name or "it")
+        else:
+            slot_specs = [definition["modes"][i]["target"] for i in picked]
+            found = choose_slot_targets(plan, a, slot_specs, ch.name or "it")  # … then each mode's target (601.2c)
+            if found is None:
+                return
+            slots = found
+            picked_targets = ChosenTargets(flat=[t for slot in slots for t in slot])
     else:
         picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
     if picked_targets is None:
@@ -1958,9 +1990,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         _cascade_triggers(plan, card, ch, more_cascade)
     if ("storm" in ch.keywords or "gravestorm" in ch.keywords) and not a.face_down and not plan.manual(card):
         _storm_trigger(plan, card, ch)
-    if definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
-        effects_in_order = [e for k, i in enumerate(picked)
-                            for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]
+    if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
+        r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
+                                      name=ch.name, effects=modal_effects(definition, picked, True), x=a.x_value, modes=picked,
+                                      **picked_targets.entry(None), kicked=a.kicker or int(a.awaken))  # (-- static_other sweep (wave 16B) --)
+    elif definition is not None and picked:  # a modal spell: each chosen mode's effects, with its own target slot
+        effects_in_order = modal_effects(definition, picked, False)
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
                                       x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=a.kicker or int(a.awaken))
@@ -2308,12 +2343,16 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         if modes is None:
             return
         picked = modes
-        slot_specs = [definition["modes"][i]["target"] for i in picked]
-        found = choose_slot_targets(plan, a, slot_specs, ch.name or "it")
-        if found is None:
-            return
-        slots = found
-        picked_targets = ChosenTargets(flat=[t for slot in slots for t in slot])
+        grouped = modal_groups(definition, picked)  # -- static_other sweep (wave 16B) --
+        if grouped is not None:
+            picked_targets = choose_targets(plan, a, {"targets": grouped}, ch.name or "it")
+        else:
+            slot_specs = [definition["modes"][i]["target"] for i in picked]
+            found = choose_slot_targets(plan, a, slot_specs, ch.name or "it")
+            if found is None:
+                return
+            slots = found
+            picked_targets = ChosenTargets(flat=[t for slot in slots for t in slot])
     else:
         found_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
         if found_targets is None:
@@ -2390,9 +2429,12 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         _cascade_triggers(plan, card, ch, extra)
     if ("storm" in ch.keywords or "gravestorm" in ch.keywords) and not plan.manual(card):
         _storm_trigger(plan, card, ch)
-    if definition is not None and picked:
-        effects_in_order = [e for k, i in enumerate(picked)
-                            for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]]
+    if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
+        r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
+                                      name=ch.name, effects=modal_effects(definition, picked, True), x=a.x_value, modes=picked,
+                                      **picked_targets.entry(None), kicked=a.kicker)
+    elif definition is not None and picked:
+        effects_in_order = modal_effects(definition, picked, False)
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=effects_in_order, targets=chosen, target_spec=None,
                                       x=a.x_value, modes=picked, slots=slots, slot_specs=slot_specs, kicked=a.kicker)

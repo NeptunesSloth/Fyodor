@@ -69,6 +69,14 @@ EXTRA = [
          color_identity=["U"], oracle_text="Return target creature to its owner's hand.\nAwaken 3—{4}{U} (If you cast this spell for "
          "{4}{U}, also put three +1/+1 counters on target land you control and it becomes a 0/0 Elemental creature with haste. It's "
          "still a land.)"),
+    card("Hull Breach", set_code="tst", number="B24", mana_cost="{2}{R}{G}", cmc=4.0, type_line="Sorcery", colors=["G", "R"],
+         color_identity=["G", "R"], oracle_text="Choose one —\n• Destroy target artifact.\n• Destroy target enchantment.\n"
+         "• Destroy target artifact and target enchantment."),
+    card("Abzan Charm", set_code="tst", number="B25", mana_cost="{W}{B}{G}", cmc=3.0, type_line="Instant", colors=["B", "G", "W"],
+         color_identity=["B", "G", "W"], oracle_text="Choose one —\n• Exile target creature with power 3 or greater.\n"
+         "• You draw two cards and you lose 2 life.\n• Distribute two +1/+1 counters among one or two target creatures."),
+    card("Urza's Rebuff", set_code="tst", number="B26", mana_cost="{1}{U}", cmc=2.0, type_line="Instant", colors=["U"],
+         color_identity=["U"], oracle_text="Choose one —\n• Counter target spell.\n• Tap up to two target creatures."),
     card("Deep Analysis", set_code="tst", number="B19", mana_cost="{3}{U}", cmc=4.0, type_line="Sorcery", colors=["U"], color_identity=["U"],
          oracle_text="Target player draws two cards.\nFlashback—{1}{U}, Pay 3 life. (You may cast this card from your graveyard for "
          "its flashback cost. Then exile it.)"),
@@ -445,4 +453,46 @@ def test_cast_normally_awaken_does_nothing_and_needs_no_land_target(cards):
     act(s, "p1", type="cast_spell", card_id=c.id, targets=[victim.id], target_counts=[1, 0])
     answer(s)
     assert find(s, "Test Small", "p2").zone == "p2:hand"
+    roundtrip(s)
+
+
+def test_a_mode_with_two_targets_destroys_both(cards):
+    s = build(cards, p1=("Hull Breach", "Test Relic"), p2=("Test Aura Wall",))
+    relic = put(s, "Test Relic", "battlefield")
+    wall = put(s, "Test Aura Wall", "battlefield", "p2")
+    c = put(s, "Hull Breach", "hand")
+    mana(s, C=2, R=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, modes=[2], targets=[relic.id, wall.id], target_counts=[1, 1])
+    answer(s)
+    assert find(s, "Test Relic").zone == "p1:graveyard" and find(s, "Test Aura Wall", "p2").zone == "p2:graveyard"
+    roundtrip(s)
+
+
+def test_a_mode_with_up_to_two_targets_takes_none_one_or_two(cards):
+    s = build(cards, p1=("Urza's Rebuff",), p2=("Test Small", "Test Flyer"))
+    a, b = put(s, "Test Small", "battlefield", "p2"), put(s, "Test Flyer", "battlefield", "p2")
+    c = put(s, "Urza's Rebuff", "hand")
+    mana(s, C=1, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, modes=[1], targets=[a.id, b.id], target_counts=[2])
+    answer(s)
+    assert s.state.cards[a.id].tapped and s.state.cards[b.id].tapped
+    roundtrip(s)
+    s2 = build(cards, p1=("Urza's Rebuff",), p2=("Test Small",))
+    put(s2, "Test Small", "battlefield", "p2")
+    c2 = put(s2, "Urza's Rebuff", "hand")
+    mana(s2, C=1, U=1)
+    act(s2, "p1", type="cast_spell", card_id=c2.id, modes=[1], targets=[], target_counts=[0])  # "up to two": none is legal (115.6)
+    answer(s2)
+    assert not find(s2, "Test Small", "p2").tapped
+    roundtrip(s2)
+
+
+def test_a_mode_dividing_counters_among_one_or_two_targets(cards):
+    s = build(cards, p1=("Abzan Charm", "Test Small"), p2=("Test Flyer",))
+    a, b = put(s, "Test Small", "battlefield"), put(s, "Test Flyer", "battlefield", "p2")
+    c = put(s, "Abzan Charm", "hand")
+    mana(s, W=1, B=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, modes=[2], targets=[a.id, b.id], target_counts=[2], division=[1, 1])
+    answer(s)
+    assert s.state.cards[a.id].counters.get("+1/+1") == 1 and s.state.cards[b.id].counters.get("+1/+1") == 1
     roundtrip(s)
