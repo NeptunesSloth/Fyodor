@@ -1233,9 +1233,8 @@ def sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def explore(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.44a: reveal the top card of your library. A land goes into your hand; otherwise put a
     +1/+1 counter on this creature, then you may put the revealed card into your graveyard."""
-    from app.rules import characteristics as chars
-
     from app.game.rules_state import emit
+    from app.rules import characteristics as chars
 
     pid = ctx["controller"]
     library = plan.state.zones.get(zone_key(pid, "library"), [])
