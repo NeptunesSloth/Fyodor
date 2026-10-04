@@ -366,7 +366,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         from app.rules import unless_pays
 
         info["kinds_before"] = unless_pays.mark_cast(plan, e.player or "", plan.ch(spell).types)
-        out = [("cast", spell, plan.ch(spell), e.player, info)]
+        out: list[Fact] = [("cast", spell, plan.ch(spell), e.player, info)]
         # -- trigger tail (wave 15B) -- 700.14: the mana spent to cast it adds to the caster's total this turn (a spell cast by
         # hand, or for free, adds none known); "expend N" is the Nth mana reached by this spell (one event per spell)
         record = r.payments.get(plan.oid(spell))

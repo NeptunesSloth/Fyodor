@@ -296,7 +296,8 @@ def test_recruit_draws_discards_and_makes_a_soldier_for_a_nonland_discard(cards)
     # 701.70a: draw a card, then discard a card; a token only if the discarded card was a nonland card
     for pick, soldiers in (("Opt", 1), ("Forest", 0)):
         s = build(cards, ["Esgaroth Garrison", "Opt"], [])
-        garrison, opt = to_hand(s, "Esgaroth Garrison"), to_hand(s, "Opt")
+        garrison = to_hand(s, "Esgaroth Garrison")
+        to_hand(s, "Opt")
         mana(s, "p1", W=1, C=2)
         act(s, "p1", type="cast_spell", card_id=garrison.id)
         d = s.state.rules.decision
