@@ -356,6 +356,31 @@ def exchange_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return replace.gain_life(plan, [(low, diff)], actor=ctx["controller"], then=_then(ctx, e), ctx=ctx)
 
 
+def exchange_life_stat(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- exchange (wave 19E) -- 701.12g: "Exchange your life total with this creature's toughness." (Tree of Redemption, Evra): the
+    player gains or loses what it takes to equal the stat (replacements and triggers apply, as in set_life) and a continuous effect
+    (613.4b, layer 7b) with no duration sets the creature's stat to the life total it had. 701.12a: if the whole exchange can't be done
+    (the creature is gone, 119.7: a player who can't gain life can't be given a higher total) none of it is."""
+    from app.rules import cant_gain
+
+    players = _players(plan, ctx, e["who"])
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    if len(players) != 1 or card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != ctx.get("source_object"):
+        return True
+    pt = plan.ch(card).pt
+    if pt is None:
+        return True
+    power = e["stat"] == "power"
+    value, life = pt[0 if power else 1], plan.state.players[players[0]].life
+    if value > life and (why := cant_gain.why_not(plan, players[0])) is not None:
+        plan.note(f"{why}: nothing is exchanged", actor=ctx["controller"])
+        return True
+    layers.add_effect(plan, affected=[plan.oid(card)], layer="7b", source=ctx.get("source_object"), controller=ctx["controller"],
+                      power=life if power else None, toughness=None if power else life, duration="permanent",
+                      label=f"{e['stat'].capitalize()} {life}")
+    return set_life(plan, ctx, {"who": e["who"], "n": value})
+
+
 class _Source:
     """What deals damage: the spell or ability's source, or a creature the text names ("target
     creature you control deals damage equal to its power to …", a fight). ``keywords`` and ``ch``
@@ -3728,6 +3753,7 @@ from app.rules import bounce_forms as _bounce_forms  # noqa: E402
 
 PRIMITIVES.update(_bounce_forms.PRIMITIVES)  # "return target A and target B to their owners' hands" (one move)
 PRIMITIVES["exchange_life"] = exchange_life
+PRIMITIVES["exchange_life_stat"] = exchange_life_stat
 PRIMITIVES["set_life"] = set_life  # (wave 16C)  # -- activated wordings (wave 15D) --
 PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
 PRIMITIVES.update(graveyard_grants.PRIMITIVES)  # "gains flashback until end of turn" (app/rules/graveyard_grants.py)

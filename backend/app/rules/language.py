@@ -1201,6 +1201,12 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = re.fullmatch(r"exchange life totals with (?P<o>target opponent|target player)", text)
     if m and rider is None:
         return [{"do": "exchange_life", "who": "you", "with": "target"}], _one(target_group(m["o"]))
+    # -- exchange (wave 19E) -- 701.12g: "Exchange target opponent's life total with this creature's toughness." (Tree of Perdition)
+    m = re.fullmatch(r"exchange (?P<s>your|target opponent's) life total with (?:~|this creature)'s (?P<stat>power|toughness)", text)
+    if m and rider is None:
+        if m["s"] == "your":
+            return [{"do": "exchange_life_stat", "who": "you", "stat": m["stat"]}], None
+        return [{"do": "exchange_life_stat", "who": "target", "stat": m["stat"]}], _one(target_group("target opponent"))
     m = re.fullmatch(r"(?P<o>two target players) exchange life totals", text)
     if m and rider is None:
         return [{"do": "exchange_life", "who": "target"}], _one(target_group(m["o"]))

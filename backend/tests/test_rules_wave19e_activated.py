@@ -16,6 +16,7 @@ from app.game.session import GameSession
 from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act, deck, turn_on, zone
+from tests.test_rules_attachments import ch
 from tests.test_rules_copy import _card, hold, life, named, on_stack, pay, resolve_top, to_hand
 from tests.test_rules_effects import pass_until_stack_empty, replay_matches
 from tests.test_rules_trigger_context import responsive
@@ -49,6 +50,10 @@ EXTRA = [
           "{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Destroy target nonbasic land an opponent controls. Each player searches their "
           "library for a basic land card, puts it onto the battlefield, then shuffles.", []),
     _card("Command Tower", "W12", "", "Land", "{T}: Add one mana of any color in your commander's color identity.", []),
+    _card("Tree of Perdition", "W13", "{3}{B}", "Creature — Plant",
+          "Defender\n{T}: Exchange target opponent's life total with this creature's toughness.", ["B"], power="0", toughness="13"),
+    _card("Evra, Halcyon Witness", "W14", "{4}{W}{W}", "Legendary Creature — Avatar",
+          "Lifelink\n{4}: Exchange your life total with Evra's power.", ["W"], power="4", toughness="4"),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -183,4 +188,20 @@ def test_each_player_searches_for_a_basic_land(cards):
     assert s.state.cards[tower.id].zone == "p2:graveyard"
     on = {p: sorted(s.state.cards[c].name for c in zone(s.state, p, "battlefield")) for p in ("p1", "p2")}
     assert on == {"p1": ["Forest"], "p2": ["Island"]}
+    replay_matches(s)
+
+
+def test_exchange_life_total_with_toughness_and_power(cards):
+    """701.12g: the player gains or loses what it takes to equal the stat, and a layer 7b effect with no duration sets the stat to the
+    life total they had: Tree of Perdition (target opponent: 40 -> 13, toughness 13 -> 40), Evra ("your": 40 -> 4, power 4 -> 40)."""
+    s = table(cards, ["Tree of Perdition", "Evra, Halcyon Witness"], [])
+    tree, evra = named(s, "Tree of Perdition"), named(s, "Evra, Halcyon Witness")
+    act(s, "p1", type="activate_ability", card_id=tree.id, ability=1, targets=["p2"])
+    pass_until_stack_empty(s)
+    assert (life(s, "p1"), life(s, "p2")) == (40, 13)
+    assert ch(s, tree).pt == (0, 40)
+    pay(s, C=4)
+    act(s, "p1", type="activate_ability", card_id=evra.id, ability=1)
+    pass_until_stack_empty(s)
+    assert life(s, "p1") == 4 and ch(s, evra).pt == (40, 4)
     replay_matches(s)
