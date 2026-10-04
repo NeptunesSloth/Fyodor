@@ -34,6 +34,8 @@ EXTRA = [
     card('Snake Cult Initiation', set_code='tst', number='X15', mana_cost='{3}{B}', cmc=4.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature has poisonous 3. (Whenever it deals combat damage to a player, that player gets three poison counters. A player with ten or more poison counters loses the game.)', power=None, toughness=None, colors=['B'], color_identity=['B'], keywords=['Enchant']),  # noqa: E501
     card('Boon-Bringer Valkyrie', set_code='tst', number='X16', mana_cost='{3}{W}{W}', cmc=5.0, type_line='Creature — Angel Warrior', oracle_text="Backup 1 (When this creature enters, put a +1/+1 counter on target creature. If that's another creature, it gains the following abilities until end of turn.)\nFlying, first strike, lifelink", power='4', toughness='4', colors=['W'], color_identity=['W'], keywords=['Flying', 'Lifelink', 'Backup', 'First strike']),  # noqa: E501
     card('Scion of Calamity', set_code='tst', number='X17', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Dinosaur', oracle_text="Myriad (Whenever this creature attacks, for each opponent other than defending player, you may create a token that's a copy of this creature that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Myriad']),  # noqa: E501
+    card('Rakdos Cackler', set_code='tst', number='X18', mana_cost='{B/R}', cmc=1.0, type_line='Creature — Devil', oracle_text="Unleash (You may have this creature enter with a +1/+1 counter on it. It can't block as long as it has a +1/+1 counter on it.)", power='1', toughness='1', colors=['B', 'R'], color_identity=['B', 'R'], keywords=['Unleash']),  # noqa: E501
+    card('Clamor Shaman', set_code='tst', number='X19', mana_cost='{2}{R}', cmc=3.0, type_line='Creature — Goblin Shaman', oracle_text="Riot (This creature enters with your choice of a +1/+1 counter or haste.)\nWhenever this creature attacks, target creature an opponent controls can't block this turn.", power='1', toughness='1', colors=['R'], color_identity=['R'], keywords=['Riot']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -374,4 +376,38 @@ def test_myriad_makes_attacking_copies_for_the_other_opponents(cards):
     assert s.state.players["p2"].life == 35 and s.state.players["p3"].life == 35  # 702.116a, 508.4
     assert not [c for c in s.state.cards.values() if c.is_token and c.name == "Scion of Calamity"
                 and c.zone.endswith(":battlefield")]  # exiled at end of combat
+    check(s)
+
+
+def cast_and_answer(s, name, m, answer):
+    spell = to_hand(s, name)
+    act(s, "p1", type="add_mana", player="p1", mana=m)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.player == "p1")
+    d = s.state.rules.decision
+    assert answer in {o.id for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[answer])
+    settle(s)
+    return spell
+
+
+def test_unleash_counter_and_cant_block(cards):
+    s = build(cards, "Rakdos Cackler")
+    spell = cast_and_answer(s, "Rakdos Cackler", {"B": 1}, "counter")
+    assert counters(s, spell) == 1  # 702.98a
+    assert "cant_block" in chars(s, spell).imposed
+    check(s)
+
+
+def test_unleash_declined_can_block(cards):
+    s = build(cards, "Rakdos Cackler")
+    spell = cast_and_answer(s, "Rakdos Cackler", {"B": 1}, "none")
+    assert counters(s, spell) == 0 and "cant_block" not in chars(s, spell).imposed
+    check(s)
+
+
+def test_riot_counter_or_haste(cards):
+    s = build(cards, "Clamor Shaman")
+    spell = cast_and_answer(s, "Clamor Shaman", {"R": 1, "C": 2}, "haste")
+    assert counters(s, spell) == 0 and "haste" in chars(s, spell).keywords  # 702.136a
     check(s)

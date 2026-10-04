@@ -371,6 +371,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"disguise (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "toxic":  # -- counters & designations (wave 3E) -- combat.py reads "toxic N" anywhere in a keyword line ("Menace, toxic 1")
         return re.search(r"(?:^|, )toxic \d+(?:,|$)", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()) is not None
+    if kw in ("riot", "unleash"):  # -- keywords (wave 15E) -- app/rules/riot.py
+        from app.rules import riot
+
+        return riot.supported(kw, line)
     if kw == "soulshift":  # (wave 15E: each instance of the line, scripts.keyword_triggers)
         return re.fullmatch(r"soulshift \d+(?:, soulshift \d+)*", line.strip().rstrip(".").lower()) is not None
     if kw in ("bushido", "renown", "bloodthirst", "toxic", "fabricate", "firebending"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)

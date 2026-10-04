@@ -2670,6 +2670,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     text = self_text(ability.text, ch.name)
+    if ability.kind == "keywords" and ability.keywords == ("unleash",):  # -- keywords (wave 15E) -- 702.98a's second static
+        return parse_anthem("~ can't block as long as it has a +1/+1 counter on it.")
     if text.startswith("Cast this spell only "):  # -- cast timing (wave 7A) -- 601.3 (app/rules/cast_timing.py)
         from app.rules import cast_timing
 
