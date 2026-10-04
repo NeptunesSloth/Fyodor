@@ -518,9 +518,14 @@ _UNION_TWO = re.compile(r"^(?P<a>.+? you control) and (?P<b>(?:other )?[A-Za-z][
 _UNION_SHARED = re.compile(r"^(?P<pre>[Oo]ther )?(?P<a>[A-Z][a-z'\-]+) and (?P<b>[A-Z][a-z'\-]+) you control$")
 
 
+_EACH_TWO = re.compile(r"^(?P<d>Each|All) (?P<a>[A-Za-z][\w'-]*(?: [a-z][\w'-]*)?) and (?P<b>[A-Za-z][\w'-]*(?: [a-z][\w'-]*)?) you control$")
+
+
 def _union_subject(subject: str) -> str | None:
     m = _UNION_TWO.match(subject)
     parts = [m["a"], m["b"]] if m else None
+    if parts is None and (e := _EACH_TWO.match(subject)) is not None and e["d"] == "Each":  # -- static_other sweep (wave 17C) --
+        parts = [f"Each {e['a']} you control", f"Each {e['b']} you control"]  # "Each land and Ally you control has …"
     if parts is None and (m := _UNION_SHARED.match(subject)) is not None and _type_list(subject) == subject:
         parts = [f"{m['pre'] or ''}{m['a']} you control", f"{m['pre'] or ''}{m['b']} you control"]
     if parts is None:

@@ -35,18 +35,24 @@ _EACH_LAND = re.compile(rf"^Each land is an? (?P<t>{_BASIC_RE}) in addition to i
 _EVERY_BASIC = re.compile(r"^(?P<s>Lands you control) are every basic land type in addition to their other types\.$")
 _ARE_LANDS = re.compile(rf"^(?P<s>(?:Nontoken )?creatures you control) are (?P<t>{_BASIC_RE}) lands in addition to "
                         r"their other types\.$")
+# -- static_other sweep (wave 17C) -- "Artifacts you control are Foods in addition to their other types and have "{2}, {T}, Sacrifice this
+# artifact: You gain 3 life."" (Ragost) / "Other creatures are Food artifacts in addition to their other types and have "..."" (Ygra) /
+# "Nontoken artifacts you control are lands in addition to their other types." (Toph): the same layer-4 addition (613.1d, 205.1b) for any
+# group on the battlefield, the types lower case plural ("artifacts") and the subtypes capitalised ("Foods"), then layer 6 grants
+_ARE_ALSO = re.compile(r"^(?P<during>During your turn, )?(?P<s>[A-Za-z' ]+?) are (?P<what>[A-Za-z ]+?) in addition to their other types(?: and have (?P<q>\"[^\"]+\")|\.)$")
+_TYPE_WORDS = {"artifacts": "Artifact", "creatures": "Creature", "enchantments": "Enchantment", "lands": "Land"}
 MASKWOOD = ("Creatures you control are every creature type. The same is true for creature spells you control and "
             "creature cards you own that aren't on the battlefield.")
 
 
-def _definition(subject: str, layer4: dict[str, Any], *, everywhere: bool = False) -> dict[str, Any] | None:
+def _definition(subject: str, layer4: dict[str, Any], *, everywhere: bool = False, during: bool = False) -> dict[str, Any] | None:
     from app.rules import selectors
     from app.rules.statics import _definition as grant
 
     sel = selectors.parse(subject[0].lower() + subject[1:])
     if sel is None or sel.player is not None or sel.zones != ("battlefield",):
         return None
-    out = {**grant(sel.key(), None, []), "layer4": layer4, "group_layer4": True}
+    out = {**grant(sel.key(), None, [{"static": "your_turn"}] if during else []), "layer4": layer4, "group_layer4": True}
     if everywhere:
         out["everywhere"] = True
     return out
@@ -60,11 +66,40 @@ def parse(text: str) -> dict[str, Any] | None:
         return _definition(m["s"], {"add_subtypes": list(BASIC)})
     if (m := _ARE_LANDS.fullmatch(text)) is not None:
         return _definition(m["s"], {"add_types": ["Land"], "add_subtypes": [m["t"]]})
+    if (m := _ARE_ALSO.fullmatch(text)) is not None and (found := _also(m)) is not None:
+        return found
     if text == "~ is every creature type.":  # (Mistform Ultimus: a characteristic-defining ability, 604.3 —
         return {"kind": "static", "static": "cda", "effects": []}  # characteristics.changeling applies it in every zone)
     if text == MASKWOOD:
         return _definition("creatures you control", {"all_creature_types": True}, everywhere=True)
     return None
+
+
+def _also(m: re.Match[str]) -> dict[str, Any] | None:
+    from app.rules.creature_types import CREATURE_TYPES
+    from app.rules.layers import ARTIFACT_TYPES, ENCHANTMENT_TYPES, LAND_TYPES
+    from app.rules.scripts import granted_ability
+
+    types: list[str] = []
+    subtypes: list[str] = []
+    for w in m["what"].split(" "):
+        if w in _TYPE_WORDS:
+            types.append(_TYPE_WORDS[w])
+        elif w[:1].isupper() and w.endswith("s") and w[:-1] in CREATURE_TYPES | LAND_TYPES | ARTIFACT_TYPES | ENCHANTMENT_TYPES:
+            subtypes.append(w[:-1])
+        elif w[:1].isupper() and w in ARTIFACT_TYPES | LAND_TYPES | ENCHANTMENT_TYPES:
+            subtypes.append(w)  # ("Food artifacts": the singular before the type)
+        else:
+            return None
+    if not types and not subtypes:
+        return None
+    d = _definition(m["s"], {"add_types": types, "add_subtypes": subtypes}, during=bool(m["during"]))
+    if d is not None and m["q"]:
+        text = m["q"][1:-1]
+        if granted_ability(text) is None:
+            return None
+        d["grants"] = [text]
+    return d
 
 
 def _group_statics(state: GameState, info: CardInfo) -> list[Any]:
@@ -104,7 +139,7 @@ def layer4_entries(state: GameState, card: CardInstance, ch: Characteristics, in
     for _ in range(4):
         now = apply([(st.seq, st.definition) for st in chosen])
         again = [st for st in table if grammar.applies(view, st.definition, source=state.cards[st.source],
-                                                         controller=st.controller, card=card, ch=now, conditions=True)]
+                                                         controller=st.controller, card=card, ch=now, conditions=None)]  # (wave 17C: None, the static's own conditions are read: "During your turn")
         if again == chosen:
             break
         chosen = again

@@ -54,6 +54,20 @@ EXTRA = [
          type_line="Legendary Creature — Elder Dragon", power="7", toughness="7", colors=["R", "U"], color_identity=["R", "U"],
          oracle_text="Flying\nWard—Pay 5 life.\nInstant and sorcery spells you cast have storm. (Whenever you cast an instant or "
          "sorcery spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)"),
+    card("Ygra, Eater of All", set_code="tst", number="C16", mana_cost="{3}{B}{G}", cmc=5.0, type_line="Legendary Creature — Elemental Cat",
+         power="6", toughness="6", colors=["B", "G"], color_identity=["B", "G"],
+         oracle_text="Ward—Sacrifice a Food.\nOther creatures are Food artifacts in addition to their other types and have \"{2}, {T}, "
+         "Sacrifice this permanent: You gain 3 life.\"\nWhenever a Food is put into a graveyard from the battlefield, put two +1/+1 "
+         "counters on Ygra."),
+    card("Goldspan Dragon", set_code="tst", number="C17", mana_cost="{3}{R}{R}", cmc=5.0, type_line="Creature — Dragon", power="4",
+         toughness="4", colors=["R"], color_identity=["R"],
+         oracle_text="Flying, haste\nWhenever Goldspan Dragon attacks or becomes the target of a spell, create a Treasure token.\n"
+         "Treasures you control have \"{T}, Sacrifice this artifact: Add two mana of any one color.\""),
+    card("Gourmand's Talent", set_code="tst", number="C18", mana_cost="{G}", cmc=1.0, type_line="Enchantment — Class", colors=["G"],
+         color_identity=["G"], oracle_text="(Gain the next level as a sorcery to add its ability.)\nDuring your turn, artifacts you control "
+         "are Foods in addition to their other types and have \"{2}, {T}, Sacrifice this artifact: You gain 3 life.\"\n{2}{G}: Level 2\n"
+         "Whenever you gain life for the first time each turn, create a 3/3 green Raccoon creature token.\n{3}{G}: Level 3\n"
+         "Whenever you gain life for the first time each turn, put a +1/+1 counter on each creature you control."),
     card("Hexing Squelcher", set_code="tst", number="C05", mana_cost="{1}{R}", cmc=2.0, type_line="Creature — Goblin Sorcerer",
          power="2", toughness="2", colors=["R"], color_identity=["R"],
          oracle_text="This spell can't be countered.\nWard—Pay 2 life.\nSpells you control can't be countered.\nOther creatures you control have \"Ward—Pay 2 life.\""),
@@ -208,4 +222,45 @@ def test_granted_storm_copies_for_each_earlier_spell(cards):
     act(s, "p1", type="cast_spell", card_id=bolts[1].id, targets=["p2"])  # one spell before it: one copy
     answer(s)
     assert s.state.players["p2"].life == 40 - 9
+    roundtrip(s)
+
+
+def _derived(s, name, pid="p1"):
+    from app.rules import characteristics as chars
+    from app.rules.layers import derive
+
+    c = find(s, name, pid)
+    return c, derive(s.state, c, chars.of(c, s.cards), s.cards)
+
+
+def test_ygra_makes_creatures_foods_with_a_granted_sacrifice_ability(cards):
+    s = build(cards, p1=("Ygra, Eater of All", "Test Small"))
+    put(s, "Ygra, Eater of All", "battlefield")
+    small = put(s, "Test Small", "battlefield")
+    _, ch = _derived(s, "Test Small")
+    assert "Artifact" in ch.types and "Food" in ch.subtypes and "Elf" in ch.subtypes  # 613.1d, 205.1b: in addition to its other types
+    ab = next(a for a in ch.abilities if a.index >= 100 and a.kind == "activated")
+    assert "{2}, {T}, Sacrifice" in ab.text and "gain 3 life" in ab.text  # 613.1f
+    assert "Artifact" not in _derived(s, "Ygra, Eater of All")[1].types  # ("Other creatures")
+    roundtrip(s)
+
+
+def test_during_your_turn_artifacts_are_foods(cards):
+    s = build(cards, p1=("Gourmand's Talent", "Test Relic"))
+    put(s, "Gourmand's Talent", "battlefield")
+    put(s, "Test Relic", "battlefield")
+    assert "Food" in _derived(s, "Test Relic")[1].subtypes
+    act(s, "p1", type="next_turn")  # Bob's turn: "During your turn" is over
+    assert s.state.turn.active_player == "p2" and "Food" not in _derived(s, "Test Relic")[1].subtypes
+    roundtrip(s)
+
+
+def test_goldspan_dragon_treasures_tap_for_two(cards):
+    s = build(cards, p1=("Goldspan Dragon",))
+    put(s, "Goldspan Dragon", "battlefield")
+    act(s, "p1", type="create_token", player="p1", token={"name": "Treasure", "type_line": "Token Artifact — Treasure",
+                                                          "text": "{T}, Sacrifice this artifact: Add one mana of any color."})
+    _, ch = _derived(s, "Treasure")
+    ab = next(a for a in ch.abilities if a.kind == "mana" and a.index >= 100)
+    assert "two mana" in ab.text  # 613.1f: the Dragon's granted ability, next to the Treasure's own
     roundtrip(s)
