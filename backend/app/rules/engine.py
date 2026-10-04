@@ -28,6 +28,7 @@ from app.game.state import STACK, CardInstance, GameState, zone_key
 from app.rules import (
     attachments,
     battles,
+    bestow,
     casting,
     combat,
     combat_rules,  # -- combat (wave 5C) --
@@ -40,7 +41,6 @@ from app.rules import (
     extra_turns,  # -- extra turns (wave 8A) --
     kinship,  # -- kinship (wave 9C) --
     layers,
-    bestow,
     looking,
     modal_abilities,
     next_untap,  # -- next untap step (wave 6A) --

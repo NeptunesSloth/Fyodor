@@ -393,7 +393,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     m = EQUIP_COST.fullmatch(t)
     if m:
         return {"kind": "static", "static": "ability_cost_modifier", "delta": int(m["n"]) * (-1 if m["dir"] == "less" else 1),
-                "filter": selectors.parse("other Equipment").key() if m["other"] else None, "who": "you", "floor": False,
+                "filter": other.key() if m["other"] and (other := selectors.parse("other Equipment")) else None, "who": "you", "floor": False,
                 "equip": True, "effects": []}
     m = ABILITY_COST.fullmatch(t)
     if m:  # -- costs (wave 3$) -- the source permanent is matched at the cost, relative to the ability's controller

@@ -15,8 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.rules import cards as scripts
-from app.rules import keyword_triggers
-from app.rules import protection
+from app.rules import keyword_triggers, protection
 from app.rules import scripts as templates
 from app.rules.characteristics import HALVES, Characteristics, half_from_data, printed_from_data
 from app.rules.mana import parse_mana_ability
@@ -419,7 +418,9 @@ def _keyword_supported(kw: str, line: str) -> bool:
     if kw in ("unearth", "dash", "buyback", "madness", "ward", "evoke"):  # casting.keyword_cost: a mana cost
         return re.fullmatch(rf"{kw} (?:\{{[^}}]+\}})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("squad", "offspring", "replicate"):  # -- keywords (wave 15E) -- the cost is paid as kicker's; squad / offspring's
-        from app.rules.costs import kicker_line  # enters trigger is its meaning (keyword_triggers), replicate's the cast trigger
+        from app.rules.costs import (
+            kicker_line,  # enters trigger is its meaning (keyword_triggers), replicate's the cast trigger
+        )
 
         return kicker_line(line) and (kw == "replicate" or keyword_triggers.supported(kw, line))
     if kw in ("kicker", "multikicker"):  # casting.cost_with_kicker: one mana kicker cost

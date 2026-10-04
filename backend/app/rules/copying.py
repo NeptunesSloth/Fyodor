@@ -190,7 +190,7 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
         abilities = chars.with_intrinsic_mana(kept, subtypes)
     else:
         abilities = ch.abilities
-    cost = {"mana_cost": "", "mana_value": 0} if ex.no_mana_cost else {}  # (wave 15E: 707.9b)
+    cost: dict[str, Any] = {"mana_cost": "", "mana_value": 0} if ex.no_mana_cost else {}  # (wave 15E: 707.9b)
     return replace(ch, **cost, name=ex.name if ex.name is not None else ch.name, supertypes=supertypes, types=types,
                    subtypes=chars.changeling(subtypes, abilities, ex.name if ex.name is not None else ch.name),
                    power=ex.power if ex.power is not None else ch.power,

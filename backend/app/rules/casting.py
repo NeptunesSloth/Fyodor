@@ -26,14 +26,23 @@ from app.game.rules_state import (
     emit,
 )
 from app.game.state import STACK, CardInstance, GameState, zone_key
-from app.rules import attachments, cost_payment, costs, history, permissions, restrictions, scripts
+from app.rules import (
+    attachments,
+    cost_payment,
+    costs,
+    graveyard_keywords,
+    history,
+    ninjutsu,
+    permissions,
+    restrictions,
+    scripts,
+)
 from app.rules import characteristics as chars
 from app.rules import commander as cmdr
 from app.rules import mana as M
 from app.rules import payment as P
 from app.rules.activation_words import any_player  # -- activation wordings (wave 7B) --
 from app.rules.characteristics import CardInfo, Characteristics
-from app.rules import graveyard_keywords, ninjutsu
 from app.rules.costs import AbilityCost, kicker_cost, parse_ability_cost
 from app.rules.oracle import AbilityText
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
@@ -1724,7 +1733,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         cast_free(plan, card, ch, a)
         return
     if a.alt_cost is not None and not plan.manual(card):  # -- keywords (wave 15E) -- bestow 702.103b/d: cast as an Aura spell
-        from app.rules import alt_costs as _alt, bestow
+        from app.rules import alt_costs as _alt
+        from app.rules import bestow
 
         if any(o.key == a.alt_cost and o.tag == "bestow" for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info)):
             ch = bestow.overlay(ch)

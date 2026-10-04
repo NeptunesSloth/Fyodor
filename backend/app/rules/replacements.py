@@ -153,7 +153,9 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
     from app.rules import devour
 
     devour.plan_entry(plan, card, controller, answers, out, set(reserved or ()))
-    from app.rules import riot  # -- keywords (wave 15E) -- riot / unleash: the +1/+1 counter or haste (app/rules/riot.py)
+    from app.rules import (
+        riot,  # -- keywords (wave 15E) -- riot / unleash: the +1/+1 counter or haste (app/rules/riot.py)
+    )
 
     riot.plan_entry(plan, card, controller, answers, out)
     if out.get("choice", {}).get("what") == enter_cost.WHAT and reserved:
@@ -241,9 +243,8 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                         counters[kind] = counters.get(kind, 0) + int(piece.split()[1])
         from app.rules import (
             devour,  # -- keyword mechanics (wave 9D) -- 702.82a: N for each permanent sacrificed as it entered
+            riot,  # -- keywords (wave 15E) -- 702.136a / 702.98a: the additional +1/+1 counter chosen
         )
-
-        from app.rules import riot  # -- keywords (wave 15E) -- 702.136a / 702.98a: the additional +1/+1 counter chosen
 
         if riot.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + riot.counters(ch, choices)

@@ -159,7 +159,9 @@ def _attachment(plan: Plan, card: CardInstance, ch: Characteristics, out: Found)
     kind = attachments.attach_kind(ch)
     host = card.attached_to or card.attached_player
     if kind == "aura":
-        from app.rules import bestow  # -- keywords (wave 15E) -- 702.103f: a bestowed Aura that is unattached or illegally attached
+        from app.rules import (
+            bestow,  # -- keywords (wave 15E) -- 702.103f: a bestowed Aura that is unattached or illegally attached
+        )
 
         if bestow.is_bestowed(plan.state, card):  # stops being bestowed (a creature again) instead of going to the graveyard
             problem = "its host is gone" if host is None else attachments.host_problem(plan, card, host)

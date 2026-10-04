@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -50,6 +51,7 @@ EXTRA = [
     card('Agate Instigator', set_code='tst', number='X31', mana_cost='{1}{R}', cmc=2.0, type_line='Creature — Lizard Rogue', oracle_text='Offspring {1}{R} (You may pay an additional {1}{R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)\nWhenever another creature you control enters, this creature deals 1 damage to each opponent.', power='1', toughness='3', colors=['R'], color_identity=['R'], keywords=['Offspring']),  # noqa: E501
     card('Shattering Spree', set_code='tst', number='X32', mana_cost='{R}', cmc=1.0, type_line='Sorcery', oracle_text='Replicate {R} (When you cast this spell, copy it for each time you paid its replicate cost. You may choose new targets for the copies.)\nDestroy target artifact.', power=None, toughness=None, colors=['R'], color_identity=['R'], keywords=['Replicate']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
+    card('Prosthetic Injector', set_code='tst', number='X99', mana_cost='{1}', cmc=1.0, type_line='Artifact — Equipment', oracle_text="Equipped creature gets +0/+2 and has toxic 1. (Players dealt combat damage by equipped creature also get a poison counter.)\nEquip {1}", keywords=['Equip']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
 
@@ -172,7 +174,7 @@ def test_equip_a_quality_limits_the_target(cards):
     plain = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
     legend = token_of(s, "p1", "Hero", "Token Legendary Creature — Human", "2/2")
     mana(s, C=3)
-    with pytest.raises(Exception):
+    with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=blade.id, ability=1, targets=[plain.id])  # 702.6b: legendary only
     act(s, "p1", type="activate_ability", card_id=blade.id, ability=1, targets=[legend.id])
     settle(s)
@@ -214,7 +216,7 @@ def test_enchant_a_described_creature(cards):
     down = token_of(s, "p1", "Goat", "Token Creature — Goat", "0/1")
     act(s, "p1", type="tap", card_ids=[down.id], tapped=True)
     mana(s, G=1, C=3)
-    with pytest.raises(Exception):
+    with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=vines.id, targets=[up.id])  # 702.5a: only a tapped creature
     act(s, "p1", type="cast_spell", card_id=vines.id, targets=[down.id])
     settle(s)
@@ -483,7 +485,7 @@ def test_ninjutsu_swaps_an_unblocked_attacker_for_the_ninja(cards):
     attack_with(s, rat)
     until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
     mana(s, U=1, C=1)
-    with pytest.raises(Exception):  # 702.49a: no attacker is unblocked until blockers are declared
+    with pytest.raises(ActionError):  # 702.49a: no attacker is unblocked until blockers are declared
         act(s, "p1", type="activate_ability", card_id=ninja.id, ability=0)
     act(s, "p2", type="declare_blockers", blocks=[])
     act(s, "p1", type="activate_ability", card_id=ninja.id, ability=0)
@@ -533,7 +535,7 @@ def test_spectacle_alternative_cost_needs_an_opponent_to_have_lost_life(cards):
     s = build(cards, "Skewer the Critics")
     skewer = to_hand(s, "Skewer the Critics")
     mana(s, R=1)
-    with pytest.raises(Exception, match="alternative cost"):
+    with pytest.raises(ActionError, match="alternative cost"):
         act(s, "p1", type="cast_spell", card_id=skewer.id, targets=["p2"], alt_cost=f"{skewer.id}:0")  # 702.137a: no life lost yet
     act(s, "p1", type="life", player="p2", delta=-1)
     act(s, "p1", type="cast_spell", card_id=skewer.id, targets=["p2"], alt_cost=f"{skewer.id}:0")
@@ -579,10 +581,9 @@ def test_plot_then_cast_free_on_a_later_turn(cards):
     mana(s, R=1, C=1)
     act(s, "p1", type="activate_ability", card_id=robbery.id, ability=1)  # the plot special action (702.170b)
     assert s.state.cards[robbery.id].zone == "p1:exile"
-    with pytest.raises(Exception):
+    with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=robbery.id, free=True)  # 702.170d: not the turn it was plotted
     to_own_turn(s, 3)
-    hand = len(s.state.zones["p1:hand"])
     act(s, "p1", type="cast_spell", card_id=robbery.id, free=True)
     settle(s)
     assert s.state.cards[robbery.id].zone == "p1:graveyard"
@@ -662,4 +663,17 @@ def test_replicate_copies_the_spell(cards):
     settle(s)
     log = " ".join("".join(p.t or "" for p in x.parts) for x in s.state.log)
     assert log.count("Shattering Spree") >= 3  # the cast, and its copy (702.56a) put on the stack and resolved
+    check(s)
+
+
+def test_equipment_grants_a_keyword_with_a_number(cards):
+    s = build(cards, "Prosthetic Injector")
+    injector = put(s, "Prosthetic Injector")
+    bear = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=injector.id, ability=1, targets=[bear.id])
+    settle(s)
+    assert s.state.cards[injector.id].attached_to == bear.id
+    attack_and_settle(s, bear)
+    assert s.state.players["p2"].resources["poison"] == 1  # 702.164: toxic 1, granted by the equipment
     check(s)
