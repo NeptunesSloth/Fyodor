@@ -987,10 +987,10 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             card, ch = _snapshot_card(plan, snap)
             left[id(card)] = snap.object_id
             watchers += [((card, ch, i, d), entered.get(snap.object_id, -big), e.batch)
-                         for i, d in abilities(plan, ch, "event") if d.get("cond") and not arrives_in_graveyard(d) and not d.get("gy_watch")]
-    # (-- graveyard triggers (wave 19C) -- a ``gy_watch`` ability works from the graveyard only and sees the events after the card got there:
-    # not the one that put it there (603.10a: before it, it wasn't in the graveyard), nor its own death as a permanent)
-    watchers += [(w, entered.get(plan.oid(w[0]), -big) + (1 if w[3].get("gy_watch") else 0), big) for w in _event_watchers(plan)]
+                         for i, d in abilities(plan, ch, "event") if d.get("cond") and not arrives_in_graveyard(d) and not gy_sees_others(d)]
+    # (-- graveyard triggers (wave 19C) -- an ability of a card in the graveyard about another object's leaving sees the events after the
+    # card got there: not the one that put it there (603.10a: before it, it wasn't in the graveyard), nor its own death as a permanent)
+    watchers += [(w, entered.get(plan.oid(w[0]), -big) + (1 if gy_sees_others(w[3]) else 0), big) for w in _event_watchers(plan)]
     for e in events:
         if e.manual:
             continue
@@ -1105,6 +1105,16 @@ def graveyard_ability(d: dict[str, Any]) -> bool:
 
 
 IN_GRAVEYARD = {"object": "self", "test": "in_graveyard"}
+_GY_OTHERS = ("die", "leave", "sacrifice", "leave_graveyard")
+_SELFISH = ("self", "self_or", "host", "self_or_host")
+
+
+def gy_sees_others(d: dict[str, Any]) -> bool:
+    """-- graveyard triggers (wave 19C) -- a graveyard ability about *another* object leaving the battlefield or a graveyard ("Whenever a
+    creature you control dies while this card is in your graveyard", "Whenever another creature is put into your graveyard from the
+    battlefield, … return this card from your graveyard …"; recover): not the card's own leaving, and it works from the graveyard only."""
+    cond = d.get("cond") or {}
+    return bool(d.get("gy_watch")) or (graveyard_ability(d) and cond.get("event") in _GY_OTHERS and cond.get("subject") not in _SELFISH)
 
 
 def arrives_in_graveyard(d: dict[str, Any]) -> bool:
@@ -1134,8 +1144,8 @@ def graveyard_trigger_ok(d: dict[str, Any]) -> bool:
     event (603.10a: a card arriving in the graveyard with the event would have to be told apart),
     nor one about this object or the permanent it was attached to (they left the battlefield)."""
     trigger = str(d.get("trigger"))
-    if d.get("gy_watch"):  # -- casting extras (wave 18E) -- recover 702.59a: the card is already in the graveyard when the creature dies (no look-back)
-        return d.get("kind") == "triggered"
+    if gy_sees_others(d):  # -- casting extras (wave 18E) -- recover 702.59a: the card is already in the graveyard when the creature dies (no look-back)
+        return d.get("kind") == "triggered"  # (wave 19C: and the other graveyard abilities about another object's leaving)
     if d.get("kind") != "triggered" or not (trigger in _GY_TRIGGERS or trigger.startswith("step:")):
         return False
     cond = d.get("cond") or {}

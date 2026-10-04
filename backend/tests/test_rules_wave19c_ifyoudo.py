@@ -77,8 +77,10 @@ EXTRA = [
          oracle_text='Whenever a creature you control dies while this card is in your graveyard, you may pay {1}{W}. If you do, return this card from your graveyard to your hand.', power='3', toughness='1', colors=['W'], color_identity=['W'], keywords=[]),
     card('Boneyard Scourge', set_code='tst', number='W71', mana_cost='{2}{B}{B}', cmc=4.0, type_line='Creature — Zombie Dragon',
          oracle_text='Flying\nWhenever a Dragon you control dies while this card is in your graveyard, you may pay {1}{B}. If you do, return this card from your graveyard to the battlefield.', power='4', toughness='3', colors=['B'], color_identity=['B'], keywords=['Flying']),
+    card('Nether Traitor', set_code='tst', number='W80', mana_cost='{B}{B}', cmc=2.0, type_line='Creature — Spirit',
+         oracle_text='Haste\nShadow (This creature can block or be blocked by only creatures with shadow.)\nWhenever another creature is put into your graveyard from the battlefield, you may pay {B}. If you do, return this card from your graveyard to the battlefield.', power='1', toughness='1', colors=['B'], color_identity=['B'], keywords=['Shadow', 'Haste']),
 ]
-FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor', 'Gigapede', 'Blood Operative', 'Pyrewild Shaman', 'Ichorid', 'Furious Forebear', 'Boneyard Scourge']
+FULL = ['Dark Depths', 'Mazemind Tome', 'Kess, Dissident Mage', 'Scholar of the Lost Trove', 'Evie Frye', 'Teo, Spirited Glider', 'Celeborn the Wise', 'Fanatic of the Harrowing', "Talion's Messenger", 'Master of Death', 'Genesis', 'Pyre Zombie', 'Ghastly Remains', 'Overwhelming Forces', 'Rain of Daggers', 'Baral, Chief of Compliance', 'Lullmage Mentor', 'Gigapede', 'Blood Operative', 'Pyrewild Shaman', 'Ichorid', 'Furious Forebear', 'Boneyard Scourge', 'Nether Traitor']
 # --EXTRA-END--
 
 
@@ -488,4 +490,37 @@ def test_furious_forebear_sees_a_creature_die_only_after_it_is_in_the_graveyard(
         assert s.state.cards[forebear.id].zone == "p2:hand"
     else:
         assert asked is None and s.state.cards[forebear.id].zone == "p2:graveyard"  # both died together: it never triggers
+    roundtrip(s)
+
+
+@pytest.mark.parametrize("whose", ["p1", "p2"])
+def test_nether_traitor_returns_when_another_creature_goes_to_your_graveyard(cards, whose):
+    """"Whenever another creature is put into your graveyard from the battlefield, you may pay {B}. If you do, return this card from
+    your graveyard to the battlefield." — only a creature that goes to its owner's (Alice's) graveyard."""
+    s = build(cards, p1=("Nether Traitor", "Llanowar Elves", "Lightning Bolt"), p2=("Llanowar Elves",))
+    traitor = to_zone(s, find(s, "Nether Traitor"), "graveyard")
+    elves = to_zone(s, find(s, "Llanowar Elves", whose), "battlefield")
+    bolt = to_hand(s, "Lightning Bolt")
+    add_mana(s, "p1", R=1, B=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[elves.id])
+    asked = None
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None and {o.id for o in d.options} >= {"pay", "decline"}:
+            asked = d
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    if whose == "p1":
+        assert asked is not None and asked.player == "p1"
+        roundtrip(s)
+        pick(s, "pay")
+        play_out(s)
+        assert s.state.cards[traitor.id].zone == "p1:battlefield"
+    else:
+        assert asked is None and s.state.cards[traitor.id].zone == "p1:graveyard"  # Bob's creature went to Bob's graveyard
     roundtrip(s)
