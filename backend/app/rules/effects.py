@@ -163,6 +163,12 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
         return [c for c in (record.exiled if record is not None else []) if c in plan.state.cards
                 and plan.state.cards[c].zone.endswith(":exile")]
+    if who == "cost_exiled_self":  # -- casting extras (wave 18E) -- craft 702.167a: the source itself, exiled as part of the cost
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        src = ctx.get("source_card")
+        return [src] if record is not None and src in record.exiled and src in plan.state.cards \
+            and plan.state.cards[src].zone.endswith(":exile") else []
     if who == "self_gy":  # -- reanimation (wave 3R) -- "return this card from your graveyard": the source, only
         # while it is still the same object in a graveyard (400.7)
         src = plan.state.cards.get(ctx.get("source_card") or "")

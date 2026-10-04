@@ -176,6 +176,9 @@ _WATCH_LINE = re.compile(r"^(?:Whenever .+? this turn, |When you next cast .+? t
                          r"|When (?:target|that) [^,]+? (?:dies|leaves the battlefield) this turn, )")  # -- turn watches (wave 7D; 16D: "When target creature dies this turn,") --
 
 
+CRAFT_FROM = " from among permanents you control and/or cards in your graveyard"  # -- casting extras (wave 18E) -- 702.167a
+
+
 def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], str | None]:
     if _MANA_ABILITY.match(line):
         return "mana", (), "{T}"
@@ -212,7 +215,7 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
             return "activated", (), cost
     if ":" in line:
         cost = line.split(":", 1)[0]
-        if _COST_START.match(cost) and len(cost) < 120:
+        if _COST_START.match(cost) and len(cost.replace(CRAFT_FROM, "")) < 120:  # (wave 18E: craft's materials parts are long)
             return "activated", (), cost
     if kws is not None:  # keyword with a cost after a colon, e.g. "Equip: {2}" style oddities
         return "keywords", kws, None
@@ -302,6 +305,16 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         # card as an additional cost to cast it." (a permission with an additional cost, 601.2b: permissions.SELF_GY_BY)
         if line == "Retrace":
             line = "You may cast this card from your graveyard by discarding a land card in addition to paying its other costs."
+        # -- keyword meanings (wave 18E) -- 702.167a: "Craft with [materials] [cost]" means "[Cost], Exile this permanent, Exile [materials]
+        # from among permanents you control and/or cards in your graveyard: Return this card to the battlefield transformed under its
+        # owner's control. Activate only as a sorcery." (one cost part for each material description, costs._CRAFT)
+        if (m := re.fullmatch(r"Craft with (?P<mats>.+?) (?P<cost>(?:\{[^}]+\})+)", line)) and not spell:
+            pieces = re.split(r", (?:and )?", m["mats"]) if re.match(r"(?:a|an) ", m["mats"]) else [m["mats"]]
+            pieces = [p if re.match(r"(?:a|an|one|two|three|four|five|six|seven|\d+) ", p) or p == "one or more"
+                      else ("an " if p[:1].lower() in "aeiou" else "a ") + p for p in pieces]
+            exiles = ", ".join(f"Exile {p}{CRAFT_FROM}" for p in pieces)
+            line = (f"{m['cost']}, Exile this permanent, {exiles}: Return this card to the battlefield transformed under its owner's "
+                    "control. Activate only as a sorcery.")
         # -- keyword meanings (wave 12B) -- 702.97a: "Scavenge [cost]" means "[Cost], Exile this card from your graveyard: Put a
         # number of +1/+1 counters equal to the power of the card you exiled on target creature. Activate only as a sorcery."
         if m := re.fullmatch(r"Scavenge ((?:\{[^}]+\})+)", line):

@@ -51,6 +51,15 @@ EXTRA = [
                      {"name": "Luminous Phantom", "mana_cost": "", "type_line": "Creature — Spirit Cleric", "power": "1", "toughness": "1",
                       "colors": ["W"], "oracle_text": "Flying\nWhenever another creature you control leaves the battlefield, you gain 1 life.\n"
                       "If Luminous Phantom would be put into a graveyard from anywhere, exile it instead."}]),
+    card("Idol of the Deep King // Sovereign's Macuahuitl", set_code="tst", number="D11", layout="transform", mana_cost="{2}{R}", cmc=3.0,
+         type_line="Artifact // Artifact — Equipment", colors=["R"], color_identity=["R"], image_uris=None,
+         keywords=["Craft", "Transform", "Equip", "Flash"],
+         card_faces=[{"name": "Idol of the Deep King", "mana_cost": "{2}{R}", "type_line": "Artifact", "colors": ["R"],
+                      "oracle_text": "Flash\nCraft with artifact {2}{R} ({2}{R}, Exile this artifact, Exile another artifact you control or an "
+                      "artifact card from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)"},
+                     {"name": "Sovereign's Macuahuitl", "mana_cost": "", "type_line": "Artifact — Equipment", "colors": ["R"],
+                      "oracle_text": "Equipped creature gets +2/+0.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a "
+                      "sorcery.)"}]),
     card("Test Relic", set_code="tst", number="D02", mana_cost="{2}", cmc=2.0, type_line="Artifact", oracle_text=""),
 ]
 
@@ -204,4 +213,22 @@ def test_disturb_casts_the_back_face_from_the_graveyard(cards):
     from tests.test_rules_attachments import ch
 
     assert ch(s, now).name == "Luminous Phantom" and "flying" in ch(s, now).keywords
+    roundtrip(s)
+
+
+def test_craft_exiles_the_materials_and_returns_the_card_transformed(cards):
+    name = "Idol of the Deep King // Sovereign's Macuahuitl"
+    s = build(cards, p1=(name, "Test Relic", "Test Relic"))
+    idol = put(s, name, "battlefield")
+    relics = [c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Test Relic"]
+    on_table = put(s, "Test Relic", "battlefield")
+    in_yard = next(c for c in relics if c.id != on_table.id)
+    act(s, "p1", type="move", card_ids=[in_yard.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, R=1, C=2)
+    # 702.167a: the materials are an artifact you control or an artifact card in your graveyard (702.167b); the source can't be one
+    act(s, "p1", type="activate_ability", card_id=idol.id, ability=1, cost_choices=[{"component": 2, "cards": [in_yard.id]}])
+    answer(s)
+    assert s.state.cards[in_yard.id].zone == "p1:exile" and s.state.cards[on_table.id].zone == "p1:battlefield"
+    back = s.state.cards[idol.id]
+    assert back.zone == "p1:battlefield" and back.face == 1  # returned transformed
     roundtrip(s)

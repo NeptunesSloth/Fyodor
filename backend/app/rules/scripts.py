@@ -5069,6 +5069,15 @@ def _token_copy(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return found
 
 
+# -- casting extras (wave 18E) -- 702.167a craft: "Return this card to the battlefield transformed under its owner's control" (the card
+# the cost exiled: effects._cards "cost_exiled_self")
+@_first
+@effect(r"return this card to the battlefield transformed under its owner's control")
+def _craft_return(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    return [{"do": "return_card", "who": "cost_exiled_self", "to": "battlefield", "tapped": False, "under": "owner",
+             "transformed": True}], None
+
+
 # -- casting extras (wave 18E) -- 702.141a encore: one token copy for each opponent (one creation event), each attacking its opponent
 @_first
 @effect(r"for each opponent, create a token that's a copy of the card exiled to activate this ability that attacks that opponent "
