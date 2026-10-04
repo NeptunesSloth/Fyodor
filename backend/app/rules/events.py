@@ -721,6 +721,16 @@ def _object_event(c: str) -> Condition | None:
                 **({"min": _count(m["min"])} if m["min"] else {}),
                 "ctl": {" you control": "you", " an opponent controls": "opponent"}.get(m["ctl"] or "", "any"),
                 "combat": {"combat ": True, "noncombat ": False}.get(m["c"] or "")}
+    # -- trigger tail (wave 15B) -- "Whenever ~ deals damage to a Vampire": a creature of that type (120.1), as it last existed
+    m = re.fullmatch(r"(?P<head>.+? deals? (?:(?:combat|noncombat) )?damage) to an? (?P<ty>[A-Z][\w-]+(?: or [A-Z][\w-]+)?)", c)
+    if m:
+        from app.rules.creature_types import CREATURE_TYPES
+
+        types = m["ty"].split(" or ")
+        inner = _parse(f"{m['head']} to a creature")
+        if inner is None or not all(t in CREATURE_TYPES for t in types):
+            raise _Refuse
+        return {**inner, "to_types": types}
     m = re.fullmatch(rf"(?P<s>.+?) deals? (?:(?P<min>\w+) or more )?(?P<c>combat |noncombat )?damage(?P<to>{_DAMAGE_TO_RE}|)", c)
     # (combat damage to a player / an opponent and damage to an opponent: the verbs below)
     if m and not (m["to"] == " to an opponent" and m["c"] != "noncombat ") and \

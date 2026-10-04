@@ -239,6 +239,24 @@ def test_enters_and_at_the_beginning_of_your_upkeep_is_one_ability_with_two_cond
     check(s)
 
 
+def test_deals_damage_to_a_vampire_destroys_that_creature(cards):
+    # 120.1: only a creature of that type, as it last existed; a Wolf blocker is dealt damage and stays
+    from tests.test_rules_combat import attack, automate, block, creature, table
+
+    for kind, survives in (("Vampire", False), ("Wolf", True)):
+        s = table(cards)
+        slayer = creature(s, "p1", "Slayer", "2/2", "Whenever this creature deals damage to a Vampire, destroy that creature.")
+        act(s, "p2", type="create_token", player="p2", token={"name": "Foe", "type_line": f"Token Creature — {kind}",
+                                                              "power": "0", "toughness": "5", "text": ""})
+        foe = next(c for c in s.state.cards.values() if c.name == "Foe")
+        automate(s)
+        attack(s, (slayer, "p2"))
+        block(s, "p2", (foe, slayer))
+        answer(s)
+        assert (foe.id in s.state.cards and s.state.cards[foe.id].zone == "p2:battlefield") == survives
+        check(s)
+
+
 def test_cast_trigger_of_the_combined_ability_destroys_and_gives_a_powerstone(cards):
     s = build(cards, ["Cityscape Leveler"], ["Grizzly Bears"])
     put(s, "Grizzly Bears", "p2")
