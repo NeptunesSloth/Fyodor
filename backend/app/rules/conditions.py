@@ -999,7 +999,7 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
     fails the test (608.2b: a part that needs the information can't be carried out)."""
     who = cond["object"]
     if "test" in cond and who == "self":
-        return _self_state(plan, ctx, cond["test"])
+        return _self_state(plan, ctx, cond["test"]) != bool(cond.get("negate"))  # (wave 16C: "it wasn't blocking", bound to the source)
     got = values._object(plan, ctx, who)
     if "test" in cond:  # -- trigger tail (wave 16C) -- 608.2h: the object's physical state as it is while it's still on the battlefield, else
         card = got[0] if got is not None else None  # as it last existed there (the snapshot taken as it left); not found: fails

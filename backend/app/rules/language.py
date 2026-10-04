@@ -1081,7 +1081,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # starting life total, rounded up." (The Endstone): the player gains or loses the difference (effects.set_life)
     m = re.fullmatch(r"(?P<s>target player's|your) life total becomes (?P<n>\d+|half your starting life total, rounded up)", text)
     if m and rider is None:
-        n: Any = "half_start" if m["n"][0] == "h" else int(m["n"])
+        n = "half_start" if m["n"][0] == "h" else int(m["n"])
         if m["s"] == "your":
             return [{"do": "set_life", "who": "you", "n": n}], None
         return [{"do": "set_life", "who": "target", "n": n}], _LEGACY_TARGETS["target player"]
@@ -1137,7 +1137,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "sacrifice_choice", "who": who, "sel": sel.key(), "n": _amount(m["n"])}], target
     # -- trigger tail (wave 16C) -- "Exile a land you control." (Wormfang Newt, Turtle): you choose it as this resolves (608.2d),
     # then it's exiled (no sacrifice, 701.21a: sacrificing is putting into a graveyard); linked for "the exiled card" (607.2a)
-    m = re.fullmatch(rf"exile (?P<n>a|an|one|two|three) (?P<sel>[a-z -]+? you control)", text)
+    m = re.fullmatch(r"exile (?P<n>a|an|one|two|three) (?P<sel>[a-z -]+? you control)", text)
     if m and rider is None:
         sel = selectors.parse(m["sel"])
         if sel is None or sel.player is not None or sel.controller != "you" or sel.zones != ("battlefield",):

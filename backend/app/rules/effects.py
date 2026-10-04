@@ -301,7 +301,7 @@ def set_life(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         want = -(-start // 2) if e["n"] == "half_start" else _amount(plan, ctx, e["n"])  # (107.1a: rounded up)
         diff = want - plan.state.players[pid].life
         if diff < 0:
-            plan.do({"type": "life", "player": pid, "delta": diff}, actor=ctx["controller"])
+            plan.do({"type": "life", "player": pid, "delta": -abs(diff)}, actor=ctx["controller"])
         elif diff > 0:
             if (why := cant_gain.why_not(plan, pid)) is not None:
                 plan.note(f"{why}: the life total doesn't change", actor=ctx["controller"])

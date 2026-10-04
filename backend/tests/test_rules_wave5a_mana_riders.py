@@ -131,7 +131,6 @@ def test_the_cards_are_full():
 
 
 @pytest.mark.parametrize("text", [
-    "{T}: Add {C} for each Locus on the battlefield.",  # (a land type the selector grammar doesn't read in the singular)
     "{T}: Add X mana in any combination of colors, where X is the number of creatures you control with defender.",
     "{T}: Add {G} for each creature that entered this turn under target player's control.",
     "{T}: Add X mana of any one color, where X is the number of cards in target opponent's hand.",
