@@ -95,6 +95,21 @@ EXTRA = [
     real('Titania, Proud Pummeler', '{3}{R}', 4, 'Legendary Creature — Human Villain',
          'First strike\nMelee (Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)\nOther creatures you control have melee.',
          ('3', '3'), 'R'),
+    real('Proud Wildbonder', '{2}{R/G}{R/G}', 4, 'Creature — Human Warrior',
+         'Trample\nCreatures you control with trample have "You may have this creature assign its combat damage as though it weren\'t blocked."',
+         ('4', '3'), 'GR'),
+    real('Luminescent Rain', '{2}{G}', 3, 'Instant',
+         'Choose a creature type. You gain 2 life for each permanent you control of that type.',
+         None, 'G'),
+    real('Riptide Shapeshifter', '{3}{U}{U}', 5, 'Creature — Shapeshifter',
+         '{2}{U}{U}, Sacrifice this creature: Choose a creature type. Reveal cards from the top of your library until you reveal a creature card of that type. Put that card onto the battlefield and shuffle the rest into your library.',
+         ('3', '3'), 'U'),
+    real("Kamahl's Will", '{3}{G}', 4, 'Instant',
+         "Choose one. If you control a commander as you cast this spell, you may choose both instead.\n• Until end of turn, any number of target lands you control become 1/1 Elemental creatures with vigilance, indestructible, and haste. They're still lands.\n• Choose target creature you don't control. Each creature you control deals damage equal to its power to that creature.",
+         None, 'G'),
+    real('Ovinize', '{1}{U}', 2, 'Instant',
+         'Until end of turn, target creature loses all abilities and has base power and toughness 0/1.',
+         None, 'U'),
 ]
 FULL = [e["name"] for e in EXTRA]
 
@@ -325,9 +340,9 @@ def test_eddymurk_crab_enters_tapped_only_when_it_is_not_your_turn(cards):
     roundtrip(s)
 
 
-def blocked_combat(cards, answer):
-    s = build(cards, "Wolverine, Claws Out")
-    wolverine = on_field(s, "Wolverine, Claws Out")
+def blocked_combat(cards, answer, name="Wolverine, Claws Out", *others):
+    s = build(cards, name, *others)
+    wolverine = on_field(s, name)
     s.state.rules.controlled_since[wolverine.id].turn = 0
     wall = creature(s, "p2", "Wall", "0/4", type_line="Token Creature — Wall")
     while s.state.rules.decision is None or s.state.rules.decision.kind != "declare_attackers":
@@ -374,3 +389,61 @@ def test_groups_you_control_get_keywords_and_bonuses(cards):
     rebel = next(c for c in s.state.cards.values() if c.name == "Rebel" and c.zone == "p1:battlefield")
     assert now(s, rebel).pt == (3, 2) and "flying" in now(s, rebel).keywords and now(s, plain).pt == (2, 2)  # (only the equipped one)
     roundtrip(s)
+
+
+def test_a_granted_as_though_it_weren_t_blocked_works_too(cards):
+    s, wall = blocked_combat(cards, "yes", "Proud Wildbonder")
+    assert s.state.players["p2"].life == 40 - 4 and s.state.cards[wall.id].damage == 0  # (Wildbonder has trample: the granted ability)
+    roundtrip(s)
+
+
+def pick_option(s, label):
+    d = s.state.rules.decision
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == label)])
+
+
+def test_luminescent_rain_counts_the_permanents_of_the_chosen_type(cards):
+    s = build(cards, "Luminescent Rain")
+    for n in ("Elf A", "Elf B"):
+        creature(s, "p1", n, "1/1", type_line="Token Creature — Elf")
+    creature(s, "p1", "Goblin", "1/1", type_line="Token Creature — Goblin")
+    c = to_hand(s, "Luminescent Rain")
+    mana(s, G=3)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    for _ in range(10):
+        if s.state.rules.decision is not None:
+            pick_option(s, "Elf")
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.players["p1"].life == 40 + 4
+    roundtrip(s)
+
+
+def test_riptide_shapeshifter_puts_the_first_creature_of_the_chosen_type_onto_the_battlefield(cards):
+    s = build(cards, "Riptide Shapeshifter", "Grizzly Bears")
+    shifter = on_field(s, "Riptide Shapeshifter")
+    s.state.rules.controlled_since[shifter.id].turn = 0
+    mana(s, U=4)
+    act(s, "p1", type="activate_ability", card_id=shifter.id, ability=0)
+    for _ in range(10):
+        if s.state.rules.decision is not None:
+            pick_option(s, "Bear")
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert any(c.name == "Grizzly Bears" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    assert s.state.cards[shifter.id].zone != "p1:battlefield"
+    roundtrip(s)
+
+
+def test_ovinize_takes_the_abilities_and_sets_the_base_pt_of_one_creature(cards):
+    s = build(cards, "Ovinize")
+    flyer = creature(s, "p2", "Flyer", "3/3", text="Flying")
+    cast(s, "Ovinize", flyer.id, U=2)
+    assert now(s, flyer).pt == (0, 1) and "flying" not in now(s, flyer).keywords
+    roundtrip(s)
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")
+    assert now(s, flyer, "p2").pt == (3, 3) and "flying" in now(s, flyer, "p2").keywords
