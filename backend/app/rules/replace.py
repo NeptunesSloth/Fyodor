@@ -1504,6 +1504,7 @@ class DamageOutcome:
     walkers: dict[str, int] = field(default_factory=dict)  # loyalty removed (120.3c)
     battles: dict[str, int] = field(default_factory=dict)  # defense removed (120.3h)
     wither: dict[str, int] = field(default_factory=dict)  # -1/-1 counters put (120.3d), after their replacements
+    wither_by: dict[str, dict[str, int]] = field(default_factory=dict)  # (wave 17D) ... by the player who puts them (120.3d)
     poison: dict[str, int] = field(default_factory=dict)  # poison counters (120.3b, 702.164c), after their replacements
     lifelink: dict[str, int] = field(default_factory=dict)  # life gained per source (702.15e), after its replacements
     losses: list[tuple[str, int]] = field(default_factory=list)  # a lifelink gain replaced by a loss (Tainted Remedy)
@@ -1580,6 +1581,8 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
                         out.poison[f["player"]] = out.poison.get(f["player"], 0) + f["n"]
                     else:
                         out.wither[f["card"]] = out.wither.get(f["card"], 0) + f["n"]
+                        mine = out.wither_by.setdefault(f["card"], {})
+                        mine[by] = mine.get(by, 0) + f["n"]
     if gains:
         who = []
         for key, n in gains.items():
@@ -1626,7 +1629,7 @@ def do_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, extra
         if pid in plan.state.players:
             plan.rules.damaged[pid] = plan.state.turn.number
     plan.do({"type": "rules_damage", "creatures": out.creatures, "players": out.players, "poison": out.poison,
-             "wither": out.wither, "planeswalkers": out.walkers, "lifelink": out.lifelink, "combat": combat, "dealt": dealt,
+             "wither": out.wither, "wither_by": out.wither_by, "planeswalkers": out.walkers, "lifelink": out.lifelink, "combat": combat, "dealt": dealt,
              **(extra or {})}, actor=actor)
     for key, n in out.battles.items():
         have = plan.state.cards[key].counters.get("defense", 0) if key in plan.state.cards else 0

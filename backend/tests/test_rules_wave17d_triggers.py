@@ -67,12 +67,16 @@ EXTRA = [
     real("Test Solring", "{1}", 1, "Artifact", "{T}: Add {C}{C}.", None),
     real('Brimaz, King of Oreskos', '{1}{W}{W}', 3, 'Legendary Creature — Cat Soldier',
          "Vigilance\nWhenever Brimaz attacks, create a 1/1 white Cat Soldier creature token with vigilance that's attacking.\nWhenever Brimaz blocks a creature, create a 1/1 white Cat Soldier creature token with vigilance that's blocking that creature.", ("3", "4"), 'W'),
+    real('Hapatra, Vizier of Poisons', '{B}{G}', 2, 'Legendary Creature — Human Cleric',
+         'Whenever Hapatra deals combat damage to a player, you may put a -1/-1 counter on target creature.\nWhenever you put one or more -1/-1 counters on a creature, create a 1/1 green Snake creature token with deathtouch.', ("2", "2"), 'BG'),
+    real('Nest of Scarabs', '{2}{B}', 3, 'Enchantment',
+         'Whenever you put one or more -1/-1 counters on a creature, create that many 1/1 black Insect creature tokens.', None, 'B'),
     real("Test Bounce", "{U}", 1, "Sorcery", "Return target creature to its owner's hand.", None, "U"),
     real("Test Burst", "{R}", 1, "Instant", "Test Burst deals 1 damage to any target.", None, "R"),
 ]
 
 NAMES = ["Torens, Fist of the Angels", "Dour Port-Mage", "Glowing One", "Screeching Scorchbeast", "Staff of the Death Magus",
-         "Rug of Smothering", "Path of Discovery", "Necropotence", "Prosperous Thief", "Forsaken Monument", "Parhelion II",
+         "Rug of Smothering", "Hapatra, Vizier of Poisons", "Nest of Scarabs", "Path of Discovery", "Necropotence", "Prosperous Thief", "Forsaken Monument", "Parhelion II",
          "Poetic Ingenuity", "Scytheclaw Raptor", "Price of Glory"]
 
 
@@ -289,4 +293,37 @@ def test_land_tapped_out_of_turn_is_destroyed(cards):
     act(s, "p2", type="activate_ability", card_id=theirs.id, ability=0)
     answer(s)
     assert s.state.cards[theirs.id].zone == "p2:graveyard"
+    check(s)
+
+
+def block(s, blocker, attacker, pid="p2"):
+    act(s, pid, type="declare_blockers", blocks=[{"blocker_id": blocker.id, "attacker_id": attacker.id}])
+
+
+def test_wither_counters_are_put_by_the_sources_controller(cards):
+    # 120.3d: Alice's wither creature deals damage to Bob's blocker, so Alice puts the -1/-1 counters (Nest: that many Insects, once
+    # for the batch); Bob's wither blocker damaging Alice's attacker is Bob putting them, which Alice's Nest does not see
+    s = combat_build(cards, "Nest of Scarabs")
+    combat_put(s, "Nest of Scarabs")
+    viper = token_of(s, "p1", "Viper", "Token Creature — Snake", "2/2", "Wither\nHaste")
+    wall = next(c for c in s.state.cards.values() if c.name == "Wall p2")
+    to_attack(s)
+    declare(s, (viper, "p2"))
+    to_blocks(s)
+    block(s, wall, viper)
+    through_combat(s)
+    assert s.state.cards[wall.id].counters.get("-1/-1") == 2
+    assert sum(1 for c in s.state.cards.values() if c.name == "Insect" and c.zone == "p1:battlefield") == 2
+    check(s)
+    s = combat_build(cards, "Nest of Scarabs")
+    combat_put(s, "Nest of Scarabs")
+    ogre = token_of(s, "p1", "Ogre", "Token Creature — Ogre", "2/2", "Haste")
+    sting = token_of(s, "p2", "Stinger", "Token Creature — Insect", "1/4", "Wither")
+    to_attack(s)
+    declare(s, (ogre, "p2"))
+    to_blocks(s)
+    block(s, sting, ogre)
+    through_combat(s)
+    assert s.state.cards[ogre.id].counters.get("-1/-1") == 1
+    assert not any(c.name == "Insect" for c in s.state.cards.values()), [(c.name, c.zone) for c in s.state.cards.values() if c.name == "Insect"]
     check(s)

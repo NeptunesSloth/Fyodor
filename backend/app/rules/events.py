@@ -727,7 +727,7 @@ def _object_event(c: str) -> Condition | None:
     # "one or more +1/+1 counters are put on ~", "a +1/+1 counter is put on a creature you control"
     # -- counters (wave 5H) -- "you put one or more +1/+1 counters on a creature you control" (122.6, 122.6a: the player
     # who put them — the step's actor at the counter choke point). Only +1/+1 counters: -1/-1 counters dealt as damage
-    # (wither, infect: 120.3d) are put by each source's controller, which one damage step doesn't record; and "counters"
+    # (wither, infect: 120.3d: wave 17D records the source controller who puts them); and "counters"
     # of any kind put at once land in one step per kind (one trigger per step, not per event): both refused.
     # -- counters (wave 7C) -- also "a counter" / "a +1/+1 counter", counters of any kind, "an opponent puts one or more
     # counters on a creature they control", and subjects like "a creature you don't control" / "one or more other Heroes"
@@ -737,8 +737,8 @@ def _object_event(c: str) -> Condition | None:
         if m["p"] == "an opponent" and not own:
             raise _Refuse
         base = _subject(m["s"][: -len(" they control")] if own else m["s"], many=True)
-        if base is None or m["k"] in ("-1/-1", "counters") or (m["k"] and m["k"] not in _PLAIN_COUNTERS and
-                                                                 m["k"] != "+1/+1"):
+        if base is None or m["k"] == "counters" or (m["k"] and m["k"] not in _PLAIN_COUNTERS and
+                                                                 m["k"] not in ("+1/+1", "-1/-1")):
             raise _Refuse
         return {**base, "event": "counters_put", **({"counter": m["k"]} if m["k"] else {}),
                 "by": "you" if m["p"] == "you" else "opponent", **({"own": True} if own else {})}
