@@ -168,8 +168,11 @@ Still manual on purpose (each has its reason in code, mostly `coverage.REFUSED`,
   and the normal entry path. Refused (manual): mutating onto a face-down, double-faced, flip, copy, melded or copied-over permanent or
   with a token / copy spell, a second commander in one pile, copies of a merged or melded permanent or of a mutating spell,
   "cast from your graveyard using its mutate ability" (Brokkos), Mishra, Claimed by Gix (enters tapped and attacking), The Meld Hound,
-  Pollywog Symbiote, Surgeon General Commander ("augment"). The order of a pile's cards in a graveyard / library is the pile's (730.3a
-  lets the owner arrange them: not asked).
+  Pollywog Symbiote, Surgeon General Commander ("augment"). A pile leaving is one permanent leaving (one leave / dies
+  trigger); each other card gets its own zone-change event "from the battlefield" with no old object (`rules_state._diff`), so
+  "put into a graveyard from anywhere" sees every card, and `merged.pieces` / `triggers.pile_refs` make "return it", blink, "exile
+  until" and exiled-with find all of them (730.3c). Put on top / bottom of its owner's library by `to_library`, the owner orders the
+  cards (730.3a); in a graveyard (and among several cards ordered together) the order is the pile's.
 - **Ability-word flavor prefixes**: the deny list of rules-bearing "Name —" prefixes in
   `oracle.word_prefix` is maintained by hand; add new mechanics to it.
 
