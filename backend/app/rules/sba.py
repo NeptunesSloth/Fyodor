@@ -196,6 +196,9 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
                resume={"step": "sba_confirm", "fingerprint": fingerprint})
         return True
     happened = bool(found.vanishing)
+    from app.rules import designations  # -- keywords (wave 15E) -- 702.131b: ascend, any time
+
+    happened = designations.ascend_permanents(plan) or happened
     for pid, reason in found.losers:
         r.lost[pid] = reason
         plan.note(f"{state.players[pid].name} loses the game ({reason})")

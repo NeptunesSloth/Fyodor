@@ -29,6 +29,8 @@ EXTRA = [
     card('Blastoderm', set_code='tst', number='X10', mana_cost='{2}{G}{G}', cmc=4.0, type_line='Creature — Beast', oracle_text="Shroud (This creature can't be the target of spells or abilities.)\nFading 3 (This creature enters with three fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Shroud', 'Fading']),  # noqa: E501
     card('Calciderm', set_code='tst', number='X11', mana_cost='{2}{W}{W}', cmc=4.0, type_line='Creature — Beast', oracle_text="Shroud (This creature can't be the target of spells or abilities.)\nVanishing 4 (This creature enters with four time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)", power='5', toughness='5', colors=['W'], color_identity=['W'], keywords=['Shroud', 'Vanishing']),  # noqa: E501
     card('Hyena Umbra', set_code='tst', number='X12', mana_cost='{W}', cmc=1.0, type_line='Enchantment — Aura', oracle_text='Enchant creature\nEnchanted creature gets +1/+1 and has first strike.\nUmbra armor (If enchanted creature would be destroyed, instead remove all damage from it and destroy this Aura.)', power=None, toughness=None, colors=['W'], color_identity=['W'], keywords=['Enchant', 'Umbra armor']),  # noqa: E501
+    card('Wayward Swordtooth', set_code='tst', number='X13', mana_cost='{2}{G}', cmc=3.0, type_line='Creature — Dinosaur', oracle_text="Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nYou may play an additional land on each of your turns.\nThis creature can't attack or block unless you have the city's blessing.", power='5', toughness='5', colors=['G'], color_identity=['G'], keywords=['Ascend']),  # noqa: E501
+    card('Secrets of the Golden City', set_code='tst', number='X14', mana_cost='{1}{U}{U}', cmc=3.0, type_line='Sorcery', oracle_text="Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nDraw two cards. If you have the city's blessing, draw three cards instead.", power=None, toughness=None, colors=['U'], color_identity=['U'], keywords=['Ascend']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -282,4 +284,31 @@ def test_umbra_armor_saves_the_creature_and_destroys_the_aura(cards):
     settle(s)
     assert s.state.cards[bear.id].zone == "p1:battlefield" and s.state.cards[bear.id].damage == 0  # 702.89a
     assert s.state.cards[umbra.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_ascend_permanent_gives_the_blessing_at_ten_permanents(cards):
+    s = build(cards, "Wayward Swordtooth")
+    for i in range(9):
+        token_of(s, "p1", f"T{i}", "Token Creature — Rock", "0/1")
+    assert not s.state.players["p1"].city_blessing
+    dino = to_hand(s, "Wayward Swordtooth")
+    mana(s, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=dino.id)  # the tenth permanent
+    settle(s)
+    assert s.state.players["p1"].city_blessing  # 702.131b
+    check(s)
+
+
+def test_ascend_sorcery_counts_before_the_draw(cards):
+    s = build(cards, "Secrets of the Golden City")
+    for i in range(10):
+        token_of(s, "p1", f"T{i}", "Token Creature — Rock", "0/1")
+    spell = to_hand(s, "Secrets of the Golden City")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, U=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    settle(s)
+    assert s.state.players["p1"].city_blessing  # 702.131a
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + 3  # the card is cast; three cards drawn instead of two
     check(s)

@@ -930,3 +930,30 @@ PRIMITIVES: dict[str, Any] = {"emblem": emblem, "rad": rad, "initiative": take_i
                               "reveal_drawn": reveal_drawn, "sacrifice_types": sacrifice_types, "pay_energy_any": pay_energy_any}
 RESUME: dict[str, Any] = {"venture": resume_venture, "room_by_hand": resume_room_by_hand, "ring_tempts": resume_ring_tempts,
                           "sacrifice_types": resume_sacrifice_types, "pay_energy_any": resume_pay_energy_any}
+
+
+# -- keywords (wave 15E) -- ascend (702.131): the city's blessing
+def city_blessing_due(plan: Plan, pid: str) -> bool:
+    """702.131a/b: a player who controls ten or more permanents and has no city's blessing gets it, from an Ascend spell
+    resolving or (702.131b: "any time") from a permanent with ascend they control."""
+    if plan.state.players[pid].city_blessing:
+        return False
+    return sum(1 for c in plan.state.cards.values() if c.controller == pid and c.zone.endswith(":battlefield")) >= 10
+
+
+def get_city_blessing(plan: Plan, pid: str) -> None:
+    plan.do({"type": "city_blessing", "player": pid, "value": True}, actor=pid)
+
+
+def ascend_permanents(plan: Plan) -> bool:
+    """Any time (checked with the state-based actions): the players with an ascend permanent and ten permanents get the blessing."""
+    happened = False
+    for pid in plan.live():
+        if not city_blessing_due(plan, pid):
+            continue
+        if any(c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c) and any(
+                ab.kind == "keywords" and "ascend" in ab.keywords for ab in plan.ch(c).abilities)
+               for c in plan.state.cards.values()):
+            get_city_blessing(plan, pid)
+            happened = True
+    return happened

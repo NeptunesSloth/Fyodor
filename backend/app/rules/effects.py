@@ -1213,6 +1213,16 @@ def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return False
 
 
+def ascend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- keywords (wave 15E) -- 702.131a: Ascend on an instant or sorcery: if you control ten or more permanents and you
+    don't have the city's blessing, you get it for the rest of the game."""
+    from app.rules import designations
+
+    if designations.city_blessing_due(plan, ctx["controller"]):
+        designations.get_city_blessing(plan, ctx["controller"])
+    return True
+
+
 def sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.21a: a player can't sacrifice a permanent they don't control ("sacrifice it" after the
     creature changed control does nothing to it). ``by`` "controller": "its controller sacrifices
@@ -1897,7 +1907,7 @@ PRIMITIVES = {
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
-    "sacrifice": sacrifice, "explore": explore, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,
+    "sacrifice": sacrifice, "ascend": ascend, "explore": explore, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
     "fabricate": fabricate, "storm": storm,
     "fight": fight, "choose_targets": choose_targets,
