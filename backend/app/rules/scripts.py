@@ -1961,7 +1961,7 @@ def _x_now() -> list[Any]:
     """[value, swapped?] while _where_x parses its stand-in sentence (empty otherwise)."""
     if not hasattr(_X_LOCAL, "v"):
         _X_LOCAL.v = []
-    return _X_LOCAL.v  # type: ignore[no-any-return]
+    return _X_LOCAL.v
 
 
 def _swap_x(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
