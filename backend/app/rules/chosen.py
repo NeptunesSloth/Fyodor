@@ -72,7 +72,6 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     """Whether every "of the chosen type / color" in this definition names a choice the engine knows (see above)."""
     if d.get("chosen_type") and _enters_choices(ch).count("creature type") != 1:
         return False  # (wave 11E: "~ is the chosen type in addition to its other types" needs that one choice)
-    import json
 
     dumped = json.dumps(d)
     if ('"hand": "chosen"' in dumped or '\\"controller\\":\\"chosen\\"' in dumped or '\\"zone_owner\\":\\"chosen\\"' in dumped) \
