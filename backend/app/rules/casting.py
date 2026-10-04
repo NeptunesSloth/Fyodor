@@ -31,7 +31,7 @@ from app.rules import mana as M
 from app.rules import payment as P
 from app.rules.activation_words import any_player  # -- activation wordings (wave 7B) --
 from app.rules.characteristics import CardInfo, Characteristics
-from app.rules import ninjutsu
+from app.rules import graveyard_keywords, ninjutsu
 from app.rules.costs import AbilityCost, kicker_cost, parse_ability_cost
 from app.rules.oracle import AbilityText
 from app.rules.plan import Plan, decide, require_no_decision, require_priority
@@ -2424,6 +2424,10 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
             _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
             activate_to_stack(plan, card, ch, ability, a)
             return
+        if unearth_cost is None and (gk := graveyard_keywords.ability(ch, a.ability)) is not None and not plan.manual(card):
+            _activation_limit(plan, card, ch)  # -- keywords (wave 15E) -- embalm / eternalize: activated from the graveyard
+            activate_to_stack(plan, card, ch, gk, a, definition=scripts.define(gk, ch))
+            return
         if unearth_cost is None:
             raise ActionError("That card has no ability to use from your graveyard")
         _activation_limit(plan, card, ch)  # -- cast limits (wave 5E) --
@@ -2809,6 +2813,11 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
     for cid in state.zones.get(zone_key(player, "graveyard"), []):  # 113.6m: "Exile this card from your graveyard: …"
         card = state.cards[cid]
         ch = chars.of(card, info)
+        for ab in ch.abilities:  # -- keywords (wave 15E) -- embalm / eternalize
+            if (gk := graveyard_keywords.ability(ch, ab.index)) is not None and ability_problem(
+                    state, player, card, ch, gk, ability_cost(ch, gk, state=state, card=card, info=info),
+                    check_priority=check_priority, info=info) is None:
+                out.append({"card_id": cid, "ability": ab.index})
         for ab in ch.abilities:
             if ab.kind == "activated" and ability_cost(ch, ab).from_graveyard and \
                     ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),  # (wave 4I)

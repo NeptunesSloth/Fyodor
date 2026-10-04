@@ -203,6 +203,7 @@ class CopyExcept(BaseModel):
     # -- token copies & attach on entry (wave 5J) -- "except it's a 4/4 black Zombie": its creature types are these
     # (205.1a: they replace the copied ones; other subtypes stay), changeling isn't copied (707.9d)
     set_creature_types: list[str] | None = None
+    no_mana_cost: bool = False  # -- keywords (wave 15E) -- "it has no mana cost" (embalm 702.128a, eternalize 702.129a): a copiable value
 
 
 class CopyRecipe(BaseModel):

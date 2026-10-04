@@ -39,6 +39,8 @@ EXTRA = [
     card('Gorilla Berserkers', set_code='tst', number='X20', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Ape Berserker', oracle_text="Trample; rampage 2 (Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)\nThis creature can't be blocked except by three or more creatures.", power='2', toughness='3', colors=['G'], color_identity=['G'], keywords=['Trample', 'Rampage']),  # noqa: E501
     card('Gallowbraid', set_code='tst', number='X21', mana_cost='{3}{B}{B}', cmc=5.0, type_line='Legendary Creature — Phyrexian Horror', oracle_text='Trample\nCumulative upkeep—Pay 1 life. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)', power='5', toughness='5', colors=['B'], color_identity=['B'], keywords=['Trample', 'Cumulative upkeep']),  # noqa: E501
     card('Ninja of the Deep Hours', set_code='tst', number='X22', mana_cost='{3}{U}', cmc=4.0, type_line='Creature — Human Ninja', oracle_text='Ninjutsu {1}{U} ({1}{U}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, you may draw a card.', power='2', toughness='2', colors=['U'], color_identity=['U'], keywords=['Ninjutsu']),  # noqa: E501
+    card('Sacred Cat', set_code='tst', number='X23', mana_cost='{W}', cmc=1.0, type_line='Creature — Cat', oracle_text="Lifelink\nEmbalm {W} ({W}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a white Zombie Cat with no mana cost. Embalm only as a sorcery.)", power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=['Lifelink', 'Embalm']),  # noqa: E501
+    card('Adorned Pouncer', set_code='tst', number='X24', mana_cost='{1}{W}', cmc=2.0, type_line='Creature — Cat', oracle_text="Double strike\nEternalize {3}{W}{W} ({3}{W}{W}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a 4/4 black Zombie Cat with no mana cost. Eternalize only as a sorcery.)", power='1', toughness='1', colors=['W'], color_identity=['W'], keywords=['Double strike', 'Eternalize']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -484,4 +486,36 @@ def test_ninjutsu_swaps_an_unblocked_attacker_for_the_ninja(cards):
     n = s.state.cards[ninja.id]
     assert n.zone == "p1:battlefield" and n.attacking is not None and n.attacking.id == "p2"  # 702.49c
     assert rat.id not in s.state.zones["p1:battlefield"]
+    check(s)
+
+
+def graveyard_ability(s, name, ability, m):
+    c = card_named_in(s, name)
+    act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    mana(s, **m)
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=ability)
+    settle(s)
+    return c
+
+
+def card_named_in(s, name):
+    return next(c for c in s.state.cards.values() if c.name == name and c.owner == "p1")
+
+
+def test_embalm_makes_a_white_zombie_copy_with_no_mana_cost(cards):
+    s = build(cards, "Sacred Cat")
+    cat = graveyard_ability(s, "Sacred Cat", 1, {"W": 1})
+    assert s.state.cards[cat.id].zone == "p1:exile"  # the cost
+    (token,) = [c for c in tokens(s) if c.name == "Sacred Cat"]
+    ch = chars(s, token)
+    assert ch.colors == {"W"} and "Zombie" in ch.subtypes and "Cat" in ch.subtypes and ch.mana_value == 0 and "lifelink" in ch.keywords
+    check(s)
+
+
+def test_eternalize_makes_a_black_4_4(cards):
+    s = build(cards, "Adorned Pouncer")
+    graveyard_ability(s, "Adorned Pouncer", 1, {"W": 2, "C": 3})
+    (token,) = [c for c in tokens(s) if c.name == "Adorned Pouncer"]
+    ch = chars(s, token)
+    assert ch.colors == {"B"} and pt(s, token) == (4, 4) and "Zombie" in ch.subtypes  # 702.129a
     check(s)

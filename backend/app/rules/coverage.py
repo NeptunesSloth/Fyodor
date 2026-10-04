@@ -371,6 +371,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"disguise (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "toxic":  # -- counters & designations (wave 3E) -- combat.py reads "toxic N" anywhere in a keyword line ("Menace, toxic 1")
         return re.search(r"(?:^|, )toxic \d+(?:,|$)", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()) is not None
+    if kw in ("embalm", "eternalize"):  # -- keywords (wave 15E) -- app/rules/graveyard_keywords.py
+        from app.rules import graveyard_keywords
+
+        return graveyard_keywords.supported(kw, line)
     if kw == "ninjutsu":  # -- keywords (wave 15E) -- app/rules/ninjutsu.py: a mana ninjutsu cost on a line of its own
         from app.rules import ninjutsu
 

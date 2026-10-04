@@ -190,7 +190,8 @@ def _apply(ch: Characteristics, ex: CopyExcept) -> Characteristics:
         abilities = chars.with_intrinsic_mana(kept, subtypes)
     else:
         abilities = ch.abilities
-    return replace(ch, name=ex.name if ex.name is not None else ch.name, supertypes=supertypes, types=types,
+    cost = {"mana_cost": "", "mana_value": 0} if ex.no_mana_cost else {}  # (wave 15E: 707.9b)
+    return replace(ch, **cost, name=ex.name if ex.name is not None else ch.name, supertypes=supertypes, types=types,
                    subtypes=chars.changeling(subtypes, abilities, ex.name if ex.name is not None else ch.name),
                    power=ex.power if ex.power is not None else ch.power,
                    toughness=ex.toughness if ex.toughness is not None else ch.toughness,
@@ -1075,6 +1076,9 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     if re.fullmatch(_SUBJECT + r"(?:has|have) this ability", c):  # -- enter as copy (wave 5F) -- 707.9a: the ability's own
         ex.add_text = [*ex.add_text, THIS_ABILITY]  # text, written in by ``scripts.define`` (``with_this_ability``)
         return True
+    if re.fullmatch(_SUBJECT + r"(?:has|have) no mana cost", c):  # -- keywords (wave 15E) -- 707.9b
+        ex.no_mana_cost = True
+        return True
     m = re.fullmatch(_SUBJECT + r"(?:has|have) (?P<abil>.+)", c)
     if m:
         found = token_grammar._with(m["abil"])
@@ -1198,7 +1202,8 @@ def parse_copy_target(what: str, exc: str | None) -> tuple[list[dict[str, Any]],
 _SOURCES = {"~": "self", "it": "it", "that creature": "it", "that permanent": "it", "that artifact": "it",
             "that token": "it", "that card": "it", "equipped creature": "host", "enchanted creature": "host",
             "enchanted permanent": "host", "enchanted artifact": "host",
-            "the exiled card": "pay_exiled"}  # -- if you do (wave 8C) -- bound to a payment's exiled card (pay_objects.bind)
+            "the exiled card": "pay_exiled",
+            "the card exiled to activate this ability": "cost_exiled"}  # (wave 15E: embalm, 702.128a)  # -- if you do (wave 8C) -- bound to a payment's exiled card (pay_objects.bind)
 
 
 def parse_token_copy(n: str, tapped: bool, src: str, exc: str | None) -> tuple[list[dict[str, Any]], Any] | None:
