@@ -153,6 +153,11 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: boo
     from app.rules import devour
 
     devour.plan_entry(plan, card, controller, answers, out, set(reserved or ()))
+    from app.rules import (
+        riot,  # -- keywords (wave 15E) -- riot / unleash: the +1/+1 counter or haste (app/rules/riot.py)
+    )
+
+    riot.plan_entry(plan, card, controller, answers, out)
     if out.get("choice", {}).get("what") == enter_cost.WHAT and reserved:
         out["choice"]["reserved"] = sorted(reserved)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with (122.6) --
@@ -229,10 +234,20 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
 
                     for piece in keyword_triggers.pieces(kw, ab.text):
                         counters["+1/+1"] = counters.get("+1/+1", 0) + int(piece.split()[1])
+        for ab in ch.abilities:  # -- keywords (wave 15E) -- 702.63a vanishing N / 702.32a fading N: "enters with N time / fade counters"
+            for kw, kind in (("vanishing", "time"), ("fading", "fade")):
+                if ab.kind == "keywords" and kw in ab.keywords:
+                    from app.rules import keyword_triggers
+
+                    for piece in keyword_triggers.pieces(kw, ab.text):
+                        counters[kind] = counters.get(kind, 0) + int(piece.split()[1])
         from app.rules import (
             devour,  # -- keyword mechanics (wave 9D) -- 702.82a: N for each permanent sacrificed as it entered
+            riot,  # -- keywords (wave 15E) -- 702.136a / 702.98a: the additional +1/+1 counter chosen
         )
 
+        if riot.counters(ch, choices):
+            counters["+1/+1"] = counters.get("+1/+1", 0) + riot.counters(ch, choices)
         if devour.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + devour.counters(ch, choices)
         for ab in ch.abilities:  # -- keyword mechanics (wave 9D) -- 702.44a sunburst: a +1/+1 counter (a creature, ignoring
@@ -331,6 +346,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
 
     if devour.is_choice(what):
         return devour.prompt(plan, card, controller, choice)
+    from app.rules import riot  # -- keywords (wave 15E) --
+
+    if riot.is_choice(what):
+        return riot.prompt(plan, card, controller)
 
     if what == battles.PROTECTOR:  # 310.9a / 310.12a
         return f"{card.name}: as it enters, choose its protector", battles.choice_options(plan, controller, card)
@@ -594,6 +613,11 @@ def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = No
 
     if choices and devour.picked(choices.get(devour.WHAT)):
         plan.rules.devoured[plan.oid(card)] = len(devour.picked(choices.get(devour.WHAT)))
+    from app.rules import layers, riot  # -- keywords (wave 15E) -- 702.136a: "If you don't, it gains haste."
+
+    if riot.gains_haste(plan.ch(card), choices):
+        layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=None, controller=controller,
+                          add_keywords=("haste",), duration="permanent", label="Haste (riot)")
     counters = entering_counters(plan, card, controller, plan.ch(card), x=x, extra=extra_counters, choices=choices)
     puts = [(card_id, kind, n) for kind, n in counters.items() if n > 0]
     from app.rules import replace

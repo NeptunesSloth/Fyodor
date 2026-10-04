@@ -92,11 +92,12 @@ GRANTABLE_KEYWORDS: frozenset[str] = frozenset({
 # -- static wordings (wave 6E) -- triggered keywords a static may grant (613.1f): granted as the keyword line itself, an
 # ability of the object like a printed one (scripts.keyword_triggers: prowess 702.108a, persist 702.79a, undying
 # 702.93a; triggers._exalted: exalted 702.83a, each instance triggering separately, 702.83b / 702.108b)
-TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "undying"})
 # -- static grants (wave 15A) -- keywords whose whole meaning is one triggered ability (keyword_triggers.MEANINGS): granted as the
 # line itself (613.1f). Not modular / graft / living weapon / for mirrodin! / ravenous: those have a half that works as the
 # permanent enters (a granted one would miss it).
 MEANING_GRANTS = r"extort|battle cry|ingest|(?:poisonous|frenzy|afterlife|annihilator|afflict) \d+"
+TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "undying",
+                                              "mentor", "training", "dethrone", "evolve", "flanking", "battle cry"})  # (wave 15E)
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
                      "enchanted permanent": "permanent", "enchanted artifact": "artifact",
@@ -673,7 +674,8 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
 # targeting, blocking, damage, attachments), ward (702.21a: each instance triggers, triggers.ward_costs), toxic
 # (702.164: combat.py). Only qualities and costs the engine enforces (coverage._keyword_supported).
 _FROM_JOIN = "\u0001from "
-_PARAM_KEYWORDS = ("protection", "ward", "toxic")
+_PARAM_KEYWORDS = ("protection", "ward", "toxic", "annihilator", "afflict", "poisonous", "bushido", "mobilize", "frenzy",
+                   "soulshift", "afterlife")  # (wave 15E: keywords whose line is carried out wherever it is: keyword_triggers)
 
 
 def keyword_line(rest: str) -> str | None:

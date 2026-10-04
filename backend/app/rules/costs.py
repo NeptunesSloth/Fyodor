@@ -186,7 +186,7 @@ def _selector(phrase: str, *, zone: str, other: bool = False) -> str | None:
         phrase = "token permanent"
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or sel.extras and any(
-            e in ("enchanted", "equipped") for e in sel.extras) or sel.attacking or sel.blocking:
+            e in ("enchanted", "equipped") for e in sel.extras) or (sel.attacking and "unblocked" not in sel.extras) or sel.blocking:
         return None
     if zone == "battlefield":
         if sel.card or sel.zones != ("battlefield",) or sel.controller == "opponent" or sel.owner is not None:
@@ -437,7 +437,10 @@ def _self_text(part: str, card_name: str) -> str:
 
 
 # -- kicker (702.33) -------------------------------------------------------------------------
-_KICKER = re.compile(r"^(?P<multi>multi)?kicker (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+# -- keywords (wave 15E) -- squad (702.157: "you may pay [cost] any number of times"), replicate (702.56: the same) and offspring
+# (702.175: once) are optional additional mana costs paid as kicker is (``CastSpell.kicker`` times): the engine's count is theirs
+_KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)) (?P<cost>(?:\{[^}]+\})+)$",
+                     re.IGNORECASE)
 
 
 def kicker_line(line: str) -> bool:
@@ -458,12 +461,12 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
     ("Kicker—Sacrifice a land") and X in the cost stay manual."""
     found: list[Kicker] = []
     for ab in abilities:
-        if ab.kind != "keywords" or not ({"kicker", "multikicker"} & set(ab.keywords)):
+        if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring"} & set(ab.keywords)):
             continue
         m = _KICKER.fullmatch(ab.text.strip().rstrip("."))
         if m is None or not kicker_line(ab.text):
             return None
-        found.append(Kicker(m["cost"], multi=bool(m["multi"])))
+        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"])))
     return found[0] if len(found) == 1 else None
 
 

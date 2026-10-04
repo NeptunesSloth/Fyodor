@@ -337,6 +337,10 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
             record.exiled += ids
         elif comp.kind == C.RETURN_PERMANENT:
             ids = ids if comp.selector is not None else [card.id]
+            for rid in ids:  # (wave 15E) ninjutsu 702.49c: what the creature attacked, before it leaves combat
+                target = plan.state.cards[rid].attacking
+                if target is not None:
+                    record.returned_attacking[rid] = target.id
             plan.do({"type": "move", "card_ids": ids, "to": {"zone": "hand"}})
             record.returned += ids
     if sacrifice:  # 701.21a: to their owners' graveyards, all at once

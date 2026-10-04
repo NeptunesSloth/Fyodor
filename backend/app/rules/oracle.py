@@ -85,6 +85,8 @@ def keyword_name(piece: str) -> str | None:
         return None
     if raw in KEYWORDS:
         return raw
+    if re.match(r"^\w+ (?:abilities|costs) you (?:activate|pay)\b", raw):  # -- keywords (wave 15E) -- "Equip abilities you activate
+        return None  # cost {1} less", "Dash costs you pay cost {2} less": a static ability about the keyword, not the keyword
     base = _PARAM.sub("", raw).strip(" —-")
     if base in KEYWORDS:
         return base

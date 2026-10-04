@@ -83,6 +83,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [p for p in plan.live() if selectors.matches_player(plan, sel, p, me)] if sel.player else []
     if who == "you":
         return [me]
+    if who.startswith("player:"):  # -- keywords (wave 15E) -- one named player (ward: the player whose spell or ability targeted)
+        return [who[7:]] if who[7:] in plan.live() else []
     if who == "each_player":
         return list(plan.live())
     if who == "each_opponent":
@@ -156,6 +158,11 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
             return [src.id]
         return []  # the source left: "it" is gone (a new object isn't affected)
+    if who == "cost_exiled":  # -- keywords (wave 15E) -- the card an activation cost exiled from the graveyard (embalm: "this card")
+        sid = ctx.get("stack_id")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        return [c for c in (record.exiled if record is not None else []) if c in plan.state.cards
+                and plan.state.cards[c].zone.endswith(":exile")]
     if who == "self_gy":  # -- reanimation (wave 3R) -- "return this card from your graveyard": the source, only
         # while it is still the same object in a graveyard (400.7)
         src = plan.state.cards.get(ctx.get("source_card") or "")
@@ -1133,7 +1140,23 @@ def delayed_move(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     card = plan.state.cards.get(e["card"])
     if card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != e["object"]:
         return True  # it's a different object now
+    if e.get("sacrifice"):  # -- keywords (wave 15E) -- blitz 702.152a: "Sacrifice it at the beginning of the next end step" (701.21a)
+        if card.controller == ctx["controller"]:
+            _sacrifice_cards(plan, [card.id], ctx["controller"])
+        return True
     plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": e["to"]}}, actor=ctx["controller"])
+    if e.get("warp"):  # -- keywords (wave 15E) -- 702.185a: its owner may cast it from exile after the current turn has ended
+        import secrets
+
+        from app.game.rules_state import Permission
+
+        moved = plan.state.cards.get(card.id)
+        if moved is not None and moved.zone.endswith(":exile"):
+            plan.rules.permissions.append(Permission(
+                id=secrets.token_hex(4), player=moved.owner, cast=True, zone="any", object_id=plan.oid(moved), card=moved.id,
+                until="permanent", turn=plan.state.turn.number, after_turn=plan.state.turn.number,
+                label=f"{moved.name}: cast it from exile (warped)"))
+            plan.note(f"{moved.name} is exiled: {plan.name(moved.owner)} may cast it on a later turn", [moved.id])
     return True
 
 
@@ -1240,6 +1263,16 @@ def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
            options=options, resume={"step": "pay_or_sacrifice", "counter": sid, "ctx": ctx, "cost": e["cost"]},
            source=plan.state.cards[sid])
     return False
+
+
+def ascend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- keywords (wave 15E) -- 702.131a: Ascend on an instant or sorcery: if you control ten or more permanents and you
+    don't have the city's blessing, you get it for the rest of the game."""
+    from app.rules import designations
+
+    if designations.city_blessing_due(plan, ctx["controller"]):
+        designations.get_city_blessing(plan, ctx["controller"])
+    return True
 
 
 def sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -1944,7 +1977,7 @@ PRIMITIVES = {
     "discard": discard, "regenerate": regenerate, "no_regen": no_regen,
     "animate": animate, "pay_or_sacrifice": pay_or_sacrifice, "renown": renown, "return_yours": return_yours, "suspend_tick": suspend_tick, "cascade": cascade, "unearth": unearth, "delayed_move": delayed_move,
     "madness_offer": madness_offer, "free_cast_offer": free_cast_offer, "counter": counter, "counter_unless": counter_unless,
-    "sacrifice": sacrifice, "explore": explore, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,
+    "sacrifice": sacrifice, "ascend": ascend, "explore": explore, "prevent": prevent, "prevent_all": replacements.prevent_all, "mill": mill,
     "return_with_counter": return_with_counter, "exile_until": exile_until, "return_linked": return_linked,
     "fabricate": fabricate, "storm": storm,
     "fight": fight, "choose_targets": choose_targets,
@@ -3562,6 +3595,9 @@ PRIMITIVES.update(_recursion.PRIMITIVES)
 from app.rules import combat_rules as _combat_rules  # noqa: E402
 
 PRIMITIVES.update(_combat_rules.PRIMITIVES)
+from app.rules import ninjutsu as _ninjutsu  # noqa: E402  -- keywords (wave 15E) -- 702.49
+
+PRIMITIVES["ninjutsu_enter"] = _ninjutsu.enter
 RESUME.update(_combat_rules.RESUME)
 
 # -- triggers (wave 5D) -- "then put two cards from your hand on top of your library in any order" (app/rules/put_back.py)

@@ -343,6 +343,18 @@ _MAZE = re.compile(r"prevent all combat damage that would be dealt to and dealt 
                    r" this turn")
 _DOUBLE = re.compile(r"double (?:the (?P<w1>power and toughness|power) of (?P<o1>.+?)|(?P<o2>.+?)'s "
                      r"(?P<w2>power and toughness|power)|(?P<o3>its) (?P<w3>power and toughness|power)) until end of turn")
+# -- keywords (wave 15E) -- myriad (702.116a): "for each opponent other than defending player, you may create a token that's a
+# copy of ~ that's tapped and attacking that player or a planeswalker they control. If one or more tokens are created this way,
+# exile the tokens at end of combat."
+_MYRIAD = re.compile(r"for each opponent other than defending player, you may create a token that's a copy of (?:~|this creature) "
+                     r"that's tapped and attacking that player or a planeswalker they control \[exile at end of combat\]")
+_MYRIAD_EXILE = re.compile(r"(planeswalker they control)\. If one or more tokens are created this way, exile the tokens at end of "
+                           r"combat\.")
+
+
+def merge_myriad(body: str) -> str:
+    """myriad's two sentences (702.116a) as the one instruction they are (scripts._parse_effects)."""
+    return _MYRIAD_EXILE.sub(r"\1 [exile at end of combat].", body) if "other than defending player" in body else body
 _THAT_PLAYER = re.compile(r"(?P<create>create .+? tokens? that(?:'s| are) tapped and attacking) that player")
 
 
@@ -386,6 +398,11 @@ def clause(text: str) -> tuple[Effects, Any] | None:
     m = _MUST.fullmatch(text)
     if m:
         return _restrict(m["o"], ["must_attack"])
+    if _MYRIAD.fullmatch(text):  # (both sentences: the exile is part of the keyword, 702.116a)
+        from app.rules import delayed
+
+        return [{"do": "myriad_choose"}, {"do": "myriad_create", "who": "self", "as": "myriad_tokens"},
+                *delayed.wrap_when([{"do": "exile", "who": "ref:myriad_tokens"}], delayed.END_OF_COMBAT)], None
     m = _EACH_OPP.fullmatch(text)
     if m:
         made = _token(m["create"])
@@ -406,6 +423,9 @@ def unwrapped(d: Definition) -> bool:
     """An "attacks each combat if able" effect must have a duration ("until your next turn, …"): one without it
     isn't read. "Tapped and attacking that player" is read only in "Whenever you attack a player, …" (the player
     attacked, 508.3e)."""
+    if any(e.get("do") in ("myriad_choose", "myriad_create") for e in d.get("effects") or []) and not (
+            d.get("kind") == "triggered" and d.get("trigger") == "attacks_self"):
+        return True  # (-- keywords (wave 15E) -- myriad is about the attacking creature itself)
     effects = d.get("effects") or []
     cond = d.get("cond") or {}
     if any(e.get("who") == "defended" for e in effects) and not (
@@ -571,6 +591,66 @@ def double_pt(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+# -- keywords (wave 15E) -- myriad (702.116a): the choices first (one decision per opponent other than the defending player,
+# private to the attacker), then the copies are made at once and each attacks the player or planeswalker chosen for it
+def myriad_choose(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import defending
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    me = ctx["controller"]
+    defended = defending.defended(plan, src) if src is not None and src.zone.endswith(":battlefield") else None
+    ctx["myriad"] = []
+    if defended is None or me != plan.active or plan.state.turn.phase not in _ATTACKING_PHASES:
+        return True  # (no longer an attacking creature: nobody to create a token for)
+    return _myriad_next(plan, ctx, [p for p in plan.apnap() if p != me and p != defended and p in plan.live()], [])
+
+
+def _myriad_next(plan: Plan, ctx: dict[str, Any], remaining: list[str], picked: list[str]) -> bool:
+    me = ctx["controller"]
+    while remaining:
+        pid = remaining[0]
+        if pid not in plan.live():
+            remaining = remaining[1:]
+            continue
+        walkers = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == pid
+                   and plan.in_game(c) and "Planeswalker" in plan.ch(c).types]
+        options = [DecisionOption(id="none", label=f"No token for {plan.name(pid)}"),
+                   DecisionOption(id=pid, label=f"A token attacking {plan.name(pid)}"),
+                   *(DecisionOption(id=c, label=f"A token attacking {plan.state.cards[c].name or 'a planeswalker'}", card_id=c)
+                     for c in walkers)]
+        decide(plan, player=me, kind="choose_one",
+               prompt=f"{ctx.get('name') or 'Myriad'}: create a token copy attacking {plan.name(pid)} or a planeswalker they control?",
+               options=options, resume={"step": "myriad_pick", "ctx": ctx, "remaining": remaining[1:], "picked": picked})
+        return False
+    ctx["myriad"] = picked
+    return True
+
+
+def resume_myriad(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    picked = list(r["picked"]) + ([chosen[0]] if chosen and chosen[0] != "none" else [])
+    if _myriad_next(plan, r["ctx"], list(r["remaining"]), picked):
+        effects.continue_effects(plan, r["ctx"])
+
+
+def myriad_create(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, copying
+
+    picked = [t for t in ctx.get("myriad") or [] if t in plan.state.players and t in plan.live()
+              or (t in plan.state.cards and plan.state.cards[t].zone.endswith(":battlefield"))]
+    if not picked:
+        return True
+    if not copying.token_copy(plan, ctx, {"do": "token_copy", "who": "self", "n": len(picked), "tapped": True,
+                                          "as": e.get("as")}):
+        return False
+    for token, target in zip(context.objects(plan, ctx, str(e.get("as"))), picked, strict=False):
+        _attack(plan, [token], target, ctx["controller"])  # 508.4: attacking, never declared as an attacker
+    return True
+
+
 PRIMITIVES = {"extra_phases": extra_phases, "create_attacking_each": create_attacking_each,
-              "remove_from_combat": remove_from_combat, "double_pt": double_pt}
-RESUME = {"attack_each_opponent": resume_attack_each}
+              "remove_from_combat": remove_from_combat, "double_pt": double_pt,
+              "myriad_choose": myriad_choose, "myriad_create": myriad_create}
+RESUME = {"attack_each_opponent": resume_attack_each, "myriad_pick": resume_myriad}

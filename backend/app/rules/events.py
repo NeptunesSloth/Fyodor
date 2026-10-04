@@ -88,7 +88,8 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
 _DEFENDERS = {"you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
-              "one of your opponents": "opponent", "enchanted player": "enchanted_player"}
+              "one of your opponents": "opponent", "enchanted player": "enchanted_player",
+              "the player with the most life or tied for most life": "most_life"}  # (wave 15E: dethrone, 702.105a)
 _DEFENDER_RE = "|".join(re.escape(k) for k in sorted(_DEFENDERS, key=len, reverse=True))
 _PLAYER_VERBS = [
     (r"gains? life", "gain_life"),
@@ -251,6 +252,11 @@ def _parse(c: str) -> Condition | None:
     found = _combat(c)
     if found is not None:
         return found
+    # -- keywords (wave 15E) -- training (702.149a): "~ and at least one other creature with power greater than ~'s power attack"
+    if c == "~ and at least one other creature with power greater than ~'s power attack":
+        sel = selectors.parse("creature with power greater than ~'s power")
+        return None if sel is None else {"event": "attack", "subject": "self", "min_attackers": 1, "sel": sel.key(),
+                                         "others_only": True}
     # battalion: "~ and at least two other creatures attack" (the creatures declared as attackers)
     m = re.fullmatch(r"~ and at least (?P<n>\w+) other creatures? attack", c)
     if m:
@@ -691,6 +697,10 @@ def _object_event(c: str) -> Condition | None:
         return {**base, "event": "counters_put", **({"counter": m["k"]} if m["k"] else {}),
                 "by": "you" if m["p"] == "you" else "opponent", **({"own": True} if own else {})}
     # -- end counters (wave 5H) --
+    # -- keywords (wave 15E) -- 702.63a vanishing: "When the last time counter is removed from this permanent"
+    m = re.fullmatch(r"the last (?P<k>[a-z]+) counter is removed from ~", c)
+    if m:
+        return {"subject": "self", "event": "counters_removed", "counter": m["k"], "last": True}
     m = re.fullmatch(r"(?:one or more|an?) (?:(?P<k>\+1/\+1|-1/-1|[a-z]+) )?counters? (?:is|are) put on (?P<s>.+)", c)
     if m:
         base = _subject(m["s"])

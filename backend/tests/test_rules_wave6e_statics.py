@@ -97,7 +97,6 @@ FULL = ["Eshki Dragonclaw", "Mikaeus, the Unhallowed", "Death Baron", "Sublime A
         "Turbulent Moor", "Orzhov Racketeers", "Doran, the Siege Tower", "Belligerent Brontodon",
         "Blind Obedience", "Emergent Growth", "Enlarge"]
 STILL_MANUAL = {
-    "Sedgemoor Witch": "Ward",  # (ward—Pay 3 life: a cost the ward trigger doesn't read)
     "Silvergill Adept": "reveal a Merfolk card",
 }
 
@@ -169,10 +168,11 @@ def test_ward_paid_lets_the_spell_resolve(cards):
     replay_matches(s)
 
 
-def test_ward_with_a_life_cost_in_a_keyword_line_stays_manual():
-    assert not coverage._keyword_supported("ward", "Menace, ward—Pay 3 life")
+def test_ward_with_a_life_cost_in_a_keyword_line():
+    assert coverage._keyword_supported("ward", "Menace, ward—Pay 3 life")  # (wave 15E reads a life cost: triggers.WARD_COST)
     assert coverage._keyword_supported("ward", "Flying, ward {2}")
-    assert not coverage._keyword_supported("ward", "Flying, ward {2}, ward—Discard a card")
+    assert coverage._keyword_supported("ward", "Flying, ward {2}, ward—Discard a card")
+    assert not coverage._keyword_supported("ward", "Flying, ward—Collect evidence 4")
 
 
 # -- anthems granting triggered keywords (613.1f) ------------------------------------------------------------------

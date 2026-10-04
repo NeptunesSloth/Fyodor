@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.rules import cards as scripts
-from app.rules import protection
+from app.rules import keyword_triggers, protection
 from app.rules import scripts as templates
 from app.rules.characteristics import HALVES, Characteristics, half_from_data, printed_from_data
 from app.rules.mana import parse_mana_ability
@@ -224,6 +224,8 @@ SUPPORTED_KEYWORDS: set[str] = {
 # precombat main phase, chapter abilities (a chapter line is automated when its effect parses: it is a
 # template), the 714.4 sacrifice; read ahead (702.155): the number chosen as it enters, skipped chapters.
 SUPPORTED_KEYWORDS.add("read ahead")
+SUPPORTED_KEYWORDS.add("ascend")  # -- keywords (wave 15E) -- 702.131 (designations.ascend_permanents; effects.ascend)
+SUPPORTED_KEYWORDS.add("umbra armor")  # -- keywords (wave 15E) -- 702.89a (regeneration.umbra_armor)
 SUPPORTED_KEYWORDS.add("phasing")  # -- phasing (wave 13D) -- 702.26 (app/rules/phasing.py)
 SUPPORTED_KEYWORDS.add("split second")  # -- split second (wave 8A) -- 702.61 (app/rules/split_second.py, cast_limits)
 # -- end sagas & attached-object triggers (wave 3S) --
@@ -368,12 +370,33 @@ def _keyword_supported(kw: str, line: str) -> bool:
         return re.fullmatch(r"disguise (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "toxic":  # -- counters & designations (wave 3E) -- combat.py reads "toxic N" anywhere in a keyword line ("Menace, toxic 1")
         return re.search(r"(?:^|, )toxic \d+(?:,|$)", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()) is not None
-    if kw in ("bushido", "renown", "bloodthirst", "soulshift", "toxic", "fabricate", "firebending"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
+    if kw in ("embalm", "eternalize"):  # -- keywords (wave 15E) -- app/rules/graveyard_keywords.py
+        from app.rules import graveyard_keywords
+
+        return graveyard_keywords.supported(kw, line)
+    if kw in ("spectacle", "surge", "blitz", "warp", "bestow"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
+        from app.rules import alt_costs
+
+        return alt_costs.keyword_definition(line) is not None
+    if kw == "ninjutsu":  # -- keywords (wave 15E) -- app/rules/ninjutsu.py: a mana ninjutsu cost on a line of its own
+        from app.rules import ninjutsu
+
+        return ninjutsu.supported(line)
+    if kw in ("riot", "unleash"):  # -- keywords (wave 15E) -- app/rules/riot.py
+        from app.rules import riot
+
+        return riot.supported(kw, line)
+    if kw == "soulshift":  # (wave 15E: each instance of the line, scripts.keyword_triggers)
+        return re.fullmatch(r"soulshift \d+(?:, soulshift \d+)*", line.strip().rstrip(".").lower()) is not None
+    if kw in ("bushido", "renown", "bloodthirst", "toxic", "fabricate", "firebending"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "plot":  # -- keywords (wave 15E) -- casting.plot: a mana plot cost
+        return re.fullmatch(r"plot (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "suspend":  # casting.suspend_info: "Suspend N—{cost}"
         return re.fullmatch(r"suspend \d+\s*[—-]\s*(?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw == "cumulative upkeep":  # triggers.cumulative_cost: a mana cost
-        return re.fullmatch(r"cumulative upkeep (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
+        return re.fullmatch(r"cumulative upkeep (?:\{[^}]+\})+|cumulative upkeep—pay \d+ life",
+                            line.strip().rstrip(".").lower()) is not None
     from app.rules import (
         keyword_triggers,  # -- static wordings (wave 6E) -- battle cry, ingest … (their CR meaning)
     )
@@ -388,12 +411,18 @@ def _keyword_supported(kw: str, line: str) -> bool:
     if kw in keyword_triggers.MEANINGS:
         return keyword_triggers.supported(kw, line)
     if kw == "ward":  # -- static wordings (wave 6E) -- every ward piece of the line has a mana cost (triggers.ward_costs)
-        from app.rules.triggers import WARD, ward_pieces
+        from app.rules.triggers import ward_piece_cost, ward_pieces
 
         pieces = ward_pieces(line)
-        return bool(pieces) and all(WARD.fullmatch(p) for p in pieces)
+        return bool(pieces) and all(ward_piece_cost(p) is not None for p in pieces)
     if kw in ("unearth", "dash", "buyback", "madness", "ward", "evoke"):  # casting.keyword_cost: a mana cost
         return re.fullmatch(rf"{kw} (?:\{{[^}}]+\}})+", line.strip().rstrip(".").lower()) is not None
+    if kw in ("squad", "offspring", "replicate"):  # -- keywords (wave 15E) -- the cost is paid as kicker's; squad / offspring's
+        from app.rules.costs import (
+            kicker_line,  # enters trigger is its meaning (keyword_triggers), replicate's the cast trigger
+        )
+
+        return kicker_line(line) and (kw == "replicate" or keyword_triggers.supported(kw, line))
     if kw in ("kicker", "multikicker"):  # casting.cost_with_kicker: one mana kicker cost
         from app.rules.costs import kicker_line
 
@@ -471,7 +500,10 @@ def features_of(ch: Characteristics) -> list[Feature]:
             add(f"script:{ab.index}", ab.text, True)
         elif ab.kind == "keywords":
             for kw in ab.keywords:
-                add(f"keyword:{kw}", kw.capitalize(), _keyword_supported(kw, ab.text))
+                add(f"keyword:{kw}", kw.capitalize(), _keyword_supported(kw, ab.text) if kw != "backup" else all(
+                    keyword_triggers.backup_definition(ch, ab, n) is not None
+                    for n in range(len(keyword_triggers.pieces("backup", ab.text)))) and bool(
+                        keyword_triggers.pieces("backup", ab.text)))  # (wave 15E: the abilities below it, 702.165a)
         elif ab.kind == "mana":
             add("mana:ability", ab.text, "mana:ability" in SUPPORTED and parse_mana_ability(ab.text) is not None)
         else:
