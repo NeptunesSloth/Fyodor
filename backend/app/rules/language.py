@@ -1178,7 +1178,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
                 raise _Fail  # ("… and draw a card, where X is …": which half X belongs to isn't read)
             return [_bind_x(e, rider[1]) for e in (*left[0], *right[0])], left[1] if left[1] is not None else right[1]
     # -- players ------------------------------------------------------------------------------
-    m = re.fullmatch(_SUBJ + rf"draws? (?:(?P<n>{AMT}) cards?|cards equal to (?P<stat>.+))", text)
+    m = re.fullmatch(_SUBJ + rf"draws? (?:(?P<n>{AMT}) (?:additional )?cards?|cards equal to (?P<stat>.+))", text)
     if m:
         who, target = _subject(m)
         if m["stat"]:  # "draw cards equal to its power" (a trigger's object, or an earlier instruction's)

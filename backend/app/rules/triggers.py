@@ -1822,7 +1822,7 @@ def cast_x(plan: Plan, t: PendingTrigger) -> int | None:
     """107.3m: an object's enters-the-battlefield triggered ability that refers to X uses the X of the spell that
     became that object as it resolved (its payment record, which follows it onto the battlefield); for any other
     triggered ability — or an object that wasn't cast with X — X is undefined here (0, 107.3i)."""
-    if t.event is not None and t.event.kind == "designation" and t.event.counter == "monstrous" and t.event.object_id == t.source_object:
+    if t.event is not None and t.event.kind == "become_monstrous" and any(o.object_id == t.source_object for o in t.event.objects):
         return plan.rules.monstrous_x.get(t.source_object)  # -- X sized by a count (wave 19F) -- 701.37c
     if t.event is None or t.event.kind != "enter" or not any(o.object_id == t.source_object for o in t.event.objects):
         return None

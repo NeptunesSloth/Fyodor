@@ -47,7 +47,7 @@ OTHER_SUBTYPES = {"Equipment", "Aura", "Vehicle", "Food", "Clue", "Treasure", "B
                   "Curse", "Plains", "Island", "Swamp", "Mountain", "Forest", "Desert", "Gate", "Cave", "Town",
                   "Sphere", "Lesson", "Adventure", "Arcane", "Trap", "Room", "Class", "Case", "Background",
                   "Fortification", "Attraction", "Contraption", "Powerstone", "Map", "Incubator", "Junk",
-                  "Lair", "Locus", "Bobblehead", "Cartouche"}  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
+                  "Lair", "Locus", "Bobblehead", "Cartouche", "Spacecraft"}  # (Lair: the Dragon's Lair lands, "return a non-Lair land you control", wave 1B)
 # -- kicked / instead (wave 4G) -- 205.3j: the planeswalker types ("If you control a Jace planeswalker, …"), read only
 # when written capitalized (a word like "will" is never one)
 PLANESWALKER_TYPES = frozenset({
@@ -946,14 +946,17 @@ def _parse(phrase: str) -> Selector | None:
     joins: set[str] = set()
     i = len(words) - 1
     pending_join = ""
+    sub_and = False  # (wave 19F) a list of kinds with a subtype in it: "Mounts and Vehicles"
     while i >= 0:
         w = words[i]
         if w in (",", "or", "and/or"):
             pending_join = "or"
             i -= 1
             continue
-        if w == "and" and nouns and nouns[-1][0] == "type" and i > 0 and (left := _core(words[i - 1])) is not None and left[0] == "type":
+        if w == "and" and nouns and nouns[-1][0] in ("type", "sub") and i > 0 and (left := _core(words[i - 1])) is not None \
+                and left[0] in ("type", "sub"):  # (wave 19F: also subtypes — "the number of Mounts and Vehicles you control")
             pending_join = "or"  # -- static_other sweep (wave 17C) -- "each creature and planeswalker", "creatures and planeswalkers": either type
+            sub_and = sub_and or "sub" in (nouns[-1][0], left[0])
             i -= 1
             continue
         c = _core(w)
@@ -1008,6 +1011,8 @@ def _parse(phrase: str) -> Selector | None:
         s = replace(s, types=types)
     s = replace(s, subtypes=subtypes, union=union)
     prefix_words = _join_statuses(words[: i + 1])
+    if sub_and and any(w.lower() not in (",", "another", "other") for w in prefix_words):
+        return None  # (a qualifier — "equipped", "tapped", "nonartifact" — belongs to which of the kinds? not read)
     for k, w in enumerate(reversed(prefix_words)):
         if w in (",",):
             continue

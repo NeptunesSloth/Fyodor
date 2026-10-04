@@ -1922,7 +1922,7 @@ def _swap_x(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
         _X_NOW[1] = True
         return value if v > 0 else {"neg": value}
 
-    return swap(effects, None)  # type: ignore[no-any-return]
+    return swap(effects, None)
 
 
 _EXCESS = re.compile(r"(?P<trample>if the creature you control has trample, )?excess damage is dealt to that "
@@ -3033,7 +3033,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # cycling cost's): manual too.
     # (wave 19F: or its own "When this creature becomes monstrous" with a "Monstrosity X" ability on the card: that X, 701.37c)
     monstrous_x = d is not None and (d.get("cond") or {}) == {"subject": "self", "event": "become_monstrous"} and any(
-        "Monstrosity X" in a.text for a in ch.abilities)
+        "Monstrosity X" in a.text for a in ch.abilities) and "where X is" not in ability.text
     if d is not None and '{"x": 1}' in json.dumps(d.get("effects") or [], default=str) and (
             re.search(r"\bwhere X is\b", ability.text)
             or (d.get("kind") == "triggered" and d.get("trigger") != "enters_self" and not monstrous_x)):
@@ -3046,7 +3046,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
             rf'(?<![\d-]){_X_SENTINEL}(?!\d)|,{selectors.X_VALUE}\]', json.dumps(d, default=str)):
         return None
     if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str) and not (
-            monstrous_x or d.get("trigger") == "enters_self"):
+            monstrous_x or (d.get("trigger") == "enters_self" and "{X}" in (ch.mana_cost or "") and "where X is" not in ability.text)):
         return None  # ("up to X target …" in a trigger: its targets are chosen before any X is known to it; wave 19F: but the X an
         # enters trigger of a spell cast with X, or a becomes-monstrous trigger, is given: triggers.cast_x)
     # -- entry forms (wave 5F) -- "It's an enchantment." only right after a return
