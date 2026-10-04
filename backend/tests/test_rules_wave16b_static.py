@@ -53,6 +53,8 @@ EXTRA = [
          power="2", toughness="2", colors=["B"], color_identity=["B"], oracle_text="Your maximum hand size is eleven."),
     card("Trusted Advisor", set_code="tst", number="B15", mana_cost="{U}", cmc=1.0, type_line="Creature — Human Advisor", power="1",
          toughness="2", colors=["U"], color_identity=["U"], oracle_text="Your maximum hand size is increased by two."),
+    card("Silent Arbiter", set_code="tst", number="B16", mana_cost="{4}", cmc=4.0, type_line="Artifact Creature — Construct", power="1",
+         toughness="5", oracle_text="No more than one creature can attack each combat.\nNo more than one creature can block each combat."),
     card("Contact Other Plane", set_code="tst", number="B12", mana_cost="{2}{U}", cmc=3.0, type_line="Sorcery", colors=["U"],
          color_identity=["U"], oracle_text="Roll a d20.\n1—9 | Draw two cards.\n10—19 | Scry 2, then draw two cards.\n"
          "20 | Scry 3, then draw three cards."),
@@ -266,4 +268,23 @@ def test_a_set_maximum_hand_size_applies_in_timestamp_order(cards, order, kept):
     for name in order:  # (each enters in turn: a later permanent's effect applies after an earlier one's, 613.7d)
         act(s, "p1", type="move", card_ids=[find(s, name).id], to={"player": "p1", "zone": "battlefield"})
     assert hand_after_cleanup(s, 14) == kept
+    replay_matches(s)
+
+
+def test_no_more_than_one_creature_can_attack_or_block_each_combat(cards):
+    from tests.test_rules_wave5c_combat import build as cbuild
+    from tests.test_rules_wave5c_combat import declare, old, to_attack
+    from tests.test_rules_wave5c_combat import put as cput
+
+    s = cbuild(cards, "Silent Arbiter")
+    cput(s, "Silent Arbiter")
+    a, b = old(s, "p1", "Ogre"), old(s, "p1", "Wolf")
+    x, y = old(s, "p2", "Guard", "2/2"), old(s, "p2", "Guard two", "2/2")
+    to_attack(s)
+    with pytest.raises(ActionError, match="No more than 1 creature can attack each combat"):  # 508.1c
+        declare(s, (a, "p2"), (b, "p2"))
+    declare(s, (a, "p2"))
+    with pytest.raises(ActionError, match="No more than 1 creature can block each combat"):  # 509.1b
+        act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": x.id, "attacker_id": a.id}, {"blocker_id": y.id, "attacker_id": a.id}])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": x.id, "attacker_id": a.id}])
     replay_matches(s)

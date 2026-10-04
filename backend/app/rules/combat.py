@@ -320,7 +320,7 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     limit = combat_rules.limit_problem(plan, declared, caps)
     if limit:
         raise ActionError(limit)
-    if any(cap_player in targets for cap_player in caps):  # 508.1d weighed over the whole declaration
+    if "*" in caps or any(cap_player in targets for cap_player in caps):  # 508.1d weighed over the whole declaration
         problem = combat_rules.requirements_problem(plan, eligible, _required_places(plan, eligible, targets),
                                                     {x.card_id: x.target for x in a.attackers}, caps)
         if problem:
@@ -563,6 +563,12 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         lone = plan.state.cards[a.blocks[0].blocker_id]
         if "cant_block_alone" in scripts.statics(plan.ch(lone)):
             raise ActionError(f"{lone.name} can't block alone")
+    # -- static_other sweep (wave 16B) -- 509.1b: "No more than one creature can block each combat." (all the blockers, every player's)
+    from app.rules import combat_rules
+
+    cap = combat_rules.limits(plan, combat_rules.BLOCK_LIMIT_ALL).get("*")
+    if cap is not None and len(used) + sum(1 for c in plan.state.cards.values() if c.blocking) > cap:
+        raise ActionError(f"No more than {cap} creature{'s' if cap != 1 else ''} can block each combat")
     problem = block_requirements(plan, a, blockers, attackers, used, per_attacker)
     if problem:
         raise ActionError(problem)
@@ -601,8 +607,14 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
     state = plan.state
     idle = [state.cards[b] for b in blockers if b not in used]
     att = [state.cards[x] for x in attackers]
+    from app.rules import combat_rules
+
+    cap = combat_rules.limits(plan, combat_rules.BLOCK_LIMIT_ALL).get("*")  # -- static_other sweep (wave 16B) -- no more blockers once at it
+    at_cap = cap is not None and len(used) + sum(1 for c in state.cards.values() if c.blocking) >= cap
 
     def could(blocker: CardInstance, attacker: CardInstance, *, joined: int) -> bool:
+        if at_cap and blocker.id not in used:
+            return False
         bch, ach = plan.ch(blocker), plan.ch(attacker)
         if block_problem(state, blocker, bch, attacker, ach, plan.info) is not None:
             return False
