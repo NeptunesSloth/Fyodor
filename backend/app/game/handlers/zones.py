@@ -54,7 +54,8 @@ def move(state: GameState, a: A.Move) -> None:
     for c, dest in zip(moving, dests, strict=True):  # -- keyword actions & face-down (wave 3F) --
         # 708.9: a face-down permanent leaving the battlefield, or a face-down spell leaving the stack
         # other than for the battlefield, is revealed to all players as it moves (the log names it to all)
-        if c.face_down and not a.face_down and (c.zone.endswith(":battlefield") and not dest.endswith(":battlefield")
+        # (-- review (sys 18A) -- even when it goes on face down, e.g. into a face-down pile: 708.9 has no exception)
+        if c.face_down and (c.zone.endswith(":battlefield") and not dest.endswith(":battlefield")
                                                 or c.zone == STACK and not dest.endswith(":battlefield")):
             who_saw[c.id] = {ALL}
     commander_casts: list[CardInstance] = []

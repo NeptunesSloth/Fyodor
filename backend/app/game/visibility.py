@@ -91,7 +91,8 @@ def looks_at_face_down(state: GameState, card: CardInstance, viewer: str) -> boo
     the Lens): the source's controller sees the face-down creatures on the battlefield that others control (a static ability
     that works while its source is on the battlefield face up and automated, as ``top_revealed``)."""
     rules = state.rules
-    if rules is None or not card.zone.endswith(":battlefield") or card.controller == viewer:
+    if rules is None or not card.zone.endswith(":battlefield") or card.controller == viewer \
+            or (card.face_down_as is not None and "creature" not in card.face_down_as):  # (review sys 18A: a face-down Forest land isn't a creature)
         return False
     for reveal in rules.top_reveals:
         source = state.cards.get(reveal.source)
