@@ -243,13 +243,13 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
     m = re.match(r"^(?:each|all) (other )?(.+)$", p)
     if m:
         sel = selectors.parse(("other " if m[1] else "") + m[2])
-        if sel is None or _untargeted_defending(sel):
+        if sel is None:
             raise _Fail
-        return "each", sel.key(), None
+        return "each", (selectors.replace(sel, controller=selectors.DEFENDED) if _untargeted_defending(sel) else sel).key(), None
     if selectors.is_plural(p):  # "creatures you control get …", "other Elves you control …"
         sel = selectors.parse(p)
-        if sel is not None and sel.player is None and not _untargeted_defending(sel):
-            return "each", sel.key(), None
+        if sel is not None and sel.player is None:
+            return "each", (selectors.replace(sel, controller=selectors.DEFENDED) if _untargeted_defending(sel) else sel).key(), None
     raise _Fail
 
 

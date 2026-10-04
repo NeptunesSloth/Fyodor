@@ -11,6 +11,7 @@
 * 701.3a: "attach up to one target Equipment you control to that creature" (the creature that entered), "attach target Equipment you
   control to up to one target creature you control".
 * 701.16a: "investigate that many times" - one Clue for each point of damage / each counter the event counted.
+* 508.5: "each creature defending player controls" (not targeted): the player the attacker was declared against, one player of three.
 * 508.1b: "deals 1 damage to the player or planeswalker it's attacking" - what the attacker the trigger is about attacks now.
 """
 
@@ -52,6 +53,8 @@ EXTRA = [
     real('Probe Blade', '{1}', 1, 'Artifact — Equipment', 'Equipped creature gets +1/+1.\nEquip {1}', None),
     real('Piper Wright, Publick Reporter', '{1}{U}', 2, 'Legendary Creature — Human Detective', 'Whenever Piper Wright deals combat damage to a player, investigate that many times. (To investigate, create a Clue token. It\'s an artifact with "{2}, Sacrifice this token: Draw a card.")\nWhenever you sacrifice a Clue, put a +1/+1 counter on target creature you control.', ("1", "2"), 'U'),
     real('Lonis, Genetics Expert', '{1}{G/U}{G/U}', 3, 'Legendary Creature — Snake Elf Detective', 'Evolve (Whenever a creature you control enters, if that creature has greater power or toughness than this creature, put a +1/+1 counter on this creature.)\nWhenever one or more +1/+1 counters are put on Lonis, investigate that many times.\nWhenever you sacrifice a Clue, put a +1/+1 counter on another target creature you control.', ("1", "2"), 'GU'),
+    real('Swathcutter Giant', '{4}{R}{W}', 6, 'Creature — Giant Soldier', 'Vigilance\nWhenever this creature attacks, it deals 1 damage to each creature defending player controls.', ("5", "5"), 'RW'),
+    real('Jangling Automaton', '{3}', 3, 'Artifact Creature — Construct', 'Whenever this creature attacks, untap all creatures defending player controls.', ("3", "2"), ''),
 ]
 
 NAMES = [e["name"] for e in EXTRA if not e["name"].startswith("Probe")]
@@ -271,4 +274,28 @@ def test_investigate_as_many_times_as_damage_dealt(cards):
     declare(s, (piper, "p2"))
     through_combat(s)
     assert clues(s) == 3
+    check(s)
+
+
+def test_creatures_of_the_defending_player_only_are_damaged(cards):
+    s = combat_build(cards, "Swathcutter Giant", players=3)
+    giant = combat_put(s, "Swathcutter Giant")
+    walls = {pid: next(c for c in s.state.cards.values() if c.name == f"Wall {pid}") for pid in ("p2", "p3")}
+    to_attack(s, 4)  # (the fourth turn is Alice's again with three players)
+    declare(s, (giant, "p3"))
+    to_blocks(s)
+    assert (s.state.cards[walls["p2"].id].damage, s.state.cards[walls["p3"].id].damage) == (0, 1)
+    check(s)
+
+
+def test_creatures_of_the_defending_player_untap(cards):
+    s = combat_build(cards, "Jangling Automaton", players=3)
+    automaton = combat_put(s, "Jangling Automaton")
+    walls = {pid: next(c for c in s.state.cards.values() if c.name == f"Wall {pid}") for pid in ("p2", "p3")}
+    to_attack(s, 4)
+    for w in walls.values():
+        act(s, "p1", type="tap", card_ids=[w.id])
+    declare(s, (automaton, "p2"))
+    to_blocks(s)
+    assert (s.state.cards[walls["p2"].id].tapped, s.state.cards[walls["p3"].id].tapped) == (False, True)
     check(s)

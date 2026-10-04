@@ -242,6 +242,7 @@ def _thats_both(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "all_colors:" + COLORS[m["c1"]] + COLORS[m["c2"]]))
 
 
+DEFENDED = "defended_player"  # -- triggers (wave 19B) -- a non-targeted "defending player controls": the attack event's player (bound as it's put on the stack)
 THAT_PLAYER = "that_player"  # -- damage wordings (wave 6B) -- a controller the trigger event's player binds
 
 
@@ -1153,7 +1154,7 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         return False
     if sel.controller == "opponent" and card.controller == you:
         return False
-    if sel.controller is not None and (sel.controller == THAT_PLAYER or (  # -- damage wordings (wave 6B) --
+    if sel.controller is not None and (sel.controller in (THAT_PLAYER, DEFENDED) or (  # -- damage wordings (wave 6B) --
             sel.controller.startswith("player:") and card.controller != sel.controller[7:])):
         return False
     if sel.controller == "defending" and card.controller not in defending_players(plan, source, attacker):

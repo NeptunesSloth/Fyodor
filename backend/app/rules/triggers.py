@@ -1712,6 +1712,9 @@ def bind_that_player(t: PendingTrigger) -> None:
     stack and its targets are chosen (603.3d, 608.2k) — "player:<id>", kept for the 608.2b check. An event with no
     single player leaves it unbound (nothing matches: no legal target)."""
     raw = json.dumps(t.ability)
+    if t.event is not None and t.event.defended and '\\"defended_player\\"' in raw:  # -- triggers (wave 19B) -- 508.5: the player the attacker attacked
+        raw = raw.replace('\\"controller\\":\\"defended_player\\"', f'\\"controller\\":\\"player:{t.event.defended}\\"')
+        t.ability = json.loads(raw)
     players = list(t.event.players) if t.event is not None else []
     if len(players) != 1:
         return
