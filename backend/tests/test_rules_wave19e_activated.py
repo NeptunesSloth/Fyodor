@@ -83,6 +83,13 @@ EXTRA = [
     _card("Dragon Whelp", "W26", "{2}{R}{R}", "Creature — Dragon",
           "Flying\n{R}: This creature gets +1/+0 until end of turn. If this ability has been activated four or more times this turn, "
           "sacrifice this creature at the beginning of the next end step.", ["R"], power="2", toughness="3"),
+    _card("Plasma Bolt", "W27", "{R}", "Sorcery",
+          "Plasma Bolt deals 2 damage to any target.\nVoid — Plasma Bolt deals 3 damage instead if a nonland permanent left the "
+          "battlefield this turn or a spell was warped this turn.", ["R"]),
+    _card("Weftstalker Ardent", "W28", "{2}{R}", "Creature — Drix Artificer",
+          "Whenever another creature or artifact you control enters, this creature deals 1 damage to each opponent.\nWarp {R} (You may "
+          "cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may "
+          "cast it from exile on a later turn.)", ["R"], power="2", toughness="3", keywords=["Warp"]),
     _card("Soul Warden", "W4", "{W}", "Creature — Human Cleric",
           "Whenever another creature enters, you gain 1 life.", ["W"], power="1", toughness="1"),
 ]
@@ -379,4 +386,26 @@ def test_ability_activated_four_or_more_times_this_turn(cards, times):
         else:
             act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.cards[whelp.id].zone == ("p1:graveyard" if times == 4 else "p1:battlefield")
+    replay_matches(s)
+
+
+@pytest.mark.parametrize("how", ["nothing", "warped", "left"])
+def test_void_a_nonland_permanent_left_or_a_spell_was_warped(cards, how):
+    """Plasma Bolt's Void: 3 damage instead of 2 if a nonland permanent left the battlefield this turn (Aeolipile sacrificed to its own
+    cost) or a spell was warped this turn (Weftstalker Ardent cast for its warp cost, 702.185a); neither: 2."""
+    s = table(cards, ["Aeolipile"] if how == "left" else [], ["Plasma Bolt", "Weftstalker Ardent"] if how == "warped" else ["Plasma Bolt"])
+    if how == "warped":
+        pay(s, R=1)
+        ardent = named(s, "Weftstalker Ardent")
+        act(s, "p1", type="cast_spell", card_id=ardent.id, alt_cost=f"{ardent.id}:1")
+        pass_until_stack_empty(s)
+    if how == "left":
+        pay(s, C=1)
+        act(s, "p1", type="activate_ability", card_id=named(s, "Aeolipile").id, ability=0, targets=["p1"])
+        pass_until_stack_empty(s)
+    before = life(s, "p2")
+    pay(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=named(s, "Plasma Bolt").id, targets=["p2"])
+    pass_until_stack_empty(s)
+    assert before - life(s, "p2") == (2 if how == "nothing" else 3)
     replay_matches(s)

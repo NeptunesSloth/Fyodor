@@ -408,6 +408,7 @@ class CastNote(BaseModel):
     colors: list[str] = Field(default_factory=list)
     mv: float = 0
     cast_from: str | None = Field(default=None, max_length=20)  # "hand", "graveyard", "exile", "command" …
+    alt: str | None = Field(default=None, max_length=20)  # -- void (wave 19E) -- the alternative cost it was cast for ("warp": 702.185a)
     became: str | None = Field(default=None, max_length=80)  # the permanent a permanent spell became (608.3)
 
 

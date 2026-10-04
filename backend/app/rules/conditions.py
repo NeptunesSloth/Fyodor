@@ -815,6 +815,11 @@ def _activations(m: re.Match[str]) -> Condition | None:
     return None if n is None else {"history": "activations", "n": n}
 
 
+@_history_pattern(r"a spell was warped this turn")
+def _warped(m: re.Match[str]) -> Condition:
+    return {"history": "warped"}  # -- void (wave 19E) -- 702.185a: cast for its warp cost
+
+
 @_history_pattern(r"you(?:'ve| have)? played a land this turn")
 def _played_land(m: re.Match[str]) -> Condition:
     return {"history": "lands", "n": 1}  # 305.1 / 701.18a: played, not put onto the battlefield

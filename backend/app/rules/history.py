@@ -101,6 +101,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         return creatures_died(plan, controller=me if cond.get("who") == "you" else None, last=bool(cond.get("last"))) >= n
     if kind == "left":
         return sum(1 for d in log.left if cond.get("who") != "you" or d.controller == me) >= n
+    if kind == "warped":  # -- void (wave 19E) -- "a spell was warped this turn": cast for its warp cost (702.185a), by anyone
+        return any(c.alt == "warp" for c in log.casts)
     if kind == "entered":  # -- refused modal/conditional (wave 3R1) --
         return entered(plan, ctx, cond, log) >= n
     if kind == "entered_self":
@@ -169,7 +171,8 @@ def note_cast(plan: Plan, card: Any) -> None:
     record = plan.rules.payments.get(plan.oid(card))
     log.casts.append(CastNote(player=card.controller, object_id=plan.oid(card), types=sorted(ch.types),
                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
-                              mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None))
+                              mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None,
+                              alt=record.alternative if record is not None else None))
 
 
 def _stack_mv(card: Any, ch: Any) -> int:
