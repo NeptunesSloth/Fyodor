@@ -1421,7 +1421,13 @@ def ward_costs(ch: Any) -> list[str]:
 
 def ward_pieces(line: str) -> list[str]:
     """-- static wordings (wave 6E) -- the ward pieces of a keyword line ("Flying, ward {2}" → ["ward {2}"])."""
-    return [p.strip() for p in re.split(r"[,;]\s*", line.strip().rstrip(".")) if p.strip().lower().startswith("ward")]
+    out: list[str] = []
+    for p in (p.strip() for p in re.split(r"[,;]\s*", line.strip().rstrip("."))):
+        if out and out[-1].lower().startswith("ward—") and re.match(r"(?i)(?:pay|sacrifice|discard|exile|tap|return|put|remove|reveal|mill|\{)", p):
+            out[-1] += ", " + p  # -- static_other sweep (wave 17C) -- "Ward—{2}, Pay 2 life.": one cost of two parts
+        elif p.lower().startswith("ward"):
+            out.append(p)
+    return out
 
 
 def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[Any], *, crime: bool = True) -> None:
@@ -1457,7 +1463,7 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
         ch = plan.ch(card)
         for k, cost in enumerate(ward_costs(ch)):  # -- attached events (wave 4L) -- each instance (702.21a)
             effects: list[dict[str, Any]] = [{"do": "counter_unless", "cost": cost, "object": stack_id}]
-            if not cost.startswith("{"):  # (wave 15E) a non-mana ward cost: the targeting player may pay it, else it's countered
+            if not WARD.fullmatch(f"ward {cost}"):  # (wave 15E; 17C: "{2}, Pay 2 life" is not mana alone) a non-mana ward cost: the targeting player may pay it, else it's countered
                 effects = [{"do": "optional_payment", "who": f"player:{controller}", "cost": cost, "bind": "pay0"},
                            {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
                            {"do": "counter", "object": stack_id}]

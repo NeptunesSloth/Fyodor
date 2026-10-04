@@ -113,6 +113,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("partner",)
     if re.fullmatch(r"flashback—.+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 16B) -- 702.34a: "Flashback—{1}{U}, Pay 3 life."
         return ("flashback",)  # (one keyword: the comma is inside its cost)
+    if re.fullmatch(r"ward—[^;]+", line.strip(), re.IGNORECASE):  # -- static_other sweep (wave 17C) -- "Ward—{2}, Pay 2 life." (one cost of two parts)
+        return ("ward",)
     pieces = [p for p in re.split(r"[,;]\s*", line) if p.strip()]
     names = [keyword_name(p) for p in pieces]
     if names and all(names):
@@ -292,6 +294,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False) -> list[Abi
         # creature. Activate only as a sorcery." (read as that activated ability)
         if m := re.fullmatch(r"Outlast ((?:\{[^}]+\})+)", line):
             line = f"{m[1]}, {{T}}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
+        # -- keyword meanings (wave 17C) -- 702.81a: "Retrace" means "You may cast this card from your graveyard by discarding a land
+        # card as an additional cost to cast it." (a permission with an additional cost, 601.2b: permissions.SELF_GY_BY)
+        if line == "Retrace":
+            line = "You may cast this card from your graveyard by discarding a land card in addition to paying its other costs."
         # -- keyword meanings (wave 12B) -- 702.97a: "Scavenge [cost]" means "[Cost], Exile this card from your graveyard: Put a
         # number of +1/+1 counters equal to the power of the card you exiled on target creature. Activate only as a sorcery."
         if m := re.fullmatch(r"Scavenge ((?:\{[^}]+\})+)", line):

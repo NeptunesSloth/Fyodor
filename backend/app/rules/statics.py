@@ -677,7 +677,8 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         if rest in GRANTABLE_KEYWORDS:
             keywords.append(rest)
             continue
-        if rest in TRIGGERED_GRANTS or re.fullmatch(MEANING_GRANTS, rest):  # -- static wordings (wave 6E) --
+        if rest in TRIGGERED_GRANTS or rest == "riot" or re.fullmatch(MEANING_GRANTS, rest):  # -- static wordings (wave 6E) --
+            # (wave 17C: riot is read from the entering permanent's characteristics as it enters, 614.12: app/rules/riot.py)
             grants.append(rest.capitalize())  # (wave 15A: "have extort", "have afflict 2": their CR meaning, keyword_triggers)
             continue
         line = keyword_line(rest.replace(_FROM_JOIN, " and from "))  # -- attached events (wave 4L) --
@@ -707,8 +708,9 @@ def keyword_line(rest: str) -> str | None:
     creatures"), or None."""
     from app.rules.coverage import _keyword_supported  # (coverage imports this module through scripts)
 
-    word = rest.split(" ", 1)[0]
-    if word not in _PARAM_KEYWORDS or not re.fullmatch(r"[a-z]+ [\w{}, ]+", rest):
+    word = "ward" if rest.startswith("ward—") else rest.split(" ", 1)[0]
+    # -- static_other sweep (wave 17C) -- "Ward—Pay 2 life." / "Ward—{2}, Pay 2 life.": a ward cost that isn't just mana (triggers.ward_piece_cost)
+    if not (word in _PARAM_KEYWORDS and re.fullmatch(r"[a-z]+ [\w{}, ]+", rest)) and not re.fullmatch(r"ward—[\w{}, ]+", rest):
         return None
     line = rest[0].upper() + rest[1:]
     return line if _keyword_supported(word, line) else None

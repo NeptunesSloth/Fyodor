@@ -2758,8 +2758,8 @@ def granted_ability(text: str) -> AbilityText | None:
         from app.rules import statics
 
         line = ab.text.rstrip(".")  # -- protection grants (wave 5E) -- (a resolved grant's text ends with a period)
-        if re.fullmatch(statics.MEANING_GRANTS, line.lower()):  # -- static grants (wave 15A) -- "Extort", "Afflict 2": their CR meaning
-            return ab
+        if re.fullmatch(statics.MEANING_GRANTS, line.lower()) or line.lower() == "riot":  # -- static grants (wave 15A) --
+            return ab  # "Extort", "Afflict 2": their CR meaning; (wave 17C) riot: read as it enters (app/rules/riot.py)
         return ab if statics.keyword_line(line[0].lower() + line[1:]) == line else None
     probe = Characteristics(name="\u0000", abilities=(ab,))
     return ab if define(ab, probe) is not None else None
@@ -3570,9 +3570,11 @@ def spell_definition(ch: Characteristics) -> Definition | None:
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
     lines = [ab for ab in ch.abilities if ab.kind != "keywords" and not _from_hand_ability(ab)
              and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction")  # (alt_cost: wave 4I; cast_restriction: wave 7A)
-             and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self") and defs[ab.index].get("free"))]
-    if not lines or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):
-        return None
+             and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
+                      and (defs[ab.index].get("free") or defs[ab.index].get("zone") == "graveyard"))]  # (wave 17C: retrace, 702.81a)
+    if (not lines and not any(defs.get(ab.index, {}).get("zone") == "graveyard" for ab in ch.abilities)) \
+            or any(ab.index not in defs or defs[ab.index]["kind"] != "spell" for ab in lines):
+        return None  # (wave 17C: a retrace spell with nothing else on it, Throes of Chaos: cascade does it all)
     # Each line's "target" words are the spell's target groups, in printed order (601.2c, 115.3:
     # "Destroy target creature. / Tap target creature." targets twice, not once).
     groups: list[dict[str, Any]] = []

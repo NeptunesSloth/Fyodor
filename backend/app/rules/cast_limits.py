@@ -611,6 +611,8 @@ def permission_during_ok(state: GameState, d: Definition, player: str) -> bool:
     """A flash permission's "During each opponent's end step" (513: the end step of a turn of an opponent's)."""
     if d.get("during") == "opponents_end_step":
         return state.turn.active_player != player and state.turn.phase == "end"
+    if d.get("during") == "your_turn":  # (wave 17C) "During your turn, …"
+        return state.turn.active_player == player
     return True
 
 
