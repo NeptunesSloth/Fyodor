@@ -59,6 +59,10 @@ WHEN = {
     "the next turn's upkeep": {"kind": "step", "step": "upkeep", "whose": "next_turn"},
     "the next upkeep": {"kind": "step", "step": "upkeep", "whose": "next_turn"},
     "your next upkeep": {"kind": "step", "step": "upkeep", "whose": "you"},
+    # -- triggers (wave 17D) -- "return it to the battlefield under its owner's control at the beginning of their next upkeep"
+    # (Phytotitan): the next upkeep of the player who owns the card the clause moves (fixed as the delayed trigger is created)
+    "its owner's next upkeep": {"kind": "step", "step": "upkeep", "whose": "owner"},
+    "their next upkeep": {"kind": "step", "step": "upkeep", "whose": "owner"},
     # -- stack interaction (wave 5B) -- Mana Drain: the next main phase (precombat or postcombat, 505.1) of a turn of
     # yours to begin; a later one this turn if you're in your precombat main phase or combat now (engine: main1 / main2)
     "your next main phase": {"kind": "step", "step": "main", "whose": "you"},
@@ -186,6 +190,14 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         from app.rules import watches
 
         deferred = watches.bind_x(deferred, int(ctx.get("x") or 0))  # (the X the creating spell was cast with)
+    if when.get("whose") == "owner":  # the owner of the one card the deferred move acts on (parse: scripts._deferred)
+        from app.rules.effects import _cards
+
+        moved = _cards(plan, ctx, deferred[0].get("who", "")) if len(deferred) == 1 else []
+        if len(moved) != 1:
+            plan.note(f"{ctx.get('name') or 'The ability'}: nothing to return (it is gone)")
+            return True
+        when["player"] = plan.state.cards[moved[0]].owner
     turn = plan.state.turn.number
     trigger = DelayedTrigger(
         id=secrets.token_hex(4), controller=ctx["controller"], source_card=ctx.get("source_card"),
@@ -220,7 +232,7 @@ def describe_when(when: dict[str, Any]) -> str:
         return "when it " + ("dies" if when["event"] == "die" else "leaves the battlefield") + (" under your control" if when.get("ctl") else "") + " this turn"
     if when.get("step") == "end_combat":  # -- other side (wave 6D) --
         return "at end of combat"
-    whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's"}[when["whose"]]
+    whose = {"next": "the next", "you": "your next", "next_turn": "the next turn's", "owner": "its owner's next"}[when["whose"]]
     step = {"end": "end step", "main": "main phase"}.get(when["step"], "upkeep")  # (main: wave 5B)
     return f"at the beginning of {whose} {step}"
 
@@ -251,6 +263,8 @@ def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
         return later_turn or same_turn_before
     if whose == "you":
         return plan.active == t.controller and (later_turn or same_turn_before)
+    if whose == "owner":
+        return plan.active == w.get("player") and (later_turn or same_turn_before)
     return later_turn  # "the next turn's upkeep"
 
 

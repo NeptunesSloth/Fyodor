@@ -485,16 +485,45 @@ class Optional:
     label: str
     life: int
     mana: str
+    kind: str = ""  # -- static_other sweep (wave 17C) -- "conspire" / "teamwork": a cost of tapped creatures (``n``: teamwork's power)
+    n: int = 0
+
+
+def keyword_component(o: Optional) -> Any:
+    """-- static_other sweep (wave 17C) -- the cost part a keyword's optional cost is: conspire 702.78a ("tap two untapped creatures you
+    control that each share a color with it") / teamwork 702.194a ("tap any number of creatures you control with total power N or
+    more"), paid with the rest of the additional costs (601.2f-h) once the caster announced it (601.2b)."""
+    from app.rules import costs as C
+    from app.rules.selectors import Selector
+
+    untapped = Selector(types=("Creature",), controller="you", tapped=False)
+    if o.kind == "conspire":
+        key = Selector(types=("Creature",), controller="you", tapped=False, extras=("shares_color_source",)).key()
+        return C.CostComponent(C.TAP_OTHER, amount=2, selector=key, text="Tap two untapped creatures you control that share a color with it")
+    return C.CostComponent("TAP_POWER", amount=o.n, selector=untapped.key(),
+                           text=f"Tap any number of untapped creatures you control with total power {o.n} or more")
 
 
 def optional_offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Optional]:
     """The optional additional costs the table offers ``player`` for this spell (one per permanent)."""
-    from app.rules import permissions
+    import re
+
+    from app.rules import cast_limits, permissions
 
     out: list[Optional] = []
     for src, _, d in permissions._table_statics(state, info, {"optional_additional"}):
         if src.controller == player and permissions.spell_matches(state, player, card, ch, d["filter"], info):
             out.append(Optional(src.id, f"{src.name}: pay {d['life']} life", int(d["life"]), d["mana"]))
+    # -- static_other sweep (wave 17C) -- conspire (its own, or given by a permanent) and teamwork N (702.78a, 702.194a)
+    own = [ab.text.strip().rstrip(".") for ab in ch.abilities if ab.kind == "keywords"]
+    if "Conspire" in own or any(d.get("keyword") == "conspire" and src.controller == player
+                                and (d.get("filter") is None or permissions.spell_matches(state, player, card, ch, d["filter"], info))
+                                and cast_limits.from_ok(d, card) for src, d in cast_limits._statics(state, info, "spell_keyword")):
+        out.append(Optional(f"{card.id}:conspire", "Conspire: tap two untapped creatures that share a color with it", 0, "", "conspire"))
+    for text in own:
+        if (m := re.fullmatch(r"Teamwork (\d+)", text)) is not None:
+            out.append(Optional(f"{card.id}:teamwork", f"Teamwork {m[1]}: tap creatures with total power {m[1]} or more", 0, "", "teamwork",
+                                int(m[1])))
     return out
 
 
@@ -520,7 +549,7 @@ def reduce_only(cost: M.ManaCost, colors: tuple[str, ...]) -> M.ManaCost:
     from app.game.errors import ActionError
 
     colored = list(cost.colored)
-    for c in colors:
+    for c in (x for x in colors if x):  # (wave 17C: a keyword's optional cost reduces no color)
         if any(c in h for h in cost.hybrid) or c in cost.phyrexian:
             raise ActionError("A hybrid or Phyrexian mana symbol with that reduction: pay it by hand with the table tools")
         if c in colored:

@@ -481,7 +481,7 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
     if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
         return goaded["s"], goaded["p"]
-    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?(?= combat damage))\b", body)  # (assigns: wave 6E)
+    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't|assigns?(?= combat damage)|crews(?= Vehicles))\b", body)  # (assigns: wave 6E; crews: 17C)
     if m is None or m.start() == 0:
         return None, None
     return body[: m.start()].strip(), body[m.start():].strip()
@@ -518,9 +518,14 @@ _UNION_TWO = re.compile(r"^(?P<a>.+? you control) and (?P<b>(?:other )?[A-Za-z][
 _UNION_SHARED = re.compile(r"^(?P<pre>[Oo]ther )?(?P<a>[A-Z][a-z'\-]+) and (?P<b>[A-Z][a-z'\-]+) you control$")
 
 
+_EACH_TWO = re.compile(r"^(?P<d>Each|All) (?P<a>[A-Za-z][\w'-]*(?: [a-z][\w'-]*)?) and (?P<b>[A-Za-z][\w'-]*(?: [a-z][\w'-]*)?) you control$")
+
+
 def _union_subject(subject: str) -> str | None:
     m = _UNION_TWO.match(subject)
     parts = [m["a"], m["b"]] if m else None
+    if parts is None and (e := _EACH_TWO.match(subject)) is not None and e["d"] == "Each":  # -- static_other sweep (wave 17C) --
+        parts = [f"Each {e['a']} you control", f"Each {e['b']} you control"]  # "Each land and Ally you control has …"
     if parts is None and (m := _UNION_SHARED.match(subject)) is not None and _type_list(subject) == subject:
         parts = [f"{m['pre'] or ''}{m['a']} you control", f"{m['pre'] or ''}{m['b']} you control"]
     if parts is None:
@@ -677,7 +682,8 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
         if rest in GRANTABLE_KEYWORDS:
             keywords.append(rest)
             continue
-        if rest in TRIGGERED_GRANTS or re.fullmatch(MEANING_GRANTS, rest):  # -- static wordings (wave 6E) --
+        if rest in TRIGGERED_GRANTS or rest == "riot" or re.fullmatch(MEANING_GRANTS, rest):  # -- static wordings (wave 6E) --
+            # (wave 17C: riot is read from the entering permanent's characteristics as it enters, 614.12: app/rules/riot.py)
             grants.append(rest.capitalize())  # (wave 15A: "have extort", "have afflict 2": their CR meaning, keyword_triggers)
             continue
         line = keyword_line(rest.replace(_FROM_JOIN, " and from "))  # -- attached events (wave 4L) --
@@ -699,7 +705,7 @@ def _predicate(predicate: str, x_value: values.Value | None = None, it: str | No
 # (702.164: combat.py). Only qualities and costs the engine enforces (coverage._keyword_supported).
 _FROM_JOIN = "\u0001from "
 _PARAM_KEYWORDS = ("protection", "ward", "toxic", "annihilator", "afflict", "poisonous", "bushido", "mobilize", "frenzy",
-                   "soulshift", "afterlife")  # (wave 15E: keywords whose line is carried out wherever it is: keyword_triggers)
+                   "soulshift", "afterlife", "crew", "equip")  # (wave 15E: keywords whose line is carried out wherever it is: keyword_triggers; 17C: crew, equip)
 
 
 def keyword_line(rest: str) -> str | None:
@@ -707,8 +713,9 @@ def keyword_line(rest: str) -> str | None:
     creatures"), or None."""
     from app.rules.coverage import _keyword_supported  # (coverage imports this module through scripts)
 
-    word = rest.split(" ", 1)[0]
-    if word not in _PARAM_KEYWORDS or not re.fullmatch(r"[a-z]+ [\w{}, ]+", rest):
+    word = "ward" if rest.startswith("ward—") else rest.split(" ", 1)[0]
+    # -- static_other sweep (wave 17C) -- "Ward—Pay 2 life." / "Ward—{2}, Pay 2 life.": a ward cost that isn't just mana (triggers.ward_piece_cost)
+    if not (word in _PARAM_KEYWORDS and re.fullmatch(r"[a-z]+ [\w{}, ]+", rest)) and not re.fullmatch(r"ward—[\w{}, ]+", rest):
         return None
     line = rest[0].upper() + rest[1:]
     return line if _keyword_supported(word, line) else None
@@ -779,6 +786,13 @@ def _rule(piece: str) -> list[str] | None:
     if m:
         n = 1 if m["one"] else 999 if m["any"] else _num(m["a"] or m["b"])
         return [f"block_extra:{n}:@src"] if n else None
+    # -- static_other sweep (wave 17C) -- 702.122: "This creature crews Vehicles as though its power were 2 greater." / "… using its toughness
+    # rather than its power." — the number it counts toward crew (casting.crew_value)
+    m = re.fullmatch(r"crews Vehicles as though its power were (?P<n>\w+) greater", piece)
+    if m and _num(m["n"]):
+        return [f"crew_plus:{_num(m['n'])}"]
+    if piece == "crews Vehicles using its toughness rather than its power":
+        return ["crew_toughness"]
     m = re.fullmatch(r"can't be blocked except by (?P<n>\w+) or more creatures", piece)
     if m:
         n = _num(m["n"])

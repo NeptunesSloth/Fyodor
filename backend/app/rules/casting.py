@@ -1718,30 +1718,39 @@ def affinity_filter(ch: Characteristics) -> Any:
         m = AFFINITY.fullmatch(ab.text.strip().rstrip("."))
         if not m:
             return None
-        what = m["what"].lower()
-        if what in _AFFINITY_TYPES:
-            t = _AFFINITY_TYPES[what]
-            return lambda c: t in c.types
-        if what == "artifact creatures":
-            return lambda c: "Artifact" in c.types and c.is_creature
-        from app.rules.creature_types import CREATURE_TYPES
-        from app.rules.protection import _PLURALS
-
-        sub = _PLURALS.get(what) or (what[:-1] if what.endswith("s") and what != "plains" else what).title()
-        if sub in CREATURE_TYPES or sub in _AFFINITY_SUBTYPES:
-            return lambda c: sub in c.subtypes
-        return None
+        return affinity_pred(m["what"].lower())
     return None
 
 
-def affinity_discount(state: GameState, player: str, ch: Characteristics, info: CardInfo) -> int:
-    pred = affinity_filter(ch)
-    if pred is None:
+def affinity_pred(what: str) -> Any:
+    """The predicate on permanents of "affinity for <what>" (lower case), or None for a wording we don't know."""
+    if what in _AFFINITY_TYPES:
+        t = _AFFINITY_TYPES[what]
+        return lambda c: t in c.types
+    if what == "artifact creatures":
+        return lambda c: "Artifact" in c.types and c.is_creature
+    from app.rules.creature_types import CREATURE_TYPES
+    from app.rules.protection import _PLURALS
+
+    sub = _PLURALS.get(what) or (what[:-1] if what.endswith("s") and what != "plains" else what).title()
+    if sub in CREATURE_TYPES or sub in _AFFINITY_SUBTYPES:
+        return lambda c: sub in c.subtypes
+    return None
+
+
+def affinity_discount(state: GameState, player: str, ch: Characteristics, info: CardInfo, card: CardInstance | None = None) -> int:
+    preds = [p for p in (affinity_filter(ch),) if p is not None]
+    if card is not None:  # -- static_other sweep (wave 17C) -- "Artifact spells you cast have affinity for artifacts." (cast_limits)
+        from app.rules import cast_limits
+
+        preds += [affinity_pred(w) for w in cast_limits.granted_affinities(state, player, card, ch, info)]
+    if not preds:
         return 0
     from app.rules.layers import derive
 
-    return sum(1 for c in state.cards.values() if c.zone == zone_key(player, "battlefield") and c.controller == player
-               and pred(derive(state, c, chars.of(c, info), info)))
+    mine = [derive(state, c, chars.of(c, info), info) for c in state.cards.values()
+            if c.zone == zone_key(player, "battlefield") and c.controller == player]
+    return sum(1 for pred in preds for c in mine if pred(c))
 
 
 def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int = 0,
@@ -1768,7 +1777,7 @@ def spell_cost(state: GameState, card: CardInstance, ch: Characteristics, x: int
         extras.append(kicker_extra(ch, kicker, face_down=face_down))
     tax = state.players[card.owner].commander_tax.get(card.commander_key, 0) \
         if from_command_zone(card, card.owner) and card.commander_key else 0
-    affinity = affinity_discount(state, player, ch, info) if info is not None else 0
+    affinity = affinity_discount(state, player, ch, info, card) if info is not None else 0
     return permissions.total_cost(state, player, card, ch, info, base=base, additional=tuple(extras), tax=tax, affinity=affinity,
                                   targets=targets)
 
@@ -1875,6 +1884,9 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
     for offer in cost_changes.optional_offers(state, player, card, ch, info):
         if state.players[player].life < offer.life:
             continue
+        if offer.kind and cost_payment.problem(permissions._view(state, player, info),
+                                               costs.AbilityCost(components=(cost_changes.keyword_component(offer),)), card, player):
+            continue  # (-- static_other sweep (wave 17C) -- conspire / teamwork: the creatures to tap aren't there)
         try:
             cost = cost_changes.reduce_only(spell_cost(state, card, ch, info=info, player=player,
                                                        free=grant is not None and grant.free), (offer.mana,))
@@ -2046,7 +2058,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if a.optional_costs and not plan.manual(card) else []  # -- cost changers (wave 4I) -- (601.2b)
     if a.optional_costs and plan.manual(card):
         raise ActionError("That card is played by hand: pay its costs with the table tools")
-    cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional))  # ("reduces only the amount of green mana")
+    cost = cost_changes.reduce_only(cost, tuple(o.mana for o in optional if o.mana))  # ("reduces only the amount of green mana")
     cost = M.spend_as(cost, grant.spend) if grant is not None and grant.spend else cost  # -- as long as (wave 9B) -- 118.14
     cost = _locked(plan, cost)  # -- cost changers (wave 4I) -- 601.2f: locked in once the payment was asked for
     # -- costs (wave 3$) -- 601.2b: an additional cost ("sacrifice a creature", "discard a card", "pay 2 life") is
@@ -2068,7 +2080,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         add_cost = alt_costs.merged(add_cost, extra_cost)
     if optional:  # -- cost changers (wave 4I) -- Defiler of Vigor's 2 life, paid with the rest (601.2h, 119.4)
         add_cost = alt_costs.merged(add_cost, costs.AbilityCost(components=tuple(
-            costs.CostComponent(costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life") for o in optional)))
+            cost_changes.keyword_component(o) if o.kind else costs.CostComponent(costs.PAY_LIFE, amount=o.life, text=f"Pay {o.life} life")
+            for o in optional), life=sum(o.life for o in optional)))
     add_objects: dict[int, list[str]] = {}
     if add_cost is not None:
         problem = additional_problem(plan, add_cost, card, plan.actor) or life_x_problem(plan, add_cost, a, plan.actor)  # (4K)
@@ -2095,6 +2108,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}, "face_down": True, "face_down_kind": face_down_kind})
     else:
         plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
+    if cast_zone == "exile":  # -- static_other sweep (wave 17C) -- "Spells you cast from exile have convoke." (cast_limits.granted_helpers reads it)
+        plan.do({"type": "set_stack_info", "card_id": card.id, "tags": ["Cast from exile"]})
     if grant is not None and grant.how == "prepared":  # -- prepared (wave 13C) -- 722.3c, 601.2i: it loses the designation as the copy is cast
         plan.rules.prepared = {o: c for o, c in plan.rules.prepared.items() if c != card.id}
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
@@ -2161,8 +2176,10 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     more_cascade = 0 if a.face_down or plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
     if more_cascade or ("cascade" in ch.keywords and not a.face_down and not plan.manual(card)):
         _cascade_triggers(plan, card, ch, more_cascade)
-    if ("storm" in ch.keywords or "gravestorm" in ch.keywords) and not a.face_down and not plan.manual(card):
-        _storm_trigger(plan, card, ch)
+    if not a.face_down and not plan.manual(card):
+        _storm_triggers(plan, card, ch, record.cast_from)
+        _ripple_triggers(plan, card, ch, record.cast_from)
+        _conspire_trigger(plan, card, ch, record)
     if "replicate" in ch.keywords and not a.face_down and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
@@ -2434,14 +2451,22 @@ def crew_power(ch: Characteristics, index: int) -> int | None:
     return None
 
 
+def crew_value(c: CardInstance, ch: Characteristics) -> int:
+    """What a creature counts toward crewing a Vehicle (702.122a: its power) — -- static_other sweep (wave 17C) -- or its toughness,
+    or its power as though it were greater, while a static says so ("crews Vehicles using its toughness rather than its power")."""
+    from app.rules.combat import power
+    from app.rules.sba import toughness
+
+    base = (toughness(c, ch) if "crew_toughness" in ch.imposed else power(c, ch)) or 0
+    return max(0, base + sum(int(r.split(":")[1]) for r in ch.imposed if r.startswith("crew_plus:")))
+
+
 def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbility, n: int) -> None:
     """Crew N: tap any number of untapped creatures you control with total power N or greater:
     this Vehicle becomes an artifact creature until end of turn. (Summoning-sick creatures may crew.)"""
-    from app.rules.combat import power
-
     def crew_power_of(cid: str) -> int:
         c = plan.state.cards[cid]
-        return max(0, power(c, plan.ch(c)) or 0)
+        return crew_value(c, plan.ch(c))
 
     candidates = [c.id for c in plan.state.cards.values() if c.zone == card.zone and c.controller == plan.actor
                   and c.id != card.id and not c.tapped and plan.in_game(c) and plan.ch(c).is_creature
@@ -2497,7 +2522,47 @@ def _replicate_trigger(plan: Plan, card: CardInstance, ch: Characteristics, time
                          "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": times}]})
 
 
-def _storm_trigger(plan: Plan, card: CardInstance, ch: Characteristics) -> None:
+def _conspire_trigger(plan: Plan, card: CardInstance, ch: Characteristics, record: PaymentRecord) -> None:
+    """-- static_other sweep (wave 17C) -- 702.78a: "When you cast this spell, if its conspire cost was paid, copy it. If the spell has
+    any targets, you may choose new targets for the copy." (the copy is storm's: copying.storm)"""
+    from app.rules.triggers import _add
+
+    if f"optional:{card.id}:conspire" in record.additional:
+        _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6160,
+             definition={"kind": "triggered", "trigger": "storm", "optional": False, "target": None,
+                         "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": 1}]})
+
+
+def _ripple_triggers(plan: Plan, card: CardInstance, ch: Characteristics, cast_from: str | None) -> None:
+    """-- static_other sweep (wave 17C) -- 702.60a ripple N: "When you cast this spell, you may reveal the top N cards of your library. You may
+    cast any of the revealed cards with the same name as this spell without paying their mana costs. Put all revealed cards not cast this
+    way on the bottom of your library in any order." One trigger per instance (702.60b), its own and those a static ability gave it."""
+    from app.rules import cast_limits
+    from app.rules.triggers import _add
+
+    ns = [int(m[1]) for ab in ch.abilities if ab.kind == "keywords" for m in [re.fullmatch(r"(?i)ripple (\d+)\.?", ab.text.strip())] if m]
+    ns += [int(d["n"]) for d in cast_limits.granted_instances(plan, card.id, ch, cast_from, "ripple")]
+    for k, n in enumerate(ns):
+        _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6200 + k,
+             definition={"kind": "triggered", "trigger": "ripple", "optional": False, "target": None, "effects": [
+                 {"do": "look_top", "n": n, "player": "you", "reveal": True, "optional": True},
+                 {"do": "ripple_split", "name": ch.name},
+                 {"do": "rest_looked", "to": "bottom_any"},
+                 {"do": "ripple_cast"}]})
+
+
+def _storm_triggers(plan: Plan, card: CardInstance, ch: Characteristics, cast_from: str | None) -> None:
+    """The storm triggers of a spell just cast: one per instance, its own (gravestorm too) and those a static ability gave it
+    (-- static_other sweep (wave 17C) -- 702.40b: each triggers separately)."""
+    from app.rules import cast_limits
+
+    granted = cast_limits.granted_cascade(plan, card.id, ch, cast_from, "storm")
+    own = "storm" in ch.keywords or "gravestorm" in ch.keywords
+    for k in range(granted + int(own)):
+        _storm_trigger(plan, card, ch, k)
+
+
+def _storm_trigger(plan: Plan, card: CardInstance, ch: Characteristics, k: int = 0) -> None:
     """702.40a: "When you cast this spell, copy it for each other spell that was cast before it
     this turn. You may choose new targets for the copies." """
     from app.rules.triggers import _add
@@ -2510,7 +2575,7 @@ def _storm_trigger(plan: Plan, card: CardInstance, ch: Characteristics) -> None:
 
         before = sum(1 for d in history.log_for(plan).left if d.to == "graveyard")
     if before:
-        _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6100,
+        _add(plan, controller=plan.actor, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=6100 + k,
              definition={"kind": "triggered", "trigger": "storm", "optional": False, "target": None,
                          "effects": [{"do": "storm", "spell": card.id, "object": plan.oid(card), "n": before}]})
 
@@ -2642,8 +2707,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     extra = 0 if plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
     if extra or ("cascade" in ch.keywords and not plan.manual(card)):
         _cascade_triggers(plan, card, ch, extra)
-    if ("storm" in ch.keywords or "gravestorm" in ch.keywords) and not plan.manual(card):
-        _storm_trigger(plan, card, ch)
+    if not plan.manual(card):
+        _storm_triggers(plan, card, ch, record.cast_from)
+        _ripple_triggers(plan, card, ch, record.cast_from)
     if "replicate" in ch.keywords and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
@@ -3151,7 +3217,6 @@ def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteris
 
     if cast_limits.activation_problem(state, player, card, ch, info) is not None:
         return False
-    from app.rules.combat import power
     from app.rules.layers import derive
 
     total = 0
@@ -3159,7 +3224,7 @@ def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteris
         if c.zone == card.zone and c.controller == player and c.id != card.id and not c.tapped:
             cch = derive(state, c, chars.of(c, info), info)
             if cch.is_creature and "cant_crew" not in cch.imposed:
-                total += max(0, power(c, cch) or 0)
+                total += crew_value(c, cch)
     return total >= n
 
 

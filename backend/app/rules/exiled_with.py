@@ -29,7 +29,7 @@ WHO = "exiled_with"
 _THE = r"(?:the exiled cards?|all cards exiled with (?:it|~))"
 _BATTLEFIELD = re.compile(rf"^return {_THE} to the battlefield(?P<tapped> tapped)? under (?:its|their) owner(?:'s|s') control$")
 _HAND = re.compile(rf"^return {_THE} to (?:its|their) owner(?:'s|s') hands?$")
-_REFERS = re.compile(r"\bthe exiled cards?\b|\bcards? exiled with (?:it|~)\b")
+_REFERS = re.compile(r"\bthe exiled cards?\b|\bcards? exiled with (?:it\b|~)")  # (wave 17D: "~" has no word boundary after it)
 
 
 # -- review (wave 6R) -- "Exile target creature. Return the exiled card to the battlefield under its owner's control at the

@@ -364,6 +364,14 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return affinity_filter(Characteristics(name="", abilities=(AbilityText(index=0, text=line, kind="keywords",
                                                                               keywords=("affinity",)),))) is not None
+    if kw == "conspire":  # -- static_other sweep (wave 17C) -- cost_changes.optional_offers / casting._conspire_trigger
+        return line.strip().rstrip(".").lower() == "conspire"
+    if kw == "teamwork":  # (702.194a: its optional cost, and "cast using teamwork" in the text)
+        return re.fullmatch(r"teamwork \d+", line.strip().rstrip(".").lower()) is not None
+    if kw == "cipher":  # -- static_other sweep (wave 17C) -- recursion.cipher: an instant or sorcery's own line (spell_definition appends it)
+        return line.strip().rstrip(".").lower() == "cipher"
+    if kw == "ripple":  # -- static_other sweep (wave 17C) -- casting._ripple_triggers: "Ripple N", each instance its own line
+        return re.fullmatch(r"ripple \d+", line.strip().rstrip(".").lower()) is not None
     if kw == "echo":  # triggers.echo_cost: a mana echo cost
         return re.fullmatch(r"echo (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
@@ -382,7 +390,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import graveyard_keywords
 
         return graveyard_keywords.supported(kw, line)
-    if kw in ("spectacle", "surge", "blitz", "warp", "bestow"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
+    if kw in ("spectacle", "surge", "blitz", "warp", "bestow", "prowl"):  # -- keywords (wave 15E) -- app/rules/alt_costs.py: the cost with its condition
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(line) is not None

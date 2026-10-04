@@ -8,7 +8,7 @@ from typing import Any
 from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.handlers import cards, marks, mulligan, objects, players, response, rules, solo, turn, zones
-from app.game.rules_state import capture, track
+from app.game.rules_state import capture, track, wither_put_by
 from app.game.state import GameState
 
 Handler = Callable[[GameState, Any], None]
@@ -159,5 +159,5 @@ def apply(state: GameState, action: A.Action) -> None:
             # Automation isn't running: the bookkeeping may drift from the table. Resuming or
             # turning automation back on reconciles (app/rules/reconcile.py).
             rules.unsynced = True
-        track(state, before, manual=manual, actor=action.actor)  # (actor: wave 5H)
+        track(state, before, manual=manual, actor=action.actor, put_by=wither_put_by(action))  # (actor: wave 5H)
     state.departures().clear()

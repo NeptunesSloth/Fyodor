@@ -89,6 +89,10 @@ PERMISSION = re.compile(
     r"cast (?:a |an )?(?P<sel>[a-z][a-z' ,-]*?) spells?(?P<qual> with mana value \d+ or less)?|cast (?:this card|~))"
     r" from (?P<zone>your graveyard|the top of your library)$")
 SELF_GY_BY = re.compile(r"^you may cast (?:this card|~) from your graveyard by (?P<cost>.+) in addition to paying its other costs$")
+# -- keyword grants (wave 17C) -- 702.81a: "Instant and sorcery cards in your graveyard have retrace." / "During your turn, nonland
+# permanent cards in your graveyard have retrace." — a permission to cast those cards from the graveyard whose additional cost is
+# discarding a land card (the granted keyword's meaning, as the card's own retrace line says it)
+RETRACE_GRANT = re.compile(r"^(?P<during>during your turn, )?(?P<sel>[a-z][a-z' ,-]*?) cards in your graveyard have retrace$", re.IGNORECASE)
 _GERUND = {"discarding": "discard", "paying": "pay", "sacrificing": "sacrifice", "exiling": "exile"}
 SELF_GY_WHILE = re.compile(r"^you may cast (?:this card|~) from your graveyard (?:as long as|if) (?P<cond>.+)$")  # (wave 4B; 16D: "if")
 # "You may cast creature spells as though they had flash." (601.3b)
@@ -335,6 +339,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     # symbol; 601.2h: while the cost is paid, casting.life_for_mana)
     if t == "for each {B} in a cost, you may pay 2 life rather than pay that mana":
         return {"kind": "static", "static": "life_for_mana", "sym": "B", "life": 2, "effects": []}
+    if " have prowl " in t and kind == "static":  # -- static_other sweep (wave 17C) -- granted prowl (702.76a)
+        from app.rules import alt_costs
+
+        return alt_costs.grant_prowl(t)
     if " rather than pay " in t or (" without paying its mana cost" in t and t.startswith("if ") and "commander" not in t):  # alternative costs (118.9): app/rules/alt_costs.py
         from app.rules import alt_costs
 
@@ -365,6 +373,15 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     if SELF_FREE.fullmatch(t):
         return {"kind": "static", "static": "permission", "zone": "hand", "once": False, "flash": False, "self": True, "free": True,
                 "cond": "commander", "play": False, "cast": True, "filter": None, "effects": []}
+    # -- cost alt (wave 16F) -- "You may cast this card from your graveyard by discarding a card in addition to paying its other
+    # costs." (Alien Symbiosis): a permission to cast it from there whose additional cost (601.2b) is paid with its mana cost
+    m = SELF_GY_BY.fullmatch(t)
+    if m:
+        extra = re.sub(r"\b(discarding|paying|sacrificing|exiling)\b", lambda g: _GERUND[g[1]], m["cost"])
+        if costs.parse_additional_cost(extra) is None:
+            return None
+        return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True,
+                "play": False, "cast": True, "filter": None, "extra": extra, "effects": []}
     if kind != "static":
         return None
     # -- small wordings (wave 11E) -- "Creature spells you control can't be countered." (101.2, 701.6)
@@ -422,6 +439,14 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
                 "floor": bool(m["floor"]), "effects": []}
     # -- conditional statics (wave 4B) -- "You may cast this card from your graveyard as long as you control a Zombie."
     # (Gravecrawler; 113.6f: functions from the graveyard; 611.3a: checked whenever the cast is offered or begun)
+    m = RETRACE_GRANT.fullmatch(t)
+    if m:
+        key = spell_filter(m["sel"])
+        if key is None:
+            return None
+        return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": False,
+                "play": False, "cast": True, "filter": key, "extra": "discard a land card", "own": True,
+                **({"during": "your_turn"} if m["during"] else {}), "effects": []}
     m = SELF_GY_WHILE.fullmatch(t)
     if m:
         from app.rules import conditions
@@ -431,15 +456,6 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
             return None
         return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True,
                 "play": False, "cast": True, "filter": None, "while": cond, "effects": []}
-    # -- cost alt (wave 16F) -- "You may cast this card from your graveyard by discarding a card in addition to paying its other
-    # costs." (Alien Symbiosis): a permission to cast it from there whose additional cost (601.2b) is paid with its mana cost
-    m = SELF_GY_BY.fullmatch(t)
-    if m:
-        extra = re.sub(r"\b(discarding|paying|sacrificing|exiling)\b", lambda g: _GERUND[g[1]], m["cost"])
-        if costs.parse_additional_cost(extra) is None:
-            return None
-        return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": True,
-                "play": False, "cast": True, "filter": None, "extra": extra, "effects": []}
     # -- top of library (wave 5I) -- "You may cast Dragon spells / artifact spells and colorless spells / creature spells of
     # the chosen type … from the top of your library", Radha's look-and-play line (app/rules/top_library.py)
     from app.rules import escape, top_library
@@ -735,7 +751,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if d["once"] and (r.once_per_turn.get(key) == turn or (state.turn.active_player != player and not d.get("once_any"))):
             continue  # "once during each of your turns" ("once each turn": any turn, wave 5I)
         out.append(Grant("permission", src.name, zone_ok=d["zone"] != "any", flash=d["flash"], free=bool(d.get("free")),
-                         once_key=key if d["once"] else None))
+                         once_key=key if d["once"] else None, extra=d.get("extra") or ""))
     # -- top of library (wave 5I) -- the player picks the permission they use (601.3): a once-each-turn one is offered
     # last, so a cast another permission also allows doesn't use it up
     out.sort(key=lambda g: g.once_key is not None)

@@ -1164,6 +1164,8 @@ class RulesDamage(Base):
     planeswalkers: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # loyalty removed
     lifelink: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # life gained
     wither: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # card -> -1/-1 counters
+    # -- triggers (wave 17D) -- 120.3d: card -> the player who puts those counters (its source's controller) -> how many
+    wither_by: dict[str, dict[str, Annotated[int, Field(ge=0, le=100000)]]] = Field(default_factory=dict)
     poison: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # player -> poison counters
     first_strike: bool = False
     combat: bool = True  # False: damage from a spell or ability

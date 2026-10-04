@@ -195,7 +195,8 @@ def _target_key(phrase: str) -> str:
     m = re.match(r"^(another )?target (.+)$", phrase)
     if not m:
         raise _Fail
-    sel = selectors.parse(("another " if m[1] else "") + m[2]) or (None if m[1] else selectors.parse_either(m[2]))  # (wave 15A)
+    sel = selectors.parse(("another " if m[1] else "") + m[2]) or (None if m[1] else selectors.parse_either(m[2])
+                                                                   or selectors.parse_spell_or(m[2]))  # (wave 15A; 17C: spell or permanent)
     if sel is None:
         raise _Fail
     return sel.key()
@@ -281,6 +282,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
     m = re.fullmatch(r"the sacrificed (?:creature|artifact|permanent|land|enchantment)'s (?P<stat>power|toughness|mana value)", phrase)
     if m:  # -- sized amounts (wave 3D) -- what the cost sacrificed (an activated ability only: scripts.define checks)
         return {_STATS[m["stat"]]: "cost:sacrificed"}
+    if (m := re.fullmatch(r"the revealed card's (?P<stat>power|toughness|mana value)", phrase)) is not None:
+        return {_STATS[m["stat"]]: "cost:revealed"}  # -- static_other sweep (wave 17C) -- the card a spell's additional cost revealed
     if (m := re.fullmatch(r"the discarded card's (?P<stat>power|toughness|mana value)|the (?P<stat2>mana value) of the discarded card",
                           phrase)) is not None:  # -- as long as (wave 9B) -- the card a discard (instruction or cost) put into the graveyard
         return {_STATS[m["stat"] or m["stat2"]]: "it:discarded"}
@@ -771,6 +774,11 @@ _TO_LIBRARY = re.compile(rf"put (?P<o>.+?) (?P<place>on top|on the bottom) of {_
 _NTH_FROM_TOP = re.compile(rf"put (?P<o>.+?) into {_OWNERS} library (?P<nth>second|third|fourth|fifth|sixth|seventh) from the top")
 _SHUFFLE_INTO = re.compile(rf"shuffle (?P<o>.+?) into {_OWNERS} library")
 _OWNER_SHUFFLES = re.compile(r"(?P<o>its|~'s|that card's|that creature's|that permanent's) owner shuffles it into their library")
+# -- static_other sweep (wave 17C) -- "The owner of target creature or enchantment puts it into their library second from the top or on the
+# bottom." (Lost Days, Temporal Cleansing): its owner's choice between the two places; "The owner of target artifact or enchantment an
+# opponent controls shuffles it into their library." (Cathartic Parting)
+_OWNER_SECOND = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it into their library second from the top or on the bottom")
+_OWNER_SHUFFLES_TARGET = re.compile(r"the owner of (?P<o>target .+?) shuffles it into their library")
 _OWNER_CHOICE = re.compile(r"(?:the owner of (?P<o>.+?)|(?P<o2>.+?)'s owner) puts it on their choice of the top or bottom of their library")
 # (-- static_other sweep (wave 16B) -- "the cards from your hand": the hand alone, for a count of what was shuffled in)
 _SHUFFLE = re.compile(rf"(?:then )?(?:(?P<may>you may )?shuffle(?: your library)?|shuffle (?:your|the cards from your) (?P<z>graveyard|hand and graveyard|hand) into your library"
@@ -1020,6 +1028,18 @@ def _looking(text: str) -> tuple[Effects, Any] | None:
         if kind not in ("target", "self", "it"):
             raise _Fail
         return [{"do": "to_library", "who": _who(kind, key), "place": "choice"}], _one(group)
+    m = _OWNER_SECOND.fullmatch(text)
+    if m:
+        kind, key, group = ref(m["o"] or m["o2"])
+        if kind not in ("target", "self", "it"):
+            raise _Fail
+        return [{"do": "to_library", "who": _who(kind, key), "place": "choice_second"}], _one(group)
+    m = _OWNER_SHUFFLES_TARGET.fullmatch(text)
+    if m:
+        kind, key, group = ref(m["o"])
+        if kind != "target":
+            raise _Fail
+        return [{"do": "to_library", "who": _who(kind, key), "place": "shuffle"}], _one(group)
     return None
 
 
@@ -1115,6 +1135,9 @@ def _parse(text: str) -> tuple[Effects, Any]:
         if m["stat"]:  # "… gains life equal to its toughness"
             if rider is not None:
                 raise _Fail
+            pp = sized_damage.per_player(m["stat"]) if verb == "lose_life" and who in ("each_opponent", "each_player") else None
+            if pp is not None:  # -- triggers (wave 17D) -- "each opponent loses life equal to the number of creatures attacking them"
+                return [{"do": verb, "who": who, "n": pp}], target
             n = _stat(m["stat"])
             return [{"do": verb, "who": who, "n": n}], _value_target(n, target)
         return [{"do": verb, "who": who, "n": _apply(_amount(m["n"]), rider)}], target
@@ -1212,6 +1235,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
     # -- damage ---------------------------------------------------------------------------------
     # -- sized amounts (wave 3D) -- "that creature deals damage equal to its power": the pronoun's creature (as "it")
     text = re.sub(r"^that creature deals ", "it deals ", text)
+    text = re.sub(r"^exile that card from (?:your|their) graveyard$", "exile it", text)  # (wave 17D: the discarded card, Necropotence)
     # -- damage sized by a count (wave 4E) -- "Whenever Smaug attacks, he deals …": a named character's pronoun is the
     # card itself (its power: "his power"); "this enchantment deals … equal to the number of verse counters on it"
     text = re.sub(r"^(?:he|she) deals ", "~ deals ", text)
@@ -1513,13 +1537,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
             raise _Fail
         return [{"do": "add_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
             _one(group)
-    m = re.fullmatch(rf"remove (?P<n>{AMT}) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
+    m = re.fullmatch(rf"remove (?P<n>{AMT}|all) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
         kind, key, group = ref(m["o"])
-        if kind == "players":
+        if kind == "players" or (m["n"] == "all" and rider is not None):
             raise _Fail
-        return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": _apply(_amount(m["n"]), rider)}], \
-            _one(group)
+        # (wave 17D: "remove all -1/-1 counters from it" - as many as there are, 122.8)
+        n = 10**6 if m["n"] == "all" else _apply(_amount(m["n"]), rider)
+        return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": n}], _one(group)
     # -- counters (wave 5H) -- "double the number of +1/+1 counters on each creature you control" (Kalonian Hydra),
     # "double the number of each kind of counter on target permanent" (Vorel): 701.10e, as many more as it has
     m = re.fullmatch(r"double the number of (?:(?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters|(?P<each>each kind of counter)) on (?P<o>.+)",
@@ -2892,7 +2917,7 @@ _GOAD_PLAYER = re.compile(r"goad (?:each|all) creatures? (?P<p>target player|tar
 _MANIFEST = re.compile(r"(?:(?P<p>its controller|that player|target player|target opponent|each player|each opponent) )?"
                        r"(?P<v>manifests?|cloaks?) the top (?:(?P<n>two|three|four|five|x|\d+) cards|card) of "
                        r"(?P<lib>your|their) library")
-_DREAD = re.compile(r"manifest dread(?: (?P<n>twice|x times|\w+ times))?")
+_DREAD = re.compile(r"(?:(?P<p>its controller|that player) )?manifests? dread(?: (?P<n>twice|x times|\w+ times))?")  # (wave 17C: "Its controller manifests dread.")
 
 
 def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
@@ -2901,7 +2926,10 @@ def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
     m = _DREAD.fullmatch(text)
     if m:
         n: Any = 1 if not m["n"] else 2 if m["n"] == "twice" else _amount(m["n"][:-6])
-        return [{"do": "manifest", "dread": True, "kind": "manifest", "who": "you", "n": n}], None
+        if (m["p"] is None) != m.group(0).startswith("manifest dread"):
+            return None
+        return [{"do": "manifest", "dread": True, "kind": "manifest", "who": {None: "you", "its controller": "it.controller",
+                                                                              "that player": "that_player"}[m["p"]], "n": n}], None
     m = _MANIFEST.fullmatch(text)
     if m is None:
         return None

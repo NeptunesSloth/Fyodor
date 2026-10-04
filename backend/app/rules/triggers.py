@@ -401,6 +401,11 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         if card is None:
             return []
         return [("cycle", card, plan.ch(card), e.player, {"oid": plan.oid(card), "actor": e.player, "amount": 1})]
+    if e.kind == "milled":  # -- triggers (wave 17D) -- 701.17a: the card, as it is in its owner's graveyard now
+        card = plan.state.cards.get(e.card or "")
+        if card is None or not card.zone.endswith(":graveyard"):
+            return []
+        return [("mill", card, plan.ch(card), e.player, {"oid": plan.oid(card), "actor": e.player, "amount": 1})]
     if e.kind == "sacrificed":  # 701.21a; 603.10a: looks back in time
         got = _object_then(plan, e.card, e.object_id)
         if got is None:
@@ -706,6 +711,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if event == "leave" and cond.get("dest") and _zone(info.get("to")) != cond["dest"]:  # -- trigger tail (wave 15B) -- "put into exile"
         return False
+    if event == "leave" and cond.get("nodie") and (_zone(info.get("to")) == "graveyard" or (info.get("to") is None and getattr(info.get("snap"), "is_token", False))):
+        return False  # -- triggers (wave 17D) -- "without dying": 700.4's own test, as _zone_facts makes the "die" fact
     if event == "explore" and cond.get("kind") and info.get("revealed") != (1 if cond["kind"] == "land" else 2):
         return False  # (-- trigger tail (wave 15B) -- "explores a land card": the card it revealed)
     if event == "expend" and not info["before"] < cond["n"] <= info["after"]:
@@ -886,6 +893,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 info.get("recipient") or info.get("actor") or (info.get("defended") if cond.get("defender") else "") or ""
             if cond.get("to") in ("players", "opponents", "creatures"):  # -- source damage (wave 11F) -- 603.2c: one per batch
                 per = ""
+            if cond["event"] == "mill" and cond.get("aggregate") and cond.get("player") == "any":
+                per = ""  # -- triggers (wave 17D) -- "one or more cards are milled": every player's cards of the batch are one event (603.2c)
             if cond.get("subject") == "source":  # "that source's controller" is the event's player
                 event.players = [fact[3]] if fact[3] else []
             if anykind:  # (its steps are in batches of their own: keyed by the instruction, not the batch)
@@ -993,7 +1002,7 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
     turn = plan.state.turn.number
     facts: list[Fact] = []
     for c in cards:
-        info: dict[str, Any] = {"oid": plan.oid(c), "attackers": len(cards), "attacking": attacking}
+        info: dict[str, Any] = {"oid": plan.oid(c), "attackers": len(cards), "attacking": attacking, "amount": 1}  # (amount: wave 17D, "that many")
         if event in ("attack", "unblocked"):  # whom it attacks (508.3a, 509.3g)
             info["defended"], info["direct"] = _defended(plan, c)
         if event == "attack":  # "attacks for the first time each turn" (kept per object per turn)
@@ -1424,7 +1433,13 @@ def ward_costs(ch: Any) -> list[str]:
 
 def ward_pieces(line: str) -> list[str]:
     """-- static wordings (wave 6E) -- the ward pieces of a keyword line ("Flying, ward {2}" → ["ward {2}"])."""
-    return [p.strip() for p in re.split(r"[,;]\s*", line.strip().rstrip(".")) if p.strip().lower().startswith("ward")]
+    out: list[str] = []
+    for p in (p.strip() for p in re.split(r"[,;]\s*", line.strip().rstrip("."))):
+        if out and out[-1].lower().startswith("ward—") and re.match(r"(?i)(?:pay|sacrifice|discard|exile|tap|return|put|remove|reveal|mill|\{)", p):
+            out[-1] += ", " + p  # -- static_other sweep (wave 17C) -- "Ward—{2}, Pay 2 life.": one cost of two parts
+        elif p.lower().startswith("ward"):
+            out.append(p)
+    return out
 
 
 def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[Any], *, crime: bool = True) -> None:
@@ -1460,7 +1475,7 @@ def targeted(plan: Plan, stack_id: str | None, controller: str, targets: list[An
         ch = plan.ch(card)
         for k, cost in enumerate(ward_costs(ch)):  # -- attached events (wave 4L) -- each instance (702.21a)
             effects: list[dict[str, Any]] = [{"do": "counter_unless", "cost": cost, "object": stack_id}]
-            if not cost.startswith("{"):  # (wave 15E) a non-mana ward cost: the targeting player may pay it, else it's countered
+            if not WARD.fullmatch(f"ward {cost}"):  # (wave 15E; 17C: "{2}, Pay 2 life" is not mana alone) a non-mana ward cost: the targeting player may pay it, else it's countered
                 effects = [{"do": "optional_payment", "who": f"player:{controller}", "cost": cost, "bind": "pay0"},
                            {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1},
                            {"do": "counter", "object": stack_id}]
@@ -1558,6 +1573,15 @@ def dealt_combat_damage_to_player(plan: Plan, sources: list[CardInstance]) -> No
         for i, d in abilities(plan, ch, "combat_damage_player_self"):
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=i, definition=d)
+        # -- static_other sweep (wave 17C) -- cipher 702.99a: "Whenever this creature deals combat damage to a player, you may copy the
+        # encoded card and you may cast the copy without paying its mana cost." — one ability for each card encoded on it
+        for k, oid in enumerate(plan.rules.exiled_with.get(plan.oid(card), [])):
+            enc = plan.state.cards.get(oid.rsplit(".", 1)[0])
+            if enc is not None and enc.zone.endswith(":exile") and plan.oid(enc) == oid and not enc.face_down:
+                _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=7000 + k,
+                     definition={"kind": "triggered", "trigger": "cipher", "optional": True, "target": None, "effects": [
+                         {"do": "copy_cards", "who": f"exiled_card:{oid}", "as": "e0"},
+                         {"do": "free_cast", "zone": "that", "who": "ref:e0", "filter": None, "optional": True, "mv": None, "n": 1}]})
         if plan.oid(card) in plan.rules.renowned:
             continue
         for k, n in enumerate(_keyword_n(ch, "renown")):

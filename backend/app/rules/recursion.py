@@ -101,4 +101,43 @@ def check_found(plan: Plan, e: dict[str, Any], chosen: list[str]) -> None:
         raise ActionError("The lands you find must share a land type")
 
 
-PRIMITIVES = {"spell_self_move": spell_self_move}
+# -- static_other sweep (wave 17C) -- cipher (702.99): "If this spell is represented by a card, you may exile this card encoded on a creature
+# you control." The last thing the spell does (its other text first, 608.2c); the card goes to exile (as a spell moving itself does:
+# ``spell_self_move``) and is linked to the creature (``RulesState.exiled_with``, the creature's object id: 607.2a-style, so a creature
+# that leaves, or comes back as a new object, no longer has it encoded: 702.99c). The trigger it gives the creature:
+# triggers.dealt_combat_damage_to_player.
+def cipher(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.game.state import zone_key
+    from app.rules.plan import decide
+
+    sid = ctx.get("stack_id")
+    card = plan.state.cards.get(sid) if sid else None
+    if card is None or card.zone != "stack" or ctx.get("kind") != "spell" or card.copy_of is not None or card.is_token:
+        return True  # (a copy isn't represented by a card: 707.10a)
+    pid = ctx["controller"]
+    creatures = [c for c in plan.state.cards.values() if c.zone == zone_key(pid, "battlefield") and c.controller == pid
+                 and plan.in_game(c) and plan.ch(c).is_creature]
+    if not creatures:
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt=f"Cipher: exile {card.name} encoded on a creature you control? (or none)",
+           options=[DecisionOption(id=c.id, label=c.name or "Creature", card_id=c.id) for c in creatures], min_choices=0, max_choices=1,
+           resume={"step": "cipher", "ctx": ctx}, source=card)
+    return False
+
+
+def resume_cipher(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    creature = plan.state.cards.get(chosen[0]) if chosen else None
+    sid = ctx.get("stack_id")
+    if creature is not None and creature.zone.endswith(":battlefield") and sid in plan.state.cards and plan.state.cards[sid].zone == "stack":
+        spell_self_move(plan, ctx, {"to": "exile"})
+        if plan.state.cards[sid].zone.endswith(":exile"):
+            plan.rules.exiled_with.setdefault(plan.oid(creature), []).append(plan.oid(sid))
+            plan.note(f"{plan.state.cards[sid].name} is encoded on {creature.name}")
+    effects.continue_effects(plan, ctx)
+
+
+PRIMITIVES = {"spell_self_move": spell_self_move, "cipher": cipher}

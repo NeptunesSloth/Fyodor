@@ -98,7 +98,12 @@ EFFECT_FLASH = re.compile(r"^(?:until end of turn, )?you may cast (?:(?P<sel>[A-
 STATIC_HASTE = "you may activate abilities of creatures you control as though those creatures had haste"
 # 702.51 / 702.126 / 702.66: "Nonartifact spells you cast have improvise." / "Artifact spells you cast have convoke." / "Spells
 # you cast have delve." — the spell has it while it's being cast (601.2g-h: costs are paid with the spell on the stack)
-STATIC_HELPER = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells you cast have (?P<kw>convoke|improvise|delve)$")
+STATIC_HELPER = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells you cast(?P<frm> from exile)? have (?P<kw>convoke|improvise|delve)$")
+
+
+# -- static_other sweep (wave 17C) -- 702.41a: "Artifact spells you cast have affinity for artifacts." / "Spells you cast have affinity for
+# artifacts." — the spell has it while it's being cast (601.2f: the total cost is determined with it), one more reduction per instance
+STATIC_AFFINITY = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells you cast have affinity for (?P<what>[A-Za-z ]+)$")
 
 
 # -- static statics (wave 10B) -- 702.85a: "Spells you cast with mana value 6 or greater have cascade." / "The first spell
@@ -108,10 +113,10 @@ STATIC_HELPER = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells you ca
 # stack), one instance per word quoted. A grant to the spell's own copy or to a spell cast by another player isn't read.
 _FROM_ZONES = {"your hand": "hand", "exile": "exile", "anywhere other than your hand": "not_hand"}
 STATIC_CASCADE = re.compile(
-    r"^(?:(?P<first>the first) )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? you cast"
+    r"^(?:each |(?P<first>the first) )?(?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spells? you cast"
     r"(?: from (?P<frm>your hand|exile|anywhere other than your hand))?"
     r"(?: (?P<tail>with mana value \d+ or (?:greater|less)))?(?P<each> each turn)? "
-    r"(?:has|have) (?P<kw>cascade|\"[Cc]ascade, cascade\.?\")$")
+    r"(?:has|have) (?P<kw>cascade|storm|conspire|ripple \d+|\"[Cc]ascade, cascade\.?\")$")  # (wave 17C: storm 702.40a, ripple 702.60a, conspire 702.78a)
 
 
 def _cascade_definition(m: re.Match[str]) -> Definition | None:
@@ -131,7 +136,8 @@ def _cascade_definition(m: re.Match[str]) -> Definition | None:
         if key is None and (phrase or m["tail"]):
             return None  # (a wording the spell selector doesn't read)
         first = None
-    return {"kind": "static", "static": "spell_keyword", "keyword": "cascade",
+    return {"kind": "static", "static": "spell_keyword", "keyword": m["kw"] if m["kw"] in ("storm", "conspire") else "ripple"
+            if m["kw"].startswith("ripple") else "cascade", **({"n": int(m["kw"].split()[1])} if m["kw"].startswith("ripple") else {}),
             "count": 2 if m["kw"].startswith('"') else 1, "filter": key,
             "from": _FROM_ZONES[m["frm"]] if m["frm"] else None, "first": first, "effects": []}
 
@@ -234,7 +240,16 @@ def static_definition(text: str) -> Definition | None:
         ok, key = _filter(m["sel"])
         if not ok:
             return None
-        return {"kind": "static", "static": "spell_helper", "keyword": m["kw"], "filter": key, "effects": []}
+        return {"kind": "static", "static": "spell_helper", "keyword": m["kw"], "filter": key, "effects": [],
+                **({"from": "exile"} if m["frm"] else {})}  # (wave 17C: "Spells you cast from exile have convoke.")
+    m = STATIC_AFFINITY.fullmatch(t)
+    if m:
+        from app.rules.casting import affinity_pred
+
+        ok, key = _filter(m["sel"])
+        if not ok or affinity_pred(m["what"].lower()) is None:
+            return None
+        return {"kind": "static", "static": "spell_helper", "keyword": "affinity", "what": m["what"].lower(), "filter": key, "effects": []}
     from app.rules import player_shields  # "You have hexproof." (app/rules/player_shields.py)
 
     return player_shields.static_definition(text)
@@ -572,26 +587,50 @@ def granted_helpers(state: GameState, player: str, spell_card: str, spell: Chara
         return set()
     from app.rules.permissions import spell_matches
 
-    return {d["keyword"] for src, d in found if src.controller == player
+    return {d["keyword"] for src, d in found if src.controller == player and d["keyword"] != "affinity"
+            and (d.get("from") is None or card.zone.endswith(":exile")
+                 or (card.stack_info is not None and "Cast from exile" in card.stack_info.tags))
             and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))}
 
 
-def granted_cascade(plan: Plan, spell_card: str, spell: Characteristics, cast_from: str | None) -> int:
+def granted_affinities(state: GameState, player: str, card: CardInstance, spell: Characteristics, info: CardInfo) -> list[str]:
+    """-- static_other sweep (wave 17C) -- the "affinity for X" words that permanents ``player`` controls give this spell (702.41a)."""
+    from app.rules.permissions import spell_matches
+
+    return [d["what"] for src, d in _statics(state, info, "spell_helper") if src.controller == player and d["keyword"] == "affinity"
+            and (d.get("filter") is None or spell_matches(state, player, card, spell, d["filter"], info))]
+
+
+def from_ok(d: Definition, card: CardInstance) -> bool:
+    """-- static_other sweep (wave 17C) -- a granted keyword's "from exile" / "from your hand" zone, for a spell not yet cast (the card is
+    where it is cast from) — "first … each turn" statics are not offered ahead (conspire reads none)."""
+    zone = d.get("from")
+    where = card.zone.rsplit(":", 1)[-1]
+    return d.get("first") is None and (zone is None or (where != "hand" if zone == "not_hand" else where == zone))
+
+
+def granted_cascade(plan: Plan, spell_card: str, spell: Characteristics, cast_from: str | None, keyword: str = "cascade") -> int:
     """-- static statics (wave 10B) -- how many extra instances of cascade (702.85a) the permanents ``plan.actor``
     controls give this spell as it is cast from ``cast_from`` (the zone's name). "The first spell you cast each turn"
     reads the spells cast before this one (it isn't counted yet: 601.2i), "from exile" those cast from exile."""
+    return len(granted_instances(plan, spell_card, spell, cast_from, keyword))
+
+
+def granted_instances(plan: Plan, spell_card: str, spell: Characteristics, cast_from: str | None, keyword: str) -> list[Definition]:
+    """The statics (one entry per instance) that give this spell ``keyword`` as it is cast (-- static_other sweep (wave 17C) -- ripple
+    reads each one's N)."""
     found = _statics(plan.state, plan.info, "spell_keyword")
     card = plan.state.cards.get(spell_card)
     if not found or card is None or plan.rules is None:
-        return 0
+        return []
     from app.rules.permissions import spell_matches
 
     player, turn = plan.actor, plan.state.turn.number
     log = plan.rules.turn_log if plan.rules.turn_log.turn == turn else None
     earlier = [c for c in (log.casts if log else []) if c.player == player and c.object_id != plan.oid(card)]
-    total = 0
+    total: list[Definition] = []
     for src, d in found:
-        if src.controller != player or d.get("keyword") != "cascade":
+        if src.controller != player or d.get("keyword") != keyword:
             continue
         zone = d.get("from")
         if zone is not None and not (cast_from != "hand" if zone == "not_hand" else cast_from == zone):
@@ -603,7 +642,7 @@ def granted_cascade(plan: Plan, spell_card: str, spell: Characteristics, cast_fr
             continue
         if d.get("filter") is not None and not spell_matches(plan.state, player, card, spell, d["filter"], plan.info):
             continue
-        total += int(d.get("count", 1))
+        total += [d] * int(d.get("count", 1))
     return total
 
 
@@ -611,6 +650,8 @@ def permission_during_ok(state: GameState, d: Definition, player: str) -> bool:
     """A flash permission's "During each opponent's end step" (513: the end step of a turn of an opponent's)."""
     if d.get("during") == "opponents_end_step":
         return state.turn.active_player != player and state.turn.phase == "end"
+    if d.get("during") == "your_turn":  # (wave 17C) "During your turn, …"
+        return state.turn.active_player == player
     return True
 
 
