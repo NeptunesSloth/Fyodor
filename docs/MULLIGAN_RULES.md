@@ -75,3 +75,21 @@ in *New game*) and answers these questions with the editor's fields:
 The definition is remembered in the host's browser for the next table. If the pod's rule needs
 a step these fields can't express (for example "reveal the rejected hand" or "opponents
 choose"), that is a new field to add here, not a behaviour to invent.
+
+## Opening-hand actions (CR 103.6; wave 18C)
+
+With rules automation on and a guided mulligan, the table asks one more thing after the last player has kept (the same
+`mulligan_keep` / `mulligan_bottom` / `mulligan_finish` action that ends the mulligans carries the compiled first decision, so
+replays and undo are exact): **each player, the starting player first and then in turn order, chooses which cards of their
+opening hand to use** (`app/rules/opening_hand.py`).
+
+* "If this card is in your opening hand, you may begin the game with it on the battlefield." (the Leylines, Leyline Axe,
+  Quicksilver): the card enters like any permanent (103.6a). Gemstone Caverns is offered only to a player who is not the starting
+  player; it enters with a luck counter and its player then exiles a card from their hand.
+* "You may reveal this card from your opening hand. If you do, at the beginning of the first upkeep / your first upkeep / your first
+  main phase of the game, …" (the Chancellors, Sphinx of Foresight): the card is revealed to the table (103.6b) and its delayed
+  trigger is created for the revealer; the card is hidden again once the last player has acted.
+* **Privacy**: every player gets the same prompt whether or not their hand holds such a card, so neither the decision nor its timing
+  says anything about a hand. The options are visible to the chooser only; the others see "is making a choice".
+* Not read (manual): Chancellor of the Annex (a per-opponent delayed cast trigger), Leyline of Transformation (a choice as it
+  enters), Serum Powder's "any time you could mulligan" action.
