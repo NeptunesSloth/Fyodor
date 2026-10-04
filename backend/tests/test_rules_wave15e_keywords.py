@@ -25,6 +25,7 @@ EXTRA = [
     card('Blackblade Reforged', set_code='tst', number='X06', mana_cost='{1}', cmc=1.0, type_line='Legendary Artifact — Equipment', oracle_text='Equipped creature gets +1/+1 for each land you control.\nEquip legendary creature {3}\nEquip {7}', power=None, toughness=None, colors=[], color_identity=[], keywords=['Equip']),  # noqa: E501
     card('Demonmail Hauberk', set_code='tst', number='X07', mana_cost='{4}', cmc=4.0, type_line='Artifact — Equipment', oracle_text='Equipped creature gets +4/+2.\nEquip—Sacrifice a creature. (Sacrifice a creature: Attach to target creature you control. Equip only as a sorcery.)', power=None, toughness=None, colors=[], color_identity=[], keywords=['Equip']),  # noqa: E501
     card('Bureau Headmaster', set_code='tst', number='X08', mana_cost='{R}{W}', cmc=2.0, type_line='Creature — Human Assassin', oracle_text='Equipment spells you cast cost {1} less to cast.\nEquip abilities you activate cost {1} less to activate.', power='2', toughness='2', colors=['R', 'W'], color_identity=['R', 'W'], keywords=[]),  # noqa: E501
+    card('Entangling Vines', set_code='tst', number='X09', mana_cost='{3}{G}', cmc=4.0, type_line='Enchantment — Aura', oracle_text="Enchant tapped creature\nEnchanted creature doesn't untap during its controller's untap step.", power=None, toughness=None, colors=['G'], color_identity=['G'], keywords=['Enchant']),  # noqa: E501
     card('Forked-Branch Garami', set_code='tst', number='X05', mana_cost='{3}{G}{G}', cmc=5.0, type_line='Creature — Spirit', oracle_text='Soulshift 4, soulshift 4 (When this creature dies, you may return up to two target Spirit cards with mana value 4 or less from your graveyard to your hand.)', power='4', toughness='4', colors=['G'], color_identity=['G'], keywords=['Soulshift']),  # noqa: E501
 ]
 FULL = [c["name"] if isinstance(c, dict) else c.name for c in EXTRA]
@@ -180,4 +181,19 @@ def test_equip_abilities_cost_less_with_bureau_headmaster(cards):
     act(s, "p1", type="activate_ability", card_id=blade.id, ability=1, targets=[bear.id])
     settle(s)
     assert s.state.cards[blade.id].attached_to == bear.id
+    check(s)
+
+
+def test_enchant_a_described_creature(cards):
+    s = build(cards, "Entangling Vines")
+    vines = to_hand(s, "Entangling Vines")
+    up = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    down = token_of(s, "p1", "Goat", "Token Creature — Goat", "0/1")
+    act(s, "p1", type="tap", card_ids=[down.id], tapped=True)
+    mana(s, G=1, C=3)
+    with pytest.raises(Exception):
+        act(s, "p1", type="cast_spell", card_id=vines.id, targets=[up.id])  # 702.5a: only a tapped creature
+    act(s, "p1", type="cast_spell", card_id=vines.id, targets=[down.id])
+    settle(s)
+    assert s.state.cards[vines.id].attached_to == down.id
     check(s)

@@ -76,8 +76,20 @@ def enchant_lines(ch: Characteristics) -> list[str]:
 
 
 def enchant_selector_of(line: str) -> str | None:
-    m = _ENCHANT.match(line.strip())
-    return ENCHANT_SELECTORS.get(m["what"].strip().lower().replace("’", "'")) if m else None
+    m = _ENCHANT.match(re.sub(r"\s*\(.*?\)", "", line).strip())
+    if m is None:
+        return None
+    what = m["what"].strip().replace("’", "'")
+    if what.lower() in ENCHANT_SELECTORS:
+        return ENCHANT_SELECTORS[what.lower()]
+    # -- keywords (wave 15E) -- 702.5a: any object description the selector grammar reads ("Enchant tapped creature",
+    # "Enchant red or green creature", "Enchant Forest or Plains", "Enchant artifact an opponent controls")
+    from app.rules import selectors
+
+    sel = selectors.parse(what)
+    if sel is None or sel.card or sel.zones != ("battlefield",) or sel.player is not None:
+        return None
+    return sel.key()
 
 
 def enchant_selector(ch: Characteristics) -> str | None:
@@ -173,7 +185,7 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
         if host not in plan.live():
             return "that player left the game"  # 303.4c
         if selector not in PLAYER_SELECTORS:
-            return "it can't enchant a player"
+            return "it can't enchant a player"  # (a described host, wave 15E, is a permanent)
         if selector == "opponent" and host == you:
             return "it can only enchant an opponent"
         # -- player shields (wave 5E) -- 702.16c, 702.16j
@@ -194,6 +206,12 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
         selector = enchant_selector(sch)
         if selector is None:
             return "unknown"
+        if selector.startswith("sel:"):  # (wave 15E) a described host, judged for the Aura's controller
+            from app.rules import selectors
+
+            if not selectors.matches(plan, selectors.from_key(selector), card, hch, you, source.id):
+                return f"it can't enchant {hch.name or 'that'}"
+            return None
         players, check = SELECTORS[selector]
         if check is None or not check(plan, you, card, hch):
             return f"it can't enchant {hch.name or 'that'}"
