@@ -273,7 +273,17 @@ def self_text(text: str, name: str) -> str:
 
     parts = out.split('"')
     out = '"'.join(own(p) if i % 2 == 0 else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
-    return re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
+    out = re.sub(r"\b[Tt]his (creature|artifact|enchantment|land|permanent|planeswalker|battle|Siege|Class|Equipment|Vehicle|Aura|emblem|Room)\b", "~", out)
+    return _counter_threshold(out)
+
+
+# -- counters sweep (wave 19D) -- "Put a ribbon counter on ~. Then if it has three or more ribbon counters on it, remove those counters
+# and untap it." (Prize Pig, Waterbender Ascension, Cursed Recording): after a sentence that put counters on ~, "it" in the next
+# sentence's count is ~ itself (122.1: the counters of that one object), and "those counters" are the ones of that kind ~ has (122.8)
+def _counter_threshold(text: str) -> str:
+    text = re.sub(r"(counters? on ~\. Then if )it has( [^,.]+? counters? on )it,", r"\1~ has\2~,", text)
+    text = re.sub(r"(counters? on ~\. Then if there (?:are|is) [^,.]+? counters? on )it,", r"\1~,", text)
+    return re.sub(r"(Then if (?:~ has|there are) [^,.]+? (\S+) counters? on ~, )remove (?:those counters|them all|all of them|them)\b", r"\1remove all \2 counters from ~", text)
 
 
 EFFECTS: list[tuple[re.Pattern[str], Any]] = []
@@ -3113,6 +3123,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if granted is not None:
             return granted
     if ability.kind == "triggered":
+        # -- counters sweep (wave 19D) -- "At the beginning of your upkeep and whenever you cast a white spell, …" (the Shrines): the same
+        # two conditions as "Whenever you cast a white spell and at the beginning of your upkeep, …" (603.2: it triggers on each)
+        text = re.sub(r"^At the beginning of your (upkeep|end step) and (?:when|whenever) ([^,]+), (.+)$",
+                      r"Whenever \2 and at the beginning of your \1, \3", text)
         for pattern, trigger in TRIGGERS:
             m = pattern.match(text)
             if m and trigger == "event":  # -- triggers (wave 5D) -- a condition with commas in it ("an Aura, Equipment,
@@ -3870,6 +3884,8 @@ def _for_each(phrase: str) -> Any:
 
     if phrase in ("time it was kicked", "time this spell was kicked", "time ~ was kicked"):
         return {"kicked": 1}
+    if phrase in ("mana spent to cast it", "mana spent to cast ~"):  # -- counters sweep (wave 19D) -- 601.2h: the amount of mana its spell cost
+        return {"mana_spent": "self"}
     if phrase in ("color of mana spent to cast it", "color of mana spent to cast ~"):  # -- ability words (wave 4F) --
         return {"colors_spent": 1}  # converge (its spell's payment record, read as it enters: replacements._counter_amount)
     sel = selectors.parse(phrase)
@@ -4081,7 +4097,7 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if eq is not None:
         from app.rules import values
 
-        ev = values.parse_count(eq["v"])
+        ev = values.parse_count(eq["v"].replace("mana spent to cast it", "mana spent to cast ~"))  # (wave 19D: "it" is ~ here)
         if ev is None or eq["kind"] in UNMODELED_COUNTERS or '"it"' in json.dumps(ev):
             return None
         # (a count of permanents that could include itself is read before it enters, 614.12; it's counted after the
