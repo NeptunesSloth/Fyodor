@@ -258,6 +258,8 @@ class ObjectSnapshot(BaseModel):
     # last existed: "When enchanted creature dies" looks back in time (603.10a)
     attached: list[str] = Field(default_factory=list)
     text: str = ""  # a custom token's rules text (it has no printing to look up)
+    merged: list[dict[str, Any]] = Field(default_factory=list)  # -- merged permanents (wave 18D) -- its cards (MergedPart dumps; 730.3: it left as one object)
+    melded: bool = False
     # -- quoted grants (wave 2D) --
     # Its abilities and keywords as they last existed (603.10a: leaves-the-battlefield abilities look
     # back in time; 608.2h), recorded by the rules engine as it moves the object — only when they
@@ -882,6 +884,7 @@ class RulesState(BaseModel):
     buyback: list[str] = Field(default_factory=list)  # stack objects cast with buyback
     dashed: list[str] = Field(default_factory=list)
     bestowed: list[str] = Field(default_factory=list)  # -- keywords (wave 15E) -- bestowed Aura spells / permanents (702.103b)
+    mutating: list[str] = Field(default_factory=list)  # -- merged permanents (wave 18D) -- mutating creature spells on the stack (702.140a)
     evoked: list[str] = Field(default_factory=list)  # evoked spells: sacrificed as they enter (702.74)
     rebound_cast: list[str] = Field(default_factory=list)  # rebound spells cast from a hand (on the stack)
     rebounding: list[str] = Field(default_factory=list)  # exiled by rebound: cast at the owner's next upkeep  # dashed spells: haste + back to hand at end step
@@ -1060,6 +1063,7 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         effects=[e.value or e.name for e in c.effects], attacking=c.attacking is not None,
         blocking=c.blocking is not None, attached_to=c.attached_to, text=token.text if token else "",
         attached_player=c.attached_player,  # -- attached events (wave 4L) --
+        merged=[p.model_dump() for p in c.merged], melded=c.melded,  # (wave 18D)
         x=c.stack_info.x if c.zone == "stack" and c.stack_info is not None else None,  # (wave 5B)
     )
 

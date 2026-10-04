@@ -176,8 +176,8 @@ def define(t: str) -> dict[str, Any] | None:
 # (702.173a is not read). Read as the "You may pay … rather than pay this spell's mana cost if …" line they stand for.
 PROWL_COND = "a player was dealt combat damage this turn by a source you controlled that shared a creature type with this spell"  # 702.76a
 KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you've cast another spell this turn", "blitz": None, "warp": None, "bestow": None,
-                 "prowl": PROWL_COND}  # (wave 17C: prowl)
-_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
+                 "prowl": PROWL_COND, "mutate": None}  # (wave 17C: prowl; wave 18D: mutate, 702.140a)
+_KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|mutate) (?P<cost>(?:\{[^}X]+\})+)$", re.IGNORECASE)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
 # when the prowl condition holds for that spell
 GRANT_PROWL = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells you cast have prowl (?P<cost>(?:\{[^}X]+\})+)$")
@@ -240,6 +240,11 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         if d.get("cond") is not None and not conditions.holds(view, _ctx(state, player, card), d["cond"]):
             continue
+        if d.get("tag") == "mutate":  # -- merged permanents (wave 18D) -- 702.140a: only with a creature to merge with
+            from app.rules import merged
+
+            if not merged.can_mutate(view, player, card, ch):
+                continue
         alt = parse_cost(d["cost"])
         if alt is not None:
             out.append(Offer(f"{card.id}:{index}", f"{ch.name}: {d['cost']}", alt, tag=d.get("tag")))

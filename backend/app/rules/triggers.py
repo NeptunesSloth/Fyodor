@@ -97,7 +97,8 @@ def _lki_characteristics(plan: Plan, snap: ObjectSnapshot) -> Characteristics:
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, is_token=snap.is_token,
                         token=TokenDef(name=snap.name, text=snap.text, power=snap.token_power, toughness=snap.token_toughness,
                                       colors=snap.token_colors, type_line=snap.token_type_line or "Token Creature")
-                        if snap.is_token and not snap.printing else None)
+                        if snap.is_token and not snap.printing else None,
+                        merged=[MergedPart(**p) for p in snap.merged], melded=snap.melded)  # (wave 18D: a merged permanent's cards)
     ch = chars.of(card, plan.info)
     # -- copy system (wave 2F): its copiable values as they were (a dying Clone's abilities) --
     from app.rules import copying

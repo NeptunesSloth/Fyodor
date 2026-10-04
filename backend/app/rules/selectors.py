@@ -1277,6 +1277,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 return False
         if extra.startswith("subtype_any:") and not set(extra[12:].split("|")) & ch.subtypes:  # (wave 6C)
             return False
+        if extra == "mergeable":  # -- merged permanents (wave 18D) -- a permanent a mutating spell can merge with (app/rules/merged.py)
+            from app.rules import merged
+
+            if not merged.mergeable(plan, card):
+                return False
     # -- chosen type (wave 4J) --
     return not any(e in CHOSEN_EXTRAS for e in sel.extras) or _chosen_ok(plan, sel, ch, source)
 

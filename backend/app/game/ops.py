@@ -100,10 +100,19 @@ def move_card(
     x: float | None = None,
     y: float | None = None,
     face_down: bool | None = None,
+    rest: str | None = None,
 ) -> bool:
     """Move a card between zones, carrying knowledge along. Returns False if it ceased to exist."""
     source = c.zone
     src_zone, dst_zone = zone_name(source), zone_name(dest)
+    if c.merged and src_zone in ("battlefield", "phased") and dst_zone not in ("battlefield", "phased", STACK) and source != dest:
+        # -- merged permanents (wave 18D) -- 730.3, 712.21: one permanent leaves, each of its cards goes to the zone
+        from app.game import merging
+
+        parts, pick = merging.break_up(state, c, dest)
+        moved = move_card(state, c, dest, index=index, position=position, x=x, y=y, face_down=face_down)
+        merging.place(state, parts, pick, dest, rest, index, position)
+        return moved
     if dest != STACK:
         owner, _ = split_zone(dest)
         if owner not in state.players:

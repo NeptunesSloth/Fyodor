@@ -288,7 +288,7 @@ def _it_source(word: str) -> dict[str, str]:
 # that's a new object in another zone, 400.7)
 _STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
             "deal_combat_damage_player", "deal_damage", "counters_put", "targeted", "create_token"}
-_STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive"})  # -- becomes monstrous (wave 6D) --
+_STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive", "mutate"})  # -- becomes monstrous (wave 6D) --
 _STAYING.add("to_graveyard")  # -- into a graveyard (wave 6D) -- the card(s) there, as they are there
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 # Zone-change events after which "it" is the new object the card became where it went — found
@@ -2928,7 +2928,7 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
     text = self_text(ability.text, ch.name)
-    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",)):  # -- keywords (wave 15E) -- alt_costs
+    if ability.kind == "keywords" and ability.keywords in (("spectacle",), ("surge",), ("blitz",), ("warp",), ("bestow",), ("prowl",), ("mutate",)):  # -- keywords (wave 15E) -- alt_costs
         from app.rules import alt_costs
 
         return alt_costs.keyword_definition(ability.text)

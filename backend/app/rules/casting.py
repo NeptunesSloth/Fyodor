@@ -32,6 +32,7 @@ from app.rules import (
     costs,
     graveyard_keywords,
     history,
+    merged,  # -- merged permanents (wave 18D) --
     ninjutsu,
     permissions,
     restrictions,
@@ -1860,13 +1861,13 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         from app.rules import alt_costs as _alt
         from app.rules import bestow
 
-        if any(o.key == a.alt_cost and o.tag == "bestow" for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info)):
+        kinds = {o.tag for o in _alt.offers(plan.state, plan.actor, card, ch, plan.info) if o.key == a.alt_cost}
+        bestowed_cast = "bestow" in kinds
+        mutating_cast = "mutate" in kinds  # -- merged permanents (wave 18D) -- 702.140a: a mutating creature spell, targeting a creature
+        if bestowed_cast:
             ch = bestow.overlay(ch)
-            bestowed_cast = True
-        else:
-            bestowed_cast = False
     else:
-        bestowed_cast = False
+        bestowed_cast = mutating_cast = False
     face_down_kind = face_down_cast_kind(ch) if a.face_down else None  # -- keyword actions & face-down (wave 3F) --
     if a.face_down:  # morph / disguise: a nameless 2/2 creature spell (disguise: with ward {2}) for {3}
         if face_down_kind is None or card.zone != zone_key(plan.actor, "hand"):
@@ -1940,7 +1941,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         if target not in plan.state.cards and target not in plan.state.players:
             raise ActionError("A chosen target isn't on the table")
     definition = None if plan.manual(card) or a.face_down else scripts.spell_definition(ch)
-    aura = None if plan.manual(card) or a.face_down else attachments.enchant_selector(ch)
+    aura = None if plan.manual(card) or a.face_down else (merged.MUTATE_TARGET if mutating_cast else attachments.enchant_selector(ch))
     slots: list[list[TargetRef]] = []
     slot_specs: list[dict[str, Any] | None] = []
     picked: list[int] = []
@@ -2071,6 +2072,9 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if bestowed_cast:  # -- keywords (wave 15E) -- 702.103b: the spell on the stack is a bestowed Aura spell
         plan.rules.bestowed.append(plan.oid(card))
         tags.append("Bestowed")
+    if mutating_cast:  # -- merged permanents (wave 18D) -- 702.140a: it becomes a mutating creature spell
+        plan.rules.mutating.append(plan.oid(card))
+        tags.append("Mutating")
     if a.kicker:
         tags.append("Kicked" if a.kicker == 1 else f"Kicked ×{a.kicker}")
     if a.awaken:

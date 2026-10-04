@@ -123,6 +123,23 @@ class CopyInfo(BaseModel):
     modifications: str = ""
 
 
+class MergedPart(BaseModel):
+    """-- merged permanents (wave 18D) -- one card or token that represents a merged (702.140, 730) or melded (701.42, 712.4)
+    permanent. ``id`` is the instance id the card had before it joined (it comes back with it when the permanent leaves)."""
+
+    id: str
+    card_id: str | None = None
+    name: str = ""
+    owner: str
+    is_token: bool = False
+    token: TokenDef | None = None
+    copy_of: CopyInfo | None = None
+    commander_key: str | None = None
+    categories: list[str] = Field(default_factory=list)
+    origin: Literal["library", "command", "sideboard", "companion"] = "library"
+    test_object: bool = False
+
+
 class AbilityDef(BaseModel):
     """A temporary stack object representing an activated/triggered ability."""
 
@@ -158,6 +175,11 @@ class CardInstance(BaseModel):
     is_token: bool = False
     token: TokenDef | None = None
     copy_of: CopyInfo | None = None
+    # -- merged permanents (wave 18D) -- every card / token representing a mutated (730) or melded (712.4) permanent, topmost first;
+    # empty for an ordinary object. The fields above (card_id, name, token …) are always the topmost component's (730.2a); a melded
+    # permanent shows its combined back face (``card_id``), its two cards are the parts (``melded``).
+    merged: list[MergedPart] = Field(default_factory=list)
+    melded: bool = False
     ability: AbilityDef | None = None
     commander_key: str | None = None
     categories: list[str] = Field(default_factory=list)  # deck-builder categories; only ever shown to the owner

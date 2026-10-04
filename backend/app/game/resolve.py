@@ -137,6 +137,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.r = A.DiceData(results=[_rng_int(rng, 1, a.sides) for _ in range(a.count)])
     elif isinstance(a, A.Coin):
         a.r = A.DiceData(results=[_rng_int(rng, 0, 1) for _ in range(a.count)])
+    elif isinstance(a, A.Merge | A.Meld):
+        a.r = A.NewIds(ids=[new_id()])
     elif isinstance(a, A.SetFace):
         card = state.cards.get(a.card_id)
         data = info.get(card.card_id) if card and card.card_id else None
